@@ -34,6 +34,6 @@ class WsSecurityHeader extends SoapHeader
             )],
             SOAP_ENC_OBJECT
         );
-        $this->SoapHeader(self::WSS_NAMESPACE, 'Security', $security, false);
+        parent::__construct(self::WSS_NAMESPACE, 'Security', $security, false);
     }
 }

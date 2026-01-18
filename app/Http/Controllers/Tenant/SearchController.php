@@ -29,7 +29,10 @@ class SearchController extends Controller
                             ->where('type', 'customers')
                             ->first();
         if (!$customer) {
-            throw new Exception('El número del cliente ingresado no se encontró en la base de datos.');
+            return [
+                'success' => false,
+                'message' => 'El número del cliente ingresado no se encontró en la base de datos.'
+            ];
         }
 
         $document = Document::where('date_of_issue', $request->input('date_of_issue'))

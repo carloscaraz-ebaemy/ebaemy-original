@@ -79,6 +79,7 @@ class ReportValuedKardexController extends Controller
     private function data($params)
     {
         $query = Item::whereFilterValuedKardex($params)
+                     ->whereNotIsSet()
                      ->whereNotService()
                      ->orderBy('description');
     

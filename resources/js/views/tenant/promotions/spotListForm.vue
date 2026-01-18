@@ -3,72 +3,70 @@
     <form autocomplete="off" @submit.prevent="submit">
       <div class="form-body">
         <div class="row">
-          <div class="col-md-6">
-            <div class="form-group" :class="{'has-danger': errors.name}">
-              <label class="control-label">Nombre</label>
-              <el-input v-model="form.name"></el-input>
-              <small class="form-control-feedback" v-if="errors.name" v-text="errors.name[0]"></small>
-            </div>
-          </div>
-          <div class="col-md-6">
-            <div class="form-group" :class="{'has-danger': errors.description}">
-              <label class="control-label">Descripción</label>
-              <el-input v-model="form.description"></el-input>
-              <small
-                class="form-control-feedback"
-                v-if="errors.description"
-                v-text="errors.description[0]"
-              ></small>
-            </div>
-          </div>
-        </div>
-        <br />
-        <div class="row">
-          <div class="col-md-3">
-            <div class="form-group" :class="{'has-danger': errors.image}">
-              <label class="control-label">
-                Imágen
-                <span class="text-danger"></span>
-                <div class="sub-title text-danger">
-                  <small>Se requiere resoluciones 570x145</small>
+          <div class="col-12 col-sm-6">
+            <div class="col-12">
+              <div class="form-group banner-img" :class="{'has-danger': errors.image}">
+                <label class="control-label">
+                  Imágen
+                  <span class="text-danger"></span>
+                  <div class="sub-title text-danger">
+                    <small>Se requiere resoluciones 645x165</small>
+                  </div>
+                </label>
+                <el-upload
+                  class="avatar-uploader"
+                  :data="{'type': 'spots'}"
+                  :headers="headers"
+                  :action="`/promotions/upload`"
+                  :show-file-list="false"
+                  :on-success="onSuccess"
+                >
+                  <img v-if="form.image_url" :src="form.image_url" class="avatar" />
+                  <i v-else class="el-icon-plus avatar-uploader-icon"></i>
+                </el-upload>
+                <div class="sub-title text-muted">
+                  <small>Se permiten imágenes en formato <strong>JPG, PNG y GIF</strong>.
+                  Estas se mostrarán en la parte inferior de la tienda.</small>
                 </div>
-              </label>
-              <el-upload
-                class="avatar-uploader"
-                :data="{'type': 'spots'}"
-                :headers="headers"
-                :action="`/promotions/upload`"
-                :show-file-list="false"
-                :on-success="onSuccess"
-              >
-                <img v-if="form.image_url" :src="form.image_url" class="avatar" />
-                <i v-else class="el-icon-plus avatar-uploader-icon"></i>
-              </el-upload>
-              <small class="form-control-feedback" v-if="errors.image" v-text="errors.image[0]"></small>
+                <small class="form-control-feedback" v-if="errors.image" v-text="errors.image[0]"></small>
+              </div>
             </div>
           </div>
-          <div class="col-md-4">
-            <div class="form-group" :class="{'has-danger': errors.item_id}">
-              <label class="control-label">Link a Producto</label>
-              <el-select v-model="form.item_id" dusk="item_id">
-                <el-option
-                  v-for="option in items"
-                  :key="option.id"
-                  :value="option.id"
-                  :label="option.description"
-                ></el-option>
-              </el-select>
-              <small
-                class="form-control-feedback"
-                v-if="errors.item_id"
-                v-text="errors.item_id[0]"
-              ></small>
+          <div class="col-12 col-sm-6">
+            <div class="col-12">
+              <div class="form-group" :class="{'has-danger': errors.name}">
+                <label class="control-label">Nombre</label>
+                <el-input v-model="form.name" placeholder="Ingrese el nombre del anuncio">
+                </el-input>
+                <small class="form-control-feedback" v-if="errors.name" v-text="errors.name[0]"></small>
+              </div>
+            </div>
+            <div class="col-12">
+              <div class="form-group" :class="{'has-danger': errors.spot_url}">
+                <label class="control-label">
+                  Enlace del anuncio
+                  <el-tooltip
+                    content="Puedes colocar un enlace o link que será el destino del anuncio publicitario al hacer clic."
+                    placement="top"
+                    effect="dark"
+                  >
+                    <i class="fa fa-info-circle"></i>
+                  </el-tooltip>
+                </label>
+                <el-input v-model="form.spot_url" placeholder="Ingrese la URL del anuncio">
+                </el-input>
+                <small
+                  class="form-control-feedback"
+                  v-if="errors.spot_url"
+                  v-text="errors.spot_url[0]"
+                ></small>
+              </div>
             </div>
           </div>
         </div>
       </div>
-      <div class="form-actions text-right mt-4">
-        <el-button class="second-buton" @click.prevent="close()">Cancelar</el-button>
+      <div class="form-actions text-end mt-4">
+        <el-button class="second-buton me-2" @click.prevent="close()">Cancelar</el-button>
         <el-button type="primary" native-type="submit" :loading="loading_submit">Guardar</el-button>
       </div>
     </form>
@@ -102,17 +100,15 @@ export default {
               image: null,
               image_url: null,
               temp_path: null,
-              item_id: null,
+              spot_url: null,
               type: "spots"
           };
       },
       loadItems() {
-          this.$http.get(`/promotions/tables`).then(response => {
-              this.items = response.data.items;
-          });
+          // No necesitamos cargar items para spots
       },
       create() {
-          this.titleDialog = this.recordId ? 'Editar Anuncio publicitario' : 'Nuevo Anuncio publicitario';
+          this.titleDialog = this.recordId ? 'Editar Promoción' : 'Nueva Promoción';
           
           if (this.recordId) {
               this.$http.get(`/${this.resource}/record/${this.recordId}`)

@@ -1,13 +1,12 @@
 @php
     
-    // if($document['transfer_reason_type_id']==='04'){
-    //     $document['customer_identity_document_type_id'] = '6';
-    //     $document['customer_number'] = $document['company_number'];
-    //     $document['customer_name'] = $document['company_name'];
-    // }
+    if($document['transfer_reason_type_id']==='04'){
+        $document['customer_identity_document_type_id'] = '6';
+        $document['customer_number'] = $document['company_number'];
+        $document['customer_name'] = $document['company_name'];
+    }
 
     $sellerPresence = \App\CoreFacturalo\Helpers\Template\TemplateHelper::sellerPresence($document);
-    $sameDeliveryCustomer = \App\CoreFacturalo\Helpers\Template\TemplateHelper::sameDeliveryCustomer($document);
 @endphp
 
 {!!  '<'.'?xml version="1.0" encoding="utf-8" standalone="no"?'.'>'  !!}
@@ -91,17 +90,13 @@
     <cac:DeliveryCustomerParty>
         <cac:Party>
             <cac:PartyIdentification>
-                @php
-                    $schemeIdDeliveryCustomer = $sameDeliveryCustomer ? '6' : $document['customer_identity_document_type_id'];
-                    $valueDeliveryCustomer = $sameDeliveryCustomer ? $document['company_number'] : $document['customer_number'];
-                @endphp
                 <cbc:ID schemeURI="urn:pe:gob:sunat:cpe:see:gem:catalogos:catalogo06"
                         schemeAgencyName="PE:SUNAT"
                         schemeName="Documento de Identidad"
-                        schemeID="{{ $schemeIdDeliveryCustomer }}">{{ $valueDeliveryCustomer }}</cbc:ID> 
+                        schemeID="{{ $document['customer_identity_document_type_id'] }}">{{!$sellerPresence ?$document['customer_number']:$document['company_number']}}</cbc:ID> 
             </cac:PartyIdentification>
             <cac:PartyLegalEntity>
-                <cbc:RegistrationName><![CDATA[{{ $sameDeliveryCustomer ? $document['company_name'] : $document['customer_name'] }}]]></cbc:RegistrationName>
+                <cbc:RegistrationName><![CDATA[{{ $sellerPresence ? $document['company_name'] : $document['customer_name'] }}]]></cbc:RegistrationName>
             </cac:PartyLegalEntity>
         </cac:Party>
     </cac:DeliveryCustomerParty>

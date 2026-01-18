@@ -337,11 +337,6 @@ use Illuminate\Support\Str;
         
         public static function sellerPresence($document)
         {
-            return in_array($document['transfer_reason_type_id'], ['02', '07']);
-        }
-
-        public static function sameDeliveryCustomer($document)
-        {
-            return in_array($document['transfer_reason_type_id'], ['02', '07', '04']);
+            return in_array($document['transfer_reason_type_id'], ['02', '07', '13']);
         }
     }

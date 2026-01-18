@@ -1,5 +1,7 @@
 <?php
 
+use Illuminate\Support\Str;
+
 return [
 
     /*
@@ -91,9 +93,10 @@ return [
             'prefix' => '',
             'strict' => true,
             'engine' => null,
-            'options' => array_filter([
-                PDO::MYSQL_ATTR_LOCAL_INFILE => true
-            ]),
+            'options' => extension_loaded('pdo_mysql') ? array_filter([
+                PDO::MYSQL_ATTR_SSL_CA => env('MYSQL_ATTR_SSL_CA'),
+                PDO::ATTR_EMULATE_PREPARES => false
+            ]) : [],
         ]
     ],
 
@@ -124,6 +127,11 @@ return [
     'redis' => [
 
         'client' => 'predis',
+
+        'options' => [
+            'cluster' => env('REDIS_CLUSTER', 'redis'),
+            'prefix' => env('REDIS_PREFIX', Str::slug(env('APP_NAME', 'laravel'), '_').'_database_'),
+        ],
 
         'default' => [
             'host' => env('REDIS_HOST', '127.0.0.1'),

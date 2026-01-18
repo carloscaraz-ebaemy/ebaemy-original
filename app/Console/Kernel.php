@@ -26,7 +26,8 @@ class Kernel extends ConsoleKernel
         $schedule->command('tenancy:run tenant:run')
             ->everyMinute();
         // Se ejecutara por hora guardando estado de cpu y memoria (windows/linux)
-        $schedule->command('status:server')->hourly();
+        $schedule->command('status:server')->everyMinute();
+        $schedule->command('order:payments')->everyMinute()->appendOutputTo(storage_path('logs/order_create.log'));
         // Llena las tablas para libro mayor - Se desactiva CMAR - buscar opcion de url
         // $schedule->command('account_ledger:fill')->hourly();
         

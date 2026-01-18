@@ -82,14 +82,14 @@
                     <div class="col-lg-7 col-md-7 col-md-7 col-sm-12" style="margin-top:29px">
                         <el-button
                             :loading="loading_submit"
-                            class="submit"
+                            class="submit me-2"
                             icon="el-icon-search"
                             type="primary"
                             @click.prevent="getRecordsByFilter">Buscar
                         </el-button>
                         <template v-if="records.length>0">
                             <el-button
-                                class="submit"
+                                class="submit me-2"
                                 icon="el-icon-tickets"
                                 type="danger"
                                 @click.prevent="clickDownload('pdf')">Exportar PDF
@@ -106,7 +106,7 @@
                 <div class="row mt-1 mb-4">
                 </div>
             </div>
-            <div class="col-md-12">
+            <div class="col-md-12 position-relative">
                 <div class="scroll-shadow shadow-left" v-show="showLeftShadow"></div>
                 <div class="scroll-shadow shadow-right" v-show="showRightShadow"></div>
 

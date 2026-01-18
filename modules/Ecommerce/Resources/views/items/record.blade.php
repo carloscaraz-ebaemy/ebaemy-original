@@ -2,20 +2,39 @@
 
 @section('content')
 
+@php
+    $configurationModel = \App\Models\Tenant\Configuration::first();
+    $ecommerceConfiguration = \App\Models\Tenant\ConfigurationEcommerce::first();
+    $phoneWhatsapp = $ecommerceConfiguration->phone_whatsapp ?? $configurationModel->phone_whatsapp ?? null;
+    $defaultImage = $configurationModel->product_default_image ?? 'imagen-no-disponible.jpg';
+    $defaultImagePath = $defaultImage === 'imagen-no-disponible.jpg'
+        ? asset('logo/imagen-no-disponible.jpg')
+        : asset('storage/defaults/' . $defaultImage);
+    $mainImagePath = ($record->image && $record->image !== 'imagen-no-disponible.jpg')
+        ? asset('storage/uploads/items/'.$record->image)
+        : $defaultImagePath;
+@endphp
+
 <div class="product-single-container product-single-default">
     <div class="row">
         <div class="col-lg-7 col-md-6 product-single-gallery">
             <div class="product-slider-container product-item">
                 <div class="product-single-carousel owl-carousel owl-theme">
                     <div class="product-item">
-                        <img class="product-single-image" src="{{ asset('storage/uploads/items/'.$record->image) }}"
-                            data-zoom-image="{{ asset('storage/uploads/items/'.$record->image) }}" />
+                        <img class="product-single-image" src="{{ $mainImagePath }}"
+                            data-zoom-image="{{ $mainImagePath }}" />
+                            
                     </div>
                     @foreach($record->images as $row)
 
                         <div class="product-item">
-                            <img class="product-single-image" src="{{ asset('storage/uploads/items/'.$row->image) }}"
-                                data-zoom-image="{{ asset('storage/uploads/items/'.$row->image) }}" />
+                            @php
+                                $loopImagePath = ($row->image && $row->image !== 'imagen-no-disponible.jpg')
+                                    ? asset('storage/uploads/items/'.$row->image)
+                                    : $defaultImagePath;
+                            @endphp
+                            <img class="product-single-image" src="{{ $loopImagePath }}"
+                                 data-zoom-image="{{ $loopImagePath }}" alt="{{ $record->description }}" />
                         </div>
 
                     @endforeach
@@ -39,11 +58,16 @@
             </div>
             <div class="prod-thumbnail row owl-dots" id='carousel-custom-dots'>
                 <div class="col-3 owl-dot">
-                    <img src="{{ asset('storage/uploads/items/'.$record->image) }}" />
+                    <img src="{{ $mainImagePath }}" alt="{{ $record->description }}" />
                 </div>
                 @foreach($record->images as $row)
                     <div class="col-3 owl-dot">
-                        <img src="{{ asset('storage/uploads/items/'.$row->image) }}" />
+                        @php
+                            $thumbImagePath = ($row->image && $row->image !== 'imagen-no-disponible.jpg')
+                                ? asset('storage/uploads/items/'.$row->image)
+                                : $defaultImagePath;
+                        @endphp
+                        <img src="{{ $thumbImagePath }}" alt="{{ $record->description }}" />
                     </div>
                 @endforeach
                 <!--<div class="col-3 owl-dot">
@@ -116,6 +140,23 @@
                         title="Add to Cart">
                         <span>Agregar a Carrito</span>
                     </a>
+
+                    @php
+                        $showWhatsapp = ($configurationModel->enable_whatsapp ?? false) && !empty($phoneWhatsapp);
+                    @endphp
+                    @if($showWhatsapp)
+                        @php
+                            $waPhoneRaw = preg_replace('/\D+/', '', $phoneWhatsapp);
+                            $waPhone = (strlen($waPhoneRaw) == 9 && str_starts_with($waPhoneRaw, '9')) ? '51'.$waPhoneRaw : $waPhoneRaw;
+                            $waText = rawurlencode("Buenas, deseo consultar acerca del producto *{$record->description}*, con precio de {$record->currency_type['symbol']}{$record->sale_unit_price}. ¿Podrían brindarme más información?");
+                            $waLink = "https://wa.me/{$waPhone}?text={$waText}";
+                        @endphp
+                        <a href="{{ $waLink }}" class="btn-whatsapp" target="_blank" rel="noopener" title="Consultar por WhatsApp">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon icon-tabler icons-tabler-outline icon-tabler-brand-whatsapp" style="margin-top: -3px"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M3 21l1.65 -3.8a9 9 0 1 1 3.4 2.9l-5.05 .9" /><path d="M9 10a.5 .5 0 0 0 1 0v-1a.5 .5 0 0 0 -1 0v1a5 5 0 0 0 5 5h1a.5 .5 0 0 0 0 -1h-1a.5 .5 0 0 0 0 1" /></svg>
+                            <span>Consultar por WhatsApp</span>
+                        </a>
+                    @endif
+                    
                     <!-- <a href="#" class="paction add-wishlist" title="Add to Wishlist">
                         <span>Add to Wishlist</span>
                     </a>

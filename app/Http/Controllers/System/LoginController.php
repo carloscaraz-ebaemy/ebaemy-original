@@ -3,9 +3,9 @@
 namespace App\Http\Controllers\System;
 
 use App\Http\Controllers\Controller;
-use Illuminate\Foundation\Auth\AuthenticatesUsers;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Config;
+use Illuminate\Http\Request;
 
 class LoginController extends Controller
 {
@@ -20,7 +20,7 @@ class LoginController extends Controller
     |
     */
 
-    use AuthenticatesUsers;
+    // Implementación manual de autenticación para compatibilidad con Laravel 9
 
     /**
      * Where to redirect users after login.
@@ -53,6 +53,30 @@ class LoginController extends Controller
     }
 
     /**
+     * Autentica al usuario administrador.
+     */
+    public function login(Request $request)
+    {
+        $credentials = $request->only(['email', 'password']);
+
+        $request->validate([
+            'email' => 'required|string',
+            'password' => 'required|string',
+        ]);
+
+        $remember = (bool) $request->get('remember', false);
+
+        if (Auth::guard('admin')->attempt($credentials, $remember)) {
+            $request->session()->regenerate();
+            return redirect()->intended($this->redirectTo);
+        }
+
+        return back()
+            ->withInput($request->only('email', 'remember'))
+            ->withErrors(['email' => __('auth.failed')]);
+    }
+
+    /**
      * Get the guard to be used during authentication.
      *
      * @return \Illuminate\Contracts\Auth\StatefulGuard
@@ -60,5 +84,18 @@ class LoginController extends Controller
     protected function guard()
     {
         return Auth::guard('admin');
+    }
+
+    /**
+     * Cierra sesión del administrador.
+     */
+    public function logout(Request $request)
+    {
+        Auth::guard('admin')->logout();
+
+        $request->session()->invalidate();
+        $request->session()->regenerateToken();
+
+        return redirect()->route('login');
     }
 }

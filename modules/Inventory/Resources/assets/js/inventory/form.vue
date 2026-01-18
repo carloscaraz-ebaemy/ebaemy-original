@@ -123,8 +123,8 @@
                     </div>
                 </div>
             </div>
-            <div class="form-actions text-right mt-4">
-                <el-button class="second-buton" @click.prevent="close()">Cancelar</el-button>
+            <div class="form-actions text-end mt-4">
+                <el-button class="second-buton me-2" @click.prevent="close()">Cancelar</el-button>
                 <el-button type="primary" native-type="submit" :loading="loading_submit">Aceptar</el-button>
             </div>
         </form>
@@ -150,7 +150,7 @@
 
 import InputLotsForm from '../../../../../../resources/js/views/tenant/items/partials/lots.vue'
 import OutputLotsForm from './partials/lots.vue'
-import {filterWords} from "../../../../../../resources/js/helpers/functions";
+import {filterWords} from "@helpers/functions";
 import { inventory_search_item_barcode } from '../mixins/functions'
 
 export default {

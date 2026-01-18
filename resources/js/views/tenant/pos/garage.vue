@@ -1,5 +1,6 @@
 <template>
     <div class="garage container-fluid p-0">
+        <span class="module-title-marker" data-page-title="Venta Rápida"></span>
         <div class="row page-header pr-0 no-gutters" style="height:auto">
             <Keypress
                 key-event="keyup"
@@ -266,7 +267,7 @@
                       <el-button slot="reference"><i class="fa fa-search"></i></el-button>
                     </el-popover> -->
                                         <small
-                                            class="measuring-unit text-right"
+                                            class="measuring-unit text-end"
                                             style="width: 45%;"
                                             >{{ item.unit_type_id }}
                                         </small>
@@ -744,7 +745,7 @@
                                             </template>
                                         </td>
                                         <td
-                                            class="text-right"
+                                            class="text-end"
                                             style="width: 36px; padding-left: 0; padding-right: 0; vertical-align: top"
                                         >
                                             <a

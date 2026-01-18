@@ -7,10 +7,38 @@
             <div>
                 <h2>Dashboard</h2>
             </div>
+            <div class="d-flex align-items-center h-100">
+              {{ filterLabel }}
+              <el-button
+                type="primary"
+                size="small"
+                class="mx-2 p-2 btn-dashboard-filter"
+                style="padding: 8px !important;"
+                @click="toggleFilters"
+                :title="showFilters ? 'Ocultar filtros' : 'Mostrar filtros'"
+              >
+                <svg v-if="showFilters" xmlns="http://www.w3.org/2000/svg"  width="20"  height="20"  viewBox="0 0 24 24"  fill="none"  stroke="currentColor"
+                  stroke-width="2"  stroke-linecap="round"  stroke-linejoin="round"  class="icon icon-tabler icons-tabler-outline icon-tabler-adjustments-alt">
+                  <path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M4 8h4v4h-4z" />
+                  <path d="M6 4l0 4" /><path d="M6 12l0 8" />
+                  <path d="M10 14h4v4h-4z" /><path d="M12 4l0 10" />
+                  <path d="M12 18l0 2" /><path d="M16 5h4v4h-4z" />
+                  <path d="M18 4l0 1" /><path d="M18 9l0 11" />
+                </svg>
+
+                <svg v-else xmlns="http://www.w3.org/2000/svg"  width="20"  height="20"  viewBox="0 0 24 24"  fill="none"  stroke="currentColor"
+                  stroke-width="2"  stroke-linecap="round"  stroke-linejoin="round"  class="icon icon-tabler icons-tabler-outline icon-tabler-adjustments-off">
+                  <path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M4 10a2 2 0 1 0 4 0a2 2 0 0 0 -4 0" />
+                  <path d="M6 6v2" /><path d="M6 12v8" /><path d="M10 16a2 2 0 1 0 4 0a2 2 0 0 0 -4 0" />
+                  <path d="M12 4v4m0 4v2" /><path d="M12 18v2" />
+                  <path d="M16 7a2 2 0 1 0 4 0a2 2 0 0 0 -4 0" /><path d="M18 4v1" />
+                  <path d="M18 9v5m0 4v2" /><path d="M3 3l18 18" />
+                </svg>
+              </el-button>
+            </div>
         </header>
-        <div class="card mb-0">
-            <RowTop :company="company" :utilities="utilities"></RowTop>
-            <div class="row">
+        <div class="card mb-0 row-new bg-transparent dashboard-cards">            
+            <div class="row" v-show="showFilters">
                 <div class="col-12">
                     <section class="card card-dashboard">
                         <div class="card-body pt-2 pb-0">
@@ -18,7 +46,7 @@
                                 <small class="col-12 text-center">Filtrar datos históricos</small>
                             </div>
                             <div class="row">
-                                <div class="col-6 col-md-3 form-group">
+                                <div :class="filterColumnClass" class="form-group">
                                     <label class="control-label">Sucursal</label>
                                     <el-select v-model="form.establishment_id" @change="loadAll">
                                         <el-option
@@ -29,7 +57,7 @@
                                         ></el-option>
                                     </el-select>
                                 </div>
-                                <div class="col-6 col-md-3 form-period">
+                                <div :class="filterColumnClass" class="form-period form-group">
                                     <label class="control-label">Periodo</label>
                                     <el-select v-model="form.period" @change="changePeriod">
                                         <el-option key="all" value="all" label="Todos"></el-option>
@@ -41,7 +69,7 @@
                                     </el-select>
                                 </div>
                                 <template v-if="form.period === 'month' || form.period === 'between_months'">
-                                    <div class="col-6 col-md-3">
+                                    <div :class="filterColumnClass" class="form-group">
                                         <label class="control-label">Mes de</label>
                                         <el-date-picker
                                             v-model="form.month_start"
@@ -54,7 +82,7 @@
                                     </div>
                                 </template>
                                 <template v-if="form.period === 'between_months'">
-                                    <div class="col-6 col-md-3">
+                                    <div :class="filterColumnClass" class="form-group">
                                         <label class="control-label">Mes al</label>
                                         <el-date-picker
                                             v-model="form.month_end"
@@ -68,7 +96,7 @@
                                     </div>
                                 </template>
                                 <template v-if="form.period === 'date' || form.period === 'between_dates'">
-                                    <div class="col-6 col-md-3">
+                                    <div :class="filterColumnClass" class="form-group">
                                         <label class="control-label">Fecha del</label>
                                         <el-date-picker
                                             v-model="form.date_start"
@@ -81,7 +109,7 @@
                                     </div>
                                 </template>
                                 <template v-if="form.period === 'between_dates'">
-                                    <div class="col-6 col-md-3">
+                                    <div :class="filterColumnClass" class="form-group">
                                         <label class="control-label">Fecha al</label>
                                         <el-date-picker
                                             v-model="form.date_end"
@@ -100,6 +128,8 @@
                 </div>
             </div>
 
+            <RowTop :company="company" :utilities="utilities"></RowTop>
+
             <div class="row">
                 <div class="col-xl-12">
                     <div class="row">
@@ -111,7 +141,7 @@
                                         <loader-graph :rows="4" :columns="1" :radius="50"></loader-graph>
                                     </template>
                                 </div>
-                                <div class="card-body card-body-border-radius" v-show="!loaders.sale_note">
+                                <div class="card-body card-body-border-radius" v-if="!loaders.sale_note">
                                     <div class="widget-summary">
                                         <div class="widget-summary-col" v-if="sale_note">
                                             <div class="row no-gutters">
@@ -125,25 +155,25 @@
                                                 </div>
                                             </div>
                                         </div>
+                                    </div>    
+                                    <div class="mt-3" v-show="!loaders.sale_note">
+                                        <table class="table-dashboard mb-0 table-sm">
+                                            <tbody class="card-dark">
+                                                <tr class="text-info text-bold">
+                                                    <td>Total Cobrado</td>
+                                                    <td class="text-end font-weight-bold">S/&nbsp;{{ sale_note.totals.total_payment }}</td>
+                                                </tr>
+                                                <tr class="text-danger text-bold">
+                                                    <td>Cobro pendiente</td>
+                                                    <td class="text-end font-weight-bold">S/&nbsp;{{ sale_note.totals.total_to_pay }}</td>
+                                                </tr>
+                                                <tr class="text-bold td-total">
+                                                    <td class="">Total</td>
+                                                    <td class="text-end font-weight-bold">S/&nbsp;{{ sale_note.totals.total }}</td>
+                                                </tr>
+                                            </tbody>
+                                        </table>
                                     </div>
-                                </div>
-                                <div class="card-body card-body-down p-0" v-show="!loaders.sale_note">
-                                    <table class="table mb-0 table-sm">
-                                        <tbody class="card-dark">
-                                            <tr class="text-info text-bold">
-                                                <td>Total Cobrado</td>
-                                                <td class="text-right font-weight-bold">S/&nbsp;{{ sale_note.totals.total_payment }}</td>
-                                            </tr>
-                                            <tr class="text-danger text-bold">
-                                                <td>Pendiente de cobro</td>
-                                                <td class="text-right font-weight-bold">S/&nbsp;{{ sale_note.totals.total_to_pay }}</td>
-                                            </tr>
-                                            <tr class="text-bold td-total">
-                                                <td class="">Total</td>
-                                                <td class="text-right font-weight-bold">S/&nbsp;{{ sale_note.totals.total }}</td>
-                                            </tr>
-                                        </tbody>
-                                    </table>
                                 </div>
                             </section>
                         </div>
@@ -155,7 +185,7 @@
                                         <loader-graph :rows="4" :columns="1" :radius="50"></loader-graph>
                                     </template>
                                 </div>
-                                <div class="card-body card-body-border-radius" v-show="!loaders.document">
+                                <div class="card-body card-body-border-radius" v-if="!loaders.document">
                                     <div class="widget-summary">
                                         <div class="widget-summary-col" v-if="document">
                                             <div class="row no-gutters">
@@ -169,25 +199,25 @@
                                                 </div>
                                             </div>
                                         </div>
+                                    </div>    
+                                    <div class="mt-3" v-show="!loaders.document">
+                                        <table class="table-dashboard mb-0 table-sm">
+                                            <tbody class="card-default">
+                                                <tr class="text-info text-bold">
+                                                    <td>Total Cobrado</td>
+                                                    <td class="text-end font-weight-bold">S/&nbsp;{{ document.totals.total_payment }}</td>
+                                                </tr>
+                                                <tr class="text-danger text-bold">
+                                                    <td>Cobro pendiente</td>
+                                                    <td class="text-end font-weight-bold">S/&nbsp;{{ document.totals.total_to_pay }}</td>
+                                                </tr>
+                                                <tr class="text-bold td-total">
+                                                    <td class="">Total</td>
+                                                    <td class="text-end font-weight-bold">S/&nbsp;{{ document.totals.total }}</td>
+                                                </tr>
+                                            </tbody>
+                                        </table>
                                     </div>
-                                </div>
-                                <div class="card-body p-0 card-body-down" v-show="!loaders.document">
-                                    <table class="table mb-0 table-sm">
-                                        <tbody class="card-default">
-                                            <tr class="text-info text-bold">
-                                                <td>Total Cobrado</td>
-                                                <td class="text-right font-weight-bold">S/&nbsp;{{ document.totals.total_payment }}</td>
-                                            </tr>
-                                            <tr class="text-danger text-bold">
-                                                <td>Pendiente de cobro</td>
-                                                <td class="text-right font-weight-bold">S/&nbsp;{{ document.totals.total_to_pay }}</td>
-                                            </tr>
-                                            <tr class="text-bold td-total">
-                                                <td class="">Total</td>
-                                                <td class="text-right font-weight-bold">S/&nbsp;{{ document.totals.total }}</td>
-                                            </tr>
-                                        </tbody>
-                                    </table>
                                 </div>
                             </section>
                         </div>
@@ -199,7 +229,7 @@
                                         <loader-graph :rows="2" :columns="3" :radius="100"></loader-graph>
                                     </template>
                                 </div>
-                                <div class="card-body card-body-border-radius" v-show="!loaders.general">
+                                <div class="card-body card-body-border-radius" v-if="!loaders.general">
                                     <div class="widget-summary">
                                         <div class="widget-summary-col" v-if="general">
                                             <div class="summary">
@@ -215,25 +245,25 @@
                                                 </div>
                                             </div>
                                         </div>
+                                    </div>    
+                                    <div class="mt-3" v-show="!loaders.general">
+                                        <table class="table-dashboard mb-0 table-sm">
+                                            <tbody class="card-default">
+                                                <tr class="text-info text-bold">
+                                                    <td>Total notas de venta</td>
+                                                    <td class="text-end font-weight-bold">S/&nbsp;{{ general.totals.total_sale_notes }}</td>
+                                                </tr>
+                                                <tr class="text-danger text-bold">
+                                                    <td>Total comprobantes</td>
+                                                    <td class="text-end font-weight-bold">S/&nbsp;{{ general.totals.total_documents }}</td>
+                                                </tr>
+                                                <tr class="text-bold td-total">
+                                                    <td class="">Total</td>
+                                                    <td class="text-end font-weight-bold">S/&nbsp;{{ general.totals.total }}</td>
+                                                </tr>
+                                            </tbody>
+                                        </table>
                                     </div>
-                                </div>
-                                <div class="card-body p-0 card-body-down" v-show="!loaders.general">
-                                    <table class="table mb-0 table-sm">
-                                        <tbody class="card-default">
-                                            <tr class="text-info text-bold">
-                                                <td>Total notas de venta</td>
-                                                <td class="text-right font-weight-bold">S/&nbsp;{{ general.totals.total_sale_notes }}</td>
-                                            </tr>
-                                            <tr class="text-danger text-bold">
-                                                <td>Total comprobantes</td>
-                                                <td class="text-right font-weight-bold">S/&nbsp;{{ general.totals.total_documents }}</td>
-                                            </tr>
-                                            <tr class="text-bold td-total">
-                                                <td class="">Total</td>
-                                                <td class="text-right font-weight-bold">S/&nbsp;{{ general.totals.total }}</td>
-                                            </tr>
-                                        </tbody>
-                                    </table>
                                 </div>
                             </section>
                         </div>
@@ -246,7 +276,7 @@
                                         <loader-graph :rows="4" :columns="1" :radius="50"></loader-graph>
                                     </template>
                                 </div>
-                                <div class="card-body card-body-border-radius" v-show="!loaders.balance">
+                                <div class="card-body card-body-border-radius" v-if="!loaders.balance">
                                     <div class="widget-summary">
                                         <div class="widget-summary-col" v-if="document">
                                             <div class="row no-gutters">
@@ -270,41 +300,41 @@
                                                 </div>
                                             </div>
                                         </div>
+                                    </div>    
+                                    <div class="mt-3" v-show="!loaders.balance">
+                                        <table class="table-dashboard mb-0 table-sm">
+                                            <tbody class="card-default">
+                                                <tr class="text-info text-bold">
+                                                    <td class="d-flex align-items-center">
+                                                        <el-popover placement="right" width="100%" trigger="hover">
+                                                            <p><span class="custom-badge">T. Ventas - T. Compras/Gastos</span></p>
+                                                            <p>Total comprobantes:<span class="custom-badge pull-right">S/ {{ balance.totals.total_document }}</span></p>
+                                                            <p>Total notas de venta:<span class="custom-badge pull-right">S/ {{ balance.totals.total_sale_note }}</span></p>
+                                                            <p>Total compras:<span class="custom-badge pull-right">- S/ {{ balance.totals.total_purchase }}</span></p>
+                                                            <p>Total gastos:<span class="custom-badge pull-right">- S/ {{ balance.totals.total_expense }}</span></p>
+                                                            <el-button class="me-1" icon="el-icon-view" type="primary" size="mini" slot="reference" circle></el-button>
+                                                        </el-popover>
+                                                        Totales
+                                                    </td>
+                                                    <td class="text-end font-weight-bold">S/&nbsp;{{ balance.totals.all_totals_payment }}</td>
+                                                </tr>
+                                                <tr class="text-danger text-bold td-total">
+                                                    <td class="d-flex align-items-center">
+                                                        <el-popover placement="right" width="100%" trigger="hover">
+                                                        <p><span class="custom-badge">T. Pagos Ventas - T. Pagos Compras/Gastos</span></p>
+                                                        <p>Total pagos comprobantes:<span class="custom-badge pull-right">S/ {{ balance.totals.total_payment_document }}</span></p>
+                                                        <p>Total pagos notas de venta:<span class="custom-badge pull-right">S/ {{ balance.totals.total_payment_sale_note }}</span></p>
+                                                        <p>Total pagos compras:<span class="custom-badge pull-right">- S/ {{ balance.totals.total_payment_purchase }}</span></p>
+                                                        <p>Total pagos gastos:<span class="custom-badge pull-right">- S/ {{ balance.totals.total_payment_expense }}</span></p>
+                                                        <el-button class="me-1" icon="el-icon-view" type="danger" size="mini" slot="reference" circle></el-button>
+                                                        </el-popover>
+                                                        Total pagos
+                                                    </td>
+                                                    <td class="text-end font-weight-bold">S/&nbsp;{{ balance.totals.all_totals_payment }}</td>
+                                                </tr>
+                                            </tbody>
+                                        </table>
                                     </div>
-                                </div>
-                                <div class="card-body p-0 card-body-down" v-show="!loaders.balance">
-                                    <table class="table mb-0 table-sm">
-                                        <tbody class="card-default">
-                                            <tr class="text-info text-bold">
-                                                <td>
-                                                    <el-popover placement="right" width="100%" trigger="hover">
-                                                        <p><span class="custom-badge">T. Ventas - T. Compras/Gastos</span></p>
-                                                        <p>Total comprobantes:<span class="custom-badge pull-right">S/ {{ balance.totals.total_document }}</span></p>
-                                                        <p>Total notas de venta:<span class="custom-badge pull-right">S/ {{ balance.totals.total_sale_note }}</span></p>
-                                                        <p>Total compras:<span class="custom-badge pull-right">- S/ {{ balance.totals.total_purchase }}</span></p>
-                                                        <p>Total gastos:<span class="custom-badge pull-right">- S/ {{ balance.totals.total_expense }}</span></p>
-                                                        <el-button icon="el-icon-view" type="primary" size="mini" slot="reference" circle></el-button>
-                                                    </el-popover>
-                                                    Totales
-                                                </td>
-                                                <td class="text-right font-weight-bold">S/&nbsp;{{ balance.totals.all_totals_payment }}</td>
-                                            </tr>
-                                            <tr class="text-danger text-bold td-total">
-                                                <td>
-                                                    <el-popover placement="right" width="100%" trigger="hover">
-                                                    <p><span class="custom-badge">T. Pagos Ventas - T. Pagos Compras/Gastos</span></p>
-                                                    <p>Total pagos comprobantes:<span class="custom-badge pull-right">S/ {{ balance.totals.total_payment_document }}</span></p>
-                                                    <p>Total pagos notas de venta:<span class="custom-badge pull-right">S/ {{ balance.totals.total_payment_sale_note }}</span></p>
-                                                    <p>Total pagos compras:<span class="custom-badge pull-right">- S/ {{ balance.totals.total_payment_purchase }}</span></p>
-                                                    <p>Total pagos gastos:<span class="custom-badge pull-right">- S/ {{ balance.totals.total_payment_expense }}</span></p>
-                                                    <el-button icon="el-icon-view" type="danger" size="mini" slot="reference" circle></el-button>
-                                                    </el-popover>
-                                                    Total pagos
-                                                </td>
-                                                <td class="text-right font-weight-bold">S/&nbsp;{{ balance.totals.all_totals_payment }}</td>
-                                            </tr>
-                                        </tbody>
-                                    </table>
                                 </div>
                             </section>
                         </div>
@@ -316,7 +346,7 @@
                                         <loader-graph :rows="4" :columns="1" :radius="50"></loader-graph>
                                     </template>
                                 </div>
-                                <div class="card-body card-body-border-radius" v-show="!loaders.utility">
+                                <div class="card-body card-body-border-radius" v-if="!loaders.utility">
                                     <div class="widget-summary">
                                         <div class="widget-summary-col" v-if="utilities">
                                             <div class="row no-gutters">
@@ -330,44 +360,44 @@
                                                 </div>
                                             </div>
                                         </div>
+                                    </div>                                
+                                    <div class="mt-3" v-show="!loaders.utility">
+                                        <table class="table-dashboard mb-0 table-sm">
+                                            <tbody class="card-default">
+                                                <tr>
+                                                    <td colspan="2">
+                                                        <el-checkbox  v-model="form.enabled_expense" @change="loadDataUtilities">Considerar gastos</el-checkbox><br>
+                                                        <el-checkbox  v-model="filter_item" @change="changeFilterItem">Filtrar por producto</el-checkbox>
+                                                    </td>
+                                                </tr>
+                                                <tr v-if="filter_item">
+                                                    <td colspan="2">
+                                                        <div class="form-group">
+                                                            <el-select v-model="form.item_id" filterable remote  popper-class="el-select-customers"  clearable
+                                                                placeholder="Buscar producto"
+                                                                :remote-method="searchRemoteItems"
+                                                                :loading="loading_search"
+                                                                @change="loadDataUtilities">
+                                                                <el-option v-for="option in items" :key="option.id" :value="option.id" :label="option.description"></el-option>
+                                                            </el-select>
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                                <tr class="text-info text-bold">
+                                                    <td>Ingreso</td>
+                                                    <td class="text-end font-weight-bold">S/&nbsp;{{ utilities.totals.total_income }}</td>
+                                                </tr>
+                                                <tr class="text-danger text-bold">
+                                                    <td>Egreso</td>
+                                                    <td class="text-end font-weight-bold">S/&nbsp;{{ utilities.totals.total_egress }}</td>
+                                                </tr>
+                                                <tr class="text-bold td-total">
+                                                    <td class="">Utilidad</td>
+                                                    <td class="text-end font-weight-bold">S/&nbsp;{{ utilities.totals.utility }}</td>
+                                                </tr>
+                                            </tbody>
+                                        </table>
                                     </div>
-                                </div>
-                                <div class="card-body p-0 card-body-down" v-show="!loaders.utility">
-                                    <table class="table mb-0 table-sm">
-                                        <tbody class="card-default">
-                                            <tr>
-                                                <td colspan="2">
-                                                    <el-checkbox  v-model="form.enabled_expense" @change="loadDataUtilities">Considerar gastos</el-checkbox><br>
-                                                    <el-checkbox  v-model="filter_item" @change="changeFilterItem">Filtrar por producto</el-checkbox>
-                                                </td>
-                                            </tr>
-                                            <tr v-if="filter_item">
-                                                <td colspan="2">
-                                                    <div class="form-group">
-                                                        <el-select v-model="form.item_id" filterable remote  popper-class="el-select-customers"  clearable
-                                                            placeholder="Buscar producto"
-                                                            :remote-method="searchRemoteItems"
-                                                            :loading="loading_search"
-                                                            @change="loadDataUtilities">
-                                                            <el-option v-for="option in items" :key="option.id" :value="option.id" :label="option.description"></el-option>
-                                                        </el-select>
-                                                    </div>
-                                                </td>
-                                            </tr>
-                                            <tr class="text-info text-bold">
-                                                <td>Ingreso</td>
-                                                <td class="text-right font-weight-bold">S/&nbsp;{{ utilities.totals.total_income }}</td>
-                                            </tr>
-                                            <tr class="text-danger text-bold">
-                                                <td>Egreso</td>
-                                                <td class="text-right font-weight-bold">S/&nbsp;{{ utilities.totals.total_egress }}</td>
-                                            </tr>
-                                            <tr class="text-bold td-total">
-                                                <td class="">Utilidad</td>
-                                                <td class="text-right font-weight-bold">S/&nbsp;{{ utilities.totals.utility }}</td>
-                                            </tr>
-                                        </tbody>
-                                    </table>
                                 </div>
                             </section>
                         </div>
@@ -379,7 +409,7 @@
                                         <loader-graph :rows="2" :columns="3" :radius="100"></loader-graph>
                                     </template>
                                 </div>
-                                <div class="card-body card-body-border-radius" v-show="!loaders.purchase">
+                                <div class="card-body card-body-border-radius" v-if="!loaders.purchase">
                                     <div class="widget-summary">
                                         <div class="widget-summary-col" v-if="general">
                                             <div class="summary">
@@ -405,24 +435,24 @@
                                             </div>
                                         </div>
                                     </div>
-                                </div>
-                                <div class="card-body p-0 card-body-down" v-show="!loaders.purchase">
-                                    <table class="table mb-0 table-sm">
-                                        <tbody class="card-default">
-                                            <tr class="text-info text-bold">
-                                                <td>Total percepciones</td>
-                                                <td class="text-right font-weight-bold">S/&nbsp;{{ purchase.totals.purchases_total_perception }}</td>
-                                            </tr>
-                                            <tr class="text-danger text-bold">
-                                                <td>Total compras</td>
-                                                <td class="text-right font-weight-bold">S/&nbsp;{{ purchase.totals.purchases_total }}</td>
-                                            </tr>
-                                            <tr class="text-bold td-total">
-                                                <td class="">Total</td>
-                                                <td class="text-right font-weight-bold">S/&nbsp;{{ purchase.totals.total }}</td>
-                                            </tr>
-                                        </tbody>
-                                    </table>
+                                    <div class="mt-3" v-show="!loaders.purchase">
+                                        <table class="table-dashboard mb-0 table-sm">
+                                            <tbody class="card-default">
+                                                <tr class="text-info text-bold">
+                                                    <td>Total percepciones</td>
+                                                    <td class="text-end font-weight-bold">S/&nbsp;{{ purchase.totals.purchases_total_perception }}</td>
+                                                </tr>
+                                                <tr class="text-danger text-bold">
+                                                    <td>Total compras</td>
+                                                    <td class="text-end right font-weight-bold">S/&nbsp;{{ purchase.totals.purchases_total }}</td>
+                                                </tr>
+                                                <tr class="text-bold td-total">
+                                                    <td class="">Total</td>
+                                                    <td class="text-end font-weight-bold">S/&nbsp;{{ purchase.totals.total }}</td>
+                                                </tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
                                 </div>
                             </section>
                         </div>
@@ -449,11 +479,11 @@
                                                     <th>#</th>
                                                     <th>Código</th>
                                                     <th>Nombre</th>
-                                                    <th class="text-right">
+                                                    <th class="text-end">
                                                         Mov.
                                                         <el-tooltip class="item" effect="dark" content="Movimientos (Cantidad de veces vendido)" placement="top-start"><i class="fa fa-info-circle"></i></el-tooltip>
                                                     </th>
-                                                    <th class="text-right">Total</th>
+                                                    <th class="text-end">Total</th>
                                                 </tr>
                                             </thead>
                                             <tbody>
@@ -462,8 +492,8 @@
                                                         <td>{{ index + 1 }}</td>
                                                         <td>{{ row.internal_id }}</td>
                                                         <td>{{ row.description }}</td>
-                                                        <td class="text-right">{{ row.move_quantity }}</td>
-                                                        <td class="text-right">{{ row.total }}</td>
+                                                        <td class="text-end">{{ row.move_quantity }}</td>
+                                                        <td class="text-end">{{ row.total }}</td>
                                                     </tr>
                                                 </template>
                                             </tbody>
@@ -488,40 +518,40 @@
                                     <label>Top clientes</label>
                                     <div class="mt-3">
                                         <el-checkbox  v-model="form.enabled_transaction_customer" @change="loadDataAditional">Ordenar por transacciones</el-checkbox><br>
-                                    </div>
-                                </div>
-                                <div class="card-body p-0" v-show="!loaders.top_customers">
-                                    <div class="table-responsive table-default">
-                                        <table class="table table-default">
-                                            <thead class="card-default">
-                                                <tr>
-                                                    <!-- <th>#</th> -->
-                                                    <th>Cliente</th>
-                                                    <th class="text-right">
-                                                        Trans.
-                                                        <el-tooltip
-                                                            class="item"
-                                                            effect="dark"
-                                                            content="Transacciones (Cantidad de ventas realizadas)"
-                                                            placement="top-start"
-                                                        >
-                                                            <i class="fa fa-info-circle"></i>
-                                                        </el-tooltip>
-                                                    </th>
-                                                    <th class="text-right">Total</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody class="tbody-default">
-                                                <template v-for="(row, index) in top_customers" class="template-default">
-                                                    <tr :key="index" class="tr-default">
-                                                        <!-- <td>{{ index + 1 }}</td> -->
-                                                        <td>{{ row.name }}<br /><small v-text="row.number"></small></td>
-                                                        <td class="text-right">{{ row.transaction_quantity }}</td>
-                                                        <td class="text-right">{{ row.total }}</td>
+                                    </div>                                
+                                    <div class="mt-3" v-show="!loaders.top_customers">
+                                        <div class="table-responsive table-default">
+                                            <table class="table table-default">
+                                                <thead class="card-default">
+                                                    <tr>
+                                                        <!-- <th>#</th> -->
+                                                        <th>Cliente</th>
+                                                        <th class="text-end">
+                                                            Trans.
+                                                            <el-tooltip
+                                                                class="item"
+                                                                effect="dark"
+                                                                content="Transacciones (Cantidad de ventas realizadas)"
+                                                                placement="top-start"
+                                                            >
+                                                                <i class="fa fa-info-circle"></i>
+                                                            </el-tooltip>
+                                                        </th>
+                                                        <th class="text-end">Total</th>
                                                     </tr>
-                                                </template>
-                                            </tbody>
-                                        </table>
+                                                </thead>
+                                                <tbody class="tbody-default">
+                                                    <template v-for="(row, index) in top_customers" class="template-default">
+                                                        <tr :key="index" class="tr-default">
+                                                            <!-- <td>{{ index + 1 }}</td> -->
+                                                            <td>{{ row.name }}<br /><small v-text="row.number"></small></td>
+                                                            <td class="text-end">{{ row.transaction_quantity }}</td>
+                                                            <td class="text-end">{{ row.total }}</td>
+                                                        </tr>
+                                                    </template>
+                                                </tbody>
+                                            </table>
+                                        </div>
                                     </div>
                                 </div>
                             </section>
@@ -561,7 +591,7 @@
 import DashboardStock from "./partials/dashboard_stock.vue";
 import queryString from "query-string";
 import LoaderGraph from "../components/loaders/l-graph.vue";
-import RowTop from "./RowTop";
+import RowTop from "./RowTop.vue";
 import DashboardInventory from "./partials/dashboard_inventory.vue";
 import {mapActions, mapState} from "vuex/dist/vuex.mjs";
 
@@ -570,6 +600,7 @@ export default {
   components: { DashboardStock, LoaderGraph, RowTop, DashboardInventory },
   data() {
     return {
+      showFilters: false,
       loading_search: false,
       records_base: [],
       selected_customer: null,
@@ -578,27 +609,27 @@ export default {
       establishments: [],
       balance: {
         totals: {},
-        graph: {},
+        graph: [],
       },
       document: {
         totals: {},
-        graph: {},
+        graph: [],
       },
       sale_note: {
         totals: {},
-        graph: {},
+        graph: [],
       },
       general: {
         totals: {},
-        graph: {},
+        graph: [],
       },
       purchase: {
         totals: {},
-        graph: {},
+        graph: [],
       },
       utilities: {
         totals: {},
-        graph: {},
+        graph: [],
       },
       form: {},
       pickerOptionsDates: {
@@ -643,15 +674,66 @@ export default {
     await this.filterItems();
   },
 
+  computed: {
+    filterLabel() {
+      switch(this.form.period) {
+        case 'all':
+          return 'Filtrado: Todos los registros';
+        case 'last_week':
+          return 'Filtrado por: Última semana';
+        case 'month':
+          return this.form.month_start ? `Filtrado por mes: ${moment(this.form.month_start).format('MM/YYYY')}` : 'Filtrado por: Por mes';
+        case 'between_months':
+          return this.form.month_start && this.form.month_end 
+            ? `Filtrado entre meses: ${moment(this.form.month_start).format('MM/YYYY')} - ${moment(this.form.month_end).format('MM/YYYY')}` 
+            : 'Filtrado por: Entre meses';
+        case 'date':
+          return this.form.date_start ? `Filtrado por fecha: ${moment(this.form.date_start).format('DD/MM/YYYY')}` : 'Filtrado por: Por fecha';
+        case 'between_dates':
+          return this.form.date_start && this.form.date_end 
+            ? `Filtrado entre fechas: ${moment(this.form.date_start).format('DD/MM/YYYY')} - ${moment(this.form.date_end).format('DD/MM/YYYY')}` 
+            : 'Filtrado por: Entre fechas';
+        default:
+          return 'Filtrado por: Última semana';
+      }
+    },
+    visibleFiltersCount() {
+      let count = 2; // Siempre: Sucursal + Periodo
+      
+      if (this.form.period === 'month') {
+        count += 1; // + Mes de
+      } else if (this.form.period === 'between_months') {
+        count += 2; // + Mes de + Mes al
+      } else if (this.form.period === 'date') {
+        count += 1; // + Fecha del
+      } else if (this.form.period === 'between_dates') {
+        count += 2; // + Fecha del + Fecha al
+      }
+      
+      return count;
+    },
+    filterColumnClass() {
+      const count = this.visibleFiltersCount;
+      const colMap = {
+        2: 'col-md-6 col-12',      // 2 inputs = 50% cada uno
+        3: 'col-md-4 col-12',      // 3 inputs = 33.33% cada uno
+        4: 'col-md-3 col-12'       // 4 inputs = 25% cada uno
+      };
+      return colMap[count] || 'col-md-3 col-12';
+    }
+  },
   methods: {
     ...mapActions([
             'loadConfiguration',
         ]),
+    toggleFilters() {
+      this.showFilters = !this.showFilters;
+    },
     updateEstablishment(establishmentId) {
       console.log('Cambiando a sucursal ID:', establishmentId);
-      
+
       this.form.establishment_id = establishmentId;
-      
+
       this.loadAll();
     },
     changeFilterItem() {

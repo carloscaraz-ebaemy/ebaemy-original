@@ -56,7 +56,7 @@ $a = $vc_modules;
                                             </a>
                                         </div>
                                     @endif
-                                    
+
                                     @if(in_array('quotations', $vc_module_levels))
                                         <div class="col px-1 text-center" style="height: 100px; max-width: 25%">
                                             <a href="{{route('tenant.quotations.create')}}" class="w-100 h-100 d-inline-block border bg-danger text-light rounded p-1">
@@ -108,7 +108,7 @@ $a = $vc_modules;
                                             </a>
                                         </div>
                                     @endif
-                                    
+
                                     @if(in_array('items_services', $vc_module_levels))
                                         <div class="col px-1 text-center" style="height: 100px; max-width: 25%">
                                             <a href="{{route('tenant.services')}}" class="w-100 h-100 d-inline-block border bg-warning text-light rounded p-1">
@@ -121,7 +121,7 @@ $a = $vc_modules;
                                             </a>
                                         </div>
                                     @endif
-                                    
+
                                     @if(in_array('inventory', $vc_modules))
                                         @if(in_array('inventory', $vc_module_levels))
                                             <div class="col px-1 text-center" style="height: 100px; max-width: 25%">
@@ -221,7 +221,7 @@ $a = $vc_modules;
                                         </div>
                                     </a>
                                 </div>
-                                
+
                                 <div class="col px-1 text-center" style="height: 100px; max-width: 25%">
                                     <a href="{{route('tenant.reports.general_items.index')}}" class="w-100 h-100 d-inline-block border bg-success text-light rounded p-1">
                                         <div class="h-100 d-flex justify-content-center align-items-center">
@@ -240,23 +240,24 @@ $a = $vc_modules;
             </div>
         </div>
     </div>
-<script>
-    new Vue({
-        el: '#app',
-        data() {
-            return {
-                // Obtén el valor desde localStorage
-                showWelcome: localStorage.getItem('show_welcome_panel') === 'true'
-            };
-        },
-        watch: {
-            // Reaccionamos a cambios en `showWelcome` y actualizamos `localStorage`
-            showWelcome(newValue) {
-                localStorage.setItem('show_welcome_panel', newValue);
+    {{-- GENERA ERROR VITE UPGRADE --}}
+    {{-- <script>
+        new Vue({
+            el: '#app',
+            data() {
+                return {
+                    // Obtén el valor desde localStorage
+                    showWelcome: localStorage.getItem('show_welcome_panel') === 'true'
+                };
+            },
+            watch: {
+                // Reaccionamos a cambios en `showWelcome` y actualizamos `localStorage`
+                showWelcome(newValue) {
+                    localStorage.setItem('show_welcome_panel', newValue);
+                }
             }
-        }
-    });
-</script>
+        });
+    </script> --}}
 
     <tenant-dashboard-index
     	:type-user="{{ json_encode(auth()->user()->type) }}"

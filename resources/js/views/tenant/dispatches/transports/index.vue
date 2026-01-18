@@ -1,6 +1,6 @@
 <template>
     <div>
-        <div class="page-header pr-0">
+        <div class="page-header pe-0">
             <h2><a href="/transports">
                 <svg  xmlns="http://www.w3.org/2000/svg" style="margin-top: -5px;" width="24"  height="24"  viewBox="0 0 24 24"  fill="none"  stroke="currentColor"  stroke-width="2"  stroke-linecap="round"  stroke-linejoin="round"  class="icon icon-tabler icons-tabler-outline icon-tabler-truck"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M7 17m-2 0a2 2 0 1 0 4 0a2 2 0 1 0 -4 0" /><path d="M17 17m-2 0a2 2 0 1 0 4 0a2 2 0 1 0 -4 0" /><path d="M5 17h-2v-11a1 1 0 0 1 1 -1h9v12m-4 0h6m4 0h2v-6h-8m0 -5h5l3 5" /></svg>
             </a></h2>
@@ -8,7 +8,7 @@
                 <li class="active"><span>{{ title }}</span></li>
             </ol>
             <div class="right-wrapper pull-right">
-                <button type="button" class="btn btn-custom btn-sm  mt-2 mr-2" @click.prevent="clickCreate()"><i
+                <button type="button" class="btn btn-custom btn-sm  mt-2 me-2" @click.prevent="clickCreate()"><i
                     class="fa fa-plus-circle"></i> Nuevo
                 </button>
             </div>
@@ -21,30 +21,30 @@
                 <data-table :resource="resource">
                     <tr slot="heading">
                         <!-- <th>#</th> -->
-                        <th class="text-left">Nro. de Placa</th>
-                        <th class="text-left">Modelo</th>
-                        <th class="text-left">Marca</th>
-                        <th class="text-left">Certificado de habilitación vehicular</th>
-                        <th class="text-left">Predeterminado</th>
+                        <th class="text-start">Nro. de Placa</th>
+                        <th class="text-start">Modelo</th>
+                        <th class="text-start">Marca</th>
+                        <th class="text-start">Certificado de habilitación vehicular</th>
+                        <th class="text-start">Predeterminado</th>
                         <th class="text-center">Estado</th>
-                        <th class="text-right">Acciones</th>
+                        <th class="text-end">Acciones</th>
                     </tr>
                     <tr slot-scope="{ index, row }">
                         <!-- <td>{{ index }}</td> -->
-                        <td class="text-left">{{ row.plate_number }}</td>
-                        <td class="text-left">{{ row.model }}</td>
-                        <td class="text-left">{{ row.brand }}</td>
-                        <td class="text-left">{{ row.tuc }}</td>
-                        <td class="text-left">{{ row.is_default }}</td>
+                        <td class="text-start">{{ row.plate_number }}</td>
+                        <td class="text-start">{{ row.model }}</td>
+                        <td class="text-start">{{ row.brand }}</td>
+                        <td class="text-start">{{ row.tuc }}</td>
+                        <td class="text-start">{{ row.is_default }}</td>
                         <td class="text-center">
                             <el-switch v-model="row.is_active" @change="toggleActiveTransport(row)" />
                         </td>
-                        <td class="text-right">
-                            <button type="button" class="btn waves-effect waves-light btn-xs btn-info"
+                        <td class="text-end">
+                            <button type="button" class="btn waves-effect waves-light btn-xs btn-info me-1"
                                     @click.prevent="clickCreate(row.id)">Editar
                             </button>
                             <template v-if="typeUser === 'admin'">
-                                <button type="button" class="btn waves-effect waves-light btn-xs btn-danger"
+                                <button type="button" class="btn waves-effect waves-light btn-xs btn-danger me-1"
                                         @click.prevent="clickDelete(row.id)">Eliminar
                                 </button>
                             </template>
@@ -73,7 +73,7 @@
 </style>
 <script>
 
-import TransportForm from './form'
+import TransportForm from './form.vue'
 import DataTable from '@components/DataTable.vue'
 import {deletable} from '@mixins/deletable'
 

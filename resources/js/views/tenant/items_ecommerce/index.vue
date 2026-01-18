@@ -1,6 +1,6 @@
 <template>
     <div class="items_ecommerce">
-        <div class="page-header pr-0">
+        <div class="page-header pe-0">
             <h2>
                 <a href="/items_ecommerce">
                     <svg
@@ -32,10 +32,10 @@
             <div class="right-wrapper pull-right">
                 <template>
                     <!-- v-if="typeUser === 'admin'" -->
-                    <!-- <button type="button" class="btn btn-custom btn-sm  mt-2 mr-2" @click.prevent="clickImport()"><i class="fa fa-upload"></i> Importar</button>-->
+                    <!-- <button type="button" class="btn btn-custom btn-sm  mt-2 me-2" @click.prevent="clickImport()"><i class="fa fa-upload"></i> Importar</button>-->
                     <button
                         type="button"
-                        class="btn btn-custom btn-sm mt-2 mr-2"
+                        class="btn btn-custom btn-sm mt-2 me-2"
                         @click.prevent="clickCreate()"
                     >
                         <i class="fa fa-plus-circle"></i> Nuevo
@@ -65,12 +65,12 @@
                                 }"></i>
                             </a>
                         </th>
-                        <th class="text-right">P.Unitario (Venta)</th>
-                        <th class="text-right">Stock General</th>
+                        <th class="text-end">P.Unitario (Venta)</th>
+                        <th class="text-end">Stock General</th>
                         <th class="text-center">Tags</th>
 
                         <th class="text-center">Visible en Tienda</th>
-                        <th class="text-right">Acciones</th>
+                        <th class="text-end">Acciones</th>
                     </tr>
                     <tr></tr>
                     <tr slot-scope="{ index, row }">
@@ -90,9 +90,9 @@
                             <!--<img :src="row.image_url_medium"  width="40" height="40" class="img-thumbail img-custom" /> -->
                         </td>
                         <td>{{ row.description }}</td>
-                        <td class="text-right">{{ row.sale_unit_price }}</td>
+                        <td class="text-end">{{ row.sale_unit_price }}</td>
                         <td
-                            class="text-right"
+                            class="text-end"
                             :class="{
                                 'text-danger': stock(row.warehouses) <= 0
                             }"
@@ -114,7 +114,7 @@
                                 v-model="row.apply_store"
                             ></el-checkbox>
                         </td>
-                        <td class="text-right">
+                        <td class="text-end">
                             <template>
                                 <!-- v-if="typeUser === 'admin'" -->
                                 <button
@@ -126,7 +126,7 @@
                                 </button>
                                 <button
                                     type="button"
-                                    class="btn waves-effect waves-light btn-xs btn-danger"
+                                    class="btn waves-effect waves-light btn-xs btn-danger ms-1"
                                     @click.prevent="clickDelete(row.id)"
                                 >
                                     Eliminar
@@ -187,7 +187,7 @@
                         />
                     </div>
                 </div>
-                <div class="row text-right pt-2">
+                <div class="row text-end pt-2">
                     <div class="col align-self-end">
                         <el-button
                             type="primary"

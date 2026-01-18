@@ -16,16 +16,16 @@
                 @elseif (file_exists(public_path('theme/logo.svg')))
                     <img class="uk-logo-inverse" width="100" height="auto" src="{{ asset('theme/logo.svg') }}" alt="Logo" />
                 @else
-                    <i class="fa fa-circle fa-3x"></i>
+
                 @endif
             </div>
             <div class="">
                 <div class="card card-header card-primary bg-info">
                     <p class="card-title text-center">Acceso al Sistema</p>
                     <h1 class="display-3 position-absolute text-left font-weight-bold"
-                        style="left: 90%; margin-top: -35px; color: rgba(255,255,255,.1);">7</h1>
+                        style="left: 90%; margin-top: -35px !important; color: rgba(255,255,255,.1) !important; font-size: 4.5rem !important; font-weight: 600 !important;">8</h1>
                 </div>
-                <div class="card-body">
+                <div class="card-body p-3">
                     <form method="POST" action="{{ route('login') }}">
                         @csrf
                         <div class="form-group mb-3">

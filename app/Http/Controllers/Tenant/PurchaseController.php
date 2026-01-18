@@ -135,6 +135,7 @@ use Modules\Purchase\Helpers\WeightedAverageCostHelper;
             $document_types_invoice = DocumentType::DocumentsActiveToPurchase()->get();
             $discount_types = ChargeDiscountType::whereType('discount')->whereLevel('item')->get();
             $charge_types = ChargeDiscountType::whereType('charge')->whereLevel('item')->get();
+            $affectation_igv_types = AffectationIgvType::whereActive()->get();
             $company = Company::active();
             $payment_method_types = PaymentMethodType::getPaymentMethodTypes();
             // $payment_method_types = PaymentMethodType::all();
@@ -146,7 +147,7 @@ use Modules\Purchase\Helpers\WeightedAverageCostHelper;
             $permissions = auth()->user()->getPermissionsPurchase();
             $global_discount_types = ChargeDiscountType::whereIn('id', ['02', '03'])->whereActive()->get();
 
-            return compact('suppliers', 'establishment', 'currency_types', 'discount_types', 'configuration', 'payment_conditions',
+            return compact('suppliers', 'establishment', 'currency_types', 'discount_types', 'affectation_igv_types', 'configuration', 'payment_conditions',
                 'charge_types', 'document_types_invoice', 'company', 'payment_method_types', 'payment_destinations', 'customers', 'warehouses','permissions', 'global_discount_types');
         }
 
@@ -302,7 +303,18 @@ use Modules\Purchase\Helpers\WeightedAverageCostHelper;
             try {
                 $purchase = DB::connection('tenant')->transaction(function () use ($data) {
                     $doc = Purchase::create($data);
-                    foreach ($data['items'] as $row) {
+
+                    // Separar items normales de supplies
+                    $items = collect($data['items'])->filter(function($item) {
+                        return !isset($item['is_supply']) || !$item['is_supply'];
+                    })->values()->all();
+
+                    $supplies = collect($data['items'])->filter(function($item) {
+                        return isset($item['is_supply']) && $item['is_supply'];
+                    })->values()->all();
+
+                    // Procesar items normales
+                    foreach ($items as $row) {
 
                         if(!isset($row['is_set'])) {
                             $item_id = (int)$row['item_id'];
@@ -412,6 +424,11 @@ use Modules\Purchase\Helpers\WeightedAverageCostHelper;
 
                     }
 
+                    // Procesar supplies (insumos)
+                    if (count($supplies) > 0) {
+                        $this->processSupplies($doc, $supplies);
+                    }
+
                     foreach ($data['payments'] as $payment) {
 
                         $record_payment = $doc->purchase_payments()->create($payment);
@@ -449,6 +466,41 @@ use Modules\Purchase\Helpers\WeightedAverageCostHelper;
         {
             foreach ($fee as $row) {
                 $purchase->fee()->create($row);
+            }
+        }
+
+        /**
+         * Procesa y guarda los supplies (insumos) de la compra
+         * Aplica el porcentaje de merma al aumentar el stock
+         *
+         * @param Purchase $purchase
+         * @param array $supplies
+         * @return void
+         */
+        private function processSupplies($purchase, $supplies)
+        {
+            foreach ($supplies as $supplyData) {
+                // Crear el registro de purchase_supply
+                $purchaseSupply = $purchase->purchaseSupplies()->create([
+                    'supply_id' => $supplyData['supply_id'],
+                    'quantity' => $supplyData['quantity'],
+                    'cost' => $supplyData['cost'],
+                    'affectation_igv_type_id' => $supplyData['affectation_igv_type_id'] ?? '10',
+                ]);
+
+                // Aumentar el stock del insumo considerando merma
+                $supply = \Modules\Restaurant\Models\Supply::find($supplyData['supply_id']);
+
+                if ($supply) {
+                    $wastePercentage = $supply->waste_percentage ?? 0;
+
+                    // Calcular cantidad efectiva después de merma
+                    $effectiveQuantity = $supplyData['quantity'] * (1 - ($wastePercentage / 100));
+
+                    // Aumentar el stock
+                    $supply->stock += $effectiveQuantity;
+                    $supply->save();
+                }
             }
         }
 
@@ -495,6 +547,10 @@ use Modules\Purchase\Helpers\WeightedAverageCostHelper;
             $pdf = new Mpdf();
 
             $document = ($purchase != null) ? $purchase : $this->purchase;
+
+            // Cargar relación de supplies con sus datos
+            $document->load(['purchaseSupplies.supply.unitType']);
+
             $company = Company::active();
             $filename = ($filename != null) ? $filename : $this->purchase->filename;
 
@@ -601,7 +657,17 @@ use Modules\Purchase\Helpers\WeightedAverageCostHelper;
 
                 }
 
-                foreach ($request['items'] as $row) {
+                // Separar items normales de supplies
+                $items = collect($request['items'])->filter(function($item) {
+                    return !isset($item['is_supply']) || !$item['is_supply'];
+                })->values()->all();
+
+                $supplies = collect($request['items'])->filter(function($item) {
+                    return isset($item['is_supply']) && $item['is_supply'];
+                })->values()->all();
+
+                // Procesar items normales
+                foreach ($items as $row) {
                     $p_item = new PurchaseItem();
                     $p_item->fill($row);
                     $p_item->purchase_id = $doc->id;
@@ -641,6 +707,13 @@ use Modules\Purchase\Helpers\WeightedAverageCostHelper;
                             $this->processUpdateItemLotsGroup($row, $p_item);
                         }
                     }
+                }
+
+                // Actualizar supplies: eliminar los anteriores y crear los nuevos
+                $doc->purchaseSupplies()->delete();
+
+                if (count($supplies) > 0) {
+                    $this->processSupplies($doc, $supplies);
                 }
 
                 $this->deleteAllPayments($doc->purchase_payments);

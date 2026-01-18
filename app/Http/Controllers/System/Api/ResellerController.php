@@ -98,6 +98,36 @@ class ResellerController extends Controller
         return $response;
     }
 
+    public function detailsLimitReseller(Request $request)
+    {
+        // Valor máximo permitido (desde .env o 999 por defecto)
+        $limiteClientes = (int) config('app.limite_reseller', 999);
+
+        // Total actual de clientes
+        $totalClientes = Client::count();
+
+        // Todavía puede registrar más
+        return $this->generalResponse(true, [
+            'total' => $totalClientes,
+            'limite' => $limiteClientes
+        ]);
+    }
+
+    public function detailsLimitReseller(Request $request)
+    {
+        // Valor máximo permitido (desde .env o 999 por defecto)
+        $limiteClientes = (int) config('app.limite_reseller', 999);
+
+        // Total actual de clientes
+        $totalClientes = Client::count();
+
+        // Todavía puede registrar más
+        return $this->generalResponse(true, [
+            'total' => $totalClientes,
+            'limite' => $limiteClientes
+        ]);
+    }
+
 
     // public function lockedAdmin(Request $request)
     // {

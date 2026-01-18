@@ -26,6 +26,10 @@
 
     <link rel="stylesheet" href="{{ asset('porto-ecommerce/assets/css/rating.css') }}">
 
+
+    @vite('resources/js/app.js')
+
+
     <!-- Fontawesome -->
     <link rel="stylesheet" href="{{ asset('porto-ecommerce/assets/font-awesome/css/fontawesome-all.min.css') }}">
     <!-- Estilos personalizados -->

@@ -249,13 +249,13 @@
 
 <script>
 
-import DocumentOptions from "@views/documents/partials/options";
-import SaleNoteOptions from "@views/sale_notes/partials/options";
+import DocumentOptions from "@views/documents/partials/options.vue";
+import SaleNoteOptions from "@views/sale_notes/partials/options.vue";
 import queryString from 'query-string'
 
 // import DocumentOptions from "../../documents/partials/options.vue";
 // import SaleNoteOptions from "../../sale_notes/partials/options.vue";
-import SeriesForm from "./series_form";
+import SeriesForm from "./series_form.vue";
 import {mapActions, mapState} from "vuex/dist/vuex.mjs";
 import {functions} from '@mixins/functions'
 

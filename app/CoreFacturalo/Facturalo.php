@@ -672,33 +672,45 @@ class Facturalo
             $pdf_font_regular = config('tenant.pdf_name_regular');
             $pdf_font_bold = config('tenant.pdf_name_bold');
 
-            if ($pdf_font_regular != false) {
+            $templateFontDir = app_path('CoreFacturalo'.DIRECTORY_SEPARATOR.'Templates'.
+                                             DIRECTORY_SEPARATOR.'pdf'.
+                                             DIRECTORY_SEPARATOR.$base_pdf_template.
+                                             DIRECTORY_SEPARATOR.'font');
+
+            $regularTtf = $pdf_font_regular
+                ? $templateFontDir.DIRECTORY_SEPARATOR.$pdf_font_regular.'.ttf'
+                : null;
+            $boldTtf = $pdf_font_bold
+                ? $templateFontDir.DIRECTORY_SEPARATOR.$pdf_font_bold.'.ttf'
+                : null;
+
+            $hasRegularFont = $regularTtf && file_exists($regularTtf);
+            $hasBoldFont = $boldTtf && file_exists($boldTtf);
+
+            if ($hasRegularFont) {
                 $defaultConfig = (new ConfigVariables())->getDefaults();
                 $fontDirs = $defaultConfig['fontDir'];
 
                 $defaultFontConfig = (new FontVariables())->getDefaults();
                 $fontData = $defaultFontConfig['fontdata'];
 
-                $pdf = new Mpdf([
-                    'fontDir' => array_merge($fontDirs, [
-                        app_path('CoreFacturalo'.DIRECTORY_SEPARATOR.'Templates'.
-                                                 DIRECTORY_SEPARATOR.'pdf'.
-                                                 DIRECTORY_SEPARATOR.$base_pdf_template.
-                                                 DIRECTORY_SEPARATOR.'font')
-                    ]),
-                    'fontdata' => $fontData + [
-                        'custom_bold' => [
-                            'R' => $pdf_font_bold.'.ttf',
-                        ],
-                        'custom_regular' => [
-                            'R' => $pdf_font_regular.'.ttf',
-                        ],
+                $customFontData = [
+                    'custom_regular' => [
+                        'R' => $pdf_font_regular.'.ttf',
                     ],
+                    'custom_bold' => [
+                        'R' => ($hasBoldFont ? $pdf_font_bold : $pdf_font_regular).'.ttf',
+                    ],
+                ];
+
+                $pdf = new Mpdf([
+                    'fontDir' => array_merge($fontDirs, [$templateFontDir]),
+                    'fontdata' => $fontData + $customFontData,
                     'margin_top' => $pdf_margin_top,
                     'margin_right' => $pdf_margin_right,
                     'margin_bottom' => $pdf_margin_bottom,
                     'margin_left' => $pdf_margin_left,
-                    'default_font' => 'arial'
+                    'default_font' => 'custom_regular'
                 ]);
 
             } else {
@@ -1013,10 +1025,13 @@ class Facturalo
                 ];
 
                 if ($company->pse_provider_id == 4) {
-                    if ($response['is_rejected']) {  // Comprobantes con is_rejected con true entonces el comprobante esta rechazado
-                        $this->updateState('09'); 
+                    if ($response['is_rejected']) {
+                        $this->updateState('01');
                     } else {
-                        $this->updateState('01'); // Cualquier error presentado por sendfact entonces el comprobante se queda en registrado para volver a enviar (Dentro de sendfact ya esta como error esa factura/boleta)
+                        $query = $service->querySummary($this->document->filename);
+                        $this->response['code'] = $query['document_status'];
+                        $state_type_id = $service->validationCodeResponseIntegration($query['document_status'], $description, $response['is_rejected'] );
+                        $this->updateState($state_type_id);
                     }
                 } else {
                     $this->validationCodeResponse($response['code'], $description);
@@ -1058,9 +1073,12 @@ class Facturalo
                     ];
                     if ($company->soap_send_id == '04') {
                         if ($response['is_rejected']) {
-                            $this->updateState('09');
-                        } else {
                             $this->updateState('01');
+                        } else {
+                            $query = $serviceose->querySummary($this->document->filename);
+                            $this->response['code'] = $query['document_status'];
+                            $state_type_id = $serviceose->validationCodeResponseIntegration($query['document_status'], $description );
+                            $this->updateState($state_type_id);
                         }
                     } else {
                         $this->validationCodeResponse($response['code'], $description);
@@ -1981,7 +1999,8 @@ class Facturalo
                 'margin_top' => 0,
                 'margin_right' => 1,
                 'margin_bottom' => 0,
-                'margin_left' => 1
+                'margin_left' => 1,
+                'default_font' => 'monospace'
             ]);
         }else if($format_pdf === 'a5'){
 
@@ -2038,7 +2057,8 @@ class Facturalo
                 'margin_top' => 2,
                 'margin_right' => 5,
                 'margin_bottom' => 0,
-                'margin_left' => 5
+                'margin_left' => 5,
+                'default_font' => 'arial'
             ]);
 
 
@@ -2056,32 +2076,45 @@ class Facturalo
             $pdf_font_regular = config('tenant.pdf_name_regular');
             $pdf_font_bold = config('tenant.pdf_name_bold');
 
-            if ($pdf_font_regular != false) {
+            $templateFontDir = app_path('CoreFacturalo'.DIRECTORY_SEPARATOR.'Templates'.
+                                             DIRECTORY_SEPARATOR.'pdf'.
+                                             DIRECTORY_SEPARATOR.$base_pdf_template.
+                                             DIRECTORY_SEPARATOR.'font');
+
+            $regularTtf = $pdf_font_regular
+                ? $templateFontDir.DIRECTORY_SEPARATOR.$pdf_font_regular.'.ttf'
+                : null;
+            $boldTtf = $pdf_font_bold
+                ? $templateFontDir.DIRECTORY_SEPARATOR.$pdf_font_bold.'.ttf'
+                : null;
+
+            $hasRegularFont = $regularTtf && file_exists($regularTtf);
+            $hasBoldFont = $boldTtf && file_exists($boldTtf);
+
+            if ($hasRegularFont) {
                 $defaultConfig = (new ConfigVariables())->getDefaults();
                 $fontDirs = $defaultConfig['fontDir'];
 
                 $defaultFontConfig = (new FontVariables())->getDefaults();
                 $fontData = $defaultFontConfig['fontdata'];
 
-                $pdf = new Mpdf([
-                    'fontDir' => array_merge($fontDirs, [
-                        app_path('CoreFacturalo'.DIRECTORY_SEPARATOR.'Templates'.
-                                                 DIRECTORY_SEPARATOR.'pdf'.
-                                                 DIRECTORY_SEPARATOR.$base_pdf_template.
-                                                 DIRECTORY_SEPARATOR.'font')
-                    ]),
-                    'fontdata' => $fontData + [
-                        'custom_bold' => [
-                            'R' => $pdf_font_bold.'.ttf',
-                        ],
-                        'custom_regular' => [
-                            'R' => $pdf_font_regular.'.ttf',
-                        ],
+                $customFontData = [
+                    'custom_regular' => [
+                        'R' => $pdf_font_regular.'.ttf',
                     ],
+                    'custom_bold' => [
+                        'R' => ($hasBoldFont ? $pdf_font_bold : $pdf_font_regular).'.ttf',
+                    ],
+                ];
+
+                $pdf = new Mpdf([
+                    'fontDir' => array_merge($fontDirs, [$templateFontDir]),
+                    'fontdata' => $fontData + $customFontData,
                     'margin_top' => $pdf_margin_top,
                     'margin_right' => $pdf_margin_right,
                     'margin_bottom' => $pdf_margin_bottom,
                     'margin_left' => $pdf_margin_left,
+                    'default_font' => 'custom_regular'
                 ]);
 
             } else {
@@ -2089,7 +2122,8 @@ class Facturalo
                     'margin_top' => $pdf_margin_top,
                     'margin_right' => $pdf_margin_right,
                     'margin_bottom' => $pdf_margin_bottom,
-                    'margin_left' => $pdf_margin_left
+                    'margin_left' => $pdf_margin_left,
+                    'default_font' => 'arial'
                 ]);
             }
         }

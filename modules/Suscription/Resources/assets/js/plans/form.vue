@@ -143,12 +143,12 @@
                                                 <th>#</th>
                                                 <th class="font-weight-bold">Descripción</th>
                                                 <th class="text-center font-weight-bold">Unidad</th>
-                                                <th class="text-right font-weight-bold">Cantidad</th>
-                                                <th class="text-right font-weight-bold">Valor Unitario</th>
-                                                <th class="text-right font-weight-bold">Precio Unitario</th>
-                                                <th class="text-right font-weight-bold">Subtotal</th>
+                                                <th class="text-end font-weight-bold">Cantidad</th>
+                                                <th class="text-end font-weight-bold">Valor Unitario</th>
+                                                <th class="text-end font-weight-bold">Precio Unitario</th>
+                                                <th class="text-end font-weight-bold">Subtotal</th>
                                                 <!--<th class="text-right font-weight-bold">Cargo</th>-->
-                                                <th class="text-right font-weight-bold">Total</th>
+                                                <th class="text-end font-weight-bold">Total</th>
                                                 <th></th>
                                             </tr>
                                             </thead>
@@ -163,21 +163,21 @@
                                                     }}<br/><small>{{ row.affectation_igv_type.description }}</small>
                                                 </td>
                                                 <td class="text-center">{{ row.item.unit_type_id }}</td>
-                                                <td class="text-right">{{ row.quantity }}</td>
+                                                <td class="text-end">{{ row.quantity }}</td>
                                                 <!-- <td class="text-right">{{currency_type.symbol}} {{row.unit_price}}</td> -->
-                                                <td class="text-right">{{ currency_type.symbol }}
+                                                <td class="text-end">{{ currency_type.symbol }}
                                                                        {{ getFormatUnitPriceRow(row.unit_value) }}
                                                 </td>
-                                                <td class="text-right">{{ currency_type.symbol }}
+                                                <td class="text-end">{{ currency_type.symbol }}
                                                                        {{ getFormatUnitPriceRow(row.unit_price) }}
                                                 </td>
 
-                                                <td class="text-right">{{ currency_type.symbol }}
+                                                <td class="text-end">{{ currency_type.symbol }}
                                                                        {{ row.total_value }}
                                                 </td>
                                                 <!--<td class="text-right">{{ currency_type.symbol }} {{ row.total_charge }}</td>-->
-                                                <td class="text-right">{{ currency_type.symbol }} {{ row.total }}</td>
-                                                <td class="text-right">
+                                                <td class="text-end">{{ currency_type.symbol }} {{ row.total }}</td>
+                                                <td class="text-end">
                                                     <button class="btn waves-effect waves-light btn-xs btn-info"
                                                             type="button"
                                                             @click="ediItem(row, index)"><span style='font-size:10px;'>&#9998;</span>
@@ -203,33 +203,33 @@
                                         </button>
                                     </div>
                                 </div>
-                                <div class="col-xlg-push-6 col-6 text-right">
+                                <div class="col-xlg-push-6 col-6 text-end">
                                     <p v-if="fakeForm.total_exportation > 0"
-                                       class="text-right">
+                                       class="text-end">
                                         OP.EXPORTACIÓN: {{ currency_type.symbol }} {{ fakeForm.total_exportation }}
                                     </p>
                                     <p v-if="fakeForm.total_free > 0"
-                                       class="text-right">
+                                       class="text-end">
                                         OP.GRATUITAS: {{ currency_type.symbol }} {{ fakeForm.total_free }}
                                     </p>
                                     <p v-if="fakeForm.total_unaffected > 0"
-                                       class="text-right">
+                                       class="text-end">
                                         OP.INAFECTAS: {{ currency_type.symbol }} {{ fakeForm.total_unaffected }}
                                     </p>
                                     <p v-if="fakeForm.total_exonerated > 0"
-                                       class="text-right">
+                                       class="text-end">
                                         OP.EXONERADAS: {{ currency_type.symbol }} {{ fakeForm.total_exonerated }}
                                     </p>
                                     <p v-if="fakeForm.total_taxed > 0"
-                                       class="text-right">
+                                       class="text-end">
                                         OP.GRAVADA: {{ currency_type.symbol }} {{ fakeForm.total_taxed }}
                                     </p>
                                     <p v-if="fakeForm.total_igv > 0"
-                                       class="text-right">
+                                       class="text-end">
                                         IGV: {{ currency_type.symbol }} {{ fakeForm.total_igv }}
                                     </p>
                                     <h3 v-if="fakeForm.total > 0"
-                                        class="text-right">
+                                        class="text-end">
                                         <b>
                                             TOTAL DEL PLAN:
                                         </b>
@@ -252,9 +252,9 @@
                 </el-tab-pane>
 
             </el-tabs>
-            <div class="form-actions text-right mt-4">
+            <div class="form-actions text-end mt-4">
                 <el-button
-                    class="second-buton"
+                    class="second-buton me-2"
                     @click.prevent="close()">
                     Cancelar
                 </el-button>
@@ -307,7 +307,7 @@ import {
     calculateRowItem,
     FormatUnitPriceRow,
     showNamePdfOfDescription
-} from "../../../../../../resources/js/helpers/functions";
+} from "@helpers/functions";
 
 export default {
     mixins: [

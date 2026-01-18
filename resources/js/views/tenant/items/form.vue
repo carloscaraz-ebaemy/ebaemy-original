@@ -403,13 +403,13 @@
                                                 </el-checkbox>
                                             </div>
                                         </th>
-                                        <th width="25%">
+                                        <!-- <th width="25%">
                                             <div v-show="form.unit_type_id !='ZZ' && canSeeProduction">
                                                 <el-checkbox v-model="form.is_for_production"
                                                              @change="changeProductioTab">Este producto, ¿requiere insumos?
                                                 </el-checkbox>
                                             </div>
-                                        </th>
+                                        </th> -->
                                     </tr>
                                                                         </thead>
                                     <tbody>
@@ -463,7 +463,7 @@
 
                         <div class="col-md-3">
                             <div :class="{'has-danger': errors.has_isc}"
-                                 class="form-group ml-2">
+                                 class="form-group ms-2">
                                 <el-checkbox v-model="form.has_isc"
                                              @change="changeIsc">Incluye ISC
                                 </el-checkbox>
@@ -512,7 +512,7 @@
 
                         <div class="col-md-3">
                             <div :class="{'has-danger': errors.subject_to_detraction}"
-                                 class="form-group ml-1">
+                                 class="form-group ms-1">
                                 <el-checkbox v-model="form.subject_to_detraction">Sujeto a detracción</el-checkbox>
                                 <br>
                                 <small v-if="errors.subject_to_detraction"
@@ -623,7 +623,7 @@
                                 <table class="table table-sm mb-0">
                                     <thead class="bg-light">
                                     <tr>
-                                        <th class="text-center">Código de barra</th>
+                                        <th class="text-center d-none">Código de barra</th>
                                         <th class="text-center">Unidad</th>
                                         <th class="text-center">Descripción</th>
                                         <th class="text-center">
@@ -635,10 +635,10 @@
                                                 <i class="fa fa-info-circle"></i>
                                             </el-tooltip>
                                         </th>
-                                        <th class="text-center">Precio 1</th>
-                                        <th class="text-center">Precio 2</th>
-                                        <th class="text-center">Precio 3</th>
-                                        <th class="text-center">P. Defecto</th>
+                                        <th class="text-center">{{ config.price1_label }}</th>
+                                        <th class="text-center">{{ config.price2_label }}</th>
+                                        <th class="text-center">{{ config.price3_label }}</th>
+                                        <th class="text-center d-none">P. Defecto</th>
                                         <th v-if="config.enable_list_product"></th>
                                     </tr>
                                     </thead>
@@ -646,7 +646,7 @@
                                     <tr v-for="(row, index) in form.item_unit_types"
                                         :key="index">
                                         <template v-if="row.id">
-                                            <td class="text-center"> {{row.barcode}} </td>
+                                            <td class="text-center d-none"> {{row.barcode}} </td>
                                             <td class="text-center">{{ row.unit_type_id }}</td>
                                             <td class="text-center">{{ row.description }}</td>
                                             <td class="text-center">{{ row.quantity_unit }}</td>
@@ -659,8 +659,8 @@
                                             <td class="text-center">
                                                 <el-input v-model="row.price3"></el-input>
                                             </td>
-                                            <td class="text-center">Precio {{ row.price_default }}</td>
-                                            <td class="series-table-actions text-right" v-if="config.enable_list_product">
+                                            <td class="text-center d-none">Precio {{ row.price_default }}</td>
+                                            <td class="series-table-actions text-end" v-if="config.enable_list_product">
                                                 <button class="btn waves-effect waves-light btn-xs btn-danger"
                                                         type="button"
                                                         @click.prevent="clickDelete(row.id)">
@@ -669,12 +669,13 @@
                                             </td>
                                         </template>
                                         <template v-else>
-                                            <td class="text-center">
+                                            <td class="text-center d-none">
                                                 <el-input v-model="row.barcode"></el-input>
                                             </td>
                                             <td>
                                                 <div class="form-group">
                                                     <el-select v-model="row.unit_type_id"
+                                                               :disabled="!config.enable_list_product"
                                                                dusk="item_unit_type.unit_type_id">
                                                         <el-option v-for="option in unit_types"
                                                                    :key="option.id"
@@ -685,12 +686,14 @@
                                             </td>
                                             <td>
                                                 <div class="form-group">
-                                                    <el-input v-model="row.description"></el-input>
+                                                    <el-input v-model="row.description"
+                                                              :disabled="!config.enable_list_product"></el-input>
                                                 </div>
                                             </td>
                                             <td>
                                                 <div class="form-group">
-                                                    <el-input v-model="row.quantity_unit"></el-input>
+                                                    <el-input v-model="row.quantity_unit"
+                                                              :disabled="!config.enable_list_product"></el-input>
                                                     <!-- <small class="form-control-feedback" v-if="errors.quantity_unit" v-text="errors.quantity_unit[0]"></small> -->
                                                 </div>
                                             </td>
@@ -712,22 +715,22 @@
                                                     <!-- <small class="form-control-feedback" v-if="errors.stock_min" v-text="errors.stock_min[0]"></small> -->
                                                 </div>
                                             </td>
-                                            <td>
+                                            <td class="d-none">
                                                 <div>
                                                     <el-select v-model="row.price_default">
                                                         <el-option :key="1"
                                                                    :value="1"
-                                                                   label="Precio 1"></el-option>
+                                                                   :label="config.price1_label"></el-option>
                                                         <el-option :key="2"
                                                                    :value="2"
-                                                                   label="Precio 2"></el-option>
+                                                                   :label="config.price2_label"></el-option>
                                                         <el-option :key="3"
                                                                    :value="3"
-                                                                   label="Precio 3"></el-option>
+                                                                   :label="config.price3_label"></el-option>
                                                     </el-select>
                                                 </div>
                                             </td>
-                                            <td class="series-table-actions text-right" v-if="config.enable_list_product">
+                                            <td class="series-table-actions text-end" v-if="config.enable_list_product">
                                                 <!-- <button type="button" class="btn waves-effect waves-light btn-xs btn-info" @click.prevent="clickSubmit(index)">
                                                     <i class="fa fa-check"></i>
                                                 </button> -->
@@ -780,7 +783,7 @@
                                          class="form-group">
                                         <label class="control-label">
                                             Categoría
-                                            <a v-if="form_category.add == false"
+                                            <!-- <a v-if="form_category.add == false"
                                                 class="control-label font-weight-bold text-info"
                                                 href="#"
                                                 @click="form_category.add = true"> [ + Nuevo]</a>
@@ -791,7 +794,7 @@
                                             <a v-if="form_category.add == true"
                                                 class="control-label font-weight-bold text-danger"
                                                 href="#"
-                                                @click="form_category.add = false"> [ Cancelar]</a>
+                                                @click="form_category.add = false"> [ Cancelar]</a> -->
                                         </label>
                                         <el-input v-if="form_category.add == true"
                                                   v-model="form_category.name"
@@ -801,11 +804,34 @@
                                         <el-select v-if="form_category.add == false"
                                                    v-model="form.category_id"
                                                    clearable
-                                                   filterable>
-                                            <el-option v-for="option in categories"
+                                                   filterable
+                                                   :filter-method="filterCategories"
+                                                   @visible-change="onCategoryDropdownChange"
+                                                   @keydown.enter.native.prevent="createCategoryFromSearch">
+                                            <el-option v-for="option in filteredCategories"
                                                        :key="option.id"
                                                        :label="option.name"
                                                        :value="option.id"></el-option>
+                                            <template slot="empty">
+                                                <p v-if="loading_search" class="el-select-dropdown__empty">
+                                                    Cargando...
+                                                </p>
+                                                <p v-else-if="categorySearchQuery" class="el-select-dropdown__empty">
+                                                    No se encontraron resultados
+                                                </p>
+                                            
+                                                <p v-else class="el-select-dropdown__empty">
+                                                    No hay categorías. <br> Escriba el nombre y presione Enter para crear
+                                                </p>
+                                            
+                                                <div
+                                                    v-if="!loading_search && categorySearchQuery"
+                                                    class="el-select-dropdown__item new-option"
+                                                    @click.stop="createCategoryFromSearch"
+                                                >
+                                                    <span>Crear categoría "{{ categorySearchQuery }}"</span>
+                                                </div>
+                                            </template>
                                         </el-select>
                                         <small v-if="errors.category_id"
                                                class="form-control-feedback"
@@ -817,7 +843,7 @@
                                          class="form-group">
                                         <label class="control-label">
                                             Marca
-                                            <a v-if="form_brand.add == false"
+                                            <!-- <a v-if="form_brand.add == false"
                                                 class="control-label font-weight-bold text-info"
                                                 href="#"
                                                 @click="form_brand.add = true"> [ + Nuevo]</a>
@@ -828,7 +854,7 @@
                                             <a v-if="form_brand.add == true"
                                                 class="control-label font-weight-bold text-danger"
                                                 href="#"
-                                                @click="form_brand.add = false"> [ Cancelar]</a>
+                                                @click="form_brand.add = false"> [ Cancelar]</a> -->
                                         </label>
                                         <el-input v-if="form_brand.add == true"
                                                   v-model="form_brand.name"
@@ -838,11 +864,35 @@
                                         <el-select v-if="form_brand.add == false"
                                                    v-model="form.brand_id"
                                                    clearable
-                                                   filterable>
-                                            <el-option v-for="option in brands"
+                                                   filterable
+                                                   :filter-method="filterBrands"
+                                                   @visible-change="onBrandDropdownChange"
+                                                   @keydown.enter.native.prevent="createBrandFromSearch">
+                                            <el-option v-for="option in filteredBrands"
                                                        :key="option.id"
                                                        :label="option.name"
                                                        :value="option.id"></el-option>
+                                            <template slot="empty">
+                                                <p v-if="loading_search" class="el-select-dropdown__empty">
+                                                    Cargando...
+                                                </p>
+                                            
+                                                <p v-else-if="brandSearchQuery" class="el-select-dropdown__empty">
+                                                    No se encontraron resultados
+                                                </p>
+                                                
+                                                <p v-else class="el-select-dropdown__empty">
+                                                    No hay marcas. <br> Escriba el nombre y presione Enter para crear
+                                                </p>
+                                            
+                                                <div
+                                                    v-if="!loading_search && brandSearchQuery"
+                                                    class="el-select-dropdown__item new-option"
+                                                    @click.stop="createBrandFromSearch"
+                                                >
+                                                    <span>Crear marca "{{ brandSearchQuery }}"</span>
+                                                </div>
+                                            </template>
                                         </el-select>
                                         <small v-if="errors.brand_id"
                                                class="form-control-feedback"
@@ -1103,7 +1153,7 @@
 <!--                                        <th>item_id</th>-->
                                         <th>Insumo</th>
                                         <th>Cantidad</th>
-<!--                                        <th class="text-right">Acciones</th>-->
+<!--                                        <th class="text-end">Acciones</th>-->
                                     </tr>
                                     </thead>
                                     <tbody>
@@ -1117,7 +1167,7 @@
                                             </td>
 
                                         <!--
-                                        <td class="text-right">
+                                        <td class="text-end">
                                             <button type="button" class="btn waves-effect waves-light btn-xs btn-info" @click.prevent="clickCreate(row.id)">Editar</button>
 
                                             <template v-if="typeUser === 'admin'">
@@ -1179,12 +1229,12 @@
                     </div>
                 </el-tab-pane>
             </el-tabs>
-            <div class="form-actions text-right pt-2 mt-2">
+            <div class="form-actions text-end pt-2 mt-2">
                 <template v-if="forOnlyShowAllDetails">
                     <el-button @click.prevent="close()">Cerrar</el-button>
                 </template>
                 <template v-else>
-                    <el-button class="second-buton" @click.prevent="close()">Cancelar</el-button>
+                    <el-button class="second-buton me-2" @click.prevent="close()">Cancelar</el-button>
                     <el-button :loading="loading_submit"
                             native-type="submit"
                             type="primary">Guardar
@@ -1206,7 +1256,7 @@
 
 <script>
 import LotsForm from './partials/lots.vue'
-import ExtraInfo from './partials/extra_info'
+import ExtraInfo from './partials/extra_info.vue'
 import {mapActions, mapState} from "vuex";
 import {ItemOptionDescription, ItemSlotTooltip} from "../../../helpers/modal_item";
 
@@ -1219,6 +1269,7 @@ export default {
         'type',
         'pharmacy',
         'onlyShowAllDetails',
+        'input_item',
     ],
     components: {
         LotsForm,
@@ -1309,6 +1360,10 @@ export default {
             warehouses: [],
             items: [],
             loading_submit: false,
+            categorySearchQuery: '',
+            filteredCategories: [],
+            brandSearchQuery: '',
+            filteredBrands: [],
             showPercentagePerception: false,
             has_percentage_perception: false,
             percentage_perception: null,
@@ -1387,6 +1442,8 @@ export default {
                 this.form.sale_affectation_igv_type_id = (this.affectation_igv_types.length > 0) ? this.affectation_igv_types[0].id : null
                 this.form.purchase_affectation_igv_type_id = (this.affectation_igv_types.length > 0) ? this.affectation_igv_types[0].id : null
                 this.inventory_configuration = data.inventory_configuration;
+                this.filteredCategories = this.categories;
+                this.filteredBrands = this.brands;
             })
 
         this.$eventHub.$on('submitPercentagePerception', (data) => {
@@ -1407,6 +1464,23 @@ export default {
     },
     beforeDestroy() {
         this.$eventHub.$off('establishmentChanged');
+    },
+
+    watch: {
+        'form.unit_type_id'(newValue) {
+            if (!this.config.enable_list_product && this.form.item_unit_types.length > 0) {
+                const selectedUnit = this.unit_types.find(u => u.id === newValue);
+                const unitDescription = selectedUnit ? selectedUnit.description : '';
+                
+                this.form.item_unit_types.forEach(item => {
+                    if (!item.id) {
+                        item.unit_type_id = newValue;
+                        item.description = unitDescription;
+                        item.quantity_unit = 1;
+                    }
+                });
+            }
+        }
     },
 
     methods: {
@@ -1462,6 +1536,8 @@ export default {
                     this.warehouses = response.data.warehouses
                     this.categories = response.data.categories
                     this.brands = response.data.brands
+                    this.filteredCategories = this.categories
+                    this.filteredBrands = this.brands
 
                     this.form.sale_affectation_igv_type_id = (this.affectation_igv_types.length > 0) ? this.affectation_igv_types[0].id : null
                     this.form.purchase_affectation_igv_type_id = (this.affectation_igv_types.length > 0) ? this.affectation_igv_types[0].id : null
@@ -1514,11 +1590,22 @@ export default {
             }
         },
         clickAddRow() {
+            let unitTypeId = 'NIU';
+            let description = null;
+            let quantityUnit = 0;
+            
+            if (!this.config.enable_list_product) {
+                unitTypeId = this.form.unit_type_id;
+                const selectedUnit = this.unit_types.find(u => u.id === unitTypeId);
+                description = selectedUnit ? selectedUnit.description : null;
+                quantityUnit = 1;
+            }
+            
             this.form.item_unit_types.push({
                 id: null,
-                description: null,
-                unit_type_id: 'NIU',
-                quantity_unit: 0,
+                description: description,
+                unit_type_id: unitTypeId,
+                quantity_unit: quantityUnit,
                 price1: 0,
                 price2: 0,
                 price3: 0,
@@ -1714,6 +1801,9 @@ this.activeName =  'first'
             } else {
                 
                 this.loadCurrentEstablishment();
+                if (this.external && this.input_item && typeof this.input_item === 'string') {
+                    this.form.description = this.input_item;
+                }
             }
 
          this.setDataToItemWarehousePrices();
@@ -1894,6 +1984,7 @@ this.activeName =  'first'
                     if (response.data.success) {
                         this.$message.success(response.data.message)
                         this.categories.push(response.data.data)
+                        this.filteredCategories = this.categories
                         this.form_category.name = null
                     } else {
                         this.$message.error('No se guardaron los cambios')
@@ -1901,6 +1992,56 @@ this.activeName =  'first'
                 })
                 .catch(error => {
 
+                })
+        },
+        filterCategories(query) {
+            this.categorySearchQuery = query
+            
+            if (query) {
+                this.filteredCategories = this.categories.filter(category => {
+                    return category.name.toLowerCase().includes(query.toLowerCase())
+                })
+            } else {
+                this.filteredCategories = this.categories
+            }
+        },
+        onCategoryDropdownChange(visible) {
+            if (!visible) {
+                // Reset cuando se cierra
+                this.categorySearchQuery = ''
+            } else {
+                // Inicializar cuando se abre
+                this.filteredCategories = this.categories
+            }
+        },
+        createCategoryFromSearch() {
+            const categoryName = this.categorySearchQuery
+            
+            if (!categoryName || categoryName.trim() === '') {
+                return
+            }
+
+            this.form_category.name = categoryName
+            
+            this.$http.post(`/categories`, this.form_category)
+                .then(response => {
+                    if (response.data.success) {
+                        this.$message.success(response.data.message)
+                        this.categories.push(response.data.data)
+                        this.filteredCategories = this.categories
+                        
+                        this.$nextTick(() => {
+                            this.form.category_id = response.data.data.id
+                        })
+                        
+                        this.form_category.name = null
+                        this.categorySearchQuery = ''
+                    } else {
+                        this.$message.error('No se guardaron los cambios')
+                    }
+                })
+                .catch(error => {
+                    this.$message.error('Error al crear la categoría')
                 })
         },
         saveBrand() {
@@ -1911,6 +2052,7 @@ this.activeName =  'first'
                     if (response.data.success) {
                         this.$message.success(response.data.message)
                         this.brands.push(response.data.data)
+                        this.filteredBrands = this.brands
                         this.form_brand.name = null
 
                     } else {
@@ -1922,6 +2064,56 @@ this.activeName =  'first'
                 })
 
 
+        },
+        filterBrands(query) {
+            this.brandSearchQuery = query
+            
+            if (query) {
+                this.filteredBrands = this.brands.filter(brand => {
+                    return brand.name.toLowerCase().includes(query.toLowerCase())
+                })
+            } else {
+                this.filteredBrands = this.brands
+            }
+        },
+        onBrandDropdownChange(visible) {
+            if (!visible) {
+                // Reset cuando se cierra
+                this.brandSearchQuery = ''
+            } else {
+                // Inicializar cuando se abre
+                this.filteredBrands = this.brands
+            }
+        },
+        createBrandFromSearch() {
+            const brandName = this.brandSearchQuery
+            
+            if (!brandName || brandName.trim() === '') {
+                return
+            }
+
+            this.form_brand.name = brandName
+            
+            this.$http.post(`/brands`, this.form_brand)
+                .then(response => {
+                    if (response.data.success) {
+                        this.$message.success(response.data.message)
+                        this.brands.push(response.data.data)
+                        this.filteredBrands = this.brands
+                        
+                        this.$nextTick(() => {
+                            this.form.brand_id = response.data.data.id
+                        })
+                        
+                        this.form_brand.name = null
+                        this.brandSearchQuery = ''
+                    } else {
+                        this.$message.error('No se guardaron los cambios')
+                    }
+                })
+                .catch(error => {
+                    this.$message.error('Error al crear la marca')
+                })
         },
         changeAttributeType(index) {
             let attribute_type_id = this.form.attributes[index].attribute_type_id

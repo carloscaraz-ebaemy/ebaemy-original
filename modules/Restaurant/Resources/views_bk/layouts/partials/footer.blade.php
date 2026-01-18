@@ -9,7 +9,7 @@
                             <svg xmlns="http://www.w3.org/2000/svg" x="0px" y="0px" width="30" height="30" viewBox="0 0 172 172" style="fill:#000000;">
                                 <g fill-rule="nonzero" stroke="none" style="mix-blend-mode: normal;">
                                     <path d="M0,172v-172h172v172z" fill="none"></path>
-                                    <g fill="#fff"> 
+                                    <g fill="#fff">
                                         <path d="M121.69,102.5636c-2.32773,-1.36453 -5.18867,-1.33587 -7.50493,0.04013l-11.7304,6.98893c-2.62587,1.5652 -5.90533,1.38173 -8.31333,-0.4988c-4.1624,-3.2508 -10.86467,-8.7204 -16.69547,-14.5512c-5.8308,-5.8308 -11.3004,-12.53307 -14.5512,-16.69547c-1.88053,-2.408 -2.064,-5.68747 -0.4988,-8.31333l6.98893,-11.7304c1.38173,-2.31627 1.3932,-5.20013 0.02867,-7.52787l-17.21147,-29.40053c-1.6684,-2.84373 -4.98227,-4.24267 -8.1872,-3.4572c-3.1132,0.7568 -7.1552,2.60293 -11.39213,6.8456c-13.26693,13.26693 -20.3132,35.64413 29.57827,85.5356c49.89147,49.89147 72.26293,42.85093 85.5356,29.57827c4.2484,-4.2484 6.0888,-8.29613 6.85133,-11.41507c0.774,-3.1992 -0.602,-6.49013 -3.44,-8.1528c-7.0864,-4.1452 -22.37147,-13.09493 -29.45787,-17.24587z"></path>
                                     </g>
                                 </g>
@@ -48,7 +48,7 @@
                         <div class="col-sm-6 col-md-5">
                             <ul class="links">
                                 <li><a href="{{ route("tenant.restaurant.menu") }}">Inicio</a></li>
-                                <li><a href="{{ route('tenant_detail_cart') }}">Ver Carrito</a></li>
+                                <li><a href="{{ route('restaurant.detail.cart') }}">Ver Carrito</a></li>
                                 @guest
                                 <li><a href="{{route('tenant_ecommerce_login')}}" class="login-link">Login</a></li>
                                 @else
@@ -68,7 +68,7 @@
                 <div class="widget">
                     <h4 class="widget-title">Redes Sociales</h4>
                     <div class="social-icons">
-                        
+
                         <!-- @if($information->link_facebook)
                             <a href="{{$information->link_facebook}}" class="social-icon" target="_blank"></a>
                         @endif -->
@@ -76,7 +76,7 @@
                         <!-- @if($information->link_twitter)
                             <a href="{{$information->link_twitter}}" class="social-icon" target="_blank"><i class="icon-twitter"></i></a>
                         @endif -->
-                        
+
                         <!-- @if($information->link_instagram)
                             <a href="{{$information->link_instagram}}" class="social-icon" target="_blank"><i class="fab fa-youtube"></i></a>
                         @endif -->
@@ -95,7 +95,7 @@
 <div class="container container-footer">
     <div class="footer-bottom" style="padding-bottom: 2rem;">
         <!-- <p class="footer-copyright">Facturador Pro 4. &copy; {{ now()->year }}. Todos los Derechos Reservados</p> -->
-        <img src="{{ asset('porto-ecommerce/assets/images/payments.png') }}" alt="payment methods"
+        <img src="{{ asset('porto-ecommerce/assets/images/payments.svg') }}" alt="payment methods"
             class="footer-payments">
     </div>
 </div>
@@ -219,32 +219,33 @@
             </div>
         </div>
     </div>
-   
+
 </div>
 <script>
-document.addEventListener("DOMContentLoaded", () => {
-    const firstColumn = document.getElementById("contenedor-form");
-    // console.log(firstColumn);
-    const btnIniciarSesion = document.getElementById("iniciar-sesion");
-    // console.log(btnIniciarSesion);
-    const btnRegistrarse = document.getElementById("registrarse");
-    // console.log(btnRegistrarse);
+// error upgrade | [Vue warn]: Error compiling template
+// document.addEventListener("DOMContentLoaded", () => {
+//     const firstColumn = document.getElementById("contenedor-form");
+//     // console.log(firstColumn);
+//     const btnIniciarSesion = document.getElementById("iniciar-sesion");
+//     // console.log(btnIniciarSesion);
+//     const btnRegistrarse = document.getElementById("registrarse");
+//     // console.log(btnRegistrarse);
 
-    btnIniciarSesion.addEventListener("click", () => {
-        firstColumn.classList.remove("active");
+//     btnIniciarSesion.addEventListener("click", () => {
+//         firstColumn.classList.remove("active");
 
-    });
-    btnRegistrarse.addEventListener("click", () => {
-        firstColumn.classList.add("active");
+//     });
+//     btnRegistrarse.addEventListener("click", () => {
+//         firstColumn.classList.add("active");
 
-    });
-});
+//     });
+// });
 
 </script>
 @push('scripts')
 <!-- <script type="text/javascript" src="{{ asset('porto-ecommerce/assets/js/cart.js') }}"></script> -->
 <script type="text/javascript">
-    
+
 
 
     matchPassword();

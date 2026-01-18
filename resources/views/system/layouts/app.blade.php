@@ -17,12 +17,11 @@
     {{--<link rel="dns-prefetch" href="https://fonts.gstatic.com">--}}
     {{--<link href="https://fonts.googleapis.com/css?family=Nunito" rel="stylesheet" type="text/css">--}}
 
-    <link href="{{ mix('css/app.css') }}" rel="stylesheet">
 
     <!-- Styles -->
     <link href="https://fonts.googleapis.com/css?family=Open+Sans:300,400,600,700,800|Shadows+Into+Light" rel="stylesheet" type="text/css">
 
-    <link rel="stylesheet" href="{{ asset('porto-light/vendor/bootstrap/css/bootstrap.css') }}" />
+    {{-- <link rel="stylesheet" href="{{ asset('porto-light/vendor/bootstrap/css/bootstrap.css') }}" /> --}}
     <link rel="stylesheet" href="{{ asset('porto-light/vendor/animate/animate.css') }}" />
     <link rel="stylesheet" href="{{ asset('porto-light/vendor/font-awesome/css/fontawesome-all.min.css') }}" />
     <link rel="stylesheet" href="{{ asset('porto-light/vendor/select2/css/select2.css') }}" />
@@ -53,7 +52,7 @@
 
     <link rel="stylesheet" href="{{asset('porto-light/vendor/jquery-loading/dist/jquery.loading.css')}}" />
 
-    @stack('styles') 
+    @stack('styles')
     <script src="{{ asset('porto-light/vendor/modernizr/modernizr.js') }}"></script>
 
     <style>
@@ -69,6 +68,8 @@
             box-shadow: 2px 0 0 #0088CC inset;
         }
     </style>
+    <!-- vite aqui -->
+    @vite(['resources/js/system.js'])
 </head>
 <body class="pr-0">
     <section class="body">
@@ -131,39 +132,12 @@
 
     @stack('scripts')
 
-    <script src="{{ asset('js/manifest.js') }}"></script>
-    <script src="{{ asset('js/vendor.js') }}"></script>
-    <script src="{{ mix('js/app.js') }}"></script>
+    {{-- <script src="{{ asset('js/manifest.js') }}"></script> --}}
+    {{-- <script src="{{ asset('js/vendor.js') }}"></script> --}}
     <!-- Theme Base, Components and Settings -->
     <script src="{{asset('porto-light/js/theme.js')}}"></script>
 
-<?php echo config('app.limite_reseller'); ?>
-<script>
-var btn_crear_cliente = document.querySelector('#client-list .card-body .row .col button');
-var tabla_clientes = document.querySelector('#client-list .table');
-var limite_reseller = "{{ config('app.limite_reseller') }}";
-
-btn_crear_cliente.disabled = true;
-
-var esperar_tabla = setInterval(function(){
-  if(tabla_clientes && tabla_clientes.rows.length > 1){
-    console.log('existe tabla');
-
-    if(tabla_clientes.rows.length >= limite_reseller){
-      btn_crear_cliente.innerText = 'Clientes máximos creados. Actualice su plan llamando al 944999965';
-      btn_crear_cliente.disabled = true;
-    } else {
-	 btn_crear_cliente.disabled = false;
-    }
-    clearInterval(esperar_tabla);
-  } else {
-    console.log('Aún no existe tabla de clientes');
-    btn_crear_cliente.disabled = false;
-  }
-
-}, 1000);
-
-</script>
+{{-- <?php echo config('app.limite_reseller'); ?> --}}
 </body>
 
 </html>

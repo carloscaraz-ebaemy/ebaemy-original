@@ -1,13 +1,13 @@
 <template>
   <div>
-    <div class="page-header pr-0">
+    <div class="page-header pe-0">
       <h2><a href="/dashboard"><i class="fas fa-tachometer-alt"></i></a></h2>
       <ol class="breadcrumbs">
           <li class="active"><span>Pagos</span></li>
       </ol>
       <div class="right-wrapper pull-right">
           <template>
-              <a type="button" class="btn btn-custom btn-sm  mt-2 mr-2" href="/cuenta/configuration"><i class="fas fa-cogs"></i> Configuración</a>
+              <a type="button" class="btn btn-custom btn-sm  mt-2 me-2" href="/cuenta/configuration"><i class="fas fa-cogs"></i> Configuración</a>
           </template>
       </div>
     </div>

@@ -1,6 +1,6 @@
 <template>
     <div>
-        <div class="page-header pr-0">
+        <div class="page-header pe-0">
             <h2>
                 <a href="/list-reports">
                     <svg
@@ -42,19 +42,19 @@
                     <data-table :resource="resource">
                         <tr slot="heading">
                             <!-- <th>#</th> -->
-                            <th class="text-left">Fecha Emisión</th>
+                            <th class="text-start">Fecha Emisión</th>
                             <th>Cliente</th>
                             <th>Vendedor</th>
                             <th>Número</th>
                             <th>Estado</th>
-                            <th class="text-left">Fecha Envío</th>
+                            <th class="text-start">Fecha Envío</th>
                             <th class="text-center">Orden de pedido</th>
                             <th class="text-center">Producto</th>
                             <th class="text-center">Cantidad</th>
                         </tr>
                         <tr slot-scope="{ index, row }">
                             <!-- <td>{{ index }}</td> -->
-                            <td class="text-left">
+                            <td class="text-start">
                                 {{ formatDate(row.dispatches.date_of_issue) }}
                             </td>
                             <td>
@@ -91,7 +91,7 @@
                                     }}</span
                                 >
                             </td>
-                            <td class="text-left">
+                            <td class="text-start">
                                 {{
                                     formatDate(row.dispatches.date_of_shipping)
                                 }}

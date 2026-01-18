@@ -6,6 +6,7 @@
     $configuration = Configuration::first();
     ?>
 <div class="page-header pr-0">
+    <span class="module-title-marker" data-page-title="Configuración"></span>
     <h2>
         <a href="/dashboard">
             <i class="fas fa-home"></i>
@@ -21,7 +22,7 @@
     </ol>
 </div>
 
-<div class="row tab-content-default row-new bg-transparent border-0">
+<div class="row tab-content-default row-new bg-transparent border-0" style="background: transparent !important;">
     <div class="col-6 col-md-4 mb-4">
         <div class="card card-dashboard card-reports">
             <div class="card-body">
@@ -92,6 +93,12 @@
                     </li>
                     <li>
                         <a href="{{url('list-units')}}">Listado de unidades</a>
+                    </li>
+                    <li>
+                        <a href="{{url('list-item-affectations')}}">Listado de afectación por producto
+                                        <sup
+                                        style="background: #ffc300;padding: 3px 3px;border-radius: 4px;">Nuevo</sup>
+                        </a>
                     </li>
                     <li>
                         <a href="{{url('list-transfer-reason-types')}}">Tipos de motivos de transferencias</a>
@@ -183,7 +190,12 @@
                                         </a>
                                     </li>
                                 @endif
-
+                    <li>
+                        <a href="{{route('tenant.item-editor-tag.index')}}">Editor de etiqueta
+                                        <sup
+                                        style="background: #ffc300;padding: 3px 3px;border-radius: 4px;">Nuevo</sup>
+                        </a>
+                    </li>
                 </ul>
             </div>
         </div>

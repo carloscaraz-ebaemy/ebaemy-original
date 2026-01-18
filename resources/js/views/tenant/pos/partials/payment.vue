@@ -43,7 +43,7 @@
                         </div>
                         <div class="col-4 p-l-0">
                             <!-- <p class="font-weight-semibold m-b-0">{{currencyTypeActive.symbol}} 240.00</p> -->
-                            <p class="m-0 text-right">
+                            <p class="m-0 text-end">
                                 {{ currencyTypeActive.symbol }} {{ (item.total).toFixed(2) }}</p>
                         </div>
 
@@ -78,7 +78,7 @@
                         <div class="col-sm-6 py-1">
                             <p class="font-weight-semibold mb-0">SUBTOTAL</p>
                         </div>
-                        <div class="col-sm-6 py-1 text-right">
+                        <div class="col-sm-6 py-1 text-end">
                             <p class="font-weight-semibold mb-0">{{ currencyTypeActive.symbol }} {{
                                     form.total_taxed
                                                                  }}</p>
@@ -88,7 +88,7 @@
                         <div class="col-sm-6 py-1">
                             <p class="font-weight-semibold mb-0">IGV</p>
                         </div>
-                        <div class="col-sm-6 py-1 text-right">
+                        <div class="col-sm-6 py-1 text-end">
                             <p class="font-weight-semibold mb-0">{{ currencyTypeActive.symbol }}
                                                                  {{ form.total_igv }}</p>
                         </div>
@@ -97,7 +97,7 @@
                         <div class="col-sm-6 py-1">
                             <p class="font-weight-semibold mb-0">ISC</p>
                         </div>
-                        <div class="col-sm-6 py-1 text-right">
+                        <div class="col-sm-6 py-1 text-end">
                             <p class="font-weight-semibold mb-0">{{ currencyTypeActive.symbol }}
                                                                  {{ form.total_isc }}</p>
                         </div>
@@ -106,7 +106,7 @@
                         <div class="col-sm-6 py-1">
                             <p class="font-weight-semibold mb-0">ICBPER</p>
                         </div>
-                        <div class="col-sm-6 py-1 text-right">
+                        <div class="col-sm-6 py-1 text-end">
                             <p class="font-weight-semibold mb-0">{{ currencyTypeActive.symbol }}
                                                                  {{ form.total_plastic_bag_taxes }}</p>
                         </div>
@@ -119,7 +119,7 @@
                             <div class="col-sm-6">
                                 <p class="mb-0">SUBTOTAL</p>
                             </div>
-                            <div class="col-sm-6 text-right">
+                            <div class="col-sm-6 text-end">
                                 <p class="font-weight-semibold mb-0">{{ currencyTypeActive.symbol }} {{
                                         form.total_taxed }}</p>
                             </div>
@@ -129,7 +129,7 @@
                             <div class="col-sm-6">
                                 <p class="mb-0">IGV</p>
                             </div>
-                            <div class="col-sm-6 text-right">
+                            <div class="col-sm-6 text-end">
                                 <p class="font-weight-semibold mb-0">{{ currencyTypeActive.symbol }}
                                                                     {{ form.total_igv }}</p>
                             </div>
@@ -140,7 +140,7 @@
                         <div class="col-sm-6">
                             <p class="mb-0">ISC</p>
                         </div>
-                        <div class="col-sm-6 text-right">
+                        <div class="col-sm-6 text-end">
                             <p class="font-weight-semibold mb-0">{{ currencyTypeActive.symbol }}
                                                                 {{ form.total_isc }}</p>
                         </div>
@@ -152,7 +152,7 @@
                     <div class="col-sm-6 py-1">
                         <p class="font-weight-semibold mb-0">DESCUENTO</p>
                     </div>
-                    <div class="col-sm-6 py-1 text-right">
+                    <div class="col-sm-6 py-1 text-end">
                         <p class="font-weight-semibold mb-0">{{currencyTypeActive.symbol}} 4.00</p>
                     </div>
                 </div> -->
@@ -160,15 +160,15 @@
                     <div class="col-sm-6 p-0">
                         <p class="font-weight-semibold text-sm text-secondary mb-0">TOTAL</p>
                     </div>
-                    <div class="col-sm-6 p-0 text-right">
+                    <div class="col-sm-6 p-0 text-end">
                         <p class="font-weight-semibold text-sm text-secondary mb-0">{{ currencyTypeActive.symbol }} {{form.total}}</p>
                     </div>
                 </div>
                 <div class="row m-0 p-0 d-flex align-items-center">
                     <div class="col-lg-12">
                         <button :disabled="button_payment && payment_method_type_id != '09'"
-                                class="btn py-3 btn-block btn-primary"
-                                @click="clickPayment">PAGAR <i class="fas fa-wallet ml-2"></i>
+                                class="btn py-3 btn-block btn-primary w-100"
+                                @click="clickPayment">PAGAR <i class="fas fa-wallet ms-2"></i>
                         </button>
                     </div>
                     <div class="col-lg-12 center">
@@ -183,7 +183,7 @@
             <div class="row d-flex justify-content-center pt-2">
 
                 <div class="col-lg-8 border-highlight">
-                <div class="card card-body">
+                <div class="card-body">
 
                 <div class="d-flex justify-content-between">
 
@@ -239,10 +239,10 @@
                         <div class="card-body text-center">
 
                             <div class="row col-lg-12">
-                                <div class="col-lg-4">
+                                <div class="col-lg-4 position-relative">
                                     <span slot="prepend" class="currency-symbol-span">{{ currencyTypeActive.symbol }}</span>
                                     <div class="form-group amount-container">
-                                        <label class="control-label text-left w-100">Ingrese monto</label>
+                                        <label class="control-label text-start w-100">Ingrese monto</label>
                                         <el-input ref="enter_amount"
                                                   v-model="enter_amount"
                                                   @input="enterAmount()"
@@ -251,18 +251,20 @@
 
                                     </div>
                                 </div>
-                                <div class="col-lg-4 descount-container">
+                                <div class="col-lg-4 descount-container position-relative">
+                                    <template v-if="enabled_discount">
+                                        <span slot="prepend" class="currency-symbol-span" v-if="is_discount_amount">{{ currencyTypeActive.symbol }}</span>
+                                        <span slot="append" class="currency-symbol-span" v-else>%</span>
+                                    </template>
                                     <h2 class="m-0 d-flex align-items-center justify-content-center switch-wrapper">
                                         <el-switch v-model="enabled_discount"
                                                    active-text="Descuento"
                                                    class="control-label font-weight-semibold m-0 text-center m-b-0"
                                                    @change="changeEnabledDiscount"></el-switch>
                                     </h2>
-                                    <div v-if="enabled_discount">
-                                        <span slot="prepend" class="currency-symbol-span" v-if="is_discount_amount">{{ currencyTypeActive.symbol }}</span>
-                                        <span slot="append" class="currency-symbol-span" v-else>%</span>
+                                    <div v-if="enabled_discount">                                        
                                         <div class="form-group amount-container">
-                                            <label class="control-label text-left w-100 d-flex align-items-center gap-1">
+                                            <label class="control-label text-start w-100 d-flex align-items-center gap-1">
                                                 <span class="text-truncate" style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
                                                     {{ is_discount_amount ? 'Monto' : 'Porcentaje' }} descuento
                                                 </span>
@@ -274,7 +276,7 @@
                                                     effect="dark"
                                                     placement="top"
                                                 >
-                                                    <i class="fa fa-info-circle ml-1"></i>
+                                                    <i class="fa fa-info-circle ms-1"></i>
                                                 </el-tooltip>
                                             </label>
                                             <el-input v-model="discount_amount"
@@ -282,9 +284,9 @@
                                                       @change="inputDiscountAmount()"
                                                       >
                                             </el-input>
-                                            <label class="text-left w-100">
+                                            <label class="text-start w-100">
                                                 <el-checkbox v-model="is_discount_amount"
-                                                    class="ml-0 mr-1"
+                                                    class="ms-0 me-1"
                                                     @change="changeTypeDiscount">
                                                     Aplicar como Monto
                                                 </el-checkbox>
@@ -540,7 +542,7 @@
 }
 .switch-wrapper .el-switch.is-checked{
     position: absolute;
-    top: -6px !important;
+    top: -7px !important;
     left: 50%;
     transform: translateX(-50%);
 }

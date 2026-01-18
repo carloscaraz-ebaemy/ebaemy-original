@@ -1,6 +1,6 @@
 <template>
   <div>
-    <div class="page-header pr-0">
+    <div class="page-header pe-0">
       <h2>
         <a href="/hotels/floors">
           <svg  xmlns="http://www.w3.org/2000/svg" style="margin-top: -5px;" width="24"  height="24"  viewBox="0 0 24 24"  fill="none"  stroke="currentColor"  stroke-width="2"  stroke-linecap="round"  stroke-linejoin="round"  class="icon icon-tabler icons-tabler-outline icon-tabler-building-skyscraper"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M3 21l18 0" /><path d="M5 21v-14l8 -4v18" /><path d="M19 21v-10l-6 -4" /><path d="M9 9l0 .01" /><path d="M9 12l0 .01" /><path d="M9 15l0 .01" /><path d="M9 18l0 .01" /></svg>
@@ -13,7 +13,7 @@
         <div class="btn-group flex-wrap">
           <button
             type="button"
-            class="btn btn-custom btn-sm mt-2 mr-2"
+            class="btn btn-custom btn-sm mt-2 me-2"
             @click="onCreate"
           >
             <i class="fa fa-plus-circle"></i> Nuevo
@@ -48,7 +48,7 @@
               <tr>
                 <!-- <th class="text-center">#</th> -->
                 <th>Ubicación</th>
-                <th class="text-left">Visible</th>
+                <th class="text-start">Visible</th>
                 <th>Sucursal</th>
                 <th></th>
               </tr>
@@ -57,13 +57,13 @@
               <tr v-for="item in items" :key="item.id">
                 <!-- <td class="text-center">{{ item.id }}</td> -->
                 <td>{{ item.description }}</td>
-                <td class="text-left">
+                <td class="text-start">
                   <span v-if="item.active">Si</span>
                   <span v-else>No</span>
                 </td>
                 <td>{{ item.establishment_name }}</td>
-                <td class="text-right">
-                  <el-button type="success" @click="onEdit(item)">
+                <td class="text-end">
+                  <el-button class="me-2" type="success" @click="onEdit(item)">
                     <i class="fa fa-edit"></i>
                   </el-button>
                   <el-button type="danger" @click="onDelete(item)">
@@ -100,7 +100,7 @@
 </template>
 
 <script>
-import ModalAddEdit from "./AddEdit";
+import ModalAddEdit from "./AddEdit.vue";
 
 export default {
   props: {
@@ -195,7 +195,7 @@ export default {
           this.loading = false;
         });
     },
-    
+
   },
 };
 </script>

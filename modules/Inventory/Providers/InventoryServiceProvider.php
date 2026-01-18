@@ -3,7 +3,7 @@
 namespace Modules\Inventory\Providers;
 
 use Illuminate\Support\ServiceProvider;
-use Illuminate\Database\Eloquent\Factory;
+// use Illuminate\Database\Eloquent\Factory;
 use Modules\Inventory\Models\Guide;
 use Modules\Inventory\Models\InventoryTransfer;
 use Modules\Inventory\Observers\GuideObserver;
@@ -21,7 +21,7 @@ class InventoryServiceProvider extends ServiceProvider
         $this->registerTranslations();
         $this->registerConfig();
         $this->registerViews();
-        $this->registerFactories();
+    // $this->registerFactories();
         $this->loadMigrationsFrom(__DIR__ . '/../Database/Migrations');
         Guide::observe(GuideObserver::class);
         InventoryTransfer::observe(InventoryTransferObserver::class);

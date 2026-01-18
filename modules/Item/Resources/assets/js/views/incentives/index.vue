@@ -1,6 +1,6 @@
 <template>
     <div>
-        <div class="page-header pr-0">
+        <div class="page-header pe-0">
             <h2><a href="/dashboard"><i class="fas fa-tachometer-alt"></i></a></h2>
             <ol class="breadcrumbs">
                 <li class="active"><span>Comisiones</span></li>
@@ -21,7 +21,7 @@
                         <th>Producto</th> 
                         <th>Tipo</th> 
                         <th>Comisión</th>
-                        <th class="text-right">Acciones</th>
+                        <th class="text-end">Acciones</th>
                     <tr>
                     <tr slot-scope="{ index, row }">
                         <td>{{ index }}</td>
@@ -29,9 +29,9 @@
                         <td>{{ row.full_description }}</td> 
                         <td>{{ row.commission_type }}</td>
                         <td>{{ row.commission_amount }}</td>
-                        <td class="text-right">
+                        <td class="text-end">
                             <template v-if="typeUser === 'admin'">
-                                <button type="button" class="btn waves-effect waves-light btn-xs btn-info" @click.prevent="clickCreate(row.id)">Comisión</button>
+                                <button type="button" class="btn waves-effect waves-light btn-xs btn-info me-1" @click.prevent="clickCreate(row.id)">Comisión</button>
                                 <button type="button" class="btn waves-effect waves-light btn-xs btn-danger" @click.prevent="clickDelete(row.id)">Eliminar</button>
                             </template>
                         </td>

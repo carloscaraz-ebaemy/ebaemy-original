@@ -38,6 +38,7 @@ if ($hostname)
             Route::prefix('items')->group(function () {
 
                 Route::get('records-sale', 'Api\ItemController@recordsSale');
+                Route::get('list-price', 'Api\ItemController@list_price');
                 Route::get('table/{table}', 'Api\ItemController@table');
                 Route::get('tables', 'Api\ItemController@tables');
                 Route::post('update', 'Api\ItemController@update');

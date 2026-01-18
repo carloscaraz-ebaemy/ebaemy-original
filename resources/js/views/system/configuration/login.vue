@@ -10,106 +10,129 @@
           <div class="col-12 form-group mb-4">
             <label>Usar configuración global</label>
             <el-switch v-model="form.use_login_global"></el-switch>
-          </div>
+          </div>          
           <template v-if="form.use_login_global">
-            <div class="col-12 col-md-6 form-group">
-              <div class="form-group">
-                <label class="control-label">Color de fondo del login</label>
-                <el-color-picker 
-                  class="col-md-12 px-0"
-                  v-model="form.login_bg_color"
-                  show-alpha
-                  :predefine="['rgb(248, 248, 248)', '#ffffff', '#f0f0f0', '#e6e6e6', '#d9d9d9', '#cccccc']">
-                </el-color-picker>                
+            <div class="col-12 form-group row pb-5">
+              <div class="col-6 col-md-6">
+                <h4 class="mt-2">Apariencia del Login</h4>
+                <div class="form-group">
+                  <label class="control-label">Posición del formulario</label>
+                  <el-select v-model="form.position_form">
+                    <el-option
+                      key="left"
+                      value="left"
+                      label="Izquierda"
+                    ></el-option>
+                    <el-option
+                      key="right"
+                      value="right"
+                      label="Derecha"
+                    ></el-option>
+                  </el-select>
+                  <small
+                    class="form-control-feedback"
+                    v-if="errors.position_form"
+                    v-text="errors.position_form[0]"
+                  ></small>
+                </div>
+                <div class="form-group">
+                  <label class="control-label">Color de fondo de la imagen</label>
+                  <el-color-picker 
+                    class="col-12 px-0"
+                    v-model="form.login_bg_color"
+                    show-alpha
+                    :predefine="['rgb(248, 248, 248)', '#ffffff', '#f0f0f0', '#e6e6e6', '#d9d9d9', '#cccccc']">
+                  </el-color-picker>                
+                </div>
+                <div class="form-group">
+                  <label>Quitar marco a la imagen</label>
+                  <el-switch v-model="form.padding_in_form"></el-switch>
+                </div>
               </div>
-              <ImageBgUpload type="bg" :config="configuration.login"></ImageBgUpload>
-              <br>
-              <ImageBgUpload type="logo" :config="configuration.login"></ImageBgUpload>
+
+              <div class="col-6 col-md-6">
+                <ImageBgUpload type="bg" :config="configuration.login"></ImageBgUpload>
+              </div>                                                                 
             </div>
-            <div class="col-12 col-md-6">
-              <!-- Configuración del formulario de login -->
-              <div class="form-group">
-                <label class="control-label">Posición del formulario</label>
-                <el-select v-model="form.position_form">
-                  <el-option
-                    key="left"
-                    value="left"
-                    label="Izquierda"
-                  ></el-option>
-                  <el-option
-                    key="right"
-                    value="right"
-                    label="Derecha"
-                  ></el-option>
-                </el-select>
-                <small
-                  class="form-control-feedback"
-                  v-if="errors.position_form"
-                  v-text="errors.position_form[0]"
-                ></small>
+            <div class="col-12 row pb-5">
+              <div class="col-6 col-md-6">
+                <h4 class="mt-2">Marca y Logo</h4>
+                <div class="form-group">
+                  <label class="control-label">Posición del logo</label>
+                  <el-select v-model="form.position_logo">
+                    <el-option
+                      key="on-form"
+                      value="on-form"
+                      label="Encima del formulario"
+                    ></el-option>
+                    <el-option
+                      key="top-left"
+                      value="top-left"
+                      label="Superior izquierda"
+                    ></el-option>
+                    <el-option
+                      key="bottom-left"
+                      value="bottom-left"
+                      label="Inferior izquierda"
+                    ></el-option>
+                    <el-option
+                      key="top-right"
+                      value="top-right"
+                      label="Superior derecha"
+                    ></el-option>
+                    <el-option
+                      key="bottom-right"
+                      value="bottom-right"
+                      label="Inferior derecha"
+                    ></el-option>
+                    <el-option
+                      key="none"
+                      value="none"
+                      label="Ocultar"
+                    ></el-option>
+                  </el-select>
+                  <small
+                    class="form-control-feedback"
+                    v-if="errors.position_logo"
+                    v-text="errors.position_logo[0]"
+                  ></small>
+                </div>
               </div>
-              <div class="form-group">
-                <label>Mostrar logo en el formulario</label>
-                <el-switch v-model="form.show_logo_in_form"></el-switch>
-              </div>
-              <div class="form-group">
-                <label class="control-label">Posición del logo de la empresa</label>
-                <el-select v-model="form.position_logo">
-                  <el-option
-                    key="top-left"
-                    value="top-left"
-                    label="Superior izquierda"
-                  ></el-option>
-                  <el-option
-                    key="bottom-left"
-                    value="bottom-left"
-                    label="Inferior izquierda"
-                  ></el-option>
-                  <el-option
-                    key="top-right"
-                    value="top-right"
-                    label="Superior derecha"
-                  ></el-option>
-                  <el-option
-                    key="bottom-right"
-                    value="bottom-right"
-                    label="Inferior derecha"
-                  ></el-option>
-                  <el-option
-                    key="none"
-                    value="none"
-                    label="Ocultar"
-                  ></el-option>
-                </el-select>
-                <small
-                  class="form-control-feedback"
-                  v-if="errors.position_logo"
-                  v-text="errors.position_logo[0]"
-                ></small>
-              </div>
+              <div class="col-6 col-md-6">
+                <ImageBgUpload type="logo" :config="configuration.login"></ImageBgUpload>
+              </div>                                      
+            </div>
+            <div class="col-12 pb-4">
+              <h4 class="mt-2">Redes Sociales y Enlaces Externos</h4>
               <div class="form-group">
                 <label>Mostrar botones de redes sociales</label>
                 <el-switch v-model="form.show_socials"></el-switch>
               </div>
-              <div class="form-group">
-                <label class="control-label">Facebook</label>
-                <el-input v-model="form.facebook"></el-input>
+              <div class="row" v-if="form.show_socials">
+                <div class="form-group col-12 col-md-6">
+                  <label class="control-label">Facebook</label>
+                  <el-input v-model="form.facebook"></el-input>
+                </div>
+                <div class="form-group col-12 col-md-6">
+                  <label class="control-label">X <small>(Twitter)</small></label>
+                  <el-input v-model="form.twitter"></el-input>
+                </div>
+                <div class="form-group col-12 col-md-6">
+                  <label class="control-label">Instagram</label>
+                  <el-input v-model="form.instagram"></el-input>
+                </div>
+                <div class="form-group col-12 col-md-6">
+                  <label class="control-label">Linkedin</label>
+                  <el-input v-model="form.linkedin"></el-input>
+                </div>
+                <div class="form-group col-12 col-md-6">
+                  <label class="control-label">TikTok</label>
+                  <el-input v-model="form.tiktok"></el-input>
+                </div>  
               </div>
-              <div class="form-group">
-                <label class="control-label">Twitter</label>
-                <el-input v-model="form.twitter"></el-input>
-              </div>
-              <div class="form-group">
-                <label class="control-label">Instagram</label>
-                <el-input v-model="form.instagram"></el-input>
-              </div>
-              <div class="form-group">
-                <label class="control-label">Linkedin</label>
-                <el-input v-model="form.linkedin"></el-input>
-              </div>              
             </div>
           </template>
-          <div class="text-right mt-3 col-12">
+          <div class="text-end mt-3 col-12">
             <el-button
               :loading="loading"
               :disabled="loading"
@@ -130,7 +153,7 @@
 }
 </style>
 <script>
-import ImageBgUpload from "./UploadBgImage";
+import ImageBgUpload from "./UploadBgImage.vue";
 
 export default {
   components: {
@@ -146,10 +169,12 @@ export default {
         position_logo: "",
         show_socials: "",
         use_login_global: false,
+        padding_in_form: false,
         facebook: '',
         twitter: '',
         instagram: '',
         linkedin: '',
+        tiktok: '',
         login_bg_color: 'rgb(248, 248, 248)',
       },
       errors: {},
@@ -159,13 +184,22 @@ export default {
     this.form.position_form = this.configuration.login.position_form;
     this.form.show_logo_in_form = this.configuration.login.show_logo_in_form;
     this.form.position_logo = this.configuration.login.position_logo;
+    this.form.padding_in_form = this.configuration.login.padding_in_form || false;
     this.form.show_socials = this.configuration.login.show_socials;
     this.form.use_login_global = this.configuration.use_login_global;
     this.form.facebook = this.configuration.login.facebook;
     this.form.twitter = this.configuration.login.twitter;
     this.form.instagram = this.configuration.login.instagram;
     this.form.linkedin = this.configuration.login.linkedin;
+    this.form.tiktok = this.configuration.login.tiktok;
     this.form.login_bg_color = this.configuration.login_bg_color || 'rgb(248, 248, 248)';
+  },
+  watch: {
+    'form.position_logo': function(newValue) {
+      // Si se selecciona "Encima del formulario", activar show_logo_in_form
+      // Si se selecciona cualquier otra opción (incluido "none"), desactivar show_logo_in_form
+      this.form.show_logo_in_form = newValue === 'on-form';
+    }
   },
   methods: {
     initForm() {

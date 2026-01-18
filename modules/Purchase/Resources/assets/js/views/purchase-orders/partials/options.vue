@@ -52,12 +52,12 @@
                     <el-button slot="append" icon="el-icon-message"   @click="clickSendEmail" :loading="loading">Enviar</el-button>
                 </el-input>
             </div>
-            <div class="col-md-5">
+            <div class="col-md-5 d-flex">
                 <template v-if="showClose">
-                    <el-button @click="clickClose">Cerrar</el-button>
+                    <el-button class="me-2" @click="clickClose">Cerrar</el-button>
                 </template>
                 <template v-else>
-                    <el-button @click="clickFinalize">Ir al listado</el-button>
+                    <el-button class="me-2" @click="clickFinalize">Ir al listado</el-button>
                     <el-button type="primary" @click="clickNewDocument">{{button_text}}</el-button>
                 </template>
             </div>

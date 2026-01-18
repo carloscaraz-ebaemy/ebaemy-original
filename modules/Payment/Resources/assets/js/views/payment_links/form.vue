@@ -21,8 +21,8 @@
                     </div>
                 </div>
             </div>
-            <div class="form-actions text-right mt-3">
-                <el-button class="second-buton" @click.prevent="close()">Cancelar</el-button>
+            <div class="form-actions text-end mt-3">
+                <el-button class="second-buton me-2" @click.prevent="close()">Cancelar</el-button>
                 <el-button type="primary" native-type="submit" :loading="loading_submit">Guardar</el-button>
             </div>
         </form>

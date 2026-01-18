@@ -31,8 +31,8 @@
                                 <small class="form-control-feedback" v-if="errors.address_contact" v-text="errors.address_contact[0]"></small>
                             </div>
                         </div>
-                        <div class="col-md-6">
-                            <label>Ver icono de soporte</label>
+                        <div class="col-md-6 mt-3">
+                            <label>Mostrar botón flotante de WhatsApp</label>
                             <div :class="{'has-danger': errors.enable_whatsapp}">
                                 <el-switch
                                     v-model="form.enable_whatsapp"
@@ -41,24 +41,25 @@
                                 </el-switch>
                                 <small class="form-control-feedback" v-if="errors.enable_whatsapp" v-text="errors.enable_whatsapp[0]"></small>
                                 <br>
-                                <small class="form-control-feedback">Se mostrará un icono de Whatsapp en cada cliente.</small>
+                                <small class="form-control-feedback">Se mostrará el botón de Whatsapp en la parte inferior derecha en el sistema del cliente.</small>
                             </div>
                         </div>
                         <div class="col-12">
                             <div class="form-group" :class="{'has-danger': errors.introduction}">
-                                <label class="control-label d-block">Introducción</label>
+                                <label class="control-label d-block">Mensaje de introducción</label>
                                 <ckeditor
                                     :editors="editors"
                                     type="classic"
                                     v-model="form.introduction"
                                     :config="editorConfig"
                                 />
+                                <small class="form-control-feedback">Agrega detalles sobre el soporte. Puede indicar algún mensaje corto sobre como es la atención o el  horario o forma de comunicarse con soporte.</small>
                                 <small class="form-control-feedback" v-if="errors.introduction" v-text="errors.introduction[0]"></small>                                
                             </div>
                         </div>
                     </div>
                 </div>
-                <div class="form-actions text-right pt-2">
+                <div class="form-actions text-end pt-2">
                     <el-button type="primary" native-type="submit" :loading="loading_submit">Guardar</el-button>
                 </div>
             </form>

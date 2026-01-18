@@ -1,6 +1,6 @@
 <template>
     <div>
-        <div class="page-header pr-0">
+        <div class="page-header pe-0">
             <h2>
                 <a href="#"><i class="fas fa-cogs"></i></a>
             </h2>
@@ -13,7 +13,7 @@
                 <button
                     type="button"
                     @click="addSeeder"
-                    class="btn btn-custom btn-sm  mt-2 mr-2"
+                    class="btn btn-custom btn-sm  mt-2 me-2"
                 >
                     <i class="el-icon-refresh"></i> Actualizar listado
                 </button>
@@ -45,7 +45,7 @@
                             /></a>
                             <div style="padding: 14px;">
                                 <span class="text-center">{{ o.formats }}</span>
-                                <div class="bottom clearfix text-right">
+                                <div class="bottom clearfix text-end">
                                     <!-- <el-button type="submit" class="button" @change="changeFormat(o.formats)">Activo</el-button> -->
                                     <el-button type="submit" @click="showPdf(o.formats)" class="second-buton button">Imprimir</el-button>
                                     <!-- <el-radio

@@ -1,6 +1,6 @@
 <template>
   <div class="col-lg-6 col-md-12 0">
-    <div class="card">
+    <div class="card card-config">
       <div class="card-header bg-info">
         <h3 class="my-0">Paypal</h3>
       </div>
@@ -31,7 +31,7 @@
               </div>
             </div>
           </div>
-          <div class="form-actions text-right pt-2">
+          <div class="form-actions text-end float-end pt-2">
             <el-button type="primary" native-type="submit" :loading="loading_submit">Guardar</el-button>
           </div>
         </form>

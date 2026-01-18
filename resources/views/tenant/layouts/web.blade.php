@@ -17,12 +17,12 @@
     {{--<link rel="dns-prefetch" href="https://fonts.gstatic.com">--}}
     {{--<link href="https://fonts.googleapis.com/css?family=Nunito" rel="stylesheet" type="text/css">--}}
 
-    <link href="{{ mix('css/app.css') }}" rel="stylesheet">
+    @vite(['resources/js/app.js'])
 
     <!-- Styles -->
     <link href="https://fonts.googleapis.com/css?family=Open+Sans:300,400,600,700,800|Shadows+Into+Light" rel="stylesheet" type="text/css">
 
-    <link rel="stylesheet" href="{{ asset('porto-light/vendor/bootstrap/css/bootstrap.css') }}" />
+    {{-- <link rel="stylesheet" href="{{ asset('porto-light/vendor/bootstrap/css/bootstrap.css') }}" /> --}}
     <link rel="stylesheet" href="{{ asset('porto-light/vendor/animate/animate.css') }}" />
     <link rel="stylesheet" href="{{ asset('porto-light/vendor/font-awesome/css/fontawesome-all.min.css') }}" />
     {{--<link rel="stylesheet" href="{{ asset('porto-light/vendor/select2/css/select2.css') }}" />--}}
@@ -88,11 +88,10 @@
     {{--@stack('scripts')--}}
 
     @yield('content-mercadopago')
-
-    <script src="{{ asset('js/manifest.js') }}"></script>
-    <script src="{{ asset('js/vendor.js') }}"></script>
-    <script src="{{ mix('js/app.js') }}"></script>
     <!-- Theme Base, Components and Settings -->
     {{--<script src="{{asset('porto-light/js/theme.js')}}"></script>--}}
+    <!-- Vendor -->
+    <script src="{{ asset('porto-light/vendor/jquery/jquery.js')}}"></script>
+    {{--
 </body>
 </html>

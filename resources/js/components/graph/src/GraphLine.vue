@@ -20,6 +20,8 @@ export default {
     data() {
         return {
             chart: null,
+            observer: null,
+            _themeChangeHandler: null,
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
@@ -46,7 +48,15 @@ export default {
         }
     },
     mounted() {
+        this.setupThemeObserver();
         this.createChart();
+    },
+    beforeDestroy() {
+        this.teardownThemeObserver();
+
+        if (this.chart) {
+            this.chart.destroy();
+        }
     },
     watch: {
         allData() {
@@ -57,7 +67,46 @@ export default {
         getCSSVariable(name) {
             return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
         },
+        setupThemeObserver() {
+            this.teardownThemeObserver();
+
+            const handler = () => {
+                this.handleThemeChange();
+            };
+
+            window.addEventListener('theme:change', handler);
+
+            this._themeChangeHandler = handler;
+            this.observer = new MutationObserver(() => {
+                this.handleThemeChange();
+            });
+
+            this.observer.observe(document.documentElement, {
+                attributes: true,
+                attributeFilter: ['class', 'style'],
+            });
+        },
+        teardownThemeObserver() {
+            if (this.observer) {
+                this.observer.disconnect();
+                this.observer = null;
+            }
+
+            if (this._themeChangeHandler) {
+                window.removeEventListener('theme:change', this._themeChangeHandler);
+                this._themeChangeHandler = null;
+            }
+        },
+        handleThemeChange() {
+            if (this.allData && this.allData.datasets && this.allData.datasets.length) {
+                this.createChart();
+            }
+        },
         createChart() {
+            if (!this.allData || !this.allData.datasets) {
+                return;
+            }
+
             if (this.chart) {
                 this.chart.destroy();
             }
@@ -73,18 +122,18 @@ export default {
             const gradientColors = [
                 { 
                     base: cssColors.info,
-                    start: this.hexToRgba(cssColors.info, 0.7),
-                    end: this.hexToRgba(cssColors.info, 0.1)
+                    start: this.hexToRgba(cssColors.info, 0.2),
+                    end: this.hexToRgba(cssColors.info, 0.05)
                 },
                 { 
                     base: cssColors.danger,
-                    start: this.hexToRgba(cssColors.danger, 0.8),
-                    end: this.hexToRgba(cssColors.danger, 0.1)
+                    start: this.hexToRgba(cssColors.danger, 0.2),
+                    end: this.hexToRgba(cssColors.danger, 0.05)
                 },
                 { 
                     base: cssColors.primary,
-                    start: this.hexToRgba(cssColors.primary, 0.8),
-                    end: this.hexToRgba(cssColors.primary, 0.1)
+                    start: this.hexToRgba(cssColors.primary, 0.2),
+                    end: this.hexToRgba(cssColors.primary, 0.05)
                 }
             ];
         

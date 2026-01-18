@@ -1,6 +1,6 @@
 <template>
     <div>
-        <div class="page-header pr-0">
+        <div class="page-header pe-0">
             <h2><a href="/reports/inventory">
                 <svg  xmlns="http://www.w3.org/2000/svg" style="margin-top: -5px;" width="24"  height="24"  viewBox="0 0 24 24"  fill="none"  stroke="currentColor"  stroke-width="2"  stroke-linecap="round"  stroke-linejoin="round"  class="icon icon-tabler icons-tabler-outline icon-tabler-building-warehouse"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M3 21v-13l9 -4l9 4v13" /><path d="M13 13h4v8h-10v-6h6" /><path d="M13 21v-9a1 1 0 0 0 -1 -1h-2a1 1 0 0 0 -1 1v3" /></svg>
             </a></h2>
@@ -171,10 +171,10 @@
                                             <th v-if="filters.description.visible">Descripción</th>
                                             <th v-if="filters.model.visible">Modelo</th>
                                             <th>Categoria</th>
-                                            <th class="text-right">Stock mínimo</th>
-                                            <th class="text-right">Stock actual</th>
-                                            <th class="text-right">Precio de venta</th>
-                                            <th class="text-right">Costo</th>
+                                            <th class="text-end">Stock mínimo</th>
+                                            <th class="text-end">Stock actual</th>
+                                            <th class="text-end">Precio de venta</th>
+                                            <th class="text-end">Costo</th>
                                             <th>Ganancia
                                                 <el-tooltip
                                                     class="item"
@@ -209,12 +209,12 @@
                                             <td v-if="filters.description.visible">{{ row.description }}</td>
                                             <td v-if="filters.model.visible">{{ row.model }}</td>
                                             <td>{{ row.item_category_name }}</td>
-                                            <td class="text-right">{{ row.stock_min }}</td>
-                                            <td class="text-right">{{ row.stock }}</td>
-                                            <td class="text-right">{{ row.sale_unit_price }}</td>
-                                            <td class="text-right">{{ row.purchase_unit_price }}</td>
-                                            <td class="text-right">{{ row.profit }}</td>
-                                            <td class="text-right">{{ Math.abs(row.profit * row.stock).toFixed(2) }}</td>
+                                            <td class="text-end">{{ row.stock_min }}</td>
+                                            <td class="text-end">{{ row.stock }}</td>
+                                            <td class="text-end">{{ row.sale_unit_price }}</td>
+                                            <td class="text-end">{{ row.purchase_unit_price }}</td>
+                                            <td class="text-end">{{ row.profit }}</td>
+                                            <td class="text-end">{{ Math.abs(row.profit * row.stock).toFixed(2) }}</td>
                                             <td>{{ row.brand_name }}</td>
                                             <td class="text-center">{{ row.date_of_due }}</td>
                                             <td>{{ row.warehouse_name }}</td>

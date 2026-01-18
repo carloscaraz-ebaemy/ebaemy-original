@@ -22,6 +22,7 @@ class UserResource extends JsonResource
             'email' => $this->email,
             'name' => $this->name,
             'phone' => $this->phone,
+            'api_token' => $this->api_token,
             'whatsapp_number' => $this->whatsapp_number,
             'address_contact' => $this->address_contact,
             'introduction' => $this->introduction,

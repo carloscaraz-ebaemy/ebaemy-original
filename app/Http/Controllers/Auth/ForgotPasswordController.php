@@ -42,6 +42,7 @@ class ForgotPasswordController extends Controller
         $useLoginGlobal = $config->use_login_global;
         $company = Company::first();
         $login = $config->login;
-        return view('tenant.auth.passwords.email', compact('company', 'login', 'useLoginGlobal'));
+        $loginBgColor = $config->login_bg_color ?? '#ffffff';
+        return view('tenant.auth.passwords.email', compact('company', 'login', 'useLoginGlobal', 'loginBgColor'));
     }
 }

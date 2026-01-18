@@ -24,12 +24,12 @@
                         <tbody>
                             <tr v-for="(row, index) in persons" :key="index" width="100%" >
                                 <td>
-                                    <div class="form-group mb-2 mr-2"  >
+                                    <div class="form-group mb-2 me-2"  >
                                         <el-input @change="searchPerson(row,index)" @blur="duplicateDocument(row.number, index)" v-model="row.number"></el-input>
                                     </div>
                                 </td>
                                 <td>
-                                    <div class="form-group mb-2 mr-2" >
+                                    <div class="form-group mb-2 me-2" >
                                         <el-input v-model="row.name"></el-input>
                                     </div>
                                 </td>
@@ -49,8 +49,8 @@
             </div>
         </div>
 
-        <div class="form-actions text-right pt-2">
-            <el-button @click.prevent="clickCancelSubmit()">Cancelar</el-button>
+        <div class="form-actions text-end pt-2">
+            <el-button class="me-2" @click.prevent="clickCancelSubmit()">Cancelar</el-button>
             <el-button type="primary" @click="submit" >Guardar</el-button>
         </div>
     </el-dialog>

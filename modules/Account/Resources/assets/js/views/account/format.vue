@@ -1,6 +1,6 @@
 <template>
     <div class="tab-content-default row-new">
-        <div class="page-header pr-0">
+        <div class="page-header pe-0">
             <h2><a href="/account/format">
                 <svg  xmlns="http://www.w3.org/2000/svg" style="margin-top: -5px;" width="24"  height="24"  viewBox="0 0 24 24"  fill="none"  stroke="currentColor"  stroke-width="2"  stroke-linecap="round"  stroke-linejoin="round"  class="icon icon-tabler icons-tabler-outline icon-tabler-chart-histogram"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M3 3v18h18" /><path d="M20 18v3" /><path d="M16 16v5" /><path d="M12 13v8" /><path d="M8 16v5" /><path d="M3 11c6 0 5 -5 9 -5s3 5 9 5" /></svg>
             </a></h2>
@@ -68,9 +68,9 @@
 
                 </div>
             </div>
-            <div class="form-actions text-right pt-2">
+            <div class="form-actions text-end pt-2">
                 <el-button :loading="loading_submit"
-                           class="btn btn-primary btn-submit-default mr-3 mb-3"
+                           class="btn btn-primary btn-submit-default me-3 mb-3"
                            type="primary"
                            @click.prevent="clickDownload">
                     <template v-if="loading_submit">
@@ -114,7 +114,7 @@ import {mapActions, mapState} from "vuex";
             }
         },
     created() {
-            this.title = 'Generar';
+        this.title = 'Exportar reporte';
         this.$store.commit('setConfiguration', this.configuration);
         this.loadConfiguration()
     },

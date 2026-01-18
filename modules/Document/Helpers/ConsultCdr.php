@@ -46,12 +46,7 @@ class ConsultCdr
 
             $model = in_array($company->pse_provider_id, [2,3,5]) ? new Service() : new ServiceSendFact();
             $this->modelPse = $model;
-
-            if (in_array($company->pse_provider_id, [2,3,5])) {
-                $response = $this->consultaCdrPse($model);
-            } else {
-                $response = $this->consultaCdrSendfact($model);
-            }
+            $response = $this->consultaCdrSendfact($model);
         } else {
 
             if ($company->soap_send_id === '04') {
@@ -120,6 +115,7 @@ class ConsultCdr
 
     public function consultaCdrSendfact($model)
     {
+
         $response = $model->querySummary($this->document->filename);
 
         if ($model instanceof Service) {
@@ -145,26 +141,6 @@ class ConsultCdr
             'success' => true,
             'message' => $response['message']
         ];
-
-    }
-
-    public function consultaCdrPse($model)
-    {
-        $response = $model->querySummary($this->document->filename);
-            $this->response = [
-                'sent' => true,
-                'code' => $response['code'],
-                'description' => $response['message'],
-                'notes' => $response['notes'] ?? []
-            ];
-
-        $this->validationCodeResponse($response['code'], $response['message'], $response['cdr'], true);
-
-        return [
-            'success' => true,
-            'message' => $response['message']
-        ];
-
     }
 
     public function validationCodeResponseIntegration($document_status, $message, $cdrResponse)
@@ -228,7 +204,7 @@ class ConsultCdr
 
     }
 
-    public function validationCodeResponse($code, $message, $res, $isB64 = false)
+    public function validationCodeResponse($code, $message, $res)
     {
         //Errors
         if($code === 'ERROR_CDR') {
@@ -241,11 +217,7 @@ class ConsultCdr
 
         if((int)$code === 0) {
 
-            if ($isB64) {
-                $this->uploadFile($res, 'cdr_b64');
-            } else {
-                $this->uploadFile($res->getCdrZip(), 'cdr');
-            }
+            $this->uploadFile($res->getCdrZip(), 'cdr');
 
             if($this->document->state_type_id == '01'){
                 $this->updateState(self::ACCEPTED);
@@ -260,11 +232,7 @@ class ConsultCdr
 
         } elseif ((int)$code < 4000) {
             //Rechazo
-            if ($isB64) {
-                $this->uploadFile($res, 'cdr_b64');
-            } else {
-                $this->uploadFile($res->getCdrZip(), 'cdr');
-            }
+            $this->uploadFile($res->getCdrZip(), 'cdr');
 
             if($this->document->state_type_id == '01'){
                 $this->updateState(self::REJECTED);
@@ -272,11 +240,7 @@ class ConsultCdr
 
         } else {
 
-            if ($isB64) {
-                $this->uploadFile($res, 'cdr_b64');
-            } else {
-                $this->uploadFile($res->getCdrZip(), 'cdr');
-            }
+            $this->uploadFile($res->getCdrZip(), 'cdr');
 
             if($this->document->state_type_id == '01'){
                 $this->updateState(self::OBSERVED);

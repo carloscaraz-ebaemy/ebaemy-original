@@ -33,20 +33,20 @@
                 <a
                     href="#"
                     @click.prevent="clickCreate()"
-                    class="btn btn-custom btn-sm  mt-2 mr-2"
+                    class="btn btn-custom btn-sm  mt-2 me-2"
                     ><i class="fa fa-plus-circle"></i> Nuevo</a
                 >
                 <a
                     href="#"
                     @click.prevent="onOpenModalGenerateCPE"
-                    class="btn btn-custom btn-sm  mt-2 mr-2"
+                    class="btn btn-custom btn-sm  mt-2 me-2"
                     >Generar comprobante desde múltiples Notas</a
                 >
                 <a
                     href="#"
                     v-if="config.send_data_to_other_server === true"
                     @click.prevent="onOpenModalMigrateNv"
-                    class="btn btn-custom btn-sm  mt-2 mr-2"
+                    class="btn btn-custom btn-sm  mt-2 me-2"
                     >Migrar Datos</a
                 >
             </div>
@@ -55,7 +55,7 @@
             <div class="data-table-visible-columns">
                 <el-dropdown :hide-on-click="false">
                     <el-button type="secondary">
-                        Mostrar/Ocultar columnas<i
+                        Mostrar columnas<i
                             class="el-icon-arrow-down el-icon--right"
                         ></i>
                     </el-button>
@@ -78,7 +78,7 @@
                     <tr slot="heading">
                         <!-- <th>#</th> -->
                         <th
-                            class="text-right"
+                            class="text-end"
                             v-if="columns.seller_name.visible"
                         >
                             Vendedor
@@ -95,49 +95,49 @@
                         <th>Nota de Venta</th>
                         <th>Estado</th>
                         <th
-                            class="text-right"
+                            class="text-end"
                             v-if="columns.exchange_rate_sale.visible"
                         >
                             T.C.
                         </th>
                         <th class="text-center">Moneda</th>
-                        <th class="text-right" v-if="columns.due_date.visible">
+                        <th class="text-end" v-if="columns.due_date.visible">
                             F. Vencimiento
                         </th>
                         <th
-                            class="text-right"
+                            class="text-end"
                             v-if="columns.total_exportation.visible"
                         >
                             T.Exportación
                         </th>
                         <th
-                            class="text-right"
+                            class="text-end"
                             v-if="columns.total_free.visible"
                         >
                             T.Gratuito
                         </th>
                         <th
-                            class="text-right"
+                            class="text-end"
                             v-if="columns.total_unaffected.visible"
                         >
                             T.Inafecta
                         </th>
                         <th
-                            class="text-right"
+                            class="text-end"
                             v-if="columns.total_exonerated.visible"
                         >
                             T.Exonerado
                         </th>
                         <th
-                            class="text-right"
+                            class="text-end"
                             v-if="columns.total_taxed.visible"
                         >
                             T.Gravado
                         </th>
-                        <th class="text-right" v-if="columns.total_igv.visible">
+                        <th class="text-end" v-if="columns.total_igv.visible">
                             T.Igv
                         </th>
-                        <th class="text-right">Total</th>
+                        <th class="text-end">Total</th>
 
                         <th
                             class="text-center"
@@ -164,11 +164,11 @@
                         >
                             Recurrencia
                         </th>
-                        <th class="text-left" v-if="columns.region.visible">
+                        <th class="text-start" v-if="columns.region.visible">
                             Region
                         </th>
                         <th
-                            class="text-right"
+                            class="text-end"
                             v-if="columns.dispatch_status.visible"
                         >
                             Estado de despacho
@@ -194,12 +194,12 @@
                         >
                             Placa
                         </th>
-                        <th class="text-right">Acciones</th>
+                        <th class="text-end">Acciones</th>
                     </tr>
                     <tr slot-scope="{ index, row }">
                         <!-- <td>{{ index }}</td> -->
                         <td
-                            class="text-right"
+                            class="text-end"
                             v-if="columns.seller_name.visible"
                         >
                             {{ row.seller_name }}
@@ -229,32 +229,32 @@
                         </td>
                         <td class="text-center">{{ row.currency_type_id }}</td>
 
-                        <td class="text-right" v-if="columns.due_date.visible">
+                        <td class="text-end" v-if="columns.due_date.visible">
                             {{ formatDate(row.due_date) }}
                         </td>
                         <td
-                            class="text-right"
+                            class="text-end"
                             v-if="columns.total_exportation.visible"
                         >
                             {{row.currency_type_id === 'PEN' ? 'S/' : '$'}}
                             {{ row.total_exportation }}
                         </td>
                         <td
-                            class="text-right"
+                            class="text-end"
                             v-if="columns.total_free.visible"
                         >
                             {{row.currency_type_id === 'PEN' ? 'S/' : '$'}}
                             {{ row.total_free }}
                         </td>
                         <td
-                            class="text-right"
+                            class="text-end"
                             v-if="columns.total_unaffected.visible"
                         >
                             {{row.currency_type_id === 'PEN' ? 'S/' : '$'}}
                             {{ row.total_unaffected }}
                         </td>
                         <td
-                            class="text-right"
+                            class="text-end"
                             v-if="columns.total_exonerated.visible"
                         >
                             {{row.currency_type_id === 'PEN' ? 'S/' : '$'}}
@@ -262,17 +262,17 @@
                         </td>
 
                         <td
-                            class="text-right"
+                            class="text-end"
                             v-if="columns.total_taxed.visible"
                         >
                             {{row.currency_type_id === 'PEN' ? 'S/' : '$'}}
                             {{ row.total_taxed }}
                         </td>
-                        <td class="text-right" v-if="columns.total_igv.visible">
+                        <td class="text-end" v-if="columns.total_igv.visible">
                             {{row.currency_type_id === 'PEN' ? 'S/' : '$'}}
                             {{ row.total_igv }}
                         </td>
-                        <td class="text-right">{{row.currency_type_id === 'PEN' ? 'S/' : '$'}} {{ row.total }}</td>
+                        <td class="text-end">{{row.currency_type_id === 'PEN' ? 'S/' : '$'}} {{ row.total }}</td>
 
                         <td
                             class="text-center"
@@ -332,7 +332,7 @@
                             </button>
                         </td>
 
-                        <td class="text-right">
+                        <td class="text-end">
                             <button
                                 type="button"
                                 class="btn waves-effect waves-light btn-xs btn-info"
@@ -342,7 +342,7 @@
                             </button>
                         </td>
                         <td
-                            class="text-right"
+                            class="text-end"
                             v-if="columns.recurrence.visible"
                         >
                             <template
@@ -360,12 +360,12 @@
                             </template>
                         </td>
 
-                        <td class="text-left" v-if="columns.region.visible">
+                        <td class="text-start" v-if="columns.region.visible">
                             {{ row.customer_region }}
                         </td>
 
                         <td
-                            class="text-right"
+                            class="text-end"
                             v-if="columns.dispatch_status.visible"
                         >
                             <template
@@ -413,192 +413,130 @@
                         </td>
 
                         <td
-                            class="text-right"
+                            class="text-end"
                             v-if="columns.type_period.visible"
                         >
                             {{ row.type_period | period }}
                         </td>
                         <td
-                            class="text-right"
+                            class="text-end"
                             v-if="columns.quantity_period.visible"
                         >
                             {{ row.quantity_period }}
                         </td>
 
-                        <td class="text-right" v-if="columns.paid.visible">
+                        <td class="text-end" v-if="columns.paid.visible">
                             {{ row.paid ? "Pagado" : "Pendiente" }}
                         </td>
 
                         <td
-                            class="text-right"
+                            class="text-end"
                             v-if="columns.license_plate.visible"
                         >
                             {{ row.license_plate }}
                         </td>
 
-                        <td class="text-right">
-                            <div class="dropdown">
-                                <button
-                                    class="btn btn-default btn-sm btn-dropdown-toggle"
-                                    type="button"
-                                    id="dropdownMenuButton"
-                                    data-toggle="dropdown"
-                                    aria-haspopup="true"
-                                    aria-expanded="false"
-                                >
+                        <td class="text-end">
+                            <el-dropdown trigger="click" size="small">
+                                <el-button class="btn-dropdown">
                                     <i class="fas fa-ellipsis-v"></i>
                                     <i class="fas fa-ellipsis-h" style="display: none;"></i>
-                                </button>
-                                <div
-                                    class="dropdown-menu"
-                                    aria-labelledby="dropdownMenuButton"
-                                >
-                                    <button
-                                        data-toggle="tooltip"
-                                        data-placement="top"
-                                        title="Anular"
-                                        v-if="row.state_type_id != '11'"
-                                        type="button"
-                                        class="dropdown-item"
-                                        @click.prevent="clickVoided(row.id)"
+                                </el-button>
+                                <el-dropdown-menu slot="dropdown">
+                                  <el-dropdown-item
+                                    v-if="row.btn_generate && row.state_type_id != '11' && typeUser != 'seller'"
+                                    @click.native="clickCreate(row.id)"
+                                  >
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon icon-tabler icons-tabler-outline icon-tabler-edit me-2"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M7 7h-1a2 2 0 0 0 -2 2v9a2 2 0 0 0 2 2h9a2 2 0 0 0 2 -2v-1" /><path d="M20.385 6.585a2.1 2.1 0 0 0 -2.97 -2.97l-8.415 8.385v3h3l8.385 -8.415z" /><path d="M16 5l3 3" /></svg>
+                                    Editar
+                                  </el-dropdown-item>
+                              
+                                  <el-dropdown-item
+                                    v-if="!row.changed && row.state_type_id != '11' && soapCompany != '03'"
+                                    @click.native="clickGenerate(row.id)"
+                                  >
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="me-2" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"></path><path d="M14 3v4a1 1 0 0 0 1 1h4"></path><path d="M19 12v7a1.78 1.78 0 0 1 -3.1 1.4a1.65 1.65 0 0 0 -2.6 0a1.65 1.65 0 0 1 -2.6 0a1.65 1.65 0 0 0 -2.6 0a1.78 1.78 0 0 1 -3.1 -1.4v-14a2 2 0 0 1 2 -2h7l5 5v4.25"></path></svg>
+                                    Generar comprobante
+                                  </el-dropdown-item>
+                              
+                                  <el-dropdown-item divided />
+                              
+                                  <template v-if="row.changed">
+                                    <el-dropdown-item
+                                      v-for="(document, i) in row.documents"
+                                      :key="i"
                                     >
-                                        <!--                                <i class="fas fa-trash"></i>-->
-                                        Anular
-                                    </button>
-
-                                    <button
-                                        data-toggle="tooltip"
-                                        data-placement="top"
-                                        title="Editar"
-                                        type="button"
-                                        class="dropdown-item"
-                                        @click.prevent="clickCreate(row.id)"
-                                        v-if="
-                                            row.btn_generate &&
-                                                row.state_type_id != '11' &&
-                                                typeUser != 'seller'
-                                        "
+                                      <a
+                                        :href="`/dispatches/create/${document.id}`"
+                                        style="text-decoration: none; color: inherit;"
+                                      >
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="me-2" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"></path><path d="M14 3v4a1 1 0 0 0 1 1h4"></path><path d="M19 12v7a1.78 1.78 0 0 1 -3.1 1.4a1.65 1.65 0 0 0 -2.6 0a1.65 1.65 0 0 1 -2.6 0a1.65 1.65 0 0 0 -2.6 0a1.78 1.78 0 0 1 -3.1 -1.4v-14a2 2 0 0 1 2 -2h7l5 5v4.25"></path></svg>
+                                        Generar guía desde CPE
+                                      </a>
+                                    </el-dropdown-item>
+                                  </template>
+                              
+                                  <el-dropdown-item>
+                                    <a
+                                      :href="`/dispatches/create_new/sale_note/${row.id}`"
+                                      style="text-decoration: none; color: inherit;"
                                     >
-                                        <!--                                        <i class="dropdown-item fas fa-file-signature"></i>-->
-                                        Editar
-                                    </button>
-
-                                    <button
-                                        data-toggle="tooltip"
-                                        data-placement="top"
-                                        title="Generar comprobante"
-                                        type="button"
-                                        class="dropdown-item"
-                                        @click.prevent="clickGenerate(row.id)"
-                                        v-if="
-                                            !row.changed &&
-                                                row.state_type_id != '11' &&
-                                                soapCompany != '03'
-                                        "
-                                    >
-                                        <!--                                <i class="dropdown-item fas fa-file-excel"></i>-->
-                                        Generar comprobante
-                                    </button>
-
-                                    <el-tooltip
-                                        class="item"
-                                        effect="dark"
-                                        content="Generar guía desde CPE"
-                                        placement="top-start"
-                                    >
-                                        <template
-                                            v-for="(document,
-                                            i) in row.documents"
-                                        >
-                                            <a
-                                                :href="
-                                                    `/dispatches/create/${
-                                                        document.id
-                                                    }`
-                                                "
-                                                class="dropdown-item"
-                                                v-if="row.changed"
-                                                :key="i"
-                                            >
-                                                <!--                                        <i class="dropdown-item fas fa-file-alt"></i>-->
-                                                Generar guía desde
-                                            </a>
-                                        </template>
-                                    </el-tooltip>
-
-                                    <el-tooltip
-                                        class="item"
-                                        effect="dark"
-                                        content="Generar guía desde Nota Venta"
-                                        placement="left"
-                                    >
-                                        <a
-                                            :href="
-                                                `/dispatches/create_new/sale_note/${
-                                                    row.id
-                                                }`
-                                            "
-                                            class="dropdown-item"
-                                        >
-                                            Generar guía
-                                        </a>
-                                    </el-tooltip>
-
-                                    <button
-                                        data-toggle="tooltip"
-                                        data-placement="top"
-                                        title="Imprimir"
-                                        v-if="row.state_type_id != '11'"
-                                        type="button"
-                                        class="dropdown-item"
-                                        @click.prevent="clickOptions(row.id)"
-                                    >
-                                        <!--                                <i class="dropdown-item fas fa-print"></i>-->
-                                        Imprimir
-                                    </button>
-                                    <button
-                                        @click="duplicate(row.id)"
-                                        title="Duplica la nota de venta"
-                                        type="button"
-                                        class="dropdown-item"
-                                    >
-                                        <!--                                <i class="dropdown-item fas fa-copy"></i>-->
-                                        Duplica la nota de venta
-                                    </button>
-                                    <button
-                                        data-toggle="tooltip"
-                                        data-placement="top"
-                                        title="Enviar a otro servidor"
-                                        v-if="
-                                            row.state_type_id != '11' &&
-                                                row.send_other_server === true
-                                        "
-                                        type="button"
-                                        class="dropdown-item"
-                                        @click.prevent="sendToServer(row.id)"
-                                    >
-                                        <!--                                <i class="dropdown-item fas fa-wifi"></i>-->
-                                        Enviar a otro servidor
-                                    </button>
-
-                                    <button
-                                        data-toggle="tooltip"
-                                        data-placement="top"
-                                        title="Elimina unicamente la relación entre la nota y factura"
-                                        v-if="
-                                            configuration.delete_relation_note_to_invoice &&
-                                                row.documents.length > 0
-                                        "
-                                        type="button"
-                                        class="dropdown-item"
-                                        @click="
-                                            sendDeleteRelationInvoice(row.id)
-                                        "
-                                    >
-                                        Eliminar factura relacionada
-                                    </button>
-                                </div>
-                            </div>
+                                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon icon-tabler icons-tabler-outline icon-tabler-truck me-2">
+                                        <path stroke="none" d="M0 0h24v24H0z" fill="none"></path>
+                                        <path d="M7 17m-2 0a2 2 0 1 0 4 0a2 2 0 1 0 -4 0"></path>
+                                        <path d="M17 17m-2 0a2 2 0 1 0 4 0a2 2 0 1 0 -4 0"></path>
+                                        <path d="M5 17h-2v-11a1 1 0 0 1 1 -1h9v12m-4 0h6m4 0h2v-6h-8m0 -5h5l3 5"></path>
+                                      </svg>
+                                      Generar guía
+                                    </a>
+                                  </el-dropdown-item>
+                              
+                                  <el-dropdown-item divided />
+                              
+                                  <el-dropdown-item
+                                    v-if="row.state_type_id != '11'"
+                                    @click.native="clickOptions(row.id)"
+                                  >
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon icon-tabler icons-tabler-outline icon-tabler-printer me-2"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M17 17h2a2 2 0 0 0 2 -2v-4a2 2 0 0 0 -2 -2h-14a2 2 0 0 0 -2 2v4a2 2 0 0 0 2 2h2" /><path d="M17 9v-4a2 2 0 0 0 -2 -2h-6a2 2 0 0 0 -2 2v4" /><path d="M7 13m0 2a2 2 0 0 1 2 -2h6a2 2 0 0 1 2 2v4a2 2 0 0 1 -2 2h-6a2 2 0 0 1 -2 -2z" /></svg>
+                                    Imprimir
+                                  </el-dropdown-item>
+                              
+                                  <el-dropdown-item
+                                    @click.native="duplicate(row.id)"
+                                  >
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon icon-tabler icons-tabler-outline icon-tabler-copy me-2"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M7 7m0 2.667a2.667 2.667 0 0 1 2.667 -2.667h8.666a2.667 2.667 0 0 1 2.667 2.667v8.666a2.667 2.667 0 0 1 -2.667 2.667h-8.666a2.667 2.667 0 0 1 -2.667 -2.667z" /><path d="M4.012 16.737a2.005 2.005 0 0 1 -1.012 -1.737v-10c0 -1.1 .9 -2 2 -2h10c.75 0 1.158 .385 1.5 1" /></svg>
+                                    Duplicar nota de venta
+                                  </el-dropdown-item>
+                              
+                                  <el-dropdown-item
+                                    v-if="row.state_type_id != '11' && row.send_other_server === true"
+                                    @click.native="sendToServer(row.id)"
+                                  >
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon icon-tabler icons-tabler-outline icon-tabler-server-2 me-2"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M3 4m0 3a3 3 0 0 1 3 -3h12a3 3 0 0 1 3 3v2a3 3 0 0 1 -3 3h-12a3 3 0 0 1 -3 -3z" /><path d="M3 12m0 3a3 3 0 0 1 3 -3h12a3 3 0 0 1 3 3v2a3 3 0 0 1 -3 3h-12a3 3 0 0 1 -3 -3z" /><path d="M7 8l0 .01" /><path d="M7 16l0 .01" /><path d="M11 8h6" /><path d="M11 16h6" /></svg>
+                                    Enviar a otro servidor
+                                  </el-dropdown-item>
+                              
+                                  <el-dropdown-item divided />
+                              
+                                  <el-dropdown-item
+                                    v-if="configuration.delete_relation_note_to_invoice && row.documents.length > 0"
+                                    class="text-danger option-delete"
+                                    @click.native="sendDeleteRelationInvoice(row.id)"
+                                  >
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon icon-tabler icons-tabler-outline icon-tabler-trash me-2"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M4 7l16 0" /><path d="M10 11l0 6" /><path d="M14 11l0 6" /><path d="M5 7l1 12a2 2 0 0 0 2 2h8a2 2 0 0 0 2 -2l1 -12" /><path d="M9 7v-3a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v3" /></svg>
+                                    Eliminar factura relacionada
+                                  </el-dropdown-item>
+                              
+                                  <el-dropdown-item
+                                    v-if="row.state_type_id != '11'"
+                                    @click.native="clickVoided(row.id)"
+                                    class="text-danger option-delete"
+                                  >
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon icon-tabler icons-tabler-outline icon-tabler-circle-x me-2"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M12 12m-9 0a9 9 0 1 0 18 0a9 9 0 1 0 -18 0" /><path d="M10 10l4 4m0 -4l-4 4" /></svg>
+                                    Anular
+                                  </el-dropdown-item>
+                                </el-dropdown-menu>
+                            </el-dropdown>
                         </td>
                     </tr>
                 </data-table>
@@ -663,9 +601,9 @@ import DataTable from "../../../components/DataTableSaleNote.vue";
 import UploadToOtherServer from "./partials/upload_other_server_group.vue";
 import SaleNotePayments from "./partials/payments.vue";
 import SaleNotesOptions from "./partials/options.vue";
-import SaleNoteGenerate from "./partials/option_documents";
+import SaleNoteGenerate from "./partials/option_documents.vue";
 import { deletable } from "../../../mixins/deletable";
-import ModalGenerateCPE from "./ModalGenerateCPE";
+import ModalGenerateCPE from "./ModalGenerateCPE.vue";
 import { mapActions, mapState } from "vuex/dist/vuex.mjs";
 import SaleNoteDispatchStatus from "./partials/dispatch_status.vue";
 
@@ -953,3 +891,19 @@ export default {
     }
 };
 </script>
+
+<style>
+/* Estilos para el dropdown de Element UI en la tabla */
+.el-dropdown-selfdefine {
+    border: none;
+    padding: 0.375rem 0.75rem;
+    background-color: #f8f9fa;
+    color: #6c757d;
+}
+
+.el-dropdown-selfdefine:hover,
+.el-dropdown-selfdefine:focus {
+    background-color: #e9ecef;
+    color: #495057;
+}
+</style>

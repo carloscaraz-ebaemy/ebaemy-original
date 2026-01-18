@@ -1,6 +1,6 @@
 <template>
     <div>
-        <div class="page-header pr-0">
+        <div class="page-header pe-0">
             <h2>
                 <a href="/production">
                     <svg
@@ -37,7 +37,7 @@
             <div class="right-wrapper pull-right">
                 <template>
                     <button
-                        class="btn btn-custom btn-sm  mt-2 mr-2"
+                        class="btn btn-custom btn-sm  mt-2 me-2"
                         type="button"
                         @click.prevent="clickCreate()"
                     >
@@ -159,7 +159,7 @@
                         <div class="col-12 mt-4">
                             <el-button
                                 :loading="loading_submit"
-                                class="submit"
+                                class="submit me-2"
                                 icon="el-icon-search"
                                 type="primary"
                                 @click.prevent="getRecordsByFilter"
@@ -169,7 +169,7 @@
                             <!--                        <el-button class="submit" type="danger"  icon="el-icon-tickets" @click.prevent="clickDownloadPdf()" >Exportar PDF</el-button>-->
 
                             <el-button
-                                class="submit"
+                                class="submit me-2"
                                 type="success"
                                 @click.prevent="clickDownloadExcel()"
                                 ><i class="fa fa-file-excel"></i> Exportal Excel
@@ -287,7 +287,7 @@
                             </el-pagination>
                         </div>
                     </div>
-                    </div>                    
+                    </div>
                 </div>
             </div>
         </div>
@@ -295,7 +295,7 @@
 </template>
 <script>
 import { mapActions, mapState } from "vuex/dist/vuex.mjs";
-import { deletable } from "../../../../../../../resources/js/mixins/deletable";
+import { deletable } from "@mixins/deletable";
 import moment from "moment";
 import queryString from "query-string";
 
@@ -408,10 +408,10 @@ export default {
         checkScrollShadows() {
             const el = this.$refs.scrollContainer;
             if (!el) return;
-            
+
             const scrollLeft = el.scrollLeft;
             const scrollRight = el.scrollWidth - el.clientWidth - scrollLeft;
-            
+
             this.showLeftShadow = scrollLeft > 1;
             this.showRightShadow = scrollRight > 1;
         },

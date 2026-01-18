@@ -1,6 +1,6 @@
 <template>
     <div>
-        <div class="page-header pr-0">
+        <div class="page-header pe-0">
             <h2><a href="/finances/to-pay">
                 <svg  xmlns="http://www.w3.org/2000/svg" style="margin-top: -5px;" width="24"  height="24"  viewBox="0 0 24 24"  fill="none"  stroke="currentColor"  stroke-width="2"  stroke-linecap="round"  stroke-linejoin="round"  class="icon icon-tabler icons-tabler-outline icon-tabler-calculator"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M4 3m0 2a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v14a2 2 0 0 1 -2 2h-12a2 2 0 0 1 -2 -2z" /><path d="M8 7m0 1a1 1 0 0 1 1 -1h6a1 1 0 0 1 1 1v1a1 1 0 0 1 -1 1h-6a1 1 0 0 1 -1 -1z" /><path d="M8 14l0 .01" /><path d="M12 14l0 .01" /><path d="M16 14l0 .01" /><path d="M8 17l0 .01" /><path d="M12 17l0 .01" /><path d="M16 17l0 .01" /></svg>
             </a></h2>
@@ -25,7 +25,7 @@
                         </el-button>
                     </div>
                     <div class="row">
-    
+
                         <div class="col-xl-12">
                             <section >
                             <div>
@@ -38,7 +38,7 @@
                                             </el-select>
                                         </div>
                                     </div>
-    
+
                                     <div class="col-md-2">
                                         <div class="form-group">
                                             <label class="control-label">Sucursal</label>
@@ -47,7 +47,7 @@
                                             </el-select>
                                         </div>
                                     </div>
-    
+
                                     <div class="col-md-2 form-modern">
                                         <label class="control-label">Periodo</label>
                                         <el-select v-model="form.period" @change="changePeriod">
@@ -89,7 +89,7 @@
                                                             value-format="yyyy-MM-dd" format="dd/MM/yyyy" :clearable="false"></el-date-picker>
                                         </div>
                                     </template>
-    
+
                                     <div class="col-md-4 form-modern">
                                         <label class="control-label">Proveedor</label>
                                         <el-select
@@ -107,8 +107,8 @@
                                         </el-select>
                                     </div>
                                     <div class="col-md-8" style="margin-top:29px">
-                                        <el-button type="primary" @click="loadToPay" class="mb-2">
-                                            <i class="fa fa-search mr-2"></i>
+                                        <el-button type="primary" @click="loadToPay" class="mb-2 me-2">
+                                            <i class="fa fa-search me-2"></i>
                                             Buscar
                                         </el-button>
                                         <el-button
@@ -118,7 +118,7 @@
                                             >
                                             <i class="fa fa-file-excel"></i> Exportar Todo
                                         </el-button>
-    
+
                                         <el-button
                                             v-if="records.length > 0"
                                             class="submit mb-2"
@@ -127,7 +127,7 @@
                                             >
                                             <i class="fa fa-file-excel"></i> Exportar Excel
                                         </el-button>
-    
+
                                         <el-tooltip class="item" effect="dark" content="Reporte por formas de pago (Días)" placement="top-start">
                                             <el-button
                                                 v-if="records.length > 0"
@@ -138,7 +138,7 @@
                                                 <i class="fa fa-file-excel"></i> Formas de pago (Días)
                                             </el-button>
                                         </el-tooltip>
-    
+
                                         <el-button
                                             v-if="records.length > 0"
                                             class="submit mb-2"
@@ -149,37 +149,37 @@
                                         </el-button>
                                     </div>
                                 </div>
-                                <div class="row mt-5 mb-3 text-right">
-                                    <div class="col-md-1 text-right">
+                                <div class="row mt-5 mb-3 text-end">
+                                    <div class="col-md-1 text-end">
                                     </div>
-    
-                                    <div class="col-md-2 text-right">
+
+                                    <div class="col-md-2 text-end">
                                         <el-badge :value="getTotalRowsUnpaid" class="item">
                                         <span size="small">Total comprobantes</span>
                                         </el-badge>
                                     </div>
-                                    <div class="col-md-2 text-right">
+                                    <div class="col-md-2 text-end">
                                         <el-badge :value="getTotalAmountUnpaid" class="item">
                                         <span size="small">Monto general (PEN)</span>
                                         </el-badge>
                                     </div>
-                                    <div class="col-md-2 text-right">
+                                    <div class="col-md-2 text-end">
                                         <el-badge :value="getCurrentBalance" class="item">
                                         <span size="small">Saldo corriente (PEN)</span>
                                         </el-badge>
                                     </div>
-                                    <div class="col-md-2 text-right">
+                                    <div class="col-md-2 text-end">
                                         <el-badge :value="getTotalAmountUnpaidUsd" class="item">
                                         <span size="small">Monto general (USD)</span>
                                         </el-badge>
                                     </div>
-                                    <div class="col-md-2 text-right">
+                                    <div class="col-md-2 text-end">
                                         <el-badge :value="getCurrentBalanceUsd" class="item">
                                         <span size="small">Saldo corriente (USD)</span>
                                         </el-badge>
                                     </div>
                                 </div>
-                                <div class="col-md-12">
+                                <div class="col-md-12 position-relative">
                                 <div class="scroll-shadow shadow-left" v-show="showLeftShadow"></div>
                                 <div class="scroll-shadow shadow-right" v-show="showRightShadow"></div>
                                 <div class="table-responsive" ref="scrollContainer">
@@ -194,8 +194,8 @@
                                         <th>Días de retraso</th>
                                         <th>Ver Cartera</th>
                                         <th>Moneda</th>
-                                        <th class="text-right">Por pagar</th>
-                                        <th class="text-right">Total</th>
+                                        <th class="text-end">Por pagar</th>
+                                        <th class="text-end">Total</th>
                                         <th></th>
                                     </tr>
                                     </thead>
@@ -208,7 +208,7 @@
                                                 <td>{{ row.number_full }}</td>
                                                 <td>{{ row.supplier_name }}</td>
                                                 <td>{{ row.delay_payment ? row.delay_payment : 'No tiene días atrasados.' }}</td>
-    
+
                                                 <td>
                                                     <el-popover placement="right" width="300" trigger="click">
                                                     <p>
@@ -221,14 +221,14 @@
                                                         class="custom-badge"
                                                         >{{ row.date_payment_last ? row.date_payment_last : 'No registra pagos.' }}</span>
                                                     </p>
-    
+
                                                     <!-- <p>
                                                         Dia de retraso en el pago:
                                                         <span
                                                         class="custom-badge"
                                                         >{{ row.delay_payment ? row.delay_payment : 'No tiene días atrasados.'}}</span>
                                                     </p> -->
-    
+
                                                     <!-- <p>
                                                         Fecha de vencimiento:
                                                         <span
@@ -239,9 +239,9 @@
                                                     </el-popover>
                                                 </td>
                                                     <td>{{row.currency_type_id}}</td>
-                                                <td class="text-right text-danger">{{ row.total_to_pay }}</td>
-                                                <td class="text-right">{{ row.total }}</td>
-                                                <td class="text-right">
+                                                <td class="text-end text-danger">{{ row.total_to_pay }}</td>
+                                                <td class="text-end">{{ row.total }}</td>
+                                                <td class="text-end">
                                                     <template v-if="row.type === 'purchase'">
                                                     <button
                                                         type="button"
@@ -258,7 +258,7 @@
                                                         @click.prevent="clickExpensePayment(row.id)"
                                                     >Pagos</button>
                                                     </template>
-    
+
                                                 </td>
                                             </tr>
                                         </template>
@@ -272,19 +272,19 @@
                     </div>
                 </div>
             </div>
-    
+
             <purchase-payments
                 :showDialog.sync="showDialogPurchasePayments"
                 :purchaseId="recordId"
                 :external="true"
                 ></purchase-payments>
-    
+
             <expense-payments
                 :showDialog.sync="showDialogExpensePayments"
                 :expenseId="recordId"
                 :external="true"
                 ></expense-payments>
-    
+
         </div>
     </div>
 </template>

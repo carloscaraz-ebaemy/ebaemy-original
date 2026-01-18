@@ -131,7 +131,7 @@
                     <div class="col-lg-7 col-md-7 col-md-7 col-sm-12"
                          style="margin-top:29px">
                         <el-button :loading="loading_submit"
-                                   class="submit"
+                                   class="submit me-2"
                                    icon="el-icon-search"
                                    type="primary"
                                    @click.prevent="getRecordsByFilter">Buscar
@@ -139,7 +139,7 @@
 
                         <template v-if="records.length>0">
 
-                            <el-button class="submit"
+                            <el-button class="submit me-2"
                                        icon="el-icon-tickets"
                                        type="danger"
                                        @click.prevent="clickDownload('pdf')">Exportar PDF

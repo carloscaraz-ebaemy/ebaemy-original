@@ -1,6 +1,6 @@
 <template>
     <div>
-        <div class="page-header pr-0">
+        <div class="page-header pe-0">
             <h2><a href="/establishments">
                 <svg  xmlns="http://www.w3.org/2000/svg" style="margin-top: -5px;" width="24"  height="24"  viewBox="0 0 24 24"  fill="none"  stroke="currentColor"  stroke-width="2"  stroke-linecap="round"  stroke-linejoin="round"  class="icon icon-tabler icons-tabler-outline icon-tabler-list-numbers"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M11 6h9" /><path d="M11 12h9" /><path d="M12 18h8" /><path d="M4 16a2 2 0 1 1 4 0c0 .591 -.5 1 -1 1.5l-3 2.5h4" /><path d="M6 10v-6l-2 2" /></svg>
             </a></h2>
@@ -9,7 +9,7 @@
             </ol>
             <div class="right-wrapper pull-right">
 
-                <button type="button" class="btn btn-custom btn-sm  mt-2 mr-2" v-if="typeUser != 'integrator'" @click.prevent="clickCreate()"><i class="fa fa-plus-circle"></i> Nuevo</button>
+                <button type="button" class="btn btn-custom btn-sm  mt-2 me-2" v-if="typeUser != 'integrator'" @click.prevent="clickCreate()"><i class="fa fa-plus-circle"></i> Nuevo</button>
 
                 <!--<button type="button" class="btn btn-custom btn-sm  mt-2 mr-2" @click.prevent="clickImport()"><i class="fa fa-upload"></i> Importar</button>-->
             </div>
@@ -28,20 +28,20 @@
                             <tr>
                                 <!-- <th>#</th> -->
                                 <th>Descripción</th>
-                                <th class="text-left">Código</th>
+                                <th class="text-start">Código</th>
                                 <th class="text-center">Series</th>
-                                <th class="text-right">Acciones</th>
+                                <th class="text-end">Acciones</th>
                             </tr>
                             </thead>
                             <tbody>
                             <tr v-for="(row, index) in records" :key="index">
                                 <!-- <td>{{ index + 1 }}</td> -->
                                 <td>{{ row.description }}</td>
-                                <td class="text-left">{{ row.code }}</td>
+                                <td class="text-start">{{ row.code }}</td>
                                 <td class="text-center"><button type="button" class="btn waves-effect waves-light btn-xs btn-warning"
                                     @click.prevent="clickSeries(row.id)">Series</button></td>
-                                <td class="text-right">
-                                    <button type="button" class="btn waves-effect waves-light btn-xs btn-info" @click.prevent="clickCreate(row.id)">Editar</button>
+                                <td class="text-end">
+                                    <button type="button" class="btn waves-effect waves-light btn-xs btn-info me-1" @click.prevent="clickCreate(row.id)">Editar</button>
                                     <button type="button" class="btn waves-effect waves-light btn-xs btn-danger" v-if="typeUser != 'integrator'" @click.prevent="clickDelete(row.id)">Eliminar</button>
                                 </td>
                             </tr>

@@ -11,14 +11,18 @@
 |
 */
 
+// Rutas públicas (no deben forzar login principal)
+Route::prefix('restaurant')->middleware(['locked.tenant'])->group(function() {
+    Route::get('item_partial/{id}', 'RestaurantController@partialItem')->name('restaurant.item_partial');
+    Route::get('item/{id}/{promotion_id?}', 'RestaurantController@item')->name('restaurant.item');
+    Route::get('cart', 'RestaurantController@detailCart')->name('restaurant.detail.cart');
+    Route::post('payment_cash', 'RestaurantController@paymentCash')->name('restaurant.payment.cash')->middleware('auth:ecommerce');
+});
+
 Route::prefix('restaurant')->middleware(['auth','check.email.verified'])->group(function() {
     // para configuracion de productos a mostrar
     Route::get('/list/items', 'RestaurantController@list_items')->name('tenant.restaurant.list_items')->middleware('redirect.module');
     Route::post('items/visible', 'RestaurantController@is_visible');
-    Route::get('item_partial/{id}', 'RestaurantController@partialItem')->name('restaurant.item_partial');
-    Route::get('item/{id}/{promotion_id?}', 'RestaurantController@item')->name('restaurant.item');
-    Route::get('cart', 'RestaurantController@detailCart')->name('restaurant.detail.cart');
-    Route::post('payment_cash', 'RestaurantController@paymentCash')->name('restaurant.payment.cash');
 
     // vista de configuracion general
     Route::get('configuration', 'RestaurantConfigurationController@configuration')->name('tenant.restaurant.configuration')->middleware('redirect.module');
@@ -30,11 +34,50 @@ Route::prefix('restaurant')->middleware(['auth','check.email.verified'])->group(
     Route::post('user/delete-role', 'RestaurantConfigurationController@deleteRole')->name('tenant.restaurant.role.delete');
     Route::post('configuration/update-envs', 'RestaurantConfigurationController@updateTableEnv')->name('tenant.restaurant.configuration.envs');
     Route::get('configuration/get-envs', 'RestaurantConfigurationController@getEnvs')->name('tenant.restaurant.configuration.getEnvs');
+    Route::post('configuration/create-envs', 'RestaurantConfigurationController@createTableEnv')->name('tenant.restaurant.configuration.createEnv');
 
     Route::prefix('notes')->group(function () {
         Route::get('records', 'NotesController@records');
         Route::post('/', 'NotesController@store');
         Route::delete('{id}', 'NotesController@destroy');
+    });
+
+    // Supplies (Insumos)
+    Route::prefix('supplies')->group(function () {
+        Route::get('', 'SupplyController@index')->name('tenant.restaurant.supplies.index')->middleware('redirect.module');
+        Route::get('records', 'SupplyController@records');
+        Route::get('unit-types', 'SupplyController@getUnitTypes');
+        Route::post('/', 'SupplyController@store');
+        Route::put('{id}/stock', 'SupplyController@updateStock');
+        Route::delete('{id}', 'SupplyController@destroy');
+    });
+
+    // Item Supplies (Insumos por Item)
+    Route::prefix('item-supplies')->group(function () {
+        Route::get('{itemId}', 'RestaurantItemSupplyController@getItemSupplies');
+        Route::post('', 'RestaurantItemSupplyController@storeItemSupplies');
+        Route::post('discount-stock', 'RestaurantItemSupplyController@discountSuppliesStock');
+        Route::get('available/list', 'RestaurantItemSupplyController@getAvailableSupplies');
+    });
+
+    // Modifier groups
+    Route::get('modifier-groups', 'ModifierGroupController@indexPage')->middleware('redirect.module');
+    Route::get('/modifier-groups/records', 'ModifierGroupController@records');
+    Route::post('/modifier-groups', 'ModifierGroupController@store');
+    Route::get('/modifier-groups/{id}', 'ModifierGroupController@show');
+    Route::put('/modifier-groups/{id}', 'ModifierGroupController@update');
+    Route::delete('/modifier-groups/{id}', 'ModifierGroupController@destroy');
+
+    // Assign groups to item
+    Route::post('/items/{itemId}/modifier-groups', 'ModifierGroupController@assignToItem');
+    Route::get('/items/{itemId}/modifier-groups', 'ModifierGroupController@groupsForItem');
+
+    // Preparation Areas (Áreas de preparación)
+    Route::prefix('preparation-areas')->group(function () {
+        Route::get('', 'PreparationAreaController@index');
+        Route::post('', 'PreparationAreaController@store');
+        Route::put('{id}', 'PreparationAreaController@update');
+        Route::delete('{id}', 'PreparationAreaController@destroy');
     });
 
     //Promotion
@@ -49,6 +92,15 @@ Route::prefix('restaurant')->middleware(['auth','check.email.verified'])->group(
         Route::delete('{promotion}', 'PromotionController@destroy');
         Route::post('upload', 'PromotionController@upload');
 
+    });
+
+    //Spot-list (Anuncios publicitarios)
+    Route::prefix('spot-list')->group(function() {
+        Route::post('', 'PromotionController@storeSpotList');
+        Route::put('{id}', 'PromotionController@storeSpotList');
+        Route::get('records', 'PromotionController@recordsSpotList');
+        Route::get('record/{id}', 'PromotionController@record');
+        Route::delete('{id}', 'PromotionController@destroySpotList');
     });
 
     //Orders

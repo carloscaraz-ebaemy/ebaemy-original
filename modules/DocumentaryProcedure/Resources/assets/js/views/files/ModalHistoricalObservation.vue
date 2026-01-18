@@ -18,7 +18,7 @@
 
 <script>
 import {mapState} from "vuex";
-import TableObservation from "./TableObservation";
+import TableObservation from "./TableObservation.vue";
 
 export default {
     components: {

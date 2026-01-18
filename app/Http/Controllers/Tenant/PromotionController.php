@@ -42,8 +42,9 @@ class PromotionController extends Controller
     {
         $records = Promotion::where('apply_restaurant', 0)
             ->where(function ($query) {
-                $query->where('type','<>', 'promotions')
-                ->orWhereNull('type');
+                $query->where('type', '<>', 'promotions')
+                    ->where('type', '<>', 'spots')
+                    ->orWhereNull('type');
             })
             ->orderBy('description');
         
@@ -53,6 +54,13 @@ class PromotionController extends Controller
     public function recordsPromotionList(Request $request)
     {
         $records = Promotion::where('apply_restaurant', 0)->where('type','promotions')->orderBy('description');
+        
+        return new PromotionCollection($records->paginate(config('tenant.items_per_page')));
+    }
+
+    public function recordsSpotList(Request $request)
+    {
+        $records = Promotion::where('apply_restaurant', 0)->where('type','spots')->orderBy('description');
         
         return new PromotionCollection($records->paginate(config('tenant.items_per_page')));
     }
@@ -167,6 +175,71 @@ class PromotionController extends Controller
             'id' => $item->id
         ];
     }
+
+    public function storeSpotList(Request $request) {
+        $id = $request->input('id');
+
+        // Validar la URL solo si se proporciona
+        $request->validate([
+            'spot_url' => 'nullable|url',
+        ], [
+            'spot_url.url' => 'Debe ingresar una URL válida',
+        ]);
+
+        // Validar que tenga imagen al crear (temp_path o image_url)
+        if(!$id && !$request->input('temp_path') && !$request->input('image_url')) {
+            return [
+                'success' => false,
+                'message' => 'La imagen es requerida',
+            ];
+        }
+
+        if(!$id)
+        {
+            $count = Promotion::where('apply_restaurant', 0)->where('type','spots')->count();
+            if($count > 3)
+            {
+                return [
+                    'success' => false,
+                    'message' => 'Solo está permitido 4 Anuncios publicitarios',
+                ];
+            }
+        }
+
+        $item = Promotion::firstOrNew(['id' => $id]);
+        $item->spot_url = $request->input('spot_url');
+        $item->type = 'spots';
+        $item->name = $request->input('name') ?? 'Anuncio';
+        $item->description = $request->input('description') ?? 'Anuncio publicitario';
+        $item->apply_restaurant = 0;
+        $item->item_id = null; // Los spots no requieren item_id
+
+        $temp_path = $request->input('temp_path');
+        if($temp_path) {
+
+            UploadFileHelper::checkIfValidFile($request->input('image'), $temp_path, true);
+
+            $directory = 'public'.DIRECTORY_SEPARATOR.'uploads'.DIRECTORY_SEPARATOR.'promotions'.DIRECTORY_SEPARATOR;
+            $file_name_old = $request->input('image');
+            $file_name_old_array = explode('.', $file_name_old);
+            $file_content = file_get_contents($temp_path);
+            $datenow = date('YmdHis');
+            $file_name = 'spot-'.$datenow.'.'.$file_name_old_array[1];
+            Storage::put($directory.$file_name, $file_content);
+            $item->image = $file_name;
+
+        }else if(!$request->input('image') && !$request->input('temp_path') && !$request->input('image_url')){
+            $item->image = 'imagen-no-disponible.jpg';
+        }
+
+        $item->save();
+
+        return [
+            'success' => true,
+            'message' => ($id)?'Anuncio editado con éxito':'Anuncio registrado con éxito',
+            'id' => $item->id
+        ];
+    }
     
     public function destroy($id)
     {
@@ -225,13 +298,4 @@ class PromotionController extends Controller
             ]
         ];
     }
-
-
-  
-
-
- 
-
-
-
 }

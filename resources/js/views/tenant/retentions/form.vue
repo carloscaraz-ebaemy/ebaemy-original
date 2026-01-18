@@ -1,6 +1,6 @@
 <template>
     <div>
-        <div class="page-header pr-0">
+        <div class="page-header pe-0">
             <h2><a href="/retentions">
                 <svg  xmlns="http://www.w3.org/2000/svg" style="margin-top: -5px;" width="24"  height="24"  viewBox="0 0 24 24"  fill="none"  stroke="currentColor"  stroke-width="2"  stroke-linecap="round"  stroke-linejoin="round"  class="icon icon-tabler icons-tabler-outline icon-tabler-clipboard-text"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M9 5h-2a2 2 0 0 0 -2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2 -2v-12a2 2 0 0 0 -2 -2h-2" /><path d="M9 3m0 2a2 2 0 0 1 2 -2h2a2 2 0 0 1 2 2v0a2 2 0 0 1 -2 2h-2a2 2 0 0 1 -2 -2z" /><path d="M9 12h6" /><path d="M9 16h6" /></svg>
             </a></h2>
@@ -107,10 +107,10 @@
                                             <th>Fec. Emisión</th>
                                             <th>Fec. Retención</th>
                                             <th>Moneda</th>
-                                            <th class="text-right">T. Retención</th>
-                                            <th class="text-right">T. Comprobante</th>
-                                            <th class="text-right">T. A pagar</th>
-                                            <th class="text-right">T. Pagado</th>
+                                            <th class="text-end">T. Retención</th>
+                                            <th class="text-end">T. Comprobante</th>
+                                            <th class="text-end">T. A pagar</th>
+                                            <th class="text-end">T. Pagado</th>
                                             <th></th>
                                         </tr>
                                         </thead>
@@ -123,19 +123,19 @@
                                             <td><span v-text="row.date_of_issue"></span></td>
                                             <td><span v-text="row.date_of_retention"></span></td>
                                             <td><span v-text="row.currency_type_id"></span></td>
-                                            <td class="text-right">
+                                            <td class="text-end">
                                                 <span v-text="row.total_retention"></span>
                                             </td>
-                                            <td class="text-right">
+                                            <td class="text-end">
                                                 <span v-text="row.total_document"></span>
                                             </td>
-                                            <td class="text-right">
+                                            <td class="text-end">
                                                 <span v-text="row.total_to_pay"></span>
                                             </td>
-                                            <td class="text-right">
+                                            <td class="text-end">
                                                 <span v-text="row.total_payment"></span>
                                             </td>
-                                            <td class="text-right">
+                                            <td class="text-end">
                                                 <button type="button" class="btn waves-effect waves-light btn-xs btn-danger" @click.prevent="clickRemoveDocument(index)">x</button>
                                             </td>
                                         </tr>
@@ -144,14 +144,14 @@
                                 </div>
                             </div>
                             <div class="col-md-12">
-                                <p class="text-right" v-if="form.total_retention > 0">Total Retención :   {{ form.total_retention }}</p>
+                                <p class="text-end" v-if="form.total_retention > 0">Total Retención :   {{ form.total_retention }}</p>
                                 <template v-if="form.total > 0">
-                                    <h3 class="text-right"><b>Total : </b>  {{ form.total }}</h3>
+                                    <h3 class="text-end"><b>Total : </b>  {{ form.total }}</h3>
                                 </template>
                             </div>
                         </div>
                     </div>
-                    <div class="form-actions text-right mt-4">
+                    <div class="form-actions d-flex justify-content-between mt-4">
                         <el-button class="second-buton btn btn-default second-buton-default" @click.prevent="close()">Cancelar</el-button>
                         <el-button class="btn btn-primary btn-submit-default" type="primary" native-type="submit" :loading="loading_submit" v-if="form.documents.length > 0 && form.total > 0">Generar</el-button>
                     </div>

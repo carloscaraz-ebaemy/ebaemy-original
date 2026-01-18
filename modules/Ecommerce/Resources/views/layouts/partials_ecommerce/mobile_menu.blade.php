@@ -13,7 +13,7 @@
                 <ul>
                     @foreach ($items as $item)
                         <li class="{{ ($tagid == $item->id) ? 'active':'' }}">
-                            <a href="{{ route("tenant.ecommerce.category", ['tagid' => $item->id]) }}">
+                            <a href="{{ route("tenant.ecommerce.category", ['category' => $item->id]) }}">
                                 {{$item->name}}
                             </a>
                         </li>

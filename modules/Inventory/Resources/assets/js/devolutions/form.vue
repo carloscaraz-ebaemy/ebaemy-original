@@ -1,5 +1,6 @@
 <template>
     <div class="card mb-0 pt-2 pt-md-0">
+        <span class="module-title-marker" data-page-title="Nueva Devolución"></span>
         <!-- <div class="card-header bg-info">
             <h3 class="my-0">Nuevo Comprobante</h3>
         </div> -->
@@ -13,8 +14,8 @@
                                 :path_logo="getCurrentLogo"
                             ></logo>
                         </div>
-                        <div class="col-sm-10 text-left mt-3 mb-0">
-                            <address class="ib mr-2">
+                        <div class="col-sm-10 text-start mt-3 mb-0">
+                            <address class="ib me-2">
                                 <span class="font-weight-bold d-block">Documento de Devolución</span>
                                 <!-- <span class="font-weight-bold d-block">DV-XXX</span> -->
                                 <span class="font-weight-bold">{{ company.name }}</span>
@@ -34,7 +35,7 @@
                         <div class="row mt-1">
                             <div class="col-lg-4 pb-2">
                                 <div class="form-group" :class="{'has-danger': errors.devolution_reason_id}">
-                                    <label class="control-label font-weight-bold text-info">
+                                    <label class="control-label font-weight-bold">
                                         Motivo
                                     </label>
                                     <el-select v-model="form.devolution_reason_id" filterable
@@ -76,9 +77,9 @@
                                             <th>#</th>
                                             <th class="font-weight-bold">Descripción</th>
                                             <th class="text-center font-weight-bold">Unidad</th>
-                                            <th class="text-right font-weight-bold">Cantidad</th>
-                                            <th class="text-right font-weight-bold">Lote</th>
-                                            <th class="text-right font-weight-bold">F. Vencimiento</th>
+                                            <th class="text-end font-weight-bold">Cantidad</th>
+                                            <th class="text-end font-weight-bold">Lote</th>
+                                            <th class="text-end font-weight-bold">F. Vencimiento</th>
                                             <th></th>
                                         </tr>
                                         </thead>
@@ -87,14 +88,14 @@
                                             <td>{{ index + 1 }}</td>
                                             <td>{{ row.item.description }}</td>
                                             <td class="text-center">{{ row.item.unit_type_id }}</td>
-                                            <td class="text-right">{{ row.quantity }}</td>
-                                            <td class="text-right">
+                                            <td class="text-end">{{ row.quantity }}</td>
+                                            <td class="text-end">
                                                 <div v-for="(lg, index) in row.lots_group" :key="index">{{ lg.code }}</div>
                                             </td>
-                                            <td class="text-right">
+                                            <td class="text-end">
                                                 <div v-for="(lg, index) in row.lots_group" :key="index">{{ lg.date_of_due }}</div>
                                             </td>
-                                            <td class="text-right">
+                                            <td class="text-end">
                                                 <button type="button"
                                                         class="btn waves-effect waves-light btn-xs btn-danger"
                                                         @click.prevent="clickRemoveItem(index)">x
@@ -118,7 +119,7 @@
                         </div>
                     </div>
 
-                    <div class="form-actions footer-card-default text-right mt-4 pl-4 pr-4 pb-3 pt-3">
+                    <div class="form-actions footer-card-default text-end mt-4 px-4 py-3">
                         <el-button class="second-buton btn btn-default second-buton-default" @click.prevent="close()">Cancelar</el-button>
                         <el-button class="submit btn btn-primary btn-submit-default" type="primary" native-type="submit" :loading="loading_submit"
                                    v-if="form.items.length > 0">Generar

@@ -112,7 +112,17 @@ export default {
         },
         getRecords() {
             this.loading_submit = true;
-            let resource = (this.promotionType=='banners')?this.resource:'promotions-list'
+            let resource = this.resource;
+            
+            // Determinar el endpoint según el tipo de promoción
+            if (this.promotionType == 'banners') {
+                resource = this.resource;
+            } else if (this.promotionType == 'promotions') {
+                resource = 'promotions-list';
+            } else if (this.promotionType == 'spots') {
+                resource = 'spot-list';
+            }
+            
             return this.$http
                 .get(`/${resource}/records?${this.getQueryParameters()}`)
                 .then(response => {

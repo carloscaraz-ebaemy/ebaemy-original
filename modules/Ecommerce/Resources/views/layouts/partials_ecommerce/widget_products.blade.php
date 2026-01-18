@@ -8,14 +8,24 @@
                         @php
                         $row3 = $items->take(3);
                         $row3inverse = $items->take(-3);
-
+                        
+                        $configurationModel = \App\Models\Tenant\Configuration::first();
+                        $defaultImage = $configurationModel->product_default_image ?? 'imagen-no-disponible.jpg';
+                        $defaultImagePath = $defaultImage === 'imagen-no-disponible.jpg'
+                            ? asset('logo/imagen-no-disponible.jpg')
+                            : asset('storage/defaults/' . $defaultImage);
                         @endphp
 
                         @foreach ($row3 as $item)
                         <div class="product product-sm">
                             <figure class="product-image-container">
                                 <a href="/ecommerce/item/{{ $item->id }}" class="product-image">
-                                    <img src="{{ asset('storage/uploads/items/'.$item->image) }}" alt="product">
+                                    @php
+                                        $itemImagePath = ($item->image && $item->image !== 'imagen-no-disponible.jpg')
+                                            ? asset('storage/uploads/items/'.$item->image)
+                                            : $defaultImagePath;
+                                    @endphp
+                                    <img src="{{ $itemImagePath }}" alt="{{ $item->description }}">
                                 </a>
                             </figure>
                             <div class="product-details">
@@ -45,7 +55,12 @@
                         <div class="product product-sm">
                             <figure class="product-image-container">
                                 <a href="/ecommerce/item/{{ $item->id }}" class="product-image">
-                                    <img src="{{ asset('storage/uploads/items/'.$item->image) }}" alt="product">
+                                    @php
+                                        $itemImagePath = ($item->image && $item->image !== 'imagen-no-disponible.jpg')
+                                            ? asset('storage/uploads/items/'.$item->image)
+                                            : $defaultImagePath;
+                                    @endphp
+                                    <img src="{{ $itemImagePath }}" alt="{{ $item->description }}">
                                 </a>
                             </figure>
                             <div class="product-details">

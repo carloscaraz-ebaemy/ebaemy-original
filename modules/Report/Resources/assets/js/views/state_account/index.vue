@@ -1,6 +1,6 @@
 <template>
     <div>
-        <div class="page-header pr-0">
+        <div class="page-header pe-0">
             <h2>
                 <a href="/list-reports">
                     <svg
@@ -39,7 +39,7 @@
                 <div class="data-table-visible-columns" style="top: 10px;">
                     <el-dropdown :hide-on-click="false">
                         <el-button type="secondary">
-                            Mostrar/Ocultar columnas<i
+                            Mostrar columnas<i
                                 class="el-icon-arrow-down el-icon--right"
                             ></i>
                         </el-button>
@@ -74,13 +74,13 @@
                             <th class="">Fecha vencimiento</th>
                             <th
                                 v-if="columns.guides.visible"
-                                class="text-right"
+                                class="text-end"
                             >
                                 Guia
                             </th>
                             <th
                                 v-if="columns.options.visible"
-                                class="text-right"
+                                class="text-end"
                             >
                                 Opciones
                             </th>
@@ -284,7 +284,7 @@
 
 <script>
 import DataTable from "../../components/DataTableReports.vue";
-import DocumentOptions from "../../../../../../../resources/js/views/tenant/documents/partials/options";
+import DocumentOptions from "@views/documents/partials/options.vue";
 import ProductSale from "./partials/product_sale.vue";
 
 export default {

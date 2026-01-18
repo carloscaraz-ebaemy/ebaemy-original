@@ -126,11 +126,11 @@
                                             <thead>
                                             <tr>
                                                 <th class="font-weight-bold">Descripción</th>
-                                                <th class="text-right font-weight-bold">Valor Unitario</th>
-                                                <th class="text-right font-weight-bold">Precio Unitario</th>
-                                                <th class="text-right font-weight-bold">Subtotal</th>
+                                                <th class="text-end font-weight-bold">Valor Unitario</th>
+                                                <th class="text-end font-weight-bold">Precio Unitario</th>
+                                                <th class="text-end font-weight-bold">Subtotal</th>
                                                 <!--<th class="text-right font-weight-bold">Cargo</th>-->
-                                                <th class="text-right font-weight-bold">Total</th>
+                                                <th class="text-end font-weight-bold">Total</th>
                                             </tr>
                                             </thead>
                                             <tbody>
@@ -142,18 +142,18 @@
                                                         row.item.presentation.hasOwnProperty('description') ? row.item.presentation.description : ''
                                                     }}<br/><small>{{ row.affectation_igv_type.description }}</small>
                                                 </td>
-                                                <td class="text-right">{{ getSymbol(currency_type) }}
+                                                <td class="text-end">{{ getSymbol(currency_type) }}
                                                                        {{ getFormatUnitPriceRow(row.unit_value) }}
                                                 </td>
-                                                <td class="text-right">{{ getSymbol(currency_type) }}
+                                                <td class="text-end">{{ getSymbol(currency_type) }}
                                                                        {{ getFormatUnitPriceRow(row.unit_price) }}
                                                 </td>
 
-                                                <td class="text-right">{{ getSymbol(currency_type) }}
+                                                <td class="text-end">{{ getSymbol(currency_type) }}
                                                                        {{ row.total_value }}
                                                 </td>
                                                 <!--<td class="text-right">{{  getSymbol(currency_type) }} {{ row.total_charge }}</td>-->
-                                                <td class="text-right">{{ getSymbol(currency_type) }} {{
+                                                <td class="text-end">{{ getSymbol(currency_type) }} {{
                                                         row.total
                                                                        }}
                                                 </td>
@@ -195,9 +195,9 @@
                                 <th>Estado</th>
                                 <th class="text-center">Moneda</th>
                                 <th
-                                    class="text-right">F. Vencimiento
+                                    class="text-end">F. Vencimiento
                                 </th>
-                                <th class="text-right">Total</th>
+                                <th class="text-end">Total</th>
 
 
                                 <th class="text-center">Comprobantes</th>
@@ -231,10 +231,10 @@
 
                                     <!-- F. Vencimiento -->
                                     <td
-                                        class="text-right">{{ row.due_date }}
+                                        class="text-end">{{ row.due_date }}
                                     </td>
                                     <!-- Total -->
-                                    <td class="text-right">{{ row.total }}</td>
+                                    <td class="text-end">{{ row.total }}</td>
 
                                     <!--Comprobantes -->
                                     <td>
@@ -265,7 +265,7 @@
                                                                     </td>-->
 
                                     <!-- Descarga -->
-                                    <td class="text-right">
+                                    <td class="text-end">
                                         <button class="btn waves-effect waves-light btn-xs btn-info"
                                                 type="button"
                                                 @click.prevent="clickDownload(row.external_id)">
@@ -298,8 +298,8 @@
                             <th>Número</th>
                             <th>Estado</th>
                             <th class="text-center">Moneda</th>
-                            <th class="text-right">T.Igv</th>
-                            <th class="text-right">Total</th>
+                            <th class="text-end">T.Igv</th>
+                            <th class="text-end">Total</th>
                             <th class="text-center">Saldo</th>
                             <th class="text-center"></th>
                             </thead>
@@ -357,9 +357,9 @@
                                     </template>
                                 </td>
                                 <td class="text-center">{{ row.currency_type_id }}</td>
-                                <td class="text-right">{{ row.total_igv }}</td>
-                                <td class="text-right">{{ row.total }}</td>
-                                <td class="text-right">{{ row.balance }}</td>
+                                <td class="text-end">{{ row.total_igv }}</td>
+                                <td class="text-end">{{ row.total }}</td>
+                                <td class="text-end">{{ row.balance }}</td>
                                 <td class="text-center">
                                     <button type="button"
                                             style="min-width: 41px"
@@ -393,9 +393,9 @@
                 -->
 
             </el-tabs>
-            <div class="form-actions text-right mt-4">
+            <div class="form-actions text-end mt-4">
                 <el-button
-                    class="second-buton"
+                    class="second-buton me-2"
                     @click.prevent="close()">
                     Cancelar
                 </el-button>
@@ -448,7 +448,7 @@ import {
     calculateRowItem,
     FormatUnitPriceRow,
     showNamePdfOfDescription
-} from "../../../../../../resources/js/helpers/functions";
+} from "@helpers/functions";
 import moment from 'moment'
 
 export default {

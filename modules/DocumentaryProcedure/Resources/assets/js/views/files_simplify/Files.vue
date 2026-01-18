@@ -1,6 +1,6 @@
 <template>
     <div>
-        <div class="page-header pr-0">
+        <div class="page-header ps-0">
             <h2>
                 <a href="/documentary-procedure/files_simplify">
                     <svg
@@ -29,7 +29,7 @@
                 <div class="btn-group flex-wrap">
                     <a
                         :href="`/documentary-procedure/files_simplify/new`"
-                        class="btn btn-custom btn-sm mt-2 mr-2"
+                        class="btn btn-custom btn-sm mt-2 me-2"
                         type="button"
                     >
                         <!--// @click="onCreate"-->
@@ -239,7 +239,7 @@
                                 <th>Cliente</th>
                                 <th>Fecha/Hora registro</th>
                                 <!--                            <th>Datos del cliente</th>-->
-                                <th class="text-right">
+                                <th class="text-end">
                                     Ultimo número de seguimiento
                                 </th>
                                 <th>Etapa</th>
@@ -352,7 +352,7 @@
                                     {{ formatDateTime(item.datetime_register) }}
                                 </td>
                                 <!--                            <td>{{ item.sender.name }}</td>-->
-                                <td class="text-right">
+                                <td class="text-end">
                                     {{
                                         item.last_guide && item.last_guide.guide
                                             ? item.last_guide.guide
@@ -372,7 +372,7 @@
                                                     .color +
                                                 ';font-size: 12px;'
                                         "
-                                        class="badge pl-0 text-left"
+                                        class="badge ps-0 text-start"
                                     >
                                         {{ item.last_guide.doc_office.name }}
                                     </div>
@@ -418,84 +418,49 @@
                                     </div>
                                 </td>
                                 <td class="text-center td-btns">
-                                    <div class="dropdown">
-                                        <button
-                                            id="dropdownMenuButton"
-                                            aria-expanded="false"
-                                            aria-haspopup="true"
+                                    <el-dropdown
+                                        trigger="click"
+                                        @command="handleDropdownCommand($event, item)"
+                                    >
+                                        <el-button
                                             class="btn btn-default btn-sm btn-dropdown-toggle"
-                                            data-toggle="dropdown"
-                                            type="button"
+                                            size="mini"
+                                            native-type="button"
                                         >
                                             <i class="fas fa-ellipsis-v"></i>
                                             <i class="fas fa-ellipsis-h" style="display: none;"></i>
-                                        </button>
-                                        <div
-                                            aria-labelledby="dropdownMenuButton"
-                                            class="dropdown-menu"
-                                        >
+                                        </el-button>
+                                        <el-dropdown-menu slot="dropdown">
                                             <template v-if="!item.is_archive">
-                                                <button
-                                                    class="dropdown-item"
-                                                    type="button"
-                                                    @click.prevent="
-                                                        editItem(item.id)
-                                                    "
-                                                >
+                                                <el-dropdown-item command="edit">
                                                     Editar/Ver
-                                                </button>
-                                                <button
-                                                    class="dropdown-item"
-                                                    type="button"
-                                                    @click.prevent="
-                                                        printFile(item.id)
-                                                    "
-                                                >
+                                                </el-dropdown-item>
+                                                <el-dropdown-item command="print">
                                                     Imprimir
-                                                </button>
-                                                <button
+                                                </el-dropdown-item>
+                                                <el-dropdown-item
                                                     v-if="!item.is_completed"
-                                                    class="dropdown-item"
-                                                    type="button"
-                                                    @click.prevent="
-                                                        removeItem(item.id)
-                                                    "
+                                                    command="remove"
                                                 >
                                                     Eliminar
-                                                </button>
-                                                <button
+                                                </el-dropdown-item>
+                                                <el-dropdown-item
                                                     v-if="!item.is_completed"
-                                                    class="dropdown-item"
-                                                    type="button"
-                                                    @click.prevent="
-                                                        completeItem(item.id)
-                                                    "
+                                                    command="complete"
                                                 >
                                                     Finalizar
-                                                </button>
-                                                <button
-                                                    class="dropdown-item"
-                                                    type="button"
-                                                    @click.prevent="
-                                                        archiveFile(item.id)
-                                                    "
-                                                >
+                                                </el-dropdown-item>
+                                                <el-dropdown-item command="archive">
                                                     Archivar
-                                                </button>
+                                                </el-dropdown-item>
                                             </template>
                                             <template v-else>
-                                                <button
-                                                    class="dropdown-item"
-                                                    type="button"
-                                                    @click.prevent="
-                                                        reactiveFile(item.id)
-                                                    "
-                                                >
+                                                <el-dropdown-item command="reactive">
                                                     Retomar Tramite
-                                                </button>
+                                                </el-dropdown-item>
                                             </template>
-                                        </div>
-                                    </div>
+                                        </el-dropdown-menu>
+                                    </el-dropdown>
 
                                     <!--
                                 AGREGAR SECUENCIA DE TRAMITE <br>
@@ -505,7 +470,7 @@
                         </tbody>
                     </table>
                 </div>
-                </div>                
+                </div>
             </div>
         </div>
         <ModalAddReason
@@ -540,11 +505,11 @@
 </template>
 
 <script>
-import ModalAddReason from "./ModalAddReason";
+import ModalAddReason from "./ModalAddReason.vue";
 
 /*
-import ModalAddEdit from "./ModalAddEdit";
-import ModalDerive from "./ModalDerive";
+import ModalAddEdit from "./ModalAddEdit.vue";
+import ModalDerive from "./ModalDerive.vue";
 import StageModalObservationStage from "./ModalHistoricalObservation";
 import ModalStage from "./ModalStage";
 */
@@ -671,12 +636,36 @@ export default {
         checkScrollShadows() {
             const el = this.$refs.scrollContainer;
             if (!el) return;
-            
+
             const scrollLeft = el.scrollLeft;
             const scrollRight = el.scrollWidth - el.clientWidth - scrollLeft;
-            
+
             this.showLeftShadow = scrollLeft > 1;
             this.showRightShadow = scrollRight > 1;
+        },
+        handleDropdownCommand(command, item) {
+            switch (command) {
+                case "edit":
+                    this.editItem(item.id);
+                    break;
+                case "print":
+                    this.printFile(item.id);
+                    break;
+                case "remove":
+                    this.removeItem(item.id);
+                    break;
+                case "complete":
+                    this.completeItem(item.id);
+                    break;
+                case "archive":
+                    this.archiveFile(item.id);
+                    break;
+                case "reactive":
+                    this.reactiveFile(item.id);
+                    break;
+                default:
+                    break;
+            }
         },
         formatDateTime(dateTime) {
             if (!dateTime) return null;

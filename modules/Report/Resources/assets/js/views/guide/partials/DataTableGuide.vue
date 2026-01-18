@@ -224,19 +224,19 @@
                     <div class="col-lg-7 col-md-7 col-md-7 col-sm-12"
                          style="margin-top:29px">
                         <el-button :loading="loading_submit"
-                                   class="submit"
+                                   class="submit me-2"
                                    icon="el-icon-search"
                                    type="primary"
                                    @click.prevent="getRecordsByFilter">Buscar
                         </el-button>
 
                         <template v-if="records.length>0">
-                            <el-button class="submit"
+                            <el-button class="submit me-2"
                                        type="success"
                                        @click.prevent="clickDownload('excel')"><i
-                                class="fa fa-file-excel"></i> Exportal Excel
+                                class="fa fa-file-excel"></i> Exportar Excel
                             </el-button>
-                            <el-button class="submit"
+                            <el-button class="submit me-2"
                                        icon="el-icon-tickets"
                                        type="danger"
                                        @click.prevent="clickDownload('pdf')">Exportar PDF

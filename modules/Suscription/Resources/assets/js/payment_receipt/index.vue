@@ -1,7 +1,7 @@
 <template>
     <div>
         <!-- Basado en resources/js/views/tenant/sale_notes/index.vue -->
-        <div class="page-header pr-0">
+        <div class="page-header pe-0">
             <h2>
                 <a href="/suscription/payment_receipt">
                     <svg
@@ -55,7 +55,7 @@
             <div class="data-table-visible-columns">
                 <el-dropdown :hide-on-click="false">
                     <el-button type="secondary">
-                        Mostrar/Ocultar columnas<i
+                        Mostrar columnas<i
                             class="el-icon-arrow-down el-icon--right"
                         >
                         </i>
@@ -81,7 +81,7 @@
                 >
                     <tr slot="heading">
                         <!-- <th>#</th> -->
-                        <th class="text-left">Fecha Emisión</th>
+                        <th class="text-start">Fecha Emisión</th>
                         <th>Cliente</th>
                         <th>Hijo</th>
                         <th>Grado</th>
@@ -89,7 +89,7 @@
                         <th>Recibo de pago</th>
                         <th>Estado</th>
                         <th class="text-center">Moneda</th>
-                        <th class="text-right">F. Vencimiento</th>
+                        <th class="text-end">F. Vencimiento</th>
                         <!--
                         <th v-if="columns.total_exportation.visible"
                             class="text-right">T.Exportación
@@ -112,7 +112,7 @@
                             class="text-right">T.Igv
                         </th>
                         -->
-                        <th class="text-right">Total</th>
+                        <th class="text-end">Total</th>
 
                         <th
                             v-if="columns.total_paid.visible"
@@ -152,7 +152,7 @@
                             Placa
                         </th>
                         -->
-                        <th class="text-right">Acciones</th>
+                        <th class="text-end">Acciones</th>
                     </tr>
 
                     <tr></tr>
@@ -160,7 +160,7 @@
                         <!-- # -->
                         <!-- <td>{{ index }}</td> -->
                         <!-- Fecha Emisión -->
-                        <td class="text-left">
+                        <td class="text-start">
                             {{ formatDate(row.date_of_issue) }}
                         </td>
                         <!-- Cliente -->
@@ -185,7 +185,7 @@
                         <td class="text-center">{{ row.currency_type_id }}</td>
 
                         <!-- F. Vencimiento -->
-                        <td class="text-right">
+                        <td class="text-end">
                             {{ formatDate(row.due_date) }}
                         </td>
                         <!-- -- >
@@ -214,7 +214,7 @@
                             class="text-right">{{ row.total_igv }}
                         </td>
                         <!-- Total -->
-                        <td class="text-right">{{ row.total }}</td>
+                        <td class="text-end">{{ row.total }}</td>
 
                         <!--Pagado -->
                         <td
@@ -271,7 +271,7 @@
                         </td>
 
                         <!-- Descarga -->
-                        <td class="text-right">
+                        <td class="text-end">
                             <button
                                 class="btn waves-effect waves-light btn-xs btn-info"
                                 type="button"
@@ -314,7 +314,7 @@
                             {{ row.license_plate }}
                         </td>
                     -->
-                        <td class="text-right">
+                        <td class="text-end">
                             <button
                                 v-if="row.state_type_id != '11'"
                                 class="btn waves-effect waves-light btn-xs btn-danger"
@@ -456,8 +456,8 @@
 // import UploadToOtherServer from './partials/upload_other_server_group.vue'
 import SaleNotePayments from "./partials/payments.vue";
 import SaleNotesOptions from "./partials/options.vue";
-import SaleNoteGenerate from "./partials/option_documents";
-import ModalGenerateCPE from "./ModalGenerateCPE";
+import SaleNoteGenerate from "./partials/option_documents.vue";
+import ModalGenerateCPE from "./ModalGenerateCPE.vue";
 import { mapActions, mapState } from "vuex/dist/vuex.mjs";
 import { deletable } from "../../../../../../resources/js/mixins/deletable";
 

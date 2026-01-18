@@ -1,7 +1,9 @@
 <template>
     <div>
-        <header class="page-header bg-primary">
-            <h2 class="text-white"><a href="/dashboard"><i class="fa fa-list-alt"></i></a></h2>
+        <header class="page-header">
+            <h2 class="text-white"><a href="/dashboard">
+                <svg  xmlns="http://www.w3.org/2000/svg"  width="20"  height="20" viewBox="0 0 24 24"  fill="none"  stroke="currentColor"  stroke-width="2"  stroke-linecap="round"  stroke-linejoin="round"  class="icon icon-tabler icons-tabler-outline icon-tabler-files" style="margin-top: -5px;"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M15 3v4a1 1 0 0 0 1 1h4" /><path d="M18 17h-7a2 2 0 0 1 -2 -2v-10a2 2 0 0 1 2 -2h4l5 5v7a2 2 0 0 1 -2 2z" /><path d="M16 17v2a2 2 0 0 1 -2 2h-7a2 2 0 0 1 -2 -2v-10a2 2 0 0 1 2 -2h2" /></svg>
+            </a></h2>
             <ol class="breadcrumbs">
                 <li class="active"><span class="text-white">Facturas Masivas</span></li>
             </ol>
@@ -10,11 +12,13 @@
         <div class="card">
             <div class="card-header bg-teal">
                 <div>
-                    <button @click="showUploadModal = true" class="btn btn-primary mr-2 float-right">
-                        <i class="fas fa-upload"></i> Subir Facturas
+                    <button @click="showUploadModal = true" class="btn btn-primary me-2 float-right">
+                        <svg  xmlns="http://www.w3.org/2000/svg"  width="24"  height="24"  viewBox="0 0 24 24"  fill="none"  stroke="currentColor"  stroke-width="2"  stroke-linecap="round"  stroke-linejoin="round"  class="icon icon-tabler icons-tabler-outline icon-tabler-upload" style="margin-top: -3px;"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2 -2v-2" /><path d="M7 9l5 -5l5 5" /><path d="M12 4l0 12" /></svg> 
+                        Subir Facturas
                     </button>
-                    <button @click="showFilterModal = true" class="btn btn-info mr-2 float-right">
-                        <i class="fas fa-filter"></i> Filtros
+                    <button @click="showFilterModal = true" class="btn btn-info me-2 float-right">
+                        <svg  xmlns="http://www.w3.org/2000/svg"  width="24"  height="24"  viewBox="0 0 24 24"  fill="none"  stroke="currentColor"  stroke-width="2"  stroke-linecap="round"  stroke-linejoin="round"  class="icon icon-tabler icons-tabler-outline icon-tabler-filter" style="margin-top: -3px;"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M4 4h16v2.172a2 2 0 0 1 -.586 1.414l-4.414 4.414v7l-6 2v-8.5l-4.48 -4.928a2 2 0 0 1 -.52 -1.345v-2.227z" /></svg> 
+                        Filtros
                     </button>
                 </div>
             </div>
@@ -63,7 +67,7 @@
                                 <td>S/ {{ record.total_venta }}</td>
                                 <td>
                                     <button @click="downloadFile(record.id, 'pdf')" 
-                                        class="btn btn-sm btn-info mr-1" 
+                                        class="btn btn-sm btn-info me-1" 
                                         title="Descargar PDF">
                                         <i class="fas fa-file-pdf"></i>
                                     </button>
@@ -87,7 +91,7 @@
                                     <el-option :value="50" label="50"></el-option>
                                     <el-option :value="100" label="100"></el-option>
                                 </el-select>
-                                <span class="ml-3">
+                                <span class="ms-3">
                                     Mostrando {{ paginationInfo.from }} - {{ paginationInfo.to }} de {{ paginationInfo.total }} registros
                                 </span>
                             </div>
@@ -174,7 +178,7 @@
             :before-close="closeModal">
             
             <div class="text-center">
-                <button @click="downloadFormat" class="btn btn-info mb-4 w-100">
+                <button @click="downloadFormat" class="btn btn-primary mb-4 w-100">
                     <i class="fas fa-download"></i> Descargar Formato Excel
                 </button>
                 

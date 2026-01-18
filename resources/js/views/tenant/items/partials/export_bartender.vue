@@ -1,15 +1,41 @@
 <template>
     <el-dialog :visible="showDialog"
-               title="Generación de TXT para Bartender"
+               title="Exportar Archivo de Etiquetas"
                append-to-body
                class="pt-0"
                top="7vh"
-               width="80%"
+               width="60%"
                @close="close"
                >
         <form autocomplete="off"
               @submit.prevent="submit">
             <div class="form-body">
+                <div class="row mb-4">
+                    <span>Formato TXT universal compatible con las marcas más populares de impresoras de etiquetas:</span>
+                    <div
+                        class="labeling-logos-wrapper"
+                        :class="{
+                            'has-left-shadow': showLogoShadowLeft,
+                            'has-right-shadow': showLogoShadowRight,
+                        }"
+                    >
+                        <div
+                            class="labeling-logos"
+                            ref="labelingLogos"
+                            @scroll.passive="onLabelingLogosScroll"
+                        >
+                            <img src="/public/images/labeling_machines_img/Bartender.svg" alt="bartender">
+                            <img src="/public/images/labeling_machines_img/Cybra.png" alt="cybra">
+                            <img src="/public/images/labeling_machines_img/golabel.png" alt="golabel">
+                            <img src="/public/images/labeling_machines_img/Honeywell.svg" alt="honeywell">
+                            <img src="/public/images/labeling_machines_img/Labeljoy.svg" alt="labeljoy">
+                            <img src="/public/images/labeling_machines_img/Nicelabel.svg" alt="nicelabel">
+                            <img src="/public/images/labeling_machines_img/Teklynx.svg" alt="teklynx">
+                            <img src="/public/images/labeling_machines_img/Tlashford.png" alt="tlashford">
+                            <img src="/public/images/labeling_machines_img/Zebra.svg" alt="zebra">
+                        </div>
+                    </div>                    
+                </div>
                 <div class="row">
                     <div class="col-12">
                         <item-search-quick-sale
@@ -75,8 +101,8 @@
                         </el-select>
                     </div>
                 </div>
-                <div class="form-actions text-right mt-4">
-                    <el-button class="second-buton" @click.prevent="close()">Cancelar</el-button>
+                <div class="form-actions text-end mt-4">
+                    <el-button class="second-buton me-2" @click.prevent="close()">Cancelar</el-button>
                     <el-button :loading="loading_submit"
                                native-type="submit"
                                type="primary">Generar archivo TXT
@@ -86,7 +112,82 @@
         </form>
     </el-dialog>
 </template>
+<style>
+.labeling-logos-wrapper {
+  position: relative;
+}
+.labeling-logos-wrapper::before,
+.labeling-logos-wrapper::after {
+  content: "";
+  position: absolute;
+  top: 0;
+    width: 15px;
+  height: 100%;
+  pointer-events: none;
+  z-index: 2;
+    opacity: 0;
+    transition: opacity 160ms ease;
+}
+.labeling-logos-wrapper::before {
+  left: 12px;
+    background: linear-gradient(
+        to right,
+        rgba(0, 0, 0, 0.10) 0%,
+        rgba(0, 0, 0, 0.04) 40%,
+        transparent 100%
+    );
+}
 
+.labeling-logos-wrapper::after {
+  right: 12px;
+    background: linear-gradient(
+        to left,
+        rgba(0, 0, 0, 0.10) 0%,
+        rgba(0, 0, 0, 0.04) 40%,
+        transparent 100%
+    );
+}
+.labeling-logos-wrapper.has-left-shadow::before {
+    opacity: 1;
+}
+
+.labeling-logos-wrapper.has-right-shadow::after {
+    opacity: 1;
+}
+.labeling-logos {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  overflow-x: auto;
+  scroll-behavior: smooth;
+  -webkit-overflow-scrolling: touch;
+}
+.labeling-logos::-webkit-scrollbar {
+  display: none;
+}
+.labeling-logos img {
+  width: 90px;
+  height: 50px;
+  object-fit: contain;
+  flex-shrink: 0;
+}
+@media (max-width: 1024px) {
+  .labeling-logos img {
+    width: 85px;
+    height: 50px;
+  }
+}
+@media (max-width: 640px) {
+  .labeling-logos {
+    gap: 10px;
+  }
+
+  .labeling-logos img {
+    width: 70px;
+    height: 42px;
+  }
+}
+</style>
 <script>
 import queryString from 'query-string'
 import ItemSearchQuickSale from '@components/items/ItemSearchQuickSale.vue'
@@ -106,6 +207,8 @@ export default {
             headers: headers_token,
             resource: 'items',
             errors: {},
+            showLogoShadowLeft: false,
+            showLogoShadowRight: false,
             form: {
                 columns: [],
                 items: []
@@ -132,6 +235,24 @@ export default {
         }
         this.initForm()
     },
+    mounted() {
+        window.addEventListener('resize', this.onLabelingLogosResize)
+        this.$nextTick(() => {
+            this.updateLabelingLogosShadows()
+        })
+    },
+    beforeDestroy() {
+        window.removeEventListener('resize', this.onLabelingLogosResize)
+    },
+    watch: {
+        showDialog(newValue) {
+            if (newValue) {
+                this.$nextTick(() => {
+                    this.updateLabelingLogosShadows()
+                })
+            }
+        },
+    },
     methods: {
         initForm() {
             this.errors = {}
@@ -141,6 +262,29 @@ export default {
         close() {
             this.$emit('update:showDialog', false)
             this.initForm()
+        },
+        onLabelingLogosScroll() {
+            this.updateLabelingLogosShadows()
+        },
+        onLabelingLogosResize() {
+            this.updateLabelingLogosShadows()
+        },
+        updateLabelingLogosShadows() {
+            const container = this.$refs.labelingLogos
+            if (!container) return
+
+            const maxScrollLeft = container.scrollWidth - container.clientWidth
+
+            if (maxScrollLeft <= 1) {
+                this.showLogoShadowLeft = false
+                this.showLogoShadowRight = false
+                return
+            }
+
+            // Usamos tolerancia por posibles valores fraccionarios
+            const scrollLeft = container.scrollLeft
+            this.showLogoShadowLeft = scrollLeft > 1
+            this.showLogoShadowRight = scrollLeft < maxScrollLeft - 1
         },
         submit() {
 

@@ -1,6 +1,6 @@
 <template>
     <div>
-        <div class="page-header pr-0">
+        <div class="page-header pe-0">
             <h2><a href="/fixed-asset/purchases">
                 <svg  xmlns="http://www.w3.org/2000/svg" style="margin-top: -5px;"  width="24"  height="24"  viewBox="0 0 24 24"  fill="none"  stroke="currentColor"  stroke-width="2"  stroke-linecap="round"  stroke-linejoin="round"  class="icon icon-tabler icons-tabler-outline icon-tabler-shopping-bag"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M6.331 8h11.339a2 2 0 0 1 1.977 2.304l-1.255 8.152a3 3 0 0 1 -2.966 2.544h-6.852a3 3 0 0 1 -2.965 -2.544l-1.255 -8.152a2 2 0 0 1 1.977 -2.304z" /><path d="M9 11v-5a3 3 0 0 1 6 0v5" /></svg>
             </a></h2>
@@ -8,14 +8,14 @@
                 <li class="active"><span>Compras - Activos fijos</span></li>
             </ol>
             <div class="right-wrapper pull-right">
-                <a :href="`/${resource}/create`" class="btn btn-custom btn-sm  mt-2 mr-2"><i class="fa fa-plus-circle"></i> Nuevo</a>
+                <a :href="`/${resource}/create`" class="btn btn-custom btn-sm  mt-2 me-2"><i class="fa fa-plus-circle"></i> Nuevo</a>
             </div>
         </div>
         <div class="card tab-content-default row-new mb-0">
             <div class="data-table-visible-columns">
                 <el-dropdown :hide-on-click="false">
                     <el-button type="secondary">
-                        Mostrar/Ocultar columnas<i class="el-icon-arrow-down el-icon--right"></i>
+                        Mostrar columnas<i class="el-icon-arrow-down el-icon--right"></i>
                     </el-button>
                     <el-dropdown-menu slot="dropdown">
                         <el-dropdown-item v-for="(column, index) in columns" :key="index">
@@ -28,25 +28,25 @@
                 <data-table :resource="resource">
                     <tr slot="heading">
                         <!-- <th>#</th> -->
-                        <th class="text-left">F. Emisión</th>
+                        <th class="text-start">F. Emisión</th>
                         <th class="text-center" v-if="columns.date_of_due.visible" >F. Vencimiento</th>
                         <th>Proveedor</th>
                         <th>Estado</th>
                         <th>Número</th>
                         <th>Productos</th> 
                         <th class="text-center">Moneda</th>
-                        <th v-if="columns.total_free.visible"  class="text-right">T.Gratuita</th>
-                        <th v-if="columns.total_unaffected.visible" class="text-right">T.Inafecta</th>
-                        <th v-if="columns.total_exonerated.visible" class="text-right">T.Exonerado</th>
-                        <th v-if="columns.total_taxed.visible" class="text-right">T.Gravado</th>
-                        <th v-if="columns.total_igv.visible" class="text-right">T.Igv</th>
+                        <th v-if="columns.total_free.visible"  class="text-end">T.Gratuita</th>
+                        <th v-if="columns.total_unaffected.visible" class="text-end">T.Inafecta</th>
+                        <th v-if="columns.total_exonerated.visible" class="text-end">T.Exonerado</th>
+                        <th v-if="columns.total_taxed.visible" class="text-end">T.Gravado</th>
+                        <th v-if="columns.total_igv.visible" class="text-end">T.Igv</th>
                         <!-- <th v-if="columns.total_perception.visible" >Percepcion</th> -->
-                        <th class="text-right">Total</th>
-                        <th class="text-right">Acciones</th>
+                        <th class="text-end">Total</th>
+                        <th class="text-end">Acciones</th>
                     <tr>
                     <tr slot-scope="{ index, row }">
                         <!-- <td>{{ index }}</td> -->
-                        <td class="text-left">{{ row.date_of_issue }}</td>
+                        <td class="text-start">{{ row.date_of_issue }}</td>
                         <td v-if="columns.date_of_due.visible" class="text-center">{{ row.date_of_due }}</td>
                         <td>{{ row.supplier_name }}<br/><small v-text="row.supplier_number"></small></td>
                         <td>{{row.state_type_description}}</td>
@@ -70,21 +70,18 @@
                         </td>
 
                         <td class="text-center">{{ row.currency_type_id }}</td>
-                        <td v-if="columns.total_free.visible" class="text-right">{{row.currency_type_id === 'PEN' ? 'S/' : '$'}} {{ row.total_free }}</td>
-                        <td v-if="columns.total_unaffected.visible" class="text-right">{{row.currency_type_id === 'PEN' ? 'S/' : '$'}} {{ row.total_unaffected }}</td>
-                        <td v-if="columns.total_exonerated.visible" class="text-right">{{row.currency_type_id === 'PEN' ? 'S/' : '$'}} {{ row.total_exonerated }}</td>
-                        <td v-if="columns.total_taxed.visible" class="text-right">{{row.currency_type_id === 'PEN' ? 'S/' : '$'}} {{ row.total_taxed }}</td>
-                        <td v-if="columns.total_igv.visible" class="text-right">{{row.currency_type_id === 'PEN' ? 'S/' : '$'}} {{ row.total_igv }}</td>
-                        <!-- <td v-if="columns.total_perception.visible" class="text-right">{{ row.total_perception ? row.total_perception : 0 }}</td> -->
-                        <td class="text-right">{{row.currency_type_id === 'PEN' ? 'S/' : '$'}} {{ row.total   }}</td>
-                        <td class="text-right">
+                        <td v-if="columns.total_free.visible" class="text-end">{{row.currency_type_id === 'PEN' ? 'S/' : '$'}} {{ row.total_free }}</td>
+                        <td v-if="columns.total_unaffected.visible" class="text-end">{{row.currency_type_id === 'PEN' ? 'S/' : '$'}} {{ row.total_unaffected }}</td>
+                        <td v-if="columns.total_exonerated.visible" class="text-end">{{row.currency_type_id === 'PEN' ? 'S/' : '$'}} {{ row.total_exonerated }}</td>
+                        <td v-if="columns.total_taxed.visible" class="text-end">{{row.currency_type_id === 'PEN' ? 'S/' : '$'}} {{ row.total_taxed }}</td>
+                        <td v-if="columns.total_igv.visible" class="text-end">{{row.currency_type_id === 'PEN' ? 'S/' : '$'}} {{ row.total_igv }}</td>
+                        <!-- <td v-if="columns.total_perception.visible" class="text-end">{{ row.total_perception ? row.total_perception : 0 }}</td> -->
+                        <td class="text-end">{{row.currency_type_id === 'PEN' ? 'S/' : '$'}} {{ row.total   }}</td>
+                        <td class="text-end">
 
-                            <a v-if="row.state_type_id != '11'" :href="`/${resource}/create/${row.id}`" type="button" class="btn waves-effect waves-light btn-xs btn-info">Editar</a>
-                            <button v-if="row.state_type_id != '11'" type="button" class="btn waves-effect waves-light btn-xs btn-danger" @click.prevent="clickVoided(row.id)">Anular</button>
-                            <button v-if="row.state_type_id == '11'" type="button" class="btn waves-effect waves-light btn-xs btn-danger" @click.prevent="clickDelete(row.id)">Eliminar</button>
-
-
-
+                            <a v-if="row.state_type_id != '11'" :href="`/${resource}/create/${row.id}`" type="button" class="btn waves-effect waves-light btn-xs btn-info me-1">Editar</a>
+                            <button v-if="row.state_type_id != '11'" type="button" class="btn waves-effect waves-light btn-xs btn-danger me-1" @click.prevent="clickVoided(row.id)">Anular</button>
+                            <button v-if="row.state_type_id == '11'" type="button" class="btn waves-effect waves-light btn-xs btn-danger me-1" @click.prevent="clickDelete(row.id)">Eliminar</button>
                         </td>
 
                     </tr>

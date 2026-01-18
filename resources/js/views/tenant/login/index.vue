@@ -1,6 +1,6 @@
 <template>
   <div>
-    <div class="page-header pr-0">
+    <div class="page-header pe-0">
       <h2>
         <a href="/dashboard"><i class="fas fa-tachometer-alt"></i></a>
       </h2>
@@ -88,6 +88,10 @@
                 <label class="control-label">Linkedin</label>
                 <el-input v-model="form.linkedin"></el-input>
               </div>
+              <div class="form-group">
+                <label class="control-label">TikTok</label>
+                <el-input v-model="form.tiktok"></el-input>
+              </div>
               <el-button
                 :loading="loading"
                 :disabled="loading"
@@ -105,7 +109,7 @@
 </template>
 
 <script>
-import ImageBgUpload from "./UploadBgImage";
+import ImageBgUpload from "./UploadBgImage.vue";
 
 export default {
   components: {

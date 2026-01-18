@@ -33,7 +33,10 @@
                             </div>
 								</div>`);
 
-            $('#product_added_image').html(`<img src="/storage/uploads/items/${item.image_medium}" class="img" alt="product">`)
+			const addedImagePath = (item.image_medium && item.image_medium !== 'imagen-no-disponible.jpg')
+				? `/storage/uploads/items/${item.image_medium}`
+				: `/logo/imagen-no-disponible.jpg`;
+			$('#product_added_image').html(`<img src="${addedImagePath}" class="img" alt="${item.description}">`)
         }
         else {
             jQuery('#modal-already-product').modal('show');
@@ -58,6 +61,9 @@ function productsCartDropDown()
 	count = array.length;
 
 	array.forEach(element => {
+		const imagePath = (element.image_small && element.image_small !== 'imagen-no-disponible.jpg')
+			? `/storage/uploads/items/${element.image_small}`
+			: `/logo/imagen-no-disponible.jpg`;
 
 		jQuery(".dropdown-cart-products").append( `
 				<div class="product">
@@ -71,7 +77,7 @@ function productsCartDropDown()
 					</div>
 					<figure class="product-image-container">
 						<a href="#" class="product-image">
-							<img alt="product" src="/storage/uploads/items/${element.image_small}" />
+							<img alt="${element.description}" src="${imagePath}" />
 						</a>
 						<a href="#" onclick="remove(${element.id})" class="btn-remove" title="Remove Product">
 							<i class="icon-cancel"></i>

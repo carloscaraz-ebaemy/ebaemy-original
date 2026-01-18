@@ -24,7 +24,7 @@
 
 <script>
 import {mapState} from "vuex/dist/vuex.mjs";
-import * as https from 'https';
+// import * as https from 'https';
 
 export default {
     props: ['colClass','wsPhone','wsFile','wsDocument','wsMessage'],

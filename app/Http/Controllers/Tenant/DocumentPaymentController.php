@@ -11,7 +11,7 @@ use App\Models\Tenant\DocumentPayment;
 use App\Models\Tenant\PaymentMethodType;
 use App\Exports\DocumentPaymentExport;
 use Exception, Illuminate\Support\Facades\DB;
-use Barryvdh\DomPDF\Facade as PDF;
+use Barryvdh\DomPDF\Facade\Pdf as PDF;
 use Modules\Finance\Traits\FinanceTrait;
 use Modules\Finance\Traits\FilePaymentTrait;
 use Carbon\Carbon;

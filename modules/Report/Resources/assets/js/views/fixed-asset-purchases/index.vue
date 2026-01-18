@@ -1,6 +1,6 @@
 <template>
     <div>
-        <div class="page-header pr-0">
+        <div class="page-header pe-0">
             <h2>
                 <a href="/list-reports">
                     <svg
@@ -81,7 +81,7 @@
                                 {{ row.currency_type_id }}
                             </td>
                             <td>{{ row.exchange_rate_sale }}</td>
-                            <td class="text-right">
+                            <td class="text-end">
                                 {{
                                     row.total_perception &&
                                     row.state_type_id != "11"

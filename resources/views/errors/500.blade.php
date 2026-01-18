@@ -8,4 +8,4 @@
 </div>
 @endsection
 
-@section('message', __('Whoops, something went wrong on our servers.'))
+@section('message', __('Ups, algo salió mal en nuestros servidores.'))

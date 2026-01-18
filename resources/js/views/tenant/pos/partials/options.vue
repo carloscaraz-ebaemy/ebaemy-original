@@ -171,7 +171,7 @@
                     </div>
                 </div>
                 <div class="row col-md-12">
-                    <div class="col-md-6 btn-submit-container">
+                    <div class="col-md-6 btn-submit-container position-relative">
                         <el-input
                             v-model="form.customer_email"
                             ref="ref_customer_email"
@@ -189,7 +189,7 @@
                     </div>
 
                     <div
-                        class="col-md-6 btn-submit-container"
+                        class="col-md-6 btn-submit-container position-relative"
                         v-if="!config.qr_api_enable_ws"
                     >
                         <div class="code-number-container">
@@ -261,7 +261,7 @@
 </style>
 <script>
 import { mapState, mapActions } from "vuex/dist/vuex.mjs";
-import QrApi from "@viewsModuleQrApi/QrApiTemplate";
+import QrApi from "@viewsModuleQrApi/QrApiTemplate.vue";
 import Keypress from "vue-keypress";
 import SaleNoteGenerate from "@views/sale_notes/partials/option_documents.vue";
 

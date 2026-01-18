@@ -79,7 +79,7 @@
     <div class="footer-bottom">
         <p class="footer-copyright">Facturador Pro 3. &copy; 2019. Todos los Derechos Reservados</p>
 
-        <img src="{{ asset('porto-ecommerce/assets/images/payments.png') }}" alt="payment methods"
+        <img src="{{ asset('porto-ecommerce/assets/images/payments.svg') }}" alt="payment methods"
             class="footer-payments">
     </div><!-- End .footer-bottom -->
 </div><!-- End .container -->

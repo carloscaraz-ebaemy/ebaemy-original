@@ -127,8 +127,8 @@
 </template>
 
 <script>
-import OutputLotsForm from "../../../../../../resources/js/views/tenant/documents/partials/lots.vue";
-import LotsGroup from "../../../../../../resources/js/views/tenant/documents/partials/lots_group";
+import OutputLotsForm from "@views/documents/partials/lots.vue";
+import LotsGroup from "@views/documents/partials/lots_group.vue";
 // import OutputLotsForm from './partials/lots.vue'
 //import LotsGroup from '@views/documents/partials/lots_group.vue'
 

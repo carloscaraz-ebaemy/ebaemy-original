@@ -1,6 +1,6 @@
 <template>
     <div>
-        <div class="page-header pr-0">
+        <div class="page-header pe-0">
             <h2><a href="/fixed-asset/items">
                 <svg  xmlns="http://www.w3.org/2000/svg" style="margin-top: -5px;"  width="24"  height="24"  viewBox="0 0 24 24"  fill="none"  stroke="currentColor"  stroke-width="2"  stroke-linecap="round"  stroke-linejoin="round"  class="icon icon-tabler icons-tabler-outline icon-tabler-shopping-bag"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M6.331 8h11.339a2 2 0 0 1 1.977 2.304l-1.255 8.152a3 3 0 0 1 -2.966 2.544h-6.852a3 3 0 0 1 -2.965 -2.544l-1.255 -8.152a2 2 0 0 1 1.977 -2.304z" /><path d="M9 11v-5a3 3 0 0 1 6 0v5" /></svg>
             </a></h2>
@@ -9,7 +9,7 @@
             </ol>
             <div class="right-wrapper pull-right">
                 <template v-if="typeUser === 'admin'">
-                    <button type="button" class="btn btn-custom btn-sm  mt-2 mr-2" @click.prevent="clickCreate()"><i class="fa fa-plus-circle"></i> Nuevo</button>
+                    <button type="button" class="btn btn-custom btn-sm  mt-2 me-2" @click.prevent="clickCreate()"><i class="fa fa-plus-circle"></i> Nuevo</button>
                 </template>
             </div>
         </div>
@@ -25,8 +25,8 @@
                         <th>Unidad</th>
                         <th>Nombre</th>
                         <th>Descripción</th>
-                        <th v-if="typeUser != 'seller'" class="text-right">P.Unitario (Compra)</th>
-                        <th class="text-right">Acciones</th>
+                        <th v-if="typeUser != 'seller'" class="text-end">P.Unitario (Compra)</th>
+                        <th class="text-end">Acciones</th>
                     </tr>
                     <tr slot-scope="{ index, row }" >
                         <!-- <td>{{ index }}</td> -->
@@ -34,11 +34,11 @@
                         <td>{{ row.unit_type_id }}</td>
                         <td>{{ row.name }}</td>
                         <td>{{ row.description }}</td>
-                        <td v-if="typeUser != 'seller'" class="text-right">{{ row.purchase_unit_price }}</td>
-                        <td class="text-right">
+                        <td v-if="typeUser != 'seller'" class="text-end">{{ row.purchase_unit_price }}</td>
+                        <td class="text-end">
                             <template v-if="typeUser === 'admin'">
-                                <button type="button" class="btn waves-effect waves-light btn-xs btn-info" @click.prevent="clickCreate(row.id)">Editar</button>
-                                <button type="button" class="btn waves-effect waves-light btn-xs btn-danger" @click.prevent="clickDelete(row.id)">Eliminar</button> 
+                                <button type="button" class="btn waves-effect waves-light btn-xs btn-info me-1" @click.prevent="clickCreate(row.id)">Editar</button>
+                                <button type="button" class="btn waves-effect waves-light btn-xs btn-danger me-1" @click.prevent="clickDelete(row.id)">Eliminar</button>
                             </template>
                         </td>
                     </tr>

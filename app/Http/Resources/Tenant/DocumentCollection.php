@@ -15,7 +15,7 @@ class DocumentCollection extends ResourceCollection
      */
     public function toArray($request)
     {
-        return $this->collection->transform(function (\App\Models\Tenant\Document $row, $key) {
+        return $this->collection->transform(function ($row, $key) {
             $has_xml = true;
             $has_pdf = true;
             $has_cdr = false;

@@ -23,6 +23,9 @@
     @if (file_exists(public_path('theme/custom_styles.css')))
         <link rel="stylesheet" href="{{ asset('theme/custom_styles.css') }}" />
     @endif
+
+    <!-- vite aqui -->
+    @vite(['resources/js/system.js'])
 </head>
 
 <body>

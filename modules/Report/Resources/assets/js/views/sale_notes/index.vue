@@ -1,6 +1,6 @@
 <template>
     <div>
-        <div class="page-header pr-0">
+        <div class="page-header pe-0">
             <h2><a href="/list-reports">
                 <svg  xmlns="http://www.w3.org/2000/svg" style="margin-top: -5px;" width="24"  height="24"  viewBox="0 0 24 24"  fill="none"  stroke="currentColor"  stroke-width="2"  stroke-linecap="round"  stroke-linejoin="round"  class="icon icon-tabler icons-tabler-outline icon-tabler-file-analytics"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M14 3v4a1 1 0 0 0 1 1h4" /><path d="M17 21h-10a2 2 0 0 1 -2 -2v-14a2 2 0 0 1 2 -2h7l5 5v11a2 2 0 0 1 -2 2z" /><path d="M9 17l0 -5" /><path d="M12 17l0 -1" /><path d="M15 17l0 -3" /></svg>
             </a></h2>
@@ -15,7 +15,7 @@
                 <div class="data-table-visible-columns">
                     <el-dropdown :hide-on-click="false">
                         <el-button type="secondary">
-                            Mostrar/Ocultar columnas<i class="el-icon-arrow-down el-icon--right"></i>
+                            Mostrar columnas<i class="el-icon-arrow-down el-icon--right"></i>
                         </el-button>
                         <el-dropdown-menu slot="dropdown">
                             <el-dropdown-item v-for="(column, index) in columns" :key="index">
@@ -49,15 +49,15 @@
                                 <th>Caso</th>
     
                                 <th class="text-center">Productos</th>
-                                <th class="text-right">Descuento</th>
+                                <th class="text-end">Descuento</th>
     
-                                <th class="text-right" >T.Exportación</th>
-                                <th class="text-right" >T.Inafecta</th>
-                                <th class="text-right" >T.Exonerado</th>
+                                <th class="text-end" >T.Exportación</th>
+                                <th class="text-end" >T.Inafecta</th>
+                                <th class="text-end" >T.Exonerado</th>
     
-                                <th class="text-right">T.Gravado</th>
-                                <th class="text-right">T.Igv</th>
-                                <th class="text-right">Total</th>
+                                <th class="text-end">T.Gravado</th>
+                                <th class="text-end">T.Igv</th>
+                                <th class="text-end">Total</th>
                                 
                                 <template v-if="configuration.enabled_sales_agents">
                                     <th>Agente</th>

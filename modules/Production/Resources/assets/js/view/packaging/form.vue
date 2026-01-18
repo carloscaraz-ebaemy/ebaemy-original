@@ -44,7 +44,7 @@
                                         popper-class="el-select-items"
                                         :tabindex="'1'"
                                     >
-    
+
                                         <el-tooltip
                                             v-for="option in items"
                                             :key="option.id"
@@ -57,7 +57,7 @@
                                                 :label="ItemOptionDescriptionView(option)"
                                                 :value="option.id"
                                             ></el-option>
-    
+
                                         </el-tooltip>
                                     </el-select>
                                     <small
@@ -67,7 +67,7 @@
                                     ></small>
                                 </div>
                             </div>
-    
+
                             <!--name-->
                             <div class="col-sm-12 col-md-3 col-lg-3">
                                 <div :class="{'has-danger': errors.name}"
@@ -79,7 +79,7 @@
                                            v-text="errors.name[0]"></small>
                                 </div>
                             </div>
-    
+
                             <!--                        quantity-->
                             <div class="col-sm-12 col-md-3 col-lg-3">
                                 <div :class="{'has-danger': errors.quantity}"
@@ -128,13 +128,13 @@
                                         placeholder="Lote"
                                         type="text"
                                     />
-    
+
                                     <small v-if="errors.lot_code"
                                            class="form-control-feedback"
                                            v-text="errors.lot_code[0]"></small>
                                 </div>
                             </div>
-    
+
                             <!--                        establishment_id-->
                             <div class="col-sm-12 col-md-3 col-lg-3">
                                 <div
@@ -158,8 +158,8 @@
                                     ></small>
                                 </div>
                             </div>
-    
-    
+
+
                             <!--item_extra_data-->
                             <div class="col-sm-12 col-md-3 col-lg-3">
                                 <div :class="{'has-danger': errors.item_extra_data}"
@@ -171,7 +171,7 @@
                                                filterable>
                                         <el-option
                                             v-for="option in color"
-    
+
                                             :key="option.id"
                                             :label="option.name"
                                             :value="option.id"
@@ -183,7 +183,7 @@
                                 </div>
                             </div>
                             <div class="col-sm-12 col-md-3 col-lg-3">
-    
+
                             <div
                                     :class="{'has-danger': errors.packaging_collaborator}"
                                     class="form-group"
@@ -196,7 +196,7 @@
                                     />
                                 </div>
                             </div>
-    
+
                             <!-- observation -->
                             <div class="col-sm-12 col-md-3 col-lg-3">
                                 <div :class="{'has-danger': errors.observation}"
@@ -208,13 +208,13 @@
                                            v-text="errors.observation[0]"></small>
                                 </div>
                             </div>
-    
+
                             <!--                        date_start
                                                     time_start-->
                             <div class="col-sm-12 col-md-6 ">
                                 <div class="row">
-    
-    
+
+
                                     <div class="col-6">
                                         <div :class="{'has-danger': errors.date_start}"
                                              class="form-group">
@@ -244,11 +244,11 @@
                                                    v-text="errors.time_start[0]"></small>
                                         </div>
                                     </div>
-    
+
                                 </div>
-    
+
                             </div>
-    
+
                             <!--                        date_end
                                                     time_end-->
                             <div class="col-sm-12 col-md-6 ">
@@ -284,14 +284,14 @@
                                     </div>
                                 </div>
                             </div>
-    
-    
-    
-    
+
+
+
+
                         </div>
-    
+
                     </div>
-    
+
                     <div class="form-actions text-right mt-4">
                         <el-button
                             class="btn btn-primary btn-submit-default"
@@ -301,8 +301,8 @@
                         >Guardar
                         </el-button>
                     </div>
-    
-    
+
+
                 </form>
             </div>
         </div>
@@ -312,7 +312,7 @@
 <script>
 
 
-import {ItemOptionDescription, ItemSlotTooltip} from "../../../../../../../resources/js/helpers/modal_item";
+import {ItemOptionDescription, ItemSlotTooltip} from "@helpers/modal_item";
 import {mapState} from "vuex/dist/vuex.mjs";
 
 export default {

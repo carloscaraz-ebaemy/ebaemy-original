@@ -168,7 +168,7 @@
 <script>
 
     import {deletable} from '../../../../mixins/deletable'
-    import DocumentOptions from '../../../../../../modules/Finance/Resources/assets/js/views/unpaid/partials/options'
+    import DocumentOptions from '../../../../../../modules/Finance/Resources/assets/js/views/unpaid/partials/options.vue'
 
     export default {
         props: ['showDialog', 'documentId','external','configuration'],

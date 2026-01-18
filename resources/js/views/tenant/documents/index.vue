@@ -37,7 +37,7 @@
                 <span v-if="import_documents == true">
                     <button
                         type="button"
-                        class="btn btn-custom btn-sm  mt-2 mr-2"
+                        class="btn btn-custom btn-sm  mt-2 me-2"
                         @click.prevent="clickImport()"
                     >
                         <i class="fa fa-upload"></i> Importar Formato 1
@@ -46,7 +46,7 @@
                 <span v-if="import_documents_second == true">
                     <button
                         type="button"
-                        class="btn btn-custom btn-sm  mt-2 mr-2"
+                        class="btn btn-custom btn-sm  mt-2 me-2"
                         @click.prevent="clickImportSecond()"
                     >
                         <i class="fa fa-upload"></i> Importar Formato 2
@@ -55,7 +55,7 @@
                 <span v-if="document_import_excel">
                     <button
                         type="button"
-                        class="btn btn-custom btn-sm  mt-2 mr-2"
+                        class="btn btn-custom btn-sm  mt-2 me-2"
                         @click.prevent="clickImportExcel"
                     >
                         <i class="fa fa-upload"></i> Importar Formato
@@ -63,14 +63,14 @@
                 </span>
                 <a
                     :href="`/${resource}/create`"
-                    class="btn btn-custom btn-sm  mt-2 mr-2"
+                    class="btn btn-custom btn-sm  mt-2 me-2"
                     ><i class="fa fa-plus-circle"></i> Nuevo</a
                 >
-                <div class="btn-group flex-wrap">
+                <div class="btn-group flex-wrap dropdown">
                     <button
                         type="button"
-                        class="btn btn-custom btn-sm  mt-2 mr-2 dropdown-toggle"
-                        data-toggle="dropdown"
+                        class="btn btn-custom btn-sm  mt-2 me-2 dropdown-toggle"
+                        data-bs-toggle="dropdown"
                         aria-expanded="false"
                     >
                         <i class="fa fa-money-bill-wave-alt"></i> Reporte de
@@ -81,14 +81,14 @@
                         href="#"
                         @click.prevent="showDialogApiPeruDevValidate = true"
                         v-if="view_apiperudev_validator_cpe"
-                        class="btn btn-custom btn-sm  mt-2 mr-2"
+                        class="btn btn-custom btn-sm  mt-2 me-2"
                         ><i class="fa fa-check"></i> Validación masiva</a
                     >
                     <a
                         href="#"
                         @click.prevent="showDialogValidate = true"
                         v-if="view_validator_cpe"
-                        class="btn btn-custom btn-sm  mt-2 mr-2"
+                        class="btn btn-custom btn-sm  mt-2 me-2"
                         ><i class="fa fa-file"></i> Validar CPE</a
                     >
 
@@ -120,7 +120,7 @@
 
                 <el-dropdown :hide-on-click="false">
                     <el-button type="primary">
-                        Mostrar/Ocultar columnas<i class="el-icon-arrow-down el-icon--right"></i>
+                        Mostrar columnas<i class="el-icon-arrow-down el-icon--right"></i>
                     </el-button>
                     <el-dropdown-menu slot="dropdown">
                         <el-dropdown-item v-for="(column, index) in columns"
@@ -135,7 +135,7 @@
                 <div class="data-table-visible-columns">
                     <el-dropdown :hide-on-click="false" slot="showhide">
                         <el-button type="secondary">
-                            Mostrar/Ocultar columnas<i
+                            Mostrar columnas<i
                                 class="el-icon-arrow-down el-icon--right"
                             ></i>
                         </el-button>
@@ -532,7 +532,7 @@
                             {{row.currency_type_id === 'PEN' ? 'S/' : '$'}}
                             {{ row.total }}
                         </td>
-                        
+
                         <td
                             class="text-right"
                             v-if="columns.balance.visible"
@@ -551,7 +551,7 @@
                             <button
                                 type="button"
                                 style="min-width: 41px"
-                                class="btn waves-effect waves-light btn-xs btn-info m-1__2"
+                                class="btn waves-effect waves-light btn-xs btn-info m-1__2 me-2"
                                 @click.prevent="clickDownload(row.download_xml)"
                                 v-if="row.has_xml"
                             >
@@ -560,7 +560,7 @@
                             <button
                                 type="button"
                                 style="min-width: 41px"
-                                class="btn waves-effect waves-light btn-xs btn-info m-1__2"
+                                class="btn waves-effect waves-light btn-xs btn-info m-1__2 me-2"
                                 @click.prevent="clickDownload(row.download_pdf)"
                                 v-if="row.has_pdf"
                             >
@@ -569,7 +569,7 @@
                             <button
                                 type="button"
                                 style="min-width: 41px"
-                                class="btn waves-effect waves-light btn-xs btn-info m-1__2"
+                                class="btn waves-effect waves-light btn-xs btn-info m-1__2 me-2"
                                 @click.prevent="clickDownload(row.download_cdr)"
                                 v-if="row.has_cdr"
                             >
@@ -578,130 +578,255 @@
                         </td>
 
                         <td class="text-right" v-if="typeUser != 'integrator'">
-                          <el-dropdown trigger="click" placement="bottom-end">
-                            <button
-                              class="btn btn-default btn-sm btn-dropdown-toggle"
-                              type="button"
-                              id="dropdownMenuButton"
-                              aria-haspopup="true"
-                              aria-expanded="false"
-                            >
-                              <i class="fas fa-ellipsis-v"></i>
-                              <i class="fas fa-ellipsis-h" style="display: none;"></i>
-                            </button>
-                        
-                            <el-dropdown-menu slot="dropdown">
-                              <template v-if="configuration.permission_to_edit_cpe">
-                                <el-dropdown-item
-                                  v-if="row.state_type_id === '01' && userPermissionEditCpe && row.is_editable"
-                                  @click.native.prevent="go(`/documents/${row.id}/edit`)"
-                                >
-                                  Editar
-                                </el-dropdown-item>
-                              </template>
-                              <template v-else>
-                                <el-dropdown-item
-                                  v-if="row.state_type_id === '01' && userId == row.user_id && row.is_editable"
-                                  @click.native.prevent="go(`/documents/${row.id}/edit`)"
-                                >
-                                  Editar
-                                </el-dropdown-item>
-                              </template>
-                          
-                              <el-dropdown-item
-                                v-if="row.btn_resend && !isClient"
-                                @click.native.prevent="clickResend(row.id)"
-                              >
-                                Reenviar
-                              </el-dropdown-item>
-                          
-                              <el-dropdown-item
-                                v-if="row.btn_recreate_document"
-                                @click.native.prevent="clickReStore(row.id)"
-                              >
-                                Volver a recrear
-                              </el-dropdown-item>
-                          
-                              <el-dropdown-item
-                                v-if="row.btn_change_to_registered_status"
-                                @click.native.prevent="clickChangeToRegisteredStatus(row.id)"
-                              >
-                                Cambiar a estado registrado
-                              </el-dropdown-item>
-                          
-                              <el-dropdown-item
-                                v-if="row.btn_note"
-                                @click.native.prevent="go(`/${resource}/note/${row.id}`)"
-                              >
-                                Nota
-                              </el-dropdown-item>
-                          
-                              <el-dropdown-item
-                                v-if="row.btn_guide"
-                                @click.native.prevent="go(`/dispatches/create_new/document/${row.id}`)"
-                              >
-                                Guía
-                              </el-dropdown-item>
-                          
-                              <el-dropdown-item
-                                v-if="row.btn_voided"
-                                @click.native.prevent="clickVoided(row.id)"
-                              >
-                                Anular
-                              </el-dropdown-item>
-                          
-                              <el-dropdown-item
-                                v-if="row.btn_delete_doc_type_03"
-                                @click.native.prevent="clickDeleteDocument(row.id)"
-                              >
+                            <el-dropdown trigger="click" size="small">
+                                <el-button class="btn-dropdown">
+                                    <i class="fas fa-ellipsis-v"></i>
+                                    <i class="fas fa-ellipsis-h" style="display: none;"></i>
+                                </el-button>
+                                <el-dropdown-menu slot="dropdown">
+                                  <el-dropdown-item
+                                    v-if="configuration.permission_to_edit_cpe && row.state_type_id === '01' && userPermissionEditCpe && row.is_editable"
+                                  >
+                                    <a :href="`/documents/${row.id}/edit`" style="text-decoration: none; color: inherit;">
+                                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon icon-tabler icons-tabler-outline icon-tabler-edit me-2"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M7 7h-1a2 2 0 0 0 -2 2v9a2 2 0 0 0 2 2h9a2 2 0 0 0 2 -2v-1" /><path d="M20.385 6.585a2.1 2.1 0 0 0 -2.97 -2.97l-8.415 8.385v3h3l8.385 -8.415z" /><path d="M16 5l3 3" /></svg>
+                                      Editar
+                                    </a>
+                                  </el-dropdown-item>
+                              
+                                  <el-dropdown-item
+                                    v-else-if="row.state_type_id === '01' && userId == row.user_id && row.is_editable"
+                                  >
+                                    <a :href="`/documents/${row.id}/edit`" style="text-decoration: none; color: inherit;">
+                                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon icon-tabler icons-tabler-outline icon-tabler-edit me-2"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M7 7h-1a2 2 0 0 0 -2 2v9a2 2 0 0 0 2 2h9a2 2 0 0 0 2 -2v-1" /><path d="M20.385 6.585a2.1 2.1 0 0 0 -2.97 -2.97l-8.415 8.385v3h3l8.385 -8.415z" /><path d="M16 5l3 3" /></svg>
+                                      Editar
+                                    </a>
+                                  </el-dropdown-item>
+                              
+                                  <el-dropdown-item
+                                    v-if="row.btn_resend && !isClient"
+                                    @click.native="clickResend(row.id)"
+                                  >
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon icon-tabler icons-tabler-outline icon-tabler-arrow-forward-up me-2"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M15 14l4 -4l-4 -4" /><path d="M19 10h-11a4 4 0 1 0 0 8h1" /></svg>
+                                    Reenviar
+                                  </el-dropdown-item>
+                              
+                                  <el-dropdown-item
+                                    v-if="row.btn_recreate_document"
+                                    @click.native="clickReStore(row.id)"
+                                  >
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon icon-tabler icons-tabler-outline icon-tabler-refresh-cw me-2"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M20 11a8.1 8.1 0 0 0 -15.5 -2m-.5 -4v4h4" /><path d="M4 13a8.1 8.1 0 0 0 15.5 2m.5 4v-4h-4" /></svg>
+                                    Volver a recrear
+                                  </el-dropdown-item>
+                              
+                                  <el-dropdown-item
+                                    v-if="row.btn_change_to_registered_status"
+                                    @click.native="clickChangeToRegisteredStatus(row.id)"
+                                  >
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon icon-tabler icons-tabler-outline icon-tabler-check-circle me-2"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M9 12l2 2l4 -4" /><circle cx="12" cy="12" r="9" /></svg>
+                                    Cambiar a estado registrado
+                                  </el-dropdown-item>
+                              
+                                  <el-dropdown-item
+                                    v-if="
+                                      row.btn_change_to_registered_status ||
+                                      row.btn_recreate_document ||
+                                      (row.btn_resend && !isClient) ||
+                                      (
+                                        configuration.permission_to_edit_cpe &&
+                                        row.state_type_id === '01' &&
+                                        userPermissionEditCpe &&
+                                        row.is_editable
+                                      ) ||
+                                      (
+                                        row.state_type_id === '01' &&
+                                        userId == row.user_id &&
+                                        row.is_editable
+                                      )
+                                    "
+                                    divided
+                                  />
+                    
+                                  <el-dropdown-item v-if="row.btn_note">
+                                    <a :href="`/${resource}/note/${row.id}`" style="text-decoration: none; color: inherit;">
+                                      <svg xmlns="http://www.w3.org/2000/svg" class="me-2" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"></path><path d="M5 4v17l2 -2l2 2l2 -2l2 2l2 -2l2 2l2 -2v-17z"></path><path d="M14 8h-4"></path><path d="M14 12h-4"></path><path d="M14 16h-4"></path></svg>
+                                      Nota
+                                    </a>
+                                  </el-dropdown-item>
+                              
+                                  <el-dropdown-item v-if="row.btn_guide">
+                                    <a :href="`/dispatches/create_new/document/${row.id}`" style="text-decoration: none; color: inherit;">
+                                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon icon-tabler icons-tabler-outline icon-tabler-truck me-2">
+                                        <path stroke="none" d="M0 0h24v24H0z" fill="none"></path>
+                                        <path d="M7 17m-2 0a2 2 0 1 0 4 0a2 2 0 1 0 -4 0"></path>
+                                        <path d="M17 17m-2 0a2 2 0 1 0 4 0a2 2 0 1 0 -4 0"></path>
+                                        <path d="M5 17h-2v-11a1 1 0 0 1 1 -1h9v12m-4 0h6m4 0h2v-6h-8m0 -5h5l3 5"></path>
+                                      </svg>
+                                      Guía
+                                    </a>
+                                  </el-dropdown-item>
+                              
+                                  <el-dropdown-item
+                                    v-if="row.btn_constancy_detraction"
+                                    @click.native="clickCDetraction(row.id)"
+                                  >
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon icon-tabler icons-tabler-outline icon-tabler-file-text me-2">
+                                      <path stroke="none" d="M0 0h24v24H0z" fill="none"></path>
+                                      <path d="M14 3v4a1 1 0 0 0 1 1h4"></path>
+                                      <path d="M17 21h-10a2 2 0 0 1 -2 -2v-14a2 2 0 0 1 2 -2h7l5 5v11a2 2 0 0 1 -2 2z"></path>
+                                      <line x1="9" y1="9" x2="10" y2="9"></line>
+                                      <line x1="9" y1="13" x2="15" y2="13"></line>
+                                      <line x1="9" y1="17" x2="15" y2="17"></line>
+                                    </svg>
+                                    C. Detracción
+                                  </el-dropdown-item>
+                              
+                                  <el-dropdown-item
+                                    v-if="isClient && !row.send_server"
+                                    @click.native="clickSendOnline(row.id)"
+                                  >
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon icon-tabler icons-tabler-outline icon-tabler-server-2 me-2"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M3 4m0 3a3 3 0 0 1 3 -3h12a3 3 0 0 1 3 3v2a3 3 0 0 1 -3 3h-12a3 3 0 0 1 -3 -3z" /><path d="M3 12m0 3a3 3 0 0 1 3 -3h12a3 3 0 0 1 3 3v2a3 3 0 0 1 -3 3h-12a3 3 0 0 1 -3 -3z" /><path d="M7 8l0 .01" /><path d="M7 16l0 .01" /><path d="M11 8h6" /><path d="M11 16h6" /></svg>
+                                    Enviar Servidor
+                                  </el-dropdown-item>
+                              
+                                  <el-dropdown-item
+                                    v-if="isClient && row.send_server && (row.state_type_id === '01' || row.state_type_id === '03')"
+                                    @click.native="clickCheckOnline(row.id)"
+                                  >
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon icon-tabler icons-tabler-outline icon-tabler-server-cog me-2"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M3 4m0 3a3 3 0 0 1 3 -3h12a3 3 0 0 1 3 3v2a3 3 0 0 1 -3 3h-12a3 3 0 0 1 -3 -3z" /><path d="M12 20h-6a3 3 0 0 1 -3 -3v-2a3 3 0 0 1 3 -3h10.5" /><path d="M18 18m-2 0a2 2 0 1 0 4 0a2 2 0 1 0 -4 0" /><path d="M18 14.5v1.5" /><path d="M18 20v1.5" /><path d="M21.032 16.25l-1.299 .75" /><path d="M16.27 19l-1.3 .75" /><path d="M14.97 16.25l1.3 .75" /><path d="M19.733 19l1.3 .75" /><path d="M7 8v.01" /><path d="M7 16v.01" /></svg>
+                                    Consultar Servidor
+                                  </el-dropdown-item>
+                              
+                                  <el-dropdown-item divided />
+                              
+                                  <el-dropdown-item
+                                    @click.native="clickPayment(row.id)"
+                                  >
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon icon-tabler icons-tabler-outline icon-tabler-cash me-2"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M7 15h-3a1 1 0 0 1 -1 -1v-8a1 1 0 0 1 1 -1h12a1 1 0 0 1 1 1v3" /><path d="M7 9m0 1a1 1 0 0 1 1 -1h12a1 1 0 0 1 1 1v8a1 1 0 0 1 -1 1h-12a1 1 0 0 1 -1 -1z" /><path d="M12 14a2 2 0 1 0 4 0a2 2 0 0 0 -4 0" /></svg>
+                                    Pagos
+                                  </el-dropdown-item>
+                              
+                                  <el-dropdown-item
+                                    v-if="row.btn_retention"
+                                    @click.native="clickRetention(row.id)"
+                                  >
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon icon-tabler icons-tabler-outline icon-tabler-file-text me-2"><path stroke="none" d="M0 0h24v24H0z" fill="none"></path><path d="M14 3v4a1 1 0 0 0 1 1h4"></path><path d="M17 21h-10a2 2 0 0 1 -2 -2v-14a2 2 0 0 1 2 -2h7l5 5v11a2 2 0 0 1 -2 2z"></path><line x1="9" y1="9" x2="10" y2="9"></line><line x1="9" y1="13" x2="15" y2="13"></line><line x1="9" y1="17" x2="15" y2="17"></line></svg>
+                                    Retención
+                                  </el-dropdown-item>
+                              
+                                  <el-dropdown-item divided />
+                              
+                                  <el-dropdown-item
+                                    @click.native="clickOptions(row.id)"
+                                  >
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon icon-tabler icons-tabler-outline icon-tabler-settings me-2"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M10.325 4.317c.426 -1.756 2.924 -1.756 3.35 0a1.724 1.724 0 0 0 2.573 1.066c1.543 -.94 3.31 .826 2.37 2.37a1.724 1.724 0 0 0 1.065 2.572c1.756 .426 1.756 2.924 0 3.35a1.724 1.724 0 0 0 -1.066 2.573c.94 1.543 -.826 3.31 -2.37 2.37a1.724 1.724 0 0 0 -2.572 1.065c-.426 1.756 -2.924 1.756 -3.35 0a1.724 1.724 0 0 0 -2.573 -1.066c-1.543 .94 -3.31 -.826 -2.37 -2.37a1.724 1.724 0 0 0 -1.065 -2.572c-1.756 -.426 -1.756 -2.924 0 -3.35a1.724 1.724 0 0 0 1.066 -2.573c-.94 -1.543 .826 -3.31 2.37 -2.37c1 .608 2.296 .07 2.572 -1.065z" /><path d="M9 12a3 3 0 1 0 6 0a3 3 0 0 0 -6 0" /></svg>
+                                    Opciones
+                                  </el-dropdown-item>
+                              
+                                  <el-dropdown-item
+                                    v-if="row.btn_voided"
+                                    @click.native="clickVoided(row.id)"
+                                    class="text-danger option-delete"
+                                  >
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon icon-tabler icons-tabler-outline icon-tabler-x-circle me-2"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><circle cx="12" cy="12" r="9" /><line x1="15" y1="9" x2="9" y2="15" /><line x1="9" y1="9" x2="15" y2="15" /></svg>
+                                    Anular
+                                  </el-dropdown-item>
+                              
+                                  <el-dropdown-item
+                                    v-if="row.btn_delete_doc_type_03"
+                                    @click.native="clickDeleteDocument(row.id)"
+                                    class="text-danger option-delete"
+                                  >
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon icon-tabler icons-tabler-outline icon-tabler-trash me-2"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><line x1="4" y1="7" x2="20" y2="7" /><line x1="10" y1="11" x2="10" y2="17" /><line x1="14" y1="11" x2="14" y2="17" /><path d="M5 7l1 12a2 2 0 0 0 2 2h8a2 2 0 0 0 2 -2l1 -12" /><path d="M9 7v-3a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v3" /></svg>
+                                    Eliminar
+                                  </el-dropdown-item>
+                              
+                                  <el-dropdown-item
+                                    v-if="row.btn_force_send_by_summary && typeUser === 'admin'"
+                                    @click.native="clickForceSendBySummary(row.id)"
+                                    class="text-warning"
+                                  >
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon icon-tabler icons-tabler-outline icon-tabler-send me-2"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><line x1="10" y1="14" x2="21" y2="3" /><path d="M21 3l-6.5 18a0.55 .55 0 0 1 -1 0l-3.5 -7l-7 -3.5a0.55 .55 0 0 1 0 -1l18 -6.5" /></svg>
+                                    Enviar por resumen
+                                  </el-dropdown-item>
+                                </el-dropdown-menu>
+                            </el-dropdown>
+                            <!-- funciona pero con funciones para cada boton, parametro command -->
+                            <!-- <el-dropdown trigger="click" size="small">
+                                <el-button size="mini" type="default" class="el-dropdown-selfdefine">
+                                    <i class="fas fa-ellipsis-v"></i>
+                                </el-button>
+                                <el-dropdown-menu slot="dropdown">
+                                    <el-dropdown-item v-if="row.btn_recreate_document">Recrear</el-dropdown-item>
+                                    <el-dropdown-item>Action 2</el-dropdown-item>
+                                    <el-dropdown-item>Action 3</el-dropdown-item>
+                                    <el-dropdown-item>Action 4</el-dropdown-item>
+                                    <el-dropdown-item>Action 5</el-dropdown-item>
+                                </el-dropdown-menu>
+                            </el-dropdown> -->
+
+                            <!-- <button type="button"
+                                    class="btn waves-effect waves-light btn-xs btn-danger m-1__2"
+                                    @click.prevent="clickDeleteDocument(row.id)"
+                                    v-if="row.btn_delete_doc_type_03">
                                 Eliminar
-                              </el-dropdown-item>
-                          
-                              <el-dropdown-item
-                                v-if="isClient && !row.send_server"
-                                @click.native.prevent="clickSendOnline(row.id)"
-                              >
+                            </button>
+                            <button type="button"
+                                    class="btn waves-effect waves-light btn-xs btn-info m-1__2"
+                                    @click.prevent="clickChangeToRegisteredStatus(row.id)"
+                                    v-if="row.btn_change_to_registered_status">
+                                Cambiar a estado registrado
+                            </button>
+                            <button type="button"
+                                    class="btn waves-effect waves-light btn-xs btn-info m-1__2"
+                                    @click.prevent="clickReStore(row.id)"
+                                    v-if="row.btn_recreate_document">
+                                Volver a recrear
+                            </button>
+                            <button type="button"
+                                    class="btn waves-effect waves-light btn-xs btn-danger m-1__2"
+                                    @click.prevent="clickVoided(row.id)"
+                                    v-if="row.btn_voided">
+                                Anular
+                            </button>
+                            <a :href="`/${resource}/note/${row.id}`"
+                               class="btn waves-effect waves-light btn-xs btn-warning m-1__2"
+                               v-if="row.btn_note">
+                                Nota
+                            </a>
+                            <a :href="`/dispatches/create/${row.id}`"
+                               class="btn waves-effect waves-light btn-xs btn-warning m-1__2"
+                               v-if="row.btn_guide">
+                                Guía
+                            </a>
+                            <button type="button"
+                                    class="btn waves-effect waves-light btn-xs btn-info m-1__2"
+                                    @click.prevent="clickResend(row.id)"
+                                    v-if="row.btn_resend && !isClient">
+                                Reenviar
+                            </button>
+                            <button type="button"
+                                    class="btn waves-effect waves-light btn-xs btn-info m-1__2"
+                                    @click.prevent="clickSendOnline(row.id)"
+                                    v-if="isClient && !row.send_server">
                                 Enviar Servidor
-                              </el-dropdown-item>
-                          
-                              <el-dropdown-item
-                                v-if="isClient && row.send_server && (row.state_type_id === '01' || row.state_type_id === '03')"
-                                @click.native.prevent="clickCheckOnline(row.id)"
-                              >
+                            </button>
+                            <button type="button"
+                                    class="btn waves-effect waves-light btn-xs btn-info m-1__2"
+                                    @click.prevent="clickCheckOnline(row.id)"
+                                    v-if="isClient && row.send_server && (row.state_type_id === '01' || row.state_type_id === '03')">
                                 Consultar Servidor
-                              </el-dropdown-item>
-                          
-                              <el-dropdown-item
-                                v-if="row.btn_constancy_detraction"
-                                @click.native.prevent="clickCDetraction(row.id)"
-                              >
-                                C. Detracción
-                              </el-dropdown-item>
-                          
-                              <el-dropdown-item @click.native.prevent="clickOptions(row.id)">
+                            </button>
+                            <button type="button"
+                                    class="btn waves-effect waves-light btn-xs btn-info m-1__2"
+                                    @click.prevent="clickOptions(row.id)">
                                 Opciones
-                              </el-dropdown-item>
-                          
-                              <el-dropdown-item
-                                v-if="row.btn_force_send_by_summary && typeUser === 'admin'"
-                                @click.native.prevent="clickForceSendBySummary(row.id)"
-                              >
-                                Enviar por resumen
-                              </el-dropdown-item>
-                          
-                              <el-dropdown-item divided @click.native.prevent="clickPayment(row.id)">
-                                Pagos
-                              </el-dropdown-item>
-                          
-                              <el-dropdown-item
-                                v-if="row.btn_retention"
-                                divided
-                                @click.native.prevent="clickRetention(row.id)"
-                              >
-                                Retención
-                              </el-dropdown-item>
-                            </el-dropdown-menu>
-                          </el-dropdown>
+                            </button>
+                            <button type="button"
+                                    v-if="row.btn_constancy_detraction"
+                                    class="btn waves-effect waves-light btn-xs btn-success m-1__2"
+                                    @click.prevent="clickCDetraction(row.id)">
+                                C. Detracción
+                            </button> -->
                         </td>
                     </tr>
                 </data-table>
@@ -772,8 +897,8 @@
 import DocumentsVoided from "./partials/voided.vue";
 import DocumentOptions from "./partials/options.vue";
 import DocumentPayments from "./partials/payments.vue";
-import DocumentImportSecond from "./partials/import_second";
-import DocumentImportExcel from "./partials/ImportExcel";
+import DocumentImportSecond from "./partials/import_second.vue";
+import DocumentImportExcel from "./partials/ImportExcel.vue";
 import DataTable from "../../../components/DataTableDocuments.vue";
 import ItemsImport from "./import.vue";
 import { deletable } from "../../../mixins/deletable";
@@ -781,9 +906,9 @@ import DocumentConstancyDetraction from "./partials/constancy_detraction.vue";
 import ReportPayment from "./partials/report_payment.vue";
 import ReportPaymentComplete from "./partials/report_payment_complete.vue";
 import DocumentValidate from "./partials/validate.vue";
-import MassiveValidateCpe from "../../../../../modules/ApiPeruDev/Resources/assets/js/components/MassiveValidateCPE";
+import MassiveValidateCpe from "../../../../../modules/ApiPeruDev/Resources/assets/js/components/MassiveValidateCPE.vue";
 import { mapActions, mapState } from "vuex/dist/vuex.mjs";
-import DocumentRetention from "./partials/retention";
+import DocumentRetention from "./partials/retention.vue";
 import moment from "moment";
 
 export default {

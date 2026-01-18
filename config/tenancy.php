@@ -15,6 +15,11 @@
 use Hyn\Tenancy\Database\Connection;
 
 return [
+    /**
+     * Random key used for tenant database user password
+     */
+    'key' => env('TENANCY_KEY', env('APP_KEY')),
+
     'models' => [
         /**
          * Specify different models to be used for the global, system database
@@ -112,7 +117,7 @@ return [
         /**
          * Time to cache websites in minutes. Set to false to disable.
          */
-        'cache' => 10,
+        'cache' => 600,
     ],
     'hostname' => [
         /**
@@ -152,7 +157,7 @@ return [
         /**
          * Time to cache hostnames in minutes. Set to false to disable.
          */
-        'cache' => 10,
+        'cache' => 600,
 
         /**
          * Automatically update the app.url configured inside Laravel to match
@@ -227,7 +232,7 @@ return [
          */
 //        'tenant-seed-class' => false,
 //      eg an admin seeder under `app/Seeders/AdminSeeder.php`:
-        'tenant-seed-class' => TenancyDatabaseSeeder::class,
+        'tenant-seed-class' => \Database\Seeders\TenancyDatabaseSeeder::class,
 
         /**
          * Automatically generate a tenant database based on the random id of the

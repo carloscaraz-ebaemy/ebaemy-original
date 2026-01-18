@@ -29,13 +29,12 @@
                             :class="{ 'has-danger': errors.item_id }"
                             class="form-group more-width-input"
                         >
-                            <label class="control-label">
+                            <label class="control-label d-flex align-items-center">
                                 Producto/Servicio
-                                <a
-                                    href="#"
+                                <span class="btn-add-new-product"
                                     @click.prevent="showDialogNewItem = true"
-                                    >[+ Nuevo]</a
-                                >
+                                    ><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon icon-tabler icons-tabler-outline icon-tabler-plus"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M12 5l0 14" /><path d="M5 12l14 0" /></svg>
+                                </span>
                             </label>
 
                             <!-- <el-select v-model="form.item_id" @change="changeItem" filterable  ref="selectSearchNormal" @focus="focusSelectItem">
@@ -78,6 +77,23 @@
                                                 :value="option.id"
                                             ></el-option>
                                         </el-tooltip>
+                                        <template slot="empty">
+                                            <p v-if="loading_search" class="el-select-dropdown__empty">
+                                                Cargando...
+                                            </p>
+                                        
+                                            <p v-else class="el-select-dropdown__empty">
+                                                No se encontraron resultados
+                                            </p>
+                                        
+                                            <div
+                                                v-if="!loading_search"
+                                                class="el-select-dropdown__item new-option"
+                                                @click.stop="openNewItemDialog"
+                                            >
+                                                <span>{{ itemSearchTerm ? `Crear producto "${itemSearchTerm}"` : 'Crear producto' }}</span>
+                                            </div>
+                                        </template>
                                     </el-select>
                                 </el-input>
                             </template>
@@ -177,9 +193,9 @@
                                         <th class="text-center">Unidad</th>
                                         <th class="text-center">Descripción</th>
                                         <th class="text-center">Factor</th>
-                                        <th class="text-center">Precio 1</th>
-                                        <th class="text-center">Precio 2</th>
-                                        <th class="text-center">Precio 3</th>
+                                        <th class="text-center">{{ config.price1_label }}</th>
+                                        <th class="text-center">{{ config.price2_label }}</th>
+                                        <th class="text-center">{{ config.price3_label }}</th>
                                         <th class="text-center">
                                             Precio Default
                                         </th>
@@ -262,7 +278,7 @@
                     </div>
                 </div>
             </div>
-            <div class="form-actions text-right pt-2">
+            <div class="form-actions pt-2 d-flex justify-content-end gap-2">
                 <el-button class="second-buton" @click.prevent="close()"
                     >Cerrar</el-button
                 >
@@ -277,6 +293,7 @@
         <item-form
             :external="true"
             :showDialog.sync="showDialogNewItem"
+            :input_item="itemSearchTerm"
         ></item-form>
 
         <warehouses-detail
@@ -291,10 +308,13 @@
     margin-right: 5% !important;
     max-width: 80% !important;
 }
+.product-search-model {
+    position: relative;
+}
 .product-search-model .el-tooltip {
     position: absolute;
     right: 7px;
-    top: 46px;
+    top: 44px;
     -webkit-transform: translateY(-50%);
     transform: translateY(-50%);
     z-index: 10;
@@ -317,7 +337,7 @@ import { mapActions, mapState } from "vuex/dist/vuex.mjs";
 import {
     ItemOptionDescription,
     ItemSlotTooltip
-} from "../../../../../../../../resources/js/helpers/modal_item";
+} from "@helpers/modal_item";
 import { checkPermissionEditPrices } from "@mixins/check-permission-edit-prices";
 
 export default {
@@ -372,8 +392,16 @@ export default {
             lots: [],
             editors: {
                 classic: ClassicEditor
-            }
+            },
+            itemSearchTerm: ''
         };
+    },
+    watch: {
+        showDialog(newVal) {
+            if (newVal) {
+                this.itemSearchTerm = ''
+            }
+        }
     },
     created() {
         this.loadConfiguration();
@@ -387,6 +415,7 @@ export default {
 
         this.$eventHub.$on("reloadDataItems", item_id => {
             this.reloadDataItems(item_id);
+            this.itemSearchTerm = ''
         });
     },
     computed: {
@@ -415,6 +444,8 @@ export default {
         },
 
         async searchRemoteItems(input) {
+            this.itemSearchTerm = input;
+
             if (input.length > 2) {
                 this.loading_search = true;
                 const params = {
@@ -670,7 +701,10 @@ export default {
                 }
                 // this.filterItems()
             });
-        }
+        },
+        openNewItemDialog() {
+            this.showDialogNewItem = true;
+        },
     }
 };
 </script>

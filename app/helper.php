@@ -7,6 +7,8 @@ use App\Models\Tenant\Catalogs\Department;
 use App\Models\Tenant\Catalogs\IdentityDocumentType;
 use App\Models\Tenant\Catalogs\OperationType;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\File;
+
 
 if (!function_exists('func_str_to_upper_utf8')) {
     function func_str_to_upper_utf8($text)
@@ -169,5 +171,22 @@ if (!function_exists('func_is_windows')) {
     function func_is_windows()
     {
         return strtoupper(substr(PHP_OS, 0, 3)) === 'WIN';
+    }
+}
+
+if (!function_exists('func_get_templates')) {
+    function func_get_templates()
+    {
+        $templates = app_path('CoreFacturalo'.DIRECTORY_SEPARATOR.'Templates'.
+                                             DIRECTORY_SEPARATOR.'pdf');
+                
+
+        $files = collect(File::directories($templates))
+                ->map(fn($dir) => basename($dir))
+                ->values()
+                ->toArray();
+
+        return $files;            
+
     }
 }

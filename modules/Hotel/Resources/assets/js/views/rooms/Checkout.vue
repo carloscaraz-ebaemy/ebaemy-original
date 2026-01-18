@@ -1,6 +1,6 @@
 <template>
     <div>
-        <div class="page-header pr-0">
+        <div class="page-header pe-0">
             <h2>
                 <a href="/hotels/reception">
                     <svg  xmlns="http://www.w3.org/2000/svg" style="margin-top: -5px;" width="24"  height="24"  viewBox="0 0 24 24"  fill="none"  stroke="currentColor"  stroke-width="2"  stroke-linecap="round"  stroke-linejoin="round"  class="icon icon-tabler icons-tabler-outline icon-tabler-building-skyscraper"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M3 21l18 0" /><path d="M5 21v-14l8 -4v18" /><path d="M19 21v-10l-6 -4" /><path d="M9 9l0 .01" /><path d="M9 12l0 .01" /><path d="M9 15l0 .01" /><path d="M9 18l0 .01" /></svg>
@@ -12,7 +12,7 @@
             <div class="right-wrapper pull-right">
                 <div class="btn-group flex-wrap">
                     <button
-                        class="btn btn-custom btn-sm mt-2 mr-2"
+                        class="btn btn-custom btn-sm mt-2 me-2"
                         type="button"
                         @click="onGotoBack"
                     >
@@ -26,8 +26,8 @@
                 <div class="card-body invoice p-3">
                     <div class="row card-body">
                         <div class="col-12 col-md-3 h1 m-0 pt-1">
-                            Salida 
-                            <svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon icon-tabler icons-tabler-outline icon-tabler-door-exit" style="transform: translateY(-4px);"><path stroke="none" d="M0 0h24v24H0z" fill="none"></path><path d="M13 12v.01"></path><path d="M3 21h18"></path><path d="M5 21v-16a2 2 0 0 1 2 -2h7.5m2.5 10.5v7.5"></path><path d="M14 7h7m-3 -3l3 3l-3 3"></path></svg> 
+                            Salida
+                            <svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon icon-tabler icons-tabler-outline icon-tabler-door-exit" style="transform: translateY(-4px);"><path stroke="none" d="M0 0h24v24H0z" fill="none"></path><path d="M13 12v.01"></path><path d="M3 21h18"></path><path d="M5 21v-16a2 2 0 0 1 2 -2h7.5m2.5 10.5v7.5"></path><path d="M14 7h7m-3 -3l3 3l-3 3"></path></svg>
                         </div>
                         <div class="col-9">
                             <span class="text-muted"><svg  xmlns="http://www.w3.org/2000/svg"  width="16"  height="16"  viewBox="0 0 24 24"  fill="none"  stroke="currentColor"  stroke-width="2"  stroke-linecap="round"  stroke-linejoin="round"  class="icon icon-tabler icons-tabler-outline icon-tabler-user"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M8 7a4 4 0 1 0 8 0a4 4 0 0 0 -8 0" /><path d="M6 21v-2a4 4 0 0 1 4 -4h4a4 4 0 0 1 4 4v2" /></svg> Cliente</span>
@@ -62,15 +62,15 @@
                     <div class="row card-body">
                         <div class="col-12">
                             <div class="table-responsive">
-                                <table class="table text-right">
+                                <table class="table text-end">
                                     <tbody>
-                                    <tr class="text-left">
+                                    <tr class="text-start">
                                         <td colspan="6"><b class="h6">
                                             <svg  xmlns="http://www.w3.org/2000/svg"  width="24"  height="24"  viewBox="0 0 24 24"  fill="none"  stroke="currentColor"  stroke-width="2"  stroke-linecap="round"  stroke-linejoin="round"  class="icon icon-tabler icons-tabler-outline icon-tabler-coins"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M9 14c0 1.657 2.686 3 6 3s6 -1.343 6 -3s-2.686 -3 -6 -3s-6 1.343 -6 3z" /><path d="M9 14v4c0 1.656 2.686 3 6 3s6 -1.344 6 -3v-4" /><path d="M3 6c0 1.072 1.144 2.062 3 2.598s4.144 .536 6 0c1.856 -.536 3 -1.526 3 -2.598c0 -1.072 -1.144 -2.062 -3 -2.598s-4.144 -.536 -6 0c-1.856 .536 -3 1.526 -3 2.598z" /><path d="M3 6v10c0 .888 .772 1.45 2 2" /><path d="M3 11c0 .888 .772 1.45 2 2" /></svg> Alojamiento: Tarifas y Cargos Adicionales</b></td>
                                     </tr>
                                     <tr class="bg-light-color">
                                         <td>#</td>
-                                        <td class="text-left">Tarifa por día</td>
+                                        <td class="text-start">Tarifa por día</td>
                                         <td>Cant. noches</td>
                                         <td>Cargo por salir tarde</td>
                                         <td>Comprobante</td>
@@ -78,7 +78,7 @@
                                     </tr>
                                     <tr>
                                         <td>1</td>
-                                        <td class="text-left">{{ room.item.unit_price | toDecimals }}</td>
+                                        <td class="text-start">{{ room.item.unit_price | toDecimals }}</td>
                                         <td>{{ room.item.quantity }}</td>
                                         <td class="float-right">
                                             <div class="d-d-inline-block"
@@ -99,13 +99,13 @@
                                             </div>
                                         </td>
                                     </tr>
-                                    <tr class="text-left" v-if="rentPaidItems.length > 0">
+                                    <tr class="text-start" v-if="rentPaidItems.length > 0">
                                         <td colspan="6"><b class="h6">
                                             <svg  xmlns="http://www.w3.org/2000/svg"  width="24"  height="24"  viewBox="0 0 24 24"  fill="none"  stroke="currentColor"  stroke-width="2"  stroke-linecap="round"  stroke-linejoin="round"  class="icon icon-tabler icons-tabler-outline icon-tabler-receipt-2"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M5 21v-16a2 2 0 0 1 2 -2h10a2 2 0 0 1 2 2v16l-3 -2l-2 2l-2 -2l-2 2l-2 -2l-3 2" /><path d="M14 8h-2.5a1.5 1.5 0 0 0 0 3h1a1.5 1.5 0 0 1 0 3h-2.5m2 0v1.5m0 -9v1.5" /></svg> Servicio a la habitación (Pagado)</b></td>
                                     </tr>
                                     <tr class="bg-light-color" v-if="rentPaidItems.length > 0">
                                         <td>#</td>
-                                        <td class="text-left">Descripción</td>
+                                        <td class="text-start">Descripción</td>
                                         <td>Precio unitario</td>
                                         <td>Cantidad</td>
                                         <td>Comprobante</td>
@@ -116,20 +116,20 @@
                                         :key="i"
                                     >
                                         <td>{{ i + 1 }}</td>
-                                        <td class="text-left">{{ it.item.item.description }}</td>
+                                        <td class="text-start">{{ it.item.item.description }}</td>
                                         <td>{{ it.item.input_unit_price_value | toDecimals }}</td>
                                         <td>{{ it.item.quantity | toDecimals }}</td>
                                         <td>{{ it.document}}</td>
                                         <td>{{ it.item.total | toDecimals }}</td>
                                     </tr>
                                     <tr><td></td></tr>
-                                    <tr class="text-left" v-if="rentDebtItems.length > 0">
+                                    <tr class="text-start" v-if="rentDebtItems.length > 0">
                                         <td colspan="6"><b class="h6 text-danger">
                                             <svg  xmlns="http://www.w3.org/2000/svg"  width="24"  height="24"  viewBox="0 0 24 24"  fill="none"  stroke="currentColor"  stroke-width="2"  stroke-linecap="round"  stroke-linejoin="round"  class="icon icon-tabler icons-tabler-outline icon-tabler-receipt-off"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M5 21v-16m2 -2h10a2 2 0 0 1 2 2v10m0 4.01v1.99l-3 -2l-2 2l-2 -2l-2 2l-2 -2l-3 2" /><path d="M11 7l4 0" /><path d="M9 11l2 0" /><path d="M13 15l2 0" /><path d="M15 11l0 .01" /><path d="M3 3l18 18" /></svg> Servicio a la habitación (Cargo Pendiente)</b></td>
                                     </tr>
                                     <tr class="bg-light-color" v-if="rentDebtItems.length > 0">
                                         <td>#</td>
-                                        <td class="text-left">Descripción</td>
+                                        <td class="text-start">Descripción</td>
                                         <td>Precio unitario</td>
                                         <td>Cantidad</td>
                                         <td>Estado</td>
@@ -141,7 +141,7 @@
                                         class="text-danger"
                                     >
                                         <td>{{ i + 1 }}</td>
-                                        <td class="text-left">{{ it.item.item.description }}</td>
+                                        <td class="text-start">{{ it.item.item.description }}</td>
                                         <td>{{ it.item.input_unit_price_value | toDecimals }}</td>
                                         <td>{{ it.item.quantity | toDecimals }}</td>
                                         <td>
@@ -152,7 +152,7 @@
                                     </tbody>
                                     <tfoot>
                                     <tr>
-                                        <td class="text-right"
+                                        <td class="text-end"
                                             colspan="5">Pagado
                                         </td>
                                         <td>
@@ -164,7 +164,7 @@
                                         </td>
                                     </tr>
                                     <tr>
-                                        <td class="text-right"
+                                        <td class="text-end"
                                             colspan="5">Debe
                                         </td>
                                         <td>
@@ -297,7 +297,7 @@
                                 <tr v-for="(row, index) in document.payments"
                                     :key="index">
                                     <td>
-                                        <div class="form-group mb-2 mr-2">
+                                        <div class="form-group mb-2 me-2">
                                             <el-select v-model="row.payment_method_type_id">
                                                 <el-option
                                                     v-for="option in paymentMethodTypes"
@@ -309,7 +309,7 @@
                                         </div>
                                     </td>
                                     <td>
-                                        <div class="form-group mb-2 mr-2">
+                                        <div class="form-group mb-2 me-2">
                                             <el-select
                                                 v-model="row.payment_destination_id"
                                                 :disabled="row.payment_destination_disabled"
@@ -325,12 +325,12 @@
                                         </div>
                                     </td>
                                     <td>
-                                        <div class="form-group mb-2 mr-2">
+                                        <div class="form-group mb-2 me-2">
                                             <el-input v-model="row.reference"></el-input>
                                         </div>
                                     </td>
                                     <td>
-                                        <div class="form-group mb-2 mr-2">
+                                        <div class="form-group mb-2 me-2">
                                             <el-input v-model="row.payment"></el-input>
                                         </div>
                                     </td>
@@ -350,7 +350,7 @@
                         </div>
                     </div>
                     <div class="row card-body">
-                        <div class="col-12 pt-3 text-right">
+                        <div class="col-12 pt-3 text-end">
                             <template v-if="canMakePayment && totalDebt > 0">
                                 <el-button
                                     :disabled="loading"
@@ -373,7 +373,7 @@
                             </template>
                         </div>
                     </div>
-                </div>     
+                </div>
             </template>
             <template v-else>
                 <div class="card text-center">
@@ -386,12 +386,12 @@
                         type="primary"
                         class="btn btn-primary mt-4"
                     >
-                        <span class="ml-2">
+                        <span class="ms-2">
                             Volver a recepción
                         </span>
                     </el-button>
                 </div>
-                   
+
                 </div>
             </template>
         </div>
@@ -415,8 +415,8 @@
 import moment from "moment";
 import DocumentOptions from "@views/documents/partials/options.vue";
 import SaleNoteOptions from "@views/sale_notes/partials/options.vue";
-import {calculateRowItem} from "../../../../../../../resources/js/helpers/functions";
-import {exchangeRate, functions} from "../../../../../../../resources/js/mixins/functions";
+import {calculateRowItem} from "@helpers/functions";
+import {exchangeRate, functions} from "@mixins/functions";
 import {mapActions, mapState} from "vuex/dist/vuex.mjs";
 
 export default {
@@ -576,7 +576,7 @@ export default {
                 payment: this.totalDebt,
             });
         }
-        
+
         this.validateIdentityDocumentType();
         const date = moment().format("YYYY-MM-DD");
         await this.searchExchangeRateByDate(date).then((res) => {
@@ -679,7 +679,7 @@ export default {
             const total_payments = _.sumBy(this.document.payments, 'payment')
 
             if(total_payments > (this.totalDebt)) return this.getResponseValidations(false, 'El total de los pagos agregados es superior al monto.')
-            
+
             return this.getResponseValidations()
         },
         initForm() {

@@ -1,9 +1,8 @@
 <template>
     <div>
-        <div class="page-header pr-0">
+        <div class="page-header pe-0">
             <h2>
-                <a href="/technical-services"
-                    ><svg
+                <a href="/technical-services"><svg
                         xmlns="http://www.w3.org/2000/svg"
                         style="margin-top: -5px;"
                         width="24"
@@ -14,8 +13,7 @@
                         stroke-width="2"
                         stroke-linecap="round"
                         stroke-linejoin="round"
-                        class="icon icon-tabler icons-tabler-outline icon-tabler-edit"
-                    >
+                        class="icon icon-tabler icons-tabler-outline icon-tabler-edit">
                         <path stroke="none" d="M0 0h24v24H0z" fill="none" />
                         <path
                             d="M7 7h-1a2 2 0 0 0 -2 2v9a2 2 0 0 0 2 2h9a2 2 0 0 0 2 -2v-1"
@@ -23,8 +21,8 @@
                         <path
                             d="M20.385 6.585a2.1 2.1 0 0 0 -2.97 -2.97l-8.415 8.385v3h3l8.385 -8.415z"
                         />
-                        <path d="M16 5l3 3" /></svg
-                ></a>
+                        <path d="M16 5l3 3" /></svg>
+                </a>
             </h2>
             <ol class="breadcrumbs">
                 <li class="active">
@@ -34,7 +32,7 @@
             <div class="right-wrapper pull-right">
                 <button
                     type="button"
-                    class="btn btn-custom btn-sm  mt-2 mr-2"
+                    class="btn btn-custom btn-sm  mt-2 me-2"
                     @click.prevent="clickCreate()"
                 >
                     <i class="fa fa-plus-circle"></i> Nuevo
@@ -50,8 +48,8 @@
                     <tr slot="heading">
                         <!-- <th>#</th> -->
                         <th>Cliente</th>
-                        <th class="text-right">Celular</th>
-                        <th class="text-right">Número</th>
+                        <th class="text-end">Celular</th>
+                        <th class="text-end">Número</th>
                         <th>F. Emisión</th>
                         <th>N° Serie</th>
                         <th>Costo S.</th>
@@ -62,7 +60,7 @@
                         <th></th>
                         <th>Saldo</th>
                         <th class="text-center">Ver</th>
-                        <th class="text-right">Acciones</th>
+                        <th class="text-end">Acciones</th>
                     </tr>
 
                     <tr></tr>
@@ -73,9 +71,9 @@
                                 v-text="row.customer_number"
                             ></small>
                         </td>
-                        <td class="text-right">{{ row.cellphone }}</td>
-                        <td class="text-right">{{ row.id }}</td>
-                        <td class="text-left">
+                        <td class="text-end">{{ row.cellphone }}</td>
+                        <td class="text-end">{{ row.id }}</td>
+                        <td class="text-start">
                             {{ formatDate(row.date_of_issue) }}
                         </td>
                         <td class="text-center">{{ row.serial_number }}</td>
@@ -86,7 +84,7 @@
                             {{ row.number_document_sale_note }}
                         </td>
                         <!-- <td class="text-center">{{ row.prepayment }}</td> -->
-                        <td class="text-right">
+                        <td class="text-end">
                             <button
                                 type="button"
                                 style="min-width: 41px"
@@ -109,18 +107,18 @@
                             </button>
                         </td>
 
-                        <td class="text-right">
+                        <td class="text-end">
                             <template v-if="!row.has_document_sale_note">
                                 <button
                                     type="button"
-                                    class="btn waves-effect waves-light btn-xs btn-info"
+                                    class="btn waves-effect waves-light btn-xs btn-info me-2"
                                     @click.prevent="clickOptions(row.id)"
                                 >
                                     Generar comprobante
                                 </button>
                                 <button
                                     type="button"
-                                    class="btn waves-effect waves-light btn-xs btn-info"
+                                    class="btn waves-effect waves-light btn-xs btn-info me-2"
                                     @click.prevent="clickCreate(row.id)"
                                 >
                                     Editar
@@ -130,7 +128,7 @@
                             <template v-if="typeUser === 'admin'">
                                 <button
                                     type="button"
-                                    class="btn waves-effect waves-light btn-xs btn-danger"
+                                    class="btn waves-effect waves-light btn-xs btn-danger me-2"
                                     @click.prevent="clickDelete(row.id)"
                                 >
                                     Eliminar
@@ -180,7 +178,7 @@ import TechnicalServicesForm from "./form.vue";
 import DataTable from "@components/DataTable.vue";
 import { deletable } from "@mixins/deletable";
 import TechnicalServicePayments from "./partials/payments.vue";
-import TechnicalServiceOptions from "./partials/options";
+import TechnicalServiceOptions from "./partials/options.vue";
 import { mapActions, mapState } from "vuex/dist/vuex.mjs";
 
 export default {

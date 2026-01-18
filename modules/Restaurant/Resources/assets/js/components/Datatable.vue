@@ -2,7 +2,7 @@
     <div v-loading="loading_submit">
         <div class="row ">
             <div class="col-md-12 col-lg-12 col-xl-12 filter-container">
-                <div class="btn-filter-content">
+                <div class="btn-filter-content" v-if="showFilterToggleButton">
                     <el-button
                         type="secondary"
                         class="btn-show-filter mb-2"
@@ -107,6 +107,11 @@ export default {
             required: false,
             default: ''
         },
+        promotionType: {
+            type: String,
+            required: false,
+            default: ''
+        },
         resource: String,
         applyFilter: {
             type: Boolean,
@@ -140,6 +145,12 @@ export default {
         if(this.pharmacy !== undefined && this.pharmacy === true){
             this.fromPharmacy = true;
         }
+
+        // En /restaurant/promotions no se muestra el botón; dejar filtros visibles
+        if (window.location && window.location.pathname === '/restaurant/promotions') {
+            this.isVisible = true;
+        }
+
         this.$eventHub.$on("reloadData", () => {
             this.getRecords();
         });
@@ -185,8 +196,15 @@ export default {
         },
         getRecords() {
             this.loading_submit = true;
+            
+            // Determinar la ruta según el tipo de promoción
+            let endpoint = `/${this.resource}/records`;
+            if (this.promotionType === 'spots') {
+                endpoint = '/restaurant/spot-list/records';
+            }
+            
             return this.$http
-                .get(`/${this.resource}/records?${this.getQueryParameters()}`)
+                .get(`${endpoint}?${this.getQueryParameters()}`)
                 .then(response => {
                     this.records = response.data.data;
                     this.pagination = response.data.meta;
@@ -224,6 +242,12 @@ export default {
         },
         getSearch() {
             return this.search;
+        }
+    }
+    ,
+    computed: {
+        showFilterToggleButton() {
+            return !(window.location && window.location.pathname === '/restaurant/promotions');
         }
     }
 };

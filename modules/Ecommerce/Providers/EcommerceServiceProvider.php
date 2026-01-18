@@ -3,7 +3,7 @@
 namespace Modules\Ecommerce\Providers;
 
 use Illuminate\Support\ServiceProvider;
-use Illuminate\Database\Eloquent\Factory;
+// use Illuminate\Database\Eloquent\Factory;
 use Illuminate\Support\Facades\View;
 use App\Models\Tenant\Item;
 
@@ -20,7 +20,7 @@ class EcommerceServiceProvider extends ServiceProvider
         $this->registerTranslations();
         $this->registerConfig();
         $this->registerViews();
-        $this->registerFactories();
+        // $this->registerFactories();
         $this->loadMigrationsFrom(__DIR__ . '/../Database/Migrations');
 
 

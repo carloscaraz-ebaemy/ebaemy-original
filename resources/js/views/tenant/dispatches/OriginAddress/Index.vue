@@ -50,7 +50,7 @@
 
 <script>
 
-import OriginAddressForm from './Form'
+import OriginAddressForm from './Form.vue'
 import DataTable from '@components/DataTable.vue'
 import {deletable} from '@mixins/deletable'
 

@@ -18,7 +18,7 @@
          */
         public function toArray($request)
         {
-            return $this->collection->transform(function (Production $row, $key) {
+            return $this->collection->transform(function ($row, $key) {
                 return $row->getCollectionData();
             });
         }

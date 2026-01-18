@@ -110,7 +110,6 @@ if ($hostname) {
         Route::get('sendserver/{document_id}/{query?}', 'Tenant\DocumentController@sendServer');
         Route::post('configurations/generateDispatch', 'Tenant\ConfigurationController@generateDispatch');
 
-        
         // Contenido de los certificados de qz tray
         Route::get('certificates-qztray/private', 'Tenant\CertificateQzTrayController@private');
         Route::get('certificates-qztray/digital', 'Tenant\CertificateQzTrayController@digital');
@@ -126,6 +125,7 @@ if ($hostname) {
             Route::post('reseller/detail', 'System\Api\ResellerController@resellerDetail');
             Route::post('reseller/lockedAdmin', 'System\Api\ResellerController@lockedAdmin');
             Route::post('reseller/lockedTenant', 'System\Api\ResellerController@lockedTenant');
+            Route::get('reseller/detailsLimitReseller', 'System\Api\ResellerController@detailsLimitReseller');
 
             Route::get('restaurant/partner/list', 'System\Api\RestaurantPartnerController@list');
             Route::post('restaurant/partner/store', 'System\Api\RestaurantPartnerController@store');

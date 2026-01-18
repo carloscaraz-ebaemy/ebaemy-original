@@ -21,7 +21,7 @@ use App\Models\Tenant\Catalogs\{
 };
 use App\Exports\GeneralFormatExport;
 use Carbon\Carbon;
-use Barryvdh\DomPDF\Facade as PDF;
+use Barryvdh\DomPDF\Facade\Pdf as PDF;
 
 
 class InventoryReviewController extends Controller

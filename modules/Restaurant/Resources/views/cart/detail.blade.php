@@ -1,7 +1,16 @@
 @extends('restaurant::layouts.cart.index')
 @section('content')
 
-<div class="row" id="app">
+@php
+    $configurationModel = \App\Models\Tenant\Configuration::first();
+    $defaultImage = $configurationModel->product_default_image ?? 'imagen-no-disponible.jpg';
+    $defaultImagePath = $defaultImage === 'imagen-no-disponible.jpg'
+        ? asset('logo/imagen-no-disponible.jpg')
+        : asset('storage/defaults/' . $defaultImage);
+    $itemsBasePath = asset('storage/uploads/items');
+@endphp
+
+<div class="row" id="app" style="margin-top: 35px">
     <div class="col-lg-8">
         <div class="cart-table-container">
 
@@ -19,7 +28,7 @@
                         <td class="product-col">
                             <figure class="product-image-container">
                                 <a href="#" class="product-image">
-                                    <img :src=" '/storage/uploads/items/' + row.image" alt="product">
+                                    <img class="image-product" :src="(row.image && row.image !== 'imagen-no-disponible.jpg') ? '{{ $itemsBasePath }}' + '/' + row.image : '{{ $defaultImagePath }}'" :alt="row.description || 'Producto sin imagen'">
                                 </a>
                             </figure>
                             <h2 class="product-title">

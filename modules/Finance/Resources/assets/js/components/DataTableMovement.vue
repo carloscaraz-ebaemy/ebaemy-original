@@ -61,7 +61,7 @@
                     </div>
 
                     <div class="col-lg-7 col-md-7 col-md-7 col-sm-12" style="margin-top:29px">
-                        <el-button :loading="loading_submit" class="submit" icon="el-icon-search"
+                        <el-button :loading="loading_submit" class="submit me-2" icon="el-icon-search"
                                    type="primary" @click.prevent="getRecordsByFilter">Buscar
                         </el-button>
 
@@ -89,7 +89,7 @@
 
             <div class="col-md-12">
 
-                <div class="pull-right">
+                <div class="ms-auto pull-end col-3">
                     <el-select v-model="per_page" @change="handleCurrentChange">
                         <el-option key="10" label="10" value="10"></el-option>
                         <el-option key="15" label="15" value="15"></el-option>

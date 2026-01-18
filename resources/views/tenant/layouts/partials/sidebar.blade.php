@@ -13,18 +13,27 @@ $inventory_configuration = InventoryConfiguration::getSidebarPermissions();
 ?>
 <aside id="sidebar-left" class="sidebar-left">
     <div class="sidebar-header sidebar-header-desktop">
-        <a href="{{ route('tenant.dashboard.index') }}" class="logo pt-2 pt-md-0">
-            @if($vc_company->logo)
-                <img src="{{ asset('storage/uploads/logos/' . $vc_company->logo) }}" alt="Logo" class="logo-light"
-                    style="{{ $vc_company->logo_dark ? '' : '--show-light-logo: block;' }}" />
-            @else
-                <img src="{{ asset('logo/tulogo.png') }}" alt="Logo" />
-            @endif
+        <div class="logo-container-sidebar pe-2">
+            <a href="{{ route('tenant.dashboard.index') }}" class="logo pt-2 pt-md-0">
+                @if($vc_company->logo)
+                    <img src="{{ asset('storage/uploads/logos/' . $vc_company->logo) }}" alt="Logo" class="logo-light"
+                        style="{{ $vc_company->logo_dark ? '' : '--show-light-logo: block;' }}" />
+                @else
+                    <img src="{{ asset('logo/tulogo.png') }}" alt="Logo" />
+                @endif
 
-            @if($vc_company->logo_dark)
-                <img src="{{ asset('storage/uploads/logos/' . $vc_company->logo_dark) }}" alt="Logo" class="logo-dark" />
-            @endif
-        </a>
+                @if($vc_company->logo_dark)
+                    <img src="{{ asset('storage/uploads/logos/' . $vc_company->logo_dark) }}" alt="Logo" class="logo-dark" />
+                @endif
+            </a>
+        </div>
+        <div class="sidebar-toggle-container d-none d-md-flex">
+            <div class="sidebar-toggle position-relative ms-0 p-0" data-toggle-class="sidebar-left-collapsed" data-target="html"
+                data-fire-event="sidebar-left-toggle" title="Colapsar menú lateral">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="icon icon-tabler icons-tabler-outline icon-tabler-layout-sidebar-left-collapse fa-angle-left"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M4 4m0 2a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v12a2 2 0 0 1 -2 2h-12a2 2 0 0 1 -2 -2z" /><path d="M9 4v16" /> <path class="path-left" d="M15 10l-2 2l2 2" /> </svg>
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="icon icon-tabler icons-tabler-outline icon-tabler-layout-sidebar-right-collapse fa-angle-right"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M4 4m0 2a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v12a2 2 0 0 1 -2 2h-12a2 2 0 0 1 -2 -2z" /><path d="M9 4v16" /><path class="path-right" d="M14 10l2 2l-2 2" /></svg>
+            </div>
+        </div>
         <div class="d-md-none toggle-sidebar-left" data-toggle-class="sidebar-left-opened" data-target="html"
             data-fire-event="sidebar-left-opened">
             <i class="fas fa-times"></i>
@@ -57,7 +66,7 @@ $inventory_configuration = InventoryConfiguration::getSidebarPermissions();
                         <li class="{{ ($firstLevel === 'dashboard') ? 'nav-active' : '' }}">
                             <a class="nav-link dashboard-link" href="{{ route('tenant.dashboard.index') }}">
                                 <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"
-                                    fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                    fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"
                                     stroke-linejoin="round"
                                     class="icon icon-tabler icons-tabler-outline icon-tabler-dashboard">
                                     <path stroke="none" d="M0 0h24v24H0z" fill="none" />
@@ -84,7 +93,7 @@ $inventory_configuration = InventoryConfiguration::getSidebarPermissions();
                                                                                                                                                 ">
                             <a class="nav-link" href="#">
                                 <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"
-                                    fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                    fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"
                                     stroke-linejoin="round" class="icon icon-tabler icons-tabler-outline icon-tabler-edit">
                                     <path stroke="none" d="M0 0h24v24H0z" fill="none" />
                                     <path d="M7 7h-1a2 2 0 0 0 -2 2v9a2 2 0 0 0 2 2h9a2 2 0 0 0 2 -2v-1" />
@@ -103,11 +112,18 @@ $inventory_configuration = InventoryConfiguration::getSidebarPermissions();
                                 @endif
 
                                 @if(in_array('quotations', $vc_module_levels))
-
-                                    <li class="{{ ($firstLevel === 'quotations') ? 'nav-active' : '' }}">
-                                        <a class="nav-link" href="{{route('tenant.quotations.index')}}">
+                                    <li class="{{ ($firstLevel === 'quotations') ? 'nav-active' : '' }} nav-item-with-action">
+                                        <a class="nav-link pe-5" href="{{ route('tenant.quotations.index') }}">
                                             Cotizaciones
                                         </a>
+                                        <button
+                                            type="button"
+                                            class="{{ ($firstLevel === 'quotations') ? 'second-buton' : 'btn-primary' }} btn btn-xs nav-action m-0 py-0"
+                                            title="Crear cotización"
+                                            onclick="event.preventDefault(); event.stopPropagation(); window.location.href='{{ route('tenant.quotations.create') }}';"
+                                        >
+                                            Crear
+                                        </button>
                                     </li>
                                 @endif
 
@@ -150,19 +166,11 @@ $inventory_configuration = InventoryConfiguration::getSidebarPermissions();
                                                                                                                                             {{ ($firstLevel === 'pos') ? 'nav-active nav-expanded' : '' }}
                                                                                                                                                 ">
                             <a class="nav-link" href="#">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"
-                                    fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
-                                    stroke-linejoin="round" class="feather feather-file-text">
-                                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-                                    <polyline points="14 2 14 8 20 8"></polyline>
-                                    <line x1="16" y1="13" x2="8" y2="13"></line>
-                                    <line x1="16" y1="17" x2="8" y2="17"></line>
-                                    <polyline points="10 9 9 9 8 9"></polyline>
-                                </svg>
+                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="icon icon-tabler icons-tabler-outline icon-tabler-receipt-2"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M5 21v-16a2 2 0 0 1 2 -2h10a2 2 0 0 1 2 2v16l-3 -2l-2 2l-2 -2l-2 2l-2 -2l-3 2" /><path d="M14 8h-2.5a1.5 1.5 0 0 0 0 3h1a1.5 1.5 0 0 1 0 3h-2.5m2 0v1.5m0 -9v1.5" /></svg>
                                 <span>VENTAS</span>
                             </a>
                             <ul class="nav nav-children" style="">
-                                @if(auth()->user()->type != 'integrator' && $vc_company->soap_type_id != '03')
+                                {{-- @if(auth()->user()->type != 'integrator' && $vc_company->soap_type_id != '03')
                                     @if(in_array('documents', $vc_modules))
                                         @if(in_array('new_document', $vc_module_levels))
                                             <li
@@ -171,21 +179,36 @@ $inventory_configuration = InventoryConfiguration::getSidebarPermissions();
                                             </li>
                                         @endif
                                     @endif
-                                @endif
+                                @endif --}}
 
                                 @if(in_array('documents', $vc_modules) && $vc_company->soap_type_id != '03')
                                     @if(in_array('list_document', $vc_module_levels))
                                         <li
-                                            class="{{ ($firstLevel === 'documents' && $secondLevel != 'create' && $secondLevel != 'not-sent' && $secondLevel != 'regularize-shipping') ? 'nav-active' : '' }}">
-                                            <a class="nav-link" href="{{route('tenant.documents.index')}}">Listado de
-                                                comprobantes</a>
+                                            class="{{ ($firstLevel === 'documents' && $secondLevel != 'create' && $secondLevel != 'not-sent' && $secondLevel != 'regularize-shipping') ? 'nav-active' : '' }} {{ ($firstLevel === 'documents' && $secondLevel === 'create') ? 'nav-active' : '' }} nav-item-with-action">
+                                            <a class="nav-link pe-5" href="{{route('tenant.documents.index')}}">Boleta/factura</a>
+                                            <button
+                                                type="button"
+                                                class="{{ ($firstLevel === 'documents') ? 'second-buton' : 'btn-primary' }} btn btn-xs nav-action m-0 py-0"
+                                                title="Crear comprobante"
+                                                onclick="event.preventDefault(); event.stopPropagation(); window.location.href='{{ route('tenant.documents.create') }}';"
+                                            >
+                                                Crear
+                                            </button>
                                         </li>
                                     @endif
                                 @endif
 
                                 @if(in_array('sale_notes', $vc_module_levels))
-                                    <li class="{{ ($firstLevel === 'sale-notes') ? 'nav-active' : '' }}">
-                                        <a class="nav-link" href="{{route('tenant.sale_notes.index')}}">Notas de Venta</a>
+                                    <li class="{{ ($firstLevel === 'sale-notes') ? 'nav-active' : '' }} nav-item-with-action">
+                                        <a class="nav-link pe-5" href="{{route('tenant.sale_notes.index')}}">Notas de Venta</a>
+                                        <button
+                                            type="button"
+                                            class="{{ ($firstLevel === 'sale-notes') ? 'second-buton' : 'btn-primary' }} btn btn-xs nav-action m-0 py-0"
+                                            title="Crear nota de venta"
+                                            onclick="event.preventDefault(); event.stopPropagation(); window.location.href='{{ route('tenant.sale_notes.create') }}';"
+                                        >
+                                            Crear
+                                        </button>
                                     </li>
                                 @endif
 
@@ -223,7 +246,7 @@ $inventory_configuration = InventoryConfiguration::getSidebarPermissions();
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 ">
                                                         <a class="nav-link" href="#">
                                                             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"
-                                                                fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                                                fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"
                                                                 stroke-linejoin="round"
                                                                 class="icon icon-tabler icons-tabler-outline icon-tabler-shopping-bag">
                                                                 <path stroke="none" d="M0 0h24v24H0z" fill="none" />
@@ -234,28 +257,51 @@ $inventory_configuration = InventoryConfiguration::getSidebarPermissions();
                                                             <span>Compras</span>
                                                         </a>
                                                         <ul class="nav nav-children">
-                                                            @if(in_array('purchases_create', $vc_module_levels))
+                                                            {{-- @if(in_array('purchases_create', $vc_module_levels))
                                                                 <li
                                                                     class="{{ ($firstLevel === 'purchases' && $secondLevel === 'create') ? 'nav-active' : '' }}">
                                                                     <a class="nav-link" href="{{route('tenant.purchases.create')}}">Nuevo</a>
                                                                 </li>
-                                                            @endif
+                                                            @endif --}}
                                                             @if(in_array('purchases_list', $vc_module_levels))
                                                                 <li
-                                                                    class="{{ ($firstLevel === 'purchases' && $secondLevel != 'create') ? 'nav-active' : '' }}">
-                                                                    <a class="nav-link" href="{{route('tenant.purchases.index')}}">Listado</a>
+                                                                    class="{{ ($firstLevel === 'purchases' && $secondLevel != 'create') ? 'nav-active' : '' }} {{ ($firstLevel === 'purchases' && $secondLevel === 'create') ? 'nav-active' : '' }} nav-item-with-action">
+                                                                    <a class="nav-link pe-5" href="{{route('tenant.purchases.index')}}">Listado</a>
+                                                                    <button
+                                                                        type="button"
+                                                                        class="{{ ($firstLevel === 'purchases') ? 'second-buton' : 'btn-primary' }} btn btn-xs nav-action m-0 py-0"
+                                                                        title="Nuevo compra"
+                                                                        onclick="event.preventDefault(); event.stopPropagation(); window.location.href='{{ route('tenant.purchases.create') }}';"
+                                                                    >
+                                                                        Crear
+                                                                    </button>
                                                                 </li>
                                                             @endif
                                                             @if(in_array('purchases_orders', $vc_module_levels))
-                                                                <li class="{{ ($firstLevel === 'purchase-orders') ? 'nav-active' : '' }}">
-                                                                    <a class="nav-link" href="{{route('tenant.purchase-orders.index')}}">Ordenes de
-                                                                        compra</a>
+                                                                <li class="{{ ($firstLevel === 'purchase-orders') ? 'nav-active' : '' }} nav-item-with-action">
+                                                                    <a class="nav-link pe-5" href="{{route('tenant.purchase-orders.index')}}">Ord. de compra</a>
+                                                                    <button
+                                                                        type="button"
+                                                                        class="{{ ($firstLevel === 'purchase-orders') ? 'second-buton' : 'btn-primary' }} btn btn-xs nav-action m-0 py-0"
+                                                                        title="Nueva orden de compra"
+                                                                        onclick="event.preventDefault(); event.stopPropagation(); window.location.href='{{ route('tenant.purchase-orders.create') }}';"
+                                                                    >
+                                                                        Crear
+                                                                    </button>
                                                                 </li>
                                                             @endif
 
                                                             @if(in_array('purchases_expenses', $vc_module_levels))
-                                                                <li class="{{ ($firstLevel === 'expenses') ? 'nav-active' : '' }}">
-                                                                    <a class="nav-link" href="{{route('tenant.expenses.index')}}">Gastos diversos</a>
+                                                                <li class="{{ ($firstLevel === 'expenses') ? 'nav-active' : '' }} nav-item-with-action">
+                                                                    <a class="nav-link pe-5" href="{{route('tenant.expenses.index')}}">Gastos diversos</a>
+                                                                    <button
+                                                                        type="button"
+                                                                        class="{{ ($firstLevel === 'expenses') ? 'second-buton' : 'btn-primary' }} btn btn-xs nav-action m-0 py-0"
+                                                                        title="Nuevo gasto diverso"
+                                                                        onclick="event.preventDefault(); event.stopPropagation(); window.location.href='{{ route('tenant.expenses.create') }}';"
+                                                                    >
+                                                                        Crear
+                                                                    </button>
                                                                 </li>
                                                             @endif
                                                             @if(in_array('purchases_suppliers', $vc_module_levels))
@@ -266,10 +312,18 @@ $inventory_configuration = InventoryConfiguration::getSidebarPermissions();
                                                                 </li>
                                                             @endif
                                                             @if(in_array('purchases_quotations', $vc_module_levels))
-                                                                <li class="{{ ($firstLevel === 'purchase-quotations') ? 'nav-active' : '' }}">
-                                                                    <a class="nav-link" href="{{route('tenant.purchase-quotations.index')}}">
+                                                                <li class="{{ ($firstLevel === 'purchase-quotations') ? 'nav-active' : '' }} nav-item-with-action">
+                                                                    <a class="nav-link pe-5" href="{{route('tenant.purchase-quotations.index')}}">
                                                                         Solicitar cotización
                                                                     </a>
+                                                                    <button
+                                                                        type="button"
+                                                                        class="{{ ($firstLevel === 'purchase-quotations') ? 'second-buton' : 'btn-primary' }} btn btn-xs nav-action m-0 py-0"
+                                                                        title="Nueva solicitud de cotización"
+                                                                        onclick="event.preventDefault(); event.stopPropagation(); window.location.href='{{ route('tenant.purchase-quotations.create') }}';"
+                                                                    >
+                                                                        Crear
+                                                                    </button>
                                                                 </li>
                                                             @endif
                                                             @if(in_array('purchases_fixed_assets_items', $vc_module_levels))
@@ -281,9 +335,16 @@ $inventory_configuration = InventoryConfiguration::getSidebarPermissions();
                                                             @endif
                                                             @if(in_array('purchases_fixed_assets_purchases', $vc_module_levels))
                                                                 <li
-                                                                    class="{{ ($firstLevel === 'fixed-asset' && $secondLevel === 'purchases') ? 'nav-active' : '' }}">
-                                                                    <a class="nav-link" href="{{ route('tenant.fixed_asset_purchases.index') }}">Comprar
-                                                                        activo fijo</a>
+                                                                    class="{{ ($firstLevel === 'fixed-asset' && $secondLevel === 'purchases') ? 'nav-active' : '' }} nav-item-with-action">
+                                                                    <a class="nav-link pe-5" href="{{ route('tenant.fixed_asset_purchases.index') }}">Comprar activo fijo</a>
+                                                                    <button
+                                                                        type="button"
+                                                                        class="{{ ($firstLevel === 'fixed-asset' && $secondLevel === 'purchases') ? 'second-buton' : 'btn-primary' }} btn btn-xs nav-action m-0 py-0"
+                                                                        title="Nueva compra de activo fijo"
+                                                                        onclick="event.preventDefault(); event.stopPropagation(); window.location.href='{{ route('tenant.fixed_asset_purchases.create') }}';"
+                                                                    >
+                                                                        Crear
+                                                                    </button>
                                                                 </li>
                                                             @endif
                                                         </ul>
@@ -300,7 +361,7 @@ $inventory_configuration = InventoryConfiguration::getSidebarPermissions();
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 ">
                                             <a class="nav-link" href="#">
                                                 <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"
-                                                    fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                                    fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"
                                                     stroke-linejoin="round"
                                                     class="icon icon-tabler icons-tabler-outline icon-tabler-users-group">
                                                     <path stroke="none" d="M0 0h24v24H0z" fill="none" />
@@ -352,7 +413,7 @@ $inventory_configuration = InventoryConfiguration::getSidebarPermissions();
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 ">
                                             <a class="nav-link" href="#">
                                                 <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"
-                                                    fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                                    fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"
                                                     stroke-linejoin="round"
                                                     class="icon icon-tabler icons-tabler-outline icon-tabler-category-2">
                                                     <path stroke="none" d="M0 0h24v24H0z" fill="none" />
@@ -372,7 +433,7 @@ $inventory_configuration = InventoryConfiguration::getSidebarPermissions();
                                                 @if(in_array('items_packs', $vc_module_levels))
                                                     <li class="{{ ($firstLevel === 'item-sets') ? 'nav-active' : '' }}">
                                                         <a class="nav-link"
-                                                            href="{{route('tenant.item_sets.index')}}">Conjuntos/Packs/Promociones</a>
+                                                            href="{{route('tenant.item_sets.index')}}">Conjuntos y Packs</a>
                                                     </li>
                                                 @endif
                                                 @if(in_array('items_services', $vc_module_levels))
@@ -414,7 +475,7 @@ $inventory_configuration = InventoryConfiguration::getSidebarPermissions();
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     ">
                                             <a class="nav-link" href="#">
                                                 <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"
-                                                    fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                                    fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"
                                                     stroke-linejoin="round"
                                                     class="icon icon-tabler icons-tabler-outline icon-tabler-building-warehouse">
                                                     <path stroke="none" d="M0 0h24v24H0z" fill="none" />
@@ -496,7 +557,7 @@ $inventory_configuration = InventoryConfiguration::getSidebarPermissions();
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     {{ ($firstLevel === 'bank_loan') ? 'nav-active nav-expanded' : '' }}">
                                             <a class="nav-link" href="#">
                                                 <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"
-                                                    fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                                    fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"
                                                     stroke-linejoin="round"
                                                     class="icon icon-tabler icons-tabler-outline icon-tabler-calculator">
                                                     <path stroke="none" d="M0 0h24v24H0z" fill="none" />
@@ -592,7 +653,7 @@ $inventory_configuration = InventoryConfiguration::getSidebarPermissions();
                                                                                                                                                     {{ ($firstLevel === 'dispatch_addresses') ? 'nav-active nav-expanded' : '' }}">
                             <a class="nav-link" href="#">
                                 <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"
-                                    fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                    fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"
                                     stroke-linejoin="round" class="icon icon-tabler icons-tabler-outline icon-tabler-truck">
                                     <path stroke="none" d="M0 0h24v24H0z" fill="none" />
                                     <path d="M7 17m-2 0a2 2 0 1 0 4 0a2 2 0 1 0 -4 0" />
@@ -603,14 +664,29 @@ $inventory_configuration = InventoryConfiguration::getSidebarPermissions();
                             </a>
                             <ul class="nav nav-children" style="">
                                 @if(in_array('dispatches', $vc_module_levels))
-                                    <li class="{{ ($firstLevel === 'dispatches') ? 'nav-active' : '' }}">
-                                        <a class="nav-link" href="{{route('tenant.dispatches.index')}}">G.R. Remitente</a>
+                                    <li class="{{ ($firstLevel === 'dispatches') ? 'nav-active' : '' }} nav-item-with-action">
+                                        <a class="nav-link pe-5" href="{{route('tenant.dispatches.index')}}">G.R. Remitente</a>
+                                        <button
+                                            type="button"
+                                            class="{{ ($firstLevel === 'dispatches') ? 'second-buton' : 'btn-primary' }} btn btn-xs nav-action m-0 py-0"
+                                            title="Nueva guía de remisión"
+                                            onclick="event.preventDefault(); event.stopPropagation(); window.location.href='{{ url('dispatches/create') }}';"
+                                        >
+                                            Crear
+                                        </button>
                                     </li>
                                 @endif
                                 @if(in_array('dispatch_carrier', $vc_module_levels))
-                                    <li class="{{ ($firstLevel === 'dispatch_carrier') ? 'nav-active' : '' }}">
-                                        <a class="nav-link" href="{{route('tenant.dispatch_carrier.index')}}">G.R.
-                                            Transportista</a>
+                                    <li class="{{ ($firstLevel === 'dispatch_carrier') ? 'nav-active' : '' }} nav-item-with-action">
+                                        <a class="nav-link pe-5" href="{{route('tenant.dispatch_carrier.index')}}">G.R. Transportista</a>
+                                        <button
+                                            type="button"
+                                            class="{{ ($firstLevel === 'dispatch_carrier') ? 'second-buton' : 'btn-primary' }} btn btn-xs nav-action m-0 py-0"
+                                            title="Nueva guía de remisión"
+                                            onclick="event.preventDefault(); event.stopPropagation(); window.location.href='{{ url('dispatch_carrier/create') }}';"
+                                        >
+                                            Crear
+                                        </button>
                                     </li>
                                 @endif
                                 @if(in_array('dispatchers', $vc_module_levels))
@@ -654,7 +730,7 @@ $inventory_configuration = InventoryConfiguration::getSidebarPermissions();
                                                                                                                                             {{ ($firstLevel === 'voided') ? 'nav-active nav-expanded' : '' }}">
                             <a class="nav-link" href="#">
                                 <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"
-                                    fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                    fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"
                                     stroke-linejoin="round"
                                     class="icon icon-tabler icons-tabler-outline icon-tabler-file-unknown">
                                     <path stroke="none" d="M0 0h24v24H0z" fill="none" />
@@ -713,7 +789,7 @@ $inventory_configuration = InventoryConfiguration::getSidebarPermissions();
                                                                                                                                             {{ ($firstLevel === 'purchase-settlements') ? 'nav-active nav-expanded' : '' }}">
                             <a class="nav-link" href="#">
                                 <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"
-                                    fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                    fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"
                                     stroke-linejoin="round"
                                     class="icon icon-tabler icons-tabler-outline icon-tabler-clipboard-text">
                                     <path stroke="none" d="M0 0h24v24H0z" fill="none" />
@@ -767,7 +843,7 @@ $inventory_configuration = InventoryConfiguration::getSidebarPermissions();
                             class="nav-parent {{ ($firstLevel === 'account' || $firstLevel === 'accounting_ledger' || $firstLevel === 'sire') ? 'nav-active nav-expanded' : '' }}">
                             <a class="nav-link" href="#">
                                 <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"
-                                    fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                    fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"
                                     stroke-linejoin="round"
                                     class="icon icon-tabler icons-tabler-outline icon-tabler-chart-histogram">
                                     <path stroke="none" d="M0 0h24v24H0z" fill="none" />
@@ -833,7 +909,7 @@ $inventory_configuration = InventoryConfiguration::getSidebarPermissions();
                             --}}
                             <a class="nav-link dashboard-link" href="{{ url('list-reports') }}">
                                 <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"
-                                    fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                    fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"
                                     stroke-linejoin="round"
                                     class="icon icon-tabler icons-tabler-outline icon-tabler-file-analytics">
                                     <path stroke="none" d="M0 0h24v24H0z" fill="none" />
@@ -855,7 +931,7 @@ $inventory_configuration = InventoryConfiguration::getSidebarPermissions();
                                                                                                                                             {{ in_array($firstLevel, ['ecommerce', 'items_ecommerce', 'tags', 'promotions', 'orders', 'configuration']) ? 'nav-active nav-expanded' : '' }}">
                             <a class="nav-link" href="#">
                                 <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"
-                                    fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                    fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"
                                     stroke-linejoin="round"
                                     class="icon icon-tabler icons-tabler-outline icon-tabler-shopping-cart">
                                     <path stroke="none" d="M0 0h24v24H0z" fill="none" />
@@ -888,7 +964,7 @@ $inventory_configuration = InventoryConfiguration::getSidebarPermissions();
 
                                 <li class="{{ ($secondLevel === 'item-sets') ? 'nav-active' : '' }}">
                                     <a class="nav-link"
-                                        href="{{route('tenant.ecommerce.item_sets.index')}}">Conjuntos/Packs/Promociones</a>
+                                        href="{{route('tenant.ecommerce.item_sets.index')}}">Conjuntos y Packs</a>
                                 </li>
 
                                 @if(in_array('ecommerce_tags', $vc_module_levels))
@@ -916,7 +992,7 @@ $inventory_configuration = InventoryConfiguration::getSidebarPermissions();
                         <li class=" nav-parent {{ ($firstLevel === 'restaurant') ? 'nav-active nav-expanded' : '' }}">
                             <a class="nav-link" href="#">
                                 <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"
-                                    fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                    fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"
                                     stroke-linejoin="round"
                                     class="icon icon-tabler icons-tabler-outline icon-tabler-tools-kitchen-2">
                                     <path stroke="none" d="M0 0h24v24H0z" fill="none" />
@@ -964,6 +1040,19 @@ $inventory_configuration = InventoryConfiguration::getSidebarPermissions();
                                 </li>
 
                                 <li
+                                    class="{{ ($secondLevel != null && $secondLevel == 'supplies' && $firstLevel === 'restaurant') ? 'nav-active' : '' }}">
+                                    <a class="nav-link" href="{{ route('tenant.restaurant.supplies.index') }}">
+                                        Insumos
+                                    </a>
+                                </li>
+
+                                <li class="{{ ($secondLevel != null && $secondLevel == 'modifier-groups' && $firstLevel === 'restaurant') ? 'nav-active' : '' }}">
+                                    <a class="nav-link" href="{{ url('restaurant/modifier-groups') }}">
+                                        Modificadores
+                                    </a>
+                                </li>
+
+                                <li
                                     class="nav-parent
                                                                                                                                                     {{ ($secondLevel != null && $secondLevel == 'promotions') || ($secondLevel != null && $secondLevel == 'orders') ? 'nav-active nav-expanded' : '' }}">
                                     <a class="nav-link" href="#">
@@ -1004,7 +1093,7 @@ $inventory_configuration = InventoryConfiguration::getSidebarPermissions();
                         <li class=" nav-parent {{ ($firstLevel === 'digemid') ? 'nav-active nav-expanded' : '' }}">
                             <a class="nav-link" href="#">
                                 <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"
-                                    fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                    fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"
                                     stroke-linejoin="round"
                                     class="icon icon-tabler icons-tabler-outline icon-tabler-medicine-syrup">
                                     <path stroke="none" d="M0 0h24v24H0z" fill="none" />
@@ -1061,7 +1150,7 @@ $inventory_configuration = InventoryConfiguration::getSidebarPermissions();
                         <li class=" nav-parent {{ ($firstLevel === 'hotels') ? 'nav-active nav-expanded' : '' }}">
                             <a class="nav-link" href="#">
                                 <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"
-                                    fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                    fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"
                                     stroke-linejoin="round"
                                     class="icon icon-tabler icons-tabler-outline icon-tabler-building-skyscraper">
                                     <path stroke="none" d="M0 0h24v24H0z" fill="none" />
@@ -1114,7 +1203,7 @@ $inventory_configuration = InventoryConfiguration::getSidebarPermissions();
                         <li class=" nav-parent {{ ($firstLevel === 'full_suscription') ? 'nav-active nav-expanded' : '' }}">
                             <a class="nav-link" href="#">
                                 <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"
-                                    fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                    fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"
                                     stroke-linejoin="round"
                                     class="icon icon-tabler icons-tabler-outline icon-tabler-calendar-month">
                                     <path stroke="none" d="M0 0h24v24H0z" fill="none" />
@@ -1169,7 +1258,7 @@ $inventory_configuration = InventoryConfiguration::getSidebarPermissions();
                         <li class=" nav-parent {{ ($firstLevel === 'suscription') ? 'nav-active nav-expanded' : '' }}">
                             <a class="nav-link" href="#">
                                 <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"
-                                    fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                    fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"
                                     stroke-linejoin="round"
                                     class="icon icon-tabler icons-tabler-outline icon-tabler-calendar-user">
                                     <path stroke="none" d="M0 0h24v24H0z" fill="none" />
@@ -1261,12 +1350,7 @@ $inventory_configuration = InventoryConfiguration::getSidebarPermissions();
                         <li
                             class=" nav-parent {{ ($firstLevel === 'documentary-procedure') ? 'nav-active nav-expanded' : '' }}">
                             <a class="nav-link" href="#">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"
-                                    fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
-                                    stroke-linejoin="round" class="feather feather-folder">
-                                    <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z">
-                                    </path>
-                                </svg>
+                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="icon icon-tabler icons-tabler-outline icon-tabler-folder-open"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M5 19l2.757 -7.351a1 1 0 0 1 .936 -.649h12.307a1 1 0 0 1 .986 1.164l-.996 5.211a2 2 0 0 1 -1.964 1.625h-14.026a2 2 0 0 1 -2 -2v-11a2 2 0 0 1 2 -2h4l3 3h7a2 2 0 0 1 2 2v2" /></svg>
                                 <span>Trámite documentario</span>
                             </a>
                             <ul class="nav nav-children">
@@ -1330,7 +1414,7 @@ $inventory_configuration = InventoryConfiguration::getSidebarPermissions();
                         </li>
                     @endif
 
-                    {{-- Produccion --}}
+                    {{-- Produccion 
                     @if(in_array('production_app', $vc_modules))
 
                                         <li class=" nav-parent {{ (
@@ -1343,7 +1427,7 @@ $inventory_configuration = InventoryConfiguration::getSidebarPermissions();
                         ) ? 'nav-active nav-expanded' : '' }}">
                                             <a class="nav-link" href="#">
                                                 <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"
-                                                    fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                                    fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"
                                                     stroke-linejoin="round"
                                                     class="icon icon-tabler icons-tabler-outline icon-tabler-building-factory-2">
                                                     <path stroke="none" d="M0 0h24v24H0z" fill="none" />
@@ -1394,6 +1478,7 @@ $inventory_configuration = InventoryConfiguration::getSidebarPermissions();
                                             </ul>
                                         </li>
                     @endif
+                    --}}
 
                     <!-- @if(in_array('generate_link_app', $vc_modules))
                 <li class="{{ ($firstLevel === 'payment-links')?'nav-active':'' }}">
@@ -1405,7 +1490,7 @@ $inventory_configuration = InventoryConfiguration::getSidebarPermissions();
                             viewBox="0 0 24 24"
                             fill="none"
                             stroke="currentColor"
-                            stroke-width="2"
+                            stroke-width="1.5"
                             stroke-linecap="round"
                             stroke-linejoin="round"
                             class="feather feather-share-2">
@@ -1450,7 +1535,7 @@ $inventory_configuration = InventoryConfiguration::getSidebarPermissions();
                     <li>
                         <a class="nav-link">
                             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none"
-                                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                                stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"
                                 class="feather feather-settings">
                                 <circle cx="12" cy="12" r="3"></circle>
                                 <path
@@ -1469,7 +1554,7 @@ $inventory_configuration = InventoryConfiguration::getSidebarPermissions();
                     <li>
                         <a class="nav-link" href="{{route('tenant.users.index')}}">
                             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none"
-                                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                                stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"
                                 class="icon icon-tabler icons-tabler-outline icon-tabler-users">
                                 <path stroke="none" d="M0 0h24v24H0z" fill="none" />
                                 <path d="M9 7m-4 0a4 4 0 1 0 8 0a4 4 0 1 0 -8 0" />
@@ -1484,7 +1569,7 @@ $inventory_configuration = InventoryConfiguration::getSidebarPermissions();
                     <li>
                         <a class="nav-link" href="{{route('tenant.establishments.index')}}">
                             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none"
-                                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                                stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"
                                 class="icon icon-tabler icons-tabler-outline icon-tabler-list-numbers">
                                 <path stroke="none" d="M0 0h24v24H0z" fill="none" />
                                 <path d="M11 6h9" />
@@ -1500,7 +1585,7 @@ $inventory_configuration = InventoryConfiguration::getSidebarPermissions();
                     <li>
                         <a class="nav-link" href="{{ route('tenant.liveapp.configuration') }}">
                             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none"
-                                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                                stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"
                                 class="icon icon-tabler icons-tabler-outline icon-tabler-device-mobile">
                                 <path stroke="none" d="M0 0h24v24H0z" fill="none" />
                                 <path d="M6 5a2 2 0 0 1 2 -2h8a2 2 0 0 1 2 2v14a2 2 0 0 1 -2 2h-8a2 2 0 0 1 -2 -2v-14z" />
@@ -1515,7 +1600,7 @@ $inventory_configuration = InventoryConfiguration::getSidebarPermissions();
                     <li>
                         <a class="nav-link" href="{{url('list-extras')}}">
                             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none"
-                                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                                stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"
                                 class="icon icon-tabler icons-tabler-outline icon-tabler-packages">
                                 <path stroke="none" d="M0 0h24v24H0z" fill="none" />
                                 <path d="M7 16.5l-5 -3l5 -3l5 3v5.5l-5 3z" />
@@ -1537,7 +1622,7 @@ $inventory_configuration = InventoryConfiguration::getSidebarPermissions();
                         class="{{in_array($firstLevel, ['list-platforms', 'list-cards', 'list-currencies', 'list-bank-accounts', 'list-banks', 'list-attributes', 'list-detractions', 'list-units', 'list-payment-methods', 'list-incomes', 'list-payments', 'company_accounts', 'list-vouchers-type', 'companies', 'advanced', 'tasks', 'inventories', 'bussiness_turns', 'offline-configurations', 'series-configurations', 'configurations', 'login-page', 'list-settings']) ? 'nav-active' : ''}}">
                         <a class="nav-link" href="{{ url('list-settings') }}">
                             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none"
-                                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                                stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"
                                 class="icon icon-tabler icons-tabler-outline icon-tabler-briefcase">
                                 <path stroke="none" d="M0 0h24v24H0z" fill="none" />
                                 <path d="M3 7m0 2a2 2 0 0 1 2 -2h14a2 2 0 0 1 2 2v9a2 2 0 0 1 -2 2h-14a2 2 0 0 1 -2 -2z" />
@@ -1553,6 +1638,38 @@ $inventory_configuration = InventoryConfiguration::getSidebarPermissions();
         </div>
     @endif
 </aside>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const sidebarToggle = document.querySelector('.sidebar-toggle');
+
+        if (sidebarToggle) {
+            function updateToggleTitle() {
+                const isCollapsed = document.documentElement.classList.contains('sidebar-left-collapsed');
+                sidebarToggle.setAttribute('title', isCollapsed ? 'Expandir menú lateral' : 'Colapsar menú lateral');
+            }
+
+            updateToggleTitle();
+
+            sidebarToggle.addEventListener('click', function() {
+                setTimeout(updateToggleTitle, 50);
+            });
+
+            const observer = new MutationObserver(function(mutations) {
+                mutations.forEach(function(mutation) {
+                    if (mutation.attributeName === 'class') {
+                        updateToggleTitle();
+                    }
+                });
+            });
+
+            observer.observe(document.documentElement, {
+                attributes: true,
+                attributeFilter: ['class']
+            });
+        }
+    });
+</script>
 
 <style>
     html.no-overflowscrolling .nano {
@@ -1610,5 +1727,23 @@ $inventory_configuration = InventoryConfiguration::getSidebarPermissions();
     .sidebar-blue .more-config a:hover,
     .sidebar-green .more-config a:hover {
         color: #fff !important;
+    }
+
+    .nav-main .nav-children li.nav-item-with-action {
+        position: relative;
+    }
+
+    .nav-main .nav-children li.nav-item-with-action > .nav-action {
+        position: absolute;
+        right: 12px;
+        top: 50%;
+        transform: translateY(-50%);
+        z-index: 2;
+        padding: 2px 6px;
+        line-height: 1.2;
+    }
+    .nav-item-with-action button{
+        padding: 0 4px !important;
+        font-size: 12px !important;
     }
 </style>

@@ -1,6 +1,6 @@
 <template>
 <div>
-    <div class="page-header pr-0">
+    <div class="page-header pe-0">
         <h2><a href="/bank_loan">
             <svg  xmlns="http://www.w3.org/2000/svg" style="margin-top: -5px;" width="24"  height="24"  viewBox="0 0 24 24"  fill="none"  stroke="currentColor"  stroke-width="2"  stroke-linecap="round"  stroke-linejoin="round"  class="icon icon-tabler icons-tabler-outline icon-tabler-calculator"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M4 3m0 2a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v14a2 2 0 0 1 -2 2h-12a2 2 0 0 1 -2 -2z" /><path d="M8 7m0 1a1 1 0 0 1 1 -1h6a1 1 0 0 1 1 1v1a1 1 0 0 1 -1 1h-6a1 1 0 0 1 -1 -1z" /><path d="M8 14l0 .01" /><path d="M12 14l0 .01" /><path d="M16 14l0 .01" /><path d="M8 17l0 .01" /><path d="M12 17l0 .01" /><path d="M16 17l0 .01" /></svg>
         </a></h2>
@@ -12,6 +12,7 @@
         <!-- <div class="card-header bg-info">
             <h3 class="my-0">Nuevo Prestamo Bancario</h3>
         </div> -->
+        <div class="card-body p-0">
         <div class="invoice p-3">
             <form autocomplete="off"
                   @submit.prevent="submit">
@@ -209,9 +210,9 @@
                                     <tr>
                                         <th>#</th>
                                         <th class="font-weight-bold">Descripción</th>
-                                        <th class="text-right font-weight-bold">Total</th>
-                                        <th class="text-right font-weight-bold">Total Interes</th>
-                                        <th class="text-right font-weight-bold">Total a Pagar</th>
+                                        <th class="text-end font-weight-bold">Total</th>
+                                        <th class="text-end font-weight-bold">Total Interes</th>
+                                        <th class="text-end font-weight-bold">Total a Pagar</th>
                                         <th></th>
                                     </tr>
                                     </thead>
@@ -219,10 +220,10 @@
                                     <tr v-for="(row, index) in form.items">
                                         <td>{{ index + 1 }}</td>
                                         <td>{{ row.description }}</td>
-                                        <td class="text-right">{{ currency_type.symbol }} {{ row.total_ingress }}</td>
-                                        <td class="text-right">{{ currency_type.symbol }} {{ row.total_interest }}</td>
-                                        <td class="text-right">{{ currency_type.symbol }} {{ row.total }}</td>
-                                        <td class="text-right">
+                                        <td class="text-end">{{ currency_type.symbol }} {{ row.total_ingress }}</td>
+                                        <td class="text-end">{{ currency_type.symbol }} {{ row.total_interest }}</td>
+                                        <td class="text-end">{{ currency_type.symbol }} {{ row.total }}</td>
+                                        <td class="text-end">
                                             <button class="btn waves-effect waves-light btn-xs btn-danger"
                                                     type="button"
                                                     @click.prevent="clickRemoveItem(index)">x
@@ -235,7 +236,7 @@
                         </div>
                         <div class="col-md-12">
                             <h3 v-if="form.total > 0"
-                                class="text-right">
+                                class="text-end">
                                 <b>TOTAL: </b>{{ currency_type.symbol }} {{ form.total }}</h3>
                         </div>
                     </div>
@@ -285,17 +286,17 @@
 
                         <div class="col-md-6 table-responsive">
                             <table v-if="form.fee.length>0"
-                                   class="text-left table"
+                                   class="text-start table"
                                    width="100%">
                                 <thead>
                                 <tr>
-                                    <th class="text-left"
+                                    <th class="text-start"
                                         style="width: 15px">#
                                     </th>
-                                    <th class="text-left"
+                                    <th class="text-start"
                                         style="width: 100px">Fecha
                                     </th>
-                                    <th class="text-left"
+                                    <th class="text-start"
                                         style="width: 100px">Monto
                                     </th>
                                     <th style="width: 30px">
@@ -350,7 +351,7 @@
 
                     </div>
                 </div>
-                <div class="form-actions text-right mt-4">
+                <div class="form-actions d-flex justify-content-between mt-4">
                     <el-button class="second-buton btn btn-default second-buton-default" @click.prevent="close()">Cancelar</el-button>
                     <el-button v-if="form.items.length > 0 && !id"
                                :loading="loading_submit"
@@ -361,6 +362,7 @@
                 </div>
             </form>
         </div>
+        </div>        
 
         <loan-form-item :currency-type="currency_type"
                         :exchange-rate-sale="form.exchange_rate_sale"

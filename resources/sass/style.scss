@@ -16,12 +16,14 @@ File: scss
  *	7. Widgets
  *	8. Custom Templates
  */
-@import '~bootstrap/scss/bootstrap';
+@use 'bootstrap/scss/bootstrap' as *;
 
-@import 'variable';
-@import 'app';
-@import 'sidebar';
-@import 'pages/pages';
+@use 'variable' as *;
+@use 'app' as *;
+@use 'sidebar' as *;
+@use 'pages/pages' as *;
+
+// CSS externos, mantener @import
 @import '../css/icons/font-awesome/css/fontawesome-all.css';
 @import '../css/icons/simple-line-icons/css/simple-line-icons.css';
 @import '../css/icons/weather-icons/css/weather-icons.min.css';
@@ -29,15 +31,15 @@ File: scss
 @import '../css/icons/themify-icons/themify-icons.css';
 // @import '../css/icons/flag-icon-css/flag-icon.min.css';
 // @import '../css/icons/material-design-iconic-font/css/materialdesignicons.min.css';
-@import 'widgets/widgets';
-@import 'grid';
-@import 'responsive';
 @import '../css/spinners';
 @import '../css/animate.css';
-@import 'colors/blue';
-
 @import '~element-ui/packages/theme-chalk/src/index';
 
-@import 'components/table';
-@import 'custom';
+// Archivos Sass locales, usar @use
+@use 'widgets/widgets' as *;
+@use 'grid' as *;
+@use 'responsive' as *;
+@use 'colors/blue' as *;
+@use 'components/table' as *;
+@use 'custom' as *;
 

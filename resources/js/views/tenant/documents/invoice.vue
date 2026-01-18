@@ -1431,7 +1431,7 @@
     </div>
 </template>
 
-<style>
+<style scoped>
 .input-custom {
     width: 50% !important;
 }

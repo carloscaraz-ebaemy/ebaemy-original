@@ -1,6 +1,6 @@
 <template>
     <div>
-        <div class="page-header pr-0">
+        <div class="page-header pe-0">
             <h2>
                 <a href="/documentary-procedure/stadistic">
                     <svg xmlns="http://www.w3.org/2000/svg"
@@ -189,7 +189,7 @@
 </template>
 
 <script>
-// import ModalAddEdit from "./ModalAddEdit";
+// import ModalAddEdit from "./ModalAddEdit.vue";
 import {mapActions, mapState} from "vuex";
 import moment from "moment";
 import queryString from 'query-string'

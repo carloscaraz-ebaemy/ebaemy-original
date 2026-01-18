@@ -44,29 +44,18 @@ class TransportController extends Controller
     {
         $id = $request->input('id');
         $is_default = $request->input('is_default');
-
         if($is_default) {
             Transport::query()->update([
                 'is_default' => false
             ]);
         }
-        
         $record = Transport::firstOrNew(['id' => $id]);
-        $data = $request->all();
-        
-        // Limpieza adicional para asegurar que solo sean alfanuméricos
-        $data['plate_number'] = strtoupper(preg_replace('/[^A-Z0-9]/i', '', $data['plate_number']));
-        
-        if (!empty($data['tuc'])) {
-            $data['tuc'] = strtoupper(preg_replace('/[^A-Z0-9]/i', '', $data['tuc']));
-        }
-        
-        $record->fill($data);
+        $record->fill($request->all());
         $record->save();
 
         return [
             'success' => true,
-            'message' => ($id) ? 'Vehículo editado con éxito' : 'Vehículo registrado con éxito',
+            'message' => ($id)?'Vehículo editado con éxito':'Vehículo registrado con éxito',
             'id' => $record->id
         ];
     }

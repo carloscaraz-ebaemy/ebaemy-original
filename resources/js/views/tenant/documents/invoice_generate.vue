@@ -1,12 +1,13 @@
 <template>
     <div :class="{ 'content-opacity': isVisible }" @click.self="toggleInformation">
+        <span class="module-title-marker" data-page-title="Nuevo Comprobante"></span>
         <Keypress key-event="keyup" @success="checkKey" />
         <Keypress
             key-event="keyup"
             :multiple-keys="multiple"
             @success="checkKeyWithAlt"
         />
-        <div class="tab-content tab-content-light" v-if="loading_form">
+        <div class="tab-content tab-content-light row-new" v-if="loading_form">
             <div class="invoice p-0">
                 <form
                 autocomplete="off"
@@ -18,7 +19,7 @@
                         class="row card-header card-header-invoice no-gutters align-items-start m-0"
                     >
                         <div class="col-xl-2 col-md-2 col-12 is-hidden-mobile">
-                            <logo 
+                            <logo
                                 url="/"
                                 :path_logo="getCurrentLogo"
                             ></logo>
@@ -100,7 +101,7 @@
                             </div>
                         </div>
                     </div>
-                    <div class="card-body no-gutters">
+                    <div class="card-body no-gutters border-0">
                         <div class="row inputs-container">
                             <div class="col-lg-4 align-self-end invoice-type">
                                 <div
@@ -110,7 +111,7 @@
                                     class="form-group"
                                 >
                                     <label
-                                        class="control-label font-weight-bold text-info"
+                                        class="control-label font-weight-bold"
                                         >Tipo comprobante</label
                                     >
                                     <el-select
@@ -292,23 +293,23 @@
                             </div>
                         </div>
                     </div>
-                    <div class="card-body no-gutters">
+                    <div class="card-body no-gutters border-0">
                         <div class="row inputs-container">
                             <div
                                 :class="{ 'has-danger': errors.customer_id }"
-                                class="form-group col-md-4"
+                                class="form-group col-md-4 position-relative"
                             >
                                 <label
-                                    class="control-label font-weight-bold text-info"
+                                    class="control-label font-weight-bold"
                                 >
                                     Cliente
-                                    <a
+                                    <!-- <a
                                         href="#"
                                         @click.prevent="
                                             showDialogNewPerson = true
                                         "
                                         >[+ Nuevo]</a
-                                    >
+                                    > -->
                                 </label>
                                 <el-select
                                     v-model="form.customer_id"
@@ -331,7 +332,28 @@
                                         :label="option.description"
                                         :value="option.id"
                                     ></el-option>
+
+                                    <template slot="empty">
+                                        <p v-if="loading_search" class="el-select-dropdown__empty">
+                                            Cargando...
+                                        </p>
+
+                                        <p v-else class="el-select-dropdown__empty">
+                                            No se encontraron resultados
+                                        </p>
+
+                                        <div
+                                            v-if="!loading_search"
+                                            class="el-select-dropdown__item new-option"
+                                            @click.stop="openNewPersonDialog"
+                                        >
+                                            <span>{{ customerSearchTerm ? `Crear cliente "${customerSearchTerm}"` : 'Crear cliente' }}</span>
+                                        </div>
+                                    </template>
                                 </el-select>
+                                <span class="btn-add-new btn-add-new-invoice" @click.prevent="showDialogNewPerson = true" title="Agregar nuevo cliente">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon icon-tabler icons-tabler-outline icon-tabler-user-plus"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M8 7a4 4 0 1 0 8 0a4 4 0 0 0 -8 0" /><path d="M16 19h6" /><path d="M19 16v6" /><path d="M6 21v-2a4 4 0 0 1 4 -4h4" /></svg>
+                                </span>
                                 <small
                                     v-if="errors.customer_id"
                                     class="form-control-feedback"
@@ -464,7 +486,7 @@
                                             href="#"
                                             @click.prevent="showDialogConsignedForm = true">[+ Nuevo]</a>
                                         </label>
-                                        <el-select class="w-100" 
+                                        <el-select class="w-100"
                                                 v-model="form.consigned_id"
                                                 @change="getConsignedAddresses"
                                                 filterable
@@ -493,7 +515,7 @@
                             </div>
                         </div>
                     </template>
-                    <div class="card-body no-gutters">
+                    <div class="card-body no-gutters border-0">
                         <template v-if="showSearchItemsMainForm">
                             <div class="row">
                                 <div
@@ -519,9 +541,7 @@
                                 </div>
                                 <div class="col-md-3">
                                     <el-select
-                                        v-if="
-                                            !configuration.enable_list_product
-                                        "
+                                        v-if="!configuration.enable_list_product"
                                         v-model="selected_option_price"
                                         filterable
                                         popper-class="price-list"
@@ -572,13 +592,13 @@
                                 </div>
                                 <div class="w-100">
                                     <div class="mt-5 w-100">
-                                        <div class="col-12 px-0 switch-container">
+                                        <div class="col-12 switch-container">
                                             <div class="row no-gutters">
                                                 <div class="col-10">
                                                     ¿Es comprobante de
                                                     contingencia?
                                                 </div>
-                                                <div class="col-2 text-right">
+                                                <div class="col-2 text-end">
                                                     <el-switch
                                                         v-model="is_contingency"
                                                         @change="
@@ -589,15 +609,15 @@
                                             </div>
                                         </div>
                                         <template v-if="!is_client">
-                                            <div v-if="!prepayment_deduction" class="col-12 py-2 px-0 switch-container">
+                                            <div v-if="!prepayment_deduction" class="col-12 py-2 switch-container">
                                                 <div class="row no-gutters">
                                                     <div class="col-10">
                                                         ¿Es un pago anticipado?
                                                     </div>
                                                     <div
-                                                        class="col-2 text-right"
+                                                        class="col-2 text-end"
                                                     >
-                                                        <el-switch                                                            
+                                                        <el-switch
                                                             v-model="
                                                                 form.has_prepayment
                                                             "
@@ -608,7 +628,7 @@
                                                     </div>
                                                 </div>
                                                 <div v-if="form.has_prepayment || prepayment_deduction" class="mt-3">
-                                                    <el-select                                                        
+                                                    <el-select
                                                         v-model="
                                                             form.affectation_type_prepayment
                                                         "
@@ -635,16 +655,16 @@
                                                     </el-select>
                                                 </div>
                                             </div>
-                                            <div v-if="!form.has_prepayment" class="col-12 py-2 px-0 switch-container">
+                                            <div v-if="!form.has_prepayment" class="col-12 py-2 switch-container">
                                                 <div class="row no-gutters">
                                                     <div class="col-10">
                                                         Deducción de los pagos
                                                         anticipados
                                                     </div>
                                                     <div
-                                                        class="col-2 text-right"
+                                                        class="col-2 text-end"
                                                     >
-                                                        <el-switch                                                            
+                                                        <el-switch
                                                             v-model="
                                                                 prepayment_deduction
                                                             "
@@ -655,7 +675,7 @@
                                                     </div>
                                                 </div>
                                                 <div v-if="form.has_prepayment || prepayment_deduction" class="mt-3">
-                                                    <el-select                                                        
+                                                    <el-select
                                                         v-model="
                                                             form.affectation_type_prepayment
                                                         "
@@ -776,7 +796,7 @@
                                                         </div>
                                                     </div>
                                                 </template>
-                                            </div>                                            
+                                            </div>
 
                                             <div
                                                 v-if="
@@ -809,7 +829,7 @@
                                             </div>
 
                                             <div
-                                                class="col-12 py-2 px-0 switch-container"
+                                                class="col-12 py-2 switch-container"
                                                 v-if="show_has_retention"
                                             >
                                                 <div class="row no-gutters">
@@ -817,7 +837,7 @@
                                                         ¿Tiene retención de igv?
                                                     </div>
                                                     <div
-                                                        class="col-2 text-right"
+                                                        class="col-2 text-end"
                                                     >
                                                         <el-switch
                                                             v-model="
@@ -831,14 +851,14 @@
                                                 </div>
                                             </div>
 
-                                            <div class="col-12 py-2 px-0 switch-container">
+                                            <div class="col-12 py-2 switch-container">
                                                 <div class="row no-gutters">
                                                     <div class="col-10">
                                                         Mostrar términos y
                                                         condiciones.
                                                     </div>
                                                     <div
-                                                        class="col-2 text-right"
+                                                        class="col-2 text-end"
                                                     >
                                                         <el-switch
                                                             v-model="
@@ -1198,26 +1218,25 @@
                                         >
                                             Unidad
                                         </th>
-                                        <th class="text-right font-weight-bold"
+                                        <th class="text-end font-weight-bold"
                                             width="8%">
                                             Cantidad
                                         </th>
-                                        <th class="text-right font-weight-bold">
+                                        <th class="text-end font-weight-bold">
                                             Valor Unitario
                                         </th>
-                                        <th class="text-right font-weight-bold">
+                                        <th class="text-end font-weight-bold">
                                             Precio Unitario
                                         </th>
-                                        <th class="text-right font-weight-bold">
+                                        <th class="text-end font-weight-bold">
                                             Subtotal
                                         </th>
-                                        <!--<th class="text-right font-weight-bold">Cargo</th>-->
-                                        <th class="text-right font-weight-bold">
+                                        <!--<th class="text-end font-weight-bold">Cargo</th>-->
+                                        <th class="text-end font-weight-bold">
                                             Total
                                         </th>
                                         <th
                                             v-if="config.change_free_affectation_igv"
-                                            width="8%"
                                         ></th>
                                     </tr>
                                 </thead>
@@ -1405,7 +1424,7 @@
                                             {{ row.item.unit_type_id }}
                                         </td>
 
-                                        <td class="text-right">
+                                        <td class="text-end">
                                             <template v-if="showEditableItems">
                                                 <div
                                                     @keydown.enter="
@@ -1442,7 +1461,7 @@
                                             </template>
                                         </td>
 
-                                        <td class="text-right">
+                                        <td class="text-end">
                                             <div
                                                 v-if="showEditableItems"
                                                 class="input-with-currency"
@@ -1493,7 +1512,7 @@
                                             </template>
                                         </td>
 
-                                        <td class="text-right">
+                                        <td class="text-end">
                                             <div
                                                 v-if="showEditableItems"
                                                 class="input-with-currency"
@@ -1544,7 +1563,7 @@
                                             </template>
                                         </td>
 
-                                        <td class="text-right">
+                                        <td class="text-end">
                                             <div
                                                 v-if="showEditableItems"
                                                 class="input-with-currency"
@@ -1593,7 +1612,7 @@
                                             </template>
                                         </td>
 
-                                        <td class="text-right">
+                                        <td class="text-end">
                                             <div
                                                 v-if="showEditableItems"
                                                 class="input-with-currency"
@@ -1638,7 +1657,7 @@
                                             </template>
                                         </td>
 
-                                        <td class="text-right" v-if="config.change_free_affectation_igv">
+                                        <td class="text-end" v-if="config.change_free_affectation_igv">
                                             <template>
                                                 <el-tooltip
                                                     class="item"
@@ -1717,7 +1736,7 @@
                                         <td class="p-0" colspan="5">
                                             <div class="row table-responsive">
                                                 <table
-                                                    class="table-sm text-right hidden-sm-down"
+                                                    class="table-sm text-end hidden-sm-down"
                                                     style="width: 100%;"
                                                 >
                                                     <tr v-if="form.total > 0 && is_restaurant_active">
@@ -2217,7 +2236,7 @@
                                                                 class="table-responsive"
                                                             >
                                                                 <table
-                                                                    class="text-left table"
+                                                                    class="text-start table"
                                                                     width="100%"
                                                                 >
                                                                     <thead>
@@ -2230,13 +2249,13 @@
                                                                             "
                                                                         >
                                                                             <th
-                                                                                class="text-left"
+                                                                                class="text-start"
                                                                                 style="width: 100px"
                                                                             >
                                                                                 Fecha
                                                                             </th>
                                                                             <th
-                                                                                class="text-left"
+                                                                                class="text-start"
                                                                                 style="width: 100px"
                                                                             >
                                                                                 Monto
@@ -2343,7 +2362,7 @@
                                                                             .length >
                                                                             0
                                                                     "
-                                                                    class="text-left table"
+                                                                    class="text-start table"
                                                                     width="100%"
                                                                 >
                                                                     <thead>
@@ -2362,13 +2381,13 @@
                                                                                 pago
                                                                             </th>
                                                                             <th
-                                                                                class="text-left"
+                                                                                class="text-start"
                                                                                 style="width: 100px"
                                                                             >
                                                                                 Fecha
                                                                             </th>
                                                                             <th
-                                                                                class="text-left"
+                                                                                class="text-start"
                                                                                 style="width: 100px"
                                                                             >
                                                                                 Monto
@@ -2453,7 +2472,7 @@
                                                                 class="table-responsive payment mt-4"
                                                             >
                                                                 <table
-                                                                    class="text-left table"
+                                                                    class="text-start table"
                                                                 >
                                                                     <thead>
                                                                         <tr>
@@ -2744,7 +2763,7 @@
                         </div>
                         <!-- @todo: Mejorar evitando duplicar codigo -->
                         <!-- Mostrar en cel -->
-                        <div class="row hidden-md-up">
+                        <div class="row d-md-none">
                             <div class="col-12 text-center">
                                 <button
                                     class="btn waves-effect waves-light btn-primary btn-sm"
@@ -2758,7 +2777,7 @@
 
                             <div class="col-12 text-center table-responsive">
                                 <table
-                                    class="table table-sm text-right"
+                                    class="table table-sm text-end"
                                     style="width: 100%;"
                                 >
 
@@ -3039,7 +3058,7 @@
                                                 "
                                             >
                                                 <table
-                                                    class="text-left"
+                                                    class="text-start"
                                                     width="100%"
                                                 >
                                                     <thead>
@@ -3050,13 +3069,13 @@
                                                             "
                                                         >
                                                             <th
-                                                                class="text-left"
+                                                                class="text-start"
                                                                 style="width: 100px"
                                                             >
                                                                 Fecha
                                                             </th>
                                                             <th
-                                                                class="text-left"
+                                                                class="text-start"
                                                                 style="width: 100px"
                                                             >
                                                                 Monto
@@ -3154,7 +3173,7 @@
                                             >
                                                 <table
                                                     v-if="form.fee.length > 0"
-                                                    class="text-left"
+                                                    class="text-start"
                                                     width="100%"
                                                 >
                                                     <thead>
@@ -3170,13 +3189,13 @@
                                                                 Método de pago
                                                             </th>
                                                             <th
-                                                                class="text-left"
+                                                                class="text-start"
                                                                 style="width: 100px"
                                                             >
                                                                 Fecha
                                                             </th>
                                                             <th
-                                                                class="text-left"
+                                                                class="text-start"
                                                                 style="width: 100px"
                                                             >
                                                                 Monto
@@ -3243,7 +3262,7 @@
                                                 class="table-responsive payment"
                                             >
                                                 <table
-                                                    class="text-left payment-method"
+                                                    class="text-start payment-method"
                                                 >
                                                     <thead>
                                                         <tr>
@@ -3526,7 +3545,7 @@
                     <!-- @todo: Mejorar evitando duplicar codigo -->
                     <!-- Ocultar en cel -->
                     <div
-                        class="card-footer card-footer-invoice card-footer-default text-right  hidden-sm-down d-flex justify-content-between"
+                        class="card-footer card-footer-invoice card-footer-default text-end d-none d-md-flex justify-content-between px-3 py-2"
                     >
                         <button
                             class="btn btn-default second-buton"
@@ -3543,7 +3562,7 @@
                                 @click.prevent="openDialogPreview()"
                             >
                                 Vista Previa
-                            </button>                        
+                            </button>
                             <el-popover
                                 placement="top-start"
                                 :open-delay="1000"
@@ -3569,7 +3588,7 @@
 
                     <!-- @todo: Mejorar evitando duplicar codigo -->
                     <!-- Mostrar en cel -->
-                    <div class="card-footer hidden-md-up ">
+                    <div class="card-footer d-md-none">
                         <div class="col-12 row text-center">
                             <div class="col-4 text-center px-1">
                                 <button
@@ -3640,7 +3659,7 @@
         <person-form
             :document_type_id="form.document_type_id"
             :external="true"
-            :input_person="input_person"
+            :input_person="customerSearchTerm"
             :showDialog.sync="showDialogNewPerson"
             type="customers"
         ></person-form>
@@ -3706,7 +3725,7 @@
     </div>
 </template>
 
-<style>
+<style scoped>
 .input-with-currency {
     display: flex;
     align-items: center;
@@ -3715,6 +3734,16 @@
 }
 .input-with-currency div {
     width: 100%;
+}
+.module-title-marker {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    border: 0;
 }
 .input-custom {
     width: 50% !important;
@@ -3773,16 +3802,7 @@
     text-overflow: ellipsis;
     text-align: center;
 }
-.toggle-button:hover {
-    background-color: rgba(0, 123, 255, 0.8);
-    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
-}
-.toggle-button.shift {
-    right: 400px;
-    background-color: rgba(0, 123, 255, 0.8);
-    z-index: 1023;
-}
-.toggle-button.shift:hover {
+.toggle-button-invoice.shift:hover {
     box-shadow: none;
 }
 .additional-information {
@@ -3790,7 +3810,6 @@
     top: 0;
     right: -100%;
     height: 100%;
-    width: 500px;
     background-color: #f9f9f9;
     box-shadow: -2px 0 5px rgba(0, 0, 0, 0.1);
     transition: right 0.3s ease-in-out;
@@ -3830,8 +3849,17 @@
     border-bottom: none !important;
 }
 .invoice table.table {
-    table-layout: auto;
+    table-layout: auto !important;
 }
+.input-custom.el-input-number{
+    padding: 0px;
+}
+@media only screen and (min-width: 992px) {
+    .table-responsive {
+        overflow-x: visible !important;
+    }
+}
+
 @media only screen and (max-width: 991px) {
     .form-client-default {
         width: 100% !important;
@@ -3899,7 +3927,7 @@ import DocumentDetraction from "./partials/detraction.vue";
 import moment from "moment";
 import { mapActions, mapState } from "vuex/dist/vuex.mjs";
 import Keypress from "vue-keypress";
-import StoreItemSeriesIndex from "../Store/ItemSeriesIndex";
+import StoreItemSeriesIndex from "../Store/ItemSeriesIndex.vue";
 import DocumentReportCustomer from "./partials/report_customer.vue";
 import SetTip from "@components/SetTip.vue";
 
@@ -4076,11 +4104,11 @@ export default {
                 {
                     id: 1,
                     description: "Dirección anexo al cliente"
-                }, 
+                },
                 {
                     id: 2,
                     description: "Establecimiento de un tercero inscrito en el RUC"
-                }, 
+                },
             ],
             itinerant_option_id: 1,
             ruc_itinerant: null,
@@ -4090,6 +4118,7 @@ export default {
             total_consumption_charge : 0,
             consigneds:[],
             consigned_addresses:[],
+            customerSearchTerm: ''
         };
     },
     computed: {
@@ -4099,7 +4128,7 @@ export default {
         },
         getCurrentLogo() {
             const isDarkMode = document.documentElement.classList.contains('dark');
-        
+
             if (isDarkMode && this.company.logo_dark) {
                 return `/storage/uploads/logos/${this.company.logo_dark}`;
             }
@@ -4169,7 +4198,7 @@ export default {
             return false;
         },
         filteredSellers() {
-            
+
             if (!this.isUpdateDocument) {
                 return this.sellers.filter(seller => !seller.name.includes('(SUSPENDIDO)'));
             }
@@ -4180,9 +4209,17 @@ export default {
         this.selected_option_price = this.price_options[0].id;
         this.loadConfiguration();
         this.$store.commit("setConfiguration", this.configuration);
+        
+        // Actualizar price_options con los labels personalizados
+        if (this.config) {
+            this.price_options[1].description = this.config.price1_label || 'Precio 1';
+            this.price_options[2].description = this.config.price2_label || 'Precio 2';
+            this.price_options[3].description = this.config.price3_label || 'Precio 3';
+        }
+        
         await this.initForm();
         await this.$http.get(`/${this.resource}/tables`).then(response => {
-            
+
             this.document_types = response.data.document_types_invoice;
             this.document_types_guide = response.data.document_types_guide;
             this.currency_types = response.data.currency_types;
@@ -4250,6 +4287,7 @@ export default {
         this.loading_form = true;
         this.$eventHub.$on("reloadDataPersons", customer_id => {
             this.reloadDataCustomers(customer_id);
+            this.customerSearchTerm = ''
         });
         this.$eventHub.$on("initInputPerson", () => {
             this.initInputPerson();
@@ -4396,7 +4434,12 @@ export default {
                 }
             },
             deep: true
-        } 
+        },
+        showDialogNewPerson(newVal) {
+            if (!newVal) {
+                this.customerSearchTerm = ''
+            }
+        }
     },
     methods: {
         searchNumber(data) {
@@ -4418,7 +4461,7 @@ export default {
             this.$message.success(
                 'Se agrego la dirección del RUC: ' + this.ruc_itinerant
                 );
-            
+
 
         },
         changeItineratOption()
@@ -4434,9 +4477,9 @@ export default {
                 } else if (this.itinerant_option_id == 2) {
                     this.form.customer_address_id = null;
                 }
-                
+
             } else {
-                this.form.itinerant = null; 
+                this.form.itinerant = null;
             }
         },
         toggleInformation() {
@@ -4756,23 +4799,6 @@ export default {
                 this.typeUser !== "admin"
             );
         },
-        setDefaultSerieByDocument() {
-            if (this.authUser.multiple_default_document_types) {
-                const default_document_type_serie = _.find(
-                    this.authUser.default_document_types,
-                    { document_type_id: this.form.document_type_id }
-                );
-
-                if (default_document_type_serie) {
-                    const exist_serie = _.find(this.series, {
-                        id: default_document_type_serie.series_id
-                    });
-                    if (exist_serie)
-                        this.form.series_id =
-                            default_document_type_serie.series_id;
-                }
-            }
-        },
         // #307 Ajuste para seleccionar automaticamente el tipo de comprobante y serie
         setDefaultDocumentType(from_function) {
             if (this.authUser.multiple_default_document_types) return;
@@ -4856,7 +4882,7 @@ export default {
                 data.pending_amount_prepayment || 0;
             this.form.payment_method_type_id = data.payment_method_type_id;
             this.form.charges = data.charges || [];
-            // this.form.discounts = this.prepareDataGlobalDiscount(data); 
+            // this.form.discounts = this.prepareDataGlobalDiscount(data);
             // this.form.discounts = data.discounts || [];
             this.form.seller_id = data.seller_id;
             this.form.items = this.onPrepareItems(data.items);
@@ -4931,10 +4957,10 @@ export default {
             if (data.discounts[0]) {
                 this.recordDiscountsGlobal = data.discounts[0]
                 let discount_type_id = data.discounts[0].discount_type_id
-                this.total_global_discount = discount_type_id !== "02" ? data.total_discount : 
+                this.total_global_discount = discount_type_id !== "02" ? data.total_discount :
                     _.round(Number(data.total_discount * 1.18).toFixed(3), 2);
             }
-            
+
 
             this.form.additional_information = this.onPrepareAdditionalInformation(
                 data.additional_information
@@ -5693,6 +5719,8 @@ export default {
             this.showDialogAddItem = true;
         },
         searchRemoteCustomers(input) {
+            this.customerSearchTerm = input;
+
             if (input.length > 0) {
                 this.loading_search = true;
                 let parameters = `input=${input}&document_type_id=${
@@ -6023,6 +6051,26 @@ export default {
             this.filterCustomers();
             this.setDefaultSerieByDocument();
         },
+        setDefaultSerieByDocument() {
+            if (!this.authUser || !this.authUser.multiple_default_document_types)
+                return;
+
+            const default_document_type_serie = _.find(
+                this.authUser.default_document_types,
+                { document_type_id: this.form.document_type_id }
+            );
+
+            if (!default_document_type_serie || !Array.isArray(this.series))
+                return;
+
+            const exist_serie = _.find(this.series, {
+                id: default_document_type_serie.series_id
+            });
+
+            if (exist_serie) {
+                this.form.series_id = default_document_type_serie.series_id;
+            }
+        },
         cleanCustomer() {
             this.form.customer_id = null;
         },
@@ -6070,7 +6118,7 @@ export default {
                 }
             );
             await this.getPercentageIgv();
-            // this.changeCurrencyType(); // 
+            // this.changeCurrencyType(); //
             // }
         },
         assignmentDateOfPayment() {
@@ -6228,7 +6276,7 @@ export default {
                 );
             });
             this.form.items = items;
-            
+
             if (this.form.currency_type_id === 'PEN') {
                 this.total_global_discount = _.round(this.total_global_discount  * this.form.exchange_rate_sale,2)
             } else {
@@ -6405,8 +6453,8 @@ export default {
                 this.form.total_taxed =  _.round(total_taxed * ((1 + this.percentage_igv)/( 1 + this.percentage_igv + (this.restaurant_tip_factor / 100))),2)
                 total_igv = ((this.form.total - this.total_consumption_charge) / (1 + this.percentage_igv) ) * this.percentage_igv
                 this.form.total_value = this.form.total_taxed
-                
-            } 
+
+            }
 
             let total_taxes = total_igv + total_isc + total_plastic_bag_taxes;
             let total_all = total - this.total_discount_no_base;
@@ -6594,7 +6642,7 @@ export default {
                 this.total_consumption_charge = _.round(this.form.total * (this.restaurant_tip_factor / 100),2)
                 let base = _.round(parseFloat(this.form.total),2);
                 let amount = Number(_.round(this.total_consumption_charge,2).toFixed(2));
-                let factor = _.round(this.restaurant_tip_factor / 100, 5);    
+                let factor = _.round(this.restaurant_tip_factor / 100, 5);
 
                 let charge = _.find(this.form.charges, { charge_type_id: "46" });
 
@@ -6693,10 +6741,10 @@ export default {
                 }  else {
                         amount_discount =
                             (this.configuration.global_discount_type_id === "02" &&
-                            this.configuration.exact_discount ) 
+                            this.configuration.exact_discount )
                                 ? this.total_global_discount / (1 + this.percentage_igv)
                                 : this.total_global_discount;
-                }   
+                }
             }
 
             let input_global_discount = parseFloat(amount_discount);
@@ -6841,7 +6889,7 @@ export default {
                     this.errors = { is_itinerant : ['Debe tener una guia vinculada al documento']}
                     return;
                 }
-                
+
             }
             if (errorSeries) {
                 this.$message.error("No se han seleccionado todas las series");
@@ -7061,7 +7109,7 @@ export default {
         {
             return await this.$http
                 .get(`/${this.resource}/send/${id}`)
-            
+
         },
         async reloadDataCustomers(customer_id) {
             await this.$http
@@ -7087,7 +7135,7 @@ export default {
             let customer = _.find(this.customers, {
                 id: this.form.customer_id
             });
-            
+
             this.customer_addresses = customer.addresses.filter(el => !el.has_consigned);
             if (customer.address) {
                 this.customer_addresses.unshift({
@@ -7112,7 +7160,7 @@ export default {
             }
 
             // retencion para clientes con ruc
-            
+
             this.validateCustomerRetention(customer.identity_document_type_id);
 
             /*if(this.customer_addresses.length > 0) {
@@ -7422,7 +7470,7 @@ export default {
             await this.asignPlateNumberToItems();
 
             let val_detraction = await this.validateDetraction();
-            
+
             if (!this.configuration.available_detraction_for_amount_minor) {
                 if (!val_detraction.success) {
                     this.$message.error(val_detraction.message);
@@ -7477,11 +7525,11 @@ export default {
             return url;
         },
         verifySelectedSeller() {
-        
+
             if (this.form.seller_id) {
                 const sellerExists = this.filteredSellers.some(s => s.id === this.form.seller_id);
                 if (!sellerExists) {
-                
+
                     this.form.seller_id = this.idUser || null;
                 }
             }
@@ -7512,6 +7560,9 @@ export default {
                 }
             }
         },
-    }        
+        openNewPersonDialog() {
+            this.showDialogNewPerson = true
+        },
+    }
 };
 </script>

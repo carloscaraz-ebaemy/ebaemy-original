@@ -103,6 +103,9 @@ trait StorageDocument
             case 'download_tray_pdf':
                 $extension = 'pdf';
                 break;
+            case 'download_tray_zip':
+                $extension = 'zip';
+                break;
             case 'download_tray_xlsx':
                 $extension = 'xlsx';
                 break;

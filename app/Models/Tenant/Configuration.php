@@ -229,6 +229,7 @@ use Illuminate\Support\Facades\Log;
             'update_document_on_dispaches',
             'show_service_on_pos',
             'visual',
+            'sidebar_mode',
             'show_totals_on_cpe_list',
             'mi_tienda_pe',
             'detraction_amount_rounded_int',
@@ -256,6 +257,8 @@ use Illuminate\Support\Facades\Log;
             'top_menu_b_id',
             'top_menu_c_id',
             'top_menu_d_id',
+            'top_menu_extra_one',
+            'top_menu_extra_two',
             'skin_id',
             'enabled_tips_pos',
             'legend_forest_to_xml',
@@ -331,7 +334,10 @@ use Illuminate\Support\Facades\Log;
             'from_guest_register',
             'was_verified_guest_user',
             'restaurant_tip_factor',
-            'enable_consigned'
+            'enable_consigned',
+            'price1_label',
+            'price2_label',
+            'price3_label'
         ];
 
         protected $casts = [
@@ -415,6 +421,8 @@ use Illuminate\Support\Facades\Log;
             'top_menu_b_id' => 'int',
             'top_menu_c_id' => 'int',
             'top_menu_d_id' => 'int',
+            'top_menu_extra_one' => 'array',
+            'top_menu_extra_two' => 'array',
             'skin_id' => 'int',
             'enabled_tips_pos' => 'bool',
             'legend_forest_to_xml' => 'bool',
@@ -760,7 +768,10 @@ use Illuminate\Support\Facades\Log;
                 'exact_discount' => $this->exact_discount,
                 'available_detraction_for_amount_minor' => $this->available_detraction_for_amount_minor,
                 'available_cash_report_seller' => $this->available_cash_report_seller,
-                'enable_consigned' => $this->enable_consigned
+                'enable_consigned' => $this->enable_consigned,
+                'price1_label' => $this->price1_label ?? 'Precio 1',
+                'price2_label' => $this->price2_label ?? 'Precio 2',
+                'price3_label' => $this->price3_label ?? 'Precio 3'
             ];
         }
 

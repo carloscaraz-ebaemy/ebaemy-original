@@ -8,6 +8,7 @@ use App\Models\Tenant\Catalogs\District;
 use App\Models\Tenant\Catalogs\Province;
 use Modules\Inventory\Models\Warehouse;
 use Modules\Dispatch\Models\OriginAddress;
+use Illuminate\Database\Eloquent\Casts\Attribute;
 
 class Establishment extends ModelTenant
 {
@@ -129,6 +130,32 @@ class Establishment extends ModelTenant
     public function getCurrentWarehouseId()
     {
         return $this->warehouse->id;
+    }
+
+    /**
+     * Get the template pdf 
+     *
+     * @return \Illuminate\Database\Eloquent\Casts\Attribute
+     */
+    protected function templatePdf(): Attribute
+    {
+        $templates = func_get_templates();
+        return Attribute::make(
+            get: fn ($value) => in_array($value, $templates) ? $value : 'default',
+        );
+    }
+
+    /**
+     * Get the template ticket pdf 
+     *
+     * @return \Illuminate\Database\Eloquent\Casts\Attribute
+     */
+    protected function templateTicketPdf(): Attribute
+    {
+        $templates = func_get_templates();
+        return Attribute::make(
+            get: fn ($value) => in_array($value, $templates) ? $value : 'default',
+        );
     }
 
 }

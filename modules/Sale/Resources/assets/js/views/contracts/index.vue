@@ -6,15 +6,15 @@
                 <li class="active"><span>Contratos</span></li>
             </ol>
             <div class="right-wrapper pull-right">
-                <a :href="`/${resource}/create`" class="btn btn-custom btn-sm  mt-2 mr-2"><i class="fa fa-plus-circle"></i> Nuevo</a>
-                <a :href="`./production-orders`" class="btn btn-custom btn-sm  mt-2 mr-2" title="Muestra los que tienen fecha de entrega">Listar Ordenes de Produccion</a>
+                <a :href="`/${resource}/create`" class="btn btn-custom btn-sm  mt-2 me-2"><i class="fa fa-plus-circle"></i> Nuevo</a>
+                <a :href="`./production-orders`" class="btn btn-custom btn-sm  mt-2 me-2" title="Muestra los que tienen fecha de entrega">Listar Ordenes de Produccion</a>
             </div>
         </div>
         <div class="card tab-content-default row-new mb-0">
             <div class="data-table-visible-columns">
                 <el-dropdown :hide-on-click="false">
                     <el-button type="secondary">
-                        Mostrar/Ocultar columnas<i class="el-icon-arrow-down el-icon--right"></i>
+                        Mostrar columnas<i class="el-icon-arrow-down el-icon--right"></i>
                     </el-button>
                     <el-dropdown-menu slot="dropdown">
                         <el-dropdown-item v-for="(column, index) in columns" :key="index">
@@ -27,7 +27,7 @@
                 <data-table :resource="resource">
                     <tr slot="heading">
                         <!-- <th>#</th> -->
-                        <th class="text-left">Fecha Emisión</th>
+                        <th class="text-start">Fecha Emisión</th>
                         <th class="text-center" v-if="columns.delivery_date.visible">Fecha Entrega</th>
                         <th>Vendedor</th>
                         <th>Cliente</th>
@@ -35,19 +35,19 @@
                         <th>Contrato</th>
                         <th>Cotización</th>
                         <th class="text-center">Moneda</th>
-                        <th class="text-right" v-if="columns.total_exportation.visible">T.Exportación</th>
-                        <th class="text-right" v-if="columns.total_free.visible">T.Gratuito</th>
-                        <th class="text-right" v-if="columns.total_unaffected.visible">T.Inafecta</th>
-                        <th class="text-right" v-if="columns.total_exonerated.visible">T.Exonerado</th>
-                        <th class="text-right">T.Gravado</th>
-                        <th class="text-right">T.Igv</th>
-                        <th class="text-right">Total</th>
+                        <th class="text-end" v-if="columns.total_exportation.visible">T.Exportación</th>
+                        <th class="text-end" v-if="columns.total_free.visible">T.Gratuito</th>
+                        <th class="text-end" v-if="columns.total_unaffected.visible">T.Inafecta</th>
+                        <th class="text-end" v-if="columns.total_exonerated.visible">T.Exonerado</th>
+                        <th class="text-end">T.Gravado</th>
+                        <th class="text-end">T.Igv</th>
+                        <th class="text-end">Total</th>
                         <!-- <th class="text-center">PDF</th> -->
-                        <th class="text-right">Acciones</th>
+                        <th class="text-end">Acciones</th>
                     <tr>
                     <tr slot-scope="{ index, row }" :class="{ anulate_color : row.state_type_id == '11' }">
                         <!-- <td>{{ index }}</td> -->
-                        <td class="text-left">{{ row.date_of_issue }}</td>
+                        <td class="text-star">{{ row.date_of_issue }}</td>
                         <td class="text-center" v-if="columns.delivery_date.visible">{{ row.delivery_date }}</td>
                         <td>{{ row.user_name }}</td>
                         <td>{{ row.customer_name }}<br/><small v-text="row.customer_number"></small></td>
@@ -64,28 +64,48 @@
                         <td>{{ row.number_full }} </td>
                         <td>{{ row.quotation_number_full }}</td>
                         <td class="text-center">{{ row.currency_type_id }}</td>
-                        <td class="text-right"  v-if="columns.total_exportation.visible" >{{row.currency_type_id === 'PEN' ? 'S/' : '$'}} {{ row.total_exportation }}</td>
-                        <td class="text-right" v-if="columns.total_free.visible">{{row.currency_type_id === 'PEN' ? 'S/' : '$'}} {{ row.total_free }}</td>
-                        <td class="text-right" v-if="columns.total_unaffected.visible">{{row.currency_type_id === 'PEN' ? 'S/' : '$'}} {{ row.total_unaffected }}</td>
-                        <td class="text-right" v-if="columns.total_exonerated.visible">{{row.currency_type_id === 'PEN' ? 'S/' : '$'}} {{ row.total_exonerated }}</td>
-                        <td class="text-right">{{row.currency_type_id === 'PEN' ? 'S/' : '$'}} {{ row.total_taxed }}</td>
-                        <td class="text-right">{{row.currency_type_id === 'PEN' ? 'S/' : '$'}} {{ row.total_igv }}</td>
-                        <td class="text-right">{{row.currency_type_id === 'PEN' ? 'S/' : '$'}} {{ row.total }}</td>
-                        <!-- <td class="text-right">
+                        <td class="text-end"  v-if="columns.total_exportation.visible" >{{row.currency_type_id === 'PEN' ? 'S/' : '$'}} {{ row.total_exportation }}</td>
+                        <td class="text-end" v-if="columns.total_free.visible">{{row.currency_type_id === 'PEN' ? 'S/' : '$'}} {{ row.total_free }}</td>
+                        <td class="text-end" v-if="columns.total_unaffected.visible">{{row.currency_type_id === 'PEN' ? 'S/' : '$'}} {{ row.total_unaffected }}</td>
+                        <td class="text-end" v-if="columns.total_exonerated.visible">{{row.currency_type_id === 'PEN' ? 'S/' : '$'}} {{ row.total_exonerated }}</td>
+                        <td class="text-end">{{row.currency_type_id === 'PEN' ? 'S/' : '$'}} {{ row.total_taxed }}</td>
+                        <td class="text-end">{{row.currency_type_id === 'PEN' ? 'S/' : '$'}} {{ row.total_igv }}</td>
+                        <td class="text-end">{{row.currency_type_id === 'PEN' ? 'S/' : '$'}} {{ row.total }}</td>
+                        <!-- <td class="text-end">
 
                             <button type="button" class="btn waves-effect waves-light btn-xs btn-info"
                                     @click.prevent="clickOptionsPdf(row.id)">PDF</button>
                         </td> -->
 
-                        <td class="text-right">
-                            <!-- <button v-if="row.state_type_id != '11' && row.btn_generate && typeUser == 'admin'"  type="button" class="btn waves-effect waves-light btn-xs btn-info"
-                                    @click.prevent="clickOptions(row.id)" >Generar comprobante</button> -->
-
-                            <a v-if="row.state_type_id != '11'" :href="`/${resource}/create/${row.id}`" type="button" class="btn waves-effect waves-light btn-xs btn-info">Editar</a>
-                            <button v-if="row.state_type_id != '11'" type="button" class="btn waves-effect waves-light btn-xs btn-danger" @click.prevent="clickVoided(row.id)">Anular</button>
-
-                            <button type="button" class="btn waves-effect waves-light btn-xs btn-info"
-                                    @click.prevent="clickOptionsPdf(row.id)">Opciones</button>
+                        <td class="text-end">
+                            <!--
+                            <button v-if="row.state_type_id != '11' && row.btn_generate && typeUser == 'admin'"  
+                                    type="button" 
+                                    class="btn btn-info btn-sm"
+                                    @click.prevent="clickOptions(row.id)">
+                                Generar comprobante
+                            </button>
+                            -->
+                        
+                            <a v-if="row.state_type_id != '11'" 
+                               :href="`/${resource}/create/${row.id}`" 
+                               type="button" 
+                               class="btn btn-info btn-sm me-2 mb-1">
+                                Editar
+                            </a>
+                        
+                            <button v-if="row.state_type_id != '11'" 
+                                    type="button" 
+                                    class="btn btn-danger btn-sm me-2 mb-1" 
+                                    @click.prevent="clickVoided(row.id)">
+                                Anular
+                            </button>
+                        
+                            <button type="button" 
+                                    class="btn btn-info btn-sm me-2 mb-1"
+                                    @click.prevent="clickOptionsPdf(row.id)">
+                                Opciones
+                            </button>
                         </td>
 
                     </tr>

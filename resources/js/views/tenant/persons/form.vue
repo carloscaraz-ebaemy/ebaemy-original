@@ -508,7 +508,7 @@
                             </div>
                             <!-- Correos electronicos alterno -->
                         </div>
-                        <div class="row m-t-10">
+                        <div class="row mt-3">
                             <div class="col-md-12 text-center">
                                 <el-button icon="el-icon-plus"
                                            class="btn-add-address"
@@ -764,8 +764,8 @@
                     </el-tab-pane>
                 </el-tabs>
             </div>
-            <div class="form-actions text-right mt-4">
-                <el-button class="second-buton" @click.prevent="handleCloseDialog()">Cancelar</el-button>
+            <div class="form-actions text-end mt-4">
+                <el-button class="second-buton me-2" @click.prevent="handleCloseDialog()">Cancelar</el-button>
                 <el-button :loading="loading_submit"
                            native-type="submit"
                            type="primary">Guardar
@@ -1004,8 +1004,14 @@ export default {
                 }
 
                 if (this.input_person) {
-                    this.form.identity_document_type_id = (this.input_person.identity_document_type_id) ? this.input_person.identity_document_type_id : this.form.identity_document_type_id
-                    this.form.number = (this.input_person.number) ? this.input_person.number : ''
+                    // Si input_person es un string, asignarlo al nombre
+                    if (typeof this.input_person === 'string') {
+                        this.form.name = this.input_person
+                    } else {
+                        // Si es un objeto, mantener la lógica existente
+                        this.form.identity_document_type_id = (this.input_person.identity_document_type_id) ? this.input_person.identity_document_type_id : this.form.identity_document_type_id
+                        this.form.number = (this.input_person.number) ? this.input_person.number : ''
+                    }
                 }
             }
             if (this.type === 'customers') {

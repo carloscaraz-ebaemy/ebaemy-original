@@ -12,8 +12,8 @@
                     </div> 
                 </div> 
             </div>
-            <div class="form-actions text-right pt-2">
-                <el-button class="second-buton" @click.prevent="handleCloseDialog()">Cancelar</el-button>
+            <div class="form-actions text-end pt-2">
+                <el-button class="second-buton me-2" @click.prevent="handleCloseDialog()">Cancelar</el-button>
                 <el-button type="primary" native-type="submit" :loading="loading_submit">Guardar</el-button>
             </div>
         </form>

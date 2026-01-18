@@ -110,7 +110,7 @@
                     </template>                
                 </div>
 
-                <button class="btn btn-default dropdown-toggle mr-2 mt-1" style="height: 35px" type="button" id="dropdownFilter" data-toggle="dropdown" aria-haspopup="true" aria-expanded="true">
+                <button class="btn btn-default dropdown-toggle mr-2 mt-1" style="height: 35px" type="button" id="dropdownFilter" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="true">
                   Filtros <span class="caret"></span>
                 </button>
                 <ul class="dropdown-menu dropdown-menu-table" aria-labelledby="dropdownFilter">

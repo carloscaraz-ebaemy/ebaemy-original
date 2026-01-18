@@ -37,6 +37,8 @@ use App\CoreFacturalo\Helpers\Number\NumberLetter;
 use App\CoreFacturalo\Helpers\Storage\StorageDocument;
 use App\CoreFacturalo\Requests\Inputs\Common\PersonInput;
 use App\CoreFacturalo\Requests\Inputs\Common\EstablishmentInput;
+use Illuminate\Support\Arr;
+
 
 class SaleNoteController extends Controller
 {
@@ -720,7 +722,7 @@ class SaleNoteController extends Controller
                 'pdf' => $document->download_external_pdf,
                 'cdr' => ($response['sent']) ? $document->download_external_cdr : '',
             ],
-            'response' => ($response['sent']) ? array_except($response, 'sent') : [],
+            'response' => ($response['sent']) ? Arr::except($response, 'sent') : [],
         ];
     }
 

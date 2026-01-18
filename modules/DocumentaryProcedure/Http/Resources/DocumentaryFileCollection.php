@@ -26,7 +26,7 @@
 
             $holyday = self::getHolyday();
 
-            return $this->collection->transform(function (DocumentaryFile $row, $key) use ($holyday) {
+            return $this->collection->transform(function ($row, $key) use ($holyday) {
                 $data = $row->getCollectionData($holyday);
 
                 return $data;

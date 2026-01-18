@@ -204,7 +204,7 @@
 
 // import {deletable} from '../../../../mixins/deletable'
 
-import {deletable} from "../../../../../../../resources/js/mixins/deletable";
+import {deletable} from "@mixins/deletable";
 
 export default {
     props: ['showDialog', 'documentId'],

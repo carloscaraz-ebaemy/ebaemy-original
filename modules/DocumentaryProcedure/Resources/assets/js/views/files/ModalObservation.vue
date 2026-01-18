@@ -94,8 +94,8 @@
 import vue2Dropzone from 'vue2-dropzone'
 import 'vue2-dropzone/dist/vue2Dropzone.min.css'
 import {mapState} from "vuex";
-import TableArchives from "./TableArchives";
-import TableObservation from "./TableObservation";
+import TableArchives from "./TableArchives.vue";
+import TableObservation from "./TableObservation.vue";
 
 export default {
     components: {

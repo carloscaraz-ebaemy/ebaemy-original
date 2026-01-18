@@ -51,6 +51,7 @@ if ($hostname) {
             Route::get('list-payments', 'Tenant\SettingController@listPayments');
             Route::get('list-vouchers-type', 'Tenant\SettingController@listVouchersType');
             Route::get('list-transfer-reason-types', 'Tenant\SettingController@listTransferReasonTypes');
+            Route::get('list-item-affectations', 'Tenant\SettingController@listItemAffectations');
 
             Route::get('advanced', 'Tenant\AdvancedController@index')->name('tenant.advanced.index')->middleware('redirect.level');
 
@@ -116,6 +117,8 @@ if ($hostname) {
             Route::post('configurations/apiruc', 'Tenant\ConfigurationController@storeApiRuc');
             Route::post('configurations/icbper', 'Tenant\ConfigurationController@icbper');
             Route::post('configurations/changeFormat', 'Tenant\ConfigurationController@changeFormat');
+            Route::post('configurations/saveColumnsConfig', 'Tenant\ConfigurationController@saveColumnsConfig');
+            Route::get('configurations/getColumnsConfig', 'Tenant\ConfigurationController@getColumnsConfig');
             Route::get('configurations/tables', 'Tenant\ConfigurationController@tables');
             Route::get('configurations/visual_defaults', 'Tenant\ConfigurationController@visualDefaults')->name('visual_defaults');
             Route::get('configurations/visual/get_menu', 'Tenant\ConfigurationController@visualGetMenu')->name('visual_get_menu');
@@ -503,6 +506,11 @@ if ($hostname) {
             Route::post('transfer-reason-types', 'Tenant\TransferReasonTypeController@store');
             Route::delete('transfer-reason-types/{code}', 'Tenant\TransferReasonTypeController@destroy');
 
+            // Affectation IGV types 
+            Route::get('item-affectations-igv/records', 'Tenant\ItemAffectationsIgvController@records');
+            Route::get('item-affectations-igv/active/{id}/{active}', 'Tenant\ItemAffectationsIgvController@changeActive');
+
+
             //Detractions
             Route::get('detraction_types/records', 'Tenant\DetractionTypeController@records');
             Route::get('detraction_types/tables', 'Tenant\DetractionTypeController@tables');
@@ -732,6 +740,12 @@ if ($hostname) {
             Route::post('promotions-list', 'Tenant\PromotionController@storePromotionList');
             Route::get('promotions-list/records', 'Tenant\PromotionController@recordsPromotionList');
 
+            //Spot-list
+            Route::post('spot-list', 'Tenant\PromotionController@storeSpotList');
+            Route::put('spot-list/{id}', 'Tenant\PromotionController@storeSpotList');
+            Route::get('spot-list/records', 'Tenant\PromotionController@recordsSpotList');
+            Route::get('spot-list/record/{id}', 'Tenant\PromotionController@record');
+
             Route::get('item-sets', 'Tenant\ItemSetController@index')->name('tenant.item_sets.index')->middleware('redirect.level');
             Route::get('item-sets/columns', 'Tenant\ItemSetController@columns');
             Route::get('item-sets/records', 'Tenant\ItemSetController@records');
@@ -857,6 +871,7 @@ if ($hostname) {
             Route::get('clients/charts', 'System\ClientController@charts');
             Route::post('clients', 'System\ClientController@store');
             Route::post('clients/update', 'System\ClientController@update');
+            Route::get('clients/search', 'System\ClientController@search');
 
             Route::delete('clients/{client}/{input_validate}', 'System\ClientController@destroy');
             // Route::delete('clients/{client}', 'System\ClientController@destroy');
@@ -875,6 +890,7 @@ if ($hostname) {
             Route::post('secret-login', 'System\SecretLoginController@secretLogin');
 
             Route::post('clients/upload', 'System\ClientController@upload');
+            Route::get('clients/confirm-limit-reseller', 'System\ClientController@confirmLimitReseller');
 
             Route::get('client_payments/records/{client_id}', 'System\ClientPaymentController@records');
             Route::get('client_payments/client/{client_id}', 'System\ClientPaymentController@client');
@@ -894,6 +910,19 @@ if ($hostname) {
             Route::get('plans/record/{plan}', 'System\PlanController@record');
             Route::post('plans', 'System\PlanController@store');
             Route::delete('plans/{plan}', 'System\PlanController@destroy');
+
+            //Pagos
+            Route::get('payment-orders', 'System\PaymentOrderController@index')->name('system.payments.index');
+            Route::get('payment-orders/records', 'System\PaymentOrderController@records');
+            Route::get('payment-orders/tables', 'System\PaymentOrderController@tables');
+            Route::get('payment-orders/cancel/{id}','System\PaymentOrderController@cancel' );
+            Route::get('payment-orders/pays/{id}','System\PaymentOrderController@pays' );
+            Route::get('payment-orders/notify/{id}','System\PaymentOrderController@notify' );
+            Route::post('payment-orders/updateTable','System\PaymentOrderController@updateTable');
+            Route::post('payment-orders/create','System\PaymentOrderController@create' );
+            Route::post('payment-orders/updateClient/{id}','System\PaymentOrderController@updateClient' );
+            Route::get('payment-orders/client/tables','System\PaymentOrderController@clientTables' );
+
 
             //Massive Invoice
             Route::get('massive-invoice', 'System\MassiveInvoiceController@index')->name('system.massive-invoice.index');
@@ -941,6 +970,11 @@ if ($hostname) {
 
             Route::post('configurations', 'System\ConfigurationController@store');
             Route::get('configurations/record', 'System\ConfigurationController@record');
+            
+            // Visual theme configuration routes
+            Route::post('configurations/visual-theme', 'System\ConfigurationController@storeVisualTheme');
+            Route::get('configurations/visual-theme', 'System\ConfigurationController@getVisualTheme');
+            
             Route::get('information', 'System\ConfigurationController@InfoIndex')->name('system.information');
             Route::get('status/history', 'System\StatusController@history')->name('system.status');
             Route::get('status/memory', 'System\StatusController@memory')->name('system.status.memory');
@@ -948,6 +982,7 @@ if ($hostname) {
             Route::get('configurations/apiruc', 'System\ConfigurationController@apiruc');
             Route::get('configurations/apkurl', 'System\ConfigurationController@apkurl');
             Route::post('configurations/emails', 'System\ConfigurationController@emails');
+            Route::post('configurations/qrapi', 'System\ConfigurationController@qrapi');
 
             Route::get('configurations/update-tenant-discount-type-base', 'System\ConfigurationController@updateTenantDiscountTypeBase');
 

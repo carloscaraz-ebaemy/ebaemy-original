@@ -1,10 +1,13 @@
 <template>
     <div>
-        <div class="page-header pr-0">
+        <div class="page-header pe-0">
             <h2><a href="/dashboard"><i class="fas fa-tachometer-alt"></i></a></h2>
             <ol class="breadcrumbs">
                 <li class="active"><span> Listado de tarjetas </span></li>
             </ol>
+            <div class="right-wrapper pull-right">
+                <button type="button" class="btn btn-custom btn-sm  mt-2 me-2" @click.prevent="clickCreate()"><i class="fa fa-plus-circle"></i> Nuevo</button>
+            </div>
         </div>
         <div class="card tab-content-default row-new">
             <!-- <div class="card-header bg-info">
@@ -18,7 +21,7 @@
                             <th>#</th>
                             <th>Código</th>
                             <th>Descripción</th>
-                            <th class="text-right">Acciones</th>
+                            <th class="text-end">Acciones</th>
                         </tr>
                         </thead>
                         <tbody>
@@ -26,8 +29,8 @@
                             <td>{{ index + 1 }}</td>
                             <td>{{ row.id }}</td>
                             <td>{{ row.description }}</td>
-                            <td class="text-right">
-                                <button type="button" class="btn waves-effect waves-light btn-xs btn-info" @click.prevent="clickCreate(row.id)">Editar</button>
+                            <td class="text-end">
+                                <button type="button" class="btn waves-effect waves-light btn-xs btn-info me-1" @click.prevent="clickCreate(row.id)">Editar</button>
     
                                   <template v-if="typeUser === 'admin'">
                                      <button type="button" class="btn waves-effect waves-light btn-xs btn-danger"  @click.prevent="clickDelete(row.id)">Eliminar</button>
@@ -36,11 +39,6 @@
                         </tr>
                         </tbody>
                     </table>
-                </div>
-                <div class="row">
-                    <div class="col">
-                        <button type="button" class="btn btn-custom btn-sm  mt-2 mr-2" @click.prevent="clickCreate()"><i class="fa fa-plus-circle"></i> Nuevo</button>
-                    </div>
                 </div>
             </div>
             <card-brands-form :showDialog.sync="showDialog"

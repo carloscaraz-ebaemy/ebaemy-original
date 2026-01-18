@@ -1,6 +1,6 @@
 <template>
     <div>
-        <div class="page-header pr-0">
+        <div class="page-header pe-0">
             <h2><a href="/dashboard"><i class="fas fa-tachometer-alt"></i></a></h2>
             <ol class="breadcrumbs">
                 <li class="active"><span> Listado de monedas </span></li>
@@ -23,7 +23,7 @@
                             <th>Descripción</th>
                             <th>Símbolo</th>
                             <th class="text-center">Activo</th>
-                            <th class="text-right">Acciones</th>
+                            <th class="text-end">Acciones</th>
                         </tr>
                         </thead>
                         <tbody>
@@ -33,7 +33,7 @@
                             <td>{{ row.description }}</td>
                             <td>{{ row.symbol }}</td>
                             <td class="text-center">{{ row.active }}</td>
-                            <td class="text-right">
+                            <td class="text-end">
                                 <button type="button" class="btn waves-effect waves-light btn-xs btn-info" @click.prevent="clickCreate(row.id)">Editar</button>
                                 <!--<button type="button" class="btn waves-effect waves-light btn-xs btn-danger"  @click.prevent="clickDelete(row.id)">Eliminar</button>-->
                             </td>

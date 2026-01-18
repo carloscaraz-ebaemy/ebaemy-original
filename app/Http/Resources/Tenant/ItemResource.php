@@ -182,7 +182,10 @@
                 'sanitary' => $this->sanitary,
                 'cod_digemid' => $this->cod_digemid,
                 'supplies' => $itemSupply,
-                
+                'has_supplies' => (bool)$this->restaurantSupplies()->exists(),
+                'has_sets' => (bool)$this->sets()->exists(),
+                'is_dish' => (bool)$this->is_dish,
+
                 'purchase_has_isc' => $this->purchase_has_isc,
                 'purchase_system_isc_type_id' => $this->purchase_system_isc_type_id,
                 'purchase_percentage_isc' => $this->purchase_percentage_isc,
@@ -191,6 +194,8 @@
                 'quantity_of_points' => $this->quantity_of_points,
                 'factory_code' => $this->factory_code,
                 'restrict_sale_cpe' => $this->restrict_sale_cpe,
+                'preparation_area_id' => $this->preparation_area_id,
+                'preparation_area' => $this->preparationArea,
             ];
         }
     }

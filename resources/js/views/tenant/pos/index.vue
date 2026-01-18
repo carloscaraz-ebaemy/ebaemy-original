@@ -1,13 +1,14 @@
 <template>
     <div class="pos container-fluid p-0">
-        <div class="row page-header pr-0 no-gutters" style="height:auto">
+        <span class="module-title-marker" data-page-title="Punto de Venta"></span>
+        <div class="row page-header pe-0 no-gutters" style="height:auto">
             <Keypress
                 key-event="keyup"
                 :key-code="112"
                 @success="handleFn112"
             />
             <div
-                class="col-md-5 pl-2"
+                class="col-md-5 ps-2"
                 :class="{ 'pt-2 mt-1': !search_item_by_barcode }"
             >
                 <el-switch
@@ -32,7 +33,7 @@
                             Balanza electrónica
 
                         <el-tooltip
-                            class="item ml-1"
+                            class="item ms-1"
                             effect="dark"
                             placement="top-start"
                         >
@@ -71,7 +72,7 @@
                     </div>
                 </div>
             </div>
-            <div class="col-md-3 text-right pr-0">
+            <div class="col-md-3 text-end pe-0">
                 <div class="d-flex">
                     <div v-if="!configuration.enable_list_product" class="col-6" style="padding-top: 2.5px;">
                         <el-select                            
@@ -98,7 +99,7 @@
                                 <el-button
                                     type="button"
                                     @click="back()"
-                                    class="btn btn-custom btn-sm  mt-2 mr-2 mr-sm-0"
+                                    class="btn btn-custom btn-sm  mt-2 me-2 me-sm-0"
                                 >
                                     <i class="fa fa-border-all"></i>
                                 </el-button>
@@ -113,7 +114,7 @@
                                     type="button"
                                     :disabled="place == 'cat2'"
                                     @click="setView('cat2')"
-                                    class="btn btn-custom btn-sm  mt-2 mr-2 mr-sm-0"
+                                    class="btn btn-custom btn-sm  mt-2 me-2 me-sm-0"
                                 >
                                     <i class="fa fa-bars"></i>
                                 </el-button>
@@ -128,7 +129,7 @@
                                     type="button"
                                     :disabled="place == 'cat3'"
                                     @click="setView('cat3')"
-                                    class="btn btn-custom btn-sm  mt-2 mr-2 mr-sm-0"
+                                    class="btn btn-custom btn-sm  mt-2 me-2 me-sm-0"
                                 >
                                     <i class="fas fa-list-ul"></i>
                                 </el-button>
@@ -143,7 +144,7 @@
                                     type="button"
                                     :disabled="place == 'cat'"
                                     @click="back()"
-                                    class="btn btn-custom btn-sm  mt-2 mr-2 mr-sm-0"
+                                    class="btn btn-custom btn-sm  mt-2 me-2 me-sm-0"
                                 >
                                     <i class="fa fa-undo"></i>
                                 </el-button>
@@ -154,7 +155,7 @@
             </div>
             <div class="col-md-4">
                 <div class="pull-right">
-                    <p class="pr-3 pt-2 mb-2 exchange-currency">
+                    <p class="pe-3 pt-2 mb-2 exchange-currency">
                         T.C.
                         <span>S/ {{ form.exchange_rate_sale }}</span> Cambiar
                         Moneda
@@ -256,7 +257,7 @@
                         <div class="col" :key="index">
                             <div
                                 @click="filterCategorie(item.id)"
-                                class="card p-0 m-0 mb-1 mr-1 text-center"
+                                class="card p-0 m-0 mb-1 me-1 text-center"
                             >
                                 <div
                                     :style="{ backgroundColor: item.color }"
@@ -326,7 +327,7 @@
                                         </el-tooltip>
 
                                         <small
-                                            class="measuring-unit text-right"
+                                            class="measuring-unit text-end"
                                             style="width: 45%;"
                                             >{{ item.unit_type_id }}</small
                                         >
@@ -674,7 +675,7 @@
                                         </p>
                                         <small>{{ item.unit_type_id }}</small
                                         ><br />
-                                        <small
+                                        <small                                            
                                             v-html="nameSets(item.item_id)"
                                         ></small>
                                     </td>
@@ -701,31 +702,33 @@
                                         style="width: 80px; text-align: right"
                                     >
                                         <template v-if="edit_unit_price">
-                                            <span>
-                                                {{ currency_type.symbol }}
+                                            <span class="d-flex">
+                                                <span>
+                                                    {{ currency_type.symbol }}
+                                                </span>
+                                                <span
+                                                    v-text="item.total.toFixed(2)"
+                                                    @input="
+                                                        calculateQuantity(index)
+                                                    "
+                                                    @blur="
+                                                        blurCalculateQuantity(index)
+                                                    "
+                                                    :contenteditable="
+                                                        !item.item
+                                                            .calculate_quantity
+                                                            ? 'false'
+                                                            : 'true'
+                                                    "
+                                                ></span>
                                             </span>
-                                            <span
-                                                v-text="item.total.toFixed(2)"
-                                                @input="
-                                                    calculateQuantity(index)
-                                                "
-                                                @blur="
-                                                    blurCalculateQuantity(index)
-                                                "
-                                                :contenteditable="
-                                                    !item.item
-                                                        .calculate_quantity
-                                                        ? 'false'
-                                                        : 'true'
-                                                "
-                                            ></span>
                                         </template>
                                         <template v-else>
                                             {{ item.total }}
                                         </template>
                                     </td>
                                     <td
-                                        class="text-right"
+                                        class="text-end"
                                         style="width: 36px; padding-left: 0; padding-right: 0; vertical-align: top"
                                     >
                                         <a
@@ -789,14 +792,14 @@
                                     class="m-0"
                                 >
                                     <td>OP.EXONERADAS</td>
-                                    <td class="text-right font-weight-semibold">
+                                    <td class="text-end font-weight-semibold">
                                         {{ currency_type.symbol }}
                                         {{ form.total_exonerated }}
                                     </td>
                                 </tr>
                                 <tr v-if="form.total_free > 0" class="m-0">
                                     <td>OP.GRATUITAS</td>
-                                    <td class="text-right font-weight-semibold">
+                                    <td class="text-end font-weight-semibold">
                                         {{ currency_type.symbol }}
                                         {{ form.total_free }}
                                     </td>
@@ -806,28 +809,28 @@
                                     class="m-0"
                                 >
                                     <td>OP.INAFECTAS</td>
-                                    <td class="text-right font-weight-semibold">
+                                    <td class="text-end font-weight-semibold">
                                         {{ currency_type.symbol }}
                                         {{ form.total_unaffected }}
                                     </td>
                                 </tr>
                                 <tr v-if="form.total_taxed > 0" class="m-0">
                                     <td>OP.GRAVADA</td>
-                                    <td class="text-right font-weight-semibold">
+                                    <td class="text-end font-weight-semibold">
                                         {{ currency_type.symbol }}
                                         {{ form.total_taxed }}
                                     </td>
                                 </tr>
                                 <tr v-if="form.total_igv > 0" class="m-0">
                                     <td>IGV</td>
-                                    <td class="text-right font-weight-semibold">
+                                    <td class="text-end font-weight-semibold">
                                         {{ currency_type.symbol }}
                                         {{ form.total_igv }}
                                     </td>
                                 </tr>
                                 <tr v-if="form.total_isc > 0" class="m-0">
                                     <td>ISC</td>
-                                    <td class="text-right font-weight-semibold">
+                                    <td class="text-end font-weight-semibold">
                                         {{ currency_type.symbol }}
                                         {{ form.total_isc }}
                                     </td>
@@ -837,7 +840,7 @@
                                     class="m-0"
                                 >
                                     <td>ICBPER</td>
-                                    <td class="text-right font-weight-semibold">
+                                    <td class="text-end font-weight-semibold">
                                         {{ currency_type.symbol }}
                                         {{ form.total_plastic_bag_taxes }}
                                     </td>
@@ -896,7 +899,7 @@
                                 >{{ currency_type.symbol }}
                                 {{ form.total.toFixed(2) }}</b
                             >
-                            <i class="fas fa-arrow-right ml-2"></i>
+                            <i class="fas fa-arrow-right ms-2"></i>
                         </div>
                     </div>
                 </div>
@@ -1055,14 +1058,6 @@
     grid-template-columns: repeat(auto-fit, minmax(135px, 1fr));
     gap: 0.25rem;
 }
-.el-checkbox__label {
-    display: inline-block;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    max-width: 150px;
-    vertical-align: middle;
-}
 @media only screen and (max-width: 1200px) {
     .bar-code-checkbox{
         display: flex;
@@ -1138,7 +1133,19 @@
     }
 }
 </style>
-
+<style scoped>
+.table-sm>:not(caption)>*>* {
+    padding: 0;
+}
+.el-checkbox__label {
+    display: inline-block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 150px;
+    vertical-align: middle;
+}
+</style>
 <script>
 import Keypress from "vue-keypress";
 import { calculateRowItem } from "../../../helpers/functions";
@@ -1245,6 +1252,14 @@ export default {
         this.selected_option_price = this.price_options[0];
         this.loadConfiguration();
         this.$store.commit("setConfiguration", this.configuration2);
+        
+        // Actualizar price_options con los labels personalizados
+        if (this.config) {
+            this.price_options[1].description = this.config.price1_label || 'Precio 1';
+            this.price_options[2].description = this.config.price2_label || 'Precio 2';
+            this.price_options[3].description = this.config.price3_label || 'Precio 3';
+        }
+        
         await this.initForm();
         await this.getTables();
         await this.getPercentageIgv();

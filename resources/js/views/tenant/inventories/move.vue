@@ -38,8 +38,8 @@
                     </div>
                 </div>
             </div>
-            <div class="form-actions text-right mt-4">
-                <el-button @click.prevent="close()">Cancelar</el-button>
+            <div class="form-actions text-end mt-4">
+                <el-button class="me-2" @click.prevent="close()">Cancelar</el-button>
                 <el-button type="primary" native-type="submit" :loading="loading_submit">Aceptar</el-button>
             </div>
         </form>

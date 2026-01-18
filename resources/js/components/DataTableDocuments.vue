@@ -2,14 +2,14 @@
     <div>
         <div class="row ">
 
-            <div class="col-md-12 col-lg-12 col-xl-12 p-0 filter-invoice">
+            <div class="col-md-12 col-lg-12 col-xl-12 py-0 px-3 filter-invoice">
 
                 <div class="d-flex col-12 p-0">
                     <div class="col-lg-9 col-md-8 col-sm-12 mb-2 p-0">
                         <div class="form-group filter-content">
                             <el-button
                                 type="secondary"
-                                class="btn-show-filter btn-show-filter-invoice mb-2 ml-1"
+                                class="btn-show-filter btn-show-filter-invoice mb-2 ms-2"
                                 :class="{ shift: see_more }"
                                 @click="clickSeeMore"
                             >
@@ -17,7 +17,7 @@
                             </el-button>
                         </div>
                     </div>
-                    <div class="col-lg-2 col-md-3 col-sm-12 text-right">
+                    <div class="col-lg-2 col-md-3 col-sm-12 text-end">
                         <slot name="showhide"></slot>
                     </div>
                 </div>
@@ -159,7 +159,7 @@
                         </div>
                     </div>
                     <div class="col-lg-4 col-md-4 col-md-4 col-sm-12 d-flex" style="margin-top:29px">
-                        <el-button class="submit" type="primary" @click.prevent="getRecordsByFilter" :loading="loading_submit" icon="el-icon-search" >Buscar</el-button>
+                        <el-button class="submit me-2" type="primary" @click.prevent="getRecordsByFilter" :loading="loading_submit" icon="el-icon-search" >Buscar</el-button>
                         <el-button class="submit" type="info" @click.prevent="cleanInputs"  icon="el-icon-delete" >Limpiar </el-button>
 
                     </div>
@@ -175,7 +175,7 @@
                     <div class="col-md-6">
                         {{row.name}}
                     </div>
-                    <div class="col-md-6 text-right">
+                    <div class="col-md-6 text-end">
                         {{row.total}}
                     </div>
                 </div>

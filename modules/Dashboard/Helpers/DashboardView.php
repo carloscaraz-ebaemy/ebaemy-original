@@ -288,7 +288,7 @@ class DashboardView
         /*
          * Documents
          */
-        $document_payments = DB::table('document_payments')
+        $document_payments = DB::connection('tenant')->table('document_payments')
             ->select('document_id', DB::raw('SUM(payment) as total_payment'))
             ->groupBy('document_id');
 
@@ -356,7 +356,7 @@ class DashboardView
         /*
          * Sale Notes
          */
-        $sale_note_payments = DB::table('sale_note_payments')
+        $sale_note_payments = DB::connection('tenant')->table('sale_note_payments')
             ->select('sale_note_id', DB::raw('SUM(payment) as total_payment'))
             ->groupBy('sale_note_id');
 

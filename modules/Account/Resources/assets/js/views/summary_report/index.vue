@@ -1,6 +1,6 @@
 <template>
     <div>
-        <div class="page-header pr-0">
+        <div class="page-header pe-0">
             <h2><a href="/account/summary-report">
                 <svg  xmlns="http://www.w3.org/2000/svg" style="margin-top: -5px;" width="24"  height="24"  viewBox="0 0 24 24"  fill="none"  stroke="currentColor"  stroke-width="2"  stroke-linecap="round"  stroke-linejoin="round"  class="icon icon-tabler icons-tabler-outline icon-tabler-chart-histogram"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M3 3v18h18" /><path d="M20 18v3" /><path d="M16 16v5" /><path d="M12 13v8" /><path d="M8 16v5" /><path d="M3 11c6 0 5 -5 9 -5s3 5 9 5" /></svg>
             </a></h2>
@@ -65,10 +65,10 @@
                                         <th>Serie</th>
                                         <th class="text-center">N° Inicial</th>
                                         <th class="text-center">N° Final</th>
-                                        <th class="text-right">Valor venta</th>
-                                        <th class="text-right">IGV</th>
-                                        <th class="text-right">ICBPER</th>
-                                        <th class="text-right">Importe</th>
+                                        <th class="text-end">Valor venta</th>
+                                        <th class="text-end">IGV</th>
+                                        <th class="text-end">ICBPER</th>
+                                        <th class="text-end">Importe</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -77,17 +77,17 @@
                                         <td>{{row.series}}</td>
                                         <td class="text-center">{{row.start_number}}</td>
                                         <td class="text-center">{{row.end_number}}</td>
-                                        <td class="text-right">{{row.total_value}}</td>
-                                        <td class="text-right">{{row.total_igv}}</td>
-                                        <td class="text-right">{{row.total_plastic_bag_taxes}}</td>
-                                        <td class="text-right">{{row.total}}</td>
+                                        <td class="text-end">{{row.total_value}}</td>
+                                        <td class="text-end">{{row.total_igv}}</td>
+                                        <td class="text-end">{{row.total_plastic_bag_taxes}}</td>
+                                        <td class="text-end">{{row.total}}</td>
                                     </tr>
                                     <tr>
-                                        <td class="text-right" colspan="4">Total</td>
-                                        <td class="text-right">{{totals_accepted_documents.general_total_value}}</td>
-                                        <td class="text-right">{{totals_accepted_documents.general_total_igv}}</td>
-                                        <td class="text-right">{{totals_accepted_documents.general_total_plastic_bag_taxes}}</td>
-                                        <td class="text-right">{{totals_accepted_documents.general_total}}</td>
+                                        <td class="text-end" colspan="4">Total</td>
+                                        <td class="text-end">{{totals_accepted_documents.general_total_value}}</td>
+                                        <td class="text-end">{{totals_accepted_documents.general_total_igv}}</td>
+                                        <td class="text-end">{{totals_accepted_documents.general_total_plastic_bag_taxes}}</td>
+                                        <td class="text-end">{{totals_accepted_documents.general_total}}</td>
                                     </tr>
                                 </tbody>
                             </table>
@@ -106,7 +106,7 @@
                                         <th>Comprobante</th>
                                         <th>Serie</th>
                                         <th class="text-center">Numeros</th>
-                                        <th class="text-right">Importe</th>
+                                        <th class="text-end">Importe</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -114,11 +114,11 @@
                                         <td>{{row.document_type_description}}</td>
                                         <td>{{row.series}}</td>
                                         <td class="text-center">{{row.voided}}</td>
-                                        <td class="text-right">{{row.total}}</td>
+                                        <td class="text-end">{{row.total}}</td>
                                     </tr>
                                     <tr>
-                                        <td class="text-right" colspan="3">Total</td>
-                                        <td class="text-right">{{totals_voided_documents.general_total}}</td>
+                                        <td class="text-end" colspan="3">Total</td>
+                                        <td class="text-end">{{totals_voided_documents.general_total}}</td>
                                     </tr>
                                 </tbody>
                             </table>

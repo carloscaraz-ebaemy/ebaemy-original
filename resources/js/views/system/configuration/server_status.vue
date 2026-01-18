@@ -27,7 +27,7 @@
 
 
 <script>
-import ChartLine from "./charts/Line";
+import ChartLine from "./charts/Line.vue";
 
 export default {
     components: { ChartLine },

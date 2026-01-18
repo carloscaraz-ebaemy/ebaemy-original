@@ -1,14 +1,19 @@
 <template>
-    <div id="styleSwitcher" class="style-switcher" style="z-index: 1040;">
-        <!-- <a id="styleSwitcherOpen" class="style-switcher-open" href="#">
-            <i class="fas fa-paint-brush"></i>
-        </a> -->
+    <div>
+        <div id="styleSwitcher" class="style-switcher" style="z-index: 1040;">
+            <!-- <a id="styleSwitcherOpen" class="style-switcher-open" href="#">
+                <i class="fas fa-paint-brush"></i>
+            </a> -->
 
-        <form class="style-switcher-wrap" autocomplete="off">
-            <h3>
-                Estilos y Temas
-                <a class="style-switcher-open close-config" href="#">+</a>
-            </h3>
+            <form class="style-switcher-wrap p-0" autocomplete="off">
+            <div class="support-header px-3">
+                <h5 class="m-0 d-flex align-items-center title-visual">
+                    Estilos y Temas                    
+                </h5>
+                <a class="style-switcher-open close-config" href="#" style="transform: none;">
+                    <svg  xmlns="http://www.w3.org/2000/svg"  width="20"  height="20"  viewBox="0 0 24 24"  fill="none"  stroke="currentColor"  stroke-width="2"  stroke-linecap="round"  stroke-linejoin="round"  class="icon icon-tabler icons-tabler-outline icon-tabler-x"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M18 6l-12 12" /><path d="M6 6l12 12" /></svg>
+                </a>
+            </div>
 
             <div v-if="visual == null">
                 <h5 class="">No posee ajustes actualmente</h5>
@@ -17,23 +22,23 @@
                 >
                 <br />
             </div>
-            <div v-if="typeUser != 'integrator'" class="pt-3">
+            <div v-if="typeUser != 'integrator'" class="p-3">
                 <div style="background-color: #283046;">
                     <a
                         v-if="visuals.bg == 'white'"
                         href="/configurations/change-mode"
-                        class="notification-icon btn btn-dark btn-sm btn-block"
+                        class="notification-icon btn btn-dark btn-sm btn-block w-100"
                         data-toggle="tooltip"
                         data-placement="bottom"
-                        title="Modo noche"
-                        style="text-decoration: none;"
+                        title="Modo oscuro"
+                        style="text-decoration: none; color: #fff !important;"
                     >
                         <i class="fas fa-moon"></i> Modo oscuro
                     </a>
                     <a
                         v-if="visuals.bg == 'dark'"
                         href="/configurations/change-mode"
-                        class="notification-icon btn btn-light btn-sm btn-block btn-light-mode"
+                        class="notification-icon btn btn-light btn-sm btn-block btn-light-mode w-100"
                         data-toggle="tooltip"
                         data-placement="bottom"
                         title="Modo día"
@@ -64,6 +69,13 @@
                             class="btn-theme-white"
                             :class="{ 'theme-selected': visuals.sidebar_theme === 'white' }"
                             @click="onChangeTheme('white')"
+                        ></button>
+                        <button
+                            type="button"
+                            class="btn-theme-white"
+                            :class="{ 'theme-selected': visuals.sidebar_theme === 'aqua' }"
+                            @click="onChangeTheme('aqua')"
+                            style="background-color: #90dad9;"
                         ></button>
                         <button
                             type="button"
@@ -109,6 +121,52 @@
                             v-text="errors.compact_sidebar[0]"
                         ></small>
                     </div>
+                </div>
+
+                <div class="mt-3 d-none sidebar-mode-selector">
+                    <h5>Tema del menú lateral</h5>
+                    <div>
+                        <el-switch
+                            v-model="form.sidebar_mode"
+                            active-text="Oscuro"
+                            inactive-text="Claro"
+                            active-value="dark"
+                            inactive-value="light"
+                            @change="submitSidebarMode"
+                        >
+                        </el-switch>
+                    </div>
+                </div>
+
+                <div class="pt-3 d-none sidebar-margin-selector-container">
+                    <h5>Sidebar</h5>
+                    <div class="d-flex justify-content-between gap-3 sidebar-margin-selector">
+                        <div
+                            class="sidebar-example"
+                            :class="{ 'sidebar-example-selected': visuals.sidebar_margin === true }"
+                            role="button"
+                            tabindex="0"
+                            @click="onChangeSidebarMargin(true)"
+                        >
+                            <div>
+                                <svg data-name="icon-sidebar-floating" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 79.86 51.14" class="fill-primary stroke-primary group-data-[state=unchecked]:fill-muted-foreground group-data-[state=unchecked]:stroke-muted-foreground w-100" aria-hidden="true"><rect x="5.89" y="5.15" width="19.74" height="40" rx="2" ry="2" opacity="0.8" stroke-linecap="round" stroke-miterlimit="10"></rect><g stroke="#fff" stroke-linecap="round" stroke-miterlimit="10"><path fill="none" opacity="0.72" stroke-width="2px" d="M9.81 18.36L22.04 18.36"></path><path fill="none" opacity="0.48" stroke-width="2px" d="M9.81 25.57L20.33 25.57"></path><path fill="none" opacity="0.55" stroke-width="2px" d="M9.81 21.85L19.18 21.85"></path><circle cx="11.76" cy="10.88" r="2.54" fill="#fff" opacity="0.8"></circle><path fill="none" opacity="0.8" stroke-width="2px" d="M16.31 9.62L22.04 9.62"></path><path fill="none" opacity="0.6" d="M16.1 12.27L21.16 12.27"></path></g><path fill="none" opacity="0.62" stroke-linecap="round" stroke-miterlimit="10" stroke-width="3px" d="M30.59 9.62L35.85 9.62"></path><rect x="29.94" y="13.42" width="26.03" height="2.73" rx="0.64" ry="0.64" opacity="0.44" stroke-linecap="round" stroke-miterlimit="10"></rect><rect x="29.94" y="19.28" width="43.11" height="25.87" rx="2" ry="2" opacity="0.3" stroke-linecap="round" stroke-miterlimit="10"></rect></svg>
+                            </div>
+                            <span class="text-center">Flotando</span>
+                        </div>
+                        <div
+                            class="sidebar-example"
+                            :class="{ 'sidebar-example-selected': visuals.sidebar_margin === false }"
+                            role="button"
+                            tabindex="0"
+                            @click="onChangeSidebarMargin(false)"
+                        >
+                            <div>
+                                <svg data-name="icon-sidebar-sidebar" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 79.86 51.14" class="fill-primary stroke-primary group-data-[state=unchecked]:fill-muted-foreground group-data-[state=unchecked]:stroke-muted-foreground w-100" aria-hidden="true"><path d="M23.42.51h51.99c2.21 0 4 1.79 4 4v42.18c0 2.21-1.79 4-4 4H23.42s-.04-.02-.04-.04V.55s.02-.04.04-.04z" opacity="0.2" stroke-linecap="round" stroke-miterlimit="10"></path><path fill="none" opacity="0.72" stroke-linecap="round" stroke-miterlimit="10" stroke-width="2px" d="M5.56 14.88L17.78 14.88"></path><path fill="none" opacity="0.48" stroke-linecap="round" stroke-miterlimit="10" stroke-width="2px" d="M5.56 22.09L16.08 22.09"></path><path fill="none" opacity="0.55" stroke-linecap="round" stroke-miterlimit="10" stroke-width="2px" d="M5.56 18.38L14.93 18.38"></path><g stroke-linecap="round" stroke-miterlimit="10"><circle cx="7.51" cy="7.4" r="2.54" opacity="0.8"></circle><path fill="none" opacity="0.8" stroke-width="2px" d="M12.06 6.14L17.78 6.14"></path><path fill="none" opacity="0.6" d="M11.85 8.79L16.91 8.79"></path></g></svg>
+                            </div>
+                            <span class="text-center">Fijo</span>
+                        </div>
+                    </div>
+
                 </div>
 
                 <div class="mt-3">
@@ -171,7 +229,6 @@
                     <el-input v-model="fileName" :readonly="true" placeholder="Ninguna imagen subida">
                         <el-upload
                             slot="append"
-                            :headers="headers"
                             :on-success="successUploadDefaultImage"
                             :on-error="errorUpload"
                             :show-file-list="false"
@@ -179,7 +236,7 @@
                             :with-credentials="true"
                             name="image"
                         >
-                            <el-button icon="el-icon-upload" type="primary"></el-button>
+                            <el-button class="p-2" icon="el-icon-upload" type="primary"></el-button>
                         </el-upload>
                     </el-input>
                 </div>
@@ -216,10 +273,12 @@
                 </div>
             </div>
         </form>
-        <dialog-skins
-            :showDialog.sync="dialogSkinsVisible"
-            :skins.sync="skins"
-        />
+            <dialog-skins
+                :showDialog.sync="dialogSkinsVisible"
+                :skins.sync="skins"
+            />
+        </div>
+        <div class="style-switcher-backdrop" @click="closeStyleSwitcher"></div>
     </div>
 </template>
 
@@ -256,9 +315,9 @@ export default {
                 this.$message.success(response.message);
                 this.form.default_image = response.file;
                 this.fileName = response.file;
-            }   
+            }
         },
-    
+
         errorUpload(err) {
           this.$message.error("Error al subir la imagen");
           console.error("Error upload:", err);
@@ -329,6 +388,51 @@ export default {
             this.visuals.sidebar_theme = theme;
             this.submit();
         },
+        onChangeSidebarMargin(value) {
+            this.$set(this.visuals, 'sidebar_margin', value);
+            this.applySidebarMargin(value);
+            this.submit();
+        },
+        applySidebarMargin(value) {
+            const htmlElement = document.documentElement;
+            if (!htmlElement) return;
+
+            if (value === true) {
+                htmlElement.classList.add('sidebar-left-floating');
+                htmlElement.classList.remove('sidebar-left-fixed');
+            } else {
+                htmlElement.classList.add('sidebar-left-fixed');
+                htmlElement.classList.remove('sidebar-left-floating');
+            }
+        },
+        submitSidebarMode() {
+            this.$http
+                .post(`/${this.resource}/visual_settings`, {
+                    bg: this.visuals.bg,
+                    header: this.visuals.header,
+                    sidebars: this.visuals.sidebars,
+                    navbar: this.visuals.navbar,
+                    sidebar_theme: this.visuals.sidebar_theme,
+                    sidebar_mode: this.form.sidebar_mode
+                })
+                .then(response => {
+                    if (response.data.success) {
+                        this.$message.success(response.data.message);
+                        // Aplicar la clase inmediatamente
+                        const htmlElement = document.documentElement;
+                        if (this.form.sidebar_mode === 'dark') {
+                            htmlElement.classList.remove('sidebarMode-light');
+                            htmlElement.classList.add('sidebarMode-dark');
+                        } else {
+                            htmlElement.classList.remove('sidebarMode-dark');
+                            htmlElement.classList.add('sidebarMode-light');
+                        }
+                    }
+                })
+                .catch(error => {
+                    console.log(error);
+                });
+        },
         initForm() {
             this.errors = {};
             this.form = {
@@ -337,7 +441,8 @@ export default {
                 colums_grid_item: 4,
                 enable_whatsapp: true,
                 phone_whatsapp: "",
-                skins: 1
+                skins: 1,
+                sidebar_mode: "light"
             };
         },
         async getRecords() {
@@ -346,6 +451,12 @@ export default {
                     this.visuals = response.data.data.visual;
                     this.form = response.data.data;
                     this.skins = response.data.data.skins;
+
+                    if (typeof this.visuals.sidebar_margin === 'undefined') {
+                        this.$set(this.visuals, 'sidebar_margin', true);
+                    }
+
+                    this.applySidebarMargin(this.visuals.sidebar_margin);
 
                     if (this.form.default_image) {
                         this.fileName = this.form.default_image;
@@ -449,6 +560,13 @@ export default {
         },
         dialogSkins() {
             this.dialogSkinsVisible = true;
+        },
+        closeStyleSwitcher() {
+            const styleSwitcher = document.getElementById('styleSwitcher');
+            if (styleSwitcher) {
+                styleSwitcher.classList.remove('active');
+                styleSwitcher.style.right = '-285px';
+            }
         }
     },
     mounted() {
@@ -464,7 +582,30 @@ export default {
     }
 };
 </script>
+<style lang="scss">
+.style-switcher-backdrop {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+    z-index: 1039;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.3s ease, visibility 0.3s ease;
+    pointer-events: none;
+}
+
+.style-switcher.active ~ .style-switcher-backdrop {
+    opacity: 1;
+    visibility: visible;
+    pointer-events: auto;
+}
+</style>
+
 <style scoped lang="scss">
+
 .el-custom-control {
     display: flex;
     align-content: center;
@@ -496,5 +637,21 @@ export default {
 
 .color-selector button.theme-selected {
    box-shadow: 0 0 0 4px var(--highlight-color);
+}
+.sidebar-example.sidebar-example-selected > div::after {
+    background-image: url("data:image/svg+xml;utf8,\
+        <svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'>\
+        <polyline points='20 6 9 17 4 12' />\
+        </svg>");
+
+    background-repeat: no-repeat;
+    background-position: center;
+    background-size: 12px;
+}
+html.dark .sidebar-example.sidebar-example-selected > div::after {
+    background-image: url("data:image/svg+xml;utf8,\
+        <svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'>\
+        <polyline points='20 6 9 17 4 12' />\
+        </svg>");
 }
 </style>

@@ -84,8 +84,8 @@
                                         <th>#</th>
                                         <th class="font-weight-bold">Descripción</th>
                                         <th class="text-center font-weight-bold">Precio Unitario</th>
-                                        <th class="text-right font-weight-bold">Cantidad</th>
-                                        <th class="text-right font-weight-bold">Total</th>
+                                        <th class="text-end font-weight-bold">Cantidad</th>
+                                        <th class="text-end font-weight-bold">Total</th>
                                         <th></th>
                                     </tr>
                                 </thead>
@@ -94,14 +94,14 @@
                                     <td>{{index + 1}}</td>
                                     <td>{{row.full_description}}</td>
                                     <td class="text-center">{{row.sale_unit_price}}</td>
-                                    <td class="text-right">
+                                    <td class="text-end">
                                         <el-input-number
                                             v-model="row.quantity"
                                             @change="calculateTotal"
                                             :min="0"/>
                                     </td>
                                     <td class="text-center">{{row.sale_unit_price * row.quantity | toDecimals }}</td>
-                                    <td class="text-right">
+                                    <td class="text-end">
                                         <button class="btn waves-effect waves-light btn-xs btn-danger" type="button"
                                                 @click.prevent="clickRemoveItem(index)">x
                                         </button>
@@ -113,7 +113,7 @@
                                     <th></th>
                                     <th class="font-weight-bold"></th>
                                     <th class="text-center font-weight-bold"></th>
-                                    <th class="text-right font-weight-bold">Total</th>
+                                    <th class="text-end font-weight-bold">Total</th>
                                     <th class="text-center font-weight-bold">{{ total | toDecimals}}</th>
                                     <th></th>
                                 </tr>
@@ -267,8 +267,8 @@
 
                 </div>
             </div>
-            <div class="form-actions text-right pt-2">
-                <el-button class="second-buton" @click.prevent="close()">Cancelar</el-button>
+            <div class="form-actions text-end pt-2">
+                <el-button class="second-buton me-2" @click.prevent="close()">Cancelar</el-button>
                 <el-button type="primary" native-type="submit" :loading="loading_submit">Guardar</el-button>
             </div>
         </form>

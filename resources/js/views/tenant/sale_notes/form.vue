@@ -1,5 +1,6 @@
 <template>
     <div :class="{ 'content-opacity': isVisible }" class="" @click.self="toggleInformation">
+        <span class="module-title-marker" data-page-title="Nueva Nota de Venta"></span>
         <Keypress key-event="keyup" @success="checkKey" />
         <Keypress
             key-event="keyup"
@@ -22,7 +23,7 @@
                                 ></logo>
                             </div>
                             <div
-                                class="text-left mt-3 mb-0"
+                                class="text-start mt-3 mb-0"
                                 style="margin-left: 10%;"
                             >
                                 <address class="ib mr-2">
@@ -113,22 +114,22 @@
                         <div class="row mt-1">
                             <div class="col-lg-5">
                                 <div
-                                    class="form-group"
+                                    class="form-group position-relative"
                                     :class="{
                                         'has-danger': errors.customer_id
                                     }"
                                 >
                                     <label
-                                        class="control-label font-weight-bold text-info"
+                                        class="control-label font-weight-bold"
                                     >
                                         Cliente
-                                        <a
+                                        <!-- <a
                                             href="#"
                                             @click.prevent="
                                                 showDialogNewPerson = true
                                             "
                                             >[+ Nuevo]</a
-                                        >
+                                        > -->
                                     </label>
                                     <el-select
                                         v-model="form.customer_id"
@@ -151,7 +152,28 @@
                                             :value="option.id"
                                             :label="option.description"
                                         ></el-option>
+
+                                        <template slot="empty">
+                                            <p v-if="loading_search" class="el-select-dropdown__empty">
+                                                Cargando...
+                                            </p>
+                                        
+                                            <p v-else class="el-select-dropdown__empty">
+                                                No se encontraron resultados
+                                            </p>
+                                        
+                                            <div
+                                                v-if="!loading_search"
+                                                class="el-select-dropdown__item new-option"
+                                                @click.stop="openNewPersonDialog"
+                                            >
+                                                <span>{{ customerSearchTerm ? `Crear cliente "${customerSearchTerm}"` : 'Crear cliente' }}</span>
+                                            </div>
+                                        </template>
                                     </el-select>
+                                    <span class="btn-add-new" @click.prevent="showDialogNewPerson = true" title="Agregar nuevo cliente">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon icon-tabler icons-tabler-outline icon-tabler-user-plus"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M8 7a4 4 0 1 0 8 0a4 4 0 0 0 -8 0" /><path d="M16 19h6" /><path d="M19 16v6" /><path d="M6 21v-2a4 4 0 0 1 4 -4h4" /></svg>
+                                    </span>
                                     <small
                                         class="form-control-feedback"
                                         v-if="errors.customer_id"
@@ -160,7 +182,7 @@
                                 </div>
                             </div>
 
-                            <div class="row col-lg-7 pr-0">
+                            <div class="row col-lg-7 pe-0">
                                 <div class="col-lg-3 branch-input">
                                     <div
                                         class="form-group"
@@ -300,7 +322,7 @@
                                     </span>
                                 </span>
                                 <div
-                                    class="column pt-2 pl-5 pr-5 additional-information"
+                                    class="column pt-2 ps-5 pe-5 additional-information"
                                     :class="{ show: isVisible }"
                                 >
                                     <h3 class="text-center">
@@ -542,31 +564,31 @@
                                                     </th>
                                                     <th
                                                         width="12%"
-                                                        class="text-right font-weight-bold"
+                                                        class="text-end font-weight-bold"
                                                     >
                                                         Cantidad
                                                     </th>
                                                     <th
                                                         width="14%"
-                                                        class="text-right font-weight-bold"
+                                                        class="text-end font-weight-bold"
                                                     >
                                                         Valor Unitario
                                                     </th>
                                                     <th
                                                         width="14%"
-                                                        class="text-right font-weight-bold"
+                                                        class="text-end font-weight-bold"
                                                     >
                                                         Precio Unitario
                                                     </th>
                                                     <th
                                                         width="14%"
-                                                        class="text-right font-weight-bold"
+                                                        class="text-end font-weight-bold"
                                                     >
                                                         Subtotal
                                                     </th>
                                                     <th
                                                         width="14%"
-                                                        class="text-right font-weight-bold"
+                                                        class="text-end font-weight-bold"
                                                     >
                                                         Total
                                                     </th>
@@ -679,7 +701,7 @@
                                                         }}
                                                     </td>
 
-                                                    <td class="text-right">
+                                                    <td class="text-end">
                                                         <div
                                                             @keydown.enter="
                                                                 handleEnterKey(
@@ -715,7 +737,7 @@
                                                         </div>
                                                     </td>
 
-                                                    <td class="text-right">
+                                                    <td class="text-end">
                                                         <div
                                                             @keydown.enter="
                                                                 handleEnterKey(
@@ -762,7 +784,7 @@
                                                         </div>
                                                     </td>
 
-                                                    <td class="text-right">
+                                                    <td class="text-end">
                                                         <div
                                                             @keydown.enter="
                                                                 handleEnterKey(
@@ -809,7 +831,7 @@
                                                         </div>
                                                     </td>
 
-                                                    <td class="text-right">
+                                                    <td class="text-end">
                                                         <div
                                                             @keydown.enter="
                                                                 handleEnterKey(
@@ -856,7 +878,7 @@
                                                         </div>
                                                     </td>
 
-                                                    <td class="text-right">
+                                                    <td class="text-end">
                                                         <div
                                                             @keydown.enter="
                                                                 handleEnterKey(
@@ -1213,9 +1235,9 @@
                                     class="row mt-1 mb-2"
                                     v-if="form.total > 0"
                                 >
-                                    <div class="col-lg-10 float-right">
+                                    <div class="col-lg-10 float-end">
                                         <label
-                                            class="float-right control-label"
+                                            class="float-end control-label"
                                         >
                                             <el-tooltip
                                                 class="item"
@@ -1241,7 +1263,7 @@
                                         </label>
                                     </div>
 
-                                    <div class="col-lg-2 float-right">
+                                    <div class="col-lg-2 text-end">
                                         <el-input-number
                                             v-model="total_global_discount"
                                             :min="0"
@@ -1254,46 +1276,46 @@
                                 <!-- descuentos -->
 
                                 <p
-                                    class="text-right"
+                                    class="text-end"
                                     v-if="form.total_exportation > 0"
                                 >
                                     OP.EXPORTACIÓN: {{ currency_type.symbol }}
                                     {{ form.total_exportation }}
                                 </p>
                                 <p
-                                    class="text-right"
+                                    class="text-end"
                                     v-if="form.total_free > 0"
                                 >
                                     OP.GRATUITAS: {{ currency_type.symbol }}
                                     {{ form.total_free }}
                                 </p>
                                 <p
-                                    class="text-right"
+                                    class="text-end"
                                     v-if="form.total_unaffected > 0"
                                 >
                                     OP.INAFECTAS: {{ currency_type.symbol }}
                                     {{ form.total_unaffected }}
                                 </p>
                                 <p
-                                    class="text-right"
+                                    class="text-end"
                                     v-if="form.total_exonerated > 0"
                                 >
                                     OP.EXONERADAS: {{ currency_type.symbol }}
                                     {{ form.total_exonerated }}
                                 </p>
                                 <p
-                                    class="text-right"
+                                    class="text-end"
                                     v-if="form.total_taxed > 0"
                                 >
                                     OP.GRAVADA: {{ currency_type.symbol }}
                                     {{ form.total_taxed }}
                                 </p>
-                                <p class="text-right" v-if="form.total_igv > 0">
+                                <p class="text-end" v-if="form.total_igv > 0">
                                     IGV: {{ currency_type.symbol }}
                                     {{ form.total_igv }}
                                 </p>
                                 <p
-                                    class="text-right"
+                                    class="text-end"
                                     v-if="form.total_discount > 0"
                                 >
                                     DESCUENTOS TOTALES:
@@ -1302,12 +1324,12 @@
                                 </p>
 
                                 <div class="row mt-1" v-if="form.total > 0">
-                                    <div class="col-lg-10 float-right mt-1">
-                                        <label class="float-right control-label"
+                                    <div class="col-lg-10 float-end mt-1">
+                                        <label class="float-end control-label"
                                             >OTROS CARGOS:
                                         </label>
                                     </div>
-                                    <div class="col-lg-2 float-right">
+                                    <div class="col-lg-2 float-end">
                                         <div class="form-group">
                                             <table>
                                                 <tr>
@@ -1342,12 +1364,12 @@
                                     </div>
                                 </div>
 
-                                <h3 class="text-right" v-if="form.total > 0">
+                                <h3 class="text-end" v-if="form.total > 0">
                                     <b>TOTAL A PAGAR: </b
                                     >{{ currency_type.symbol }} {{ form.total }}
                                 </h3>
 
-                                                    <h5 class="text-right" v-if="form.total > 0">
+                                                    <h5 class="text-end" v-if="form.total > 0">
                                                             CONDICIÓN DE PAGO:
                                                             <el-select
                                                                 v-model="
@@ -1375,7 +1397,7 @@
                                                                 ></el-option>
                                                             </el-select>
                                                     </h5>
-                                            <div v-if="form.total > 0 && customer_has_expired" class="alert float-right alert-danger mt-2 mb-0 text-center">
+                                            <div v-if="form.total > 0 && customer_has_expired" class="alert float-end alert-danger mt-2 mb-0 text-center">
                                                 El cliente excede los {{ config.finances.max_expired_days }} días de vencimiento de crédito. Solo puede emitir comprobantes al contado.
                                             </div>
                             </div>
@@ -1400,7 +1422,7 @@
                                                                 class="table-responsive"
                                                             >
                                                                 <table
-                                                                    class="text-left table"
+                                                                    class="text-start table"
                                                                     style="table-layout: auto;"
                                                                     width="100%"
                                                                 >
@@ -1414,13 +1436,13 @@
                                                                             "
                                                                         >
                                                                             <th
-                                                                                class="text-left"
+                                                                                class="text-start"
                                                                                 style="width: 100px"
                                                                             >
                                                                                 Fecha
                                                                             </th>
                                                                             <th
-                                                                                class="text-left"
+                                                                                class="text-start"
                                                                                 style="width: 100px"
                                                                             >
                                                                                 Monto
@@ -1527,7 +1549,7 @@
                                                                             .length >
                                                                             0
                                                                     "
-                                                                    class="text-left table"
+                                                                    class="text-start table"
                                                                     width="100%"
                                                                 >
                                                                     <thead>
@@ -1546,13 +1568,13 @@
                                                                                 pago
                                                                             </th>
                                                                             <th
-                                                                                class="text-left"
+                                                                                class="text-start"
                                                                                 style="width: 100px"
                                                                             >
                                                                                 Fecha
                                                                             </th>
                                                                             <th
-                                                                                class="text-left"
+                                                                                class="text-start"
                                                                                 style="width: 100px"
                                                                             >
                                                                                 Monto
@@ -1637,7 +1659,7 @@
                                                                 class="table-responsive payment mt-4"
                                                             >
                                                                 <table
-                                                                    class="text-left table"
+                                                                    class="text-start table"
                                                                 >
                                                                     <thead>
                                                                         <tr>
@@ -1925,7 +1947,7 @@
                     </div>
 
                     <div
-                        class="form-actions footer-card-default text-right mt-4 pl-4 pr-4 pb-3 pt-3"
+                        class="form-actions footer-card-default mt-4 px-4 py-3"
                     >
                         <el-button
                             class="second-buton btn btn-default second-buton-default"
@@ -1975,7 +1997,7 @@
             :showDialog.sync="showDialogNewPerson"
             type="customers"
             :external="true"
-            :input_person="input_person"
+            :input_person="customerSearchTerm"
             :document_type_id="form.document_type_id"
         ></person-form>
 
@@ -2068,6 +2090,9 @@ header .head-notes > div {
 }
 .content-opacity {
     position: relative;
+}
+.el-input-number__decrease, .el-input-number__increase{
+    top: 1px;
 }
 .content-opacity::after {
     content: "";
@@ -2303,12 +2328,28 @@ export default {
             customer_has_expired: false,
             consigneds:[],
             consigned_addresses:[],
+            customerSearchTerm: ''
         };
+    },
+    watch: {
+        showDialogNewPerson(newVal) {
+            if (!newVal) {
+                this.customerSearchTerm = ''
+            }
+        }
     },
     async created() {
         this.selected_option_price = this.price_options[0].id;
         this.loadConfiguration();
         this.$store.commit("setConfiguration", this.configuration);
+        
+        // Actualizar price_options con los labels personalizados
+        if (this.config) {
+            this.price_options[1].description = this.config.price1_label || 'Precio 1';
+            this.price_options[2].description = this.config.price2_label || 'Precio 2';
+            this.price_options[3].description = this.config.price3_label || 'Precio 3';
+        }
+        
         await this.initForm();
         await this.$http.get(`/${this.resource}/tables`).then(response => {
             this.currency_types = response.data.currency_types;
@@ -2352,6 +2393,7 @@ export default {
         this.loading_form = true;
         this.$eventHub.$on("reloadDataPersons", customer_id => {
             this.reloadDataCustomers(customer_id);
+            this.customerSearchTerm = ''
         });
         this.$eventHub.$on("initInputPerson", () => {
             this.initInputPerson();
@@ -2776,6 +2818,8 @@ export default {
             this.getConsigneds()
         },
         searchRemoteCustomers(input) {
+            this.customerSearchTerm = input;
+
             if (input.length > 0) {
                 this.loading_search = true;
                 let parameters = `input=${input}`;
@@ -3532,6 +3576,9 @@ export default {
             let consigned_address = _.find(this.consigned_addresses, {'id': this.form.consigned_address_id});
             this.form.consigned_address = consigned_address.address;
             this.form.consigned_ubigeo = consigned_address.district_id;
+        },
+        openNewPersonDialog() {
+            this.showDialogNewPerson = true
         },
     }
 };

@@ -78,6 +78,7 @@ class MobileController extends Controller
                 'address' => auth()->user()->establishment->department->description.', '.auth()->user()->establishment->province->description.', '.auth()->user()->establishment->district->description.', '.auth()->user()->establishment->address,
                 'phone' => auth()->user()->establishment->telephone,
                 'email' => auth()->user()->establishment->email,
+                'enable_list_product' => !$configuration->enable_list_product,
                 'qr_api_enable_ws' => $configuration->qr_api_enable,
                 'qr_api_url_ws' => $configuration->qr_api_url,
                 'qr_api_key_ws' => $configuration->qr_api_apiKey,
@@ -86,6 +87,7 @@ class MobileController extends Controller
                 'is_business_turn_tap' => ($business_turn_tap)?$business_turn_tap->active:0,
             ],
             'app_configuration' => $this->getAppConfiguration(),
+            'permission_edit_item_prices' => $user->permission_edit_item_prices,
             'sellerId' => $user->id,
         ];
 
@@ -157,8 +159,10 @@ class MobileController extends Controller
         });*/
         $establishment_id = auth()->user()->establishment_id;
         $warehouse = Warehouse::where('establishment_id', $establishment_id)->first();
+        $configuration =  Configuration::first();
+        $decimal_units = (int)$configuration->decimal_quantity;
 
-        $items = Item::with(['brand', 'category'])
+        $items = Item::with(['brand', 'category', 'item_unit_types'])
                     ->whereWarehouse()
                     ->whereHasInternalId()
                     // ->whereNotIsSet()
@@ -166,7 +170,7 @@ class MobileController extends Controller
                     ->orderBy('description')
                     ->take(20)
                     ->get()
-                    ->transform(function($row) use($warehouse){
+                    ->transform(function($row) use($warehouse, $configuration, $decimal_units){
                         $full_description = ($row->internal_id)?$row->internal_id.' - '.$row->description:$row->description;
 
                         return [
@@ -194,6 +198,10 @@ class MobileController extends Controller
                             'aux_quantity' => 1,
                             'brand' => $row->brand->name,
                             'category' => $row->brand->name,
+                            'item_unit_types' => $row->item_unit_types->transform(function ($row) use ($decimal_units) {
+                                /** @var ItemUnitType $row */
+                                return $row->getCollectionData($decimal_units);
+                            }),
                             'stock' => $row->getWarehouseCurrentStock($warehouse),
                             // 'stock' => $row->unit_type_id!='ZZ' ? ItemWarehouse::where([['item_id', $row->id],['warehouse_id', $warehouse->id]])->first()->stock : '0',
                             'image' => $row->image != "imagen-no-disponible.jpg" ? url("/storage/uploads/items/" . $row->image) : url("/logo/" . $row->image),

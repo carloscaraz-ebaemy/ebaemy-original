@@ -844,7 +844,7 @@
                                             <td>{{ row.number }}</td>
                                             <td>{{ row.name }}</td>
 
-                                            <td class="text-right">
+                                            <td class="text-end">
                                                 <button class="btn waves-effect waves-light btn-xs btn-info"
                                                         type="button"
                                                         @click="ediItem(row, index)">
@@ -879,9 +879,9 @@
                 </el-tab-pane>
 
             </el-tabs>
-            <div class="form-actions text-right mt-4">
+            <div class="form-actions text-end mt-4">
                 <el-button
-                    class="second-buton"
+                    class="second-buton me-2"
                     @click.prevent="close()">
                     Cancelar
                 </el-button>

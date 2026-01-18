@@ -21,10 +21,12 @@
                         <div id="custom-select"
                              :class="{'has-danger': errors.item_id}"
                              class="form-group ">
-                            <label class="control-label">
+                            <label class="control-label d-flex align-items-center">
                                 Producto/Servicio
-                                <a href="#"
-                                   @click.prevent="showDialogNewItem = true">[+ Nuevo]</a>
+                                <span class="btn-add-new-product"
+                                   @click.prevent="showDialogNewItem = true">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon icon-tabler icons-tabler-outline icon-tabler-plus"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M12 5l0 14" /><path d="M5 12l14 0" /></svg>
+                                </span>
                             </label>
                             <template id="select-append">
                                 <el-input id="custom-input" class="input-search-product">
@@ -56,7 +58,25 @@
                                                 :value="option.id"
                                             ></el-option>
 
-                                        </el-tooltip>
+                                        </el-tooltip>s
+
+                                        <template slot="empty">
+                                            <p v-if="loading_search" class="el-select-dropdown__empty">
+                                                Cargando...
+                                            </p>
+                                        
+                                            <p v-else class="el-select-dropdown__empty">
+                                                No se encontraron resultados
+                                            </p>
+                                        
+                                            <div
+                                                v-if="!loading_search"
+                                                class="el-select-dropdown__item new-option"
+                                                @click.stop="openNewItemDialog"
+                                            >
+                                                <span>{{ itemSearchTerm ? `Crear producto "${itemSearchTerm}"` : 'Crear producto' }}</span>
+                                            </div>
+                                        </template>
                                     </el-select>                                    
                                 </el-input>
                             </template>
@@ -161,7 +181,7 @@
                                     <td class="text-center">{{ row.description }}</td>
                                     <td class="text-center">{{ row.quantity_unit }}</td>
 
-                                    <td class="series-table-actions text-right">
+                                    <td class="series-table-actions text-end">
                                         <button class="btn waves-effect waves-light btn-xs btn-success"
                                                 type="button"
                                                 @click.prevent="selectedPrice(row)">
@@ -191,7 +211,7 @@
                                        href="#"></a>
                                 </div>
 
-                                <p class="pl-1">Información adicional atributos UBL 2.1</p>
+                                <p class="ps-1">Información adicional atributos UBL 2.1</p>
                             </header>
                             <div class="card-body px-0 pt-2"
                                  style="display: none;">
@@ -344,8 +364,8 @@
                     </div>
                 </div>
             </div>
-            <div class="form-actions text-right pt-2">
-                <el-button class="second-buton" @click.prevent="close()">Cerrar</el-button>
+            <div class="form-actions text-end pt-2">
+                <el-button class="second-buton me-2" @click.prevent="close()">Cerrar</el-button>
                 <el-button v-if="form.item_id"
                            native-type="submit"
                            type="primary">Agregar
@@ -353,7 +373,9 @@
             </div>
         </form>
         <item-form :external="true"
-                   :showDialog.sync="showDialogNewItem"></item-form>
+                   :showDialog.sync="showDialogNewItem"
+                   :input_item="itemSearchTerm">
+        </item-form>
         <lots-form
             :lots="lots"
             :showDialog.sync="showDialogLots"
@@ -378,9 +400,9 @@ import LotsForm from './lots.vue'
 import ClassicEditor from "@ckeditor/ckeditor5-build-classic";
 import VueCkeditor from "vue-ckeditor5";
 import {mapActions, mapState} from "vuex/dist/vuex.mjs";
-import {ItemOptionDescription, ItemSlotTooltip} from "../../../../../../../../resources/js/helpers/modal_item";
+import {ItemOptionDescription, ItemSlotTooltip} from "@helpers/modal_item";
 import WarehousesDetail
-    from "../../../../../../../Sale/Resources/assets/js/views/sale_opportunities/partials/warehouses";
+    from "../../../../../../../Sale/Resources/assets/js/views/sale_opportunities/partials/warehouses.vue";
 
 export default {
     props: [
@@ -432,6 +454,14 @@ export default {
             editors: {
                 classic: ClassicEditor
             },
+            itemSearchTerm: ''
+        }
+    },
+    watch: {
+        showDialog(newVal) {
+            if (newVal) {
+                this.itemSearchTerm = ''
+            }
         }
     },
     created() {
@@ -451,6 +481,7 @@ export default {
 
         this.$eventHub.$on('reloadDataItems', (item_id) => {
             this.reloadDataItems(item_id)
+            this.itemSearchTerm = ''
         })
     },
     computed: {
@@ -482,6 +513,8 @@ export default {
             return ItemOptionDescription(item)
         },
         async searchRemoteItems(input) {
+            this.itemSearchTerm = input
+            
             if (input.length > 2) {
                 this.loading_search = true
                 const params = {
@@ -760,7 +793,10 @@ export default {
             if (this.recordItem) {
                 this.reloadDataItems(this.recordItem.item_id)
             }
-        }
+        },
+        openNewItemDialog() {
+            this.showDialogNewItem = true;
+        },
     }
 }
 

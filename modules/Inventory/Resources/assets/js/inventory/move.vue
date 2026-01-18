@@ -117,8 +117,8 @@
                     </div>
                 </div>
             </div>
-            <div class="form-actions text-right mt-4">
-                <el-button class="second-buton" @click.prevent="close()"
+            <div class="form-actions text-end mt-4">
+                <el-button class="second-buton me-2" @click.prevent="close()"
                     >Cancelar</el-button
                 >
                 <el-button
@@ -153,8 +153,8 @@
 </template>
 
 <script>
-import OutputLotsGroupForm from "../../../../../../resources/js/views/tenant/documents/partials/lots_group.vue";
-import OutputLotsForm from "../../../../../../resources/js/views/tenant/documents/partials/lots.vue";
+import OutputLotsGroupForm from "@views/documents/partials/lots_group.vue";
+import OutputLotsForm from "@views/documents/partials/lots.vue";
 //import OutputLotsForm from './partials/lots.vue';
 
 export default {

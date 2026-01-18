@@ -5,18 +5,16 @@ namespace Modules\Report\Http\Controllers;
 use App\Models\Tenant\Catalogs\DocumentType;
 use App\Http\Controllers\Controller;
 use App\Models\System\Client;
-use Barryvdh\DomPDF\Facade as PDF;
+use Illuminate\Bus\Batch;
+use Illuminate\Support\Facades\Bus;
+use Barryvdh\DomPDF\Facade\Pdf as PDF;
 use Modules\Report\Exports\GeneralItemExport;
 use Illuminate\Http\Request;
-use App\Models\Tenant\Establishment;
-use App\Models\Tenant\Document;
 use App\Models\Tenant\PurchaseItem;
 use App\Models\Tenant\DocumentItem;
 use App\Models\Tenant\SaleNoteItem;
 use App\Models\Tenant\Company;
-use App\Models\Tenant\DownloadTray;
 use App\Traits\JobReportTrait;
-use Carbon\Carbon;
 use Hyn\Tenancy\Models\Hostname;
 use Illuminate\Support\Facades\Log;
 use Modules\Report\Http\Resources\GeneralItemCollection;
@@ -222,7 +220,9 @@ class ReportGeneralItemController extends Controller
         $curnent_user = auth()->user();
         $user_id = $request->user_id ? $request->user_id :  $curnent_user->id;
 
-        $tray = $this->createDownloadTray($user_id, 'Reporte', $request->format, 'Reporte general de venta/productos');
+        $record_chunk = isset($request->record_chunk) ? $request->record_chunk : null;
+        $total = $this->getRecordsItems($request->all())->count();
+        $tray = $this->createDownloadTray($user_id, 'Reporte', !is_null($record_chunk) ?$request->format : 'zip', 'Reporte general de venta/productos');
         $trayId = $tray->id;
         $hostname = Hostname::where('fqdn',$host)->first();
         if(empty($hostname)) {
@@ -234,8 +234,39 @@ class ReportGeneralItemController extends Controller
             $website_id = $hostname->website_id;
         }
 
-        ProcessReportGeneralItems::dispatch($trayId, $website_id, $request->all(), $user_id);
-        
+
+        if (!is_null($record_chunk) && $request->format == 'pdf') {
+            $batches = [];
+            for ($i=0; $i < ceil($total / $record_chunk) ; $i++) { 
+                $offset = $i * $record_chunk;
+                $batches[] = new ProcessReportGeneralItems(
+                    $trayId,
+                    $website_id,
+                    $request->all(),
+                    $user_id,
+                    $offset,
+                    $record_chunk,
+                    true
+                );
+            }
+
+            $r_all = $request->all();
+            $batch = Bus::batch($batches)
+                ->name('Report General Items')
+                ->catch(function (Batch $batch, $exception) use($trayId) {
+                    Log::error("Error de batch Report General Items: ", [
+                        "error" => $exception->getMessage()
+                    ]);
+                    $this->jobBatchFailed($batch->id, $trayId);
+                })
+                ->then(function(Batch $batch) use($trayId, $website_id, $r_all) {return $this->jobBatchFinished($batch, $trayId, $website_id, $r_all);})
+                ->dispatch();
+
+
+        } else {
+            ProcessReportGeneralItems::dispatch($trayId, $website_id, $request->all(), $user_id, 0, $total, false);
+        }
+
         return  [
             'success' => true,
             'message' => 'El reporte se esta procesando; puede ver el proceso en bandeja de descargas.'

@@ -104,28 +104,28 @@
                             <table class="table">
                                 <thead>
                                     <tr>
-                                        <th class="text-right">#</th>
+                                        <th class="text-end">#</th>
                                         <th >Producto</th>
-                                        <th class="text-left">Fecha y hora transacción</th>
-                                        <th class="text-left">Documento</th>
-                                        <th class="text-left">Almacén</th>
-                                        <th class="text-left">Motivo de traslado</th>
-                                        <th class="text-right">Entrada</th>
-                                        <th class="text-right">Salida</th>
+                                        <th class="text-start">Fecha y hora transacción</th>
+                                        <th class="text-start">Documento</th>
+                                        <th class="text-start">Almacén</th>
+                                        <th class="text-start">Motivo de traslado</th>
+                                        <th class="text-end">Entrada</th>
+                                        <th class="text-end">Salida</th>
                                         <th></th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     <tr v-for="(row, index) in records" :key="index">
-                                        <td class="text-right"> {{ customIndex(index) }} </td>
-                                        <td class="text-left"> {{ row.item_description }} </td>
-                                        <td class="text-left"> {{ row.date_time }} </td>
-                                        <td class="text-left"> {{ row.guide_number }} </td>
-                                        <td class="text-left"> {{ row.warehouse_name }} </td>
-                                        <td class="text-left"> {{ row.description }} </td>
-                                        <td class="text-right"> {{ row.input }} </td>
-                                        <td class="text-right"> {{ row.output }} </td>
-                                        <td class="text-right">
+                                        <td class="text-end"> {{ customIndex(index) }} </td>
+                                        <td class="text-start"> {{ row.item_description }} </td>
+                                        <td class="text-start"> {{ row.date_time }} </td>
+                                        <td class="text-start"> {{ row.guide_number }} </td>
+                                        <td class="text-start"> {{ row.warehouse_name }} </td>
+                                        <td class="text-start"> {{ row.description }} </td>
+                                        <td class="text-end"> {{ row.input }} </td>
+                                        <td class="text-end"> {{ row.output }} </td>
+                                        <td class="text-end">
                                             <button class="btn waves-effect waves-light btn-xs btn-info"
                                                     type="button"
                                                     @click.prevent="downloadPdfGuide(row.guide_id)"
@@ -150,7 +150,7 @@
                 </div>
 
             </div>
-            <div class="form-actions text-right mt-4">
+            <div class="form-actions text-end mt-4">
                 <el-button @click.prevent="close()">Cerrar</el-button>
             </div>
         </form>

@@ -4,10 +4,13 @@
     $path[1] = (array_key_exists(1, $path) > 0) ? $path[1] : '';
     $path[2] = (array_key_exists(2, $path) > 0) ? $path[2] : '';
     $path[0] = ($path[0] === '') ? 'documents' : $path[0];
-    $visual->sidebar_theme = property_exists($visual, 'sidebar_theme') ? $visual->sidebar_theme : ''
+    $visual->sidebar_theme = property_exists($visual, 'sidebar_theme') ? $visual->sidebar_theme : '';
+    $visual->sidebar_margin = property_exists($visual, 'sidebar_margin') ? (bool)$visual->sidebar_margin : true;
+    $sidebar_mode = isset($vc_compact_sidebar) ? ($vc_compact_sidebar->sidebar_mode ?? 'light') : 'light';
 @endphp
 <html lang="{{ str_replace('_', '-', app()->getLocale()) }}" class="fixed no-mobile-device custom-scroll
-        sidebar-white sidebar-light
+        sidebar-white sidebar-light {{ $sidebar_mode === 'dark' ? 'sidebarMode-dark' : 'sidebarMode-light' }}
+        {{ $visual->sidebar_margin ? 'sidebar-left-floating' : 'sidebar-left-fixed' }}
         {{$vc_compact_sidebar->compact_sidebar == true
     || $path[0] === 'pos'
     || $path[0] === 'pos' && $path[1] === 'fast'
@@ -36,11 +39,17 @@
     <meta name="googlebot" content="noindex">
     <meta name="robots" content="noindex">
 
-    <link async href="{{ mix('css/app.css') }}" rel="stylesheet">
+    <script>
+        window.vc_visual = window.vc_visual || {};
+        window.vc_visual.sidebar_theme = @json($visual->sidebar_theme);
+    </script>
+
+    @vite(['resources/js/app.js'])
+
     <link rel="preconnect" href="https://fonts.gstatic.com">
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;700&display=swap" rel="stylesheet">
 
-    <link rel="stylesheet" href="{{ asset('porto-light/vendor/bootstrap/css/bootstrap.css') }}" />
+    {{-- <link rel="stylesheet" href="{{ asset('porto-light/vendor/bootstrap/css/bootstrap.css') }}" /> --}}
     <link rel="stylesheet" href="{{ asset('porto-light/vendor/animate/animate.css') }}" />
     <link rel="stylesheet" href="{{ asset('porto-light/vendor/font-awesome/5.11/css/all.min.css') }}" />
     <link rel="stylesheet" href="{{ asset('porto-light/vendor/meteocons/css/meteocons.css') }}" />
@@ -138,54 +147,13 @@
     @if ($vc_company->favicon)
         <link rel="shortcut icon" type="image/png" href="{{ asset($vc_company->favicon) }}" />
     @endif
-    <script defer src="{{ mix('js/app.js') }}"></script>
 
     <script async src="https://social.buho.la/pixel/y9nonmie9j8dkwha20ct2ua7nwsywi2m"></script>
-    <script>
-        (async function () {
-            const savedTheme = @json($visual->sidebar_theme);
-            const timeoutDuration = 3000;
-
-            const showContent = () => {
-                document.body.classList.add('visible');
-            };
-
-            const timeout = setTimeout(() => {
-                console.warn('Timeout: Mostrando contenido sin aplicar el tema.');
-                showContent();
-            }, timeoutDuration);
-
-            if (savedTheme) {
-                try {
-                    const response = await fetch('/json/themes/themes.json');
-                    const themes = await response.json();
-
-                    if (themes[savedTheme]) {
-                        const styleElement = document.createElement('style');
-                        let cssVariables = '';
-
-                        Object.keys(themes[savedTheme]).forEach(variable => {
-                            cssVariables += `${variable}: ${themes[savedTheme][variable]};\n`;
-                        });
-
-                        styleElement.innerHTML = `:root { ${cssVariables} }`;
-                        document.head.appendChild(styleElement);
-                    }
-                } catch (error) {
-                    console.error('Error loading themes:', error);
-                } finally {
-                    clearTimeout(timeout);
-                    showContent();
-                }
-            } else {
-                clearTimeout(timeout);
-                showContent();
-            }
-        })();
-    </script>
 </head>
 
-<body class="pr-0">
+<body class="pr-0"
+    data-tenant="true"
+    data-company-title="{{ $vc_company->title_web }}">
     <section class="body">
         <!-- start: header -->
         {{-- @include('tenant.layouts.partials.header') --}}
@@ -211,7 +179,7 @@
         @if(strlen($phone_whatsapp) > 0)
             <a class='ws-flotante d-flex align-items-center justify-content-center' href='https://wa.me/{{$phone_whatsapp}}'
                 target="BLANK"
-                style="font-size: 45px; color: #fff; background-color: #0074ff; text-decoration: none; border-radius: 30% !important;">
+                style="font-size: 45px; color: #fff !important; background-color: #0074ff; text-decoration: none; border-radius: 30% !important;">
                 <i class="fab fa-whatsapp"></i>
             </a>
         @endif
@@ -225,7 +193,7 @@
     {{--
     <script src="{{ asset('porto-light/master/style-switcher/style.switcher.js')}}"></script> --}}
     <script src="{{ asset('porto-light/vendor/popper/umd/popper.min.js')}}"></script>
-    <!-- <script src="{{ asset('porto-light/vendor/bootstrap/js/bootstrap.js')}}"></script> -->
+    {{-- <script src="{{ asset('porto-light/vendor/bootstrap/js/bootstrap.js')}}"></script> --}}
     {{--
     <script src="{{ asset('porto-light/vendor/common/common.js')}}"></script> --}}
     <script src="{{ asset('porto-light/vendor/nanoscroller/nanoscroller.js')}}"></script>
@@ -271,8 +239,11 @@
 
     @stack('scripts')
 
-    <script src="{{ asset('js/manifest.js') }}"></script>
-    <script src="{{ asset('js/vendor.js') }}"></script>
+    <script src="{{ asset('js/sign-message.js') }}"></script>
+    <script src="{{ asset('js/sha-256.min.js') }}"></script>
+    <script src="{{ asset('js/rsvp-3.1.0.min.js') }}"></script>
+    <script src="{{ asset('js/qz-tray.js') }}"></script>
+    {{-- <script src="{{ asset('js/vendor.js') }}"></script> --}}
     <!-- Theme Base, Components and Settings -->
     <script src="{{asset('porto-light/js/theme.js')}}"></script>
 

@@ -500,7 +500,7 @@
                                         <tbody>
                                             <tr v-for="(row, index) in form.default_document_types" :key="index" width="100%">
                                                 <td>
-                                                    <div class="form-group mb-2 mr-2">
+                                                    <div class="form-group mb-2 me-2">
                                                         <el-select v-model="row.document_type_id" @change="changeDefaultDocumentType(index)">
                                                             <el-option v-for="option in documents" :key="option.id" :value="option.id" :label="option.description.toUpperCase()"></el-option>
                                                         </el-select>
@@ -513,7 +513,7 @@
                                                     </div>
                                                 </td>
                                                 <td>
-                                                    <div class="form-group mb-2 mr-2">
+                                                    <div class="form-group mb-2 me-2">
                                                         <el-select v-model="row.series_id" filterable >
                                                             <el-option v-for="option in row.default_series" :key="option.id" :value="option.id" :label="option.number"></el-option>
                                                         </el-select>
@@ -591,8 +591,8 @@
 
                 </el-tabs>
             </div>
-            <div class="form-actions text-right mt-4">
-                <el-button class="second-buton" @click.prevent="close()">Cancelar</el-button>
+            <div class="form-actions text-end mt-4">
+                <el-button class="second-buton me-2" @click.prevent="close()">Cancelar</el-button>
                 <el-button :loading="loading_submit" native-type="submit" type="primary"
                 >Guardar
                 </el-button

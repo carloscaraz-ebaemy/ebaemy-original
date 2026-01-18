@@ -18,7 +18,7 @@
                         <div :class="{'has-danger': errors.send_document_to_pse}"
                             class="form-group">
                             <label class="control-label">Habilitar </label>
-                            <div class="transfer-data-table pt-3 pl-3 pb-2">
+                            <div class="transfer-data-table pt-3 ps-3 pb-2">
                                 <el-switch v-model="form.send_document_to_pse"
                                     active-text="Si"
                                     inactive-text="No"></el-switch>
@@ -90,7 +90,7 @@
                         </div> -->
                     </template>
                 </div>
-                <div class="form-actions text-right pt-2">
+                <div class="form-actions text-end pt-2">
                     <el-button type="primary" native-type="submit" :loading="loading_submit">Guardar</el-button>
                 </div>
             </form>

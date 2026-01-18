@@ -62,6 +62,7 @@ class ConfigurationController extends Controller
             $this->updateApkUrl($request->apk_url);
         }
 
+        $configuration->fill($request->all());
         $configuration->save();
 
         return [
@@ -86,7 +87,8 @@ class ConfigurationController extends Controller
         request()->validate([
             'position_form' => 'required|in:left,right',
             'show_logo_in_form' => 'required|boolean',
-            'position_logo' => 'required|in:top-left,top-right,bottom-left,bottom-right,none',
+            'position_logo' => 'required|in:on-form,top-left,top-right,bottom-left,bottom-right,none',
+            'padding_in_form' => 'required|boolean',
             'show_socials' => 'required|boolean',
             'use_login_global' => 'required|boolean',
             'login_bg_color' => 'nullable|string|max:50',
@@ -96,7 +98,7 @@ class ConfigurationController extends Controller
         $loginConfig = $config->login;
         
         // Campos que van en la configuración login (JSON)
-        $loginFields = ['position_form', 'show_logo_in_form', 'position_logo', 'show_socials', 'facebook', 'twitter', 'instagram', 'linkedin'];
+        $loginFields = ['position_form', 'show_logo_in_form', 'position_logo', 'padding_in_form', 'show_socials', 'facebook', 'twitter', 'instagram', 'linkedin', 'tiktok'];
         
         foreach($loginFields as $field) {
             if (request()->has($field)) {
@@ -222,9 +224,9 @@ class ConfigurationController extends Controller
         });
     }
 
-    
+
     /**
-     * 
+     *
      * Actualizar el descuento global a 02 (Afecta la base) en todos los clientes
      *
      * @return array
@@ -236,7 +238,7 @@ class ConfigurationController extends Controller
 
             $records = Client::get();
 
-            foreach ($records as $row) 
+            foreach ($records as $row)
             {
                 $tenancy = app(Environment::class);
                 $tenancy->tenant($row->hostname->website);
@@ -252,7 +254,7 @@ class ConfigurationController extends Controller
         ];
     }
 
-    
+
     /**
      *
      * @param  Request $request
@@ -298,7 +300,7 @@ class ConfigurationController extends Controller
      */
     public function uploadTenantAds(Request $request)
     {
-        if ($request->hasFile('file')) 
+        if ($request->hasFile('file'))
         {
             $configuration = Configuration::firstOrFail();
 
@@ -340,7 +342,99 @@ class ConfigurationController extends Controller
             'success' => true,
             'message' => 'Configuración actualizada',
         ];
+    }
+
+    /**
+     * Store visual theme configuration
+     */
+    public function storeVisualTheme(Request $request)
+    {
+        try {
+            $configuration = Configuration::first();
+            
+            if (!$configuration) {
+                $configuration = new Configuration();
+            }
+
+            // Obtener la configuración visual actual o crear una nueva
+            $visual = $configuration->visual ? json_decode($configuration->visual, true) : [];
+            
+            // Actualizar solo el tema de color
+            if ($request->has('theme_color')) {
+                $visual['theme_color'] = $request->theme_color;
+            }
+            
+            $configuration->visual = json_encode($visual);
+            $configuration->save();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Tema guardado correctamente',
+                'theme' => $request->theme_color
+            ]);
+
+        } catch (Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Error al guardar el tema: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Get visual theme configuration
+     */
+    public function getVisualTheme()
+    {
+        try {
+            $configuration = Configuration::first();
+            
+            if (!$configuration || !$configuration->visual) {
+                return response()->json([
+                    'success' => true,
+                    'theme_color' => 'white' // tema por defecto
+                ]);
+            }
+
+            $visual = json_decode($configuration->visual, true);
+            
+            return response()->json([
+                'success' => true,
+                'theme_color' => $visual['theme_color'] ?? 'white'
+            ]);
+
+        } catch (Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Error al obtener el tema: ' . $e->getMessage(),
+                'theme_color' => 'white' // fallback
+            ], 500);
+        }
+    }
+    public function qrapi(Request $request)
+    {
+        $record = Configuration::first();
+        $record->qr_api_url = $request->qr_api_url;  
+        $record->qr_api_token = $request->qr_api_token;  
+        $record->save();
+
+        return [
+            'success' => true,
+            'message' => 'Configuración actualizada',
+        ];
 
     }
 
+    public function cron(Request $request)
+    {
+        $record = Configuration::first();
+        $record->active_cron = $request->active_cron;  
+        $record->save();
+
+        return [
+            'success' => true,
+            'message' => 'Configuración actualizada',
+        ];
+
+    }
 }

@@ -1,6 +1,6 @@
 <template>
     <div>
-        <div class="page-header pr-0">
+        <div class="page-header pe-0">
             <h2>
                 <a href="/list-reports">
                     <svg
@@ -42,16 +42,16 @@
                     <data-table :resource="resource">
                         <tr slot="heading">
                             <!-- <th class="">#</th> -->
-                            <th class="text-left">F. Emisión</th>
-                            <th class="text-left">F. Entrega</th>
-                            <th class="text-left">N° Pedido</th>
+                            <th class="text-start">F. Emisión</th>
+                            <th class="text-start">F. Entrega</th>
+                            <th class="text-start">N° Pedido</th>
                             <th
-                                class="text-left"
+                                class="text-start"
                                 v-if="columns.customer.visible"
                             >
                                 Cliente
                             </th>
-                            <th class="text-left" v-if="columns.user.visible">
+                            <th class="text-start" v-if="columns.user.visible">
                                 Vendedor
                             </th>
                             <th class="text-center">Monto</th>
@@ -61,19 +61,19 @@
                         <tr></tr>
                         <tr slot-scope="{ index, row }">
                             <!-- <td>{{ index }}</td>  -->
-                            <td class="text-left">
+                            <td class="text-start">
                                 {{ formatDate(row.date_of_issue) }}
                             </td>
-                            <td class="text-left">
+                            <td class="text-start">
                                 {{ formatDate(row.delivery_date) }}
                             </td>
-                            <td class="text-left">{{ row.number_full }}</td>
+                            <td class="text-start">{{ row.number_full }}</td>
                             <td v-if="columns.customer.visible">
                                 {{ row.customer_name }}<br /><small
                                     v-text="row.customer_number"
                                 ></small>
                             </td>
-                            <td class="text-left" v-if="columns.user.visible">
+                            <td class="text-start" v-if="columns.user.visible">
                                 {{ row.user_name }}
                             </td>
                             <td class="text-center">{{ row.total }}</td>

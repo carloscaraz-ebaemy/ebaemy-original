@@ -1,0 +1,117 @@
+
+  GET|HEAD   facturaloperu-pro7.oo/ ............................................................................ 
+  GET|HEAD   _debugbar/assets/javascript ........... debugbar.assets.js › Barryvdh\Debugbar › AssetController@js
+  GET|HEAD   _debugbar/assets/stylesheets ........ debugbar.assets.css › Barryvdh\Debugbar › AssetController@css
+  DELETE     _debugbar/cache/{key}/{tags?} .. debugbar.cache.delete › Barryvdh\Debugbar › CacheController@delete
+  GET|HEAD   _debugbar/clockwork/{id} . debugbar.clockwork › Barryvdh\Debugbar › OpenHandlerController@clockwork
+  GET|HEAD   _debugbar/open ............ debugbar.openhandler › Barryvdh\Debugbar › OpenHandlerController@handle
+  POST       _debugbar/queries/explain debugbar.queries.explain › Barryvdh\Debugbar › QueriesController@explain
+  GET|HEAD   _dusk/login/{userId}/{guard?} .................... dusk.login › Laravel\Dusk › UserController@login
+  GET|HEAD   _dusk/logout/{guard?} .......................... dusk.logout › Laravel\Dusk › UserController@logout
+  GET|HEAD   _dusk/user/{guard?} ................................ dusk.user › Laravel\Dusk › UserController@user
+  GET|HEAD   api/generate_token .......................................... Tenant\Api\MobileController@getSeries
+  POST       facturaloperu-pro7.oo/api/reseller/detail ............ System\Api\ResellerController@resellerDetail
+  POST       facturaloperu-pro7.oo/api/reseller/lockedAdmin .......... System\Api\ResellerController@lockedAdmin
+  POST       facturaloperu-pro7.oo/api/reseller/lockedTenant ........ System\Api\ResellerController@lockedTenant
+  GET|HEAD   facturaloperu-pro7.oo/api/restaurant/partner/list ..... System\Api\RestaurantPartnerController@list
+  POST       facturaloperu-pro7.oo/api/restaurant/partner/search . System\Api\RestaurantPartnerController@search
+  POST       facturaloperu-pro7.oo/api/restaurant/partner/store ... System\Api\RestaurantPartnerController@store
+  GET|HEAD   facturaloperu-pro7.oo/auto-update ................... system.update › System\UpdateController@index
+  GET|HEAD   facturaloperu-pro7.oo/auto-update/artisan/clear system.update.artisan.clear › System\UpdateControl…
+  GET|HEAD   facturaloperu-pro7.oo/auto-update/artisan/migrate system.update.artisan.migrate › System\UpdateCon…
+  GET|HEAD   facturaloperu-pro7.oo/auto-update/artisan/migrate/tenant system.update.artisan.tenancy.migrate › S…
+  GET|HEAD   facturaloperu-pro7.oo/auto-update/branch .... system.update.branch › System\UpdateController@branch
+  GET|HEAD   facturaloperu-pro7.oo/auto-update/changelog .. system.changelog › System\UpdateController@changelog
+  GET|HEAD   facturaloperu-pro7.oo/auto-update/composer/install system.update.composer.install › System\UpdateC…
+  GET|HEAD   facturaloperu-pro7.oo/auto-update/keygen .... system.update.keygen › System\UpdateController@keygen
+  GET|HEAD   facturaloperu-pro7.oo/auto-update/pull/{branch} . system.update.pull › System\UpdateController@pull
+  GET|HEAD   facturaloperu-pro7.oo/auto-update/version . system.update.version › System\UpdateController@version
+  GET|HEAD   facturaloperu-pro7.oo/backup ........................ system.backup › System\BackupController@index
+  POST       facturaloperu-pro7.oo/backup/db ..................... system.backup.db › System\BackupController@db
+  GET|HEAD   facturaloperu-pro7.oo/backup/download/{filename} ................. System\BackupController@download
+  POST       facturaloperu-pro7.oo/backup/files ............ system.backup.files › System\BackupController@files
+  GET|HEAD   facturaloperu-pro7.oo/backup/last-backup ....................... System\BackupController@mostRecent
+  POST       facturaloperu-pro7.oo/backup/upload ......... system.backup.upload › System\BackupController@upload
+  DELETE     facturaloperu-pro7.oo/certificates ........................... System\CertificateController@destroy
+  GET|HEAD   facturaloperu-pro7.oo/certificates/record ..................... System\CertificateController@record
+  POST       facturaloperu-pro7.oo/certificates/saveSoapUser ......... System\CertificateController@saveSoapUser
+  POST       facturaloperu-pro7.oo/certificates/uploads ................ System\CertificateController@uploadFile
+  GET|HEAD   facturaloperu-pro7.oo/client_account_status/client/{client_id} System\AccountStatusController@clie…
+  GET|HEAD   facturaloperu-pro7.oo/client_account_status/records/{client_id} System\AccountStatusController@rec…
+  GET|HEAD   facturaloperu-pro7.oo/client_account_status/tables .......... System\AccountStatusController@tables
+  POST       facturaloperu-pro7.oo/client_payments ........................ System\ClientPaymentController@store
+  GET|HEAD   facturaloperu-pro7.oo/client_payments/cancel_payment/{client_payment_id} System\ClientPaymentContr…
+  GET|HEAD   facturaloperu-pro7.oo/client_payments/client/{client_id} .... System\ClientPaymentController@client
+  GET|HEAD   facturaloperu-pro7.oo/client_payments/records/{client_id} .. System\ClientPaymentController@records
+  GET|HEAD   facturaloperu-pro7.oo/client_payments/tables ................ System\ClientPaymentController@tables
+  DELETE     facturaloperu-pro7.oo/client_payments/{client_payment} ..... System\ClientPaymentController@destroy
+  GET|HEAD   facturaloperu-pro7.oo/clients ................ system.clients.index › System\ClientController@index
+  POST       facturaloperu-pro7.oo/clients ....................................... System\ClientController@store
+  GET|HEAD   facturaloperu-pro7.oo/clients/charts ............................... System\ClientController@charts
+  GET|HEAD   facturaloperu-pro7.oo/clients/create ............................... System\ClientController@create
+  POST       facturaloperu-pro7.oo/clients/locked-by-column ............. System\ClientController@lockedByColumn
+  POST       facturaloperu-pro7.oo/clients/locked_emission .............. System\ClientController@lockedEmission
+  POST       facturaloperu-pro7.oo/clients/locked_tenant .................. System\ClientController@lockedTenant
+  POST       facturaloperu-pro7.oo/clients/locked_user ...................... System\ClientController@lockedUser
+  POST       facturaloperu-pro7.oo/clients/password/{client} .................. System\ClientController@password
+  GET|HEAD   facturaloperu-pro7.oo/clients/record/{client} ...................... System\ClientController@record
+  GET|HEAD   facturaloperu-pro7.oo/clients/records ............................. System\ClientController@records
+  POST       facturaloperu-pro7.oo/clients/renew_plan ........................ System\ClientController@renewPlan
+  POST       facturaloperu-pro7.oo/clients/set_billing_cycle ......... System\ClientController@startBillingCycle
+  GET|HEAD   facturaloperu-pro7.oo/clients/tables ............................... System\ClientController@tables
+  POST       facturaloperu-pro7.oo/clients/update ............................... System\ClientController@update
+  POST       facturaloperu-pro7.oo/clients/upload ............................... System\ClientController@upload
+  DELETE     facturaloperu-pro7.oo/clients/{client}/{input_validate} ........... System\ClientController@destroy
+  POST       facturaloperu-pro7.oo/companies .................................... System\CompanyController@store
+  GET|HEAD   facturaloperu-pro7.oo/companies/record ............................ System\CompanyController@record
+  GET|HEAD   facturaloperu-pro7.oo/configurations system.configuration.index › System\ConfigurationController@i…
+  POST       facturaloperu-pro7.oo/configurations ......................... System\ConfigurationController@store
+  GET|HEAD   facturaloperu-pro7.oo/configurations/apiruc ................. System\ConfigurationController@apiruc
+  GET|HEAD   facturaloperu-pro7.oo/configurations/apkurl ................. System\ConfigurationController@apkurl
+  POST       facturaloperu-pro7.oo/configurations/bg ............... System\ConfigurationController@storeBgLogin
+  GET|HEAD   facturaloperu-pro7.oo/configurations/get-other-configuration System\ConfigurationController@getOth…
+  POST       facturaloperu-pro7.oo/configurations/login ...... System\ConfigurationController@storeLoginSettings
+  POST       facturaloperu-pro7.oo/configurations/other-configuration System\ConfigurationController@storeOther…
+  GET|HEAD   facturaloperu-pro7.oo/configurations/record ................. System\ConfigurationController@record
+  GET|HEAD   facturaloperu-pro7.oo/configurations/update-tenant-discount-type-base System\ConfigurationControll…
+  POST       facturaloperu-pro7.oo/configurations/upload-tenant-ads System\ConfigurationController@uploadTenant…
+  GET|HEAD   facturaloperu-pro7.oo/dashboard .................... system.dashboard › System\HomeController@index
+  POST       facturaloperu-pro7.oo/demo_environments/backup-create system.demo.create › System\DemoEnvironmentC…
+  POST       facturaloperu-pro7.oo/demo_environments/backup-restore system.demo.restore › System\DemoEnvironmen…
+  GET|HEAD   facturaloperu-pro7.oo/demo_environments/client/{client_id} System\DemoEnvironmentController@client
+  POST       facturaloperu-pro7.oo/demo_environments/enable-cron system.demo.cron › System\DemoEnvironmentContr…
+  GET|HEAD   facturaloperu-pro7.oo/demo_environments/files system.demo.getfiles › System\DemoEnvironmentControl…
+  GET|HEAD   docs ........................ larecipe.index › BinaryTorch\LaRecipe › DocumentationController@index
+  GET|HEAD   docs/scripts/{script} .................. larecipe.scripts › BinaryTorch\LaRecipe › ScriptController
+  GET|HEAD   docs/search-index/{version} ............. larecipe.search › BinaryTorch\LaRecipe › SearchController
+  GET|HEAD   docs/styles/{style} ...................... larecipe.styles › BinaryTorch\LaRecipe › StyleController
+  GET|HEAD   docs/{version}/{page?} ........ larecipe.show › BinaryTorch\LaRecipe › DocumentationController@show
+  GET|HEAD   facturaloperu-pro7.oo/information ... system.information › System\ConfigurationController@InfoIndex
+  GET|HEAD   facturaloperu-pro7.oo/login .......................... login › System\LoginController@showLoginForm
+  POST       facturaloperu-pro7.oo/login .......................................... System\LoginController@login
+  POST       facturaloperu-pro7.oo/logout ............................... logout › System\LoginController@logout
+  GET|HEAD   facturaloperu-pro7.oo/logs ............... Rap2hpoutre\LaravelLogViewer › LogViewerController@index
+  GET|HEAD   facturaloperu-pro7.oo/massive-invoice system.massive-invoice.index › System\MassiveInvoiceControll…
+  GET|HEAD   facturaloperu-pro7.oo/massive-invoice/config ............... System\MassiveInvoiceController@config
+  GET|HEAD   facturaloperu-pro7.oo/massive-invoice/download-format system.massive-invoice.download › System\Mas…
+  GET|HEAD   facturaloperu-pro7.oo/massive-invoice/download/{id}/{type} System\MassiveInvoiceController@downloa…
+  POST       facturaloperu-pro7.oo/massive-invoice/process system.massive-invoice.process › System\MassiveInvoi…
+  GET|HEAD   facturaloperu-pro7.oo/massive-invoice/records ............. System\MassiveInvoiceController@records
+  POST       facturaloperu-pro7.oo/massive-invoice/upload system.massive-invoice.upload › System\MassiveInvoice…
+  GET|HEAD   facturaloperu-pro7.oo/phone ........................................ System\UserController@getPhone
+  GET|HEAD   facturaloperu-pro7.oo/plans ...................... system.plans.index › System\PlanController@index
+  POST       facturaloperu-pro7.oo/plans ........................................... System\PlanController@store
+  GET|HEAD   facturaloperu-pro7.oo/plans/record/{plan} ............................ System\PlanController@record
+  GET|HEAD   facturaloperu-pro7.oo/plans/records ................................. System\PlanController@records
+  GET|HEAD   facturaloperu-pro7.oo/plans/tables ................................... System\PlanController@tables
+  DELETE     facturaloperu-pro7.oo/plans/{plan} .................................. System\PlanController@destroy
+  GET|HEAD   facturaloperu-pro7.oo/services/ruc/{number} .......................... System\ServiceController@ruc
+  GET|HEAD   facturaloperu-pro7.oo/status/cpu .................. system.status.cpu › System\StatusController@cpu
+  GET|HEAD   facturaloperu-pro7.oo/status/history .............. system.status › System\StatusController@history
+  GET|HEAD   facturaloperu-pro7.oo/status/memory ......... system.status.memory › System\StatusController@memory
+  POST       facturaloperu-pro7.oo/users ........................................... System\UserController@store
+  GET|HEAD   facturaloperu-pro7.oo/users/create ............. system.users.create › System\UserController@create
+  GET|HEAD   facturaloperu-pro7.oo/users/record ................................... System\UserController@record
+
+                                                                                            Showing [113] routes
+

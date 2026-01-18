@@ -77,8 +77,8 @@
  
                 </div>
             </div>
-            <div class="form-actions text-right pt-2">
-                <el-button class="second-buton" @click.prevent="close()">Cancelar</el-button>
+            <div class="form-actions text-end pt-2">
+                <el-button class="second-buton me-2" @click.prevent="close()">Cancelar</el-button>
                 <el-button type="primary" native-type="submit" :loading="loading_submit">Guardar</el-button>
             </div>
         </form> 
@@ -88,7 +88,7 @@
 <script>
 
     export default {
-        props: ['showDialog', 'recordId', 'external'],
+        props: ['showDialog', 'recordId', 'external', 'input_item'],
 
         data() {
             return {
@@ -101,6 +101,13 @@
                 currency_types: [],
                 system_isc_types: [],
                 affectation_igv_types: [],
+            }
+        },
+        watch: {
+            input_item(newVal) {
+                if (newVal && !this.recordId) {
+                    this.form.name = newVal
+                }
             }
         },
         async created() {
@@ -152,6 +159,8 @@
                         .then(response => {
                             this.form = response.data.data
                         })
+                } else if (this.input_item) {
+                    this.form.name = this.input_item
                 }
 
             },

@@ -1,12 +1,56 @@
 {
-    "/js/app.js": "/js/app.js?id=331eb6772d617b6d094e",
+<<<<<<< HEAD
+<<<<<<< HEAD
+<<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> origin/v7.2
+=======
+>>>>>>> v7.3
+=======
+>>>>>>> v7.2
+    "/js/app.js": "/js/app.js?id=f7bb2ca68fe8e6eafd2e",
+    "/css/app.css": "/css/app.css?id=9d81ad3010f170fe84e3",
+    "/css/auth.css": "/css/auth.css?id=717b2c5506b8667bf8b6",
+    "/js/vendor.js": "/js/vendor.js?id=b05b8ba129b131165064",
+    "/js/manifest.js": "/js/manifest.js?id=360cf4a2ac3af2c3da19"
+<<<<<<< HEAD
+<<<<<<< HEAD
+<<<<<<< HEAD
+=======
+    "/js/app.js": "/js/app.js?id=bddb9437dbbb6aa41e9e",
     "/css/app.css": "/css/app.css?id=d0ad3ad7943c1bd5d8c9",
     "/css/auth.css": "/css/auth.css?id=15ce36549f75296145c3",
-    "/js/app.js.map": "/js/app.js.map?id=f69f52000918821c2254",
+    "/js/app.js.map": "/js/app.js.map?id=9f7210877319d743ecd5",
+=======
+=======
+    "/js/app.js": "/js/app.js?id=858a4b95207a295152fe",
+    "/css/app.css": "/css/app.css?id=62050dbaae8c6eb2bffe",
+=======
+    "/js/app.js": "/js/app.js?id=fded93bead33e2091829",
+    "/css/app.css": "/css/app.css?id=d0ad3ad7943c1bd5d8c9",
+>>>>>>> main
+    "/css/auth.css": "/css/auth.css?id=15ce36549f75296145c3",
+    "/js/app.js.map": "/js/app.js.map?id=41ee86e7f4a50f617ffc",
+>>>>>>> v7.2
     "/css/app.css.map": "/css/app.css.map?id=cc27886dffd26f15fe1d",
     "/css/auth.css.map": "/css/auth.css.map?id=29fc78c7453564245b2a",
     "/js/vendor.js": "/js/vendor.js?id=1dd22d0981d6330a3046",
     "/js/vendor.js.map": "/js/vendor.js.map?id=c2643acf7bea1d3247b7",
     "/js/manifest.js": "/js/manifest.js?id=d64713044d4b02b1808b",
-    "/js/manifest.js.map": "/js/manifest.js.map?id=91adf0c59affba8855b7"
+<<<<<<< HEAD
+    "/js/manifest.js.map": "/js/manifest.js.map?id=0b12563dd406cfe610b5"
+>>>>>>> origin/main
+=======
+>>>>>>> origin/v7.2
+=======
+>>>>>>> v7.3
+=======
+<<<<<<< HEAD
+    "/js/manifest.js.map": "/js/manifest.js.map?id=f470a654297b14549076"
+>>>>>>> main
+=======
+    "/js/manifest.js.map": "/js/manifest.js.map?id=1c34e362134cb442eae1"
+>>>>>>> main
+>>>>>>> v7.2
 }

@@ -22,10 +22,10 @@
           <el-tooltip
             class="item"
             effect="dark"
-            :content="total_cpe"
+            :content="String(total_cpe)"
             placement="top-start"
           >
-            <h3 class="font-weight-bold m-0 mb-2">{{ total_cpe | formatNumber }}</h3>
+            <h3 class="font-weight-bold m-0 mb-2">{{ total_cpe | formatNumber(0, 0) }}</h3>
           </el-tooltip>
           <small>CPE Emitidos</small>
         </div>
@@ -38,7 +38,7 @@
           <el-tooltip
             class="item"
             effect="dark"
-            :content="document_total_global"
+            :content="String(document_total_global)"
             placement="top-start"
           >
             <h3 class="font-weight-bold m-0 mb-2">{{ document_total_global | formatNumber }}</h3>
@@ -54,7 +54,7 @@
           <el-tooltip
             class="item"
             effect="dark"
-            :content="sale_note_total_global"
+            :content="String(sale_note_total_global)"
             placement="top-start"
           >
             <h3 class="font-weight-bold m-0 mb-2">{{ sale_note_total_global | formatNumber }}</h3>
@@ -70,7 +70,7 @@
           <el-tooltip
             class="item"
             effect="dark"
-            :content="total"
+            :content="String(total)"
             placement="top-start"
           >
             <h3 class="font-weight-bold m-0 mb-2">{{ total | formatNumber }}</h3>
@@ -86,7 +86,7 @@
           <el-tooltip
             class="item"
             effect="dark"
-            :content="utilities.totals.utility"
+            :content="String(utilities.totals.utility)"
             placement="top-start"
           >
             <h3 class="font-weight-bold m-0 mb-2">{{ utilities.totals.utility | formatNumber }}</h3>
@@ -130,29 +130,43 @@ export default {
     onFetchData() {
       this.$http.get("/dashboard/global-data").then((response) => {
         const data = response.data;
-        this.document_total_global = data.document_total_global;
-        this.total_cpe = data.total_cpe;
-        this.sale_note_total_global = data.sale_note_total_global;
-        this.total =
-          parseFloat(this.document_total_global) +
-          parseFloat(this.sale_note_total_global);
+        this.document_total_global = Number(data.document_total_global) || 0;
+        this.total_cpe = Number(data.total_cpe) || 0;
+        this.sale_note_total_global = Number(data.sale_note_total_global) || 0;
+        this.total = this.document_total_global + this.sale_note_total_global;
       });
     },
   },
   filters: {
-    formatNumber(value) {
-      if (value >= 1000000) {
-        let deciamlValue = (value / 1000000).toString().split(".");
-        let entero = deciamlValue[0];
-        let decimal = deciamlValue[1].slice(0,1)
-        return `${entero}.${decimal}M`;
-      } else if (value >= 1000) {
-        let deciamlValue = (value / 1000).toString().split(".");
-        let entero = deciamlValue[0];
-        let decimal = deciamlValue[1].slice(0,1)
-        return `${entero}.${decimal}K`;
+    formatNumber(value, baseDecimals = 2, suffixDecimals = 1) {
+      const numericValue = Number(value);
+      const defaultString = (0).toLocaleString("en-US", {
+        minimumFractionDigits: baseDecimals,
+        maximumFractionDigits: baseDecimals,
+      });
+
+      if (!Number.isFinite(numericValue)) {
+        return defaultString;
       }
-      return value;
+
+      if (Math.abs(numericValue) >= 1000000) {
+        const millions = (numericValue / 1000000)
+          .toFixed(suffixDecimals)
+          .replace(/\.0+$/, "");
+        return `${millions}M`;
+      }
+
+      if (Math.abs(numericValue) >= 1000) {
+        const thousands = (numericValue / 1000)
+          .toFixed(suffixDecimals)
+          .replace(/\.0+$/, "");
+        return `${thousands}K`;
+      }
+
+      return numericValue.toLocaleString("en-US", {
+        minimumFractionDigits: baseDecimals,
+        maximumFractionDigits: baseDecimals,
+      });
     },
   },
 };

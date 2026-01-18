@@ -255,10 +255,10 @@
 </template>
 
 <script>
-import ModalAddEdit from "./ModalAddEdit";
-import ModalDerive from "./ModalDerive";
-import StageModalObservationStage from "./ModalHistoricalObservation";
-import ModalStage from "./ModalStage";
+import ModalAddEdit from "./ModalAddEdit.vue";
+import ModalDerive from "./ModalDerive.vue";
+import StageModalObservationStage from "./ModalHistoricalObservation.vue";
+import ModalStage from "./ModalStage.vue";
 import moment from "moment";
 import queryString from 'query-string'
 

@@ -12,13 +12,13 @@
                     <thead>
                     <tr>
                         <th>Archivo</th>
-                        <th class="text-right">Acciones</th>
+                        <th class="text-end">Acciones</th>
                     </tr>
                     </thead>
                     <tbody>
                     <tr>
                         <td>{{ record }}</td>
-                        <td class="text-right">
+                        <td class="text-end">
                             <button type="button" class="btn waves-effect waves-light btn-xs btn-danger"
                                     @click.prevent="clickDelete">Eliminar</button>
                         </td>

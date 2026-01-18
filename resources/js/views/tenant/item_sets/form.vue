@@ -109,8 +109,8 @@
                                         <th>#</th>
                                         <th class="font-weight-bold">Descripción</th>
                                         <th class="text-center font-weight-bold">Precio Unitario</th>
-                                        <th class="text-right font-weight-bold">Cantidad</th>
-                                        <th class="text-right font-weight-bold">Total</th>
+                                        <th class="text-end font-weight-bold">Cantidad</th>
+                                        <th class="text-end font-weight-bold">Total</th>
                                         <th></th>
                                     </tr>
                                 </thead>
@@ -119,14 +119,14 @@
                                     <td>{{index + 1}}</td>
                                     <td>{{row.full_description}}</td>
                                     <td class="text-center">{{row.sale_unit_price}}</td>
-                                    <td class="text-right">
+                                    <td class="text-end">
                                         <el-input-number
                                             v-model="row.quantity"
                                             @change="changeQuantity"
                                             :min="0"/>
                                     </td>
                                     <td class="text-center">{{row.sale_unit_price * row.quantity | toDecimals }}</td>
-                                    <td class="text-right">
+                                    <td class="text-end">
                                         <button class="btn waves-effect waves-light btn-xs btn-danger" type="button"
                                                 @click.prevent="clickRemoveItem(index)">x
                                         </button>
@@ -138,7 +138,7 @@
                                     <th></th>
                                     <th class="font-weight-bold"></th>
                                     <th class="text-center font-weight-bold"></th>
-                                    <th class="text-right font-weight-bold">Total</th>
+                                    <th class="text-end font-weight-bold">Total</th>
                                     <th class="text-center font-weight-bold">{{ total | toDecimals}}</th>
                                     <th></th>
                                 </tr>
@@ -233,8 +233,8 @@
                                     <div :class="{'has-danger': errors.category_id}"
                                          class="form-group">
                                         <label class="control-label">
-                                            Categoría
-                                            <a v-if="form_category.add == false"
+                                            Categorías
+                                            <!-- <a v-if="form_category.add == false"
                                                 class="control-label font-weight-bold text-info"
                                                 href="#"
                                                 @click="form_category.add = true"> [ + Nuevo]</a>
@@ -245,7 +245,7 @@
                                             <a v-if="form_category.add == true"
                                                 class="control-label font-weight-bold text-danger"
                                                 href="#"
-                                                @click="form_category.add = false"> [ Cancelar]</a>
+                                                @click="form_category.add = false"> [ Cancelar]</a> -->
                                         </label>
                                         <el-input v-if="form_category.add == true"
                                                   v-model="form_category.name"
@@ -253,13 +253,38 @@
                                                   style="margin-bottom:1.5%;"></el-input>
 
                                         <el-select v-if="form_category.add == false"
+                                                   ref="categorySelect"
                                                    v-model="form.category_id"
                                                    clearable
-                                                   filterable>
-                                            <el-option v-for="option in categories"
+                                                   filterable
+                                                   :filter-method="filterCategories"
+                                                   @visible-change="onCategoryDropdownChange"
+                                                   @keydown.enter.native.prevent="createCategoryFromSearch">
+                                            <el-option v-for="option in filteredCategories"
                                                        :key="option.id"
                                                        :label="option.name"
                                                        :value="option.id"></el-option>
+                                            <template slot="empty">
+                                                <p v-if="loading_search" class="el-select-dropdown__empty">
+                                                    Cargando...
+                                                </p>
+                                            
+                                                <p v-else-if="categorySearchQuery" class="el-select-dropdown__empty">
+                                                    No se encontraron resultados
+                                                </p>
+                                            
+                                                <p v-else class="el-select-dropdown__empty">
+                                                    No hay categorías. <br> Escriba el nombre y presione Enter para crear
+                                                </p>
+                                            
+                                                <div
+                                                    v-if="!loading_search && categorySearchQuery"
+                                                    class="el-select-dropdown__item new-option"
+                                                    @click.stop="createCategoryFromSearch"
+                                                >
+                                                    <span>Crear categoría "{{ categorySearchQuery }}"</span>
+                                                </div>
+                                            </template>
                                         </el-select>
                                         <small v-if="errors.category_id"
                                                class="form-control-feedback"
@@ -271,7 +296,7 @@
                                          class="form-group">
                                         <label class="control-label">
                                             Marca
-                                            <a v-if="form_brand.add == false"
+                                            <!-- <a v-if="form_brand.add == false"
                                                class="control-label font-weight-bold text-info"
                                                href="#"
                                                @click="form_brand.add = true"> [ + Nuevo]</a>
@@ -282,7 +307,7 @@
                                             <a v-if="form_brand.add == true"
                                                class="control-label font-weight-bold text-danger"
                                                href="#"
-                                               @click="form_brand.add = false"> [ Cancelar]</a>
+                                               @click="form_brand.add = false"> [ Cancelar]</a> -->
                                         </label>
                                         <el-input v-if="form_brand.add == true"
                                                   v-model="form_brand.name"
@@ -290,13 +315,38 @@
                                                   style="margin-bottom:1.5%;"></el-input>
 
                                         <el-select v-if="form_brand.add == false"
+                                                   ref="brandSelect"
                                                    v-model="form.brand_id"
                                                    clearable
-                                                   filterable>
-                                            <el-option v-for="option in brands"
+                                                   filterable
+                                                   :filter-method="filterBrands"
+                                                   @visible-change="onBrandDropdownChange"
+                                                   @keydown.enter.native.prevent="createBrandFromSearch">
+                                            <el-option v-for="option in filteredBrands"
                                                        :key="option.id"
                                                        :label="option.name"
                                                        :value="option.id"></el-option>
+                                            <template slot="empty">
+                                                <p v-if="loading_search" class="el-select-dropdown__empty">
+                                                    Cargando...
+                                                </p>
+                                            
+                                                <p v-else-if="brandSearchQuery" class="el-select-dropdown__empty">
+                                                    No se encontraron resultados
+                                                </p>
+                                                
+                                                <p v-else class="el-select-dropdown__empty">
+                                                    No hay marcas. <br> Escriba el nombre y presione Enter para crear
+                                                </p>
+                                            
+                                                <div
+                                                    v-if="!loading_search && brandSearchQuery"
+                                                    class="el-select-dropdown__item new-option"
+                                                    @click.stop="createBrandFromSearch"
+                                                >
+                                                    <span>Crear marca "{{ brandSearchQuery }}"</span>
+                                                </div>
+                                            </template>
                                         </el-select>
                                         <small v-if="errors.brand_id"
                                                class="form-control-feedback"
@@ -315,8 +365,8 @@
 
                 </div>
             </div>
-            <div class="form-actions text-right pt-2">
-                <el-button class="second-buton" @click.prevent="close()">Cancelar</el-button>
+            <div class="form-actions text-end pt-2">
+                <el-button class="second-buton me-2" @click.prevent="close()">Cancelar</el-button>
                 <el-button type="primary" native-type="submit" :loading="loading_submit">Guardar</el-button>
             </div>
         </form>
@@ -339,6 +389,10 @@ import ItemSetFormItem from './partials/item.vue'
                 showDialogAddItem: false,
                 warehouses: [],
                 loading_submit: false,
+                categorySearchQuery: '',
+                filteredCategories: [],
+                brandSearchQuery: '',
+                filteredBrands: [],
                 showPercentagePerception: false,
                 has_percentage_perception: false,
                 percentage_perception:null,
@@ -388,6 +442,8 @@ import ItemSetFormItem from './partials/item.vue'
                     this.brands = response.data.brands
                     this.form.sale_affectation_igv_type_id = (this.affectation_igv_types.length > 0)?this.affectation_igv_types[0].id:null
                     this.form.purchase_affectation_igv_type_id = (this.affectation_igv_types.length > 0)?this.affectation_igv_types[0].id:null
+                    this.filteredCategories = this.categories;
+                    this.filteredBrands = this.brands;
                 })
 
             this.$eventHub.$on('submitPercentagePerception', (data)=>{
@@ -423,6 +479,13 @@ import ItemSetFormItem from './partials/item.vue'
             clickRemoveItem(index) {
                 this.form.individual_items.splice(index, 1)
                 this.changeIndividualItems()
+            },
+            async reloadTables() {
+                await this.$http.get(`/${this.resource}/tables`)
+                    .then(response => {
+                        this.filteredCategories = this.categories
+                        this.filteredBrands = this.brands
+                    })
             },
             addRow(row) {
 
@@ -535,6 +598,10 @@ import ItemSetFormItem from './partials/item.vue'
                             this.changeAffectationIgvType()
                             this.calculateTotal();
                         })
+                } else {
+                    if (this.external && this.input_item && typeof this.input_item === 'string') {
+                        this.form.description = this.input_item;
+                    }
                 }
             },
             loadRecord(){
@@ -673,6 +740,7 @@ import ItemSetFormItem from './partials/item.vue'
                         if (response.data.success) {
                             this.$message.success(response.data.message)
                             this.categories.push(response.data.data)
+                            this.filteredCategories = this.categories
                             this.form_category.name = null
                         } else {
                             this.$message.error('No se guardaron los cambios')
@@ -680,6 +748,63 @@ import ItemSetFormItem from './partials/item.vue'
                     })
                     .catch(error => {
 
+                    })
+            },
+            filterCategories(query) {
+                this.categorySearchQuery = query
+                
+                if (query) {
+                    this.filteredCategories = this.categories.filter(category => {
+                        return category.name.toLowerCase().includes(query.toLowerCase())
+                    })
+                } else {
+                    this.filteredCategories = this.categories
+                }
+            },
+            onCategoryDropdownChange(visible) {
+                if (!visible) {
+                    // Reset cuando se cierra
+                    this.categorySearchQuery = ''
+                } else {
+                    // Inicializar cuando se abre
+                    this.filteredCategories = this.categories
+                }
+            },
+            createCategoryFromSearch() {
+                const categoryName = this.categorySearchQuery
+
+                if (!categoryName || categoryName.trim() === '') {
+                    this.$message.warning('Ingrese un nombre para la categoría')
+                    return
+                }
+
+                this.form_category.name = categoryName
+
+                this.$http.post(`/categories`, this.form_category)
+                    .then(response => {
+                        if (response.data.success) {
+                            this.$message.success(response.data.message)
+                            this.categories.push(response.data.data)
+                            this.form_category.name = null
+                            this.categorySearchQuery = ''
+                            
+                            this.$nextTick(() => {
+                                this.filteredCategories = [...this.categories]
+                                this.$nextTick(() => {
+                                    this.form.category_id = response.data.data.id
+                                    this.$nextTick(() => {
+                                        if (this.$refs.categorySelect) {
+                                            this.$refs.categorySelect.blur()
+                                        }
+                                    })
+                                })
+                            })
+                        } else {
+                            this.$message.error('No se guardaron los cambios')
+                        }
+                    })
+                    .catch(error => {
+                        this.$message.error('Error al crear la categoría')
                     })
             },
             saveBrand() {
@@ -690,6 +815,7 @@ import ItemSetFormItem from './partials/item.vue'
                         if (response.data.success) {
                             this.$message.success(response.data.message)
                             this.brands.push(response.data.data)
+                            this.filteredBrands = this.brands
                             this.form_brand.name = null
 
                         } else {
@@ -701,6 +827,63 @@ import ItemSetFormItem from './partials/item.vue'
                     })
 
 
+            },
+            filterBrands(query) {
+                this.brandSearchQuery = query
+                
+                if (query) {
+                    this.filteredBrands = this.brands.filter(brand => {
+                        return brand.name.toLowerCase().includes(query.toLowerCase())
+                    })
+                } else {
+                    this.filteredBrands = this.brands
+                }
+            },
+            onBrandDropdownChange(visible) {
+                if (!visible) {
+                    // Reset cuando se cierra
+                    this.brandSearchQuery = ''
+                } else {
+                    // Inicializar cuando se abre
+                    this.filteredBrands = this.brands
+                }
+            },
+            createBrandFromSearch() {
+                const brandName = this.brandSearchQuery
+                
+                if (!brandName || brandName.trim() === '') {
+                    this.$message.warning('Ingrese un nombre para la marca')
+                    return
+                }
+            
+                this.form_brand.name = brandName
+                
+                this.$http.post(`/brands`, this.form_brand)
+                    .then(response => {
+                        if (response.data.success) {
+                            this.$message.success(response.data.message)
+                            this.brands.push(response.data.data)
+                            this.form_brand.name = null
+                            this.brandSearchQuery = ''
+                            
+                            this.$nextTick(() => {
+                                this.filteredBrands = [...this.brands]
+                                this.$nextTick(() => {
+                                    this.form.brand_id = response.data.data.id
+                                    this.$nextTick(() => {
+                                        if (this.$refs.brandSelect) {
+                                            this.$refs.brandSelect.blur()
+                                        }
+                                    })
+                                })
+                            })
+                        } else {
+                            this.$message.error('No se guardaron los cambios')
+                        }
+                    })
+                    .catch(error => {
+                        this.$message.error('Error al crear la marca')
+                    })
             },
         }
     }

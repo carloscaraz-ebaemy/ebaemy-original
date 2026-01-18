@@ -22,9 +22,9 @@ class ItemCollection extends ResourceCollection
             $defaultImage = $configuration->product_default_image ?? 'imagen-no-disponible.jpg';
             $defaultImagePath = $defaultImage === 'imagen-no-disponible.jpg'
                 ? asset('logo/imagen-no-disponible.jpg')
-                : asset('storage/defaults/' . $defaultImage); 
+                : asset('storage/defaults/' . $defaultImage);
 
-            
+
             return [
                 'id' => $row->id,
                 'unit_type_id' => $row->unit_type_id,
@@ -52,10 +52,22 @@ class ItemCollection extends ResourceCollection
                 'updated_at' => ($row->created_at) ? $row->updated_at->format('Y-m-d H:i:s') : '',
                 'apply_store' => (bool)$row->apply_store,
                 'apply_restaurant' => (bool)$row->apply_restaurant,
+                'restaurant_favorite' => (bool)$row->restaurant_favorite,
                 'image_url' => $row->image && ($row->image === 'imagen-no-disponible.jpg') ? $defaultImagePath : asset('storage'.DIRECTORY_SEPARATOR.'uploads'.DIRECTORY_SEPARATOR.'items'.DIRECTORY_SEPARATOR.$row->image),
                 'image_url_medium' => $row->image && ($row->image_medium === 'imagen-no-disponible.jpg') ? $defaultImagePath : asset('storage'.DIRECTORY_SEPARATOR.'uploads'.DIRECTORY_SEPARATOR.'items'.DIRECTORY_SEPARATOR.$row->image_medium),
                 'image_url_small' => $row->image && ($row->image_small === 'imagen-no-disponible.jpg') ?  $defaultImagePath : asset('storage'.DIRECTORY_SEPARATOR.'uploads'.DIRECTORY_SEPARATOR.'items'.DIRECTORY_SEPARATOR.$row->image_small),
                 'favorite' => (bool)$row->favorite,
+                'area_print' => $row->preparationArea->printer ?? null,
+                'has_supplies' => $row->restaurantSupplies()->exists(),
+                'is_dish' => (bool)$row->is_dish,
+                'has_sets' => $row->sets()->exists(),
+                'items_sets' => $row->items_sets ?? [],
+                'restaurant_stock' => $row->restaurantSupplies()->exists() 
+                    ? $row->getRestaurantStock() 
+                    : ($row->sets()->exists() 
+                        ? $row->getRestaurantStockSet() 
+                        : $row->getStockByWarehouse()),
+                'modifiers' => $row->modifiers ?? [],
             ];
         });
     }

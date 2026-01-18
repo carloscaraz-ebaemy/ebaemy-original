@@ -38,6 +38,8 @@
                 'token' => $this->token,
                 'number' => $this->number,
                 'plan_id' => $this->plan_id,
+                'price' => isset($this->price) ? (float)$this->price : $this->plan->pricing,
+                'plan_period_id' => $this->plan_period_id,
                 'locked' => (bool)$this->locked,
                 'locked_emission' => (bool)$this->locked_emission,
                 'modules' => $this->modules,
@@ -63,6 +65,9 @@
                 'smtp_password' => null, // dont show smtp password
                 'smtp_encryption' => $this->smtp_encryption,
                 'enable_list_product' => $this->enable_list_product,
+                'contact_email' => $this->contact_email,
+                'phone_ws' => $this->phone_ws,
+                'client_name' => $this->client_name,
             ];
 
         }

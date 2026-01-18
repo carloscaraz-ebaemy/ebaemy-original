@@ -7,7 +7,7 @@
         <li class="active"><span> Métodos de pago - ingreso / gastos </span></li>
     </ol>
 </div>
-<div class="row tab-content-default row-new bg-transparent">
+<div class="row tab-content-default row-new bg-transparent" style="background: transparent !important;">
     <div class="col-12 ui-sortable">
         <tenant-expense-method-types-index :type-user="{{json_encode(Auth::user()->type)}}">
         </tenant-expense-method-types-index>

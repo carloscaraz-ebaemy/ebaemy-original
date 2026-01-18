@@ -1,6 +1,6 @@
 <template>
     <div>
-        <div class="page-header pr-0">
+        <div class="page-header pe-0">
             <h2><a href="/purchases">
                 <svg  xmlns="http://www.w3.org/2000/svg" style="margin-top: -5px;"  width="24"  height="24"  viewBox="0 0 24 24"  fill="none"  stroke="currentColor"  stroke-width="2"  stroke-linecap="round"  stroke-linejoin="round"  class="icon icon-tabler icons-tabler-outline icon-tabler-shopping-bag"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M6.331 8h11.339a2 2 0 0 1 1.977 2.304l-1.255 8.152a3 3 0 0 1 -2.966 2.544h-6.852a3 3 0 0 1 -2.965 -2.544l-1.255 -8.152a2 2 0 0 1 1.977 -2.304z" /><path d="M9 11v-5a3 3 0 0 1 6 0v5" /></svg>
             </a></h2>
@@ -8,7 +8,7 @@
                 <li class="active"><span> Nueva Compra </span></li>
             </ol>
         </div>
-        <div class="card tab-content-default row-new mb-0 pt-2 pt-md-0 mt-4">
+        <div class="card tab-content-default row-new mb-0 pt-2 pt-md-0 mt-5">
             <!-- <div class="card-header bg-info">
                 <h3 class="my-0">Nueva Compra</h3>
             </div> -->
@@ -17,7 +17,7 @@
                 <form autocomplete="off"
                       @submit.prevent="submit">
                     <div class="form-body">
-    
+
                         <div class="row">
                             <div class="col-lg-4">
                                 <div :class="{'has-danger': errors.document_type_id}"
@@ -42,7 +42,7 @@
                                     <el-input v-model="form.series"
                                               :maxlength="4"
                                               @input="inputSeries"></el-input>
-    
+
                                     <small v-if="errors.series"
                                            class="form-control-feedback"
                                            v-text="errors.series[0]"></small>
@@ -53,14 +53,14 @@
                                      class="form-group">
                                     <label class="control-label">Número <span class="text-danger">*</span></label>
                                     <el-input v-model="form.number"></el-input>
-    
+
                                     <small v-if="errors.number"
                                            class="form-control-feedback"
                                            v-text="errors.number[0]"></small>
                                 </div>
                             </div>
-    
-    
+
+
                             <div class="col-lg-2">
                                 <div :class="{'has-danger': errors.date_of_issue}"
                                      class="form-group">
@@ -76,7 +76,7 @@
                                            v-text="errors.date_of_issue[0]"></small>
                                 </div>
                             </div>
-    
+
                             <div class="col-lg-2">
                                 <div :class="{'has-danger': errors.date_of_due}"
                                      class="form-group">
@@ -95,15 +95,18 @@
                         <div class="row">
                             <div class="col-lg-6">
                                 <div :class="{'has-danger': errors.supplier_id}"
-                                     class="form-group">
+                                     class="form-group position-relative">
                                     <label class="control-label">
                                         Proveedor
-                                        <a href="#"
-                                           @click.prevent="showDialogNewPerson = true">[+ Nuevo]</a>
+                                        <!-- <a href="#"
+                                           @click.prevent="showDialogNewPerson = true">[+ Nuevo]</a> -->
                                     </label>
                                     <el-select ref="select_person"
                                                v-model="form.supplier_id"
                                                filterable
+                                               remote
+                                               :remote-method="searchRemoteSuppliers"
+                                               :loading="loading_search"
                                                @change="changeSupplier"
                                                @keyup.native="keyupSupplier"
                                                @keyup.enter.native="keyupEnterSupplier">
@@ -111,7 +114,28 @@
                                                    :key="option.id"
                                                    :label="option.description"
                                                    :value="option.id"></el-option>
+
+                                        <template slot="empty">
+                                            <p v-if="loading_search" class="el-select-dropdown__empty">
+                                                Cargando...
+                                            </p>
+                                        
+                                            <p v-else class="el-select-dropdown__empty">
+                                                No se encontraron resultados
+                                            </p>
+                                        
+                                            <div
+                                                v-if="!loading_search"
+                                                class="el-select-dropdown__item new-option"
+                                                @click.stop="openNewPersonDialog"
+                                            >
+                                                <span>{{ supplierSearchTerm ? `Crear proveedor "${supplierSearchTerm}"` : 'Crear proveedor' }}</span>
+                                            </div>
+                                        </template>
                                     </el-select>
+                                    <span class="btn-add-new" @click.prevent="showDialogNewPerson = true" title="Agregar nuevo proveedor">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon icon-tabler icons-tabler-outline icon-tabler-user-plus"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M8 7a4 4 0 1 0 8 0a4 4 0 0 0 -8 0" /><path d="M16 19h6" /><path d="M19 16v6" /><path d="M6 21v-2a4 4 0 0 1 4 -4h4" /></svg>
+                                    </span>
                                     <small v-if="errors.supplier_id"
                                            class="form-control-feedback"
                                            v-text="errors.supplier_id[0]"></small>
@@ -161,7 +185,7 @@
                                            v-text="errors.exchange_rate_sale[0]"></small>
                                 </div>
                             </div>
-    
+
                             <div class="col-lg-2"
                                  v-if="purchase_order_id === null">
                                 <div class="form-group">
@@ -194,7 +218,7 @@
                                           placeholder="Observaciones"></el-input>
                             </div>
                             <div class="col-12">&nbsp;</div>
-    
+
                             <div class="col-md-8 mt-4">
                                 <div class="form-group">
                                     <el-checkbox v-model="form.has_client"
@@ -202,7 +226,7 @@
                                     </el-checkbox>
                                 </div>
                             </div>
-    
+
                             <div class="col-md-8 mt-2 mb-2">
                                 <div class="form-group">
                                     <el-checkbox v-model="form.has_payment"
@@ -210,7 +234,7 @@
                                     </el-checkbox>
                                 </div>
                             </div>
-    
+
                             <div class="col-md-8 mt-2 mb-2" v-if="config.enabled_global_igv_to_purchase === true">
                                 <div class="form-group">
                                     <el-checkbox v-model="localHasGlobalIgv"
@@ -225,14 +249,14 @@
                                     </el-checkbox>
                                 </div>
                             </div>
-    
+
                             <div v-if="form.has_client"
                                  class="col-lg-6 col-md-6">
                                 <div class="form-group">
                                     <label class="control-label">
                                         Clientes
                                     </label>
-    
+
                                     <el-select v-model="form.customer_id"
                                                :loading="loading_search"
                                                :remote-method="searchRemotePersons"
@@ -246,16 +270,16 @@
                                                    :label="option.description"
                                                    :value="option.id"></el-option>
                                     </el-select>
-    
+
                                 </div>
                             </div>
-    
-    
-    
+
+
+
                         </div>
                         <div class="row">
                             <template v-if="form.has_payment">
-    
+
                                 <div class="col-lg-2 col-md-2">
                                     <div :class="{'has-danger': errors.payment_condition_id}"
                                         class="form-group">
@@ -306,7 +330,7 @@
                                             <tr v-for="(row, index) in form.payments"
                                                 :key="index">
                                                 <td>
-                                                    <div class="form-group mb-2 mr-2">
+                                                    <div class="form-group mb-2 me-2">
                                                         <el-select v-model="row.payment_method_type_id"
                                                                 @change="changePaymentMethodType(index)">
                                                             <el-option v-for="option in cashPaymentMethod"
@@ -317,7 +341,7 @@
                                                     </div>
                                                 </td>
                                                 <td>
-                                                    <div class="form-group mb-2 mr-2">
+                                                    <div class="form-group mb-2 me-2">
                                                         <el-select v-model="row.payment_destination_id"
                                                                 filterable>
                                                             <el-option v-for="option in payment_destinations"
@@ -328,12 +352,12 @@
                                                     </div>
                                                 </td>
                                                 <td>
-                                                    <div class="form-group mb-2 mr-2">
+                                                    <div class="form-group mb-2 me-2">
                                                         <el-input v-model="row.reference"></el-input>
                                                     </div>
                                                 </td>
                                                 <td>
-                                                    <div class="form-group mb-2 mr-2">
+                                                    <div class="form-group mb-2 me-2">
                                                         <el-input v-model="row.payment"></el-input>
                                                     </div>
                                                 </td>
@@ -349,7 +373,7 @@
                                             </tbody>
                                         </table>
                                     </template>
-    
+
                                     <!-- Credito -->
                                     <template v-else-if="form.payment_condition_id === '02'">
                                         <table v-if="form.fee.length>0">
@@ -397,9 +421,9 @@
                                             </tr>
                                             </tbody>
                                         </table>
-    
+
                                     </template>
-    
+
                                     <!-- Crédito con cuotas -->
                                     <template v-else>
                                         <table v-if="form.fee.length > 0">
@@ -451,12 +475,18 @@
                             </template>
                         </div>
                         <div class="row">
-    
+
                             <div class="col-lg-12 col-md-6 d-flex align-items-end mt-4">
                                 <div class="form-group">
                                     <button class="btn waves-effect waves-light btn-primary"
                                             type="button"
                                             @click.prevent="showDialogAddItem = true">+ Agregar Producto
+                                    </button>
+                                    <button
+                                        class="btn waves-effect waves-light btn-primary mx-2"
+                                        type="button"
+                                        @click.prevent="showDialogAddSupply = true">+
+                                        Agregar Insumo
                                     </button>
                                 </div>
                             </div>
@@ -473,12 +503,12 @@
                                             <th>Almacén</th>
                                             <th>Lote</th>
                                             <th class="text-center">Unidad</th>
-                                            <th class="text-right">Cantidad</th>
-                                            <th class="text-right">Valor Unitario</th>
-                                            <th class="text-right">Precio Unitario</th>
-                                            <th class="text-right">Descuento</th>
-                                            <th class="text-right">Cargo</th>
-                                            <th class="text-right">Total</th>
+                                            <th class="text-end">Cantidad</th>
+                                            <th class="text-end">Valor Unitario</th>
+                                            <th class="text-end">Precio Unitario</th>
+                                            <th class="text-end">Descuento</th>
+                                            <th class="text-end">Cargo</th>
+                                            <th class="text-end">Total</th>
                                             <th></th>
                                         </tr>
                                         </thead>
@@ -487,39 +517,47 @@
                                             :key="index">
                                             <!-- <td>{{ index + 1 }}</td> -->
                                             <td>
-                                                {{
-                                                    setDescriptionOfItem(row.item)
-                                                }}
-                                                <br/><small>{{ row.affectation_igv_type.description }}</small></td>
-                                            <td class="text-left">{{ row.warehouse_description }}</td>
-                                            <td class="text-left">{{ row.lot_code }}</td>
+                                                <span v-if="row.is_supply" class="badge badge-info me-2">Insumo</span>
+                                                <template v-if="row.is_supply">
+                                                    {{ row.supply.name }}
+                                                    <br/><small>{{ row.supply.unit_type.description }} - Merma: {{ row.supply.waste_percentage }}% (Efectivo: {{ row.effective_quantity }})</small>
+                                                </template>
+                                                <template v-else>
+                                                    {{
+                                                        setDescriptionOfItem(row.item)
+                                                    }}
+                                                </template>
+                                                <br/><small>{{ row.affectation_igv_type.description }}</small>
+                                            </td>
+                                            <td class="text-start">{{ row.warehouse_description }}</td>
+                                            <td class="text-start">{{ row.lot_code }}</td>
                                             <td class="text-center">{{ row.item.unit_type_id }}</td>
-                                            <td class="text-right">{{ row.quantity }}</td>
-                                            <td class="text-right">{{ currency_type.symbol }}
+                                            <td class="text-end">{{ row.quantity }}</td>
+                                            <td class="text-end">{{ currency_type.symbol }}
                                                                    {{ getFormatUnitPriceRow(row.unit_value) }}
                                             </td>
-                                            <td class="text-right">{{ currency_type.symbol }}
+                                            <td class="text-end">{{ currency_type.symbol }}
                                                                    {{ getFormatUnitPriceRow(row.unit_price) }}
                                             </td>
-                                            <td class="text-right">{{ currency_type.symbol }} {{ row.total_discount }}</td>
-                                            <td class="text-right">{{ currency_type.symbol }} {{ row.total_charge }}</td>
-                                            <td class="text-right">{{ currency_type.symbol }} {{ row.total }}</td>
-                                            <td class="text-right">
-    
+                                            <td class="text-end">{{ currency_type.symbol }} {{ row.total_discount }}</td>
+                                            <td class="text-end">{{ currency_type.symbol }} {{ row.total_charge }}</td>
+                                            <td class="text-end">{{ currency_type.symbol }} {{ row.total }}</td>
+                                            <td class="text-end">
+
                                                 <button v-if="applyLotsGroup(row.item)"
-                                                        class="btn waves-effect waves-light btn-xs btn-info mr-2"
+                                                        class="btn waves-effect waves-light btn-xs btn-info me-2"
                                                         type="button"
                                                         @click.prevent="clickOpenLotsGroup(index)">
                                                     Lote
                                                 </button>
-    
+
                                                 <button v-if="purchase_order_id && row.item.series_enabled"
                                                         class="btn waves-effect waves-light btn-xs btn-info"
                                                         type="button"
                                                         @click.prevent="clickOpenSeries(index, row.quantity, row.lots)">
                                                     Series
                                                 </button>
-    
+
                                                 <button class="btn waves-effect waves-light btn-xs btn-danger"
                                                         type="button"
                                                         @click.prevent="clickRemoveItem(index)">x
@@ -534,27 +572,27 @@
                                 </div>
                             </div>
                             <div class="col-md-12">
-    
+
                                 <!-- descuentos -->
-    
+
                                 <div class="row mt-1 mb-2"  v-if="form.total > 0">
-    
+
                                     <div class="col-lg-10 float-right">
                                         <label class="float-right control-label">
-    
+
                                             <el-tooltip class="item"
                                                 :content="global_discount_type.description"
                                                 effect="dark"
                                                 placement="top">
                                                 <i class="fa fa-info-circle"></i>
                                             </el-tooltip>
-    
+
                                             DESCUENTO {{ is_amount ? 'MONTO' : '%' }}
-                                            <el-checkbox v-model="is_amount" class="ml-1 mr-1" @change="changeTypeDiscount"></el-checkbox>
+                                            <el-checkbox v-model="is_amount" class="ms-1 me-1" @change="changeTypeDiscount"></el-checkbox>
                                             :
                                         </label>
                                     </div>
-    
+
                                     <div class="col-lg-2 float-right">
                                         <el-input-number v-model="total_global_discount"
                                                             :min="0"
@@ -562,40 +600,40 @@
                                                             controls-position="right"
                                                             @change="changeTotalGlobalDiscount"></el-input-number>
                                     </div>
-    
+
                                 </div>
-    
+
                                 <!-- descuentos -->
-    
+
                                 <p v-if="form.total_exportation > 0"
-                                   class="text-right">OP.EXPORTACIÓN: {{ currency_type.symbol }}
+                                   class="text-end">OP.EXPORTACIÓN: {{ currency_type.symbol }}
                                                                      {{ form.total_exportation }}</p>
                                 <p v-if="form.total_free > 0"
-                                   class="text-right">OP.GRATUITAS: {{ currency_type.symbol }} {{
+                                   class="text-end">OP.GRATUITAS: {{ currency_type.symbol }} {{
                                         form.total_free
                                                               }}</p>
                                 <p v-if="form.total_unaffected > 0"
-                                   class="text-right">OP.INAFECTAS: {{ currency_type.symbol }}
+                                   class="text-end">OP.INAFECTAS: {{ currency_type.symbol }}
                                                                     {{ form.total_unaffected }}</p>
                                 <p v-if="form.total_exonerated > 0"
-                                   class="text-right">OP.EXONERADAS: {{ currency_type.symbol }}
+                                   class="text-end">OP.EXONERADAS: {{ currency_type.symbol }}
                                                                     {{ form.total_exonerated }}</p>
                                 <p v-if="form.total_taxed > 0"
-                                   class="text-right">OP.GRAVADA: {{ currency_type.symbol }} {{
+                                   class="text-end">OP.GRAVADA: {{ currency_type.symbol }} {{
                                         form.total_taxed
                                                                }}</p>
                                 <p v-if="form.total_igv > 0"
-                                   class="text-right">IGV: {{ currency_type.symbol }} {{ form.total_igv }}</p>
-    
+                                   class="text-end">IGV: {{ currency_type.symbol }} {{ form.total_igv }}</p>
+
                                 <p v-if="form.total_isc > 0"
-                                   class="text-right">ISC: {{ currency_type.symbol }} {{ form.total_isc }}</p>
-    
-                                <p v-if="form.total_discount > 0" class="text-right">DESCUENTOS TOTALES: {{ currency_type.symbol }} {{ form.total_discount }}</p>
-    
+                                   class="text-end">ISC: {{ currency_type.symbol }} {{ form.total_isc }}</p>
+
+                                <p v-if="form.total_discount > 0" class="text-end">DESCUENTOS TOTALES: {{ currency_type.symbol }} {{ form.total_discount }}</p>
+
                                 <h3 v-if="form.total > 0"
-                                    class="text-right"><b>TOTAL COMPRAS: </b>{{ currency_type.symbol }} {{ form.total }}
+                                    class="text-end"><b>TOTAL COMPRAS: </b>{{ currency_type.symbol }} {{ form.total }}
                                 </h3>
-    
+
                                 <template v-if="is_perception_agent">
                                     <hr>
                                     <div class="row mt-1">
@@ -606,14 +644,14 @@
                                             <div :class="{'has-danger': errors.perception_number}"
                                                  class="form-group">
                                                 <el-input v-model="form.perception_number"></el-input>
-    
+
                                                 <small v-if="errors.perception_number"
                                                        class="form-control-feedback"
                                                        v-text="errors.perception_number[0]"></small>
                                             </div>
                                         </div>
                                     </div>
-    
+
                                     <div class="row mt-1">
                                         <div class="col-lg-10 float-right">
                                             <label class="float-right control-label">FEC EMISIÓN PERCEPCIÓN: </label>
@@ -632,7 +670,7 @@
                                             </div>
                                         </div>
                                     </div>
-    
+
                                     <div class="row mt-1">
                                         <div class="col-lg-10 float-right">
                                             <label class="float-right control-label">IMPORTE PERCEPCIÓN: </label>
@@ -643,7 +681,7 @@
                                                 <el-input v-model="form.total_perception"
                                                           :readonly="true"
                                                           @input="inputTotalPerception"></el-input>
-    
+
                                                 <small v-if="errors.total_perception"
                                                        class="form-control-feedback"
                                                        v-text="errors.total_perception[0]"></small>
@@ -651,17 +689,17 @@
                                         </div>
                                     </div>
                                     <h3 v-if="form.total > 0 && !hide_button"
-                                        class="text-right"><b>MONTO TOTAL : </b>{{
+                                        class="text-end"><b>MONTO TOTAL : </b>{{
                                             currency_type.symbol
                                                                                                    }} {{ total_amount }}
                                     </h3>
-    
-    
+
+
                                 </template>
                             </div>
                         </div>
                     </div>
-                    <div class="form-actions text-right mt-4 footer-card-default">
+                    <div class="form-actions text-end mt-4 footer-card-default">
                         <el-button class="second-buton btn btn-default second-buton-default" @click.prevent="close()">Cancelar</el-button>
                         <el-button v-if="form.items !== undefined && form.items.length > 0 && !hide_button"
                                    :loading="loading_submit"
@@ -673,35 +711,42 @@
                 </form>
                 </div>
             </div>
-    
+
             <purchase-form-item :currency-type-id-active="form.currency_type_id"
                                 :exchange-rate-sale="form.exchange_rate_sale"
                                 :showDialog.sync="showDialogAddItem"
                                 :localHasGlobalIgv="localHasGlobalIgv"
                                 :percentage-igv="percentage_igv"
                                 @add="addRow"></purchase-form-item>
-    
+
+            <add-supply-modal
+                :showDialog.sync="showDialogAddSupply"
+                :affectation_igv_types="affectation_igv_types"
+                :percentage_igv="percentage_igv"
+                @supply-added="handleSupplyAdded"
+            />
+
             <person-form :external="true"
-                         :input_person="input_person"
+                         :input_person="supplierSearchTerm"
                          :showDialog.sync="showDialogNewPerson"
                          type="suppliers"></person-form>
-    
+
             <purchase-options :recordId="purchaseNewId"
                               :showClose="false"
                               :showDialog.sync="showDialogOptions"></purchase-options>
-    
+
             <series-form
                 ref="series_form"
                 @addRowLot="addRowLot">
             </series-form>
-    
+
             <input-lot-group
                 :showDialog.sync="showDialogInputLotGroup"
                 :rowItem="rowItem"
                 :rowIndex="rowIndex"
                 @saveInputLotGroup="saveInputLotGroup">
             </input-lot-group>
-    
+
         </div>
     </div>
 </template>
@@ -711,15 +756,16 @@
 import PurchaseFormItem from './partials/item.vue'
 import PersonForm from '../persons/form.vue'
 import PurchaseOptions from './partials/options.vue'
+import AddSupplyModal from './partials/AddSupplyModal.vue'
 import {exchangeRate, functions, fnPaymentsFee, operationsForDiscounts} from '../../../mixins/functions'
 import {calculateRowItem, showNamePdfOfDescription} from '../../../helpers/functions'
-import SeriesForm from './partials/series'
+import SeriesForm from './partials/series.vue'
 import {mapActions, mapState} from "vuex";
 import InputLotGroup from '@components/secondary/InputLotGroup.vue'
 
 export default {
     props: ['purchase_order_id'],
-    components: {PurchaseFormItem, PersonForm, PurchaseOptions, SeriesForm, InputLotGroup},
+    components: {PurchaseFormItem, PersonForm, PurchaseOptions, SeriesForm, InputLotGroup, AddSupplyModal},
     mixins: [functions, exchangeRate, fnPaymentsFee, operationsForDiscounts],
     computed: {
         ...mapState([
@@ -742,13 +788,15 @@ export default {
         isFromPurchaseOrder()
         {
             return this.purchase_order_id != undefined && this.purchase_order_id != null
-        }
+        },
+
     },
     data() {
         return {
             input_person: {},
             resource: 'purchases',
             showDialogAddItem: false,
+            showDialogAddSupply: false,
             readonly_date_of_due: false,
             localHasGlobalIgv: false,
             showDialogNewPerson: false,
@@ -758,7 +806,8 @@ export default {
             is_perception_agent: false,
             errors: {},
             form: {
-                items:[]
+                items:[],
+                supplies: []
             },
             aux_supplier_id: null,
             total_amount: 0,
@@ -767,6 +816,7 @@ export default {
             currency_types: [],
             discount_types: [],
             charges_types: [],
+            affectation_igv_types: [],
             payment_method_types: [],
             all_suppliers: [],
             suppliers: [],
@@ -785,6 +835,14 @@ export default {
             showDialogInputLotGroup: false,
             rowItem: null,
             rowIndex: -1,
+            supplierSearchTerm: ''
+        }
+    },
+    watch: {
+        showDialogNewPerson(newVal) {
+            if (!newVal) {
+                this.supplierSearchTerm = ''
+            }
         }
     },
     async mounted() {
@@ -800,6 +858,7 @@ export default {
 
                 this.all_suppliers = data.suppliers
                 this.discount_types = data.discount_types
+                this.affectation_igv_types = data.affectation_igv_types || []
                 this.payment_method_types = data.payment_method_types
                 this.payment_destinations = data.payment_destinations
                 this.all_customers = data.customers
@@ -841,6 +900,10 @@ export default {
         this.searchPurchaseOrder();
         // this.localHasGlobalIgv = this.hasGlobalIgv;
         this.initGlobalIgv()
+        this.$eventHub.$on("reloadDataPersons", customer_id => {
+            this.reloadDataCustomers(customer_id);
+            this.supplierSearchTerm = ''
+        });
     },
     methods: {
         saveInputLotGroup(params)
@@ -898,8 +961,23 @@ export default {
                 this.form.customer_id = null
             }
         },
-        searchRemotePersons(input) {
+        searchRemoteSuppliers(input) {
+            this.supplierSearchTerm = input;
+            
+            if (input.length > 1) {
+                this.loading_search = true
+                let parameters = `input=${input}`
 
+                this.$http.get(`/reports/data-table/persons/suppliers?${parameters}`)
+                    .then(response => {
+                        this.suppliers = response.data.persons
+                        this.loading_search = false
+                    })
+            } else {
+                this.filterSuppliers()
+            }
+        },
+        searchRemotePersons(input) {        
             if (input.length > 1) {
 
                 this.loading_search = true
@@ -909,10 +987,6 @@ export default {
                     .then(response => {
                         this.customers = response.data.persons
                         this.loading_search = false
-
-                        if (this.customers.length == 0) {
-                            this.filterCustomers()
-                        }
                     })
             } else {
                 this.filterCustomers()
@@ -926,9 +1000,9 @@ export default {
             return _.round(unit_price, 6)
             // return unit_price.toFixed(6)
         },
-        async isGeneratePurchaseOrder() 
+        async isGeneratePurchaseOrder()
         {
-            if (this.purchase_order_id) 
+            if (this.purchase_order_id)
             {
 
                 await this.$http.get(`/purchase-orders/record/${this.purchase_order_id}`)
@@ -1304,8 +1378,17 @@ export default {
             this.calculateTotal()
         },
         clickRemoveItem(index) {
-            this.form.items.splice(index, 1)
-            this.calculateTotal()
+            const item = this.form.items[index];
+            const itemType = item.is_supply ? 'Insumo' : 'Producto';
+            this.form.items.splice(index, 1);
+            this.calculateTotal();
+            this.$message.info(`${itemType} eliminado`);
+        },
+        handleSupplyAdded(supplyData) {
+            // Añadir el insumo a la lista de items con el flag is_supply=true
+            this.form.items.push(supplyData);
+            this.calculateTotal();
+            this.$message.success('Insumo añadido correctamente');
         },
         changeCurrencyType() {
             this.currency_type = _.find(this.currency_types, {'id': this.form.currency_type_id})
@@ -1457,7 +1540,7 @@ export default {
                         if(!row.lot_code || !row.date_of_due) errors_lots_group++
                     }
                 }
-                
+
             })
 
             if(errors_lots_group > 0) return this.getCurrentResponse(false, 'No ha registrado el lote o fecha de vencimiento para el producto')
@@ -1476,7 +1559,7 @@ export default {
             if (!validate_item_series.success) {
                 return this.$message.error(validate_item_series.message);
             }
-            
+
             const validate_data_items = await this.validateDataItems()
             if (!validate_data_items.success) return this.$message.error(validate_data_items.message)
 
@@ -1588,6 +1671,9 @@ export default {
                 })
 
 
+        },
+        openNewPersonDialog() {
+            this.showDialogNewPerson = true
         },
     }
 }

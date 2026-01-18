@@ -91,11 +91,6 @@ div.cart-dropdown {
     margin-right: 27px;
 }
 
-.search_input:focus {
-    border: 1px solid #00b3a5 !important;
-    background-color: transparent !important;
-}
-
 .search_input {
     width: 100%;
     height: 38px !important;
@@ -111,9 +106,7 @@ div.cart-dropdown {
     position: absolute;
     left: 10px; 
     top: 50%;
-    transform: translateY(-50%);
-    width: 18px;
-    height: 18px;
+    transform: translateY(-50%);    
     cursor: pointer;
 }
 
@@ -133,9 +126,8 @@ div.cart-dropdown {
     cursor: pointer;
     display: none;
 }
-.header-dropdown-inside input:focus + .clear-icon,
 .header-dropdown-inside input:not(:placeholder-shown) + .clear-icon {
-    display: inline-block; /* Muestra el ícono */
+    display: inline-block; /* Muestra el ícono solo cuando hay texto */
 }
 
  </style>
@@ -155,15 +147,53 @@ div.cart-dropdown {
              </div><!-- End .header-left -->
              
              
-             <div id="header_bar" class="header-center header-dropdowns">
+             <div class="header-center header-dropdowns">
+             </div><!-- End .headeer-center -->
 
-                 <div class="header-dropdown header-dropdown-inside" style="min-width:400px;">
-                    <img src="{{ asset('images/search.svg') }}" alt="search" class="search-icon" style="width: 18px; height: 18px;">
-                    <input placeholder="Buscar..." type="text" class="search_input form-control form-control-lg" v-model="value" v-on:keyup="autoComplete" @focus="isFocused = true" @blur="isFocused = false"/>
-                    <img src="{{ asset('images/circle-xmark.svg') }}" alt="Clear" class="clear-icon" @click="clearInput">
-                     <div class="header-menu">
-                         <ul v-if="results.length > 0">
-                            <li v-for="result in results">
+            <div class="header-right">
+                <div id="header_bar" class="search-container">
+                    <div class="header-dropdown header-dropdown-inside">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon icon-tabler icons-tabler-outline icon-tabler-search search-icon"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M10 10m-7 0a7 7 0 1 0 14 0a7 7 0 1 0 -14 0" /><path d="M21 21l-6 -6" /></svg>
+                        <input placeholder="Buscar..." type="text" class="search_input form-control form-control-lg" v-model="value" v-on:keyup="autoComplete" @focus="isFocused = true" @blur="isFocused = false"/>
+                        <img src="{{ asset('images/circle-xmark.svg') }}" alt="Clear" class="clear-icon" @click="clearInput">
+                        <div class="header-menu">
+                            <ul v-if="results.length > 0">
+                                <li v-for="result in results">
+                                    <a :href="'/ecommerce/item/' + result.id" class="d-flex">
+                                        <div class="flex-grow-1"><img style="max-width: 80px" :src="result.image_url_small" alt="England flag">
+                                        <span class="search_title" style="font-size: 1.0em;"> @{{ result.description }} </span>
+                                        </div>
+                                        <span class="search_price">@{{result.sale_unit_price}}</span>
+                                        {{-- <div class="search_btn btn btn-default">@{{result.sale_unit_price}}</div> --}}
+                                    </a>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+
+                 <button class="mobile-menu-toggler" type="button">
+                     <i class="icon-menu"></i>
+                 </button>
+                 <div class="header-contact">
+                     <span> Atención al</span>
+                     <i class="fab fa-whatsapp"></i> <a href="#"><strong class="whatsapp-number">{{$information->information_contact_phone}}</strong></a>
+                 </div><!-- End .header-contact -->
+
+                @include('restaurant::layouts.partials.cart_dropdown')
+                @include('ecommerce::partials.headers.session')
+
+             </div><!-- End .header-right -->
+         </div><!-- End .container -->
+         <div class="d-none search-mobile-container">
+            <div id="header_bar_mobile" class="search-container">
+                <div class="header-dropdown header-dropdown-inside">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon icon-tabler icons-tabler-outline icon-tabler-search search-icon"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M10 10m-7 0a7 7 0 1 0 14 0a7 7 0 1 0 -14 0" /><path d="M21 21l-6 -6" /></svg>
+                    <input placeholder="Buscar..." type="text" class="search_input form-control form-control-lg" v-model="valueMobile" v-on:keyup="autoCompleteMobile" @focus="isFocusedMobile = true" @blur="isFocusedMobile = false"/>
+                    <img src="{{ asset('images/circle-xmark.svg') }}" alt="Clear" class="clear-icon" @click="clearInputMobile">
+                    <div class="header-menu">
+                        <ul v-if="resultsMobile.length > 0">
+                            <li v-for="result in resultsMobile">
                                 <a :href="'/ecommerce/item/' + result.id" class="d-flex">
                                     <div class="flex-grow-1"><img style="max-width: 80px" :src="result.image_url_small" alt="England flag">
                                     <span class="search_title" style="font-size: 1.0em;"> @{{ result.description }} </span>
@@ -172,27 +202,11 @@ div.cart-dropdown {
                                     {{-- <div class="search_btn btn btn-default">@{{result.sale_unit_price}}</div> --}}
                                 </a>
                             </li>
-                         </ul>
-                     </div><!-- End .header-menu -->
-                 </div><!-- End .header-dropown -->
-
-
-             </div><!-- End .headeer-center -->
-
-             <div class="header-right">
-                 <button class="mobile-menu-toggler" type="button">
-                     <i class="icon-menu"></i>
-                 </button>
-                 <div class="header-contact">
-                     <span> Atención al</span>
-                     <i class="fab fa-whatsapp"></i> <a href="#"><strong>{{$information->information_contact_phone}}</strong></a>
-                 </div><!-- End .header-contact -->
-
-                @include('restaurant::layouts.partials.cart_dropdown')
-                @include('ecommerce::partials.headers.session')
-
-             </div><!-- End .header-right -->
-         </div><!-- End .container -->
+                        </ul>
+                    </div>
+                </div>
+            </div>
+         </div>
      </div><!-- End .header-middle -->
 
      <div class="header-bottom sticky-header">
@@ -255,6 +269,60 @@ div.cart-dropdown {
             suggestionClick(item) {
                 this.results = [];
                 this.value = item.description;
+            }
+        }
+    });
+
+    // Vue instance para el buscador móvil
+    var appMobile = new Vue({
+        el: '#header_bar_mobile',
+        data: {
+            valueMobile: '', 
+            isFocusedMobile: false, 
+            suggestionsMobile: [],
+            resource: 'ecommerce',
+            resultsMobile: [],
+        },
+        created() {
+            this.getItemsMobile();
+        },
+        methods: {
+            // Método para limpiar el campo de texto móvil
+            clearInputMobile() {
+                this.valueMobile = ''; 
+                this.resultsMobile = []; 
+            },
+
+            // Método para manejar la autocompletación móvil
+            autoCompleteMobile() {
+                if (this.valueMobile) {
+                    let val = this.valueMobile.toUpperCase();
+                    this.resultsMobile = this.suggestionsMobile.filter((obj) => {
+                        let desc = obj.description.toUpperCase();
+                        let internal_id = obj.internal_id ? obj.internal_id.toUpperCase() : '';
+                        return desc.includes(val) || internal_id.includes(val);
+                    });
+                } else {
+                    this.resultsMobile = [];
+                }
+            },
+
+            // Método para obtener las sugerencias desde el backend
+            getItemsMobile() {
+                let contex = this;
+                fetch(`/${this.resource}/items_bar`)
+                    .then(function (response) {
+                        return response.json();
+                    })
+                    .then(function (myJson) {
+                        contex.suggestionsMobile = myJson.data;
+                    });
+            },
+
+            // Método para manejar el clic en una sugerencia móvil
+            suggestionClickMobile(item) {
+                this.resultsMobile = [];
+                this.valueMobile = item.description;
             }
         }
     });

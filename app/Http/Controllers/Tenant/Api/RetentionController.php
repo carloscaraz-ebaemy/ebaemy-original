@@ -5,6 +5,8 @@ use App\CoreFacturalo\Facturalo;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Arr;
+
 
 class RetentionController extends Controller
 {
@@ -42,7 +44,7 @@ class RetentionController extends Controller
                 'pdf' => $document->download_external_pdf,
                 'cdr' => $document->download_external_cdr,
             ],
-            'response' => array_except($response, 'sent')
+            'response' => Arr::except($response, 'sent')
         ];
     }
 }

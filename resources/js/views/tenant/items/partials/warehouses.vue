@@ -43,9 +43,9 @@
                                         <th>Unidad</th>
                                         <th>Description</th>
                                         <th>Factor</th>
-                                        <th>Precio 1</th>
-                                        <th>Precio 2</th>
-                                        <th>Precio 3</th>
+                                        <th>{{ config.price1_label }}</th>
+                                        <th>{{ config.price2_label }}</th>
+                                        <th>{{ config.price3_label }}</th>
                                         <th>P.Defecto</th>
                                     </tr>
                                 </thead>

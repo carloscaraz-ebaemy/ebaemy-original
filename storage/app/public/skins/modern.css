@@ -189,6 +189,11 @@ ul.nav-main li.nav-parent > a:after,
     color: #031a6e;
     background-color: #f2f4fa61;
 }
+html.fixed.sidebar-white:not(.dark) .sidebar-left,
+html.fixed.sidebar-white:not(.dark) .sidebar-header, 
+html.fixed.sidebar-white:not(.dark) .sidebar-left .nano {
+  background-color: #ffffff !important;
+}
 html.fixed.sidebar-white:not(.dark) .sidebar-left a {
     color: #66789C !important;
 }
@@ -275,8 +280,21 @@ html.sidebar-left-collapsed .sidebar-left .nav-main > li > a {
     background-color: rgb(0 116 255);
     color: #fff;
 }
-.sidebar-toggle {
+.sidebar-toggle-container .sidebar-toggle {
+    height: 32px !important;
     border-right: unset;
+    border: 1px solid #eaeef7 !important;
+    width: 40px !important;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 4px !important;
+    margin-left: 5px;
+    background-color: transparent !important;
+    color: #60769a !important;
+}
+.sidebar-toggle-container .sidebar-toggle:hover {
+    background-color: #f0f3f4 !important;
 }
 .el-tabs__item {
     color: #657b9d;
@@ -303,8 +321,9 @@ html.sidebar-white .el-button--danger {
     color: #fe006c;
     font-weight: bold;
 }
-.disable_color {
-    color: #fc4f4b;
+.disable_color,
+.disable_color td{
+    color: var(--danger) !important;
 }
 .btn-info {
     background-color: #2446e8;
@@ -394,6 +413,9 @@ html.sidebar-left-collapsed .sidebar-left .nano:hover {
 }
 .auth .auth__forgot-password .checkbox-custom{
     display: block !important;
+}
+section.auth__form-right .auth__form .auth__social a{
+    background-color: transparent !important;
 }
 @media (max-width: 800px) {
     .auth__image {
@@ -638,6 +660,19 @@ a.ws-flotante {
 .card-footer.configuration-options {
     background: #f3f4fb;
 }
+.btn-add-new-product{
+    width: 18px;
+    height: 18px;
+    padding: 2px;
+    background-color: #2446e8;
+    border-radius: 4px;
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-left: 4px;
+    cursor: pointer;
+}
 html.sidebar-light:not(.dark) .style-switcher {
     background: #ffffff !important;
 }
@@ -655,7 +690,10 @@ html.sidebar-light:not(.dark) .style-switcher {
 div.card-header {
     border-radius: 8px !important;
 }
-
+ul.nav-main li.nav-active:not(.nav-parent) > a.dashboard-link,
+html.sidebar-light:not(.dark) .style-switcher h5.title-visual{
+    color: #fff;
+}
 
 html.fixed.sidebar-white .sidebar-left, 
 html.fixed.sidebar-white .sidebar-header, 
@@ -702,12 +740,20 @@ div.el-tab-pane {
 .toggle-button.shift {
     z-index: 1023;
 }
+.text-danger.option-delete:hover {
+    background-color: color-mix(in hsl, var(--danger) 10%, #ffffff00) !important;
+    color: var(--danger) !important;
+}
 tbody tr:hover:not(:last-child) {
     background: #fafbfd;
 }
 html.fixed.sidebar-white:not(.dark) .sidebar-left, html.fixed.sidebar-white:not(.dark) .sidebar-header, html.fixed.sidebar-white:not(.dark) .sidebar-left .nano {
     border: none !important;
     box-shadow: 0 0 15px 0 rgb(34 41 47 / 5%);
+}
+.dialog-close-btn button{
+    border: none !important;
+    padding: 5px !important;
 }
 /* theme dark */
 html.dark .el-dialog,
@@ -736,8 +782,13 @@ html.dark .el-collapse a {
 html.dark .el-collapse, html.dark .table > thead > tr > th, html.dark .table > tbody > tr > th, html.dark .table > tfoot > tr > th, html.dark .table > thead > tr > td, html.dark .table > tbody > tr > td, html.dark .table > tfoot > tr > td, html.dark .table-bordered {
     border-color: #252d44;
 }
-html.dark .sidebar-toggle:hover {
-    background-color: #21283c;
+html.dark .sidebar-toggle-container .sidebar-toggle {
+    border-color: #252d44 !important;
+    color: #60769a !important;
+}
+html.dark .sidebar-toggle-container .sidebar-toggle:hover {
+    background-color: #21283c !important;
+    color: #f5f5f5 !important;
 }
 html.dark .header .logo-container .topbar-links {
     background: #21283c;

@@ -27,10 +27,12 @@ class RestaurantConfiguration extends ModelTenant
         'tables_quantity_environment_4',
         'enabled_send_command',
         'enabled_print_command',
+        'enabled_print_group_commands',
         'enabled_printsend_command',
         'enabled_command_waiter',
         'enabled_pos_waiter',
         'enabled_close_table',
+        'enabled_close_table_mozo',
     ];
 
     public $timestamps = false;
@@ -41,6 +43,9 @@ class RestaurantConfiguration extends ModelTenant
         ->where('id', 3)
         ->where('active', 1)
         ->exists();
+
+        $configurations_global = DB::connection('tenant')->table('configurations')->first();
+
         return [
             'menu_pos' => (bool)$this->menu_pos,
             'menu_order' => (bool)$this->menu_order,
@@ -59,12 +64,16 @@ class RestaurantConfiguration extends ModelTenant
             'items_maintenance' => (bool)$this->items_maintenance,
             'enabled_send_command' => (bool)$this->enabled_send_command,
             'enabled_print_command' => (bool)$this->enabled_print_command,
+            'enabled_print_group_commands' => (bool)$this->enabled_print_group_commands,
             'enabled_printsend_command' => (bool)$this->enabled_printsend_command,
             'enabled_command_waiter' => (bool)$this->enabled_command_waiter,
             'enabled_pos_waiter' => (bool)$this->enabled_pos_waiter,
             'enabled_close_table' => (bool)$this->enabled_close_table,
+            'enabled_close_table_mozo' => (bool)$this->enabled_close_table_mozo,
             'restaurant_tip_factor' => $restaurant_tip_factor,
             'is_restaurant_active' => $is_restaurant_active,
+            'show_item_description_pack' => (bool)$configurations_global->show_item_description_pack,
+            'allow_edit_unit_price_to_seller' => (bool)$configurations_global->allow_edit_unit_price_to_seller,
         ];
     }
 }

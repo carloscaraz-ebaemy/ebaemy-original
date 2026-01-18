@@ -103,7 +103,7 @@
 </template>
 
 <script>
-import ModalAddEdit from "./ModalAddEdit";
+import ModalAddEdit from "./ModalAddEdit.vue";
 
 export default {
   props: {

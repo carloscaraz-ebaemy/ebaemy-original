@@ -279,9 +279,9 @@
                                         <th class="text-center">Unidad</th>
                                         <th class="text-center">Descripción</th>
                                         <th class="text-center">Factor</th>
-                                        <th class="text-center">Precio 1</th>
-                                        <th class="text-center">Precio 2</th>
-                                        <th class="text-center">Precio 3</th>
+                                        <th class="text-center">{{ config.price1_label }}</th>
+                                        <th class="text-center">{{ config.price2_label }}</th>
+                                        <th class="text-center">{{ config.price3_label }}</th>
                                         <th class="text-center">Precio Default</th>
                                         <th></th>
                                     </tr>

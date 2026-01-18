@@ -115,7 +115,7 @@
                     </div>
                 </el-tab-pane>
 
-                <div class="form-actions text-right mt-3">
+                <div class="form-actions text-end mt-3">
                     <el-button type="primary" @click="submit" :loading="loading_submit">Guardar</el-button>
                 </div>
             </el-tabs>
@@ -125,7 +125,9 @@
 </template>
 
 <style>
-
+.el-upload.el-upload--text{
+    width: 100%;
+}
     .uploader-icon {
         font-size: 28px;
         color: #8c939d;

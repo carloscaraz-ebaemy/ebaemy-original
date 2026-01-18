@@ -1,6 +1,6 @@
 <template>
     <div>
-        <div class="page-header pr-0">
+        <div class="page-header pe-0">
             <h2><a href="/machine-production">
                 <svg  xmlns="http://www.w3.org/2000/svg" style="margin-top: -5px;" width="24"  height="24"  viewBox="0 0 24 24"  fill="none"  stroke="currentColor"  stroke-width="2"  stroke-linecap="round"  stroke-linejoin="round"  class="icon icon-tabler icons-tabler-outline icon-tabler-building-factory-2"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M3 21h18" /><path d="M5 21v-12l5 4v-4l5 4h4" /><path d="M19 21v-8l-1.436 -9.574a.5 .5 0 0 0 -.495 -.426h-1.145a.5 .5 0 0 0 -.494 .418l-1.43 8.582" /><path d="M9 17h1" /><path d="M14 17h1" /></svg>
             </a></h2>
@@ -11,14 +11,14 @@
                     </span>
                 </li>
             </ol>
-            <div class="right-wrapper pull-right pt-2 mr-2">
+            <div class="right-wrapper pull-right pt-2 me-2">
                 <a :href="`/machine-type-production/create`"
                    class="btn btn-custom btn-sm ">
                     <i class="fa fa-plus-circle"></i>
                     Nuevo tipo de maquina
                 </a>
             </div>
-            <div class="right-wrapper pull-right pt-2 mr-2">
+            <div class="right-wrapper pull-right pt-2 me-2">
                 <a :href="`/${resource}/create`"
                    class="btn btn-custom btn-sm ">
                     <i class="fa fa-plus-circle"></i>
@@ -50,7 +50,7 @@
                         <td>{{ row.brand }}</td>
                         <td>{{ row.model }}</td>
                         <td>{{ row.closing_force }}</td>
-                        <td class="text-right">
+                        <td class="text-end">
                             <button
                                 class="btn waves-effect waves-light btn-xs btn-info"
                                 type="button"

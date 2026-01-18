@@ -161,15 +161,20 @@ export default {
                 }
             }).finally(() => this.loading_submit = false);
         },
-        backupFiles() {
-            this.$http.post(`/${this.resource}/files`, this.formBackups)
-                .then(response => {
+        async backupFiles() {
+            await this.$http.post(`/${this.resource}/files`, this.formBackups)
+                .then(async (response) => {
                     if (response.data !== '') {
                         this.files.content = response.data
                         this.errors = {};
                         if (response.status === 200) {
                             this.files.status = 'success'
+                            this.$message.success('Backup generado correctamente, se esta cargando la información del último backup.');
+                            this.newLastZip = ''
+                            await this.sleep(4500)
                             this.mostRecent()
+                            this.$message.success('Se cargo los datos generados');
+
                         }
                         this.loading_submit = false
                     }
@@ -203,6 +208,9 @@ export default {
         uploadFtp() {
             this.loading_upload = true
             this.sendFtp()
+        },
+        sleep(timeout){
+            return new Promise(resolve => setTimeout(resolve, timeout)); 
         },
         sendFtp() {
             this.$http.post(`${this.resource}/upload`, this.form)

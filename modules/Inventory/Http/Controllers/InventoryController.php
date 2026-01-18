@@ -64,8 +64,14 @@ class InventoryController extends Controller
                 })
                 ->whereHas('warehouse', function ($query) use ($request) {
                     $query->where('description', 'like', '%' . $request->value . '%');
-                })
-                ->orderBy('item_id');
+                });
+
+            // Filtrar por almacén si se proporciona
+            if ($request->has('warehouse_id') && $request->warehouse_id !== 'all') {
+                $records->where('warehouse_id', $request->warehouse_id);
+            }
+
+            $records->orderBy('item_id');
         } else {
             $records = $this->getCommonRecords($request);
         }
@@ -83,7 +89,7 @@ class InventoryController extends Controller
      */
     public function getCommonRecords($request)
     {
-        return ItemWarehouse::with(['item', 'warehouse'])
+        $query = ItemWarehouse::with(['item', 'warehouse'])
             ->whereHas('item', function ($query) use ($request) {
                 $query->where('unit_type_id', '!=', 'ZZ');
                 $query->whereNotIsSet();
@@ -93,8 +99,14 @@ class InventoryController extends Controller
                 } else {
                     $query->where($request->column, 'like', '%' . $request->value . '%');
                 }
-            })
-            ->orderBy('item_id');
+            });
+
+        // Filtrar por almacén si se proporciona
+        if ($request->has('warehouse_id') && $request->warehouse_id !== 'all') {
+            $query->where('warehouse_id', $request->warehouse_id);
+        }
+
+        return $query->orderBy('item_id');
     }
 
 

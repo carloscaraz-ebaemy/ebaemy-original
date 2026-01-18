@@ -19,7 +19,7 @@
          */
         public function toArray($request)
         {
-            return $this->collection->transform(function (Packaging $row, $key) {
+            return $this->collection->transform(function ($row, $key) {
                 return $row->getCollectionData();
             });
         }

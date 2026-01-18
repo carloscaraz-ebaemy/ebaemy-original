@@ -25,8 +25,8 @@
                     </div>
                 </div>
             </div>
-            <div class="form-actions text-right mt-4">
-                <el-button class="second-buton" @click.prevent="handleCloseDialog()">Cerrar</el-button>
+            <div class="form-actions text-end mt-4">
+                <el-button class="second-buton me-2" @click.prevent="handleCloseDialog()">Cerrar</el-button>
                 <el-button type="primary" native-type="submit">Agregar</el-button>
             </div>
         </form>

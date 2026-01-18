@@ -21,10 +21,12 @@ class PromotionRequest extends FormRequest
                 'required'
             ],
             'description' => [
-                'required'
+                'nullable'
             ],
             'item_id' => [
-                'required'
+                'nullable',
+                'integer',
+                'exists:tenant.items,id'
             ],
             'image' => ['required']
         ];
@@ -33,7 +35,8 @@ class PromotionRequest extends FormRequest
     public function messages()
     {
         return [
-            'item_id.required' => 'El campo Producto es obligatorio.',
+            'item_id.integer' => 'El campo Producto debe ser un número.',
+            'item_id.exists' => 'El producto seleccionado no existe.',
         ];
     }
 }

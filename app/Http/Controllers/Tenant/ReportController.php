@@ -6,7 +6,7 @@ use App\Http\Resources\Tenant\DocumentCollection;
 use App\Models\Tenant\Catalogs\DocumentType;
 use App\Http\Controllers\Controller;
 use Maatwebsite\Excel\Facades\Excel;
-use Barryvdh\DomPDF\Facade as PDF;
+use Barryvdh\DomPDF\Facade\Pdf as PDF;
 use App\Exports\DocumentExport;
 use Illuminate\Http\Request;
 use App\Traits\ReportTrait;

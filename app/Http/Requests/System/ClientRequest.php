@@ -25,6 +25,7 @@ class ClientRequest extends FormRequest
             ],
             'number' => [
                 'required',
+                'digits:11',
                  Rule::unique('system.clients')->ignore($id),
             ],
             'name' => [
@@ -57,8 +58,14 @@ class ClientRequest extends FormRequest
             'soap_url' => [
                 'required_if:soap_send_id,"02"'
             ],
-
-
+            'contact_email' => [
+                'nullable',
+                'email',
+            ],
+            'phone_ws' => [
+                'nullable',
+                'numeric',
+            ],
         ];
     }
 
@@ -86,6 +93,12 @@ class ClientRequest extends FormRequest
         }
 
         return $password_rules;
+    }
+    public function messages()
+    {
+        return [
+            'number.digits' => 'El número del ruc debe tener 11 dígitos y ser númerico.',
+        ];
     }
 
 }

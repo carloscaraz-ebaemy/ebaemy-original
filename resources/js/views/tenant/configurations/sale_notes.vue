@@ -1,6 +1,6 @@
 <template>
     <div>
-        <div class="page-header pr-0">
+        <div class="page-header pe-0">
             <h2><a href="#"><i class="fas fa-cogs"></i></a></h2>
             <ol class="breadcrumbs">
                 <li class="active"><span>Configuración</span></li>
@@ -37,7 +37,7 @@
                                         <label class="control-label">
                                             Envio desde Nota de venta
                                         </label>
-                                        <div class="form-group transfer-data-table pt-3 pl-3 pb-2" :class="{'has-danger': errors.send_data_to_other_server}">
+                                        <div class="form-group transfer-data-table pt-3 ps-3 pb-2" :class="{'has-danger': errors.send_data_to_other_server}">
                                             <el-switch v-model="form.send_data_to_other_server"
                                                        active-text="Si"
                                                        inactive-text="No"

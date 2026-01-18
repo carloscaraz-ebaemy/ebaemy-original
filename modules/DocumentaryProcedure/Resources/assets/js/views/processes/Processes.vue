@@ -1,6 +1,6 @@
 <template>
     <div>
-        <div class="page-header pr-0">
+        <div class="page-header pe-0">
             <h2>
                 <a href="/documentary-procedure/processes">
                     <svg xmlns="http://www.w3.org/2000/svg"
@@ -24,7 +24,7 @@
             <div class="right-wrapper pull-right">
                 <div class="btn-group flex-wrap">
                     <button
-                        class="btn btn-custom btn-sm mt-2 mr-2"
+                        class="btn btn-custom btn-sm mt-2 me-2"
                         type="button"
                         @click="onCreate"
                     >
@@ -74,7 +74,7 @@
                             <th>Descripción</th>
                             <th>Terminos y condiciones</th>
                             <th>Activo</th>
-                            <th class="text-right">Precio</th>
+                            <th class="text-end">Precio</th>
                             <th></th>
                         </tr>
                         </thead>
@@ -130,13 +130,14 @@
 
                             </td>
 
-                            <td class="text-left">
+                            <td class="text-start">
                                 <span v-if="item.active">Si</span>
                                 <span v-else>No</span>
                             </td>
-                            <td class="text-right">{{ item.price }}</td>
-                            <td class="text-right">
+                            <td class="text-end">{{ item.price }}</td>
+                            <td class="text-end">
                                 <el-button
+                                    class="me-1"
                                     :disabled="loading"
                                     type="success"
                                     @click="onEdit(item)"
@@ -170,7 +171,7 @@
 </template>
 
 <script>
-import ModalAddEdit from "./ModalAddEdit";
+import ModalAddEdit from "./ModalAddEdit.vue";
 
 export default {
     props: {
@@ -219,10 +220,10 @@ export default {
         checkScrollShadows() {
             const el = this.$refs.scrollContainer;
             if (!el) return;
-            
+
             const scrollLeft = el.scrollLeft;
             const scrollRight = el.scrollWidth - el.clientWidth - scrollLeft;
-            
+
             this.showLeftShadow = scrollLeft > 1;
             this.showRightShadow = scrollRight > 1;
         },

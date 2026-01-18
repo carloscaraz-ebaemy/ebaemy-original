@@ -44,6 +44,8 @@ if($hostname) {
             Route::delete('incentives/{incentive}', 'IncentiveController@destroy');
 
             Route::get('items/barcode/{item}', 'ItemController@generateBarcode');
+            Route::get('items/editor-tag/tag', 'ItemController@generateTag');
+
 
             Route::post('items/import/item-price-lists', 'ItemController@importItemPriceLists');
             Route::post('items/import/item-with-extra-data', 'ItemController@importItemWithExtraData');
@@ -92,10 +94,21 @@ if($hostname) {
             Route::get('items/prices-establishment-format/export', 'ItemController@pricesEstablishmentExport');
             
             Route::prefix('item-lots-group')->group(function () {
-
                 Route::get('available-data/{item_id}', 'ItemLotsGroupController@getAvailableItemLotsGroup');
-
             });
+
+            Route::prefix('item-editor-tag')->group(function () {
+                Route::get('', 'EditorTagController@index')->name('tenant.item-editor-tag.index');
+                Route::get('records', 'EditorTagController@records');
+                Route::get('tables', 'EditorTagController@tables' );
+                Route::post('tags/save', 'EditorTagController@store');
+                Route::get('tags/delete/{id}', 'EditorTagController@delete');
+                Route::get('tags/default/{id}', 'EditorTagController@default');
+                Route::get('export', 'EditorTagController@export');
+                Route::post('tags/update/{id}', 'EditorTagController@update');
+                Route::post('tags/save-image', 'EditorTagController@saveImage');
+            });
+
 
         });
     });

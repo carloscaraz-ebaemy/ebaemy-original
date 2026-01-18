@@ -1,7 +1,7 @@
 <template>
 
     <div class="card mb-0 pt-2 pt-md-0">
-    
+
         <div class="tab-content">
             <div class="invoice">
                 <form autocomplete="off"
@@ -398,13 +398,13 @@
                                                         </el-checkbox>
                                                     </div>
                                                 </th>
-                                                <th width="25%">
+                                                <!-- <th width="25%">
                                                     <div v-show="form.unit_type_id !='ZZ' && canSeeProduction">
                                                         <el-checkbox v-model="form.is_for_production"
                                                                     @change="changeProductioTab">Este producto, ¿requiere insumos?
                                                         </el-checkbox>
                                                     </div>
-                                                </th>
+                                                </th> -->
                                             </tr>
                                                                                 </thead>
                                             <tbody>
@@ -516,7 +516,7 @@
                                     </div>
                                 </div>
 
-                                
+
                                 <div class="col-md-3" v-if="showRestrictSaleItemsCpe">
                                     <div :class="{'has-danger': errors.restrict_sale_cpe}"
                                         class="form-group">
@@ -632,9 +632,9 @@
                                                         <i class="fa fa-info-circle"></i>
                                                     </el-tooltip>
                                                 </th>
-                                                <th class="text-center">Precio 1</th>
-                                                <th class="text-center">Precio 2</th>
-                                                <th class="text-center">Precio 3</th>
+                                                <th class="text-center">{{ config.price1_label }}</th>
+                                                <th class="text-center">{{ config.price2_label }}</th>
+                                                <th class="text-center">{{ config.price3_label }}</th>
                                                 <th class="text-center">P. Defecto</th>
                                                 <th></th>
                                             </tr>
@@ -712,13 +712,13 @@
                                                             <el-select v-model="row.price_default">
                                                                 <el-option :key="1"
                                                                         :value="1"
-                                                                        label="Precio 1"></el-option>
+                                                                        :label="config.price1_label"></el-option>
                                                                 <el-option :key="2"
                                                                         :value="2"
-                                                                        label="Precio 2"></el-option>
+                                                                        :label="config.price2_label"></el-option>
                                                                 <el-option :key="3"
                                                                         :value="3"
-                                                                        label="Precio 3"></el-option>
+                                                                        :label="config.price3_label"></el-option>
                                                             </el-select>
                                                         </div>
                                                     </td>
@@ -1148,7 +1148,7 @@
 
 <script>
 // import LotsForm from './partials/lots.vue'
-import ExtraInfo from '@views/items/partials/extra_info'
+import ExtraInfo from '@views/items/partials/extra_info.vue'
 import {mapActions, mapState} from "vuex";
 import {ItemOptionDescription, ItemSlotTooltip} from "@helpers/modal_item";
 
@@ -1580,7 +1580,7 @@ export default {
                 this.titleDialog = (this.recordId) ? 'Editar Producto' : 'Nuevo Producto'
             }
         },
-        
+
         async create() {
             // console.log(this.warehouses)
             // this.warehouses = this.warehouses.map(w => {
@@ -1593,7 +1593,7 @@ this.activeName =  'first'
                     this.form.unit_type_id = 'ZZ';
                 }
             }
-            
+
             this.setDialogTitle()
 
             if (this.recordId) {

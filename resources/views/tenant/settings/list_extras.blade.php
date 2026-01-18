@@ -17,7 +17,7 @@
         </ol>
     </div>
 
-    <div class="row tab-content-default row-new bg-transparent">
+    <div class="row tab-content-default row-new bg-transparent" style="background: transparent !important;">
         <div class="col-sm-12 col-md-6 col-lg-3">
             <section class="card card-extras mb-2">
                 <header class="card-header card-extras-header bg-{{in_array('hotels', $vc_modules) ? 'primary' : 'dark'}}">

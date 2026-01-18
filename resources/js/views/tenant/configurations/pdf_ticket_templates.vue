@@ -1,13 +1,13 @@
 <template>
     <div>
-        <div class="page-header pr-0">
+        <div class="page-header pe-0">
             <h2><a href="#"><i class="fas fa-cogs"></i></a></h2>
             <ol class="breadcrumbs">
                 <li class="active"><span>Configuración</span></li>
                 <li><span class="text-muted">Plantilla Ticket PDF</span></li>
             </ol>
             <div class="right-wrapper pull-right">
-                <button class="btn btn-custom btn-sm  mt-2 mr-2"
+                <button class="btn btn-custom btn-sm  mt-2 me-2"
                         type="button"
                         @click="refreshTickets"><i class="el-icon-refresh"></i>
                     Actualizar listado
@@ -49,7 +49,7 @@
                                 <span class="text-bold">Plantilla: </span>
                                 <span class="text-center">{{ template.name }}</span>
                                 <div v-if="form.establishment_id"
-                                     class="bottom clearfix text-right m-0" style="margin-top: auto !important;">
+                                     class="bottom clearfix text-end m-0" style="margin-top: auto !important;">
                                     <el-radio v-model="form.current_format"
                                               :label="template.name"
                                               @change="changeFormat(template.name)"
@@ -77,7 +77,7 @@
             width="100">
             <div class="d-flex align-items-center justify-content-start" style="margin-top: -30px !important;">
                 <h4 class="text-bold">Plantilla:</h4>
-                <span style="font-size: 16px;" class="text-center ml-2">{{ template.name }}</span>
+                <span style="font-size: 16px;" class="text-center ms-2">{{ template.name }}</span>
             </div>
             <span>
                 <div class="block">

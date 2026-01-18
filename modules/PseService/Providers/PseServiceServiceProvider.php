@@ -3,7 +3,7 @@
 namespace Modules\PseService\Providers;
 
 use Illuminate\Support\ServiceProvider;
-use Illuminate\Database\Eloquent\Factory;
+// use Illuminate\Database\Eloquent\Factory;
 
 class PseServiceServiceProvider extends ServiceProvider
 {

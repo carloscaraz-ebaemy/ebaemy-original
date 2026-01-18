@@ -14,16 +14,10 @@
                  class="form-group">
               <label class="control-label">Nro. de Placa <span class="text-danger">*</span></label>
               <el-input v-model="form.plate_number"
-                        dusk="name"
-                        @input="validatePlateNumber"
-                        maxlength="15"
-                        placeholder="Solo letras y números"></el-input>
+                        dusk="name"></el-input>
               <small v-if="errors.plate_number"
                      class="form-control-feedback"
                      v-text="errors.plate_number[0]"></small>
-              <small v-else class="form-text text-muted">
-                Solo se permiten letras y números (sin espacios ni caracteres especiales)
-              </small>
             </div>
           </div>
           <div class="col-md-6">
@@ -57,9 +51,7 @@
             <div :class="{'has-danger': errors.tuc}"
                  class="form-group">
               <label class="control-label">Certificado de habilitación vehicular</label>
-              <el-input v-model="form.tuc"
-                        @input="validateTuc"
-                        maxlength="15"></el-input>
+              <el-input v-model="form.tuc"></el-input>
               <small v-if="errors.tuc"
                      class="invalid-feedback"
                      v-text="errors.tuc[0]"></small>
@@ -67,8 +59,8 @@
           </div>
         </div>
       </div>
-      <div class="form-actions text-right mt-4">
-        <el-button class="second-buton" @click.prevent="close()">Cancelar</el-button>
+      <div class="form-actions text-end mt-4">
+        <el-button class="second-buton me-2" @click.prevent="close()">Cancelar</el-button>
         <el-button :loading="loading_submit"
                    native-type="submit"
                    type="primary">Guardar
@@ -105,26 +97,6 @@ export default {
         brand: null,
         is_default: false,
         is_active: true,
-        tuc: null,
-      }
-    },
-    validatePlateNumber() {
-      // Eliminar cualquier caracter que no sea letra o número
-      if (this.form.plate_number) {
-        const cleaned = this.form.plate_number.replace(/[^a-zA-Z0-9]/g, '').toUpperCase()
-        if (this.form.plate_number !== cleaned) {
-          this.form.plate_number = cleaned
-          this.$message.warning('Solo se permiten letras y números en el número de placa')
-        }
-      }
-    },
-    validateTuc() {
-      // Limitar a alfanumérico para TUC también
-      if (this.form.tuc) {
-        const cleaned = this.form.tuc.replace(/[^a-zA-Z0-9]/g, '').toUpperCase()
-        if (this.form.tuc !== cleaned) {
-          this.form.tuc = cleaned
-        }
       }
     },
     async create() {
@@ -138,34 +110,10 @@ export default {
       }
     },
     async submit() {
-      // Validación del número de placa
-      if (!this.form.plate_number) {
-        return this.$message.error('El número de placa es obligatorio')
-      }
-
-      // Limpiar y validar placa
-      this.form.plate_number = this.form.plate_number.trim().toUpperCase()
-      
-      const plateRegex = /^[A-Z0-9]+$/
-      if (!plateRegex.test(this.form.plate_number)) {
-        return this.$message.error('El número de placa solo debe contener letras y números (sin espacios, guiones u otros caracteres)')
-      }
-
-      if (this.form.plate_number.length < 5 || this.form.plate_number.length > 15) {
-        return this.$message.error('El número de placa debe tener entre 5 y 15 caracteres')
-      }
-
-      // Validación del TUC
-      if (this.form.tuc) {
-        this.form.tuc = this.form.tuc.trim().toUpperCase()
-        
-        const tucRegex = /^[A-Z0-9]+$/
-        if (!tucRegex.test(this.form.tuc)) {
-          return this.$message.error('El certificado de habilitación vehicular solo debe contener letras y números')
-        }
-        
-        if (this.form.tuc.length < 10 || this.form.tuc.length > 15) {
-          return this.$message.error('El certificado de habilitación vehicular debe tener entre 10 y 15 caracteres')
+      if(this.form.tuc){
+        this.form.tuc = this.form.tuc.toUpperCase();
+        if(this.form.tuc.length<10 || this.form.tuc.length>15){
+          return this.$message.error('Certificado de habilitación vehicular debe ser alfanumérico de 10 a 15  caracteres')
         }
       }
     
@@ -197,10 +145,3 @@ export default {
   }
 }
 </script>
-
-<style scoped>
-.form-text {
-  font-size: 0.875rem;
-  margin-top: 0.25rem;
-}
-</style>

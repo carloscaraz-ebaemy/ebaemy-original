@@ -161,6 +161,7 @@
                             $order_note_prefix = $dispatches['order_notes']['prefix'];
                             $order_note=$order_note_prefix.'-'.$order_note_id;
                         }
+                        $transfer_reason='';
                         if(isset($dispatches['transfer_reason_type'])){
                             $transfer_reason=$dispatches['transfer_reason_type']['description'];
                         }

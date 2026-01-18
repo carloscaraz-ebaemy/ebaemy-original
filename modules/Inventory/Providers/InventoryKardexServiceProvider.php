@@ -64,6 +64,9 @@ class InventoryKardexServiceProvider extends ServiceProvider
             //$this->createInventory($purchase_item->item_id, $purchase_item->quantity, $warehouse->id);
             $this->createInventoryKardex($purchase_item->purchase, $purchase_item->item_id, /*$purchase_item->quantity*/ ($purchase_item->quantity * $presentationQuantity), $warehouse->id);
             $this->updateStock($purchase_item->item_id, ($purchase_item->quantity * $presentationQuantity), $warehouse->id);
+
+            // Sincronizar stock del restaurante
+            $this->syncRestaurantStock($purchase_item->item_id);
         });
     }
 
@@ -82,6 +85,9 @@ class InventoryKardexServiceProvider extends ServiceProvider
             $inve=$this->createInventoryKardex($purchase_item->purchase_settlement, $purchase_item->item_id, /*$purchase_item->quantity*/ ($purchase_item->quantity * $presentationQuantity), $warehouse->id);
             /* dd($inve); */
             $this->updateStock($purchase_item->item_id, ($purchase_item->quantity * $presentationQuantity), $warehouse->id);
+
+            // Sincronizar stock del restaurante
+            $this->syncRestaurantStock($purchase_item->item_id);
         });
     }
 
@@ -92,7 +98,6 @@ class InventoryKardexServiceProvider extends ServiceProvider
     private function sale() {
 
         DocumentItem::created(function (DocumentItem $document_item) {
-
             // si es nota credito tipo 13, no se asocia a inventario
             if($document_item->document->isCreditNoteAndType13()) return;
 
@@ -146,6 +151,12 @@ class InventoryKardexServiceProvider extends ServiceProvider
 
                 }
             }
+
+            // Procesar productos fusionados desde data_json
+            $this->processMergedProducts($document_item);
+
+            // Procesar modificadores aplicados
+            $this->processModifiersApplied($document_item);
 
             /*
              * Calculando el stock por lote por factor según la unidad
@@ -216,6 +227,8 @@ class InventoryKardexServiceProvider extends ServiceProvider
                 }*/
             }
 
+            // Sincronizar stock del restaurante
+            $this->syncRestaurantStock($document_item->item_id);
 
         });
     }
@@ -257,6 +270,12 @@ class InventoryKardexServiceProvider extends ServiceProvider
 
             }
 
+            // Procesar productos fusionados desde item JSON
+            $this->processMergedProductsSaleNote($sale_note_item);
+
+            // Procesar modificadores aplicados
+            $this->processModifiersAppliedSaleNote($sale_note_item);
+
             // series
             if(isset($sale_note_item->item->lots) )
             {
@@ -271,6 +290,9 @@ class InventoryKardexServiceProvider extends ServiceProvider
                 }
             }
             // series
+
+            // Sincronizar stock del restaurante
+            $this->syncRestaurantStock($sale_note_item->item_id);
 
         });
     }
@@ -717,6 +739,309 @@ class InventoryKardexServiceProvider extends ServiceProvider
 
         });
 
+    }
+
+    /**
+     * Procesa los productos fusionados (merged_products) para descontar su stock
+     * Lee los datos desde document->data_json->items
+     * Excluye el producto raíz para evitar doble descuento
+     *
+     * @param DocumentItem $document_item
+     */
+    private function processMergedProducts(DocumentItem $document_item) {
+
+        $document = $document_item->document;
+
+        // Obtener data_json del documento
+        $data_json = $document->data_json;
+        if (!$data_json || !isset($data_json->items)) {
+            return;
+        }
+
+        // Buscar el item correspondiente en data_json
+        $item_data = null;
+        foreach ($data_json->items as $item) {
+            if (isset($item->codigo_interno) && $item->codigo_interno == $document_item->item->internal_id) {
+                $item_data = $item;
+                break;
+            }
+        }
+
+        // Si no se encuentra el item o no está fusionado, salir
+        if (!$item_data || !isset($item_data->esFusionado) || !$item_data->esFusionado) {
+            return;
+        }
+
+        // Verificar que tenga productosFusionados
+        if (!isset($item_data->productosFusionados) || empty($item_data->productosFusionados)) {
+            return;
+        }
+
+        $factor = ($document->document_type_id === '07') ? 1 : -1;
+        $warehouse = ($document_item->warehouse_id)
+            ? $this->findWarehouse($this->findWarehouseById($document_item->warehouse_id)->establishment_id)
+            : $this->findWarehouse();
+
+        // Procesar cada producto fusionado
+        foreach ($item_data->productosFusionados as $merged_product) {
+
+            $merged_item_id = $merged_product->id ?? null;
+            $merged_quantity = $merged_product->quantity ?? 1;
+
+            // Si no tiene id, no podemos procesar
+            if (!$merged_item_id) {
+                \Log::warning("processMergedProducts: Producto fusionado sin ID");
+                continue;
+            }
+
+            // Saltar el producto principal para evitar doble descuento
+            if ($merged_item_id == $document_item->item_id) {
+                continue;
+            }
+
+            $total_quantity = $merged_quantity;
+
+            // Crear registro en kardex
+            $this->createInventoryKardex(
+                $document,
+                $merged_item_id,
+                ($factor * $total_quantity),
+                $warehouse->id
+            );
+
+            // Actualizar stock si corresponde
+            if (!$document->sale_note_id && !$document->order_note_id && !$document->dispatch_id && !$document->sale_notes_relateds) {
+                $this->updateStock($merged_item_id, ($factor * $total_quantity), $warehouse->id);
+            } else {
+                if ($document->dispatch) {
+                    if (!$document->dispatch->transfer_reason_type->discount_stock) {
+                        $this->updateStock($merged_item_id, ($factor * $total_quantity), $warehouse->id);
+                    }
+                }
+            }
+
+            // Sincronizar stock del restaurante
+            $this->syncRestaurantStock($merged_item_id);
+        }
+    }
+
+    /**
+     * Procesa los productos fusionados (merged_products) en nota de venta
+     * Lee los datos desde sale_note_item->item (campo JSON)
+     * Excluye el producto raíz para evitar doble descuento
+     *
+     * @param SaleNoteItem $sale_note_item
+     */
+    private function processMergedProductsSaleNote(SaleNoteItem $sale_note_item) {
+
+        // Obtener item del sale_note_item (campo JSON)
+        $item_data = $sale_note_item->item;
+
+        // Si no está fusionado, salir
+        if (!isset($item_data->esFusionado) || !$item_data->esFusionado) {
+            return;
+        }
+
+        // Verificar que tenga productosFusionados
+        if (!isset($item_data->productosFusionados) || empty($item_data->productosFusionados)) {
+            return;
+        }
+
+        $sale_note = $sale_note_item->sale_note;
+        $warehouse = ($sale_note_item->warehouse_id)
+            ? $this->findWarehouse($this->findWarehouseById($sale_note_item->warehouse_id)->establishment_id)
+            : $this->findWarehouse($sale_note->establishment_id);
+
+        // Procesar cada producto fusionado
+        foreach ($item_data->productosFusionados as $merged_product) {
+
+            $merged_item_id = $merged_product->id ?? null;
+            $merged_quantity = $merged_product->quantity ?? 1;
+
+            // Si no tiene id, no podemos procesar
+            if (!$merged_item_id) {
+                continue;
+            }
+
+            // Saltar el producto principal para evitar doble descuento
+            if ($merged_item_id == $sale_note_item->item_id) {
+                continue;
+            }
+
+            $total_quantity = $merged_quantity;
+
+            // Crear registro en kardex
+            $this->createInventoryKardexSaleNote(
+                $sale_note,
+                $merged_item_id,
+                (-1 * $total_quantity),
+                $warehouse->id,
+                $sale_note_item->id
+            );
+
+            // Actualizar stock si no viene de order_note
+            if (!$sale_note->order_note_id) {
+                $this->updateStock($merged_item_id, (-1 * $total_quantity), $warehouse->id);
+            }
+        }
+    }
+
+    /**
+     * Procesa los modificadores aplicados (modifiersApplied) para descontar su stock
+     * Procesa todos los modificadores en data_json->items
+     * Solo procesa modificadores con type: "item" y item_id
+     *
+     * @param DocumentItem $document_item
+     */
+    private function processModifiersApplied(DocumentItem $document_item) {
+
+        $document = $document_item->document;
+
+        // Obtener data_json del documento
+        $data_json = $document->data_json;
+        if (!$data_json || !isset($data_json->items)) {
+            return;
+        }
+
+        $factor = ($document->document_type_id === '07') ? 1 : -1;
+        $warehouse = ($document_item->warehouse_id)
+            ? $this->findWarehouse($this->findWarehouseById($document_item->warehouse_id)->establishment_id)
+            : $this->findWarehouse();
+
+        // Procesar todos los items del data_json
+        foreach ($data_json->items as $item_data) {
+
+            // Verificar que tenga modifiersApplied
+            if (!isset($item_data->modifiersApplied) || empty($item_data->modifiersApplied)) {
+                continue;
+            }
+
+            // Procesar cada grupo de modificadores
+            foreach ($item_data->modifiersApplied as $group) {
+                if (!isset($group->items) || empty($group->items)) {
+                    continue;
+                }
+
+                // Procesar cada item del grupo
+                foreach ($group->items as $modifierItem) {
+                    // Solo procesar si es de tipo "item" y tiene item_id
+                    if (!isset($modifierItem->type) || $modifierItem->type !== 'item') {
+                        continue;
+                    }
+
+                    if (!isset($modifierItem->item_id) || !$modifierItem->item_id) {
+                        continue;
+                    }
+
+                    $modifier_item_id = $modifierItem->item_id;
+                    // Usar quantity del item_data, no del document_item
+                    $modifier_quantity = $item_data->cantidad ?? 1;
+
+                    // Crear registro en kardex
+                    $this->createInventoryKardex(
+                        $document,
+                        $modifier_item_id,
+                        ($factor * $modifier_quantity),
+                        $warehouse->id
+                    );
+
+                    // Actualizar stock si corresponde
+                    if (!$document->sale_note_id && !$document->order_note_id && !$document->dispatch_id && !$document->sale_notes_relateds) {
+                        $this->updateStock($modifier_item_id, ($factor * $modifier_quantity), $warehouse->id);
+                    } else {
+                        if ($document->dispatch) {
+                            if (!$document->dispatch->transfer_reason_type->discount_stock) {
+                                $this->updateStock($modifier_item_id, ($factor * $modifier_quantity), $warehouse->id);
+                            }
+                        }
+                    }
+
+                    // Sincronizar stock del restaurante
+                    $this->syncRestaurantStock($modifier_item_id);
+                }
+            }
+        }
+    }
+
+    /**
+     * Procesa los modificadores aplicados (modifiersApplied) en nota de venta
+     * Lee los datos desde sale_note_item->item (campo JSON)
+     * Solo procesa modificadores con type: "item" y item_id
+     *
+     * @param SaleNoteItem $sale_note_item
+     */
+    private function processModifiersAppliedSaleNote(SaleNoteItem $sale_note_item) {
+
+        // Obtener item del sale_note_item (campo JSON)
+        $item_data = $sale_note_item->item;
+
+        // Verificar que tenga modifiersApplied
+        if (!isset($item_data->modifiersApplied) || empty($item_data->modifiersApplied)) {
+            return;
+        }
+
+        $sale_note = $sale_note_item->sale_note;
+        $warehouse = ($sale_note_item->warehouse_id)
+            ? $this->findWarehouse($this->findWarehouseById($sale_note_item->warehouse_id)->establishment_id)
+            : $this->findWarehouse($sale_note->establishment_id);
+
+        // Procesar cada grupo de modificadores
+        foreach ($item_data->modifiersApplied as $group) {
+            if (!isset($group->items) || empty($group->items)) {
+                continue;
+            }
+
+            // Procesar cada item del grupo
+            foreach ($group->items as $modifierItem) {
+                // Solo procesar si es de tipo "item" y tiene item_id
+                if (!isset($modifierItem->type) || $modifierItem->type !== 'item') {
+                    continue;
+                }
+
+                if (!isset($modifierItem->item_id) || !$modifierItem->item_id) {
+                    continue;
+                }
+
+                $modifier_item_id = $modifierItem->item_id;
+                $modifier_quantity = $sale_note_item->quantity; // Cantidad del producto principal
+
+                // Crear registro en kardex
+                $this->createInventoryKardexSaleNote(
+                    $sale_note,
+                    $modifier_item_id,
+                    (-1 * $modifier_quantity),
+                    $warehouse->id,
+                    $sale_note_item->id
+                );
+
+                // Actualizar stock si no viene de order_note
+                if (!$sale_note->order_note_id) {
+                    $this->updateStock($modifier_item_id, (-1 * $modifier_quantity), $warehouse->id);
+                }
+
+                // Sincronizar stock del restaurante
+                $this->syncRestaurantStock($modifier_item_id);
+            }
+        }
+    }
+
+    /**
+     *
+
+    /**
+     * Sincroniza el stock del restaurante cuando se actualiza el inventario
+     *
+     * @param int $item_id
+     * @return void
+     */
+    private function syncRestaurantStock($item_id)
+    {
+        try {
+            $stockService = app(\Modules\Restaurant\Services\RestaurantStockService::class);
+            $stockService->calculateAndUpdateStock($item_id);
+        } catch (\Exception $e) {
+            \Log::warning("No se pudo sincronizar stock del restaurante para item {$item_id}: " . $e->getMessage());
+        }
     }
 
 }

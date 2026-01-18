@@ -24,10 +24,10 @@
     use Modules\Document\Helpers\DocumentHelper;
     use Modules\MobileApp\Models\System\AppModule;
     use App\CoreFacturalo\ClientHelper;
+    use Illuminate\Support\Str;
     use Illuminate\Support\Facades\Cache;
     use App\Helpers\GuestRegisterHelper;
-    use Illuminate\Support\Facades\Log;
-
+use App\Models\System\PlanPeriod;
 
     class ClientController extends Controller
     {
@@ -49,6 +49,7 @@
             $types = [['type' => 'admin', 'description' => 'Administrador'], ['type' => 'integrator', 'description' => 'Listar Documentos']];
             $modules = Module::with('levels')
                 ->where('sort', '<', 14)
+                ->where('value', '!=', 'production_app')
                 ->orderBy('sort')
                 ->get()
                 ->each(function ($module) {
@@ -57,6 +58,7 @@
 
             $apps = Module::with('levels')
                 ->where('sort', '>', 13)
+                ->where('value', '!=', 'production_app')
                 ->orderBy('sort')
                 ->get()
                 ->each(function ($module) {
@@ -113,6 +115,7 @@
                 ->each(function ($module) {
                     return $this->prepareModules($module);
                 });
+            $plan_periods = PlanPeriod::all();
 
             $config = Configuration::first();
 
@@ -124,6 +127,7 @@
             return compact(
                 'url_base',
                 'plans',
+                'plan_periods',
                 'types',
                 'modules',
                 'apps',
@@ -350,41 +354,89 @@
 
         public function charts()
         {
-            $records = Client::all();
-            $count_documents = [];
-            foreach ($records as $row) {
-                $tenancy = app(Environment::class);
-                $tenancy->tenant($row->hostname->website);
-                for ($i = 1; $i <= 12; $i++) {
-                    $date_initial = Carbon::parse(date('Y') . '-' . $i . '-1');
-                    $year_before = Carbon::now()->subYear()->format('Y');
-                    $date_final = Carbon::parse(date('Y') . '-' . $i . '-' . cal_days_in_month(CAL_GREGORIAN, $i, $year_before));
-                    $count_documents[] = [
-                        'client' => $row->number,
-                        'month' => $i,
-                        'count' => $row->count_doc = DB::connection('tenant')
-                            ->table('documents')
-                            ->whereBetween('date_of_issue', [$date_initial, $date_final])
-                            ->count()
-                    ];
+            try {
+                $records = Client::all();
+                $count_documents = [];
+                
+                foreach ($records as $row) {
+                    try {
+                        // Verificar que el cliente tenga hostname y website válidos
+                        if (!$row->hostname || !$row->hostname->website) {
+                            \Log::warning("Cliente {$row->number} no tiene hostname válido");
+                            continue;
+                        }
+
+                        $tenancy = app(Environment::class);
+                        $tenancy->tenant($row->hostname->website);
+                        
+                        // Verificar que la conexión tenant esté disponible
+                        if (!DB::connection('tenant')->getDatabaseName()) {
+                            \Log::warning("Cliente {$row->number} no tiene base de datos configurada");
+                            continue;
+                        }
+
+                        for ($i = 1; $i <= 12; $i++) {
+                            
+                            $date_initial = Carbon::create(null, $i)->startOfMonth();
+                            $date_final = Carbon::create(null, $i)->endOfMonth();
+                            
+                            $count = DB::connection('tenant')
+                                ->table('documents')
+                                ->whereBetween('date_of_issue', [$date_initial, $date_final])
+                                ->count();
+                            
+                            $count_documents[] = [
+                                'client' => $row->number,
+                                'month' => $i,
+                                'count' => $count
+                            ];
+                        }
+                    } catch (\Exception $e) {
+                        // Registrar el error pero continuar con los demás clientes
+                        \Log::warning("Error al procesar cliente {$row->number}: " . $e->getMessage());
+                        continue;
+                    }
                 }
+
+                $total_documents = collect($count_documents)->sum('count');
+
+                $groups_by_month = collect($count_documents)->groupBy('month');
+                $labels = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Set', 'Oct', 'Nov', 'Dic'];
+                $documents_by_month = [];
+                
+                foreach ($groups_by_month as $month => $group) {
+                    $documents_by_month[] = $group->sum('count');
+                }
+                
+                // Asegurarse de que siempre haya 12 meses (rellenar con 0 si falta alguno)
+                for ($i = 0; $i < 12; $i++) {
+                    if (!isset($documents_by_month[$i])) {
+                        $documents_by_month[$i] = 0;
+                    }
+                }
+
+                $line = [
+                    'labels' => $labels,
+                    'data' => $documents_by_month
+                ];
+
+                return compact('line', 'total_documents');
+                
+            } catch (\Exception $e) {
+                \Log::error("Error general en charts(): " . $e->getMessage());
+                
+                // Devolver datos vacíos en caso de error
+                $line = [
+                    'labels' => ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Set', 'Oct', 'Nov', 'Dic'],
+                    'data' => [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+                ];
+                
+                return [
+                    'line' => $line,
+                    'total_documents' => 0,
+                    'error' => 'Error al cargar los datos del gráfico'
+                ];
             }
-
-            $total_documents = collect($count_documents)->sum('count');
-
-            $groups_by_month = collect($count_documents)->groupBy('month');
-            $labels = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Set', 'Oct', 'Nov', 'Dic'];
-            $documents_by_month = [];
-            foreach ($groups_by_month as $month => $group) {
-                $documents_by_month[] = $group->sum('count');
-            }
-
-            $line = [
-                'labels' => $labels,
-                'data' => $documents_by_month
-            ];
-
-            return compact('line', 'total_documents');
         }
 
         /**
@@ -448,6 +500,11 @@
                     $client->setSmtpPassword($smtp_password);
                 }
                 $client->plan_id = $request->plan_id;
+                $client->price = $request->price;
+                $client->plan_period_id = $request->plan_period_id;
+                $client->phone_ws = $request->phone_ws;
+                $client->client_name = $request->client_name;
+                $client->contact_email = $request->contact_email;
 
                 $client->enable_list_product = $request->enable_list_product;
                 $client->save();
@@ -591,94 +648,116 @@
 
         public function store(ClientRequest $request)
         {
-            $temp_path = $request->input('temp_path');
-            $configuration = Configuration::first();
+            // Establecer tiempo de ejecución manual para evitar timeout
+            set_time_limit(3600); // 60 minutos
+            ini_set('memory_limit', '2048M');
+            \Log::info('=== INICIO STORE CLIENT ===', ['timestamp' => now()]);
 
-            $name_certificate = $configuration->certificate;
-
-            if ($temp_path) {
-
-                try {
-                    $password = $request->input('password_certificate');
-                    $pfx = file_get_contents($temp_path);
-                    $pem = GenerateCertificate::typePEM($pfx, $password);
-                    $name = 'certificate_' . 'admin_tenant' . '.pem';
-                    if (!file_exists(storage_path('app' . DIRECTORY_SEPARATOR . 'certificates'))) {
-                        mkdir(storage_path('app' . DIRECTORY_SEPARATOR . 'certificates'));
-                    }
-                    file_put_contents(storage_path('app' . DIRECTORY_SEPARATOR . 'certificates' . DIRECTORY_SEPARATOR . $name), $pem);
-                    $name_certificate = $name;
-
-                } catch (Exception $e) {
-                    return [
-                        'success' => false,
-                        'message' => $e->getMessage()
-                    ];
-                }
-            }
-
-
-            $subDom = strtolower($request->input('subdomain'));
-            $uuid = config('tenant.prefix_database') . '_' . $subDom;
-            $fqdn = $subDom . '.' . config('tenant.app_url_base');
-
-            $website = new Website();
             $hostname = new Hostname();
-            $this->validateWebsite($uuid, $website);
+            $website = new Website();
 
-            DB::connection('system')->beginTransaction();
             try {
+                $temp_path = $request->input('temp_path');
+                $configuration = Configuration::first();
+                \Log::info('Configuración obtenida', ['config_id' => $configuration->id ?? 'null']);
+
+                $name_certificate = $configuration->certificate;
+
+                if ($temp_path) {
+                    \Log::info('Procesando certificado', ['temp_path' => $temp_path]);
+                    try {
+                        $number = $request->input('number');
+                        $password = $request->input('password_certificate');
+                        $pfx = file_get_contents($temp_path);
+                        $pem = GenerateCertificate::typePEM($pfx, $password);
+                        $name = 'certificate_' . 'admin_tenant'. "_$number" . '.pem';
+                        if (!file_exists(storage_path('app' . DIRECTORY_SEPARATOR . 'certificates'))) {
+                            mkdir(storage_path('app' . DIRECTORY_SEPARATOR . 'certificates'));
+                        }
+                        file_put_contents(storage_path('app' . DIRECTORY_SEPARATOR . 'certificates' . DIRECTORY_SEPARATOR . $name), $pem);
+                        $name_certificate = $name;
+                        \Log::info('Certificado procesado exitosamente', ['name' => $name]);
+
+                    } catch (Exception $e) {
+                        \Log::error('Error procesando certificado', ['error' => $e->getMessage()]);
+                        return [
+                            'success' => false,
+                            'message' => $e->getMessage()
+                        ];
+                    }
+                }
+
+                $subDom = strtolower($request->input('subdomain'));
+                $uuid = config('tenant.prefix_database') . '_' . $subDom;
+                $fqdn = $subDom . '.' . config('tenant.app_url_base');
+                \Log::info('Variables de tenant creadas', ['uuid' => $uuid, 'fqdn' => $fqdn]);
+
+                $this->validateWebsite($uuid, $website);
+                \Log::info('Validación de website completada');
+
+                \Log::info('Creando website...');
                 $website->uuid = $uuid;
                 app(WebsiteRepository::class)->create($website);
-                $hostname->fqdn = $fqdn;
-                app(HostnameRepository::class)->attach($hostname, $website);
+                \Log::info('Website creado', ['website_id' => $website->id]);
 
+                \Log::info('Creando y asociando hostname...');
+                $hostname->fqdn = $fqdn;
+                $hostname = app(HostnameRepository::class)->create($hostname);
+                app(HostnameRepository::class)->attach($hostname, $website);
+                \Log::info('Hostname creado y asociado', ['hostname_id' => $hostname->id]);
+
+                $token = Str::random(50);
+
+                \Log::info('Creando cliente...');
+                $client = Client::query()->create([
+                    'hostname_id' => $hostname->id,
+                    'token' => $token,
+                    'email' => strtolower($request->input('email')),
+                    'name' => $request->input('name'),
+                    'number' => $request->input('number'),
+                    'plan_id' => $request->input('plan_id'),
+                    'locked_emission' => $request->input('locked_emission'),
+                    'enable_list_product' => $request->input('enable_list_product'),
+                    'price' => $request->input('price'),
+                    'plan_period_id' => $request->input('plan_period_id'),
+                    'start_billing_cycle' => Carbon::now()->toDateString(),
+                    'ending_billing_cycle' => Carbon::now()->toDateString(),
+                    'client_name' => $request->input('client_name') ? $request->input('client_name') : $request->input('name'),
+                    'phone_ws' => $request->input('phone_ws'),
+                    'contact_email' => $request->input('contact_email') ? $request->input('contact_email') : $request->input('email'),
+                ]);
+                \Log::info('Cliente creado', ['client_id' => $client->id]);
+
+                $client->createPayemtnOrder();
+                \Log::info('Configurando tenancy...');
                 $tenancy = app(Environment::class);
                 $tenancy->tenant($website);
+                \Log::info('Tenancy configurado');
 
-                $token = str_random(50);
-                $from_guest_register = $request->has('from_guest_register') && (bool) $request->from_guest_register;
+                \Log::info('=== INICIANDO OPERACIONES EN TENANT DATABASE ===');
+                \Log::info('Insertando company...');
+                DB::connection('tenant')->table('companies')->insert([
+                    'identity_document_type_id' => '6',
+                    'number' => $request->input('number'),
+                    'name' => $request->input('name'),
+                    'trade_name' => $request->input('name'),
+                    'soap_type_id' => $request->soap_type_id,
+                    'soap_send_id' => $request->soap_send_id,
+                    'soap_username' => $request->soap_username,
+                    'soap_password' => $request->soap_password,
+                    'soap_url' => $request->soap_url,
+                    'certificate' => $name_certificate, 
+                ]);
 
-                $client = new Client();
-                $client->hostname_id = $hostname->id;
-                $client->token = $token;
-                $client->email = strtolower($request->input('email'));
-                $client->name = $request->input('name');
-                $client->number = $request->input('number');
-                $client->plan_id = $request->input('plan_id');
-                $client->locked_emission = $request->input('locked_emission');
-                $client->enable_list_product = $request->input('enable_list_product');
-                $client->from_guest_register = $from_guest_register;
-                $client->save();
-
-                DB::connection('system')->commit();
-            } catch (Exception $e) {
-                DB::connection('system')->rollBack();
-                app(HostnameRepository::class)->delete($hostname, true);
-                app(WebsiteRepository::class)->delete($website, true);
-
-                return [
-                    'success' => false,
-                    'message' => $e->getMessage()
-                ];
-            }
-
-            DB::connection('tenant')->table('companies')->insert([
-                'identity_document_type_id' => '6',
-                'number' => $request->input('number'),
-                'name' => $request->input('name'),
-                'trade_name' => $request->input('name'),
-                'soap_type_id' => $request->soap_type_id,
-                'soap_send_id' => $request->soap_send_id,
-                'soap_username' => $request->soap_username,
-                'soap_password' => $request->soap_password,
-                'soap_url' => $request->soap_url,
-                'certificate' => $name_certificate,
-            ]);
+                \Log::info('Company insertada');
 
             $plan = Plan::findOrFail($request->input('plan_id'));
             $http = config('tenant.force_https') == true ? 'https://' : 'http://';
+            
+            // Definir variable para registro de invitado
+            $from_guest_register = $request->input('from_guest_register', false);
 
+            \Log::info('Insertando configuración...');
             DB::connection('tenant')->table('configurations')->insert([
                 'send_auto' => true,
                 'locked_emission' => $request->input('locked_emission'),
@@ -697,11 +776,13 @@
                     'position_form' => 'right',
                     'show_logo_in_form' => false,
                     'position_logo' => 'top-left',
+                    'padding_in_form' => '2.5%',
                     'show_socials' => false,
                     'facebook' => null,
                     'twitter' => null,
                     'instagram' => null,
                     'linkedin' => null,
+                    'tiktok' => null
                 ]),
                 'visual' => json_encode([
                     'bg' => 'white',
@@ -717,8 +798,9 @@
                 'quantity_sales_notes' => 0,
                 'from_guest_register' => $from_guest_register
             ]);
+            \Log::info('Configuración insertada');
 
-
+            \Log::info('Insertando establishment...');
             $establishment_id = DB::connection('tenant')->table('establishments')->insertGetId([
                 'description' => 'Oficina Principal',
                 'country_id' => 'PE',
@@ -730,14 +812,18 @@
                 'telephone' => '-',
                 'code' => '0000'
             ]);
+            \Log::info('Establishment insertado', ['establishment_id' => $establishment_id]);
 
+            \Log::info('Insertando warehouse...');
             DB::connection('tenant')->table('warehouses')->insertGetId([
                 'establishment_id' => $establishment_id,
                 'description' => 'Almacén Oficina Principal',
                 'created_at' => now(),
                 'updated_at' => now(),
             ]);
+            \Log::info('Warehouse insertado');
 
+            \Log::info('Insertando series...');
             DB::connection('tenant')->table('series')->insert([
                 ['establishment_id' => 1, 'document_type_id' => '01', 'number' => 'F001'],
                 ['establishment_id' => 1, 'document_type_id' => '03', 'number' => 'B001'],
@@ -756,8 +842,9 @@
                 ['establishment_id' => 1, 'document_type_id' => 'U3', 'number' => 'NSA1'],
                 ['establishment_id' => 1, 'document_type_id' => 'U4', 'number' => 'NTA1'],
             ]);
+            \Log::info('Series insertadas');
 
-
+            \Log::info('Insertando usuario...');
             $user_id = DB::connection('tenant')->table('users')->insert([
                 'name' => 'Administrador',
                 'email' => $request->input('email'),
@@ -770,8 +857,9 @@
                 'last_password_update' => date('Y-m-d H:i:s'),
                 'from_guest_register' => $from_guest_register
             ]);
+            \Log::info('Usuario insertado', ['user_id' => $user_id]);
 
-
+            \Log::info('Configurando módulos y permisos...');
             if ($request->input('type') == 'admin') {
                 $array_modules = [];
                 $array_levels = [];
@@ -785,51 +873,41 @@
                         'module_level_id' => $level, 'user_id' => $user_id
                     ]);
                 }
+                \Log::info('Insertando módulos de usuario...');
                 DB::connection('tenant')->table('module_user')->insert($array_modules);
+                \Log::info('Insertando niveles de usuario...');
                 DB::connection('tenant')->table('module_level_user')->insert($array_levels);
 
+                \Log::info('Insertando módulos de app...');
                 $this->insertAppModules($user_id);
+                \Log::info('Módulos de app insertados');
 
             } else {
+                \Log::info('Insertando módulos básicos para integrator...');
                 DB::connection('tenant')->table('module_user')->insert([
                     ['module_id' => 1, 'user_id' => $user_id],
                     ['module_id' => 3, 'user_id' => $user_id],
                     ['module_id' => 5, 'user_id' => $user_id],
                 ]);
+                \Log::info('Módulos básicos insertados');
             }
 
+            \Log::info('=== CLIENTE REGISTRADO EXITOSAMENTE ===', ['timestamp' => now()]);
             return [
                 'success' => true,
-                'message' => 'Cliente Registrado satisfactoriamente',
-                'guest_register' => $this->runGuestRegister($from_guest_register, $user_id, $request->email, $client->id)
+                'message' => 'Cliente Registrado satisfactoriamente'
+            ];
+
+        } catch (Exception $e) {
+            \Log::error('Error en store client', ['error' => $e->getMessage()]);
+            app(HostnameRepository::class)->delete($hostname, true);
+            app(WebsiteRepository::class)->delete($website, true);
+            return [
+                'success' => false,
+                'message' => $e->getMessage()
             ];
         }
-        
-
-        /**
-         *
-         * @param  bool $from_guest_register
-         * @param  string $user_id
-         * @param  string $email
-         * @param  int $client_id
-         * @return array
-         */
-        private function runGuestRegister($from_guest_register, $user_id, $email, $client_id)
-        {
-            if($from_guest_register)
-            {
-                $helper = new GuestRegisterHelper();
-                $encrypt_client_id = $helper->encryptValue($client_id);
-                $helper->sendEmail($user_id, $email, $encrypt_client_id);
-
-                return [
-                    'user_id' => (string) $user_id,
-                    'key' => $encrypt_client_id,
-                ];
-            }
-
-            return [];
-        }
+    }
 
         public function validateWebsite($uuid, $website)
         {
@@ -1115,5 +1193,33 @@
 
         }
 
+        public function search(Request $request)
+        {
+            $query = $request->input('query');
 
+            $clients = Client::where('name', 'like', "%{$query}%")
+                        ->orWhere('number', 'like', "%{$query}%")
+                        ->get();
+
+            $clients = $clients->transform(function($row) {
+                return [
+                    'id' => $row->id,
+                    'name' => $row->name,
+                ];
+            });
+
+            return compact('clients');
+        }
+
+        public function confirmLimitReseller(Request $request)
+        {
+            $limiteClientes = (int) config('app.limite_reseller' , 999);
+            $totalClientes = Client::count();
+
+            if($totalClientes >= $limiteClientes && $limiteClientes > 0){
+                return $this->generalResponse(false, 'Ha alcanzado el límite de clientes permitidos');
+            }
+
+            return $this->generalResponse(true, 'Aun puede registrar más clientes');
+        }
     }

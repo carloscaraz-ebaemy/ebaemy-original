@@ -42,8 +42,8 @@
                     </div> 
                      
                     <div class="col-lg-8 col-md-8 col-md-8 col-sm-12 mt-4"> 
-                        <el-button class="submit" type="primary" @click.prevent="getRecordsByFilter" :loading="loading_submit" icon="el-icon-check" >Validar documentos</el-button>
-                        <el-button class="submit" type="info" @click.prevent="cleanInputs"  icon="el-icon-delete" >Limpiar </el-button>
+                        <el-button class="submit me-2" type="primary" @click.prevent="getRecordsByFilter" :loading="loading_submit" icon="el-icon-check" >Validar documentos</el-button>
+                        <el-button class="submit me-2" type="info" @click.prevent="cleanInputs"  icon="el-icon-delete" >Limpiar </el-button>
 
                         <template v-if="records.length > 0">
                             <el-button class="submit" type="danger" @click.prevent="clickRegularizeDocuments" icon="el-icon-edit" >Regularizar documentos</el-button>

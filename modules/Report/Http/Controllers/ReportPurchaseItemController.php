@@ -7,7 +7,7 @@ use App\Models\Tenant\Catalogs\DocumentType;
 use App\Http\Controllers\Controller;
 use App\Models\Tenant\Configuration;
 use App\Models\Tenant\PurchaseItem;
-use Barryvdh\DomPDF\Facade as PDF;
+use Barryvdh\DomPDF\Facade\Pdf as PDF;
 use Modules\Report\Exports\PurchaseExport;
 use Illuminate\Http\Request;
 use Modules\Report\Traits\ReportTrait;

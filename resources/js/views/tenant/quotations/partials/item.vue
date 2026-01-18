@@ -46,7 +46,7 @@
                             >
                                 <el-button
                                     :disabled="isEditItemNote"
-                                    class="btn-search-default"
+                                    class="btn-search-default btn-search-quotation"
                                     @click.prevent="clickWarehouseDetail()"
                                 >
                                     <i class="fa fa-search"></i>
@@ -57,17 +57,17 @@
                                 :class="{ 'has-danger': errors.item_id }"
                                 class="form-group more-width-input"
                             >
-                                <label class="control-label">
+                                <label class="control-label d-flex align-items-center">
                                     Producto/Servicio
-                                    <a
+                                    <span
                                         v-if="can_add_new_product"
-                                        href="#"
+                                        class="btn-add-new-product"
                                         @click.prevent="
                                             showDialogNewItem = true
                                         "
                                     >
-                                        [+ Nuevo]
-                                    </a>
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon icon-tabler icons-tabler-outline icon-tabler-plus"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M12 5l0 14" /><path d="M5 12l14 0" /></svg>
+                                    </span>
                                 </label>
 
                                 <template
@@ -113,6 +113,23 @@
                                                     :value="option.id"
                                                 ></el-option>
                                             </el-tooltip>
+                                            <template slot="empty">
+                                                <p v-if="loading_search" class="el-select-dropdown__empty">
+                                                    Cargando...
+                                                </p>
+                                            
+                                                <p v-else class="el-select-dropdown__empty">
+                                                    No se encontraron resultados
+                                                </p>
+                                            
+                                                <div
+                                                    v-if="!loading_search"
+                                                    class="el-select-dropdown__item new-option"
+                                                    @click.stop="openNewItemDialog"
+                                                >
+                                                    <span>{{ itemSearchTerm ? `Crear producto "${itemSearchTerm}"` : 'Crear producto' }}</span>
+                                                </div>
+                                            </template>
                                         </el-select>
                                     </el-input>
                                 </template>
@@ -457,13 +474,13 @@
                                             </th>
                                             <th class="text-center">Factor</th>
                                             <th class="text-center">
-                                                Precio 1
+                                                {{ config.price1_label }}
                                             </th>
                                             <th class="text-center">
-                                                Precio 2
+                                                {{ config.price2_label }}
                                             </th>
                                             <th class="text-center">
-                                                Precio 3
+                                                {{ config.price3_label }}
                                             </th>
                                             <th class="text-center">
                                                 Precio Default
@@ -799,7 +816,7 @@
             <!-- @todo: Mejorar evitando duplicar codigo -->
             <!-- Mostrar en cel -->
 
-            <div class="row hidden-md-up form-actions text-center">
+            <div class="row d-md-none form-actions text-center">
                 <div class="col-12">
                     &nbsp;
                 </div>
@@ -826,8 +843,8 @@
             <!-- @todo: Mejorar evitando duplicar codigo -->
             <!-- Ocultar en cel -->
 
-            <div class="form-actions text-right pt-2  hidden-sm-down">
-                <el-button class="second-buton" @click.prevent="close()"
+            <div class="form-actions text-end pt-2 d-none d-md-block">
+                <el-button class="second-buton me-2" @click.prevent="close()"
                     >Cerrar</el-button
                 >
                 <el-button
@@ -843,6 +860,7 @@
         <item-form
             :external="true"
             :showDialog.sync="showDialogNewItem"
+            :input_item="itemSearchTerm"
         ></item-form>
 
         <lots-group
@@ -884,7 +902,7 @@
 
 <script>
 import itemForm from "../../items/form.vue";
-import LotsGroup from "../../documents/partials/lots_group";
+import LotsGroup from "../../documents/partials/lots_group.vue";
 
 import { calculateRowItem } from "../../../../helpers/functions";
 import WarehousesDetail from "./warehouses.vue";
@@ -968,10 +986,18 @@ export default {
             readonly_total: 0,
             itemLastPrice: null,
             various_item: false,
-            various_item_barcode: "VARIOUS_ITEM"
+            various_item_barcode: "VARIOUS_ITEM",
+            itemSearchTerm: ''
 
             //item_unit_type: {}
         };
+    },
+    watch: {
+        showDialog(newVal) {
+            if (newVal) {
+                this.itemSearchTerm = ''
+            }
+        }
     },
     created() {
         this.loadConfiguration();
@@ -984,6 +1010,10 @@ export default {
                 this.showDiscounts = false;
             }
         }
+        this.$eventHub.$on("reloadDataItems", item_id => {
+            this.reloadDataItems(item_id);
+            this.itemSearchTerm = ''
+        });
     },
     mounted() {
         this.getTables();
@@ -1173,6 +1203,8 @@ export default {
             this.calculateTotal();
         },
         async searchRemoteItems(input) {
+            this.itemSearchTerm = input;
+
             if (input.length > 2) {
                 this.loading_search = true;
                 let params = {
@@ -1870,7 +1902,10 @@ export default {
             }
             this.initForm();
             this.filterItems();
-        }
+        },
+        openNewItemDialog() {
+            this.showDialogNewItem = true;
+        },
     }
 };
 </script>

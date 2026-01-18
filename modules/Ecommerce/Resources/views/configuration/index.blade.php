@@ -9,7 +9,7 @@
         <li class="active"><span> Configuración </span></li>
     </ol>
 </div>
-<div class="row tab-content-default row-new bg-transparent">
+<div class="row tab-content-default row-new bg-transparent mt-1" style="background: transparent !important;">
     <tenant-ecommerce-configuration-info></tenant-ecommerce-configuration-info>
     <tenant-ecommerce-configuration-culqi></tenant-ecommerce-configuration-culqi>
     <tenant-ecommerce-configuration-paypal></tenant-ecommerce-configuration-paypal>
@@ -19,6 +19,7 @@
     <tenant-ecommerce-configuration-tag></tenant-ecommerce-configuration-tag>
     <tenant-ecommerce-configuration-links></tenant-ecommerce-configuration-links>
     <tenant-ecommerce-configuration-color></tenant-ecommerce-configuration-color>
+    <tenant-ecommerce-other-settings></tenant-ecommerce-other-settings>
 
 </div>
 @endsection

@@ -17,7 +17,7 @@ use App\CoreFacturalo\Helpers\Storage\StorageDocument;
 use App\Models\Tenant\Company;
 use App\Models\Tenant\Establishment;
 use Modules\Inventory\Exports\InventoryExport;
-use Barryvdh\DomPDF\Facade as PDF;
+use Barryvdh\DomPDF\Facade\Pdf as PDF;
 use Carbon\Carbon;
 use App\Models\Tenant\Cash;
 use Modules\Finance\Traits\FinanceTrait;

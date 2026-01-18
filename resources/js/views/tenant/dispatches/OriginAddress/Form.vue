@@ -23,7 +23,7 @@
                         <div :class="{'has-danger': errors.location_id}"
                              class="form-group">
                             <label class="control-label">Ubigeo</label>
-                            <el-cascader v-model="form.location_id"
+                            <el-cascader class="w-100" v-model="form.location_id"
                                          :options="locations"
                                          filterable
                                          :filter-method="filterLocation"></el-cascader>
@@ -46,8 +46,8 @@
 
                 </div>
             </div>
-            <div class="form-actions text-right mt-4">
-                <el-button class="second-buton" @click.prevent="close()">Cancelar</el-button>
+            <div class="form-actions text-end mt-4">
+                <el-button class="second-buton me-2" @click.prevent="close()">Cancelar</el-button>
                 <el-button :loading="loading_submit"
                            native-type="submit"
                            type="primary">Guardar

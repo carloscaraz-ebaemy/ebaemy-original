@@ -35,7 +35,5 @@ class TenantCreateConfigurationTaps extends Migration
     public function down()
     {
         Schema::dropIfExists('configuration_taps');
-
-        DB::table('configuration_taps')->delete();
     }
 }

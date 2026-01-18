@@ -16,7 +16,7 @@ use App\Models\Tenant\SaleNoteItem;
 use App\Models\Tenant\SaleNote;
 use App\Models\Tenant\Document;
 use App\Models\Tenant\User;
-use Barryvdh\DomPDF\Facade as PDF;
+use Barryvdh\DomPDF\Facade\Pdf as PDF;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Modules\Finance\Traits\FinanceTrait;

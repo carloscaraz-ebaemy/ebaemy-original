@@ -5,7 +5,7 @@ namespace Modules\Report\Http\Controllers;
 use App\Models\Tenant\Catalogs\DocumentType;
 use App\Http\Controllers\Controller;
 use App\Models\Tenant\PurchaseItem;
-use Barryvdh\DomPDF\Facade as PDF;
+use Barryvdh\DomPDF\Facade\Pdf as PDF;
 use Modules\Report\Exports\ItemExport;
 use Illuminate\Http\Request;
 use App\Models\Tenant\Establishment;

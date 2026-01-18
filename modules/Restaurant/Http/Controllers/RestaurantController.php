@@ -21,6 +21,11 @@ use App\Http\Controllers\Tenant\EmailController;
 use App\Mail\Tenant\CulqiEmail;
 use Modules\Restaurant\Models\RestaurantConfiguration;
 use Modules\Restaurant\Models\RestaurantNote;
+use Modules\Restaurant\Models\RestaurantTable;
+use Modules\Restaurant\Models\RestaurantItemOrderStatus;
+use Modules\Restaurant\Models\RestaurantStockProduct;
+use Modules\Restaurant\Services\RestaurantStockService;
+use Illuminate\Support\Facades\DB;
 use Modules\ApiPeruDev\Data\ServiceData;
 use App\Models\Tenant\Person;
 
@@ -36,12 +41,38 @@ class RestaurantController extends Controller
         }
 
         $category = Category::where('name', $name)->first();
-        $dataPaginate = Item::where([['apply_restaurant', 1], ['internal_id','!=', null]])
-                                ->category($category ? $category->id : null)
-                                ->paginate(8);
+
+        // Obtener preferencias de configuración
+        $configEcommerce = ConfigurationEcommerce::first();
+        $preferences = $configEcommerce && $configEcommerce->preferences
+            ? (is_string($configEcommerce->preferences) ? json_decode($configEcommerce->preferences, true) : $configEcommerce->preferences)
+            : ['show_description' => 1, 'show_stock' => 0, 'only_available_products' => 0];
+
+        // Query base
+        $query = Item::where([['apply_restaurant', 1], ['internal_id','!=', null]]);
+
+        // Filtrar solo productos disponibles si está activado
+        if (isset($preferences['only_available_products']) && $preferences['only_available_products'] == 1) {
+            $query->where('stock', '>', 0);
+        }
+
+        $dataPaginate = $query->category($category ? $category->id : null)
+                              ->paginate(12);
+
         $configuration = InventoryConfiguration::first();
         $categories = Category::get();
-        return view('restaurant::index', ['dataPaginate' => $dataPaginate, 'configuration' => $configuration->stock_control])->with('categories', $categories);
+
+        // Obtener spots publicitarios
+        $spots = Promotion::where('apply_restaurant', 1)
+            ->where('type', 'spots')
+            ->get();
+
+        return view('restaurant::index', [
+            'dataPaginate' => $dataPaginate,
+            'configuration' => $configuration->stock_control,
+            'spots' => $spots,
+            'preferences' => $preferences
+        ])->with('categories', $categories);
     }
 
     /*
@@ -81,9 +112,12 @@ class RestaurantController extends Controller
 
         $items = Item::where('apply_restaurant', 1)
             ->whereNotNull('internal_id')
-            ->whereHas('warehouses', function ($query) use ($warehouse_id) {
-                $query->where('warehouse_id', $warehouse_id);
+            ->where(function($query) use ($warehouse_id) {
+                $query->whereHas('warehouses', function ($q) use ($warehouse_id) {
+                    $q->where('warehouse_id', $warehouse_id);
+                })->orWhereHas('restaurantSupplies');
             })
+            ->with(['restaurantSupplies'])
             ->get();
 
         $records = new ItemCollection($items);
@@ -91,6 +125,18 @@ class RestaurantController extends Controller
         return [
             'success' => true,
             'data' => $records
+        ];
+    }
+
+    public function setRestaurantFavoriteItem(Request $request) {
+        $item = Item::findOrFail($request->id);
+
+        $item->restaurant_favorite = ($item->restaurant_favorite == 1) ? 0 : 1;
+        $item->save();
+
+        return [
+            'success' => true,
+            'message' => ($item->restaurant_favorite == 1)? "Producto agregado a favoritos": "Producto quitado de favoritos"
         ];
     }
 
@@ -192,7 +238,7 @@ class RestaurantController extends Controller
 
                 $type = ($request->purchase["datos_del_cliente_o_receptor"]["codigo_tipo_documento_identidad"]=='6')?'ruc':'dni';
                 $document_number = $request->purchase["datos_del_cliente_o_receptor"]["numero_documento"];
-                
+
                 $dataDocument = $this->searchDocument($type,$document_number);
                 if ($dataDocument["success"]) {
                     $clientData = [ "apellidos_y_nombres_o_razon_social" => $dataDocument["data"]["name"] ];
@@ -277,4 +323,97 @@ class RestaurantController extends Controller
     {
         return (new ServiceData)->service($type, $number);
     }
+
+    // Cambiar mesa de un pedido a otra mesa
+    public function changeTablePedido(Request $request)
+    {
+        try {
+            $request->validate([
+                'tableid_origin' => 'required|integer|different:tableid_destination',
+                'tableid_destination' => 'required|integer'
+            ]);
+
+            $tableid_origin = $request->tableid_origin;
+            $tableid_destination = $request->tableid_destination;
+
+            $defaultTableValues = [
+                'status' => 'available',
+                'products' => [],
+                'total' => 0.0,
+                'personas' => 0,
+                'cliente' => null,
+                'comentarios' => null,
+                'waiter' => null,
+                'opening_date' => null,
+                'order_status' => 'pending'
+            ];
+
+            $table_origin = RestaurantTable::find($tableid_origin);
+            if (!$table_origin) {
+                return ['success' => false, 'message' => 'La mesa de origen no existe.'];
+            }
+
+            $table_destination = RestaurantTable::find($tableid_destination);
+            if (!$table_destination) {
+                return ['success' => false, 'message' => 'La mesa destino no existe.'];
+            }
+
+            DB::transaction(function() use ($table_origin, $table_destination, $defaultTableValues, $tableid_origin, $tableid_destination) {
+
+                $table_destination->update([
+                    'status' => $table_origin->status,
+                    'products' => $table_origin->products,
+                    'total' => $table_origin->total,
+                    'personas' => $table_origin->personas,
+                    'cliente' => $table_origin->cliente,
+                    'comentarios' => $table_origin->comentarios,
+                    'waiter' => $table_origin->waiter,
+                    'opening_date' => $table_origin->opening_date,
+                    'order_status' => $table_origin->order_status
+                ]);
+
+                RestaurantItemOrderStatus::where('table_id', $tableid_origin)
+                    ->update(['table_id' => $tableid_destination]);
+
+                $table_origin->update($defaultTableValues);
+
+            });
+
+            return ['success' => true, 'message' => 'Los datos de la mesa se han movido correctamente.'];
+
+        } catch(\Exception $e) {
+            return ['success' => false, 'message' => $e->getMessage()];
+        }
+    }
+
+    /**
+     * Obtiene el stock disponible de todos los items del restaurante
+     * Versión optimizada para consultas frecuentes (websockets)
+     * Solo retorna: item_id, stock, quantity_reserved, available
+     *
+     * @return array
+     */
+    public function getStockStatus()
+    {
+        try {
+            $stockData = RestaurantStockProduct::select(
+                'item_id',
+                'stock',
+                'quantity_reserved',
+                DB::raw('GREATEST(0, stock - quantity_reserved) as available')
+            )->get();
+
+            return [
+                'success' => true,
+                'data' => $stockData
+            ];
+
+        } catch (\Exception $e) {
+            return [
+                'success' => false,
+                'message' => 'Error al obtener el stock: ' . $e->getMessage()
+            ];
+        }
+    }
+
 }

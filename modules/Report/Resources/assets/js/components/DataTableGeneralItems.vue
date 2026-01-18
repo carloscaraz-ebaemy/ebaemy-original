@@ -172,7 +172,27 @@
                                 </el-select>
                             </div>
                         </div>
-
+                        <div class="col-md-2">
+                            <div class="form-group">
+                                <label class="control-label">Registros
+                                <el-tooltip class="item" effect="dark" content="Cantidad de registros que se van a separar en diferentes pdf" placement="top-start">
+                                    <i class="fa fa-info-circle"></i>
+                                </el-tooltip>
+                                </label>
+                                <el-select
+                                    v-model="form.record_chunk"
+                                    default-first-option
+                                    clearable
+                                    >
+                                    <el-option
+                                        v-for="record in [500, 700, 900]"
+                                        :key="record"
+                                        :label="record"
+                                        :value="record">
+                                    </el-option>
+                                </el-select>
+                            </div>
+                        </div>
                         <div class="col-lg-7 col-md-7 col-md-7 col-sm-12" style="margin-top:29px">
                             <el-button class="submit" type="primary" @click.prevent="getRecordsByFilter" :loading="loading_submit" icon="el-icon-search" >Buscar</el-button>
 

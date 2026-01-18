@@ -275,4 +275,9 @@ class ItemController extends Controller
         ];
     }
 
+    public function list_price()
+    {
+        return Item::getListPriceItems();
+    }
+
 }

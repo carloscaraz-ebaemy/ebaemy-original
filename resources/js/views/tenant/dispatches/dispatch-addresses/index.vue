@@ -51,7 +51,7 @@
 
 <script>
 
-    import DispatchAddressForm from './form'
+    import DispatchAddressForm from './form.vue'
     import DataTable from '../../../../components/DataTable.vue'
     import {deletable} from '../../../../mixins/deletable'
 

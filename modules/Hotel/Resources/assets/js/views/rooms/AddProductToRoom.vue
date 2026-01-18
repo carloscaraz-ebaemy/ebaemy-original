@@ -1,6 +1,6 @@
 <template>
     <div>
-        <div class="page-header pr-0">
+        <div class="page-header pe-0">
             <h2>
                 <a href="/hotels/reception">
                     <svg  xmlns="http://www.w3.org/2000/svg" style="margin-top: -5px;" width="24"  height="24"  viewBox="0 0 24 24"  fill="none"  stroke="currentColor"  stroke-width="2"  stroke-linecap="round"  stroke-linejoin="round"  class="icon icon-tabler icons-tabler-outline icon-tabler-building-skyscraper"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M3 21l18 0" /><path d="M5 21v-14l8 -4v18" /><path d="M19 21v-10l-6 -4" /><path d="M9 9l0 .01" /><path d="M9 12l0 .01" /><path d="M9 15l0 .01" /><path d="M9 18l0 .01" /></svg>
@@ -11,10 +11,10 @@
             </ol>
             <div class="pull-right right-wrapper">
                 <el-button type="primary"
-                           class="mt-2 mr-2"
+                           class="mt-2 me-2"
                            @click="onOpenModalProducts">
                     <i class="fa fa-plus"></i>
-                    <span class="ml-2">Agregar Producto</span>
+                    <span class="ms-2">Agregar Producto</span>
                 </el-button>
             </div>
         </div>
@@ -23,8 +23,8 @@
                 <h3 class="my-0">{{ title }}</h3>
             </div> -->
             <div class="card-body">
-                <div class="row justify-content-between">                    
-                    <div class="col-12">                        
+                <div class="row justify-content-between">
+                    <div class="col-12">
                         <div class="table-responsive">
                             <table class="table">
                                 <thead>
@@ -32,13 +32,13 @@
                                     <th>Producto</th>
                                     <th class="text-center">Cant.</th>
                                     <th class="text-center">Precio</th>
-                                    <th class="text-right">Importe</th>
+                                    <th class="text-end">Importe</th>
                                     <th class="text-center">Comprobante</th>
                                     <th class="text-center">Estado del pago</th>
                                     <th class="text-center">M. Pago</th>
                                     <th class="text-center">Destino</th>
-    
-                                    <th class="text-right"></th>
+
+                                    <th class="text-end"></th>
                                 </tr>
                                 </thead>
                                 <tbody>
@@ -49,8 +49,8 @@
                                     <td class="text-center">
                                         {{ p.input_unit_price_value | toDecimals }}
                                     </td>
-                                    <td class="text-right">{{ p.total | toDecimals }}</td>
-                                    <td class="text-right">{{ p.document}}</td>
+                                    <td class="text-end">{{ p.total | toDecimals }}</td>
+                                    <td class="text-end">{{ p.document}}</td>
                                     <td class="text-center">
                                         <div class="d-inline-block"
                                              style="max-width: 150px">
@@ -75,11 +75,11 @@
                                             </div>
                                         </div>
                                     </td>
-    
+
                                     <td style="max-width: 150px">
-                                        
+
                                         <template v-if="isPaid(p)">
-                                            <div class="form-group mb-2 mr-2" :class="{ 'has-danger': errors[`products.${index}.rent_payment.payment_method_type_id`] }">
+                                            <div class="form-group mb-2 me-2" :class="{ 'has-danger': errors[`products.${index}.rent_payment.payment_method_type_id`] }">
                                                 <el-select
                                                     v-model="p.rent_payment.payment_method_type_id"
                                                     filterable
@@ -92,7 +92,7 @@
                                                         :label="option.description"
                                                     ></el-option>
                                                 </el-select>
-    
+
                                                 <small
                                                     class="form-control-feedback"
                                                     v-if="errors[`products.${index}.rent_payment.payment_method_type_id`]"
@@ -100,12 +100,12 @@
                                                 ></small>
                                             </div>
                                         </template>
-    
+
                                     </td>
                                     <td style="max-width: 150px">
-                                        
+
                                         <template v-if="isPaid(p)">
-                                            <div class="form-group mb-2 mr-2" :class="{ 'has-danger': errors[`products.${index}.rent_payment.payment_destination_id`] }">
+                                            <div class="form-group mb-2 me-2" :class="{ 'has-danger': errors[`products.${index}.rent_payment.payment_destination_id`] }">
                                                 <el-select
                                                     v-model="p.rent_payment.payment_destination_id"
                                                     filterable
@@ -118,7 +118,7 @@
                                                         :label="option.description"
                                                     ></el-option>
                                                 </el-select>
-    
+
                                                 <small
                                                     class="form-control-feedback"
                                                     v-if="errors[`products.${index}.rent_payment.payment_destination_id`]"
@@ -127,7 +127,7 @@
                                             </div>
                                         </template>
                                     </td>
-    
+
                                     <td>
                                         <el-button type="danger"
                                             :disabled="p.is_registered"
@@ -139,24 +139,24 @@
                                 </tbody>
                                 <tfoot v-if="form.products.length > 0">
                                     <tr>
-                                        <td class="text-right">
-                                            <strong>SUBTOTAL</strong> 
+                                        <td class="text-end">
+                                            <strong>SUBTOTAL</strong>
                                         </td>
-                                        <td class="text-right">
-                                           <strong>{{ this.form.subtotal | toDecimals }}</strong> 
+                                        <td class="text-end">
+                                           <strong>{{ this.form.subtotal | toDecimals }}</strong>
                                         </td>
-    
+
                                         <!-- <td class="text-right">
                                             <strong>IGV</strong>
                                         </td>
                                         <td class="text-right">
                                             <strong>{{ this.form.igv | toDecimals }}</strong>
                                         </td> -->
-    
-                                        <td class="text-right">
+
+                                        <td class="text-end">
                                             <strong>TOTAL</strong>
                                         </td>
-                                        <td class="text-right">
+                                        <td class="text-end">
                                             <strong>{{ this.form.total | toDecimals }}</strong>
                                         </td>
                                     </tr>
@@ -174,7 +174,7 @@
                                  class="form-control-feedback">
                                 {{ errors.products[0] }}
                             </div>
-                        
+
                             <div class="pull-right col-md-2 form-group">
                                 <div :class="{ 'has-danger': errors.series_id }"
                                     class="form-group">
@@ -196,9 +196,9 @@
                             </div>
                         </div>
 
-                        <div class="form-actions text-right pt-2 mt-4">
+                        <div class="form-actions text-end pt-2 mt-4">
                             <el-button
-                                    class="second-buton btn btn-default mr-1"
+                                    class="second-buton btn btn-default me-1"
                                     style="min-width: 180px;"
                                     @click="onGotoBack"
                                 >
@@ -214,7 +214,7 @@
                                         @click="onSubmit"
                                     >
                                         <i class="fa fa-save"></i>
-                                        <span class="ml-2">Guardar</span>
+                                        <span class="ms-2">Guardar</span>
                                 </el-button>
                                 <div v-if="this.products.length>0 && form.products.length  < 1"
                                     class="pull-right">
@@ -227,10 +227,10 @@
                                         @click="onTotalDeleteProduct"
                                     >
                                         <i class="fa fa-save"></i>
-                                        <span class="ml-2">Guardar</span>
+                                        <span class="ms-2">Guardar</span>
                                     </el-button>
                                 </div>
-                            </template>                            
+                            </template>
                         </div>
                         <!-- <template v-else>
                             <div
@@ -245,8 +245,8 @@
                             </el-button>
                         </div>
                         </template> -->
-                        
-                        
+
+
 
                     </div>
                 </div>
@@ -277,8 +277,8 @@
 </template>
 
 <script>
-// import DocumentFormItem from "../../../../../../../resources/js/views/tenant/documents/partials/item.vue";
-import {functions} from "../../../../../../../resources/js/mixins/functions";
+// import DocumentFormItem from "@views/documents/partials/item.vue";
+import {functions} from "@mixins/functions";
 import moment from "moment";
 import {mapState} from "vuex/dist/vuex.mjs";
 import SaleNoteOptions from "@views/sale_notes/partials/options.vue";
@@ -374,7 +374,7 @@ export default {
         });
         await this.initDocument();
     },
-    async created() 
+    async created()
     {
         this.title = `Habitación ${this.rent.room.name} - Agregar productos`;
         await this.getTables()
@@ -556,7 +556,7 @@ export default {
             const repeteads = this.form.products.filter(
                 (p) => ( (product.various_item &&p.item_id === newProduct.item_id )? false :  (p.item_id === newProduct.item_id && p.is_registered == false))
             );
-            
+
             if (repeteads.length > 0) {
                 this.form.products = this.form.products.map((p) => {
                     if ( !p.is_various_item &&  p.item_id === newProduct.item_id && p.is_registered == false) {
@@ -638,7 +638,7 @@ export default {
             try {
                 await this.onCalculateTotalsDocument();
                 await this.setDataPayments();
-                
+
                 let validate_payment_destination = this.validatePaymentDestination();
                 if (validate_payment_destination.error_by_item > 0) {
                     return this.$message.error("El destino del pago es obligatorio");
@@ -784,7 +784,7 @@ export default {
         onGotoBack() {
             window.location.href = "/hotels/reception";
         },
-        
+
     },
 };
 </script>

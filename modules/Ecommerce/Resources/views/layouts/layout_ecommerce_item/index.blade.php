@@ -263,6 +263,9 @@
      <script src="{{ asset('porto-ecommerce/assets/js/vue.min.js') }}"></script>
      <script src="{{ asset('porto-ecommerce/assets/js/rating.js') }}"></script>
 
+
+    @vite('resources/js/app.js')
+
 </body>
 
 <!-- Mirrored from portotheme.com/html/porto_ecommerce/demo-6/category.html by HTTrack Website Copier/3.x [XR&CO'2014], Sat, 07 Sep 2019 03:40:07 GMT -->

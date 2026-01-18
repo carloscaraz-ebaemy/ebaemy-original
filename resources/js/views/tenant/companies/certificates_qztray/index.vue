@@ -14,13 +14,13 @@
                     <thead>
                     <tr>
                         <th>Archivo</th>
-                        <th class="text-right">Acciones</th>
+                        <th class="text-end">Acciones</th>
                     </tr>
                     </thead>
                     <tbody>
                     <tr>
                         <td>{{ record }}</td>
-                        <td class="text-right">
+                        <td class="text-end">
                             <button type="button" class="btn waves-effect waves-light btn-xs btn-danger"
                                     @click.prevent="clickDelete">Eliminar</button>
                         </td>
@@ -67,8 +67,8 @@
                         </el-input>
                     </div>
                     <div class="row mt-4" v-if="showButtons">
-                        <div class="col-md-12 text-right">
-                                <button type="button" class="btn waves-effect waves-light btn-xs btn-danger"
+                        <div class="col-md-12 text-end">
+                                <button type="button" class="btn waves-effect waves-light btn-xs btn-danger me-2"
                                         @click.prevent="removeCertificateQzTray">Eliminar</button>
                                 <button type="button" class="btn waves-effect waves-light btn-xs btn-primary"
                                         @click.prevent="clickDownload()">Descargar Zip</button>

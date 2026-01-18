@@ -305,6 +305,16 @@ class Purchase extends ModelTenant
     }
 
     /**
+     * Relación con supplies (insumos)
+     * 
+     * @return \Illuminate\Database\Eloquent\Relations\HasMany
+     */
+    public function purchaseSupplies()
+    {
+        return $this->hasMany(\Modules\Purchase\Models\PurchaseSupply::class);
+    }
+
+    /**
      * @return \Illuminate\Database\Eloquent\Relations\BelongsTo
      */
     public function payment_condition()

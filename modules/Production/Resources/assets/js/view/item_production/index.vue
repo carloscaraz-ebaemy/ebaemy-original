@@ -6,9 +6,9 @@
                 <li class="active"><span>Productos</span></li>
             </ol>
             <div class="right-wrapper pull-right">
-                <div class="btn-group flex-wrap">
+                <div class="btn-group flex-wrap dropdown">
                     <button type="button" class="btn btn-custom btn-sm  mt-2 mr-2 dropdown-toggle"
-                            data-toggle="dropdown" aria-expanded="false"><i class="fa fa-upload"></i> Importar <span
+                            data-bs-toggle="dropdown" aria-expanded="false"><i class="fa fa-upload"></i> Importar <span
                         class="caret"></span></button>
                     <div class="dropdown-menu" role="menu" x-placement="bottom-start"
                          style="position: absolute; will-change: transform; top: 0px; left: 0px; transform: translate3d(0px, 42px, 0px);">
@@ -39,7 +39,7 @@
             <div class="data-table-visible-columns">
                 <el-dropdown :hide-on-click="false">
                     <el-button type="secondary">
-                        Mostrar/Ocultar columnas<i class="el-icon-arrow-down el-icon--right"></i>
+                        Mostrar columnas<i class="el-icon-arrow-down el-icon--right"></i>
                     </el-button>
                     <el-dropdown-menu slot="dropdown">
                         <el-dropdown-item v-for="(column, index) in columnsComputed" :key="index">

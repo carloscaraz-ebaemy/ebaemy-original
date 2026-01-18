@@ -17,11 +17,12 @@ class ItemCollection extends ResourceCollection
     {
 
         $configuration =  Configuration::first();
+        $isRestaurant = $request->has('isRestaurant') && $request->isRestaurant === 'true';
 
-        return $this->collection->transform(function($row, $key) use($configuration){
+        return $this->collection->transform(function($row, $key) use($configuration, $isRestaurant){
             /** @var \App\Models\Tenant\Item  $row */
 
-            return $row->getCollectionData($configuration);
+            return $row->getCollectionData($configuration, $isRestaurant);
             /** Se ha movido la salida, al modelo */
             $brand = null;
             if(!empty($row->brand_id)) {

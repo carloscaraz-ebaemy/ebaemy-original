@@ -6,34 +6,33 @@ export const lineChartOptions = {
     maintainAspectRatio: false,
     elements: {
         line: {
-            tension: 0
+            tension: 0.4,
+            borderWidth: 3
         }
     },
     scales: {
         yAxes: [
             {
                 gridLines: {
-                    display: true,
-                    lineWidth: 1,
-                    color: "rgba(0,0,0,0.1)",
+                    display: false, // Eliminamos las líneas cuadriculares
                     drawBorder: false
                 },
                 ticks: {
                     beginAtZero: true,
-                    // stepSize: 5,
-                    // min: 50,
-                    // max: 70,
-                    // padding: 20
+                    fontColor: '#273747',
+                    fontSize: 12
                 }
             }
         ],
         xAxes: [
             {
                 gridLines: {
-                    display: true,
-                    lineWidth: 1,
-                    color: "rgba(0,0,0,0.1)",
+                    display: false, // Eliminamos las líneas cuadriculares
                     drawBorder: false
+                },
+                ticks: {
+                    fontColor: '#273747',
+                    fontSize: 12
                 }
             }
         ]

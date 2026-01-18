@@ -9,7 +9,7 @@
     use App\Models\Tenant\Establishment;
     use App\Models\Tenant\TransferAccountPayment;
     use Auth;
-    use Barryvdh\DomPDF\Facade as PDF;
+    use Barryvdh\DomPDF\Facade\Pdf as PDF;
     use Carbon\Carbon;
     use Illuminate\Contracts\View\Factory;
     use Illuminate\Foundation\Application;

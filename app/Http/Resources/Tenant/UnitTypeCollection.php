@@ -18,6 +18,7 @@ class UnitTypeCollection extends ResourceCollection
             return [
                 'id' => $row->id,
                 'active' => ($row->active)?'Si':'No',
+                'active_value' => (bool) $row->active,
                 'symbol' => $row->symbol,
                 'description' => $row->description,
             ];

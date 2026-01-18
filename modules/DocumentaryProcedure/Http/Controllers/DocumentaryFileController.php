@@ -5,7 +5,7 @@
     use App\Models\Tenant\Company;
     use App\Models\Tenant\Person;
     use App\Models\Tenant\User;
-    use Barryvdh\DomPDF\Facade as PDF;
+    use Barryvdh\DomPDF\Facade\Pdf as PDF;
     use Carbon\Carbon;
     use Illuminate\Contracts\View\Factory;
     use Illuminate\Database\Eloquent\Collection;

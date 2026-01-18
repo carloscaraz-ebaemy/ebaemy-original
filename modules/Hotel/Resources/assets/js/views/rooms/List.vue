@@ -1,6 +1,6 @@
 <template>
   <div>
-    <div class="page-header pr-0">
+    <div class="page-header pe-0">
       <h2>
         <a href="/hotels/rooms">
           <svg  xmlns="http://www.w3.org/2000/svg" style="margin-top: -5px;" width="24"  height="24"  viewBox="0 0 24 24"  fill="none"  stroke="currentColor"  stroke-width="2"  stroke-linecap="round"  stroke-linejoin="round"  class="icon icon-tabler icons-tabler-outline icon-tabler-building-skyscraper"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M3 21l18 0" /><path d="M5 21v-14l8 -4v18" /><path d="M19 21v-10l-6 -4" /><path d="M9 9l0 .01" /><path d="M9 12l0 .01" /><path d="M9 15l0 .01" /><path d="M9 18l0 .01" /></svg>
@@ -13,7 +13,7 @@
         <div class="btn-group flex-wrap">
           <button
             type="button"
-            class="btn btn-custom btn-sm mt-2 mr-2"
+            class="btn btn-custom btn-sm mt-2 me-2"
             @click="onCreate"
           >
             <i class="fa fa-plus-circle"></i> Nuevo
@@ -122,7 +122,7 @@
           <table class="table">
             <thead>
               <tr>
-                <th class="text-right">ID</th>
+                <th class="text-end">ID</th>
                 <th>Habitación</th>
                 <th>Categoría</th>
                 <th>Ubicación</th>
@@ -140,7 +140,7 @@
                 :key="item.id"
                 :class="{ 'table-info': !item.active }"
               >
-                <td class="text-right">{{ item.id }}</td>
+                <td class="text-end">{{ item.id }}</td>
                 <td>{{ item.name }}</td>
                 <td>{{ item.category.description }}</td>
                 <td>{{ item.floor.description }}</td>
@@ -158,7 +158,7 @@
                     @click="onChangeStatus(item, 'MANTENIMIENTO')"
                     :disabled="loading"
                   >
-                  <svg  xmlns="http://www.w3.org/2000/svg"  width="16"  height="16"  viewBox="0 0 24 24"  fill="none"  stroke="currentColor"  stroke-width="2"  stroke-linecap="round"  stroke-linejoin="round"  class="icon icon-tabler icons-tabler-outline icon-tabler-tool"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M7 10h3v-3l-3.5 -3.5a6 6 0 0 1 8 8l6 6a2 2 0 0 1 -3 3l-6 -6a6 6 0 0 1 -8 -8l3.5 3.5" /></svg> 
+                  <svg  xmlns="http://www.w3.org/2000/svg"  width="16"  height="16"  viewBox="0 0 24 24"  fill="none"  stroke="currentColor"  stroke-width="2"  stroke-linecap="round"  stroke-linejoin="round"  class="icon icon-tabler icons-tabler-outline icon-tabler-tool"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M7 10h3v-3l-3.5 -3.5a6 6 0 0 1 8 8l6 6a2 2 0 0 1 -3 3l-6 -6a6 6 0 0 1 -8 -8l3.5 3.5" /></svg>
                     Mantenimiento
                   </el-button>
                   <el-button
@@ -167,17 +167,17 @@
                     @click="onChangeStatus(item, 'DISPONIBLE')"
                     :disabled="loading"
                   >
-                  <svg  xmlns="http://www.w3.org/2000/svg"  width="16"  height="16"  viewBox="0 0 24 24"  fill="none"  stroke="currentColor"  stroke-width="2"  stroke-linecap="round"  stroke-linejoin="round"  class="icon icon-tabler icons-tabler-outline icon-tabler-check"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M5 12l5 5l10 -10" /></svg> 
+                  <svg  xmlns="http://www.w3.org/2000/svg"  width="16"  height="16"  viewBox="0 0 24 24"  fill="none"  stroke="currentColor"  stroke-width="2"  stroke-linecap="round"  stroke-linejoin="round"  class="icon icon-tabler icons-tabler-outline icon-tabler-check"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M5 12l5 5l10 -10" /></svg>
                     Habilitar
                   </el-button>
                 </td>
-                <td class="text-left">
+                <td class="text-start">
                   <span v-if="item.active">Si</span>
                   <span v-else>No</span>
                 </td>
-                <td class="text-right">
+                <td class="text-end">
                   <el-button
-                    class="btn btn-sm btn-success"
+                    class="btn btn-sm btn-success me-1"
                     @click="onEdit(item)"
                     :disabled="loading"
                   >
@@ -226,8 +226,8 @@
 </template>
 
 <script>
-import ModalAddEdit from "./AddEdit";
-import ModalRoomRates from "./RoomRates";
+import ModalAddEdit from "./AddEdit.vue";
+import ModalRoomRates from "./RoomRates.vue";
 
 export default {
   props: {
@@ -304,10 +304,10 @@ export default {
     checkScrollShadows() {
         const el = this.$refs.scrollContainer;
         if (!el) return;
-        
+
         const scrollLeft = el.scrollLeft;
         const scrollRight = el.scrollWidth - el.clientWidth - scrollLeft;
-        
+
         this.showLeftShadow = scrollLeft > 1;
         this.showRightShadow = scrollRight > 1;
     },

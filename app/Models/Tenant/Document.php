@@ -1407,7 +1407,7 @@ class Document extends ModelTenant
      */
     public static function getQueryCreditNotes()
     {
-        return DB::table('notes')
+        return DB::connection('tenant')->table('notes')
             ->join('documents', 'documents.id', '=', 'notes.document_id')
             ->whereIn('documents.state_type_id', ['01', '03', '05', '07', '13'])
             ->where('documents.document_type_id', '07')

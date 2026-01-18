@@ -14,17 +14,17 @@
                     <div class="col-md-6 pb-2">
                         <div
                             :class="{ 'has-danger': errors.customer_id }"
-                            class="form-group"
+                            class="form-group position-relative"
                         >
                             <label
-                                class="control-label font-weight-bold text-info"
+                                class="control-label font-weight-bold"
                             >
                                 Cliente
-                                <a
+                                <!-- <a
                                     href="#"
                                     @click.prevent="showDialogNewPerson = true"
                                     >[+ Nuevo]</a
-                                >
+                                > -->
                             </label>
                             <el-select
                                 v-model="form.customer_id"
@@ -44,7 +44,28 @@
                                     :label="option.description"
                                     :value="option.id"
                                 ></el-option>
+
+                                <template slot="empty">
+                                    <p v-if="loading_search" class="el-select-dropdown__empty">
+                                        Cargando...
+                                    </p>
+                                
+                                    <p v-else class="el-select-dropdown__empty">
+                                        No se encontraron resultados
+                                    </p>
+                                
+                                    <div
+                                        v-if="!loading_search"
+                                        class="el-select-dropdown__item new-option"
+                                        @click.stop="openNewPersonDialog"
+                                    >
+                                        <span>{{ customerSearchTerm ? `Crear cliente "${customerSearchTerm}"` : 'Crear cliente' }}</span>
+                                    </div>
+                                </template>
                             </el-select>
+                            <span class="btn-add-new" @click.prevent="showDialogNewPerson = true" title="Agregar nuevo cliente">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon icon-tabler icons-tabler-outline icon-tabler-user-plus"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M8 7a4 4 0 1 0 8 0a4 4 0 0 0 -8 0" /><path d="M16 19h6" /><path d="M19 16v6" /><path d="M6 21v-2a4 4 0 0 1 4 -4h4" /></svg>
+                            </span>
                             <small
                                 v-if="errors.customer_id"
                                 class="form-control-feedback"
@@ -388,28 +409,28 @@
                                                     Unidad
                                                 </th>
                                                 <th
-                                                    class="text-right font-weight-bold"
+                                                    class="text-end font-weight-bold"
                                                 >
                                                     Cantidad
                                                 </th>
                                                 <th
-                                                    class="text-right font-weight-bold"
+                                                    class="text-end font-weight-bold"
                                                 >
                                                     Valor Unitario
                                                 </th>
                                                 <th
-                                                    class="text-right font-weight-bold"
+                                                    class="text-end font-weight-bold"
                                                 >
                                                     Precio Unitario
                                                 </th>
                                                 <th
-                                                    class="text-right font-weight-bold"
+                                                    class="text-end font-weight-bold"
                                                 >
                                                     Subtotal
                                                 </th>
-                                                <!--<th class="text-right font-weight-bold">Cargo</th>-->
+                                                <!--<th class="text-end font-weight-bold">Cargo</th>-->
                                                 <th
-                                                    class="text-right font-weight-bold"
+                                                    class="text-end font-weight-bold"
                                                 >
                                                     Total
                                                 </th>
@@ -445,11 +466,11 @@
                                                     {{ row.item.unit_type_id }}
                                                 </td>
 
-                                                <td class="text-right">
+                                                <td class="text-end">
                                                     {{ row.quantity }}
                                                 </td>
 
-                                                <td class="text-right">
+                                                <td class="text-end">
                                                     {{ currency_type.symbol }}
                                                     {{
                                                         getFormatUnitPriceRow(
@@ -457,7 +478,7 @@
                                                         )
                                                     }}
                                                 </td>
-                                                <td class="text-right">
+                                                <td class="text-end">
                                                     {{ currency_type.symbol }}
                                                     {{
                                                         getFormatUnitPriceRow(
@@ -466,15 +487,15 @@
                                                     }}
                                                 </td>
 
-                                                <td class="text-right">
+                                                <td class="text-end">
                                                     {{ currency_type.symbol }}
                                                     {{ row.total_value }}
                                                 </td>
-                                                <td class="text-right">
+                                                <td class="text-end">
                                                     {{ currency_type.symbol }}
                                                     {{ row.total }}
                                                 </td>
-                                                <td class="text-right">
+                                                <td class="text-end">
                                                     <template
                                                         v-if="
                                                             config.change_free_affectation_igv
@@ -555,12 +576,12 @@
                 </el-tabs>
             </div>
             <div class="row">
-                <div class="col-12 text-right text-sm">
+                <div class="col-12 text-end text-sm">
                     Total de servicio tecnico {{ total.toLocaleString() }}
                 </div>
             </div>
-            <div class="form-actions text-right mt-4">
-                <el-button class="second-buton" @click.prevent="close()"
+            <div class="form-actions text-end mt-4">
+                <el-button class="second-buton me-2" @click.prevent="close()"
                     >Cancelar</el-button
                 >
                 <el-button
@@ -597,18 +618,19 @@
             :currency_types="currency_types"
             :showDialog.sync="showDialogNewPerson"
             type="customers"
+            :input_person="customerSearchTerm"
         ></person-form>
     </el-dialog>
 </template>
 <script>
 import PersonForm from "@views/persons/form.vue";
 import { mapActions, mapState } from "vuex/dist/vuex.mjs";
-import { calculateRowItem } from "../../../../../../../resources/js/helpers/functions";
+import { calculateRowItem } from "@helpers/functions";
 import moment from "moment";
 import {
     exchangeRate,
     functions
-} from "../../../../../../../resources/js/mixins/functions";
+} from "@mixins/functions";
 
 export default {
     props: ["showDialog", "recordId", "configuration"],
@@ -692,8 +714,16 @@ export default {
             btnText: "Generar",
             payment_conditions: [],
             affectation_igv_types: [],
-            total_discount_no_base: 0
+            total_discount_no_base: 0,
+            customerSearchTerm: ''
         };
+    },
+    watch: {
+        showDialogNewPerson(newVal) {
+            if (!newVal) {
+                this.customerSearchTerm = ''
+            }
+        }
     },
     async created() {
         this.load_record = true;
@@ -775,6 +805,7 @@ export default {
         await this.getPercentageIgv();
         this.$eventHub.$on("reloadDataPersons", customer_id => {
             this.reloadDataCustomers(customer_id);
+            this.customerSearchTerm = ''
         });
     },
     methods: {
@@ -1441,6 +1472,7 @@ export default {
         },
         searchRemoteCustomers(input) {
             /* Extraido de resources/js/views/tenant/documents/invoice.vue */
+            this.customerSearchTerm = input;
 
             if (input.length > 0) {
                 this.loading_search = true;
@@ -1451,9 +1483,6 @@ export default {
                     .then(response => {
                         this.customers = response.data.customers;
                         this.loading_search = false;
-                        if (this.customers.length == 0) {
-                            this.allCustomers();
-                        }
                     });
             } else {
                 this.allCustomers();
@@ -1588,16 +1617,16 @@ export default {
                 if (!this.form[key]) this.form[key] = [];
             });
 
-            if (!this.form.payments && this.form.payment_condition_id === '01') 
+            if (!this.form.payments && this.form.payment_condition_id === '01')
                 this.form.payments = [];
-  
-            if (!this.form.fee && ['02', '03'].includes(this.form.payment_condition_id)) 
+
+            if (!this.form.fee && ['02', '03'].includes(this.form.payment_condition_id))
                 this.form.fee = [];
             },
         submit() {
 
             this.ensureFormArraysExist();
-            
+
             if (parseFloat(this.form.prepayment) > parseFloat(this.form.cost)) {
                 return this.$message.error(
                     "Pago adelantado no puede ser mayor al costo"
@@ -2646,7 +2675,7 @@ export default {
             if (customer) {
                 // Asignar el teléfono del cliente al campo cellphone del formulario
                 this.form.cellphone = customer.telephone || '';
-        
+
                 this.customer_addresses = customer.addresses;
                 if (customer.address) {
                     this.customer_addresses.unshift({
@@ -2675,7 +2704,10 @@ export default {
                 row.payment = amount;
                 // console.error(row.payment)
             });
-        }
+        },
+        openNewPersonDialog() {
+            this.showDialogNewPerson = true
+        },
     }
 };
 </script>

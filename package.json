@@ -1,24 +1,24 @@
 {
     "private": true,
     "scripts": {
-        "dev": "npm run development",
-        "development": "cross-env NODE_ENV=development node --max-old-space-size=5000 node_modules/webpack/bin/webpack.js --progress --hide-modules --config=node_modules/laravel-mix/setup/webpack.config.js",
-        "watch": "npm run development -- --watch",
-        "watch-poll": "npm run watch -- --watch-poll",
-        "hot": "cross-env NODE_ENV=development node_modules/webpack-dev-server/bin/webpack-dev-server.js --inline --hot --config=node_modules/laravel-mix/setup/webpack.config.js",
-        "prod": "npm run production",
-        "production": "cross-env NODE_ENV=production node_modules/webpack/bin/webpack.js --no-progress --hide-modules --config=node_modules/laravel-mix/setup/webpack.config.js"
+        "dev": "node dev-with-css-sync.js",
+        "watch": "node dev-with-css-sync.js --watch",
+        "dev-simple": "vite",
+        "build": "vite build",
+        "sync-skins": "node css-watcher.js",
+        "sync-skins-once": "node -e \"const fs=require('fs');const path=require('path');const glob=require('glob');glob.sync('storage/app/public/skins/*.css').forEach(f=>{const dest=path.join('public/storage/skins',path.basename(f));fs.copyFileSync(f,dest);console.log('✅',path.basename(f),'sincronizado');});console.log('🎉 Sincronización completa');\""
     },
     "devDependencies": {
-        "axios": "^0.18.1",
-        "bootstrap": "^4.3.1",
-        "cross-env": "^5.1",
-        "jquery": "^3.4.1",
-        "laravel-mix": "^3.0.0",
-        "lodash": "^4.17.15",
-        "popper.js": "^1.12",
-        "vue": "^2.5.7",
-        "webpack-cli": "^6.0.1"
+        "@popperjs/core": "^2.11.8",
+        "@vitejs/plugin-vue2": "^2.0.2",
+        "axios": "^0.27.2",
+        "bootstrap": "^5.3.7",
+        "jquery": "^3.6.0",
+        "laravel-vite-plugin": "^0.7.7",
+        "lodash": "^4.17.21",
+        "sass": "^1.90.0",
+        "vite": "^4.4.9",
+        "vue": "^2.6.14"
     },
     "dependencies": {
         "@ckeditor/ckeditor5-build-classic": "^20.0.0",
@@ -28,7 +28,9 @@
         "element-ui": "^2.13.0",
         "jqwidgets-scripts": "^10.1.5",
         "moment": "^2.22.2",
-        "node-sass": "^4.14.1",
+        "popper": "^1.0.1",
+        "query-string": "^9.2.2",
+        "qz-tray": "^2.2.1",
         "socket.io-client": "^4.5.4",
         "vue-chartjs": "^3.4.0",
         "vue-ckeditor5": "^0.5.0",

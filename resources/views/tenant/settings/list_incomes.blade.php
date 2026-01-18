@@ -7,7 +7,7 @@
         <li class="active"><span> Motivos de ingresos / Gastos </span></li>
     </ol>
 </div>
-<div class="row tab-content-default row-new bg-transparent">
+<div class="row tab-content-default row-new bg-transparent" style="background: transparent !important;">
     <div class="col-12 ui-sortable">
         <tenant-expense-reasons-index :type-user="{{json_encode(Auth::user()->type)}}" ></tenant-expense-reasons-index>
     </div>

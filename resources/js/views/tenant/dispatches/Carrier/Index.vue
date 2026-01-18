@@ -1,6 +1,6 @@
 <template>
     <div>
-        <div class="page-header pr-0">
+        <div class="page-header pe-0">
             <h2>
                 <a href="/dispatch_carrier">
                     <svg
@@ -33,10 +33,10 @@
             <div class="right-wrapper pull-right">
                 <a
                     :href="`/${resource}/create`"
-                    class="btn btn-custom btn-sm  mt-2 mr-2"
+                    class="btn btn-custom btn-sm  mt-2 me-2"
                     ><i class="fa fa-plus-circle"></i> Nuevo</a
                 >
-                <!--                <a href="#" @click.prevent="showModalGenerateCPE = true" class="btn btn-custom btn-sm  mt-2 mr-2">Generar-->
+                <!--                <a href="#" @click.prevent="showModalGenerateCPE = true" class="btn btn-custom btn-sm  mt-2 me-2">Generar-->
                 <!--                    comprobante desde múltiples guías</a>-->
             </div>
         </div>
@@ -45,7 +45,7 @@
                 <data-table :resource="resource">
                     <tr slot="heading">
                         <!-- <th>#</th> -->
-                        <th class="text-left">Fecha Emisión</th>
+                        <th class="text-start">Fecha Emisión</th>
                         <th>Remitente</th>
                         <th>Destinatario</th>
                         <th>Número</th>
@@ -60,7 +60,7 @@
                         :class="{ 'text-danger': row.state_type_id === '11' }"
                     >
                         <!-- <td>{{ index }}</td> -->
-                        <td class="text-left">
+                        <td class="text-start">
                             {{ formatDate(row.date_of_issue) }}
                         </td>
                         <td>
@@ -98,7 +98,7 @@
                         <td class="text-center">
                             <button
                                 type="button"
-                                class="btn waves-effect waves-light btn-xs btn-info"
+                                class="btn waves-effect waves-light btn-xs btn-info me-1"
                                 @click.prevent="
                                     clickDownload(row.download_external_xml)
                                 "
@@ -107,7 +107,7 @@
                             </button>
                             <button
                                 type="button"
-                                class="btn waves-effect waves-light btn-xs btn-info"
+                                class="btn waves-effect waves-light btn-xs btn-info me-1"
                                 @click.prevent="
                                     clickDownload(row.download_external_pdf)
                                 "
@@ -117,7 +117,7 @@
                             </button>
                             <button
                                 type="button"
-                                class="btn waves-effect waves-light btn-xs btn-info"
+                                class="btn waves-effect waves-light btn-xs btn-info me-1"
                                 @click.prevent="
                                     clickDownload(row.download_external_cdr)
                                 "
@@ -132,7 +132,7 @@
                             <!--                            </button>-->
                             <button
                                 type="button"
-                                class="btn waves-effect waves-light btn-xs btn-info"
+                                class="btn waves-effect waves-light btn-xs btn-info me-1"
                                 @click.prevent="
                                     btnStatusTicket(row.external_id)
                                 "
@@ -142,7 +142,7 @@
                             </button>
                             <button
                                 type="button"
-                                class="btn waves-effect waves-light btn-xs btn-info"
+                                class="btn waves-effect waves-light btn-xs btn-info me-1"
                                 @click.prevent="clickOptions(row.id)"
                                 v-if="row.btn_options"
                             >
@@ -150,7 +150,7 @@
                             </button>
                             <button
                                 type="button"
-                                class="btn waves-effect waves-light btn-xs btn-info"
+                                class="btn waves-effect waves-light btn-xs btn-info me-1"
                                 @click.prevent="sendSunat(row.external_id)"
                                 v-if="row.btn_send"
                             >
@@ -192,8 +192,8 @@
 <script>
 import DataTable from "../../../../components/DataTableDispatch.vue";
 import DispatchOptions from "../partials/options.vue";
-import FormGenerateDocument from "../generate-document";
-import ModalGenerateCPE from "../ModalGenerateCPE";
+import FormGenerateDocument from "../generate-document.vue";
+import ModalGenerateCPE from "../ModalGenerateCPE.vue";
 
 export default {
     name: "DispatchCarrierIndex",

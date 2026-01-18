@@ -1,6 +1,6 @@
 <template>
     <div v-loading="loading_submit">
-        <div class="page-header pr-0">
+        <div class="page-header pe-0">
             <h2>
                 <a href="/restaurant/orders">
                     <svg
@@ -41,12 +41,12 @@
                         <th>Codigo de Pedido</th>
                         <th>Cliente</th>
                         <th class="text-center">Detalle Productos</th>
-                        <th class="text-right">Total</th>
+                        <th class="text-end">Total</th>
                         <th>Fecha Emision</th>
                         <th>Medio Pago</th>
                         <th>Estatus del Pedido</th>
                         <th class="text-center">Documento</th>
-                        <th class="text-right">Opciones</th>
+                        <th class="text-end">Opciones</th>
                     </tr>
                     <tr></tr>
                     <tr slot-scope="{ index, row }">
@@ -150,7 +150,7 @@
                                 </el-popover>
                             </template>
                         </td>
-                        <td class="text-right">S/ {{ row.total }}</td>
+                        <td class="text-end">S/ {{ row.total }}</td>
                         <td>{{ formatDate(row.created_at) }}</td>
                         <td>{{ row.reference_payment }}</td>
                         <td>
@@ -176,7 +176,7 @@
                                 {{ row.number_document }}
                             </template>
                         </td>
-                        <td class="text-right">
+                        <td class="text-end">
                             <template v-if="row.document_type_id == '80'">
                                 <el-button
                                     v-if="row.sale_note_id"
@@ -267,7 +267,7 @@
                     </div>
                 </div>
             </div>
-            <div class="form-actions text-right pt-2">
+            <div class="form-actions text-end pt-2">
                 <el-button class="second-buton" @click="close"
                     >Cerrar</el-button
                 >

@@ -1,6 +1,6 @@
 <template>
     <div>
-        <div class="page-header pr-0">
+        <div class="page-header pe-0">
             <h2>
                 <a href="/digemid">
                     <svg  xmlns="http://www.w3.org/2000/svg" style="margin-top: -5px;" width="24"  height="24"  viewBox="0 0 24 24"  fill="none"  stroke="currentColor"  stroke-width="2"  stroke-linecap="round"  stroke-linejoin="round"  class="icon icon-tabler icons-tabler-outline icon-tabler-medicine-syrup"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M8 21h8a1 1 0 0 0 1 -1v-10a3 3 0 0 0 -3 -3h-4a3 3 0 0 0 -3 3v10a1 1 0 0 0 1 1z" /><path d="M10 14h4" /><path d="M12 12v4" /><path d="M10 7v-3a1 1 0 0 1 1 -1h2a1 1 0 0 1 1 1v3" /></svg>
@@ -11,11 +11,11 @@
             </ol>
             <div class="right-wrapper pull-right">
                 <template v-if="typeUser === 'admin'">
-                    <div class="btn-group flex-wrap">
+                    <div class="btn-group flex-wrap dropdown">
                         <button
                             aria-expanded="false"
-                            class="btn btn-custom btn-sm mt-2 mr-2 dropdown-toggle"
-                            data-toggle="dropdown"
+                            class="btn btn-custom btn-sm mt-2 me-2 dropdown-toggle"
+                            data-bs-toggle="dropdown"
                             type="button"
                         >
                             <i class="fa fa-download"></i> Exportar
@@ -63,11 +63,11 @@
                             </a>
                         </div>
                     </div>
-                    <div class="btn-group flex-wrap">
+                    <div class="btn-group flex-wrap dropdown">
                         <button
                             aria-expanded="false"
-                            class="btn btn-custom btn-sm mt-2 mr-2 dropdown-toggle"
-                            data-toggle="dropdown"
+                            class="btn btn-custom btn-sm mt-2 me-2 dropdown-toggle"
+                            data-bs-toggle="dropdown"
                             type="button"
                         >
                             <i class="fa fa-upload"></i> Importar
@@ -109,7 +109,7 @@
                 </template>
                 <button
                     v-if="can_add_new_product"
-                    class="btn btn-custom btn-sm mt-2 mr-2"
+                    class="btn btn-custom btn-sm mt-2 me-2"
                     type="button"
                     @click.prevent="clickCreate()"
                 >
@@ -124,7 +124,7 @@
             <div class="data-table-visible-columns">
                 <el-dropdown :hide-on-click="false">
                     <el-button type="secondary">
-                        Mostrar/Ocultar columnas<i class="el-icon-arrow-down el-icon--right"></i>
+                        Mostrar columnas<i class="el-icon-arrow-down el-icon--right"></i>
                     </el-button>
                     <el-dropdown-menu slot="dropdown">
                         <el-dropdown-item v-for="(column, index) in columnsComputed" :key="index">
@@ -157,15 +157,15 @@
                         <th >Nom. DIGEMID </th>
                         <th >Laboratorio </th>
                         <th >Exportable </th>
-                        <th class="text-left">Stock</th>
-                        <th class="text-right">P.Unitario (Venta)</th>
-                        <th v-if="typeUser != 'seller' && columns.purchase_unit_price.visible" class="text-right">
+                        <th class="text-start">Stock</th>
+                        <th class="text-end">P.Unitario (Venta)</th>
+                        <th v-if="typeUser != 'seller' && columns.purchase_unit_price.visible" class="text-end">
                             P.Unitario (Compra)
                         </th>
                         <th class="text-center">Tiene Igv (Venta)</th>
                         <th v-if="columns.purchase_has_igv_description.visible" class="text-center">Tiene Igv (Compra)
                         </th>
-                        <th class="text-right">Acciones</th>
+                        <th class="text-end">Acciones</th>
                     </tr>
 
                     <tr></tr>
@@ -228,8 +228,8 @@
 
                             <!-- <br/>Mín:{{ row.stock_min }} -->
                         </td>
-                        <td class="text-right">{{ row.sale_unit_price }}</td>
-                        <td v-if="typeUser != 'seller' && columns.purchase_unit_price.visible" class="text-right">
+                        <td class="text-end">{{ row.sale_unit_price }}</td>
+                        <td v-if="typeUser != 'seller' && columns.purchase_unit_price.visible" class="text-end">
                             {{ row.purchase_unit_price }}
                         </td>
                         <td class="text-center">
@@ -238,7 +238,7 @@
                         <td v-if="columns.purchase_has_igv_description.visible" class="text-center">
                             {{ row.purchase_has_igv_description }}
                         </td>
-                        <td class="text-right">
+                        <td class="text-end">
                             <template v-if="typeUser === 'admin'">
                                 <button
                                     class="btn waves-effect waves-light btn-xs btn-info"
@@ -348,17 +348,17 @@
     </div>
 </template>
 <script>
-import ItemsForm from "../../../../../../resources/js/views/tenant/items/form.vue";
-import WarehousesDetail from "../../../../../../resources/js/views/tenant/items/partials/warehouses.vue";
-import ItemsImport from "../../../../../../resources/js/views/tenant/items/import.vue";
-import  CatalogImport from "../../../../../../resources/js/views/tenant/items/catalog.vue";
-import ItemsImportListPrice from "../../../../../../resources/js/views/tenant/items/partials/import_list_price.vue";
-import ItemsExport from "../../../../../../resources/js/views/tenant/items/partials/export.vue";
-import ItemsExportWp from "../../../../../../resources/js/views/tenant/items/partials/export_wp.vue";
-import ItemsExportBarcode from "../../../../../../resources/js/views/tenant/items/partials/export_barcode.vue";
-import ItemExportDigemid from "../../../../../../resources/js/views/tenant/items/partials/export_digemid.vue";
-import DataTable from "../../../../../../resources/js/views/tenant/items/../../../components/DataTable.vue";
-import {deletable} from "../../../../../../resources/js/mixins/deletable";
+import ItemsForm from "@views/items/form.vue";
+import WarehousesDetail from "@views/items/partials/warehouses.vue";
+import ItemsImport from "@views/items/import.vue";
+import  CatalogImport from "@views/items/catalog.vue";
+import ItemsImportListPrice from "@views/items/partials/import_list_price.vue";
+import ItemsExport from "@views/items/partials/export.vue";
+import ItemsExportWp from "@views/items/partials/export_wp.vue";
+import ItemsExportBarcode from "@views/items/partials/export_barcode.vue";
+import ItemExportDigemid from "@views/items/partials/export_digemid.vue";
+import DataTable from "@components/DataTable.vue";
+import {deletable} from "@mixins/deletable";
 
 export default {
     props: [

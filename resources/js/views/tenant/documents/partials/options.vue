@@ -225,8 +225,8 @@
 <script>
 import {mapState, mapActions} from "vuex/dist/vuex.mjs";
 import Keypress from "vue-keypress";
-import QrApi from '@viewsModuleQrApi/QrApiTemplate'
-import QrChatWsapp from '@viewsModuleQrChatBuho/ButtonSend'
+import QrApi from '@viewsModuleQrApi/QrApiTemplate.vue'
+import QrChatWsapp from '@viewsModuleQrChatBuho/ButtonSend.vue'
 
 export default {
     props: ['showDialog', 'recordId', 'showClose', 'isContingency', 'generatDispatch', 'dispatchId', 'isUpdate', 'configuration', 'table'],

@@ -26,7 +26,7 @@
                         </el-checkbox>
                     </div>
                     <div
-                        class="col-md-7 col-lg-7 col-xl-7 col-sm-7 product-model"
+                        class="col-md-7 col-lg-7 col-xl-7 col-sm-7 product-model position-relative"
                     >
                         <template v-if="various_item">
                             <div class="form-group">
@@ -42,7 +42,7 @@
                             </div>
                         </template>
                         <template v-else>
-                            <div class="tooltips-container" v-show="hasSelectedItem">
+                            <div class="tooltips-container" style="top: 46px;" v-show="hasSelectedItem">
                                 <el-tooltip
                                     slot="append"
                                     :disabled="recordItem != null"
@@ -54,6 +54,7 @@
                                     <el-button
                                         :disabled="isEditItemNote"
                                         @click.prevent="clickWarehouseDetail()"
+                                        class="d-flex align-items-center"
                                     >
                                         <i class="fa fa-search"></i>
                                     </el-button>
@@ -69,6 +70,7 @@
                                     <el-button
                                         :disabled="isEditItemNote"
                                         @click.prevent="clickHistorySales()"
+                                        class="d-flex align-items-center"
                                     >
                                         <i class="fa fa-list"></i>
                                     </el-button>
@@ -79,17 +81,17 @@
                                 :class="{ 'has-danger': errors.item_id }"
                                 class="form-group more-width-input"
                             >
-                                <label class="control-label">
+                                <label class="control-label d-flex align-items-center">
                                     Producto/Servicio
-                                    <a
+                                    <span
+                                        class="btn-add-new-product"
                                         v-if="can_add_new_product"
-                                        href="#"
                                         @click.prevent="
                                             showDialogNewItem = true
                                         "
                                     >
-                                        [+ Nuevo]
-                                    </a>
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon icon-tabler icons-tabler-outline icon-tabler-plus"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M12 5l0 14" /><path d="M5 12l14 0" /></svg>
+                                    </span>
                                 </label>
 
                                 <template
@@ -136,6 +138,23 @@
                                                     :value="option.id"
                                                 ></el-option>
                                             </el-tooltip>
+                                            <template slot="empty">
+                                                <p v-if="loading_search" class="el-select-dropdown__empty">
+                                                    Cargando...
+                                                </p>
+                                            
+                                                <p v-else class="el-select-dropdown__empty">
+                                                    No se encontraron resultados
+                                                </p>
+                                            
+                                                <div
+                                                    v-if="!loading_search"
+                                                    class="el-select-dropdown__item new-option"
+                                                    @click.stop="openNewItemDialog"
+                                                >
+                                                    <span>{{ itemSearchTerm ? `Crear producto "${itemSearchTerm}"` : 'Crear producto' }}</span>
+                                                </div>
+                                            </template>
                                         </el-select>
                                     </el-input>
                                 </template>
@@ -298,10 +317,31 @@
                             <template
                                 v-if="applyChangeCurrencyItem && isFromInvoice"
                             >
+                            <div class="position-relative el-select-currency-container">
+                                <template
+                                    v-if="
+                                        form.item.currency_type_symbol
+                                    "
+                                >
+                                    <el-select
+                                        slot="prepend"
+                                        v-model="
+                                            form.item.currency_type_id
+                                        "
+                                        class="el-select-currency"
+                                    >
+                                        <el-option
+                                            v-for="option in currencyTypes"
+                                            :key="option.id"
+                                            :label="option.symbol"
+                                            :value="option.id"
+                                        ></el-option>
+                                    </el-select>
+                                </template>
                                 <template v-if="form.item">
                                     <el-input
                                         v-model="form.unit_price_value"
-                                        class="currency-container"
+                                        class="currency-container input-with-select"
                                         :tabindex="'3'"
                                         :disabled="
                                             !hasPermissionEditItemPrices(
@@ -309,29 +349,10 @@
                                             )
                                         "
                                         @input="calculateQuantity"
-                                    >
-                                        <template
-                                            v-if="
-                                                form.item.currency_type_symbol
-                                            "
-                                        >
-                                            <el-select
-                                                slot="prepend"
-                                                v-model="
-                                                    form.item.currency_type_id
-                                                "
-                                                class="el-select-currency"
-                                            >
-                                                <el-option
-                                                    v-for="option in currencyTypes"
-                                                    :key="option.id"
-                                                    :label="option.symbol"
-                                                    :value="option.id"
-                                                ></el-option>
-                                            </el-select>
-                                        </template>
+                                    >                                        
                                     </el-input>
                                 </template>
+                            </div>                                
                             </template>
                             <template v-else>
                                 <el-input
@@ -527,13 +548,13 @@
                                             </th>
                                             <th class="text-center">Factor</th>
                                             <th class="text-center">
-                                                Precio 1
+                                                {{ config.price1_label }}
                                             </th>
                                             <th class="text-center">
-                                                Precio 2
+                                                {{ config.price2_label }}
                                             </th>
                                             <th class="text-center">
-                                                Precio 3
+                                                {{ config.price3_label }}
                                             </th>
                                             <!-- <th class="text-center">Precio Default</th>
                                         <th></th> -->
@@ -712,7 +733,7 @@
                                                     </td>
                                                     <td>
                                                         <button
-                                                            class="btn btn-danger btn-transparent btn-trash"
+                                                            class="btn btn-transparent btn-trash"
                                                             type="button"
                                                             @click.prevent="clickRemoveDiscount(index)"
                                                         >
@@ -786,7 +807,7 @@
                                                     </td>
                                                     <td>
                                                         <button
-                                                            class="btn btn-danger btn-transparent btn-trash"
+                                                            class="btn btn-transparent btn-trash"
                                                             type="button"
                                                             @click.prevent="
                                                                 clickRemoveCharge(
@@ -861,11 +882,11 @@
                                                         ></el-input>
                                                     </td>
                                                     <td
-                                                        class="text-left"
+                                                        class="text-start"
                                                         style="width: 5.7% !important;"
                                                     >
                                                         <button
-                                                            class="btn btn-danger btn-transparent btn-trash"
+                                                            class="btn btn-transparent btn-trash"
                                                             type="button"
                                                             @click.prevent="
                                                                 clickRemoveAttribute(
@@ -888,44 +909,13 @@
             </div>
             <!-- @todo: Mejorar evitando duplicar codigo -->
             <!-- Mostrar en cel -->
-
-            <div class="row hidden-md-up form-actions text-center">
-                <div class="col-12"></div>
-                <div class="col-6">
-                    <el-popover
-                        placement="top-start"
-                        :open-delay="1000"
-                        width="145"
-                        trigger="hover"
-                        content="Presiona ESC"
-                    >
-                        <el-button
-                            slot="reference"
-                            class="second-buton"
-                            @click.prevent="close()"
-                        >
-                            Cerrar
-                        </el-button>
-                    </el-popover>
-                </div>
-                <div class="col-6">
-                    <el-button
-                        v-if="form.item_id"
-                        class="add form-control btn btn-primary"
-                        native-type="submit"
-                        type="primary"
-                    >
-                        {{ titleAction }}
-                    </el-button>
-                </div>
-            </div>
             <!-- @todo: Mejorar evitando duplicar codigo -->
             <!-- Mostrar en cel -->
             <!-- @todo: Mejorar evitando duplicar codigo -->
             <!-- Ocultar en cel -->
 
-            <div class="form-actions text-right pt-2  hidden-sm-down">
-                <el-button class="second-buton" @click.prevent="close()"
+            <div class="form-actions text-end pt-2">
+                <el-button class="second-buton me-2" @click.prevent="close()"
                     >Cerrar</el-button
                 >
                 <el-button
@@ -943,6 +933,7 @@
         <item-form
             :external="true"
             :showDialog.sync="showDialogNewItem"
+            :input_item="itemSearchTerm"
         ></item-form>
         <warehouses-detail
             :isUpdateWarehouseId="isUpdateWarehouseId"
@@ -1109,21 +1100,33 @@ export default {
             //item_unit_type: {}
             input_search_by_serie: "",
             various_item: false,
-            various_item_barcode: "VARIOUS_ITEM"
+            various_item_barcode: "VARIOUS_ITEM",
+            itemSearchTerm: ''
         };
+    },
+    watch: {
+        showDialog(newVal) {
+            if (newVal) {
+                this.itemSearchTerm = ''
+            }
+        }
     },
     created() {
         this.loadConfiguration();
 
         this.$store.commit("setConfiguration", this.configuration);
         this.initForm();
+        this.$eventHub.$on("reloadDataItems", item_id => {
+            this.reloadDataItems(item_id);
+            this.itemSearchTerm = ''
+        });
         if (this.displayDiscount !== undefined) {
             if (this.displayDiscount == true) {
                 this.showDiscounts = true;
             } else {
                 this.showDiscounts = false;
             }
-        }
+        }        
     },
     mounted() {
         this.getTables();
@@ -1416,6 +1419,8 @@ export default {
             this.calculateTotal();
         },
         async searchRemoteItems(input) {
+            this.itemSearchTerm = input;
+
             if (input.length > 2) {
                 this.loading_search = true;
                 const params = {
@@ -2506,7 +2511,10 @@ export default {
 
             this.initForm();
             this.filterItems();
-        }
+        },
+        openNewItemDialog() {
+            this.showDialogNewItem = true;
+        },
     }
 };
 </script>

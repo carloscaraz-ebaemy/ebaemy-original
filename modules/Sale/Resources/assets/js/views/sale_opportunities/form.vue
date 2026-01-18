@@ -1,5 +1,6 @@
 <template>
     <div class="card mb-0 pt-2 pt-md-0">
+        <span class="module-title-marker" data-page-title="Nueva Oportunidad de Venta"></span>
         <!-- <div class="card-header bg-info">
             <h3 class="my-0">Nuevo Comprobante</h3>
         </div> -->
@@ -13,7 +14,7 @@
                                 :path_logo="getCurrentLogo"
                             ></logo>
                         </div>
-                        <div class="col-sm-6 text-left mt-3 mb-0">
+                        <div class="col-sm-6 text-start mt-3 mb-0">
                             <address class="ib mr-2">
                                 <span class="font-weight-bold d-block">OPORTUNIDAD DE VENTA</span>
                                 <!-- <span class="font-weight-bold d-block">CASO-XXX</span> -->
@@ -29,7 +30,7 @@
                         </div>
 
                         <div class="col-sm-4 pt-3">
-                            <div class="form-group col-sm-6 ml-auto mr-2" :class="{'has-danger': errors.date_of_issue}">
+                            <div class="form-group col-sm-6 ms-auto me-2" :class="{'has-danger': errors.date_of_issue}">
                                 <!--<label class="control-label">Fecha de emisión</label>-->
                                 <label class="control-label">Fec. Emisión</label>
                                 <el-date-picker v-model="form.date_of_issue" type="date" value-format="yyyy-MM-dd"
@@ -44,23 +45,48 @@
                     <div class="form-body m-4">
                         <div class="row mt-1">
                             <div class="col-lg-8 pb-2">
-                                <div class="form-group" :class="{'has-danger': errors.customer_id}">
-                                    <label class="control-label font-weight-bold text-info">
+                                <div class="form-group position-relative" :class="{'has-danger': errors.customer_id}">
+                                    <label class="control-label font-weight-bold">
                                         Cliente
-                                        <a href="#" @click.prevent="showDialogNewPerson = true">[+ Nuevo]</a>
                                     </label>
-                                    <el-select v-model="form.customer_id" filterable remote
-                                               class="border-left rounded-left border-info"
-                                               popper-class="el-select-customers"
-                                               dusk="customer_id"
-                                               placeholder="Escriba el nombre o número de documento del cliente"
-                                               :remote-method="searchRemoteCustomers"
-                                               :loading="loading_search">
+                                    <el-select 
+                                        v-model="form.customer_id"
+                                        filterable
+                                        remote
+                                        class="border-left rounded-left border-info"
+                                        popper-class="el-select-customers"
+                                        placeholder="Escriba el nombre o número de documento del cliente"
+                                        :remote-method="searchRemoteCustomers"
+                                        :loading="loading_search"
+                                    >                                        
+                                        <el-option
+                                            v-for="option in customers"
+                                            :key="option.id"
+                                            :value="option.id"
+                                            :label="option.description"
+                                        ></el-option>
 
-                                        <el-option v-for="option in customers" :key="option.id" :value="option.id"
-                                                   :label="option.description"></el-option>
-
+                                        <template slot="empty">
+                                            <p v-if="loading_search" class="el-select-dropdown__empty">
+                                                Cargando...
+                                            </p>
+                                        
+                                            <p v-else class="el-select-dropdown__empty">
+                                                No se encontraron resultados
+                                            </p>
+                                        
+                                            <div
+                                                v-if="!loading_search"
+                                                class="el-select-dropdown__item new-option"
+                                                @click.stop="openNewPersonDialog"
+                                            >
+                                                <span>{{ customerSearchTerm ? `Crear cliente "${customerSearchTerm}"` : 'Crear cliente' }}</span>
+                                            </div>
+                                        </template>                                        
                                     </el-select>
+                                    <span class="btn-add-new" @click.prevent="showDialogNewPerson = true" title="Agregar nuevo cliente">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon icon-tabler icons-tabler-outline icon-tabler-user-plus"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M8 7a4 4 0 1 0 8 0a4 4 0 0 0 -8 0" /><path d="M16 19h6" /><path d="M19 16v6" /><path d="M6 21v-2a4 4 0 0 1 4 -4h4" /></svg>
+                                    </span>
                                     <small class="form-control-feedback" v-if="errors.customer_id"
                                            v-text="errors.customer_id[0]"></small>
                                 </div>
@@ -137,11 +163,11 @@
                                             <th style="width: 10px;"><!-- # --></th>
                                             <th class="font-weight-bold">Descripción</th>
                                             <th class="text-center font-weight-bold">Unidad</th>
-                                            <th class="text-right font-weight-bold">Cantidad</th>
-                                            <th class="text-right font-weight-bold">Precio Unitario</th>
-                                            <th class="text-right font-weight-bold">Subtotal</th>
-                                            <!--<th class="text-right font-weight-bold">Cargo</th>-->
-                                            <th class="text-right font-weight-bold">Total</th>
+                                            <th class="text-end font-weight-bold">Cantidad</th>
+                                            <th class="text-end font-weight-bold">Precio Unitario</th>
+                                            <th class="text-end font-weight-bold">Subtotal</th>
+                                            <!--<th class="text-end font-weight-bold">Cargo</th>-->
+                                            <th class="text-end font-weight-bold">Total</th>
                                             <th></th>
                                         </tr>
                                         </thead>
@@ -152,16 +178,16 @@
                                                 {{ row.item.presentation.hasOwnProperty('description') ? row.item.presentation.description : '' }}<br/><small>{{ row.affectation_igv_type.description }}</small>
                                             </td>
                                             <td class="text-center">{{ row.item.unit_type_id }}</td>
-                                            <td class="text-right">{{ row.quantity }}</td>
-                                            <!-- <td class="text-right">{{currency_type.symbol}} {{row.unit_price}}</td> -->
-                                            <td class="text-right">{{ currency_type.symbol }}
+                                            <td class="text-end">{{ row.quantity }}</td>
+                                            <!-- <td class="text-end">{{currency_type.symbol}} {{row.unit_price}}</td> -->
+                                            <td class="text-end">{{ currency_type.symbol }}
                                                 {{ getFormatUnitPriceRow(row.unit_price) }}
                                             </td>
 
-                                            <td class="text-right">{{ currency_type.symbol }} {{ row.total_value }}</td>
-                                            <!--<td class="text-right">{{ currency_type.symbol }} {{ row.total_charge }}</td>-->
-                                            <td class="text-right">{{ currency_type.symbol }} {{ row.total }}</td>
-                                            <td class="text-right">
+                                            <td class="text-end">{{ currency_type.symbol }} {{ row.total_value }}</td>
+                                            <!--<td class="text-end">{{ currency_type.symbol }} {{ row.total_charge }}</td>-->
+                                            <td class="text-end">{{ currency_type.symbol }} {{ row.total }}</td>
+                                            <td class="text-end">
                                                 <button type="button"
                                                         class="btn waves-effect waves-light btn-xs btn-danger"
                                                         @click.prevent="clickRemoveItem(index)">x
@@ -192,20 +218,20 @@
                             </div>
 
                             <div class="col-md-4">
-                                <p class="text-right" v-if="form.total_exportation > 0">OP.EXPORTACIÓN:
+                                <p class="text-end" v-if="form.total_exportation > 0">OP.EXPORTACIÓN:
                                     {{ currency_type.symbol }} {{ form.total_exportation }}</p>
-                                <p class="text-right" v-if="form.total_free > 0">OP.GRATUITAS: {{
+                                <p class="text-end" v-if="form.total_free > 0">OP.GRATUITAS: {{
                                         currency_type.symbol
                                     }} {{ form.total_free }}</p>
-                                <p class="text-right" v-if="form.total_unaffected > 0">OP.INAFECTAS:
+                                <p class="text-end" v-if="form.total_unaffected > 0">OP.INAFECTAS:
                                     {{ currency_type.symbol }} {{ form.total_unaffected }}</p>
-                                <p class="text-right" v-if="form.total_exonerated > 0">OP.EXONERADAS:
+                                <p class="text-end" v-if="form.total_exonerated > 0">OP.EXONERADAS:
                                     {{ currency_type.symbol }} {{ form.total_exonerated }}</p>
-                                <p class="text-right" v-if="form.total_taxed > 0">OP.GRAVADA: {{ currency_type.symbol }}
+                                <p class="text-end" v-if="form.total_taxed > 0">OP.GRAVADA: {{ currency_type.symbol }}
                                     {{ form.total_taxed }}</p>
-                                <p class="text-right" v-if="form.total_igv > 0">IGV: {{ currency_type.symbol }}
+                                <p class="text-end" v-if="form.total_igv > 0">IGV: {{ currency_type.symbol }}
                                     {{ form.total_igv }}</p>
-                                <h3 class="text-right" v-if="form.total > 0"><b>TOTAL A
+                                <h3 class="text-end" v-if="form.total > 0"><b>TOTAL A
                                     PAGAR: </b>{{ currency_type.symbol }} {{ form.total }}</h3>
                             </div>
 
@@ -214,7 +240,7 @@
                     </div>
 
 
-                    <div class="form-actions footer-card-default text-right mt-4 pl-4 pr-4 pb-3 pt-3">
+                    <div class="form-actions footer-card-default text-end mt-4 ps-4 pe-4 pb-3 pt-3 d-flex justify-content-between">
                         <el-button class="second-buton btn btn-default second-buton-default" @click.prevent="close()">Cancelar</el-button>
                         <el-button class="submit btn btn-primary btn-submit-default" type="primary" native-type="submit" :loading="loading_submit"
                                    v-if="form.items.length > 0">Generar
@@ -234,6 +260,7 @@
         <person-form :showDialog.sync="showDialogNewPerson"
                      type="customers"
                      :external="true"
+                     :input_person="customerSearchTerm"
                      :document_type_id=form.document_type_id></person-form>
 
         <sale-opportunity-options :showDialog.sync="showDialogOptions"
@@ -297,7 +324,16 @@ export default {
             currency_type: {},
             saleOpportunityNewId: null,
             activePanel: 0,
-            loading_search: false
+            loading_search: false,
+            customerSearchTerm: ''
+        }
+    },
+    watch: {
+        showDialogNewPerson(newVal) {
+            if (!newVal) {
+                // Limpiar el término de búsqueda cuando se cierra el diálogo
+                this.customerSearchTerm = ''
+            }
         }
     },
     async created() {
@@ -320,6 +356,7 @@ export default {
         this.loading_form = true
         this.$eventHub.$on('reloadDataPersons', (customer_id) => {
             this.reloadDataCustomers(customer_id)
+            this.customerSearchTerm = ''
         })
 
         await this.isUpdate()
@@ -378,23 +415,20 @@ export default {
             // return unit_price.toFixed(6)
         },
         searchRemoteCustomers(input) {
-
+            this.customerSearchTerm = input;
+                
             if (input.length > 0) {
-                this.loading_search = true
-                let parameters = `input=${input}`
-
+                this.loading_search = true;
+                let parameters = `input=${input}`;
+            
                 this.$http.get(`/${this.resource}/search/customers?${parameters}`)
                     .then(response => {
-                        this.customers = response.data.customers
-                        this.loading_search = false
-                        if (this.customers.length == 0) {
-                            this.allCustomers()
-                        }
-                    })
+                        this.customers = response.data.customers;
+                        this.loading_search = false;
+                    });
             } else {
-                this.allCustomers()
+                this.allCustomers();
             }
-
         },
         initForm() {
             this.errors = {}
@@ -548,6 +582,9 @@ export default {
                 this.customers = response.data.customers
                 this.form.customer_id = customer_id
             })
+        },
+        openNewPersonDialog() {
+            this.showDialogNewPerson = true
         },
     }
 }

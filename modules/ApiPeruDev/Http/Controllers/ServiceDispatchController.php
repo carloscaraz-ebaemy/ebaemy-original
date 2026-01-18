@@ -67,19 +67,6 @@ class ServiceDispatchController extends Controller
                     $response = $service->sendXmlSigned($dispatch->filename, $xml_signed, true);
 
                     if(!$response['success']) {
-                        // Por defecto la guia esta en registrado
-                        if ($response['is_rejected']) {
-                            Dispatch::query()
-                                ->where('id', $dispatch->id)
-                                ->update([
-                                    'state_type_id' => '09'
-                                ]);
-                            return [
-                                'success' => false,
-                                'message' => 'PSE - El comprobante fue rechazado',
-                            ];
-                        }                         
-                        
                         $res_errors = is_array($response['errors']) ? implode(" ",$response['errors']) : '';
                         throw new Exception("PSE. SEND - Code: {$response['code']}; Description: {$response['message']} ;detalle: {$res_errors}");
                     } else {

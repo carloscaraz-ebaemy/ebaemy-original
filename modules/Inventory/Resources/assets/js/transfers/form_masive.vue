@@ -1,6 +1,6 @@
 <template>
     <div>
-        <div class="page-header pr-0">
+        <div class="page-header pe-0">
             <h2><a href="/transfers">
                 <svg  xmlns="http://www.w3.org/2000/svg" style="margin-top: -5px;" width="24"  height="24"  viewBox="0 0 24 24"  fill="none"  stroke="currentColor"  stroke-width="2"  stroke-linecap="round"  stroke-linejoin="round"  class="icon icon-tabler icons-tabler-outline icon-tabler-building-warehouse"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M3 21v-13l9 -4l9 4v13" /><path d="M13 13h4v8h-10v-6h6" /><path d="M13 21v-9a1 1 0 0 0 -1 -1h-2a1 1 0 0 0 -1 1v3" /></svg>
             </a></h2>
@@ -8,11 +8,12 @@
                 <li class="active"><span> Nuevo Traslado </span></li>
             </ol>
         </div>
-        <div class="card tab-content tab-content-default row-new mb-0 pt-md-0">
+            <div class="card tab-content tab-content-default row-new mb-0 pt-md-0">
             <!-- <div class="card-header bg-info">
                 <h3 class="my-0">Nuevo Traslado</h3>
             </div> -->
-            <div class="invoice p-3">
+            <div class="tab-content tab-content-default card-body">
+                <div class="invoice p-3">
                 <!-- <form autocomplete="off"
                       @submit.prevent="submit"> -->
                 <div class="form-body">
@@ -112,7 +113,7 @@
                                         :loading="loading_search"
                                         :remote-method="searchRemoteItems"
                                         @focus="focusSelectItem"
-    
+
                                     >
                                         <el-tooltip
                                             v-for="option in items"
@@ -135,7 +136,7 @@
                                             :value="option.id"
                                         ></el-option>
                                         -->
-    
+
                                         <!--
                                         <el-option
                                             v-for="option in items"
@@ -151,13 +152,13 @@
                                         href="#"
                                         @click.prevent="clickLotcodeOutput"
                                     >[&#10004; Seleccionar series]</a>
-    
+
                                     <div class="col-md-4 mt-4" v-if="form_add.item_id && form_add.lots_enabled">
                                         <a href="#" class="text-center font-weight-bold text-info"
                                            @click.prevent="clickSelectLotsGroup">[&#10004; Seleccionar lotes]</a>
                                     </div>
                                 </template>
-    
+
                                 <el-checkbox class="mt-2" v-model="search_item_by_barcode"
                                              @change="changeSearchItemByBarcode">Buscar por código de barras
                                 </el-checkbox>
@@ -199,10 +200,11 @@
                                    width="100%">
                                 <thead>
                                 <tr width="100%">
-                                    <th width="10%">#</th>
+                                    <th width="5%">#</th>
                                     <th width="20%">Cód. Barras</th>
                                     <th width="40%">Producto</th>
                                     <th width="30%">Cantidad</th>
+                                    <th width="5%"></th>
                                 </tr>
                                 </thead>
                                 <tbody>
@@ -214,13 +216,13 @@
                                     <td>{{ row.description }}</td>
                                     <td>
                                         <!-- {{ row.quantity }} -->
-    
+
                                         <el-input-number v-model="row.quantity"
                                                          :min="0.01"
                                                          :step="1"
                                                          @change="changeQuantity(row, index)"></el-input-number>
                                     </td>
-    
+
                                     <td class="series-table-actions text-center">
                                         <button
                                             class="btn waves-effect waves-light btn-xs btn-danger"
@@ -236,7 +238,7 @@
                         </div>
                     </div>
                 </div>
-                <div class="form-actions text-right mt-4">
+                <div class="form-actions d-flex justify-content-between mt-4">
                     <el-button class="second-buton btn btn-default second-buton-default" @click.prevent="close()">Cancelar</el-button>
                     <el-button :loading="loading_submit"
                                @click.prevent="submit"
@@ -246,14 +248,15 @@
                 </div>
                 <!-- </form> -->
             </div>
-    
+            </div>            
+
             <output-lots-form
                 :itemId="form_add.item_id"
                 :lots="form_add.lots"
                 :quantity="form_add.quantity"
                 :showDialog.sync="showDialogLotsOutput"
                 @addRowOutputLot="addRowOutputLot"></output-lots-form>
-    
+
             <output-lots-group-form
                 :showDialog.sync="showDialogLotsGroup"
                 :itemId="form_add.item_id"
@@ -269,10 +272,10 @@
 
 <script>
 //import OutputLotsForm from "./partials/lots.vue";
-import OutputLotsForm from '../../../../../../resources/js/views/tenant/documents/partials/lots.vue'
-import OutputLotsGroupForm from '../../../../../../resources/js/views/tenant/documents/partials/lots_group'
-import {ItemOptionDescription, ItemSlotTooltip} from "../../../../../../resources/js/helpers/modal_item";
-import {filterWords} from "../../../../../../resources/js/helpers/functions";
+import OutputLotsForm from '@views/documents/partials/lots.vue'
+import OutputLotsGroupForm from '@views/documents/partials/lots_group.vue'
+import {ItemOptionDescription, ItemSlotTooltip} from "@helpers/modal_item";
+import {filterWords} from "@helpers/functions";
 
 export default {
     props: [],

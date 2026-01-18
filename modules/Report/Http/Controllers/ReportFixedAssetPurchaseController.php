@@ -4,7 +4,7 @@ namespace Modules\Report\Http\Controllers;
 
 use App\Models\Tenant\Catalogs\DocumentType;
 use App\Http\Controllers\Controller;
-use Barryvdh\DomPDF\Facade as PDF;
+use Barryvdh\DomPDF\Facade\Pdf as PDF;
 use Modules\Report\Exports\FixedAssetPurchaseExport;
 use Illuminate\Http\Request;
 use Modules\Report\Traits\ReportTrait;

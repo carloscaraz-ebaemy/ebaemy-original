@@ -1,6 +1,6 @@
 <template>
     <div>
-        <div class="page-header pr-0">
+        <div class="page-header pe-0">
             <h2>
                 <a href="/hotels/reception">
                     <svg  xmlns="http://www.w3.org/2000/svg" style="margin-top: -5px;" width="24"  height="24"  viewBox="0 0 24 24"  fill="none"  stroke="currentColor"  stroke-width="2"  stroke-linecap="round"  stroke-linejoin="round"  class="icon icon-tabler icons-tabler-outline icon-tabler-building-skyscraper"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M3 21l18 0" /><path d="M5 21v-14l8 -4v18" /><path d="M19 21v-10l-6 -4" /><path d="M9 9l0 .01" /><path d="M9 12l0 .01" /><path d="M9 15l0 .01" /><path d="M9 18l0 .01" /></svg>
@@ -10,11 +10,11 @@
                 <li class="active"><span>VISTA GENERAL RECEPCIÓN</span></li>
             </ol>
             <div class="right-wrapper pull-right">
-                <div class="btn-group flex-wrap">
+                <div class="btn-group flex-wrap dropdown">
                     <button
                         aria-expanded="false"
-                        class="btn btn-custom btn-sm mt-2 mr-2 dropdown-toggle"
-                        data-toggle="dropdown"
+                        class="btn btn-custom btn-sm mt-2 me-2 dropdown-toggle"
+                        data-bs-toggle="dropdown"
                         type="button"
                     >
                         <i class="fa fa-download"></i> Exportar
@@ -41,7 +41,7 @@
                     </div>
                 </div>
             </div>
-            
+
         </div>
         <div class="card tab-content-default row-new mb-0">
             <!-- <div class="card-header bg-info">
@@ -80,7 +80,7 @@
                         </el-input>
                     </div>
                     <!-- botones de status -->
-                    <div class="col-md-5 col-sm-12 pb-2 text-right">
+                    <div class="col-md-5 col-sm-12 pb-2 text-end">
                         <el-button-group
                         >
                             <el-button
@@ -107,7 +107,7 @@
                         >
                             <div class="">
                                 <!-- <h4>{{ ro.status }}</h4> -->
-                                  
+
                                    <span class="text-muted">{{ ro.category.description }} - {{ ro.floor.description }}</span>
                                    <h2 class="mt-0">
                                     <svg  xmlns="http://www.w3.org/2000/svg"  width="32"  height="32"  viewBox="0 0 24 24"  fill="none"  stroke="currentColor"  stroke-width="2"  stroke-linecap="round"  stroke-linejoin="round"  class="icon icon-tabler icons-tabler-outline icon-tabler-door"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M14 12v.01" /><path d="M3 21h18" /><path d="M6 21v-16a2 2 0 0 1 2 -2h8a2 2 0 0 1 2 2v16" /></svg>
@@ -120,7 +120,7 @@
                                         :disabled="loading"
                                         :loading="loading"
                                         title="Finalizar limpieza"
-                                        class="btn btn-block btn-info"
+                                        class="btn btn-block btn-info w-100"
                                         @click="onFinalizeClean(ro)"
                                     >
                                     <svg  xmlns="http://www.w3.org/2000/svg"  width="24"  height="24"  viewBox="0 0 24 24"  fill="none"  stroke="currentColor"  stroke-width="2"  stroke-linecap="round"  stroke-linejoin="round"  class="icon icon-tabler icons-tabler-outline icon-tabler-spray"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M4 10m0 2a2 2 0 0 1 2 -2h4a2 2 0 0 1 2 2v7a2 2 0 0 1 -2 2h-4a2 2 0 0 1 -2 -2z" /><path d="M6 10v-4a1 1 0 0 1 1 -1h2a1 1 0 0 1 1 1v4" /><path d="M15 7h.01" /><path d="M18 9h.01" /><path d="M18 5h.01" /><path d="M21 3h.01" /><path d="M21 7h.01" /><path d="M21 11h.01" /><path d="M10 7h1" /></svg>
@@ -134,7 +134,7 @@
                                     </h4>
                                     <p class="text-center">Debe cambiar el estado a <b>Disponible</b> en el módulo Habitaciones.</p>
                                 </template>
-                                
+
                                 <template v-if="ro.status === 'OCUPADO'">
                                     <div>
                                         <p>
@@ -150,17 +150,17 @@
                                         > Modificar
                                         </el-button>
                                         <br>
-                                        <svg  xmlns="http://www.w3.org/2000/svg"  width="18"  height="18"  viewBox="0 0 24 24"  fill="none"  stroke="currentColor"  stroke-width="2"  stroke-linecap="round"  stroke-linejoin="round"  class="icon icon-tabler icons-tabler-outline icon-tabler-clock"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M3 12a9 9 0 1 0 18 0a9 9 0 0 0 -18 0" /><path d="M12 7v5l3 3" /></svg> 
+                                        <svg  xmlns="http://www.w3.org/2000/svg"  width="18"  height="18"  viewBox="0 0 24 24"  fill="none"  stroke="currentColor"  stroke-width="2"  stroke-linecap="round"  stroke-linejoin="round"  class="icon icon-tabler icons-tabler-outline icon-tabler-clock"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M3 12a9 9 0 1 0 18 0a9 9 0 0 0 -18 0" /><path d="M12 7v5l3 3" /></svg>
                                         {{ ro.rent.output_time }}
                                     </span>
                                     </p>
-                                    
+
                                 </div>
                                 <div class="row">
                                     <div class="col-3">
                                         <button
                                             title="Agregar productos"
-                                            class="btn btn-block btn-danger px-0 py-2"
+                                            class="btn btn-block btn-danger px-0 py-2 w-100"
                                             data-toggle="tooltip"
                                             @click="onGoToAddProducts(ro)"
                                         >
@@ -170,7 +170,7 @@
                                     <div class="col-9">
                                         <button
                                             title="Ir al checkout"
-                                            class="btn btn-block btn-danger px-0 py-2"
+                                            class="btn btn-block btn-danger px-0 py-2 w-100"
                                             @click="onGoToCheckout(ro)"
                                         >Check-out 
                                             <svg  xmlns="http://www.w3.org/2000/svg"  width="24"  height="24"  viewBox="0 0 24 24"  fill="none"  stroke="currentColor"  stroke-width="2"  stroke-linecap="round"  stroke-linejoin="round"  class="icon icon-tabler icons-tabler-outline icon-tabler-door-exit"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M13 12v.01" /><path d="M3 21h18" /><path d="M5 21v-16a2 2 0 0 1 2 -2h7.5m2.5 10.5v7.5" /><path d="M14 7h7m-3 -3l3 3l-3 3" /></svg>
@@ -180,7 +180,7 @@
                                 </template>
                                 <el-button
                                     v-if="ro.status === 'DISPONIBLE'"
-                                    class="btn btn-block btn-success"
+                                    class="btn btn-block btn-success w-100"
                                     @click="onToRent(ro)"
                                 >
                                       <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon icon-tabler icons-tabler-outline icon-tabler-door-enter">
@@ -194,7 +194,7 @@
                                     </svg> Disponible
                                 </el-button>
                             </div>
-                           
+
                         </el-card>
                     </div>
                 </div>
@@ -211,7 +211,7 @@
             :visible.sync="openDialogExtendTimeRoom"
             @onRefresh="onRefresh">
         </ExtendTimeRoom>
-        <reception-export 
+        <reception-export
             :showDialog.sync="showExportDialog"
             :user-type="userType"
             :establishment-id="establishmentId"
@@ -222,7 +222,7 @@
 
 <script>
 import ExtendTimeRoom from './partials/ExtendTimeRoom.vue';
-import ModalRoomRates from "./RoomRates";
+import ModalRoomRates from "./RoomRates.vue";
 import ReceptionExport from './partials/ReceptionExport.vue';
 
 export default {
@@ -418,7 +418,7 @@ export default {
         formatDate(dateString) {
             if (!dateString) return "";
             const [year, month, day] = dateString.split("-");
-            return `${day}/${month}`; 
+            return `${day}/${month}`;
         }
     },
 };

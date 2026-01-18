@@ -1,6 +1,6 @@
 <template>
     <div>
-        <div class="page-header pr-0">
+        <div class="page-header pe-0">
             <h2>
                 <a href="/suscription/payments">
                     <svg  xmlns="http://www.w3.org/2000/svg" style="margin-top: -5px;" width="24"  height="24"  viewBox="0 0 24 24"  fill="none"  stroke="currentColor"  stroke-width="2"  stroke-linecap="round"  stroke-linejoin="round"  class="icon icon-tabler icons-tabler-outline icon-tabler-calendar-user"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M12 21h-6a2 2 0 0 1 -2 -2v-12a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v4.5" /><path d="M16 3v4" /><path d="M8 3v4" /><path d="M4 11h16" /><path d="M19 17m-2 0a2 2 0 1 0 4 0a2 2 0 1 0 -4 0" /><path d="M22 22a2 2 0 0 0 -2 -2h-2a2 2 0 0 0 -2 2" /></svg>
@@ -14,7 +14,7 @@
                 </li>
             </ol>
             <div class="right-wrapper pull-right">
-                <button class="btn btn-custom btn-sm  mt-2 mr-2"
+                <button class="btn btn-custom btn-sm  mt-2 me-2"
                         type="button"
                         @click.prevent="clickShowPlan()">
                     <i class="fa fa-plus-circle">
@@ -35,25 +35,25 @@
                         <!-- <th>
                             #
                         </th> -->
-                        <th class="text-left">
+                        <th class="text-start">
                             Padre
                         </th>
-                        <th class="text-left">
+                        <th class="text-start">
                             Hijo
                         </th>
-                        <th class="text-left">
+                        <th class="text-start">
                             Plan
                         </th>
-                        <th class="text-left">
+                        <th class="text-start">
                             Grado
                         </th>
-                        <th class="text-left">
+                        <th class="text-start">
                             Sección
                         </th>
-                        <th class="text-right">
+                        <th class="text-end">
                             Cant.Periodo/Ciclo
                         </th>
-                        <th class="text-right">
+                        <th class="text-end">
                             Total (cant * total)
                         </th>
                         <!--
@@ -62,7 +62,7 @@
                              Total
                          </th>
                           -->
-                        <th class="text-right">
+                        <th class="text-end">
                             Acciones
                         </th>
                     <tr>
@@ -70,21 +70,21 @@
                         <!-- <td>
                             {{ index }}
                         </td> -->
-                        <td class="text-left">
+                        <td class="text-start">
                             {{ row.parent_customer.description }}
                         </td>
-                        <td class="text-left">
+                        <td class="text-start">
                             {{ row.children_customer.description }}
                         </td>
-                        <td class="text-left">
+                        <td class="text-start">
                             {{ row.plan.name }}
                         </td>
-                        <td class="text-left"> {{ row.grade }} </td>
-                        <td class="text-left"> {{ row.section }} </td>
-                        <td class="text-right">
+                        <td class="text-start"> {{ row.grade }} </td>
+                        <td class="text-start"> {{ row.section }} </td>
+                        <td class="text-end">
                             {{ row.quantity_period }}
                         </td>
-                        <td class="text-right">
+                        <td class="text-end">
                             {{ row.quantity_period * row.total }}
                         </td>
                         <!--
@@ -92,7 +92,7 @@
                                 {{ row.total }}
                             </td>
                         -->
-                        <td class="text-right">
+                        <td class="text-end">
                             <button
                                 class="btn waves-effect waves-light btn-xs btn-info"
                                 type="button"

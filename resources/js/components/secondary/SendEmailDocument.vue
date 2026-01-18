@@ -60,7 +60,7 @@
 </template>
 
 <script>
-import QrApi from '@viewsModuleQrApi/QrApiTemplate'
+import QrApi from '@viewsModuleQrApi/QrApiTemplate.vue'
 
 export default {
     props: [

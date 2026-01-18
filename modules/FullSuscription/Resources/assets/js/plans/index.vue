@@ -1,6 +1,6 @@
 <template>
     <div>
-        <div class="page-header pr-0">
+        <div class="page-header pe-0">
             <h2>
                 <a href="/full_suscription/plans">
                     <svg  xmlns="http://www.w3.org/2000/svg" style="margin-top: -5px;" width="24"  height="24"  viewBox="0 0 24 24"  fill="none"  stroke="currentColor"  stroke-width="2"  stroke-linecap="round"  stroke-linejoin="round"  class="icon icon-tabler icons-tabler-outline icon-tabler-calendar-month"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M4 7a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v12a2 2 0 0 1 -2 2h-12a2 2 0 0 1 -2 -2v-12z" /><path d="M16 3v4" /><path d="M8 3v4" /><path d="M4 11h16" /><path d="M7 14h.013" /><path d="M10.01 14h.005" /><path d="M13.01 14h.005" /><path d="M16.015 14h.005" /><path d="M13.015 17h.005" /><path d="M7.01 17h.005" /><path d="M10.01 17h.005" /></svg>
@@ -14,7 +14,7 @@
                 </li>
             </ol>
             <div class="right-wrapper pull-right">
-                <button class="btn btn-custom btn-sm  mt-2 mr-2"
+                <button class="btn btn-custom btn-sm  mt-2 me-2"
                         type="button"
                         @click.prevent="clickShowPlan()">
                     <i class="fa fa-plus-circle">
@@ -35,16 +35,16 @@
                         <!-- <th>
                             #
                         </th> -->
-                        <th class="text-left">
+                        <th class="text-start">
                             Periodo
                         </th>
-                        <th class="text-right">
+                        <th class="text-end">
                             Cant. Veces
                         </th>
-                        <th class="text-left">
+                        <th class="text-start">
                             Nombre
                         </th>
-                        <th class="text-left">
+                        <th class="text-start">
                             Descripción
                         </th>
                         <!--
@@ -53,7 +53,7 @@
                              Total
                          </th>
                           -->
-                        <th class="text-right">
+                        <th class="text-end">
                             Acciones
                         </th>
                     <tr>
@@ -61,16 +61,16 @@
                         <!-- <td>
                             {{ index }}
                         </td> -->
-                        <td class="text-left">
+                        <td class="text-start">
                             {{ row.period }}
                         </td>
-                        <td class="text-right">
+                        <td class="text-end">
                             {{ row.quantity_period }}
                         </td>
-                        <td class="text-left">
+                        <td class="text-start">
                             {{ row.name }}
                         </td>
-                        <td class="text-left">
+                        <td class="text-start">
                             {{ row.description }}
                         </td>
                         <!--
@@ -78,9 +78,9 @@
                                 {{ row.total }}
                             </td>
                         -->
-                        <td class="text-right">
+                        <td class="text-end">
                             <button
-                                class="btn waves-effect waves-light btn-xs btn-info"
+                                class="btn waves-effect waves-light btn-xs btn-info me-1"
                                 type="button"
                                 @click.prevent="clickShowPlan(row)">
                                 Ver

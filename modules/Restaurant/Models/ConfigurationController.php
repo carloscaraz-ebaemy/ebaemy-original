@@ -426,6 +426,7 @@ class ConfigurationController extends Controller
             'bg'       => 'light',
             'header'   => 'light',
             'sidebars' => 'light',
+            'sidebar_margin' => true,
         ];
         $configuration = Configuration::first();
         $configuration->visual = $defaults;
@@ -439,16 +440,30 @@ class ConfigurationController extends Controller
 
     public function visualSettings(Request $request)
     {
+        $configuration = Configuration::find(1);
+
+        $currentVisual = $configuration->visual;
+        $currentSidebarMargin = (is_object($currentVisual) && property_exists($currentVisual, 'sidebar_margin'))
+            ? (bool)$currentVisual->sidebar_margin
+            : true;
+
+        $sidebarMargin = $currentSidebarMargin;
+        if ($request->has('sidebar_margin')) {
+            $parsed = filter_var($request->sidebar_margin, FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE);
+            $sidebarMargin = is_null($parsed) ? $currentSidebarMargin : $parsed;
+        }
+
         $visuals = [
-            'bg'       => $request->bg,
-            'header'   => $request->header,
+            'bg' => $request->bg,
+            'header' => $request->header,
             'sidebars' => $request->sidebars,
             'navbar' => $request->navbar,
-            'sidebar_theme' => $request->sidebar_theme
+            'sidebar_theme' => $request->sidebar_theme,
+            'sidebar_margin' => $sidebarMargin,
         ];
 
-        $configuration = Configuration::find(1);
         $configuration->visual = $visuals;
+        $configuration->sidebar_mode = $request->sidebar_mode ?? 'light';
         $configuration->save();
 
         return [

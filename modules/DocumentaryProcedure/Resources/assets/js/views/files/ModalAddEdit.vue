@@ -323,13 +323,13 @@
 
 <script>
 import moment from "moment";
-import TableArchives from "./TableArchives";
-import PersonForm from "../../../../../../../resources/js/views/tenant/persons/form.vue";
+import TableArchives from "./TableArchives.vue";
+import PersonForm from "@views/persons/form.vue";
 import OfficesRows from './Offices.vue';
 import vue2Dropzone from 'vue2-dropzone'
 import 'vue2-dropzone/dist/vue2Dropzone.min.css'
 import {mapActions, mapState} from "vuex";
-import TableObservation from "./TableObservation";
+import TableObservation from "./TableObservation.vue";
 
 export default {
     components: {

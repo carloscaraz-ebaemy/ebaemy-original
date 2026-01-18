@@ -38,3 +38,5 @@ supervisor.conf
 **/.DS_Store
 public/porto-light/js/bloquear_cliente.js
 .codegpt
+
+.github/copilot-instructions.md

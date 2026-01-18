@@ -1,6 +1,6 @@
 <template>
     <div>
-        <div class="page-header pr-0">
+        <div class="page-header pe-0">
             <h2><a href="/mill-production">
                 <svg  xmlns="http://www.w3.org/2000/svg" style="margin-top: -5px;" width="24"  height="24"  viewBox="0 0 24 24"  fill="none"  stroke="currentColor"  stroke-width="2"  stroke-linecap="round"  stroke-linejoin="round"  class="icon icon-tabler icons-tabler-outline icon-tabler-building-factory-2"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M3 21h18" /><path d="M5 21v-12l5 4v-4l5 4h4" /><path d="M19 21v-8l-1.436 -9.574a.5 .5 0 0 0 -.495 -.426h-1.145a.5 .5 0 0 0 -.494 .418l-1.43 8.582" /><path d="M9 17h1" /><path d="M14 17h1" /></svg>
             </a></h2>
@@ -19,7 +19,7 @@
                       @submit.prevent="submit">
                     <div class="form-body">
                         <div class="row">
-    
+
                             <div class="col-sm-12 col-md-6 col-lg-3 ">
                                 <div :class="{'has-danger': errors.date_start}"
                                      class="form-group">
@@ -36,7 +36,7 @@
                                            v-text="errors.date_start[0]"></small>
                                 </div>
                             </div>
-    
+
                             <div class="col-sm-12 col-md-6 col-lg-3 ">
                                 <div :class="{'has-danger': errors.time_start}"
                                      class="form-group">
@@ -50,8 +50,8 @@
                                            v-text="errors.time_start[0]"></small>
                                 </div>
                             </div>
-    
-    
+
+
                             <div class="col-sm-12 col-md-6 col-lg-3 ">
                                 <div :class="{'has-danger': errors.date_end}"
                                      class="form-group">
@@ -81,7 +81,7 @@
                                            v-text="errors.time_end[0]"></small>
                                 </div>
                             </div>
-    
+
                             <div class="col-sm-12 col-md-6 col-lg-3 ">
                                 <div :class="{'has-danger': errors.name}"
                                      class="form-group">
@@ -123,7 +123,7 @@
                                 </div>
                             </div>
                             <!--
-    
+
                             <div class="col-sm-12 col-md-3 col-lg-3">
                                 <div :class="{'has-danger': errors.item_extra_data}"
                                      class="form-group">
@@ -135,7 +135,7 @@
                                                filterable>
                                         <el-option
                                             v-for="option in item.colors"
-    
+
                                             :key="option.id"
                                             :label="option.color_name"
                                             :value="option.id"
@@ -147,9 +147,9 @@
                                 </div>
                             </div>
                             -->
-    
-    
-    
+
+
+
                             <!--
                             <div class="col-lg-6">
                                 <div :class="{'has-danger': errors.supplier_id}"
@@ -172,8 +172,8 @@
                                 </div>
                             </div>
                             -->
-    
-    
+
+
                         </div>
                         <div class="row">
                             <div class="col-lg-2 col-md-6 mt-4">
@@ -195,8 +195,8 @@
                                             <th>#</th>
                                             <th class="font-weight-bold">Descripción</th>
                                             <th class="font-weight-bold">Unidad</th>
-                                            <th class="text-right font-weight-bold">Entrada</th>
-                                            <th class="text-right font-weight-bold">Salida</th>
+                                            <th class="text-end font-weight-bold">Entrada</th>
+                                            <th class="text-end font-weight-bold">Salida</th>
                                             <th></th>
                                         </tr>
                                         </thead>
@@ -205,9 +205,9 @@
                                             <td>{{ index + 1 }}</td>
                                             <td>{{ ItemOptionDescriptionView(row) }}</td>
                                             <td>{{ ItemUnit(row) }}</td>
-                                            <td class="text-right">{{ row.height_to_mill }}</td>
-                                            <td class="text-right">{{ row.total_height }}</td>
-                                            <td class="text-right">
+                                            <td class="text-end">{{ row.height_to_mill }}</td>
+                                            <td class="text-end">{{ row.total_height }}</td>
+                                            <td class="text-end">
                                                 <button class="btn waves-effect waves-light btn-xs btn-danger"
                                                         type="button"
                                                         @click.prevent="clickRemoveItem(index)">x
@@ -220,11 +220,11 @@
                             </div>
                             <div class="col-md-12">
                                 <h3 v-if="form.total > 0"
-                                    class="text-right"><b>TOTAL: </b>{{ currency_type.symbol }} {{ form.total }}</h3>
+                                    class="text-end"><b>TOTAL: </b>{{ currency_type.symbol }} {{ form.total }}</h3>
                             </div>
                         </div>
                     </div>
-                    <div class="form-actions text-right mt-4">
+                    <div class="form-actions text-end mt-4">
                         <el-button class="second-buton btn btn-default second-buton-default" @click.prevent="close()">Cancelar</el-button>
                         <el-button class="btn btn-primary btn-submit-default" v-if="form.items.length > 0"
                                    :loading="loading_submit"
@@ -240,13 +240,13 @@
                 :showDialog.sync="showDialog"
                 @add="addRow"></mill-form-item>
             <!--
-    
-    
-    
+
+
+
             <person-form :showDialog.sync="showDialogNewPerson"
                          type="suppliers"
                          :external="true"></person-form>
-    
+
             <mill-options :showDialog.sync="showDialogOptions"
                              :recordId="millNewId"
                              :isUpdate="id ? true:false"
@@ -264,7 +264,7 @@ import PersonForm from '../../../../../../../resources/js/views/tenant/persons/f
 import ExpenseOptions from './partials/options.vue'
 */
 import {exchangeRate, functions} from '../../../../../../../resources/js/mixins/functions'
-import {ItemOptionDescription} from "../../../../../../../resources/js/helpers/modal_item";
+import {ItemOptionDescription} from "@helpers/modal_item";
 
 
 export default {

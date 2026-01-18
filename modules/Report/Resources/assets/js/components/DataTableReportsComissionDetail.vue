@@ -223,7 +223,7 @@
 
                     <div class="col-lg-7 col-md-7 col-md-7 col-sm-12 mt-3">
                         <el-button :loading="loading_submit"
-                                   class="submit"
+                                   class="submit me-2"
                                    icon="el-icon-search"
                                    type="primary"
                                    @click.prevent="getRecordsByFilter">Buscar
@@ -231,7 +231,7 @@
 
                         <template v-if="records.length>0 && resource  !== 'reports/document-detractions'">
 
-                            <el-button class="submit"
+                            <el-button class="submit me-2"
                                        icon="el-icon-tickets"
                                        type="danger"
                                        @click.prevent="clickDownload('pdf')">Exportar PDF
@@ -270,7 +270,7 @@
                         <tfoot>
                             <template>
                                 <tr>
-                                    <td class="text-right" colspan="10">TOTAL:</td>
+                                    <td class="text-end" colspan="10">TOTAL:</td>
                                     <td class="text-center">{{ totals.acum_unit_gain}}</td>
                                      <td class="text-center">{{ totals.acum_overall_profit}}</td>
                                 </tr>

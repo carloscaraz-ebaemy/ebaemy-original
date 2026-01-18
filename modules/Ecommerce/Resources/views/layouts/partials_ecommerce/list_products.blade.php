@@ -1,7 +1,7 @@
 @foreach ($dataPaginate as $item)
     <div class="col-6 {{ \Route::currentRouteName() == 'tenant.ecommerce.index' ? 'col-md-3' : 'col-md-4' }}">
         <div class="product product-style {{ stock($item, $configuration) ? 'productdisabled' : '' }}">
-            <figure class="product-image-container">
+            <figure class="product-image-container product-image-container-ecommerce">
                 @php
                     $configuration = \App\Models\Tenant\Configuration::first();
                     $defaultImage = $configuration->product_default_image ?? 'imagen-no-disponible.jpg';
@@ -36,9 +36,30 @@
                     <h2 class="product-title-ecommerce">
                         <a href="/ecommerce/item/{{ $item->id }}">{{ $item->description }}</a>
                     </h2>
-                    <h3 class="product-stock">Disponible: 
-                        <span>{{ number_format($item->getStockByWarehouseMain(), 0) }}</span>
-                    </h3>
+
+                    @if(isset($preferences['show_description']) && $preferences['show_description'] == 1)
+                        @if ($item->name)
+                            <p class="text-muted product-description">
+                                {{ $item->name }}
+                            </p>
+                        @else
+                            <p class="text-muted product-description" style="opacity: .5">
+                                Sin descripción disponible.
+                            </p>
+                        @endif
+                    @endif
+
+                    @if(isset($preferences['show_stock']) && $preferences['show_stock'] == 1)
+                        @if($item->stock > 0)
+                        <h3 class="product-stock">Disponible: 
+                            <span>{{ number_format($item->getStockByWarehouseMain(), 0) }}</span>
+                        </h3>
+                        @else
+                        <h3 class="product-stock text-danger">
+                            Sin stock
+                        </h3>
+                        @endif
+                    @endif
                 </div>
                 <div class="product-price-ecommerce">
                     <div class="price-box-ecommerce">

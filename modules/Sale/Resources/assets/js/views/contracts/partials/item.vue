@@ -31,13 +31,12 @@
                             :class="{ 'has-danger': errors.item_id }"
                             class="form-group more-width-input"
                         >
-                            <label class="control-label">
+                            <label class="control-label d-flex align-items-center">
                                 Producto/Servicio
-                                <a
-                                    href="#"
+                                <span
+                                    class="btn-add-new-product"
                                     @click.prevent="showDialogNewItem = true"
-                                    >[+ Nuevo]</a
-                                >
+                                    ><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon icon-tabler icons-tabler-outline icon-tabler-plus"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M12 5l0 14" /><path d="M5 12l14 0" /></svg></span>
                             </label>
 
                             <!-- <el-select v-model="form.item_id" @change="changeItem" filterable  ref="selectSearchNormal" @focus="focusSelectItem">
@@ -50,6 +49,9 @@
                                         v-model="form.item_id"
                                         @change="changeItem"
                                         filterable
+                                        remote
+                                        :remote-method="searchRemoteItems"
+                                        :loading="loading_search"
                                         placeholder="Buscar"
                                         popper-class="el-select-items"
                                         ref="selectSearchNormal"
@@ -63,6 +65,25 @@
                                             :value="option.id"
                                             :label="option.full_description"
                                         ></el-option>
+
+                                        <template slot="empty">
+                                            <p v-if="loading_search" class="el-select-dropdown__empty">
+                                                Cargando...
+                                            </p>
+                                        
+                                            <p v-else class="el-select-dropdown__empty">
+                                                No se encontraron resultados
+                                            </p>
+                                        
+                                            <div
+                                                v-if="!loading_search"
+                                                class="el-select-dropdown__item new-option"
+                                                @click.stop="openNewItemDialog"
+                                            >
+                                                <span>{{ itemSearchTerm ? `Crear producto "${itemSearchTerm}"` : 'Crear producto' }}</span>
+                                            </div>
+                                        </template>
+
                                     </el-select>
                                 </el-input>
                             </template>
@@ -205,9 +226,9 @@
                                         <th class="text-center">Unidad</th>
                                         <th class="text-center">Descripción</th>
                                         <th class="text-center">Factor</th>
-                                        <th class="text-center">Precio 1</th>
-                                        <th class="text-center">Precio 2</th>
-                                        <th class="text-center">Precio 3</th>
+                                        <th class="text-center">{{ config.price1_label }}</th>
+                                        <th class="text-center">{{ config.price2_label }}</th>
+                                        <th class="text-center">{{ config.price3_label }}</th>
                                         <th class="text-center">
                                             Precio Default
                                         </th>
@@ -295,9 +316,9 @@
                                 <el-option v-for="option in item_unit_types" :key="option.id" :value="option.id" :label="option.description"></el-option>
                             </el-select>
                             <el-radio-group v-if="form.item_unit_type_id" v-model="item_unit_type.price_default" @change="changePresentation">
-                                <el-radio :label="1">Precio 1</el-radio>
-                                <el-radio :label="2">Precio 2</el-radio>
-                                <el-radio :label="3">Precio 3</el-radio>
+                                <el-radio :label="1">{{ config.price1_label }}</el-radio>
+                                <el-radio :label="2">{{ config.price2_label }}</el-radio>
+                                <el-radio :label="3">{{ config.price3_label }}</el-radio>
                             </el-radio-group>
                             <small class="form-control-feedback" v-if="errors.item_unit_type_id" v-text="errors.item_unit_type_id[0]"></small>
                         </div>
@@ -305,23 +326,25 @@
                     <div class="col-md-12 mt-3">
                         <section
                             id="card-section"
-                            class="card mb-2 card-transparent card-collapsed"
+                            class="card mb-2 card-transparent"
+                            :class="{'card-collapsed': !showAdditionalInfo}"
                         >
                             <header
                                 id="card-click"
                                 class="card-header hoverable bg-light border-top rounded-0 py-1"
-                                data-card-toggle
                                 style="cursor: pointer;"
+                                @click="toggleAdditionalInfo"
                             >
                                 <div
                                     class="card-actions"
                                     style="margin-top: -12px;"
                                 >
                                     <a
-                                        class="card-action card-action-toggle text-info"
-                                        data-card-toggle=""
+                                        class="card-action card-action-toggle"
                                         href="#"
-                                    ></a>
+                                        @click.prevent
+                                    >                                    
+                                    </a>
                                 </div>
 
                                 <p class="pl-1">
@@ -330,7 +353,7 @@
                             </header>
                             <div
                                 class="card-body px-0 pt-2"
-                                style="display: none;"
+                                v-show="showAdditionalInfo"
                             >
                                 <div
                                     v-if="discount_types.length > 0"
@@ -561,8 +584,8 @@
                     </div>
                 </div>
             </div>
-            <div class="form-actions text-right pt-2">
-                <el-button class="second-buton" @click.prevent="close()"
+            <div class="form-actions text-end pt-2">
+                <el-button class="second-buton me-2" @click.prevent="close()"
                     >Cerrar</el-button
                 >
                 <el-button
@@ -576,6 +599,7 @@
         <item-form
             :external="true"
             :showDialog.sync="showDialogNewItem"
+            :input_item="itemSearchTerm"
         ></item-form>
 
         <warehouses-detail
@@ -602,7 +626,7 @@ import { mapActions, mapState } from "vuex/dist/vuex.mjs";
 import {
     ItemOptionDescription,
     ItemSlotTooltip
-} from "../../../../../../../../resources/js/helpers/modal_item";
+} from "@helpers/modal_item";
 import { checkPermissionEditPrices } from "@mixins/check-permission-edit-prices";
 
 export default {
@@ -657,8 +681,17 @@ export default {
             lots: [],
             editors: {
                 classic: ClassicEditor
-            }
+            },
+            showAdditionalInfo: false,
+            itemSearchTerm: ''
         };
+    },
+    watch: {
+        showDialog(newVal) {
+            if (newVal) {
+                this.itemSearchTerm = ''
+            }
+        }
     },
     created() {
         this.loadConfiguration();
@@ -676,6 +709,7 @@ export default {
 
         this.$eventHub.$on("reloadDataItems", item_id => {
             this.reloadDataItems(item_id);
+            this.itemSearchTerm = ''
         });
     },
     computed: {
@@ -683,6 +717,10 @@ export default {
     },
     methods: {
         ...mapActions(["loadConfiguration"]),
+
+        toggleAdditionalInfo() {
+            this.showAdditionalInfo = !this.showAdditionalInfo;
+        },
 
         hasAttributes() {
             if (
@@ -704,6 +742,8 @@ export default {
         },
 
         async searchRemoteItems(input) {
+            this.itemSearchTerm = input;
+
             if (input.length > 2) {
                 this.loading_search = true;
                 const params = {
@@ -818,6 +858,7 @@ export default {
             this.total_item = 0;
             this.item_unit_type = {};
             this.has_list_prices = false;
+            this.showAdditionalInfo = false;
         },
         // initializeFields() {
         //     this.form.affectation_igv_type_id = this.affectation_igv_types[0].id
@@ -1027,6 +1068,9 @@ export default {
                 }
                 // this.filterItems()
             });
+        },
+        openNewItemDialog() {
+            this.showDialogNewItem = true;
         }
     }
 };

@@ -1,6 +1,6 @@
 <template>
 <div>
-    <div class="page-header pr-0">
+    <div class="page-header pe-0">
         <h2>
             <a href="/dashboard"><i class="fas fa-tachometer-alt"></i></a>
         </h2>
@@ -8,7 +8,7 @@
             <li class="active"><span>Links de pago</span></li>
         </ol>
         <div class="right-wrapper pull-right">
-            <button class="btn btn-custom btn-sm mt-2 mr-2" type="button" @click.prevent="clickCreate()">
+            <button class="btn btn-custom btn-sm mt-2 me-2" type="button" @click.prevent="clickCreate()">
                 <i class="fa fa-plus-circle"></i> Nuevo
             </button>
         </div>
@@ -27,7 +27,7 @@
                     <th>Tipo</th>
                     <th>Link</th>
                     <th>Total</th>
-                    <th class="text-right"></th>
+                    <th class="text-end"></th>
                 </tr>
 
                 <tr></tr>
@@ -50,34 +50,39 @@
                     </td>
                     <td>{{ row.total }}</td>
 
-                    <td class="text-right">
-                        <div class="dropdown">
-                            <button id="dropdownMenuButton" aria-expanded="false" aria-haspopup="true" class="btn btn-default btn-sm btn-dropdown-toggle" data-toggle="dropdown" type="button">
+                    <td class="text-end">
+                        <el-dropdown
+                            trigger="click"
+                            @command="handleDropdownCommand($event, row)"
+                        >
+                            <el-button
+                                class="btn btn-default btn-sm btn-dropdown-toggle"
+                                size="mini"
+                                native-type="button"
+                            >
                                 <i class="fas fa-ellipsis-v"></i>
                                 <i class="fas fa-ellipsis-h" style="display: none;"></i>
-                            </button>
-                            <div aria-labelledby="dropdownMenuButton" class="dropdown-menu">
-
+                            </el-button>
+                            <el-dropdown-menu slot="dropdown">
                                 <template v-if="typeUser === 'admin'">
-
-                                    <template v-if="row.payment_link_type_id == '02'">
-                                        <button class="dropdown-item" @click.prevent="clickShowTransactions(row.id)">
-                                            Transacciones
-                                        </button>
-                                    </template>
-
-                                    <template v-if="!row.has_payment">
-                                        <button class="dropdown-item" @click.prevent="clickCreate(row.id)">
-                                            Editar
-                                        </button>
-                                    </template>
-
-                                    <button class="dropdown-item" @click.prevent="clickDelete(row.id)">
+                                    <el-dropdown-item
+                                        v-if="row.payment_link_type_id == '02'"
+                                        command="transactions"
+                                    >
+                                        Transacciones
+                                    </el-dropdown-item>
+                                    <el-dropdown-item
+                                        v-if="!row.has_payment"
+                                        command="edit"
+                                    >
+                                        Editar
+                                    </el-dropdown-item>
+                                    <el-dropdown-item command="delete">
                                         Eliminar
-                                    </button>
+                                    </el-dropdown-item>
                                 </template>
-                            </div>
-                        </div>
+                            </el-dropdown-menu>
+                        </el-dropdown>
                     </td>
                 </tr>
             </data-table>
@@ -124,6 +129,25 @@
         async created() {
         },
         methods: { 
+            handleDropdownCommand(command, row) {
+                switch (command) {
+                    case 'transactions':
+                        if (row.payment_link_type_id == '02') {
+                            this.clickShowTransactions(row.id);
+                        }
+                        break;
+                    case 'edit':
+                        if (!row.has_payment) {
+                            this.clickCreate(row.id);
+                        }
+                        break;
+                    case 'delete':
+                        this.clickDelete(row.id);
+                        break;
+                    default:
+                        break;
+                }
+            },
             clickDelete(id) {
                 this.destroy(`/${this.resource}/${id}`).then(() =>
                     this.$eventHub.$emit("reloadData")

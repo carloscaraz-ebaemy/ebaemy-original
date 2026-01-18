@@ -4,7 +4,7 @@ namespace Modules\Inventory\Http\Controllers;
 
 use App\Http\Controllers\Controller;
 use App\Models\Tenant\User;
-use Barryvdh\DomPDF\Facade as PDF;
+use Barryvdh\DomPDF\Facade\Pdf as PDF;
 use Modules\Inventory\Exports\KardexExport;
 use Illuminate\Http\Request;
 use App\Models\Tenant\Establishment;

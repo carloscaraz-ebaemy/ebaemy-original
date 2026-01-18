@@ -86,7 +86,7 @@
 <script>
 
 import {deletable} from '../../../../mixins/deletable'
-import DialogLinkPayment from './dialog_link_payment'
+import DialogLinkPayment from './dialog_link_payment.vue'
 
 export default {
     props: ['showDialog', 'documentId'],

@@ -16,19 +16,21 @@ class SessionLifetimeHelper
 
     private const MINUTES_IN_HOURS = 60;
 
-    
+
     /**
      *
      * @return void
      */
     public static function setTenantSessionLifetime()
     {
-        if(!self::isTenantSessionLifetimeEnabled()) return;
+        // No aplicar en consola ni si la funcionalidad está deshabilitada
+        if (app()->runningInConsole() || !self::isTenantSessionLifetimeEnabled()) return;
 
         $hostname = self::getCurrentHostname();
 
-        if($hostname)
-        {
+        if (!$hostname) return;
+
+        try {
             $session_lifetime = self::getSessionLifetime($hostname);
 
             self::sessionLifetimeToMinutes($session_lifetime);
@@ -36,10 +38,13 @@ class SessionLifetimeHelper
             config([
                 'session.lifetime' => $session_lifetime
             ]);
+        } catch (\Throwable $e) {
+            // Evitar romper el arranque si la conexión tenant aún no está configurada
+            // Opcional: \Log::debug('SessionLifetimeHelper skip: '.$e->getMessage());
         }
     }
 
-    
+
     /**
      *
      * @return bool
@@ -49,7 +54,7 @@ class SessionLifetimeHelper
         return config('configuration.tenant_session_lifetime_enabled');
     }
 
-    
+
     /**
      *
      * @return CurrentHostname
@@ -61,7 +66,7 @@ class SessionLifetimeHelper
 
 
     /**
-     * 
+     *
      * Tiempo en minutos
      *
      * @param  float $session_lifetime
@@ -76,7 +81,7 @@ class SessionLifetimeHelper
     /**
      *
      * Tiempo en horas
-     * 
+     *
      * @return float
      */
     public static function getSessionLifetime(Hostname $hostname)
@@ -90,7 +95,7 @@ class SessionLifetimeHelper
         return $session_lifetime;
     }
 
-    
+
     /**
      *
      * @param  string $fqdn
@@ -100,7 +105,7 @@ class SessionLifetimeHelper
     {
         return Cache::get(self::CACHE_KEY."_{$fqdn}");
     }
-       
+
 
     /**
      *
@@ -111,7 +116,7 @@ class SessionLifetimeHelper
     {
         return Cache::has(self::CACHE_KEY."_{$fqdn}");
     }
-       
+
 
     /**
      *
@@ -120,9 +125,10 @@ class SessionLifetimeHelper
      */
     public static function saveTenantSessionLifetime($session_lifetime)
     {
-        $hostname = self::getCurrentHostname();
+    $hostname = self::getCurrentHostname();
+    if (!$hostname) return;
 
-        Cache::forever(self::CACHE_KEY."_{$hostname->fqdn}", $session_lifetime);
+    Cache::forever(self::CACHE_KEY."_{$hostname->fqdn}", $session_lifetime);
     }
 
 }

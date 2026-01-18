@@ -1,6 +1,6 @@
 <template>
     <div>
-      <div class="page-header pr-0">
+      <div class="page-header pe-0">
         <h2><a href="#"><i class="fas fa-cogs"></i></a></h2>
         <ol class="breadcrumbs">
           <li class="active"><span>Configuración</span></li>
@@ -8,11 +8,12 @@
         </ol>
       </div>
       <template>
-        <form class="tab-content-default row-new bg-transparent" autocomplete="off">
+        <form autocomplete="off">
           <el-tabs v-model="activeName" type="border-card" class="rounded">
             <el-tab-pane class="mb-3"  name="first">
               <span slot="label">Ambientes</span>
-              <div class="row">
+              <Environments />
+              <!-- <div class="row">
                 <div class="col-md-12">
                   <div class="row mt-4">
                     <div class="col-md-6 mb-4">
@@ -46,7 +47,7 @@
                         <label class="control-label">
                           Habilitar ambiente
                         </label>
-                      
+
                       <div :class="{'has-danger': errors.enabled_environment_1}"
                             class="form-group tables-restaurant">
                         <el-switch v-model="form.enabled_environment_1"
@@ -55,7 +56,7 @@
                                     @change="submit"></el-switch>
                         <small v-if="errors.enabled_environment_1"
                                 class="form-control-feedback"
-                                v-text="errors.enabled_environment_1[0]"></small> 
+                                v-text="errors.enabled_environment_1[0]"></small>
                         <br><br>
                         <label class="control-label tables-quantity">Cantidad de mesas <b>{{ form.tables_quantity }}</b></label>
                         <el-slider
@@ -234,7 +235,7 @@
                     </div>
                   </div>
                 </div>
-              </div>
+              </div> -->
             </el-tab-pane>
             <el-tab-pane class="mb-3"  name="second">
               <span slot="label">Usuarios</span>
@@ -253,7 +254,7 @@
                           <th>Usuario</th>
                           <th>Correo</th>
                           <th>Rol</th>
-                          <th class="text-right">Accesos</th>
+                          <th class="text-end">Accesos</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -261,7 +262,7 @@
                           <td>{{user.name}}</td>
                           <td>{{user.email}}</td>
                           <td>{{user.restaurant_role_name }}</td>
-                          <td class="text-right">
+                          <td class="text-end">
                             <template v-if="user.restaurant_role_code == 'ADM'">
                               <el-tag type="primary" v-for="(item, index) in permission_adm" :key="index + 'ADM'">{{ item }}</el-tag>
                             </template>
@@ -272,7 +273,7 @@
                                <el-tag type="primary" v-for="(item, index) in permission_kitbar" :key="index + 'KITBAR'">{{ item }}</el-tag>
                             </template>
                             <template v-else-if="user.restaurant_role_code == 'MOZO'">
-                              <el-tag type="primary" v-for="(item, index) in permission_mozo" :key="index + 'MOZO'">{{ item }} 
+                              <el-tag type="primary" v-for="(item, index) in permission_mozo" :key="index + 'MOZO'">{{ item }}
                                 <el-tooltip class="item"
                                             content="Para habilitar acceso a Comandas y POS, ingresar a Configuración/Restaurante  Configuración adicional"
                                             effect="dark"
@@ -309,7 +310,7 @@
                 </div>
               </div>
             </el-tab-pane>
-            
+
             <el-tab-pane class="mb-3"  name="four">
               <span slot="label">Notas rápidas</span>
                 <Notas/>
@@ -339,6 +340,21 @@
                   </div>
                   <div class="col-md-4">
                     <label class="control-label">
+                      Imprimir comandas por grupo
+                    </label>
+                    <div :class="{'has-danger': errors.enabled_print_group_commands}"
+                          class="form-group">
+                      <el-switch v-model="form.enabled_print_group_commands"
+                                  active-text="Si"
+                                  inactive-text="No"
+                                  @change="submit"></el-switch>
+                      <small v-if="errors.enabled_print_group_commands"
+                              class="form-control-feedback"
+                              v-text="errors.enabled_print_group_commands[0]"></small>
+                    </div>
+                  </div>
+                  <div class="col-md-4">
+                    <label class="control-label">
                       Solo pantalla en cocina (Comanda en pantalla)
                     </label>
                     <div :class="{'has-danger': errors.enabled_send_command}"
@@ -351,10 +367,10 @@
                               class="form-control-feedback"
                               v-text="errors.enabled_send_command[0]"></small>
                     </div>
-                  </div>                  
+                  </div>
                   <div class="col-md-4">
                     <label class="control-label">
-                      Tengo impresora y pantalla en cocina 
+                      Tengo impresora y pantalla en cocina
                     </label>
                     <div :class="{'has-danger': errors.enabled_printsend_command}"
                           class="form-group">
@@ -405,6 +421,21 @@
                               v-text="errors.enabled_pos_waiter[0]"></small>
                     </div>
                   </div>
+                  <div class="col-md-4">
+                    <label class="control-label">
+                      Habilitar cerrar mesa
+                    </label>
+                    <div :class="{'has-danger': errors.enabled_close_table_mozo}"
+                          class="form-group">
+                      <el-switch v-model="form.enabled_close_table_mozo"
+                                  active-text="Si"
+                                  inactive-text="No"
+                                  @change="submit"></el-switch>
+                      <small v-if="errors.enabled_close_table_mozo"
+                              class="form-control-feedback"
+                              v-text="errors.enabled_close_table_mozo[0]"></small>
+                    </div>
+                  </div>
                 </div>
               </div>
               <div class="col-md-12">
@@ -427,6 +458,69 @@
                               class="form-control-feedback"
                               v-text="errors.enabled_close_table[0]"></small>
                     </div>
+                  </div>
+                </div>
+              </div>
+            </el-tab-pane>
+            <el-tab-pane class="mb-3"  name="six">
+              <span slot="label">Áreas de preparación</span>
+              <div class="row">
+                <div class="col-md-4">
+                  <label class="control-label">Impresora</label>
+                  <el-select v-model="form_preparation_area.printer"
+                    placeholder="Seleccionar impresora"
+                    filterable
+                    style="width: 100%;">
+                    <el-option
+                      v-for="printer in printers"
+                      :key="printer"
+                      :label="printer"
+                      :value="printer">
+                    </el-option>
+                  </el-select>
+                </div>
+                <div class="col-md-4">
+                  <label class="control-label">Nombre del área</label>
+                  <el-input
+                    v-model="form_preparation_area.name"
+                    placeholder="Ej: Cocina, Bar, Parrilla"></el-input>
+                </div>
+                <div class="col-md-4 d-flex align-items-end">
+                  <el-button type="primary" class="mx-1" @click="savePreparationArea" :disabled="!canSaveArea">
+                    {{ form_preparation_area.id ? 'Actualizar' : 'Guardar' }}
+                  </el-button>
+                  <el-button v-if="form_preparation_area.id" @click="cancelEditArea">
+                    Cancelar
+                  </el-button>
+                </div>
+              </div>
+
+              <div class="row mt-4" v-if="preparation_areas.length > 0">
+                <div class="col-md-12">
+                  <div class="table-responsive">
+                    <table class="table">
+                      <thead>
+                        <tr>
+                          <th>Nombre de Área</th>
+                          <th>Impresora</th>
+                          <th class="text-end">Acciones</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr v-for="area in preparation_areas" :key="area.id">
+                          <td>{{ area.name }}</td>
+                          <td>{{ area.printer }}</td>
+                          <td class="text-end">
+                            <el-button type="primary" size="mini" class="mx-1" @click="editArea(area)">
+                              <i class="fa fa-edit"></i>
+                            </el-button>
+                            <el-button type="danger" size="mini" @click="deleteArea(area.id)">
+                              <i class="fa fa-trash"></i>
+                            </el-button>
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
                   </div>
                 </div>
               </div>
@@ -458,6 +552,8 @@ import { io } from 'socket.io-client'
 import {deletable} from '@mixins/deletable'
 import Notas from '../notes/index.vue'
 import UsersForm from './partials/form.vue'
+import Environments from './partials/environments.vue'
+// import qz from 'qz-tray'
 
 const url = 'https://milanmario.com'
 const SOCKET = io(url, {
@@ -475,7 +571,7 @@ const SOCKET = io(url, {
 
 export default {
     mixins: [deletable],
-    components: {Notas,UsersForm},
+    components: {Notas,UsersForm,Environments},
     data() {
       return {
         resource: 'restaurant',
@@ -526,11 +622,23 @@ export default {
         environment_2 :{name: 'Ambiente 2',original_name:'Ambiente 2',enabled_edit: false},
         environment_3 :{name: 'Ambiente 3',original_name:'Ambiente 3',enabled_edit: false},
         environment_4 :{name: 'Ambiente 4',original_name:'Ambiente 4',enabled_edit: false},
+        printers: ['No asignada'],
+        preparation_areas: [],
+        form_preparation_area: {
+          id: null,
+          name: '',
+          printer: ''
+        },
+        qzConnected: false
       }
     },
     computed: {
       isFormRole: function () {
         return (this.form_role.user_id != '' && this.form_role.role_id != '') ? false : true
+      },
+      canSaveArea() {
+        return this.form_preparation_area.name.trim() !== '' &&
+               this.form_preparation_area.printer.trim() !== '';
       }
     },
     created() {
@@ -541,10 +649,12 @@ export default {
       this.getUsers();
       this.getWaiters();
       this.getEnvs();
+      this.startConnectionQzTray();
+      this.getPreparationAreas();
 
     },
     mounted() {
-      
+
     },
     methods: {
       async getRecords() {
@@ -589,6 +699,7 @@ export default {
         });
       },
       submit() {
+        console.log(this.form);
         this.$http.post(`/${this.resource}/configuration`, this.form).then(response => {
           let data = response.data;
           if (data.success) {
@@ -649,7 +760,7 @@ export default {
           }
           this.getWaiters()
           this.initFormWaiter()
-          
+
         }).catch(error => {
           if (error.response.status === 422) {
             this.errors = error.response.data.errors;
@@ -657,7 +768,7 @@ export default {
             console.log(error);
           }
         }).then(() => {
-          
+
         });
       },
       clickDeleteWaiter(id) {
@@ -736,7 +847,7 @@ export default {
       handleUpdateCatch(environment, error) {
         environment.name = environment.original_name;
         environment.enabled_edit = false;
-        
+
         if (error.response.status === 422) {
           this.errors = error.response.data.errors;
         } else {
@@ -747,6 +858,113 @@ export default {
         this[`environment_${index}`].enabled_edit = false;
         this[`environment_${index}`].name = this[`environment_${index}`].original_name;
       },
+      async startConnectionQzTray() {
+
+        if (!qz.websocket.isActive()) {
+          console.log('Iniciando conexión con QZ Tray...');
+          try {
+            await qz.websocket.connect();
+            console.log('Conexión QZ Tray establecida exitosamente');
+            this.qzConnected = qz.websocket.isActive();
+            // Ahora que la conexión está establecida, consultar impresoras
+            await this.getAllPrintersAvailable();
+          } catch (err) {
+            console.error('Error al conectar con QZ Tray:', err);
+            this.qzConnected = false;
+          }
+        } else {
+          console.log('QZ Tray ya está conectado');
+          this.qzConnected = true;
+          await this.getAllPrintersAvailable();
+        }
+      },
+      async getAllPrintersAvailable() {
+        qz.printers.find("Microsoft Print to PDF").then(function(found) {
+          console.log("Printer: " + found);
+        });
+        try {
+          console.log('Consultando impresoras disponibles...');
+          const availablePrinters = await qz.printers.find();
+          console.log('Impresoras obtenidas de QZ Tray:', availablePrinters);
+          console.log('Total de impresoras:', availablePrinters.length);
+          this.printers = ['No asignada', ...availablePrinters];
+          console.log('Impresoras asignadas a Vue:', this.printers);
+        } catch (err) {
+          console.error('Error al obtener impresoras:', err);
+          this.printers = ['No asignada'];
+        }
+      },
+      async getPreparationAreas() {
+        try {
+          const response = await this.$http.get(`/${this.resource}/preparation-areas`);
+          if (response.data.success) {
+            this.preparation_areas = response.data.data;
+          }
+        } catch (error) {
+          console.error('Error al cargar áreas:', error);
+        }
+      },
+      async savePreparationArea() {
+        try {
+          const url = this.form_preparation_area.id
+            ? `/${this.resource}/preparation-areas/${this.form_preparation_area.id}`
+            : `/${this.resource}/preparation-areas`;
+
+          const method = this.form_preparation_area.id ? 'put' : 'post';
+
+          const response = await this.$http[method](url, {
+            name: this.form_preparation_area.name,
+            printer: this.form_preparation_area.printer
+          });
+
+          if (response.data.success) {
+            this.$message.success(response.data.message);
+            this.getPreparationAreas();
+            this.resetPreparationAreaForm();
+          }
+        } catch (error) {
+          this.$message.error('Error al guardar área de preparación');
+          console.error(error);
+        }
+      },
+      editArea(area) {
+        this.form_preparation_area = {
+          id: area.id,
+          name: area.name,
+          printer: area.printer
+        };
+      },
+      cancelEditArea() {
+        this.resetPreparationAreaForm();
+      },
+      async deleteArea(id) {
+        try {
+          await this.$confirm('¿Está seguro de eliminar esta área de preparación?', 'Confirmar', {
+            confirmButtonText: 'Sí, eliminar',
+            cancelButtonText: 'Cancelar',
+            type: 'warning'
+          });
+
+          const response = await this.$http.delete(`/${this.resource}/preparation-areas/${id}`);
+
+          if (response.data.success) {
+            this.$message.success(response.data.message);
+            this.getPreparationAreas();
+          }
+        } catch (error) {
+          if (error !== 'cancel') {
+            this.$message.error('Error al eliminar área');
+            console.error(error);
+          }
+        }
+      },
+      resetPreparationAreaForm() {
+        this.form_preparation_area = {
+          id: null,
+          name: '',
+          printer: ''
+        };
+      }
     }
 }
 </script>

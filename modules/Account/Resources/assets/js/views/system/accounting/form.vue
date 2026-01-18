@@ -18,7 +18,7 @@
                 </div>
             </div>
             <div class="row mt-4">
-                <div class="col-md-12 text-right">
+                <div class="col-md-12 text-end">
                     <el-button @click.prevent="close()">Cancelar</el-button>
                     <el-button type="primary" @click.prevent="clickDownload" :loading="loading_submit">Generar</el-button>
                 </div>

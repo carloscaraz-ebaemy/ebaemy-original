@@ -13,7 +13,10 @@ class AppServiceProvider extends ServiceProvider
 {
 	public function boot()
 	{
-        SessionLifetimeHelper::setTenantSessionLifetime();
+		// Evitar ejecutar en consola; aplicar sólo en contexto web
+		if (!app()->runningInConsole()) {
+			SessionLifetimeHelper::setTenantSessionLifetime();
+		}
 
 		if (config('tenant.force_https')) {
 			URL::forceScheme('https');

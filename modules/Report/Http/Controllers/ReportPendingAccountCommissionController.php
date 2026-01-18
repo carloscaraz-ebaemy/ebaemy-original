@@ -3,7 +3,7 @@
 namespace Modules\Report\Http\Controllers;
 
 use App\Http\Controllers\Controller;
-use Barryvdh\DomPDF\Facade as PDF;
+use Barryvdh\DomPDF\Facade\Pdf as PDF;
 use Modules\Report\Exports\PendingAccountCommissionExport;
 use Illuminate\Http\Request;
 use App\Models\Tenant\Establishment;

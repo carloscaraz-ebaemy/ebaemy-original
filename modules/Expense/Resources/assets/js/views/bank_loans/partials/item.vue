@@ -88,8 +88,8 @@
                     </div>
                 </div>
             </div>
-            <div class="form-actions text-right mt-4">
-                <el-button class="second-buton" @click.prevent="close()">
+            <div class="form-actions text-end mt-4">
+                <el-button class="second-buton me-2" @click.prevent="close()">
                     Cerrar
                 </el-button>
                 <el-button native-type="submit"

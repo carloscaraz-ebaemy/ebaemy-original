@@ -59,8 +59,9 @@ class ResetPasswordController extends Controller
         $useLoginGlobal = $config->use_login_global;
         $company = Company::first();
         $login = $config->login;
+        $loginBgColor = $config->login_bg_color ?? '#ffffff';
         return view('tenant.auth.passwords.reset')->with(
-            ['token' => $token, 'email' => $request->email, 'company' => $company, 'login' => $login, 'useLoginGlobal' => $useLoginGlobal]
+            ['token' => $token, 'email' => $request->email, 'company' => $company, 'login' => $login, 'useLoginGlobal' => $useLoginGlobal, 'loginBgColor' => $loginBgColor]
         );
     }
 }

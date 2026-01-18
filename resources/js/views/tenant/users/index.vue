@@ -1,6 +1,6 @@
 <template>
     <div class="users">
-        <div class="page-header pr-0">
+        <div class="page-header pe-0">
             <h2><a href="/users">
                 <svg  xmlns="http://www.w3.org/2000/svg" style="margin-top: -5px;" width="24"  height="24"  viewBox="0 0 24 24"  fill="none"  stroke="currentColor"  stroke-width="2"  stroke-linecap="round"  stroke-linejoin="round"  class="icon icon-tabler icons-tabler-outline icon-tabler-users"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M9 7m-4 0a4 4 0 1 0 8 0a4 4 0 1 0 -8 0" /><path d="M3 21v-2a4 4 0 0 1 4 -4h4a4 4 0 0 1 4 4v2" /><path d="M16 3.13a4 4 0 0 1 0 7.75" /><path d="M21 21v-2a4 4 0 0 0 -3 -3.85" /></svg>
             </a></h2>
@@ -11,11 +11,11 @@
 
                 <template v-if="showAccessTokenForDiscount">
                     <el-tooltip class="item" content="Genera un token aleatorio para permitir realizar ventas con un porcentaje de descuento superior al límite configurado - Para vendedores" effect="dark" placement="top-start">
-                        <button type="button" class="btn btn-info btn-sm  mt-2 mr-2" @click.prevent="clickAccessTokenForDiscount()"><i class="fa fa-check"></i> Generar token</button>
+                        <button type="button" class="btn btn-info btn-sm  mt-2 me-2" @click.prevent="clickAccessTokenForDiscount()"><i class="fa fa-check"></i> Generar token</button>
                     </el-tooltip>
                 </template>
 
-                <button type="button" class="btn btn-custom btn-sm  mt-2 mr-2" v-if="typeUser == 'admin'" @click.prevent="clickCreate()"><i class="fa fa-plus-circle"></i> Nuevo</button>
+                <button type="button" class="btn btn-custom btn-sm  mt-2 me-2" v-if="typeUser == 'admin'" @click.prevent="clickCreate()"><i class="fa fa-plus-circle"></i> Nuevo</button>
 
                 <!--<button type="button" class="btn btn-custom btn-sm  mt-2 mr-2" @click.prevent="clickImport()"><i class="fa fa-upload"></i> Importar</button>-->
             </div>
@@ -52,7 +52,7 @@
                             <td>{{ row.type }}</td>
                             <td>{{ row.api_token }}</td>
                             <td>{{ row.establishment_description }}</td>
-                            <td class="text-right">
+                            <td class="text-end">
                                 <button
                                     v-if="typeUser === 'admin' && row.active"
                                     type="button"

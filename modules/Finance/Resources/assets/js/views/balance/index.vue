@@ -60,7 +60,7 @@
 import DataTable from './partial/Table.vue'
 // import DataTable from '../../components/DataTableWithoutPaging.vue'
 import {mapActions, mapState} from "vuex/dist/vuex.mjs";
-import {exchangeRate, functions} from "../../../../../../../resources/js/mixins/functions";
+import {exchangeRate, functions} from "@mixins/functions";
 import moment from "moment";
 
 export default {

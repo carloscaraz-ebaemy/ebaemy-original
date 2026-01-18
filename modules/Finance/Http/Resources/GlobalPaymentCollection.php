@@ -14,7 +14,7 @@ class GlobalPaymentCollection extends ResourceCollection
      */
     public function toArray($request)
     {
-        return $this->collection->transform(function (\Modules\Finance\Models\GlobalPayment $row, $key) {
+        return $this->collection->transform(function ($row, $key) {
 
             $data_person = $row->data_person;
 

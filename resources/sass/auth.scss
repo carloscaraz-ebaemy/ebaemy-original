@@ -128,7 +128,7 @@ $font: 'Roboto', sans-serif;
     padding: 1rem;
     margin-top: 25px;
     border-radius: 8px;
-    
+
     &:hover{
         opacity: 0.9;
     }
@@ -177,7 +177,7 @@ $font: 'Roboto', sans-serif;
         transition: all 0.15s linear;
         &:hover {
             text-decoration: none;
-            background-color: darken($blue, 15%);
+            background-color: color.adjust($blue, $lightness: -15%);
         }
     }
 }

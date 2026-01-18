@@ -13,13 +13,12 @@
                         <div id="custom-select"
                              :class="{'has-danger': errors.item_id}"
                              class="form-group">
-                            <label class="control-label">
+                            <label class="control-label d-flex align-items-center">
                                 Producto/Servicio
-                                <a v-if="can_add_new_product"
-                                   href="#"
+                                <span class="btn-add-new-product" v-if="can_add_new_product"
                                    @click.prevent="showDialogNewItem = true">
-                                    [+ Nuevo]
-                                </a>
+                                   <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon icon-tabler icons-tabler-outline icon-tabler-plus"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M12 5l0 14" /><path d="M5 12l14 0" /></svg>
+                                </span>
                             </label>
                             <template id="select-append">
                                 <el-input id="custom-input" class="input-search-product">
@@ -52,8 +51,24 @@
                                                 :label="ItemOptionDescriptionView(option)"
                                                 :value="option.id"
                                             ></el-option>
-
                                         </el-tooltip>
+                                        <template slot="empty">
+                                            <p v-if="loading_search" class="el-select-dropdown__empty">
+                                                Cargando...
+                                            </p>
+                                        
+                                            <p v-else class="el-select-dropdown__empty">
+                                                No se encontraron resultados
+                                            </p>
+                                        
+                                            <div
+                                                v-if="!loading_search"
+                                                class="el-select-dropdown__item new-option"
+                                                @click.stop="openNewItemDialog"
+                                            >
+                                                <span>{{ itemSearchTerm ? `Crear producto "${itemSearchTerm}"` : 'Crear producto' }}</span>
+                                            </div>
+                                        </template>
                                     </el-select>
                                     <!--
                                     <el-tooltip
@@ -91,8 +106,8 @@
                     </div>
                 </div>
             </div>
-            <div class="form-actions text-right mt-4">
-                <el-button class="second-buton" @click.prevent="close()">Cerrar</el-button>
+            <div class="form-actions text-end mt-4">
+                <el-button class="second-buton me-2" @click.prevent="close()">Cerrar</el-button>
                 <el-button v-if="form.item_id"
                            class="add"
                            native-type="submit"
@@ -101,7 +116,8 @@
             </div>
         </form>
         <item-form :external="true"
-                   :showDialog.sync="showDialogNewItem"></item-form>
+                   :showDialog.sync="showDialogNewItem"
+                   :input_item="itemSearchTerm"></item-form>
 
         <warehouses-detail
             :showDialog.sync="showWarehousesDetail"
@@ -121,7 +137,7 @@
 import itemForm from '../../../../../../../../resources/js/views/tenant/items/form.vue'
 import WarehousesDetail from '@views/documents/partials/select_warehouses.vue'
 import {mapActions, mapState} from "vuex/dist/vuex.mjs";
-import {ItemOptionDescription, ItemSlotTooltip} from "../../../../../../../../resources/js/helpers/modal_item";
+import {ItemOptionDescription, ItemSlotTooltip} from "@helpers/modal_item";
 
 export default {
     props: [
@@ -146,6 +162,14 @@ export default {
             aux_items: [],
             showWarehousesDetail: false,
             warehousesDetail: [],
+            itemSearchTerm: '',
+        }
+    },
+    watch: {
+        showDialog(newVal) {
+            if (newVal) {
+                this.itemSearchTerm = ''
+            }
         }
     },
     async created() {
@@ -155,6 +179,7 @@ export default {
 
         this.$eventHub.$on('reloadDataItems', (item_id) => {
             this.reloadDataItems(item_id)
+            this.itemSearchTerm = ''
         })
     },
 
@@ -181,6 +206,8 @@ export default {
             this.showWarehousesDetail = true
         },
         async searchRemoteItems(input) {
+            this.itemSearchTerm = input;
+
             if (input.length > 2) {
                 this.loading_search = true
                 const params = {
@@ -296,6 +323,9 @@ export default {
         },
         focusSelectItem() {
             this.$refs.selectSearchNormal.$el.getElementsByTagName('input')[0].focus()
+        },
+        openNewItemDialog() {
+            this.showDialogNewItem = true;
         },
     }
 }

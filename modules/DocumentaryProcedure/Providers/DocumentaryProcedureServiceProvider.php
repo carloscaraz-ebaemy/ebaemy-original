@@ -3,7 +3,7 @@
 namespace Modules\DocumentaryProcedure\Providers;
 
 use Illuminate\Support\ServiceProvider;
-use Illuminate\Database\Eloquent\Factory;
+// use Illuminate\Database\Eloquent\Factory;
 
 class DocumentaryProcedureServiceProvider extends ServiceProvider
 {
@@ -17,7 +17,7 @@ class DocumentaryProcedureServiceProvider extends ServiceProvider
         $this->registerTranslations();
         $this->registerConfig();
         $this->registerViews();
-        $this->registerFactories();
+        // $this->registerFactories();
         $this->loadMigrationsFrom(__DIR__ . '/../Database/Migrations');
     }
 

@@ -1,6 +1,6 @@
 <template>
     <div>
-        <div class="page-header pr-0">
+        <div class="page-header pe-0">
             <h2>
                 <a href="/hotels/reception">
                     <svg  xmlns="http://www.w3.org/2000/svg" style="margin-top: -5px;" width="24"  height="24"  viewBox="0 0 24 24"  fill="none"  stroke="currentColor"  stroke-width="2"  stroke-linecap="round"  stroke-linejoin="round"  class="icon icon-tabler icons-tabler-outline icon-tabler-building-skyscraper"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M3 21l18 0" /><path d="M5 21v-14l8 -4v18" /><path d="M19 21v-10l-6 -4" /><path d="M9 9l0 .01" /><path d="M9 12l0 .01" /><path d="M9 15l0 .01" /><path d="M9 18l0 .01" /></svg>
@@ -18,7 +18,7 @@
                             <div class="row">
                                 <div class="col-12 col-md-6">
                                     <div class="row">
-                                        <div class="col-12 h1 mt-0"> 
+                                        <div class="col-12 h1 mt-0">
                                             <svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon icon-tabler icons-tabler-outline icon-tabler-door-exit" style="transform: translateY(-4px);"><g transform="scale(-1 1) translate(-24 0)"><path stroke="none" d="M0 0h24v24H0z" fill="none"></path> <path d="M13 12v.01"></path> <path d="M3 21h18"></path> <path d="M5 21v-16a2 2 0 0 1 2 -2h6m4 10.5v7.5"></path> <path d="M21 7h-7m3 -3l-3 3l3 3"></path></g></svg> Entrada
                                         </div>
                                         <div class="col-4">
@@ -104,7 +104,7 @@
                                         </h3>
                                     </div>
                                 </div>
-                                
+
                             </div>
                         </div>
                     </div>
@@ -169,14 +169,14 @@
                                     class="form-group col-12 col-md-2 pt-3"
                                     :class="{ 'has-danger': errors.quantity_persons }"
                                 >
-                                    
+
                                     <el-button
-                                        class="btn btn-success btn-block"
+                                        class="btn btn-success btn-block position-relative"
                                         @click.prevent="clickAddPerson">
-                                        <label 
-                                            class="badge badge-secondary" 
-                                            style="position: absolute; top: 8px; right: 0; transform: scale(1.5); padding: 4px;"
-                                            v-show="form.customer_id" 
+                                        <label
+                                            class="badge badge-secondary"
+                                            style="position: absolute; top: -13px; right: 0; transform: scale(1.5); padding: 4px !important; background-color: #7e7676;"
+                                            v-show="form.customer_id"
                                         >
                                             {{ form.quantity_persons }}</label>
                                         Huéspedes<br>Registrados
@@ -187,7 +187,7 @@
                                         v-text="errors.quantity_persons[0]"
                                     ></small>
                                 </div>
-                                
+
                             </div>
                             <!-- <div class="row">
                                 <div
@@ -210,7 +210,7 @@
                         <div class="card-body py-0">
                     <div class="row">
                         <div class="col-12 col-lg-4" >
-                            <div class="row"> 
+                            <div class="row">
                                 <h4 class="col-12 my-0">
                                     <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon icon-tabler icons-tabler-outline icon-tabler-door-enter">
                                         <g transform="scale(-1 1) translate(-24 0)">
@@ -255,7 +255,7 @@
                             </div>
                         </div>
                             <div class="col-12 col-lg-4" >
-                                <div class="row"> 
+                                <div class="row">
                                     <h4 class="col-12 my-0">
                                         <svg  xmlns="http://www.w3.org/2000/svg"  width="24"  height="24"  viewBox="0 0 24 24"  fill="none"  stroke="currentColor"  stroke-width="2"  stroke-linecap="round"  stroke-linejoin="round"  class="icon icon-tabler icons-tabler-outline icon-tabler-door-exit"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M13 12v.01" /><path d="M3 21h18" /><path d="M5 21v-16a2 2 0 0 1 2 -2h7.5m2.5 10.5v7.5" /><path d="M14 7h7m-3 -3l3 3l-3 3" /></svg> Check-out</h4>
                                     <div
@@ -292,7 +292,7 @@
                                 </div>
                             </div>
                             <div class="col-12 col-lg-4" >
-                                <div class="row"> 
+                                <div class="row">
                                     <h4 class="col-12 my-0">
                                         <svg  xmlns="http://www.w3.org/2000/svg"  width="20"  height="20"  viewBox="0 0 24 24"  fill="none"  stroke="currentColor"  stroke-width="2"  stroke-linecap="round"  stroke-linejoin="round"  class="icon icon-tabler icons-tabler-outline icon-tabler-coins"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M9 14c0 1.657 2.686 3 6 3s6 -1.343 6 -3s-2.686 -3 -6 -3s-6 1.343 -6 3z" /><path d="M9 14v4c0 1.656 2.686 3 6 3s6 -1.344 6 -3v-4" /><path d="M3 6c0 1.072 1.144 2.062 3 2.598s4.144 .536 6 0c1.856 -.536 3 -1.526 3 -2.598c0 -1.072 -1.144 -2.062 -3 -2.598s-4.144 -.536 -6 0c-1.856 .536 -3 1.526 -3 2.598z" /><path d="M3 6v10c0 .888 .772 1.45 2 2" /><path d="M3 11c0 .888 .772 1.45 2 2" /></svg> Tarifa final</h4>
                                     <div
@@ -340,7 +340,7 @@
                                         <b class="h5">{{ (form.total_to_pay).toFixed(2) }}</b>
                                     </h6>
                                 </div>
-                                
+
                                 <div>
                                     <div :class="{'has-danger': errors.lot_code}"
                                             class="form-group">
@@ -357,7 +357,7 @@
                             <div class="row pt-3">
                                 <h4 class="col-12 my-0">
                                     <svg  xmlns="http://www.w3.org/2000/svg"  width="24"  height="24"  viewBox="0 0 24 24"  fill="none"  stroke="currentColor"  stroke-width="2"  stroke-linecap="round"  stroke-linejoin="round"  class="icon icon-tabler icons-tabler-outline icon-tabler-cash-register"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M21 15h-2.5c-.398 0 -.779 .158 -1.061 .439c-.281 .281 -.439 .663 -.439 1.061c0 .398 .158 .779 .439 1.061c.281 .281 .663 .439 1.061 .439h1c.398 0 .779 .158 1.061 .439c.281 .281 .439 .663 .439 1.061c0 .398 -.158 .779 -.439 1.061c-.281 .281 -.663 .439 -1.061 .439h-2.5" /><path d="M19 21v1m0 -8v1" /><path d="M13 21h-7c-.53 0 -1.039 -.211 -1.414 -.586c-.375 -.375 -.586 -.884 -.586 -1.414v-10c0 -.53 .211 -1.039 .586 -1.414c.375 -.375 .884 -.586 1.414 -.586h2m12 3.12v-1.12c0 -.53 -.211 -1.039 -.586 -1.414c-.375 -.375 -.884 -.586 -1.414 -.586h-2" /><path d="M16 10v-6c0 -.53 -.211 -1.039 -.586 -1.414c-.375 -.375 -.884 -.586 -1.414 -.586h-4c-.53 0 -1.039 .211 -1.414 .586c-.375 .375 -.586 .884 -.586 1.414v6m8 0h-8m8 0h1m-9 0h-1" /><path d="M8 14v.01" /><path d="M8 17v.01" /><path d="M12 13.99v.01" /><path d="M12 17v.01" /></svg> Opciones de pago</h4>
-                                
+
                                 <div
                                     class="col-6 col-md-3 form-group mb-3"
                                     :class="{ 'has-danger': errors.payment_status }"
@@ -377,7 +377,7 @@
                                         v-text="errors.payment_status[0]"
                                     ></small>
                                 </div>
-                                                                
+
                                 <!-- mostrar campos adicionales para pago, si tiene estado pagado -->
                                 <template v-if="isPaid">
                                     <div class="col-12 col-md-2 form-group">
@@ -399,7 +399,7 @@
                                             ></small>
                                         </div>
                                     </div>
-                                    
+
                                     <div class="col-12 col-md-2 form-group"
                                         :class="{ 'has-danger': errors['rent_payment.payment_method_type_id'] }"
                                     >
@@ -447,7 +447,7 @@
                                             v-text="errors['rent_payment.payment_destination_id'][0]"
                                         ></small>
                                     </div>
-                                    
+
                                     <div class="col-12 col-md-2 form-group">
                                         <label class="control-label mt-0" for="rate">Referencia</label>
                                         <el-input
@@ -498,14 +498,14 @@
                 <template v-else>
                     <div class="card text-center">
                         <div>
-                            <svg  xmlns="http://www.w3.org/2000/svg"  width="96"  height="96"  viewBox="0 0 24 24"  fill="none"  stroke="currentColor"  stroke-width="1.5"  stroke-linecap="round"  stroke-linejoin="round"  class="icon icon-tabler icons-tabler-outline icon-tabler-rosette-discount-check text-success"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M5 7.2a2.2 2.2 0 0 1 2.2 -2.2h1a2.2 2.2 0 0 0 1.55 -.64l.7 -.7a2.2 2.2 0 0 1 3.12 0l.7 .7c.412 .41 .97 .64 1.55 .64h1a2.2 2.2 0 0 1 2.2 2.2v1c0 .58 .23 1.138 .64 1.55l.7 .7a2.2 2.2 0 0 1 0 3.12l-.7 .7a2.2 2.2 0 0 0 -.64 1.55v1a2.2 2.2 0 0 1 -2.2 2.2h-1a2.2 2.2 0 0 0 -1.55 .64l-.7 .7a2.2 2.2 0 0 1 -3.12 0l-.7 -.7a2.2 2.2 0 0 0 -1.55 -.64h-1a2.2 2.2 0 0 1 -2.2 -2.2v-1a2.2 2.2 0 0 0 -.64 -1.55l-.7 -.7a2.2 2.2 0 0 1 0 -3.12l.7 -.7a2.2 2.2 0 0 0 .64 -1.55v-1" /><path d="M9 12l2 2l4 -4" /></svg> 
+                            <svg  xmlns="http://www.w3.org/2000/svg"  width="96"  height="96"  viewBox="0 0 24 24"  fill="none"  stroke="currentColor"  stroke-width="1.5"  stroke-linecap="round"  stroke-linejoin="round"  class="icon icon-tabler icons-tabler-outline icon-tabler-rosette-discount-check text-success"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M5 7.2a2.2 2.2 0 0 1 2.2 -2.2h1a2.2 2.2 0 0 0 1.55 -.64l.7 -.7a2.2 2.2 0 0 1 3.12 0l.7 .7c.412 .41 .97 .64 1.55 .64h1a2.2 2.2 0 0 1 2.2 2.2v1c0 .58 .23 1.138 .64 1.55l.7 .7a2.2 2.2 0 0 1 0 3.12l-.7 .7a2.2 2.2 0 0 0 -.64 1.55v1a2.2 2.2 0 0 1 -2.2 2.2h-1a2.2 2.2 0 0 0 -1.55 .64l-.7 .7a2.2 2.2 0 0 1 -3.12 0l-.7 -.7a2.2 2.2 0 0 0 -1.55 -.64h-1a2.2 2.2 0 0 1 -2.2 -2.2v-1a2.2 2.2 0 0 0 -.64 -1.55l-.7 -.7a2.2 2.2 0 0 1 0 -3.12l.7 -.7a2.2 2.2 0 0 0 .64 -1.55v-1" /><path d="M9 12l2 2l4 -4" /></svg>
                             <h2>Registro éxitoso en {{ room.name }}</h2>
                             <el-button
                                 @click="onToBackPage"
                                 type="primary"
                                 class="btn btn-primary mt-4"
                             >
-                                <span class="ml-2">
+                                <span class="ms-2">
                                     Volver a recepción
                                 </span>
                             </el-button>
@@ -540,10 +540,10 @@
 
 <script>
 
-import PersonForm from "../../../../../../../resources/js/views/tenant/persons/form.vue";
+import PersonForm from "@views/persons/form.vue";
 import moment from "moment";
-import {calculateRowItem} from "../../../../../../../resources/js/helpers/functions";
-import {functions} from "../../../../../../../resources/js/mixins/functions";
+import {calculateRowItem} from "@helpers/functions";
+import {functions} from "@mixins/functions";
 import {mapState} from "vuex/dist/vuex.mjs";
 import QuantityPersons from './partials/QuantityPersons.vue';
 import SaleNoteOptions from "@views/sale_notes/partials/options.vue";
@@ -699,7 +699,7 @@ export default {
                 );
 
                 this.form.product = product;
-                
+
                 if (this.isPaid) {
                     this.document.items.push(product);
                     console.log("PAYMENTS")
@@ -718,7 +718,7 @@ export default {
                         this.onToBackPage();
                     }
                 }
-                
+
 
             } catch (error) {
                 this.axiosError(error);
@@ -795,7 +795,7 @@ export default {
                 .then((response) => {
                     this.customers = response.data.customers;
                     this.configuration = response.data.configuration
-                    
+
                     this.payment_method_types = response.data.payment_method_types
                     this.payment_destinations = response.data.payment_destinations
                     this.setDefaultDataPayments()
@@ -940,7 +940,7 @@ export default {
                 await this.onUpdateItemsWithExtras();
                 await this.onCalculateTotals();
                 await this.setDataPayments();
-                
+
                 let validate_payment_destination = this.validatePaymentDestination();
                 if (validate_payment_destination.error_by_item > 0) {
                     return this.$message.error("El destino del pago es obligatorio");

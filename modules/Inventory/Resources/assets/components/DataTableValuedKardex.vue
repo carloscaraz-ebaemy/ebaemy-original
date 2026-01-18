@@ -88,7 +88,7 @@
                             @input="getRecordsByFilter">
                         </el-input> -->
                     
-                        <el-button class="submit mt-2" type="primary" @click.prevent="getRecordsByFilter"
+                        <el-button class="submit mt-2 me-2" type="primary" @click.prevent="getRecordsByFilter"
                                    :loading="loading_submit" icon="el-icon-search">Buscar
                         </el-button>
 

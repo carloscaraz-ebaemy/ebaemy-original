@@ -1,6 +1,6 @@
 <template>
     <div>
-        <div class="page-header pr-0">
+        <div class="page-header pe-0">
             <h2>
                 <a href="/list-reports">
                     <svg
@@ -37,7 +37,7 @@
                 <div class="data-table-visible-columns" style="top: 10px;">
                     <el-dropdown :hide-on-click="false">
                         <el-button type="secondary">
-                            Mostrar/Ocultar columnas<i
+                            Mostrar columnas<i
                                 class="el-icon-arrow-down el-icon--right"
                             ></i>
                         </el-button>
@@ -78,13 +78,13 @@
                             <th class="">Fecha vencimiento</th>
                             <th
                                 v-if="columns.guides.visible"
-                                class="text-right"
+                                class="text-end"
                             >
                                 Guia
                             </th>
                             <th
                                 v-if="columns.options.visible"
-                                class="text-right"
+                                class="text-end"
                             >
                                 Opciones
                             </th>
@@ -95,30 +95,30 @@
                             <th v-if="columns.case.visible">Caso</th>
                             <th
                                 v-if="columns.district.visible"
-                                class="text-right"
+                                class="text-end"
                             >
                                 Distrito
                             </th>
                             <th
                                 v-if="columns.department.visible"
-                                class="text-right"
+                                class="text-end"
                             >
                                 Departamento
                             </th>
                             <th
                                 v-if="columns.province.visible"
-                                class="text-right"
+                                class="text-end"
                             >
                                 Provincia
                             </th>
                             <th
                                 v-if="columns.client_direction.visible"
-                                class="text-right"
+                                class="text-end"
                             >
                                 Direc. del cliente
                             </th>
                             <th>Cliente</th>
-                            <th v-if="columns.ruc.visible" class="text-right">
+                            <th v-if="columns.ruc.visible" class="text-end">
                                 Ruc
                             </th>
                             <th v-if="columns.items.visible">Productos</th>
@@ -137,25 +137,25 @@
                             </th>
                             <th
                                 v-if="columns.note_sale.visible"
-                                class="text-right"
+                                class="text-end"
                             >
                                 Nota de venta
                             </th>
                             <th
                                 v-if="columns.date_note.visible"
-                                class="text-right"
+                                class="text-end"
                             >
                                 Fecha N.Venta
                             </th>
                             <th
                                 v-if="columns.payment_form.visible"
-                                class="text-right"
+                                class="text-end"
                             >
                                 Forma de pago
                             </th>
                             <th
                                 v-if="columns.payment_method.visible"
-                                class="text-right"
+                                class="text-end"
                             >
                                 Metodo de pago
                             </th>
@@ -438,16 +438,9 @@
     </div>
 </template>
 
-<style>
-.el-dropdown-menu {
-    overflow-y: auto;
-    max-height: 300px;
-}
-</style>
-
 <script>
-import DataTable from "../../components/DataTableReportsDocuments.vue";
-import DocumentOptions from "../../../../../../../resources/js/views/tenant/documents/partials/options";
+import DataTable from "@componentsModuleReport/DataTableReportsDocuments.vue";
+import DocumentOptions from "@views/documents/partials/options.vue";
 import ProductSale from "./partials/product_sale.vue";
 
 export default {

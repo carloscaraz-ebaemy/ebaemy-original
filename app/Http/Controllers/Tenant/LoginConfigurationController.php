@@ -52,12 +52,14 @@ class LoginConfigurationController extends Controller
         request()->validate([
             'position_form' => 'required|in:left,right',
             'show_logo_in_form' => 'boolean',
-            'position_logo' => 'required|in:top-left,top-right,bottom-left,bottom-right',
+            'position_logo' => 'required|in:on-form,top-left,top-right,bottom-left,bottom-right,none',
+            'padding_in_form' => 'boolean',
             'show_socials' => 'boolean',
             'facebook' => 'max:200',
             'twitter' => 'max:200',
             'instagram' => 'max:200',
             'linkedin' => 'max:200',
+            'tiktok' => 'max:200',
         ]);
 
         $config = Configuration::first();

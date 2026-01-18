@@ -39,7 +39,7 @@
               </div>
             </div>
           </div>
-          <div class="form-actions text-right pt-2">
+          <div class="form-actions text-end pt-2">
             <el-button type="primary" native-type="submit" :loading="loading_submit">Guardar</el-button>
           </div>
         </form>

@@ -1,6 +1,6 @@
 <template>
     <div>
-        <div class="page-header pr-0">
+        <div class="page-header pe-0">
             <h2>
                 <a href="/purchase-quotations">
                     <svg
@@ -30,7 +30,7 @@
             <div class="right-wrapper pull-right">
                 <a
                     :href="`/${resource}/create`"
-                    class="btn btn-custom btn-sm  mt-2 mr-2"
+                    class="btn btn-custom btn-sm  mt-2 me-2"
                     ><i class="fa fa-plus-circle"></i> Nuevo</a
                 >
             </div>
@@ -41,15 +41,15 @@
                 <data-table :resource="resource">
                     <tr slot="heading">
                         <!-- <th>#</th> -->
-                        <th class="text-left">Fecha Emisión</th>
+                        <th class="text-start">Fecha Emisión</th>
                         <th>Estado</th>
                         <th>Documento</th>
                         <th class="text-center">Descarga</th>
-                        <th class="text-right">Acciones</th>
+                        <th class="text-end">Acciones</th>
                     </tr>
                     <tr slot-scope="{ index, row }">
                         <!-- <td>{{ index }}</td> -->
-                        <td class="text-left">{{ row.date_of_issue }}</td>
+                        <td class="text-start">{{ row.date_of_issue }}</td>
                         <td>{{ row.state_type_description }}</td>
                         <td>{{ row.identifier }}</td>
                         <td class="text-center">
@@ -62,11 +62,11 @@
                             </button>
                         </td>
 
-                        <td class="text-right">
+                        <td class="text-end">
                             <button
                                 type="button"
                                 v-if="!row.has_purchase_orders"
-                                class="btn waves-effect waves-light btn-xs btn-success m-1__2"
+                                class="btn waves-effect waves-light btn-xs btn-success m-1__2 me-1"
                                 @click.prevent="clickGenerateOc(row.id)"
                             >
                                 Generar OC
@@ -75,7 +75,7 @@
                             <button
                                 type="button"
                                 v-if="!row.has_purchase_orders"
-                                class="btn waves-effect waves-light btn-xs btn-custom m-1__2"
+                                class="btn waves-effect waves-light btn-xs btn-custom m-1__2 me-1"
                                 @click.prevent="clickCreate(row.id)"
                             >
                                 Editar
@@ -83,7 +83,7 @@
 
                             <button
                                 type="button"
-                                class="btn waves-effect waves-light btn-xs btn-info m-1__2"
+                                class="btn waves-effect waves-light btn-xs btn-info m-1__2 me-1"
                                 @click.prevent="clickOptions(row.id)"
                             >
                                 Opciones
@@ -122,7 +122,7 @@
 </style>
 <script>
 import PurchaseQuotationOptions from "./partials/options.vue";
-import DataTable from "../../../../../../../resources/js/components/DataTable.vue";
+import DataTable from "@components/DataTable.vue";
 // import {deletable} from '../../../mixins/deletable'
 
 export default {

@@ -81,7 +81,7 @@
                         </div>
                     </div>
                     <div class="col-lg-4 col-md-4 col-md-4 col-sm-12 d-flex" style="margin-top:29px">
-                        <el-button class="submit" type="primary" @click.prevent="getRecordsByFilter" :loading="loading_submit" icon="el-icon-search" >Buscar</el-button>
+                        <el-button class="submit me-2" type="primary" @click.prevent="getRecordsByFilter" :loading="loading_submit" icon="el-icon-search" >Buscar</el-button>
                         <el-button class="submit" type="info" @click.prevent="cleanInputs"  icon="el-icon-delete" >Limpiar </el-button>
 
                     </div>

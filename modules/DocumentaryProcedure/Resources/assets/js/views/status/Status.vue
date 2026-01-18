@@ -1,6 +1,6 @@
 <template>
     <div>
-        <div class="page-header pr-0">
+        <div class="page-header pe-0">
             <h2>
                 <a href="/documentary-procedure/status">
                     <svg xmlns="http://www.w3.org/2000/svg"
@@ -24,7 +24,7 @@
             <div class="right-wrapper pull-right">
                 <div class="btn-group flex-wrap">
                     <button
-                        class="btn btn-custom btn-sm mt-2 mr-2"
+                        class="btn btn-custom btn-sm mt-2 me-2"
                         type="button"
                         @click="onCreate"
                     >
@@ -79,7 +79,7 @@
                         >
                             <!-- <td class="text-left">{{ index + 1 }}</td> -->
                             <td>{{ item.name }}</td>
-                            <td class="text-right">
+                            <td class="text-end">
                                 <el-button
                                     :disabled="loading"
                                     type="success"
@@ -112,7 +112,7 @@
 </template>
 
 <script>
-import ModalAddEdit from "./ModalAddEdit";
+import ModalAddEdit from "./ModalAddEdit.vue";
 import {mapActions, mapState} from "vuex";
 
 export default {

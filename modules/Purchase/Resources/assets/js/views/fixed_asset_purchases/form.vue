@@ -1,6 +1,6 @@
 <template>
     <div>
-        <div class="page-header pr-0">
+        <div class="page-header pe-0">
             <h2><a href="/fixed-asset/purchases">
                 <svg  xmlns="http://www.w3.org/2000/svg" style="margin-top: -5px;"  width="24"  height="24"  viewBox="0 0 24 24"  fill="none"  stroke="currentColor"  stroke-width="2"  stroke-linecap="round"  stroke-linejoin="round"  class="icon icon-tabler icons-tabler-outline icon-tabler-shopping-bag"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M6.331 8h11.339a2 2 0 0 1 1.977 2.304l-1.255 8.152a3 3 0 0 1 -2.966 2.544h-6.852a3 3 0 0 1 -2.965 -2.544l-1.255 -8.152a2 2 0 0 1 1.977 -2.304z" /><path d="M9 11v-5a3 3 0 0 1 6 0v5" /></svg>
             </a></h2>
@@ -71,17 +71,39 @@
                         </div>
                         <div class="row">
                             <div class="col-lg-6">
-                                <div class="form-group" :class="{'has-danger': errors.supplier_id}">
+                                <div class="form-group position-relative" :class="{'has-danger': errors.supplier_id}">
                                     <label class="control-label">
                                         Proveedor
-                                        <a href="#" @click.prevent="showDialogNewPerson = true">[+ Nuevo]</a>
+                                        <!-- <a href="#" @click.prevent="showDialogNewPerson = true">[+ Nuevo]</a> -->
                                     </label>
-                                    <el-select v-model="form.supplier_id" filterable @change="changeSupplier"
+                                    <el-select v-model="form.supplier_id" filterable remote
+                                               :remote-method="searchRemoteSuppliers"
+                                               :loading="loading_search" @change="changeSupplier"
                                                ref="select_person" @keyup.native="keyupSupplier"
                                                @keyup.enter.native="keyupEnterSupplier">
                                         <el-option v-for="option in suppliers" :key="option.id" :value="option.id"
                                                    :label="option.description"></el-option>
+                                        <template slot="empty">
+                                            <p v-if="loading_search" class="el-select-dropdown__empty">
+                                                Cargando...
+                                            </p>
+                                        
+                                            <p v-else class="el-select-dropdown__empty">
+                                                No se encontraron resultados
+                                            </p>
+                                        
+                                            <div
+                                                v-if="!loading_search"
+                                                class="el-select-dropdown__item new-option"
+                                                @click.stop="openNewPersonDialog"
+                                            >
+                                                <span>{{ supplierSearchTerm ? `Crear proveedor "${supplierSearchTerm}"` : 'Crear proveedor' }}</span>
+                                            </div>
+                                        </template>
                                     </el-select>
+                                    <span class="btn-add-new" @click.prevent="showDialogNewPerson = true" title="Agregar nuevo proveedor">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon icon-tabler icons-tabler-outline icon-tabler-user-plus"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M8 7a4 4 0 1 0 8 0a4 4 0 0 0 -8 0" /><path d="M16 19h6" /><path d="M19 16v6" /><path d="M6 21v-2a4 4 0 0 1 4 -4h4" /></svg>
+                                    </span>
                                     <small class="form-control-feedback" v-if="errors.supplier_id"
                                            v-text="errors.supplier_id[0]"></small>
                                 </div>
@@ -129,11 +151,11 @@
                                             <!-- <th>#</th> -->
                                             <th>Descripción</th>
                                             <th class="text-center">Unidad</th>
-                                            <th class="text-right">Cantidad</th>
-                                            <th class="text-right">Precio Unitario</th>
-                                            <th class="text-right">Descuento</th>
-                                            <th class="text-right">Cargo</th>
-                                            <th class="text-right">Total</th>
+                                            <th class="text-end">Cantidad</th>
+                                            <th class="text-end">Precio Unitario</th>
+                                            <th class="text-end">Descuento</th>
+                                            <th class="text-end">Cargo</th>
+                                            <th class="text-end">Total</th>
                                             <th></th>
                                         </tr>
                                         </thead>
@@ -144,14 +166,14 @@
                                                     row.item.description
                                                 }}<br/><small>{{ row.affectation_igv_type.description }}</small></td>
                                             <td class="text-center">{{ row.item.unit_type_id }}</td>
-                                            <td class="text-right">{{ row.quantity }}</td>
-                                            <td class="text-right">{{ currency_type.symbol }}
+                                            <td class="text-end">{{ row.quantity }}</td>
+                                            <td class="text-end">{{ currency_type.symbol }}
                                                 {{ getFormatUnitPriceRow(row.unit_price) }}
                                             </td>
-                                            <td class="text-right">{{ currency_type.symbol }} {{ row.total_discount }}</td>
-                                            <td class="text-right">{{ currency_type.symbol }} {{ row.total_charge }}</td>
-                                            <td class="text-right">{{ currency_type.symbol }} {{ row.total }}</td>
-                                            <td class="text-right">
+                                            <td class="text-end">{{ currency_type.symbol }} {{ row.total_discount }}</td>
+                                            <td class="text-end">{{ currency_type.symbol }} {{ row.total_charge }}</td>
+                                            <td class="text-end">{{ currency_type.symbol }} {{ row.total }}</td>
+                                            <td class="text-end">
                                                 <button type="button" class="btn waves-effect waves-light btn-xs btn-danger"
                                                         @click.prevent="clickRemoveItem(index)">x
                                                 </button>
@@ -165,20 +187,20 @@
                                 </div>
                             </div>
                             <div class="col-md-12">
-                                <p class="text-right" v-if="form.total_exportation > 0">OP.EXPORTACIÓN:
+                                <p class="text-end" v-if="form.total_exportation > 0">OP.EXPORTACIÓN:
                                     {{ currency_type.symbol }} {{ form.total_exportation }}</p>
-                                <p class="text-right" v-if="form.total_free > 0">OP.GRATUITAS: {{ currency_type.symbol }}
+                                <p class="text-end" v-if="form.total_free > 0">OP.GRATUITAS: {{ currency_type.symbol }}
                                     {{ form.total_free }}</p>
-                                <p class="text-right" v-if="form.total_unaffected > 0">OP.INAFECTAS: {{
+                                <p class="text-end" v-if="form.total_unaffected > 0">OP.INAFECTAS: {{
                                         currency_type.symbol
                                     }} {{ form.total_unaffected }}</p>
-                                <p class="text-right" v-if="form.total_exonerated > 0">OP.EXONERADAS:
+                                <p class="text-end" v-if="form.total_exonerated > 0">OP.EXONERADAS:
                                     {{ currency_type.symbol }} {{ form.total_exonerated }}</p>
-                                <p class="text-right" v-if="form.total_taxed > 0">OP.GRAVADA: {{ currency_type.symbol }}
+                                <p class="text-end" v-if="form.total_taxed > 0">OP.GRAVADA: {{ currency_type.symbol }}
                                     {{ form.total_taxed }}</p>
-                                <p class="text-right" v-if="form.total_igv > 0">IGV: {{ currency_type.symbol }}
+                                <p class="text-end" v-if="form.total_igv > 0">IGV: {{ currency_type.symbol }}
                                     {{ form.total_igv }}</p>
-                                <h3 class="text-right" v-if="form.total > 0"><b>TOTAL COMPRAS: </b>{{
+                                <h3 class="text-end" v-if="form.total > 0"><b>TOTAL COMPRAS: </b>{{
                                         currency_type.symbol
                                     }} {{ form.total }}</h3>
     
@@ -221,14 +243,14 @@
                                             </div>
                                         </div>
                                     </div>
-                                    <h3 class="text-right" v-if="form.total > 0 && !hide_button"><b>MONTO TOTAL : </b>{{ currency_type.symbol }} {{ total_amount }}</h3>
+                                    <h3 class="text-end" v-if="form.total > 0 && !hide_button"><b>MONTO TOTAL : </b>{{ currency_type.symbol }} {{ total_amount }}</h3>
     
     
                                 </template> -->
                             </div>
                         </div>
                     </div>
-                    <div class="form-actions text-right mt-4">
+                    <div class="form-actions d-flex justify-content-between mt-4">
                         <el-button class="second-buton btn btn-default second-buton-default" @click.prevent="close()">Cancelar</el-button>
                         <el-button type="primary" native-type="submit" class="btn btn-primary btn-submit-default" :loading="loading_submit"
                                    v-if="form.items.length > 0 && !hide_button">Generar
@@ -246,7 +268,7 @@
     
             <person-form :showDialog.sync="showDialogNewPerson"
                          type="suppliers"
-                         :input_person="input_person"
+                         :input_person="supplierSearchTerm"
                          :external="true"></person-form>
     
             <fa-purchase-options :showDialog.sync="showDialogOptions"
@@ -297,7 +319,15 @@ export default {
             series: [],
             currency_type: {},
             loading_search: false,
-            purchaseNewId: null
+            purchaseNewId: null,
+            supplierSearchTerm: '',
+        }
+    },
+    watch: {
+        showDialogNewPerson(newVal) {
+            if (!newVal) {
+                this.supplierSearchTerm = ''
+            }
         }
     },
     async created() {
@@ -325,6 +355,7 @@ export default {
         await this.getPercentageIgv();
         this.$eventHub.$on('reloadDataPersons', (supplier_id) => {
             this.reloadDataSuppliers(supplier_id)
+            this.supplierSearchTerm = ''
         })
 
         this.$eventHub.$on('initInputPerson', () => {
@@ -480,6 +511,22 @@ export default {
 
             this.initInputPerson()
 
+        },
+        searchRemoteSuppliers(input) {
+            this.supplierSearchTerm = input;
+            
+            if (input.length > 1) {
+                this.loading_search = true
+                let parameters = `input=${input}`
+
+                this.$http.get(`/reports/data-table/persons/suppliers?${parameters}`)
+                    .then(response => {
+                        this.suppliers = response.data.persons
+                        this.loading_search = false
+                    })
+            } else {
+                this.filterSuppliers()
+            }
         },
         resetForm() {
             this.initForm()
@@ -660,6 +707,9 @@ export default {
                 this.filterSuppliers()
 
             })
+        },
+        openNewPersonDialog() {
+            this.showDialogNewPerson = true
         },
     }
 }

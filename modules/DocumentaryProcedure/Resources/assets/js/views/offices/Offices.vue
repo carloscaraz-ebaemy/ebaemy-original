@@ -1,6 +1,6 @@
 <template>
     <div>
-        <div class="page-header pr-0">
+        <div class="page-header pe-0">
             <h2>
                 <a href="/documentary-procedure/offices">
                     <svg xmlns="http://www.w3.org/2000/svg"
@@ -24,7 +24,7 @@
             <div class="right-wrapper pull-right">
                 <div class="btn-group flex-wrap">
                     <button
-                        class="btn btn-custom btn-sm mt-2 mr-2"
+                        class="btn btn-custom btn-sm mt-2 me-2"
                         type="button"
                         @click="onCreate"
                     >
@@ -89,7 +89,7 @@
                             <!-- <td class="text-left">{{ index + 1 }}</td> -->
                             <td>{{ item.name }}</td>
                             <td>{{ item.description }}</td>
-                            <td class="text-left">
+                            <td class="text-start">
                                 <span v-if="item.active">Si</span>
                                 <span v-else>No</span>
                             </td>
@@ -105,7 +105,7 @@
                             <td> {{ item.string_days }}
                             </td>
                             -->
-                            <td class="text-right">
+                            <td class="text-end">
                                 <el-button
                                     :disabled="loading"
                                     type="success"
@@ -139,7 +139,7 @@
 </template>
 
 <script>
-import ModalAddEdit from "./ModalAddEdit";
+import ModalAddEdit from "./ModalAddEdit.vue";
 import {mapActions, mapState} from "vuex";
 
 export default {
@@ -206,10 +206,10 @@ export default {
         checkScrollShadows() {
             const el = this.$refs.scrollContainer;
             if (!el) return;
-            
+
             const scrollLeft = el.scrollLeft;
             const scrollRight = el.scrollWidth - el.clientWidth - scrollLeft;
-            
+
             this.showLeftShadow = scrollLeft > 1;
             this.showRightShadow = scrollRight > 1;
         },

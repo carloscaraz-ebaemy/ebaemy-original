@@ -3,7 +3,7 @@
     namespace Modules\DocumentaryProcedure\Http\Controllers;
 
     use App\CoreFacturalo\Helpers\Functions\FunctionsHelper;
-    use Barryvdh\DomPDF\Facade as PDF;
+    use Barryvdh\DomPDF\Facade\Pdf as PDF;
     use Illuminate\Http\Request;
     use Illuminate\Routing\Controller;
     use Modules\DocumentaryProcedure\Exports\StatisticTramiteExport;

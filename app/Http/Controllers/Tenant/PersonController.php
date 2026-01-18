@@ -21,7 +21,7 @@ use Maatwebsite\Excel\Excel;
 use Carbon\Carbon;
 use App\Exports\ClientExport;
 use App\Models\System\Configuration;
-use Barryvdh\DomPDF\Facade as PDF;
+use Barryvdh\DomPDF\Facade\Pdf as PDF;
 use Mpdf\HTMLParserMode;
 use Mpdf\Mpdf;
 use Picqer\Barcode\BarcodeGeneratorPNG;
@@ -59,8 +59,17 @@ class PersonController extends Controller
             $records = Person::where($request->column, 'like', "%{$request->value}%");
         }
         $records = $records->where('type', $type)
-            ->whereFilterCustomerBySeller($type)
-            ->orderBy('id','desc');
+            ->whereFilterCustomerBySeller($type);
+
+        // Filtro por habilitados/inhabilitados
+        $show_disabled = $request->show_disabled ?? 'all';
+        if ($show_disabled === 'enabled') {
+            $records = $records->where('enabled', true);
+        } elseif ($show_disabled === 'disabled') {
+            $records = $records->where('enabled', false);
+        }
+
+        $records = $records->orderBy('id','desc');
 
         return new PersonCollection($records->paginate(config('tenant.items_per_page')));
     }

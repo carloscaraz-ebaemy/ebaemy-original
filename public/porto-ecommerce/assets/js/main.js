@@ -498,6 +498,9 @@ function(e) {
 			count = array.length;
 				
 			array.forEach(element => {
+				const imagePath = (element.image_small && element.image_small !== 'imagen-no-disponible.jpg')
+					? `/storage/uploads/items/${element.image_small}`
+					: `/logo/imagen-no-disponible.jpg`;
 				jQuery(".dropdown-cart-products").append( `
 						<div class="product">
 							<div class="product-details">
@@ -510,7 +513,7 @@ function(e) {
 							</div>
 							<figure class="product-image-container">
 								<a href="#" class="product-image">
-									<img alt="product" src="/storage/uploads/items/${element.image_small}" />
+									<img alt="${element.description}" src="${imagePath}" />
 								</a>
 								<a href="#" onclick="remove(${element.id})" class="btn-remove" title="Remove Product">
 									<i class="icon-cancel"></i>
@@ -541,17 +544,17 @@ function(e) {
 					contex.successAddProduct();
 					contex.calculateTotalCart();
 
-					$('#product_added').html(`
-						<div class="product-single-details-restaurant">
-						<h1 class="product-title">${item.description}</h1>
-						<div class="price-box">
-							<span class="product-price">S/ ${ Number(item.sale_unit_price).toFixed(2) }</span>
-						</div>
-						<div class="product-desce">
-							<p>${item.name}  </p>
-						</div>	</div>`);
-						
-					$('#product_added_image').html( `<img src="/storage/uploads/items/${item.image_medium}" class="img" alt="product">`)
+				$('#product_added').html(`
+					<div class="product-single-details-restaurant">
+					<h1 class="product-title">${item.description}</h1>
+					<div class="price-box">
+						<span class="product-price">S/ ${ Number(item.sale_unit_price).toFixed(2) }</span>
+					</div>
+					${item.name ? `<div class="product-desce"><p>${item.name}</p></div>` : ''}
+					</div>`);					const addedImagePath = (item.image_medium && item.image_medium !== 'imagen-no-disponible.jpg')
+						? `/storage/uploads/items/${item.image_medium}`
+						: `/logo/imagen-no-disponible.jpg`;
+					$('#product_added_image').html( `<img src="${addedImagePath}" class="img" alt="${item.description}">`)
 				}
 				else{
 					contex.alreadyProductCart();

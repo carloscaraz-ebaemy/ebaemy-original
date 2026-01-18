@@ -1,6 +1,6 @@
 <template>
     <div class="purchases">
-        <div class="page-header pr-0">
+        <div class="page-header pe-0">
             <h2>
                 <a href="/purchases">
                     <svg
@@ -30,13 +30,13 @@
             <div class="right-wrapper pull-right">
                 <a
                     :href="`/${resource}/create`"
-                    class="btn btn-custom btn-sm  mt-2 mr-2"
+                    class="btn btn-custom btn-sm  mt-2 me-2"
                     ><i class="fa fa-plus-circle"></i> Nuevo</a
                 >
                 <button
                     @click.prevent="clickImport()"
                     type="button"
-                    class="btn btn-custom btn-sm  mt-2 mr-2"
+                    class="btn btn-custom btn-sm  mt-2 me-2"
                 >
                     <i class="fa fa-upload"></i> Importar
                 </button>
@@ -46,7 +46,7 @@
             <div class="data-table-visible-columns">
                 <el-dropdown :hide-on-click="false">
                     <el-button type="secondary">
-                        Mostrar/Ocultar columnas<i
+                        Mostrar columnas<i
                             class="el-icon-arrow-down el-icon--right"
                         ></i>
                     </el-button>
@@ -68,7 +68,7 @@
                 <data-table :resource="resource">
                     <tr slot="heading">
                         <!-- <th>#</th> -->
-                        <th class="text-left">F. Emisión</th>
+                        <th class="text-start">F. Emisión</th>
                         <th
                             class="text-center"
                             v-if="columns.date_of_due.visible"
@@ -84,53 +84,53 @@
                         <!-- <th>F. Pago</th> -->
                         <!-- <th>Estado</th> -->
                         <th class="text-center">Moneda</th>
-                        <th class="text-right" v-if="columns.guides.visible">
+                        <th class="text-end" v-if="columns.guides.visible">
                             Guía
                         </th>
                         <th
-                            class="text-right"
+                            class="text-end"
                             v-if="columns.purchase_order.visible"
                         >
                             Orden de compra
                         </th>
-                        <!-- <th class="text-right">T.Exportación</th> -->
+                        <!-- <th class="text-end">T.Exportación</th> -->
                         <th
                             v-if="columns.total_free.visible"
-                            class="text-right"
+                            class="text-end"
                         >
                             T.Gratuita
                         </th>
                         <th
                             v-if="columns.total_unaffected.visible"
-                            class="text-right"
+                            class="text-end"
                         >
                             T.Inafecta
                         </th>
                         <th
                             v-if="columns.total_exonerated.visible"
-                            class="text-right"
+                            class="text-end"
                         >
                             T.Exonerado
                         </th>
                         <th
                             v-if="columns.total_taxed.visible"
-                            class="text-right"
+                            class="text-end"
                         >
                             T.Gravado
                         </th>
-                        <th v-if="columns.total_igv.visible" class="text-right">
+                        <th v-if="columns.total_igv.visible" class="text-end">
                             T.Igv
                         </th>
                         <th v-if="columns.total_perception.visible">
                             Percepcion
                         </th>
-                        <th class="text-right">Total</th>
+                        <th class="text-end">Total</th>
                         <!-- <th class="text-center">Descargas</th> -->
-                        <th class="text-right">Acciones</th>
+                        <th class="text-end">Acciones</th>
                     </tr>
                     <tr slot-scope="{ index, row }">
                         <!-- <td>{{ index }}</td> -->
-                        <td class="text-left">
+                        <td class="text-start">
                             {{ formatDate(row.date_of_issue) }}
                         </td>
                         <td
@@ -222,7 +222,7 @@
                             </template>
                         </td> -->
                         <!-- <td>{{ row.state_type_description }}</td> -->
-                        <td class="text-right">
+                        <td class="text-end">
                             <button
                                 v-if="row.state_type_id != '11'"
                                 type="button"
@@ -240,10 +240,10 @@
                                 {{ item.number }} <br />
                             </span>
                         </td>
-                        <!-- <td class="text-right">{{ row.total_exportation }}</td> -->
+                        <!-- <td class="text-end">{{ row.total_exportation }}</td> -->
                         <td
                             v-if="columns.purchase_order.visible"
-                            class="text-right"
+                            class="text-end"
                         >
                             <span v-if="row.purchase_order"
                                 >{{ row.purchase_order.prefix }}-{{
@@ -253,53 +253,53 @@
                         </td>
                         <td
                             v-if="columns.total_free.visible"
-                            class="text-right"
+                            class="text-end"
                         >
                             {{row.currency_type_id === 'PEN' ? 'S/' : '$'}}
                             {{ row.total_free }}
                         </td>
                         <td
                             v-if="columns.total_unaffected.visible"
-                            class="text-right"
+                            class="text-end"
                         >
                             {{row.currency_type_id === 'PEN' ? 'S/' : '$'}}
                             {{ row.total_unaffected }}
                         </td>
                         <td
                             v-if="columns.total_exonerated.visible"
-                            class="text-right"
+                            class="text-end"
                         >
                             {{row.currency_type_id === 'PEN' ? 'S/' : '$'}}
                             {{ row.total_exonerated }}
                         </td>
                         <td
                             v-if="columns.total_taxed.visible"
-                            class="text-right"
+                            class="text-end"
                         >
                             {{row.currency_type_id === 'PEN' ? 'S/' : '$'}}
                             {{ row.total_taxed }}
                         </td>
-                        <td v-if="columns.total_igv.visible" class="text-right">
+                        <td v-if="columns.total_igv.visible" class="text-end">
                             {{row.currency_type_id === 'PEN' ? 'S/' : '$'}}
                             {{ row.total_igv }}
                         </td>
                         <td
                             v-if="columns.total_perception.visible"
-                            class="text-right"
+                            class="text-end"
                         >
                             {{row.currency_type_id === 'PEN' ? 'S/' : '$'}}
                             {{
                                 row.total_perception ? row.total_perception : 0
                             }}
                         </td>
-                        <td class="text-right">{{row.currency_type_id === 'PEN' ? 'S/' : '$'}} {{ row.total }}</td>
-                        <td class="text-right">
+                        <td class="text-end">{{row.currency_type_id === 'PEN' ? 'S/' : '$'}} {{ row.total }}</td>
+                        <td class="text-end">
                             <template v-if="permissions.edit_purchase">
                                 <a
                                     v-if="row.state_type_id != '11'"
                                     :href="`/${resource}/edit/${row.id}`"
                                     type="button"
-                                    class="btn waves-effect waves-light btn-xs btn-info"
+                                    class="btn waves-effect waves-light btn-xs btn-info me-1"
                                     >Editar</a
                                 >
                             </template>
@@ -307,7 +307,7 @@
                                 <button
                                     v-if="row.state_type_id != '11'"
                                     type="button"
-                                    class="btn waves-effect waves-light btn-xs btn-danger"
+                                    class="btn waves-effect waves-light btn-xs btn-danger me-1"
                                     @click.prevent="clickAnulate(row.id)"
                                 >
                                     Anular
@@ -322,7 +322,7 @@
                                 <button
                                     v-if="row.state_type_id == '11'"
                                     type="button"
-                                    class="btn waves-effect waves-light btn-xs btn-danger"
+                                    class="btn waves-effect waves-light btn-xs btn-danger me-1"
                                     @click.prevent="clickDelete(row.id)"
                                 >
                                     Eliminar
@@ -331,7 +331,7 @@
 
                             <button
                                 type="button"
-                                class="btn waves-effect waves-light btn-xs btn-primary"
+                                class="btn waves-effect waves-light btn-xs btn-primary me-1"
                                 @click.prevent="clickOptions(row.id)"
                             >
                                 Opciones
@@ -339,14 +339,14 @@
                             <button
                                 type="button"
                                 :disabled="disableGuideBtn"
-                                class="btn waves-effect waves-light btn-xs btn-warning m-1__2"
+                                class="btn waves-effect waves-light btn-xs btn-warning m-1__2 me-1"
                                 @click.prevent="clickGuide(row.id)"
                             >
                                 Guía
                             </button>
                         </td>
 
-                        <!-- <td class="text-right">
+                        <!-- <td class="text-end">
                             <button type="button" class="btn waves-effect waves-light btn-xs btn-danger"
                                     @click.prevent="clickVoided(row.id)"
                                     v-if="row.btn_voided">Anular</button>

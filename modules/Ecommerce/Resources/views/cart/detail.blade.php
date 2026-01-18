@@ -1,7 +1,16 @@
 @extends('ecommerce::layouts.layout_ecommerce_cart.index')
 @section('content')
 
-<div class="row mt-2" id="app">
+@php
+    $configurationModel = \App\Models\Tenant\Configuration::first();
+    $defaultImage = $configurationModel->product_default_image ?? 'imagen-no-disponible.jpg';
+    $defaultImagePath = $defaultImage === 'imagen-no-disponible.jpg'
+        ? asset('logo/imagen-no-disponible.jpg')
+        : asset('storage/defaults/' . $defaultImage);
+    $itemsBasePath = asset('storage/uploads/items');
+@endphp
+
+<div class="row" id="app" style="margin-top: 55px">
     <div class="col-lg-8">
         <div class="cart-table-container">
 
@@ -20,7 +29,7 @@
                         <td class="product-col">
                             <figure class="product-image-container">
                                 <a href="#" class="product-image">
-                                    <img :src=" '/storage/uploads/items/' + row.image" alt="product">
+                                    <img class="image-product" :src="(row.image && row.image !== 'imagen-no-disponible.jpg') ? '{{ $itemsBasePath }}' + '/' + row.image : '{{ $defaultImagePath }}'" :alt="row.description || 'Producto sin imagen'">
                                 </a>
                             </figure>
                             <h2 class="product-title">
@@ -154,9 +163,9 @@
                 </a>
 
                 @elseauth('ecommerce')
-                <button class="btn btn-block btn-sm btn-primary culqi" onclick="execCulqi()"> Pagar con VISA </button>
+                <button class="btn btn-block btn-sm btn-primary login-link culqi" onclick="execCulqi()"> Pagar con VISA </button>
 
-                <button @click="payment_cash.clicked = !payment_cash.clicked" class="btn btn-block btn-sm btn-primary">
+                <button @click="payment_cash.clicked = !payment_cash.clicked" class="btn btn-block btn-sm btn-primary login-link-pay">
                     Pagar con EFECTIVO</button>
                 <div v-show="payment_cash.clicked" style="margin: 3%" class="form-group">
                     <div class="input-group mb-3">

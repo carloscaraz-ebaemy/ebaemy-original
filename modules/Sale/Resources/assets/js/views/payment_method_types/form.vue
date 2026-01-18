@@ -3,21 +3,21 @@
         <form autocomplete="off" @submit.prevent="submit">
             <div class="form-body">
                 <div class="row">
-                    <div class="col-md-2">
+                    <div class="col-md-3">
                         <div class="form-group" :class="{'has-danger': errors.id}">
                         <label class="control-label">Código</label>
                         <el-input v-model="form.id" :readonly="recordId !== null" :maxlength="2"></el-input>
                         <small class="form-control-feedback" v-if="errors.id" v-text="errors.id[0]"></small>
                         </div>
                     </div>
-                    <div class="col-md-4">
+                    <div class="col-md-5">
                         <div class="form-group" :class="{'has-danger': errors.description}">
                             <label class="control-label">Descripción</label>
                             <el-input v-model="form.description"></el-input>
                             <small class="form-control-feedback" v-if="errors.description" v-text="errors.description[0]"></small>
                         </div>
                     </div>
-                    <div class="col-md-3">
+                    <div class="col-md-4">
                         <div class="form-group" :class="{'has-danger': errors.is_credit}">
                             <label class="control-label">Tipo de pago</label>
 
@@ -47,8 +47,8 @@
                     </div>
                 </div>
             </div>
-            <div class="form-actions text-right mt-4">
-                <el-button class="second-buton" @click.prevent="close()">Cancelar</el-button>
+            <div class="form-actions text-end mt-4">
+                <el-button class="second-buton me-2" @click.prevent="close()">Cancelar</el-button>
                 <el-button type="primary" native-type="submit" :loading="loading_submit">Guardar</el-button>
             </div>
         </form>

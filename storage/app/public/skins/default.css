@@ -1,18 +1,20 @@
 @import url('https://fonts.googleapis.com/css2?family=Anaheim:wght@400..800&family=Heebo:wght@100..900&family=Host+Grotesk:ital,wght@0,300..800;1,300..800&family=IBM+Plex+Mono:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;1,100;1,200;1,300;1,400;1,500;1,600;1,700&family=Jaldi:wght@400;700&family=Maven+Pro:wght@400..900&family=Pragati+Narrow:wght@400;700&family=Questrial&family=Roboto:ital,wght@0,100..900;1,100..900&family=Sora:wght@100..800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&display=swap');
 
 :root{
-    --primary-color: #0c7286;
-    --dark-color: #001524;
-    --light-color: #eef5f5;
-    --accent-color: #d5e8e8;
-    --highlight-color: #75e4e4;
+    --primary-color: #2b5bfb;
+    --dark-color: #273747;
+    --light-color: #f7fafc;
+    --accent-color: #e8ecf2;
+    --highlight-color: #7575e5;
+    --muted: #758595;
     /* modo dark */
-    --background-dark: #12192d;
-    --contents-dark: #16223a;
-    --inputs-dark: #383f53;
-    --borders-dark: #2d394c;
-    --button-second: #283046;
-    --font-family: "Roboto", sans-serif;
+    --background-dark: #091029;
+    --contents-dark: #0c1536;
+    --inputs-dark: #212c56;
+    --borders-dark: #273158;
+    --button-second: #1a2551;
+    --font-family: "Figtree", sans-serif;
     --danger: #ff0066;
     --success: #00c666;
     --warning: #ff8400;
@@ -21,16 +23,17 @@
 }
 
 html, body {
-    background: var(--light-color);
-    font-family: var(--font-family, sans-serif);
-    color: var(--dark-color);
+    background: var(--light-color) !important;
+    font-family: var(--font-family, sans-serif) !important;
+    color: var(--dark-color) !important;
 }
 
 p {
     color: var(--dark-color);
 }
 
-h1, h2, h3, h4, h5, h6, .h1, .h2, .h3, .h4, .h5, .h6{
+h1, h2, h3, h4, h5, h6, .h1, .h2, .h3, .h4, .h5, .h6,
+div#styleSwitcher *{
     font-family: var(--font-family, sans-serif);
 }
 .bg-light-color {
@@ -42,10 +45,10 @@ h1, h2, h3, h4, h5, h6, .h1, .h2, .h3, .h4, .h5, .h6{
 .el-input--small .el-input__inner,
 .el-input-group__append, .el-input-group__prepend {
     font-size: 15px;
-    height: 42px;
-    line-height: 42px;
+    height: 42px !important;
+    line-height: 42px !important;
     border-radius: 8px;
-    border: 1px solid var(--accent-color);
+    border: 1px solid var(--accent-color) !important;
 }
 .el-select .el-input.is-focus .el-input__inner,
 .product-item .card-footer {
@@ -69,17 +72,17 @@ h1, h2, h3, h4, h5, h6, .h1, .h2, .h3, .h4, .h5, .h6{
   color: var(--primary-color);
 }
 .el-input-group__append{
-    background-color: var(--light-color);
-    border: 1px solid var(--accent-color);
+    background-color: var(--light-color) !important;
+    border: 1px solid var(--accent-color) !important;
 }
 .btn-theme-white{
-    background-color: rgb(144, 218, 217);
+    background-color: #b3c5ff;
 }
 .row.card-header.no-gutters.align-items-start div {
     align-self: center;
 }
 .el-checkbox__inner:hover {
-    border-color: var(--primary-color);
+    border-color: var(--primary-color) !important;
 }
 .additional-information{
     background-color: #fff !important;
@@ -88,14 +91,23 @@ address {
     text-align: center;
 }
 .btn-archive-upload{
-    border-radius: 8px;
+    border-radius: 8px !important;
     height: 30px;
     position: absolute;
     width: 100%;
-    margin-top: -14px;
+    margin-top: -14px !important;
+    left: 0;
 }
 .el-carousel__indicators--horizontal{
     display: none;
+}
+.el-input-group--append .el-input__inner, .el-input-group__prepend {
+    border-top-right-radius: 0 !important;
+    border-bottom-right-radius: 0 !important;
+}
+.el-input-group__append button.el-button, .el-input-group__append div.el-select .el-input__inner, .el-input-group__append div.el-select:hover .el-input__inner, .el-input-group__prepend button.el-button, .el-input-group__prepend div.el-select .el-input__inner, .el-input-group__prepend div.el-select:hover .el-input__inner {
+    border-color: transparent !important;
+    background-color: transparent !important;
 }
 .upload-demo-default{
     border: 2px dashed var(--accent-color);
@@ -117,14 +129,8 @@ address {
     margin-right: -5px;
     margin-left: -5px;
 }
-.row-new{
-    margin-top: -20px;
-    margin-right: -25px;
-    margin-left: -25px;
-    background-color: #ffffff;
-    padding: 0px;
-    width: auto !important;
-    min-width: 0px !important;
+.bg-transparent{
+    background-color: transparent !important;
 }
 .row-new .card-body{
     width: auto !important;
@@ -165,25 +171,25 @@ address {
 .el-input-number__decrease {
     position: absolute;
     z-index: 1;
-    top: 11px;
+    top: 11px !important;
     width: 40px;
     height: auto;
     text-align: center;
-    background: var(--accent-color);
+    background: var(--accent-color) !important;
     color: #606266;
     cursor: pointer;
     font-size: 13px;
 }
 .el-input-number__increase {
-    position: absolute;
-    z-index: 1;
-    top: 11px;
+    position: absolute !important;
+    z-index: 1 !important;
+    top: 11px !important;
     width: 40px;
-    height: auto;
-    text-align: center;
-    background: var(--accent-color);
-    color: #606266;
-    cursor: pointer;
+    height: 30px !important;
+    text-align: center !important;
+    background: var(--accent-color) !important;
+    color: #606266 !important;
+    cursor: pointer !important;
     font-size: 13px;
 }
 .el-input-number__increase:hover:not(.is-disabled) ~ .el-input .el-input__inner:not(.is-disabled), .el-input-number__decrease:hover:not(.is-disabled) ~ .el-input .el-input__inner:not(.is-disabled) {
@@ -197,17 +203,17 @@ address {
 }
 .el-radio-button__orig-radio:checked + .el-radio-button__inner {
     color: #FFFFFF;
-    background-color: var(--primary-color);
-    border-color: var(--primary-color);
+    background-color: var(--primary-color) !important;
+    border-color: var(--primary-color) !important;
     -webkit-box-shadow: -1px 0 0 0 var(--primary-color);
-    box-shadow: -1px 0 0 0 var(--primary-color);
+    box-shadow: -1px 0 0 0 var(--primary-color) !important;
 }
 .el-radio-button__inner:hover {
     color: var(--primary-color);
     background-color: var(--accent-color);
 }
 .pdf-template-content:hover > .el-card-template::before {
-    background-color: rgba(213, 232, 232, 0.64) !important;
+    background-color: color-mix(in hsl, var(--primary-color) 30%, #ffffff00) !important;
 }
 .btn-submit-default{
     min-width: 180px;
@@ -223,15 +229,16 @@ ul.nav-main li .nav-children li a {
 ul.nav-main li .nav-children li a:after {
     background: transparent !important;
 }
-.el-checkbox__input.is-checked+.el-checkbox__label{
-    color: var(--primary-color);
+.el-checkbox__input.is-checked+.el-checkbox__label,
+.text-primary{
+    color: var(--primary-color) !important;
 }
 .el-checkbox__input.is-checked .el-checkbox__inner {
-    background-color: var(--primary-color);
-    border-color: var(--primary-color);
+    background-color: var(--primary-color) !important;
+    border-color: var(--primary-color) !important;
 }
 .el-switch__label.is-active {
-  color: var(--primary-color);
+  color: var(--primary-color) !important;
   font-weight: bold;
 }
 .el-slider__bar {
@@ -308,10 +315,10 @@ ul.nav-main li .nav-children li a:after {
     padding: 6px 15px;
 }
 .card-body {
-    background: #ffffff;
+    background: #ffffff !important;
     -webkit-box-shadow: none;
     box-shadow: none;
-    border-radius: 12px;
+    border-radius: 12px !important;
 }
 span.badge.bg-secondary.text-white.bg-info {
     background: rgb(0 116 255 / 20%) !important;
@@ -328,11 +335,14 @@ html .card-primary .card-header {
     color: var(--dark-color);
 }
 .btn-custom {
-    background-color: var(--primary-color);
+    background-color: var(--primary-color) !important;
+    color: #fff !important;
 }
 .btn-custom:hover, .btn-custom.hover {
-    background-color: var(--dark-color);
-    border-color: var(--dark-color);
+    background-color: var(--primary-color) !important;
+    border-color: var(--primary-color) !important;
+    color: #fff !important;
+    opacity: 0.8;
 }
 .page-item.active .page-link {
     background-color: var(--primary-color) !important;
@@ -356,7 +366,7 @@ label.control-label {
 .form-seller label.control-label:has(+div),
 .form-modern label.control-label:has(+div){
     font-size: 11px;
-    color: var(--dark-color);
+    color: var(--muted);
     background: var(--light-color);
     display: block;
     position: relative;
@@ -379,34 +389,6 @@ html.fixed.sidebar-nuevo-tema .sidebar-left, html.fixed.sidebar-nuevo-tema .side
 }
 .text-info {
     color: var(--dark-color) !important;
-}
-.btn-primary {
-    background-color: var(--primary-color) !important;
-    border-color: var(--primary-color) !important;
-    box-shadow: none;
-    color: #FFFFFF !important;
-}
-.btn-primary:hover, .btn-primary.hover{
-  background-color: var(--primary-color) !important;
-  border-color: var(--primary-color) !important;
-  box-shadow: none;
-  opacity: 0.8;
-  color: #FFFFFF !important;
-}
-.btn-primary:focus,
-.btn-primary.focus {
-    background-color: var(--primary-color) !important;
-    border-color: var(--primary-color) !important;
-    opacity: 0.7 !important;
-    box-shadow: none !important;
-    color: #FFFFFF !important;
-}
-.btn-primary:active,
-.btn-primary.active,
-.show > .btn-primary.dropdown-toggle {
-    background-color: var(--primary-color) !important;
-    border-color: var(--primary-color) !important;
-    opacity: 0.7 !important;
 }
 .sidebar-left .sidebar-header{
     margin-bottom: 0;
@@ -439,36 +421,60 @@ nav#menu {
 .el-input-group__prepend:hover {
     border-color: var(--accent-color);
 }
-.form-group:focus-within label.control-label,
-.form-period:focus-within label.control-label,
-.form-group:focus-within label.control-label--buys,
-.form-seller:focus-within label.control-label,
-.form-modern:focus-within label.control-label {
+/* Resalta el label solo si hay un input de texto, select o textarea con foco real */
+.form-group:has(
+    input:not([type="checkbox"], [type="radio"]):focus,
+    textarea:focus,
+    .el-select .el-input__inner:focus,
+    .el-textarea__inner:focus
+) label.control-label,
+.form-period:has(
+    input:not([type="checkbox"], [type="radio"]):focus,
+    textarea:focus,
+    .el-select .el-input__inner:focus,
+    .el-textarea__inner:focus
+) label.control-label,
+.form-group:has(
+    input:not([type="checkbox"], [type="radio"]):focus,
+    textarea:focus,
+    .el-select .el-input__inner:focus,
+    .el-textarea__inner:focus
+) label.control-label--buys,
+.form-seller:has(
+    input:not([type="checkbox"], [type="radio"]):focus,
+    textarea:focus,
+    .el-select .el-input__inner:focus,
+    .el-textarea__inner:focus
+) label.control-label,
+.form-modern:has(
+    input:not([type="checkbox"], [type="radio"]):focus,
+    textarea:focus,
+    .el-select .el-input__inner:focus,
+    .el-textarea__inner:focus
+) label.control-label {
     background-color: #fff;
     border-color: var(--highlight-color) !important;
-    box-shadow: 
-        -4px 0 var(--accent-color),    /* Borde izquierdo */
-         4px 0 var(--accent-color),    /* Borde derecho */
-         0 -4px var(--accent-color),   /* Borde superior */
-        -3px -3px var(--accent-color), /* Esquina superior izquierda */
-         3px -3px var(--accent-color); /* Esquina superior derecha */
-    border-bottom: 0px !important;
+    box-shadow:
+        -4px 0 var(--accent-color),
+        4px 0 var(--accent-color),
+        0 -4px var(--accent-color),
+        -3px -3px var(--accent-color),
+        3px -3px var(--accent-color);
+    border-bottom: 0 !important;
 }
 .el-tabs__item:hover {
-    color: var(--primary-color);
+    color: var(--primary-color) !important;
 }
-.second-buton,
-.el-button,
-.btn-default {
-    background: var(--light-color);
-    border: 1px solid var(--accent-color);
-    color: var(--dark-color);
-    padding: 12px 15px;
-    border-radius: 8px;
-    font-size: 13px;
+.second-buton, .el-button, .btn-default {
+    background: var(--light-color) !important;
+    border: 1px solid var(--accent-color) !important;
+    color: var(--dark-color) !important;
+    padding: 12px 15px !important;
+    border-radius: 8px !important;
+    font-size: 13px !important;
 }
 .el-dropdown-menu__item:not(.is-disabled):hover, .el-dropdown-menu__item:focus {
-    background-color: var(--accent-color);
+    background-color: var(--accent-color) !important;
 }
 .btn-export-default{
     background: var(--light-color);
@@ -487,14 +493,14 @@ nav#menu {
     background-color: var(--primary-color);
 }
 a, a:hover, a:focus {
-    color: var(--inputs-dark);
+    color: var(--inputs-dark) !important;
 }
 .second-buton:hover,
 .el-button:hover,
 .btn-default:hover {
-    background: var(--accent-color);
-    border: 1px solid var(--light-color);
-    color: var(--dark-color);
+    background: var(--accent-color) !important;
+    border: 1px solid var(--light-color) !important;
+    color: var(--dark-color) !important;
 }
 .btn-default {
     color: var(--dark-color);
@@ -504,9 +510,9 @@ a, a:hover, a:focus {
     box-shadow: none !important;
 }
 .btn-default:hover, .btn-default:active, .btn-default:focus {
-    color: var(--dark-color);
-    background-color: var(--accent-color);
-    border-color: var(--light-color);
+    color: var(--dark-color) !important;
+    background-color: var(--accent-color) !important;
+    border-color: var(--light-color) !important;
 }
 .el-pager li.active {
     color: var(--primary-color);
@@ -517,7 +523,7 @@ a, a:hover, a:focus {
 }
 .el-tabs--border-card > .el-tabs__header .el-tabs__item:not(.is-disabled):hover,
 .el-tabs__item.is-active{
-    color: var(--primary-color);
+    color: var(--primary-color) !important;
 }
 .form-control-default{
     background-color: var(--light-color);
@@ -535,7 +541,7 @@ ul.nav.list-config li:hover {
 }
 .el-dialog__headerbtn:focus .el-dialog__close, .el-dialog__headerbtn:hover .el-dialog__close,
 .close-container i:hover {
-    color: var(--primary-color);
+    color: var(--primary-color) !important;
 }
 .btn-add-address,
 .btn-add-logo,
@@ -553,7 +559,7 @@ ul.nav.list-config li:hover {
 }
 .card-extras{
     border: 1px solid var(--accent-color) !important;
-    border-radius: 12px 12px 4px 4px;
+    border-radius: 12px 12px 4px 4px !important;
     height: 98% !important;
 }
 .pdf-template-border.active-border {
@@ -569,8 +575,9 @@ ul.nav.list-config li:hover {
     border-color: #0e8ba4;
     background: #0e8ba4;
 }
-.el-radio__input.is-checked + .el-radio__label {
-    color: var(--light-color);
+.el-radio__input.is-checked + .el-radio__label,
+.style-switcher-open.close-config{
+    color: var(--light-color) !important;
 }
 .radio-button {
     border: 1px solid var(--accent-color) !important;
@@ -586,6 +593,18 @@ ul.nav.list-config li:hover {
 } 
 .card-extras-header{
     background-color: var(--accent-color) !important;
+}
+.card{
+    margin-bottom: 30px !important;
+}
+.row-new{
+    margin-top: -20px;
+    margin-right: -25px;
+    margin-left: -25px;
+    background-color: #ffffff;
+    padding: 0px;
+    width: auto !important;
+    min-width: 0px !important;
 }
 .el-date-table td.current:not(.disabled) span {
     background-color: var(--primary-color);
@@ -608,7 +627,10 @@ table,
 .el-dialog__body,
 .invoice address,
 ul.nav-main li.nav-parent > a:after {
-    color: var(--dark-color);
+    color: var(--dark-color) !important;
+}
+.table{
+    color: var(--dark-color) !important;
 }
 ul.nav-main > li a,
 ul.nav-main > li.nav-active > a {
@@ -620,11 +642,11 @@ ul.nav-main li.nav-expanded > a {
 }
 .el-input__inner,
 .el-textarea__inner {
-    border: 1px solid var(--accent-color);
-    color: var(--dark-color);
-    background-color: var(--light-color);
-    transition: none;
-    border-radius: 8px;
+    border: 1px solid var(--accent-color) !important;
+    color: var(--dark-color) !important;
+    background-color: var(--light-color) !important;
+    transition: none !important;
+    border-radius: 8px !important;
 }
 .el-input__inner:hover,
 .el-textarea__inner:hover {
@@ -648,16 +670,16 @@ ul.nav-main li.nav-expanded > a {
     border: none;
 }
 .input-search-pos .el-input-group__append .btn-add-product-pos{
-    background-color: var(--primary-color);
+    background-color: var(--primary-color) !important;
     height: 36px;
-    color: var(--light-color);
-    border-top-left-radius: 0px;
-    border-bottom-left-radius: 0px;
+    color: var(--light-color) !important;
+    border-top-left-radius: 0px !important;
+    border-bottom-left-radius: 0px !important;
 }
 .el-input__inner:focus,
 .el-textarea__inner:focus {
     border-color: var(--highlight-color) !important;
-    background: #fff;
+    background: #fff !important;
     box-shadow: 
         -4px 0 var(--accent-color),   /* Borde izquierdo */
          4px 0 var(--accent-color),   /* Borde derecho */
@@ -669,7 +691,7 @@ ul.nav-main li.nav-expanded > a {
          3px -3px var(--accent-color);/* Esquina superior derecha */
 }
 .el-checkbox {
-    color: var(--dark-color);
+    color: var(--dark-color) !important;
 }
 /* scroll style */
 .additional-information::-webkit-scrollbar-thumb {
@@ -684,11 +706,8 @@ html.fixed.sidebar-white:not(.dark) .sidebar-left a:active,
 html.fixed.sidebar-white:not(.dark) .sidebar-left a:focus {
     color: var(--dark-color);
 }
-ul.nav-main li.nav-active:not(.nav-parent) > a.dashboard-link{
-    color: var(--light-color) !important;
-}
 .el-dialog {
-    border-radius: 12px;
+    border-radius: 12px !important;
     -webkit-box-shadow: none;
     box-shadow: none;
 }
@@ -714,7 +733,7 @@ ul.nav-main li.nav-description {
 }
 .card-body,
 .card.card-dashboard.border{
-    border: none !important;
+    border: 1px solid var(--accent-color);
 }
 .card .table th, .table td {
     border-top: unset;
@@ -724,8 +743,8 @@ html.sidebar-left-collapsed .sidebar-left .nav-main > li > a {
 }
 .toggle-button{
     right: -94px !important;
-    background-color: var(--accent-color) !important;
-    color: #212529 !important;
+    background-color: var(--primary-color) !important;
+    color: var(--light-color) !important;
     z-index: 1 !important;
     opacity: 0.5;
 }
@@ -735,19 +754,24 @@ html.sidebar-left-collapsed .sidebar-left .nav-main > li > a {
 .toggle-button:hover {
     background-color: var(--primary-color) !important;
     color: var(--light-color) !important;
+    opacity: 1;
 }
 .toggle-button-invoice.shift {
     background-color: var(--primary-color) !important;
     color: var(--light-color) !important;
 }
 .toggle-button.shift{
-    right: 400px !important;
+    right: 300px !important;
     background-color: var(--primary-color) !important;
     color: var(--light-color) !important;
     z-index: 1023 !important;
 }
 .toggle-button.shift:hover{
     box-shadow: none;
+}
+.toggle-button-invoice.shift {
+    right: 300px !important;
+    z-index: 1023;
 }
 .toggle-button-quotations.shift {
     right: 300px !important;
@@ -784,8 +808,8 @@ html.fixed.sidebar-white:not(.dark) .sidebar-left a {
     border-color: transparent !important;
 }
 .button-truncate .el-tooltip.fa-info-circle{
-    right: 14px !important;
-    top: 14px !important;
+    right: 8px !important;
+    top: 13px !important;
 }
 .list-products-container{
     padding-top: 10px !important;
@@ -909,7 +933,7 @@ html.fixed.sidebar-white:not(.dark) .sidebar-left a {
 }
 .header .logo-container .topbar-links:hover {
     background-color: var(--primary-color);
-    color: #fff;
+    color: #fff !important;
 }
 .sidebar-toggle {
     border-right: unset;
@@ -940,7 +964,7 @@ ul.nav-main li .nav-children li a:before {
     border: 1px solid var(--dark-color);
 }
 .badge {
-    padding: 0.7em;
+    padding: 0.7em !important;
 }
 a.text-info:hover, a.text-info:focus {
     color: var(--primary-color) !important;
@@ -999,6 +1023,10 @@ html.sidebar-light:not(.dark):not(.sidebar-green):not(.sidebar-green) ul.nav-mai
 .invoice table.table > thead:first-child > tr > th {
     border: none;
 }
+ul.nav-main li.nav-active:not(.nav-parent) > a.dashboard-link,
+html.sidebar-light:not(.dark) .style-switcher h5.title-visual{
+    color: var(--light-color);
+}
 .border.rounded-circle.text-center {
     border-radius: 5px !important;
     border: 1px solid #f0f3f4 !important;
@@ -1029,7 +1057,10 @@ html.sidebar-light:not(.dark):not(.sidebar-green):not(.sidebar-green) ul.nav-mai
     margin: 0 8px 0;
     opacity: 0;
 }
-.table th, .table td {
+.table th, .table td{
+    padding: 0.5rem;
+}
+.table-dashboard th, .table-dashboard td {
     padding: 0.5rem;
 }
 .newinvoice .table th, .newinvoice .table td {
@@ -1069,6 +1100,9 @@ span.badge.text-white.bg-success {
     background-color: #64cafc;
     border-color: #64cafc;
 } */
+.text-danger {
+    color: var(--danger) !important;
+}
 .page-header h2 {
     border-bottom: none;
 }
@@ -1099,7 +1133,7 @@ html.dark .sidebar-toggle:hover {
 }
 
 .table thead th{
-    border-bottom: 2px solid var(--light-color);
+    border-bottom: 2px solid var(--light-color) !important;
 }
 .card-header,
 .header{
@@ -1137,9 +1171,9 @@ html.fixed.sidebar-white:not(.dark) .sidebar-left, html.fixed.sidebar-white:not(
     border: 1px solid var(--accent-color) !important;
 }
 .btn-primary-pos {
-	background-color: var(--accent-color);
-    border-color: var(--light-color);
-    color: var(--primary-color);
+	background-color: var(--accent-color) !important;
+    border-color: var(--light-color) !important;
+    color: var(--primary-color) !important;
 }
 .btn-primary-pos:hover, .btn-primary-pos.hover {
     background-color: var(--primary-color);
@@ -1199,8 +1233,11 @@ ul.nav-main li.nav-parent > a:after {
 .page-header .breadcrumbs li {
     color: var(--light-color);
 }
+.page-header h2{
+    margin: 0px !important;
+}
 .text-muted {
-    color: #808a9c !important;
+    color: var(--muted) !important;
 }
 .card.card-reports .card-title {
     font-weight: bold;
@@ -1210,11 +1247,14 @@ ul.nav-main li.nav-parent > a:after {
     padding: 8px 16px;
     margin-bottom: 20px;
 }
+.el-select{
+    width: 100%;
+}
 .el-select-dropdown__item.hover, .el-select-dropdown__item:hover {
-    background-color: var(--accent-color);
+    background-color: var(--accent-color) !important;
 }
 .el-select-dropdown__item.selected {
-    color: var(--primary-color);
+    color: var(--dark-color) !important;
 }
 .row.no-gutters .col div {
     width: 100%;
@@ -1318,17 +1358,18 @@ a.ws-flotante {
     border-radius: 0 !important;
     transform: scale(0.85);
 }
-tbody tr:hover,tfoot tr:hover {
-    background: var(--light);
-}
 .card-header.bg-info {
   background: var(--dark-color) !important;
 }
 .table-responsive.payment {
     border: 1px solid var(--accent-color);
-    padding: 10px;
+    padding: 10px !important;
     background: var(--accent-color);
     border-radius: 6px;
+}
+.table>:not(caption)>*>*{
+    border: none !important;
+    background-color: transparent;
 }
 .img-scroll::-webkit-scrollbar-track {
     background: #f0f9ff !important;
@@ -1345,6 +1386,9 @@ kbd {
 }
 .avatar-uploader .el-upload{
   width: 100%;
+}
+.el-upload .el-button--primary.el-button--small{
+    margin-right: -11px;
 }
 body .v-modal {
   z-index: 2000 !important;
@@ -1383,10 +1427,13 @@ body .v-modal {
     border-right: 1px solid var(--accent-color);
 }
 .input-custom.el-input-number.is-controls-right .el-input-number__increase, .input-custom.el-input-number.is-controls-right .el-input-number__decrease {
-    height: 50%;
+    height: 50% !important;
 }
 .input-custom .el-input-number__increase {
-    top: 0;
+    top: 0 !important;
+}
+.el-input-number.is-controls-right .el-input-number__decrease{
+    top: auto !important;
 }
 .product-search-model .el-tooltip,
 .product-model .tooltips-container {
@@ -1397,19 +1444,18 @@ body .v-modal {
     transform: translateY(-50%);
     z-index: 10;
     height: 54px !important;
-    border-top-right-radius: 8px;
-    border-bottom-right-radius: 8px;
-    background-color: var(--primary-color);
-    color: var(--light-color);
+    border-radius: 0 8px 8px 0 !important;
+    background-color: var(--primary-color) !important;
+    color: var(--light-color) !important;
 }
 .more-width-input input.el-input__inner {
     margin-left: -1px !important;
 }
 .product-model .tooltips-container .el-tooltip{
     height: 26px;
-    background-color: var(--primary-color);
-    border: none;
-    color: var(--light-color);
+    background-color: var(--primary-color) !important;
+    border: none !important;
+    color: var(--light-color) !important;
 }
 .tooltips-container {
     width: 45px;
@@ -1451,7 +1497,7 @@ body .v-modal {
 .currency-symbol-span {
     position: absolute;
     top: 19px;
-    left: 6px;
+    left: 5px;
     z-index: 2;
     height: 53px;
     width: 20px;
@@ -1461,6 +1507,96 @@ body .v-modal {
     border-radius: 8px 0 0 8px;
     padding-top: 13px;
     border-right: none;
+}
+.currency-symbol-span.fast-payment{
+    top: 19px;
+    left: 6px;
+}
+.btn-warning {
+    background-color: var(--warning) !important;
+    border-color: var(--warning) !important;
+    color: #fff !important;
+}
+
+.btn-warning:hover,
+.btn-warning.hover {
+    background-color: var(--warning) !important;
+    border-color: var(--warning) !important;
+    color: #fff !important;
+    opacity: 0.8;
+}
+.btn-primary {
+    background-color: var(--primary-color) !important;
+    border-color: var(--primary-color) !important;
+    box-shadow: none;
+    color: #FFFFFF !important;
+}
+.btn-primary:hover, .btn-primary.hover{
+  background-color: var(--primary-color) !important;
+  border-color: var(--primary-color) !important;
+  box-shadow: none;
+  opacity: 0.8;
+  color: #FFFFFF !important;
+}
+.btn-primary:focus,
+.btn-primary.focus {
+    background-color: var(--primary-color) !important;
+    border-color: var(--primary-color) !important;
+    opacity: 0.7 !important;
+    box-shadow: none !important;
+    color: #FFFFFF !important;
+}
+.btn-primary:active,
+.btn-primary.active,
+.show > .btn-primary.dropdown-toggle {
+    background-color: var(--primary-color) !important;
+    border-color: var(--primary-color) !important;
+    opacity: 0.7 !important;
+}
+.btn-info {
+    background-color: var(--info) !important;
+    border-color: var(--info) !important;
+    color: #fff !important;
+}
+
+.btn-info:hover,
+.btn-info.hover {
+    background-color: var(--info) !important;
+    border-color: var(--info) !important;
+    color: #fff !important;
+    opacity: 0.8;
+}
+.btn-success,
+.el-button--success {
+    background-color: var(--success) !important;
+    border-color: var(--success) !important;
+    color: #fff !important;
+}
+
+.btn-success:hover,
+.btn-success.hover,
+.el-button--success:hover,
+.el-button--success.hover {
+    background-color: var(--success) !important;
+    border-color: var(--success) !important;
+    color: #fff !important;
+    opacity: 0.8;
+}
+.btn-danger,
+.el-button--danger {
+    background-color: var(--danger) !important;
+    border-color: var(--danger) !important;
+    color: #fff !important;
+}
+
+.btn-danger:hover,
+.btn-danger.hover,
+.el-button--danger:hover,
+.el-button--danger.hover {
+    background-color: var(--danger) !important;
+    border-color: var(--danger-dark) !important;
+    color: #fff !important;
+    opacity: 0.8;
 }
 .amount-container .el-input--small input,
 .amount-container label.control-label{
@@ -1499,6 +1635,33 @@ body .v-modal {
 }
 .print-buttons-container {
   padding: 0px;
+}
+.el-select-dropdown__item.new-option{
+    color: var(--primary);
+}
+.btn-add-new{
+    position: absolute;
+    bottom: 0.5px;
+    right: 0.5px;
+    cursor: pointer;
+    z-index: 1;
+    background: var(--light-color);
+    height: calc(100% - 12px);
+    width: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 0 8px 8px 0;
+    color: var(--muted);
+    opacity: 1;
+}
+.btn-add-new-invoice{
+    bottom: 32px;
+    right: 6px;
+    height: calc(100% - 51px);
+}
+.btn-add-new:hover{
+    color: var(--dark-color);
 }
 /* estilos login */
 .auth .form-group label{
@@ -1548,6 +1711,9 @@ body .v-modal {
 .auth .form-group .form-control::placeholder {
   color: transparent !important; 
 }
+section.auth__form-right .auth__form .auth__social a{
+    background-color: transparent !important;
+}
 @media (max-width: 800px) {
     .auth__image {
         display: none !important;
@@ -1557,6 +1723,92 @@ body .v-modal {
     }
 }
 /* fin */
+.card.card-dashboard .card-title{
+    font-size: 14px !important;
+}
+.el-select-currency{
+    position: absolute;
+    z-index: 1;
+    width: 65px;
+}
+.el-select-currency .el-input__inner{
+    border-color: transparent !important;
+    background-color: transparent !important;
+}
+.el-select-currency .el-input__inner:focus{
+    border-color: transparent !important;
+    background-color: transparent !important;
+    box-shadow: none !important;
+}
+.el-select-currency-container .input-with-select  .el-input__inner{
+    padding-left: 70px;
+}
+.card-body-down{
+    border-top: none !important;
+    border-radius: 0 0 12px 12px !important;
+}
+.sidebar-toggle-container .sidebar-toggle {
+    height: 32px !important;
+    border-right: unset;
+    border: 1px solid var(--accent-color);
+    width: 40px !important;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 8px !important;
+    margin-left: 5px;
+    background-color: transparent !important;
+    color: var(--dark-color) !important;
+}
+.sidebar-toggle-container .sidebar-toggle:hover {
+    background-color: var(--accent-color) !important;
+}
+.disable_color,
+.disable_color td{
+    color: var(--danger) !important;
+}
+.btn-add-new-product{
+    width: 18px;
+    height: 18px;
+    padding: 2px;
+    background-color: var(--primary-color);
+    border-radius: 4px;
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-left: 4px;
+    cursor: pointer;
+}
+.banner-img .avatar-uploader{
+    height: 91px;
+}
+.banner-img .avatar-uploader .el-upload{
+    height: 100%;
+}
+.banner-img .avatar-uploader .el-upload .avatar-uploader-icon{
+    line-height: 91px;
+}
+.banner-img .avatar-uploader .el-upload img.avatar{
+    height: auto;
+    object-fit: cover;
+    max-height: 91px;
+}
+.delete-logo-btn{
+    padding: 9px 12px !important;
+}
+.img-fluid-dark{
+    background-color: var(--accent-color);
+}
+.img-fluid{
+    border-color: var(--accent-color);
+}
+.img-fluid-dashed{
+    border: 2px dashed var(--accent-color);
+}
+.control-label-modifier{
+    padding-right: 14px;
+}
 html.dark .payment-container-pos {
     border-top: 3px dashed var(--borders-dark);
 }
@@ -1869,19 +2121,8 @@ html.sidebar-ligth-blue .card-header.bg-info {
   background: #00cfe8 !important;
 }
 /* -------------------------- botones -------------------------- */
-/* -------------------------- white -------------------------- */
-html.sidebar-white .el-button--primary {
-    color: #FFFFFF;
-    background-color: var(--primary-color);
-    border-color: var(--primary-color);
-}
-html.sidebar-white .el-button--primary:hover {
-    background-color: var(--primary-color);
-    opacity: 0.8 !important;
-    border-color: var(--primary-color);
-    color: #FFF;
-    transition: none;
-}
+/* -------------------------- white --------------------------*/
+
 /* --------------------------- tema light --------------------------- */
 .dropdown-menu-desktop ul li a:hover {
     background-color: var(--accent-color) !important;
@@ -1892,6 +2133,14 @@ html.sidebar-white .el-button--primary:hover {
 }
 .dropdown-menu-desktop{
     color: var(--dark-color);
+}
+.text-danger.option-delete:hover {
+    background-color: color-mix(in hsl, var(--danger) 10%, #ffffff00) !important;
+    color: var(--danger) !important;
+}
+.dialog-close-btn button{
+    border: none !important;
+    padding: 5px !important;
 }
 /* --------------------------- tema Oscuro --------------------------- */
 /* html.dark .header .logo-container .topbar-links:hover {
@@ -1924,7 +2173,7 @@ html.dark .header .logo-container, html.header-dark .header .logo-container {
 /* Dark - Background */
 html.dark,
 html.dark body {
-    background-color: var(--background-dark);
+    background-color: var(--background-dark) !important;
 }
 html.dark .card-body,
 html.dark .el-date-table td.in-range div {
@@ -1933,9 +2182,15 @@ html.dark .el-date-table td.in-range div {
 html.dark .el-date-table td.in-range div:hoverf{
     background-color: var(--accent-color);
 }
-html.dark .sidebar-toggle {
-    border: none;
-    background-color: var(--background-dark);
+html.dark .sidebar-toggle-container .sidebar-toggle {
+    border-color: var(--inputs-dark);
+    background-color: var(--background-dark) !important;
+    color: var(--accent-color) !important;
+}
+html.dark .sidebar-toggle-container .sidebar-toggle:hover {
+    border-color: var(--borders-dark);
+    background-color: var(--contents-dark) !important;
+    color: var(--light-color) !important;
 }
 html.dark ul.nav-main li.nav-active:not(.nav-parent) > a, ul.nav-main li .nav-children li.nav-active:not(.nav-parent) > a {
     box-shadow: none;
@@ -1999,7 +2254,7 @@ html.dark .page-header .breadcrumbs span {
 html.dark a,
 html.dark a:hover,
 html.dark a:focus {
-    color: var(--light-color);
+    color: var(--light-color) !important;
 }
 html.dark .row.top .col .card-body {
     color: var(--accent-color);
@@ -2030,8 +2285,8 @@ html.dark section.card-dashboard .card-body-down table tr.td-total td{
     border-bottom-left-radius: 12px !important;
 }
 html.dark section.card-dashboard .card-body-border-radius{
-    border-bottom-right-radius: 0px;
-    border-bottom-left-radius: 0px;
+    border-bottom-right-radius: 0px !important;
+    border-bottom-left-radius: 0px !important;
 }
 html.dark .card-body .border-bottom{
     border-bottom:1px solid var(--borders-dark) !important;
@@ -2047,7 +2302,7 @@ html.dark .el-input-group__prepend {
     border: 1px solid var(--borders-dark);
 }
 html.dark .el-input-group__append{
-    background-color: transparent;
+    background-color: transparent !important;
     border: none !important;
 }
 html.dark .el-input--small .el-input__inner:focus,
@@ -2070,7 +2325,7 @@ html.dark .el-message-box {
 }
 html.dark .el-select-dropdown__item.hover,
 html.dark .el-select-dropdown__item:hover {
-    background-color: var(--button-second);
+    background-color: var(--button-second) !important;
     color: var(--light-color);
 }
 html.dark .el-popper[x-placement^="bottom"] .popper__arrow {
@@ -2121,12 +2376,6 @@ html.dark .style-switcher {
     border-top: 3px solid var(--contents-dark);
     border-bottom: 3px solid var(--contents-dark);
 }
-html.dark .el-button {
-    background: var(--primary-color);
-    border: 1px solid var(--primary-color);
-    border-color: var(--primary-color);
-    color: var(--light-color);
-}
 html.dark .el-dialog {
     background: var(--contents-dark);
 }
@@ -2172,7 +2421,7 @@ html.dark .el-dropdown-menu {
 }
 html.dark .el-dropdown-menu__item:not(.is-disabled):hover,
 html.dark .el-dropdown-menu__item:focus {
-  background-color: var(--dark-color);
+  background-color: var(--button-second) !important;
   color: var(--light-color);
 }
 html.dark .btn-default:hover,
@@ -2227,8 +2476,8 @@ html.dark .el-input__inner,
 html.dark .el-textarea__inner,
 html.dark .turned-container-pos{
     border: 1px solid var(--borders-dark) !important;
-    color: var(--light-color);
-    background-color: var(--inputs-dark);
+    color: var(--light-color) !important;
+    background-color: var(--inputs-dark) !important;
 }
 html.dark .row.no-gutters .col:nth-child(1) .card div,
 html.dark .testimonial-group div .col-sm-3.pointer:nth-child(1) {
@@ -2258,15 +2507,16 @@ html.dark .form-actions .second-buton,
 html.dark .second-buton,
 html.dark .el-button,
 html.dark .btn-default{
-    background-color: var(--button-second);
-    border-color: var(--borders-dark);
+    background-color: var(--button-second) !important;
+    border-color: var(--borders-dark) !important;
+    color: var(--light-color) !important;
 }
 html.dark .form-actions .second-buton:hover,
 html.dark .second-buton:hover,
 html.dark .el-button:hover,
 html.dark .btn-default:hover{
-    background-color: var(--button-second);
-    border-color: var(--borders-dark);
+    background-color: var(--button-second) !important;
+    border-color: var(--borders-dark) !important;
     opacity: 0.8;
 }
 html.dark .el-select .el-input.is-focus .el-input__inner {
@@ -2276,6 +2526,18 @@ html.sidebar-dark .el-button--primary,
 html.sidebar-dark .btn-custom {
   color: var(--light-color);
   border-color: var(--borders-dark);
+}
+html.sidebar-white .el-button--primary {
+    color: #FFFFFF !important;
+    background-color: var(--primary-color) !important;
+    border-color: var(--primary-color) !important;
+}
+html.sidebar-white .el-button--primary:hover {
+    background-color: var(--primary-color) !important;
+    opacity: 0.8 !important;
+    border-color: var(--primary-color) !important;
+    color: #FFF !important;
+    transition: none !important;
 }
 html.dark .dropdown-menu {
     background-color: var(--contents-dark);
@@ -2294,13 +2556,13 @@ html.dark .table,
 html.dark .el-dialog__body,
 html.dark .invoice address,
 html.dark ul.nav-main li.nav-parent > a:after {
-    color: var(--light-color);
+    color: var(--light-color) !important;
     background-color: transparent !important;
 }
 html.dark .el-input-number__increase,
 html.dark .el-input-number__decrease {
-  background: var(--button-second);
-  color: var(--light-color);
+  background: var(--button-second) !important;
+  color: var(--light-color) !important;
   border: 1px solid var(--borders-dark);
 }
 html.dark .invoice table.table > thead:first-child > tr > th {
@@ -2318,7 +2580,7 @@ html.dark .table > tfoot > tr > th,
 html.dark .table > thead > tr > td,
 html.dark .table > tfoot > tr > td,
 html.dark .table-bordered {
-    border-bottom: 1px solid var(--borders-dark);
+    border-bottom: 1px solid var(--borders-dark) !important;
 }
 html.dark #select-append #custom-input #select-width{
     background-color: var(--primary-color) !important;
@@ -2355,7 +2617,7 @@ html.dark .el-collapse-item__wrap{
 html.dark #custom-select .el-input-group__prepend {
     background: var(--inputs-dark);
     color: var(--light-color);
-    border: none;
+    border: none !important;
 }
 html.dark .payment-container {
     background-color: var(--background-dark) !important;
@@ -2524,7 +2786,7 @@ html.dark .form-modern label.control-label:has(+div){
 }
 html.dark body,
 html.dark .el-tabs__item {
-    color: var(--accent-color);
+    color: var(--accent-color) !important;
 }
 html.dark .el-tag.el-tag--warning {
     background-color: var(--primary-color);
@@ -2550,7 +2812,7 @@ html.dark .form-control {
 html.dark .form-control:focus,
 html.dark .el-input__inner:focus,
 html.dark .el-textarea__inner:focus {
-    background-color: var(--contents-dark);
+    background-color: var(--contents-dark) !important;
     color: var(--light-color);
 }
 html.dark .btn-outline-secondary {
@@ -2584,7 +2846,7 @@ html.dark .dropdown-menu .dropdown-item {
     color: var(--accent-color) !important;
 }
 html.dark a.btn-light-mode{
-    color: var(--dark-color);
+    color: var(--dark-color) !important;
 }
 html.dark .card-body-down table .card-dark tr td,
 html.dark .card-body-down table .card-default tr td,
@@ -2601,7 +2863,7 @@ html.dark  .tables-restaurant .tables-quantity{
     background-color: var(--contents-dark) !important;
 }
 html.dark .el-select .el-input.is-focus .el-input__inner {
-    border-color: var(--borders-dark);
+    border-color: var(--borders-dark) ;
 }
 html.dark .el-popover {
     background: var(--contents-dark);
@@ -2650,11 +2912,11 @@ html.dark .el-popper[x-placement^="right"] .popper__arrow {
     border-right-color: var(--borders-dark);
 }
 html.dark .el-checkbox__input.is-checked .el-checkbox__inner{
-    background-color: var(--highlight-color);
-    border-color: var(--highlight-color);
+    background-color: var(--highlight-color) !important;
+    border-color: var(--highlight-color) !important;
 }
 html.dark .el-checkbox__input.is-checked+.el-checkbox__label{
-    color: var(--highlight-color);
+    color: var(--highlight-color) !important;
 }
 html.dark .table-responsive.payment,
 html.dark .payments-div,
@@ -2679,11 +2941,11 @@ html.dark .footer-card-default {
 html.dark .el-input--small .el-input__inner, 
 html.dark .el-input-group__prepend {
     background-color: var(--inputs-dark) !important;
-    border: 1px solid var(--borders-dark);
+    border: 1px solid var(--borders-dark) !important;
 }
 html.dark .footer-second-buton,
 html.dark .row-new{
-    background-color: var(--contents-dark);
+    background-color: var(--contents-dark) !important;
     border-radius: 12px;
 }
 html.dark .clearfix-default,
@@ -2753,7 +3015,8 @@ html.fixed.sidebar-white .sidebar-left a {
 }
 html.fixed.sidebar-white .sidebar-left a:hover,
 html.fixed.sidebar-white .sidebar-left a:active,
-html.fixed.sidebar-white .sidebar-left a:focus {
+html.fixed.sidebar-white .sidebar-left a:focus,
+html.dark .table>:not(caption)>*>* {
     color: var(--light-color);
 }
 html.dark .el-message--success {
@@ -2842,17 +3105,42 @@ html.dark .el-textarea__inner:focus {
         -3px -3px var(--borders-dark),/* Esquina superior izquierda */
          3px -3px var(--borders-dark);/* Esquina superior derecha */
 }
-html.dark .form-group:focus-within label.control-label,
-html.dark .form-period:focus-within label.control-label,
-html.dark .form-group:focus-within label.control-label--buys,
-html.dark .form-seller:focus-within label.control-label,
-html.dark .form-modern:focus-within label.control-label {
-    box-shadow: 
-        -4px 0 var(--borders-dark),    /* Borde izquierdo */
-         4px 0 var(--borders-dark),    /* Borde derecho */
-         0 -4px var(--borders-dark),   /* Borde superior */
-        -3px -3px var(--borders-dark), /* Esquina superior izquierda */
-         3px -3px var(--borders-dark); /* Esquina superior derecha */
+html.dark .form-group:has(
+    input:not([type="checkbox"], [type="radio"]):focus,
+    textarea:focus,
+    .el-select .el-input__inner:focus,
+    .el-textarea__inner:focus
+) label.control-label,
+html.dark .form-period:has(
+    input:not([type="checkbox"], [type="radio"]):focus,
+    textarea:focus,
+    .el-select .el-input__inner:focus,
+    .el-textarea__inner:focus
+) label.control-label,
+html.dark .form-group:has(
+    input:not([type="checkbox"], [type="radio"]):focus,
+    textarea:focus,
+    .el-select .el-input__inner:focus,
+    .el-textarea__inner:focus
+) label.control-label--buys,
+html.dark .form-seller:has(
+    input:not([type="checkbox"], [type="radio"]):focus,
+    textarea:focus,
+    .el-select .el-input__inner:focus,
+    .el-textarea__inner:focus
+) label.control-label,
+html.dark .form-modern:has(
+    input:not([type="checkbox"], [type="radio"]):focus,
+    textarea:focus,
+    .el-select .el-input__inner:focus,
+    .el-textarea__inner:focus
+) label.control-label {
+    box-shadow:
+        -4px 0 var(--borders-dark),
+        4px 0 var(--borders-dark),
+        0 -4px var(--borders-dark),
+        -3px -3px var(--borders-dark),
+        3px -3px var(--borders-dark);
 }
 .el-input-number__decrease {
     border-radius: 4px 0 0 8px;
@@ -2883,5 +3171,118 @@ html.dark .el-input.el-input--small.el-input-group.el-input-group--append .el-in
 }
 html.dark .table-hover > tbody > tr:hover > td, html.dark .table-hover > tbody > tr:hover > th{
     background-color: var(--contents-dark);
+}
+html.dark .el-dropdown-menu__item--divided:before{
+    background-color: transparent;
+}
+html.dark .el-dropdown-menu__item--divided{
+    border-color: var(--borders-dark);
+}
+html.dark .pos .product-item .card-body, 
+html.dark .product-item .card-body{
+    border: none !important;
+}
+html.dark .btn-warning {
+    background-color: var(--warning) !important;
+    border-color: var(--warning) !important;
+    color: #fff !important;
+}
+
+html.dark .btn-warning:hover,
+html.dark .btn-warning.hover {
+    background-color: var(--warning) !important;
+    border-color: var(--warning) !important;
+    color: #fff !important;
+    opacity: 0.8;
+}
+html.dark .btn-primary {
+    background-color: var(--primary-color) !important;
+    border-color: var(--primary-color) !important;
+    box-shadow: none;
+    color: #FFFFFF !important;
+}
+html.dark .btn-primary:hover, html.dark .btn-primary.hover{
+  background-color: var(--primary-color) !important;
+  border-color: var(--primary-color) !important;
+  box-shadow: none;
+  opacity: 0.8;
+  color: #FFFFFF !important;
+}
+html.dark .btn-primary:focus,
+html.dark .btn-primary.focus {
+    background-color: var(--primary-color) !important;
+    border-color: var(--primary-color) !important;
+    opacity: 0.7 !important;
+    box-shadow: none !important;
+    color: #FFFFFF !important;
+}
+html.dark .btn-primary:active,
+html.dark .btn-primary.active,
+html.dark .show > .btn-primary.dropdown-toggle {
+    background-color: var(--primary-color) !important;
+    border-color: var(--primary-color) !important;
+    opacity: 0.7 !important;
+}
+html.dark.btn-info {
+    background-color: var(--info) !important;
+    border-color: var(--info) !important;
+    color: #fff !important;
+}
+html.dark .btn-info:hover,
+html.dark .btn-info.hover {
+    background-color: var(--info) !important;
+    border-color: var(--info) !important;
+    color: #fff !important;
+    opacity: 0.8;
+}
+html.dark .btn-success,
+html.dark .el-button--success {
+    background-color: var(--success) !important;
+    border-color: var(--success) !important;
+    color: #fff !important;
+}
+
+html.dark .btn-success:hover,
+html.dark .btn-success.hover,
+html.dark .el-button--success:hover,
+html.dark .el-button--success.hover {
+    background-color: var(--success) !important;
+    border-color: var(--success) !important;
+    color: #fff !important;
+    opacity: 0.8;
+}
+html.dark .btn-danger,
+html.dark .el-button--danger {
+    background-color: var(--danger) !important;
+    border-color: var(--danger) !important;
+    color: #fff !important;
+}
+
+html.dark .btn-danger:hover,
+html.dark .btn-danger.hover,
+html.dark .el-button--danger:hover,
+html.dark .el-button--danger.hover {
+    background-color: var(--danger) !important;
+    border-color: var(--danger-dark) !important;
+    color: #fff !important;
+    opacity: 0.8;
+}
+html.dark .card-body,
+html.dark .card.card-dashboard.border{
+    border-color: transparent;
+}
+html.dark .text-danger.option-delete:hover {
+    background-color: color-mix(in hsl, var(--danger) 10%, #ffffff00) !important;
+    color: var(--danger) !important;
+}
+html.dark .promotions-section .promotions-header {
+    padding: 0 0.92rem;
+}
+html.dark .img-thumbnail, html.dark .thumbnail{
+    background-color: var(--inputs-dark);
+    border-color: var(--borders-dark);
+}
+html.dark .form-group .overlay{
+    background-color: color-mix(in hsl, var(--contents-dark) 70%, #ffffff00);
 }
 /* end */

@@ -53,16 +53,40 @@ class EcommerceController extends Controller
 
         $category = Category::where('name', $name)->first();
         
-        $dataPaginate = Item::where([['apply_store', 1], ['internal_id', '!=', null]])
-            ->orderBy('created_at', 'DESC')
+        // Obtener preferencias de configuración
+        $configEcommerce = ConfigurationEcommerce::first();
+        $preferences = $configEcommerce && $configEcommerce->preferences 
+            ? (is_string($configEcommerce->preferences) ? json_decode($configEcommerce->preferences, true) : $configEcommerce->preferences)
+            : ['show_description' => 1, 'show_stock' => 0, 'only_available_products' => 0];
+        
+        // Query base
+        $query = Item::where([['apply_store', 1], ['internal_id', '!=', null]]);
+        
+        // Filtrar solo productos disponibles si está activado
+        if (isset($preferences['only_available_products']) && $preferences['only_available_products'] == 1) {
+            $query->where('stock', '>', 0);
+        }
+        
+        $dataPaginate = $query->orderBy('created_at', 'DESC')
             ->category($category ? $category->id : null)
             ->paginate(8);
+            
         $configuration = InventoryConfiguration::first();
         $categories = Category::get();
+        
+        // Obtener los anuncios publicitarios (spots) activos
+        $spots = Promotion::where('apply_restaurant', 0)
+            ->where('type', 'spots')
+            ->where('status', 1)
+            ->orderBy('id', 'ASC')
+            ->limit(4)
+            ->get();
 
         return view('ecommerce::index', [
             'dataPaginate' => $dataPaginate,
             'configuration' => $configuration->stock_control,
+            'spots' => $spots,
+            'preferences' => $preferences
         ])->with('categories', $categories);
     }
     
@@ -316,6 +340,11 @@ class EcommerceController extends Controller
         
         if ($referer && (str_contains($referer, '/pedidos') || str_contains($referer, 'pedidos/'))) {
             return redirect('/pedidos');
+        }
+        
+        // Detectar si viene de restaurant y redirigir apropiadamente
+        if ($referer && str_contains($referer, '/restaurant')) {
+            return redirect('restaurant/list/items');
         }
         
         return redirect('ecommerce');

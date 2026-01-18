@@ -8,7 +8,6 @@
     $affected = ($note->affected_document) ?? $note->affected_document;
     $document_type_id = ($note->affected_document) ? $note->affected_document->document_type_id : $note->data_affected_document->document_type_id;
     $number = ($note->affected_document) ? $note->affected_document->number : $note->data_affected_document->number;
-    $is_credit_type_03 = $note->note_credit_type_id == '03';
 
 @endphp
 {!!  '<'.'?xml version="1.0" encoding="utf-8" standalone="no"?'.'>'  !!}
@@ -171,10 +170,10 @@
     @endif
     <cac:TaxTotal>
         <cbc:TaxAmount currencyID="{{ $document->currency_type_id }}">{{ $document->total_taxes }}</cbc:TaxAmount>
-        @if($document->total_isc > 0 || $is_credit_type_03)
+        @if($document->total_isc > 0 || ((($document->note_credit_type_id == '03') && isset($affected) ) && $affected->total_isc > 0))
         <cac:TaxSubtotal>
-            <cbc:TaxableAmount currencyID="{{ $document->currency_type_id }}">{{ $is_credit_type_03 ? 0.00 :  $document->total_base_isc }}</cbc:TaxableAmount>
-            <cbc:TaxAmount currencyID="{{ $document->currency_type_id }}">{{ $is_credit_type_03 ? 0.00 : $document->total_isc }}</cbc:TaxAmount>
+            <cbc:TaxableAmount currencyID="{{ $document->currency_type_id }}">{{ $document->total_base_isc }}</cbc:TaxableAmount>
+            <cbc:TaxAmount currencyID="{{ $document->currency_type_id }}">{{ $document->total_isc }}</cbc:TaxAmount>
             <cac:TaxCategory>
                 <cac:TaxScheme>
                     <cbc:ID>2000</cbc:ID>
@@ -197,10 +196,10 @@
             </cac:TaxCategory>
         </cac:TaxSubtotal>
         @endif
-        @if($document->total_taxed > 0 ||  $is_credit_type_03)
+        @if($document->total_taxed > 0 || (($note->note_credit_type_id == '03' && isset($affected)) && $affected->total_taxed > 0))
         <cac:TaxSubtotal>
-            <cbc:TaxableAmount currencyID="{{ $document->currency_type_id }}">{{ $is_credit_type_03 ? 0.00 : $document->total_taxed }}</cbc:TaxableAmount>
-            <cbc:TaxAmount currencyID="{{ $document->currency_type_id }}">{{ $is_credit_type_03 ? 0.00 :  $document->total_igv }}</cbc:TaxAmount>
+            <cbc:TaxableAmount currencyID="{{ $document->currency_type_id }}">{{ $document->total_taxed }}</cbc:TaxableAmount>
+            <cbc:TaxAmount currencyID="{{ $document->currency_type_id }}">{{ $document->total_igv }}</cbc:TaxAmount>
             <cac:TaxCategory>
                 <cac:TaxScheme>
                     <cbc:ID>1000</cbc:ID>
@@ -210,9 +209,9 @@
             </cac:TaxCategory>
         </cac:TaxSubtotal>
         @endif
-        @if($document->total_unaffected > 0 || $is_credit_type_03)
+        @if($document->total_unaffected > 0 || (($note->note_credit_type_id == '03' && isset($affected)) && $affected->total_unaffected > 0))
         <cac:TaxSubtotal>
-            <cbc:TaxableAmount currencyID="{{ $document->currency_type_id }}">{{ $is_credit_type_03 ? 0.00 :$document->total_unaffected }}</cbc:TaxableAmount>
+            <cbc:TaxableAmount currencyID="{{ $document->currency_type_id }}">{{ $document->total_unaffected }}</cbc:TaxableAmount>
             <cbc:TaxAmount currencyID="{{ $document->currency_type_id }}">0.00</cbc:TaxAmount>
             <cac:TaxCategory>
                 <cac:TaxScheme>
@@ -223,9 +222,9 @@
             </cac:TaxCategory>
         </cac:TaxSubtotal>
         @endif
-        @if($document->total_exonerated > 0 || $is_credit_type_03)
+        @if($document->total_exonerated > 0 || (($note->note_credit_type_id == '03' && isset($affected)) && $affected->total_exonerated > 0))
         <cac:TaxSubtotal>
-            <cbc:TaxableAmount currencyID="{{ $document->currency_type_id }}">{{ $is_credit_type_03 ? 0.00 : $document->total_exonerated }}</cbc:TaxableAmount>
+            <cbc:TaxableAmount currencyID="{{ $document->currency_type_id }}">{{ $document->total_exonerated }}</cbc:TaxableAmount>
             <cbc:TaxAmount currencyID="{{ $document->currency_type_id }}">0.00</cbc:TaxAmount>
             <cac:TaxCategory>
                 <cac:TaxScheme>
@@ -236,10 +235,10 @@
             </cac:TaxCategory>
         </cac:TaxSubtotal>
         @endif
-        @if($document->total_free > 0 || $is_credit_type_03 )
+        @if($document->total_free > 0 ||  (($note->note_credit_type_id == '03' && isset($affected)) && $affected->total_free > 0))
         <cac:TaxSubtotal>
-            <cbc:TaxableAmount currencyID="{{ $document->currency_type_id }}">{{ $is_credit_type_03 ? 0.00 : $document->total_free }}</cbc:TaxableAmount>
-            <cbc:TaxAmount currencyID="{{ $document->currency_type_id }}">{{ $is_credit_type_03 ? 0.00 :  $document->total_igv }}</cbc:TaxAmount>
+            <cbc:TaxableAmount currencyID="{{ $document->currency_type_id }}">{{ $document->total_free }}</cbc:TaxableAmount>
+            <cbc:TaxAmount currencyID="{{ $document->currency_type_id }}">{{ $document->total_igv }}</cbc:TaxAmount>
             <cac:TaxCategory>
                 <cac:TaxScheme>
                     <cbc:ID>9996</cbc:ID>
@@ -249,9 +248,9 @@
             </cac:TaxCategory>
         </cac:TaxSubtotal>
         @endif
-        @if($document->total_exportation > 0 || $is_credit_type_03)
+        @if($document->total_exportation > 0 || (($note->note_credit_type_id == '03' && isset($affected)) && $affected->total_exportation > 0))
         <cac:TaxSubtotal>
-            <cbc:TaxableAmount currencyID="{{ $document->currency_type_id }}">{{$is_credit_type_03 ? 0.00 : $document->total_exportation }}</cbc:TaxableAmount>
+            <cbc:TaxableAmount currencyID="{{ $document->currency_type_id }}">{{ $document->total_exportation }}</cbc:TaxableAmount>
             <cbc:TaxAmount currencyID="{{ $document->currency_type_id }}">0.00</cbc:TaxAmount>
             <cac:TaxCategory>
                 <cac:TaxScheme>
@@ -262,10 +261,10 @@
             </cac:TaxCategory>
         </cac:TaxSubtotal>
         @endif
-        @if($document->total_other_taxes > 0 || $is_credit_type_03)
+        @if($document->total_other_taxes > 0 || (($note->note_credit_type_id == '03' && isset($affected)) && $affected->total_other_taxes > 0))
         <cac:TaxSubtotal>
-            <cbc:TaxableAmount currencyID="{{ $document->currency_type_id }}">{{$is_credit_type_03 ? 0.00 : $document->total_other_taxes }}</cbc:TaxableAmount>
-            <cbc:TaxAmount currencyID="{{ $document->currency_type_id }}">{{ $is_credit_type_03 ? 0.00 : $document->total_base_other_taxes }}</cbc:TaxAmount>
+            <cbc:TaxableAmount currencyID="{{ $document->currency_type_id }}">{{ $document->total_other_taxes }}</cbc:TaxableAmount>
+            <cbc:TaxAmount currencyID="{{ $document->currency_type_id }}">{{ $document->total_base_other_taxes }}</cbc:TaxAmount>
             <cac:TaxCategory>
                 <cac:TaxScheme>
                     <cbc:ID>9999</cbc:ID>
@@ -275,9 +274,9 @@
             </cac:TaxCategory>
         </cac:TaxSubtotal>
         @endif
-        @if($document->total_plastic_bag_taxes > 0 || $is_credit_type_03)
+        @if($document->total_plastic_bag_taxes > 0 ||(($note->note_credit_type_id == '03' && isset($affected)) && $affected->total_plastic_bag_taxes > 0) )
         <cac:TaxSubtotal>
-            <cbc:TaxAmount currencyID="{{ $document->currency_type_id }}">{{ $is_credit_type_03 ? 0.00 : $document->total_plastic_bag_taxes }}</cbc:TaxAmount>
+            <cbc:TaxAmount currencyID="{{ $document->currency_type_id }}">{{ $document->total_plastic_bag_taxes }}</cbc:TaxAmount>
             <cac:TaxCategory>
                 <cac:TaxScheme>
                     <cbc:ID>7152</cbc:ID>

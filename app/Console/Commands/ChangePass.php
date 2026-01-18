@@ -47,11 +47,15 @@ class ChangePass extends Command
         $sites = \Hyn\Tenancy\Models\Website::all();
         $passwords = [];
         foreach($sites as $site){
-            $contra =md5(sprintf(
-                '%s.%d',
-                \Config::get('app.key'),
-                $site->id
-            ));
+            // Generar contraseña igual que Hyn Tenancy (DefaultPasswordGenerator)
+            $tenancyKey = \Config::get('tenancy.key');
+            if ($tenancyKey === null) {
+                // Compatibilidad: usa app.key + id
+                $contra = md5(sprintf('%s.%d', \Config::get('app.key'), $site->id));
+            } else {
+                // Fórmula oficial: id.uuid.created_at.key
+                $contra = md5(sprintf('%d.%s.%s.%s', $site->id, $site->uuid, (string) $site->created_at, $tenancyKey));
+            }
             $temp = [
                 'username'=>$site->uuid,
                 'password'=>$contra,
@@ -70,8 +74,28 @@ class ChangePass extends Command
 
                 }
             }
+
+            // Otorgar privilegios sobre la BD existente al usuario del tenant
+            $dbName = $site->uuid; // Se asume que el nombre de la BD es el uuid del sitio
+            foreach (['127.0.0.1'] as $host) {
+                try {
+                    // Asegurar que exista la cuenta para ese host (no falla si ya existe)
+                    $ensure = "CREATE USER IF NOT EXISTS `{$site->uuid}`@`{$host}` IDENTIFIED BY '$contra';";
+                    $this->line($ensure);
+                    \DB::update($ensure);
+
+                    // Otorgar privilegios sobre la BD
+                    $grant = "GRANT ALL PRIVILEGES ON `{$dbName}`.* TO `{$site->uuid}`@`{$host}`;";
+                    $this->line($grant);
+                    \DB::update($grant);
+                } catch (\Throwable $e) {
+                    $this->line("Error asignando permisos");
+                    $this->error("Error asignando permisos/creación de usuario {$site->uuid}@{$host} en BD {$dbName}: ".$e->getMessage());
+                }
+            }
             $this->info("Se ha ejecutado");
         }
+        $this->alert("usuario: {$site->uuid} | contraseña: {$contra}");
         $this->alert("Proceso terminado");
     }
 }

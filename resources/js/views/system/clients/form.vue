@@ -26,6 +26,11 @@
                                              :identity_document_type_id="form.identity_document_type_id"
                                              @search="searchNumber"></x-input-service>
                         </div>
+                        <small
+                            v-if="errors.number"
+                            class="form-control-feedback"
+                            v-text="errors.number[0]">
+                        </small>
                     </div>
                     <div class="col-md-6">
                         <div :class="{'has-danger': errors.name}"
@@ -65,9 +70,12 @@
                                 Nombre de Subdominio
                             </label>
                             <el-input
+                                class="subdomain-input"
                                 v-model="form.subdomain"
                                 dusk="subdomain">
-                                <template slot="append">{{ url_base }}</template>
+                                <template slot="append">
+                                    <span class="url-text-ellipsis">{{ url_base }}</span>
+                                </template>
                             </el-input>
                             <small
                                 v-if="errors.subdomain"
@@ -141,6 +149,7 @@
                             </label>
                             <el-select
                                 v-model="form.plan_id"
+                                @change="changePlan"
                                 dusk="plan_id">
                                 <el-option
                                     v-for="option in plans"
@@ -181,7 +190,42 @@
                             </small>
                         </div>
                     </div>
-                    <div class="col-md-6 center-el-checkbox mt-4">
+                    <div class="col-md-6 center-el-checkbox">
+                        <div v-if="form.plan_id" class="col-md-12 row" style="padding-left: 0;">
+                            <div class="col-md-6 mb-2 form-group">
+                                <label class="control-label">
+                                    Precio
+                                </label>
+                                <el-input
+                                    v-model="form.price"
+                                    dusk="price"/>
+                                <small
+                                    v-if="errors.price"
+                                    class="form-control-feedback"
+                                    v-text="errors.price[0]">
+                                </small>
+                            </div>
+                            <div class="col-md-6 mb-2 form-group">
+                                <label class="control-label">
+                                    Periodo
+                                </label>
+                                <el-select
+                                    v-model="form.plan_period_id"
+                                    dusk="plan_id">
+                                    <el-option
+                                        v-for="option in plan_periods"
+                                        :key="option.id"
+                                        :label="option.name"
+                                        :value="option.id">
+                                    </el-option>
+                                </el-select>
+                                <small
+                                    v-if="errors.plan_period_id"
+                                    class="form-control-feedback"
+                                    v-text="errors.plan_period_id[0]">
+                                </small>
+                            </div>
+                        </div>
                         <div :class="{'has-danger': errors.locked_emission}"
                              class="form-group">
                             <el-checkbox
@@ -204,7 +248,7 @@
                         name="1"
                         title="Módulos">
                         <div class="row">
-                            <span class="ml-4">Giro de negocio <small>(opcional)</small></span>
+                            <span class="ms-4">Giro de negocio <small>(opcional)</small></span>
                             <div class="col-12">
                                 <el-radio-group v-model="business" @change="changeModules">
                                     <el-radio :label="1">Básico</el-radio>
@@ -541,9 +585,13 @@
                                     <label class="control-label">
                                         Encriptación de correo
                                     </label>
-                                    <el-input
-                                        v-model="form.smtp_encryption">
-                                    </el-input>
+                                    <el-select
+                                        v-model="form.smtp_encryption"
+                                        style="width: 100%">
+                                        <el-option label="SSL" value="ssl"></el-option>
+                                        <el-option label="TLS" value="tls"></el-option>
+                                        <el-option label="Ninguna" value=""></el-option>
+                                    </el-select>
                                     <small
                                         v-if="errors.smtp_encryption"
                                         class="form-control-feedback"
@@ -553,10 +601,10 @@
                             </div>
 
                             <div class="col-md-6">
-                                <div class="form-group p-t-20">
+                                <div class="form-group p-t-20 mt-3">
                                     <a
                                         :href="'https://manual.uio.la/Pro7/guias-adicionales/configuracion-smtp-segura'"
-                                        class="btn btn-sm btn-outline-info"
+                                        class="btn btn-sm btn-outline-primary"
                                         target="_blank"
                                         rel="noopener noreferrer"
                                         role="button"
@@ -568,6 +616,59 @@
                         </div>
                     </el-collapse-item>
                     <!-- Configuracion de correo -->
+                    <el-collapse-item name="4"
+                                      title="Información de contacto">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div :class="{'has-danger': errors.client_name}"
+                                     class="form-group">
+                                    <label class="control-label">
+                                        Nombre del cliente
+                                    </label>
+                                    <el-input
+                                        v-model="form.client_name">
+                                    </el-input>
+                                    <small
+                                        v-if="errors.client_name"
+                                        class="form-control-feedback"
+                                        v-text="errors.client_name[0]">
+                                    </small>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div :class="{'has-danger': errors.contact_email}"
+                                     class="form-group">
+                                    <label class="control-label">
+                                        Correo de contacto
+                                    </label>
+                                    <el-input
+                                        v-model="form.contact_email">
+                                    </el-input>
+                                    <small
+                                        v-if="errors.contact_email"
+                                        class="form-control-feedback"
+                                        v-text="errors.contact_email[0]">
+                                    </small>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div :class="{'has-danger': errors.phone_ws}"
+                                     class="form-group">
+                                    <label class="control-label">
+                                        Nümero de WhatsApp
+                                    </label>
+                                    <el-input
+                                        v-model="form.phone_ws">
+                                    </el-input>
+                                    <small
+                                        v-if="errors.phone_ws"
+                                        class="form-control-feedback"
+                                        v-text="errors.phone_ws[0]">
+                                    </small>
+                                </div>
+                            </div>
+                        </div>
+                    </el-collapse-item>
 
                 </el-collapse>
 
@@ -583,7 +684,7 @@
                     </div>
                 </div>
             </div>
-            <div class="form-actions text-right pt-2">
+            <div class="form-actions text-end pt-2">
                 <el-button
                     class="second-buton"
                     @click.prevent="close()">
@@ -615,14 +716,38 @@
     background: transparent;
     right: 1px;
     width: 93px;
+    max-width: 93px;
     height: 40px;
     display: flex;
     align-items: end;
     padding-bottom: 7px;
     border: none;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    min-width: 0;
 }
 .url-container .form-group .el-input--small.el-input-group input.el-input__inner{
     border-radius: 8px;
+    padding-right: 100px;
+}
+.btn-sunat-reniec{
+    position: absolute;
+    top: 3px;
+    right: 20px;
+    height: 48px;
+}
+.url-text-ellipsis {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    min-width: 0;
+    flex: 1;
+}
+.subdomain-input .el-input-group__append{
+    padding-left: 0;
+    padding-right: 5px;
+    margin-top: 4px;
 }
 </style>
 <script>
@@ -652,6 +777,7 @@ export default {
             form: {},
             url_base: null,
             plans: [],
+            plan_periods: [],
             modules: [],
             apps: [],
             types: [],
@@ -691,6 +817,7 @@ export default {
                 this.group_pharmacy_apps = response.data.group_pharmacy_apps
                 this.group_restaurant_apps = response.data.group_restaurant_apps
                 this.regex_password_client = response.data.regex_password_client
+                this.plan_periods = response.data.plan_periods
 
             })
 
@@ -760,6 +887,8 @@ export default {
                 number: '',
                 password: null,
                 plan_id: null,
+                price: 0,
+                plan_period_id: 1,
                 locked_emission: false,
                 type: null,
                 is_update: false,
@@ -782,6 +911,12 @@ export default {
                 smtp_password: null,
                 smtp_encryption: 'ssl',
                 enable_list_product: true,
+            }
+        },
+        changePlan(){
+            if (this.form.plan_id) {
+                let plan = this.plans.find(p => p.id === this.form.plan_id);
+                this.form.price = plan.pricing;
             }
         },
         create() {

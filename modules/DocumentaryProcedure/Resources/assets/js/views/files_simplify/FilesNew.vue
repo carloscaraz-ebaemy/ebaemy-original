@@ -1,6 +1,6 @@
 <template>
     <div>
-        <div class="page-header pr-0">
+        <div class="page-header pe-0">
             <h2><a href="/documentary-procedure/files_simplify">
                 <svg xmlns="http://www.w3.org/2000/svg"
                         style="margin-top: -5px;"
@@ -22,7 +22,7 @@
         </div>
         <div class="card tab-content tab-content-default row-new mb-0">
             <!-- <div class="card-header bg-info">
-    
+
                 <h3 class="my-0">
                     {{ title }}
                 </h3>
@@ -36,13 +36,13 @@
                 >
                 -->
                 <div class="form-body row">
-    
-    
+
+
                     <!-- cliente -->
                     <div :class="{ 'has-danger': errors.person_id }"
                          class="form-group col-sm-12 col-md-6 col-lg-4 ">
-    
-                        <label class="control-label font-weight-bold text-info">
+
+                        <label class="control-label font-weight-bold">
                             Cliente <span class="text-danger">*</span>
                             <a href="#"
                                @click.prevent="showDialogNewPerson = true"
@@ -73,7 +73,7 @@
                             v-text="errors.person_id[0]"
                         ></small>
                     </div>
-    
+
                     <!-- Tipo de tramite -->
                     <div
                         :class="{ 'has-danger': errors.documentary_process_id }"
@@ -99,12 +99,12 @@
                             {{ errors.documentary_process_id[0] }}
                         </div>
                     </div>
-    
+
                     <!-- Folio -->
                     <div
                         :class="{ 'has-danger': errors.number }"
                         class="form-group col-sm-12 col-md-6 col-lg-4 ">
-    
+
                         <label class="control-label">
                             Código de expediente (interno)
                             <span class="text-danger">*</span>
@@ -117,7 +117,7 @@
                             v-text="errors.invoice[0]"
                         ></small>
                     </div>
-    
+
                     <!-- Fecha de registro -->
                     <div
                         :class="{ 'has-danger': errors.date_register }"
@@ -136,12 +136,12 @@
                             v-text="errors.date_register[0]"
                         ></small>
                     </div>
-    
+
                     <!-- >Hora de registro -->
                     <div
                         :class="{ 'has-danger': errors.time_register }"
                         class="form-group col-sm-12 col-md-3 col-lg-3 ">
-    
+
                         <label class="control-label">Hora de registro </label>
                         <el-input v-model="form.time_register"
                                   :loading="loading"
@@ -159,11 +159,11 @@
                         <div class="col-10">
                             {{titleDescription}}
                         </div>
-    
+
                     </div>
                     -->
-    
-    
+
+
                     <div class="col-12">
                         <label>
                             Procesos
@@ -188,18 +188,18 @@
                                 </thead>
                                 <tbody v-if="form.guides.length > 0">
                                 <tr v-for="(row, index) in form.guides">
-    
+
                                     <template v-if="row.visible !== false">
                                         <td> {{ index + 1 }}</td>
                                         <td>
                                             {{ row.guide }}
-    
+
                                         </td>
                                         <td>
                                             {{ row.created_at }}
                                         </td>
                                         <td>
-    
+
                                             <div
                                                 class="badge"
                                                 :style="'background-color:'+ getColorStage(row.doc_office_id)+
@@ -225,7 +225,7 @@
                                                 </span>
                                         </td>
                                         <td
-    
+
                                             class="row col-12"
                                         >
                                             <div class="col-1"
@@ -244,14 +244,14 @@
                                             </div>
                                             <div class="col-8">
                                                 <el-select
-    
+
                                                     v-model="row.documentary_guides_number_status_id"
                                                     clearable
                                                     filterable
                                                     placeholder="Estado de tramite"
                                                     @change="updateStatus(row)"
                                                 >
-    
+
                                                     <el-option
                                                         v-for="of in statusDocumentary"
                                                         :key="of.id"
@@ -265,16 +265,16 @@
                                                                 {{ of.name }}
                                                             </p>
                                                         </template>
-    
+
                                                     </el-option>
                                                 </el-select>
-    
+
                                             </div>
-    
-    
-    
-    
-    
+
+
+
+
+
                                         </td>
                                         <td>
                                             {{ getUser(row.user_id) }}
@@ -283,51 +283,45 @@
                                             {{ row.observation }}
                                         </td>
                                         <td>
-                                            <div class="dropdown">
-                                                <button id="dropdownMenuButton"
-                                                        aria-expanded="false"
-                                                        aria-haspopup="true"
-                                                        class="btn btn-default btn-sm btn-dropdown-toggle"
-                                                        data-toggle="dropdown"
-                                                        type="button">
+                                            <el-dropdown
+                                                trigger="click"
+                                                @command="handleGuideDropdownCommand($event, row, index)"
+                                            >
+                                                <el-button
+                                                    class="btn btn-default btn-sm btn-dropdown-toggle"
+                                                    size="mini"
+                                                    native-type="button"
+                                                >
                                                     <i class="fas fa-ellipsis-v"></i>
                                                     <i class="fas fa-ellipsis-h" style="display: none;"></i>
-                                                </button>
-                                                <div aria-labelledby="dropdownMenuButton"
-                                                     class="dropdown-menu">
-                                                    <button
-                                                        class="dropdown-item"
-                                                        type="button"
-                                                        @click.prevent="clickEditStep(row,index)">
+                                                </el-button>
+                                                <el-dropdown-menu slot="dropdown">
+                                                    <el-dropdown-item command="edit">
                                                         Editar/Ver
-                                                    </button>
-                                                    <button
+                                                    </el-dropdown-item>
+                                                    <el-dropdown-item
                                                         v-if="!form.is_completed"
-                                                        class="dropdown-item"
-                                                        type="button"
-                                                        @click.prevent="clickRemoveItem(index, row)">
+                                                        command="remove"
+                                                    >
                                                         Eliminar
-                                                    </button>
-                                                    <button
+                                                    </el-dropdown-item>
+                                                    <el-dropdown-item
                                                         v-if="row.id > 0"
-                                                        class="dropdown-item"
-                                                        type="button"
-                                                        @click.prevent="row=clickFileUpload(row.id)">
+                                                        command="upload"
+                                                    >
                                                         Cargar archivo
-                                                    </button>
-    
-    
-                                                </div>
-                                            </div>
-    
-    
+                                                    </el-dropdown-item>
+                                                </el-dropdown-menu>
+                                            </el-dropdown>
+
+
                                         </td>
                                     </template>
                                 </tr>
                                 </tbody>
-    
+
                             </table>
-    
+
                         </div>
                         <div v-show="data_load"
                              v-if="!form.is_completed"
@@ -338,7 +332,7 @@
                                    @click.prevent="clickAddStep">
                                     <i class="fa fa-plus font-weight-bold text-info"></i>
                                     <span style="color: #777777">Agregar Etapa</span></a>
-    
+
                             </label>
                         </div>
                     </div>
@@ -347,13 +341,13 @@
                         <table-observation></table-observation>
                     </div>
                     -->
-    
-    
+
+
                     <div class="col-6">
                         &nbsp;
                     </div>
                     <div class="row text-center col-6 p-t-20">
-    
+
                         <div class="col-6">
                             <el-button
                                 class="btn-block second-buton"
@@ -376,12 +370,12 @@
                             >
                         </div>
                     </div>
-    
-    
+
+
                 </div>
-    
+
                 <!-- </el-dialog> -->
-    
+
                 <add-process-modal
                     :guides="editGuide"
                     :visible.sync="showDialogNewProcess"
@@ -389,9 +383,9 @@
                     @closeElement="clearStep"
                     :editable="!form.is_completed"
                 >
-    
+
                 </add-process-modal>
-    
+
                 <person-form
                     :document_type_id="form.document_type_id"
                     :external="true"
@@ -405,8 +399,8 @@
                     @updateStage="updateData"
                     @closeElement="updateData"
                 ></modal-file-upload>
-    
-    
+
+
             </div>
         </div>
     </div>
@@ -415,7 +409,7 @@
 <script>
 import moment from "moment";
 // import TableArchives from "./TableArchives";
-import PersonForm from "../../../../../../../resources/js/views/tenant/persons/form.vue";
+import PersonForm from "@views/persons/form.vue";
 // import OfficesRows from './Offices.vue';
 import vue2Dropzone from 'vue2-dropzone'
 import 'vue2-dropzone/dist/vue2Dropzone.min.css'
@@ -611,6 +605,25 @@ export default {
             'loadDocumentTypes',
             'loadFiles',
         ]),
+        handleGuideDropdownCommand(command, row, index) {
+            switch (command) {
+                case 'edit':
+                    this.clickEditStep(row, index);
+                    break;
+                case 'remove':
+                    if (!this.form.is_completed) {
+                        this.clickRemoveItem(index, row);
+                    }
+                    break;
+                case 'upload':
+                    if (row.id > 0) {
+                        this.clickFileUpload(row.id);
+                    }
+                    break;
+                default:
+                    break;
+            }
+        },
         getColorStatusComputed(id){
             let stageT = this.statusDocumentary.find((it) => {
                 return it.id === id

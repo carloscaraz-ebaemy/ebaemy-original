@@ -1,6 +1,6 @@
 <template>
     <div class="persons">
-        <div class="page-header pr-0">
+        <div class="page-header pe-0">
             <h2>
                 <a :href="personUrl">
                     <svg
@@ -55,21 +55,21 @@
             </ol>
             <div class="right-wrapper pull-right">
                 <button
-                    class="btn btn-custom btn-sm  mt-2 mr-2"
+                    class="btn btn-custom btn-sm  mt-2 me-2"
                     type="button"
                     @click.prevent="clickExport()"
                 >
                     <i class="fa fa-download"></i> Exportar
                 </button>
                 <button
-                    class="btn btn-custom btn-sm  mt-2 mr-2"
+                    class="btn btn-custom btn-sm  mt-2 me-2"
                     type="button"
                     @click.prevent="clickImport()"
                 >
                     <i class="fa fa-upload"></i> Importar
                 </button>
                 <button
-                    class="btn btn-custom btn-sm  mt-2 mr-2"
+                    class="btn btn-custom btn-sm  mt-2 me-2"
                     type="button"
                     @click.prevent="clickCreate()"
                 >
@@ -84,7 +84,7 @@
             <div class="data-table-visible-columns">
                 <el-dropdown :hide-on-click="false">
                     <el-button type="secondary">
-                        Mostrar/Ocultar columnas<i
+                        Mostrar columnas<i
                             class="el-icon-arrow-down el-icon--right"
                         ></i>
                     </el-button>
@@ -105,14 +105,19 @@
                 </el-dropdown>
             </div>
             <div class="card-body">
-                <data-table :resource="resource + `/${this.type}`">
+                <data-table 
+                    :resource="resource + `/${this.type}`"
+                    :showProductFilter="true"
+                    :filterLabel="type === 'customers' ? 'Listar clientes' : 'Listar proveedores'"
+                    :filterPlaceholder="type === 'customers' ? 'Filtrar clientes' : 'Filtrar proveedores'"
+                >
                     <tr slot="heading">
                         <!-- <th>#</th> -->
                         <th>ID</th>
                         <th>Nombre</th>
-                        <th class="text-right">Cód interno</th>
-                        <th class="text-left">Tipo de documento</th>
-                        <th class="text-right">Número</th>
+                        <th class="text-end">Cód interno</th>
+                        <th class="text-start">Tipo de documento</th>
+                        <th class="text-end">Número</th>
                         <th
                             v-if="columns.person_type.visible === true"
                             class="text-center"
@@ -121,61 +126,61 @@
                         </th>
                         <th
                             v-if="columns.observation.visible === true"
-                            class="text-left"
+                            class="text-start"
                         >
                             Observaciones
                         </th>
                         <th
                             v-if="columns.zone.visible === true"
-                            class="text-left"
+                            class="text-start"
                         >
                             Zona
                         </th>
                         <th
                             v-if="columns.website.visible === true"
-                            class="text-left"
+                            class="text-start"
                         >
                             WebSite
                         </th>
                         <th
                             v-if="columns.credit_days.visible === true"
-                            class="text-right"
+                            class="text-end"
                         >
                             Días de crédito
                         </th>
                         <th
                             v-if="columns.seller.visible === true"
-                            class="text-left"
+                            class="text-start"
                         >
                             Vendedor asignado
                         </th>
                         <th
                             v-if="columns.email.visible === true"
-                            class="text-left"
+                            class="text-start"
                         >
                             Correo
                         </th>
                         <th
                             v-if="columns.telephone.visible === true"
-                            class="text-right"
+                            class="text-end"
                         >
                             Telefono
                         </th>
                         <th
                             v-if="columns.department.visible === true"
-                            class="text-left"
+                            class="text-start"
                         >
                             Departamento
                         </th>
                         <th
                             v-if="columns.province.visible === true"
-                            class="text-left"
+                            class="text-start"
                         >
                             Provincia
                         </th>
                         <th
                             v-if="columns.district.visible === true"
-                            class="text-left"
+                            class="text-start"
                         >
                             Distrito
                         </th>
@@ -184,7 +189,7 @@
                             Puntos acumulados
                         </th>
 
-                        <th class="text-right">Acciones</th>
+                        <th class="text-end">Acciones</th>
                     </tr>
 
                     <tr></tr>
@@ -195,42 +200,42 @@
                         <!-- <td>{{ index }}</td> -->
                         <td>{{ row.id }}</td>
                         <td>{{ row.name }}</td>
-                        <td class="text-right">{{ row.internal_code }}</td>
-                        <td class="text-left">{{ row.document_type }}</td>
-                        <td class="text-right">{{ row.number }}</td>
+                        <td class="text-end">{{ row.internal_code }}</td>
+                        <td class="text-start">{{ row.document_type }}</td>
+                        <td class="text-end">{{ row.number }}</td>
                         <td
                             v-if="columns.person_type.visible === true"
-                            class="text-left"
+                            class="text-start"
                         >
                             {{ row.person_type }}
                         </td>
                         <td
                             v-if="columns.observation.visible === true"
-                            class="text-left"
+                            class="text-start"
                         >
                             {{ row.observation }}
                         </td>
                         <td
                             v-if="columns.zone.visible === true"
-                            class="text-left"
+                            class="text-start"
                         >
                             {{ row.zone ? row.zone.name : "" }}
                         </td>
                         <td
                             v-if="columns.website.visible === true"
-                            class="text-left"
+                            class="text-start"
                         >
                             {{ row.website }}
                         </td>
                         <td
                             v-if="columns.credit_days.visible === true"
-                            class="text-right"
+                            class="text-end"
                         >
                             {{ row.credit_days }}
                         </td>
                         <td
                             v-if="columns.seller.visible === true"
-                            class="text-left"
+                            class="text-start"
                         >
                             {{
                                 row.seller && row.seller.name
@@ -240,19 +245,19 @@
                         </td>
                         <td
                             v-if="columns.email.visible === true"
-                            class="text-left"
+                            class="text-start"
                         >
                             {{ row.email }}
                         </td>
                         <td
                             v-if="columns.telephone.visible === true"
-                            class="text-right"
+                            class="text-end"
                         >
                             {{ row.telephone ? row.telephone : "" }}
                         </td>
                         <td
                             v-if="columns.department.visible === true"
-                            class="text-left"
+                            class="text-start"
                         >
                             {{
                                 row.department ? row.department.description : ""
@@ -260,13 +265,13 @@
                         </td>
                         <td
                             v-if="columns.province.visible === true"
-                            class="text-left"
+                            class="text-start"
                         >
                             {{ row.province ? row.province.description : "" }}
                         </td>
                         <td
                             v-if="columns.district.visible === true"
-                            class="text-left"
+                            class="text-start"
                         >
                             {{ row.district ? row.district.description : "" }}
                         </td>
@@ -275,62 +280,72 @@
                             {{ row.accumulated_points }}
                         </td>
 
-                        <td class="text-right">
-                          <el-dropdown trigger="click" placement="bottom-end">
-                            <button
-                              class="btn btn-default btn-sm btn-dropdown-toggle"
-                              type="button"
-                              id="dropdownMenuButton"
-                              aria-haspopup="true"
-                              aria-expanded="false"
+                        <td class="text-end">
+                            <el-dropdown
+                                trigger="click"
+                                @command="handleRowCommand"
                             >
-                              <i class="fas fa-ellipsis-v"></i>
-                              <i class="fas fa-ellipsis-h" style="display: none;"></i>
-                            </button>
-                        
-                            <el-dropdown-menu slot="dropdown">
-                              <el-dropdown-item
-                                v-if="row.enabled"
-                                @click.native.prevent="clickCreate(row.id)"
-                              >
-                                Editar
-                              </el-dropdown-item>
-                          
-                              <el-dropdown-item
-                                v-if="typeUser === 'admin'"
-                                @click.native.prevent="clickDelete(row.id)"
-                              >
-                                Eliminar
-                              </el-dropdown-item>
-                          
-                              <template v-if="typeUser === 'admin'">
-                                <el-dropdown-item
-                                  v-if="row.enabled"
-                                  @click.native.prevent="clickDisable(row.id)"
+                                <button
+                                    class="btn btn-default btn-sm btn-dropdown-toggle"
+                                    type="button"
                                 >
-                                  Inhabilitar
-                                </el-dropdown-item>
-                                <el-dropdown-item
-                                  v-else
-                                  @click.native.prevent="clickEnable(row.id)"
-                                >
-                                  Habilitar
-                                </el-dropdown-item>
-                              </template>
-                          
-                              <el-dropdown-item
-                                @click.native.prevent="clickBarcode(row)"
-                              >
-                                Cod. Barras
-                              </el-dropdown-item>
-                          
-                              <el-dropdown-item
-                                @click.native.prevent="clickPrintBarcode(row)"
-                              >
-                                Etiquetas
-                              </el-dropdown-item>
-                            </el-dropdown-menu>
-                          </el-dropdown>
+                                    <i class="fas fa-ellipsis-v"></i>
+                                    <i class="fas fa-ellipsis-h" style="display: none;"></i>
+                                </button>
+                                <el-dropdown-menu slot="dropdown" class="actions-dropdown">
+                                  <el-dropdown-item
+                                    v-if="row.enabled"
+                                    :command="{ action: 'edit', id: row.id }"
+                                  >
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon icon-tabler icons-tabler-outline icon-tabler-edit me-2"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M7 7h-1a2 2 0 0 0 -2 2v9a2 2 0 0 0 2 2h9a2 2 0 0 0 2 -2v-1" /><path d="M20.385 6.585a2.1 2.1 0 0 0 -2.97 -2.97l-8.415 8.385v3h3l8.385 -8.415z" /><path d="M16 5l3 3" /></svg>
+                                    Editar
+                                  </el-dropdown-item>
+                              
+                                  <el-dropdown-item
+                                    :command="{ action: 'barcode', row }"
+                                  >
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon icon-tabler icons-tabler-outline icon-tabler-barcode me-2"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M4 7v-1a2 2 0 0 1 2 -2h2" /><path d="M4 17v1a2 2 0 0 0 2 2h2" /><path d="M16 4h2a2 2 0 0 1 2 2v1" /><path d="M16 20h2a2 2 0 0 0 2 -2v-1" /><path d="M5 11h1v2h-1z" /><path d="M10 11l0 2" /><path d="M14 11h1v2h-1z" /><path d="M19 11l0 2" /></svg>
+                                    Cod. Barras
+                                  </el-dropdown-item>
+                              
+                                  <el-dropdown-item
+                                    :command="{ action: 'printBarcode', row }"
+                                  >
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon icon-tabler icons-tabler-outline icon-tabler-tags"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M3 8v4.172a2 2 0 0 0 .586 1.414l5.71 5.71a2.41 2.41 0 0 0 3.408 0l3.592 -3.592a2.41 2.41 0 0 0 0 -3.408l-5.71 -5.71a2 2 0 0 0 -1.414 -.586h-4.172a2 2 0 0 0 -2 2z" /><path d="M18 19l1.592 -1.592a4.82 4.82 0 0 0 0 -6.816l-4.592 -4.592" /><path d="M7 10h-.01" /></svg>
+                                    Etiquetas
+                                  </el-dropdown-item>
+                              
+                                  <el-dropdown-item divided />
+                              
+                                  <template v-if="typeUser === 'admin'">
+                                    <el-dropdown-item
+                                      v-if="row.enabled"
+                                      :command="{ action: 'disable', id: row.id }"
+                                      class="text-danger option-delete"
+                                    >
+                                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon icon-tabler icons-tabler-outline icon-tabler-ban me-2"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M12 12m-9 0a9 9 0 1 0 18 0a9 9 0 1 0 -18 0" /><path d="M5.7 5.7l12.6 12.6" /></svg>
+                                      Inhabilitar
+                                    </el-dropdown-item>
+                                
+                                    <el-dropdown-item
+                                      v-else
+                                      :command="{ action: 'enable', id: row.id }"
+                                    >
+                                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon icon-tabler icons-tabler-outline icon-tabler-circle-check me-2"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M12 12m-9 0a9 9 0 1 0 18 0a9 9 0 1 0 -18 0" /><path d="M9 12l2 2l4 -4" /></svg>
+                                      Habilitar
+                                    </el-dropdown-item>
+                                  </template>
+                              
+                                  <el-dropdown-item
+                                    v-if="typeUser === 'admin'"
+                                    :command="{ action: 'delete', id: row.id }"
+                                    class="text-danger option-delete"
+                                  >
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon icon-tabler icons-tabler-outline icon-tabler-trash me-2"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M4 7l16 0" /><path d="M10 11l0 6" /><path d="M14 11l0 6" /><path d="M5 7l1 12a2 2 0 0 0 2 2h8a2 2 0 0 0 2 -2l1 -12" /><path d="M9 7v-3a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v3" /></svg>
+                                    Eliminar
+                                  </el-dropdown-item>
+                                </el-dropdown-menu>
+                            </el-dropdown>
                         </td>
                     </tr>
                 </data-table>
@@ -355,11 +370,6 @@
         </div>
     </div>
 </template>
-<style>
-.dropdown-menu.show{
-    max-height: 125px;
-}
-</style>
 <script>
 import PersonsForm from "./form.vue";
 import PersonsImport from "./import.vue";
@@ -484,6 +494,37 @@ export default {
                 .catch(error => {
                     console.error(error);
                 });
+        },
+
+        handleRowCommand(command) {
+            if (!command || !command.action) {
+                return;
+            }
+
+            const { action, id, row } = command;
+
+            switch (action) {
+                case "edit":
+                    this.clickCreate(id);
+                    break;
+                case "delete":
+                    this.clickDelete(id);
+                    break;
+                case "disable":
+                    this.clickDisable(id);
+                    break;
+                case "enable":
+                    this.clickEnable(id);
+                    break;
+                case "barcode":
+                    this.clickBarcode(row);
+                    break;
+                case "printBarcode":
+                    this.clickPrintBarcode(row);
+                    break;
+                default:
+                    break;
+            }
         },
 
         clickCreate(recordId = null) {

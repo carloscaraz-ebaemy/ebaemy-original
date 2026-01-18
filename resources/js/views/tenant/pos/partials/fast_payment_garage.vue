@@ -20,14 +20,14 @@
         <div class="col-12 p-0">
             <div class="row m-0 pt-2 pb-0">
                 <div class="col-md-4 d-flex px-0">
-                    <div class="col-md-6 pl-2 pr-0">
+                    <div class="col-md-6 ps-2 pe-0">
                         <el-select v-model="form.document_type_id" size="small" @change="filterSeries" class="">
                             <el-option label="FACTURA" value="01"></el-option>
                             <el-option label="BOLETA" value="03"></el-option>
                             <el-option label="N. VENTA" value="80"></el-option>
                         </el-select>
                     </div>
-                    <div class="col-md-6 pr-0">
+                    <div class="col-md-6 pe-0">
                         <el-select v-model="form.series_id" class="" style="height: 30px;">
                             <el-option v-for="option in series"
                                        :key="option.id"
@@ -77,8 +77,8 @@
                 </div>
             </div>
             <div class="row d-flex align-items-end mb-1 px-2">
-                <div class="col-md-4">
-                    <span slot="prepend" style="px-1" class="currency-symbol-span">{{ currencyTypeActive.symbol }}</span>
+                <div class="col-md-4 position-relative">
+                    <span slot="prepend" style="px-1" class="currency-symbol-span fast-payment">{{ currencyTypeActive.symbol }}</span>
                     <div class="form-group amount-container">
                         <label class="control-label mb-0">Ingrese monto</label>                        
                         <el-input ref="enter_amount"
@@ -88,7 +88,7 @@
                         </el-input>
                     </div>
                 </div>
-                <div class="col-md-4" v-if="enabled_discount">
+                <div class="col-md-4 position-relative" v-if="enabled_discount">
                     <span slot="prepend" style="px-1" class="currency-symbol-span">{{
                         (discount_type === '01') ? currencyTypeActive.symbol : '%'
                     }}
@@ -117,16 +117,16 @@
                     </div>
                 </div>
             </div>
-            <div class="row px-2 pt-3">
+            <div class="row px-2 pt-3 col-12">
                 <div class="col-md-8 d-flex px-0">
-                    <div class="col-md-6" v-if="!disabledDiscountForSeller">
+                    <div class="col-md-6 px-2" v-if="!disabledDiscountForSeller">
                         <el-button 
                             class="btn-warning w-100" 
                             @click="toggleDiscount">
                             {{ enabled_discount ? 'Quitar Descuento' : 'Agregar Descuento' }}
                         </el-button>
                     </div>
-                    <div class="col-md-6">
+                    <div class="col-md-6 px-2">
                         <el-button 
                             class="btn-primary w-100" 
                             @click="clickAddPayment()">
@@ -134,9 +134,9 @@
                         </el-button>
                     </div>
                 </div>
-                <div class="col-md-4 w-50 m-auto padding-top-mb" v-if="businessTurns.active">
+                <div class="col-md-4 padding-top-mb px-1" v-if="businessTurns.active">
                     <el-button 
-                        class="btn-info w-100"
+                        class="btn-info w-100 px-2"
                         @click="openPlateNumberDialog">
                         Agregar Placa
                     </el-button>
@@ -252,7 +252,7 @@
                             <div class="col-6 py-1">
                                 <p class="font-weight-semibold mb-0">SUBTOTAL</p>
                             </div>
-                            <div class="col-6 py-1 text-right">
+                            <div class="col-6 py-1 text-end">
                                 <p class="font-weight-semibold mb-0">
                                     {{ currencyTypeActive.symbol }}
                                     {{ form.total_taxed }}
@@ -263,7 +263,7 @@
                             <div class="col-6 py-1">
                                 <p class="font-weight-semibold mb-0">IGV</p>
                             </div>
-                            <div class="col-6 py-1 text-right">
+                            <div class="col-6 py-1 text-end">
                                 <p class="font-weight-semibold mb-0">
                                     {{ currencyTypeActive.symbol }}
                                     {{ form.total_igv }}
@@ -274,7 +274,7 @@
                             <div class="col-6 py-1">
                                 <p class="font-weight-semibold mb-0">ICBPER</p>
                             </div>
-                            <div class="col-6 py-1 text-right">
+                            <div class="col-6 py-1 text-end">
                                 <p class="font-weight-semibold mb-0">
                                     {{ currencyTypeActive.symbol }}
                                     {{ form.total_plastic_bag_taxes }}
@@ -287,7 +287,7 @@
                             <div class="col-6 py-1">
                                 <p class="font-weight-semibold mb-0">SUBTOTAL</p>
                             </div>
-                            <div class="col-6 py-1 text-right">
+                            <div class="col-6 py-1 text-end">
                                 <p class="font-weight-semibold mb-0">
                                     {{ currencyTypeActive.symbol }} {{ form.total_taxed }}
                                 </p>
@@ -297,7 +297,7 @@
                             <div class="col-6 py-1">
                                 <p class="font-weight-semibold mb-0">IGV</p>
                             </div>
-                            <div class="col-6 py-1 text-right">
+                            <div class="col-6 py-1 text-end">
                                 <p class="font-weight-semibold mb-0">
                                     {{ currencyTypeActive.symbol }}{{ form.total_igv }}
                                 </p>
@@ -322,13 +322,13 @@
                             <el-button
                                 :disabled="button_payment"
                                 :loading="loading_submit"
-                                class="submit btn btn-block py-3 text-white"
+                                class="submit btn btn-block py-3 text-white w-100"
                                 :class="{'btn-warning': form.total > 0, 'bg-dark': form.total <= 0}"
                                 @click="clickPayment"
                             >                                
                                 PAGAR
                                 <b class="font-weight-semibold mb-0">{{ currencyTypeActive.symbol }} {{ form.total }}</b>
-                                <i class="fas fa-wallet ml-2"></i>
+                                <i class="fas fa-wallet ms-2"></i>
                             </el-button>
 
                         </div>
@@ -344,7 +344,7 @@
                             >
                                 CANCELAR
                             </el-button> -->
-                            <button class="btn btn-link text-danger btn-block"
+                            <button class="btn btn-link text-danger btn-block w-100"
                                 :loading="loading_submit_cancel"
                                 @click="clickCancel">Cancelar Compra
                             </button>

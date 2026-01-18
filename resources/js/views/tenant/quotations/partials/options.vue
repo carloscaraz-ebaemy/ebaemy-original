@@ -551,7 +551,7 @@ import SeriesForm from "./series_form.vue";
 import moment from "moment";
 import {mapActions, mapState} from "vuex/dist/vuex.mjs";
 import {functions} from '../../../../mixins/functions';
-import QrApi from '@viewsModuleQrApi/QrApiTemplate'
+import QrApi from '@viewsModuleQrApi/QrApiTemplate.vue'
 
 export default {
     components: {DocumentOptions, SaleNoteOptions, SeriesForm, QrApi},

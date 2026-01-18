@@ -168,6 +168,11 @@ ul.nav-main li.nav-parent > a:after {
 .el-checkbox__inner:hover {
     border-color: var(--primary-color);
 }
+html.fixed.sidebar-white:not(.dark) .sidebar-left,
+html.fixed.sidebar-white:not(.dark) .sidebar-header, 
+html.fixed.sidebar-white:not(.dark) .sidebar-left .nano {
+  background-color: #ffffff !important;
+}
 html.fixed.sidebar-white .sidebar-left a:hover,
 html.fixed.sidebar-white .sidebar-left a:active,
 html.fixed.sidebar-white .sidebar-left a:focus {
@@ -192,6 +197,9 @@ ul.nav-main li.nav-description {
 }
 .border-left {
     border-left: none !important;
+}
+.card{
+    margin-bottom: 15px;
 }
 .card.card-dashboard {
     -webkit-box-shadow: none;
@@ -296,8 +304,9 @@ html.sidebar-left-collapsed .sidebar-left .nav-main > li > a {
     color: #fc4f4b;
     font-weight: bold;
 }
-.disable_color {
-    color: #fc4f4b;
+.disable_color,
+.disable_color td{
+    color: var(--danger) !important;
 }
 .el-date-table td.today span {
     color: var(--primary-color);
@@ -375,6 +384,9 @@ html.sidebar-left-collapsed .sidebar-left .nano:hover {
 .auth .form-group .form-control::placeholder {
   color: transparent !important; 
 }
+section.auth__form-right .auth__form .auth__social a{
+    background-color: transparent !important;
+}
 @media (max-width: 800px) {
     .auth__image {
         display: none !important;
@@ -449,6 +461,7 @@ span.badge.text-white.bg-success {
 }
 .page-header h2 {
     border-bottom: none;
+    margin: 0 !important;
 }
 .page-header {
     box-shadow: none !important;
@@ -457,13 +470,6 @@ span.badge.text-white.bg-success {
 .logo-container .fa-bullseye:before {
     content: "\f0c9";
 }
-.sidebar-toggle:hover {
-    background-color: #f0f3f4;
-}
-html.dark .sidebar-toggle:hover {
-    background-color: #161d31;
-}
-
 .notifications a.notification-icon.text-secondary {
     color: #60769a !important;
 }
@@ -510,8 +516,8 @@ html.sidebar-light:not(.dark) .page-header .breadcrumbs span {
 }
 .card.card-reports .card-title {
     font-weight: bold;
-    color: #001f83;
-    background: #e8f1ff;
+    color: var(--dark-color);
+    background: var(--light-color);
     border-radius: 4px;
     padding: 8px 16px;
     margin-bottom: 20px;
@@ -650,6 +656,10 @@ html.fixed.sidebar-white:not(.dark) .sidebar-left a{
 }
 .tab-content-light {
     padding: 0px !important;
+}
+ul.nav-main li.nav-active:not(.nav-parent) > a.dashboard-link,
+html.sidebar-light:not(.dark) .style-switcher h5.title-visual{
+    color: #fff;
 }
 html.dark .tab-content-light {
     background-color: transparent !important;
@@ -814,6 +824,23 @@ html.sidebar-gray ul.nav-main li .nav-children li a:after {
     position: absolute;
     right: 37px;
     top: 46px;
+}
+.btn-add-new-product{
+    width: 18px;
+    height: 18px;
+    padding: 2px;
+    background-color: var(--primary-color);
+    border-radius: 4px;
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-left: 4px;
+    cursor: pointer;
+}
+.dialog-close-btn button{
+    border: none !important;
+    padding: 5px !important;
 }
 /************************************ tema verde ************************************/
 /* header */
@@ -1084,7 +1111,32 @@ html.sidebar-white .el-button--primary:hover, .btn-custom:hover, .btn-primary:ho
         }
     }
 }
-
+.sidebar-toggle-container .sidebar-toggle {
+    height: 32px !important;
+    border-right: unset;
+    border: 1px solid var(--light-color);
+    width: 40px !important;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 4px !important;
+    margin-left: 5px;
+    background-color: transparent !important;
+    color: var(--dark-color) !important;
+}
+.sidebar-toggle-container .sidebar-toggle:hover {
+    background-color: var(--light-color) !important;
+}
+.el-tabs__content{
+    padding: 4px;
+}
+.text-danger.option-delete:hover {
+    background-color: color-mix(in hsl, var(--danger) 10%, #ffffff00) !important;
+    color: var(--danger) !important;
+}
+.style-switcher-open.close-config{
+    color: var(--light-color);
+}
 /* modo oscuro */
 html.dark .table-responsive.payment {
     border: 1px solid var(--inputs-dark);
@@ -1316,6 +1368,7 @@ html.dark .el-input__inner, html.dark .el-textarea__inner {
 html.dark .card-body, html.dark .card-footer {
     background: var(--contents-dark) !important;
     border-color: var(--borders-dark) !important;
+
 }
 html.dark .pos .product-item .card-body, .product-item .card-body {
     border: 1px solid var(--accent-color) !important;
@@ -1419,6 +1472,14 @@ html.dark .table-hover > tbody > tr:hover > td, html.dark .table-hover > tbody >
 }
 html.dark tbody tr:hover, html.dark tfoot tr:hover{
     background: transparent !important;
+}
+html.dark .sidebar-toggle-container .sidebar-toggle {
+    border-color: var(--borders-dark) !important;
+    color: var(--accent-color) !important;
+}
+html.dark .sidebar-toggle-container .sidebar-toggle:hover {
+    background-color: var(--inputs-dark) !important;
+    color: var(--light-color) !important;
 }
 @media only screen and (min-width: 391px){
     .card-body-invoice div .row .filter-invoice{

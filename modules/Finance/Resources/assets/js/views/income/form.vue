@@ -1,6 +1,6 @@
 <template>
     <div>
-        <div class="page-header pr-0">
+        <div class="page-header pe-0">
             <h2><a href="/finances/income">
                 <svg  xmlns="http://www.w3.org/2000/svg" style="margin-top: -5px;" width="24"  height="24"  viewBox="0 0 24 24"  fill="none"  stroke="currentColor"  stroke-width="2"  stroke-linecap="round"  stroke-linejoin="round"  class="icon icon-tabler icons-tabler-outline icon-tabler-calculator"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M4 3m0 2a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v14a2 2 0 0 1 -2 2h-12a2 2 0 0 1 -2 -2z" /><path d="M8 7m0 1a1 1 0 0 1 1 -1h6a1 1 0 0 1 1 1v1a1 1 0 0 1 -1 1h-6a1 1 0 0 1 -1 -1z" /><path d="M8 14l0 .01" /><path d="M12 14l0 .01" /><path d="M16 14l0 .01" /><path d="M8 17l0 .01" /><path d="M12 17l0 .01" /><path d="M16 17l0 .01" /></svg>
             </a></h2>
@@ -103,26 +103,26 @@
                                 <tbody>
                                     <tr v-for="(row, index) in form.payments" :key="index">
                                         <td>
-                                            <div class="form-group mb-2 mr-2">
+                                            <div class="form-group mb-2 me-2">
                                                 <el-select v-model="row.payment_method_type_id" >
                                                     <el-option v-for="option in payment_method_types" :key="option.id" :value="option.id" :label="option.description"></el-option>
                                                 </el-select>
                                             </div>
                                         </td>
                                         <td>
-                                            <div class="form-group mb-2 mr-2">
+                                            <div class="form-group mb-2 me-2">
                                                 <el-select v-model="row.payment_destination_id" filterable :disabled="row.payment_destination_disabled">
                                                     <el-option v-for="option in payment_destinations" :key="option.id" :value="option.id" :label="option.description"></el-option>
                                                 </el-select>
                                             </div>
                                         </td>
                                         <td>
-                                            <div class="form-group mb-2 mr-2"  >
+                                            <div class="form-group mb-2 me-2">
                                                 <el-input v-model="row.reference"></el-input>
                                             </div>
                                         </td>
                                         <td>
-                                            <div class="form-group mb-2 mr-2" >
+                                            <div class="form-group mb-2 me-2">
                                                 <el-input v-model="row.payment"></el-input>
                                             </div>
                                         </td>
@@ -152,7 +152,7 @@
                                             <tr>
                                                 <th>#</th>
                                                 <th class="font-weight-bold">Descripción</th>
-                                                <th class="text-right font-weight-bold">Total</th>
+                                                <th class="text-end font-weight-bold">Total</th>
                                                 <th></th>
                                             </tr>
                                         </thead>
@@ -160,8 +160,8 @@
                                             <tr v-for="(row, index) in form.items" :key="index">
                                                 <td>{{ index + 1 }}</td>
                                                 <td>{{ row.description }}</td>
-                                                <td class="text-right">{{ currency_type.symbol }} {{ row.total }}</td>
-                                                <td class="text-right">
+                                                <td class="text-end">{{ currency_type.symbol }} {{ row.total }}</td>
+                                                <td class="text-end">
                                                     <button type="button" class="btn waves-effect waves-light btn-xs btn-danger" @click.prevent="clickRemoveItem(index)">x</button>
                                                 </td>
                                             </tr>
@@ -170,11 +170,11 @@
                                 </div>
                             </div>
                             <div class="col-md-12">
-                                <h3 class="text-right" v-if="form.total > 0"><b>TOTAL: </b>{{ currency_type.symbol }} {{ form.total }}</h3>
+                                <h3 class="text-end" v-if="form.total > 0"><b>TOTAL: </b>{{ currency_type.symbol }} {{ form.total }}</h3>
                             </div>
                         </div>
                     </div>
-                    <div class="form-actions text-right mt-4">
+                    <div class="form-actions d-flex justify-content-between mt-4">
                         <el-button class="second-buton btn btn-default second-buton-default" @click.prevent="close()">Cancelar</el-button>
                         <el-button type="primary" class="btn btn-primary btn-submit-default" native-type="submit" :loading="loading_submit" v-if="form.items.length > 0">Generar</el-button>
                     </div>

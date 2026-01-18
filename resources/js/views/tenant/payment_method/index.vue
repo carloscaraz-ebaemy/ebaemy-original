@@ -1,6 +1,6 @@
 <template>
   <div>
-    <div class="page-header pr-0">
+    <div class="page-header pe-0">
       <h2><a href="/dashboard"><i class="fas fa-tachometer-alt"></i></a></h2>
       <ol class="breadcrumbs">
           <li class="active"><span> Listado de métodos de pago
@@ -9,6 +9,15 @@
             </el-tooltip>
           </span></li>
       </ol>
+      <div class="right-wrapper pull-right">
+        <button
+          type="button"
+          class="btn btn-custom btn-sm mt-2 me-2"
+          @click.prevent="clickCreate()"
+        >
+          <i class="fa fa-plus-circle"></i> Nuevo
+        </button>
+      </div>
   </div>
     <div class="card tab-content-default row-new">
       <!-- <div class="card-header bg-info">
@@ -18,18 +27,7 @@
           </el-tooltip>
         </h3>
       </div> -->
-      <div class="card-body">
-        <div class="row">
-          <div class="col">
-            <button
-              type="button"
-              class="btn btn-custom btn-sm mt-2 mr-2"
-              @click.prevent="clickCreate()"
-            >
-              <i class="fa fa-plus-circle"></i> Nuevo
-            </button>
-          </div>
-        </div>
+      <div class="card-body">        
         <div class="col-md-12">
         <div class="scroll-shadow shadow-left" v-show="showLeftShadow"></div>
         <div class="scroll-shadow shadow-right" v-show="showRightShadow"></div>
@@ -41,7 +39,7 @@
                 <th>Código</th>
                 <th width="50%" >Descripción</th>
                 <th width="20%" class="text-center">Activo</th>
-                <th class="text-right">Acciones</th>
+                <th class="text-end">Acciones</th>
               </tr>
             </thead>
             <tbody>
@@ -50,10 +48,10 @@
                 <td>{{ row.id }}</td>
                 <td>{{ row.description }}</td>
                 <td class="text-center">{{ row.active }}</td>
-                <td class="text-right">
+                <td class="text-end">
                   <button
                     type="button"
-                    class="btn waves-effect waves-light btn-xs btn-info"
+                    class="btn waves-effect waves-light btn-xs btn-info me-1"
                     @click.prevent="clickCreate(row.id)"
                   >Editar</button>
   

@@ -147,7 +147,7 @@
 
 <script>
 import {mapState, mapActions} from "vuex/dist/vuex.mjs";
-import QrApi from '@viewsModuleQrApi/QrApiTemplate'
+import QrApi from '@viewsModuleQrApi/QrApiTemplate.vue'
 
 export default {
     props: ['showDialog',

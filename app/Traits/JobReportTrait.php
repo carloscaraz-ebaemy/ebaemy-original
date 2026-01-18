@@ -2,7 +2,8 @@
 
 namespace App\Traits;
 
-
+use App\CoreFacturalo\Helpers\Storage\StorageDocument;
+use App\Models\System\JobBatchingTray;
 use Illuminate\Database\Eloquent\Builder;
 use Hyn\Tenancy\Models\Website;
 use Hyn\Tenancy\Environment;
@@ -12,12 +13,16 @@ use App\Models\Tenant\{
     Company,
     Establishment,
 };
+use Illuminate\Bus\Batch;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
-
+use Illuminate\Support\Facades\Storage;
+use ZipArchive;
 
 trait JobReportTrait
 {
+    use StorageDocument;
     
                 
     /**
@@ -140,6 +145,8 @@ trait JobReportTrait
     }
 
     
+
+    
     /**
      *
      * @param  string $format
@@ -199,5 +206,67 @@ trait JobReportTrait
     public function logout()
     {
         Auth::logout();
+    }
+
+    public function jobBatchFinished(Batch $batch, int $trayId, int $website_id,$request)
+    {
+        $website = $this->findWebsite($website_id);
+        $tenancy = app(Environment::class);
+        $tenancy->tenant($website);
+        $type = $request['type'];
+        $type_prefix = ($type == 'sale') ? 'ventas_' : 'compras_';
+        $path = $this->getReportPath('zip');
+        $disk = Storage::disk('tenant');
+        $tray = $this->findDownloadTray($trayId);
+
+
+        $filename = $type_prefix . 'report_general_items_'.date('YmdHis').'-' .$tray->user_id;
+
+        $files = JobBatchingTray::where('job_batch_id', $batch->id);
+
+        $diskPath = $disk->path('') . $path;
+
+        if (!$disk->exists($path)) {
+            $disk->makeDirectory($path);
+        }
+
+        $pathZip = $diskPath  . DIRECTORY_SEPARATOR . $filename. '.zip';
+        $zip = new ZipArchive;
+        Log::info('Creating final zip at path: ' . $pathZip);
+
+        if ($zip->open($pathZip, ZipArchive::CREATE | ZipArchive::OVERWRITE) === true) {
+            foreach ($files->get() as $file) {
+                $ouput = $disk->get(DIRECTORY_SEPARATOR.$this->getReportPath($request['format']).DIRECTORY_SEPARATOR.$file->generated_filename);
+                $zip->addFromString($file->generated_filename, $ouput);
+            }
+            $zip->close();
+        }
+
+
+        $tray->file_name = $filename;
+        $tray->date_end = date('Y-m-d H:i:s');
+        $tray->status = 'FINISHED';
+        $tray->format = 'zip';
+        $tray->path = $path;
+        $tray->save();
+        $files->delete();
+
+    }
+
+    public function jobBatchFailed($batch_id, $tray_id)
+    {
+        DB::table('job_batches')->where('id', $batch_id)->delete();
+
+        // Borrar los jobs pendientes del batch (si usas base de datos)
+        DB::table('jobs')->where('payload', 'like', "%{$batch_id}%")->delete();
+
+        // Borrar los jobs fallidos asociados
+        DB::table('failed_jobs')->where('payload', 'like', "%{$batch_id}%")->delete();
+
+        $tray = $this->findDownloadTray($tray_id);
+        $tray->date_end = date('Y-m-d H:i:s');
+        $tray->status = 'FAILED';
+        $tray->save();
+
     }
 }

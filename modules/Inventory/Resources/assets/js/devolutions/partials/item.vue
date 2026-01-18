@@ -29,20 +29,22 @@
                         </div>
                     </div>
 
-                    <div class="col-md-3 col-sm-3">
-                        <div class="form-group" :class="{'has-danger': errors.quantity}">
-
+                    <div class="col-md-3 col-sm-3 py-0">
+                        <div class="form-group" :class="{ 'has-danger': errors.quantity }">
                             <label class="control-label">Cantidad</label>
-                            <el-input v-model="form.quantity" :disabled="form.item.calculate_quantity"
-                                      @blur="validateQuantity">
-                                <el-button slot="prepend" icon="el-icon-minus" @click="clickDecrease"
-                                           :disabled="form.quantity < 0.01 || form.item.calculate_quantity"></el-button>
-                                <el-button slot="append" icon="el-icon-plus" @click="clickIncrease"
-                                           :disabled="form.item.calculate_quantity"></el-button>
-                            </el-input>
-                            <small class="form-control-feedback" v-if="errors.quantity"
-                                   v-text="errors.quantity[0]"></small>
-
+                            <el-input-number
+                                v-model="form.quantity"
+                                ref="inputQuantity"
+                                :min="0.01"
+                                :step="1"
+                                :disabled="form.item.calculate_quantity"
+                                @change="calculateTotal"
+                            ></el-input-number>
+                            <small
+                                v-if="errors.quantity"
+                                class="form-control-feedback"
+                                v-text="errors.quantity[0]"
+                            ></small>
                         </div>
                     </div>
 
@@ -64,8 +66,8 @@
 
                 </div>
             </div>
-            <div class="form-actions text-right pt-2">
-                <el-button @click.prevent="close()">Cerrar</el-button>
+            <div class="form-actions text-end pt-2">
+                <el-button class="me-2" @click.prevent="close()">Cerrar</el-button>
                 <el-button class="add" type="primary" native-type="submit" v-if="form.item_id">{{ titleAction }}
                 </el-button>
             </div>
@@ -105,7 +107,7 @@
 
 //import LotsGroup from './lots_group.vue'
 // import SelectLotsForm from '@views/documents/partials/lots.vue'
-import LotsGroup from '../../../../../../../resources/js/views/tenant/documents/partials/lots_group';
+import LotsGroup from '../../../../../../../resources/js/views/tenant/documents/partials/lots_group.vue';
 import SelectLotsForm from '../../../../../../../resources/js/views/tenant/documents/partials/lots.vue';
 
 export default {

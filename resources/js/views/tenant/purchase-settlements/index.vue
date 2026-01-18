@@ -1,6 +1,6 @@
 <template>
     <div class="purchase-settlements">
-        <div class="page-header pr-0">
+        <div class="page-header pe-0">
             <h2>
                 <a href="/purchase-settlements">
                     <svg
@@ -34,7 +34,7 @@
             <div class="right-wrapper pull-right">
                 <a
                     :href="`/${resource}/create`"
-                    class="btn btn-custom btn-sm  mt-2 mr-2"
+                    class="btn btn-custom btn-sm  mt-2 me-2"
                     ><i class="fa fa-plus-circle"></i> Nuevo</a
                 >
             </div>
@@ -44,16 +44,16 @@
                 <data-table :resource="resource">
                     <tr slot="heading">
                         <!-- <th>#</th> -->
-                        <th class="text-left">Fecha Emisión</th>
+                        <th class="text-start">Fecha Emisión</th>
                         <th>Vendedor</th>
                         <th>Número</th>
                         <th>Estado</th>
-                        <th class="text-right">T.Inafecto</th>
-                        <th class="text-right">T.Exonerado</th>
-                        <th class="text-right">T.Gravado</th>
-                        <th class="text-right">T.Igv</th>
-                        <th class="text-right">Total</th>
-                        <th class="text-right">Descargas</th>
+                        <th class="text-end">T.Inafecto</th>
+                        <th class="text-end">T.Exonerado</th>
+                        <th class="text-end">T.Gravado</th>
+                        <th class="text-end">T.Igv</th>
+                        <th class="text-end">Total</th>
+                        <th class="text-end">Descargas</th>
                     </tr>
 
                     <tr></tr>
@@ -62,7 +62,7 @@
                         :class="{ 'text-danger': row.state_type_id === '11' }"
                     >
                         <!-- <td>{{ index }}</td> -->
-                        <td class="text-left">
+                        <td class="text-start">
                             {{ formatDate(row.date_of_issue) }}
                         </td>
                         <td>
@@ -86,15 +86,15 @@
                                 {{ row.state_type_description }}
                             </span>
                         </td>
-                        <td class="text-right">{{ row.total_unaffected }}</td>
-                        <td class="text-right">{{ row.total_exonerated }}</td>
-                        <td class="text-right">{{ row.total_taxed }}</td>
-                        <td class="text-right">{{ row.total_igv }}</td>
-                        <td class="text-right">{{ row.total }}</td>
-                        <td class="text-right">
+                        <td class="text-end">{{ row.total_unaffected }}</td>
+                        <td class="text-end">{{ row.total_exonerated }}</td>
+                        <td class="text-end">{{ row.total_taxed }}</td>
+                        <td class="text-end">{{ row.total_igv }}</td>
+                        <td class="text-end">{{ row.total }}</td>
+                        <td class="text-end">
                             <button
                                 type="button"
-                                class="btn waves-effect waves-light btn-xs btn-info"
+                                class="btn waves-effect waves-light btn-xs btn-info me-1"
                                 @click.prevent="
                                     clickDownload(row.download_external_xml)
                                 "
@@ -103,7 +103,7 @@
                             </button>
                             <button
                                 type="button"
-                                class="btn waves-effect waves-light btn-xs btn-info"
+                                class="btn waves-effect waves-light btn-xs btn-info me-1"
                                 @click.prevent="
                                     clickDownload(row.download_external_pdf)
                                 "
@@ -112,7 +112,7 @@
                             </button>
                             <button
                                 type="button"
-                                class="btn waves-effect waves-light btn-xs btn-info"
+                                class="btn waves-effect waves-light btn-xs btn-info me-1"
                                 @click.prevent="
                                     clickDownload(row.download_external_cdr)
                                 "

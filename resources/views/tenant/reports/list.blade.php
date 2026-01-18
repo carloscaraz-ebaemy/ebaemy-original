@@ -5,9 +5,17 @@
         $show_extra_info_to_item  = (bool) $configuration->show_extra_info_to_item
     @endphp
     <div class="page-header pr-0">
+        <span class="module-title-marker" data-page-title="Reportes"></span>
         <h2>
-            <a href="/dashboard">
-                <i class="fas fa-home"></i>
+            <a href="/list-reports">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon icon-tabler icons-tabler-outline icon-tabler-file-analytics" style="margin-top: -5px">
+                    <path stroke="none" d="M0 0h24v24H0z" fill="none"></path>
+                    <path d="M14 3v4a1 1 0 0 0 1 1h4"></path>
+                    <path d="M17 21h-10a2 2 0 0 1 -2 -2v-14a2 2 0 0 1 2 -2h7l5 5v11a2 2 0 0 1 -2 2z"></path>
+                    <path d="M9 17l0 -5"></path>
+                    <path d="M12 17l0 -1"></path>
+                    <path d="M15 17l0 -3"></path>
+                </svg>
             </a>
         </h2>
         <ol class="breadcrumbs">
@@ -20,7 +28,7 @@
         </ol>
     </div>
 
-    <div class="row tab-content-default row-new bg-transparent">
+    <div class="row tab-content-default row-new bg-transparent" style="background-color: transparent !important;">
         <!-- General -->
         <div class="col-6 col-md-4 mb-4">
             <div class="card card-dashboard card-reports">

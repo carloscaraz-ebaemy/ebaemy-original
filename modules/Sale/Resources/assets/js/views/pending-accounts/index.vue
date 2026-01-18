@@ -1,13 +1,13 @@
 <template>
     <div>
-        <div class="page-header pr-0">
+        <div class="page-header pe-0">
             <h2><a href="/dashboard"><i class="fas fa-tachometer-alt"></i></a></h2>
             <ol class="breadcrumbs">
                 <li class="active"><span>Comisiones</span></li>
                 <li><span class="text-muted">Cuentas pendientes</span></li>
             </ol>
             <div class="right-wrapper pull-right">
-                <button type="button" class="btn btn-custom btn-sm mt-2 mr-2" @click.prevent="clickCreate()">
+                <button type="button" class="btn btn-custom btn-sm mt-2 me-2" @click.prevent="clickCreate()">
                     <i class="fa fa-plus-circle"></i> Nuevo
                 </button>
             </div>
@@ -20,15 +20,15 @@
                         <th>Vendedor</th>
                         <th>Tipo</th>
                         <th>Comisión</th>
-                        <th class="text-right">Acciones</th>
+                        <th class="text-end">Acciones</th>
                     </tr>
                     <tr slot-scope="{ index, row }">
                         <td>{{ index }}</td>
                         <td>{{ row.seller_name }}</td>
                         <td>{{ row.commission_type }}</td>
                         <td>{{ row.amount }}</td>
-                        <td class="text-right">
-                            <button type="button" class="btn waves-effect waves-light btn-xs btn-info" @click.prevent="clickCreate(row.id)">Editar</button>
+                        <td class="text-end">
+                            <button type="button" class="btn waves-effect waves-light btn-xs btn-info me-1d" @click.prevent="clickCreate(row.id)">Editar</button>
                             <button type="button" class="btn waves-effect waves-light btn-xs btn-danger" @click.prevent="clickDelete(row.id)">Eliminar</button>
                         </td>
                     </tr>

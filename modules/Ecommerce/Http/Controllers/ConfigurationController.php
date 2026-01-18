@@ -9,6 +9,7 @@ use App\Models\Tenant\Company;
 use App\Http\Requests\Tenant\ConfigurationEcommerceRequest;
 use App\Http\Resources\Tenant\ConfigurationEcommerceResource;
 use Modules\Finance\Helpers\UploadFileHelper;
+use Illuminate\Support\Facades\Storage;
 
 
 class ConfigurationController extends Controller
@@ -104,6 +105,14 @@ class ConfigurationController extends Controller
             $type = $request->input('type'); //logo_store
 
             $file = $request->file('file');
+
+            if (!$file->isValid() || empty($file->getPathname()) || !is_file($file->getPathname())) {
+                return [
+                    'success' => false,
+                    'message' =>  __('app.actions.upload.error'),
+                ];
+            }
+
             $ext = $file->getClientOriginalExtension();
             $name = $type.'_'.$company->number.'.'.$ext;
 
@@ -111,7 +120,9 @@ class ConfigurationController extends Controller
             
             UploadFileHelper::checkIfValidFile($name, $file->getPathName(), true);
 
-            $file->storeAs('public/uploads/logos', $name);
+            $stream = fopen($file->getPathname(), 'r');
+            Storage::put('public/uploads/logos/'.$name, $stream);
+            if (is_resource($stream)) fclose($stream);
 
             $config->logo = $name;
 
@@ -150,11 +161,20 @@ class ConfigurationController extends Controller
         $color = $request->input('color_ecommerce');
         $configuration = ConfigurationEcommerce::find($id);
         $configuration->color_ecommerce = $color;
+        
+        // Guardar preferencias (el cast a array maneja automáticamente el json_encode)
+        $configuration->preferences = [
+            'show_description' => (int) $request->input('show_description', 1),
+            'show_stock' => (int) $request->input('show_stock', 0),
+            'only_available_products' => (int) $request->input('only_available_products', 0),
+            'full_width_banner' => (int) $request->input('full_width_banner', 0),
+        ];
+        
         $configuration->save();
 
         return [
             'success' => true,
-            'message' => 'Configuración de color para Tienda Virtual actualizado'
+            'message' => 'Configuración de color y preferencias actualizadas correctamente'
         ];
 
     }

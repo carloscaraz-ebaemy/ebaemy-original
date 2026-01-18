@@ -1,6 +1,6 @@
 <template>
     <div>
-        <div class="page-header pr-0">
+        <div class="page-header pe-0">
             <h2>
                 <a href="/inventory">
                     <svg
@@ -33,21 +33,21 @@
             <div v-if="typeUser == 'admin'" class="right-wrapper pull-right">
                 <button
                     type="button"
-                    class="btn btn-success btn-sm  mt-2 mr-2"
+                    class="btn btn-success btn-sm  mt-2 me-2"
                     @click.prevent="clickImport()"
                 >
                     <i class="fa fa-upload"></i> Imp. Ajuste de stock
                 </button>
                 <button
                     type="button"
-                    class="btn btn-success btn-sm  mt-2 mr-2"
+                    class="btn btn-success btn-sm  mt-2 me-2"
                     @click.prevent="clickReportStock()"
                 >
                     <i class="fa fa-file-excel"></i> Reporte Aj. stock
                 </button>
                 <button
                     type="button"
-                    class="btn btn-success btn-sm  mt-2 mr-2"
+                    class="btn btn-success btn-sm  mt-2 me-2"
                     @click.prevent="clickReport()"
                 >
                     <i class="fa fa-file-excel"></i> Reporte
@@ -56,8 +56,8 @@
                 <div class="btn-group flex-wrap">
                     <button
                         aria-expanded="false"
-                        class="btn btn-custom btn-sm mt-2 mr-2 dropdown-toggle"
-                        data-toggle="dropdown"
+                        class="btn btn-custom btn-sm mt-2 me-2 dropdown-toggle"
+                        data-bs-toggle="dropdown"
                         type="button"
                     >
                         <i class="fa fa-upload"></i> Importar
@@ -90,14 +90,14 @@
 
                 <button
                     type="button"
-                    class="btn btn-custom btn-sm  mt-2 mr-2"
+                    class="btn btn-custom btn-sm  mt-2 me-2"
                     @click.prevent="clickCreate('input')"
                 >
                     <i class="fa fa-plus-circle"></i> Ingreso
                 </button>
                 <button
                     type="button"
-                    class="btn btn-custom btn-sm  mt-2 mr-2"
+                    class="btn btn-custom btn-sm  mt-2 me-2"
                     @click.prevent="clickOutput()"
                 >
                     <i class="fa fa-minus-circle"></i> Salida
@@ -110,14 +110,13 @@
             </div> -->
             <div class="card-body">
                 <el-dropdown v-if="hasSelectedItems" class="btn-massive-actions">
-                    <span class="el-dropdown-link">
-                        <el-button aria-expanded="false"
-                            class="btn btn-custom btn-sm dropdown-toggle"
-                            data-toggle="dropdown"
-                            type="button">
-                            Acciones masivas
-                        </el-button>
-                    </span>
+                    <el-button aria-expanded="false"
+                        class="btn btn-custom btn-sm dropdown-toggle"
+                        data-bs-toggle="dropdown"
+                        type="button">
+                        Acciones masivas
+                        <i class="el-icon-arrow-down el-icon--right"></i>
+                    </el-button>
                     <el-dropdown-menu slot="dropdown">
                         <el-dropdown-item
                             @click.native="onOpenModalMoveGlobal"
@@ -133,11 +132,10 @@
                     <tr slot="heading">
                         <th>
                             <el-dropdown>
-                                <span class="el-dropdown-link">
-                                    <el-button class="btn-default">
-                                        <i class="fa fa-ellipsis-v"></i>
-                                    </el-button>
-                                </span>
+                                <el-button class="btn-default">
+                                    <i class="fas fa-ellipsis-v"></i>
+                                    <i class="fas fa-ellipsis-h" style="display: none;"></i>
+                                </el-button>
                                 <el-dropdown-menu slot="dropdown">
                                     <el-dropdown-item
                                         @click.native="onChecktAll"
@@ -152,8 +150,8 @@
                         </th>
                         <th>Producto</th>
                         <th>Almacén</th>
-                        <th class="text-right">Stock</th>
-                        <th class="text-right">Acciones</th>
+                        <th class="text-end">Stock</th>
+                        <th class="text-end">Acciones</th>
                     </tr>
                     <tr slot-scope="{ index, row }" :key="index">
                         <td>
@@ -166,15 +164,15 @@
                         <td>{{ row.item_fulldescription }}</td>
                         <td>{{ row.warehouse_description }}</td>
                         <td
-                            class="text-right"
+                            class="text-end"
                             :class="{ 'text-danger': row.stock < 0 }"
                         >
                             {{ row.stock }}
                         </td>
-                        <td class="text-right">
+                        <td class="text-end">
                             <button
                                 type="button"
-                                class="btn waves-effect waves-light btn-xs btn-info"
+                                class="btn waves-effect waves-light btn-xs btn-info me-1"
                                 @click.prevent="clickMove(row.id)"
                             >
                                 Trasladar
@@ -182,14 +180,14 @@
                             <button
                                 v-if="typeUser == 'admin'"
                                 type="button"
-                                class="btn waves-effect waves-light btn-xs btn-warning"
+                                class="btn waves-effect waves-light btn-xs btn-warning me-1"
                                 @click.prevent="clickRemove(row.id)"
                             >
                                 Remover
                             </button>
                             <button
                                 type="button"
-                                class="btn waves-effect waves-light btn-xs btn-warning"
+                                class="btn waves-effect waves-light btn-xs btn-warning me-1"
                                 @click.prevent="clickStock(row.id)"
                             >
                                 Ajuste

@@ -73,15 +73,15 @@ div.cart-dropdown {
 }
 
 .header .dropdown-toggle {
-    color: red;
+    color: #fff;
     font-size: 10px;
     background-color: #1f1f39;
-    width: 90px;
     height: 35px;
     display: flex;
     justify-content: center;
     align-items: center;
     border-radius: 20px;
+    padding: 0 10px;
 }
 
 .dropdown-toggle .cart-count {
@@ -118,8 +118,8 @@ div.cart-dropdown {
 }
 
 .header-dropdown-inside .search_input {
-    padding-left: 40px; 
-    padding-right: 40px; 
+    padding-left: 40px !important; 
+    padding-right: 40px !important;
     width: 100%;
 }
 
@@ -187,7 +187,6 @@ div.cart-dropdown {
                      <span> Atención al</span>
                      <i class="fab fa-whatsapp"></i> <a href="#"><strong>{{$information->information_contact_phone}}</strong></a>
                  </div><!-- End .header-contact -->
-
                 @include('ecommerce::layouts.partials_ecommerce.cart_dropdown')
                 @include('ecommerce::partials.headers.session')
 

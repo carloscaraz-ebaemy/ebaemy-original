@@ -107,6 +107,14 @@ class CompanyController extends Controller
             $type = $request->input('type');
 
             $file = $request->file('file');
+
+            if (!$file->isValid() || empty($file->getPathname()) || !is_file($file->getPathname())) {
+                return [
+                    'success' => false,
+                    'message' => __('app.actions.upload.error'),
+                ];
+            }
+
             $ext = $file->getClientOriginalExtension();
             $name = $type . '_' . $company->number . '.' . $ext;
 
@@ -116,13 +124,17 @@ class CompanyController extends Controller
 
                 UploadFileHelper::checkIfValidFile($name, $file->getPathName(), true);
 
-                $file->storeAs(($type === 'logo') ? 'public/uploads/logos' : 'certificates', $name);
+                $stream = fopen($file->getPathname(), 'r');
+                Storage::put('public/uploads/logos/'.$name, $stream);
+                if (is_resource($stream)) fclose($stream);
             }
 
             if (($type === 'logo_dark')) {
                 $v = request()->validate(['file' => 'required|mimes:jpeg,png,jpg,gif,svg|max:2048']);
                 UploadFileHelper::checkIfValidFile($name, $file->getPathName(), true);
-                $file->storeAs('public/uploads/logos', $name);
+                $stream = fopen($file->getPathname(), 'r');
+                Storage::put('public/uploads/logos/'.$name, $stream);
+                if (is_resource($stream)) fclose($stream);
             }
 
             // if (($type === 'logo_store')) {
@@ -137,20 +149,26 @@ class CompanyController extends Controller
 
                 UploadFileHelper::checkIfValidFile($name, $file->getPathName(), true, 'png', ['image/png']);
 
-                $file->storeAs('public/uploads/favicons', $filename);
+                $stream = fopen($file->getPathname(), 'r');
+                Storage::put('public/uploads/favicons/'.$filename, $stream);
+                if (is_resource($stream)) fclose($stream);
             }
 
             if (($type === 'app_logo')) {
                 request()->validate(['file' => 'required|mimes:jpeg,png,jpg,gif,svg|max:2048']);
                 UploadFileHelper::checkIfValidFile($name, $file->getPathName(), true);
-                $file->storeAs('public/uploads/logos', $name);
+                $stream = fopen($file->getPathname(), 'r');
+                Storage::put('public/uploads/logos/'.$name, $stream);
+                if (is_resource($stream)) fclose($stream);
             }
 
 
             if (($type === 'img_firm')) {
                 request()->validate(['file' => 'required|image|mimes:jpeg,png,jpg,gif,svg|max:2048']);
                 UploadFileHelper::checkIfValidFile($name, $file->getPathName(), true);
-                $file->storeAs('public/uploads/firms', $name);
+                $stream = fopen($file->getPathname(), 'r');
+                Storage::put('public/uploads/firms/'.$name, $stream);
+                if (is_resource($stream)) fclose($stream);
             }
 
             // $file->storeAs(($type === 'img_firm') ? 'public/uploads/firms' : 'certificates', $name);
@@ -270,7 +288,7 @@ class CompanyController extends Controller
     public function deleteLogo(Request $request)
     {
         $request->validate([
-            'type' => 'required|in:logo,logo_dark'
+            'type' => 'required|in:logo,logo_dark,favicon,app_logo'
         ]);
 
         $company = Company::active();
@@ -286,8 +304,9 @@ class CompanyController extends Controller
         $currentLogo = $company->$type;
         
         try {
-            // Para logos (modo claro y oscuro), la ruta es public/uploads/logos/
-            $filePath = 'public/uploads/logos/' . basename($currentLogo);
+            // Para logos: public/uploads/logos/, para favicon: public/uploads/favicons/
+            $baseDir = ($type === 'favicon') ? 'public/uploads/favicons/' : 'public/uploads/logos/';
+            $filePath = $baseDir . basename($currentLogo);
 
             // Eliminar el archivo físico si existe
             if (Storage::exists($filePath)) {
@@ -298,7 +317,12 @@ class CompanyController extends Controller
             $company->$type = null;
             $company->save();
 
-            $logoName = $type === 'logo' ? 'Logo (modo claro)' : 'Logo (modo oscuro)';
+            $logoName = match ($type) {
+                'logo' => 'Logo (modo claro)',
+                'logo_dark' => 'Logo (modo oscuro)',
+                'favicon' => 'Favicon (ícono web)',
+                'app_logo' => 'Logo APP',
+            };
 
             return [
                 'success' => true,

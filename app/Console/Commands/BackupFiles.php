@@ -5,7 +5,8 @@ namespace App\Console\Commands;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
-use Zip;
+use Throwable;
+use ZanySoft\Zip\Facades\Zip;
 
 class BackupFiles extends Command
 {
@@ -47,6 +48,9 @@ class BackupFiles extends Command
 
             if ($type === 'individual') {
                 $folder = $this->argument('folder');
+                if (Storage::exists('backups/zip/'. $folder .'.zip')) {
+                    Storage::delete('backups/zip/'. $folder .'.zip');
+                }
 
                 $zip = Zip::create(storage_path('app/backups/zip/'. $folder .'.zip'));
                 $zip->add(storage_path('app/tenancy/tenants/' . $folder) . '/', true);
@@ -63,7 +67,9 @@ class BackupFiles extends Command
                 Log::info('Backup storage success');
             }
         } catch (Throwable $e) {
-            Log::error('Backup failed', $e);
+            Log::error('Backup failed', [
+                'error' => $e->getMessage(),
+            ]);
         }
     }
 }

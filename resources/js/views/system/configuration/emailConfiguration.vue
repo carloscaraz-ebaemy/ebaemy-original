@@ -31,15 +31,19 @@
                 <div class="col-md-6">
                     <div class="form-group">
                         <label class="control-label">Encriptación de correo</label>
-                        <el-input v-model="form.mail_encryption"></el-input>
+                        <el-select v-model="form.mail_encryption" style="width: 100%">
+                            <el-option label="SSL" value="ssl"></el-option>
+                            <el-option label="TLS" value="tls"></el-option>
+                            <el-option label="Ninguna" value=""></el-option>
+                        </el-select>
                     </div>
                 </div>
 
                 <div class="col-md-6">
-                    <div class="form-group p-t-20">
+                    <div class="form-group pt-3">
                         <a
                             href="https://manual.uio.la/Pro7/guias-adicionales/configuracion-smtp-segura"
-                            class="btn btn-sm btn-outline-info"
+                            class="btn btn-sm btn-outline-primary"
                             target="_blank"
                             rel="noopener noreferrer"
                             role="button"
@@ -48,7 +52,7 @@
                         </a>
                     </div>
                 </div>
-                <div class="col-md-12 text-right pt-2">
+                <div class="col-md-12 text-end pt-2">
                     <el-button type="primary" native-type="submit" :loading="loading_submit">Guardar</el-button>
                 </div>
             </form>

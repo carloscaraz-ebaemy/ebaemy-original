@@ -57,17 +57,17 @@
                                 :class="{ 'has-danger': errors.item_id }"
                                 class="form-group more-width-input"
                             >
-                                <label class="control-label">
+                                <label class="control-label d-flex align-items-center">
                                     Producto/Servicio
-                                    <a
+                                    <span
                                         v-if="can_add_new_product"
-                                        href="#"
+                                        class="btn-add-new-product"
                                         @click.prevent="
                                             showDialogNewItem = true
                                         "
                                     >
-                                        [+ Nuevo]
-                                    </a>
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon icon-tabler icons-tabler-outline icon-tabler-plus"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M12 5l0 14" /><path d="M5 12l14 0" /></svg>
+                                    </span>
                                 </label>
 
                                 <template
@@ -114,6 +114,23 @@
                                                     :value="option.id"
                                                 ></el-option>
                                             </el-tooltip>
+                                            <template slot="empty">
+                                                <p v-if="loading_search" class="el-select-dropdown__empty">
+                                                    Cargando...
+                                                </p>
+                                            
+                                                <p v-else class="el-select-dropdown__empty">
+                                                    No se encontraron resultados
+                                                </p>
+                                            
+                                                <div
+                                                    v-if="!loading_search"
+                                                    class="el-select-dropdown__item new-option"
+                                                    @click.stop="openNewItemDialog"
+                                                >
+                                                    <span>{{ itemSearchTerm ? `Crear producto "${itemSearchTerm}"` : 'Crear producto' }}</span>
+                                                </div>
+                                            </template>
                                         </el-select>
                                     </el-input>
                                 </template>
@@ -158,6 +175,23 @@
                                                 <i class="fa fa-search"></i>
                                             </el-button>
                                         </el-tooltip>
+                                        <template slot="empty">
+                                            <p v-if="loading_search" class="el-select-dropdown__empty">
+                                                Cargando...
+                                            </p>
+                                        
+                                            <p v-else class="el-select-dropdown__empty">
+                                                No se encontraron resultados
+                                            </p>
+                                        
+                                            <div
+                                                v-if="!loading_search"
+                                                class="el-select-dropdown__item new-option"
+                                                @click.stop="openNewItemDialog"
+                                            >
+                                                <span>{{ itemSearchTerm ? `Crear producto "${itemSearchTerm}"` : 'Crear producto' }}</span>
+                                            </div>
+                                        </template>
                                     </el-input>
                                 </template>
 
@@ -429,13 +463,13 @@
                                             </th>
                                             <th class="text-center">Factor</th>
                                             <th class="text-center">
-                                                Precio 1
+                                                {{ config.price1_label }}
                                             </th>
                                             <th class="text-center">
-                                                Precio 2
+                                                {{ config.price2_label }}
                                             </th>
                                             <th class="text-center">
-                                                Precio 3
+                                                {{ config.price3_label }}
                                             </th>
                                             <th class="text-center">
                                                 Precio Default
@@ -471,7 +505,7 @@
                                                 Precio {{ row.price_default }}
                                             </td>
                                             <td
-                                                class="series-table-actions text-right"
+                                                class="series-table-actions text-end"
                                             >
                                                 <button
                                                     :class="
@@ -748,43 +782,8 @@
                     </template>
                 </div>
             </div>
-            <!-- @todo: Mejorar evitando duplicar codigo -->
-            <!-- Mostrar en cel -->
 
-            <div class="row hidden-md-up form-actions text-center">
-                <div class="col-12">
-                    &nbsp;
-                </div>
-                <div class="col-6">
-                    <el-popover
-                        placement="top-start"
-                        :open-delay="1000"
-                        width="135"
-                        trigger="hover"
-                        content="Presiona ESC"
-                    >
-                        <el-button slot="reference" @click.prevent="close()">
-                            Cerrar
-                        </el-button>
-                    </el-popover>
-                </div>
-                <div class="col-6">
-                    <el-button
-                        v-if="form.item_id"
-                        class="add form-control btn btn-primary"
-                        native-type="submit"
-                        type="primary"
-                    >
-                        {{ titleAction }}
-                    </el-button>
-                </div>
-            </div>
-            <!-- @todo: Mejorar evitando duplicar codigo -->
-            <!-- Mostrar en cel -->
-            <!-- @todo: Mejorar evitando duplicar codigo -->
-            <!-- Ocultar en cel -->
-
-            <div class="form-actions text-right pt-2  hidden-sm-down">
+            <div class="form-actions text-end pt-2">
                 <el-popover
                     placement="top-start"
                     title="Acceso directo"
@@ -794,7 +793,7 @@
                 >
                     <el-button
                         slot="reference"
-                        class="second-buton"
+                        class="second-buton me-2"
                         @click.prevent="close()"
                     >
                         Cerrar
@@ -814,6 +813,7 @@
         <item-form
             :external="true"
             :showDialog.sync="showDialogNewItem"
+            :input_item="itemSearchTerm"
         ></item-form>
 
         <warehouses-detail
@@ -940,14 +940,26 @@ export default {
             readonly_total: 0,
             old_selected_lots_group: [],
             various_item: false,
-            various_item_barcode: "VARIOUS_ITEM"
+            various_item_barcode: "VARIOUS_ITEM",
+            itemSearchTerm: ''
             //item_unit_type: {}
         };
+    },
+    watch: {
+        showDialog(newVal) {
+            if (newVal) {
+                this.itemSearchTerm = ''
+            }
+        }
     },
     created() {
         this.loadConfiguration();
         this.$store.commit("setConfiguration", this.configuration);
         this.initForm();
+        this.$eventHub.$on("reloadDataItems", item_id => {
+            this.reloadDataItems(item_id);
+            this.itemSearchTerm = ''
+        });
     },
     mounted() {
         this.getTables();
@@ -1136,6 +1148,8 @@ export default {
             this.calculateTotal();
         },
         async searchRemoteItems(input) {
+            this.itemSearchTerm = input;
+
             if (input.length > 2) {
                 this.loading_search = true;
                 const params = {
@@ -1952,7 +1966,10 @@ export default {
             }
             this.initForm();
             this.filterItems();
-        }
+        },
+        openNewItemDialog() {
+            this.showDialogNewItem = true;
+        },
     }
 };
 </script>

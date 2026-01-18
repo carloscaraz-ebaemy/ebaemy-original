@@ -45,6 +45,15 @@ class BusinessTurnController extends Controller
         $record->active = ($record->active) ? false:true;
         $record->save();
 
+        // Si es el giro de farmacia, actualizar la configuración
+        if ($record->value == 'pharmacy') {
+            $configuration = \App\Models\Tenant\Configuration::first();
+            if ($configuration) {
+                $configuration->is_pharmacy = $record->active;
+                $configuration->save();
+            }
+        }
+
         return [
             'success' => true,
             'message' => $record->active ? 'Giro de negocio activado' : 'Giro de negocio desactivado',

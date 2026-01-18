@@ -1,12 +1,22 @@
 import Vue from 'vue';
-window._ = require('lodash');
-window.moment = require('moment');
-window.Popper = require('popper.js').default;
+import lodash from 'lodash';
+import moment from 'moment';
+import * as Popper from '@popperjs/core';
+import jquery from 'jquery';
 
-try {
-    window.$ = window.jQuery = require('jquery');
-    require('bootstrap');
-} catch (e) {}
+window._ = lodash;
+window.moment = moment;
+window.Popper = Popper;
+// No sobrescribir un jQuery global existente (por ejemplo, el de porto-ecommerce)
+// porque algunos plugins (OwlCarousel) quedan registrados en esa instancia.
+if (!window.jQuery && !window.$) {
+    window.$ = window.jQuery = jquery;
+}
+
+// try {
+//     window.$ = window.jQuery = require('jquery');
+//     require('bootstrap');
+// } catch (e) {}
 
 import axios from 'axios';
 
@@ -32,10 +42,10 @@ Vue.prototype.$getStorage = function(name){
     return JSON.parse(localStorage.getItem(name));
 };
 
-require('./vendor/perfect-scrollbar.jquery.min')
-require('./vendor/sidebarmenu')
-require('./vendor/waves')
-require('./vendor/custom')
+import './vendor/perfect-scrollbar.jquery.min';
+import './vendor/sidebarmenu';
+import './vendor/waves';
+import './vendor/custom';
 
 $(function () {
     const listElements = document.getElementsByClassName('nav-active');

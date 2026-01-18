@@ -33,21 +33,21 @@
                         <small class="form-control-feedback" v-if="errors.file" v-text="errors.file[0]"></small>
                     </div>
                     <div v-if="!stock_establishments" class="col-12 mt-4 mb-2">
-                        <a class="text-dark mr-auto" href="/formats/stock_real.xlsx" target="_new">
-                            <span class="mr-2">Descargar formato de ejemplo para importar</span>
+                        <a class="text-dark me-auto" href="/formats/stock_real.xlsx" target="_new">
+                            <span class="me-2">Descargar formato de ejemplo para importar</span>
                             <i class="fa fa-download"></i>
                         </a>
                     </div>
                     <div v-else  class="col-12 mt-4 mb-2">
-                        <a class="text-dark mr-auto" @click="downloadFormat()" href="/" target="_new">
-                            <span class="mr-2">Descargar formato de ejemplo (stock establecimientos)</span>
+                        <a class="text-dark me-auto" @click="downloadFormat()" href="/" target="_new">
+                            <span class="me-2">Descargar formato de ejemplo (stock establecimientos)</span>
                             <i class="fa fa-download"></i>
                         </a>
                     </div>
                 </div>
             </div>
-            <div class="form-actions text-right mt-5">
-                <el-button class="second-buton" @click.prevent="close()">Cancelar</el-button>
+            <div class="form-actions text-end mt-5">
+                <el-button class="second-buton me-2" @click.prevent="close()">Cancelar</el-button>
                 <el-button type="primary" native-type="submit" :loading="loading_submit">Procesar</el-button>
             </div>
         </form>

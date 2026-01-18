@@ -55,9 +55,9 @@
                         <tr>
                             <td class="celda">{{$loop->iteration}}</td>
                             <td class="celda">{{$row['user_name']}}</td>
-                            <td class="celda text-center">{{ $row['total_out_of_range'] }}</td>
+                            <td class="celda text-center">{{ isset($row['total_out_of_range']) ? $row['total_out_range'] : 0 }}</td>
                             <td class="celda text-center">{{ $row['total_within_range'] }}</td>
-                            <td class="celda text-center">{{ $row['total_completed'] }}</td>
+                            <td class="celda text-center">{{ isset($row['total_completed']) ? $row['total_completed'] : 0 }}</td>
                             <td class="celda text-center">{{ $row['commission'] }}</td>
                         </tr>
                         @endforeach

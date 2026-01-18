@@ -160,6 +160,7 @@ trait GuestRegisterTrait
     private function inputsToRegister($request)
     {
         $basic_module_levels = $this->getBasicModuleLevels();
+        $plan = $this->firstPlanId();
 
         $inputs = [
             'name' => $request->name,
@@ -168,7 +169,9 @@ trait GuestRegisterTrait
             'number' => $request->number,
             'password' => $request->password,
             'subdomain' => $request->subdomain,
-            'plan_id' => $this->firstPlanId(),
+            'plan_id' => $plan['plan_id'],
+            'plan_period_id' => '1', //Mensual
+            'price' => $plan['price'],
             'locked_emission' => false,
             'type' => 'admin',
             'config_system_env' => true,
@@ -195,7 +198,10 @@ trait GuestRegisterTrait
     {
         $plan = Plan::select('id')->firstOrFail();
 
-        return $plan->id;
+        return [
+            'plan_id' => $plan->id,
+            'price' => $plan->pricing
+        ];
     }
 
     /**

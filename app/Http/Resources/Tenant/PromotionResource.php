@@ -19,7 +19,9 @@ class PromotionResource extends JsonResource
             'description' => $this->description,
             'name' => $this->name,
             'status' => $this->status,
-            'type'=> $this->type
+            'type'=> $this->type,
+            'image_url' => $this->image_url,
+            'spot_url' => $this->spot_url,
         ];
     }
 }

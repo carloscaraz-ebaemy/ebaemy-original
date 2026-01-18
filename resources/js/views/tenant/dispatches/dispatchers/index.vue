@@ -1,6 +1,6 @@
 <template>
     <div>
-        <div class="page-header pr-0">
+        <div class="page-header pe-0">
             <h2><a href="/dispatchers">
                 <svg  xmlns="http://www.w3.org/2000/svg" style="margin-top: -5px;" width="24"  height="24"  viewBox="0 0 24 24"  fill="none"  stroke="currentColor"  stroke-width="2"  stroke-linecap="round"  stroke-linejoin="round"  class="icon icon-tabler icons-tabler-outline icon-tabler-truck"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M7 17m-2 0a2 2 0 1 0 4 0a2 2 0 1 0 -4 0" /><path d="M17 17m-2 0a2 2 0 1 0 4 0a2 2 0 1 0 -4 0" /><path d="M5 17h-2v-11a1 1 0 0 1 1 -1h9v12m-4 0h6m4 0h2v-6h-8m0 -5h5l3 5" /></svg>
             </a></h2>
@@ -8,7 +8,7 @@
                 <li class="active"><span>{{ title }}</span></li>
             </ol>
             <div class="right-wrapper pull-right">
-                <button type="button" class="btn btn-custom btn-sm  mt-2 mr-2" @click.prevent="clickCreate()"><i
+                <button type="button" class="btn btn-custom btn-sm  mt-2 me-2" @click.prevent="clickCreate()"><i
                     class="fa fa-plus-circle"></i> Nuevo
                 </button>
             </div>
@@ -22,30 +22,30 @@
                     <tr slot="heading">
                         <!-- <th>#</th> -->
                         <th>Nombre</th>
-                        <th class="text-left">Tipo de documento</th>
-                        <th class="text-right">Número</th>
-                        <th class="text-left">MTC</th>
+                        <th class="text-start">Tipo de documento</th>
+                        <th class="text-end">Número</th>
+                        <th class="text-start">MTC</th>
                         <th class="text-center">Predeterminado</th>
                         <th class="text-center">Estado</th>
-                        <th class="text-right">Acciones</th>
+                        <th class="text-end">Acciones</th>
                     </tr>
                     <tr slot-scope="{ index, row }">
                         <!-- <td>{{ index }}</td> -->
                         <td>{{ row.name }}</td>
-                        <td class="text-left">{{ row.document_type }}</td>
-                        <td class="text-right">{{ row.number }}</td>
-                        <td class="text-left">{{ row.number_mtc }}</td>
+                        <td class="text-start">{{ row.document_type }}</td>
+                        <td class="text-end">{{ row.number }}</td>
+                        <td class="text-start">{{ row.number_mtc }}</td>
                         <td class="text-center">{{ row.is_default }}</td>
                         <td class="text-center">
                             <el-switch v-model="row.is_active" @change="toggleActiveDispatchers(row)" />
                         </td>
-                        <td class="text-right">
-                            <button type="button" class="btn waves-effect waves-light btn-xs btn-info"
+                        <td class="text-end">
+                            <button type="button" class="btn waves-effect waves-light btn-xs btn-info me-1"
                                     @click.prevent="clickCreate(row.id)">Editar
                             </button>
 
                             <template v-if="typeUser === 'admin'">
-                                <button type="button" class="btn waves-effect waves-light btn-xs btn-danger"
+                                <button type="button" class="btn waves-effect waves-light btn-xs btn-danger me-1"
                                         @click.prevent="clickDelete(row.id)">Eliminar
                                 </button>
                             </template>

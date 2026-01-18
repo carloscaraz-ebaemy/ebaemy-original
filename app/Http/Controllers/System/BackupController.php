@@ -2,8 +2,6 @@
 
 namespace App\Http\Controllers\System;
 
-use Config;
-use Artisan;
 use DateTime;
 use Exception;
 use App\Traits\BackupTrait;
@@ -12,6 +10,9 @@ use App\Models\System\Client;
 use Hyn\Tenancy\Models\Website;
 use Hyn\Tenancy\Models\Hostname;
 use App\Http\Controllers\Controller;
+use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\Config;
+use Illuminate\Support\Facades\Log;
 use Symfony\Component\Process\Process;
 use Illuminate\Support\Facades\Storage;
 
@@ -22,13 +23,13 @@ class BackupController extends Controller
 
     public function index() {
 
-        $avail = new Process('df -m -h --output=avail /');
+        $avail = new Process(['df', '-m', '-h', '--output=avail', '/']);
         $avail->run();
         $disc_used = $avail->getOutput();
 
-        $df = new Process('du -sh '.storage_path().' | cut -f1');
+        $df = Process::fromShellCommandline('du -sh '.storage_path().' | cut -f1');
         $df->run();
-        $storage_size = $df->getOutput();
+        $storage_size = trim($df->getOutput());
 
         $most_recent = $this->mostRecent();
 
@@ -124,31 +125,18 @@ class BackupController extends Controller
     public function mostRecent()
     {
         $zips = Storage::allFiles('backups/zip/');
-
         if (count($zips) > 0) {
-            $name_zips = [];
-            $most_recent_time = '';
-            $last_date = null;
+            $process = new Process([ 'bash' ,'-c','ls -t | head -1']);
+            $process->setWorkingDirectory(storage_path('app/backups/zip'));
+            $process->run();
 
-            foreach($zips as $zip){
-                $zip_explode = explode( '/', $zip);
-                if(count($zip_explode) <= 3){
-                    array_push($name_zips, $zip_explode[2]);
-                    $last = Storage::lastModified($zip);
-                    $datetime = new DateTime("@$last");
-                    if ($datetime > $most_recent_time) {
-                        $most_recent_time = $datetime;
-                        $most_recent_path = $zip;
-                        $most_recent_name = $zip_explode[2];
-                        $last_date = $last;
-                    }
-                }
-            }
-
+            $filezip = trim($process->getOutput());
+            $last_date = Storage::lastModified('backups/zip/'.$filezip);
+            $most_recent_path = 'backups/zip/'.$filezip;
             return [
                 'date' => \Carbon\Carbon::createFromTimestamp($last_date)->format('d-m-Y \a \l\a\s H:i'),
                 'path' => $most_recent_path,
-                'name' => $most_recent_name
+                'name' => $filezip
             ];
         } else {
             return '';

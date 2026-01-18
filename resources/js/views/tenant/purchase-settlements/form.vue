@@ -1,6 +1,6 @@
 <template>
     <div>
-        <div class="page-header pr-0">
+        <div class="page-header pe-0">
             <h2><a href="/purchase-settlements">
                 <svg  xmlns="http://www.w3.org/2000/svg" style="margin-top: -5px;" width="24"  height="24"  viewBox="0 0 24 24"  fill="none"  stroke="currentColor"  stroke-width="2"  stroke-linecap="round"  stroke-linejoin="round"  class="icon icon-tabler icons-tabler-outline icon-tabler-clipboard-text"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M9 5h-2a2 2 0 0 0 -2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2 -2v-12a2 2 0 0 0 -2 -2h-2" /><path d="M9 3m0 2a2 2 0 0 1 2 -2h2a2 2 0 0 1 2 2v0a2 2 0 0 1 -2 2h-2a2 2 0 0 1 -2 -2z" /><path d="M9 12h6" /><path d="M9 16h6" /></svg>
             </a></h2>
@@ -252,7 +252,7 @@
                                             <tr v-for="(row, index) in form.payments"
                                                 :key="index">
                                                 <td>
-                                                    <div class="form-group mb-2 mr-2">
+                                                    <div class="form-group mb-2 me-2">
                                                         <el-select v-model="row.payment_method_type_id"
                                                                 @change="changePaymentMethodType(index)">
                                                             <el-option v-for="option in cashPaymentMethod"
@@ -263,7 +263,7 @@
                                                     </div>
                                                 </td>
                                                 <td>
-                                                    <div class="form-group mb-2 mr-2">
+                                                    <div class="form-group mb-2 me-2">
                                                         <el-select v-model="row.payment_destination_id"
                                                                 filterable>
                                                             <el-option v-for="option in payment_destinations"
@@ -274,12 +274,12 @@
                                                     </div>
                                                 </td>
                                                 <td>
-                                                    <div class="form-group mb-2 mr-2">
+                                                    <div class="form-group mb-2 me-2">
                                                         <el-input v-model="row.reference"></el-input>
                                                     </div>
                                                 </td>
                                                 <td>
-                                                    <div class="form-group mb-2 mr-2">
+                                                    <div class="form-group mb-2 me-2">
                                                         <el-input v-model="row.payment"></el-input>
                                                     </div>
                                                 </td>
@@ -323,12 +323,12 @@
                                             <th>Almacén</th>
                                             <th>Lote</th>
                                             <th class="text-center">Unidad</th>
-                                            <th class="text-right">Cantidad</th>
-                                            <th class="text-right">Valor Unitario</th>
-                                            <th class="text-right">Precio Unitario</th>
-                                            <th class="text-right">Descuento</th>
-                                            <th class="text-right">Cargo</th>
-                                            <th class="text-right">Total</th>
+                                            <th class="text-end">Cantidad</th>
+                                            <th class="text-end">Valor Unitario</th>
+                                            <th class="text-end">Precio Unitario</th>
+                                            <th class="text-end">Descuento</th>
+                                            <th class="text-end">Cargo</th>
+                                            <th class="text-end">Total</th>
                                             <th></th>
                                         </tr>
                                         </thead>
@@ -339,20 +339,20 @@
                                             <td>{{
                                                     row.item.description
                                                 }}<br/><small>{{ row.affectation_igv_type.description }}</small></td>
-                                            <td class="text-left">{{ row.warehouse_description }}</td>
-                                            <td class="text-left">{{ row.lot_code }}</td>
+                                            <td class="text-start">{{ row.warehouse_description }}</td>
+                                            <td class="text-start">{{ row.lot_code }}</td>
                                             <td class="text-center">{{ row.item.unit_type_id }}</td>
-                                            <td class="text-right">{{ row.quantity }}</td>
-                                            <td class="text-right">{{ currency_type.symbol }}
+                                            <td class="text-end">{{ row.quantity }}</td>
+                                            <td class="text-end">{{ currency_type.symbol }}
                                                                    {{ getFormatUnitPriceRow(row.unit_value) }}
                                             </td>
-                                            <td class="text-right">{{ currency_type.symbol }}
+                                            <td class="text-end">{{ currency_type.symbol }}
                                                                    {{ getFormatUnitPriceRow(row.unit_price) }}
                                             </td>
-                                            <td class="text-right">{{ currency_type.symbol }} {{ row.total_discount }}</td>
-                                            <td class="text-right">{{ currency_type.symbol }} {{ row.total_charge }}</td>
-                                            <td class="text-right">{{ currency_type.symbol }} {{ row.total }}</td>
-                                            <td class="text-right">
+                                            <td class="text-end">{{ currency_type.symbol }} {{ row.total_discount }}</td>
+                                            <td class="text-end">{{ currency_type.symbol }} {{ row.total_charge }}</td>
+                                            <td class="text-end">{{ currency_type.symbol }} {{ row.total }}</td>
+                                            <td class="text-end">
                                                 <button v-if="order_id && row.item.series_enabled"
                                                         class="btn waves-effect waves-light btn-xs btn-info"
                                                         type="button"
@@ -371,28 +371,28 @@
                             </div>
                             <div class="col-md-12">
                                 <p v-if="form.total_unaffected > 0"
-                                   class="text-right">OP.INAFECTAS: {{ currency_type.symbol }}
+                                   class="text-end">OP.INAFECTAS: {{ currency_type.symbol }}
                                                                     {{ form.total_unaffected }}</p>
                                 <p v-if="form.total_exonerated > 0"
-                                   class="text-right">OP.EXONERADAS: {{ currency_type.symbol }}
+                                   class="text-end">OP.EXONERADAS: {{ currency_type.symbol }}
                                                                     {{ form.total_exonerated }}</p>
                                 <p v-if="form.total_taxed > 0"
-                                   class="text-right">OP.GRAVADA: {{ currency_type.symbol }} {{
+                                   class="text-end">OP.GRAVADA: {{ currency_type.symbol }} {{
                                         form.total_taxed
                                                                }}</p>
                                 <p v-if="form.total_igv > 0"
-                                   class="text-right">IGV: {{ currency_type.symbol }} {{ form.total_igv }}</p>
+                                   class="text-end">IGV: {{ currency_type.symbol }} {{ form.total_igv }}</p>
     
                                 <h3 v-if="form.total > 0"
-                                    class="text-right"><b>TOTAL: </b>{{ currency_type.symbol }} {{ form.total }}
+                                    class="text-end"><b>TOTAL: </b>{{ currency_type.symbol }} {{ form.total }}
                                 </h3>
     
                                 
                             </div>
                         </div>
                     </div>
-                    
-                    <div class="form-actions text-right mt-4">
+
+                    <div class="form-actions d-flex justify-content-between mt-4">
                         <el-button class="second-buton btn btn-default second-buton-default" @click.prevent="close()">Cancelar</el-button>
                         <el-button class="btn btn-primary btn-submit-default" v-if="form.items !== undefined && form.items.length > 0 && !hide_button"
                                    :loading="loading_submit"

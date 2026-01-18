@@ -277,7 +277,7 @@
                                         icon="el-icon-tickets"
                                         type="danger"
                                         id="dropdownMenuButton"
-                                        data-toggle="dropdown" aria-haspopup="true" aria-expanded="false"
+                                        data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false"
                                         >Exportar PDF
                                         <i class="el-icon-arrow-down el-icon--right"></i>
                                 </el-button>
@@ -320,7 +320,7 @@
                                 <el-button class="submit"
                                         type="success"
                                         id="dropdownMenuButton"
-                                        data-toggle="dropdown" aria-haspopup="true" aria-expanded="false"
+                                        data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false"
                                         >
                                         <i class="fa fa-file-excel"></i>
                                         Exportar Excel

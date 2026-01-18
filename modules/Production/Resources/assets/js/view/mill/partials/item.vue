@@ -141,8 +141,8 @@
                     <!-- item_unit_types -->
                 </div>
             </div>
-            <div class="form-actions text-right pt-2">
-                <el-button class="second-buton" @click.prevent="close()">Cerrar</el-button>
+            <div class="form-actions text-end pt-2">
+                <el-button class="second-buton me-2" @click.prevent="close()">Cerrar</el-button>
                 <el-button v-if="form.item_id"
                            native-type="submit"
                            type="primary">
@@ -173,7 +173,7 @@ import itemForm from '@views/items/form.vue'
 import ClassicEditor from "@ckeditor/ckeditor5-build-classic";
 import VueCkeditor from "vue-ckeditor5";
 import {mapActions, mapState} from "vuex/dist/vuex.mjs";
-import {ItemOptionDescription, ItemSlotTooltip} from "../../../../../../../../resources/js/helpers/modal_item";
+import {ItemOptionDescription, ItemSlotTooltip} from "@helpers/modal_item";
 
 export default {
     props: [

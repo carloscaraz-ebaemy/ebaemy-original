@@ -1,5 +1,6 @@
 <template>
     <div class="card mb-0 pt-2 pt-md-0">
+        <span class="module-title-marker" data-page-title="Nueva Cotización"></span>
         <!-- <div class="card-header bg-info">
             <h3 class="my-0">Nuevo Comprobante</h3>
         </div> -->
@@ -13,8 +14,8 @@
                                 :path_logo="getCurrentLogo"
                             ></logo>
                         </div>
-                        <div class="col-sm-10 text-left mt-3 mb-0">
-                            <address class="ib mr-2" >
+                        <div class="col-sm-10 text-start mt-3 mb-0">
+                            <address class="ib me-2" >
                                 <span class="font-weight-bold d-block">COTIZACIÓN</span>
                                 <!-- <span class="font-weight-bold d-block">COTC-XXX</span> -->
                                 <span class="font-weight-bold">{{company.name}}</span>
@@ -36,23 +37,43 @@
                                     <thead>
                                         <tr width="100%">
                                             <th width="55%" v-if="form.suppliers.length>0" class="pb-2">Proveedor
-                                                <a href="#" class="text-center font-weight-bold text-info" @click.prevent="showDialogNewPerson = true">[+ Nuevo]</a>
+                                                <!-- <a href="#" class="text-center font-weight-bold" @click.prevent="showDialogNewPerson = true">[+ Nuevo]</a> -->
                                             </th>
                                             <th width="30%" v-if="form.suppliers.length>0" class="pb-2">Correo electrónico</th>
-                                            <th width="15%"><a href="#" @click.prevent="clickAddSupplier" class="text-center font-weight-bold text-info">[+ Agregar]</a></th>
+                                            <th width="15%"><a href="#" @click.prevent="clickAddSupplier" class="text-center font-weight-bold">[+ Agregar]</a></th>
                                         </tr>
                                     </thead>
                                     <tbody>
                                         <tr v-for="(row, index) in form.suppliers" :key="index" width="100%"> 
                                             <td width="55%" >
-                                                <div class="form-group mb-1 mr-2">
-                                                    <el-select v-model="row.supplier_id" filterable @change="changeSupplier(index)">
+                                                <div class="form-group mb-1 me-2 position-relative">
+                                                    <el-select v-model="row.supplier_id" filterable @change="changeSupplier(index)" remote :remote-method="searchRemoteSuppliers" :loading="loading_search">
                                                         <el-option v-for="option in suppliers" :key="option.id" :value="option.id" :label="option.description"></el-option>
+                                                        <template slot="empty">
+                                                            <p v-if="loading_search" class="el-select-dropdown__empty">
+                                                                Cargando...
+                                                            </p>
+                                                        
+                                                            <p v-else class="el-select-dropdown__empty">
+                                                                No se encontraron resultados
+                                                            </p>
+                                                        
+                                                            <div
+                                                                v-if="!loading_search"
+                                                                class="el-select-dropdown__item new-option"
+                                                                @click.stop="openNewPersonDialog"
+                                                            >
+                                                                <span>{{ supplierSearchTerm ? `Crear proveedor "${supplierSearchTerm}"` : 'Crear proveedor' }}</span>
+                                                            </div>
+                                                        </template>
                                                     </el-select>
+                                                    <span class="btn-add-new" @click.prevent="showDialogNewPerson = true" title="Agregar nuevo proveedor">
+                                                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon icon-tabler icons-tabler-outline icon-tabler-user-plus"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M8 7a4 4 0 1 0 8 0a4 4 0 0 0 -8 0" /><path d="M16 19h6" /><path d="M19 16v6" /><path d="M6 21v-2a4 4 0 0 1 4 -4h4" /></svg>
+                                                    </span>
                                                 </div>
                                             </td>
                                             <td width="30%" >
-                                                <div class="form-group mb-1 mr-2"  >
+                                                <div class="form-group mb-1 me-2"  >
                                                     <el-input v-model="row.email"></el-input>
                                                 </div>
                                             </td> 
@@ -89,7 +110,7 @@
                                                 <!-- <th width="5%">#</th> -->
                                                 <th width="50%" class="font-weight-bold">Descripción</th>
                                                 <th width="15%" class="text-center font-weight-bold">Unidad</th>
-                                                <th width="15%" class="text-right font-weight-bold">Cantidad</th> 
+                                                <th width="15%" class="text-end font-weight-bold">Cantidad</th> 
                                                 <th width="15%"></th>
                                             </tr>
                                         </thead>
@@ -98,8 +119,8 @@
                                                 <!-- <td width="5%">{{index + 1}}</td> -->
                                                 <td width="50%">{{row.item.description}}</td>
                                                 <td width="15%" class="text-center">{{row.item.unit_type_id}}</td>
-                                                <td width="15%" class="text-right">{{row.quantity}}</td> 
-                                                <td width="15%" class="text-right">
+                                                <td width="15%" class="text-end">{{row.quantity}}</td> 
+                                                <td width="15%" class="text-end">
                                                     <button type="button" class="btn waves-effect waves-light btn-xs btn-danger" @click.prevent="clickRemoveItem(index)">x</button>
                                                 </td>
                                             </tr>
@@ -122,7 +143,7 @@
 
                     </div>
 
-                    <div class="form-actions footer-card-default text-right mt-4 pl-4 pr-4 pb-3 pt-3">
+                    <div class="form-actions footer-card-default text-end mt-4 px-4 py-3">
                         <el-button class="second-buton btn btn-default second-buton-default" @click.prevent="close()">Cancelar</el-button>
                         <el-button class="submit btn btn-primary btn-submit-default" type="primary" native-type="submit" :loading="loading_submit" v-if="form.items.length > 0">{{button_text}}</el-button>
                     </div>
@@ -138,7 +159,8 @@
         <person-form :showDialog.sync="showDialogNewPerson"
                        type="suppliers"
                        :external="true"
-                       :document_type_id = form.document_type_id></person-form>
+                       :document_type_id = form.document_type_id
+                       :input_person="supplierSearchTerm"></person-form>
 
         <purchase-quotation-options :showDialog.sync="showDialogOptions"
                           :recordId="purchaseQuotationNewId"
@@ -189,7 +211,15 @@
                 activePanel: 0,
                 loading_search:false,
                 propIsUpdate:false,
-                button_text:'Generar'
+                button_text:'Generar',
+                supplierSearchTerm: '',
+            }
+        },
+        watch: {
+            showDialogNewPerson(newVal) {
+                if (!newVal) {
+                    this.supplierSearchTerm = ''
+                }
             }
         },
         async created() {
@@ -208,6 +238,7 @@
             this.loading_form = true
             this.$eventHub.$on('reloadDataPersons', () => {
                 this.reloadDataSuppliers()
+                this.supplierSearchTerm = ''
             })
 
             await this.isUpdate()
@@ -249,6 +280,22 @@
                 
                 this.clickAddSupplier()
 
+            },
+            searchRemoteSuppliers(input) {
+                this.supplierSearchTerm = input;
+                
+                if (input.length > 1) {
+                    this.loading_search = true
+                    let parameters = `input=${input}`
+
+                    this.$http.get(`/reports/data-table/persons/suppliers?${parameters}`)
+                        .then(response => {
+                            this.suppliers = response.data.persons
+                            this.loading_search = false
+                        })
+                } else {
+                    this.filterSuppliers()
+                }
             },
             async changeSupplier(index){  
                 let supplier = await _.find(this.suppliers,{'id':this.form.suppliers[index].supplier_id})
@@ -342,6 +389,9 @@
                 this.$http.get(`/${this.resource}/table/suppliers`).then((response) => {
                     this.suppliers = response.data
                 })             
+            },
+            openNewPersonDialog() {
+                this.showDialogNewPerson = true
             },
         }
     }

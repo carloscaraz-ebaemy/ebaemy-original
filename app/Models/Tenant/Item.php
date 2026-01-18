@@ -15,6 +15,7 @@ use App\Models\Tenant\Catalogs\UnitType;
 use Carbon\Carbon;
 use Exception;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -113,6 +114,7 @@ use Modules\Purchase\Helpers\WeightedAverageCostHelper;
 class Item extends ModelTenant
 {
     protected $with = ['item_type', 'unit_type', 'currency_type', 'warehouses','item_unit_types', 'tags','item_lots'];
+    protected $appends = ['modifiers'];
 
     public const SERVICE_UNIT_TYPE = 'ZZ';
 
@@ -157,6 +159,7 @@ class Item extends ModelTenant
         'date_of_due',
         'is_set',
         'sale_unit_price_set',
+        'is_dish',
         'apply_store',
         'apply_restaurant',
         'brand_id',
@@ -180,11 +183,14 @@ class Item extends ModelTenant
 
         'subject_to_detraction',
         'favorite',
+        'restaurant_favorite',
 
         'exchange_points',
         'quantity_of_points',
         'factory_code',
         'restrict_sale_cpe',
+
+        'preparation_area_id',
 
         // 'warehouse_id'
     ];
@@ -266,6 +272,40 @@ class Item extends ModelTenant
     public function getAttributesAttribute($value)
     {
         return (is_null($value))?null:json_decode($value);
+    }
+
+    protected function description(): Attribute
+    {
+        return Attribute::make(
+            get: fn ($value) => self::clean($value),
+        );
+    }
+
+    protected function textFilter(): Attribute
+    {
+        return Attribute::make(
+            get: fn ($value) => self::clean($value),
+        );
+    }
+
+    protected function name() : Attribute
+    {
+        return Attribute::make(
+            get: fn ($value) => self::clean($value),
+        );
+    }
+
+    public static function clean($value)
+    {
+        if (!is_string($value)) {
+            return $value;
+        }
+
+        $value = preg_replace('/[\x00-\x1F\x7F]/u', '', $value);
+
+        $value = preg_replace('/\s+/u', ' ', $value);
+
+        return trim($value);
     }
 
     public function setAttributesAttribute($value)
@@ -364,6 +404,34 @@ class Item extends ModelTenant
     public function dispatch_items()
     {
         return $this->hasMany(DispatchItem::class);
+    }
+
+    /**
+     * Many-to-many relationship with modifier groups.
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\BelongsToMany
+     */
+    public function modifierGroups()
+    {
+        return $this->belongsToMany(\Modules\Restaurant\Models\ModifierGroup::class, 'item_modifier_group', 'item_id', 'modifier_group_id')->withTimestamps();
+    }
+
+    /**
+     * Accessor to return modifier groups with only specific fields.
+     * Items are automatically decoded from JSON by Laravel's cast.
+     *
+     * @return \Illuminate\Support\Collection
+     */
+    public function getModifiersAttribute()
+    {
+        return $this->modifierGroups->map(function($group) {
+            return [
+                'name' => $group->name,
+                'active' => $group->active,
+                'items' => $group->items,
+                'selection_type' => $group->selection_type,
+            ];
+        });
     }
 
     /**
@@ -559,6 +627,18 @@ class Item extends ModelTenant
     }
 
     /**
+     * @return BelongsTo
+     */
+    public function preparationArea()
+    {
+        return $this->belongsTo(\Modules\Restaurant\Models\RestaurantPreparationArea::class, 'preparation_area_id')->withDefault([
+            'id' => '',
+            'name' => '',
+            'printer' => ''
+        ]);
+    }
+
+    /**
      * @return HasMany
      */
     public function item_lots()
@@ -588,6 +668,113 @@ class Item extends ModelTenant
     public function lots_group()
     {
         return $this->hasMany(ItemLotsGroup::class, 'item_id');
+    }
+
+    /**
+     * Relación con los insumos del restaurante asignados a este item
+     * @return HasMany
+     */
+    public function restaurantItemSupplies()
+    {
+        return $this->hasMany(\Modules\Restaurant\Models\RestaurantItemSupply::class, 'item_id');
+    }
+
+    /**
+     * Relación con los insumos a través de la tabla pivote
+     * @return \Illuminate\Database\Eloquent\Relations\BelongsToMany
+     */
+    public function restaurantSupplies()
+    {
+        return $this->belongsToMany(
+            \Modules\Restaurant\Models\Supply::class,
+            'restaurant_item_supplies',
+            'item_id',
+            'supply_id'
+        )->withPivot('quantity')->withTimestamps();
+    }
+
+    /**
+     * Calcula el stock disponible del producto en base a los insumos
+     * Retorna la cantidad máxima de productos que se pueden preparar con el stock actual de insumos
+     *
+     * Ejemplo: Si un plato usa 0.2kg de arroz y hay 2kg en stock, retorna 10
+     * Si usa múltiples insumos, retorna el menor stock posible entre todos
+     *
+     * @return int
+     */
+    public function getRestaurantStock()
+    {
+        $itemSupplies = $this->restaurantItemSupplies()->with('supply')->get();
+
+        // Si no tiene insumos asignados, retorna 0
+        if ($itemSupplies->isEmpty()) {
+            return 0;
+        }
+
+        $possibleStock = [];
+
+        foreach ($itemSupplies as $itemSupply) {
+            $supply = $itemSupply->supply;
+
+            // Si algún insumo no existe o no tiene stock, no se puede preparar
+            if (!$supply || $supply->stock <= 0) {
+                return 0;
+            }
+
+            // Calcular cuántos productos se pueden hacer con este insumo
+            // stock_insumo / cantidad_requerida_por_producto
+            $possible = floor($supply->stock / $itemSupply->quantity);
+            $possibleStock[] = $possible;
+        }
+
+        // Retornar el menor stock posible (el insumo limitante)
+        return min($possibleStock);
+    }
+
+    /**
+     * Relación muchos a muchos con los items que componen el set
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\BelongsToMany
+     */
+    public function items_sets()
+    {
+        return $this->belongsToMany(
+            Item::class,           // Queremos objetos de la tabla Items
+            'item_sets',           // A través de esta tabla
+            'item_id',             // La llave del combo
+            'individual_item_id'   // La llave del producto individual
+        )->withPivot('quantity');  // También trae la cantidad
+    }
+        
+    /**
+     * Calcula el stock disponible del set en base a los items que lo componen
+     * Retorna la cantidad máxima de sets que se pueden preparar con el stock actual de items
+     *
+     * Ejemplo: Si un set usa 2 unidades de item A y hay 10 en stock, y usa 3 unidades de item B y hay 9 en stock,
+     * retorna 3 (porque el item B es el limitante)
+     *
+     * @return int
+     */
+
+    public function getRestaurantStockSet() {
+        $items = $this->items_sets;
+        $possibleStocks = [];
+
+        foreach ($items as $item) {
+            if ($item->restaurantSupplies()->exists()) {
+                // Si el item del set tiene insumos asignados, se calcula su stock en base a esos insumos
+                $itemStock = $item->getRestaurantStock();
+                $possibleStocks[] = floor($itemStock / $item->pivot->quantity);
+                continue;
+            } else {
+                // Si el item del set no tiene insumos asignados, se toma su stock normal
+                $itemStock = $item->stock;
+                $possibleStocks[] = floor($itemStock / $item->pivot->quantity);
+                continue;
+            }
+        }
+
+        return min($possibleStocks);
     }
 
     /**
@@ -1051,6 +1238,8 @@ class Item extends ModelTenant
             'restrict_sale_cpe' => $this->restrict_sale_cpe,
             'image_url' => $this->getImageUrl(),
             'name' => $this->name,
+            'preparation_area_id' => $this->preparation_area_id,
+            'preparation_area' => $this->preparationArea
         ];
 
         // El nombre de producto, por defecto, sera la misma descripcion.
@@ -1105,7 +1294,7 @@ class Item extends ModelTenant
      *
      * @return array
      */
-    public function getCollectionData(Configuration $configuration = null){
+    public function getCollectionData(Configuration $configuration = null, $isRestaurant = false){
         if(empty($configuration)){
             $configuration =  Configuration::first();
         }
@@ -1172,7 +1361,21 @@ class Item extends ModelTenant
         $defaultImage = $configuration->product_default_image ?? 'imagen-no-disponible.jpg';
         $defaultImagePath = $defaultImage === 'imagen-no-disponible.jpg'
             ? asset('logo/imagen-no-disponible.jpg')
-            : asset('storage/defaults/' . $defaultImage); 
+            : asset('storage/defaults/' . $defaultImage);
+
+        // Calcular stock de restaurant basado en insumos
+        $restaurantStock = 0;
+        if ($isRestaurant) {
+            $has_supplies = $this->restaurantSupplies()->exists();
+            if ($has_supplies) {
+                $restaurantStock = $this->getRestaurantStock();
+            }
+            $has_sets = $this->items_sets()->exists();
+            if ($has_sets) {
+                $restaurantStock = $this->getRestaurantStockSet();
+            }
+        }
+
         return [
             'name_disa' => $name_disa,
             'laboratory' => $laboratory,
@@ -1220,15 +1423,19 @@ class Item extends ModelTenant
                 ];
             }),
             'apply_store' => (bool)$this->apply_store,
-            'apply_restaurant' => (bool)$this->apply_restaurant,        
+            'apply_restaurant' => (bool)$this->apply_restaurant,
+            'restaurant_stock' => $restaurantStock,
+            'has_supplies' => $isRestaurant ? $has_supplies : null,
+            'is_dish' => $isRestaurant ? $this->is_dish : null,
+            'has_sets' => $isRestaurant ? $has_sets : null,
             'image_url' => ($this->image !== 'imagen-no-disponible.jpg')
                 ? asset('storage/uploads/items/' . $this->image)
                 : $defaultImagePath,
-                    
+
             'image_url_medium' => ($this->image_medium !== 'imagen-no-disponible.jpg')
                 ? asset('storage/uploads/items/' . $this->image_medium)
                 : $defaultImagePath,
-                    
+
             'image_url_small' => ($this->image_small !== 'imagen-no-disponible.jpg')
                 ? asset('storage/uploads/items/' . $this->image_small)
                 : $defaultImagePath,
@@ -2679,7 +2886,9 @@ class Item extends ModelTenant
      */
     public function getSaleApiRowResource($warehouse)
     {
+        $configuration =  Configuration::first();
         $currency = $this->currency_type;
+        $decimal_units = (int)$configuration->decimal_quantity;
 
         return [
             'id' => $this->id,
@@ -2696,7 +2905,12 @@ class Item extends ModelTenant
             'unit_type_id' => $this->unit_type_id,
             'sale_affectation_igv_type_id' => $this->sale_affectation_igv_type_id,
             'has_igv' => (bool) $this->has_igv,
+            'favorite' => $this->favorite,
             'quantity' => 0,
+            'item_unit_types' => $this->item_unit_types->transform(function ($row) use ($decimal_units) {
+                /** @var ItemUnitType $row */
+                return $row->getCollectionData($decimal_units);
+            }),
             'stock' => $this->getWarehouseCurrentStock($warehouse),
             'image_url' => $this->getImageUrl(),
             'brand_id' => $this->brand_id,
@@ -2883,6 +3097,19 @@ class Item extends ModelTenant
     public function hasServiceUnitType()
     {
         return $this->unit_type_id === self::SERVICE_UNIT_TYPE;
+    }
+
+    public static function getListPriceItems()
+    {
+        $prices = ['price1', 'price2', 'price3'];
+        $resource = [];
+
+        foreach ($prices as $price) {
+            $configuration = Configuration::first();
+            $resource[$price] = $configuration->{$price.'_label'};
+        }
+
+        return $resource;
     }
 
 

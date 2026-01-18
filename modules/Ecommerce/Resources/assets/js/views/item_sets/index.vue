@@ -1,6 +1,6 @@
 <template>
     <div>
-        <div class="page-header pr-0">
+        <div class="page-header pe-0">
             <h2><a href="/ecommerce/item-sets">
                 <svg  xmlns="http://www.w3.org/2000/svg" style="margin-top: -5px;" width="24"  height="24"  viewBox="0 0 24 24"  fill="none"  stroke="currentColor"  stroke-width="2"  stroke-linecap="round"  stroke-linejoin="round"  class="icon icon-tabler icons-tabler-outline icon-tabler-shopping-cart"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M6 19m-2 0a2 2 0 1 0 4 0a2 2 0 1 0 -4 0" /><path d="M17 19m-2 0a2 2 0 1 0 4 0a2 2 0 1 0 -4 0" /><path d="M17 17h-11v-14h-2" /><path d="M6 5l14 1l-1 7h-13" /></svg>
             </a></h2>
@@ -8,9 +8,9 @@
                 <li class="active"><span>Productos compuestos Ecommerce</span></li>
             </ol>
             <div class="right-wrapper pull-right">
-                <div class="btn-group flex-wrap">
-                    <button type="button" class="btn btn-custom btn-sm  mt-2 mr-2 dropdown-toggle"
-                            data-toggle="dropdown" aria-expanded="false"><i class="fa fa-upload"></i> Importar <span
+                <div class="btn-group flex-wrap dropdown">
+                    <button type="button" class="btn btn-custom btn-sm  mt-2 me-2 dropdown-toggle"
+                            data-bs-toggle="dropdown" aria-expanded="false"><i class="fa fa-upload"></i> Importar <span
                         class="caret"></span></button>
                     <div class="dropdown-menu" role="menu" x-placement="bottom-start"
                          style="position: absolute; will-change: transform; top: 0px; left: 0px; transform: translate3d(0px, 42px, 0px);">
@@ -25,7 +25,7 @@
                     <!-- <button type="button" class="btn btn-custom btn-sm  mt-2 mr-2" @click.prevent="clickImport()"><i class="fa fa-upload"></i> Importar</button> -->
                     <button
                         type="button"
-                        class="btn btn-custom btn-sm  mt-2 mr-2"
+                        class="btn btn-custom btn-sm  mt-2 me-2"
                         @click.prevent="clickCreate()"
                         v-if="can_add_new_product"
                     >
@@ -41,7 +41,7 @@
             <div class="data-table-visible-columns">
                 <el-dropdown :hide-on-click="false">
                     <el-button type="secondary">
-                        Mostrar/Ocultar columnas<i class="el-icon-arrow-down el-icon--right"></i>
+                        Mostrar columnas<i class="el-icon-arrow-down el-icon--right"></i>
                     </el-button>
                     <el-dropdown-menu slot="dropdown">
                         <el-dropdown-item v-for="(column, index) in columnsComputed" :key="index">
@@ -64,11 +64,11 @@
                         <th v-if="columns.description.visible">Descripción</th>
                         <th v-if="columns.model.visible">Modelo</th>
                         <!-- <th v-if="columns.brand.visible">Marca</th>  -->
-                        <th class="text-right" v-if="columns.item_code.visible">Cód. SUNAT</th>
+                        <th class="text-end" v-if="columns.item_code.visible">Cód. SUNAT</th>
                         <!-- <th  class="text-left">Stock</th> -->
-                        <th class="text-right">P.Unitario (Venta)</th>
-                        <th class="text-left">Tiene Igv</th>
-                        <th class="text-right">Acciones</th>
+                        <th class="text-end">P.Unitario (Venta)</th>
+                        <th class="text-start">Tiene Igv</th>
+                        <th class="text-end">Acciones</th>
                     </tr>
                     <tr slot-scope="{ index, row }">
                         <!-- <td>{{ index }}</td> -->
@@ -77,18 +77,18 @@
                         <td>{{ row.description }}</td>
                         <td v-if="columns.description.visible">{{ row.name }}</td>
                         <td v-if="columns.model.visible">{{ row.model }}</td>
-                        <td class="text-right" v-if="columns.item_code.visible">{{ row.item_code }}</td>
+                        <td class="text-end" v-if="columns.item_code.visible">{{ row.item_code }}</td>
                         <!-- <td>
                             <template v-if="typeUser=='seller' && row.unit_type_id !='ZZ'">{{ row.stock }}</template>
                             <template v-else-if="typeUser!='seller'&& row.unit_type_id !='ZZ'">
                                 <button type="button" class="btn waves-effect waves-light btn-xs btn-info" @click.prevent="clickWarehouseDetail(row.warehouses)"><i class="fa fa-search"></i></button>
                             </template>
                         </td> -->
-                        <td class="text-right">{{ row.sale_unit_price }}</td>
-                        <td class="text-left    ">{{ row.has_igv_description }}</td>
-                        <td class="text-right">
+                        <td class="text-end">{{ row.sale_unit_price }}</td>
+                        <td class="text-start">{{ row.has_igv_description }}</td>
+                        <td class="text-end">
                             <template v-if="typeUser === 'admin'">
-                                <button type="button" class="btn waves-effect waves-light btn-xs btn-info"
+                                <button type="button" class="btn waves-effect waves-light btn-xs btn-info me-1"
                                         @click.prevent="clickCreate(row.id)">Editar
                                 </button>
                                 <button type="button" class="btn waves-effect waves-light btn-xs btn-danger"

@@ -15,7 +15,7 @@ use Hyn\Tenancy\Environment;
 use App\CoreFacturalo\Helpers\Storage\StorageDocument;
 use App\Models\Tenant\Company;
 use App\Models\Tenant\Establishment;
-use Barryvdh\DomPDF\Facade as PDF;
+use Barryvdh\DomPDF\Facade\Pdf as PDF;
 use Carbon\Carbon;
 use Modules\Finance\Models\GlobalPayment;
 use Modules\Finance\Exports\GlobalPaymentExport;

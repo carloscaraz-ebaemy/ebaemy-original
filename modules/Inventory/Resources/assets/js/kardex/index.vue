@@ -35,7 +35,7 @@
             <td>{{ row.input }}</td>
             <td>{{ row.output }}</td>
             <td v-if="item_id">{{ row.balance }}</td>
-            <td class="text-right">
+            <td class="text-end">
                 <button class="btn waves-effect waves-light btn-xs btn-info"
                         type="button"
                         @click.prevent="downloadPdfGuide(row.guide_id)"
@@ -50,7 +50,11 @@
         </tr>
     </data-table>
 </template>
-
+<style>
+.invoice table.table {
+    table-layout: auto !important;
+}
+</style>
 <script>
 
 import DataTable from '../../components/DataTableKardex.vue'

@@ -2,10 +2,15 @@
 
 namespace App\Models\System;
 
+use App\Mail\PaymentOrderEmail;
+use Carbon\Carbon;
 use Hyn\Tenancy\Models\Hostname;
 use Hyn\Tenancy\Traits\UsesSystemConnection;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Config;
+use GuzzleHttp\Client as HttpClient;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 
 /**
  * App\Models\System\Client
@@ -75,6 +80,8 @@ class Client extends Model
         'locked_tenant',
         'locked_users',
         'plan_id',
+        'price',
+        'plan_period_id',
         'start_billing_cycle',
         'smtp_host',
         'smtp_port',
@@ -88,11 +95,16 @@ class Client extends Model
         'restore_type_bkdemo',
         'enabled_cron_restore_bkdemo',
         'from_guest_register',
+        'ending_billing_cycle',
+        'phone_ws',
+        'client_name',
+        'contact_email',
     ];
 
 
     protected $casts = [
         'start_billing_cycle' => 'date',
+        'ending_billing_cycle' => 'date',
         'smtp_port' => 'int',
         'locked_create_establishments' => 'boolean',
         'restrict_sales_limit' => 'boolean',
@@ -207,11 +219,20 @@ class Client extends Model
         return $this->belongsTo(Plan::class);
     }
 
+    public function period()
+    {
+        return $this->belongsTo(PlanPeriod::class, 'plan_period_id');
+    }
+
     public function payments()
     {
         return $this->hasMany(ClientPayment::class);
     }
 
+    public function orders()
+    {
+        return $this->hasMany(PaymentOrder::class, 'client_id');
+    }
 
     /**
      *
@@ -274,15 +295,15 @@ class Client extends Model
 
     /**
      *
-     * @param  Builder $query
-     * @return Builder
+     * @param  builder $query
+     * @return builder
      */
-    public function scopeCurrentClientByWebsite($query, $website)
+    public function scopecurrentclientbywebsite($query, $website)
     {
         return $query->wherehas('hostname', function($q) use($website) {
                     return $q->where('website_id', $website->id);
                 })
-                ->whereFilterWithOutRelations()
+                ->wherefilterwithoutrelations()
                 ->with(['hostname'])
                 ->select([
                     'id',
@@ -292,4 +313,128 @@ class Client extends Model
                 ]);
     }
 
+    public function getPricePlan()
+    {
+        return isset($this->price) ? $this->price : $this->plan->pricing;
+    }
+
+    public function createPayemtnOrder()
+    {
+        $price = $this->getPricePlan();
+
+        $payments_order = PaymentOrder::create([
+            'order' => str_pad((PaymentOrder::count() + 1), 6, '0', STR_PAD_LEFT),
+            'date_of_due' => $this->ending_billing_cycle,
+            'amount' => $price,
+            'order_state_id' => 1,
+            'client_id' => $this->id,
+            'description' => null,
+            'created_by' => 'Sistema',
+        ]);
+
+        return $payments_order->id;
+
+    }
+
+    public function dayNotification()
+    {
+
+        $config = Configuration::first(); 
+        $day_notification = Carbon::parse($this->ending_billing_cycle)
+                    ->subDays($config->day_before_due)->day;
+
+        return $day_notification;
+    }
+
+
+    public function getVariablesWs()
+    {
+        $ending = $this->ending_billing_cycle;
+        return [
+            '@variable_nombre' => $this->name,
+            '@variable_plan' => $this->plan->name,
+            '@variable_precios' => $this->getPricePlan(),
+            '@variable_fecha_vencimiento' => $ending
+        ];
+    }
+
+    public function notifyOrder($id)
+    {
+        $confg = Configuration::first();
+        $model = PaymentOrder::find($id);
+
+        try {
+            $validate = $confg->validationConfigNotify($confg);
+            if (!is_null($validate['email']) && !is_null($validate['ws'])) {
+                return response()->json([
+                    'success' => false,
+                    'message' =>  "Tiene que configurar al menos un servicio (WhatsApp o Email) para enviar las notificaciones.",
+                ], 400);
+            }
+
+            if (is_null($validate['ws'])) {
+                if (is_null($this->phone_ws)) {
+                    return [
+                        'success' => false,
+                        'message' =>  "El cliente no tiene un número de WhatsApp configurado.",
+                    ];
+                }
+                $variablesWs = $model->client->getVariablesWs();
+                $msg = $confg->qr_api_msg;
+
+                foreach ($variablesWs as $key => $value) {
+                    $msg = str_replace($key, $value, $msg);
+                }
+
+                $client = new HttpClient();
+                    $response = $client->post(
+                        $confg->qr_api_url . '/api/message/send-text',
+                        [
+                            'headers' => [
+                                'Authorization' => 'Bearer '. $confg->qr_api_token,
+                                'Accept'        => 'application/json',  
+                            ],
+                            'json' => [
+                                "number" => "51".$this->phone_ws,
+                                "message" => $msg 
+                            ],
+                            'verify' => false, 
+                        ]
+                    );
+            }
+
+            if (is_null($validate['email'])) {
+                if (is_null($this->contact_email)) {
+                    return [
+                        'success' => false,
+                        'message' =>  "El cliente no tiene un correo de contacto configurado.",
+                    ];
+                }
+
+                $maillable = new PaymentOrderEmail($model);
+                $confg::setConfigSmtpMail();
+                Mail::to($this->contact_email)->send($maillable);
+            }
+            
+        } catch (\Throwable $th) {
+            Log::error("Error al enviar notificación de orden de pago: " . $th->getMessage());
+            return 
+            ['success' => false,
+                'message' => 'Error al enviar notificación de orden de pago: ' . $th->getMessage()];
+        }
+
+        return 
+            ['success' => true,
+                'message' => 'Notificaciones de email y WhatsApp enviada con éxito'];
+
+
+    }
+
+    public function activeService()
+    {
+        if ($this->locked_tenant) {
+            return false;
+        }
+        return Carbon::parse($this->ending_billing_cycle)->greaterThanOrEqualTo(now()->toDateString());
+    }
 }

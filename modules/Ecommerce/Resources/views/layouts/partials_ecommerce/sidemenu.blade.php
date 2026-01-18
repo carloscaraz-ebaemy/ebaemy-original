@@ -136,7 +136,7 @@
 
           @foreach ($items as $item)
             <li class="{{ ($tagid == $item->id) ? 'active':'' }}">
-              <a href="{{ route("tenant.ecommerce.category", ['tagid' => $item->id]) }}">
+              <a href="{{ route("tenant.ecommerce.category", ['category' => $item->id]) }}">
                 <i class="icon-cat-gift"></i>
                 @php
                   echo wordwrap($item->name, 27, "<br />\n")

@@ -371,6 +371,25 @@ use Illuminate\Support\Facades\DB;
         }
 
         /**
+         * Compatibilidad con UserControlHelper::checkActiveUser().
+         * En ecommerce (Person) la “actividad” suele depender de enabled/status.
+         *
+         * @return bool
+         */
+        public function isActive(): bool
+        {
+            if (!is_null($this->enabled) && $this->enabled === false) {
+                return false;
+            }
+
+            if (!is_null($this->status)) {
+                return (int)$this->status === 1;
+            }
+
+            return true;
+        }
+
+        /**
          * @return \Illuminate\Database\Eloquent\Relations\HasMany
          */
         public function expenses_where_supplier()

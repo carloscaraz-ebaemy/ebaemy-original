@@ -1,26 +1,30 @@
 <template>
   <div>
-    <img
-      :src="imageUrl"
-      alt="Vista previa"
-      class="img-fluid img-thumbnail w-100 mb-3"
-    />
+    <div class="image-container">
+      <img
+        :src="imageUrl"
+        alt="Vista previa"
+        class="img-fluid img-thumbnail w-100"
+      />
+      <div class="overlay">
+        <el-button
+          type="primary"
+          class="change-btn"
+          @click="onShowFilePicker"
+          :loading="loading"
+          :disabled="loading"
+          >{{ btnText }}</el-button
+        >
+      </div>
+    </div>
     <input
       type="file"
       @change="onGeneratePreview"
       ref="inputFile"
       class="hidden"
     />
-    <small class="form-control-feedback"
+    <small class="form-control-feedback mt-2 d-block"
       >{{ helpText }}</small
-    >
-    <el-button
-      type="primary"
-      class="btn-block"
-      @click="onShowFilePicker"
-      :loading="loading"
-      :disabled="loading"
-      >{{ btnText }}</el-button
     >
   </div>
 </template>
@@ -48,13 +52,13 @@ export default {
   mounted() {
       if (this.type === 'bg') {
         this.imageUrl = this.config.image;
-        this.helpText = 'Se recomienda una imagen de 747 x 547px con fondo transparente en formato PNG o SVG';
+        this.helpText = 'Se recomienda una imagen de 1000x1000px con fondo transparente en formato PNG o SVG';
       } else {
-          this.imageUrl = this.config.logo || '';
-          this.helpText = 'Se recomienda una imagen de 700 x 300 con fondo transparente en formato PNG';
+          this.imageUrl = this.config.logo || '/logo/tulogo.png';
+          this.helpText = 'Se recomienda una imagen de 600x300px con fondo transparente en formato PNG';
       }
     if (this.type === 'bg') {
-        this.btnText = 'Cambiar image de fondo';
+        this.btnText = 'Cambiar imagen de fondo';
     } else {
         this.btnText = 'Cambiar logo';
     }
@@ -95,3 +99,34 @@ export default {
   },
 };
 </script>
+
+<style scoped>
+.image-container {
+  position: relative;
+  display: inline-block;
+  width: 100%;
+}
+
+.overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color:rgb(255 255 255 / 70%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  border-radius: 0.375rem; /* Para coincidir con img-thumbnail */
+}
+
+.image-container:hover .overlay {
+  opacity: 1;
+}
+
+.change-btn:active {
+  transform: translateY(0);
+}
+</style>

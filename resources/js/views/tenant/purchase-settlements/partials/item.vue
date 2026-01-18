@@ -107,11 +107,7 @@
                                 <label class="control-label">Precio Unitario
 
                                 </label>
-                                <el-input v-if="form.item.currency_type_id !== undefined"
-                                          v-model="form.unit_price"
-                                          class="input-with-select"
-                                          :filterable="false"
-                                >
+                                <div class="position-relative el-select-currency-container">
                                     <el-select slot="prepend"
                                                v-model="form.item.currency_type_id"
                                                class="el-select-currency">
@@ -120,7 +116,13 @@
                                         <el-option label="$"
                                                    value="USD"></el-option>
                                     </el-select>
-                                </el-input>
+                                    <el-input v-if="form.item.currency_type_id !== undefined"
+                                              v-model="form.unit_price"
+                                              class="input-with-select"
+                                              :filterable="false"
+                                    >                                        
+                                    </el-input>
+                                </div>
                                 <small v-if="errors.unit_price"
                                        class="form-control-feedback"
                                        v-text="errors.unit_price[0]"></small>
@@ -278,9 +280,9 @@
                                         <th class="text-center">Unidad</th>
                                         <th class="text-center">Descripción</th>
                                         <th class="text-center">Factor</th>
-                                        <th class="text-center">Precio 1</th>
-                                        <th class="text-center">Precio 2</th>
-                                        <th class="text-center">Precio 3</th>
+                                        <th class="text-center">{{ config.price1_label }}</th>
+                                        <th class="text-center">{{ config.price2_label }}</th>
+                                        <th class="text-center">{{ config.price3_label }}</th>
                                         <th class="text-center">Precio Default</th>
                                         <th></th>
                                     </tr>
@@ -317,7 +319,7 @@
                                             </template>
                                         </td>
                                         <td class="text-center">Precio {{ row.price_default }}</td>
-                                        <td class="series-table-actions text-right">
+                                        <td class="series-table-actions text-end">
                                             <button class="btn waves-effect waves-light btn-xs btn-success"
                                                     type="button"
                                                     @click.prevent="selectedPrice(row)">
@@ -392,7 +394,7 @@
                                        href="#"></a>
                                 </div>
 
-                                <p class="pl-1">Información adicional atributos UBL 2.1</p>
+                                <p class="ps-1">Información adicional atributos UBL 2.1</p>
                             </header>
                             <div class="card-body px-0 pt-2"
                                  style="display: none;">
@@ -527,8 +529,8 @@
                     </div>
                 </div>
             </div>
-            <div class="form-actions text-right pt-2">
-                <el-button class="second-buton" @click.prevent="close()">Cerrar</el-button>
+            <div class="form-actions text-end pt-2">
+                <el-button class="second-buton me-2" @click.prevent="close()">Cerrar</el-button>
                 <el-button v-if="form.item_id"
                            native-type="submit"
                            type="primary">Agregar

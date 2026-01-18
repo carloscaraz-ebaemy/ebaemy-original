@@ -10,7 +10,7 @@
         <div class="card-body">
             <div class="row">
                 <div class="col">
-                    <button type="button" class="btn btn-custom btn-sm  mt-2 mr-2" @click.prevent="clickCreate()"><i class="fa fa-plus-circle"></i> Nuevo</button>
+                    <button type="button" class="btn btn-custom btn-sm  mt-2 me-2" @click.prevent="clickCreate()"><i class="fa fa-plus-circle"></i> Nuevo</button>
                 </div>
             </div>
             <div class="table-responsive">
@@ -21,7 +21,7 @@
                         <th>Código</th>
                         <th>Descripción</th>
                         <th>Condición de pago</th>
-                        <th class="text-right">Acciones</th>
+                        <th class="text-end">Acciones</th>
                     </tr>
                     </thead>
                     <tbody>
@@ -30,11 +30,11 @@
                         <td>{{ row.id }}</td>
                         <td>{{ row.description }}</td>
                         <td>{{ (row.is_credit == 1)?'Crédito':'Contado' }}</td>
-                        <td class="text-right">
+                        <td class="text-end">
 
                             <template v-if="row.show_actions">
 
-                                <button type="button" class="btn waves-effect waves-light btn-xs btn-info" @click.prevent="clickCreate(row.id)">Editar</button>
+                                <button type="button" class="btn waves-effect waves-light btn-xs btn-info me-1" @click.prevent="clickCreate(row.id)">Editar</button>
 
                                 <template v-if="typeUser === 'admin'">
                                     <button v-if="row.can_delete" type="button" class="btn waves-effect waves-light btn-xs btn-danger"  @click.prevent="clickDelete(row.id)">Eliminar</button>

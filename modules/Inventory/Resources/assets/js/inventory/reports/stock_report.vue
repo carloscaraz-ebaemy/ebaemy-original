@@ -131,7 +131,7 @@
                 </div>
 
             </div>
-            <div class="form-actions text-right mt-4">
+            <div class="form-actions text-end mt-4">
                 <el-button @click.prevent="close()">Cerrar</el-button>
             </div>
         </form>

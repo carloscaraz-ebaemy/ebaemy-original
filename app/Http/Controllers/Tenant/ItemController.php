@@ -1,6 +1,7 @@
 <?php
 namespace App\Http\Controllers\Tenant;
 
+use Illuminate\Support\Facades\DB;
 use App\Exports\DigemidItemExport;
 use App\Exports\ItemExport;
 use App\Exports\ItemExportWp;
@@ -44,7 +45,7 @@ use App\Models\Tenant\ItemUnitType;
 use App\Models\Tenant\ItemWarehousePrice;
 use App\Models\Tenant\Warehouse;
 use App\Traits\OfflineTrait;
-use Barryvdh\DomPDF\Facade as PDF;
+use Barryvdh\DomPDF\Facade\Pdf as PDF;
 use Carbon\Carbon;
 use Exception;
 use Illuminate\Http\Request;
@@ -67,7 +68,8 @@ use Modules\Inventory\Models\InventoryConfiguration;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Cache;
-
+use Modules\Item\Http\Controllers\EditorTagController;
+use Modules\Item\Models\TagTemplate;
 
 class ItemController extends Controller
 {
@@ -126,7 +128,7 @@ class ItemController extends Controller
 
         $isEcommerce = filter_var($request->query('isEcommerce'), FILTER_VALIDATE_BOOLEAN);
         // $records = Item::whereTypeUser()->whereNotIsSet();
-        $records = $this->getInitialQueryRecords($isEcommerce);
+        $records = $this->getInitialQueryRecords($isEcommerce, $request->isRestaurant ?? false);
 
         $sortField = $request->get('sort_field', 'id');
         $sortDirection = $request->get('sort_direction', 'desc');
@@ -198,7 +200,7 @@ class ItemController extends Controller
 
         $isRestaurant = $request->has('isRestaurant') && $request->isRestaurant === 'true';
         $isEcommerce = $request->has('isEcommerce') && $request->isEcommerce === 'true';
-        
+
         if ($request->has('list_value')) {
             switch ($request->list_value) {
                 case 'visible':
@@ -209,13 +211,19 @@ class ItemController extends Controller
                         $records->where('apply_store', 1);
                     }
                     break;
-        
+
                 case 'hidden':
                     if ($isRestaurant) {
                         $records->where('apply_restaurant', 0);
                     }
                     if ($isEcommerce) {
                         $records->where('apply_store', 0);
+                    }
+                    break;
+
+                case 'with_supplies':
+                    if ($isRestaurant) {
+                        $records->whereHas('restaurantItemSupplies');
                     }
                     break;
             }
@@ -233,7 +241,7 @@ class ItemController extends Controller
      *
      * @return \Illuminate\Database\Eloquent\Builder
      */
-    public function getInitialQueryRecords($isEcommerce)
+    public function getInitialQueryRecords($isEcommerce, $isRestaurant)
     {
 
         if(Configuration::getRecordIndividualColumn('list_items_by_warehouse') && !$isEcommerce)
@@ -241,8 +249,13 @@ class ItemController extends Controller
             $records = Item::whereWarehouse()->whereNotIsSet();
         }
         else
-        {
-            $records = Item::whereTypeUser()->whereNotIsSet();
+        {   
+            if($isRestaurant === "true")
+            {
+                $records = Item::whereTypeUser();
+            } else {
+                $records = Item::whereTypeUser()->whereNotIsSet();
+            }
         }
 
         return $records;
@@ -727,9 +740,27 @@ class ItemController extends Controller
         $column = $type_product === 'restaurant' ? 'apply_restaurant' : 'apply_store';
 
         try {
-            Item::whereNotNull('internal_id')->where($column, '=', 0)->update([
+            $items = Item::whereNotNull('internal_id')
+                ->where($column, 0);
+
+            if ($type_product === 'restaurant') {
+                $items->where(function ($q) {
+                    $q->where('unit_type_id', '!=', 'ZZ')
+                    ->orWhereExists(function ($sub) {
+                        $sub->select(DB::raw(1))
+                            ->from('restaurant_item_supplies')
+                            ->whereColumn(
+                                'restaurant_item_supplies.item_id',
+                                'items.id'
+                            );
+                    });
+                });
+            }
+
+            $items->update([
                 $column => true
             ]);
+
             return [
                 'success' => true,
                 'message' => 'Todo los productos son visible en el restaurante'
@@ -1455,45 +1486,27 @@ class ItemController extends Controller
 
     public function printBarCode(Request $request)
     {
-        ini_set("pcre.backtrack_limit", "50000000");
+        $controler = app(EditorTagController::class);
         $id = $request->id;
 
-        $record = Item::find($id);
-        $item_warehouse = ItemWarehouse::where([['item_id', $id], ['warehouse_id', auth()->user()
-            ->establishment->warehouse->id]])->first();
 
-        if(!$item_warehouse){
+        $template = TagTemplate::with('fields')->where('is_default', true)->first();
+
+        if (!$template) {
             return [
                 'success' => false,
-                'message' => "El producto seleccionado no esta disponible en su almacen!"
+                'message' => 'No se ha configurado una plantilla por defecto para imprimir etiquetas. Por favor, configure una plantilla e intente nuevamente.'
             ];
         }
 
-        if($item_warehouse->stock < 1){
-            return [
-                'success' => false,
-                'message' => "El producto seleccionado no tiene stock disponible en su almacen, no puede generar etiquetas!"
-            ];
-        }
+        $request->merge([
+            'type' => 'individual',
+            'items' => [$id],
+            'quantity_per_item' => 1,
+            'template_id' => $template->id,
+        ]);
 
-        $stock = $item_warehouse->stock;
-
-        $pdf = new Mpdf([
-                'mode' => 'utf-8',
-                'format' => [
-                    104.1,
-                    24
-                    ],
-                'margin_top' => 2,
-                'margin_right' => 2,
-                'margin_bottom' => 0,
-                'margin_left' => 2
-            ]);
-        $html = view('tenant.items.exports.items-barcode-id', compact('record', 'stock'))->render();
-
-        $pdf->WriteHTML($html, HTMLParserMode::HTML_BODY);
-
-        $pdf->output('etiquetas_'.now()->format('Y_m_d').'.pdf', 'I');
+        return $controler->export($request);
 
     }
 
@@ -1752,7 +1765,7 @@ class ItemController extends Controller
 
         return $selected;
     }
- 
+
 
 
 }

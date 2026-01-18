@@ -56,7 +56,7 @@ export default {
             required: true
         },
         current_establishment: {
-            type: String,
+            type: [String, Number],
             required: true
         }
     },

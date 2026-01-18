@@ -34,15 +34,16 @@
                             :class="{ 'has-danger': errors.item_id }"
                             class="form-group more-width-input"
                         >
-                            <label class="control-label">
+                            <label class="control-label d-flex align-items-center">
                                 Producto/Servicio
-                                <a
+                                <span
+                                    class="btn-add-new-product"
                                     v-if="can_add_new_product"
                                     href="#"
                                     @click.prevent="showDialogNewItem = true"
                                 >
-                                    [+ Nuevo]
-                                </a>
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon icon-tabler icons-tabler-outline icon-tabler-plus"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M12 5l0 14" /><path d="M5 12l14 0" /></svg>
+                                </span>
                             </label>
 
                             <template id="select-append">
@@ -82,6 +83,24 @@
                                                 :value="option.id"
                                             ></el-option>
                                         </el-tooltip>
+
+                                        <template slot="empty">
+                                            <p v-if="loading_search" class="el-select-dropdown__empty">
+                                                Cargando...
+                                            </p>
+                                        
+                                            <p v-else class="el-select-dropdown__empty">
+                                                No se encontraron resultados
+                                            </p>
+                                        
+                                            <div
+                                                v-if="!loading_search"
+                                                class="el-select-dropdown__item new-option"
+                                                @click.stop="openNewItemDialog"
+                                            >
+                                                <span>{{ itemSearchTerm ? `Crear producto "${itemSearchTerm}"` : 'Crear producto' }}</span>
+                                            </div>
+                                        </template>
                                     </el-select>
                                 </el-input>
                             </template>
@@ -301,13 +320,13 @@
                                             </th>
                                             <th class="text-center">Factor</th>
                                             <th class="text-center">
-                                                Precio 1
+                                                {{ config.price1_label }}
                                             </th>
                                             <th class="text-center">
-                                                Precio 2
+                                                {{ config.price2_label }}
                                             </th>
                                             <th class="text-center">
-                                                Precio 3
+                                                {{ config.price3_label }}
                                             </th>
                                             <th class="text-center">
                                                 Precio Default
@@ -373,9 +392,9 @@
                                     <el-option v-for="option in item_unit_types" :key="option.id" :value="option.id" :label="option.description"></el-option>
                                 </el-select>
                                 <el-radio-group v-if="form.item_unit_type_id" v-model="item_unit_type.price_default" @change="changePresentation">
-                                    <el-radio :label="1">Precio 1</el-radio>
-                                    <el-radio :label="2">Precio 2</el-radio>
-                                    <el-radio :label="3">Precio 3</el-radio>
+                                    <el-radio :label="1">{{ config.price1_label }}</el-radio>
+                                    <el-radio :label="2">{{ config.price2_label }}</el-radio>
+                                    <el-radio :label="3">{{ config.price3_label }}</el-radio>
                                 </el-radio-group>
                                 <small class="form-control-feedback" v-if="errors.item_unit_type_id" v-text="errors.item_unit_type_id[0]"></small>
                             </div>
@@ -638,7 +657,7 @@
             <!-- @todo: Mejorar evitando duplicar codigo -->
             <!-- Mostrar en cel -->
 
-            <div class="row hidden-md-up form-actions text-center">
+            <div class="row d-md-none form-actions text-center">
                 <div class="col-12">
                     &nbsp;
                 </div>
@@ -665,8 +684,8 @@
             <!-- @todo: Mejorar evitando duplicar codigo -->
             <!-- Ocultar en cel -->
 
-            <div class="form-actions text-right pt-2  hidden-sm-down">
-                <el-button class="second-buton" @click.prevent="close()"
+            <div class="form-actions text-end pt-2 d-none d-md-block">
+                <el-button class="second-buton me-2" @click.prevent="close()"
                     >Cerrar</el-button
                 >
                 <el-button
@@ -681,6 +700,7 @@
         <item-form
             :external="true"
             :showDialog.sync="showDialogNewItem"
+            :input_item="itemSearchTerm"
         ></item-form>
 
         <warehouses-detail
@@ -715,8 +735,8 @@
 </style>
 <script>
 // import WarehousesDetail from './warehouses.vue'
-import ItemForm from "../../../../../../../../resources/js/views/tenant/items/form";
-import LotsGroup from "../../../../../../../../resources/js/views/tenant/sale_notes/partials/lots_group";
+import ItemForm from "@views/items/form.vue";
+import LotsGroup from "@views/sale_notes/partials/lots_group.vue";
 
 import { calculateRowItem } from "@helpers/functions";
 import WarehousesDetail from "@views/documents/partials/select_warehouses.vue";
@@ -728,7 +748,7 @@ import { mapActions, mapState } from "vuex/dist/vuex.mjs";
 import {
     ItemOptionDescription,
     ItemSlotTooltip
-} from "../../../../../../../../resources/js/helpers/modal_item";
+} from "@helpers/modal_item";
 import { checkPermissionEditPrices } from "@mixins/check-permission-edit-prices";
 
 export default {
@@ -790,14 +810,25 @@ export default {
                 classic: ClassicEditor
             },
             loading_dialog: false,
-            readonly_total: 0
+            readonly_total: 0,
+            itemSearchTerm: ''
         };
     },
-
+    watch: {
+        showDialog(newVal) {
+            if (newVal) {
+                this.itemSearchTerm = ''
+            }
+        }
+    },
     created() {
         this.loadConfiguration();
         this.$store.commit("setConfiguration", this.configuration);
         this.initForm();
+        this.$eventHub.$on("reloadDataItems", item_id => {
+            this.reloadDataItems(item_id);
+            this.itemSearchTerm = ''
+        });
     },
     mounted() {
         this.getTables();
@@ -949,6 +980,8 @@ export default {
             this.calculateTotal();
         },
         async searchRemoteItems(input) {
+            this.itemSearchTerm = input;
+
             if (input.length > 2) {
                 this.loading_search = true;
                 const params = {
@@ -1507,7 +1540,10 @@ export default {
                 return this.item_unit_type.id === item_unit_type.id;
             }
             return false;
-        }
+        },
+        openNewItemDialog() {
+            this.showDialogNewItem = true;
+        },
     }
 };
 </script>

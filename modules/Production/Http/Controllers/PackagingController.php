@@ -8,7 +8,7 @@
     use App\Models\Tenant\Catalogs\CatColorsItem;
     use App\Models\Tenant\Establishment;
     use App\Models\Tenant\Item;
-    use Barryvdh\DomPDF\Facade as PDF;
+    use Barryvdh\DomPDF\Facade\Pdf as PDF;
     use Illuminate\Http\Request;
     use Illuminate\Http\Response;
     use Illuminate\Support\Facades\DB;

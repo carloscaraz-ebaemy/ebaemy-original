@@ -3,14 +3,60 @@
     <form autocomplete="off" @submit.prevent="submit">
       <div class="form-body">
         <div class="row">
-          <div class="col-md-6">
-            <div class="form-group" :class="{'has-danger': errors.name}">
-              <label class="control-label">Nombre</label>
-              <el-input v-model="form.name"></el-input>
-              <small class="form-control-feedback" v-if="errors.name" v-text="errors.name[0]"></small>
+          <div class="col-12 col-sm-6">
+            <div class="col-12">
+              <div class="form-group banner-img" :class="{'has-danger': errors.image}">
+                <label class="control-label">
+                  Imágen
+                  <span class="text-danger"></span>
+                  <div class="sub-title text-danger">
+                    <small>Se requiere resoluciones 1024x720</small>
+                  </div>
+                </label>
+                <el-upload
+                  class="avatar-uploader"
+                  :data="{'type': 'promotions'}"
+                  :headers="headers"
+                  :action="`/${resource}/upload`"
+                  :show-file-list="false"
+                  :on-success="onSuccess"
+                >
+                  <img v-if="form.image_url" :src="form.image_url" class="avatar" />
+                  <i v-else class="el-icon-plus avatar-uploader-icon"></i>
+                </el-upload>
+                <small class="form-control-feedback" v-if="errors.image" v-text="errors.image[0]"></small>
+              </div>
             </div>
           </div>
-          <div class="col-md-6">
+          <div class="col-12 col-sm-6">
+            <div class="col-12">
+              <div class="form-group" :class="{'has-danger': errors.name}">
+                <label class="control-label">Nombre</label>
+                <el-input v-model="form.name"></el-input>
+                <small class="form-control-feedback" v-if="errors.name" v-text="errors.name[0]"></small>
+              </div>
+            </div>
+
+            <div class="col-12">
+              <div class="form-group" :class="{'has-danger': errors.item_id}">
+                <label class="control-label">Link a Producto</label>
+                <el-select v-model="form.item_id" dusk="item_id">
+                  <el-option
+                    v-for="option in items"
+                    :key="option.id"
+                    :value="option.id"
+                    :label="option.description"
+                  ></el-option>
+                </el-select>
+                <small
+                  class="form-control-feedback"
+                  v-if="errors.item_id"
+                  v-text="errors.item_id[0]"
+                ></small>
+              </div>
+            </div>
+          </div>
+          <!-- <div class="col-md-6">
             <div class="form-group" :class="{'has-danger': errors.description}">
               <label class="control-label">Descripcion</label>
               <el-input v-model="form.description"></el-input>
@@ -20,55 +66,11 @@
                 v-text="errors.description[0]"
               ></small>
             </div>
-          </div>
-        </div>
-        <br />
-        <div class="row">
-          <div class="col-md-3">
-            <div class="form-group" :class="{'has-danger': errors.image}">
-              <label class="control-label">
-                Imágen
-                <span class="text-danger"></span>
-                <div class="sub-title text-danger">
-                  <small>Se requiere resoluciones 1024x720</small>
-                </div>
-              </label>
-              <el-upload
-                class="avatar-uploader"
-                :data="{'type': 'promotions'}"
-                :headers="headers"
-                :action="`/${resource}/upload`"
-                :show-file-list="false"
-                :on-success="onSuccess"
-              >
-                <img v-if="form.image_url" :src="form.image_url" class="avatar" />
-                <i v-else class="el-icon-plus avatar-uploader-icon"></i>
-              </el-upload>
-              <small class="form-control-feedback" v-if="errors.image" v-text="errors.image[0]"></small>
-            </div>
-          </div>
-          <div class="col-md-4">
-            <div class="form-group" :class="{'has-danger': errors.item_id}">
-              <label class="control-label">Link a Producto</label>
-              <el-select v-model="form.item_id" dusk="item_id">
-                <el-option
-                  v-for="option in items"
-                  :key="option.id"
-                  :value="option.id"
-                  :label="option.description"
-                ></el-option>
-              </el-select>
-              <small
-                class="form-control-feedback"
-                v-if="errors.item_id"
-                v-text="errors.item_id[0]"
-              ></small>
-            </div>
-          </div>
+          </div> -->
         </div>
       </div>
-      <div class="form-actions text-right mt-4">
-        <el-button class="second-buton" @click.prevent="close()">Cancelar</el-button>
+      <div class="form-actions text-end mt-4">
+        <el-button class="second-buton me-2" @click.prevent="close()">Cancelar</el-button>
         <el-button type="primary" native-type="submit" :loading="loading_submit">Guardar</el-button>
       </div>
     </form>
@@ -111,7 +113,7 @@ export default {
       this.errors = {};
       this.form = {
         name: null,
-        description: null,
+        description: '',
         image: null,
         image_url: null,
         temp_path: null,
@@ -125,6 +127,10 @@ export default {
           .get(`/${this.resource}/record/${this.recordId}`)
           .then(response => {
             this.form = response.data.data;
+            // Asegurar que description nunca sea null
+            if (this.form.description === null) {
+              this.form.description = '';
+            }
           });
       }
     },

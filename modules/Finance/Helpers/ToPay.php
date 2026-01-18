@@ -68,7 +68,9 @@ class ToPay
         /*
          * Purchases
          */
-        $purchase_payments = DB::table('purchase_payments')
+        $purchase_payments = DB::
+            connection('tenant')
+            ->table('purchase_payments')
             ->select('purchase_id', DB::raw('SUM(payment) as total_payment'))
             ->groupBy('purchase_id');
 
@@ -112,7 +114,9 @@ class ToPay
         /*
          * Sale Notes
          */
-        $expense_payments = DB::table('expense_payments')
+        $expense_payments = DB::
+            connection('tenant')
+            ->table('expense_payments')
             ->select('expense_id', DB::raw('SUM(payment) as total_payment'))
             ->groupBy('expense_id');
         $expenses = DB::connection('tenant')
@@ -162,7 +166,9 @@ class ToPay
 
         /** Prestamos bancarios */
         if ($withBankLoan === 1) {
-            $bankLoansPayments = DB::table('bank_loan_payments')
+            $bankLoansPayments = DB::
+                connection('tenant')
+                ->table('bank_loan_payments')
                 ->select('bank_loan_id', DB::raw('SUM(payment) as total_payment'))
                 ->groupBy('bank_loan_id');
             $bankLoans = DB::connection('tenant')

@@ -12,7 +12,7 @@
                     </div> 
                 </div> 
                 <div class="row">
-                    <div class="col-md-8">
+                    <div class="col-md-6">
                         <div class="form-group" :class="{'has-danger': errors.image}">
                         <label class="control-label">
                             Imágen
@@ -22,7 +22,7 @@
                             </div>
                         </label>
                         <el-upload
-                            class="avatar-uploader"
+                            class="avatar-uploader w-100"
                             :data="{'type': 'categories'}"
                             :headers="headers"
                             :action="`/${resource}/upload`"
@@ -37,8 +37,8 @@
                     </div>
                 </div>
             </div>
-            <div class="form-actions text-right pt-2">
-                <el-button class="second-buton" @click.prevent="handleCloseDialog()">Cancelar</el-button>
+            <div class="form-actions text-end pt-2">
+                <el-button class="second-buton me-2" @click.prevent="handleCloseDialog()">Cancelar</el-button>
                 <el-button type="primary" native-type="submit" :loading="loading_submit">Guardar</el-button>
             </div>
         </form>

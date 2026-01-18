@@ -1,6 +1,6 @@
 <template>
     <div class="summaries">
-        <header class="page-header pr-0">
+        <header class="page-header pe-0">
             <h2><a href="/summaries">
                 <svg  xmlns="http://www.w3.org/2000/svg" style="margin-top: -5px;" width="24"  height="24"  viewBox="0 0 24 24"  fill="none"  stroke="currentColor"  stroke-width="2"  stroke-linecap="round"  stroke-linejoin="round"  class="icon icon-tabler icons-tabler-outline icon-tabler-file-unknown"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M14 3v4a1 1 0 0 0 1 1h4" /><path d="M17 21h-10a2 2 0 0 1 -2 -2v-14a2 2 0 0 1 2 -2h7l5 5v11a2 2 0 0 1 -2 2z" /><path d="M12 17v.01" /><path d="M12 14a1.5 1.5 0 1 0 -1.14 -2.474" /></svg>
             </a></h2>
@@ -8,7 +8,7 @@
                 <li class="active"><span>Resúmenes</span></li>
             </ol>
             <div class="right-wrapper pull-right">
-                <button type="button" class="btn btn-custom btn-sm  mt-2 mr-2" @click.prevent="clickCreate()"><i class="fa fa-plus-circle"></i> Nuevo</button>
+                <button type="button" class="btn btn-custom btn-sm  mt-2 me-2" @click.prevent="clickCreate()"><i class="fa fa-plus-circle"></i> Nuevo</button>
             </div>
         </header>
         <div class="card tab-content-default row-new">
@@ -20,19 +20,19 @@
                 <data-table :resource="resource">
                     <tr slot="heading">
                         <!-- <th>#</th> -->
-                        <th class="text-left">Fecha Emisión</th>
-                        <th class="text-left">Fecha Referencia</th>
+                        <th class="text-start">Fecha Emisión</th>
+                        <th class="text-start">Fecha Referencia</th>
                         <th class="text-center" v-if="show_summary_status_type">Tipo de estado</th>
                         <th>Identificador</th>
                         <th>Estado</th>
                         <th>Ticket</th>
                         <th class="text-center">Descargas</th>
-                        <th class="text-right">Acciones</th>
+                        <th class="text-end">Acciones</th>
                     <tr>
                     <tr slot-scope="{ index, row }" >
                         <!-- <td>{{ index  }}</td> -->
-                        <td class="text-left">{{ row.date_of_issue }}</td>
-                        <td class="text-left">{{ row.date_of_reference }}</td>
+                        <td class="text-start">{{ row.date_of_issue }}</td>
+                        <td class="text-start">{{ row.date_of_reference }}</td>
                         <td class="text-center"  v-if="show_summary_status_type">{{ row.summary_status_type_description }}</td>
                         <td>{{ row.identifier }}</td>
                         <td>
@@ -52,7 +52,7 @@
                                     @click.prevent="clickOptions(row.id)"
                                     v-if="row.has_cdr">CDR</button>
                         </td>
-                        <td class="text-right">
+                        <td class="text-end">
                             <button type="button" class="btn waves-effect waves-light btn-xs btn-warning"
                                     @click.prevent="clickTicket(row.id)"
                                     dusk="consult-ticket"

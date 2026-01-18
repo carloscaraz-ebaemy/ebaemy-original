@@ -1,6 +1,6 @@
 <template>
     <div class="cash">
-        <div class="page-header pr-0">
+        <div class="page-header pe-0">
             <h2>
                 <a href="/cash">
                     <svg
@@ -39,7 +39,7 @@
                 <template v-if="open_cash">
                     <button
                         type="button"
-                        class="btn btn-custom btn-sm  mt-2 mr-2"
+                        class="btn btn-custom btn-sm  mt-2 me-2"
                         @click.prevent="clickDownloadGeneral()"
                     >
                         <i class="fas fa-shopping-cart"></i> Reporte general
@@ -47,14 +47,14 @@
 
                     <button
                         type="button"
-                        class="btn btn-custom btn-sm  mt-2 mr-2"
+                        class="btn btn-custom btn-sm  mt-2 me-2"
                         @click.prevent="clickCreate()"
                     >
                         <i class="fas fa-shopping-cart"></i> Aperturar caja chica
                     </button>
                 </template>
                 <!-- <template v-else>                 -->
-                <!-- <button type="button" class="btn btn-success btn-sm  mt-2 mr-2" @click.prevent="clickOpenPos()"><i class="fas fa-shopping-cart" ></i> Aperturar punto de venta</button> -->
+                <!-- <button type="button" class="btn btn-success btn-sm  mt-2 me-2" @click.prevent="clickOpenPos()"><i class="fas fa-shopping-cart" ></i> Aperturar punto de venta</button> -->
                 <!-- </template> -->
             </div>
         </div>
@@ -68,14 +68,14 @@
                         <!-- <th>#</th> -->
                         <th>Referencia</th>
                         <th>Vendedor</th>
-                        <th class="text-left">Apertura</th>
-                        <th class="text-left">Cierre</th>
-                        <th class="text-right">Saldo inicial</th>
-                        <th class="text-right">Saldo final</th>
+                        <th class="text-start">Apertura</th>
+                        <th class="text-start">Cierre</th>
+                        <th class="text-end">Saldo inicial</th>
+                        <th class="text-end">Saldo final</th>
                         <!-- <th>Ingreso</th> -->
                         <!-- <th>Egreso</th> -->
                         <th>Estado</th>
-                        <th class="text-right">Acciones</th>
+                        <th class="text-end">Acciones</th>
                     </tr>
 
                     <tr></tr>
@@ -83,250 +83,100 @@
                         <!-- <td>{{ index }}</td> -->
                         <td>{{ row.reference_number }}</td>
                         <td>{{ row.user }}</td>
-                        <td class="text-left">{{ formatDate(row.opening) }}</td>
-                        <td class="text-left">{{ formatDate(row.closed) }}</td>
-                        <td class="text-right">{{ row.beginning_balance }}</td>
-                        <td class="text-right">{{ row.final_balance }}</td>
+                        <td class="text-start">{{ formatDate(row.opening) }}</td>
+                        <td class="text-start">{{ formatDate(row.closed) }}</td>
+                        <td class="text-end">{{ row.beginning_balance }}</td>
+                        <td class="text-end">{{ row.final_balance }}</td>
                         <!-- <td>{{ row.income }}</td>
                         <td>{{ row.expense }}</td> -->
                         <td>{{ row.state_description }}</td>
-                        <td class="text-right">
+                        <td class="text-end">
                             <template v-if="availableReportForSeller">
                             <!-- <button type="button" class="btn waves-effect waves-light btn-xs btn-primary" @click.prevent="clickDownload(row.id)">Reporte</button> -->
 
                             <div class="btn-group flex-wrap">
-                                <button
-                                    type="button"
-                                    class="btn waves-effect waves-light btn-xs btn-primary dropdown-toggle"
-                                    data-toggle="dropdown"
-                                    aria-expanded="false"
-                                >
-                                    Reporte <span class="caret"></span>
-                                </button>
-                                <div
-                                    class="dropdown-menu"
-                                    role="menu"
-                                    x-placement="bottom-start"
-                                    style="position: absolute; will-change: transform; top: 0px; left: 0px; transform: translate3d(0px, 42px, 0px);"
-                                >
-                                    <a
-                                        class="dropdown-item text-1"
-                                        href="#"
-                                        @click.prevent="
-                                            clickDownloadReport(row.id, 'a4')
-                                        "
-                                        >PDF A4</a
+                                <el-dropdown trigger="click">
+                                    <button
+                                        type="button"
+                                        class="btn waves-effect waves-light btn-xs btn-primary dropdown-toggle me-1"
+                                        aria-expanded="false"
                                     >
-                                    <a
-                                        class="dropdown-item text-1"
-                                        href="#"
-                                        @click.prevent="
-                                            clickDownloadReport(
-                                                row.id,
-                                                'ticket'
-                                            )
-                                        "
-                                        >PDF Ticket</a
-                                    >
-                                    <a
-                                        class="dropdown-item text-1"
-                                        href="#"
-                                        @click.prevent="
-                                            clickDownloadReport(
-                                                row.id,
-                                                'ticket',
-                                                '58'
-                                            )
-                                        "
-                                        >PDF Ticket 58</a
-                                    >
-                                    <a
-                                        class="dropdown-item text-1"
-                                        href="#"
-                                        @click.prevent="
-                                            clickDownloadReport(
-                                                row.id,
-                                                'ticket',
-                                                '80',
-                                                1
-                                            )
-                                        "
-                                        >PDF Ticket Resumen</a
-                                    >
-                                    <a
-                                        class="dropdown-item text-1"
-                                        href="#"
-                                        @click.prevent="
-                                            clickDownloadReport(
-                                                row.id,
-                                                'simple_a4'
-                                            )
-                                        "
-                                        >Simple A4</a
-                                    >
-                                    <a
-                                        class="dropdown-item text-1"
-                                        href="#"
-                                        @click.prevent="
-                                            clickDownloadReport(row.id, 'excel')
-                                        "
-                                        >Excel</a
-                                    >
-                                    <!-- <a class="dropdown-item text-1" href="#" @click.prevent="clickDownloadProducts(row.id, 'excel')">Excel</a> -->
-
-                                    <a
-                                        class="dropdown-item text-1"
-                                        href="#"
-                                        @click.prevent="
-                                            clickReportSummaryDailyOperations(
-                                                row.id
-                                            )
-                                        "
-                                        >Resumen de Operaciones Diarias</a
-                                    >
-
-                                    <el-tooltip
-                                        class="item"
-                                        content="Reporte general de caja asociado a los pagos al contado con destino caja"
-                                        effect="dark"
-                                        placement="right-end"
-                                    >
-                                        <a
-                                            class="dropdown-item text-1"
-                                            href="#"
-                                            @click.prevent="
-                                                clickReportCashWithPayments(
-                                                    row.id
-                                                )
-                                            "
-                                            >Reporte general caja V2</a
+                                        Reporte <span class="caret"></span>
+                                    </button>
+                                    <el-dropdown-menu slot="dropdown">
+                                        <el-dropdown-item @click.native.prevent="clickDownloadReport(row.id, 'a4')">PDF A4</el-dropdown-item>
+                                        <el-dropdown-item @click.native.prevent="clickDownloadReport(row.id, 'ticket')">PDF Ticket</el-dropdown-item>
+                                        <el-dropdown-item @click.native.prevent="clickDownloadReport(row.id, 'ticket', '58')">PDF Ticket 58</el-dropdown-item>
+                                        <el-dropdown-item @click.native.prevent="clickDownloadReport(row.id, 'ticket', '80', 1)">PDF Ticket Resumen</el-dropdown-item>
+                                        <el-dropdown-item @click.native.prevent="clickDownloadReport(row.id, 'simple_a4')">Simple A4</el-dropdown-item>
+                                        <el-dropdown-item @click.native.prevent="clickDownloadReport(row.id, 'excel')">Excel</el-dropdown-item>
+                                        <el-dropdown-item @click.native.prevent="clickReportSummaryDailyOperations(row.id)">Resumen de Operaciones Diarias</el-dropdown-item>
+                                        <el-tooltip
+                                            class="item"
+                                            content="Reporte general de caja asociado a los pagos al contado con destino caja"
+                                            effect="dark"
+                                            placement="right-end"
                                         >
-                                    </el-tooltip>
-                                </div>
+                                            <el-dropdown-item @click.native.prevent="clickReportCashWithPayments(row.id)">Reporte general caja V2</el-dropdown-item>
+                                        </el-tooltip>
+                                    </el-dropdown-menu>
+                                </el-dropdown>
                             </div>
 
                             <!-- <button type="button" class="btn waves-effect waves-light btn-xs btn-primary" @click.prevent="clickDownloadProducts(row.id)">Reporte Productos</button> -->
 
                             <div class="btn-group flex-wrap">
-                                <button
-                                    type="button"
-                                    class="btn waves-effect waves-light btn-xs btn-primary dropdown-toggle"
-                                    data-toggle="dropdown"
-                                    aria-expanded="false"
-                                >
-                                    Reporte Efectivo <span class="caret"></span>
-                                </button>
-                                <div
-                                    class="dropdown-menu"
-                                    role="menu"
-                                    x-placement="bottom-start"
-                                    style="position: absolute; will-change: transform; top: 0px; left: 0px; transform: translate3d(0px, 42px, 0px);"
-                                >
-                                    <!-- <a class="dropdown-item text-1" href="#" @click.prevent="clickDownloadProducts(row.id, 'pdf')">PDF</a> -->
-                                    <!-- <a class="dropdown-item text-1" href="#" @click.prevent="clickDownloadReportCash(row.id, 'excel')">Excel</a> -->
-
-                                    <el-tooltip
-                                        class="item"
-                                        content="Ingresos en efectivo con destino caja"
-                                        effect="dark"
-                                        placement="right-end"
+                                <el-dropdown trigger="click">
+                                    <button
+                                        type="button"
+                                        class="btn waves-effect waves-light btn-xs btn-primary dropdown-toggle me-1"
+                                        aria-expanded="false"
                                     >
-                                        <a
-                                            class="dropdown-item text-1"
-                                            href="#"
-                                            @click.prevent="
-                                                clickCashPaymentReportExcel(
-                                                    row.id
-                                                )
-                                            "
-                                            >Excel</a
+                                        Reporte Efectivo <span class="caret"></span>
+                                    </button>
+                                    <el-dropdown-menu slot="dropdown">
+                                        <el-tooltip
+                                            class="item"
+                                            content="Ingresos en efectivo con destino caja"
+                                            effect="dark"
+                                            placement="right-end"
                                         >
-                                    </el-tooltip>
-
-                                    <a
-                                        class="dropdown-item text-1"
-                                        href="#"
-                                        @click.prevent="
-                                            clickDownloadReportIncomeEgress(
-                                                row.id
-                                            )
-                                        "
-                                        >Ingresos y egresos</a
-                                    >
-
-                                    <el-tooltip
-                                        class="item"
-                                        content="Ingresos en efectivo con destino caja - Disponible para facturas, boletas y notas de venta"
-                                        effect="dark"
-                                        placement="right-end"
-                                    >
-                                        <a
-                                            class="dropdown-item text-1"
-                                            href="#"
-                                            @click.prevent="
-                                                clickReportPaymentsAssociatedCash(
-                                                    row.id
-                                                )
-                                            "
-                                            >Pagos asociados a caja</a
+                                            <el-dropdown-item @click.native.prevent="clickCashPaymentReportExcel(row.id)">Excel</el-dropdown-item>
+                                        </el-tooltip>
+                                        <el-dropdown-item @click.native.prevent="clickDownloadReportIncomeEgress(row.id)">Ingresos y egresos</el-dropdown-item>
+                                        <el-tooltip
+                                            class="item"
+                                            content="Ingresos en efectivo con destino caja - Disponible para facturas, boletas y notas de venta"
+                                            effect="dark"
+                                            placement="right-end"
                                         >
-                                    </el-tooltip>
-                                </div>
+                                            <el-dropdown-item @click.native.prevent="clickReportPaymentsAssociatedCash(row.id)">Pagos asociados a caja</el-dropdown-item>
+                                        </el-tooltip>
+                                    </el-dropdown-menu>
+                                </el-dropdown>
                             </div>
 
                             <div class="btn-group flex-wrap">
-                                <button
-                                    type="button"
-                                    class="btn waves-effect waves-light btn-xs btn-primary dropdown-toggle"
-                                    data-toggle="dropdown"
-                                    aria-expanded="false"
-                                >
-                                    Reporte Productos
-                                    <span class="caret"></span>
-                                </button>
-                                <div
-                                    class="dropdown-menu"
-                                    role="menu"
-                                    x-placement="bottom-start"
-                                    style="position: absolute; will-change: transform; top: 0px; left: 0px; transform: translate3d(0px, 42px, 0px);"
-                                >
-                                    <a
-                                        class="dropdown-item text-1"
-                                        href="#"
-                                        @click.prevent="
-                                            clickDownloadProducts(row.id, 'pdf')
-                                        "
-                                        >Punto de venta - PDF</a
+                                <el-dropdown trigger="click">
+                                    <button
+                                        type="button"
+                                        class="btn waves-effect waves-light btn-xs btn-primary dropdown-toggle me-1"
+                                        aria-expanded="false"
                                     >
-                                    <a
-                                        class="dropdown-item text-1"
-                                        href="#"
-                                        @click.prevent="
-                                            clickDownloadProducts(
-                                                row.id,
-                                                'excel'
-                                            )
-                                        "
-                                        >Punto de venta - Excel</a
-                                    >
-                                    <a
-                                        class="dropdown-item text-1"
-                                        href="#"
-                                        @click.prevent="
-                                            clickDownloadProducts(
-                                                row.id,
-                                                'pdf',
-                                                true
-                                            )
-                                        "
-                                        >Venta rápida - PDF</a
-                                    >
-                                </div>
+                                        Reporte Productos
+                                        <span class="caret"></span>
+                                    </button>
+                                    <el-dropdown-menu slot="dropdown">
+                                        <el-dropdown-item @click.native.prevent="clickDownloadProducts(row.id, 'pdf')">Punto de venta - PDF</el-dropdown-item>
+                                        <el-dropdown-item @click.native.prevent="clickDownloadProducts(row.id, 'excel')">Punto de venta - Excel</el-dropdown-item>
+                                        <el-dropdown-item @click.native.prevent="clickDownloadProducts(row.id, 'pdf', true)">Venta rápida - PDF</el-dropdown-item>
+                                    </el-dropdown-menu>
+                                </el-dropdown>
                             </div>
 
                             <button
                                 type="button"
-                                class="btn waves-effect waves-light btn-xs btn-success"
+                                class="btn waves-effect waves-light btn-xs btn-success me-1"
                                 @click.prevent="
                                     clickDownloadIncomeSummary(row.id)
                                 "
@@ -338,7 +188,7 @@
                             <template v-if="row.state">
                                 <button
                                     type="button"
-                                    class="btn waves-effect waves-light btn-xs btn-warning"
+                                    class="btn waves-effect waves-light btn-xs btn-warning me-1"
                                     @click.prevent="clickCloseCash(row.id)"
                                 >
                                     Cerrar caja
@@ -346,7 +196,7 @@
                                 <button
                                     v-if="typeUser === 'admin'"
                                     type="button"
-                                    class="btn waves-effect waves-light btn-xs btn-info"
+                                    class="btn waves-effect waves-light btn-xs btn-info me-1"
                                     @click.prevent="clickCreate(row.id)"
                                 >
                                     Editar
@@ -354,7 +204,7 @@
                                 <button
                                     v-if="typeUser === 'admin'"
                                     type="button"
-                                    class="btn waves-effect waves-light btn-xs btn-danger"
+                                    class="btn waves-effect waves-light btn-xs btn-danger me-1"
                                     @click.prevent="clickDelete(row.id)"
                                 >
                                     Eliminar
@@ -363,7 +213,7 @@
 
                             <button
                                 type="button"
-                                class="btn waves-effect waves-light btn-xs btn-info"
+                                class="btn waves-effect waves-light btn-xs btn-info me-1"
                                 @click.prevent="clickOptions(row.id)"
                             >
                                 C. Electrónico

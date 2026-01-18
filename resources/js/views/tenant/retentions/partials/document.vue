@@ -114,7 +114,7 @@
                                     <th>#</th>
                                     <th>Fecha de Pago</th>
                                     <th>Moneda</th>
-                                    <th class="text-right">Total
+                                    <th class="text-end">Total
                                         <el-tooltip class="item" effect="dark" content="Importe del pago sin retención" placement="top-start">
                                             <i class="fa fa-info-circle"></i>
                                         </el-tooltip>
@@ -136,10 +136,10 @@
                                             <el-option v-for="option in currency_types" :key="option.id" :value="option.id" :label="option.description"></el-option>
                                         </el-select>
                                     </td>
-                                    <td class="text-right">
+                                    <td class="text-end">
                                         <el-input v-model="row.total_payment" @blur="blurTotalPayment(index)"></el-input>
                                     </td>
-                                    <td class="text-right">
+                                    <td class="text-end">
                                         <button type="button" class="btn waves-effect waves-light btn-xs btn-danger" @click.prevent="clickRemovePayment(index)">x</button>
                                     </td>
                                 </tr>
@@ -149,8 +149,8 @@
                     </div>
                 </div>
             </div>
-            <div class="form-actions text-right pt-2">
-                <el-button class="second-buton" @click.prevent="close()">Cerrar</el-button>
+            <div class="form-actions text-end pt-2">
+                <el-button class="second-buton me-2" @click.prevent="close()">Cerrar</el-button>
                 <el-button type="primary" native-type="submit">Agregar</el-button>
             </div>
         </form>

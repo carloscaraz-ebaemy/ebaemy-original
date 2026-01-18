@@ -1,6 +1,6 @@
 <template>
     <div>
-        <div class="page-header pr-0">
+        <div class="page-header pe-0">
             <h2><a href="/expenses">
                 <svg  xmlns="http://www.w3.org/2000/svg" style="margin-top: -5px;"  width="24"  height="24"  viewBox="0 0 24 24"  fill="none"  stroke="currentColor"  stroke-width="2"  stroke-linecap="round"  stroke-linejoin="round"  class="icon icon-tabler icons-tabler-outline icon-tabler-shopping-bag"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M6.331 8h11.339a2 2 0 0 1 1.977 2.304l-1.255 8.152a3 3 0 0 1 -2.966 2.544h-6.852a3 3 0 0 1 -2.965 -2.544l-1.255 -8.152a2 2 0 0 1 1.977 -2.304z" /><path d="M9 11v-5a3 3 0 0 1 6 0v5" /></svg>
             </a></h2>
@@ -12,6 +12,7 @@
             <!-- <div class="card-header bg-info">
                 <h3 class="my-0">Nuevo Gasto</h3>
             </div> -->
+            <div class="tab-content tab-content-default card-body">
             <div class="invoice p-3">
                 <form autocomplete="off" @submit.prevent="submit">
                     <div class="form-body">
@@ -67,14 +68,34 @@
                         </div>
                         <div class="row">
                             <div class="col-lg-6">
-                                <div class="form-group" :class="{'has-danger': errors.supplier_id}">
+                                <div class="form-group position-relative" :class="{'has-danger': errors.supplier_id}">
                                     <label class="control-label">
                                         Proveedor
                                         <a href="#" @click.prevent="showDialogNewPerson = true">[+ Nuevo]</a>
                                     </label>
-                                    <el-select v-model="form.supplier_id" filterable>
+                                    <el-select v-model="form.supplier_id" filterable remote :remote-method="searchRemoteSuppliers" :loading="loading_search">
                                         <el-option v-for="option in suppliers" :key="option.id" :value="option.id" :label="option.description"></el-option>
+                                        <template slot="empty">
+                                            <p v-if="loading_search" class="el-select-dropdown__empty">
+                                                Cargando...
+                                            </p>
+                                        
+                                            <p v-else class="el-select-dropdown__empty">
+                                                No se encontraron resultados
+                                            </p>
+                                        
+                                            <div
+                                                v-if="!loading_search"
+                                                class="el-select-dropdown__item new-option"
+                                                @click.stop="openNewPersonDialog"
+                                            >
+                                                <span>{{ supplierSearchTerm ? `Crear cliente "${supplierSearchTerm}"` : 'Crear cliente' }}</span>
+                                            </div>
+                                        </template>
                                     </el-select>
+                                    <span class="btn-add-new" @click.prevent="showDialogNewPerson = true" title="Agregar nuevo cliente">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon icon-tabler icons-tabler-outline icon-tabler-user-plus"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M8 7a4 4 0 1 0 8 0a4 4 0 0 0 -8 0" /><path d="M16 19h6" /><path d="M19 16v6" /><path d="M6 21v-2a4 4 0 0 1 4 -4h4" /></svg>
+                                    </span>
                                     <small class="form-control-feedback" v-if="errors.supplier_id" v-text="errors.supplier_id[0]"></small>
                                 </div>
                             </div>
@@ -105,26 +126,26 @@
                                 <tbody>
                                     <tr v-for="(row, index) in form.payments" :key="index">
                                         <td>
-                                            <div class="form-group mb-2 mr-2">
+                                            <div class="form-group mb-2 me-2">
                                                 <el-select v-model="row.expense_method_type_id" @change="changeExpenseMethodType(index)">
                                                     <el-option v-for="option in expense_method_types" :key="option.id" :value="option.id" :label="option.description"></el-option>
                                                 </el-select>
                                             </div>
                                         </td>
                                         <td>
-                                            <div class="form-group mb-2 mr-2">
+                                            <div class="form-group mb-2 me-2">
                                                 <el-select v-model="row.payment_destination_id" filterable :disabled="row.payment_destination_disabled">
                                                     <el-option v-for="option in payment_destinations" :key="option.id" :value="option.id" :label="option.description"></el-option>
                                                 </el-select>
                                             </div>
                                         </td>
                                         <td>
-                                            <div class="form-group mb-2 mr-2"  >
+                                            <div class="form-group mb-2 me-2"  >
                                                 <el-input v-model="row.reference"></el-input>
                                             </div>
                                         </td>
                                         <td>
-                                            <div class="form-group mb-2 mr-2" >
+                                            <div class="form-group mb-2 me-2" >
                                                 <el-input v-model="row.payment"></el-input>
                                             </div>
                                         </td>
@@ -154,7 +175,7 @@
                                             <tr>
                                                 <th>#</th>
                                                 <th class="font-weight-bold">Descripción</th>
-                                                <th class="text-right font-weight-bold">Total</th>
+                                                <th class="text-end font-weight-bold">Total</th>
                                                 <th></th>
                                             </tr>
                                         </thead>
@@ -162,8 +183,8 @@
                                             <tr v-for="(row, index) in form.items" :key="index">
                                                 <td>{{ index + 1 }}</td>
                                                 <td>{{ row.description }}</td>
-                                                <td class="text-right">{{ currency_type.symbol }} {{ row.total }}</td>
-                                                <td class="text-right">
+                                                <td class="text-end">{{ currency_type.symbol }} {{ row.total }}</td>
+                                                <td class="text-end">
                                                     <button type="button" class="btn waves-effect waves-light btn-xs btn-danger" @click.prevent="clickRemoveItem(index)">x</button>
                                                 </td>
                                             </tr>
@@ -172,16 +193,17 @@
                                 </div>
                             </div>
                             <div class="col-md-12">
-                                <h3 class="text-right" v-if="form.total > 0"><b>TOTAL: </b>{{ currency_type.symbol }} {{ form.total }}</h3>
+                                <h3 class="text-end" v-if="form.total > 0"><b>TOTAL: </b>{{ currency_type.symbol }} {{ form.total }}</h3>
                             </div>
                         </div>
                     </div>
-                    <div class="form-actions text-right mt-4 footer-card-default">
+                    <div class="form-actions text-end mt-4 footer-card-default">
                         <el-button class="second-buton btn btn-default second-buton-default" @click.prevent="close()">Cancelar</el-button>
                         <el-button type="primary" native-type="submit" class="btn btn-primary btn-submit-default" :loading="loading_submit" v-if="form.items.length > 0">{{ (id) ? 'Actualizar':'Generar'}}</el-button>
                     </div>
                 </form>
             </div>
+            </div>            
     
             <expense-form-item :showDialog.sync="showDialogAddItem"
                                :currency-type="currency_type"
@@ -190,7 +212,8 @@
     
             <person-form :showDialog.sync="showDialogNewPerson"
                            type="suppliers"
-                           :external="true"></person-form>
+                           :external="true"></person-form
+                           :input_person="supplierSearchTerm">
     
             <expense-options :showDialog.sync="showDialogOptions"
                               :recordId="expenseNewId"
@@ -230,7 +253,16 @@
                 expense_method_types: [],
                 payment_destinations:  [],
                 expense_reasons: [],
-                expenseNewId: null
+                expenseNewId: null,
+                loading_search: false,
+                supplierSearchTerm: '',
+            }
+        },
+        watch: {
+            showDialogNewPerson(newVal) {
+                if (!newVal) {
+                    this.supplierSearchTerm = ''
+                }
             }
         },
         async created() {
@@ -257,6 +289,7 @@
 
             await this.$eventHub.$on('reloadDataPersons', (supplier_id) => {
                 this.reloadDataSuppliers(supplier_id)
+                this.supplierSearchTerm = ''
             })
 
             await this.isUpdate()
@@ -306,6 +339,22 @@
 
                 this.clickAddPayment()
                 // this.changeExpenseMethodType()
+            },
+            searchRemoteSuppliers(input) {
+                this.supplierSearchTerm = input;
+                
+                if (input.length > 1) {
+                    this.loading_search = true
+                    let parameters = `input=${input}`
+
+                    this.$http.get(`/reports/data-table/persons/suppliers?${parameters}`)
+                        .then(response => {
+                            this.suppliers = response.data.persons
+                            this.loading_search = false
+                        })
+                } else {
+                    this.filterSuppliers()
+                }
             },
             resetForm() {
                 this.initForm()
@@ -456,6 +505,9 @@
                     this.suppliers = response.data
 
                 })
+            },            
+            openNewPersonDialog() {
+                this.showDialogNewPerson = true
             },
         }
     }

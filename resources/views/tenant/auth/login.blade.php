@@ -7,7 +7,7 @@
         <form method="POST" action="{{ route('login') }}">
             @csrf
             <div class="d-flex justify-content-center">
-                <div class="row">
+                <div class="row form-logo-container">
                     @include('tenant.auth.partials.form_logo')
                 </div>
             </div>

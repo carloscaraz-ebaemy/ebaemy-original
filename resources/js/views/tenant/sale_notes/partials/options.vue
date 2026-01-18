@@ -47,7 +47,7 @@
                     </el-tabs>-->
 
                 </div>
-                <div class="col-12 container-btns text-center">
+                <div class="col-12 container-btns text-center d-none">
                     <br><br>
                     <a :href="`https://docs.google.com/viewer?url=${form.print_a4}?format=pdf`" class="btn mx-3 btn-primary btn-lg" target="_BLANK">
                         <i class="far fa-file-pdf"></i>
@@ -98,7 +98,7 @@
                         </el-button>
                     </el-input>
                     <small v-if="errors.customer_telephone"
-                           class="form-control-feedback"
+                           class="invalid-feedback d-block"
                            v-text="errors.customer_telephone[0]"></small>
                 </div>
                 <template v-else>
@@ -111,28 +111,27 @@
                         :wsData="form.pdf_a4_data"
                     />
                 </template>
-            <div class="col-md-6 mt-3">&nbsp;</div>
-                <div class="col-md-6 mt-3">
-                <template v-if="showClose">
-                    <el-button @click="clickClose">Cerrar</el-button>
-                </template>
-                <template v-else>
-                    <el-button @click="clickFinalize">Ir al listado</el-button>
-                     <el-popover
-                        :open-delay="1000"
-                         placement="top-start"
-                         width="145"
-                         trigger="hover"
-                         content="Presiona ALT + N">
-                            <el-button slot="reference"
-                                       type="primary"
-                                       ref="new_note"
-                                       @click="clickNewSaleNote"
-                            >
-                                Nueva nota de venta
-                            </el-button>
-                        </el-popover>
-                </template>
+                <div class="form-actions text-end pt-2">
+                    <template v-if="showClose">
+                        <el-button @click="clickClose">Cerrar</el-button>
+                    </template>
+                    <template v-else>
+                        <el-button class="me-2" @click="clickFinalize">Ir al listado</el-button>
+                         <el-popover
+                            :open-delay="1000"
+                             placement="top-start"
+                             width="145"
+                             trigger="hover"
+                             content="Presiona ALT + N">
+                                <el-button slot="reference"
+                                           type="primary"
+                                           ref="new_note"
+                                           @click="clickNewSaleNote"
+                                >
+                                    Nueva nota de venta
+                                </el-button>
+                            </el-popover>
+                    </template>
                 </div>
             </span>
         </el-dialog>
@@ -142,7 +141,7 @@
 
 <script>
 import {mapState, mapActions} from "vuex/dist/vuex.mjs";
-import QrApi from '@viewsModuleQrApi/QrApiTemplate'
+import QrApi from '@viewsModuleQrApi/QrApiTemplate.vue'
 
 export default {
     props: ['showDialog', 'recordId', 'showClose','configuration'],

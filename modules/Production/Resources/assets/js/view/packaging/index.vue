@@ -1,6 +1,6 @@
 <template>
     <div>
-        <div class="page-header pr-0">
+        <div class="page-header pe-0">
             <h2>
                 <a href="/packaging">
                     <svg
@@ -38,7 +38,7 @@
                 <template>
                     <button
                         type="button"
-                        class="btn btn-custom btn-sm  mt-2 mr-2"
+                        class="btn btn-custom btn-sm  mt-2 me-2"
                         @click.prevent="clickCreate()"
                     >
                         <i class="fa fa-plus-circle"></i>
@@ -57,7 +57,7 @@
                 <div class="row">
                     <div class="col-12">
                         <el-button
-                            class="submit"
+                            class="submit me-2"
                             type="danger"
                             icon="el-icon-tickets"
                             @click.prevent="clickDownloadPdf()"
@@ -80,15 +80,15 @@
                             <thead>
                                 <tr>
                                     <!-- <th>#</th> -->
-                                    <th class="text-right">
+                                    <th class="text-end">
                                         Número de registro
                                     </th>
-                                    <th class="text-right">Número de ficha</th>
+                                    <th class="text-end">Número de ficha</th>
                                     <th>Producto</th>
                                     <th>Usuario</th>
                                     <th>Sucursal</th>
-                                    <th class="text-right">Cantidad</th>
-                                    <th class="text-right"># Paquetes</th>
+                                    <th class="text-end">Cantidad</th>
+                                    <th class="text-end"># Paquetes</th>
                                     <th>Lote</th>
                                     <th>Fecha de inicio</th>
                                     <th>Fecha de fin</th>
@@ -99,15 +99,15 @@
                             <tbody>
                                 <tr v-for="(row, index) in records">
                                     <!-- <td>{{ index + 1 }}</td> -->
-                                    <td class="text-right">000{{ row.id }}</td>
-                                    <td class="text-right">{{ row.name }}</td>
+                                    <td class="text-end">000{{ row.id }}</td>
+                                    <td class="text-end">{{ row.name }}</td>
                                     <td>{{ row.item.name }}</td>
                                     <td>{{ row.user }}</td>
                                     <td>{{ row.stablishment }}</td>
-                                    <td class="text-right">
+                                    <td class="text-end">
                                         {{ row.quantity }}
                                     </td>
-                                    <td class="text-right">
+                                    <td class="text-end">
                                         {{ row.number_packages }}
                                     </td>
                                     <td>{{ row.lot_code }}</td>
@@ -135,7 +135,7 @@
                             </tbody>
                         </table>
                     </div>
-                    </div>                    
+                    </div>
                 </div>
             </div>
         </div>
@@ -143,7 +143,7 @@
 </template>
 <script>
 import { mapActions, mapState } from "vuex/dist/vuex.mjs";
-import { deletable } from "../../../../../../../resources/js/mixins/deletable";
+import { deletable } from "@mixins/deletable";
 
 export default {
     props: ["configuration", "typeUser"],
@@ -247,10 +247,10 @@ export default {
         checkScrollShadows() {
             const el = this.$refs.scrollContainer;
             if (!el) return;
-            
+
             const scrollLeft = el.scrollLeft;
             const scrollRight = el.scrollWidth - el.clientWidth - scrollLeft;
-            
+
             this.showLeftShadow = scrollLeft > 1;
             this.showRightShadow = scrollRight > 1;
         },

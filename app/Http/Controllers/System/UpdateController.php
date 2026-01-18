@@ -9,7 +9,7 @@ use Symfony\Component\Process\Exception\ProcessFailedException;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\File;
 use GrahamCampbell\Markdown\Facades\Markdown;
-use Artisan;
+use Illuminate\Support\Facades\Artisan;
 
 class UpdateController extends Controller
 {
@@ -20,7 +20,7 @@ class UpdateController extends Controller
 
     public function version()
     {
-        $id = new Process('git describe --tags');
+        $id = new Process(['git', 'describe',  '--tags']);
         $id->run();
         $res_id = $id->getOutput();
         // $tag = new Process('git tag | sort -V | tail -1');
@@ -31,7 +31,7 @@ class UpdateController extends Controller
 
     public function branch()
     {
-        $process = new Process('git rev-parse --abbrev-ref HEAD');
+        $process = new Process(['git', 'rev-parse', '--abbrev-ref', 'HEAD']);
         $process->run();
         if (!$process->isSuccessful()) {
             throw new ProcessFailedException($process);
@@ -42,20 +42,20 @@ class UpdateController extends Controller
 
     public function pull($branch)
     {
-        $chown = new Process('chown -R ssh/');
+        $chown = new Process(['chown', '-R' ,'ssh/']);
         $chown->run();
 
-        $checkout = new Process('git checkout .');
+        $checkout = new Process(['git', 'checkout', '.']);
         $checkout->run();
 
-        $process = new Process('git pull origin '.$branch);
+        $process = new Process(['git',  'pull',  'origin', $branch]);
         $process->run();
         if (!$process->isSuccessful()) {
             throw new ProcessFailedException($process);
         }
         $output = $process->getOutput();
 
-        $fetch = new Process('git fetch');
+        $fetch = new Process(['git',  'fetch']);
         $fetch->run();
 
         return json_encode($output);
@@ -82,11 +82,11 @@ class UpdateController extends Controller
 
     public function composerInstall()
     {
-        $process = new Process(system('composer install -d '. base_path()));
+        $process = new Process(['composer' , 'install' , '-d', base_path()]);
         $process->run();
         $output = $process->getOutput();
 
-        $chmod = new Process('chmod -R 777 ../vendor/mpdf/mpdf');
+        $chmod = new Process(['chmod', '-R' ,'777' , '../vendor/mpdf/mpdf']);
         $chmod->run();
 
         return json_encode($output);

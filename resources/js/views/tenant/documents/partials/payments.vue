@@ -21,7 +21,7 @@
                                 <template v-if="external">
                                     <th>Imprimir</th>
                                 </template>
-                                
+
                                 <th></th>
                             </tr>
                             </thead>
@@ -77,7 +77,7 @@
                                         <button type="button" class="btn waves-effect waves-light btn-xs btn-primary" @click.prevent="clickOptionsPrint()"><i class="fas fa-file-upload"></i></button>
                                     </td>
                                 </template>
-                                    
+
 
                                     <td class="series-table-actions text-right">
 
@@ -116,7 +116,7 @@
                                             <small class="form-control-feedback" v-if="row.errors.payment_destination_id" v-text="row.errors.payment_destination_id[0]"></small>
                                         </div>
                                     </td>
-                                    
+
                                     <td>
                                         <div class="form-group mb-0" :class="{'has-danger': row.errors.payment}">
                                             <el-input v-model="row.payment"></el-input>
@@ -254,8 +254,8 @@
 <script>
 
     import {deletable} from '../../../../mixins/deletable'
-    import DialogLinkPayment from './dialog_link_payment'
-    import DocumentOptions from '../../../../../../modules/Finance/Resources/assets/js/views/unpaid/partials/options'
+    import DialogLinkPayment from './dialog_link_payment.vue'
+    import DocumentOptions from '../../../../../../modules/Finance/Resources/assets/js/views/unpaid/partials/options.vue'
     export default {
         props: ['showDialog', 'documentId', 'external','configuration'],
         mixins: [deletable],
@@ -389,7 +389,7 @@
 
             },
             clickAddRow() {
-                
+
                 this.records.push({
                     id: null,
                     date_of_payment: moment().format('YYYY-MM-DD'),
@@ -399,7 +399,7 @@
                     filename: null,
                     temp_path: null,
                     payment: parseFloat(this.document.total_difference),
-                    // payment: 0,                    
+                    // payment: 0,
                     errors: {},
                     loading: false,
                     payment_received: '1',

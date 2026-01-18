@@ -2,9 +2,10 @@
 
 namespace App\Http\Resources\System;
 
+use Illuminate\Http\Resources\Json\ResourceCollection;
+use App\Http\Resources\System\ClientResource;
 use App\Models\System\TrackApiPeruServices;
 use Carbon\Carbon;
-use Illuminate\Http\Resources\Json\ResourceCollection;
 
 class ClientCollection extends ResourceCollection
 {
@@ -17,7 +18,11 @@ class ClientCollection extends ResourceCollection
     public function toArray($request)
     {
         $currentDay = Carbon::now();
-        return $this->collection->transform(function(\App\Models\System\Client $row, $key) use ($currentDay) {
+        return $this->collection->transform(function($row, $key) use ($currentDay) {
+            // En Laravel 9, los elementos pueden venir como ClientResource; extraer el modelo subyacente
+            if ($row instanceof ClientResource) {
+                $row = $row->resource;
+            }
             $apiPeruAsk = TrackApiPeruServices::where('client_id',$row->id)
                 ->where('date_of_issue','>=',$currentDay->firstOfMonth()->format('Y-m-d'))
                 ->where('date_of_issue','<=',$currentDay->lastOfMonth()->format('Y-m-d'))

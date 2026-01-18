@@ -134,6 +134,11 @@
             return view('tenant.settings.list_transfer_reason_types');
         }
 
+        public function listItemAffectations()
+        {
+            return view('tenant.settings.list_item_affectations');
+        }
+
         /**
          * @return Factory|Application|View
          */

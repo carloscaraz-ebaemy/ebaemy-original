@@ -1,6 +1,6 @@
 <template>
     <div>
-        <div class="page-header pr-0">
+        <div class="page-header pe-0">
             <h2><a href="/item-lots">
                 <svg  xmlns="http://www.w3.org/2000/svg" style="margin-top: -5px;"  width="24"  height="24"  viewBox="0 0 24 24"  fill="none"  stroke="currentColor"  stroke-width="2"  stroke-linecap="round"  stroke-linejoin="round"  class="icon icon-tabler icons-tabler-outline icon-tabler-category-2"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M14 4h6v6h-6z" /><path d="M4 14h6v6h-6z" /><path d="M17 17m-3 0a3 3 0 1 0 6 0a3 3 0 1 0 -6 0" /><path d="M7 7m-3 0a3 3 0 1 0 6 0a3 3 0 1 0 -6 0" /></svg>
             </a></h2>
@@ -8,7 +8,7 @@
                 <li class="active"><span>{{ title }}</span></li>
             </ol>
             <div class="right-wrapper pull-right">
-                <button type="button" class="btn btn-success btn-sm  mt-2 mr-2" @click.prevent="clickExport()"><i class="fa fa-file-excel"></i> Exportar</button>
+                <button type="button" class="btn btn-success btn-sm  mt-2 me-2" @click.prevent="clickExport()"><i class="fa fa-file-excel"></i> Exportar</button>
             </div>
         </div>
         <div class="card tab-content-default row-new mb-0">
@@ -74,7 +74,7 @@
                                             <th>Fecha</th>
                                             <th>Estado</th>
                                             <th>Vendido</th>
-                                            <th class="text-right">Acciones</th>
+                                            <th class="text-end">Acciones</th>
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -85,7 +85,7 @@
                                             <td>{{ row.date }}</td>
                                             <td>{{ row.state }}</td>
                                             <td>{{ row.status }}</td>
-                                            <td class="text-right">
+                                            <td class="text-end">
                                                 <button type="button" class="btn waves-effect waves-light btn-xs btn-info" @click.prevent="clickCreate(row.id)" v-if="!row.has_sale">Editar</button>
                                             </td>
                                         </tr>

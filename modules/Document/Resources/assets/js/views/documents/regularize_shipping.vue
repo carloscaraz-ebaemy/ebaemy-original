@@ -74,6 +74,9 @@
     </div>
 </template>
 <style>
+.btn-show-filter {
+    margin-left: 0px !important;
+}
 @media only screen and (max-width: 390px){
     .filter-content{
       margin-top: 0px;

@@ -96,6 +96,8 @@
     <script src="{{ asset('porto-ecommerce/assets/js/vue.min.js') }}"></script>
     <script src="{{ asset('porto-ecommerce/assets/js/rating.js') }}"></script>
 
+    @vite('resources/js/app.js')
+
     @stack('scripts')
 
     <!-- www.addthis.com share plugin -->

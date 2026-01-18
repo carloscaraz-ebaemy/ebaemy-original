@@ -1,6 +1,6 @@
 <template>
     <div>
-        <div class="page-header pr-0">
+        <div class="page-header pe-0">
             <h2><a href="/dispatch_carrier">
                 <svg  xmlns="http://www.w3.org/2000/svg" style="margin-top: -5px;" width="24"  height="24"  viewBox="0 0 24 24"  fill="none"  stroke="currentColor"  stroke-width="2"  stroke-linecap="round"  stroke-linejoin="round"  class="icon icon-tabler icons-tabler-outline icon-tabler-truck"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M7 17m-2 0a2 2 0 1 0 4 0a2 2 0 1 0 -4 0" /><path d="M17 17m-2 0a2 2 0 1 0 4 0a2 2 0 1 0 -4 0" /><path d="M5 17h-2v-11a1 1 0 0 1 1 -1h9v12m-4 0h6m4 0h2v-6h-8m0 -5h5l3 5" /></svg>
             </a></h2>
@@ -410,7 +410,7 @@
                                 </div>
                             </div>
                         </div>
-                        <template v-if="has_payer"> 
+                        <template v-if="has_payer">
                             <div class="row">
                                 <div class="col-lg-4">
                                     <div class="form-group">
@@ -469,7 +469,7 @@
                                         <th>#</th>
                                         <th class="font-weight-bold">Unidad</th>
                                         <th class="font-weight-bold">Descripción</th>
-                                        <th class="text-right font-weight-bold">Cantidad</th>
+                                        <th class="text-end font-weight-bold">Cantidad</th>
                                         <th></th>
                                     </tr>
                                     </thead>
@@ -478,13 +478,13 @@
                                         <td>{{ index + 1 }}</td>
                                         <td>{{ row.unit_type_id }}</td>
                                         <td v-html="setDescriptionOfItem(row)"></td>
-                                        <td class="text-right">{{ getFormatQuantity(row.quantity) }}
+                                        <td class="text-end">{{ getFormatQuantity(row.quantity) }}
                                             <a v-if="row.IdLoteSelected!=''" class="text-center font-weight-bold text-info"
                                                 href="#" @click.prevent="listLotGroupSelected(row.IdLoteSelected)">
                                                 [Lotes]
                                             </a>
                                         </td>
-                                        <td class="text-right">
+                                        <td class="text-end">
                                             <button class="btn waves-effect waves-light btn-xs btn-danger"
                                                     type="button"
                                                     @click.prevent="clickRemoveItem(index)">x
@@ -494,7 +494,7 @@
                                     </tbody>
                                     <tfoot>
                                     <tr>
-                                        <td class="text-right hidden-sm-down"
+                                        <td class="text-end hidden-sm-down"
                                             colspan="2">
                                             <label class="control-label">
                                                 Producto
@@ -510,9 +510,9 @@
                                                 <div class="col-8">
                                                     <div :class="{'has-danger': errors.items}"
                                                          class="form-group" id="custom-select">
-    
+
                                                         <el-input id="custom-input">
-    
+
                                                             <el-select v-model="current_item"
                                                                        id="select-width"
                                                                        :loading="loading_search"
@@ -523,14 +523,14 @@
                                                                        ref="selectItem"
                                                                        slot="prepend"
                                                                        @change="onChangeItem">
-    
+
                                                                 <el-option
                                                                     v-for="option in items"
                                                                     :key="option.id"
                                                                     :label="option.full_description"
                                                                     :value="option.id"></el-option>
                                                             </el-select>
-    
+
                                                             <el-tooltip
                                                                 slot="append"
                                                                 class="item"
@@ -544,9 +544,9 @@
                                                                     <i class="fa fa-search"></i>
                                                                 </el-button>
                                                             </el-tooltip>
-    
+
                                                         </el-input>
-    
+
                                                         <small v-if="errors.items"
                                                                class="form-control-feedback"
                                                                v-text="errors.items[0]"></small>
@@ -591,7 +591,7 @@
                                                 </div>
                                             </div>
                                         </td>
-                                        <td class="text-right hidden-sm-down">
+                                        <td class="text-end hidden-sm-down">
                                             <el-button style="width:100%"
                                                        class="mt-1"
                                                        type="primary"
@@ -613,7 +613,7 @@
                             </div>
                         </div>
                         <div class="col-lg-12"></div>
-                        <div class="form-actions text-right mt-4">
+                        <div class="form-actions d-flex justify-content-between mt-4">
                             <el-button class="second-buton btn btn-default second-buton-default" @click.prevent="clickClose">Cancelar</el-button>
                             <el-button class="btn btn-primary btn-submit-default" v-if="(form.items.length > 0) || existReferenceDocuments"
                                        :loading="loading_submit"
@@ -624,35 +624,35 @@
                     </div>
                 </form>
             </div>
-    
+
             <sender-form :showDialog.sync="showDialogSenderForm"
                          title="Nuevo Remitente"
                          @success="successSender"></sender-form>
-    
+
             <receiver-form :showDialog.sync="showDialogReceiverForm"
                            title="Nuevo Destinatario"
                            @success="successReceiver"></receiver-form>
-    
+
             <sender-address-form :showDialog.sync="showDialogSenderAddressForm"
                                  :person-id="form.sender_id"
                                  title="Nuevo punto de partida"
                                  @success="successSenderAddress"></sender-address-form>
-    
+
             <receiver-address-form :showDialog.sync="showDialogReceiverAddressForm"
                                    title="Nuevo punto de llegada"
                                    :person-id="form.receiver_id"
                                    @success="successReceiverAddress"></receiver-address-form>
-    
+
             <driver-form :showDialog.sync="showDialogDriverForm"
                          @success="successDriver"></driver-form>
-    
+
             <transport-form :showDialog.sync="showDialogTransportForm"
                             @success="successTransport"></transport-form>
-    
+
             <items
                 :dialogVisible.sync="showDialogAddItems"
                 @addItem="addItem"></items>
-    
+
             <dispatch-finish :recordId="recordId"
                              :showClose="false"
                              :send-sunat="send_sunat"
@@ -666,12 +666,12 @@
                 :showDialog.sync="showDialogLots"
                 @addRowLotGroup="addRowLotGroup">
             </lots-group>
-    
+
             <warehouses-detail
                 :showDialog.sync="showWarehousesDetail"
                 :warehouses="warehousesDetail">
             </warehouses-detail>
-    
+
             <select-lots-form
                 :showDialog.sync="showDialogSelectLots"
                 :documentItemId="null"
@@ -681,7 +681,7 @@
                 @addRowSelectLot="addRowSelectLot"
                 >
             </select-lots-form>
-    
+
             <list-lots-group
                 :showDialog.sync="showDialogLotsGroupSelected"
                 :lotsGroupSelected="lotsGroupSelected"
@@ -695,7 +695,7 @@
             @addReferenceDocument="addReferenceDocument"
             :supplierData="supplier_data"
             ></DialogReferenceDocument>
-    
+
         </div>
     </div>
 </template>
@@ -708,12 +708,12 @@ import LotsGroup from './../partials/lots_group.vue';
 import ListLotsGroup from './../partials/listLotsGroupSelected.vue';
 import DriverForm from '../drivers/form.vue';
 import TransportForm from '../transports/form.vue';
-import SenderForm from '../partials/DispatchPersonForm';
-import ReceiverForm from '../partials/DispatchPersonForm';
-import SenderAddressForm from '../partials/DispatchAddressForm';
-import ReceiverAddressForm from '../partials/DispatchAddressForm';
-import SelectLotsForm from './../partials/lots.vue'
-import DispatchFinish from '../partials/finish'
+import SenderForm from '../partials/DispatchPersonForm.vue';
+import ReceiverForm from '../partials/DispatchPersonForm.vue';
+import SenderAddressForm from '../partials/DispatchAddressForm.vue';
+import ReceiverAddressForm from '../partials/DispatchAddressForm.vue';
+import SelectLotsForm from './../partials/lots.vue';
+import DispatchFinish from '../partials/finish.vue';
 import {mapActions, mapState} from "vuex/dist/vuex.mjs";
 import WarehousesDetail from '@components/WarehousesDetail.vue'
 import {setDefaultSeriesByMultipleDocumentTypes} from '@mixins/functions'
@@ -762,7 +762,7 @@ export default {
         },
         showLotsGroup(){
             if(this.item && this.item.lots_enabled && this.item.lots_group.length){
-                return true 
+                return true
             }
             return false;
         },
@@ -996,7 +996,7 @@ export default {
             if (description === "") {
                 description = item.description;
             }
-            
+
             if (item && item.lots && item.lots.length > 0) {
                 const series = item.lots.map((lot) => lot.series).join(", ");
                 description += `<br/><strong>Series:</strong> ${series}`;
@@ -1142,7 +1142,7 @@ export default {
                 const serieExists = this.series.find(s => s.number === this.form.series);
                 if (!serieExists) {
                     this.form.series = null;
-            
+
                     if (this.config.user && this.config.user.serie) {
                         const defaultSeries = this.series.find(s => s.number === this.config.user.serie);
                         if (defaultSeries) {
@@ -1565,9 +1565,9 @@ export default {
         setDefaultSeries() {
             if (this.series.length > 0) {
                 const defaultSeries = this.series.find(s => s.is_default === true);
-        
+
                 this.form.series = defaultSeries ? defaultSeries.number : this.series[0].number;
-        
+
             } else {
                 this.form.series = null;
             }

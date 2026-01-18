@@ -3,7 +3,7 @@
 namespace Modules\Report\Http\Controllers;
 
 use Illuminate\Http\Request;
-use Barryvdh\DomPDF\Facade as PDF;
+use Barryvdh\DomPDF\Facade\Pdf as PDF;
 use App\Http\Controllers\Controller;
 use App\Models\Tenant\DocumentItem;
 use App\Models\Tenant\SaleNoteItem;

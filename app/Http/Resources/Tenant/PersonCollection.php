@@ -15,20 +15,14 @@ class PersonCollection extends ResourceCollection
      */
     public function toArray($request)
     {
-        return $this->collection->transform(function(Person $row, $key) {
-
-            return  $row->getCollectionData();
-            /** Pasado al modelo  */
-            return [
-                'id' => $row->id,
-                'number' => $row->number,
-                'name' => $row->name,
-                'internal_code' => $row->internal_code,
-                'document_type' => $row->identity_document_type->description,
-                'enabled' => (bool) $row->enabled,
-                'created_at' => $row->created_at->format('Y-m-d H:i:s'),
-                'updated_at' => $row->updated_at->format('Y-m-d H:i:s'),
-            ];
+        return $this->collection->transform(function($row) {
+            // Si $row es un recurso, obtenemos el modelo subyacente
+            if ($row instanceof \Illuminate\Http\Resources\Json\JsonResource) {
+                $row = $row->resource;
+            }
+        
+            // Ahora $row es definitivamente un modelo Person
+            return $row->getCollectionData();
         });
     }
 }

@@ -2,7 +2,7 @@
 
 @section('content')
 
-    <div class="row tab-content-default row-new bg-transparent">
+    <div class="row tab-content-default row-new bg-transparent" style="background: transparent !important;">
 
         <div class="page-header pr-0">
             <h2><a href="/suscription/grade_section">

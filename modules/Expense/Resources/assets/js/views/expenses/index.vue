@@ -1,13 +1,13 @@
 <template>
     <div>
-        <div class="page-header pr-0">
+        <div class="page-header pe-0">
             <h2><a href="/expenses">
                 <svg  xmlns="http://www.w3.org/2000/svg" style="margin-top: -5px;"  width="24"  height="24"  viewBox="0 0 24 24"  fill="none"  stroke="currentColor"  stroke-width="2"  stroke-linecap="round"  stroke-linejoin="round"  class="icon icon-tabler icons-tabler-outline icon-tabler-shopping-bag"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M6.331 8h11.339a2 2 0 0 1 1.977 2.304l-1.255 8.152a3 3 0 0 1 -2.966 2.544h-6.852a3 3 0 0 1 -2.965 -2.544l-1.255 -8.152a2 2 0 0 1 1.977 -2.304z" /><path d="M9 11v-5a3 3 0 0 1 6 0v5" /></svg>
             </a></h2>
             <ol class="breadcrumbs">
                 <li class="active"><span>Gastos diversos</span></li>
             </ol>
-            <div class="right-wrapper pull-right pt-2 mr-2">
+            <div class="right-wrapper pull-right pt-2 me-2">
                 <!--<el-button class="submit" type="success" @click.prevent="clickDownload('excel')"><i class="fa fa-file-excel"></i> Exportar Excel </el-button>-->
                 <a :href="`/${resource}/create`" class="btn btn-custom btn-sm "><i class="fa fa-plus-circle"></i> Nuevo</a>
             </div>
@@ -17,18 +17,18 @@
                 <data-table :resource="resource">
                     <tr slot="heading">
                         <!-- <th>#</th> -->
-                        <th class="text-left">Fecha Emisión</th>
+                        <th class="text-start">Fecha Emisión</th>
                         <th>Proveedor</th>
                         <th>Número</th>
                         <th>Motivo</th>
                         <th class="text-center">Pagos</th>
                         <th class="text-center">Moneda</th>
-                        <th class="text-right">Total</th>
-                        <th class="text-right">Dist. Gasto</th>
+                        <th class="text-end">Total</th>
+                        <th class="text-end">Dist. Gasto</th>
                     </tr>
                     <tr slot-scope="{ index, row }" :class="{'text-danger': (row.state_type_id === '11'), 'text-warning': (row.state_type_id === '13'), 'border-light': (row.state_type_id === '01'), 'border-left border-info': (row.state_type_id === '03'), 'border-left border-success': (row.state_type_id === '05'), 'border-left border-secondary': (row.state_type_id === '07'), 'border-left border-dark': (row.state_type_id === '09'), 'border-left border-danger': (row.state_type_id === '11'), 'border-left border-warning': (row.state_type_id === '13')}">
                         <!-- <td>{{ index }}</td> -->
-                        <td class="text-left">{{ row.date_of_issue }}</td>
+                        <td class="text-start">{{ row.date_of_issue }}</td>
                         <td>{{ row.supplier_name }}<br/><small v-text="row.supplier_number"></small></td>
                         <td>{{ row.number }}<br/>
                             <small v-text="row.expense_type_description"></small><br/>
@@ -43,25 +43,25 @@
                             >Pagos</button>
                         </td>
                         <td class="text-center">{{ row.currency_type_id }}</td>
-                        <td class="text-right">{{row.currency_type_id === 'PEN' ? 'S/' : '$'}} {{ row.total }}</td>
+                        <td class="text-end">{{row.currency_type_id === 'PEN' ? 'S/' : '$'}} {{ row.total }}</td>
 
-                        <td class="text-right">
+                        <td class="text-end">
 
-                            <button type="button" style="min-width: 41px" class="btn waves-effect waves-light btn-xs btn-success m-1__2"
+                            <button type="button" style="min-width: 41px" class="btn waves-effect waves-light btn-xs btn-success m-1__2 me-1"
                                     @click.prevent="clickPrint(row.external_id)">
                                     <i class="fas fa-print"></i>
                             </button>
 
-                            <button type="button" v-if="row.state_type_id != '11'" style="min-width: 41px" class="btn waves-effect waves-light btn-xs btn-primary m-1__2"
+                            <button type="button" v-if="row.state_type_id != '11'" style="min-width: 41px" class="btn waves-effect waves-light btn-xs btn-primary m-1__2 me-1"
                                     @click.prevent="clickCreate(row.id)">
                                     <i class="fa fa-pen"></i>
                             </button>
 
-                            <button type="button" style="min-width: 41px" class="btn waves-effect waves-light btn-xs btn-info m-1__2"
+                            <button type="button" style="min-width: 41px" class="btn waves-effect waves-light btn-xs btn-info m-1__2 me-1"
                                     @click.prevent="clickPayment(row.id)">
                                     <i class="fa fa-search"></i>
                             </button>
-                            <button type="button" style="min-width: 41px" class="btn waves-effect waves-light btn-xs btn-danger m-1__2"
+                            <button type="button" style="min-width: 41px" class="btn waves-effect waves-light btn-xs btn-danger m-1__2 me-1"
                                     @click.prevent="clickVoided(row.id)"
                                     v-if="row.state_type_id === '05'">
                                     <i class="fa fa-trash"></i>

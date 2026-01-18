@@ -7,11 +7,11 @@
             </ol>
         </div> -->
         <div class="card mb-0">
-            <div class="card-header bg-info">
+            <div class="card-header bg-info d-flex align-items-center justify-content-between">
                 <h3 class="my-0">Listado de {{ title }}</h3>
                 
                 <div class="right-wrapper pull-right">
-                    <button type="button" class="btn btn-info btn-info-default btn-sm  mt-2 mr-2" @click.prevent="clickCreate()"><i class="fa fa-plus-circle"></i> Nuevo</button>
+                    <button type="button" class="btn btn-info btn-info-default btn-sm  mt-2 me-2" @click.prevent="clickCreate()"><i class="fa fa-plus-circle"></i> Nuevo</button>
                 </div>
             </div>
             <div class="card-body">
@@ -19,13 +19,13 @@
                     <tr slot="heading">
                         <!-- <th>#</th> -->
                         <th>Nombre</th>
-                        <th class="text-right">Acciones</th>
+                        <th class="text-end">Acciones</th>
                     <tr>
                     <tr slot-scope="{ index, row }">
                         <!-- <td>{{ index }}</td> -->
                         <td>{{ row.name }}</td>
-                        <td class="text-right">
-                            <button type="button" class="btn waves-effect waves-light btn-xs btn-info" @click.prevent="clickCreate(row.id)">Editar</button>
+                        <td class="text-end">
+                            <button type="button" class="btn waves-effect waves-light btn-xs btn-info me-2" @click.prevent="clickCreate(row.id)">Editar</button>
                             <button type="button" class="btn waves-effect waves-light btn-xs btn-danger" @click.prevent="clickDelete(row.id)">Eliminar</button>
                         </td>
                     </tr>

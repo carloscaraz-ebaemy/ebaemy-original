@@ -1,6 +1,6 @@
 <template>
     <div>
-        <div class="page-header pr-0">
+        <div class="page-header pe-0">
             <h2>
                 <a href="/finances/unpaid">
                     <svg
@@ -37,9 +37,10 @@
             </ol>
         </div>
         <div class="card tab-content-default row-new mb-0 pt-2 pt-md-0">
+            <div class="card-body">
             <div class="h-auto">
                 <!-- <h3 class="my-0">Cuentas por cobrar</h3> -->
-                <div class="d-flex justify-content-between pl-3 pt-3 pr-3 pb-0">
+                <div class="d-flex justify-content-between pb-0">
                     <div class="btn-filter-content">
                         <el-button
                             type="secondary"
@@ -56,7 +57,7 @@
                     </div>
                     <el-dropdown :hide-on-click="false">
                         <el-button type="secondary">
-                            Mostrar/Ocultar columnas<i
+                            Mostrar columnas<i
                                 class="el-icon-arrow-down el-icon--right"
                             ></i>
                         </el-button>
@@ -76,7 +77,7 @@
                 </div>
             </div>
             <div class="card mb-0">
-                <div class="card-body">
+                <div>
                     <div class="row">
                         <div class="col-xl-12">
                             <section>
@@ -434,10 +435,10 @@
                                             </el-button>
                                         </div>
                                         <div
-                                            class="col-md-1 mt-5 text-right"
+                                            class="col-md-1 mt-5 text-end"
                                         ></div>
 
-                                        <div class="col-md-2 mt-5 text-right">
+                                        <div class="col-md-2 mt-5 text-end">
                                             <el-badge
                                                 :value="getTotalRowsUnpaid"
                                                 class="item"
@@ -447,7 +448,7 @@
                                                 >
                                             </el-badge>
                                         </div>
-                                        <div class="col-md-2 mt-5 text-right">
+                                        <div class="col-md-2 mt-5 text-end">
                                             <el-badge
                                                 :value="getTotalAmountUnpaid"
                                                 class="item"
@@ -457,7 +458,7 @@
                                                 >
                                             </el-badge>
                                         </div>
-                                        <div class="col-md-2 mt-5 text-right">
+                                        <div class="col-md-2 mt-5 text-end">
                                             <el-badge
                                                 :value="getCurrentBalance"
                                                 class="item"
@@ -467,7 +468,7 @@
                                                 >
                                             </el-badge>
                                         </div>
-                                        <div class="col-md-2 mt-5 text-right">
+                                        <div class="col-md-2 mt-5 text-end">
                                             <el-badge
                                                 :value="getTotalAmountUnpaidUsd"
                                                 class="item"
@@ -477,7 +478,7 @@
                                                 >
                                             </el-badge>
                                         </div>
-                                        <div class="col-md-2 mt-5 text-right">
+                                        <div class="col-md-2 mt-5 text-end">
                                             <el-badge
                                                 :value="getCurrentBalanceUsd"
                                                 class="item"
@@ -488,7 +489,7 @@
                                             </el-badge>
                                         </div>
                                         
-                                        <div class="col-md-12">
+                                        <div class="col-md-12 position-relative">
                                         <div class="scroll-shadow shadow-left" v-show="showLeftShadow"></div>
                                         <div class="scroll-shadow shadow-right" v-show="showRightShadow"></div>
 
@@ -531,10 +532,10 @@
 
                                                         <th>Ver Cartera</th>
                                                         <th>Moneda</th>
-                                                        <th class="text-right">
+                                                        <th class="text-end">
                                                             Por cobrar
                                                         </th>
-                                                        <th class="text-right">
+                                                        <th class="text-end">
                                                             T. Nota Crédito
                                                         </th>
                                                         <th
@@ -547,7 +548,7 @@
                                                         >
                                                             Monto retención
                                                         </th>
-                                                        <th class="text-right">
+                                                        <th class="text-end">
                                                             Total
                                                         </th>
                                                         <th></th>
@@ -802,7 +803,7 @@
                                                                 }}
                                                             </td>
                                                             <td
-                                                                class="text-right text-danger"
+                                                                class="text-end text-danger"
                                                             >
                                                                 {{
                                                                     row.total_to_pay
@@ -846,12 +847,12 @@
                                                             </td>
 
                                                             <td
-                                                                class="text-right"
+                                                                class="text-end"
                                                             >
                                                                 {{ row.total }}
                                                             </td>
                                                             <td
-                                                                class="text-right"
+                                                                class="text-end"
                                                             >
                                                                 <template
                                                                     v-if="
@@ -918,7 +919,7 @@
                     </div>
                 </div>
             </div>
-
+            </div>            
             <document-payments
                 :showDialog.sync="showDialogDocumentPayments"
                 :documentId="recordId"

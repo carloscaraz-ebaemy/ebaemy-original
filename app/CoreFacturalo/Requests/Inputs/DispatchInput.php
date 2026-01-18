@@ -363,7 +363,6 @@ class DispatchInput
                 if(!$row['IdLoteSelected']){
                     $row['IdLoteSelected'] = isset($itemDispatch['item'])?isset($itemDispatch['item']['IdLoteSelected'])?$itemDispatch['item']['IdLoteSelected']:null:null;
                 }
-                $item_inner =  isset($row['item']) ? $row['item']['item'] : null;
 
                 $temp = [
                     'item_id' => $item->id,
@@ -375,9 +374,9 @@ class DispatchInput
                         'item_code' => $item->item_code,
                         'item_code_gs1' => $item->item_code_gs1,
                         'unit_type_id' => ($row['unit_type_id'])??$item->unit_type_id,
-                        'IdLoteSelected' => is_null($item_inner) ? null : Functions::valueKeyInArray($item_inner, 'IdLoteSelected', null),
+                        'IdLoteSelected' => $row['IdLoteSelected'] ?? null,
                         'lot_group' => $row['lot_group'] ?? null,
-                        'lots' =>  is_null($item_inner) ? null : Functions::valueKeyInArray($item_inner, 'lots', []),
+                        'lots' => $row['lots'] ?? null,
                         'unit_price' =>isset($row['unit_price'])?$row['unit_price']:null,
                         'total' =>isset($row['total'])?$row['total']:null,
                     ],
@@ -634,20 +633,13 @@ class DispatchInput
 
     private static function payer($inputs)
     {
-        if (key_exists('pagador_flete', $inputs)) {
-            $payer = $inputs['pagador_flete'];
+        if (key_exists('payer', $inputs)) {
+            $payer = $inputs['payer'];
 
-            if(!isset($payer['indicador_pagador_flete'])){
+            if(!isset($payer['description'])){
                 return null;
             }
-
-            return [
-                'description' => Functions::valueKeyInArray($payer, 'indicador_pagador_flete'),
-                'identity_document_type_id' => Functions::valueKeyInArray($payer, 'codigo_tipo_documento_identidad'),
-                'identity_document_type_description' => Functions::valueKeyInArray($payer, 'descripcion_tipo_documento_identidad'),
-                'number' => Functions::valueKeyInArray($payer, 'numero'),
-                'name' => Functions::valueKeyInArray($payer, 'nombres'),
-            ];
+            return $payer;
         }
         return null;
     }

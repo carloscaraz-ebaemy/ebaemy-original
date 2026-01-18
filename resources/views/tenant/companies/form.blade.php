@@ -7,6 +7,7 @@
             <tenant-companies-form></tenant-companies-form>
         </div>
         <div class="col-lg-6 col-md-12">
+            <tenant-system-environment></tenant-system-environment>
             <tenant-certificates-index></tenant-certificates-index>
             <tenant-certificates-qztray></tenant-certificates-qztray>
             <tenant-signature-pse-index></tenant-signature-pse-index>

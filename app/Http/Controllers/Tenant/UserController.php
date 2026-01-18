@@ -18,6 +18,7 @@ use Modules\Finance\Helpers\UploadFileHelper;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Http\Request;
 use App\Helpers\UserControlHelper;
+use Illuminate\Support\Str;
 use Exception;
 
 
@@ -69,6 +70,7 @@ class UserController extends Controller
         }])
                          ->orderBy('order_menu')
                          ->whereIn('id', $modulesTenant)
+                         ->where('value', '!=', 'production_app')
                          ->get()
                          ->each(function ($module) {
                              return $this->prepareModules($module);
@@ -108,7 +110,7 @@ class UserController extends Controller
     }
 
 
-    public function store(UserRequest $request) 
+    public function store(UserRequest $request)
     {
         $id = $request->input('id');
 
@@ -134,12 +136,12 @@ class UserController extends Controller
             if($request->input('restaurant_pin')){
                 $user->restaurant_pin = $request->input('restaurant_pin');
             }
-            
+
             // Zona por usuario
             // $user->zone_id = $request->input('zone_id');
 
             if (!$id) {
-                $user->api_token = str_random(50);
+                $user->api_token = Str::random(50);
                 $user->password = bcrypt($request->input('password'));
             } elseif ($request->has('password')) {
                 if (config('tenant.password_change')) {
@@ -184,9 +186,9 @@ class UserController extends Controller
         ];
     }
 
-    
+
     /**
-     * 
+     *
      * Asignar datos
      *
      * @param  User $user
@@ -216,7 +218,7 @@ class UserController extends Controller
 
 
     /**
-     * 
+     *
      * Guardar imágen
      *
      * @param  User $user
@@ -227,7 +229,7 @@ class UserController extends Controller
     {
         $temp_path = $request->photo_temp_path;
 
-        if($temp_path) 
+        if($temp_path)
         {
             $old_filename = $request->photo_filename;
             $user->photo_filename = UploadFileHelper:: uploadImageFromTempFile('users', $old_filename, $temp_path, $user->id, true);
@@ -235,9 +237,9 @@ class UserController extends Controller
         }
     }
 
-    
+
     /**
-     * 
+     *
      * Guardar documentos por defecto
      *
      * @param  User $user
@@ -248,7 +250,7 @@ class UserController extends Controller
     {
         $user->default_document_types()->delete();
 
-        foreach ($request->default_document_types as $row) 
+        foreach ($request->default_document_types as $row)
         {
             $user->default_document_types()->create($row);
         }
@@ -273,7 +275,7 @@ class UserController extends Controller
         ];
     }
 
-        
+
     /**
      *
      * @param  Request $request
@@ -281,13 +283,13 @@ class UserController extends Controller
      */
     public function changeActive(Request $request)
     {
-        try 
+        try
         {
             $request->validate([
                 'id' => 'required',
                 'active' => 'required',
             ]);
-            
+
             $user = User::findOrFail($request->id);
             $user->active = !$request->active;
             $active_message = null;
@@ -305,10 +307,10 @@ class UserController extends Controller
             }
 
             $user->save();
-            
+
             return $this->generalResponse(true, "Usuario {$active_message} con éxito.");
 
-        } 
+        }
         catch(Exception $e)
         {
             return $this->generalResponse(false, $e->getMessage());

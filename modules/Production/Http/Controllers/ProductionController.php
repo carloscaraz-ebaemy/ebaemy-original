@@ -4,7 +4,7 @@
 
 
     use App\Models\Tenant\Item;
-    use Barryvdh\DomPDF\Facade as PDF;
+    use Barryvdh\DomPDF\Facade\Pdf as PDF;
     use Carbon\Carbon;
     use Illuminate\Database\Query\Builder;
     use Illuminate\Http\Request;

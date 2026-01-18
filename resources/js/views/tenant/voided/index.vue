@@ -1,6 +1,6 @@
 <template>
     <div class="voided">
-        <header class="page-header pr-0">
+        <header class="page-header pe-0">
             <h2>
                 <a href="/voided">
                     <svg
@@ -32,8 +32,9 @@
             <div class="right-wrapper pull-right">
                 <form autocomplete="off" @submit.prevent="consultVoided">
                     <el-button
-                        class="btn btn-custom btn-sm  mt-2 mr-2"
+                        class="btn btn-custom mt-2 me-2"
                         native-type="submit"
+                        type="primary"
                         :loading="loading_submit_voided"
                         >Consultar documentos</el-button
                     >
@@ -48,13 +49,13 @@
                 <data-table :resource="resource">
                     <tr slot="heading">
                         <!-- <th>#</th> -->
-                        <th class="text-left">F.Emisión</th>
-                        <th class="text-left">F.E.Comprobante</th>
+                        <th class="text-start">F.Emisión</th>
+                        <th class="text-start">F.E.Comprobante</th>
                         <th>Identificador</th>
                         <th>Ticket</th>
                         <th>Estado</th>
                         <th class="text-center">Descargas</th>
-                        <th class="text-right">Acciones</th>
+                        <th class="text-end">Acciones</th>
                     </tr>
                     <tr
                         slot-scope="{ index, row }"
@@ -64,10 +65,10 @@
                         }"
                     >
                         <!-- <td>{{ index }}</td> -->
-                        <td class="text-left">
+                        <td class="text-start">
                             {{ formatDate(row.date_of_issue) }}
                         </td>
-                        <td class="text-left">
+                        <td class="text-start">
                             {{ formatDate(row.date_of_reference) }}
                         </td>
                         <td>{{ row.identifier }}</td>
@@ -91,7 +92,7 @@
                                 CDR
                             </button>
                         </td>
-                        <td class="text-right">
+                        <td class="text-end">
                             <el-tooltip
                                 content="Completar anulación"
                                 placement="top"

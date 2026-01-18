@@ -1,14 +1,14 @@
 <template>
     <div>
-        <div class="page-header pr-0">
+        <div class="page-header pe-0">
             <h2><a href="/dispatches">
                 <svg  xmlns="http://www.w3.org/2000/svg" style="margin-top: -5px;" width="24"  height="24"  viewBox="0 0 24 24"  fill="none"  stroke="currentColor"  stroke-width="2"  stroke-linecap="round"  stroke-linejoin="round"  class="icon icon-tabler icons-tabler-outline icon-tabler-truck"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M7 17m-2 0a2 2 0 1 0 4 0a2 2 0 1 0 -4 0" /><path d="M17 17m-2 0a2 2 0 1 0 4 0a2 2 0 1 0 -4 0" /><path d="M5 17h-2v-11a1 1 0 0 1 1 -1h9v12m-4 0h6m4 0h2v-6h-8m0 -5h5l3 5" /></svg>
             </a></h2>
             <ol class="breadcrumbs">
-                <li class="active"><span> Nueva Guía de Remisión </span></li> 
+                <li class="active"><span> Nueva Guía de Remisión </span></li>
             </ol>
         </div>
-        <div class="card tab-content tab-content-default row-new mb-0 pt-2 pt-md-0 mt-4">
+        <div class="card tab-content tab-content-default row-new mb-0 pt-2 pt-md-0 mt-5">
             <!-- <div class="card-header bg-info">
 
                 <h3 class="my-0">Nueva Guía de Remisión</h3>
@@ -59,11 +59,11 @@
                                 </div>
                             </div>
                             <div class="col-lg-4">
-                                <template v-if="!hiddenCustomer">
-                                    <div :class="{ 'has-danger': errors.customer_id }" class="form-group">
+                                <template v-if="form.transfer_reason_type_id != '04'">
+                                    <div :class="{ 'has-danger': errors.customer_id }" class="form-group position-relative">
                                         <label class="control-label">
                                             Cliente<span class="text-danger"> *</span>
-                                            <a href="#" @click.prevent="showDialogNewPerson = true">[+ Nuevo]</a>
+                                            <!-- <a href="#" @click.prevent="showDialogNewPerson = true">[+ Nuevo]</a> -->
                                         </label>
                                         <el-select v-model="form.customer_id" :loading="loading_search"
                                             :remote-method="searchRemoteCustomers" filterable
@@ -72,7 +72,27 @@
                                             @keyup.enter.native="keyupCustomer">
                                             <el-option v-for="option in customers" :key="option.id" :label="option.description"
                                                 :value="option.id"></el-option>
+                                            <template slot="empty">
+                                                <p v-if="loading_search" class="el-select-dropdown__empty">
+                                                    Cargando...
+                                                </p>
+                                            
+                                                <p v-else class="el-select-dropdown__empty">
+                                                    No se encontraron resultados
+                                                </p>
+                                            
+                                                <div
+                                                    v-if="!loading_search"
+                                                    class="el-select-dropdown__item new-option"
+                                                    @click.stop="openNewPersonDialog"
+                                                >
+                                                    <span>{{ customerSearchTerm ? `Crear cliente "${customerSearchTerm}"` : 'Crear cliente' }}</span>
+                                                </div>
+                                            </template>
                                         </el-select>
+                                        <span class="btn-add-new" @click.prevent="showDialogNewPerson = true" title="Agregar nuevo cliente">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon icon-tabler icons-tabler-outline icon-tabler-user-plus"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M8 7a4 4 0 1 0 8 0a4 4 0 0 0 -8 0" /><path d="M16 19h6" /><path d="M19 16v6" /><path d="M6 21v-2a4 4 0 0 1 4 -4h4" /></svg>
+                                        </span>
                                         <small v-if="errors.customer_id" class="form-control-feedback"
                                             v-text="errors.customer_id[0]"></small>
                                     </div>
@@ -380,7 +400,7 @@
                                         <span class="text-danger"> *</span>
                                     </label>
                                     <div :class="{ 'has-danger': errors.driver_id }" class="form-group">
-    
+
                                         <div v-if="selectedDrivers.length">
                                             <div class="table-responsive transfer-data-table pt-3 mb-1">
                                                 <table class="table">
@@ -558,21 +578,21 @@
                                                             <div class="col-10">
                                                                 <div :class="{ 'has-danger': errors.items }" class="form-group"
                                                                     id="custom-select">
-    
+
                                                                     <el-input id="custom-input">
-    
+
                                                                         <el-select class="w-100" v-model="current_item"
                                                                             id="select-width" :loading="loading_search"
                                                                             :remote-method="searchRemoteItems"
                                                                             popper-class="el-select-items" filterable remote
                                                                             ref="selectItem" slot="prepend"
                                                                             @change="onChangeItem">
-    
+
                                                                             <el-option v-for="option in items" :key="option.id"
                                                                                 :label="option.full_description"
                                                                                 :value="option.id"></el-option>
                                                                         </el-select>
-    
+
                                                                         <el-tooltip slot="append" class="item"
                                                                             content="Ver Stock del Producto" effect="dark"
                                                                             placement="bottom">
@@ -580,9 +600,9 @@
                                                                                 <i class="ri-search-line"></i>
                                                                             </el-button>
                                                                         </el-tooltip>
-    
+
                                                                     </el-input>
-    
+
                                                                     <small v-if="errors.items" class="invalid-feedback"
                                                                         v-text="errors.items[0]"></small>
                                                                 </div>
@@ -610,21 +630,21 @@
                                                             <div class="col-7">
                                                                 <div :class="{ 'has-danger': errors.items }" class="form-group"
                                                                     id="custom-select">
-    
+
                                                                     <el-input id="custom-input">
-    
+
                                                                         <el-select class="w-100" v-model="current_item"
                                                                             id="select-width" :loading="loading_search"
                                                                             :remote-method="searchRemoteItems"
                                                                             popper-class="el-select-items" filterable remote
                                                                             ref="selectItem" slot="prepend"
                                                                             @change="onChangeItem">
-    
+
                                                                             <el-option v-for="option in items" :key="option.id"
                                                                                 :label="option.full_description"
                                                                                 :value="option.id"></el-option>
                                                                         </el-select>
-    
+
                                                                         <el-tooltip slot="append" class="item"
                                                                             content="Ver Stock del Producto" effect="dark"
                                                                             placement="bottom">
@@ -632,9 +652,9 @@
                                                                                 <i class="fa fa-search"></i>
                                                                             </el-button>
                                                                         </el-tooltip>
-    
+
                                                                     </el-input>
-    
+
                                                                     <small v-if="errors.items" class="invalid-feedback"
                                                                         v-text="errors.items[0]"></small>
                                                                 </div>
@@ -685,7 +705,7 @@
                                         </template>
                                         <template v-else>
                                             <tr>
-                                                <td class="text-right hidden-sm-down" colspan="2">
+                                                <td class="text-end hidden-sm-down" colspan="2">
                                                     <label class="control-label">
                                                         Producto
                                                         <a v-if="can_add_new_product" href="#"
@@ -697,21 +717,21 @@
                                                         <div class="col-7">
                                                             <div :class="{ 'has-danger': errors.items }" class="form-group"
                                                                 id="custom-select">
-    
+
                                                                 <el-input id="custom-input">
-    
+
                                                                     <el-select v-model="current_item" id="select-width"
                                                                         :loading="loading_search"
                                                                         :remote-method="searchRemoteItems"
                                                                         popper-class="el-select-items" filterable remote
                                                                         ref="selectItem" slot="prepend"
                                                                         @change="onChangeItem">
-    
+
                                                                         <el-option v-for="option in items" :key="option.id"
                                                                             :label="option.full_description"
                                                                             :value="option.id"></el-option>
                                                                     </el-select>
-    
+
                                                                     <el-tooltip slot="append" class="item"
                                                                         content="Ver Stock del Producto" effect="dark"
                                                                         placement="bottom">
@@ -719,9 +739,9 @@
                                                                             <i class="fa fa-search"></i>
                                                                         </el-button>
                                                                     </el-tooltip>
-    
+
                                                                 </el-input>
-    
+
                                                                 <small v-if="errors.items" class="form-control-feedback"
                                                                     v-text="errors.items[0]"></small>
                                                             </div>
@@ -759,7 +779,7 @@
                                                         </div>
                                                     </div>
                                                 </td>
-                                                <td class="text-right hidden-sm-down">
+                                                <td class="text-end hidden-sm-down">
                                                     <el-button style="width:100%" type="primary" class="mt-1"
                                                         @click="addAItemInRow">Agregar
                                                     </el-button>
@@ -778,7 +798,7 @@
                             </div>
                         </div>
                         <div class="col-lg-12"></div>
-                        <div class="form-actions text-right mt-4">
+                        <div class="form-actions d-flex justify-content-between mt-4">
                             <el-button class="second-buton btn btn-default second-buton-default" @click.prevent="close()">Cancelar</el-button>
                             <el-button class="btn btn-primary btn-submit-default" v-if="(form.items.length > 0)" :loading="loading_submit" native-type="submit"
                                 type="primary">Generar
@@ -787,38 +807,38 @@
                     </div>
                 </form>
             </div>
-    
-            <person-form :external="true" :showDialog.sync="showDialogNewPerson" :input_person="input_person"
+
+            <person-form :external="true" :showDialog.sync="showDialogNewPerson" :input_person="customerSearchTerm"
                 :is_dispatch="true" type="customers"></person-form>
-    
+
             <driver-form :showDialog.sync="showDialogDriverForm" @success="successDriver"></driver-form>
-    
+
             <dispatcher-form :showDialog.sync="showDialogDispatcherForm" @success="successDispatcher"></dispatcher-form>
-    
+
             <transport-form :showDialog.sync="showDialogTransportForm" @success="successTransport"></transport-form>
-    
+
             <origin-address-form :showDialog.sync="showDialogOriginAddressForm"
                                  :establishmentId="form.establishment_id"
                 @success="successOriginAddress"></origin-address-form>
-    
+
             <delivery-address-form :showDialog.sync="showDialogDeliveryAddressForm" title="Nuevo punto de llegada"
                 :person-id="form.customer_id" @success="successDeliveryAddress"></delivery-address-form>
-    
+
             <items :dialogVisible.sync="showDialogAddItems" @addItem="addItem"></items>
-    
+
             <dispatch-finish :recordId="recordId" :showClose="false" :send-sunat="send_sunat"
                 :showDialog.sync="showDialogFinish"></dispatch-finish>
             <item-form :external="true" :showDialog.sync="showDialogNewItem"></item-form>
-            <lots-group v-if="item" 
-                :lotsGroup="item.lots_group" 
-                :quantity="quantity" 
+            <lots-group v-if="item"
+                :lotsGroup="item.lots_group"
+                :quantity="quantity"
                 :showDialog.sync="showDialogLots"
                 @addRowLotGroup="addRowLotGroup">
             </lots-group>
-    
+
             <warehouses-detail :showDialog.sync="showWarehousesDetail" :warehouses="warehousesDetail">
             </warehouses-detail>
-    
+
             <select-lots-form
                 :showDialog.sync="showDialogSelectLots"
                 :documentItemId="null"
@@ -828,7 +848,7 @@
                 @addRowSelectLot="addRowSelectLot"
                 >
             </select-lots-form>
-    
+
             <list-lots-group
                 :showDialog.sync="showDialogLotsGroupSelected"
                 :lotsGroupSelected="lotsGroupSelected"
@@ -858,11 +878,11 @@ import SelectLotsForm from './partials/lots.vue'
 import DriverForm from './drivers/form.vue';
 import DispatcherForm from './dispatchers/form.vue';
 import TransportForm from './transports/form.vue';
-import OriginAddressForm from './OriginAddress/Form';
-import DeliveryAddressForm from './partials/DispatchAddressForm';
+import OriginAddressForm from './OriginAddress/Form.vue';
+import DeliveryAddressForm from './partials/DispatchAddressForm.vue';
 import DialogReferenceDocument from './Carrier/partials/DialogReferenceDocument.vue'
 
-import DispatchFinish from './partials/finish'
+import DispatchFinish from './partials/finish.vue'
 import { mapActions, mapState } from "vuex/dist/vuex.mjs";
 import WarehousesDetail from '@components/WarehousesDetail.vue'
 import { setDefaultSeriesByMultipleDocumentTypes } from '@mixins/functions'
@@ -911,7 +931,7 @@ export default {
         },
         showLotsGroup(){
             if(this.item && this.item.lots_enabled && this.item.lots_group.length){
-                return true 
+                return true
             }
             return false;
         },
@@ -921,9 +941,6 @@ export default {
                 return true;
             }
             return false;
-        },
-        hiddenCustomer() {
-            return ['02', '07', '04'].includes(this.form.transfer_reason_type_id);
         }
     },
     data() {
@@ -1003,7 +1020,8 @@ export default {
             lots: [],
             showDialogLotsGroupSelected:false,
             lotsGroupSelected:[],
-            supplier_data: {}
+            supplier_data: {},
+            customerSearchTerm: ''
         }
     },
     created() {
@@ -1011,6 +1029,10 @@ export default {
         this.loadConfiguration()
         this.$store.commit('setConfiguration', this.configuration)
         this.canCreateProduct();
+        this.$eventHub.$on("reloadDataPersons", customer_id => {
+            this.reloadDataCustomers(customer_id);
+            this.customerSearchTerm = ''
+        });
     },
     async mounted() {
         const itemsFromSummary = localStorage.getItem('items');
@@ -1054,7 +1076,7 @@ export default {
         } else {
             this.searchRemoteCustomers('')
             if (this.establishments.length > 0) {
-    
+
                 if (this.config.establishment && this.config.establishment.id) {
                     this.form.establishment_id = this.config.establishment.id;
                 } else {
@@ -1105,9 +1127,9 @@ export default {
             'loadConfiguration',
         ]),
         generalDisabledSeries() {
-    
+
             return (
-                this.configuration && 
+                this.configuration &&
                 this.configuration.restrict_series_selection_seller &&
                 this.config.typeUser !== "admin"
             );
@@ -1181,7 +1203,7 @@ export default {
             if (description === "") {
                 description = item.description;
             }
-            
+
             if (item && item.lots && item.lots.length > 0) {
                 const series = item.lots.map((lot) => lot.series).join(", ");
                 description += `<br/><strong>Series:</strong> ${series}`;
@@ -1225,7 +1247,7 @@ export default {
             this.form.related = isReasonType09 ? { number: null, document_type_id: 50 } : {};
             this.form.customer_id = isReasonType09 || isReasonType04 ? null : this.form.customer_id;
 
-            this.delivery = isReasonType09 
+            this.delivery = isReasonType09
                 ? { country_id: 'PE', location_id: [], address: null }
                 : { ...this.delivery, country_id: 'PE' };
 
@@ -1266,6 +1288,8 @@ export default {
             this.lotsGroupSelected = lotsGroupSelected;
         },
         async searchRemoteItems(input) {
+            this.customerSearchTerm = input;
+
             if (input.length > 2) {
                 this.loading_search = true
                 const params = {
@@ -1369,6 +1393,7 @@ export default {
             localStorage.removeItem('items');
         },
         searchRemoteCustomers(input) {
+            this.customerSearchTerm = input
             this.loading_search = true
             let identity_document_type_id = ['6', '4', '1', '0'];
             if (this.form.transfer_reason_type_id === '09') {
@@ -1394,7 +1419,7 @@ export default {
                 'input': input,
             })
                 .then(response => {
-                    console.log(response.data); 
+                    console.log(response.data);
                     this.dispatchers = response.data.filter(dispatcher => dispatcher.is_active === true);
                     this.loading_search_dispatcher = false;
                 })
@@ -1470,12 +1495,12 @@ export default {
                     'establishment_id': this.form.establishment_id,
                     'document_type_id': this.form.document_type_id
                 });
-        
+
                 const serieExists = this.series.find(s => s.number === this.form.series);
-        
+
                 if (!serieExists) {
                     this.form.series = null;
-            
+
                     if (this.config.user && this.config.user.serie) {
                         const defaultSeries = this.series.find(s => s.number === this.config.user.serie);
                         if (defaultSeries) {
@@ -1487,7 +1512,7 @@ export default {
                         this.setDefaultSeries();
                     }
                 }
-        
+
                 await this.getOriginAddresses(this.form.establishment_id)
                 if(this.form.transfer_reason_type_id==='04'){
                     await this.getAddressesOtherEstablishment(this.form.establishment_id)
@@ -1503,7 +1528,7 @@ export default {
             if (this.series.length > 0) {
 
                 const defaultSeries = this.series.find(s => s.is_default === true);
-        
+
                 this.form.series = defaultSeries ? defaultSeries.number : this.series[0].number;
             } else {
                 this.form.series = null;
@@ -1919,9 +1944,17 @@ export default {
                     
                     this.buyers = response.data;
                 });
-        }
+        },
+        openNewPersonDialog() {
+            this.showDialogNewPerson = true
+        },
     },
     watch: {
+        showDialogNewPerson(newVal) {
+            if (!newVal) {
+                this.customerSearchTerm = ''
+            }
+        },
         'config.establishment.id': {
             handler: function(newVal, oldVal) {
                 if (newVal && newVal !== oldVal) {

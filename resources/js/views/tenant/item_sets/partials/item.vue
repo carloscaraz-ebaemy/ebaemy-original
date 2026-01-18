@@ -28,8 +28,8 @@
                     </div>  
                 </div>
             </div>
-            <div class="form-actions text-right mt-2">
-                <el-button @click.prevent="close()">Cerrar</el-button>
+            <div class="form-actions text-end mt-2">
+                <el-button class="me-2" @click.prevent="close()">Cerrar</el-button>
                 <el-button type="primary" native-type="submit" v-if="form.individual_item_id">Agregar</el-button>
             </div>
         </form>

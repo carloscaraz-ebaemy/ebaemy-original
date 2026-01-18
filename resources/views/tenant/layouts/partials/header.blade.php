@@ -1,10 +1,5 @@
 <header class="header">
     <div class="logo-container">
-        <div class="sidebar-toggle" data-toggle-class="sidebar-left-collapsed" data-target="html"
-            data-fire-event="sidebar-left-toggle">
-            <i class="fas fa-angle-left" aria-label="Toggle sidebar"></i>
-            <i class="fas fa-angle-right" aria-label="Toggle sidebar"></i>
-        </div>
         <div class="d-md-none toggle-sidebar-left" data-toggle-class="sidebar-left-opened" data-target="html"
             data-fire-event="sidebar-left-opened">
             <div style="width: 24px; height: 24px; display: flex; align-items: center;">
@@ -28,7 +23,7 @@
         <tenant-dialog-header-menu></tenant-dialog-header-menu>
 
         @if ($tenant_show_ads && $url_tenant_image_ads)
-            <div class="ml-3 mr-3">
+            <div class="ms-3 me-3">
                 <img src="{{$url_tenant_image_ads}}" style="max-height: 50px; max-width: 500px;">
             </div>
         @endif
@@ -107,7 +102,7 @@
                                         d="M10 5a2 2 0 1 1 4 0a7 7 0 0 1 4 6v3a4 4 0 0 0 2 3h-16a4 4 0 0 0 2 -3v-3a7 7 0 0 1 4 -6" />
                                     <path d="M9 17v1a3 3 0 0 0 6 0v-1" />
                                 </svg>
-                                <span class="ml-2">Comprobantes no enviados</span>
+                                <span class="ms-2">Comprobantes no enviados</span>
                                 <span
                                     class="badge badge-pill badge-danger badge-up cart-item-count">{{ $vc_document }}</span>
                             </span>
@@ -135,7 +130,7 @@
                                 <path d="M17 17h-11v-14h-2" />
                                 <path d="M6 5l14 1l-1 7h-13" />
                             </svg>
-                            <span class="ml-2">Pedidos pendientes</span>
+                            <span class="ms-2">Pedidos pendientes</span>
                             <span class="badge badge-pill badge-info badge-up cart-item-count">{{ $vc_orders }}</span>
                         </span>
                         <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none"
@@ -155,7 +150,7 @@
                                     <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"
                                         fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
                                         stroke-linejoin="round"
-                                        class="icon icon-tabler icons-tabler-outline icon-tabler-receipt-dollar mr-2">
+                                        class="icon icon-tabler icons-tabler-outline icon-tabler-receipt-dollar me-2">
                                         <path stroke="none" d="M0 0h24v24H0z" fill="none" />
                                         <path
                                             d="M5 21v-16a2 2 0 0 1 2 -2h10a2 2 0 0 1 2 2v16l-3 -2l-2 2l-2 -2l-2 2l-2 -2l-3 2" />
@@ -203,8 +198,8 @@
                             title="{{$environment}}: ENTORNO DE DEMOSTRACIÓN, pulse para ir a configuración"
                             style="background-color: transparent !important;">
                             <span class="options-sunat">
-                                <i class="fas fa-2x fa-toggle-off mr-2" style="font-size: 20px;"></i>
-                                <span class="ml-2" style="display: flex; flex-direction: column;">
+                                <i class="fas fa-2x fa-toggle-off me-2" style="font-size: 20px;"></i>
+                                <span class="ms-2" style="display: flex; flex-direction: column;">
                                     <span>DEMO</span>
                                     <span>SUNAT Entorno de Demostración</span>
                                 </span>
@@ -224,9 +219,9 @@
                             data-placement="bottom"
                             title="{{$environment}}: ENTORNO DE PRODUCCIÓN, pulse para ir a configuración">
                             <span class="options-sunat">
-                                <i class="text-success fas fa-2x fa-toggle-on mr-2"
+                                <i class="text-success fas fa-2x fa-toggle-on me-2"
                                     style="font-size: 20px; color: #28a745 !important"></i>
-                                <span class="ml-2" style="display: flex; flex-direction: column;">
+                                <span class="ms-2" style="display: flex; flex-direction: column;">
                                     <span>PROD</span>
                                     <span>SUNAT Entorno de Demostración</span>
                                 </span>
@@ -245,9 +240,9 @@
                             class="notification-icon text-secondary navigation-options" data-toggle="tooltip"
                             data-placement="bottom" title="INTERNO: ENTORNO DE PRODUCCIÓN, pulse para ir a configuración">
                             <span class="options-sunat">
-                                <i class="text-info fas fa-2x fa-toggle-on mr-2"
+                                <i class="text-info fas fa-2x fa-toggle-on me-2"
                                     style="font-size: 20px; color: #398bf7!important;"></i>
-                                <span class="ml-2" style="display: flex; flex-direction: column;">
+                                <span class="ms-2" style="display: flex; flex-direction: column;">
                                     <span>INT</span>
                                     <span>SUNAT Entorno de Demostración</span>
                                 </span>
@@ -267,7 +262,7 @@
                             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"
                                 fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
                                 stroke-linejoin="round"
-                                class="icon icon-tabler icons-tabler-outline icon-tabler-paint mr-2">
+                                class="icon icon-tabler icons-tabler-outline icon-tabler-paint me-2">
                                 <path stroke="none" d="M0 0h24v24H0z" fill="none" />
                                 <path
                                     d="M5 3m0 2a2 2 0 0 1 2 -2h10a2 2 0 0 1 2 2v2a2 2 0 0 1 -2 2h-10a2 2 0 0 1 -2 -2z" />
@@ -295,7 +290,7 @@
                     <!-- <a>
                         <svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="0 0 24 24" fill="none"
                             stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
-                            class="icon icon-tabler icons-tabler-outline icon-tabler-logout mr-2">
+                            class="icon icon-tabler icons-tabler-outline icon-tabler-logout me-2">
                             <path stroke="none" d="M0 0h24v24H0z" fill="none" />
                             <path d="M14 8v-2a2 2 0 0 0 -2 -2h-7a2 2 0 0 0 -2 2v12a2 2 0 0 0 2 2h7a2 2 0 0 0 2 -2v-2" />
                             <path d="M9 12h12l-3 -3" />
@@ -371,7 +366,7 @@
             $supportUser = $systemUser::first();
             $hasSupportContact = $supportUser && ($supportUser->phone || $supportUser->whatsapp_number || $supportUser->address_contact);
         @endphp
-        
+
         @if($hasSupportContact)
         <span class="separator"></span>
         <ul class="notifications">
@@ -490,15 +485,15 @@
                     </div>
                 </figure>
                 {{-- <i class="fa custom-caret"></i> --}}
-            </a>
+             </a>
             <div class="dropdown-menu-desktop">
                 <ul class="list-unstyled mb-0">
                     <li class="user-profile-li" style="display: none">
-                        <a class="" href="#">                        
+                        <a class="" href="#" style="text-decoration: none;">
                             <div class="profile-info " data-lock-name="{{ $vc_user->email }}"
                                 data-lock-email="{{ $vc_user->email }}">
-                                <span class="name text-left">{{ $vc_user->name }}</span>
-                                <span class="role text-left">{{ $vc_user->email }}</span>
+                                <span class="name text-start">{{ $vc_user->name }}</span>
+                                <span class="role text-start">{{ $vc_user->email }}</span>
                             </div>
                         </a>
                     </li>
@@ -506,11 +501,11 @@
                     @if(in_array('cuenta', $vc_modules))
                         @if(in_array('account_users_list', $vc_module_levels))
                             <li>
-                                <a role="menuitem" href="{{route('tenant.payment.index')}}">
+                                <a class="dropdown-item d-flex align-items-center" role="menuitem" href="{{route('tenant.payment.index')}}">
                                     <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"
                                         fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
                                         stroke-linejoin="round"
-                                        class="icon icon-tabler icons-tabler-outline icon-tabler-receipt-dollar mr-2">
+                                        class="icon icon-tabler icons-tabler-outline icon-tabler-receipt-dollar me-2">
                                         <path stroke="none" d="M0 0h24v24H0z" fill="none" />
                                         <path
                                             d="M5 21v-16a2 2 0 0 1 2 -2h10a2 2 0 0 1 2 2v16l-3 -2l-2 2l-2 -2l-2 2l-2 -2l-3 2" />
@@ -524,11 +519,11 @@
                         @endif
                     @endif
                     <li>
-                        <a class="style-switcher-open" href="#">
+                        <a class="dropdown-item d-flex align-items-center style-switcher-open" href="#">
                             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"
                                 fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
                                 stroke-linejoin="round"
-                                class="icon icon-tabler icons-tabler-outline icon-tabler-paint mr-2">
+                                class="icon icon-tabler icons-tabler-outline icon-tabler-paint me-2">
                                 <path stroke="none" d="M0 0h24v24H0z" fill="none" />
                                 <path
                                     d="M5 3m0 2a2 2 0 0 1 2 -2h10a2 2 0 0 1 2 2v2a2 2 0 0 1 -2 2h-10a2 2 0 0 1 -2 -2z" />
@@ -539,12 +534,11 @@
                             Estilos y temas</a>
                     </li>
 
-                    <li class="divider"></li>
+                    <li class="divider my-2"></li>
 
-                    <li class="multi-user-content pl-4 pr-4 pb-1">
+                    <li class="multi-user-content px-4 pb-1">
                         @if(config('configuration.multi_user_enabled'))
-                            <tenant-multi-users-change-client
-                            ></tenant-multi-users-change-client>
+                            <tenant-multi-users-change-client></tenant-multi-users-change-client>
                         @endif
                         {{-- <div id="reception-component-container" style="width: 100%;">
                             <reception-component
@@ -565,35 +559,15 @@
                         @endif
                     </li>
 
-                    {{-- <li class="dropdown">
-                        <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-expanded="false"
-                            @click.stop>
-                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"
-                                fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
-                                stroke-linejoin="round"
-                                class="icon icon-tabler icons-tabler-outline icon-tabler-download mr-2">
-                                <path stroke="none" d="M0 0h24v24H0z" fill="none" />
-                                <path d="M4 14v4a1 1 0 0 0 1 1h14a1 1 0 0 0 1 -1v-4" />
-                                <path d="M7 10l5 5l5 -5" />
-                                <path d="M12 4l0 11" />
-                            </svg>
-                            Establecimientos <span class="caret"></span>
-                        </a>
-                        <ul class="dropdown-menu" role="menu">
-                            <li>
-                                <a class="text-1" href="#" @click.prevent="clickExport()">Reporte recepción</a>
-                            </li>
-                        </ul>
-                    </li> --}}
-                    <li class="divider"></li>
+                    <li class="divider my-2"></li>
+
                     <li>
-                        {{--<a role="menuitem" href="#"><i class="fas fa-user"></i> Perfil</a>--}}
-                        <a role="menuitem" href="{{ route('logout') }}"
+                        <a class="dropdown-item d-flex align-items-center" role="menuitem" href="{{ route('logout') }}"
                             onclick="event.preventDefault(); document.getElementById('logout-form').submit();">
                             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"
                                 fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
                                 stroke-linejoin="round"
-                                class="icon icon-tabler icons-tabler-outline icon-tabler-door-exit mr-2">
+                                class="icon icon-tabler icons-tabler-outline icon-tabler-door-exit me-2">
                                 <path stroke="none" d="M0 0h24v24H0z" fill="none" />
                                 <path d="M13 12v.01" />
                                 <path d="M3 21h18" />
@@ -640,7 +614,7 @@
                 </div>
                 <div class="support-right">
                     <strong>WhatsApp</strong>
-                    <a class="support-link support-link-whatsapp d-flex flex-column" href="https://wa.me/{{ $supportUser->whatsapp_number }}" target="_blank">
+                    <a class="support-link support-link-whatsapp d-flex flex-column" href="https://wa.me/{{ $supportUser->whatsapp_number }}" target="_blank" style="color: #04966a !important">
                         {{ $supportUser->whatsapp_number }}
                     </a>
                 </div>
@@ -659,7 +633,7 @@
                 </div>
                 <div class="support-right">
                     <strong>Teléfono</strong>
-                    <a class="support-link support-link-phone d-flex flex-column" href="tel:{{ $supportUser->phone }}">
+                    <a class="support-link support-link-phone d-flex flex-column" href="tel:{{ $supportUser->phone }}" style="color: #ea580b !important">
                         {{ $supportUser->phone }}
                     </a>
                 </div>
@@ -667,7 +641,7 @@
             @endif
 
             @if($supportUser && $supportUser->address_contact)
-            <div class="support-container support-email">   
+            <div class="support-container support-email">
                 <div class="icon-support-container support-left">
                     <div>
                         <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon icon-tabler icons-tabler-outline icon-tabler-mail">
@@ -675,11 +649,11 @@
                             <path d="M3 7a2 2 0 0 1 2 -2h14a2 2 0 0 1 2 2v10a2 2 0 0 1 -2 2h-14a2 2 0 0 1 -2 -2v-10z" />
                             <path d="M3 7l9 6l9 -6" />
                         </svg>
-                    </div>                
-                </div>         
+                    </div>
+                </div>
                 <div class="support-right">
                     <strong>Correo Electrónico</strong>
-                    <a class="support-link support-link-email d-flex flex-column" href="mailto:{{ $supportUser->address_contact }}" target="_blank">
+                    <a class="support-link support-link-email d-flex flex-column" href="mailto:{{ $supportUser->address_contact }}" target="_blank" style="color: #2663eb !important">
                         {{ $supportUser->address_contact }}
                     </a>
                 </div>
@@ -691,6 +665,7 @@
 <div id="supportBackdrop" class="support-backdrop" onclick="toggleSupportSidebar()"></div>
 @endif
 
+@push('scripts')
 <script>
     function toggleSupportSidebar() {
         const sidebar = document.getElementById('supportSidebar');
@@ -698,50 +673,8 @@
         sidebar.classList.toggle('show');
         backdrop.classList.toggle('show');
     }
-
-    document.addEventListener('DOMContentLoaded', function () {
-        const optionsUserMobile = document.querySelector('.options-user-mobile');
-        const headerRight = document.querySelector('.header-right');
-        const closeContainerUser = document.querySelector('.close-container-user');
-        const body = document.body;
-
-        // Mostrar/ocultar header-right al hacer clic en options-user-mobile
-        optionsUserMobile.addEventListener('click', function () {
-            headerRight.classList.toggle('active');
-            document.documentElement.classList.add('options-user-mobile-opened');
-        });
-
-        // Ocultar header-right al hacer clic en close-container-user
-        closeContainerUser.addEventListener('click', function () {
-            headerRight.classList.remove('active');
-            document.documentElement.classList.remove('options-user-mobile-opened');
-        });
-
-        // Ocultar header-right al hacer clic fuera de él
-        document.addEventListener('click', function (event) {
-            if (!headerRight.contains(event.target) && !optionsUserMobile.contains(event.target)) {
-                headerRight.classList.remove('active');
-                document.documentElement.classList.remove('options-user-mobile-opened');
-            }
-        });
-    });
-    // script para panejo de dropdown-menu-desktop
-    document.addEventListener('DOMContentLoaded', function () {
-        const userProfile = document.querySelector('.check-double');
-        const dropdownMenu = document.querySelector('.dropdown-menu-desktop');
-
-        userProfile.addEventListener('click', function (event) {
-            event.stopPropagation();
-            dropdownMenu.classList.toggle('active');
-        });
-
-        document.addEventListener('click', function (event) {
-            if (!userProfile.contains(event.target) && !dropdownMenu.contains(event.target)) {
-                dropdownMenu.classList.remove('active');
-            }
-        });
-    });
 </script>
+@endpush
 {{--
 <div class="container d-none d-sm-block">
     <div id="switcher-top" class="d-flex justify-content-center switcher-hover">

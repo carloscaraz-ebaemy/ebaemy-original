@@ -1,6 +1,6 @@
 <template>
     <div>
-        <div class="page-header pr-0">
+        <div class="page-header pe-0">
             <h2>
                 <a href="/documentary-procedure/requirements">
                     <svg xmlns="http://www.w3.org/2000/svg"
@@ -24,7 +24,7 @@
             <div class="right-wrapper pull-right">
                 <div class="btn-group flex-wrap">
                     <button
-                        class="btn btn-custom btn-sm mt-2 mr-2"
+                        class="btn btn-custom btn-sm mt-2 me-2"
                         type="button"
                         @click="onCreate"
                     >
@@ -84,8 +84,9 @@
                                 <span v-else>No</span>
                             </td>
                             -->
-                            <td class="text-right">
+                            <td class="text-end">
                                 <el-button
+                                    class="me-1"
                                     :disabled="loading"
                                     type="success"
                                     @click="onEdit(item)"
@@ -116,7 +117,7 @@
 </template>
 
 <script>
-import ModalAddEdit from "./ModalAddEdit";
+import ModalAddEdit from "./ModalAddEdit.vue";
 
 export default {
     props: ['requirements'],

@@ -19,15 +19,15 @@
                     <tr>
                         <th>#</th>
                         <th>Descripción</th>
-                        <th class="text-right">Acciones</th>
+                        <th class="text-end">Acciones</th>
                     </tr>
                     </thead>
                     <tbody>
                     <tr v-for="(row, index) in records" :key="index">
                         <td>{{ index + 1 }}</td>
                         <td>{{ row.description }}</td>
-                        <td class="text-right">
-                            <button type="button" class="btn waves-effect waves-light btn-xs btn-info" @click.prevent="clickCreate(row.id)">Editar</button>
+                        <td class="text-end">
+                            <button type="button" class="btn waves-effect waves-light btn-xs btn-info me-1" @click.prevent="clickCreate(row.id)">Editar</button>
                             <template v-if="row.id != 1">
                                 <template v-if="typeUser === 'admin'">
                                     <button type="button" class="btn waves-effect waves-light btn-xs btn-danger"  @click.prevent="clickDelete(row.id)">Eliminar</button>

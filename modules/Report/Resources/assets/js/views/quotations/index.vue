@@ -1,6 +1,6 @@
 <template>
     <div>
-        <div class="page-header pr-0">
+        <div class="page-header pe-0">
             <h2>
                 <a href="/list-reports">
                     <svg
@@ -50,13 +50,13 @@
                             <th>Notas de venta</th>
                             <th>Caso</th>
                             <th class="text-center">Moneda</th>
-                            <th class="text-right">T.Exportación</th>
-                            <th class="text-right">T.Inafecta</th>
+                            <th class="text-end">T.Exportación</th>
+                            <th class="text-end">T.Inafecta</th>
 
-                            <th class="text-right">T.Exonerado</th>
-                            <th class="text-right">T.Gravado</th>
-                            <th class="text-right">T.Igv</th>
-                            <th class="text-right">Total</th>
+                            <th class="text-end">T.Exonerado</th>
+                            <th class="text-end">T.Gravado</th>
+                            <th class="text-end">T.Igv</th>
+                            <th class="text-end">Total</th>
                         </tr>
 
                         <tr></tr>

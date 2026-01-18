@@ -1,6 +1,6 @@
 <template>
     <div class="contingencies">
-        <div class="page-header pr-0">
+        <div class="page-header pe-0">
             <h2>
                 <a href="/contingencies">
                     <svg
@@ -40,7 +40,7 @@
             <div class="data-table-visible-columns">
                 <el-dropdown :hide-on-click="false">
                     <el-button type="secondary">
-                        Mostrar/Ocultar columnas<i
+                        Mostrar columnas<i
                             class="el-icon-arrow-down el-icon--right"
                         ></i>
                     </el-button>
@@ -62,42 +62,42 @@
                 <data-table :resource="resource">
                     <tr slot="heading">
                         <!-- <th>#</th> -->
-                        <th class="text-left">Fecha Emisión</th>
+                        <th class="text-start">Fecha Emisión</th>
                         <th>Cliente</th>
                         <th>Número</th>
                         <th>Estado</th>
                         <th v-if="columns.user_name.visible">Usuario</th>
                         <th class="text-center">Moneda</th>
                         <th
-                            class="text-right"
+                            class="text-end"
                             v-if="columns.total_exportation.visible"
                         >
                             T.Exportación
                         </th>
                         <th
-                            class="text-right"
+                            class="text-end"
                             v-if="columns.total_free.visible"
                         >
                             T.Gratuita
                         </th>
                         <th
-                            class="text-right"
+                            class="text-end"
                             v-if="columns.total_unaffected.visible"
                         >
                             T.Inafecta
                         </th>
                         <th
-                            class="text-right"
+                            class="text-end"
                             v-if="columns.total_exonerated.visible"
                         >
                             T.Exonerado
                         </th>
-                        <th class="text-right">T.Gravado</th>
-                        <th class="text-right">T.Igv</th>
-                        <th class="text-right">Total</th>
+                        <th class="text-end">T.Gravado</th>
+                        <th class="text-end">T.Igv</th>
+                        <th class="text-end">Total</th>
                         <th class="text-center">Descargas</th>
                         <!--<th class="text-center">Anulación</th>-->
-                        <th class="text-right">Acciones</th>
+                        <th class="text-end">Acciones</th>
                     </tr>
                     <tr
                         slot-scope="{ index, row }"
@@ -120,7 +120,7 @@
                         }"
                     >
                         <!-- <td>{{ index }}</td> -->
-                        <td class="text-left">
+                        <td class="text-start">
                             {{ formatDate(row.date_of_issue) }}
                         </td>
                         <td>
@@ -187,32 +187,32 @@
                         </td>
                         <td class="text-center">{{ row.currency_type_id }}</td>
                         <td
-                            class="text-right"
+                            class="text-end"
                             v-if="columns.total_exportation.visible"
                         >
                             {{ row.total_exportation }}
                         </td>
                         <td
-                            class="text-right"
+                            class="text-end"
                             v-if="columns.total_free.visible"
                         >
                             {{ row.total_free }}
                         </td>
                         <td
-                            class="text-right"
+                            class="text-end"
                             v-if="columns.total_unaffected.visible"
                         >
                             {{ row.total_unaffected }}
                         </td>
                         <td
-                            class="text-right"
+                            class="text-end"
                             v-if="columns.total_exonerated.visible"
                         >
                             {{ row.total_exonerated }}
                         </td>
-                        <td class="text-right">{{ row.total_taxed }}</td>
-                        <td class="text-right">{{ row.total_igv }}</td>
-                        <td class="text-right">{{ row.total }}</td>
+                        <td class="text-end">{{ row.total_taxed }}</td>
+                        <td class="text-end">{{ row.total_igv }}</td>
+                        <td class="text-end">{{ row.total }}</td>
                         <td class="text-center">
                             <button
                                 type="button"
@@ -254,7 +254,7 @@
                         <!--v-if="row.btn_ticket">Consultar</button>-->
                         <!--</td>-->
 
-                        <td class="text-right">
+                        <td class="text-end">
                             <!-- <button type="button" class="btn waves-effect waves-light btn-xs btn-danger m-1__2"
                                     @click.prevent="clickVoided(row.id)"
                                     v-if="row.btn_voided"  >Anular</button>

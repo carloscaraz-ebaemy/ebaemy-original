@@ -1186,7 +1186,7 @@
                                             <td>{{ row.ip }}</td>
                                             <td>{{ row.user }}</td>
                                             <td>{{ row.password }}</td>
-                                            <td class="text-right">
+                                            <td class="text-end">
                                                 <button
                                                     class="btn waves-effect waves-light btn-xs btn-info"
                                                     type="button"
@@ -1234,8 +1234,8 @@
                     </div>
                 </el-tab-pane>
             </el-tabs>
-            <div class="form-actions text-right mt-4">
-                <el-button class="second-buton" @click.prevent="close()">
+            <div class="form-actions text-end mt-4">
+                <el-button class="second-buton me-2" @click.prevent="close()">
                     Cancelar
                 </el-button>
                 <el-button

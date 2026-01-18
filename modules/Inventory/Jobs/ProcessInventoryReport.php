@@ -16,7 +16,7 @@
     use App\Models\Tenant\Company;
     use App\Models\Tenant\Establishment;
     use Modules\Inventory\Exports\InventoryExport;
-    use Barryvdh\DomPDF\Facade as PDF;
+    use Barryvdh\DomPDF\Facade\Pdf as PDF;
     use Modules\Inventory\Models\ItemWarehouse;
     use Mpdf\HTMLParserMode;
     use Mpdf\Mpdf;

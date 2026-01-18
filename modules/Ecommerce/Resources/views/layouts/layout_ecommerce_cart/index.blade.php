@@ -88,6 +88,8 @@
     <!-- Element UI Spanish Locale -->
     <script src="https://unpkg.com/element-ui/lib/umd/locale/es.js"></script>
 
+    @vite('resources/js/app.js')
+
     @stack('scripts')
 </body>
 

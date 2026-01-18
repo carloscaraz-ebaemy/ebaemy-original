@@ -20,7 +20,7 @@
     use App\Models\Tenant\Person;
     use App\Models\Tenant\Warehouse;
     use App\Traits\OfflineTrait;
-    use Barryvdh\DomPDF\Facade as PDF;
+    use Barryvdh\DomPDF\Facade\Pdf as PDF;
     use Carbon\Carbon;
     use Illuminate\Database\Query\Builder;
     use Illuminate\Http\Request;

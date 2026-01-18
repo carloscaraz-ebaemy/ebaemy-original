@@ -30,6 +30,7 @@ class DashboardController extends Controller
 {
     public function index()
     {
+        // dd('aqui');
         if(auth()->user()->type != 'admin' && !auth()->user()->searchModule('dashboard')){
             return redirect()->route('tenant.documents.index');
         } elseif (auth()->user()->type == 'admin' && !auth()->user()->searchModule('dashboard')) {
@@ -101,7 +102,7 @@ class DashboardController extends Controller
         $path = app_path();
         //df -m -h --output=used,avail,pcent /
 
-        $used = new Process('df -m -h --output=used /');
+        $used = new Process(['df' ,'-m', '-h', '--output=used','/']);
         $used->run();
         if (!$used->isSuccessful()) {
             return ['error'];
@@ -110,7 +111,7 @@ class DashboardController extends Controller
         $disc_used = $used->getOutput();
         $array[] = str_replace("\n","",$disc_used);
 
-        $avail = new Process('df -m -h --output=avail /');
+        $avail = new Process(['df', '-m', '-h', '--output=avail', '/']);
         $avail->run();
         if (!$avail->isSuccessful()) {
             return ['error'];
@@ -119,7 +120,7 @@ class DashboardController extends Controller
         $disc_avail = $avail->getOutput();
         $array[] = str_replace("\n","",$disc_avail);
 
-        $pcent = new Process('df -m -h --output=pcent /');
+        $pcent = new Process(['df' ,'-m' ,'-h' , '--output=pcent' ,'/']);
         $pcent->run();
         if (!$pcent->isSuccessful()) {
             return ['error'];
@@ -141,7 +142,7 @@ class DashboardController extends Controller
     {
         return view('dashboard::sales_by_product');
     }
-    
+
     public function productOfDue(Request $request)
     {
         return  (new DashboardInventory())->data($request);

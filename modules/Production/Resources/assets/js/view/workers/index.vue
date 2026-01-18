@@ -1,6 +1,6 @@
 <template>
     <div>
-        <div class="page-header pr-0">
+        <div class="page-header pe-0">
             <h2>
                 <a href="/workers">
                     <svg
@@ -34,7 +34,7 @@
             </ol>
             <div class="right-wrapper pull-right">
                 <button
-                    class="btn btn-custom btn-sm  mt-2 mr-2"
+                    class="btn btn-custom btn-sm  mt-2 me-2"
                     type="button"
                     @click.prevent="clickCreate()"
                 >
@@ -51,54 +51,43 @@
                     <tr slot="heading">
                         <!-- <th>#</th> -->
                         <th>Nombre</th>
-                        <th class="text-left">Tipo de documento</th>
-                        <th class="text-right">Número</th>
-                        <th class="text-left">Fecha admisión</th>
+                        <th class="text-start">Tipo de documento</th>
+                        <th class="text-end">Número</th>
+                        <th class="text-start">Fecha admisión</th>
                         <th>Cargo</th>
-                        <th class="text-right">Acciones</th>
+                        <th class="text-end">Acciones</th>
                     </tr>
                     <tr slot-scope="{ index, row }">
                         <!-- <td>{{ index }}</td> -->
                         <td>{{ row.name }}</td>
-                        <td class="text-left">{{ row.document_type }}</td>
-                        <td class="text-right">{{ row.number }}</td>
-                        <td class="text-left">
+                        <td class="text-start">{{ row.document_type }}</td>
+                        <td class="text-end">{{ row.number }}</td>
+                        <td class="text-start">
                             {{ formatDate(row.admission_date) }}
                         </td>
                         <td>{{ row.occupation }}</td>
-                        <td class="text-right">
-                            <div class="dropdown">
-                                <button
+                        <td class="text-end">
+                            <el-dropdown
+                                trigger="click"
+                                @command="handleDropdownCommand($event, row)"
+                            >
+                                <el-button
                                     class="btn btn-default btn-sm btn-dropdown-toggle"
-                                    type="button"
-                                    id="dropdownMenuButton"
-                                    data-toggle="dropdown"
-                                    aria-haspopup="true"
-                                    aria-expanded="false"
+                                    size="mini"
+                                    native-type="button"
                                 >
                                     <i class="fas fa-ellipsis-v"></i>
                                     <i class="fas fa-ellipsis-h" style="display: none;"></i>
-                                </button>
-                                <div
-                                    class="dropdown-menu"
-                                    aria-labelledby="dropdownMenuButton"
-                                >
-                                    <div>
-                                        <button
-                                            class="dropdown-item"
-                                            @click.prevent="clickCreate(row.id)"
-                                        >
-                                            Editar
-                                        </button>
-                                    </div>
-                                    <button
-                                        class="dropdown-item"
-                                        @click.prevent="clickDelete(row.id)"
-                                    >
+                                </el-button>
+                                <el-dropdown-menu slot="dropdown">
+                                    <el-dropdown-item command="edit">
+                                        Editar
+                                    </el-dropdown-item>
+                                    <el-dropdown-item command="delete">
                                         Eliminar
-                                    </button>
-                                </div>
-                            </div>
+                                    </el-dropdown-item>
+                                </el-dropdown-menu>
+                            </el-dropdown>
                         </td>
                     </tr>
                 </data-table>
@@ -150,6 +139,18 @@ export default {
             return parsedDate.isValid()
                 ? parsedDate.format("DD-MM-YYYY")
                 : null;
+        },
+        handleDropdownCommand(command, row) {
+            switch (command) {
+                case "edit":
+                    this.clickCreate(row.id);
+                    break;
+                case "delete":
+                    this.clickDelete(row.id);
+                    break;
+                default:
+                    break;
+            }
         },
         clickCreate(recordId = null) {
             this.recordId = recordId;
