@@ -1,9 +1,13 @@
+@php
+    $configuration = \App\Models\Tenant\Configuration::first();
+@endphp
+
 @foreach ($dataPaginate as $item)
     <div class="col-6 {{ \Route::currentRouteName() == 'tenant.ecommerce.index' ? 'col-md-3' : 'col-md-4' }}">
         <div class="product product-style {{ stock($item, $configuration) ? 'productdisabled' : '' }}">
             <figure class="product-image-container product-image-container-ecommerce">
                 @php
-                    $configuration = \App\Models\Tenant\Configuration::first();
+                   
                     $defaultImage = $configuration->product_default_image ?? 'imagen-no-disponible.jpg';
                     $defaultImagePath = $defaultImage === 'imagen-no-disponible.jpg'
                         ? asset('logo/imagen-no-disponible.jpg')
@@ -19,7 +23,7 @@
                 </a>
                 <a href="{{route('item_partial', ['id' => $item->id])}}" class="btn-quickview">Vista Rápida</a>
                 {{-- <span class="product-label label-sale">-20%</span> --}}
-                @if(json_encode($item->is_new) == 1)
+               @if($item->is_new)
                     <span class="product-label label-hot">Nuevo</span>
                 @endif
                 @if(stock($item, $configuration))
@@ -79,18 +83,32 @@
 
 <?php
 
-    function stock($item, $config)
-    {
-        if($config) {
-            $stock=0;
-            foreach ($item->warehouses as $key => $value) {
-                $stock += $value->stock;
-            }
-            return ($stock > 0) ? false : true;
-        }
-    }
-?>
+//     function stock($item, $config)
+//     {
+//         if($config) {
+//             $stock=0;
+//             foreach ($item->warehouses as $key => $value) {
+//                 $stock += $value->stock;
+//             }
+//             return ($stock > 0) ? false : true;
+//         }
+//     }
+// 
 
+function stock($item, $config)
+{
+    if (!$config) {
+        return false;
+    }
+
+    $stock = 0;
+    foreach ($item->warehouses as $warehouse) {
+        $stock += $warehouse->stock;
+    }
+
+    return $stock <= 0; // true = sin stock
+}
+?>
 <style>
     /* .product-style {
         border-style: solid;
@@ -114,6 +132,7 @@
     .productdisabled
     {
         pointer-events: none;
-        /* opacity: 0.7; */
-    }
+         /* opacity: 0.7;  */
+    } 
+    
 </style>

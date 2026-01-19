@@ -69,7 +69,7 @@ class EcommerceController extends Controller
         
         $dataPaginate = $query->orderBy('created_at', 'DESC')
             ->category($category ? $category->id : null)
-            ->paginate(8);
+            ->paginate(24);
             
         $configuration = InventoryConfiguration::first();
         $categories = Category::get();
