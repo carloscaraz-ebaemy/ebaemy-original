@@ -40,6 +40,7 @@
     <div class="page-wrapper">
 
         @include('ecommerce::layouts.partials_ecommerce.header')
+        
         <main class="main">
         @yield('content')
         </main><!-- End .main -->

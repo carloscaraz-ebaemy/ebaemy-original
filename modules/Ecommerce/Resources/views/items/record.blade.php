@@ -102,7 +102,7 @@
                 </div><!-- End .price-box -->
 
                 <div class="product-desc">
-                    <p class="product-category">Categoría: <span> {{$record->category->name}} </span></p>
+                    <p class="product-category">Categoría:11 <span> {{$record->category->name}} </span></p>
                 <p class="product-stock">Disponible: <span>{{number_format(($record->stock), 0)}} </span>
                 <?php
                 if($record->stock > 0){?>

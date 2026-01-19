@@ -90,8 +90,8 @@
                 </div><!-- End .price-box -->
 
                 <div class="product-desc">
-                    <p class="product-category">Categoría: <span> {{$record->category->name}} </span></p>
-                <p class="product-stock">Disponible: <span>{{number_format(($record->stock), 0)}} </span>
+                    <p class="product-category">Categoría:<span> {{$record->category->name}} </span></p>
+                <p class="product-stock">Disponible:<span>{{number_format(($record->stock), 0)}} </span>
                 <?php
                 if($record->stock > 0){?>
                     <span 
@@ -113,7 +113,7 @@
                 <div class="product-action">
                     <!-- div class="product-single-qty">
                         <input class="horizontal-quantity form-control" type="text">
-                    </div><!-- End .product-single-qty -->
+                    </div>  End .product-single-qty -->
 
                     <a href="#" onclick="cart_add('{{ json_encode( $record ) }}')" class="paction add-cart"
                         title="Add to Cart">

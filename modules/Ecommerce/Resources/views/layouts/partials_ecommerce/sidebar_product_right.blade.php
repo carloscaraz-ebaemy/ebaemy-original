@@ -1,4 +1,4 @@
-<aside class="sidebar-product col-lg-3 padding-left-lg mobile-sidebar">
+<aside class="sidebar-product mobile-sidebar">
     <div class="sidebar-wrapper">
         <div class="widget widget-brand">
             <!--<a href="#">
