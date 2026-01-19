@@ -44,8 +44,7 @@
                             </p>
                         @else
                             <p class="text-muted product-description" style="opacity: .5">
-                                Sin descripción disponible.
-                            </p>
+                                Sin descripción disponible. 
                         @endif
                     @endif
 
