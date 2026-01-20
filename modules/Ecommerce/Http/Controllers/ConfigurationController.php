@@ -23,7 +23,8 @@ class ConfigurationController extends Controller
         return view('ecommerce::configuration.index');
     }
 
-    public function record() {
+    public function record()
+    {
         $configuration = ConfigurationEcommerce::first();
         $record = new ConfigurationEcommerceResource($configuration);
         return $record;
@@ -42,6 +43,52 @@ class ConfigurationController extends Controller
             'message' => 'Configuración actualizada'
         ];
     }
+    public function store_configuration_seo(Request $request)
+{
+    $request->validate([
+        'seo_title' => 'nullable|string|max:255',
+        'seo_description' => 'nullable|string|max:255',
+        'seo_keywords' => 'nullable|string|max:255',
+
+        'og_title' => 'nullable|string|max:255',
+        'og_description' => 'nullable|string|max:255',
+        'og_image' => 'nullable|string|max:255',
+
+        'twitter_title' => 'nullable|string|max:255',
+        'twitter_description' => 'nullable|string|max:255',
+        'twitter_image' => 'nullable|string|max:255',
+
+        'indexable' => 'nullable|boolean',
+    ]);
+
+    $configuration = ConfigurationEcommerce::first(); // <--- AQUÍ
+    if (!$configuration) {
+        $configuration = ConfigurationEcommerce::create([]);
+    }
+
+    $configuration->update([
+        'seo_title' => $request->seo_title,
+        'seo_description' => $request->seo_description,
+        'seo_keywords' => $request->seo_keywords,
+
+        'og_title' => $request->og_title,
+        'og_description' => $request->og_description,
+        'og_image' => $request->og_image,
+
+        'twitter_title' => $request->twitter_title,
+        'twitter_description' => $request->twitter_description,
+        'twitter_image' => $request->twitter_image,
+
+        'indexable' => (bool) $request->indexable,
+    ]);
+
+    return [
+        'success' => true,
+        'message' => 'Configuración SEO actualizada correctamente'
+    ];
+}
+
+
 
     public function store_configuration_culqui(Request $request)
     {
@@ -114,14 +161,14 @@ class ConfigurationController extends Controller
             }
 
             $ext = $file->getClientOriginalExtension();
-            $name = $type.'_'.$company->number.'.'.$ext;
+            $name = $type . '_' . $company->number . '.' . $ext;
 
             request()->validate(['file' => 'required|image|mimes:jpeg,png,jpg,gif,svg|max:2048']);
-            
+
             UploadFileHelper::checkIfValidFile($name, $file->getPathName(), true);
 
             $stream = fopen($file->getPathname(), 'r');
-            Storage::put('public/uploads/logos/'.$name, $stream);
+            Storage::put('public/uploads/logos/' . $name, $stream);
             if (is_resource($stream)) fclose($stream);
 
             $config->logo = $name;
@@ -154,14 +201,14 @@ class ConfigurationController extends Controller
         ];
     }
 
-    public function store_configuration_color(Request $request) 
+    public function store_configuration_color(Request $request)
     {
 
         $id = $request->input('id');
         $color = $request->input('color_ecommerce');
         $configuration = ConfigurationEcommerce::find($id);
         $configuration->color_ecommerce = $color;
-        
+
         // Guardar preferencias (el cast a array maneja automáticamente el json_encode)
         $configuration->preferences = [
             'show_description' => (int) $request->input('show_description', 1),
@@ -169,21 +216,20 @@ class ConfigurationController extends Controller
             'only_available_products' => (int) $request->input('only_available_products', 0),
             'full_width_banner' => (int) $request->input('full_width_banner', 0),
         ];
-        
+
         $configuration->save();
 
         return [
             'success' => true,
             'message' => 'Configuración de color y preferencias actualizadas correctamente'
         ];
-
     }
 
-    public function getColorEcommerce()
-        {
-            $config = \App\Models\Tenant\ConfigurationEcommerce::first();
-            $color = $config ? $config->color_ecommerce : null;
-            return response()->json(['color' => $color]);
-        }
 
+    public function getColorEcommerce()
+    {
+        $config = \App\Models\Tenant\ConfigurationEcommerce::first();
+        $color = $config ? $config->color_ecommerce : null;
+        return response()->json(['color' => $color]);
+    }
 }

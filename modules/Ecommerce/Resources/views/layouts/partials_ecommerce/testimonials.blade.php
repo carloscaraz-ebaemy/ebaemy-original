@@ -1,4 +1,5 @@
-  <div class="widget-testimonials-slider owl-carousel owl-theme">
+
+<div class="widget-testimonials-slider owl-carousel owl-theme">
       <div class="testimonial">
           <div class="testimonial-owner">
               <figure>

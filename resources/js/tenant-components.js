@@ -184,6 +184,8 @@ import TenantEcommerceConfigurationTag from '../../modules/Ecommerce/Resources/a
 import TenantEcommerceItemSetsIndex from '../../modules/Ecommerce/Resources/assets/js/views/item_sets/index.vue'
 import TenantEcommerceConfigurationLinks from '../../modules/Ecommerce/Resources/assets/js/views/configuration_links/index.vue'
 import TenantEcommerceConfigurationColor from '../../modules/Ecommerce/Resources/assets/js/views/configuration_color/index.vue'
+import TenantEcommerceConfigurationSeo from '../../modules/Ecommerce/Resources/assets/js/views/configuration_seo/index.vue'             
+
 
 import TenantPurchaseQuotationsIndex from '../../modules/Purchase/Resources/assets/js/views/purchase-quotations/index.vue'
 import TenantPurchaseQuotationsForm from '../../modules/Purchase/Resources/assets/js/views/purchase-quotations/form.vue'
@@ -567,6 +569,8 @@ Vue.component('tenant-ecommerce-configuration-paypal', TenantEcommerceConfigurat
 Vue.component('tenant-ecommerce-configuration-logo', TenantEcommerceConfigurationLogo)
 Vue.component('tenant-ecommerce-configuration-social', TenantEcommerceConfigurationSocial)
 Vue.component('tenant-ecommerce-configuration-tag', TenantEcommerceConfigurationTag)
+Vue.component('tenant-ecommerce-configuration-seo', TenantEcommerceConfigurationSeo)
+
 Vue.component('tenant-ecommerce-item-sets-index', TenantEcommerceItemSetsIndex)
 Vue.component('tenant-ecommerce-configuration-links', TenantEcommerceConfigurationLinks)
 Vue.component('tenant-ecommerce-configuration-color', TenantEcommerceConfigurationColor)

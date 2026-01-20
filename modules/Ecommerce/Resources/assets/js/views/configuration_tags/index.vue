@@ -3,7 +3,7 @@
   <div class="col-lg-6 col-md-12">
     <div class="card card-config">
       <div class="card-header bg-info">
-        <h3 class="my-0">Tags menú</h3>
+        <h3 class="my-0">Tag menú</h3>
       </div>
       <div class="card-body">
         <form autocomplete="off" @submit.prevent="submit">

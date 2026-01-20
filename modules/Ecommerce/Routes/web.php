@@ -35,6 +35,8 @@ Route::middleware(['check.permission', 'locked.tenant','check.email.verified'])-
     Route::post('rating_item', 'EcommerceController@ratingItem')->name('tenant_ecommerce_rating_item');
     Route::get('rating_item/{id}', 'EcommerceController@getRating');
     Route::get('color-ecommerce', 'ConfigurationController@getColorEcommerce');
+   
+
 
 
 
@@ -51,8 +53,9 @@ Route::middleware(['check.permission', 'locked.tenant','check.email.verified'])-
     Route::post('configuration_color', 'ConfigurationController@store_configuration_color');
     Route::post('saveDataUser', 'EcommerceController@saveDataUser')->name('tenant_ecommerce_user_data');
     Route::post('configuration_links', 'ConfigurationController@store_configuration_links');
+  
 
-
+     Route::post('configuration/seo', 'ConfigurationController@store_configuration_seo');
     Route::get('record', 'ConfigurationController@record');
 
     Route::post('uploads', 'ConfigurationController@uploadFile');

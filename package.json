@@ -1,7 +1,7 @@
 {
     "private": true,
     "scripts": {
-        "dev": "node dev-with-css-sync.js",
+        "dev": "vite",
         "watch": "node dev-with-css-sync.js --watch",
         "dev-simple": "vite",
         "build": "vite build",
