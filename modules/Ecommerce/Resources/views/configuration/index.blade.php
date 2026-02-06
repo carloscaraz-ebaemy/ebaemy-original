@@ -24,6 +24,8 @@
     <tenant-ecommerce-configuration-color></tenant-ecommerce-configuration-color>
     <tenant-ecommerce-other-settings></tenant-ecommerce-other-settings>
     
+    <tenant-ecommerce-configuration-pixel></tenant-ecommerce-configuration-pixel>
+    
     <tenant-ecommerce-configuration-links></tenant-ecommerce-configuration-links>
     
 

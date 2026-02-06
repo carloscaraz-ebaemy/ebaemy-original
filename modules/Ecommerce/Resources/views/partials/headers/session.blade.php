@@ -5,9 +5,9 @@
 <div class="dropdown cart-dropdown" style="margin-left: 9px;">
 
     @guest('ecommerce')
-        <a class="header-contact mr-0 login-link" href="#" style="text-decoration: none;">
+        <a class="header-contact  mr-0 login-link" href="#" style="text-decoration: none;">
             <img src="{{ asset('images/circle-user.svg') }}" alt="User" style="width: 18px; height: 18px;">
-            <strong class="ml-2" style="font-size: 15px; color: #fff;">Iniciar sesión</strong>
+            <strong class="ml-2 session-text" style="font-size: 15px; color: #fff;">Iniciar sesión</strong>
         </a>
     @elseauth('ecommerce')
         <a href="#" class="dropdown-toggle" role="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false"

@@ -10,8 +10,8 @@
 |
 */
 
-Route::middleware(['check.permission', 'locked.tenant','check.email.verified'])->prefix('ecommerce')->group(function() {
-   // Route::get('/', 'EcommerceController@index');
+Route::middleware(['check.permission', 'locked.tenant', 'check.email.verified'])->prefix('ecommerce')->group(function () {
+    // Route::get('/', 'EcommerceController@index');
 
     Route::get('/', 'EcommerceController@index')->name('tenant.ecommerce.index');
     Route::get('/category/{category}', 'EcommerceController@category')->name('tenant.ecommerce.category');
@@ -24,7 +24,7 @@ Route::middleware(['check.permission', 'locked.tenant','check.email.verified'])-
     Route::get('document_list', 'EcommerceController@documentList')->name('tenant_document_list');
     Route::get('documents', 'EcommerceController@documents')->name('tenant_document');
     Route::get('orders', 'EcommerceController@orders')->name('tenant_orders');
-    
+
     Route::get('order_list', 'EcommerceController@orderList')->name('tenant_order_list');
     Route::get('pay_cart', 'EcommerceController@pay')->name('tenant_pay_cart');
     Route::get('login', 'EcommerceController@showLogin')->name('tenant_ecommerce_login');
@@ -35,7 +35,7 @@ Route::middleware(['check.permission', 'locked.tenant','check.email.verified'])-
     Route::post('rating_item', 'EcommerceController@ratingItem')->name('tenant_ecommerce_rating_item');
     Route::get('rating_item/{id}', 'EcommerceController@getRating');
     Route::get('color-ecommerce', 'ConfigurationController@getColorEcommerce');
-   
+
 
 
 
@@ -53,16 +53,31 @@ Route::middleware(['check.permission', 'locked.tenant','check.email.verified'])-
     Route::post('configuration_color', 'ConfigurationController@store_configuration_color');
     Route::post('saveDataUser', 'EcommerceController@saveDataUser')->name('tenant_ecommerce_user_data');
     Route::post('configuration_links', 'ConfigurationController@store_configuration_links');
-  
 
-     Route::post('configuration/seo', 'ConfigurationController@store_configuration_seo');
+
+    Route::post('configuration/seo', 'ConfigurationController@store_configuration_seo');
+
     Route::get('record', 'ConfigurationController@record');
 
     Route::post('uploads', 'ConfigurationController@uploadFile');
-    
+
+
+    // configuration pixel    
+
+    // Modules/Ecommerce/Routes/web.php (o api.php según tu proyecto)
+    // Route::get('configuration/pixels', 'ConfigurationPixelController@index')->name('tenant.ecommerce.configuration.pixels');
+    // Route::post('configuration/pixels', 'ConfigurationPixelController@store')->name('tenant.ecommerce.configuration.pixels.store');
+    Route::prefix('ecommerce/configuration')->group(function () {
+
+        // Ruta para obtener los pixels (GET)
+        Route::get('pixels', [ConfigurationPixelController::class, 'index']);
+
+        // Ruta para guardar/actualizar/eliminar (POST)
+        Route::post('pixels', [ConfigurationPixelController::class, 'store']);
+    });
 
     //Item Sets
-    Route::prefix('item-sets')->group(function() {
+    Route::prefix('item-sets')->group(function () {
 
         Route::get('', 'ItemSetController@index')->name('tenant.ecommerce.item_sets.index')->middleware('redirect.level');
         Route::get('columns', 'ItemSetController@columns');
@@ -76,14 +91,11 @@ Route::middleware(['check.permission', 'locked.tenant','check.email.verified'])-
         Route::post('upload', 'ItemSetController@upload');
         Route::post('visible_store', 'ItemSetController@visibleStore');
         Route::get('item/tables', 'ItemSetController@item_tables');
-
     });
-
-
 });
 
 
-Route::middleware(['locked.tenant'])->group(function() {
+Route::middleware(['locked.tenant'])->group(function () {
     // ecommerce
     Route::get('/ecommerce/{name?}', 'EcommerceController@index');
 });

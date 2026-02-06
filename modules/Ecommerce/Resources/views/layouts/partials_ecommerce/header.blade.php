@@ -25,11 +25,6 @@
     padding: 4px;
 }
 
-@media (max-width: 768px) {
-    .header-dropdown {
-        min-width: 100px !important;
-    }
-}
 
 .header-menu ul a {
     padding: 3px 6px;
@@ -137,6 +132,112 @@ div.cart-dropdown {
 .header-dropdown-inside input:not(:placeholder-shown) + .clear-icon {
     display: inline-block; /* Muestra el ícono */
 }
+/* -------------------------------------------------*/
+
+
+ #header_bar .mobile-search-btn {
+        display: none;
+    }
+    .close-search-btn {
+    display: none; }
+  
+
+
+@media (max-width: 991px) {
+      .close-search-btn {
+    position: absolute;
+    left: -25px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: none;
+    border: none;
+    font-size: 22px;
+    cursor: pointer;
+    display: none;
+    z-index: 10;
+    color: red;
+}
+  
+}
+
+
+
+    
+
+@media (max-width: 768px){
+   .session-text {
+        
+    display: none;
+    }
+    .header-contact img{
+        width: 25px   !important   ;
+        height: 25px !important;
+        color: #fff
+    }
+    
+
+    .header-dropdown {
+        min-width: 100px !important;
+    }
+}
+@media (max-width: 991px) {
+      #header_bar.search-active .close-search-btn {
+        display: block;
+    }
+  
+    #header_bar .web-search-btn {
+        display: none;
+    }
+    #header_bar .mobile-search-btn {
+        display: block;
+      
+    }
+    .mobile-search-btn{
+    margin-left: auto;
+    }
+.header-center .header-dropdown {
+
+    margin-left: 15px;
+    position: relative;
+    }
+
+
+.header-contact-info-text { 
+        display: none !important; 
+    }
+
+    /* Ajustes para el menú desplegable en dispositivos móviles */
+     #header_bar.search-active {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 70px;
+        background: #fff;
+        z-index: 9999;
+        display: flex;
+        align-items: center;
+        padding: 0 15px;
+    }
+
+    #header_bar.search-active .mobile-search-btn {
+        display: none;
+    }
+
+    #header_bar.search-active .web-search-btn {
+        display: flex !important;
+        width: 100%;
+        min-width: 100% !important;
+    }
+
+    /* Oculta logo y lado derecho cuando abre */
+    .header-middle.search-open .header-left,
+    .header-middle.search-open .header-right {
+        display: none !important;
+    }
+}
+
+
 
  </style>
 
@@ -145,6 +246,9 @@ div.cart-dropdown {
      <div class="header-middle">
          <div   class="container">
              <div class="header-left">
+                <button class="mobile-menu-toggler text-dark" type="button">
+                     <i class="icon-menu"></i>
+                 </button>
                  <a href="{{ route("tenant.ecommerce.index") }}" class="logo" style="max-width: 180px">
                     @if(isset($information->logo))
                         <img src="{{ asset('storage/uploads/logos/'.$information->logo) }}" alt="Logo" />
@@ -157,13 +261,24 @@ div.cart-dropdown {
              
              <div id="header_bar" class="header-center header-dropdowns">
 
-                 <div class="header-dropdown header-dropdown-inside" style="min-width:400px;">
+                <div class="mobile-search-btn " style="min-width: 40px;  justify-content: center; align-items: center;">
+                <img src="{{ asset('images/search.svg') }}" alt="Buscar" class="search-icon" style="width: 25px; height: 25px;" >
+                 </div>
+
+
+                 <div class=" web-search-btn header-dropdown header-dropdown-inside" style="min-width:400px;">
+                    <button class="close-search-btn" @click="closeMobileSearch">
+                        ✕
+                    </button>
                     <img src="{{ asset('images/search.svg') }}" alt="search" class="search-icon" style="width: 18px; height: 18px;">
-                    <input placeholder="Buscar..." type="text" class="search_input form-control form-control-lg" v-model="value" v-on:keyup="autoComplete" @focus="isFocused = true" @blur="isFocused = false"/>
+                    {{-- <input placeholder="Buscar..." type="text" class="search_input form-control form-control-lg" v-model="value" v-on:keyup="autoComplete" @focus="isFocused = true" @blur="isFocused = false"/> --}}
+                     <input placeholder="Buscar..." type="text" 
+                     class="search_input form-control form-control-lg"
+                      v-model="value" @input="autoComplete"  />
                     <img src="{{ asset('images/circle-xmark.svg') }}" alt="Clear" class="clear-icon" @click="clearInput">
                      <div class="header-menu">
-                         <ul v-if="results.length > 0">
-                            <li v-for="result in results">
+                         <ul v-if="filteredResults.length > 0">
+                            <li v-for="result in filteredResults" :key="result.id">
                                 <a :href="'/ecommerce/item/' + result.id" class="d-flex">
                                     <div class="flex-grow-1"><img style="max-width: 80px" :src="result.image_url_small" alt="England flag">
                                     <span class="search_title" style="font-size: 1.0em;"> @{{ result.description }} </span>
@@ -180,9 +295,8 @@ div.cart-dropdown {
              </div><!-- End .headeer-center -->
 
              <div class="header-right">
-                 <button class="mobile-menu-toggler" type="button">
-                     <i class="icon-menu"></i>
-                 </button>
+                
+                 
                  <div class="header-contact">
                      <span> Atención al</span>
                      <i class="fab fa-whatsapp"></i> <a href="#"><strong>{{$information->information_contact_phone}}</strong></a>
@@ -204,58 +318,95 @@ div.cart-dropdown {
  </header><!-- End .header -->
 
  @push('scripts')
- <script type="text/javascript">
-    var app = new Vue({
-        el: '#header_bar',
-        data: {
-            value: '', 
-            isFocused: false, 
-            suggestions: [],
-            resource: 'ecommerce',
-            results: [],
-        },
-        created() {
-            this.getItems();
-        },
-        methods: {
-            // Método para limpiar el campo de texto
-            clearInput() {
-                this.value = ''; 
-                this.results = []; 
-            },
+ <script>
 
-            // Método para manejar la autocompletación
-            autoComplete() {
-                if (this.value) {
-                    let val = this.value.toUpperCase();
-                    this.results = this.suggestions.filter((obj) => {
-                        let desc = obj.description.toUpperCase();
-                        let internal_id = obj.internal_id ? obj.internal_id.toUpperCase() : '';
-                        return desc.includes(val) || internal_id.includes(val);
-                    });
-                } else {
-                    this.results = [];
-                }
-            },
+document.addEventListener("DOMContentLoaded", function(){
 
-            // Método para obtener las sugerencias desde el backend
-            getItems() {
-                let contex = this;
-                fetch(`/${this.resource}/items_bar`)
-                    .then(function (response) {
-                        return response.json();
-                    })
-                    .then(function (myJson) {
-                        contex.suggestions = myJson.data;
-                    });
-            },
+    const mobileBtn = document.querySelector(".mobile-search-btn");
+    const headerBar = document.getElementById("header_bar");
+    const headerMiddle = document.querySelector(".header-middle");
 
-            // Método para manejar el clic en una sugerencia
-            suggestionClick(item) {
-                this.results = [];
-                this.value = item.description;
-            }
+    if(mobileBtn){
+        mobileBtn.addEventListener("click", function(){
+            headerBar.classList.add("search-active");
+            headerMiddle.classList.add("search-open");
+
+            setTimeout(() => {
+                const input = headerBar.querySelector(".search_input");
+                if(input) input.focus();
+            }, 200);
+        });
+    }
+
+});
+
+
+new Vue({
+    el: '#header_bar',
+
+    data: {
+        value: '',
+        suggestions: [],
+        resource: 'ecommerce'
+    },
+
+    created() {
+        this.getItems();
+    },
+
+    computed: {
+
+        // FILTRADO AUTOMÁTICO REACTIVO
+        filteredResults() {
+
+            if (!this.value.trim()) return [];
+
+            const search = this.value.toLowerCase();
+
+            return this.suggestions.filter(item => {
+                const desc = (item.description || '').toLowerCase();
+                const code = (item.internal_id || '').toLowerCase();
+                return desc.includes(search) || code.includes(search);
+            });
+
         }
-    });
+
+    },
+
+    methods: {
+
+        getItems() {
+            fetch(`/${this.resource}/items_bar`)
+                .then(res => res.json())
+                .then(data => {
+                    this.suggestions = data.data || [];
+                })
+                .catch(error => {
+                    console.error(error);
+                });
+        },
+
+        autoComplete() {
+            // Ya no necesitamos lógica aquí
+            // Vue lo hace automáticamente con computed
+        },
+
+        clearInput() {
+            this.value = '';
+        },
+        closeMobileSearch() {
+        const headerBar = document.getElementById("header_bar");
+        const headerMiddle = document.querySelector(".header-middle");
+
+        headerBar.classList.remove("search-active");
+        headerMiddle.classList.remove("search-open");
+
+        this.value = '';
+    }
+
+    }
+});
 </script>
+
+
  @endpush

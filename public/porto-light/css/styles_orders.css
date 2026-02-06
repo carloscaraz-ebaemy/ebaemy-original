@@ -1814,7 +1814,7 @@ h3.product-stock {
     font-size: 25px;
     margin-left: 6%;
 }
-.cart-dropdown .header-contact {
+.cart-dropdown .header-contact .btn-xx {
     width: 100%;
     height: 32px;
     background-color: hsl(var(--primary-h), var(--primary-s), var(--primary-l));

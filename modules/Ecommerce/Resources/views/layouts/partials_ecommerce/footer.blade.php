@@ -10,7 +10,7 @@
 <div class="footer-middle">
     <div class="container">
         <div class="row">
-            <div class="col-lg-4">
+            <div class="col-lg-3">
                 <div class="widget widget-info">
                     <h4 class="widget-title">Contáctanos</h4>
                     <ul class="contact-info">
@@ -36,7 +36,7 @@
                     </ul>
                 </div>
             </div>
-            <div class="col-md-4">
+            <div class="col-md-3">
                 <div class="widget">
                     <h4 class="widget-title text-center">Enlaces de interés</h4>
                     <div class="row d-flex align-items-center justify-content-center">
@@ -59,7 +59,26 @@
                     </div>
                 </div>
             </div>
-            <div class="col-md-4">
+            <div class="col-md-3">
+                <div class="widget">
+                    <h4 class="widget-title">Términos y Condiciones</h4>
+                    <div class="row">
+                        <div class="col-12">
+                            <ul class="links" style="padding: 0 ; margin:0; list-style: none; width: 100%;">
+                                {{-- <li style="width: 100%;"><a href="{{ route("tenant.politica_privacidad") }}" style="display: block; width: 100%;">Políticas de privacidad </a></li>
+                                <li style="width: 100%;"><a href="{{ route("tenant.terminos_condiciones") }}" style="display: block; width: 100%;">Términos y condiciones del uso del sitio</a></li>
+                                <li style="width: 100%;"><a href="{{ route("tenant.cambios_devolucion") }}" style="display: block; width: 100%;">cambios y Devoluciones</a></li>
+                                <li style="width: 100%;"><a href="{{ route("tenant.politica_envio") }}" style="display: block; width: 100%;">políticas de  envío</a></li>--}}
+                                <li style="width: 100%;">@if (Route::has('tenant.libro_reclamacions'))
+                                    <a href="{{ route('tenant.libro_reclamacions') }}">Libro de Reclamaciones</a>
+                                @endif</li> 
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+          
+            <div class="col-md-3">
                 <div class="widget">
                     <h4 class="widget-title text-end">Redes Sociales</h4>
                     <div class="social-icons d-flex justify-content-end">
