@@ -184,8 +184,13 @@ class EcommerceController extends Controller
 
         // 👇 usa el email referencial del cliente
         $email = $configuration->information_contact_email;
-
-        Mail::to($email)->send(new ReclamoEmail($company, $datosFormulario));
+        try {
+            Mail::to($email)->send(new ReclamoEmail($company, $datosFormulario));
+        } catch (\Exception $e) {
+            // Esto grabará el error exacto en storage/logs/laravel.log
+            \Log::error("Error enviando Libro de Reclamaciones: " . $e->getMessage());
+            return back()->with('error', 'Error técnico al enviar el correo.');
+        }
 
         return redirect()
             ->route('tenant.libro_reclamaciones')
