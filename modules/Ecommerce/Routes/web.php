@@ -9,6 +9,9 @@
 | contains the "web" middleware group. Now create something great!
 |
 */
+use Modules\Ecommerce\Http\Controllers\ConfigurationPixelController;
+use Modules\Ecommerce\Http\Controllers\ConfigurationController;
+use Modules\Ecommerce\Http\Controllers\EcommerceController;
 
 Route::middleware(['check.permission', 'locked.tenant', 'check.email.verified'])->prefix('ecommerce')->group(function () {
     // Route::get('/', 'EcommerceController@index');
@@ -35,6 +38,14 @@ Route::middleware(['check.permission', 'locked.tenant', 'check.email.verified'])
     Route::post('rating_item', 'EcommerceController@ratingItem')->name('tenant_ecommerce_rating_item');
     Route::get('rating_item/{id}', 'EcommerceController@getRating');
     Route::get('color-ecommerce', 'ConfigurationController@getColorEcommerce');
+
+
+
+    /*terminos y condiciones  */
+
+        
+    Route::get('libro-reclamaciones', 'EcommerceController@libroReclamaciones')->name('tenant.libro_reclamaciones');
+    Route::post('libro-reclamaciones', 'EcommerceController@enviarReclamo')->name('tenant.libro_reclamaciones_enviar');
 
 
 
@@ -67,14 +78,9 @@ Route::middleware(['check.permission', 'locked.tenant', 'check.email.verified'])
     // Modules/Ecommerce/Routes/web.php (o api.php según tu proyecto)
     // Route::get('configuration/pixels', 'ConfigurationPixelController@index')->name('tenant.ecommerce.configuration.pixels');
     // Route::post('configuration/pixels', 'ConfigurationPixelController@store')->name('tenant.ecommerce.configuration.pixels.store');
-    Route::prefix('ecommerce/configuration')->group(function () {
-
-        // Ruta para obtener los pixels (GET)
-        Route::get('pixels', [ConfigurationPixelController::class, 'index']);
-
-        // Ruta para guardar/actualizar/eliminar (POST)
-        Route::post('pixels', [ConfigurationPixelController::class, 'store']);
-    });
+  
+    Route::get('social-scripts', 'ConfigurationController@getSocialScripts');
+    Route::post('social-scripts/save-all', 'ConfigurationController@saveSocialScripts');
 
     //Item Sets
     Route::prefix('item-sets')->group(function () {

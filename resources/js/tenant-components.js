@@ -184,9 +184,11 @@ import TenantEcommerceConfigurationTag from '../../modules/Ecommerce/Resources/a
 import TenantEcommerceItemSetsIndex from '../../modules/Ecommerce/Resources/assets/js/views/item_sets/index.vue'
 import TenantEcommerceConfigurationLinks from '../../modules/Ecommerce/Resources/assets/js/views/configuration_links/index.vue'
 import TenantEcommerceConfigurationColor from '../../modules/Ecommerce/Resources/assets/js/views/configuration_color/index.vue'
-import TenantEcommerceConfigurationSeo from '../../modules/Ecommerce/Resources/assets/js/views/configuration_seo/index.vue'             
-// pixel 
-import TenantEcommerceConfigurationPixel from '../../modules/Ecommerce/Resources/assets/js/views/configuration_pixel/index.vue' 
+import TenantEcommerceConfigurationSeo from '../../modules/Ecommerce/Resources/assets/js/views/configuration_seo/index.vue' 
+            
+// script y pixel se unifican en script
+
+import TenantEcommerceConfigurationScript from '../../modules/Ecommerce/Resources/assets/js/views/configuration_script/index.vue'
 
 import TenantPurchaseQuotationsIndex from '../../modules/Purchase/Resources/assets/js/views/purchase-quotations/index.vue'
 import TenantPurchaseQuotationsForm from '../../modules/Purchase/Resources/assets/js/views/purchase-quotations/form.vue'
@@ -572,7 +574,7 @@ Vue.component('tenant-ecommerce-configuration-social', TenantEcommerceConfigurat
 Vue.component('tenant-ecommerce-configuration-tag', TenantEcommerceConfigurationTag)
 Vue.component('tenant-ecommerce-configuration-seo', TenantEcommerceConfigurationSeo)
 
-Vue.component('tenant-ecommerce-configuration-pixel', TenantEcommerceConfigurationPixel)
+Vue.component('tenant-ecommerce-configuration-script', TenantEcommerceConfigurationScript)
 
 
 

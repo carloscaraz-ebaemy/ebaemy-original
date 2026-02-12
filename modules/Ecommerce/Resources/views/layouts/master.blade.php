@@ -5,14 +5,16 @@
     <meta charset="UTF-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    
+    <meta name="csrf-token" content="{{ csrf_token() }}">
 
     {{-- SEO Dinámico --}}
     @php
         $seo = \App\Models\Tenant\ConfigurationEcommerce::first();
+        $social_scripts = \App\Models\Tenant\ConfigurationScript::where('active', true)->get();
     @endphp
 
     <title>{{ $seo->seo_title ?? 'eCommerce' }}</title>
-    <meta name="csrf-token" content="{{ csrf_token() }}">
     <meta name="keywords" content="{{ $seo->seo_keywords ?? 'ecommerce' }}">
     <meta name="description" content="{{ $seo->seo_description ?? 'eCommerce' }}">
     <meta name="author" content="SW-THEMES">
@@ -28,6 +30,15 @@
     <meta name="twitter:description" content="{{ $seo->twitter_description ?? $seo->seo_description ?? '' }}">
     <meta name="twitter:image" content="{{ $seo->twitter_image ? asset('storage/' . $seo->twitter_image) : asset('porto-ecommerce/assets/images/logo-black.png') }}">
     <meta name="twitter:card" content="summary_large_image">
+
+
+   @if($social_scripts->where('position', 'head')->isNotEmpty())
+        @foreach($social_scripts->where('position', 'head') as $item)
+            @if(!empty($item->script))
+                {!! $item->script !!}
+            @endif
+        @endforeach
+    @endif
 
     <!-- Favicon -->
     <link rel="icon" type="image/x-icon" href="{{ asset('porto-ecommerce/assets/images/icons/favicon.ico') }}">
@@ -49,6 +60,15 @@
 </head>
 
 <body>
+   @if($social_scripts->where('position', 'body')->isNotEmpty())
+        @foreach($social_scripts->where('position', 'body') as $item)
+            @if(!empty($item->script))
+                {!! $item->script !!}
+            @endif
+        @endforeach
+    @endif
+
+
     <div class="page-wrapper">
 
         @include('ecommerce::layouts.partials_ecommerce.header')

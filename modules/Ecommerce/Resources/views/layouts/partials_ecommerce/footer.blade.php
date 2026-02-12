@@ -69,9 +69,14 @@
                                 <li style="width: 100%;"><a href="{{ route("tenant.terminos_condiciones") }}" style="display: block; width: 100%;">Términos y condiciones del uso del sitio</a></li>
                                 <li style="width: 100%;"><a href="{{ route("tenant.cambios_devolucion") }}" style="display: block; width: 100%;">cambios y Devoluciones</a></li>
                                 <li style="width: 100%;"><a href="{{ route("tenant.politica_envio") }}" style="display: block; width: 100%;">políticas de  envío</a></li>--}}
-                                <li style="width: 100%;">@if (Route::has('tenant.libro_reclamacions'))
-                                    <a href="{{ route('tenant.libro_reclamacions') }}">Libro de Reclamaciones</a>
-                                @endif</li> 
+                                @if (Route::has('tenant.libro_reclamaciones'))
+                                <li style="width: 100%;">
+                                    <a href="{{ route('tenant.libro_reclamaciones') }}" style="display: block;">
+                                        Libro de Reclamaciones
+                                    </a>
+                                </li>
+                                @endif
+
                             </ul>
                         </div>
                     </div>

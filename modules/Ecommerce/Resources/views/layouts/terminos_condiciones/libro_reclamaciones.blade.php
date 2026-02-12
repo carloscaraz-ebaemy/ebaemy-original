@@ -146,9 +146,9 @@
 
                     {{-- Enlace de consentimiento --}}
                     <div class="mb-4">
-                        <a href="{{ route('tenant.politica_privacidad') }}" target="_blank" class="text-primary" style="text-decoration: underline;">
+                        {{-- <a href="{{ route('tenant.politica_privacidad') }}" target="_blank" class="text-primary" style="text-decoration: underline;">
                             (*) Ver Consentimiento de uso de datos personales
-                        </a>
+                        </a> --}}
                     </div>
                 
                     {{-- Botón Enviar --}}

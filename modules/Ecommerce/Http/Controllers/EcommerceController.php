@@ -27,6 +27,8 @@ use App\Models\Tenant\Promotion;
 use Modules\ApiPeruDev\Data\ServiceData;
 use App\Models\Tenant\Document;
 use Modules\Item\Models\Category;
+use App\Models\Tenant\Company;
+use App\Mail\Tenant\ReclamoEmail;
 
 
 class EcommerceController extends Controller
@@ -99,6 +101,65 @@ class EcommerceController extends Controller
     //     $configuration = InventoryConfiguration::first();
     //   return view('ecommerce::index', ['dataPaginate' => $dataPaginate, 'configuration' => $configuration->stock_control]);
     // }
+
+
+
+    // terminos y condiciones
+    public function libroReclamaciones()
+    {
+        $config = ConfigurationEcommerce::first();
+        $company = Company::first();
+
+        return view('ecommerce::layouts.terminos_condiciones.libro_reclamaciones', [
+            'information_contact_email' => optional($config)->information_contact_email,
+            'information_contact_phone' => optional($config)->information_contact_phone,
+            'information_contact_address' => optional($config)->information_contact_address,
+            'name_company' => optional($company)->name,
+            'number_company' => optional($company)->number,
+        ]);
+    }
+
+
+    public function enviarReclamo(Request $request)
+    {
+        $request->validate([
+            'nombres' => 'required',
+            'apellidos' => 'required',
+            'tipo_documento' => 'required',
+            'numero_documento' => 'required',
+            'descripcion' => 'required',
+            'detalle_reclamo' => 'required',
+            'pedido_consumidor' => 'required',
+        ]);
+
+        $datosFormulario = $request->all();
+
+        // Guardar archivos
+        if ($request->hasFile('archivos')) {
+            foreach ($request->file('archivos') as $archivo) {
+                $path = $archivo->store('reclamaciones', 'public');
+                $datosFormulario['archivos'][] = $path;
+            }
+        }
+
+        $company = Company::first();
+        $configuration = ConfigurationEcommerce::first();
+
+        // 👇 usa el email referencial del cliente
+        $email = $configuration->information_contact_email;
+
+        Mail::to($email)->send(new ReclamoEmail($company, $datosFormulario));
+
+        return redirect()
+            ->route('tenant.libro_reclamaciones')
+            ->with('success', 'Reclamo enviado correctamente');
+    }
+
+
+
+// fin terminos y condiciones
+
+
 
     public function getDescriptionWithPromotion($item, $promotion_id)
     {

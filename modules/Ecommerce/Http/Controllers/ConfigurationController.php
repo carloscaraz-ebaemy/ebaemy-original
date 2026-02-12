@@ -10,6 +10,7 @@ use App\Http\Requests\Tenant\ConfigurationEcommerceRequest;
 use App\Http\Resources\Tenant\ConfigurationEcommerceResource;
 use Modules\Finance\Helpers\UploadFileHelper;
 use Illuminate\Support\Facades\Storage;
+use App\Models\Tenant\ConfigurationScript;
 
 
 class ConfigurationController extends Controller
@@ -43,8 +44,47 @@ class ConfigurationController extends Controller
             'message' => 'Configuración actualizada'
         ];
     }
+
+    public function getSocialScripts()
+    {
+        return ConfigurationScript::all();
+    }
+
+    public function saveSocialScripts(Request $request)
+    {
+        $scripts = $request->input('scripts', []);
+
+       
+
+        $ids = [];
+
+        foreach ($scripts as $data) {
+            $validated = validator($data, [
+                'id' => 'nullable',
+                'title' => 'required|string|max:255',
+                'script' => 'required|string',
+                'position' => 'required|in:head,body',
+                'active' => 'boolean',
+            ])->validate();
+
+            $script = ConfigurationScript::updateOrCreate(
+                ['id' => $data['id'] ?? null],
+                $validated
+            );
+
+            $ids[] = $script->id;
+        }
+
+        // (Opcional) eliminar scripts que ya no están
+        ConfigurationScript::whereNotIn('id', $ids)->delete();
+
+        return response()->json(['success' => true, 'message' => 'Scripts actualizados y eliminados.']);
+    }
+
+
+
     public function store_configuration_seo(Request $request)
-{
+    {
     $request->validate([
         'seo_title' => 'nullable|string|max:255',
         'seo_description' => 'nullable|string|max:255',
