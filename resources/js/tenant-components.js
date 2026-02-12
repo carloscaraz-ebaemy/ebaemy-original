@@ -190,6 +190,10 @@ import TenantEcommerceConfigurationSeo from '../../modules/Ecommerce/Resources/a
 
 import TenantEcommerceConfigurationScript from '../../modules/Ecommerce/Resources/assets/js/views/configuration_script/index.vue'
 
+import TenantEcommerceConfigurationTerms from '../../modules/Ecommerce/Resources/assets/js/views/configuration_terms/index.vue'
+
+
+
 import TenantPurchaseQuotationsIndex from '../../modules/Purchase/Resources/assets/js/views/purchase-quotations/index.vue'
 import TenantPurchaseQuotationsForm from '../../modules/Purchase/Resources/assets/js/views/purchase-quotations/form.vue'
 
@@ -573,8 +577,8 @@ Vue.component('tenant-ecommerce-configuration-logo', TenantEcommerceConfiguratio
 Vue.component('tenant-ecommerce-configuration-social', TenantEcommerceConfigurationSocial)
 Vue.component('tenant-ecommerce-configuration-tag', TenantEcommerceConfigurationTag)
 Vue.component('tenant-ecommerce-configuration-seo', TenantEcommerceConfigurationSeo)
-
 Vue.component('tenant-ecommerce-configuration-script', TenantEcommerceConfigurationScript)
+Vue.component('tenant-ecommerce-configuration-terms', TenantEcommerceConfigurationTerms)
 
 
 

@@ -65,6 +65,12 @@ class ConfigurationEcommerceResource extends JsonResource
             'twitter_title' => $this->twitter_title,
             'twitter_description' => $this->twitter_description,
             'twitter_image' => $this->twitter_image,
+
+            // TERMINOS Y CONDICIONES
+            'politica_privacy' => $this->politica_privacy,
+            'politica_envio' => $this->politica_envio,  
+           'termino_conditions' => $this->termino_conditions,
+            'cambios_devolucion' => $this->cambios_devolucion
         ];
     }
 }

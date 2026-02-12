@@ -58,6 +58,12 @@ class ConfigurationEcommerce extends ModelTenant
         'twitter_description',
         'twitter_image',
 
+        // POLÍTICAS
+        'politica_privacy', 
+        'cambios_devolucion',
+        'politica_envio',
+        'termino_conditions',
+
         // OTROS
         'preferences'
     ];

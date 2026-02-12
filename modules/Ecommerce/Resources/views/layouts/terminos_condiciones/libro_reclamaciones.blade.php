@@ -146,9 +146,9 @@
 
                     {{-- Enlace de consentimiento --}}
                     <div class="mb-4">
-                        {{-- <a href="{{ route('tenant.politica_privacidad') }}" target="_blank" class="text-primary" style="text-decoration: underline;">
+                         <a href="{{ route('tenant.politica_privacidad') }}" target="_blank" class="text-primary" style="text-decoration: underline;">
                             (*) Ver Consentimiento de uso de datos personales
-                        </a> --}}
+                        </a> 
                     </div>
                 
                     {{-- Botón Enviar --}}
@@ -157,7 +157,7 @@
                         @csrf
                             <input type="hidden" name="subject" value="Libro de Reclamaciones - {{ $information_contact_email }}">
                             <input type="hidden" name="body" value="Detalles del Reclamo: {{ old('detalle_reclamo') }}. Peticiones: {{ old('pedido_consumidor') }}. Moneda: {{ old('moneda') }}. Monto: {{ old('monto') }}.">
-                            <button type="submit" class="btn btn-primary px-4 py-2" style="background-color: #0044cc; border: none;">
+                            <button type="submit" class="btn btn-primary " style=" border: none;">
                                     ENVIAR
                             </button>
                         </form>

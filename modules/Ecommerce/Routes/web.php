@@ -38,14 +38,13 @@ Route::middleware(['check.permission', 'locked.tenant', 'check.email.verified'])
     Route::post('rating_item', 'EcommerceController@ratingItem')->name('tenant_ecommerce_rating_item');
     Route::get('rating_item/{id}', 'EcommerceController@getRating');
     Route::get('color-ecommerce', 'ConfigurationController@getColorEcommerce');
+    
 
+    Route::get('terminos-condiciones', 'EcommerceController@terminosCondiciones')->name('tenant.terminos_condiciones');
+    Route::get('cambios-devolucion', 'EcommerceController@cambiosDevolucion')->name('tenant.cambios_devolucion');
+    Route::get('politica-privacidad', 'EcommerceController@politicaPrivacy')->name('tenant.politica_privacidad');
+    Route::get('politica-envio', 'EcommerceController@politicaEnvio')->name('tenant.politica_envio');
 
-
-    /*terminos y condiciones  */
-
-        
-    Route::get('libro-reclamaciones', 'EcommerceController@libroReclamaciones')->name('tenant.libro_reclamaciones');
-    Route::post('libro-reclamaciones', 'EcommerceController@enviarReclamo')->name('tenant.libro_reclamaciones_enviar');
 
 
 
@@ -67,6 +66,15 @@ Route::middleware(['check.permission', 'locked.tenant', 'check.email.verified'])
 
 
     Route::post('configuration/seo', 'ConfigurationController@store_configuration_seo');
+
+
+    /*terminos y condiciones  */
+    Route::post('configuration_terms', 'ConfigurationController@store_configuration_terms');
+
+        
+    Route::get('libro-reclamaciones', 'EcommerceController@libroReclamaciones')->name('tenant.libro_reclamaciones');
+    Route::post('libro-reclamaciones', 'EcommerceController@enviarReclamo')->name('tenant.libro_reclamaciones_enviar');
+
 
     Route::get('record', 'ConfigurationController@record');
 

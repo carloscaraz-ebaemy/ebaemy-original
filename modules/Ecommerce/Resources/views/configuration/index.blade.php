@@ -23,10 +23,13 @@
     <tenant-ecommerce-configuration-seo></tenant-ecommerce-configuration-seo>
     <tenant-ecommerce-configuration-color></tenant-ecommerce-configuration-color>
     <tenant-ecommerce-other-settings></tenant-ecommerce-other-settings>
-    
+
      <tenant-ecommerce-configuration-script></tenant-ecommerce-configuration-script>
     
     <tenant-ecommerce-configuration-links></tenant-ecommerce-configuration-links>
+    
+     
+     <tenant-ecommerce-configuration-terms></tenant-ecommerce-configuration-terms>
     
 </div>
 @endsection

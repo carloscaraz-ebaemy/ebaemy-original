@@ -31,6 +31,7 @@ use App\Models\Tenant\Company;
 use App\Mail\Tenant\ReclamoEmail;
 
 
+
 class EcommerceController extends Controller
 {
     /**
@@ -104,7 +105,43 @@ class EcommerceController extends Controller
 
 
 
-    // terminos y condiciones
+    // terminos y condiciones 
+
+
+    
+        public function terminosCondiciones()
+    {
+        $config = ConfigurationEcommerce::first();
+        return view('ecommerce::layouts.terminos_condiciones.terminos_condiciones', [
+            'terms' => $config ? $config->termino_conditions : ''
+        ]);
+    }
+    public function politicaPrivacy(){
+        $config = ConfigurationEcommerce::first();
+    // Ajusta la ruta con puntos para entrar en las subcarpetas
+    return view('ecommerce::layouts.terminos_condiciones.politica_privacidad', [
+        'terms' => $config ? $config->politica_privacy : ''
+    ]);
+    }
+    public function cambiosDevolucion()
+    {
+        $config = ConfigurationEcommerce::first();
+        return view('ecommerce::layouts.terminos_condiciones.cambios_devolucion', [
+            'terms' => $config ? $config->cambios_devolucion : ''
+        ]);
+    }
+
+    public function politicaEnvio()
+    {
+        $config = ConfigurationEcommerce::first();
+        return view('ecommerce::layouts.terminos_condiciones.politica_envio', [
+            'terms' => $config ? $config->politica_envio : ''
+        ]);
+    }
+
+  
+     
+    
     public function libroReclamaciones()
     {
         $config = ConfigurationEcommerce::first();

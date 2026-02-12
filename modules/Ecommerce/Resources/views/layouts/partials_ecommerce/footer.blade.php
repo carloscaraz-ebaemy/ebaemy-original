@@ -65,10 +65,10 @@
                     <div class="row">
                         <div class="col-12">
                             <ul class="links" style="padding: 0 ; margin:0; list-style: none; width: 100%;">
-                                {{-- <li style="width: 100%;"><a href="{{ route("tenant.politica_privacidad") }}" style="display: block; width: 100%;">Políticas de privacidad </a></li>
+                                 <li style="width: 100%;"><a href="{{ route("tenant.politica_privacidad") }}" style="display: block; width: 100%;">Políticas de privacidad </a></li>
                                 <li style="width: 100%;"><a href="{{ route("tenant.terminos_condiciones") }}" style="display: block; width: 100%;">Términos y condiciones del uso del sitio</a></li>
                                 <li style="width: 100%;"><a href="{{ route("tenant.cambios_devolucion") }}" style="display: block; width: 100%;">cambios y Devoluciones</a></li>
-                                <li style="width: 100%;"><a href="{{ route("tenant.politica_envio") }}" style="display: block; width: 100%;">políticas de  envío</a></li>--}}
+                                <li style="width: 100%;"><a href="{{ route("tenant.politica_envio") }}" style="display: block; width: 100%;">políticas de  envío</a></li>
                                 @if (Route::has('tenant.libro_reclamaciones'))
                                 <li style="width: 100%;">
                                     <a href="{{ route('tenant.libro_reclamaciones') }}" style="display: block;">

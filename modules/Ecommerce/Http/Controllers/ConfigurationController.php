@@ -31,6 +31,31 @@ class ConfigurationController extends Controller
         return $record;
     }
 
+    public function store_configuration_terms(Request $request)
+    {
+        // Buscamos el primer registro de configuración
+        $configuration = ConfigurationEcommerce::first();
+
+        // Si por alguna razón no existe, lo creamos
+        if (!$configuration) {
+            $configuration = new ConfigurationEcommerce();
+        }
+
+        // Llenamos el modelo con los datos del request (v-model de Vue)
+        // Esto funciona porque ya agregaste los campos al $fillable del modelo
+        $configuration->fill($request->all());
+        $configuration->save();
+
+        return [
+            'success' => true,
+            'message' => 'Términos y políticas actualizados correctamente'
+        ];
+    }
+
+  
+    
+
+
 
     public function store_configuration(ConfigurationEcommerceRequest $request)
     {
