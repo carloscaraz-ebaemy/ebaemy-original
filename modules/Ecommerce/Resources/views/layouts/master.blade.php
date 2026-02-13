@@ -9,7 +9,9 @@
     <meta name="csrf-token" content="{{ csrf_token() }}">
 
 @php
+
     $seo = \App\Models\Tenant\ConfigurationEcommerce::first() ?? new \App\Models\Tenant\ConfigurationEcommerce();
+    $company = \App\Models\Tenant\Company::first();
     $social_scripts = \App\Models\Tenant\ConfigurationScript::where('active', true)->get();
     
     $path_logos = asset('storage/uploads/logos/');
