@@ -15,10 +15,14 @@
     $social_scripts = \App\Models\Tenant\ConfigurationScript::where('active', true)->get();
     
     $path_logos = asset('storage/uploads/logos/');
+    $path_favicons = asset('storage/uploads/favicons/');
     $logo_default = asset('porto-ecommerce/assets/images/logo-black.png');
+    $v = $company->updated_at ? $company->updated_at->timestamp : time();
+
 @endphp
 
 <title>{{ $seo->seo_title ?? $company->name ?? 'Tienda Online' }}</title>
+<script src="{{ asset('porto-ecommerce/assets/js/jquery.min.js') }}"></script>
 <meta name="description" content="{{ $seo->seo_description ?? 'Bienvenido a nuestra tienda. Encuentra los mejores productos aquí.' }}">
 <meta name="keywords" content="{{ $seo->seo_keywords ?? 'ecommerce, tienda, online' }}">
 <meta name="author" content="{{ $seo->seo_author ?? $company->name }}">
@@ -44,20 +48,34 @@
 <meta name="twitter:image" content="{{ $seo->twitter_image ? $path_logos . '/' . $seo->twitter_image : ($seo->og_image ? $path_logos . '/' . $seo->og_image : $logo_default) }}">
 
 
-@foreach($social_scripts->where('position', 'head') as $item)
-    {!! $item->script !!}
-@endforeach
 
-   @if($social_scripts->where('position', 'head')->isNotEmpty())
-        @foreach($social_scripts->where('position', 'head') as $item)
-            @if(!empty($item->script))
-                {!! $item->script !!}
-            @endif
-        @endforeach
-    @endif
+  <!-- Favicon -->
+    @if($company && $company->favicon)
+    @php
+        // Verificamos si la ruta ya tiene 'storage/' para no duplicarla
+        $favicon_url = str_contains($company->favicon, 'storage/') 
+                       ? asset($company->favicon) 
+                       : asset('storage/' . $company->favicon);
+    @endphp
+    <link rel="icon" type="image/png" href="{{ $favicon_url }}?v={{ $v }}">
+    <link rel="apple-touch-icon" href="{{ $favicon_url }}?v={{ $v }}">
+    <link rel="shortcut icon" href="{{ $favicon_url }}?v={{ $v }}">
+@endif
 
-    <!-- Favicon -->
-    <link rel="icon" type="image/x-icon" href="{{ asset('porto-ecommerce/assets/images/icons/favicon.ico') }}">
+
+    @foreach($social_scripts->where('position', 'head') as $item)
+        {!! $item->script !!}
+    @endforeach
+
+    @if($social_scripts->where('position', 'head')->isNotEmpty())
+            @foreach($social_scripts->where('position', 'head') as $item)
+                @if(!empty($item->script))
+                    {!! $item->script !!}
+                @endif
+            @endforeach
+        @endif
+
+  
 
     <!-- Plugins CSS File -->
     <link rel="stylesheet" href="{{ asset('porto-ecommerce/assets/css/bootstrap.min.css') }}">
@@ -129,8 +147,8 @@
 
     <a id="scroll-top" href="#top" title="Top" role="button"><i class="icon-angle-up"></i></a>
 
-    <!-- Plugins JS File -->
-    <script src="{{ asset('porto-ecommerce/assets/js/jquery.min.js') }}"></script>
+    {{-- <!-- Plugins JS File -->
+    <script src="{{ asset('porto-ecommerce/assets/js/jquery.min.js') }}"></script> --}}
     <script src="{{ asset('porto-ecommerce/assets/js/bootstrap.bundle.min.js') }}"></script>
     <script src="{{ asset('porto-ecommerce/assets/js/plugins.min.js') }}"></script>
 
