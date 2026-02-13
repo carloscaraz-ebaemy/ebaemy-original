@@ -229,8 +229,8 @@ $inventory_configuration = InventoryConfiguration::getSidebarPermissions();
                             </ul>
                         </li>
                     @endif
-
-                    @if(auth()->user()->type != 'integrator')
+                     @if(auth()->check() && auth()->user()->type != 'integrator')       
+                    {{-- @if(auth()->user()->type != 'integrator') --}}
                                     @if(in_array('purchases', $vc_modules))
                                                     <li
                                                         class="

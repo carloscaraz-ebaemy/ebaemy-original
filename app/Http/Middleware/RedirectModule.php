@@ -29,6 +29,9 @@
          */
         public function handle($request, Closure $next)
         {
+            
+
+
 
             $module = $request->user()->getModule();
             $path = explode('/', $request->path());

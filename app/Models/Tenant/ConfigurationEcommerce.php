@@ -45,18 +45,30 @@ class ConfigurationEcommerce extends ModelTenant
         // SEO GENERAL
         'seo_title',
         'seo_description',
-        'seo_keywords',
+        'seo_author',
+        'seo_robots',
+        'canonical_url',
         'indexable',
 
-        // SEO SOCIAL (Facebook / WhatsApp / TikTok)
+        // =========================
+        // OPEN GRAPH
+        // =========================
         'og_title',
         'og_description',
         'og_image',
+        'og_type',
 
-        // SEO TWITTER
+        // =========================
+        // TWITTER
+        // =========================
         'twitter_title',
         'twitter_description',
         'twitter_image',
+        'twitter_card',
+        // =========================
+        // SCHEMA
+        // =========================
+        'schema_json',
 
         // POLÍTICAS
         'politica_privacy', 

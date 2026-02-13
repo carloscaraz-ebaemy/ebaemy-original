@@ -71,8 +71,9 @@
                                 <li style="width: 100%;"><a href="{{ route("tenant.politica_envio") }}" style="display: block; width: 100%;">políticas de  envío</a></li>
                                 @if (Route::has('tenant.libro_reclamaciones'))
                                 <li style="width: 100%;">
-                                    <a href="{{ route('tenant.libro_reclamaciones') }}" style="display: block;">
-                                        Libro de Reclamaciones
+                                    <a href="{{ route('tenant.libro_reclamaciones') }}" class="d-flex align-items-center py-2" style="text-decoration: none;">
+                                        <i class="fas fa-book-open fa-2x me-3" aria-hidden="true"></i> 
+                                        <span class="font-weight-bold">Libro de Reclamaciones</span>
                                     </a>
                                 </li>
                                 @endif

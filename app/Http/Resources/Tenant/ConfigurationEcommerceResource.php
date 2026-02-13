@@ -53,18 +53,30 @@ class ConfigurationEcommerceResource extends JsonResource
             // 🔥 SEO GENERAL
             'seo_title' => $this->seo_title,
             'seo_description' => $this->seo_description,
-            'seo_keywords' => $this->seo_keywords,
+            'seo_author' => $this->seo_author,
+            'seo_robots' => $this->seo_robots ?? 'index, follow',
+            'canonical_url' => $this->canonical_url,
             'indexable' => (bool) $this->indexable,
 
-            // 🔥 SEO REDES (Facebook / WhatsApp / TikTok)
+            // 🔥 OPEN GRAPH
             'og_title' => $this->og_title,
             'og_description' => $this->og_description,
-            'og_image' => $this->og_image,
+            'og_image' => $this->og_image 
+                ? asset('storage/uploads/logos/' . $this->og_image) 
+                : null,
+            'og_type' => $this->og_type ?? 'website',
 
-            // 🔥 SEO TWITTER
+            // 🔥 TWITTER
             'twitter_title' => $this->twitter_title,
             'twitter_description' => $this->twitter_description,
-            'twitter_image' => $this->twitter_image,
+            'twitter_image' => $this->twitter_image 
+                ? asset('storage/uploads/logos/' . $this->twitter_image) 
+                : null,
+            'twitter_card' => $this->twitter_card ?? 'summary_large_image',
+
+            // 🔥 STRUCTURED DATA
+            'schema_json' => $this->schema_json,
+
 
             // TERMINOS Y CONDICIONES
             'politica_privacy' => $this->politica_privacy,

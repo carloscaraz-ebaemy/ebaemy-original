@@ -26,9 +26,11 @@ class ConfigurationController extends Controller
 
     public function record()
     {
-        $configuration = ConfigurationEcommerce::first();
-        $record = new ConfigurationEcommerceResource($configuration);
-        return $record;
+        // $configuration = ConfigurationEcommerce::first();
+        // $record = new ConfigurationEcommerceResource($configuration);
+        // return $record;
+        $configuration = ConfigurationEcommerce::first() ?? new ConfigurationEcommerceResource();
+        return new ConfigurationEcommerceResource($configuration);
     }
 
     public function store_configuration_terms(Request $request)
@@ -52,8 +54,6 @@ class ConfigurationController extends Controller
         ];
     }
 
-  
-    
 
 
 
@@ -206,52 +206,60 @@ class ConfigurationController extends Controller
             'message' => 'Configuración de Redes Sociales actualizada'
         ];
     }
+public function uploadFile(Request $request)
+{
+    if ($request->hasFile('file')) {
 
-    public function uploadFile(Request $request)
-    {
-        if ($request->hasFile('file')) {
+        $config = ConfigurationEcommerce::first();
+        $company = Company::first();
 
-            $config = ConfigurationEcommerce::first();
-            $company = Company::first();
+        // El 'type' viene de Vue (ej: 'logo_store', 'og_image', o 'twitter_image')
+        $type = $request->input('type'); 
+        $file = $request->file('file');
 
-            $type = $request->input('type'); //logo_store
-
-            $file = $request->file('file');
-
-            if (!$file->isValid() || empty($file->getPathname()) || !is_file($file->getPathname())) {
-                return [
-                    'success' => false,
-                    'message' =>  __('app.actions.upload.error'),
-                ];
-            }
-
-            $ext = $file->getClientOriginalExtension();
-            $name = $type . '_' . $company->number . '.' . $ext;
-
-            request()->validate(['file' => 'required|image|mimes:jpeg,png,jpg,gif,svg|max:2048']);
-
-            UploadFileHelper::checkIfValidFile($name, $file->getPathName(), true);
-
-            $stream = fopen($file->getPathname(), 'r');
-            Storage::put('public/uploads/logos/' . $name, $stream);
-            if (is_resource($stream)) fclose($stream);
-
-            $config->logo = $name;
-
-            $config->save();
-
+        if (!$file->isValid() || empty($file->getPathname()) || !is_file($file->getPathname())) {
             return [
-                'success' => true,
-                'message' => __('app.actions.upload.success'),
-                'name' => $name,
-                'type' => $type
+                'success' => false,
+                'message' =>  __('app.actions.upload.error'),
             ];
         }
+
+        $ext = $file->getClientOriginalExtension();
+        $name = $type . '_' . $company->number . '.' . $ext;
+
+        request()->validate(['file' => 'required|image|mimes:jpeg,png,jpg,gif,svg|max:2048']);
+
+        UploadFileHelper::checkIfValidFile($name, $file->getPathName(), true);
+
+        $stream = fopen($file->getPathname(), 'r');
+        Storage::put('public/uploads/logos/' . $name, $stream);
+        if (is_resource($stream)) fclose($stream);
+
+        // --- SOLUCIÓN AQUÍ: ASIGNACIÓN DINÁMICA ---
+        if ($type === 'logo_store') {
+            // Si el tipo es logo_store, guardamos en la columna 'logo'
+            $config->logo = $name;
+        } else {
+            // Si es 'og_image' o 'twitter_image', guardamos en su columna respectiva
+            // PHP permite usar $config->{$variable} para acceder a la columna dinámicamente
+            $config->{$type} = $name;
+        }
+
+        $config->save();
+
         return [
-            'success' => false,
-            'message' =>  __('app.actions.upload.error'),
+            'success' => true,
+            'message' => __('app.actions.upload.success'),
+            'name' => $name,
+            'type' => $type
         ];
     }
+    
+    return [
+        'success' => false,
+        'message' =>  __('app.actions.upload.error'),
+    ];
+}
 
     public function store_configuration_links(Request $request)
     {
