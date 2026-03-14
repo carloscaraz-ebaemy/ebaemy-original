@@ -41,7 +41,8 @@ class InventoryVoidedServiceProvider extends ServiceProvider
 
                         if(!$detail->item->is_set){
 
-                            $warehouse = ($detail->warehouse_id) ? $this->findWarehouse($this->findWarehouseById($detail->warehouse_id)->establishment_id) : $this->findWarehouse($document['establishment_id']);
+                            $warehouseRecord = $detail->warehouse_id ? $this->findWarehouseById($detail->warehouse_id) : null;
+                            $warehouse = ($warehouseRecord) ? $this->findWarehouse($warehouseRecord->establishment_id) : $this->findWarehouse($document['establishment_id']);
 
                             $presentationQuantity = (!empty($detail['item']->presentation)) ? $detail['item']->presentation->quantity_unit : 1;
 
@@ -53,10 +54,12 @@ class InventoryVoidedServiceProvider extends ServiceProvider
 
                             }else{
 
-                                if($detail->document->dispatch){
+                                if($detail->document->sale_note_id || $detail->document->sale_notes_relateds){
+                                    // CPE generado desde NV: al anular el CPE, devolver el stock (la NV lo decrementó)
+                                    $this->updateStock($detail['item_id'], $detail['quantity'] * $presentationQuantity, $warehouse->id);
+                                }elseif($detail->document->dispatch){
 
                                     if(!$detail->document->dispatch->transfer_reason_type->discount_stock){
-                                        // $warehouse = $this->findWarehouse($document['establishment_id']);
                                         $this->updateStock($detail['item_id'], $detail['quantity'] * $presentationQuantity, $warehouse->id);
                                     }
                                 }

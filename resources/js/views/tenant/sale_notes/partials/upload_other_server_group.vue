@@ -13,7 +13,6 @@
             <div class="col-2">
                 <el-select
                     v-model="filter.type"
-                    @click="onFetchClients"
                     @change="onFetchClients"
                     :disabled="loading"
                 >
@@ -164,13 +163,7 @@ export default {
                 return;
             }
             this.loading = true;
-            const data = {
-                notes_id: this.form.selecteds,
-            };
-            this.sendToServer(this.form.selecteds)
-            this.loading = false;
-
-
+            this.sendToServer(this.form.selecteds);
         },
 
         sendMessage(message,success){
@@ -193,25 +186,16 @@ export default {
             this.$http.post('/sale-notes/UpToOther',{'sale_notes_id':recordId}).then(response => {
                 let data = response.data;
                 this.sendMessage(data.message,data.success)
-                /*
-                let temp = this;
-                data.proccesed.forEach(function(a){
-                   temp.sendMessage(a.message,a.success)
-                })
-                */
-
-
             }).catch(error => {
                 if(
-                    error.response!== undefined &&
-                    error.response.status !== undefined &&
-                    error.response.status.errors !== undefined &&
+                    error.response !== undefined &&
                     error.response.status === 422 ) {
-                    this.errors = error.response.data.errors;
+                    this.errors = error.response.data.errors || error.response.data;
                 } else {
                     console.log(error);
                 }
-            }).then(() => {
+            }).finally(() => {
+                this.loading = false;
             });
         },
 

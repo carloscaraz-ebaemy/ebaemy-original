@@ -116,6 +116,10 @@ class CashController extends Controller
      */
     public function opening_cash_check($user_id)
     {
+        $authUser = auth()->user();
+        if ((int)$user_id !== $authUser->id && $authUser->type !== 'admin') {
+            return ['cash' => null];
+        }
         $cash = Cash::where([['user_id', $user_id],['state', true]])->first();
         return compact('cash');
     }
@@ -151,8 +155,29 @@ class CashController extends Controller
         $user_id = $request->input('user_id');
         $cashId = 0;
 
-        if($user_id == 0){
-            $request->merge(['user_id' => auth()->user()->id]);
+        $authUser = auth()->user();
+
+        // Solo admin puede abrir caja para otro usuario
+        if ($user_id && $user_id != $authUser->id && $authUser->type !== 'admin') {
+            return [
+                'success' => false,
+                'message' => 'No tiene permisos para abrir una caja a nombre de otro usuario.',
+            ];
+        }
+
+        if (!$user_id || $user_id == 0) {
+            $request->merge(['user_id' => $authUser->id]);
+        }
+
+        if (!$id) {
+            $targetUserId = $request->input('user_id') ?: auth()->id();
+            $existingOpen = Cash::where('user_id', $targetUserId)->where('state', true)->exists();
+            if ($existingOpen) {
+                return [
+                    'success' => false,
+                    'message' => 'Ya existe una caja abierta para este usuario. Ciérrala antes de aperturar una nueva.',
+                ];
+            }
         }
 
         DB::connection('tenant')->transaction(function () use ($id, $request,&$cashId) {
@@ -163,6 +188,7 @@ class CashController extends Controller
             if(!$id){
                 $cash->date_opening = date('Y-m-d');
                 $cash->time_opening = date('H:i:s');
+                $cash->state = true;
             }
 
             $cash->save();
@@ -213,7 +239,13 @@ class CashController extends Controller
      */
     public function close($id) {
 
-        $cash = Cash::findOrFail($id);
+        $cash = Cash::with([
+            'cash_documents.sale_note',
+            'cash_documents.document',
+            'cash_documents.expense_payment.expense',
+            'cash_documents.purchase',
+            'cash_documents.quotation',
+        ])->findOrFail($id);
 
         if(!$cash){
             return [
@@ -230,8 +262,6 @@ class CashController extends Controller
                 'message' => 'No se puede cerrar caja , existe mesas abiertas.',
             ];
         }
-
-        // dd($cash->cash_documents);
 
         $cash->date_closed = date('Y-m-d');
         $cash->time_closed = date('H:i:s');
@@ -416,7 +446,14 @@ class CashController extends Controller
     public function report($cash) {
         
 
-        $cash = Cash::query()->findOrFail($cash);
+        $cash = Cash::with([
+            'user',
+            'cash_documents.document.document_type',
+            'cash_documents.document.person',
+            'cash_documents.document.payments.payment_method_type',
+            'cash_documents.sale_note.person',
+            'cash_documents.sale_note.payments.payment_method_type',
+        ])->findOrFail($cash);
         $company = Company::query()->first();
 
         $methods_payment = collect(PaymentMethodType::all())->transform(function($row){
@@ -439,7 +476,14 @@ class CashController extends Controller
     public function report_general()
     {
         $cashes = Cash::select('id')->whereDate('date_opening', date('Y-m-d'))->pluck('id');
-        $cash_documents =  CashDocument::whereIn('cash_id', $cashes)->get();
+        $cash_documents = CashDocument::with([
+            'cash.user',
+            'document.document_type',
+            'document.person',
+            'document.payments.payment_method_type',
+            'sale_note.person',
+            'sale_note.payments.payment_method_type',
+        ])->whereIn('cash_id', $cashes)->get();
         // dd($cash_documents);
 
         $company = Company::first();
@@ -615,7 +659,14 @@ class CashController extends Controller
         set_time_limit(0);
         $data = [];
         /** @var Cash $cash */
-        $cash = Cash::findOrFail($cash_id);
+        $cash = Cash::with([
+            'user.establishment',
+            'cash_documents.document.document_type',
+            'cash_documents.document.person',
+            'cash_documents.document.payments.payment_method_type',
+            'cash_documents.sale_note.person',
+            'cash_documents.sale_note.payments.payment_method_type',
+        ])->findOrFail($cash_id);
         $establishment = $cash->user->establishment;
         $status_type_id = self::getStateTypeId();
         $final_balance = 0;

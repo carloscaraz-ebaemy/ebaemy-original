@@ -295,6 +295,10 @@
                                     v-text="document.number_full"
                                     class="d-block"
                                 ></label>
+                                <!-- <label :key="i"  ********asi esta y marcaba error
+                                    v-text="document.number_full"
+                                    class="d-block"
+                                ></label> -->
                             </template>
                         </td>
                         <td class="text-center">
@@ -779,7 +783,9 @@ export default {
                         this.$message.error("No se guardaron los cambios");
                     }
                 })
-                .catch(error => {});
+                .catch(error => {
+                    console.log(error);
+                });
             this.$eventHub.$emit("reloadData");
         },
         onOpenModalGenerateCPE() {
@@ -812,11 +818,9 @@ export default {
                 .catch(error => {
                     if (
                         error.response !== undefined &&
-                        error.response.status !== undefined &&
-                        error.response.status.errors !== undefined &&
                         error.response.status === 422
                     ) {
-                        this.errors = error.response.data.errors;
+                        this.errors = error.response.data.errors || error.response.data;
                     } else {
                         console.log(error);
                     }

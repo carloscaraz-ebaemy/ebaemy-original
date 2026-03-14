@@ -122,6 +122,7 @@ class ConfigurationController extends Controller
         'twitter_title' => 'nullable|string|max:255',
         'twitter_description' => 'nullable|string|max:255',
         'twitter_image' => 'nullable|string|max:255',
+        'google_site_verification' => 'nullable|string|max:255',
 
         'indexable' => 'nullable|boolean',
     ]);
@@ -143,6 +144,7 @@ class ConfigurationController extends Controller
         'twitter_title' => $request->twitter_title,
         'twitter_description' => $request->twitter_description,
         'twitter_image' => $request->twitter_image,
+        'google_site_verification' => $request->google_site_verification,
 
         'indexable' => (bool) $request->indexable,
     ]);

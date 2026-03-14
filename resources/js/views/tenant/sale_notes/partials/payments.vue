@@ -142,7 +142,7 @@
         </div>
 
         <document-options
-            :recordId="this.documentId"
+            :recordId="documentId"
             :showDialogOptions="showDialogOptions"
             :showClose="showDialogClose"
             :type="this.type"

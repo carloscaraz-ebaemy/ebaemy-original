@@ -156,7 +156,8 @@ export default {
     mixins: [serviceNumber],
     props: [
         'showDialog',
-        'personId'
+        'personId',
+        'recordId'
     ],
     data() {
         return {
@@ -195,6 +196,7 @@ export default {
             if (this.form.identity_document_type_id === '1') {
                 return 8
             }
+            return null
         },
     },
     methods: {
@@ -228,10 +230,6 @@ export default {
                 person_id: null,
                 establishment_code: '0000'
             }
-        },
-        async opened() {
-
-
         },
         create() {
 

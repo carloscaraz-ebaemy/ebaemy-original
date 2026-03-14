@@ -13,13 +13,32 @@ use Modules\Ecommerce\Http\Controllers\ConfigurationPixelController;
 use Modules\Ecommerce\Http\Controllers\ConfigurationController;
 use Modules\Ecommerce\Http\Controllers\EcommerceController;
 
+
+
+// ========== SEO - Rutas públicas (sin auth ni middleware) ==========
+Route::get('/sitemap.xml', '\Modules\Ecommerce\Http\Controllers\SitemapController@index');
+Route::get('/robots.txt', '\Modules\Ecommerce\Http\Controllers\RobotsController@index');
+Route::get('/ecommerce/sitemap.xml', '\Modules\Ecommerce\Http\Controllers\SitemapController@index');
+
 Route::middleware(['check.permission', 'locked.tenant', 'check.email.verified'])->prefix('ecommerce')->group(function () {
     // Route::get('/', 'EcommerceController@index');
 
     Route::get('/', 'EcommerceController@index')->name('tenant.ecommerce.index');
     Route::get('/category/{category}', 'EcommerceController@category')->name('tenant.ecommerce.category');
 
-    Route::get('item/{id}/{promotion_id?}', 'EcommerceController@item')->name('tenant.ecommerce.item');
+  // ANTES
+// Route::get('item/{id}/{promotion_id?}', 'EcommerceController@item')->name('tenant.ecommerce.item');
+
+    Route::get('item/{id}/{promotion_id?}', function ($id, $promotion_id = null) {
+    $item = \App\Models\Tenant\Item::findOrFail($id);
+    $params = ['slug' => $item->slug];
+    if ($promotion_id) $params['promotion_id'] = $promotion_id;
+    return redirect()->route('tenant.ecommerce.item', $params, 301);
+    })->where('id', '[0-9]+');
+
+    Route::get('item/{slug}/{promotion_id?}', 'EcommerceController@item')
+        ->name('tenant.ecommerce.item')
+        ->where('slug', '[a-z0-9-]+');
 
     Route::get('items', 'EcommerceController@items')->name('tenant.ecommerce.item.index');
     Route::get('item_partial/{id}', 'EcommerceController@partialItem')->name('item_partial');

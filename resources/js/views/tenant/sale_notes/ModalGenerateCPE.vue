@@ -12,7 +12,7 @@
         <div class="col-2">
           <el-select
             v-model="filter.type"
-            @click="onFetchClients"
+            @change="onFetchClients"
             :disabled="loading"
           >
             <el-option
@@ -145,7 +145,7 @@ export default {
       notes: [],
       errors: {},
       group_items_generate_document: false,
-      sum_total:null,
+      sum_total: 0,
     };
   },
   methods: {
@@ -154,6 +154,7 @@ export default {
         number_full : `${data.series}-${data.number}`,
         id : data.id,
         items : data.items,
+        payments : data.payments || [],
       }
     },
     onFetchNoteItems() {
@@ -260,15 +261,13 @@ export default {
     },
     onFillSelectedNotes() {
       this.form.selecteds = [];
-      this.sum_total=0;
-      let total=0;
-      this.notes.map((d) => {
+      this.sum_total = 0;
+      this.notes.forEach((d) => {
         if (d.selected) {
-          total+=d.total;
+          this.sum_total += d.total;
           this.form.selecteds.push(d.id);
         }
       });
-      this.sum_total+=total;
     },
     onFindNotes() {
       this.form.selecteds = [];

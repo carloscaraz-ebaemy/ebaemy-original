@@ -23,11 +23,11 @@ if ($hostname) {
         Route::get('downloads/{model}/{type}/{external_id}/{format?}', 'Tenant\DownloadController@downloadExternal')->name('tenant.download.external_id');
         Route::get('print/{model}/{external_id}/{format}/{filename?}', 'Tenant\DownloadController@toPrint');
         Route::get('print/{model}/{external_id}/{format?}', 'Tenant\DownloadController@toPrint');
-        Route::get('printticket/{model}/{external_id}/{format?}', 'Tenant\DownloadController@toTicket');
+        Route::get('printticket/{model}/{external_id}/{format?}', 'Tenant\DownloadController@toTicket')->where('external_id', '[0-9]+');
         Route::get('/exchange_rate/ecommence/{date}', 'Tenant\Api\ServiceController@exchangeRateTest');
 
         Route::get('sale-notes/print/{external_id}/{format?}', 'Tenant\SaleNoteController@toPrint');
-        Route::get('sale-notes/ticket/{id}/{format?}', 'Tenant\SaleNoteController@toTicket');
+        Route::get('sale-notes/ticket/{id}/{format?}', 'Tenant\SaleNoteController@toTicket')->where('id', '[0-9]+');
         Route::get('purchases/print/{external_id}/{format?}', 'Tenant\PurchaseController@toPrint');
 
         Route::get('quotations/print/{external_id}/{format?}', 'Tenant\QuotationController@toPrint');
@@ -68,7 +68,7 @@ if ($hostname) {
             Route::get('orders/record/{order}', 'Tenant\OrderController@record');
             //Route::get('orders/print/{external_id}/{format?}', 'Tenant\OrderController@toPrint');
             Route::post('statusOrder/update/', 'Tenant\OrderController@updateStatusOrders');
-            Route::get('orders/pdf/{id}', 'Tenant\OrderController@pdf');
+            Route::get('orders/pdf/{id}', 'Tenant\OrderController@pdf')->where('id', '[0-9]+');
 
             //warehouse
             Route::post('orders/warehouse', 'Tenant\OrderController@searchWarehouse');
@@ -482,6 +482,7 @@ if ($hostname) {
             Route::post('services/exchange_rate', 'Tenant\Api\ServiceController@exchange_rate');
             Route::post('services/search_exchange_rate', 'Tenant\Api\ServiceController@searchExchangeRateByDate');
             Route::get('services/exchange_rate/{date}', 'Tenant\Api\ServiceController@exchangeRateTest');
+            Route::get('services/exchange/{date}', 'Tenant\Api\ServiceController@exchangeRateTest');
 
             //BUSQUEDA DE DOCUMENTOS
             // Route::get('busqueda', 'Tenant\SearchController@index')->name('search');
@@ -823,7 +824,7 @@ if ($hostname) {
 
     Route::domain($app_url)->group(function () {
         Route::get('login', 'System\LoginController@showLoginForm')->name('login');
-        Route::post('login', 'System\LoginController@login');
+        Route::post('login', 'System\LoginController@login')->middleware('throttle:10,1');
         Route::post('logout', 'System\LoginController@logout')->name('logout');
         Route::get('phone', 'System\UserController@getPhone');
         

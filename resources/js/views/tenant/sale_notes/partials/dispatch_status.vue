@@ -76,9 +76,9 @@
                                         </div>
                                     </td>
                                     <td>
-                                        <div class="form-group mb-0" :class="{'has-danger': row.errors.reference}">
+                                        <div class="form-group mb-0" :class="{'has-danger': row.errors.person_dispatch}">
                                             <el-input v-model="row.person_dispatch"></el-input>
-                                            <small class="form-control-feedback" v-if="row.errors.reference" v-text="row.errors.reference[0]"></small>
+                                            <small class="form-control-feedback" v-if="row.errors.person_dispatch" v-text="row.errors.person_dispatch[0]"></small>
                                         </div>
                                     </td>
                                     <td class="series-table-actions text-right">

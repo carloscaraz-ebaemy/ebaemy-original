@@ -76,6 +76,9 @@ class ConfigurationEcommerce extends ModelTenant
         'politica_envio',
         'termino_conditions',
 
+        // GOOGLE SITE VERIFICATION
+        'google_site_verification',
+
         // OTROS
         'preferences'
     ];

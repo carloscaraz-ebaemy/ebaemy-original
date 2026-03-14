@@ -54,8 +54,9 @@
                 <div class="col-md-12 form-group">
                   <label class="font-weight-bold d-block">Imagen de Compartición (1200x630)</label>
                   <el-input v-model="form.og_image" :readonly="true">
-                    <el-upload slot="append" :headers="headers" :data="{ 'type': 'og_image' }" action="/ecommerce/uploads"
-                      :show-file-list="false" :on-success="successUpload" :on-error="errorUpload">
+                    <el-upload slot="append" :headers="headers" :data="{ 'type': 'og_image' }"
+                      action="/ecommerce/uploads" :show-file-list="false" :on-success="successUpload"
+                      :on-error="errorUpload">
                       <el-button type="primary" icon="el-icon-upload"></el-button>
                     </el-upload>
                   </el-input>
@@ -75,6 +76,21 @@
                   <label class="font-weight-bold">OG Description</label>
                   <el-input type="textarea" :rows="2" v-model="form.og_description" maxlength="200" show-word-limit />
                 </div>
+                <div class="col-md-12 form-group ">
+                  <label class="font-weight-bold">
+                    Verificación Google Search Console
+                  </label>
+
+                  <el-input v-model="form.google_site_verification"
+                    placeholder="Ejemplo: tmkonoTve89fzcKv7sJ59wPRHjY1PX0Y8PCbh0i4WKQ" clearable>
+                  </el-input>
+
+                  <small class="text-muted">
+                    Pega solo el código del content, no el meta completo.
+                  </small>
+                </div>
+
+
               </div>
             </el-tab-pane>
 
@@ -121,8 +137,7 @@
 </template>
 
 
-<script>
-export default {
+<script>export default {
   data() {
     return {
       headers: headers_token,
@@ -132,7 +147,7 @@ export default {
       siteUrl: window.location.origin,
       form: {},
       errors: {},
-      image_timestamp: new Date().getTime() // Para evitar el cache de imágenes
+      image_timestamp: new Date().getTime()
     };
   },
 
@@ -153,20 +168,18 @@ export default {
   },
 
   methods: {
-    // UN SOLO MÉTODO successUpload corregido
-    successUpload(response, file, fileList) {
+
+    successUpload(response) {
       if (response.success) {
         this.$message.success(response.message);
-        // Asigna el nombre al campo (og_image o twitter_image)
         this.form[response.type] = response.name;
-        // Refresca la vista previa forzando la recarga de la imagen
-        this.image_timestamp = new Date().getTime(); 
+        this.image_timestamp = new Date().getTime();
       } else {
         this.$message.error("Error al subir el archivo");
       }
     },
 
-    errorUpload(error) {
+    errorUpload() {
       this.$message.error('Error al subir el archivo');
     },
 
@@ -177,6 +190,7 @@ export default {
         seo_description: "",
         og_image: null,
         twitter_image: null,
+        google_site_verification: null,
         indexable: true
       };
     },
@@ -200,20 +214,41 @@ export default {
       }
     },
 
+    // 🔥 NUEVO: Limpia si pegan el meta completo
+    cleanGoogleVerification() {
+      if (!this.form.google_site_verification) return;
+
+      let value = this.form.google_site_verification.trim();
+
+      // Si pegan el meta completo
+      const match = value.match(/content="([^"]+)"/);
+      if (match) {
+        value = match[1];
+      }
+
+      this.form.google_site_verification = value || null;
+    },
+
     async submit() {
       this.loading_submit = true;
+
+      // 🔥 Limpiar antes de enviar
+      this.cleanGoogleVerification();
 
       const seoFields = [
         'id', 'seo_title', 'seo_description', 'seo_author', 'seo_robots',
         'og_title', 'og_description', 'og_image', 'og_type',
         'twitter_title', 'twitter_description', 'twitter_image', 'twitter_card',
-        'canonical_url', 'indexable', 'schema_json'
+        'canonical_url', 'indexable', 'schema_json',
+        'google_site_verification'
       ];
 
       let dataToSend = {};
+
       seoFields.forEach(key => {
         if (this.form[key] !== undefined) {
           let value = this.form[key];
+
           if (key === 'indexable') {
             dataToSend[key] = value ? 1 : 0;
           } else {
@@ -224,10 +259,12 @@ export default {
 
       try {
         const response = await this.$http.post(`/${this.resource}/configuration/seo`, dataToSend);
+
         if (response.data.success) {
           this.$message.success(response.data.message);
           await this.loadData();
         }
+
       } catch (error) {
         if (error.response && error.response.status === 422) {
           const errors = error.response.data.errors;

@@ -82,7 +82,10 @@ class ConfigurationEcommerceResource extends JsonResource
             'politica_privacy' => $this->politica_privacy,
             'politica_envio' => $this->politica_envio,  
            'termino_conditions' => $this->termino_conditions,
-            'cambios_devolucion' => $this->cambios_devolucion
+            'cambios_devolucion' => $this->cambios_devolucion,
+
+            // GOOGLE SITE VERIFICATION
+            'google_site_verification' => $this->google_site_verification
         ];
     }
 }

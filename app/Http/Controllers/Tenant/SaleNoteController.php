@@ -19,6 +19,8 @@ use App\Models\Tenant\Catalogs\AttributeType;
 use App\Models\Tenant\Catalogs\ChargeDiscountType;
 use App\Models\Tenant\Catalogs\CurrencyType;
 use App\Models\Tenant\Cash;
+use App\Models\Tenant\CashDocument;
+use App\Models\Tenant\CashDocumentPayment;
 use App\Models\Tenant\Catalogs\DocumentType;
 use App\Models\Tenant\Catalogs\OperationType;
 use App\Models\Tenant\Catalogs\PriceType;
@@ -35,6 +37,7 @@ use App\Models\Tenant\Person;
 use App\Models\Tenant\SaleNote;
 use App\Models\Tenant\SaleNoteItem;
 use App\Models\Tenant\SaleNotePayment;
+use App\Models\Tenant\DocumentPayment;
 use App\Models\Tenant\Document;
 use App\Models\Tenant\SaleNoteMigration;
 use App\Models\Tenant\Series;
@@ -51,6 +54,8 @@ use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Log;
 use Modules\Document\Traits\SearchTrait;
 use Modules\Finance\Traits\FinanceTrait;
+use Modules\Finance\Models\GlobalPayment;
+use Modules\Inventory\Models\InventoryConfiguration;
 use Modules\Inventory\Models\Warehouse;
 use Modules\Inventory\Traits\InventoryTrait;
 use Modules\Item\Models\ItemLot;
@@ -118,8 +123,7 @@ class SaleNoteController extends Controller
         ];
 
         if (auth()->user()->type !== 'admin') {
-            $dataSend['message'] ='Solo los administradores pueden realizar esta accion';
-            return $dataSend;
+            return response()->json(['success' => false, 'message' => 'Solo los administradores pueden realizar esta accion'], 403);
         }
         $configuration = Configuration::first();
         if($configuration->isSendDataToOtherServer()!= true){
@@ -462,7 +466,7 @@ class SaleNoteController extends Controller
      * @return \Illuminate\Database\Eloquent\Builder
      */
     private function getRecords($request){
-        $records = SaleNote::whereTypeUser();
+        $records = SaleNote::with(['documents', 'person'])->whereTypeUser();
         // Solo devuelve matriculas
         if($request != null && $request->has('onlySuscription') && (bool)$request->onlySuscription == true){
             $records->whereNotNull('grade')->whereNotNull('section') ;
@@ -569,8 +573,67 @@ class SaleNoteController extends Controller
     public function changed($id)
     {
         $sale_note = SaleNote::find($id);
+
+        // Idempotency guard: if already marked as changed, skip payment migration
+        if ($sale_note->changed) {
+            return;
+        }
+
         $sale_note->changed = true;
         $sale_note->save();
+
+        // Migrar pagos de la nota de venta al documento generado
+        // Primero por relación estándar (documents.sale_note_id), luego por sale_notes.document_id
+        // (caso comprobantes múltiples donde solo se escribe el FK en sale_notes)
+        $document = $sale_note->documents()->latest()->first();
+        if (!$document && $sale_note->document_id) {
+            $document = Document::find($sale_note->document_id);
+        }
+        if ($document && $sale_note->payments->isNotEmpty()) {
+            // Si el documento ya tiene pagos propios (fue creado desde el formulario completo
+            // de invoice.vue con pagos ya ingresados), no crear DocumentPayments adicionales
+            // para evitar duplicación. Solo redirigir GlobalPayments al DocumentPayment
+            // existente coincidente por método y monto.
+            if ($document->payments()->exists()) {
+                foreach ($sale_note->payments as $sn_payment) {
+                    // El DocumentPayment ya tiene su propio GlobalPayment → eliminar el del SNP para no duplicar
+                    GlobalPayment::where('payment_type', SaleNotePayment::class)
+                        ->where('payment_id', $sn_payment->id)
+                        ->delete();
+                    // Eliminar registros de caja y el pago NV para evitar doble conteo en el reporte de caja
+                    $sn_payment->cashDocumentPayments()->delete();
+                    $sn_payment->delete();
+                }
+            } else {
+                // El documento fue creado sin pagos (ej: desde option_documents.vue).
+                // Migrar SaleNotePayments como DocumentPayments.
+                foreach ($sale_note->payments as $sn_payment) {
+                    $doc_payment = DocumentPayment::create([
+                        'document_id'            => $document->id,
+                        'date_of_payment'        => $sn_payment->date_of_payment,
+                        'payment_method_type_id' => $sn_payment->payment_method_type_id,
+                        'has_card'               => $sn_payment->has_card,
+                        'card_brand_id'          => $sn_payment->card_brand_id,
+                        'reference'              => $sn_payment->reference,
+                        'change'                 => $sn_payment->change,
+                        'payment'                => $sn_payment->payment,
+                        'payment_received'       => true,
+                    ]);
+                    $global = GlobalPayment::where('payment_type', SaleNotePayment::class)
+                        ->where('payment_id', $sn_payment->id)
+                        ->first();
+                    if ($global) {
+                        $global->update([
+                            'payment_type' => DocumentPayment::class,
+                            'payment_id'   => $doc_payment->id,
+                        ]);
+                    }
+                    // Eliminar registros de caja y el pago NV para evitar doble conteo en el reporte de caja
+                    $sn_payment->cashDocumentPayments()->delete();
+                    $sn_payment->delete();
+                }
+            }
+        }
     }
 
 
@@ -588,6 +651,7 @@ class SaleNoteController extends Controller
 
         $operation_types = OperationType::whereActive()->get();
         $is_client = $this->getIsClient();
+        $validate_stock_add_item = InventoryConfiguration::getRecordIndividualColumn('validate_stock_add_item');
 
         return compact('items',
         'categories',
@@ -598,22 +662,29 @@ class SaleNoteController extends Controller
         'charge_types',
         'attribute_types',
         'operation_types',
-        'is_client'
+        'is_client',
+        'validate_stock_add_item'
         );
     }
 
     public function record($id)
     {
-        $record = new SaleNoteResource(SaleNote::findOrFail($id));
-
-        return $record; //record
+        $sale_note = SaleNote::findOrFail($id);
+        $user = auth()->user();
+        if ($user->type !== 'admin' && $sale_note->user_id !== $user->id) {
+            return response()->json(['success' => false, 'message' => 'No tiene permiso para ver este registro.'], 403);
+        }
+        return new SaleNoteResource($sale_note);
     }
 
     public function record2($id)
     {
-        $record = new SaleNoteResource2(SaleNote::findOrFail($id));
-
-        return $record;
+        $sale_note = SaleNote::findOrFail($id);
+        $user = auth()->user();
+        if ($user->type !== 'admin' && $sale_note->user_id !== $user->id) {
+            return response()->json(['success' => false, 'message' => 'No tiene permiso para ver este registro.'], 403);
+        }
+        return new SaleNoteResource2($sale_note);
     }
 
     public function store(SaleNoteRequest $request)
@@ -656,15 +727,9 @@ class SaleNoteController extends Controller
                 $sale_note_item->fill($row);
                 $sale_note_item->sale_note_id = $this->sale_note->id;
                 $sale_note_item->save();
-
-                if(isset($row['lots'])){
-
-                    foreach($row['lots'] as $lot) {
-                        $record_lot = ItemLot::query()->findOrFail($lot['id']);
-                        $record_lot->has_sale = true;
-                        $record_lot->update();
-                    }
-                }
+                // El marcado has_sale de series (ItemLot) lo maneja el evento
+                // SaleNoteItem::created en InventoryKardexServiceProvider con lockForUpdate().
+                // No duplicar aquí para evitar doble descuento y rollback por race condition.
 
                 // control de lotes
 
@@ -695,6 +760,7 @@ class SaleNoteController extends Controller
                         }
                         $lot = ItemLotsGroup::find($id_lote_selected);
                         $lot->quantity = ($lot->quantity - ($row['quantity'] * $quantity_unit));
+                        $this->validateStockLotGroup($lot, $sale_note_item);
                         $lot->save();
                     }
 
@@ -730,7 +796,7 @@ class SaleNoteController extends Controller
             DB::connection('tenant')->rollBack();
             return [
                 'success' => false,
-                'message' => $e->getMessage(),
+                'message' => 'Ocurrió un error al procesar la nota de venta.',
             ];
         }
     }
@@ -814,6 +880,11 @@ class SaleNoteController extends Controller
     public function destroy_sale_note_item($id)
     {
         $item = SaleNoteItem::findOrFail($id);
+
+        $user = auth()->user();
+        if ($user->type !== 'admin' && $item->sale_note->user_id !== $user->id) {
+            return ['success' => false, 'message' => 'No tiene permisos para eliminar este ítem'];
+        }
 
         if(isset($item->item->lots)){
 
@@ -1316,6 +1387,14 @@ class SaleNoteController extends Controller
 
         if (!$document) throw new Exception("El código {$id} es inválido, no se encontro documento relacionado");
 
+        // Verificar ownership: solo el dueño o admin pueden imprimir
+        if (auth()->check()) {
+            $user = auth()->user();
+            if ($user->type !== 'admin' && $document->user_id !== $user->id) {
+                abort(403, 'No tiene permiso para imprimir este documento.');
+            }
+        }
+
         return $this->createPdf($document, $format, $document->filename, 'html');
     }
 
@@ -1665,6 +1744,20 @@ class SaleNoteController extends Controller
 
     public function anulate($id)
     {
+        $user = auth()->user();
+        $sale_note = SaleNote::findOrFail($id);
+
+        if ($user->type !== 'admin' && $sale_note->user_id !== $user->id) {
+            return ['success' => false, 'message' => 'No tiene permisos para anular esta nota de venta'];
+        }
+
+        $cashDocument = CashDocument::where('sale_note_id', $id)->first();
+        if ($cashDocument && !$cashDocument->cash->state) {
+            return [
+                'success' => false,
+                'message' => 'No se puede anular una nota de venta asociada a una caja cerrada'
+            ];
+        }
 
         DB::connection('tenant')->transaction(function () use ($id) {
 
@@ -1677,12 +1770,13 @@ class SaleNoteController extends Controller
 
             foreach ($obj->items as $sale_note_item) {
 
-                // voided sets
-                $this->voidedSaleNoteItem($sale_note_item, $warehouse);
-                // voided sets
+                // Si la NV ya fue convertida a CPE, NO devolver stock
+                // (el CPE controla el inventario; al anular el CPE sí se devuelve)
+                if (!$obj->changed) {
+                    $this->voidedSaleNoteItem($sale_note_item, $warehouse);
+                }
 
                 //habilito las series
-                // ItemLot::where('item_id', $item->item_id )->where('warehouse_id', $warehouse->id)->update(['has_sale' => false]);
                 $this->voidedLots($sale_note_item);
 
             }
@@ -1713,12 +1807,18 @@ class SaleNoteController extends Controller
                 'quantity' => $sale_note_item->quantity * $presentationQuantity,
             ]);
 
-            $wr = ItemWarehouse::where([['item_id', $sale_note_item->item_id],['warehouse_id', $warehouse_id]])->first();
+            $wr = ItemWarehouse::where([['item_id', $sale_note_item->item_id],['warehouse_id', $warehouse_id]])->lockForUpdate()->first();
 
             if($wr)
             {
                 $wr->stock =  $wr->stock + ($sale_note_item->quantity * $presentationQuantity);
                 $wr->save();
+            }
+
+            $item_rec = Item::where('id', $sale_note_item->item_id)->lockForUpdate()->first();
+            if ($item_rec) {
+                $item_rec->stock = $item_rec->stock + ($sale_note_item->quantity * $presentationQuantity);
+                $item_rec->save();
             }
 
         }else{
@@ -1881,7 +1981,16 @@ class SaleNoteController extends Controller
             'client_id' => 'required|numeric|min:1',
         ]);
         $clientId = $request->client_id;
-        $records = SaleNote::without(['user', 'soap_type', 'state_type', 'currency_type', 'payments'])
+        $records = SaleNote::without(['user', 'soap_type', 'state_type', 'currency_type'])
+                            ->with(['payments' => function ($q) {
+                                $q->select('id', 'sale_note_id', 'payment_method_type_id',
+                                           'payment', 'reference', 'has_card', 'card_brand_id',
+                                           'change', 'date_of_payment')
+                                  ->with(['global_payment' => function ($gq) {
+                                      $gq->select('id', 'payment_id', 'payment_type',
+                                                  'destination_id', 'destination_type');
+                                  }]);
+                            }])
                             ->select('series', 'number', 'id', 'date_of_issue', 'total')
                             ->where('customer_id', $clientId)
                             ->whereNull('document_id')
@@ -2005,8 +2114,7 @@ class SaleNoteController extends Controller
         $data['send_data_to_other_server'] = (bool)$data['send_data_to_other_server'];
 
         if(auth()->user()->type !=='admin'){
-            $data['message'] = 'No puedes realizar cambios';
-            return $data;
+            return response()->json(['success' => false, 'message' => 'No puedes realizar cambios'], 403);
         }
         $configuration = Configuration::first();
         $migrationConfiguration = MigrationConfiguration::first();
@@ -2138,18 +2246,43 @@ class SaleNoteController extends Controller
      *
      */
     public function deleteRelationInvoice(Request $request) {
-        // dd($request->all());
+        if (auth()->user()->type !== 'admin') {
+            return response()->json(['success' => false, 'message' => 'Solo los administradores pueden desvincular facturas de notas de venta'], 403);
+        }
+
         try {
             $sale_note = SaleNote::find($request->id);
-
             $document = Document::find($sale_note->document_id);
+
+            // Revertir migración de pagos: restaurar GlobalPayments a SaleNotePayments
+            // y eliminar DocumentPayments creados durante la conversión NV→Factura
+            $doc_payments = DocumentPayment::where('document_id', $document->id)->get();
+            foreach ($sale_note->payments as $sn_payment) {
+                $doc_payment = $doc_payments->first(function ($dp) use ($sn_payment) {
+                    return $dp->payment == $sn_payment->payment
+                        && $dp->payment_method_type_id == $sn_payment->payment_method_type_id
+                        && $dp->date_of_payment == $sn_payment->date_of_payment;
+                });
+                if ($doc_payment) {
+                    GlobalPayment::where('payment_type', DocumentPayment::class)
+                        ->where('payment_id', $doc_payment->id)
+                        ->update([
+                            'payment_type' => SaleNotePayment::class,
+                            'payment_id'   => $sn_payment->id,
+                        ]);
+                    $doc_payment->delete();
+                    $doc_payments = $doc_payments->reject(fn($dp) => $dp->id === $doc_payment->id);
+                }
+            }
+
             $document->sale_note_id = null;
             $document->save();
 
             $sale_note->changed = 0;
             $sale_note->document_id = null;
             $sale_note->save();
-        }catch(RequestException $e){
+
+        } catch (RequestException $e) {
             return ['success' => false];
         }
 

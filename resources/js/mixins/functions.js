@@ -98,8 +98,12 @@ export const functions = {
 export const exchangeRate = {
     methods: {
         async searchExchangeRateByDate(exchange_rate_date) {
-            let response = await this.$http.get(`/services/exchange/${exchange_rate_date}`)
-            return parseFloat(response.data.sale)
+            try {
+                let response = await this.$http.get(`/services/exchange/${exchange_rate_date}`)
+                return parseFloat(response.data.sale) || 1
+            } catch (e) {
+                return 1
+            }
         }
     }
 };

@@ -226,8 +226,8 @@ class ItemsImport implements ToCollection
 
                     $inventory_transaction = InventoryTransaction::findOrFail('102');
                     $stock = $row[11];
-                    if (!$stock) {
-                        throw new Exception("Debe ingresar el stock", 500);
+                    if ($stock === null || $stock === '') {
+                        $stock = 0;
                     }
 
                     $item->update([
@@ -250,15 +250,17 @@ class ItemsImport implements ToCollection
                     ]);
 
 
-                    $inventory = new Inventory();
-                    $inventory->type = null;
-                    $inventory->description = $inventory_transaction->name;
-                    $inventory->item_id = $item->id;
-                    $inventory->warehouse_id = $warehouse_id;
-                    $inventory->quantity = $stock;
-                    $inventory->inventory_transaction_id = $inventory_transaction->id;
-                    $inventory->lot_code = $lot_code;
-                    $inventory->save();
+                    if ($stock > 0) {
+                        $inventory = new Inventory();
+                        $inventory->type = null;
+                        $inventory->description = $inventory_transaction->name;
+                        $inventory->item_id = $item->id;
+                        $inventory->warehouse_id = $warehouse_id;
+                        $inventory->quantity = $stock;
+                        $inventory->inventory_transaction_id = $inventory_transaction->id;
+                        $inventory->lot_code = $lot_code;
+                        $inventory->save();
+                    }
 
 
                     $lot_code = $row[17];

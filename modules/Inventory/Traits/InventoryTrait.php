@@ -13,6 +13,7 @@ use App\Models\Tenant\PurchaseSettlementItem;
 use App\Models\Tenant\SaleNote;
 use App\Models\Tenant\SaleNoteItem;
 use Exception;
+use Illuminate\Support\Facades\DB;
 use Modules\Inventory\Models\Devolution;
 use Modules\Inventory\Models\Inventory;
 use Modules\Inventory\Models\InventoryConfiguration;
@@ -251,20 +252,6 @@ trait InventoryTrait
         }
         return $query->get()->transform(function (Item $row) {
             return $row->getCollectionData();
-            $description = $row->description;
-            if($row->internal_id) {
-                $description .= " | {$row->internal_id}";
-            }
-            if($row->barcode) {
-                $description .= " | {$row->barcode}";
-            }
-            return [
-
-                'id' => $row->id,
-                'description' => $description,
-                'lots_enabled' => (bool)$row->lots_enabled,
-                'series_enabled' => (bool)$row->series_enabled,
-            ];
         });
     }
 
@@ -377,22 +364,30 @@ trait InventoryTrait
      */
     private function updateStock($item_id, $quantity, $warehouse_id)
     {
-        $inventory_configuration = InventoryConfiguration::firstOrFail();
-        $item_warehouse = ItemWarehouse::firstOrNew(['item_id' => $item_id, 'warehouse_id' => $warehouse_id]);
-        $item_warehouse->stock = $item_warehouse->stock + $quantity;
-        // dd($item_warehouse->item->unit_type_id);
-        if ($quantity < 0 && $item_warehouse->item->unit_type_id !== 'ZZ') {
-            if (($inventory_configuration->stock_control) && ($item_warehouse->stock < 0)) {
-                // return [
-                //     'success' => false,
-                //     'message' => 'El producto {$item_warehouse->item->description} no tiene suficiente stock!'
-                // ];
-                // dd('hasta aqui');
-                // return response()->json(['success' => false, 'message' => El producto {$item_warehouse->item->description} no tiene suficiente stock!]);
-                throw new Exception("El producto {$item_warehouse->item->description} no tiene suficiente stock!");
-            }
+        static $inventory_configuration = null;
+        if ($inventory_configuration === null) {
+            $inventory_configuration = InventoryConfiguration::firstOrFail();
         }
-        $item_warehouse->save();
+
+        DB::transaction(function () use ($item_id, $quantity, $warehouse_id, $inventory_configuration) {
+            $item_warehouse = ItemWarehouse::where('item_id', $item_id)
+                                           ->where('warehouse_id', $warehouse_id)
+                                           ->lockForUpdate()
+                                           ->first();
+
+            if (!$item_warehouse) {
+                $item_warehouse = new ItemWarehouse(['item_id' => $item_id, 'warehouse_id' => $warehouse_id, 'stock' => 0]);
+            }
+
+            $item_warehouse->stock = $item_warehouse->stock + $quantity;
+
+            if ($quantity < 0 && $item_warehouse->item->unit_type_id !== 'ZZ') {
+                if (($inventory_configuration->stock_control) && ($item_warehouse->stock < 0)) {
+                    throw new Exception("El producto {$item_warehouse->item->description} no tiene suficiente stock!");
+                }
+            }
+            $item_warehouse->save();
+        });
     }
     /**
      * Verifica el inventario
@@ -622,9 +617,15 @@ trait InventoryTrait
             $presentationQuantity = 1;
             $document = $document_item->document;
             $factor = 1;
-            $warehouse = $this->findWarehouse();
+            $warehouseRecord = $document_item->warehouse_id ? $this->findWarehouseById($document_item->warehouse_id) : null;
+            $warehouse = $warehouseRecord ? $this->findWarehouse($warehouseRecord->establishment_id) : $this->findWarehouse($document->establishment_id);
             $this->createInventoryKardex($document_item->document, $ind_item->id, ($factor * ($document_item->quantity * $presentationQuantity * $item_set_quantity)), $warehouse->id);
-            if (!$document_item->document->sale_note_id && !$document_item->document->order_note_id && !$document_item->document->sale_notes_relateds) $this->updateStock($ind_item->id, ($factor * ($document_item->quantity * $presentationQuantity * $item_set_quantity)), $warehouse->id);
+            if (!$document_item->document->sale_note_id && !$document_item->document->order_note_id && !$document_item->document->sale_notes_relateds){
+                $this->updateStock($ind_item->id, ($factor * ($document_item->quantity * $presentationQuantity * $item_set_quantity)), $warehouse->id);
+            } elseif ($document_item->document->sale_note_id || $document_item->document->sale_notes_relateds) {
+                // CPE de NV anulado: devolver stock
+                $this->updateStock($ind_item->id, ($factor * ($document_item->quantity * $presentationQuantity * $item_set_quantity)), $warehouse->id);
+            }
         }
     }
     /**
@@ -754,10 +755,17 @@ trait InventoryTrait
      */
     private function updateStockPurchase($item_id, $quantity, $warehouse_id)
     {
-        $inventory_configuration = InventoryConfiguration::firstOrFail();
-        $item_warehouse = ItemWarehouse::firstOrNew(['item_id' => $item_id, 'warehouse_id' => $warehouse_id]);
-        $item_warehouse->stock = $item_warehouse->stock + $quantity;
-        $item_warehouse->save();
+        DB::transaction(function () use ($item_id, $quantity, $warehouse_id) {
+            $item_warehouse = ItemWarehouse::where('item_id', $item_id)
+                                           ->where('warehouse_id', $warehouse_id)
+                                           ->lockForUpdate()
+                                           ->first();
+            if (!$item_warehouse) {
+                $item_warehouse = new ItemWarehouse(['item_id' => $item_id, 'warehouse_id' => $warehouse_id, 'stock' => 0]);
+            }
+            $item_warehouse->stock = $item_warehouse->stock + $quantity;
+            $item_warehouse->save();
+        });
     }
 
     /**

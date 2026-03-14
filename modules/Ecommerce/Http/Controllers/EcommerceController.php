@@ -209,39 +209,39 @@ class EcommerceController extends Controller
 
         return "{$item->description} - {$promotion->name}";
     }
-
-    public function item($id, $promotion_id = null)
+    public function item($slug, $promotion_id = null)
     {
-        $row = Item::find($id);
+        $row = Item::where('slug', $slug)->firstOrFail();
+
         $exchange_rate_sale = $this->getExchangeRateSale();
-        $sale_unit_price = ($row->has_igv) ? $row->sale_unit_price : $row->sale_unit_price*1.18;
+
+        $sale_unit_price = ($row->has_igv) ? $row->sale_unit_price : $row->sale_unit_price * 1.18;
 
         $description = $promotion_id ? $this->getDescriptionWithPromotion($row, $promotion_id) : $row->description;
 
         $record = (object)[
-            'id' => $row->id,
-            'internal_id' => $row->internal_id,
-            'unit_type_id' => $row->unit_type_id,
-            'description' => $description,
-            'category' => $row->category,
-            'stock' => $row->stock,
-            // 'description' => $row->description,
-            'technical_specifications' => $row->technical_specifications,
-            'name' => $row->name,
-            'second_name' => $row->second_name,
-            'sale_unit_price' => ($row->currency_type_id === 'PEN') ? $sale_unit_price : ($sale_unit_price * $exchange_rate_sale),
-            'currency_type' => $row->currency_type,
-            'has_igv' => (bool) $row->has_igv,
-            'sale_unit' => $row->sale_unit_price,
-            'sale_affectation_igv_type_id' => $row->sale_affectation_igv_type_id,
-            'currency_type_symbol' => $row->currency_type->symbol,
-            'image' =>  $row->image,
-            'image_medium' => $row->image_medium,
-            'image_small' => $row->image_small,
-            'tags' => $row->tags->pluck('tag_id')->toArray(),
-            'images' => $row->images,
-            'attributes' => $row->attributes ? $row->attributes : [],
-            'promotion_id' => $promotion_id,
+            'id'                          => $row->id,
+            'internal_id'                 => $row->internal_id,
+            'unit_type_id'                => $row->unit_type_id,
+            'description'                 => $description,
+            'category'                    => $row->category,
+            'stock'                       => $row->stock,
+            'technical_specifications'    => $row->technical_specifications,
+            'name'                        => $row->name,
+            'second_name'                 => $row->second_name,
+            'sale_unit_price'             => ($row->currency_type_id === 'PEN') ? $sale_unit_price : ($sale_unit_price * $exchange_rate_sale),
+            'currency_type'               => $row->currency_type,
+            'has_igv'                     => (bool) $row->has_igv,
+            'sale_unit'                   => $row->sale_unit_price,
+            'sale_affectation_igv_type_id'=> $row->sale_affectation_igv_type_id,
+            'currency_type_symbol'        => $row->currency_type->symbol,
+            'image'                       => $row->image,
+            'image_medium'                => $row->image_medium,
+            'image_small'                 => $row->image_small,
+            'tags'                        => $row->tags->pluck('tag_id')->toArray(),
+            'images'                      => $row->images,
+            'attributes'                  => $row->attributes ?? [],
+            'promotion_id'                => $promotion_id,
         ];
 
         return view('ecommerce::items.record', compact('record'));

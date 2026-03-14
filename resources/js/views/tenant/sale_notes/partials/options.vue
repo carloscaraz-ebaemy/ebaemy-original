@@ -171,10 +171,7 @@ export default {
     created() {
         this.initForm()
         this.loadConfiguration(this.$store)
-        this.configuration = this.$store.state.config;
-        console.log('this.configuration asignado:', this.configuration);
         this.$store.commit('setConfiguration', this.configuration)
-
     },
     mounted() {
         if(navigator.userAgent.indexOf("Safari") != -1) {
@@ -186,19 +183,13 @@ export default {
             'config',
         ]),
         ShowTicket58() {
-            const value = this.config && this.config.show_ticket_58 !== undefined && this.config.show_ticket_58 !== null ? this.config.show_ticket_58 : false;
-            console.log('ShowTicket58:', value);
-            return value;
+            return this.config && this.config.show_ticket_58 !== undefined && this.config.show_ticket_58 !== null ? this.config.show_ticket_58 : false;
         },
         ShowTicket80() {
-            const value = this.config && this.config.show_ticket_80 !== undefined && this.config.show_ticket_80 !== null ? this.config.show_ticket_80 : false;
-            console.log('ShowTicket80:', value);
-            return value;
+            return this.config && this.config.show_ticket_80 !== undefined && this.config.show_ticket_80 !== null ? this.config.show_ticket_80 : false;
         },
         ShowTicket50() {
-            const value = this.config && this.config.show_ticket_50 !== undefined && this.config.show_ticket_50 !== null ? this.config.show_ticket_50 : false;
-            console.log('ShowTicket50:', value);
-            return value;
+            return this.config && this.config.show_ticket_50 !== undefined && this.config.show_ticket_50 !== null ? this.config.show_ticket_50 : false;
         }
     },
     methods: {

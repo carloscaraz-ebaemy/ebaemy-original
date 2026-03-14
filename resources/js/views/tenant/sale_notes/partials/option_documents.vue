@@ -587,19 +587,12 @@
                         }
                     }).then(() => {
                         this.loading_submit = false;
-                        $.each($('.v-modal'),function(a,b){
-                            /* v-modal se le resta 5 z-index para que no se sobreponga en el modal*/
-                            $(b).css('z-index', $(b).css('z-index') - 5);
-                        })
                     });
             },
             validatePaymentDates(){
-
-                var valid = _.filter(this.document.payments, (item) => {
-                    return true
+                return _.filter(this.document.payments, (item) => {
+                    return parseFloat(item.payment) > 0;
                 })
-
-                return valid
             },
             getPaymentsData(q)
             {
@@ -688,23 +681,21 @@
 
                     await this.document.items.forEach(item => {
 
-                        let empty_attributes = _.isEmpty(item.attributes)
-
-                        if(empty_attributes){
-
+                        if(_.isEmpty(item.attributes)){
                             item.attributes = []
-                            let attribute = _.find(item.attributes, {'attribute_type_id': '7000'})
+                        }
 
-                            if(!attribute){
-                                item.attributes.push({
-                                    attribute_type_id: '7000',
-                                    description: "Gastos Art. 37 Renta:  Número de Placa",
-                                    value: sale_note.plate_number,
-                                    start_date: null,
-                                    end_date: null,
-                                    duration: null,
-                                })
-                            }
+                        let attribute = _.find(item.attributes, {'attribute_type_id': '7000'})
+
+                        if(!attribute){
+                            item.attributes.push({
+                                attribute_type_id: '7000',
+                                description: "Gastos Art. 37 Renta:  Número de Placa",
+                                value: sale_note.plate_number,
+                                start_date: null,
+                                end_date: null,
+                                duration: null,
+                            })
                         }
                     });
                 }

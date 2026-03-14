@@ -339,7 +339,7 @@
                             <small
                                 v-if="errors.unit_price_value"
                                 class="form-control-feedback"
-                                v-text="errors.unit_price[0]"
+                                v-text="errors.unit_price_value[0]"
                             ></small>
                         </div>
                     </div>
@@ -842,6 +842,7 @@
             @addRowSelectLot="addRowSelectLot"
         >
         </select-lots-form>
+
     </el-dialog>
 </template>
 <style>
@@ -903,6 +904,7 @@ export default {
             loading_search: false,
             titleAction: "",
             is_client: false,
+            validate_stock_add_item: false,
             titleDialog: "Agregar Producto o Servicio",
             resource: "sale-notes",
             showDialogNewItem: false,
@@ -941,7 +943,7 @@ export default {
             old_selected_lots_group: [],
             various_item: false,
             various_item_barcode: "VARIOUS_ITEM",
-            itemSearchTerm: ''
+            itemSearchTerm: '',
             //item_unit_type: {}
         };
     },
@@ -963,9 +965,6 @@ export default {
     },
     mounted() {
         this.getTables();
-        this.$eventHub.$on("reloadDataItems", item_id => {
-            this.reloadDataItems(item_id);
-        });
 
         this.$eventHub.$on("selectWarehouseId", warehouse_id => {
             this.form.warehouse_id = warehouse_id;
@@ -1044,7 +1043,6 @@ export default {
     },
     methods: {
         async addItemQuickSale(item, operation_type_id) {
-            // console.log("addItemQuickSale NV", item.id)
             this.form.item_id = item.id;
             this.items = [{ ...item }];
 
@@ -1052,7 +1050,7 @@ export default {
             await this.generalSleep(500);
             const add_item = await this.clickAddItem();
 
-            if (add_item == null || add_item == undefined) return add_item;
+            if (add_item !== null && add_item !== undefined) return add_item;
 
             throw new Error("No se pudo agregar el producto.");
         },
@@ -1088,6 +1086,7 @@ export default {
                 this.charge_types = data.charge_types;
                 this.attribute_types = data.attribute_types;
                 this.is_client = data.is_client;
+                this.validate_stock_add_item = data.validate_stock_add_item || false;
                 this.filterItems();
             });
         },
@@ -1168,8 +1167,7 @@ export default {
                         this.items = response.data.items;
                         this.loading_search = false;
                         this.enabledSearchItemsBarcode(input);
-                        this.enabledSearchItemBySeries(input);
-                        if (this.items.length == 0) {
+                        this.enabledSearchItemBySeries(input);                        if (this.items.length == 0) {
                             this.filterItems();
                             this.items = [];
                         }
@@ -1181,7 +1179,7 @@ export default {
         filterItems() {
             this.items = this.all_items;
         },
-        enabledSearchItemsBarcode() {
+        enabledSearchItemsBarcode(input) {
             if (this.search_item_by_barcode) {
                 if (this.$refs.selectBarcode) {
                     this.$refs.selectBarcode.$data.selectedLabel = "";
@@ -1229,8 +1227,9 @@ export default {
 
                 await this.changeItem();
 
-                this.lots = await this.form.item.lots.map(lot => {
+                this.lots = this.form.item.lots.map(lot => {
                     lot.has_sale = true;
+                    return lot;
                 });
 
                 await this.clickAddItem();
@@ -1335,9 +1334,11 @@ export default {
 
             this.updateItem();
 
-            this.$refs.selectSearchNormal.$el
-                .getElementsByTagName("input")[0]
-                .focus();
+            if (this.$refs.selectSearchNormal) {
+                this.$refs.selectSearchNormal.$el
+                    .getElementsByTagName("input")[0]
+                    .focus();
+            }
         },
         // edicion de item
         searchGetIdLoteSelected() {
@@ -1563,13 +1564,12 @@ export default {
             this.$emit("update:showDialog", false);
         },
         async changeItem() {
-            this.form.item = {
-                ..._.find(this.items, { id: this.form.item_id })
-            };
+            const selectedItem = _.find(this.items, { id: this.form.item_id });
+            if (!selectedItem) return;
+
+            this.form.item = { ...selectedItem };
             // this.form.item = _.find(this.items, {'id': this.form.item_id});
-            this.form.item_unit_types = _.find(this.items, {
-                id: this.form.item_id
-            }).item_unit_types;
+            this.form.item_unit_types = selectedItem.item_unit_types;
             this.form.unit_price_value = this.form.item.sale_unit_price;
             if (
                 !this.configuration.enable_list_product &&
@@ -1693,6 +1693,16 @@ export default {
 
             return this.getResponseMessage(true);
         },
+        async validateCurrentStock() {
+            const data = {
+                item_id: this.form.item_id,
+                quantity: this.form.quantity,
+                warehouse_id: this.form.warehouse_id,
+                presentation: this.item_unit_type
+            };
+            const response = await this.$http.post(`/validate-current-item-stock`, data);
+            return response.data;
+        },
         async clickAddItem() {
             // if(this.form.quantity < this.getMinQuantity()){
             //     return this.$message.error(`La cantidad no puede ser inferior a ${this.getMinQuantity()}`);
@@ -1710,6 +1720,12 @@ export default {
                 return this.$message.error(validate_id_lote_selected.message);
 
             if (this.validateTotalItem().total_item) return;
+
+            if (this.validate_stock_add_item && this.form.item_id) {
+                const stock_check = await this.validateCurrentStock();
+                if (!stock_check.success)
+                    return this.$message.error(stock_check.message);
+            }
 
             let affectation_igv_type_id = this.form.affectation_igv_type_id;
             // let unit_price = (this.form.has_igv) ? this.form.unit_price_value : this.form.unit_price_value * 1.18;
@@ -1970,6 +1986,7 @@ export default {
         openNewItemDialog() {
             this.showDialogNewItem = true;
         },
+
     }
 };
 </script>

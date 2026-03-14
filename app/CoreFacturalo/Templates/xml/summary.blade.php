@@ -116,8 +116,10 @@
         <cac:TaxTotal>
             <cbc:TaxAmount currencyID="{{ $doc->currency_type_id }}">{{ $doc->total_ivap }}</cbc:TaxAmount>
             <cac:TaxSubtotal>
+                <cbc:TaxableAmount currencyID="{{ $doc->currency_type_id }}">{{ $doc->total_taxed }}</cbc:TaxableAmount>
                 <cbc:TaxAmount currencyID="{{ $doc->currency_type_id }}">{{ $doc->total_ivap }}</cbc:TaxAmount>
                 <cac:TaxCategory>
+                    <cbc:Percent>4</cbc:Percent>
                     <cac:TaxScheme>
                         <cbc:ID>1016</cbc:ID>
                         <cbc:Name>IVAP</cbc:Name>
@@ -130,8 +132,10 @@
         <cac:TaxTotal>
             <cbc:TaxAmount currencyID="{{ $doc->currency_type_id }}">{{ $doc->total_igv }}</cbc:TaxAmount>
             <cac:TaxSubtotal>
+                <cbc:TaxableAmount currencyID="{{ $doc->currency_type_id }}">{{ $doc->total_taxed }}</cbc:TaxableAmount>
                 <cbc:TaxAmount currencyID="{{ $doc->currency_type_id }}">{{ $doc->total_igv }}</cbc:TaxAmount>
                 <cac:TaxCategory>
+                    <cbc:Percent>18</cbc:Percent>
                     <cac:TaxScheme>
                         <cbc:ID>1000</cbc:ID>
                         <cbc:Name>IGV</cbc:Name>

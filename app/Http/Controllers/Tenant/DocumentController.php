@@ -46,7 +46,11 @@ use App\Models\Tenant\PaymentCondition;
 use App\Models\Tenant\PaymentMethodType;
 use App\Models\Tenant\Person;
 use App\Models\Tenant\SaleNote;
+use App\Models\Tenant\SaleNotePayment;
+use App\Models\Tenant\DocumentPayment;
+use App\Models\Tenant\CashDocumentPayment;
 use App\Models\Tenant\Series;
+use Modules\Finance\Models\GlobalPayment;
 use App\Models\Tenant\StateType;
 use App\Models\Tenant\User;
 use App\Traits\OfflineTrait;
@@ -628,7 +632,7 @@ class DocumentController extends Controller
         {
             $this->generalWriteErrorLog($e);
 
-            return $this->generalResponse(false, 'Ocurrió un error: '.$e->getMessage());
+            return $this->generalResponse(false, 'Ocurrió un error al procesar el documento.');
         }
     }
 
@@ -636,8 +640,8 @@ class DocumentController extends Controller
     {
         // busca una caja chica en el array de pagos
         $find_cash = array_search('cash', array_column($request->payments,'payment_destination_id'));
-        // si ha seleccionado una caja chica
-        if($find_cash >= 0) {
+        // si ha seleccionado una caja chica (array_search returns false when not found; >= 0 is WRONG because false casts to 0)
+        if($find_cash !== false) {
             // no hay id de la caja seleccionada por lo que si es abierta una nueva será seleccionada como destino
             $cash = Cash::where([['user_id', auth()->user()->id],['state', true]])->first();
             if(!$cash){
@@ -774,9 +778,16 @@ class DocumentController extends Controller
 
     private function associateSaleNoteToDocument(Request $request, int $documentId)
     {
+        $document = Document::find($documentId);
+
         if ($request->sale_note_id) {
-            SaleNote::where('id', $request->sale_note_id)
-                ->update(['document_id' => $documentId]);
+            $sn = SaleNote::find($request->sale_note_id);
+            // Only link if not already assigned to a different document
+            if ($sn && (!$sn->document_id || $sn->document_id == $documentId)) {
+                $sn->document_id = $documentId;
+                $sn->save();
+                if ($document) $this->migrateSaleNotePayments($sn, $document);
+            }
         }
 
         //notas de venta relacionadas cuando se genera cpe desde multiples nv
@@ -792,26 +803,70 @@ class DocumentController extends Controller
 
                     $sale_note = SaleNote::find($sale_note_id);
 
-                    if (!empty($sale_note)) {
+                    // Only link if not already assigned to a different document
+                    if (!empty($sale_note) && (!$sale_note->document_id || $sale_note->document_id == $documentId)) {
                         $sale_note->document_id = $documentId;
-                        $sale_note->push();
+                        $sale_note->save();
                     }
 
+                    if ($document && !empty($sale_note)) {
+                        $this->migrateSaleNotePayments($sale_note, $document);
+                    }
                 }
-
-                // $noteArray = explode('-', $note);
-                // if (count($noteArray) === 2) {
-                //     $sale_note = SaleNote::where([
-                //                                      'series'=> $noteArray[0],
-                //                                      'number'=> $noteArray[1],
-                //                                  ])->first();
-                //     if(!empty($sale_note)) {
-                //         $sale_note->document_id = $documentId;
-                //         $sale_note->push();
-                //     }
-                // }
             }
         }
+    }
+
+    private function migrateSaleNotePayments(SaleNote $sale_note, Document $document): void
+    {
+        $sale_note->refresh();
+
+        if ($sale_note->changed || $sale_note->payments->isEmpty()) {
+            return;
+        }
+
+        DB::connection('tenant')->transaction(function () use ($sale_note, $document) {
+            $sale_note->refresh();
+            if ($sale_note->changed) return; // re-check inside transaction
+
+            $sale_note->changed = true;
+            $sale_note->save();
+
+            if ($document->payments()->exists()) {
+                foreach ($sale_note->payments as $sn_payment) {
+                    GlobalPayment::where('payment_type', SaleNotePayment::class)
+                        ->where('payment_id', $sn_payment->id)
+                        ->delete();
+                    $sn_payment->cashDocumentPayments()->delete();
+                    $sn_payment->delete();
+                }
+            } else {
+                foreach ($sale_note->payments as $sn_payment) {
+                    $doc_payment = DocumentPayment::create([
+                        'document_id'            => $document->id,
+                        'date_of_payment'        => $sn_payment->date_of_payment,
+                        'payment_method_type_id' => $sn_payment->payment_method_type_id,
+                        'has_card'               => $sn_payment->has_card,
+                        'card_brand_id'          => $sn_payment->card_brand_id,
+                        'reference'              => $sn_payment->reference,
+                        'change'                 => $sn_payment->change,
+                        'payment'                => $sn_payment->payment,
+                        'payment_received'       => true,
+                    ]);
+                    $global = GlobalPayment::where('payment_type', SaleNotePayment::class)
+                        ->where('payment_id', $sn_payment->id)
+                        ->first();
+                    if ($global) {
+                        $global->update([
+                            'payment_type' => DocumentPayment::class,
+                            'payment_id'   => $doc_payment->id,
+                        ]);
+                    }
+                    $sn_payment->cashDocumentPayments()->delete();
+                    $sn_payment->delete();
+                }
+            }
+        });
     }
 
     private function associateDispatchesToDocument(Request $request, int $documentId)
@@ -1156,6 +1211,7 @@ class DocumentController extends Controller
 
     public function import(Request $request)
     {
+        $request->validate(['file' => 'required|file|mimes:xlsx,xls,csv|max:10240']);
         if ($request->hasFile('file')) {
             try {
                 $import = new DocumentsImport();
@@ -1167,9 +1223,10 @@ class DocumentController extends Controller
                     'data' => $data
                 ];
             } catch (Exception $e) {
+                \Log::error('DocumentController import error: ' . $e->getMessage());
                 return [
                     'success' => false,
-                    'message' => $e->getMessage()
+                    'message' => 'Ocurrió un error al importar el archivo.'
                 ];
             }
         }
@@ -1181,6 +1238,7 @@ class DocumentController extends Controller
 
     public function importTwoFormat(Request $request)
     {
+        $request->validate(['file' => 'required|file|mimes:xlsx,xls,csv|max:10240']);
         if ($request->hasFile('file')) {
             try {
                 $import = new DocumentsImportTwoFormat();
@@ -1192,9 +1250,10 @@ class DocumentController extends Controller
                     'data' => $data
                 ];
             } catch (Exception $e) {
+                \Log::error('DocumentController importTwoFormat error: ' . $e->getMessage());
                 return [
                     'success' => false,
-                    'message' => $e->getMessage()
+                    'message' => 'Ocurrió un error al importar el archivo.'
                 ];
             }
         }
@@ -1299,7 +1358,9 @@ class DocumentController extends Controller
             });
         }
         if (!empty($guides)) {
-            $records->where('guides', 'like', DB::raw("%\"number\":\"%") . $guides . DB::raw("%\"%"));
+            // Usar binding parametrizado; escapar caracteres especiales de LIKE para evitar inyección
+            $safeguides = addcslashes($guides, '%_\\');
+            $records->whereRaw('guides LIKE ?', ['%"number":"' . $safeguides . '%"']);
         }
         if ($plate_numbers) {
             $records->where('plate_number', 'like', '%' . $plate_numbers . '%');
@@ -1438,12 +1499,29 @@ class DocumentController extends Controller
     {
         try {
 
-            DB::connection('tenant')->transaction(function () use ($document_id) {
+            $record = Document::findOrFail($document_id);
 
-                $record = Document::findOrFail($document_id);
+            // Block deletion of documents already sent to SUNAT (accepted/annulled/voided)
+            $blockedStates = ['05', '07', '09', '11', '13'];
+            if (in_array($record->state_type_id, $blockedStates)) {
+                return [
+                    'success' => false,
+                    'message' => 'No se puede eliminar un documento que ya fue enviado a SUNAT (estado: ' . ($record->state_type->description ?? $record->state_type_id) . ').',
+                ];
+            }
+
+            // Only admin or the creator can delete
+            $user = auth()->user();
+            if ($user->type !== 'admin' && $record->user_id !== $user->id) {
+                return [
+                    'success' => false,
+                    'message' => 'No tiene permiso para eliminar este documento.',
+                ];
+            }
+
+            DB::connection('tenant')->transaction(function () use ($record) {
                 $this->deleteAllPayments($record->payments);
                 $record->delete();
-
             });
 
             return [
@@ -1452,9 +1530,10 @@ class DocumentController extends Controller
             ];
 
         } catch (Exception $e) {
-
-            return ($e->getCode() == '23000') ? ['success' => false, 'message' => 'El Documento esta siendo usada por otros registros, no puede eliminar'] : ['success' => false, 'message' => 'Error inesperado, no se pudo eliminar el Documento'];
-
+            \Log::error('destroyDocument error: ' . $e->getMessage());
+            return ($e->getCode() == '23000')
+                ? ['success' => false, 'message' => 'El Documento está siendo usado por otros registros, no se puede eliminar.']
+                : ['success' => false, 'message' => 'Error inesperado, no se pudo eliminar el Documento.'];
         }
 
 
@@ -1498,6 +1577,7 @@ class DocumentController extends Controller
 
     public function importExcelFormat(Request $request)
     {
+        $request->validate(['file' => 'required|file|mimes:xlsx,xls,csv|max:10240']);
         if ($request->hasFile('file')) {
             try {
                 $import = new DocumentImportExcelFormat();
@@ -1604,9 +1684,10 @@ class DocumentController extends Controller
                 'message' => 'Retención actualizada satisfactoriamente',
             ];
         } catch (Exception $e) {
+            \Log::error('DocumentController retention update error: ' . $e->getMessage());
             return [
                 'success' => false,
-                'message' => $e->getMessage(),
+                'message' => 'Ocurrió un error al actualizar la retención.',
             ];
 
         }
@@ -1639,9 +1720,10 @@ class DocumentController extends Controller
                 'message' => __('app.actions.upload.error'),
             ];
         } catch (Exception $e) {
+            \Log::error('DocumentController retentionUpload error: ' . $e->getMessage());
             return [
                 'success' => false,
-                'message' => $e->getMessage(),
+                'message' => 'Ocurrió un error al subir el archivo.',
             ];
         }
     }

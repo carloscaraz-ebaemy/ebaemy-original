@@ -618,10 +618,12 @@
                                                                 </thead>
                                                                 <tbody>
                                                                 <tr v-for="(row, index) in form.payments"
-                                                                    :key="index">
+                                                                    :key="index"
+                                                                    :style="row.from_sale_note ? 'background:#f9f9f9' : ''">
                                                                     <td>
                                                                         <el-select
                                                                             v-model="row.payment_method_type_id"
+                                                                            :disabled="!!row.from_sale_note"
                                                                             @change="changePaymentMethodType(index)">
                                                                             <el-option
                                                                                 v-for="option in cash_payment_metod"
@@ -633,6 +635,7 @@
                                                                     <template v-if="enabled_payments">
                                                                         <td>
                                                                             <el-select v-model="row.payment_destination_id"
+                                                                                       :disabled="!!row.from_sale_note"
                                                                                        filterable>
                                                                                 <el-option v-for="option in payment_destinations"
                                                                                            :key="option.id"
@@ -641,10 +644,12 @@
                                                                             </el-select>
                                                                         </td>
                                                                         <td>
-                                                                            <el-input v-model="row.reference"></el-input>
+                                                                            <el-input v-model="row.reference"
+                                                                                      :disabled="!!row.from_sale_note"></el-input>
                                                                         </td>
                                                                         <td>
-                                                                            <el-input v-model="row.payment"></el-input>
+                                                                            <el-input v-model="row.payment"
+                                                                                      :disabled="!!row.from_sale_note"></el-input>
                                                                         </td>
                                                                         <td class="text-center">
                                                                             <button class="btn waves-effect waves-light btn-xs btn-danger"
@@ -966,10 +971,12 @@
                                                     </thead>
                                                     <tbody>
                                                     <tr v-for="(row, index) in form.payments"
-                                                        :key="index">
+                                                        :key="index"
+                                                        :style="row.from_sale_note ? 'background:#f9f9f9' : ''">
                                                         <td>
                                                             <el-select
                                                                 v-model="row.payment_method_type_id"
+                                                                :disabled="!!row.from_sale_note"
                                                                 @change="changePaymentMethodType(index)">
                                                                 <el-option
                                                                     v-for="option in cash_payment_metod"
@@ -981,6 +988,7 @@
                                                         <template v-if="enabled_payments">
                                                             <td>
                                                                 <el-select v-model="row.payment_destination_id"
+                                                                           :disabled="!!row.from_sale_note"
                                                                            filterable>
                                                                     <el-option v-for="option in payment_destinations"
                                                                                :key="option.id"
@@ -989,10 +997,12 @@
                                                                 </el-select>
                                                             </td>
                                                             <td>
-                                                                <el-input v-model="row.reference"></el-input>
+                                                                <el-input v-model="row.reference"
+                                                                          :disabled="!!row.from_sale_note"></el-input>
                                                             </td>
                                                             <td>
-                                                                <el-input v-model="row.payment"></el-input>
+                                                                <el-input v-model="row.payment"
+                                                                          :disabled="!!row.from_sale_note"></el-input>
                                                             </td>
                                                             <td class="text-center">
                                                                 <button class="btn waves-effect waves-light btn-xs btn-danger"
@@ -1748,8 +1758,32 @@ export default {
         }
         const notesNumbersFromNotes = localStorage.getItem('notes');
         if (notesNumbersFromNotes) {
-            this.form.sale_notes_relateds = JSON.parse(notesNumbersFromNotes);
-            localStorage.removeItem('notes')
+            const parsedNotes = JSON.parse(notesNumbersFromNotes);
+            this.form.sale_notes_relateds = parsedNotes;
+            localStorage.removeItem('notes');
+
+            // Pre-cargar pagos de las notas seleccionadas en el formulario
+            const paymentsFromNotes = [];
+            parsedNotes.forEach(note => {
+                if (note.payments && note.payments.length > 0) {
+                    note.payments.forEach(p => {
+                        paymentsFromNotes.push({
+                            payment_method_type_id : p.payment_method_type_id,
+                            payment                : p.payment,
+                            reference              : p.reference || '',
+                            has_card               : p.has_card || false,
+                            card_brand_id          : p.card_brand_id || null,
+                            change                 : p.change || 0,
+                            date_of_payment        : p.date_of_payment,
+                            payment_destination_id : p.global_payment ? p.global_payment.destination_id : null,
+                            from_sale_note         : true,  // pago heredado: no editable
+                        });
+                    });
+                }
+            });
+            if (paymentsFromNotes.length > 0) {
+                this.form.payments = paymentsFromNotes;
+            }
         }
 
         this.startConnectionQzTray()
@@ -3501,6 +3535,15 @@ export default {
 
                     // this.savePaymentMethod();
                     this.saveCashDocument();
+
+                    // Marcar todas las notas relacionadas como convertidas y migrar sus pagos
+                    if (this.form.sale_notes_relateds && this.form.sale_notes_relateds.length > 0) {
+                        this.form.sale_notes_relateds.forEach(note => {
+                            if (note.id) {
+                                this.$http.get(`/sale-notes/changed/${note.id}`).catch(() => {});
+                            }
+                        });
+                    }
 
                     this.autoPrintDocument()
 

@@ -191,6 +191,7 @@ class Item extends ModelTenant
         'restrict_sale_cpe',
 
         'preparation_area_id',
+        'slug'
 
         // 'warehouse_id'
     ];
@@ -207,7 +208,7 @@ class Item extends ModelTenant
         'favorite' => 'boolean',
         'exchange_points' => 'boolean',
         'quantity_of_points' => 'float',
-        'restrict_sale_cpe' => 'boolean',
+        'restrict_sale_cpe' => 'boolean'
     ];
 
     /**
@@ -268,6 +269,34 @@ class Item extends ModelTenant
             $builder->where('active', 1);
         });
     }*/
+        protected static function boot()
+    {
+        parent::boot();
+
+        static::creating(function ($item) {
+            if (empty($item->slug)) {
+                $item->slug = \Illuminate\Support\Str::slug($item->description ?? $item->name ?? 'producto');
+                $originalSlug = $item->slug;
+                $counter = 1;
+                while (static::where('slug', $item->slug)->exists()) {
+                    $item->slug = $originalSlug . '-' . $counter;
+                    $counter++;
+                }
+            }
+        });
+
+        static::updating(function ($item) {
+            if (empty($item->slug) || $item->isDirty('description')) {
+                $item->slug = \Illuminate\Support\Str::slug($item->description ?? $item->name ?? 'producto');
+                $originalSlug = $item->slug;
+                $counter = 1;
+                while (static::where('slug', $item->slug)->where('id', '!=', $item->id)->exists()) {
+                    $item->slug = $originalSlug . '-' . $counter;
+                    $counter++;
+                }
+            }
+        });
+    }
 
     public function getAttributesAttribute($value)
     {

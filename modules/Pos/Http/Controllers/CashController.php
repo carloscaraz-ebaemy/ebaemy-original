@@ -129,7 +129,14 @@ class CashController extends Controller
         set_time_limit(0);
         $data = [];
         /** @var Cash $cash */
-        $cash = Cash::findOrFail($cash_id);
+        $cash = Cash::with([
+            'user.establishment',
+            'cash_documents.document.document_type',
+            'cash_documents.document.person',
+            'cash_documents.document.payments.payment_method_type',
+            'cash_documents.sale_note.person',
+            'cash_documents.sale_note.payments.payment_method_type',
+        ])->findOrFail($cash_id);
         $establishment = $cash->user->establishment;
         $status_type_id = self::getStateTypeId();
         $final_balance = 0;
@@ -223,8 +230,14 @@ class CashController extends Controller
             /** Documentos de Tipo Nota de venta */
             if ($cash_document->sale_note) {
                 $sale_note = $cash_document->sale_note;
+
+                // NV convertida a CPE: ya aparece representada por su documento, omitir
+                if ($sale_note->changed) {
+                    continue;
+                }
+
                 $pays = [];
-                $document = $sale_note->documents->first(); 
+                $document = $sale_note->documents->first();
                 $description= null;
                 $number_full = null;
                 if ($document) {
@@ -255,7 +268,7 @@ class CashController extends Controller
                                 continue;
                             }
                             if($record->id === '01') $data['total_payment_cash_01_sale_note'] += $record_total;
-                            if($record->is_cash &&  $record->id !== '01') $data['total_payment_cash_sale_note'] += $record_total;
+                            if($record->id !== '01') $data['total_payment_cash_sale_note'] += $record_total;
                         }
 
                         $data['total_cash_income_pmt_01'] += $this->getIncomeEgressCashDocumentPayments($sale_note->payments,$cash_id);
