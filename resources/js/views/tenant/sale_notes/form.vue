@@ -273,6 +273,108 @@
                                     </div>
                                 </div>
                             </div>
+                            <!-- ── Tipo de entrega (solo usuarios con permiso de despacho) ──── -->
+                            <div v-if="canManageDispatch" class="row mt-2">
+                                <div class="col-12">
+                                    <label class="fw-semibold small text-muted mb-2 d-block">
+                                        <i class="fas fa-shipping-fast me-1"></i> Tipo de Entrega
+                                    </label>
+                                    <div class="d-flex gap-2 flex-wrap">
+                                        <!-- Entrega Inmediata -->
+                                        <label class="delivery-option border rounded p-2 flex-fill text-center cursor-pointer"
+                                               :class="form.delivery_type === 'store' ? 'border-secondary bg-light' : 'border-light'"
+                                               style="cursor:pointer; min-width:120px">
+                                            <input type="radio" v-model="form.delivery_type" value="store" class="d-none">
+                                            <div>
+                                                <i class="fas fa-store fa-lg" :class="form.delivery_type === 'store' ? 'text-secondary' : 'text-muted'"></i>
+                                            </div>
+                                            <div class="small fw-semibold mt-1" :class="form.delivery_type === 'store' ? 'text-secondary' : 'text-muted'">
+                                                Entrega Inmediata
+                                            </div>
+                                            <div class="text-muted" style="font-size:10px">Se lleva ahora</div>
+                                        </label>
+                                        <!-- Recojo en Tienda -->
+                                        <label class="delivery-option border rounded p-2 flex-fill text-center cursor-pointer"
+                                               :class="form.delivery_type === 'pickup' ? 'border-info bg-light' : 'border-light'"
+                                               style="cursor:pointer; min-width:120px">
+                                            <input type="radio" v-model="form.delivery_type" value="pickup" class="d-none">
+                                            <div>
+                                                <i class="fas fa-hand-holding-box fa-lg" :class="form.delivery_type === 'pickup' ? 'text-info' : 'text-muted'"></i>
+                                            </div>
+                                            <div class="small fw-semibold mt-1" :class="form.delivery_type === 'pickup' ? 'text-info' : 'text-muted'">
+                                                Recojo en Tienda
+                                            </div>
+                                            <div class="text-muted" style="font-size:10px">Paga y vuelve a recoger</div>
+                                        </label>
+                                        <!-- Courier / Despacho -->
+                                        <label class="delivery-option border rounded p-2 flex-fill text-center cursor-pointer"
+                                               :class="form.delivery_type === 'province' ? 'border-primary bg-light' : 'border-light'"
+                                               style="cursor:pointer; min-width:120px"
+                                               @click="onSelectCourierDelivery">
+                                            <input type="radio" v-model="form.delivery_type" value="province" class="d-none">
+                                            <div>
+                                                <i class="fas fa-truck fa-lg" :class="form.delivery_type === 'province' ? 'text-primary' : 'text-muted'"></i>
+                                            </div>
+                                            <div class="small fw-semibold mt-1" :class="form.delivery_type === 'province' ? 'text-primary' : 'text-muted'">
+                                                Envío por Courier
+                                            </div>
+                                            <div class="text-muted" style="font-size:10px">Olva, Shalom, etc.</div>
+                                        </label>
+                                    </div>
+                                    <!-- Alerta urgente (solo para recojo o courier) -->
+                                    <div v-if="form.delivery_type !== 'store'" class="mt-2">
+                                        <label class="d-flex align-items-center gap-2 cursor-pointer"
+                                               style="cursor:pointer">
+                                            <input type="checkbox" v-model="form.is_urgent" class="form-check-input mt-0">
+                                            <span class="small">
+                                                <i class="fas fa-bolt text-danger me-1"></i>
+                                                <strong class="text-danger">URGENTE</strong>
+                                                — aparece primero en la cola del almacén
+                                            </span>
+                                        </label>
+                                    </div>
+                                    <!-- Info contextual -->
+                                    <div class="mt-2">
+                                        <small class="text-muted" v-if="form.delivery_type === 'store'">
+                                            <i class="fas fa-info-circle me-1"></i>El cliente se lleva el producto ahora mismo. No pasa por la cola del almacén.
+                                        </small>
+                                        <small class="text-info" v-else-if="form.delivery_type === 'pickup'">
+                                            <i class="fas fa-info-circle me-1"></i>El cliente <strong>paga aquí y vuelve</strong> a recoger. El almacén preparará el pedido.
+                                        </small>
+                                        <small class="text-primary" v-else-if="form.delivery_type === 'province'">
+                                            <i class="fas fa-info-circle me-1"></i>El pedido se enviará por courier.
+                                        </small>
+                                    </div>
+
+                                    <!-- ── Datos de envío — botón compacto ──────────────────── -->
+                                    <div v-if="form.delivery_type === 'province'" class="mt-2">
+                                        <div class="d-flex align-items-center gap-2 flex-wrap">
+                                            <el-button size="small" type="primary" plain
+                                                       icon="el-icon-location-outline"
+                                                       @click="showShippingDialog = true">
+                                                Datos de Envío
+                                                <span v-if="form.shipping_address"
+                                                      class="ms-1 text-success fw-bold">✓</span>
+                                            </el-button>
+                                            <!-- Resumen compacto si ya se llenaron -->
+                                            <span v-if="form.shipping_recipient || form.shipping_address"
+                                                  class="text-muted small"
+                                                  style="max-width:420px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis">
+                                                <i class="fas fa-user me-1"></i>{{ form.shipping_recipient }}
+                                                <span v-if="form.shipping_address">
+                                                    &nbsp;·&nbsp;<i class="fas fa-map-marker-alt me-1"></i>{{ form.shipping_address }}
+                                                    <span v-if="form.shipping_city">, {{ form.shipping_city }}</span>
+                                                </span>
+                                                <span v-if="form.preferred_courier">
+                                                    &nbsp;·&nbsp;<i class="fas fa-truck me-1"></i>{{ form.preferred_courier }}
+                                                </span>
+                                            </span>
+                                        </div>
+                                    </div>
+                                    <!-- fin datos de envío -->
+
+                                </div>
+                            </div>
                             <!-- fin de informacion adicional -->
                         </div>
                         <div v-if="consigneds.length" class="card-body border-top">
@@ -895,6 +997,30 @@
                                     </div>
                                 </div>
 
+                                <!-- ── Costo de envío al cliente (solo provincia, no facturado) ── -->
+                                <div v-if="form.delivery_type === 'province' && form.total > 0"
+                                     class="border rounded p-2 mb-2 bg-light">
+                                    <div class="d-flex align-items-center flex-wrap justify-content-end" style="gap:.5rem;">
+                                        <span class="text-muted small">
+                                            <i class="fas fa-truck mr-1"></i>
+                                            <b>Envío cobrado al cliente</b>
+                                            <span class="badge badge-warning ml-1">No facturado</span>
+                                        </span>
+                                        <el-input-number
+                                            v-model="form.shipping_cost_customer"
+                                            :min="0" :precision="2" :step="1"
+                                            size="small" style="width:130px;"
+                                            placeholder="S/ 0.00">
+                                        </el-input-number>
+                                    </div>
+                                    <div class="text-end mt-1" v-if="form.shipping_cost_customer > 0">
+                                        <small class="text-muted">
+                                            <i class="fas fa-info-circle mr-1"></i>
+                                            Almacén confirmará bultos y costo de agencia al despachar.
+                                        </small>
+                                    </div>
+                                </div>
+
                                 <h3 class="text-end" v-if="form.total > 0">
                                     <b>TOTAL A PAGAR: </b>{{ currency_type.symbol }} {{ form.total }}
                                 </h3>
@@ -1283,12 +1409,164 @@
             :configuration="config"></sale-notes-options>
         <consigned-form :personId="form.customer_id" :showDialog.sync="showDialogConsignedForm">
         </consigned-form>
+
+        <!-- ── Modal Datos de Envío ──────────────────────────────────── -->
+        <el-dialog title="Datos de Envío (Courier)" :visible.sync="showShippingDialog"
+                   width="600px" :close-on-click-modal="false" append-to-body>
+
+            <!-- Direcciones anteriores del cliente -->
+            <div v-if="shippingHistory.length > 0" class="mb-3">
+                <div class="text-muted small fw-semibold mb-2">
+                    <i class="fas fa-history me-1"></i> Direcciones anteriores — click para usar:
+                </div>
+                <div class="d-flex flex-wrap gap-2">
+                    <div v-for="(addr, idx) in shippingHistory" :key="idx"
+                         @click="applyShippingAddress(addr)"
+                         class="shipping-addr-card"
+                         :class="{ 'shipping-addr-card--active': form.shipping_address === addr.shipping_address }">
+                        <div class="fw-semibold small">{{ addr.shipping_recipient || '—' }}</div>
+                        <div class="text-muted" style="font-size:11px;line-height:1.3">
+                            {{ addr.shipping_address }}
+                            <span v-if="addr.shipping_city">, {{ addr.shipping_city }}</span>
+                        </div>
+                        <div v-if="addr.preferred_courier" class="mt-1" style="font-size:10px">
+                            <i class="fas fa-truck me-1 text-info"></i>{{ addr.preferred_courier }}
+                        </div>
+                        <div v-if="addr._label" class="mt-1" style="font-size:10px;color:#aaa">
+                            {{ addr._label }}
+                        </div>
+                    </div>
+                    <!-- Tarjeta "Nueva dirección" -->
+                    <div @click="clearShippingFields"
+                         class="shipping-addr-card shipping-addr-card--new">
+                        <i class="fas fa-plus-circle text-primary d-block mb-1" style="font-size:18px"></i>
+                        <div class="small text-primary fw-semibold">Nueva dirección</div>
+                    </div>
+                </div>
+                <hr class="my-3">
+            </div>
+
+            <!-- Formulario -->
+            <div class="row g-3">
+                <div class="col-12 col-sm-7">
+                    <label class="form-label form-label-sm mb-1 fw-semibold">
+                        Destinatario *
+                        <span v-if="form.customer_id"
+                              @click="resetRecipient"
+                              style="cursor:pointer;font-size:11px;"
+                              class="text-primary ms-2">
+                            ↺ usar nombre del cliente
+                        </span>
+                    </label>
+                    <input type="text" v-model="form.shipping_recipient"
+                           class="form-control form-control-sm"
+                           placeholder="Nombre de quien recibe">
+                </div>
+                <div class="col-12 col-sm-5">
+                    <label class="form-label form-label-sm mb-1 fw-semibold">Teléfono</label>
+                    <input type="text" v-model="form.shipping_phone"
+                           class="form-control form-control-sm"
+                           placeholder="Cel / fijo">
+                </div>
+                <div class="col-12 col-sm-8">
+                    <label class="form-label form-label-sm mb-1 fw-semibold">Dirección de entrega *</label>
+                    <input type="text" v-model="form.shipping_address"
+                           class="form-control form-control-sm"
+                           placeholder="Calle, número, referencia">
+                </div>
+                <div class="col-12 col-sm-4">
+                    <label class="form-label form-label-sm mb-1 fw-semibold">Distrito</label>
+                    <el-cascader v-model="shippingLocation"
+                                 :options="locations"
+                                 filterable clearable
+                                 :show-all-levels="false"
+                                 size="small" style="width:100%"
+                                 placeholder="Buscar distrito…"
+                                 @change="onShippingLocationChange">
+                    </el-cascader>
+                </div>
+                <div class="col-12 col-sm-6">
+                    <label class="form-label form-label-sm mb-1 fw-semibold">
+                        Transportista (Courier)
+                        <a v-if="!dispatchers.length"
+                           href="/dispatches/carriers" target="_blank"
+                           class="text-warning ms-1" style="font-size:10px">
+                            <i class="fas fa-exclamation-triangle"></i> Registrar transportistas
+                        </a>
+                    </label>
+                    <el-select v-model="form.preferred_carrier_id"
+                               size="small" style="width:100%"
+                               filterable clearable
+                               placeholder="Seleccione transportista…"
+                               @change="onCarrierChange">
+                        <el-option v-for="d in dispatchers"
+                                   :key="d.id"
+                                   :value="d.id"
+                                   :label="d.name + ' — RUC: ' + d.number">
+                        </el-option>
+                    </el-select>
+                    <small v-if="form.preferred_courier" class="text-muted" style="font-size:10px">
+                        {{ form.preferred_courier }}
+                    </small>
+                </div>
+                <div class="col-12 col-sm-6">
+                    <label class="form-label form-label-sm mb-1 fw-semibold">Instrucciones especiales</label>
+                    <input type="text" v-model="form.shipping_notes"
+                           class="form-control form-control-sm"
+                           placeholder="Frágil, no doblar, llamar antes…" maxlength="200">
+                </div>
+            </div>
+            <span slot="footer">
+                <el-button size="small" @click="showShippingDialog = false">Cancelar</el-button>
+                <el-button size="small" type="primary" @click="showShippingDialog = false">
+                    <i class="el-icon-check me-1"></i> Listo
+                </el-button>
+            </span>
+        </el-dialog>
+        <!-- fin modal envío -->
+
     </div>
 </template>
 
 <style>
 .el-upload-list__item {
     max-width: 150px;
+}
+
+/* Tarjetas de direcciones anteriores */
+.shipping-addr-card {
+    border: 1px solid #d0e4f7;
+    border-radius: 8px;
+    padding: 8px 12px;
+    cursor: pointer;
+    background: #f7fbff;
+    min-width: 160px;
+    max-width: 200px;
+    transition: border-color .15s, box-shadow .15s, background .15s;
+}
+.shipping-addr-card:hover {
+    border-color: #409eff;
+    box-shadow: 0 2px 8px rgba(64,158,255,.2);
+    background: #eaf4ff;
+}
+.shipping-addr-card--active {
+    border-color: #409eff !important;
+    background: #d9ecff !important;
+    box-shadow: 0 0 0 2px rgba(64,158,255,.35);
+}
+.shipping-addr-card--new {
+    background: #fff;
+    border-style: dashed;
+    border-color: #b0c4de;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 64px;
+}
+.shipping-addr-card--new:hover {
+    border-color: #409eff;
+    background: #f0f8ff;
 }
 
 header .head-notes {
@@ -1482,6 +1760,10 @@ export default {
     },
     mixins: [functions, exchangeRate, editableRowItems, fnItemSearchQuickSale],
     computed: {
+        canManageDispatch() {
+            return this.authUser?.logistic_enabled === true
+                && ['admin', 'superadmin', 'warehouse'].includes(this.authUser?.type);
+        },
         getCurrentLogo() {
             const isDarkMode = document.documentElement.classList.contains('dark');
 
@@ -1568,6 +1850,12 @@ export default {
             isVisible: false,
             focus_on_client: false,
             sellers: [],
+            courier_list: [],
+            locations: [],
+            dispatchers: [],
+            shippingLocation: [],
+            shippingHistory: [],
+            showShippingDialog: false,
             resource: "sale-notes",
             showDialogConsignedForm: false,
             showDialogAddItem: false,
@@ -1648,6 +1936,12 @@ export default {
         }
 
         await this.initForm();
+
+        // Cargar lista de couriers para el datalist
+        this.$http.get('/logistic/courier-companies/list')
+            .then(r => { this.courier_list = r.data || []; })
+            .catch(() => {});
+
         await this.$http.get(`/${this.resource}/tables`).then(response => {
             this.currency_types = response.data.currency_types;
             this.establishments = response.data.establishments;
@@ -1676,6 +1970,8 @@ export default {
             this.payment_destinations = response.data.payment_destinations;
             this.sellers = response.data.sellers;
             this.global_discount_types = response.data.global_discount_types;
+            this.locations   = response.data.locations   || [];
+            this.dispatchers = response.data.dispatchers || [];
 
             this.changeEstablishment();
             this.changeDateOfIssue();
@@ -2048,7 +2344,148 @@ export default {
                     this.form.seller_id = seller.id;
                 }
             }
-            this.getConsigneds()
+            this.getConsigneds();
+
+            // Cargar último envío del cliente para pre-llenar datos de envío
+            if (this.form.customer_id && this.form.delivery_type === 'province') {
+                this.loadLastShipping(this.form.customer_id, customer);
+            } else if (customer) {
+                // Si aún no es courier, pre-llenar solo el destinatario
+                if (!this.form.shipping_recipient) {
+                    this.form.shipping_recipient = customer.name || customer.description || '';
+                }
+                if (!this.form.shipping_phone && customer.telephone) {
+                    this.form.shipping_phone = customer.telephone;
+                }
+            }
+        },
+        loadLastShipping(customerId, customer) {
+            this.$http.get(`/${this.resource}/search/customer/${customerId}`)
+                .then(response => {
+                    const history = response.data.shipping_history || [];
+                    // El API devuelve customers[] con datos completos del cliente
+                    const apiCustomer = (response.data.customers || [])[0] || customer || {};
+
+                    const combined = [...history];
+
+                    // Agregar dirección registrada del cliente si tiene y no está ya en el historial
+                    if (apiCustomer.address) {
+                        const alreadyHas = history.some(h =>
+                            h.shipping_address &&
+                            h.shipping_address.toLowerCase().trim() === apiCustomer.address.toLowerCase().trim()
+                        );
+                        if (!alreadyHas) {
+                            combined.push({
+                                shipping_recipient:   apiCustomer.name || '',
+                                shipping_phone:       apiCustomer.telephone || '',
+                                shipping_address:     apiCustomer.address,
+                                shipping_city:        apiCustomer.district ? apiCustomer.district.description : '',
+                                shipping_district_id: apiCustomer.district_id || null,
+                                preferred_courier:    '',
+                                shipping_notes:       '',
+                                _label: 'Dirección registrada',
+                            });
+                        }
+                    }
+
+                    this.shippingHistory = combined;
+
+                    if (history.length > 0) {
+                        // Hay historial de envíos → pre-llenar con el más reciente
+                        this.applyShippingAddress(history[0]);
+                    } else if (apiCustomer.address) {
+                        // Sin historial, pero tiene dirección registrada → usarla
+                        this.applyShippingAddress({
+                            shipping_recipient:   apiCustomer.name || '',
+                            shipping_phone:       apiCustomer.telephone || '',
+                            shipping_address:     apiCustomer.address,
+                            shipping_city:        apiCustomer.district ? apiCustomer.district.description : '',
+                            shipping_district_id: apiCustomer.district_id || null,
+                            preferred_courier:    '',
+                            shipping_notes:       '',
+                        });
+                    } else {
+                        // Sin nada — solo nombre y teléfono
+                        this.form.shipping_recipient = apiCustomer.name || customer?.name || '';
+                        this.form.shipping_phone     = apiCustomer.telephone || customer?.telephone || '';
+                    }
+                })
+                .catch(() => {
+                    this.shippingHistory = [];
+                    if (customer) this.form.shipping_recipient = customer.name || customer.description || '';
+                });
+        },
+        onCarrierChange(carrierId) {
+            // Guarda también el nombre del transportista en preferred_courier para display/historial
+            const found = this.dispatchers.find(d => d.id === carrierId);
+            this.form.preferred_courier = found ? found.name : '';
+        },
+        calcShippingCost() {
+            const pkgs  = parseFloat(this.form.shipping_packages)      || 0;
+            const price = parseFloat(this.form.shipping_price_package) || 0;
+            this.form.shipping_cost = parseFloat((pkgs * price).toFixed(2));
+        },
+        applyShippingAddress(addr) {
+            this.form.shipping_recipient   = addr.shipping_recipient   || '';
+            this.form.shipping_phone       = addr.shipping_phone       || '';
+            this.form.shipping_address     = addr.shipping_address     || '';
+            this.form.shipping_city        = addr.shipping_city        || '';
+            this.form.shipping_district_id = addr.shipping_district_id || '';
+            this.form.preferred_courier    = addr.preferred_courier    || '';
+            this.form.preferred_carrier_id = addr.preferred_carrier_id || null;
+            this.form.shipping_notes       = addr.shipping_notes       || '';
+            const distId = addr.shipping_district_id;
+            if (distId && distId.length >= 6) {
+                this.shippingLocation = [
+                    distId.substring(0, 2),
+                    distId.substring(0, 4),
+                    distId
+                ];
+            } else {
+                this.shippingLocation = [];
+            }
+        },
+        clearShippingFields() {
+            this.form.shipping_recipient   = '';
+            this.form.shipping_phone       = '';
+            this.form.shipping_address     = '';
+            this.form.shipping_city        = '';
+            this.form.shipping_district_id = '';
+            this.form.preferred_courier    = '';
+            this.form.preferred_carrier_id = null;
+            this.form.shipping_notes       = '';
+            this.shippingLocation          = [];
+        },
+        onSelectCourierDelivery() {
+            // Abrir modal automáticamente si no hay datos aún
+            this.$nextTick(() => {
+                if (!this.form.shipping_address) {
+                    this.showShippingDialog = true;
+                }
+            });
+        },
+        onShippingLocationChange(val) {
+            if (!val || val.length === 0) {
+                this.form.shipping_district_id = null;
+                this.form.shipping_city = null;
+                return;
+            }
+            // val = [dept_id, prov_id, district_id]
+            const districtId = val[val.length - 1];
+            this.form.shipping_district_id = districtId;
+            // Buscar el label del distrito en el árbol de locations para guardar texto legible
+            const dept = this.locations.find(d => d.value === val[0]);
+            if (dept) {
+                const prov = (dept.children || []).find(p => p.value === val[1]);
+                if (prov) {
+                    const dist = (prov.children || []).find(d => d.value === districtId);
+                    if (dist) {
+                        // Guardar solo el nombre del distrito (sin código)
+                        const label = dist.label.replace(/^\d+\s*-\s*/, '').trim();
+                        this.form.shipping_city = label;
+                    }
+                }
+            }
         },
         searchRemoteCustomers(input) {
             this.customerSearchTerm = input;
@@ -2130,6 +2567,23 @@ export default {
                 consigned_ubigeo: null,
                 // ✅ CAMBIO: payment_condition_id por defecto en "01" (Contado)
                 payment_condition_id: "01",
+                // ── Tipo de entrega ──────────────────────────────────────────
+                delivery_type: 'store',   // 'store' | 'pickup' | 'province'
+                is_urgent: false,
+                requires_warehouse_dispatch: false, // retrocompatibilidad
+                // ── Datos de envío (solo courier/province) ───────────────────
+                shipping_recipient: null,
+                shipping_phone:     null,
+                shipping_address:   null,
+                shipping_city:        null,
+                shipping_district_id: null,
+                preferred_courier:    null,
+                preferred_carrier_id: null,
+                shipping_notes:       null,
+                // ── Costo de envío (no facturado) ─────────────────────────────
+                shipping_packages:       1,
+                shipping_cost_customer:  0,
+                shipping_cost_paid:      false,
             };
 
             this.total_discount_no_base = 0;
@@ -2170,6 +2624,13 @@ export default {
         },
         cleanCustomer() {
             this.form.customer_id = null;
+        },
+        resetRecipient() {
+            let customer = _.find(this.customers, { id: this.form.customer_id });
+            if (customer) {
+                this.form.shipping_recipient = customer.name || customer.description || '';
+                this.form.shipping_phone     = customer.telephone || this.form.shipping_phone;
+            }
         },
         async changeDateOfIssue() {
             await this.searchExchangeRateByDate(this.form.date_of_issue).then(

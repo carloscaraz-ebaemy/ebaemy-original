@@ -31,6 +31,14 @@ class LoginController extends Controller
      */
     protected $redirectTo = '/dashboard';
 
+    protected function redirectTo()
+    {
+        if (auth()->user() && auth()->user()->type === 'warehouse') {
+            return '/logistic/sale-notes/queue';
+        }
+        return '/dashboard';
+    }
+
     // protected $maxAttempts = 1;
     // protected $decayMinutes = 1;
 

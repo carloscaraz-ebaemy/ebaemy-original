@@ -1,18 +1,18 @@
 <?php
 
 namespace App\Providers;
- 
-use App\Models\Tenant\Warehouse;
+
 use App\Models\Tenant\DocumentItem;
 use App\Models\Tenant\Document;
-use App\Models\Tenant\PurchaseItem; 
-use App\Models\Tenant\SaleNoteItem; 
+use App\Models\Tenant\PurchaseItem;
+use App\Models\Tenant\SaleNoteItem;
+use App\Services\Tenant\SaleNoteStockService;
 use Illuminate\Support\ServiceProvider;
 use App\Traits\InventoryKardexTrait;
 
 class InventoryKardexServiceProvider extends ServiceProvider
 {
-    
+
     use InventoryKardexTrait;
  
     
@@ -23,11 +23,10 @@ class InventoryKardexServiceProvider extends ServiceProvider
  
 
     public function boot()
-    {        
-        // $this->sale();
-        // $this->purchase();
-        // $this->sale_note();
-
+    {
+        // $this->sale();     // Boleta/Factura — activar si se desea descuento por almacén en CPE
+        // $this->purchase(); // Compras — activar si se desea ingreso por almacén en compras
+        $this->sale_note();   // Notas de Venta — descuenta stock del almacén de la sucursal
     }
 
     private function sale()
@@ -68,13 +67,12 @@ class InventoryKardexServiceProvider extends ServiceProvider
 
     private function sale_note()
     {
-        SaleNoteItem::created(function ($sale_note_item) { 
+        // Toda la lógica de stock está en SaleNoteStockService.
+        // Este ServiceProvider actúa solo como dispatcher de observers.
+        $service = app(SaleNoteStockService::class);
 
-            $inventory_kardex = $this->saveInventoryKardex($sale_note_item->sale_note, $sale_note_item->item_id, $sale_note_item->sale_note->establishment_id, $sale_note_item->quantity);
-                
-            $this->updateStock($sale_note_item->item_id, $sale_note_item->sale_note->establishment_id, $inventory_kardex->quantity, true); 
-                            
-        });
+        SaleNoteItem::created(fn($item) => $service->onItemCreated($item));
+        SaleNoteItem::deleted(fn($item)  => $service->onItemDeleted($item));
     }
  
 }

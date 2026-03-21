@@ -66,6 +66,31 @@ if ($hostname) {
             Route::get('orders', 'Tenant\Api\OrderController@records');
             Route::post('orders', 'Tenant\Api\OrderController@store');
 
+            // ─── Sistema Logístico — Stock Inteligente ──────────────────────────────
+            // Cola del almacenero (roles: admin, warehouse)
+            Route::prefix('logistic')->group(function () {
+
+                // Cola del almacén
+                Route::get('warehouse-queue', [\App\Http\Controllers\Tenant\Logistic\WarehouseQueueController::class, 'index']);
+                Route::get('warehouse-queue/{saleNote}', [\App\Http\Controllers\Tenant\Logistic\WarehouseQueueController::class, 'show']);
+                Route::post('warehouse-queue/{saleNote}/start-preparation', [\App\Http\Controllers\Tenant\Logistic\WarehouseQueueController::class, 'startPreparation']);
+                Route::post('warehouse-queue/{saleNote}/cancel', [\App\Http\Controllers\Tenant\Logistic\WarehouseQueueController::class, 'cancel']);
+                Route::get('warehouse-queue/{saleNote}/stock-movements', [\App\Http\Controllers\Tenant\Logistic\WarehouseQueueController::class, 'stockMovements']);
+
+                // Consulta de stock disponible (para ecommerce y POS)
+                Route::get('stock-availability/{warehouseId}', [\App\Http\Controllers\Api\Ecommerce\CheckoutController::class, 'stockAvailability']);
+
+                // Stock por ítem en todos los almacenes (para el selector multi-almacén de NVs)
+                Route::get('sale-notes/stock-by-item/{item}', [\App\Http\Controllers\Tenant\Logistic\WarehouseDispatchController::class, 'stockByItem']);
+            });
+
+            // ─── Ecommerce Checkout (autenticado por token cliente) ─────────────────
+            Route::prefix('ecommerce')->group(function () {
+                Route::post('checkout', [\App\Http\Controllers\Api\Ecommerce\CheckoutController::class, 'store']);
+                Route::get('checkout/{orderId}', [\App\Http\Controllers\Api\Ecommerce\CheckoutController::class, 'show']);
+                Route::post('checkout/{orderId}/cancel', [\App\Http\Controllers\Api\Ecommerce\CheckoutController::class, 'cancel']);
+            });
+
             //Company
             Route::get('company', 'Tenant\Api\CompanyController@record');
 

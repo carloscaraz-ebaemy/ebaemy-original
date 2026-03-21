@@ -191,6 +191,7 @@ import TenantEcommerceConfigurationSeo from '../../modules/Ecommerce/Resources/a
 import TenantEcommerceConfigurationScript from '../../modules/Ecommerce/Resources/assets/js/views/configuration_script/index.vue'
 
 import TenantEcommerceConfigurationTerms from '../../modules/Ecommerce/Resources/assets/js/views/configuration_terms/index.vue'
+import TenantEcommerceConfigurationNewsletter from '../../modules/Ecommerce/Resources/assets/js/views/configuration_newsletter/index.vue'
 
 
 
@@ -579,6 +580,16 @@ Vue.component('tenant-ecommerce-configuration-tag', TenantEcommerceConfiguration
 Vue.component('tenant-ecommerce-configuration-seo', TenantEcommerceConfigurationSeo)
 Vue.component('tenant-ecommerce-configuration-script', TenantEcommerceConfigurationScript)
 Vue.component('tenant-ecommerce-configuration-terms', TenantEcommerceConfigurationTerms)
+Vue.component('tenant-ecommerce-configuration-newsletter', TenantEcommerceConfigurationNewsletter)
+
+import TenantEcommerceFlashSales from '../../modules/Ecommerce/Resources/assets/js/views/flash_sales/index.vue'
+Vue.component('tenant-ecommerce-flash-sales', TenantEcommerceFlashSales)
+
+import TenantEcommerceCoupons from '../../modules/Ecommerce/Resources/assets/js/views/coupons/index.vue'
+Vue.component('tenant-ecommerce-coupons', TenantEcommerceCoupons)
+
+import TenantEcommerceStockNotifications from '../../modules/Ecommerce/Resources/assets/js/views/stock_notifications/index.vue'
+Vue.component('tenant-ecommerce-stock-notifications', TenantEcommerceStockNotifications)
 
 
 
@@ -769,3 +780,7 @@ Vue.component('tenant-system-activity-logs-transactions-index', TenantSystemActi
 Vue.component('tenant-remember-change-password', TenantRememberChangePassword)
 Vue.component('tenant-report-pending-account-commissions-index', TenantReportPendingAccountCommissionsIndex)
 Vue.component('tenant-item-editor-tag', TenatnEditorTag)
+
+// ── Módulo Logística de Almacén ──────────────────────────────────────────────
+import WarehouseQueue from './views/tenant/logistic/WarehouseQueue.vue'
+Vue.component('warehouse-queue', WarehouseQueue)

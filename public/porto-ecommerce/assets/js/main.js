@@ -531,10 +531,27 @@ function(e) {
 			let contex = this
 			e(".add-cart").click(function(t) {
 
+				// delegate to cart.js if available (unified system)
+				if (typeof cart_add === 'function' && jQuery(this).attr('data-ec-cart')) {
+					t.preventDefault();
+					t.stopPropagation(); // prevent cart.js document listener from also firing
+					try {
+						var ecItem = JSON.parse(jQuery(this).attr('data-ec-cart'));
+						var qtyInput = document.getElementById('ec-qty-input');
+						ecItem.quantity = qtyInput ? (parseInt(qtyInput.value) || 1) : 1;
+						cart_add(JSON.stringify(ecItem));
+					} catch(err) {
+						cart_add(jQuery(this).attr('data-ec-cart'));
+					}
+					return;
+				}
+
 				let array = localStorage.getItem('products_cart');
-				array = JSON.parse(array);
+				array = array ? JSON.parse(array) : [];
+				if (!Array.isArray(array)) array = [];
 
 				let item = jQuery(this).data('product')
+				if (!item) return;
 				let found = array.find( x=> x.id == item.id)
 				if(!found)
 				{

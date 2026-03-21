@@ -65,56 +65,152 @@ use App\Models\System\PlanPeriod;
                     return $this->prepareModules($module);
                 });
 
-            // luego se podria crear grupos mediante algun modulo, de momento se pasan los id de manera directa
+            // Grupos de módulos por giro de negocio
+            // IDs: 1=Ventas, 2=Compras, 4=Reportes, 5=Config, 6=POS, 7=Dashboard
+            //      8=Inventario, 9=Contabilidad, 12=Finanzas, 14=Establecimientos
+            //      17=Productos, 18=Clientes, 50=PreVenta, 51=Guías de Remisión
+            //      53=Cola Despacho (logistic)
+            $base_ids       = [7, 1, 6, 17, 18, 5, 14];
+            $base_full_ids  = [7, 1, 6, 17, 18, 5, 14, 8, 2, 4, 12];
+            $base_guia_ids  = [7, 1, 6, 17, 18, 5, 14, 8, 2, 4, 12, 51];
+            $base_prev_ids  = [7, 1, 6, 17, 18, 5, 14, 8, 2, 4, 12, 51, 50];
+            $base_desp_ids  = [7, 1, 6, 17, 18, 5, 14, 8, 2, 4, 12, 51, 53];
+            $base_full_desp = [7, 1, 6, 17, 18, 5, 14, 8, 2, 4, 12, 51, 50, 53];
+
             $group_basic = Module::with('levels')
-                ->whereIn('id', [7,1,6,17,18,5,14])
-                ->orderBy('sort')
-                ->get()
-                ->each(function ($module) {
-                    return $this->prepareModules($module);
-                });
-            $group_hotel = Module::with('levels')
-                ->whereIn('id', [7,1,6,17,18,5,14,8,4])
-                ->orderBy('sort')
-                ->get()
-                ->each(function ($module) {
-                    return $this->prepareModules($module);
-                });
+                ->whereIn('id', $base_ids)
+                ->orderBy('sort')->get()
+                ->each(fn($m) => $this->prepareModules($m));
+
+            // Farmacia: inventario + compras + reportes + finanzas + guías + cola despacho + DIGEMID
             $group_pharmacy = Module::with('levels')
-                ->whereIn('id', [7,1,6,17,18,5,14,8,4])
-                ->orderBy('sort')
-                ->get()
-                ->each(function ($module) {
-                    return $this->prepareModules($module);
-                });
+                ->whereIn('id', $base_desp_ids)
+                ->orderBy('sort')->get()
+                ->each(fn($m) => $this->prepareModules($m));
+
+            // Hotel: inventario + compras + reportes + finanzas
+            $group_hotel = Module::with('levels')
+                ->whereIn('id', $base_full_ids)
+                ->orderBy('sort')->get()
+                ->each(fn($m) => $this->prepareModules($m));
+
+            // Restaurante: inventario + reportes + finanzas (sin compras)
             $group_restaurant = Module::with('levels')
-                ->whereIn('id', [7,1,6,17,18,5,14,8,4])
-                ->orderBy('sort')
-                ->get()
-                ->each(function ($module) {
-                    return $this->prepareModules($module);
-                });
+                ->whereIn('id', [7, 1, 6, 17, 18, 5, 14, 8, 4, 12])
+                ->orderBy('sort')->get()
+                ->each(fn($m) => $this->prepareModules($m));
+
+            // Ferretería: preventa + guías + inventario + compras + reportes + finanzas + cola despacho
+            $group_ferreteria = Module::with('levels')
+                ->whereIn('id', $base_full_desp)
+                ->orderBy('sort')->get()
+                ->each(fn($m) => $this->prepareModules($m));
+
+            // Distribuidora/Mayorista: preventa + guías + inventario + compras + reportes + finanzas + cola despacho
+            $group_distribuidora = Module::with('levels')
+                ->whereIn('id', $base_full_desp)
+                ->orderBy('sort')->get()
+                ->each(fn($m) => $this->prepareModules($m));
+
+            // Minimarket/Bodega: básico + inventario + compras + reportes + finanzas + cola despacho
+            $group_minimarket = Module::with('levels')
+                ->whereIn('id', array_merge($base_full_ids, [53]))
+                ->orderBy('sort')->get()
+                ->each(fn($m) => $this->prepareModules($m));
+
+            // Auto partes: inventario + compras + reportes + finanzas + guías + cola despacho
+            $group_autopartes = Module::with('levels')
+                ->whereIn('id', $base_desp_ids)
+                ->orderBy('sort')->get()
+                ->each(fn($m) => $this->prepareModules($m));
+
+            // Veterinaria: inventario + compras + reportes + finanzas
+            $group_veterinaria = Module::with('levels')
+                ->whereIn('id', $base_full_ids)
+                ->orderBy('sort')->get()
+                ->each(fn($m) => $this->prepareModules($m));
+
+            // Óptica: inventario + compras + reportes + finanzas
+            $group_optica = Module::with('levels')
+                ->whereIn('id', $base_full_ids)
+                ->orderBy('sort')->get()
+                ->each(fn($m) => $this->prepareModules($m));
+
+            // Clínica/Consultorio: inventario + compras + reportes + finanzas
+            $group_clinica = Module::with('levels')
+                ->whereIn('id', $base_full_ids)
+                ->orderBy('sort')->get()
+                ->each(fn($m) => $this->prepareModules($m));
+
+            // Panadería/Producción: inventario + compras + reportes + finanzas
+            $group_panaderia = Module::with('levels')
+                ->whereIn('id', $base_full_ids)
+                ->orderBy('sort')->get()
+                ->each(fn($m) => $this->prepareModules($m));
+
+            // Agrícola/Agroveterinaria: inventario + compras + reportes + finanzas + guías + cola despacho
+            $group_agricola = Module::with('levels')
+                ->whereIn('id', $base_desp_ids)
+                ->orderBy('sort')->get()
+                ->each(fn($m) => $this->prepareModules($m));
+
+            // Lubricentro: POS + inventario + compras + reportes + finanzas
+            $group_lubricentro = Module::with('levels')
+                ->whereIn('id', $base_full_ids)
+                ->orderBy('sort')->get()
+                ->each(fn($m) => $this->prepareModules($m));
+
+            // Inmobiliaria: ventas + clientes + reportes + finanzas (sin POS ni inventario)
+            $group_inmobiliaria = Module::with('levels')
+                ->whereIn('id', [7, 1, 17, 18, 5, 14, 4, 12])
+                ->orderBy('sort')->get()
+                ->each(fn($m) => $this->prepareModules($m));
+
+            // Constructora: compras + guías + reportes + finanzas + cola despacho
+            $group_constructora = Module::with('levels')
+                ->whereIn('id', $base_desp_ids)
+                ->orderBy('sort')->get()
+                ->each(fn($m) => $this->prepareModules($m));
+
+            // Transportes/Carga: compras + guías + reportes + finanzas + cola despacho
+            $group_transportes = Module::with('levels')
+                ->whereIn('id', $base_desp_ids)
+                ->orderBy('sort')->get()
+                ->each(fn($m) => $this->prepareModules($m));
+
+            // Educación/Academia: ventas + clientes + reportes + finanzas
+            $group_educacion = Module::with('levels')
+                ->whereIn('id', [7, 1, 6, 17, 18, 5, 14, 4, 12])
+                ->orderBy('sort')->get()
+                ->each(fn($m) => $this->prepareModules($m));
+
+            // Gimnasio/Spa: ventas + clientes + reportes + finanzas
+            $group_gimnasio = Module::with('levels')
+                ->whereIn('id', [7, 1, 6, 17, 18, 5, 14, 4, 12])
+                ->orderBy('sort')->get()
+                ->each(fn($m) => $this->prepareModules($m));
+
+            // Importación: inventario + compras + reportes + finanzas + guías + cola despacho
+            $group_importacion = Module::with('levels')
+                ->whereIn('id', $base_desp_ids)
+                ->orderBy('sort')->get()
+                ->each(fn($m) => $this->prepareModules($m));
+
+            // Apps por giro
             $group_hotel_apps = Module::with('levels')
                 ->whereIn('id', [15])
-                ->orderBy('sort')
-                ->get()
-                ->each(function ($module) {
-                    return $this->prepareModules($module);
-                });
+                ->orderBy('sort')->get()
+                ->each(fn($m) => $this->prepareModules($m));
+
             $group_pharmacy_apps = Module::with('levels')
                 ->whereIn('id', [19])
-                ->orderBy('sort')
-                ->get()
-                ->each(function ($module) {
-                    return $this->prepareModules($module);
-                });
+                ->orderBy('sort')->get()
+                ->each(fn($m) => $this->prepareModules($m));
+
             $group_restaurant_apps = Module::with('levels')
                 ->whereIn('id', [23])
-                ->orderBy('sort')
-                ->get()
-                ->each(function ($module) {
-                    return $this->prepareModules($module);
-                });
+                ->orderBy('sort')->get()
+                ->each(fn($m) => $this->prepareModules($m));
             $plan_periods = PlanPeriod::all();
 
             $config = Configuration::first();
@@ -134,13 +230,29 @@ use App\Models\System\PlanPeriod;
                 'certificate_admin',
                 'soap_username',
                 'soap_password',
+                'regex_password_client',
                 'group_basic',
-                'group_hotel',
                 'group_pharmacy',
+                'group_hotel',
                 'group_restaurant',
+                'group_ferreteria',
+                'group_distribuidora',
+                'group_minimarket',
+                'group_autopartes',
+                'group_veterinaria',
+                'group_optica',
+                'group_clinica',
+                'group_panaderia',
+                'group_agricola',
+                'group_lubricentro',
+                'group_inmobiliaria',
+                'group_constructora',
+                'group_transportes',
+                'group_educacion',
+                'group_gimnasio',
+                'group_importacion',
                 'group_hotel_apps',
                 'group_pharmacy_apps',
-                'regex_password_client',
                 'group_restaurant_apps');
         }
 

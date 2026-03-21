@@ -1,11 +1,12 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="es" data-theme="light">
 
 <head>
     <meta charset="UTF-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
     <meta name="csrf-token" content="{{ csrf_token() }}">
+    <script>(function(){var t=localStorage.getItem('ec_theme');if(t==='dark')document.documentElement.setAttribute('data-theme','dark');}());</script>
 
     @php
         $seo      = \App\Models\Tenant\ConfigurationEcommerce::first() ?? new \App\Models\Tenant\ConfigurationEcommerce();
@@ -87,6 +88,7 @@
     <link rel="stylesheet" href="{{ asset('porto-ecommerce/assets/css/rating.css') }}">
     <link rel="stylesheet" href="{{ asset('porto-ecommerce/assets/font-awesome/css/fontawesome-all.min.css') }}">
     <link rel="stylesheet" href="{{ asset('porto-light/css/styles_ecommerce.css') }}">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.css">
 </head>
 
 <body>
@@ -147,6 +149,15 @@
     <script src="{{ asset('porto-ecommerce/assets/js/main.js') }}"></script>
     <script src="{{ asset('porto-ecommerce/assets/js/vue.min.js') }}"></script>
     <script src="{{ asset('porto-ecommerce/assets/js/rating.js') }}"></script>
+    <script src="{{ asset('porto-ecommerce/assets/js/tracker.js') }}"></script>
+    <script src="{{ asset('porto-ecommerce/assets/js/wishlist.js') }}"></script>
+    <script src="{{ asset('porto-ecommerce/assets/js/cart.js') }}"></script>
+    <script src="{{ asset('porto-ecommerce/assets/js/stock-notify.js') }}"></script>
+    <script src="{{ asset('porto-ecommerce/assets/js/product-gallery.js') }}"></script>
+    <script src="{{ asset('porto-ecommerce/assets/js/image-zoom.js') }}"></script>
+    <script src="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.js"></script>
+    <script src="{{ asset('porto-ecommerce/assets/js/recently-viewed.js') }}"></script>
+    <script src="{{ asset('porto-ecommerce/assets/js/compare.js') }}"></script>
     @vite('resources/js/app.js')
     @stack('scripts')
 

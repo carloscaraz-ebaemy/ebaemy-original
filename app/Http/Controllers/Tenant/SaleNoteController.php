@@ -30,7 +30,9 @@ use App\Models\Tenant\Configuration;
 use App\Models\Tenant\Dispatch;
 use App\Models\Tenant\Establishment;
 use App\Models\Tenant\Item;
+use App\Enums\StockMovementTypeEnum;
 use App\Models\Tenant\ItemWarehouse;
+use App\Models\Tenant\StockMovement;
 use App\Models\Tenant\MigrationConfiguration;
 use App\Models\Tenant\PaymentMethodType;
 use App\Models\Tenant\Person;
@@ -67,11 +69,15 @@ use Mpdf\HTMLParserMode;
 use Mpdf\Mpdf;
 use App\Models\Tenant\DispatchSaleNote;
 use App\Http\Resources\Tenant\DispatchSaleNoteCollection;
+use Modules\Dispatch\Http\Controllers\DispatcherController;
 
 use Modules\Finance\Traits\FilePaymentTrait;
 // use App\Http\Resources\Tenant\SaleNoteGenerateDocumentResource;
 // use App\Models\Tenant\Warehouse;
 use App\CoreFacturalo\HelperFacturalo;
+use App\Enums\LogisticStatusEnum;
+use App\Enums\DeliveryTypeEnum;
+use App\Exceptions\InsufficientStockException;
 
 
 class SaleNoteController extends Controller
@@ -565,9 +571,11 @@ class SaleNoteController extends Controller
         // $sellers = User::GetSellers(false)->get();
         $sellers = User::getSellersToNvCpe($establishment_id,$userId);
         $global_discount_types = ChargeDiscountType::getGlobalDiscounts();
+        $locations = func_get_locations();
+        $dispatchers = (new DispatcherController())->getOptions();
 
         return compact('customers', 'establishments','currency_types', 'discount_types', 'configuration',
-                         'charge_types','company','payment_method_types', 'series', 'payment_destinations','sellers', 'global_charge_types', 'global_discount_types');
+                         'charge_types','company','payment_method_types', 'series', 'payment_destinations','sellers', 'global_charge_types', 'global_discount_types', 'locations', 'dispatchers');
     }
 
     public function changed($id)
@@ -711,6 +719,39 @@ class SaleNoteController extends Controller
             //se elimina los items para activar el evento deleted del modelo y controlar el inventario
             $this->deleteAllItems($this->sale_note->items);
 
+            // ── Pre-validación stock para pedidos de provincia ───────────────────────
+            $iwToCommit = [];
+            if (!$isUpdate && !empty($data['requires_warehouse_dispatch'])) {
+                $warehouseFallback = Warehouse::where('establishment_id', $this->sale_note->establishment_id)
+                    ->value('id');
+
+                foreach ($data['items'] as $row) {
+                    $itemId      = $row['item_id'] ?? null;
+                    $qty         = (float) ($row['quantity'] ?? 0);
+                    $warehouseId = $row['warehouse_id'] ?? $warehouseFallback;
+
+                    if (!$itemId || !$warehouseId || $qty <= 0) continue;
+
+                    $iw = ItemWarehouse::where('item_id', $itemId)
+                        ->where('warehouse_id', $warehouseId)
+                        ->lockForUpdate()
+                        ->first();
+
+                    if (!$iw) {
+                        throw new InsufficientStockException(
+                            "El producto #{$itemId} no está registrado en el almacén seleccionado. " .
+                            "Selecciona el almacén correcto donde existe el producto."
+                        );
+                    }
+                    if (!$iw->hasAvailableStock($qty)) {
+                        throw new InsufficientStockException(
+                            "Stock insuficiente para ítem #{$itemId}. " .
+                            "Disponible: " . number_format($iw->stock_available, 2) . ", requerido: {$qty}."
+                        );
+                    }
+                    $iwToCommit[] = ['iw' => $iw, 'qty' => $qty];
+                }
+            }
 
             foreach($data['items'] as $row)
             {
@@ -769,6 +810,10 @@ class SaleNoteController extends Controller
 
             }
 
+            // Nota: el PROVINCE_COMMIT ya fue aplicado por SaleNoteItem::created
+            // via InventoryKardexServiceProvider → SaleNoteStockService::commitProvince().
+            // $iwToCommit se usó solo para pre-validar stock antes de crear los items.
+
             //pagos
             $this->savePayments($this->sale_note, $data['payments'], $isUpdate);
             if (isset($data['fee'])) {
@@ -779,6 +824,21 @@ class SaleNoteController extends Controller
             $this->createPdf($this->sale_note,"a4", $this->sale_note->filename);
             $this->regularizePayments($data['payments']);
             DB::connection('tenant')->commit();
+
+            // ── Notificación en tiempo real al almacenero ────────────────────
+            if (!$isUpdate && $this->sale_note->requires_warehouse_dispatch) {
+                try {
+                    $tenantUuid = app(\Hyn\Tenancy\Environment::class)->tenant()?->uuid ?? '';
+                    $this->sale_note->load(['customer', 'items']);
+                    event(new \App\Events\Logistic\SaleNoteQueuedForDispatch(
+                        $this->sale_note,
+                        $tenantUuid
+                    ));
+                } catch (\Throwable $broadcastEx) {
+                    // El broadcast nunca debe romper la venta
+                    \Illuminate\Support\Facades\Log::warning('Broadcast SaleNoteQueuedForDispatch falló: ' . $broadcastEx->getMessage());
+                }
+            }
 
             return [
                 'success' => true,
@@ -980,8 +1040,51 @@ class SaleNoteController extends Controller
 
         unset($inputs['series_id']);
 
-//        $inputs->merge($values);
         $inputs = array_merge($inputs, $values);
+
+        // ── Logística: asignar tipo de entrega y estado inicial (solo en creación) ─
+        if (!$isUpdate) {
+            $deliveryType = $inputs['delivery_type'] ?? DeliveryTypeEnum::STORE->value;
+
+            // Retrocompatibilidad: si viene el switch antiguo, derivar delivery_type
+            if (!isset($inputs['delivery_type']) && !empty($inputs['requires_warehouse_dispatch'])) {
+                $deliveryType = DeliveryTypeEnum::PROVINCE->value;
+            }
+
+            // Usuarios sin módulo logístico no pueden usar tipos que requieren cola de almacén
+            $user = auth()->user();
+            if ($deliveryType !== DeliveryTypeEnum::STORE->value && !$user?->hasLogisticModule()) {
+                $deliveryType = DeliveryTypeEnum::STORE->value;
+            }
+
+            $deliveryEnum = DeliveryTypeEnum::tryFrom($deliveryType) ?? DeliveryTypeEnum::STORE;
+
+            $inputs['delivery_type']               = $deliveryEnum->value;
+            $inputs['requires_warehouse_dispatch'] = $deliveryEnum->requiresWarehouseQueue();
+            $inputs['is_urgent']                   = !empty($inputs['is_urgent']) ? true : false;
+            $inputs['pickup_person']               = $inputs['pickup_person'] ?? null;
+            $inputs['logistic_status']             = $deliveryEnum->requiresWarehouseQueue()
+                ? LogisticStatusEnum::PENDIENTE->value
+                : LogisticStatusEnum::ENTREGA_INMEDIATA->value;
+
+            // Datos de envío — solo para courier (province)
+            if ($deliveryEnum === \App\Enums\DeliveryTypeEnum::PROVINCE) {
+                $inputs['shipping_recipient']  = $inputs['shipping_recipient']  ?? null;
+                $inputs['shipping_phone']      = $inputs['shipping_phone']      ?? null;
+                $inputs['shipping_address']    = $inputs['shipping_address']    ?? null;
+                $inputs['shipping_city']       = $inputs['shipping_city']       ?? null;
+                $inputs['shipping_district_id']= $inputs['shipping_district_id']?? null;
+                $inputs['preferred_courier']    = $inputs['preferred_courier']    ?? null;
+                $inputs['preferred_carrier_id'] = $inputs['preferred_carrier_id'] ?? null;
+                $inputs['shipping_notes']       = $inputs['shipping_notes']       ?? null;
+
+                // ── Costo de envío cobrado al cliente (no facturado) ─────────
+                $inputs['shipping_cost_customer'] = max(0, (float) ($inputs['shipping_cost_customer'] ?? 0));
+            }
+        }
+        // En actualización NO se sobreescribe logistic_status para preservar
+        // el estado que el almacenero ya asignó.
+
         return $inputs;
     }
 
@@ -1666,8 +1769,35 @@ class SaleNoteController extends Controller
 
     public function searchCustomerById($id)
     {
-        return $this->searchClientById($id);
+        $data = $this->searchClientById($id);
+        $response = is_array($data) ? $data : $data->getData(true);
 
+        // Historial de direcciones de envío usadas por este cliente (últimas 5 distintas)
+        $shippingHistory = \App\Models\Tenant\SaleNote::where('customer_id', $id)
+            ->where('delivery_type', \App\Enums\DeliveryTypeEnum::PROVINCE->value)
+            ->whereNotNull('shipping_address')
+            ->latest()
+            ->select([
+                'shipping_recipient',
+                'shipping_phone',
+                'shipping_address',
+                'shipping_city',
+                'shipping_district_id',
+                'preferred_courier',
+                'preferred_carrier_id',
+                'shipping_notes',
+            ])
+            ->get()
+            ->unique(fn($r) => strtolower(trim($r->shipping_address . '|' . $r->shipping_city)))
+            ->take(5)
+            ->values()
+            ->toArray();
+
+        $response['shipping_history'] = $shippingHistory;
+        // Retrocompatibilidad: primer elemento como last_shipping
+        $response['last_shipping'] = $shippingHistory[0] ?? null;
+
+        return response()->json($response);
     }
 
     public function option_tables()

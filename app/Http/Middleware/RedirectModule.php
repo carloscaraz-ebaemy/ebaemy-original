@@ -33,10 +33,27 @@
 
 
 
+            if (!$request->user()) {
+                return redirect()->route('login');
+            }
+
             $module = $request->user()->getModule();
             $path = explode('/', $request->path());
             $modules = $request->user()->getModules();
             $this->route_path = $request->path();
+
+            // ── Validación especial: rutas logísticas ──────────────────────────────
+            // Solo admin, warehouse o usuarios con módulo logístico pueden acceder.
+            if (!$request->ajax() && ($path[0] ?? null) === 'logistic') {
+                $user = $request->user();
+                $canAccessLogistic = in_array($user->type, ['admin', 'warehouse'])
+                    || $user->hasLogisticModule();
+
+                if (!$canAccessLogistic) {
+                    $this->saveGeneralSystemActivity($user, 'module_access_error', $this->route_path);
+                    return $this->redirectRoute($module);
+                }
+            }
 
             if (!$request->ajax()) {
 
@@ -102,7 +119,12 @@
                 $firstLevel == "dispatches" ||
                 $firstLevel == "dispatch_carrier"
             ) {
-                $group = "guia";
+                // Permitir generate desde logística (warehouse users)
+                if ($firstLevel == "dispatches" && $secondLevel == "generate") {
+                    $group = null;
+                } else {
+                    $group = "guia";
+                }
             }
             elseif (
                 $firstLevel == "list-reports" ||
@@ -251,6 +273,8 @@
                 $group = "app_2_generator";
             }elseif ($firstLevel == "quotations") {
                 $group = "preventa";
+            }elseif ($firstLevel == "logistic") {
+                $group = null; // La validación de acceso logístico se hace en handle()
             }
             return $group;
         }

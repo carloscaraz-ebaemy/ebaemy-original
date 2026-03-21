@@ -79,6 +79,18 @@ class ConfigurationEcommerce extends ModelTenant
         // GOOGLE SITE VERIFICATION
         'google_site_verification',
 
+        // GOOGLE OAUTH LOGIN
+        'google_client_id',
+        'google_client_secret',
+        'google_login_enabled',
+
+        // NEWSLETTER POPUP
+        'newsletter_popup_enabled',
+        'newsletter_popup_title',
+        'newsletter_popup_desc',
+        'newsletter_discount_code',
+        'newsletter_popup_image',
+
         // OTROS
         'preferences'
     ];

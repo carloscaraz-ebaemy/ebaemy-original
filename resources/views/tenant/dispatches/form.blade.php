@@ -11,6 +11,12 @@
         @if(isset($sale_note))
             :sale_note="{{ json_encode($sale_note) }}"
         @endif
+        @if(isset($shipping_address_id) && $shipping_address_id)
+            :shipping-address-id="{{ $shipping_address_id }}"
+        @endif
+        @if(isset($dispatcher_id) && $dispatcher_id)
+            :dispatcher-id="{{ $dispatcher_id }}"
+        @endif
 
     ></tenant-dispatches-create>
 @endsection

@@ -30,6 +30,9 @@ class UserCollection extends ResourceCollection
                 case 'seller':
                     $type =  'Vendedor' ;
                         break;
+                case 'warehouse':
+                    $type =  'Almacén' ;
+                    break;
                 case 'client':
                     $type =  'Cliente' ;
                     break;

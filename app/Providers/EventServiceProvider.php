@@ -18,6 +18,21 @@ class EventServiceProvider extends ServiceProvider
         Registered::class => [
             SendEmailVerificationNotification::class,
         ],
+
+        // ─── Eventos logísticos ────────────────────────────────────────────────
+        \App\Events\Logistic\ProvinceOrderCreated::class => [
+            \App\Listeners\Logistic\LogProvinceOrderCreated::class,
+            // \App\Listeners\Logistic\SendWhatsappNotificationToWarehouse::class,
+            // \App\Listeners\Logistic\SendEmailNotificationToCustomer::class,
+        ],
+        \App\Events\Logistic\OrderDispatched::class => [
+            // \App\Listeners\Logistic\SendShippingGuideByEmail::class,
+            // \App\Listeners\Logistic\SendWhatsappTrackingToCustomer::class,
+        ],
+        \App\Events\Logistic\OrderStatusChanged::class => [
+            \App\Listeners\Logistic\LogOrderStatusChanged::class,
+            // \App\Listeners\Logistic\UpdateDashboardStats::class,
+        ],
     ];
 
     /**

@@ -290,24 +290,89 @@ class DispatchController extends Controller
 
     public function generate($sale_note_id)
     {
-        $sale_note = SaleNote::findOrFail($sale_note_id);
-        $type = null;
-        $document = $sale_note;
-        $dispatch = null;
+        $sale_note = SaleNote::with(['customer', 'items'])->findOrFail($sale_note_id);
+        $type      = null;
+        $dispatch  = null;
         $configuration = Configuration::query()->first();
-        $items = [];
-        foreach ($document->items as $item) {
+
+        // Transformar items: añadir description y unit_type_id al nivel raíz
+        // para que el Vue dispatch form los muestre correctamente
+        $transformedItems = $sale_note->items->map(function ($item) use ($configuration) {
+            $itemJson = $item->item; // stdClass desde JSON
             $name_product_pdf = ($configuration->show_pdf_name) ? strip_tags($item->name_product_pdf) : null;
-            $items[] = [
-                'item_id' => $item->item_id,
-                'item' => $item,
-                'quantity' => $item->quantity,
-                'description' => $item->item->description,
-                'name_product_pdf' => $name_product_pdf
+            return [
+                'id'               => $item->id,
+                'item_id'          => $item->item_id,
+                'description'      => $itemJson->description ?? $item->name_product_pdf ?? '',
+                'unit_type_id'     => $itemJson->unit_type_id ?? 'NIU',
+                'quantity'         => $item->quantity,
+                'unit_price'       => $item->unit_price,
+                'total'            => $item->total,
+                'name_product_pdf' => $name_product_pdf,
+                'item'             => $itemJson,
+                'IdLoteSelected'   => '',
+                'lots'             => [],
+                'warehouse_id'     => $item->warehouse_id,
             ];
+        })->values()->toArray();
+
+        // Construir $document con los items ya transformados
+        $documentData = $sale_note->toArray();
+        $documentData['items'] = $transformedItems;
+        $document = $documentData;
+
+        $items = $transformedItems;
+
+        // ── Pre-crear dirección de entrega desde los datos de envío del vendedor ──
+        $shipping_address_id = null;
+        if ($sale_note->shipping_address && $sale_note->customer_id) {
+            $addressText = trim(
+                $sale_note->shipping_address .
+                ($sale_note->shipping_city ? ', ' . $sale_note->shipping_city : '')
+            );
+            // Limitar a 100 caracteres (validación de SUNAT)
+            $addressText = mb_substr($addressText, 0, 100);
+
+            // Buscar si ya existe esa dirección para el cliente
+            $dispatchAddress = \Modules\Dispatch\Models\DispatchAddress::where('person_id', $sale_note->customer_id)
+                ->where('address', $addressText)
+                ->first();
+
+            if (!$dispatchAddress) {
+                // Reconstruir array [dept, prov, district] desde el ubigeo de 6 dígitos
+                $distId = $sale_note->shipping_district_id;
+                if ($distId && strlen($distId) >= 6) {
+                    $locationId = [
+                        substr($distId, 0, 2),
+                        substr($distId, 0, 4),
+                        $distId,
+                    ];
+                } else {
+                    // Sin ubigeo: usar Lima centro como fallback para no violar NOT NULL
+                    $locationId = ['15', '1501', '150101'];
+                }
+                $dispatchAddress = \Modules\Dispatch\Models\DispatchAddress::create([
+                    'person_id'   => $sale_note->customer_id,
+                    'address'     => $addressText,
+                    'is_active'   => true,
+                    'location_id' => $locationId,
+                ]);
+            }
+
+            $shipping_address_id = $dispatchAddress->id;
         }
-        //dd($sale_note_id);
-        return view('tenant.dispatches.form', compact('document', 'type', 'dispatch', 'items'));
+
+        $parentTable = 'sale_note';
+        $parentId    = $sale_note_id;
+
+        // Pre-seleccionar transportista registrado desde la NV
+        $dispatcher_id = $sale_note->preferred_carrier_id ?? null;
+
+        return view('tenant.dispatches.form', compact(
+            'document', 'type', 'dispatch', 'items',
+            'sale_note', 'parentTable', 'parentId',
+            'shipping_address_id', 'dispatcher_id'
+        ));
     }
 
     public function sendDispatchToSunat(Dispatch $document)

@@ -49,8 +49,8 @@ class ServiceData
             }
         }
 
-        $url = $configuration->url_apiruc = !'' ? $configuration->url_apiruc : config('configuration.api_service_url');
-        $token = $configuration->token_apiruc = !'' ? $configuration->token_apiruc : config('configuration.api_service_token');
+        $url   = !empty($configuration->url_apiruc)   ? $configuration->url_apiruc   : config('configuration.api_service_url');
+        $token = !empty($configuration->token_apiruc) ? $configuration->token_apiruc : config('configuration.api_service_token');
         $this->configuration = $configuration;
         $this->trackApi = $trackApi;
         $this->company = $company;
@@ -238,6 +238,8 @@ class ServiceData
         ];
 
         $this->parameters['form_params'] = $form_params;
+        $this->parameters['connect_timeout'] = 4;
+        $this->parameters['timeout'] = 6;
         $res = $this->client->request('POST', '/api/tipo_de_cambio', $this->parameters);
         $response = json_decode($res->getBody()->getContents(), true);
 

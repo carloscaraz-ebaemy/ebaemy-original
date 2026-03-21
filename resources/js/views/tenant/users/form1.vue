@@ -169,6 +169,25 @@
                             ></small>
                         </div>
                     </div>
+                    <!-- Almacén asignado — visible solo para perfil warehouse -->
+                    <div v-if="form.type === 'warehouse' && warehouses.length" class="col-md-4">
+                        <div class="form-group">
+                            <label class="control-label">
+                                Almacén asignado
+                                <el-tooltip content="El stock se descuenta de este almacén cuando el usuario inicia preparación (picking)" effect="dark" placement="top">
+                                    <i class="fa fa-info-circle"></i>
+                                </el-tooltip>
+                            </label>
+                            <el-select v-model="form.warehouse_id" clearable placeholder="Seleccionar almacén">
+                                <el-option
+                                    v-for="w in warehouses"
+                                    :key="w.id"
+                                    :label="w.description"
+                                    :value="w.id"
+                                ></el-option>
+                            </el-select>
+                        </div>
+                    </div>
                     <div v-show="form.id" class="col-md-8">
                         <div :class="{ 'has-danger': errors.api_token }" class="form-group">
                             <label class="control-label">Api Token</label>
@@ -641,6 +660,7 @@ export default {
             modules: [],
             datai: [],
             establishments: [],
+            warehouses: [],
             documents: [],
             series: [],
             types: [],
@@ -667,6 +687,7 @@ export default {
         await this.$http.get(`/${this.resource}/tables`).then((response) => {
             this.modules = response.data.modules;
             this.establishments = response.data.establishments;
+            this.warehouses = response.data.warehouses || [];
             this.zones = response.data.zones;
             this.types = response.data.types;
             this.documents = response.data.documents;
@@ -776,6 +797,7 @@ export default {
                 password_confirmation: null,
                 locked: false,
                 type: null,
+                warehouse_id: null,
                 series_id: null,
                 document_id: null,
                 modules: [],
@@ -938,6 +960,7 @@ export default {
                     this.$refs.tree.setCheckedKeys([]);
                     this.modules = response.data.modules;
                     this.establishments = response.data.establishments;
+                    this.warehouses = response.data.warehouses || [];
                     this.zones = response.data.zones;
                     this.types = response.data.types;
                     this.documents = response.data.documents;

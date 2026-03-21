@@ -26,12 +26,7 @@
     line-height: 2.5rem;
 }
 .cart-dropdown .dropdown-toggle {
-    padding-right: 1.5rem;
-}
-
-.cart-dropdown .dropdown-toggle .cart-count {
-    right: 1rem;
-    top: 0rem;
+    padding-right: 1rem;
 }
 
 .cart-dropdown .dropdownmenu-wrapper::before {

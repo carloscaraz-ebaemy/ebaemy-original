@@ -275,6 +275,95 @@
 
     </script>
     <!-- <script src="//code.tidio.co/1vliqewz9v7tfosw5wxiktpkgblrws5w.js"></script> -->
+
+    {{-- ── Notificaciones de despacho al vendedor ──────────────────────── --}}
+    @php $dispatchNotifs = session()->pull('dispatch_notifications_' . auth()->id(), []); @endphp
+    @if(!empty($dispatchNotifs))
+    <div id="dispatch-toast-container"
+         style="position:fixed;bottom:20px;right:20px;z-index:9999;display:flex;flex-direction:column;gap:10px;max-width:340px;">
+    </div>
+    <script>
+    (function(){
+        var notifs = @json($dispatchNotifs);
+        var container = document.getElementById('dispatch-toast-container');
+        if (!container) return;
+
+        function esc(s) {
+            return String(s == null ? '' : s)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;');
+        }
+
+        notifs.forEach(function(n, i){
+            var isPickup = n.type === 'RECOGIDO';
+            var icon     = isPickup ? '🏪' : '🚚';
+            var color    = isPickup ? '#0d6efd' : '#198754';
+            var title    = isPickup ? 'Pedido Entregado' : 'Pedido Despachado';
+
+            var div = document.createElement('div');
+            div.style.cssText = 'background:white;border-left:4px solid ' + color + ';border-radius:8px;padding:12px 14px;box-shadow:0 4px 15px rgba(0,0,0,.15);animation:slideIn .3s ease;opacity:1;transition:opacity .4s';
+            div.innerHTML =
+                '<div style="display:flex;justify-content:space-between;align-items:flex-start">' +
+                  '<strong style="color:' + color + '">' + icon + ' ' + title + '</strong>' +
+                  '<button onclick="this.parentElement.parentElement.remove()" style="background:none;border:none;font-size:18px;cursor:pointer;color:#aaa;line-height:1">×</button>' +
+                '</div>' +
+                '<div style="margin-top:4px;font-size:13px"><strong>' + esc(n.number) + '</strong> — ' + esc(n.customer) + '</div>' +
+                (n.courier ? '<div style="font-size:12px;color:#666;margin-top:2px">Courier: ' + esc(n.courier) + (n.tracking ? ' · Guía: ' + esc(n.tracking) : '') + '</div>' : '') +
+                (n.pickup_person ? '<div style="font-size:12px;color:#666;margin-top:2px">Recogió: ' + esc(n.pickup_person) + '</div>' : '') +
+                '<div style="font-size:11px;color:#aaa;margin-top:4px">' + esc(n.dispatched_at) + '</div>';
+
+            setTimeout(function(){ container.appendChild(div); }, i * 400);
+
+            // Auto-cerrar a los 12 segundos
+            setTimeout(function(){
+                div.style.opacity = '0';
+                setTimeout(function(){ if(div.parentElement) div.remove(); }, 400);
+            }, 12000 + i * 400);
+        });
+    })();
+    </script>
+    <style>
+    @keyframes slideIn { from { transform: translateX(120%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+    </style>
+    @endif
+
+    @if(in_array(auth()->user()->type ?? '', ['admin', 'superadmin', 'warehouse']) && in_array('logistic', $vc_modules ?? []) && in_array('logistic', $vc_module_levels ?? []))
+    <script>
+    (function logisticBadgePolling() {
+        const INTERVAL = 20000; // cada 20 segundos
+        const url      = '{{ route('logistic.sale_notes.queue_count') }}';
+
+        function updateBadges(count, hasUrgent) {
+            document.querySelectorAll('.logistic-queue-badge').forEach(function(el) {
+                if (count > 0) {
+                    el.textContent = count;
+                    el.style.display = '';
+                    el.className = 'badge ms-1 logistic-queue-badge ' + (hasUrgent ? 'bg-warning' : 'bg-danger');
+                } else {
+                    el.style.display = 'none';
+                }
+            });
+        }
+
+        function fetchCount() {
+            fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+                .then(function(r) { return r.ok ? r.json() : null; })
+                .then(function(data) {
+                    if (!data) return;
+                    updateBadges(data.total_pending, data.has_urgent);
+                })
+                .catch(function() {});
+        }
+
+        // Llamar inmediatamente al cargar la página
+        fetchCount();
+        // Y luego repetir cada 20 segundos
+        setInterval(fetchCount, INTERVAL);
+    })();
+    </script>
+    @endif
 </body>
 
 </html>

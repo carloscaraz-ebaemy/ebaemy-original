@@ -28,6 +28,10 @@ if ($hostname) {
 
         Route::get('sale-notes/print/{external_id}/{format?}', 'Tenant\SaleNoteController@toPrint');
         Route::get('sale-notes/ticket/{id}/{format?}', 'Tenant\SaleNoteController@toTicket')->where('id', '[0-9]+');
+
+        // ── Tracking público de pedidos (sin auth) ─────────────────────────
+        Route::get('logistic/tracking', [\App\Http\Controllers\Tenant\Logistic\TrackingController::class, 'index'])
+             ->name('logistic.tracking');
         Route::get('purchases/print/{external_id}/{format?}', 'Tenant\PurchaseController@toPrint');
 
         Route::get('quotations/print/{external_id}/{format?}', 'Tenant\QuotationController@toPrint');
@@ -73,6 +77,111 @@ if ($hostname) {
             //warehouse
             Route::post('orders/warehouse', 'Tenant\OrderController@searchWarehouse');
             Route::get('orders/tables', 'Tenant\OrderController@tables');
+
+            // ─── Sistema Logístico — Cola del Almacén ──────────────────────────────
+            Route::prefix('logistic')->group(function () {
+                // Panel Vue del almacenero
+                Route::get('warehouse-queue', function () {
+                    $tenancy = app(\Hyn\Tenancy\Environment::class);
+                    return view('tenant.logistic.warehouse_queue', [
+                        'tenant_uuid'  => $tenancy->tenant()?->uuid ?? '',
+                        'warehouse_id' => auth()->user()?->establishment?->warehouse?->id,
+                    ]);
+                })->name('logistic.warehouse_queue');
+
+                // ── Cola de Notas de Venta — módulo almacén ──────────────────
+                // Roles: admin, warehouse
+                Route::prefix('sale-notes')->group(function () {
+                    Route::get('queue', [\App\Http\Controllers\Tenant\Logistic\WarehouseDispatchController::class, 'index'])
+                         ->name('logistic.sale_notes.queue');
+                    Route::get('queue-count', [\App\Http\Controllers\Tenant\Logistic\WarehouseDispatchController::class, 'queueCount'])
+                         ->name('logistic.sale_notes.queue_count');
+
+                    Route::get('queue/labels/batch', [\App\Http\Controllers\Tenant\Logistic\WarehouseDispatchController::class, 'printBatchLabels'])
+                         ->name('logistic.sale_notes.labels_batch');
+                    Route::get('queue/{saleNote}/label-html', [\App\Http\Controllers\Tenant\Logistic\WarehouseDispatchController::class, 'labelHtml'])
+                         ->name('logistic.sale_notes.label_html');
+
+                    Route::get('queue/{saleNote}', [\App\Http\Controllers\Tenant\Logistic\WarehouseDispatchController::class, 'show'])
+                         ->name('logistic.sale_notes.show');
+                    Route::get('queue/{saleNote}/detail', [\App\Http\Controllers\Tenant\Logistic\WarehouseDispatchController::class, 'detail'])
+                         ->name('logistic.sale_notes.detail');
+                    Route::get('stock-by-item/{item}', [\App\Http\Controllers\Tenant\Logistic\WarehouseDispatchController::class, 'stockByItem'])
+                         ->name('logistic.stock_by_item');
+
+                    Route::post('queue/{saleNote}/process', [\App\Http\Controllers\Tenant\Logistic\WarehouseDispatchController::class, 'process'])
+                         ->name('logistic.sale_notes.process');
+
+                    Route::post('queue/{saleNote}/ready', [\App\Http\Controllers\Tenant\Logistic\WarehouseDispatchController::class, 'ready'])
+                         ->name('logistic.sale_notes.ready');
+
+                    Route::post('queue/{saleNote}/dispatch', [\App\Http\Controllers\Tenant\Logistic\WarehouseDispatchController::class, 'dispatchOrder'])
+                         ->name('logistic.sale_notes.dispatch');
+                    Route::post('queue/{saleNote}/pickup', [\App\Http\Controllers\Tenant\Logistic\WarehouseDispatchController::class, 'confirmPickup'])
+                         ->name('logistic.sale_notes.pickup');
+                    Route::post('queue/{saleNote}/cancel', [\App\Http\Controllers\Tenant\Logistic\WarehouseDispatchController::class, 'cancelPreparation'])
+                         ->name('logistic.sale_notes.cancel');
+                    Route::post('queue/{saleNote}/annul', [\App\Http\Controllers\Tenant\Logistic\WarehouseDispatchController::class, 'annulDispatch'])
+                         ->name('logistic.sale_notes.annul');
+
+                    Route::get('history', [\App\Http\Controllers\Tenant\Logistic\WarehouseDispatchController::class, 'history'])
+                         ->name('logistic.sale_notes.history');
+                    Route::get('queue/{saleNote}/label', [\App\Http\Controllers\Tenant\Logistic\WarehouseDispatchController::class, 'printLabel'])
+                         ->name('logistic.sale_notes.label');
+                    Route::get('shipping-guide/{guide}/pdf', [\App\Http\Controllers\Tenant\Logistic\WarehouseDispatchController::class, 'downloadGuidePdf'])
+                         ->name('logistic.shipping_guide.pdf');
+                });
+
+                // Gestión de couriers (admin)
+                Route::prefix('courier-companies')->group(function () {
+                    Route::get('/', [\App\Http\Controllers\Tenant\Logistic\CourierCompanyController::class, 'index'])
+                         ->name('logistic.couriers.index');
+                    Route::get('/list', [\App\Http\Controllers\Tenant\Logistic\CourierCompanyController::class, 'list'])
+                         ->name('logistic.couriers.list');
+                    Route::post('/', [\App\Http\Controllers\Tenant\Logistic\CourierCompanyController::class, 'store'])
+                         ->name('logistic.couriers.store');
+                    Route::put('{courier}', [\App\Http\Controllers\Tenant\Logistic\CourierCompanyController::class, 'update'])
+                         ->name('logistic.couriers.update');
+                    Route::delete('{courier}', [\App\Http\Controllers\Tenant\Logistic\CourierCompanyController::class, 'destroy'])
+                         ->name('logistic.couriers.destroy');
+                });
+
+                // ── Dashboard ────────────────────────────────────────────────
+                Route::get('dashboard', [\App\Http\Controllers\Tenant\Logistic\DashboardController::class, 'index'])
+                     ->name('logistic.dashboard');
+
+                // ── API JSON para el Vue (usa sesión web, no token) ───────────
+                Route::get('queue-json', [\App\Http\Controllers\Tenant\Logistic\WarehouseQueueController::class, 'index'])
+                     ->name('logistic.queue_json');
+                Route::post('queue-json/{saleNote}/start-preparation', [\App\Http\Controllers\Tenant\Logistic\WarehouseQueueController::class, 'startPreparation'])
+                     ->name('logistic.queue_json.start');
+                Route::post('queue-json/{saleNote}/cancel', [\App\Http\Controllers\Tenant\Logistic\WarehouseQueueController::class, 'cancel'])
+                     ->name('logistic.queue_json.cancel');
+                Route::patch('queue-json/{saleNote}/update-shipping', [\App\Http\Controllers\Tenant\Logistic\WarehouseQueueController::class, 'updateShipping'])
+                     ->name('logistic.queue_json.update_shipping');
+                Route::post('queue-json/{saleNote}/ready', [\App\Http\Controllers\Tenant\Logistic\WarehouseQueueController::class, 'markReady'])
+                     ->name('logistic.queue_json.ready');
+                Route::post('queue-json/{saleNote}/dispatch', [\App\Http\Controllers\Tenant\Logistic\WarehouseQueueController::class, 'dispatchOrder'])
+                     ->name('logistic.queue_json.dispatch');
+                Route::get('queue-json/{saleNote}/stock-movements', [\App\Http\Controllers\Tenant\Logistic\WarehouseQueueController::class, 'stockMovements'])
+                     ->name('logistic.queue_json.stock_movements');
+
+                // ── Devoluciones ─────────────────────────────────────────────
+                Route::prefix('returns')->group(function () {
+                    Route::get('/', [\App\Http\Controllers\Tenant\Logistic\ReturnController::class, 'index'])
+                         ->name('logistic.returns.index');
+                    Route::get('/create', [\App\Http\Controllers\Tenant\Logistic\ReturnController::class, 'create'])
+                         ->name('logistic.returns.create');
+                    Route::get('/search', [\App\Http\Controllers\Tenant\Logistic\ReturnController::class, 'searchOrder'])
+                         ->name('logistic.returns.search');
+                    Route::post('/', [\App\Http\Controllers\Tenant\Logistic\ReturnController::class, 'store'])
+                         ->name('logistic.returns.store');
+                    Route::get('/{return}', [\App\Http\Controllers\Tenant\Logistic\ReturnController::class, 'show'])
+                         ->name('logistic.returns.show');
+                    Route::patch('/{return}/process', [\App\Http\Controllers\Tenant\Logistic\ReturnController::class, 'process'])
+                         ->name('logistic.returns.process');
+                });
+            });
 
             Route::get('orders/tables/item/{internal_id}', 'Tenant\OrderController@item');
 

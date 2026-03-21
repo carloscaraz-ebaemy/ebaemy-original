@@ -1,0 +1,18 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(grep -r --primary-color /c/laragon/www/ebaemy-original/public/porto-light/css/)",
+      "Bash(grep -r --primary-color /c/laragon/www/ebaemy-original/public/build/assets/)",
+      "Bash(grep -r --primary-color /c/laragon/www/ebaemy-original/public/build/assets/*.css)",
+      "Bash(ls /c/laragon/www/ebaemy-original/public/build/assets/*.css)",
+      "Bash(find /c/laragon/www/ebaemy-original/public -name *.css -exec grep -l primary-color {})",
+      "Bash(mysql --host=127.0.0.1 -uroot -e \":*)",
+      "Bash(mysql --host=127.0.0.1 -uroot -e \"SELECT id, name, description FROM ebaemyoriginal_demo.items ORDER BY id;\")",
+      "Bash(php /c/laragon/www/ebaemy-original/artisan config:clear)",
+      "Bash(php /c/laragon/www/ebaemy-original/artisan view:clear)",
+      "Bash(grep -v \"^$\")",
+      "Bash(php /c/laragon/www/ebaemy-original/artisan tinker --execute=\":*)",
+      "Bash(mysql --host=127.0.0.1 -uroot -e \"SHOW TABLES FROM ebaemyoriginal_demo LIKE ''business_turns'';\")"
+    ]
+  }
+}

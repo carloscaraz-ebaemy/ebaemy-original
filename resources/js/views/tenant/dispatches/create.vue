@@ -383,7 +383,7 @@
                                             placeholder="Escriba el nombre o número de documento del transportista"
                                             popper-class="el-select-customers" remote>
                                             <el-option v-for="option in dispatchers" :key="option.id"
-                                                :label="option.number + ' - ' + option.name + ' - ' + option.number_mtc"
+                                                :label="option.number + ' - ' + option.name + (option.number_mtc ? ' - MTC: ' + option.number_mtc : '')"
                                                 :value="option.id"></el-option>
                                         </el-select>
                                         <small v-if="errors.dispatcher_id" class="form-control-feedback"
@@ -897,6 +897,9 @@ export default {
         'order_form',
         'configuration',
         'authUser',
+        'sale_note',
+        'shippingAddressId',
+        'dispatcherId',
     ],
     components: {
         itemForm,
@@ -1066,9 +1069,32 @@ export default {
             this.calculatePackagesFromItems();
             await this.reloadDataCustomers(this.form.customer_id);
             await this.getDeliveryAddresses(this.form.customer_id);
-            if (this.delivery_addresses.length > 0) {
+
+            // ── Pre-seleccionar dirección de envío registrada por el vendedor ──
+            if (this.shippingAddressId) {
+                this.form.delivery_address_id = this.shippingAddressId;
+            } else if (this.delivery_addresses.length > 0) {
                 this.form.delivery_address_id = _.head(this.delivery_addresses).id;
             }
+
+            // ── Pre-seleccionar transportista desde la NV ─────────────────────
+            if (this.dispatcherId) {
+                this.form.dispatcher_id = parseInt(this.dispatcherId);
+            }
+
+            // ── Pre-llenar datos del destinatario en observaciones ────────────
+            if (this.sale_note) {
+                const sn = this.sale_note;
+                let obs = [];
+                if (sn.shipping_recipient) obs.push('Destinatario: ' + sn.shipping_recipient);
+                if (sn.shipping_phone)     obs.push('Tel: ' + sn.shipping_phone);
+                if (sn.preferred_courier)  obs.push('Courier: ' + sn.preferred_courier);
+                if (sn.shipping_notes)     obs.push('Instrucciones: ' + sn.shipping_notes);
+                if (obs.length > 0) {
+                    this.form.observations = obs.join(' | ');
+                }
+            }
+
             await this.changeEstablishment()
             if (this.parentTable !== 'dispatches') {
                 this.setDefaults();

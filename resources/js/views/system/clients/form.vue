@@ -255,6 +255,22 @@
                                     <el-radio :label="2">Farmacia</el-radio>
                                     <el-radio :label="3">Hotel</el-radio>
                                     <el-radio :label="4">Restaurante</el-radio>
+                                    <el-radio :label="5">Ferretería</el-radio>
+                                    <el-radio :label="6">Distribuidora</el-radio>
+                                    <el-radio :label="7">Minimarket</el-radio>
+                                    <el-radio :label="8">Auto partes</el-radio>
+                                    <el-radio :label="9">Veterinaria</el-radio>
+                                    <el-radio :label="10">Óptica</el-radio>
+                                    <el-radio :label="11">Clínica</el-radio>
+                                    <el-radio :label="12">Panadería</el-radio>
+                                    <el-radio :label="13">Agrícola</el-radio>
+                                    <el-radio :label="14">Lubricentro</el-radio>
+                                    <el-radio :label="15">Inmobiliaria</el-radio>
+                                    <el-radio :label="16">Constructora</el-radio>
+                                    <el-radio :label="17">Transportes</el-radio>
+                                    <el-radio :label="18">Educación</el-radio>
+                                    <el-radio :label="19">Gimnasio</el-radio>
+                                    <el-radio :label="20">Importación</el-radio>
                                 </el-radio-group>
                             </div>
                             <div class="col-md-6">
@@ -789,6 +805,22 @@ export default {
             soap_password: null,
             collapse: 1,
             business: null,
+            group_ferreteria: [],
+            group_distribuidora: [],
+            group_minimarket: [],
+            group_autopartes: [],
+            group_veterinaria: [],
+            group_optica: [],
+            group_clinica: [],
+            group_panaderia: [],
+            group_agricola: [],
+            group_lubricentro: [],
+            group_inmobiliaria: [],
+            group_constructora: [],
+            group_transportes: [],
+            group_educacion: [],
+            group_gimnasio: [],
+            group_importacion: [],
             regex_password_client: false,
         }
     },
@@ -810,9 +842,25 @@ export default {
                 this.soap_username = response.data.soap_username
                 this.soap_password = response.data.soap_password
                 this.group_basic = response.data.group_basic
-                this.group_hotel = response.data.group_hotel
                 this.group_pharmacy = response.data.group_pharmacy
+                this.group_hotel = response.data.group_hotel
                 this.group_restaurant = response.data.group_restaurant
+                this.group_ferreteria = response.data.group_ferreteria
+                this.group_distribuidora = response.data.group_distribuidora
+                this.group_minimarket = response.data.group_minimarket
+                this.group_autopartes = response.data.group_autopartes
+                this.group_veterinaria = response.data.group_veterinaria
+                this.group_optica = response.data.group_optica
+                this.group_clinica = response.data.group_clinica
+                this.group_panaderia = response.data.group_panaderia
+                this.group_agricola = response.data.group_agricola
+                this.group_lubricentro = response.data.group_lubricentro
+                this.group_inmobiliaria = response.data.group_inmobiliaria
+                this.group_constructora = response.data.group_constructora
+                this.group_transportes = response.data.group_transportes
+                this.group_educacion = response.data.group_educacion
+                this.group_gimnasio = response.data.group_gimnasio
+                this.group_importacion = response.data.group_importacion
                 this.group_hotel_apps = response.data.group_hotel_apps
                 this.group_pharmacy_apps = response.data.group_pharmacy_apps
                 this.group_restaurant_apps = response.data.group_restaurant_apps
@@ -1082,24 +1130,33 @@ export default {
             this.form.name = data.name;
         },
         changeModules() {
-            var group = {
-                modules: [],
-                apps: [],
+            var group = { modules: [], apps: [] };
+            const map = {
+                1:  { modules: this.group_basic },
+                2:  { modules: this.group_pharmacy,    apps: this.group_pharmacy_apps },
+                3:  { modules: this.group_hotel,        apps: this.group_hotel_apps },
+                4:  { modules: this.group_restaurant,   apps: this.group_restaurant_apps },
+                5:  { modules: this.group_ferreteria },
+                6:  { modules: this.group_distribuidora },
+                7:  { modules: this.group_minimarket },
+                8:  { modules: this.group_autopartes },
+                9:  { modules: this.group_veterinaria },
+                10: { modules: this.group_optica },
+                11: { modules: this.group_clinica },
+                12: { modules: this.group_panaderia },
+                13: { modules: this.group_agricola },
+                14: { modules: this.group_lubricentro },
+                15: { modules: this.group_inmobiliaria },
+                16: { modules: this.group_constructora },
+                17: { modules: this.group_transportes },
+                18: { modules: this.group_educacion },
+                19: { modules: this.group_gimnasio },
+                20: { modules: this.group_importacion },
             };
-            if(this.business == 1){
-                group.modules = this.getIds(this.group_basic);
-            }
-            if(this.business == 2){
-                group.modules = this.getIds(this.group_pharmacy);
-                group.apps = this.getIds(this.group_pharmacy_apps);
-            }
-            if(this.business == 3){
-                group.modules = this.getIds(this.group_hotel);
-                group.apps = this.getIds(this.group_hotel_apps);
-            }
-            if(this.business == 4){
-                group.modules = this.getIds(this.group_restaurant);
-                group.apps = this.getIds(this.group_restaurant_apps);
+            const selected = map[this.business];
+            if (selected) {
+                group.modules = this.getIds(selected.modules || []);
+                group.apps    = this.getIds(selected.apps    || []);
             }
             this.$refs.tree.setCheckedKeys(group.modules);
             this.$refs.Apptree.setCheckedKeys(group.apps);

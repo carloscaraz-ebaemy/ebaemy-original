@@ -1,11 +1,13 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="es" data-theme="light">
 
 <head>
     <meta charset="UTF-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
     <meta name="csrf-token" content="{{ csrf_token() }}">
+    {{-- Anti-flash: aplicar tema ANTES de que cargue el CSS --}}
+    <script>(function(){var t=localStorage.getItem('ec_theme');if(t==='dark')document.documentElement.setAttribute('data-theme','dark');}());</script>
     <script src="{{ asset('porto-ecommerce/assets/js/jquery.min.js') }}"></script>
 
 @php
@@ -85,6 +87,14 @@
     <link rel="apple-touch-icon" href="{{ $favicon_url }}?v={{ $v }}">
     <link rel="shortcut icon" href="{{ $favicon_url }}?v={{ $v }}">
 
+    {{-- PWA --}}
+    <link rel="manifest" href="{{ route('ecommerce.manifest') }}">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="{{ $company->trade_name ?? $company->name ?? 'Tienda' }}">
+    <meta name="theme-color" content="{{ $seo->color_ecommerce ?? '#ff8000' }}" id="ec-theme-color">
+
     {{-- SEO: Schema.org JSON-LD para el sitio --}}
     <script type="application/ld+json">
     {
@@ -129,6 +139,32 @@
     @vite('resources/js/app.js')
     <link rel="stylesheet" href="{{ asset('porto-ecommerce/assets/font-awesome/css/fontawesome-all.min.css') }}">
     <link rel="stylesheet" href="{{ asset('porto-light/css/styles_ecommerce.css') }}">
+
+    {{-- ── Color primario del cliente: inyectado server-side para evitar flash ── --}}
+    @php
+        $__hex = $seo->color_ecommerce ?? '#ff8000';
+        $__hex = ltrim($__hex, '#');
+        if (strlen($__hex) === 3) {
+            $__hex = $__hex[0].$__hex[0].$__hex[1].$__hex[1].$__hex[2].$__hex[2];
+        }
+        $__r = hexdec(substr($__hex,0,2))/255;
+        $__g = hexdec(substr($__hex,2,2))/255;
+        $__b = hexdec(substr($__hex,4,2))/255;
+        $__max = max($__r,$__g,$__b); $__min = min($__r,$__g,$__b);
+        $__l = ($__max+$__min)/2;
+        if ($__max == $__min) { $__h = $__s = 0; } else {
+            $__d = $__max-$__min;
+            $__s = $__l > 0.5 ? $__d/(2-$__max-$__min) : $__d/($__max+$__min);
+            if ($__max==$__r)      $__h = ($__g-$__b)/$__d + ($__g<$__b?6:0);
+            elseif ($__max==$__g)  $__h = ($__b-$__r)/$__d + 2;
+            else                   $__h = ($__r-$__g)/$__d + 4;
+            $__h /= 6;
+        }
+        $__pH = round($__h*360);
+        $__pS = round($__s*100).'%';
+        $__pL = round($__l*100).'%';
+    @endphp
+    <style>:root{--primary-h:{{ $__pH }};--primary-s:{{ $__pS }};--primary-l:{{ $__pL }};}</style>
 </head>
 
 <body>
@@ -167,13 +203,181 @@
 
     <a id="scroll-top" href="#top" title="Volver arriba" role="button"><i class="icon-angle-up"></i></a>
 
+    {{-- ── Newsletter Pop-up ─────────────────────────────────────────── --}}
+    @php $nlConfig = \App\Models\Tenant\ConfigurationEcommerce::first(); @endphp
+    @if(!empty($nlConfig->newsletter_popup_enabled))
+    <div id="ec-nl-overlay" class="ec-nl-overlay" role="dialog" aria-modal="true"
+         aria-label="Oferta de bienvenida" style="display:none">
+        <div class="ec-nl-modal">
+            <button class="ec-nl-close" id="ec-nl-close" aria-label="Cerrar">
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24"
+                     fill="none" stroke="currentColor" stroke-width="2.5">
+                    <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                </svg>
+            </button>
+            <div class="ec-nl-body">
+                <div class="ec-nl-left">
+                    @if(!empty($nlConfig->newsletter_popup_image))
+                        <img src="{{ asset('storage/uploads/logos/' . $nlConfig->newsletter_popup_image) }}"
+                             alt="Oferta" class="ec-nl-img">
+                    @else
+                        <div class="ec-nl-icon-wrap">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24"
+                                 fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+                                <path d="M22 12h-4l-3 9L9 3l-3 9H2"/>
+                            </svg>
+                        </div>
+                    @endif
+                </div>
+                <div class="ec-nl-right">
+                    <p class="ec-nl-tag">Oferta exclusiva</p>
+                    <h2 class="ec-nl-title">
+                        {{ $nlConfig->newsletter_popup_title ?? '¡Obtén un descuento de bienvenida!' }}
+                    </h2>
+                    <p class="ec-nl-desc">
+                        {{ $nlConfig->newsletter_popup_desc ?? 'Suscríbete y recibe tu código de descuento en tu correo.' }}
+                    </p>
+
+                    <div id="ec-nl-form-wrap">
+                        <form class="ec-nl-form" id="ec-nl-form" novalidate>
+                            <input type="email" id="ec-nl-email" class="ec-nl-input"
+                                   placeholder="tu@correo.com" required autocomplete="email">
+                            <button type="submit" class="ec-nl-btn">
+                                Obtener descuento
+                            </button>
+                        </form>
+                        <p class="ec-nl-privacy">Sin spam. Puedes darte de baja en cualquier momento.</p>
+                    </div>
+
+                    <div id="ec-nl-success" class="ec-nl-success" style="display:none">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24"
+                             fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                            <circle cx="12" cy="12" r="10"/>
+                            <polyline points="16 8 10 14 7 11"/>
+                        </svg>
+                        <p>¡Listo! Revisa tu correo para ver tu código.</p>
+                        @if(!empty($nlConfig->newsletter_discount_code))
+                        <div class="ec-nl-coupon">
+                            <span class="ec-nl-coupon-code">{{ $nlConfig->newsletter_discount_code }}</span>
+                            <button type="button" class="ec-nl-copy-btn" id="ec-nl-copy">Copiar</button>
+                        </div>
+                        @endif
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    @endif
+
+    {{-- ── Quick View Modal ──────────────────────────────────────────── --}}
+    <div id="ec-qv-overlay" class="ec-qv-overlay" role="dialog" aria-modal="true" aria-label="Vista rápida" style="display:none">
+        <div class="ec-qv-modal">
+            <button class="ec-qv-close" id="ec-qv-close" aria-label="Cerrar">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24"
+                     fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+
+            {{-- Loading state --}}
+            <div id="ec-qv-loading" class="ec-qv-loading">
+                <div class="ec-qv-spinner"></div>
+            </div>
+
+            {{-- Content --}}
+            <div id="ec-qv-content" class="ec-qv-content" style="display:none">
+                <div class="ec-qv-gallery">
+                    <div class="ec-qv-main-wrap">
+                        <img id="ec-qv-main-img" src="" alt="" class="ec-qv-main-img">
+                    </div>
+                    <div id="ec-qv-thumbs" class="ec-qv-thumbs"></div>
+                </div>
+                <div class="ec-qv-info">
+                    <p id="ec-qv-category" class="ec-qv-category"></p>
+                    <h2 id="ec-qv-title" class="ec-qv-title"></h2>
+                    <div class="ec-qv-price-row">
+                        <span id="ec-qv-price" class="ec-qv-price"></span>
+                    </div>
+                    <p id="ec-qv-stock" class="ec-qv-stock"></p>
+                    <p id="ec-qv-desc" class="ec-qv-desc"></p>
+
+                    <div class="ec-qv-qty-row">
+                        <div class="ec-qv-qty">
+                            <button class="ec-qv-qty-btn" id="ec-qv-qty-minus" aria-label="Menos">−</button>
+                            <input id="ec-qv-qty-input" class="ec-qv-qty-input" type="number" value="1" min="1" max="99">
+                            <button class="ec-qv-qty-btn" id="ec-qv-qty-plus" aria-label="Más">+</button>
+                        </div>
+                        <button id="ec-qv-add-cart" class="ec-qv-btn-cart">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"
+                                 fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true">
+                                <circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/>
+                                <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/>
+                            </svg>
+                            Agregar al carrito
+                        </button>
+                        <button id="ec-qv-wishlist" class="ec-qv-btn-wish" aria-label="Guardar en favoritos" title="Guardar en favoritos">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24"
+                                 fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                                <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+                            </svg>
+                        </button>
+                    </div>
+
+                    <a id="ec-qv-full-link" href="#" class="ec-qv-full-link">
+                        Ver página completa del producto →
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
     {{-- JS --}}
     <script src="{{ asset('porto-ecommerce/assets/js/bootstrap.bundle.min.js') }}"></script>
     <script src="{{ asset('porto-ecommerce/assets/js/plugins.min.js') }}"></script>
+    <script src="{{ asset('porto-ecommerce/assets/js/tracker.js') }}"></script>
+    <script src="{{ asset('porto-ecommerce/assets/js/wishlist.js') }}"></script>
     <script src="{{ asset('porto-ecommerce/assets/js/cart.js') }}"></script>
     <script src="{{ asset('porto-ecommerce/assets/js/main.js') }}"></script>
     <script src="{{ asset('porto-ecommerce/assets/js/vue.min.js') }}"></script>
+    <script src="{{ asset('porto-ecommerce/assets/js/lazy-load.js') }}"></script>
+    <script src="{{ asset('porto-ecommerce/assets/js/stock-notify.js') }}"></script>
+    <script src="{{ asset('porto-ecommerce/assets/js/recently-viewed.js') }}"></script>
+    <script src="{{ asset('porto-ecommerce/assets/js/compare.js') }}"></script>
+    <script src="{{ asset('porto-ecommerce/assets/js/filter-ajax.js') }}"></script>
+    <script src="{{ asset('porto-ecommerce/assets/js/quick-view.js') }}"></script>
+    <script src="{{ asset('porto-ecommerce/assets/js/image-zoom.js') }}"></script>
+    <script src="{{ asset('porto-ecommerce/assets/js/newsletter-popup.js') }}"></script>
     @stack('scripts')
+
+    {{-- PWA: Service Worker registration --}}
+    <script>
+    if ('serviceWorker' in navigator) {
+        window.addEventListener('load', function () {
+            navigator.serviceWorker.register('/sw.js', { scope: '/ecommerce' })
+                .then(function (reg) {
+                    // Check for updates every 60s
+                    setInterval(function () { reg.update(); }, 60000);
+                    // Notify user when new version available
+                    reg.addEventListener('updatefound', function () {
+                        var newWorker = reg.installing;
+                        if (!newWorker) return;
+                        newWorker.addEventListener('statechange', function () {
+                            if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                                showPwaUpdateToast();
+                            }
+                        });
+                    });
+                })
+                .catch(function (err) { console.warn('[PWA] SW registration failed:', err); });
+        });
+    }
+
+    function showPwaUpdateToast() {
+        var t = document.createElement('div');
+        t.className = 'ec-pwa-update-toast';
+        t.innerHTML = '<span>Nueva versión disponible</span><button onclick="window.location.reload()">Actualizar</button>';
+        document.body.appendChild(t);
+        requestAnimationFrame(function () { t.classList.add('ec-pwa-update-toast--in'); });
+    }
+    </script>
 </body>
 
 </html>

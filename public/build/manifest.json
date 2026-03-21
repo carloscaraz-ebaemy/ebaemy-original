@@ -1,5 +1,5 @@
 {
-  "_vue-clipboard-61f83bb2.js": {
+  "_vue-clipboard-c53ac215.js": {
     "assets": [
       "assets/element-icons-ab40a589.woff",
       "assets/element-icons-a30f5b3b.ttf"
@@ -7,7 +7,7 @@
     "css": [
       "assets/vue-clipboard-0aa21d94.css"
     ],
-    "file": "assets/vue-clipboard-61f83bb2.js"
+    "file": "assets/vue-clipboard-c53ac215.js"
   },
   "node_modules/element-ui/lib/theme-chalk/fonts/element-icons.ttf": {
     "file": "assets/element-icons-a30f5b3b.ttf",
@@ -54,7 +54,7 @@
     "src": "public/images/labeling_machines_img/golabel.png"
   },
   "resources/js/app.css": {
-    "file": "assets/app-bb1bcc70.css",
+    "file": "assets/app-156ec056.css",
     "src": "resources/js/app.css"
   },
   "resources/js/app.js": {
@@ -70,11 +70,11 @@
       "assets/Zebra-32a3c31c.svg"
     ],
     "css": [
-      "assets/app-bb1bcc70.css"
+      "assets/app-156ec056.css"
     ],
-    "file": "assets/app-1c52fa46.js",
+    "file": "assets/app-6a0c83e1.js",
     "imports": [
-      "_vue-clipboard-61f83bb2.js"
+      "_vue-clipboard-c53ac215.js"
     ],
     "isEntry": true,
     "src": "resources/js/app.js"
@@ -87,9 +87,9 @@
     "css": [
       "assets/system-b27a63eb.css"
     ],
-    "file": "assets/system-3293d6f8.js",
+    "file": "assets/system-8c9f7982.js",
     "imports": [
-      "_vue-clipboard-61f83bb2.js"
+      "_vue-clipboard-c53ac215.js"
     ],
     "isEntry": true,
     "src": "resources/js/system.js"

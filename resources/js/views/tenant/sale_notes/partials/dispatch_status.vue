@@ -3,9 +3,6 @@
         <span slot="title" class="d-flex justify-content-between h5 p-3"> {{title}}
             <el-button type="primary" icon="el-icon-plus" @click="clickAddRow" :loading="loadingButton" v-if="showAddButton">Agregar Despacho</el-button>
         </span>
-        <!-- <div class="col-md-12 text-center pt-2" v-if="showAddButton && (document.total_difference > 0)">
-            
-        </div> -->
         <div class="form-body">
             <div class="row">
                 <div class="col-md-12" v-if="records.length > 0">
@@ -27,14 +24,12 @@
                             <tbody>
                             <tr v-for="(row, index) in records" :key="index">
                                 <template v-if="row.id">
-                                    <!-- <td>
-                                        <el-switch
-                                            v-model="row.selected"
-                                            @change="onFillSelectedDispatch"
-                                        ></el-switch>
-                                    </td> -->
-                                    <td>DESPACHO-{{ row.id }}</td>
-                                    <td>{{ row.type==null?'-':(row.type?'Entregado':'Parcial') }}</td>
+                                    <td><span class="badge bg-secondary">DESPACHO-{{ row.id }}</span></td>
+                                    <td>
+                                        <span :class="row.type ? 'badge bg-success' : 'badge bg-warning text-dark'">
+                                            {{ row.type == null ? '—' : (row.type ? 'Entregado' : 'Parcial') }}
+                                        </span>
+                                    </td>
                                     <td>{{ row.date_dispatch }}</td>
                                     <td>{{ row.time_dispatch }}</td>
                                     <td>{{ row.person_pick }}</td>
@@ -44,11 +39,9 @@
                                         <button type="button" class="btn waves-effect waves-light btn-xs btn-danger" @click.prevent="clickDelete(row.id)" v-if="typeUser === 'admin'">
                                             <i class="fas fa-trash"></i>
                                         </button>
-                                        <!--<el-button type="danger" icon="el-icon-delete" plain @click.prevent="clickDelete(row.id)"></el-button>-->
                                     </td>
                                 </template>
                                 <template v-else>
-                                    <!-- <td></td> -->
                                     <td></td>
                                     <td>
                                         <el-select v-model="row.status">
@@ -64,9 +57,33 @@
                                     <td>{{ row.date_dispatch }}</td>
                                     <td>{{ row.time_dispatch }} </td>
                                     <td>
-                                        <div class="form-group mb-0" :class="{'has-danger': row.errors.person_dispatch}">
-                                            <el-input v-model="row.person_pick"></el-input>
-                                            <small class="form-control-feedback" v-if="row.errors.person_dispatch" v-text="row.errors.person_dispatch[0]"></small>
+                                        <div class="form-group mb-0 d-flex align-items-center" style="gap:4px;" :class="{'has-danger': row.errors.person_pick}">
+                                            <el-select
+                                                v-model="row.person_pick"
+                                                filterable
+                                                remote
+                                                clearable
+                                                :remote-method="searchPersons"
+                                                :loading="loadingPersons"
+                                                placeholder="Buscar cliente..."
+                                                style="width:180px;"
+                                            >
+                                                <el-option
+                                                    v-for="p in personOptions"
+                                                    :key="p.id"
+                                                    :value="p.name"
+                                                    :label="p.description"
+                                                ></el-option>
+                                            </el-select>
+                                            <el-button
+                                                type="primary"
+                                                icon="el-icon-plus"
+                                                size="mini"
+                                                circle
+                                                @click="showDialogNewPerson = true"
+                                                title="Agregar nuevo cliente"
+                                            ></el-button>
+                                            <small class="form-control-feedback" v-if="row.errors.person_pick" v-text="row.errors.person_pick[0]"></small>
                                         </div>
                                     </td>
                                     <td>
@@ -113,6 +130,12 @@
                 
             </div>
         </div>
+        <tenant-person-form
+            :showDialog.sync="showDialogNewPerson"
+            type="customers"
+            :external="true"
+            :input_person="personSearchTerm"
+        ></tenant-person-form>
     </el-dialog>
 
 </template>
@@ -147,6 +170,10 @@
                 document: {},
                 selecteds:[],
                 dispatch_active:false,
+                personOptions: [],
+                loadingPersons: false,
+                showDialogNewPerson: false,
+                personSearchTerm: '',
                 options_status:[
                     {
                         description: 'PARCIAL',
@@ -163,58 +190,37 @@
         async created()
         {
             await this.initForm()
+            this.$eventHub.$on('reloadDataPersons', (customer_id) => {
+                this.$http.get(`/${this.resource}/search/customer/${customer_id}`)
+                    .then(response => {
+                        if (response.data.customers && response.data.customers.length > 0) {
+                            const person = response.data.customers[0];
+                            this.personOptions = response.data.customers;
+                            const editRow = this.records.find(r => r.id === null);
+                            if (editRow) {
+                                editRow.person_pick = person.name;
+                            }
+                        }
+                    });
+            });
         },
         methods: {
             initForm() {
                 this.records = []
                 this.showAddButton = true
             },
-            async getData() 
+            async getData()
             {
                 this.initForm()
-                // search document
-                
-                /*
-                await this.$http.get(`/sale_note_payments/document/${this.documentId}`)
-                    .then(response => {
-                        this.document = response.data;
-                        this.title = 'Estado de despacho del comprobante: '+this.document.number_full;
-                    });
-
-                */
-               
                 // dispatch sale notes
-                await this.$http.get(`/${this.resource}/dispatch/${this.documentId}`) 
+                await this.$http.get(`/${this.resource}/dispatch/${this.documentId}`)
                     .then(response => {
-
                         this.document = response.data
                         this.records = response.data.records
                         this.loadingButton = false
-
                         this.title = 'Estado de despacho del comprobante: '+this.document.number_full;
                     })
-
-                /*
-                this.$eventHub.$emit('reloadDataUnpaid')
-                */
-
             },
-            // async getDataNote(id) {
-            //     //this.initForm();
-            //     // dispatch sale notes
-            //     await this.$http.get(`/${this.resource}/dispatch_note/${id}`) 
-            //         .then(response => {
-            //             this.checked_display = response.data.data[0]['status']
-            //             if(this.checked_display!=null){
-            //                 this.status_display = response.data.data[0]['status']? '1':'0'
-            //             }else{
-            //                 this.status_display = null
-            //             }
-                        
-            //         });
-            //     this.$eventHub.$emit('reloadDataUnpaid')
-
-            // },
             clickAddRow() 
             {
                 if(this.document.status_dispatch === 'ENTREGADO')
@@ -274,6 +280,19 @@
                         }
                     })
             },
+            searchPersons(query) {
+                this.personSearchTerm = query;
+                if (query.length > 0) {
+                    this.loadingPersons = true;
+                    this.$http.get(`/${this.resource}/search/customers?input=${query}`)
+                        .then(response => {
+                            this.personOptions = response.data.customers;
+                            this.loadingPersons = false;
+                        });
+                } else {
+                    this.personOptions = [];
+                }
+            },
             close() {
                 this.$emit('update:showDialog', false);
                 this.loadingButton = true;
@@ -285,65 +304,6 @@
                     }
                 )
             },
-            // statusUpdate(value=null){
-            //     if( this.selecteds.length==0){
-            //         this.status_display=null
-            //         if(!this.dispatch_active){
-            //             this.status_display=null
-            //             return this.$message.error('Debe crear un pedido');
-            //         }
-            //         return this.$message.error('Debe seleccionar un pedido');
-            //     }
-                
-            //     let form = {
-            //         sale_note_id: this.documentId,
-            //         status_display:this.status_display==0?false:true,
-            //         dispatch_id:this.selecteds[0],
-            //     };
-            //     console.log(this.selecteds[0])
-            //     if (value==='initial') {
-            //         form.status_display=null
-            //         this.status_display=null
-            //     }
-            //     this.$http.post(`/${this.resource}/dispatch/statusUpdate`, form)
-            //         .then(response => {
-            //             if (response.data.success) {
-            //                 this.$message.success(response.data.message);
-            //                 //this.getData();
-            //                 // this.initDocumentTypes()
-            //                     this.$eventHub.$emit('reloadData')
-                            
-            //                 this.showAddButton = true;
-            //             } else {
-            //                 this.$message.error(response.data.message);
-            //             }
-            //         })
-            //         .catch(error => {
-            //             if (error.response.status === 422) {
-            //                 this.records[index].errors = error.response.data;
-            //             } else {
-            //                 console.log(error);
-            //             }
-            //         })
-            // },
-            // onFillSelectedDispatch() {
-            //     this.selecteds = [];
-                
-            //     console.log(this.records)
-                
-            //     this.records.map((d) => {
-            //         if (d.selected) {
-            //                 this.selecteds.push(d.id);
-            //                 this.getDataNote(d.id)
-                        
-            //         }
-            //         if(this.selecteds.length==2){
-            //                 d.selected=false
-            //                 return this.$message.error('Solo se puede seleccionar un pedido');
-            //         }
-            //     });
-            //     console.log(this.selecteds.length)
-            // },
         },
     }
 </script>

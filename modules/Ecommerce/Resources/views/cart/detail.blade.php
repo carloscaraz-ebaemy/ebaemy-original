@@ -10,195 +10,218 @@
     $itemsBasePath = asset('storage/uploads/items');
 @endphp
 
-<div class="row" id="app" style="margin-top: 55px">
-    <div class="col-lg-8">
-        <div class="cart-table-container">
-
-            <table class="table table-cart">
-                <thead>
-                    <tr>
-                        <th class="product-col">Producto</th>
-                        <th class="price-col">Precio</th>
-                        <th class="qty-col">Cantidad</th>
-                        <th>Subtotal</th>
-                        <th></th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr v-for="(row, index) in records" class="product-row">
-                        <td class="product-col">
-                            <figure class="product-image-container">
-                                <a href="#" class="product-image">
-                                    <img class="image-product" :src="(row.image && row.image !== 'imagen-no-disponible.jpg') ? '{{ $itemsBasePath }}' + '/' + row.image : '{{ $defaultImagePath }}'" :alt="row.description || 'Producto sin imagen'">
-                                </a>
-                            </figure>
-                            <h2 class="product-title">
-                                <a href="#">@{{ row.description }}</a>
-                            </h2>
-                        </td>
-                        <td>@{{ row.currency_type_symbol }} @{{ row.sale_unit_price }}</td>
-                        <td>
-                            <input class="vertical-quantity form-control input_quantity" :data-product="row.id"
-                                type="text">
-                        </td>
-                        <td>S/ @{{ row.sub_total }}</td>
-                        <td>
-                            <button type="button" @click="deleteItem(row.id, index)"
-                                class="btn btn-outline-danger btn-sm"><i class="icon-cancel"></i></button>
-                        </td>
-                    </tr>
-
-                </tbody>
-
-                <tfoot>
-                    <tr>
-                        <td colspan="4" class="clearfix">
-                            <div class="float-left">
-                                <a href="/ecommerce" class="btn btn-outline-secondary">Continuar Comprando</a>
-                            </div><!-- End .float-left -->
-
-                            <div class="float-right">
-                                <a href="#" @click="clearShoppingCart"
-                                    class="btn btn-outline-secondary btn-clear-cart">Limpiar Carrito</a>
-                                <!--<a href="#" class="btn btn-outline-secondary btn-update-cart">Update Shopping Cart</a> -->
-                            </div><!-- End .float-right -->
-                        </td>
-                    </tr>
-                </tfoot>
-            </table>
-        </div><!-- End .cart-table-container -->        
-    </div><!-- End .col-lg-8 -->
-
-    <div class="col-lg-4">
-    <div class="cart-summary">
-            <h3>Datos de contacto y envío</h3>
-
-            <form autocomplete="off" action="#">
-                <div class="form-group" :class="{'text-danger': errors.telefono}">
-                    <label for="email">Teléfono:</label>
-                    <input v-model="form_contact.telephone" type="text" autocomplete="off" class="form-control" placeholder="Ingrese número de teléfono" name="teléfono">
-                    <small class="form-control-feedback" v-if="errors.telefono" v-text="errors.telefono[0]"></small>
-                </div>
-                <div class="form-group" :class="{'text-danger': errors.address}">
-                    <label for="email">Dirección:</label>
-                    <textarea v-model="form_contact.address" class="form-control" placeholder="Ingrese dirección de envío" rows="2" cols="10"></textarea>
-                    <small class="form-control-feedback" v-if="errors.address" v-text="errors.address[0]"></small>
-                </div>
-            </form>
+{{-- ── STEPPER VISUAL ──────────────────────────────────── --}}
+<div class="ec-checkout-stepper" aria-label="Pasos del proceso de compra">
+    <div class="ec-step ec-step--active">
+        <div class="ec-step__num" aria-hidden="true">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"
+                 fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true">
+                <circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/>
+                <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/>
+            </svg>
         </div>
+        <span class="ec-step__label">Mi carrito</span>
+    </div>
+    <div class="ec-step__line"></div>
+    <div class="ec-step">
+        <div class="ec-step__num" aria-hidden="true">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"
+                 fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true">
+                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+                <circle cx="12" cy="7" r="4"/>
+            </svg>
+        </div>
+        <span class="ec-step__label">Mis datos</span>
+    </div>
+    <div class="ec-step__line"></div>
+    <div class="ec-step">
+        <div class="ec-step__num" aria-hidden="true">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"
+                 fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true">
+                <rect x="1" y="4" width="22" height="16" rx="2" ry="2"/>
+                <line x1="1" y1="10" x2="23" y2="10"/>
+            </svg>
+        </div>
+        <span class="ec-step__label">Pago</span>
+    </div>
+</div>
 
-        <div class="cart-summary">
-            <h3>Tipo de comprobante</h3>
+<div class="row" id="app" style="margin-top:20px;gap:0">
 
-            <div class="form-group" :class="{'text-danger': errors.codigo_tipo_documento}">
-                <label>Comprobante:</label>
-                {{-- <select v-model="formIdentity.identity_document_type_id" class="form-control" @change="optionDocument">
-                    <option value="" disabled>Tipo de comprobante</option>
-                    <option value="1">Boleta</option>
-                    <option value="6">Factura</option>
-                    <option value="80">Nota de venta</option>
-                </select> --}}
-                
-                <select v-model="form_document.codigo_tipo_documento" class="form-control" @change="optionDocument">
-                    <option value="" disabled>Tipo de comprobante</option>
-                    <option value="01">Factura</option>
-                    <option value="03">Boleta</option>
-                    <option value="80">Nota de venta</option>
-                </select>
-
-                <small class="form-control-feedback" v-if="errors.codigo_tipo_documento">El campo Comprobante es obligatorio.</small>
+    {{-- ══════════════════════════════════════════════════
+         LEFT: PRODUCTOS DEL CARRITO
+    ══════════════════════════════════════════════════ --}}
+    <div class="col-12 col-lg-7">
+        <div class="ec-checkout-card">
+            <div class="ec-checkout-card__header">
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
+                <span>Productos en tu carrito</span>
+                <span class="ec-cart-badge">@{{ records.length }}</span>
             </div>
-            <div class="form-group" :class="{'text-danger': errors.codigo_tipo_documento_identidad}">
-                <label>Tipo de documento:</label>
-                <select v-model="typeDocuments" class="form-control">
-                    <option value="" disabled>Tipo de documento</option>
-                    <option v-for="item in typeDocumentList" :value="item.id" :label="item.name">@{{ item.name }}</option>
-                </select>
-                <small class="form-control-feedback" v-if="errors.codigo_tipo_documento_identidad" v-text="errors.codigo_tipo_documento_identidad[0]"></small>
-            </div>
-            <div class="form-group" :class="{'text-danger': errors.numero_documento}">
-                <label>Número de documento:</label>
-                <input v-model="numberDocument" :maxlength="maxLength" type="text" class="form-control">
-                <small class="form-control-feedback" v-if="errors.numero_documento" v-text="errors.numero_documento[0]"></small>
+
+            {{-- Estado vacío --}}
+            <div v-if="records.length === 0" class="ec-cart-empty-state">
+                <svg xmlns="http://www.w3.org/2000/svg" width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="#d1d5db" stroke-width="1.2" aria-hidden="true"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
+                <p>Tu carrito está vacío</p>
+                <a href="/ecommerce" class="ec-btn-primary">Explorar productos</a>
             </div>
 
-        </div><!-- End .col-lg-4 -->
-
-        <div class="cart-summary">
-            <h3>Resumen</h3>
-            <table class="table table-totals">
-                <tbody>
-
-                    <tr v-if="summary.total_exonerated > 0">
-                        <td>OP.EXONERADAS</td>
-                        <td>S/ @{{ summary.total_exonerated }}</td>
-                    </tr>
-                    <tr v-if="summary.total_taxed > 0">
-                        <td>OP.GRAVADA</td>
-                        <td>S/ @{{ summary.total_taxed }}</td>
-                    </tr>
-                    <tr v-if="summary.total_igv > 0">
-                        <td>IGV</td>
-                        <td>S/ @{{ summary.total_igv }}</td>
-                    </tr>
-                </tbody>
-                <tfoot>
-                    <tr>
-                        <td>Orden Total</td>
-                        <td>S/ @{{summary.total}}</td>
-                    </tr>
-                </tfoot>
-            </table>
-
-            <div class="checkout-methods text-center">
-
-                @guest('ecommerce')
-                <a href="{{route('tenant_ecommerce_login')}}" class="btn btn-block btn-sm btn-primary login-link culqi">Pagar
-                    con VISA</a>
-                <a href="{{route('tenant_ecommerce_login')}}" class="btn btn-block btn-sm btn-primary login-link">Pagar
-                    con EFECTIVO</a>
-                <a style="margin-left:15%" href="{{route('tenant_ecommerce_login')}}"
-                    class="btn btn-block btn-sm login-link">
-                    <img src="{{ asset('porto-ecommerce/assets/images/btn_buynowCC_LG.gif') }}" alt="">
-                </a>
-
-                @elseauth('ecommerce')
-                <button class="btn btn-block btn-sm btn-primary login-link culqi" onclick="execCulqi()"> Pagar con VISA </button>
-
-                <button @click="payment_cash.clicked = !payment_cash.clicked" class="btn btn-block btn-sm btn-primary login-link-pay">
-                    Pagar con EFECTIVO</button>
-                <div v-show="payment_cash.clicked" style="margin: 3%" class="form-group">
-                    <div class="input-group mb-3">
-                        <div class="input-group-prepend">
-                            <span class="input-group-text">S/</span>
-                        </div>
-                        <input readonly placeholder="0.0" v-model="payment_cash.amount" type="text"
-                            onkeypress="return isNumberKey(event)" maxlength="14" class="form-control"
-                            aria-label="Amount">
-                        <button @click="paymentCash" class="btn btn-success">OK!</button>
+            {{-- Lista de productos --}}
+            <div v-if="records.length > 0" class="ec-cart-items">
+                <div v-for="(row, index) in records" class="ec-cart-item">
+                    <div class="ec-cart-item__img">
+                        <img :src="(row.image && row.image !== 'imagen-no-disponible.jpg') ? '{{ $itemsBasePath }}' + '/' + row.image : '{{ $defaultImagePath }}'" :alt="row.description || 'Producto'" onerror="this.src='{{ asset('logo/imagen-no-disponible.jpg') }}'">
                     </div>
+                    <div class="ec-cart-item__info">
+                        <p class="ec-cart-item__name">@{{ row.description }}</p>
+                        <span class="ec-cart-item__price">@{{ row.currency_type_symbol }} @{{ row.sale_unit_price }}</span>
+                    </div>
+                    <div class="ec-cart-item__qty">
+                        <div class="ec-qty-selector" style="margin-bottom:0">
+                            <button type="button" class="ec-qty-btn" @click="decreaseQty(row)" aria-label="Reducir cantidad">−</button>
+                            <input class="ec-qty-input input_quantity" :data-product="row.id"
+                                   :value="row.cantidad || 1" type="number" min="1" :max="row.stock || 9999"
+                                   @change="updateQtyItem(row, $event.target.value)">
+                            <button type="button" class="ec-qty-btn" @click="increaseQty(row)" aria-label="Aumentar cantidad">+</button>
+                        </div>
+                        <small v-if="row.stock_warning" class="ec-stock-warning">Máx. @{{ row.stock }} disponibles</small>
+                    </div>
+                    <div class="ec-cart-item__subtotal">
+                        <span class="ec-cart-item__subtotal-label">Subtotal</span>
+                        <strong>S/ @{{ row.sub_total }}</strong>
+                    </div>
+                    <button type="button" class="ec-cart-item__remove" @click="deleteItem(row.id, index)" title="Eliminar" aria-label="Eliminar producto">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                    </button>
                 </div>
+            </div>
 
+            {{-- Footer del carrito --}}
+            <div v-if="records.length > 0" class="ec-cart-footer">
+                <a href="/ecommerce" class="ec-btn-ghost">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+                    Continuar comprando
+                </a>
+                <a href="#" @click.prevent="clearShoppingCart" class="ec-btn-ghost ec-btn-ghost--danger">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+                    Vaciar carrito
+                </a>
+            </div>
+        </div>
+    </div>
 
-                @if($information->script_paypal)
+    {{-- ══════════════════════════════════════════════════
+         RIGHT: RESUMEN DEL PEDIDO
+    ══════════════════════════════════════════════════ --}}
+    <div class="col-12 col-lg-5">
+        <div class="ec-checkout-card">
+            <div class="ec-checkout-card__header">
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+                <span>Resumen del pedido</span>
+            </div>
 
-                    {!!html_entity_decode($information->script_paypal)!!}
+            {{-- Puntos de fidelidad --}}
+            @auth('ecommerce')
+            <div class="ec-points-box" v-if="points.enabled && points.balance > 0">
+                <div class="ec-points-header">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="currentColor" style="color:#f59e0b"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+                    <span>Mis puntos: <strong>@{{ points.balance }}</strong></span>
+                    <span class="ec-points-hint">(= S/ @{{ points.balance.toFixed(2) }})</span>
+                </div>
+                <div v-if="!points.applied" class="ec-points-apply-wrap">
+                    <span class="ec-points-apply-label">Usar hasta <strong>@{{ maxPointsToApply }}</strong> pts <em>(-S/ @{{ maxPointsToApply.toFixed(2) }})</em></span>
+                    <button type="button" class="ec-points-btn" @click="applyPoints">Usar puntos</button>
+                </div>
+                <div v-else class="ec-points-applied-wrap">
+                    <span class="ec-points-applied-label">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#16a34a" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                        @{{ points.discount.toFixed(2) }} pts canjeados (-S/ @{{ points.discount.toFixed(2) }})
+                    </span>
+                    <button type="button" class="ec-points-btn ec-points-btn--remove" @click="removePoints">Quitar</button>
+                </div>
+            </div>
+            @endauth
 
-                @endif
+            {{-- Cupón --}}
+            <div class="ec-coupon-box">
+                <div class="ec-coupon-input-wrap">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" stroke-width="2" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);pointer-events:none"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>
+                    <input type="text" v-model="coupon.code" class="ec-coupon-input" placeholder="Código de cupón" :disabled="coupon.applied" @keydown.enter.prevent="applyCoupon" maxlength="30" style="padding-left:34px">
+                    <button type="button" class="ec-coupon-btn" @click="coupon.applied ? removeCoupon() : applyCoupon()" :disabled="coupon.loading">
+                        <span v-if="coupon.loading">...</span>
+                        <span v-else-if="coupon.applied">Quitar</span>
+                        <span v-else>Aplicar</span>
+                    </button>
+                </div>
+                <p v-if="coupon.message" class="ec-coupon-msg" :class="coupon.applied ? 'ec-coupon-msg--ok' : 'ec-coupon-msg--err'">@{{ coupon.message }}</p>
+            </div>
 
+            {{-- Líneas de totales --}}
+            <div class="ec-order-totals">
+                <div class="ec-order-line" v-if="summary.total_exonerated > 0">
+                    <span>Op. Exoneradas</span><span>S/ @{{ summary.total_exonerated }}</span>
+                </div>
+                <div class="ec-order-line" v-if="summary.total_taxed > 0">
+                    <span>Op. Gravada</span><span>S/ @{{ summary.total_taxed }}</span>
+                </div>
+                <div class="ec-order-line" v-if="summary.total_igv > 0">
+                    <span>IGV (18%)</span><span>S/ @{{ summary.total_igv }}</span>
+                </div>
+                <div class="ec-order-line ec-order-line--discount" v-if="coupon.applied && coupon.discount > 0">
+                    <span><span class="ec-coupon-tag"><svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>@{{ coupon.code }}</span></span>
+                    <span style="color:#16a34a;font-weight:700;">- S/ @{{ coupon.discount.toFixed(2) }}</span>
+                </div>
+                <div class="ec-order-line ec-order-line--discount" v-if="points.applied && points.discount > 0">
+                    <span><span class="ec-coupon-tag" style="background:#fef3c7;color:#92400e;border-color:#fde68a;"><svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="#f59e0b"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>Puntos</span></span>
+                    <span style="color:#16a34a;font-weight:700;">- S/ @{{ points.discount.toFixed(2) }}</span>
+                </div>
+            </div>
+            <div class="ec-order-total">
+                <span>Total</span>
+                <strong>S/ @{{ totalFinal }}</strong>
+            </div>
 
-                @endauth
+            {{-- CTA: ir al checkout --}}
+            <div class="ec-payment-actions">
+                <button type="button" class="ec-pay-btn ec-pay-btn--continue" @click="proceedToCheckout" :disabled="records.length === 0">
+                    <span>Continuar al pago</span>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+                </button>
+                <p class="ec-secure-note">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                    Pago 100% seguro y encriptado
+                </p>
+            </div>
+        </div>
+    </div>{{-- End col-lg-5 --}}
+</div>{{-- End .row --}}
 
-            </div><!-- End .checkout-methods -->
-        </div><!-- End .cart-summary -->
-    </div><!-- End .col-lg-4 -->
-</div><!-- End .row -->
+{{-- ── UPSELL: Productos que también te pueden interesar ── --}}
+<div id="ec-upsell" class="ec-upsell-section" style="display:none">
+    <div class="ec-section-header" style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.25rem">
+        <h2 class="ec-section-title" style="margin:0">También te puede interesar</h2>
+        <div class="ec-slider-nav" style="display:flex;gap:8px">
+            <div class="ec-upsell-prev ec-slider-btn" role="button" aria-label="Anterior">
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+            </div>
+            <div class="ec-upsell-next ec-slider-btn" role="button" aria-label="Siguiente">
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+            </div>
+        </div>
+    </div>
+    <div class="swiper ec-upsell-swiper">
+        <div class="swiper-wrapper ec-upsell-list"></div>
+        <div class="swiper-pagination ec-upsell-pagination" style="margin-top:16px;position:relative;bottom:auto"></div>
+    </div>
+</div>
 
 <input type="hidden" id="total_amount" data-total="0.0">
 
 @endsection
 
 @push('scripts')
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.css">
+<script src="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.js"></script>
 <!-- script src="https://checkout.culqi.com/js/v3"></script>
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@7.31.1/dist/sweetalert2.all.min.js"></script>
 <script src="https://momentjs.com/downloads/moment.min.js"></script>
@@ -216,6 +239,19 @@
             payment_cash: {
                 amount: '',
                 clicked: false
+            },
+            coupon: {
+                code:     '',
+                applied:  false,
+                discount: 0,
+                message:  '',
+                loading:  false,
+            },
+            points: {
+                enabled:  false,
+                balance:  0,
+                applied:  false,
+                discount: 0,
             },
             response_search: {},
             text_search: '',
@@ -265,25 +301,31 @@
             }
         },
         async mounted() {
-          await this.changeExchangeRate(moment().format("YYYY-MM-DD"))
+          // ── Cargar saldo de puntos (solo si está autenticado) ──────────
+          @auth('ecommerce')
+          try {
+              var ptRes = await axios.get('/ecommerce/points');
+              if (ptRes.data.enabled) {
+                  this.points.enabled = true;
+                  this.points.balance = ptRes.data.balance;
+              }
+          } catch(e) {}
+          @endauth
 
-          let exchange_rate_sale = this.exchange_rate_sale
-          let contex = this
+          try { await this.changeExchangeRate(moment().format("YYYY-MM-DD")); } catch(e) {}
 
-          $(".input_quantity").change(function (e) {
-            let value = parseFloat($(this).val())
-            let id = $(this).data('product')
-            let row = contex.records.find(x => x.id == id)
+          // ── Tracking: InitiateCheckout ──────────────────
+          var self = this;
+          this.$nextTick(function () {
+              if (typeof EcommerceTracker !== 'undefined' && self.records.length > 0) {
+                  EcommerceTracker.initiateCheckout({
+                      items:    self.records.map(function (r) { return { id: r.id, name: r.description, price: parseFloat(r.sale_unit_price) || 0, quantity: r.cantidad || 1 }; }),
+                      total:    parseFloat(self.summary.total) || 0,
+                      currency: 'PEN'
+                  });
+              }
+          });
 
-            if(row.currency_type_id === 'USD') {
-              row.sub_total = ((parseFloat(row.sale_unit_price) * value) * exchange_rate_sale).toFixed(2)
-            } else {
-              row.sub_total = (parseFloat(row.sale_unit_price) * value).toFixed(2)
-            }
-
-            row.cantidad = value
-            contex.calculateSummary()
-          })
 
           this.records.forEach(function (item) {
             if(item.currency_type_id === 'USD') {
@@ -301,9 +343,10 @@
             if (array) {
                 this.records = array.map(function (item) {
                     let obj = item
-                    obj.cantidad = 1
-                    obj.sub_total = parseFloat(item.sale_unit_price).toFixed(2)
+                    obj.cantidad = item.quantity || 1
+                    obj.sub_total = (parseFloat(item.sale_unit_price) * obj.cantidad).toFixed(2)
                     obj.exchange_rate_sale = ''
+                    obj.stock_warning = false
                     return obj
                 })
             }
@@ -311,7 +354,74 @@
             this.initForm();
 
         },
+        computed: {
+            totalWithCoupon() {
+                var base = parseFloat(this.summary.total) || 0;
+                var disc = this.coupon.applied ? (this.coupon.discount || 0) : 0;
+                return Math.max(0, base - disc).toFixed(2);
+            },
+            totalFinal() {
+                var base  = parseFloat(this.summary.total) || 0;
+                var disc  = this.coupon.applied  ? (this.coupon.discount  || 0) : 0;
+                var pdisc = this.points.applied   ? (this.points.discount  || 0) : 0;
+                return Math.max(0, base - disc - pdisc).toFixed(2);
+            },
+            maxPointsToApply() {
+                var base      = parseFloat(this.summary.total) || 0;
+                var couponDisc= this.coupon.applied ? (this.coupon.discount || 0) : 0;
+                var afterCoupon = Math.max(0, base - couponDisc);
+                var maxByHalf = afterCoupon * 0.5;
+                return Math.min(this.points.balance, maxByHalf);
+            }
+        },
         methods: {
+            updateQtyItem(row, rawValue) {
+                let value = parseInt(rawValue) || 1;
+                if (value < 1) value = 1;
+                const maxStock = parseInt(row.stock) || 9999;
+                if (value > maxStock) {
+                    value = maxStock;
+                    this.$set(row, 'stock_warning', true);
+                } else {
+                    this.$set(row, 'stock_warning', false);
+                }
+                const rate = this.exchange_rate_sale || 1;
+                if (row.currency_type_id === 'USD') {
+                    row.sub_total = ((parseFloat(row.sale_unit_price) * value) * rate).toFixed(2);
+                } else {
+                    row.sub_total = (parseFloat(row.sale_unit_price) * value).toFixed(2);
+                }
+                row.cantidad = value;
+                row.quantity = value;
+                let cartArr = JSON.parse(localStorage.getItem('products_cart') || '[]');
+                let cartRow = cartArr.find(x => x.id == row.id);
+                if (cartRow) { cartRow.quantity = value; localStorage.setItem('products_cart', JSON.stringify(cartArr)); }
+                this.calculateSummary();
+            },
+            increaseQty(row) {
+                const current = parseInt(row.cantidad) || 1;
+                const maxStock = parseInt(row.stock) || 9999;
+                if (current >= maxStock) {
+                    this.$set(row, 'stock_warning', true);
+                    return;
+                }
+                this.updateQtyItem(row, current + 1);
+            },
+            decreaseQty(row) {
+                const current = parseInt(row.cantidad) || 1;
+                if (current <= 1) return;
+                this.updateQtyItem(row, current - 1);
+            },
+            proceedToCheckout() {
+                if (this.records.length === 0) return;
+                // Guardar estado de cupón y puntos para el checkout
+                localStorage.setItem('checkout_state', JSON.stringify({
+                    coupon: this.coupon,
+                    points: this.points,
+                    total:  this.totalFinal
+                }));
+                window.location.href = '/ecommerce/checkout';
+            },
             async changeExchangeRate(exchange_rate_date){
                 var response = await axios.get(`/exchange_rate/ecommence/${exchange_rate_date}`)
                 this.exchange_rate_sale = parseFloat(response.data.sale)
@@ -369,19 +479,78 @@
                 this.form_document.datos_del_cliente_o_receptor.identity_document_type_id = this.typeDocuments
                 
             },
+            async applyCoupon() {
+                if (!this.coupon.code.trim()) return;
+                this.coupon.loading = true;
+                this.coupon.message = '';
+                try {
+                    var total = parseFloat(this.summary.total) || 0;
+                    var res = await axios.post('{{ route("tenant_ecommerce_apply_coupon") }}', {
+                        coupon_code: this.coupon.code.trim().toUpperCase(),
+                        amount: total
+                    }, { headers: { 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content } });
+                    if (res.data.success) {
+                        this.coupon.applied  = true;
+                        this.coupon.discount = parseFloat(res.data.discount);
+                        this.coupon.code     = res.data.code;
+                        this.coupon.message  = res.data.message;
+                        this.$nextTick(() => {
+                            $("#total_amount").data('total', this.totalFinal);
+                            this.payment_cash.amount = this.totalFinal;
+                        });
+                    } else {
+                        this.coupon.applied  = false;
+                        this.coupon.discount = 0;
+                        this.coupon.message  = res.data.message;
+                    }
+                } catch(e) {
+                    this.coupon.message = 'Error al validar el cupón.';
+                } finally {
+                    this.coupon.loading = false;
+                }
+            },
+            removeCoupon() {
+                this.coupon = { code: '', applied: false, discount: 0, message: '', loading: false };
+                this.$nextTick(() => {
+                    $("#total_amount").data('total', this.totalFinal);
+                    this.payment_cash.amount = this.totalFinal;
+                });
+            },
+            applyPoints() {
+                var maxPts = this.maxPointsToApply;
+                if (maxPts <= 0) return;
+                this.points.applied  = true;
+                this.points.discount = maxPts;
+                this.$nextTick(() => {
+                    $("#total_amount").data('total', this.totalFinal);
+                    this.payment_cash.amount = this.totalFinal;
+                });
+            },
+            removePoints() {
+                this.points.applied  = false;
+                this.points.discount = 0;
+                this.$nextTick(() => {
+                    $("#total_amount").data('total', this.totalFinal);
+                    this.payment_cash.amount = this.totalFinal;
+                });
+            },
             async getFormPaymentCash() {
-                
+
                 this.refreshSetDataCustomer()
 
-                let precio = Math.round(Number(this.summary.total) * 100).toFixed(2);
-                let precio_culqi = Number(this.summary.total)
+                var finalTotal = parseFloat(this.totalFinal);
+                let precio = Math.round(finalTotal * 100).toFixed(2);
+                let precio_culqi = finalTotal;
                 return {
                     producto: 'Compras Ecommerce Facturador Pro',
                     precio: precio,
                     precio_culqi: precio_culqi,
                     customer: this.form_document.datos_del_cliente_o_receptor,
                     items: this.records,
-                    purchase: await this.getDocument()
+                    purchase: await this.getDocument(),
+                    coupon_code: this.coupon.applied ? this.coupon.code : '',
+                    redeem_points: this.points.applied,
+                    points_amount: this.points.applied ? this.points.discount : 0,
                 }
             },
             showSwalMessage(title, text, type){
@@ -423,17 +592,21 @@
                 let url_finally = '{{ route("tenant_ecommerce_payment_cash")}}';
                 let response = await axios.post(url_finally, await this.getFormPaymentCash(), this.getHeaderConfig()).then(response => {
                         if (response.data.success) {
+                            // ── Tracking: Purchase ──────────────────────
+                            if (typeof EcommerceTracker !== 'undefined') {
+                                EcommerceTracker.purchase({
+                                    orderId:  response.data.order ? String(response.data.order.id || '') : '',
+                                    total:    parseFloat(this.summary.total) || 0,
+                                    currency: 'PEN',
+                                    items:    this.records.map(function (r) {
+                                        return { id: r.id, name: r.description, price: parseFloat(r.sale_unit_price) || 0, quantity: r.cantidad || 1 };
+                                    })
+                                });
+                            }
                             this.saveContactDataUser()
                             this.clearShoppingCart()
                             this.response_order_total = response.data.order.total
-                            swal({
-                                title: "Gracias por su pago!",
-                                text: "En breve le enviaremos un correo electronico con los detalles de su compra.",
-                                type: "success"
-                            }).then((x) => {
-                              app_cart.order_generated = order
-                                //askedDocument(response.data.order);
-                            })
+                            window.location = '/ecommerce/order/confirmation/' + response.data.order.external_id;
                         }
                     }).catch(error => {
                         swal("Pago No realizado", 'Sucedio algo inesperado.', "error");
@@ -704,6 +877,12 @@
                 this.summary.total_value = total_value.toFixed(2)
                 this.summary.total = total.toFixed(2)
                 this.aux_totals = this.summary
+
+                // Reset coupon when cart changes (prices may differ)
+                if (this.coupon && this.coupon.applied) {
+                    this.removeCoupon();
+                }
+
                 // console.log(this.summary)
 
 
@@ -846,14 +1025,7 @@
                 if (data.success == true) {
                   app_cart.saveContactDataUser();
                   app_cart.clearShoppingCart();
-                  swal({
-                    title: "Gracias por su pago!",
-                    text: "En breve le enviaremos un correo electronico con los detalles de su compra.",
-                    type: "success"
-                  }).then((x) => {
-                    askedDocument(data.order);
-                    //window.location = "{{ route('tenant.ecommerce.index') }}";
-                  })
+                  window.location = '/ecommerce/order/confirmation/' + data.order.external_id;
                 } else {
                   const message = data.message
                   swal("Pago No realizado", message, "error");
@@ -900,6 +1072,119 @@
         return true;
     }
 
+</script>
+
+<script>
+// ── Upsell: carga productos aleatorios del catálogo excluyendo los del carrito ──
+(function () {
+    var PLACEHOLDER = '/porto-ecommerce/assets/images/placeholder.svg';
+
+    function getCartIds() {
+        try {
+            var cart = JSON.parse(localStorage.getItem('products_cart')) || [];
+            return cart.map(function (p) { return String(p.id); });
+        } catch (e) { return []; }
+    }
+
+    function buildCard(p) {
+        var img  = (p.image_url_small && !p.image_url_small.includes('imagen-no-disponible'))
+                   ? p.image_url_small : PLACEHOLDER;
+        var href = p.slug ? '/ecommerce/item/' + p.slug : '/ecommerce/item/' + p.id;
+        var rawPrice = parseFloat(p.amount_sale_unit_price || p.sale_unit_price) || 0;
+        var price = rawPrice > 0 ? 'S/ ' + rawPrice.toFixed(2) : (p.sale_unit_price || '');
+
+        var col = document.createElement('div');
+        col.className = 'swiper-slide';
+        col.innerHTML = [
+            '<article class="ec-product-card">',
+            '  <button type="button" class="ec-btn-wishlist" data-wishlist-id="' + p.id + '" aria-pressed="false" title="Guardar en favoritos">',
+            '    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>',
+            '  </button>',
+            '  <a href="' + href + '" class="ec-product-card__img-wrap" tabindex="-1">',
+            '    <img src="' + PLACEHOLDER + '" data-src="' + img + '"',
+            '         alt="' + (p.description || '') + '"',
+            '         class="ec-product-card__img ec-img-lazy" width="300" height="300"',
+            '         onerror="this.src=\'/logo/imagen-no-disponible.jpg\'">',
+            '  </a>',
+            '  <div class="ec-product-card__body">',
+            '    <h3 class="ec-product-card__title"><a href="' + href + '">' + (p.description || '') + '</a></h3>',
+            '    <div class="ec-product-card__footer">',
+            '      <div class="ec-product-card__price"><span class="ec-price-current">' + price + '</span></div>',
+            '      <button type="button" class="ec-btn-cart paction add-cart"',
+            '              data-product=\'' + JSON.stringify(p).replace(/'/g, "&#39;") + '\'',
+            '              title="Agregar al carrito">',
+            '        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>',
+            '        <span class="ec-btn-cart__text">Agregar</span>',
+            '      </button>',
+            '    </div>',
+            '  </div>',
+            '</article>'
+        ].join('');
+        return col;
+    }
+
+    function shuffle(arr) {
+        for (var i = arr.length - 1; i > 0; i--) {
+            var j = Math.floor(Math.random() * (i + 1));
+            var tmp = arr[i]; arr[i] = arr[j]; arr[j] = tmp;
+        }
+        return arr;
+    }
+
+    document.addEventListener('DOMContentLoaded', function () {
+        var section = document.getElementById('ec-upsell');
+        if (!section) return;
+
+        fetch('/ecommerce/items_bar')
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
+                var cartIds = getCartIds();
+                var catalog = (data.data || []).filter(function (p) {
+                    return !cartIds.includes(String(p.id));
+                });
+                var picks = shuffle(catalog).slice(0, 10);
+                if (!picks.length) return;
+
+                var list = section.querySelector('.ec-upsell-list');
+                picks.forEach(function (p) { list.appendChild(buildCard(p)); });
+                section.style.display = '';
+
+                // Inicializar Swiper
+                if (typeof Swiper !== 'undefined') {
+                    new Swiper('.ec-upsell-swiper', {
+                        slidesPerView: 2,
+                        spaceBetween: 16,
+                        grabCursor: true,
+                        navigation: {
+                            nextEl: '.ec-upsell-next',
+                            prevEl: '.ec-upsell-prev',
+                        },
+                        pagination: {
+                            el: '.ec-upsell-pagination',
+                            clickable: true,
+                        },
+                        breakpoints: {
+                            576: { slidesPerView: 3, spaceBetween: 16 },
+                            768: { slidesPerView: 4, spaceBetween: 16 },
+                            1024: { slidesPerView: 5, spaceBetween: 16 },
+                        }
+                    });
+                }
+
+                if (window.EcLazyLoad) window.EcLazyLoad.scan();
+                if (window.Wishlist)   window.Wishlist.getAll && document.querySelectorAll('[data-wishlist-id]').forEach(function (b) {
+                    var id = String(b.getAttribute('data-wishlist-id'));
+                    if (Wishlist.has(id)) {
+                        b.classList.add('ec-btn-wishlist--active');
+                        b.setAttribute('aria-pressed', 'true');
+                        var svg = b.querySelector('svg');
+                        if (svg) { svg.setAttribute('fill','#e53e3e'); svg.setAttribute('stroke','#e53e3e'); }
+                    }
+                });
+            })
+            .catch(function () {});
+    });
+}());
 </script>
 
 @endpush

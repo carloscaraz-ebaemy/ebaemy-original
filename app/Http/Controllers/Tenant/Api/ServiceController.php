@@ -104,7 +104,19 @@
 
         public function exchangeRateTest($date)
         {
-            return (new ServiceData())->exchange($date);
+            try {
+                $result = (new ServiceData())->exchange($date);
+                return $result ?: ['date' => $date, 'purchase' => 1, 'sale' => 1];
+            } catch (\Exception $e) {
+                \Log::warning('exchangeRateTest error: ' . $e->getMessage());
+                // Fallback: last known rate from DB
+                $last = \App\Models\Tenant\ExchangeRate::orderBy('date', 'desc')->first();
+                return [
+                    'date'     => $date,
+                    'purchase' => $last ? $last->purchase : 1,
+                    'sale'     => $last ? $last->sale : 1,
+                ];
+            }
 //            $sale = 1;
 //            $purchase = 1;
 //            if ($date <= now()->format('Y-m-d')) {

@@ -467,6 +467,96 @@ $inventory_configuration = InventoryConfiguration::getSidebarPermissions();
                                     @endif
 
 
+                                    {{-- ── Cola Despacho (módulo logístico completo) ─────── --}}
+                                    @if(in_array('logistic', $vc_modules) && in_array('logistic', $vc_module_levels))
+                                    @php
+                                        $logisticActive = in_array($firstLevel, ['logistic']);
+                                        $pendingDispatch = \App\Models\Tenant\SaleNote::warehouseQueue()
+                                            ->where('logistic_status', 'PENDIENTE')
+                                            ->count();
+                                    @endphp
+                                    <li class="nav-parent {{ $logisticActive ? 'nav-active nav-expanded' : '' }}">
+                                        <a class="nav-link" href="#">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24"
+                                                fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                                                <path stroke="none" d="M0 0h24v24H0z" fill="none"/>
+                                                <path d="M12 3l8 4.5v9l-8 4.5l-8 -4.5v-9z"/>
+                                                <path d="M12 12l8 -4.5"/>
+                                                <path d="M12 12v9"/>
+                                                <path d="M12 12l-8 -4.5"/>
+                                            </svg>
+                                            <span>Cola Despacho</span>
+                                            @if($pendingDispatch > 0)
+                                                <span class="badge bg-danger ms-1 logistic-queue-badge">{{ $pendingDispatch }}</span>
+                                            @endif
+                                        </a>
+                                        <ul class="nav nav-children">
+
+                                            {{-- Dashboard --}}
+                                            @if(in_array(auth()->user()->type ?? '', ['admin', 'superadmin']))
+                                            <li class="{{ ($firstLevel === 'logistic' && $secondLevel === 'dashboard') ? 'nav-active' : '' }}">
+                                                <a class="nav-link" href="{{ route('logistic.dashboard') }}">
+                                                    <i class="fas fa-tachometer-alt fa-fw me-1"></i>
+                                                    <span>Dashboard</span>
+                                                </a>
+                                            </li>
+                                            @endif
+
+                                            {{-- Cola de despacho --}}
+                                            @if(in_array(auth()->user()->type ?? '', ['admin', 'warehouse']))
+                                            <li class="{{ ($firstLevel === 'logistic' && $secondLevel === 'sale-notes') ? 'nav-active' : '' }}">
+                                                <a class="nav-link" href="{{ route('logistic.sale_notes.queue') }}">
+                                                    <i class="fas fa-boxes fa-fw me-1"></i>
+                                                    <span>Cola Almacén</span>
+                                                    @if($pendingDispatch > 0)
+                                                        <span class="badge bg-danger ms-1 logistic-queue-badge">{{ $pendingDispatch }}</span>
+                                                    @else
+                                                        <span class="badge bg-danger ms-1 logistic-queue-badge" style="display:none;">0</span>
+                                                    @endif
+                                                </a>
+                                            </li>
+                                            @endif
+
+                                            {{-- Historial --}}
+                                            @if(in_array(auth()->user()->type ?? '', ['admin', 'warehouse']))
+                                            <li class="{{ ($firstLevel === 'logistic' && $secondLevel === 'history') ? 'nav-active' : '' }}">
+                                                <a class="nav-link" href="{{ route('logistic.sale_notes.history') }}">
+                                                    <i class="fas fa-history fa-fw me-1"></i>
+                                                    <span>Historial Despacho</span>
+                                                </a>
+                                            </li>
+                                            @endif
+
+                                            {{-- Devoluciones --}}
+                                            @if(in_array(auth()->user()->type ?? '', ['admin', 'warehouse']))
+                                            @php
+                                                $pendingReturns = \App\Models\Tenant\LogisticReturn::where('status', 'RECIBIDO')->count();
+                                            @endphp
+                                            <li class="{{ ($firstLevel === 'logistic' && $secondLevel === 'returns') ? 'nav-active' : '' }}">
+                                                <a class="nav-link" href="{{ route('logistic.returns.index') }}">
+                                                    <i class="fas fa-undo-alt fa-fw me-1"></i>
+                                                    <span>Devoluciones</span>
+                                                    @if($pendingReturns > 0)
+                                                        <span class="badge bg-warning ms-1">{{ $pendingReturns }}</span>
+                                                    @endif
+                                                </a>
+                                            </li>
+                                            @endif
+
+                                            {{-- Couriers --}}
+                                            @if(in_array(auth()->user()->type ?? '', ['admin', 'superadmin']))
+                                            <li class="{{ ($firstLevel === 'logistic' && $secondLevel === 'courier-companies') ? 'nav-active' : '' }}">
+                                                <a class="nav-link" href="{{ route('logistic.couriers.index') }}">
+                                                    <i class="fas fa-truck fa-fw me-1"></i>
+                                                    <span>Couriers</span>
+                                                </a>
+                                            </li>
+                                            @endif
+
+                                        </ul>
+                                    </li>
+                                    @endif
+
                                     {{-- Inventario --}}
                                     @if(in_array('inventory', $vc_modules))
                                         <li
@@ -965,6 +1055,24 @@ $inventory_configuration = InventoryConfiguration::getSidebarPermissions();
                                 <li class="{{ ($secondLevel === 'item-sets') ? 'nav-active' : '' }}">
                                     <a class="nav-link"
                                         href="{{route('tenant.ecommerce.item_sets.index')}}">Conjuntos y Packs</a>
+                                </li>
+
+                                <li class="{{ ($secondLevel === 'flash-sales') ? 'nav-active' : '' }}">
+                                    <a class="nav-link" href="{{ route('tenant.ecommerce.flash_sales') }}">
+                                        <i class="fas fa-bolt" style="color:#f59e0b;margin-right:4px"></i>Flash Sales
+                                    </a>
+                                </li>
+
+                                <li class="{{ ($secondLevel === 'coupons') ? 'nav-active' : '' }}">
+                                    <a class="nav-link" href="{{ route('tenant.ecommerce.coupons') }}">
+                                        <i class="fas fa-tag" style="color:#6366f1;margin-right:4px"></i>Cupones
+                                    </a>
+                                </li>
+
+                                <li class="{{ ($secondLevel === 'stock-notifications') ? 'nav-active' : '' }}">
+                                    <a class="nav-link" href="{{ route('tenant.ecommerce.stock_notifications') }}">
+                                        <i class="fas fa-bell" style="color:#22c55e;margin-right:4px"></i>Avisos de Stock
+                                    </a>
                                 </li>
 
                                 @if(in_array('ecommerce_tags', $vc_module_levels))

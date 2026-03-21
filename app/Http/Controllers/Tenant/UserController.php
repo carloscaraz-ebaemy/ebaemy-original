@@ -13,6 +13,7 @@ use App\Models\Tenant\Series;
 use App\Models\Tenant\User;
 use App\Models\Tenant\Configuration;
 use App\Models\Tenant\Zone;
+use App\Models\Tenant\Warehouse;
 use App\Models\Tenant\Catalogs\IdentityDocumentType;
 use Modules\Finance\Helpers\UploadFileHelper;
 use Illuminate\Support\Facades\DB;
@@ -79,18 +80,20 @@ class UserController extends Controller
         $documents = DocumentType::OnlyAvaibleDocuments()->get();
         $series = Series::FilterEstablishment()->FilterDocumentType()->get();
         $types = [
-            ['type' => 'admin', 'description' => 'Administrador'],
-            ['type' => 'seller', 'description' => 'Vendedor'],
+            ['type' => 'admin',     'description' => 'Administrador'],
+            ['type' => 'seller',    'description' => 'Vendedor'],
+            ['type' => 'warehouse', 'description' => 'Almacén'],
         ];
 
         $configuration = Configuration::select(['permission_to_edit_cpe', 'regex_password_user'])->first();
         $config_permission_to_edit_cpe = $configuration->permission_to_edit_cpe;
         $config_regex_password_user = $configuration->regex_password_user;
         $zones = Zone::all();
+        $warehouses = Warehouse::orderBy('description')->get(['id', 'description']);
 
         $identity_document_types = IdentityDocumentType::filterDataForPersons()->get();
 
-        return compact('modules', 'establishments', 'types', 'documents', 'series', 'config_permission_to_edit_cpe','zones', 'identity_document_types', 'config_regex_password_user');
+        return compact('modules', 'establishments', 'warehouses', 'types', 'documents', 'series', 'config_permission_to_edit_cpe','zones', 'identity_document_types', 'config_regex_password_user');
     }
 
     public function regenerateToken(User $user){
@@ -214,6 +217,9 @@ class UserController extends Controller
         $user->photo_filename = $request->photo_filename;
 
         $user->multiple_default_document_types = $request->multiple_default_document_types;
+
+        // Almacén asignado (para usuarios tipo 'warehouse')
+        $user->warehouse_id = $request->input('warehouse_id') ?: null;
     }
 
 

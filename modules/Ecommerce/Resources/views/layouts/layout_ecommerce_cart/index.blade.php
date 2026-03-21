@@ -29,6 +29,13 @@
 
     <!-- Estilos personalizados -->
     <link rel="stylesheet" href="{{ asset('porto-light/css/styles_ecommerce.css') }}" />
+    <style>
+        /* En la página del carrito/checkout el mini-carrito del header no tiene sentido */
+        .cart-dropdown .dropdown-toggle { pointer-events: none; cursor: default; }
+        .cart-dropdown .ec-minicart-dropdown { display: none !important; }
+        /* Ocultar breadcrumb: el stepper cumple esa función */
+        .breadcrumb-nav { display: none !important; }
+    </style>
 
     <!-- Element UI CSS -->
     <link rel="stylesheet" href="https://unpkg.com/element-ui/lib/theme-chalk/index.css">
@@ -80,6 +87,7 @@
 
     <!-- Main JS File -->
     <script src="{{ asset('porto-ecommerce/assets/js/main.js') }}"></script>
+    <script src="{{ asset('porto-ecommerce/assets/js/cart.js') }}"></script>
     <script src="{{ asset('porto-ecommerce/assets/js/vue.js') }}"></script>
     <script src="{{ asset('porto-ecommerce/assets/js/axios.min.js') }}"></script>
 

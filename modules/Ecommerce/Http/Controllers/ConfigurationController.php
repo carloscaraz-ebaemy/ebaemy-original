@@ -301,6 +301,44 @@ public function uploadFile(Request $request)
     }
 
 
+    public function store_configuration_newsletter(Request $request)
+    {
+        $config = ConfigurationEcommerce::first();
+        if (!$config) {
+            return ['success' => false, 'message' => 'No existe configuración'];
+        }
+
+        $config->newsletter_popup_enabled  = (bool) $request->input('newsletter_popup_enabled', false);
+        $config->newsletter_popup_title    = $request->input('newsletter_popup_title');
+        $config->newsletter_popup_desc     = $request->input('newsletter_popup_desc');
+        $config->newsletter_discount_code  = $request->input('newsletter_discount_code');
+
+        // Imagen opcional: si viene como base64 la guardamos en storage
+        if ($request->filled('newsletter_popup_image') && str_starts_with($request->input('newsletter_popup_image'), 'data:image')) {
+            $imageData  = $request->input('newsletter_popup_image');
+            $extension  = strtolower(explode('/', explode(':', explode(';', $imageData)[0])[1])[1]);
+            $allowedExtensions = ['jpg', 'jpeg', 'png', 'gif', 'webp'];
+            if (!in_array($extension, $allowedExtensions)) {
+                return ['success' => false, 'message' => 'Tipo de imagen no permitido'];
+            }
+            $filename   = 'newsletter_' . time() . '.' . $extension;
+            $imagePath  = 'storage/uploads/logos/' . $filename;
+            $decoded    = base64_decode(preg_replace('/^data:image\/\w+;base64,/', '', $imageData));
+            file_put_contents(public_path($imagePath), $decoded);
+            $config->newsletter_popup_image = $filename;
+        } elseif ($request->filled('newsletter_popup_image') && !str_starts_with($request->input('newsletter_popup_image'), 'data:image')) {
+            // Se envió un nombre de archivo existente
+            $config->newsletter_popup_image = $request->input('newsletter_popup_image');
+        }
+
+        $config->save();
+
+        return [
+            'success' => true,
+            'message' => 'Configuración del pop-up de newsletter actualizada'
+        ];
+    }
+
     public function getColorEcommerce()
     {
         $config = \App\Models\Tenant\ConfigurationEcommerce::first();

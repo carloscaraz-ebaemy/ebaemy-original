@@ -11,6 +11,7 @@ use Culqi\Culqi;
 use Culqi\CulqiException;
 use Illuminate\Support\Facades\Mail;
 use App\Mail\Tenant\CulqiEmail;
+use App\Mail\Tenant\OrderConfirmationEmail;
 use stdClass;
 use Illuminate\Support\Facades\Auth;
 use App\Models\Tenant\Order;
@@ -78,50 +79,36 @@ class CulqiController extends Controller
               )
         );
 
+        $customerData = (array) json_decode($request->customer, true);
+        $customer_name  = $user ? $user->name : ($customerData['apellidos_y_nombres_o_razon_social'] ?? 'Cliente');
+        $customer_email = $request->email ?: ($customerData['correo_electronico'] ?? null);
+        $shipping_addr  = $customerData['direccion'] ?? 'direccion 1';
+
         $order = Order::create([
-
-            'external_id' => Str::uuid()->toString(),
-            'customer' => json_decode( $request->customer ),
-            'shipping_address' => 'direccion 1',
-            'items' => json_decode( $request->items ),
-            'total' => $request->precio_culqi,
-            'reference_payment' => 'culqui',
-            'purchase' => json_decode($request->purchase)
-
+            'external_id'       => Str::uuid()->toString(),
+            'customer'          => json_decode($request->customer),
+            'shipping_address'  => $shipping_addr,
+            'items'             => json_decode($request->items),
+            'total'             => $request->precio_culqi,
+            'reference_payment' => 'culqi',
+            'purchase'          => json_decode($request->purchase),
         ]);
 
-
-        $customer_email = $request->email;
-        $document = new stdClass;
-        $document->client = $user->name;
-        $document->product = $request->producto;
-        $document->total = $request->precio_culqi;
-        $document->items = json_decode($request->items, true);
-
-          $email = $customer_email;
-          $mailable = new CulqiEmail($document);
-          $id = (int) $request->id;
-          $model = __FILE__.";;".__LINE__;
-          $sendIt = EmailController::SendMail($email, $mailable, $id, $model);
-          /*
-          Configuration::setConfigSmtpMail();
-          $array_email = explode(',', $customer_email);
-          if (count($array_email) > 1) {
-              foreach ($array_email as $email_to) {
-                  $email_to = trim($email_to);
-                if(!empty($email_to)) {
-                      Mail::to($email_to)->send(new CulqiEmail($document));
-                  }
-              }
-          } else {
-              Mail::to($customer_email)->send(new CulqiEmail($document));
-          }
-          */
+        if ($customer_email) {
+            try {
+                Mail::to($customer_email)->send(
+                    new \App\Mail\Tenant\OrderConfirmationEmail($order, $customer_name, $customer_email)
+                );
+            } catch (\Exception $mailEx) {
+                \Log::warning('OrderConfirmationEmail (Culqi) failed: ' . $mailEx->getMessage());
+            }
+        }
 
         return [
-            'success' => true,
-            'culqui' => $charge,
-            'order' => $order,
+            'success'        => true,
+            'culqui'         => $charge,
+            'order'          => $order,
+            'redirect_route' => url('/ecommerce/order/confirmation/' . $order->external_id),
         ];
       //  return json_encode($charge);
       }

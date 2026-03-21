@@ -9,8 +9,9 @@ class ItemsRating extends ModelTenant
     protected $fillable = [
         'user_id',
         'item_id',
-        'item_id',
-        'value'
+        'value',
+        'reviewer_name',
+        'comment',
     ];
 
 }

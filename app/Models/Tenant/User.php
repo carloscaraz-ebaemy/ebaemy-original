@@ -171,6 +171,7 @@ class User extends Authenticatable
         'password',
         'establishment_id',
         'type',
+        'warehouse_id',
         'locked',
         'identity_document_type_id',
         'number',
@@ -293,11 +294,11 @@ class User extends Authenticatable
 
     public function hasModule($module)
     {
-        if ($this->modules()->where('name',
- $module)->first()) {
-            return true;
+        // Usa la relación cargada si está disponible (evita N+1 en bucles)
+        if ($this->relationLoaded('modules')) {
+            return $this->modules->contains('value', $module);
         }
-        return false;
+        return $this->modules()->where('value', $module)->exists();
     }
 
 
@@ -1201,12 +1202,32 @@ $withEstablishment = true){
             'permission_force_send_by_summary' => $this->permission_force_send_by_summary,
             'permission_edit_item_prices' => $this->permission_edit_item_prices,
             'restaurant_pin' => $this->restaurant_pin,
+            'logistic_enabled' => $this->hasLogisticModule(),
         ];
     }
 
+    public function hasLogisticModule(): bool
+    {
+        // Resuelve el module_id dinámicamente desde module_levels (no hardcodeado).
+        // 'logistic_queue' siempre pertenece al módulo logístico.
+        $moduleId = DB::connection('tenant')
+            ->table('module_levels')
+            ->where('value', 'logistic_queue')
+            ->value('module_id');
+
+        if (!$moduleId) {
+            return false; // Módulo logístico no instalado en este tenant
+        }
+
+        return DB::connection('tenant')
+            ->table('module_user')
+            ->where('user_id', $this->id)
+            ->where('module_id', $moduleId)
+            ->exists();
+    }
 
     /**
-     * 
+     *
      * Permisos de los modulos y submodulos por usuario
      *
      * @return array

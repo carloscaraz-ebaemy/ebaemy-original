@@ -602,7 +602,7 @@ class ConfigurationController extends Controller
         $configuration->visual = $visual;
         $configuration->save();
 
-        return redirect()->back();
+        return redirect(url()->previous(route('tenant.dashboard.index')));
     }
 
 

@@ -357,10 +357,17 @@ export default {
         },
 
         applyTheme(theme) {
-            const colors = this.themes[theme];
+            let colors = this.themes[theme];
             if (!colors) {
                 console.error(`Theme "${theme}" not found.`);
                 return;
+            }
+
+            // Handle nested theme structure (e.g. "white": { "light": {...}, "default": {...} })
+            const firstVal = Object.values(colors)[0];
+            if (firstVal && typeof firstVal === 'object') {
+                const mode = (this.form && this.form.sidebar_mode) || 'default';
+                colors = colors[mode] || colors['default'] || colors['light'] || colors;
             }
 
             let styleTag = document.getElementById("theme-styles");
@@ -486,20 +493,17 @@ export default {
                 .post(`/${this.resource}/visual_settings`, this.visuals)
                 .then(response => {
                     if (response.data.success) {
-                        this.$message.success(response.data.message);
+                        location.reload();
                     } else {
                         this.$message.error(response.data.message);
                     }
                 })
                 .catch(error => {
-                    if (error.response.status === 422) {
+                    if (error.response && error.response.status === 422) {
                         this.errors = error.response.data.errors;
                     } else {
                         console.log(error);
                     }
-                })
-                .then(() => {
-                    // location.reload();
                 });
         },
         submitForm() {

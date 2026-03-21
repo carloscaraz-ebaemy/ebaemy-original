@@ -86,6 +86,12 @@ class Handler extends ExceptionHandler
 
         if($exception instanceof NotFoundHttpException)
         {
+            // Mostrar página 404 del ecommerce cuando la URL comienza con /ecommerce
+            if ($request->is('ecommerce*') && !$request->expectsJson()) {
+                try {
+                    return response(view('ecommerce::errors.404'), 404);
+                } catch (\Throwable $e) {}
+            }
             return $this->errorResponse('No se encontró la URL especificada', 404, $exception);
         }
 
@@ -104,6 +110,19 @@ class Handler extends ExceptionHandler
 
         if($exception instanceof HttpException)
         {
+            $statusCode = $exception->getStatusCode();
+            if ($request->is('ecommerce*') && !$request->expectsJson()) {
+                $ecView = match($statusCode) {
+                    503 => 'ecommerce::errors.503',
+                    500 => 'ecommerce::errors.500',
+                    default => null,
+                };
+                if ($ecView) {
+                    try {
+                        return response(view($ecView), $statusCode);
+                    } catch (\Throwable $e) {}
+                }
+            }
             return $this->errorResponse('', '', $exception);
         }
 
@@ -111,6 +130,13 @@ class Handler extends ExceptionHandler
         if(!$this->isFrontend($request))
         {
             return $this->errorResponse('', 500, $exception);
+        }
+
+        // Capturar errores 500 no manejados en rutas ecommerce
+        if ($request->is('ecommerce*') && !$request->expectsJson()) {
+            try {
+                return response(view('ecommerce::errors.500'), 500);
+            } catch (\Throwable $e) {}
         }
 
         return parent::render($request, $exception);

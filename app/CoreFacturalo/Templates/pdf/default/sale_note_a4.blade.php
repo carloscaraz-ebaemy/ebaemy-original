@@ -583,5 +583,32 @@ foreach ($document->items as $row) {
         </tr>
     </table>
 @endif
+
+{{-- ── Datos de envío (solo si el pedido fue despachado) ──────────────────── --}}
+@if(isset($document) && $document->logistic_status?->value === 'DESPACHADO')
+<br>
+<table class="full-width" style="border: 1.5px solid #28a745; border-radius: 5px; padding: 8px;">
+    <tr>
+        <td colspan="2" style="font-weight: bold; font-size: 11px; color: #155724; padding-bottom: 4px; border-bottom: 1px solid #28a745;">
+            &#128666; DATOS DE ENVÍO
+        </td>
+    </tr>
+    <tr>
+        <td style="width: 40%; font-size: 10px; color: #555; padding-top: 4px;">Courier / Transportista:</td>
+        <td style="font-size: 10px; font-weight: 600;">{{ $document->courier_name ?? '—' }}</td>
+    </tr>
+    <tr>
+        <td style="font-size: 10px; color: #555;">N° Guía / Tracking:</td>
+        <td style="font-size: 10px; font-weight: 600;">{{ $document->tracking_number ?? '—' }}</td>
+    </tr>
+    <tr>
+        <td style="font-size: 10px; color: #555;">Fecha de Despacho:</td>
+        <td style="font-size: 10px; font-weight: 600;">
+            {{ $document->dispatch_date?->format('d/m/Y H:i') ?? '—' }}
+        </td>
+    </tr>
+</table>
+@endif
+
 </body>
 </html>

@@ -1,19 +1,120 @@
 @extends('ecommerce::layouts.layout_ecommerce_item.record')
 
-@section('content')
-
 @php
-    $configurationModel = \App\Models\Tenant\Configuration::first();
+    $configurationModel    = \App\Models\Tenant\Configuration::first();
     $ecommerceConfiguration = \App\Models\Tenant\ConfigurationEcommerce::first();
-    $phoneWhatsapp = $ecommerceConfiguration->phone_whatsapp ?? $configurationModel->phone_whatsapp ?? null;
-    $defaultImage = $configurationModel->product_default_image ?? 'imagen-no-disponible.jpg';
-    $defaultImagePath = $defaultImage === 'imagen-no-disponible.jpg'
-        ? asset('logo/imagen-no-disponible.jpg')
-        : asset('storage/defaults/' . $defaultImage);
-    $mainImagePath = ($record->image && $record->image !== 'imagen-no-disponible.jpg')
-        ? asset('storage/uploads/items/'.$record->image)
-        : $defaultImagePath;
+    $company               = \App\Models\Tenant\Company::first();
+    $phoneWhatsapp         = $ecommerceConfiguration->phone_whatsapp ?? $configurationModel->phone_whatsapp ?? null;
+    $defaultImage          = $configurationModel->product_default_image ?? 'imagen-no-disponible.jpg';
+    $defaultImagePath      = $defaultImage === 'imagen-no-disponible.jpg'
+                             ? asset('logo/imagen-no-disponible.jpg')
+                             : asset('storage/defaults/' . $defaultImage);
+    $mainImagePath         = ($record->image && $record->image !== 'imagen-no-disponible.jpg')
+                             ? asset('storage/uploads/items/'.$record->image)
+                             : $defaultImagePath;
+    $productUrl            = route('tenant.ecommerce.item', ['slug' => $record->slug ?: $record->id]);
+    $shortDesc             = \Illuminate\Support\Str::limit(strip_tags($record->name ?: $record->description), 155);
 @endphp
+
+{{-- ── SEO META DINÁMICOS POR PRODUCTO ─────────────── --}}
+@section('page_title', $record->description . ' | ' . ($company->trade_name ?? $company->name ?? 'Tienda Online'))
+@section('meta_description', $shortDesc)
+@section('meta_keywords', $record->description . ($record->category ? ', ' . $record->category->name : '') . ', ' . ($company->name ?? ''))
+@section('og_type', 'product')
+@section('og_title', $record->description)
+@section('og_description', $shortDesc)
+@section('og_image', $mainImagePath)
+@section('canonical_url', $productUrl)
+
+{{-- ── BREADCRUMB SCHEMA + VISIBLE ─────────────────── --}}
+@section('breadcrumb_item')
+    @if($record->category)
+    <li class="breadcrumb-item">
+        <a href="{{ route('tenant.ecommerce.index', \Illuminate\Support\Str::slug($record->category->name)) }}">
+            {{ $record->category->name }}
+        </a>
+    </li>
+    @endif
+    <li class="breadcrumb-item active" aria-current="page">{{ $record->description }}</li>
+@endsection
+
+{{-- ── SCHEMA.ORG PRODUCT JSON-LD ──────────────────── --}}
+@section('schema_product')
+<script type="application/ld+json">
+{
+    "@context": "https://schema.org",
+    "@type": "Product",
+    "name": "{{ addslashes($record->description) }}",
+    "description": "{{ addslashes(strip_tags($record->name ?: $record->description)) }}",
+    "sku": "{{ $record->internal_id ?? $record->id }}",
+    "image": [
+        "{{ $mainImagePath }}"
+        @foreach($record->images as $img)
+        @if($img->image && $img->image !== 'imagen-no-disponible.jpg')
+        ,"{{ asset('storage/uploads/items/' . $img->image) }}"
+        @endif
+        @endforeach
+    ],
+    "brand": {
+        "@type": "Brand",
+        "name": "{{ addslashes($company->trade_name ?? $company->name ?? 'Tienda') }}"
+    },
+    @if($record->category)
+    "category": "{{ addslashes($record->category->name) }}",
+    @endif
+    "offers": {
+        "@type": "Offer",
+        "url": "{{ $productUrl }}",
+        "priceCurrency": "{{ $record->currency_type_id ?? 'PEN' }}",
+        "price": "{{ number_format($record->sale_unit_price, 2, '.', '') }}",
+        "availability": "{{ $record->stock > 0 ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock' }}",
+        "itemCondition": "https://schema.org/NewCondition",
+        "seller": {
+            "@type": "Organization",
+            "name": "{{ addslashes($company->name ?? 'Tienda Online') }}"
+        }
+    }
+}
+</script>
+
+<script type="application/ld+json">
+{
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    "itemListElement": [
+        {
+            "@type": "ListItem",
+            "position": 1,
+            "name": "Inicio",
+            "item": "{{ url('/ecommerce') }}"
+        }
+        @if($record->category)
+        ,{
+            "@type": "ListItem",
+            "position": 2,
+            "name": "{{ addslashes($record->category->name) }}",
+            "item": "{{ route('tenant.ecommerce.index', \Illuminate\Support\Str::slug($record->category->name)) }}"
+        }
+        ,{
+            "@type": "ListItem",
+            "position": 3,
+            "name": "{{ addslashes($record->description) }}",
+            "item": "{{ $productUrl }}"
+        }
+        @else
+        ,{
+            "@type": "ListItem",
+            "position": 2,
+            "name": "{{ addslashes($record->description) }}",
+            "item": "{{ $productUrl }}"
+        }
+        @endif
+    ]
+}
+</script>
+@endsection
+
+@section('content')
 
 <div class="product-single-container product-single-default">
     <div class="row">
@@ -84,93 +185,271 @@
 
         <div class="col-lg-5 col-md-6">
             <div class="product-single-details">
-                <h1 class="product-title">{{$record->description}}</h1>
 
-
-
-                <div class="ratings-container">
-                    <div class="product-ratings">
-                        <span class="ratings" style="width:60%"></span><!-- End .ratings -->
-                    </div><!-- End .product-ratings -->
-
-                    <a href="#" class="rating-link">( 6 vistas )</a>
-                </div><!-- End .product-container -->
-
-                <div class="price-box">
-                    <span class="old-price">{{ $record->currency_type['symbol'] }} {{ number_format( ($record->sale_unit_price * 1.2 ) , 2 ) }}</span>
-                    <span class="product-price">{{ $record->currency_type['symbol'] }} {{ number_format($record->sale_unit_price, 2) }}</span>
-                </div><!-- End .price-box -->
-
-                <div class="product-desc">
-                    <p class="product-category">Categoría: <span> {{$record->category->name}} </span></p>
-                <p class="product-stock">Disponible: <span>{{number_format(($record->stock), 0)}} </span>
-                <?php
-                if($record->stock > 0){?>
-                    <span 
-                    class="alert-stock" role="alert">En stock</span>
-                <?php
-                }else{?>
-                    <span 
-                    class="alert-sin-stock" 
-                    role="alert">Sin stock</span> 
-                <?php
-                }
-                ?>
+                {{-- Categoría --}}
+                @if($record->category)
+                <p class="product-category mb-1">
+                    <a href="{{ route('tenant.ecommerce.index', \Illuminate\Support\Str::slug($record->category->name)) }}"
+                       style="color: hsl(var(--primary-h), var(--primary-s), var(--primary-l)); font-size:12px; font-weight:600; text-transform:uppercase; letter-spacing:.5px;">
+                        {{ $record->category->name }}
+                    </a>
                 </p>
-                    <p>{{ $record->name }}</p>
-                </div><!-- End .product-desc -->
+                @endif
 
-                <div>
-                @foreach($record->attributes as $at)
-                   <small> {{$at->description}}: {{$at->value}} </small> <br>
-                @endforeach
+                <h1 class="product-title" itemprop="name">{{ $record->description }}</h1>
+
+                {{-- Precio — SIN precio falso tachado a menos que haya descuento real --}}
+                <div class="price-box" itemprop="offers" itemscope itemtype="https://schema.org/Offer">
+                    <meta itemprop="priceCurrency" content="{{ $record->currency_type_id ?? 'PEN' }}">
+                    <meta itemprop="price" content="{{ $record->sale_unit_price }}">
+                    <span class="product-price">
+                        {{ $record->currency_type['symbol'] }} {{ number_format($record->sale_unit_price, 2) }}
+                    </span>
                 </div>
 
-                <div class="product-filters-container">
-
-                </div><!-- End .product-filters-container -->
-
-                <div class="product-action product-all-icons">
-                    <!--<div class="product-single-qty">
-                        <input class="horizontal-quantity form-control" type="text">
-                    </div>-->
-                    <!-- End .product-single-qty -->
-
-                    <a href="#" class="paction add-cart" data-product="{{ json_encode( $record ) }}"
-                        title="Add to Cart">
-                        <span>Agregar a Carrito</span>
-                    </a>
-
-                    @php
-                        $showWhatsapp = ($configurationModel->enable_whatsapp ?? false) && !empty($phoneWhatsapp);
-                    @endphp
-                    @if($showWhatsapp)
-                        @php
-                            $waPhoneRaw = preg_replace('/\D+/', '', $phoneWhatsapp);
-                            $waPhone = (strlen($waPhoneRaw) == 9 && str_starts_with($waPhoneRaw, '9')) ? '51'.$waPhoneRaw : $waPhoneRaw;
-                            $waText = rawurlencode("Buenas, deseo consultar acerca del producto *{$record->description}*, con precio de {$record->currency_type['symbol']}{$record->sale_unit_price}. ¿Podrían brindarme más información?");
-                            $waLink = "https://wa.me/{$waPhone}?text={$waText}";
-                        @endphp
-                        <a href="{{ $waLink }}" class="btn-whatsapp" target="_blank" rel="noopener" title="Consultar por WhatsApp">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon icon-tabler icons-tabler-outline icon-tabler-brand-whatsapp" style="margin-top: -3px"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M3 21l1.65 -3.8a9 9 0 1 1 3.4 2.9l-5.05 .9" /><path d="M9 10a.5 .5 0 0 0 1 0v-1a.5 .5 0 0 0 -1 0v1a5 5 0 0 0 5 5h1a.5 .5 0 0 0 0 -1h-1a.5 .5 0 0 0 0 1" /></svg>
-                            <span>Consultar por WhatsApp</span>
-                        </a>
+                {{-- Stock --}}
+                <div class="product-desc">
+                    <p class="product-stock">
+                        Disponible: <span>{{ number_format($record->stock, 0) }}</span>
+                        @if($record->stock > 0)
+                            <span class="alert-stock" role="alert">En stock</span>
+                        @else
+                            <span class="alert-sin-stock" role="alert">Sin stock</span>
+                        @endif
+                    </p>
+                    @if($record->name)
+                    <p>{{ $record->name }}</p>
                     @endif
-                    
-                    <!-- <a href="#" class="paction add-wishlist" title="Add to Wishlist">
-                        <span>Add to Wishlist</span>
-                    </a>
-                    <a href="#" class="paction add-compare" title="Add to Compare">
-                        <span>Add to Compare</span>
-                    </a> -->
-                </div><!-- End .product-action -->
+                </div>
 
-                <div class="product-single-share">
-                    <!--<label>Share:</label> -->
-                    <!-- www.addthis.com share plugin-->
-                    <div class="addthis_inline_share_toolbox"></div>
-                </div><!-- End .product single-share -->
+                {{-- Atributos del producto — selector interactivo --}}
+                @if($record->attributes && count($record->attributes))
+                @php
+                    // Types that render as selectable chips/swatches
+                    $selectableTypes = ['color','talla','tamaño','size','presentacion','presentación','modelo','sabor','fragancia','capacidad','material'];
+                    $colorMap = [
+                        'rojo'=>'#e11d48','red'=>'#e11d48','rosa'=>'#ec4899','pink'=>'#ec4899',
+                        'azul'=>'#2563eb','blue'=>'#2563eb','celeste'=>'#0ea5e9','turquesa'=>'#14b8a6',
+                        'verde'=>'#16a34a','green'=>'#16a34a','lima'=>'#84cc16',
+                        'amarillo'=>'#f59e0b','yellow'=>'#f59e0b','dorado'=>'#d97706','gold'=>'#d97706',
+                        'naranja'=>'#f97316','orange'=>'#f97316','coral'=>'#fb7185',
+                        'morado'=>'#9333ea','purple'=>'#9333ea','violeta'=>'#7c3aed','lila'=>'#a78bfa',
+                        'negro'=>'#1f2937','black'=>'#1f2937',
+                        'blanco'=>'#f9fafb','white'=>'#f9fafb',
+                        'gris'=>'#6b7280','grey'=>'#6b7280','gray'=>'#6b7280','plateado'=>'#9ca3af','silver'=>'#9ca3af',
+                        'cafe'=>'#92400e','marrón'=>'#92400e','marron'=>'#92400e','brown'=>'#92400e','beige'=>'#d6c3a8',
+                        'crema'=>'#fef3c7','champagne'=>'#f0e6c8','navy'=>'#1e3a5f','marino'=>'#1e3a5f',
+                    ];
+                @endphp
+                <div class="ec-variant-selectors" id="ec-variant-selectors">
+                    @foreach($record->attributes as $at)
+                    @php
+                        $typeKey    = strtolower(trim($at->description ?? ''));
+                        $isSelect   = in_array($typeKey, $selectableTypes);
+                        $isColor    = strpos($typeKey, 'color') !== false || strpos($typeKey, 'colour') !== false;
+                        $rawValues  = array_map('trim', explode(',', $at->value ?? ''));
+                        $multiVal   = count($rawValues) > 1;
+                    @endphp
+
+                    @if($isSelect && $multiVal)
+                    {{-- Selectable attribute --}}
+                    <div class="ec-variant-group" data-attr="{{ $at->description }}">
+                        <div class="ec-variant-label">
+                            <span class="ec-variant-label__name">{{ $at->description }}</span>
+                            <span class="ec-variant-label__val" id="ec-val-{{ $loop->index }}">— Elige una opción</span>
+                        </div>
+                        <div class="ec-variant-options {{ $isColor ? 'ec-variant-options--colors' : '' }}">
+                            @foreach($rawValues as $val)
+                            @php
+                                $valKey   = strtolower(trim($val));
+                                $cssColor = $isColor ? ($colorMap[$valKey] ?? null) : null;
+                                $isLight  = $cssColor && in_array($valKey, ['blanco','white','beige','crema','champagne','amarillo','yellow','lima']);
+                            @endphp
+                            <button type="button"
+                                    class="ec-variant-opt {{ $isColor ? 'ec-variant-opt--color' : 'ec-variant-opt--chip' }}"
+                                    data-attr="{{ $at->description }}"
+                                    data-val="{{ trim($val) }}"
+                                    data-label-id="ec-val-{{ $loop->parent->index }}"
+                                    @if($cssColor) style="--swatch:{{ $cssColor }}" @endif
+                                    title="{{ trim($val) }}"
+                                    aria-label="Seleccionar {{ $at->description }}: {{ trim($val) }}"
+                                    aria-pressed="false">
+                                @if($isColor)
+                                    <span class="ec-swatch {{ $isLight ? 'ec-swatch--light' : '' }}"
+                                          style="background:{{ $cssColor ?? '#ccc' }}"></span>
+                                @else
+                                    {{ trim($val) }}
+                                @endif
+                            </button>
+                            @endforeach
+                        </div>
+                    </div>
+                    @else
+                    {{-- Informational badge --}}
+                    <div class="ec-variant-group ec-variant-group--info">
+                        <span class="product-attr-badge">
+                            <strong>{{ $at->description }}:</strong> {{ $at->value }}
+                        </span>
+                    </div>
+                    @endif
+                    @endforeach
+                </div>
+                {{-- Required selection notice (shown if selectable attrs exist) --}}
+                <p class="ec-variant-required" id="ec-variant-required" style="display:none">
+                    ⚠ Por favor selecciona todas las opciones antes de agregar al carrito.
+                </p>
+                @endif
+
+                {{-- Selector de cantidad --}}
+                @if($record->stock > 0)
+                <div class="mb-3">
+                    <label style="font-size:12px; font-weight:700; color:var(--subtitle-color); display:block; margin-bottom:6px;">
+                        CANTIDAD
+                    </label>
+                    <div class="ec-qty-selector" id="ec-qty-selector">
+                        <button type="button" class="ec-qty-btn" onclick="ecQtyChange(-1)" aria-label="Reducir cantidad">−</button>
+                        <input  type="number" class="ec-qty-input" id="ec-qty-input"
+                                value="1" min="1" max="{{ $record->stock }}"
+                                aria-label="Cantidad">
+                        <button type="button" class="ec-qty-btn" onclick="ecQtyChange(1)" aria-label="Aumentar cantidad">+</button>
+                    </div>
+                </div>
+                @endif
+
+                {{-- Acciones --}}
+                @php
+                    $showWhatsapp = ($configurationModel->enable_whatsapp ?? false) && !empty($phoneWhatsapp);
+                    $waPhoneRaw   = $showWhatsapp ? preg_replace('/\D+/', '', $phoneWhatsapp) : '';
+                    $waPhone      = ($showWhatsapp && strlen($waPhoneRaw) == 9 && str_starts_with($waPhoneRaw, '9'))
+                                    ? '51' . $waPhoneRaw : $waPhoneRaw;
+                    $waText       = rawurlencode("Hola, me interesa el producto *{$record->description}* a {$record->currency_type['symbol']}{$record->sale_unit_price}. ¿Está disponible?");
+                    $waLink       = $showWhatsapp ? "https://wa.me/{$waPhone}?text={$waText}" : '#';
+                @endphp
+
+                <div class="product-action product-all-icons" id="product-actions">
+                    @if($record->stock > 0)
+                    <a href="#" class="paction add-cart"
+                       id="btn-add-to-cart"
+                       data-product="{{ json_encode($record) }}"
+                       data-ec-cart="{{ json_encode($record) }}"
+                       title="Agregar al carrito">
+                        <span>Agregar al Carrito</span>
+                    </a>
+                    @else
+                    <button type="button" class="ec-btn-notify ec-btn-notify--full"
+                            data-item-id="{{ $record->id }}"
+                            data-item-name="{{ $record->description }}">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+                             stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+                             <path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+                        Avisarme cuando haya stock
+                    </button>
+                    @endif
+
+                    @if($showWhatsapp)
+                    <a href="{{ $waLink }}" class="btn-whatsapp mt-2" target="_blank" rel="noopener noreferrer"
+                       title="Consultar por WhatsApp">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24"
+                             fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                            <path d="M3 21l1.65-3.8a9 9 0 1 1 3.4 2.9L3 21"/>
+                            <path d="M9 10a.5.5 0 0 0 1 0v-1a.5.5 0 0 0-1 0v1a5 5 0 0 0 5 5h1a.5.5 0 0 0 0-1h-1a.5.5 0 0 0 0 1"/>
+                        </svg>
+                        <span>Consultar por WhatsApp</span>
+                    </a>
+                    @endif
+                </div>
+
+                {{-- Comparar --}}
+                <div class="mt-2">
+                    <button type="button"
+                            class="ec-btn-compare ec-btn-compare--detail"
+                            data-compare-id="{{ $record->id }}"
+                            data-product="{{ json_encode($record) }}"
+                            aria-pressed="false"
+                            title="Agregar a comparación">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"
+                             fill="none" stroke="currentColor" stroke-width="2"
+                             stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                            <polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/>
+                            <polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/>
+                        </svg>
+                        Agregar a comparación
+                    </button>
+                </div>
+
+                {{-- Compartir --}}
+                <div class="product-single-share mt-3">
+                    <div class="ec-share-bar">
+                        <span class="ec-share-bar__label">Compartir:</span>
+                        <button type="button" class="ec-share-btn" id="ec-native-share"
+                                data-title="{{ $record->description }}"
+                                data-url="{{ $productUrl }}"
+                                title="Compartir este producto"
+                                aria-label="Compartir">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24"
+                                 fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                                <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/>
+                                <circle cx="18" cy="19" r="3"/>
+                                <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/>
+                                <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
+                            </svg>
+                            Compartir
+                        </button>
+                        {{-- Fallback: enlaces directos --}}
+                        <div class="ec-share-links" id="ec-share-links" style="display:none">
+                            <a href="https://wa.me/?text={{ rawurlencode($record->description . ' ' . $productUrl) }}"
+                               target="_blank" rel="noopener" class="ec-share-link ec-share-link--wa" title="WhatsApp">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"
+                                     fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                                    <path d="M3 21l1.65-3.8a9 9 0 1 1 3.4 2.9L3 21"/>
+                                </svg> WhatsApp
+                            </a>
+                            <a href="https://www.facebook.com/sharer/sharer.php?u={{ rawurlencode($productUrl) }}"
+                               target="_blank" rel="noopener" class="ec-share-link ec-share-link--fb" title="Facebook">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"
+                                     fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                                    <path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z"/>
+                                </svg> Facebook
+                            </a>
+                            <button type="button" class="ec-share-link ec-share-link--copy" id="ec-copy-link"
+                                    data-url="{{ $productUrl }}" title="Copiar enlace">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"
+                                     fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
+                                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+                                </svg> Copiar
+                            </button>
+                        </div>
+                    </div>
+                </div>
             </div><!-- End .product-single-details -->
+
+            {{-- ── MOBILE STICKY BAR (solo visible en móvil ≤ 767px) ── --}}
+            @if($record->stock > 0)
+            <div class="ec-mobile-action-bar d-md-none">
+                @if($showWhatsapp)
+                <a href="{{ $waLink }}" class="btn-whatsapp ec-mob-wa-btn" target="_blank" rel="noopener noreferrer"
+                   title="Consultar por WhatsApp" aria-label="WhatsApp">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"
+                         fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                        <path d="M3 21l1.65-3.8a9 9 0 1 1 3.4 2.9L3 21"/>
+                        <path d="M9 10a.5.5 0 0 0 1 0v-1a.5.5 0 0 0-1 0v1a5 5 0 0 0 5 5h1a.5.5 0 0 0 0-1h-1a.5.5 0 0 0 0 1"/>
+                    </svg>
+                </a>
+                @endif
+                <a href="#" class="paction add-cart ec-mob-cart-btn"
+                   data-product="{{ json_encode($record) }}"
+                   data-ec-cart="{{ json_encode($record) }}">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24"
+                         fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true">
+                        <circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/>
+                        <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/>
+                    </svg>
+                    Agregar al Carrito
+                </a>
+            </div>
+            @endif
+
         </div><!-- End .col-lg-5 -->
     </div><!-- End .row -->
 </div><!-- End .product-single-container -->
@@ -199,71 +478,564 @@
         </div><!-- End .tab-pane -->
 
         <div class="tab-pane fade" id="product-reviews-content" role="tabpanel" aria-labelledby="product-tab-reviews">
-            <div class="product-reviews-content">
-                <div class="collateral-box">
+            <div class="ec-reviews-wrap" id="ec-reviews-wrap" data-item-id="{{ $record->id }}">
 
-                    <div class="page">
-                        <div class="page__demo">
-
-                            <div class="page__group">
-                                <div class="rating">
-                                    <input type="radio" name="rating-star2" class="rating__control" id="rc6" onclick="sendRating(1,{{$record->id}})">
-                                    <input type="radio" name="rating-star2" class="rating__control" id="rc7" onclick="sendRating(2,{{$record->id}})">
-                                    <input type="radio" name="rating-star2" class="rating__control" id="rc8" onclick="sendRating(3,{{$record->id}})">
-                                    <input type="radio" name="rating-star2" class="rating__control" id="rc9" onclick="sendRating(4,{{$record->id}})">
-                                    <input type="radio" name="rating-star2" class="rating__control" id="rc10" onclick="sendRating(5,{{$record->id}})" >
-                                    <label for="rc6" class="rating__item">
-                                        <svg class="rating__star">
-                                            <use xlink:href="#star"></use>
-                                        </svg>
-                                        <span class="rating__label">1</span>
-                                    </label>
-                                    <label for="rc7" class="rating__item">
-                                        <svg class="rating__star">
-                                            <use xlink:href="#star"></use>
-                                        </svg>
-                                        <span class="rating__label">2</span>
-                                    </label>
-                                    <label for="rc8" class="rating__item">
-                                        <svg class="rating__star">
-                                            <use xlink:href="#star"></use>
-                                        </svg>
-                                        <span class="rating__label">3</span>
-                                    </label>
-                                    <label for="rc9" class="rating__item">
-                                        <svg class="rating__star">
-                                            <use xlink:href="#star"></use>
-                                        </svg>
-                                        <span class="rating__label">4</span>
-                                    </label>
-                                    <label for="rc10" class="rating__item">
-                                        <svg class="rating__star">
-                                            <use xlink:href="#star"></use>
-                                        </svg>
-                                        <span class="rating__label">5</span>
-                                    </label>
-                                </div>
-                            </div>
-                        </div>
+                {{-- ── Resumen + distribución ───────────────────────── --}}
+                <div class="ec-reviews-summary" id="ec-reviews-summary">
+                    <div class="ec-reviews-avg">
+                        <span class="ec-reviews-avg__num" id="ec-avg-num">—</span>
+                        <div class="ec-reviews-avg__stars" id="ec-avg-stars"></div>
+                        <span class="ec-reviews-avg__total" id="ec-avg-total">0 reseñas</span>
                     </div>
-                    <svg xmlns="http://www.w3.org/2000/svg" style="display: none">
-                        <symbol id="star" viewBox="0 0 26 28">
-                            <path
-                                d="M26 10.109c0 .281-.203.547-.406.75l-5.672 5.531 1.344 7.812c.016.109.016.203.016.313 0 .406-.187.781-.641.781a1.27 1.27 0 0 1-.625-.187L13 21.422l-7.016 3.687c-.203.109-.406.187-.625.187-.453 0-.656-.375-.656-.781 0-.109.016-.203.031-.313l1.344-7.812L.39 10.859c-.187-.203-.391-.469-.391-.75 0-.469.484-.656.875-.719l7.844-1.141 3.516-7.109c.141-.297.406-.641.766-.641s.625.344.766.641l3.516 7.109 7.844 1.141c.375.063.875.25.875.719z" />
-                        </symbol>
-                    </svg>
-
+                    <div class="ec-reviews-dist" id="ec-reviews-dist">
+                        @foreach([5,4,3,2,1] as $s)
+                        <div class="ec-dist-row">
+                            <span class="ec-dist-label">{{ $s }} ★</span>
+                            <div class="ec-dist-bar">
+                                <div class="ec-dist-fill" id="ec-dist-{{ $s }}" style="width:0%"></div>
+                            </div>
+                            <span class="ec-dist-count" id="ec-dist-count-{{ $s }}">0</span>
+                        </div>
+                        @endforeach
+                    </div>
                 </div>
+
+                {{-- ── Filtro por estrellas ─────────────────────────── --}}
+                <div class="ec-reviews-filters" id="ec-reviews-filters" style="display:none">
+                    <span class="ec-reviews-filter-label">Filtrar:</span>
+                    <button class="ec-filter-star-btn ec-filter-star-btn--active" data-filter="0">Todas</button>
+                    @foreach([5,4,3,2,1] as $s)
+                    <button class="ec-filter-star-btn" data-filter="{{ $s }}">{{ $s }} ★</button>
+                    @endforeach
+                </div>
+
+                {{-- ── Lista de reviews ─────────────────────────────── --}}
+                <div class="ec-reviews-list" id="ec-reviews-list">
+                    <p class="ec-reviews-loading">Cargando reseñas...</p>
+                </div>
+
+                {{-- ── Paginación ───────────────────────────────────── --}}
+                <div class="ec-reviews-pagination" id="ec-reviews-pagination" style="display:none">
+                    <button class="ec-reviews-page-btn" id="ec-reviews-load-more">Ver más reseñas</button>
+                </div>
+
+                {{-- ── Formulario ───────────────────────────────────── --}}
+                @auth('ecommerce')
+                <div class="ec-review-form-wrap">
+                    <h3 class="ec-review-form-title">Deja tu opinión</h3>
+                    <div class="ec-review-stars-input" id="ec-star-picker">
+                        @foreach([1,2,3,4,5] as $s)
+                        <button type="button" class="ec-star-pick" data-val="{{ $s }}" aria-label="{{ $s }} estrella(s)">★</button>
+                        @endforeach
+                    </div>
+                    <input type="hidden" id="ec-rating-val" value="0">
+                    <input type="text" id="ec-reviewer-name"
+                           class="ec-review-input"
+                           placeholder="Tu nombre"
+                           value="{{ auth('ecommerce')->user()->name ?? '' }}">
+                    <textarea id="ec-review-comment" class="ec-review-textarea"
+                              placeholder="Escribe tu opinión (opcional)" rows="3"></textarea>
+                    <button type="button" class="ec-review-submit-btn" id="ec-review-submit">
+                        Publicar reseña
+                    </button>
+                    <p class="ec-review-msg" id="ec-review-msg"></p>
+                </div>
+                @else
+                <p class="ec-review-login-msg">
+                    <a href="{{ route('tenant_ecommerce_login') }}">Inicia sesión</a> para dejar tu reseña.
+                </p>
+                @endauth
 
             </div>
         </div>
 
         <div class="tab-pane fade" id="product-especTecn-content" role="tabpanel" aria-labelledby="product-tab-especTecn">
             <div class="product-especTecn-content">
-                <p> {!! $record->technical_specifications !!} </p>
-            </div><!-- End .product-desc-content -->
+                @php
+                    // Sanitizar HTML para prevenir XSS — sólo permitir etiquetas seguras
+                    $allowedTags = '<p><br><b><strong><i><em><ul><ol><li><table><thead><tbody><tr><th><td><h1><h2><h3><h4><h5><h6><span><div>';
+                    $safeSpecs = strip_tags($record->technical_specifications ?? '', $allowedTags);
+                @endphp
+                <div class="specs-content">{!! $safeSpecs !!}</div>
+            </div>
         </div><!-- End .tab-pane -->
     </div>
 </div>
 
+{{-- ── PRODUCTOS RELACIONADOS ───────────────────────── --}}
+<div class="container mt-5">
+    @include('ecommerce::items.partials.related_products')
+</div>
+
+{{-- ── VISTOS RECIENTEMENTE ─────────────────────────── --}}
+<div class="container mt-5"
+     id="ec-recently-viewed"
+     data-current-id="{{ $record->id }}"
+     data-items-bar="/ecommerce/items_bar"
+     style="display:none">
+    {{-- El JS de recently-viewed.js inyecta el Swiper aquí --}}
+</div>
+
 @endsection
+
+@push('scripts')
+<script>
+// ── Variant selector ────────────────────────────────
+(function () {
+    var selectedAttrs = {};   // { "Color": "Rojo", "Talla": "M" }
+    var selectableGroups = document.querySelectorAll('.ec-variant-group:not(.ec-variant-group--info)');
+    var requiredCount = selectableGroups.length;
+
+    function isComplete() {
+        return Object.keys(selectedAttrs).length >= requiredCount;
+    }
+
+    function buildAttrString() {
+        return Object.entries(selectedAttrs).map(function (e) { return e[0] + ': ' + e[1]; }).join(' | ');
+    }
+
+    document.addEventListener('click', function (e) {
+        var btn = e.target.closest('.ec-variant-opt');
+        if (!btn) return;
+
+        var attr    = btn.getAttribute('data-attr');
+        var val     = btn.getAttribute('data-val');
+        var labelId = btn.getAttribute('data-label-id');
+
+        // Deactivate siblings
+        btn.closest('.ec-variant-options').querySelectorAll('.ec-variant-opt').forEach(function (b) {
+            b.classList.remove('ec-variant-opt--selected');
+            b.setAttribute('aria-pressed', 'false');
+        });
+        // Activate this
+        btn.classList.add('ec-variant-opt--selected');
+        btn.setAttribute('aria-pressed', 'true');
+
+        // Update label
+        if (labelId) {
+            var lbl = document.getElementById(labelId);
+            if (lbl) lbl.textContent = val;
+        }
+
+        selectedAttrs[attr] = val;
+
+        // Update cart button text
+        var cartBtn = document.getElementById('btn-add-to-cart');
+        if (cartBtn) {
+            var notice = document.getElementById('ec-variant-required');
+            if (notice) notice.style.display = 'none';
+
+            if (isComplete()) {
+                cartBtn.querySelector('span').textContent = 'Agregar al Carrito';
+                cartBtn.dataset.variantReady = 'true';
+            }
+        }
+    });
+
+    // Intercept add-to-cart to inject selected attributes
+    document.addEventListener('DOMContentLoaded', function () {
+        var cartBtn = document.getElementById('btn-add-to-cart');
+        if (!cartBtn || requiredCount === 0) return;
+
+        cartBtn.addEventListener('click', function (e) {
+            if (!isComplete()) {
+                e.stopImmediatePropagation();
+                var notice = document.getElementById('ec-variant-required');
+                if (notice) notice.style.display = 'block';
+                // Shake the selectors
+                document.querySelectorAll('.ec-variant-group').forEach(function (g) {
+                    if (!g.classList.contains('ec-variant-group--info')) {
+                        var attr = g.querySelector('.ec-variant-opt.ec-variant-opt--selected');
+                        if (!attr) g.classList.add('ec-variant-group--shake');
+                        setTimeout(function () { g.classList.remove('ec-variant-group--shake'); }, 500);
+                    }
+                });
+                return;
+            }
+
+            // Inject selected_attributes into product data
+            try {
+                var product = JSON.parse(cartBtn.getAttribute('data-product') || '{}');
+                product.selected_attributes = selectedAttrs;
+                product.variant_label = buildAttrString();
+                cartBtn.setAttribute('data-product', JSON.stringify(product));
+            } catch(err) {}
+        }, true); // capture phase = before the cart.js handler
+    });
+}());
+
+// ── Selector de cantidad ────────────────────────────
+function ecQtyChange(delta) {
+    var input = document.getElementById('ec-qty-input');
+    if (!input) return;
+    var val = parseInt(input.value) || 1;
+    var max = parseInt(input.getAttribute('max')) || 9999;
+    val = Math.min(max, Math.max(1, val + delta));
+    input.value = val;
+}
+
+// ── Registrar producto visto ────────────────────────
+if (window.RecentlyViewed) {
+    RecentlyViewed.push({{ $record->id }});
+} else {
+    document.addEventListener('DOMContentLoaded', function () {
+        if (window.RecentlyViewed) RecentlyViewed.push({{ $record->id }});
+    });
+}
+
+// ── Web Share API ───────────────────────────────────────
+document.addEventListener('DOMContentLoaded', function () {
+    var shareBtn  = document.getElementById('ec-native-share');
+    var shareLinks = document.getElementById('ec-share-links');
+    var copyBtn   = document.getElementById('ec-copy-link');
+
+    if (shareBtn) {
+        if (navigator.share) {
+            shareBtn.addEventListener('click', function () {
+                navigator.share({
+                    title: shareBtn.getAttribute('data-title'),
+                    url:   shareBtn.getAttribute('data-url')
+                }).catch(function () {});
+            });
+        } else {
+            // Mostrar fallback
+            shareBtn.addEventListener('click', function () {
+                if (shareLinks) shareLinks.style.display = shareLinks.style.display === 'none' ? 'flex' : 'none';
+            });
+        }
+    }
+
+    if (copyBtn) {
+        copyBtn.addEventListener('click', function () {
+            var url = copyBtn.getAttribute('data-url');
+            navigator.clipboard.writeText(url).then(function () {
+                copyBtn.textContent = '¡Copiado!';
+                setTimeout(function () { copyBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg> Copiar'; }, 2000);
+            }).catch(function () {
+                var tmp = document.createElement('input');
+                tmp.value = url; document.body.appendChild(tmp); tmp.select();
+                document.execCommand('copy'); document.body.removeChild(tmp);
+                copyBtn.textContent = '¡Copiado!';
+                setTimeout(function () { copyBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg> Copiar'; }, 2000);
+            });
+        });
+    }
+});
+
+document.addEventListener('DOMContentLoaded', function () {
+    // Inyectar quantity en data-product al hacer click
+    var btn = document.getElementById('btn-add-to-cart');
+    var qtyInput = document.getElementById('ec-qty-input');
+    if (btn && qtyInput) {
+        btn.addEventListener('click', function () {
+            try {
+                var product = JSON.parse(this.getAttribute('data-product') || '{}');
+                product.quantity = parseInt(qtyInput.value) || 1;
+                this.setAttribute('data-product', JSON.stringify(product));
+            } catch(e) {}
+        });
+    }
+
+    // Tracking ViewContent
+    var productData = {!! json_encode([
+        'id'               => $record->id,
+        'description'      => $record->description,
+        'sale_unit_price'  => $record->sale_unit_price,
+        'currency_type_id' => $record->currency_type_id ?? 'PEN',
+    ]) !!};
+    if (window.EcommerceTracker) {
+        window.EcommerceTracker.viewContent(productData);
+    }
+});
+</script>
+
+<style>
+.product-attributes { display:flex; flex-wrap:wrap; gap:6px; margin-bottom:14px; }
+.product-attr-badge {
+    display:inline-block; padding:4px 10px;
+    background:hsl(var(--primary-h),var(--primary-s),95%);
+    border:1px solid hsl(var(--primary-h),var(--primary-s),88%);
+    border-radius:20px; font-size:12px; color:var(--title-color);
+}
+.product-attr-badge strong {
+    font-weight:700;
+    color:hsl(var(--primary-h),var(--primary-s),var(--primary-l));
+}
+/* Ocultar precio tachado si no hay descuento real */
+.price-box .old-price { display:none; }
+</style>
+
+{{-- ── REVIEWS JS ─────────────────────────────────────────────────────────── --}}
+<script>
+(function () {
+    var ITEM_ID   = {{ $record->id }};
+    var PER_PAGE  = 5;
+    var allReviews  = [];
+    var filtered    = [];
+    var shownCount  = 0;
+    var activeFilter = 0;
+    var loaded      = false;
+
+    // ── Utilidades ──────────────────────────────────────────────────────────
+    function starHtml(val) {
+        var s = '';
+        for (var i = 1; i <= 5; i++) {
+            s += '<span class="' + (i <= val ? 'ec-star ec-star--on' : 'ec-star') + '">★</span>';
+        }
+        return s;
+    }
+
+    function timeAgo(dateStr) {
+        var d   = new Date(dateStr);
+        var now = new Date();
+        var diff = Math.floor((now - d) / 1000);
+        if (diff < 60)   return 'hace un momento';
+        if (diff < 3600) return 'hace ' + Math.floor(diff / 60) + ' min';
+        if (diff < 86400) return 'hace ' + Math.floor(diff / 3600) + ' h';
+        var days = Math.floor(diff / 86400);
+        if (days < 30)   return 'hace ' + days + ' día' + (days > 1 ? 's' : '');
+        var months = Math.floor(days / 30);
+        if (months < 12) return 'hace ' + months + ' mes' + (months > 1 ? 'es' : '');
+        return 'hace ' + Math.floor(months / 12) + ' año' + (Math.floor(months / 12) > 1 ? 's' : '');
+    }
+
+    function renderCard(r) {
+        return '<div class="ec-review-card">' +
+            '<div class="ec-review-card__head">' +
+                '<span class="ec-review-card__name">' + (r.reviewer_name || 'Anónimo') + '</span>' +
+                '<span class="ec-review-card__stars">' + starHtml(r.value) + '</span>' +
+                '<span class="ec-review-card__date">' + timeAgo(r.created_at) + '</span>' +
+            '</div>' +
+            (r.comment ? '<p class="ec-review-card__comment">' + r.comment.replace(/</g,'&lt;').replace(/>/g,'&gt;') + '</p>' : '') +
+        '</div>';
+    }
+
+    function updateSummary(data) {
+        var avgEl   = document.getElementById('ec-avg-num');
+        var starsEl = document.getElementById('ec-avg-stars');
+        var totalEl = document.getElementById('ec-avg-total');
+        if (avgEl) avgEl.textContent = data.avg > 0 ? data.avg : '—';
+        if (starsEl) starsEl.innerHTML = data.avg > 0 ? starHtml(Math.round(data.avg)) : '';
+        if (totalEl) totalEl.textContent = data.total + ' reseña' + (data.total !== 1 ? 's' : '');
+        for (var i = 1; i <= 5; i++) {
+            var fill  = document.getElementById('ec-dist-' + i);
+            var count = document.getElementById('ec-dist-count-' + i);
+            if (fill && data.dist && data.dist[i]) {
+                fill.style.width = data.dist[i].pct + '%';
+            }
+            if (count && data.dist && data.dist[i]) {
+                count.textContent = data.dist[i].count;
+            }
+        }
+    }
+
+    function renderList() {
+        var list = document.getElementById('ec-reviews-list');
+        var pagBtn = document.getElementById('ec-reviews-pagination');
+        if (!list) return;
+
+        var start = shownCount;
+        var end   = Math.min(shownCount + PER_PAGE, filtered.length);
+        var html  = '';
+
+        if (filtered.length === 0) {
+            list.innerHTML = '<p class="ec-reviews-empty">Aún no hay reseñas' + (activeFilter > 0 ? ' con ' + activeFilter + ' estrella' + (activeFilter > 1 ? 's' : '') : '') + '. ¡Sé el primero!</p>';
+            if (pagBtn) pagBtn.style.display = 'none';
+            return;
+        }
+
+        if (shownCount === 0) list.innerHTML = '';
+
+        for (var i = start; i < end; i++) {
+            html += renderCard(filtered[i]);
+        }
+        list.insertAdjacentHTML('beforeend', html);
+        shownCount = end;
+
+        if (pagBtn) {
+            pagBtn.style.display = shownCount < filtered.length ? 'flex' : 'none';
+        }
+    }
+
+    function applyFilter(star) {
+        activeFilter = star;
+        filtered     = star === 0 ? allReviews.slice() : allReviews.filter(function (r) { return r.value === star; });
+        shownCount   = 0;
+        document.getElementById('ec-reviews-list').innerHTML = '';
+        renderList();
+
+        // Active button state
+        document.querySelectorAll('.ec-filter-star-btn').forEach(function (btn) {
+            btn.classList.toggle('ec-filter-star-btn--active', parseInt(btn.getAttribute('data-filter')) === star);
+        });
+    }
+
+    function loadReviews() {
+        if (loaded) return;
+        loaded = true;
+        var list = document.getElementById('ec-reviews-list');
+        if (list) list.innerHTML = '<p class="ec-reviews-loading">Cargando reseñas...</p>';
+
+        fetch('/ecommerce/reviews/' + ITEM_ID, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+            .then(function (res) { return res.json(); })
+            .then(function (data) {
+                allReviews = data.reviews || [];
+                updateSummary(data);
+
+                var filtersEl = document.getElementById('ec-reviews-filters');
+                if (filtersEl && allReviews.length > 0) filtersEl.style.display = 'flex';
+
+                applyFilter(0);
+            })
+            .catch(function () {
+                var list = document.getElementById('ec-reviews-list');
+                if (list) list.innerHTML = '<p class="ec-reviews-empty">No se pudieron cargar las reseñas.</p>';
+            });
+    }
+
+    // ── Bootstrap tab click ──────────────────────────────────────────────────
+    document.addEventListener('DOMContentLoaded', function () {
+        var tabLink = document.getElementById('product-tab-reviews');
+        if (tabLink) {
+            tabLink.addEventListener('click', loadReviews);
+            // Si la URL tiene #reviews activo, cargar de inmediato
+            if (window.location.hash === '#product-reviews-content') loadReviews();
+        }
+
+        // ── Filter buttons ───────────────────────────────────────────────────
+        document.addEventListener('click', function (e) {
+            var btn = e.target.closest('.ec-filter-star-btn');
+            if (!btn) return;
+            applyFilter(parseInt(btn.getAttribute('data-filter')));
+        });
+
+        // ── Load more ────────────────────────────────────────────────────────
+        var loadMore = document.getElementById('ec-reviews-load-more');
+        if (loadMore) {
+            loadMore.addEventListener('click', renderList);
+        }
+
+        // ── Star picker ──────────────────────────────────────────────────────
+        var picker  = document.getElementById('ec-star-picker');
+        var ratingVal = document.getElementById('ec-rating-val');
+        if (picker) {
+            var stars = picker.querySelectorAll('.ec-star-pick');
+            function highlightStars(upTo) {
+                stars.forEach(function (s, idx) {
+                    s.classList.toggle('ec-star-pick--on', idx < upTo);
+                });
+            }
+            stars.forEach(function (s, idx) {
+                s.addEventListener('mouseenter', function () { highlightStars(idx + 1); });
+                s.addEventListener('mouseleave', function () {
+                    highlightStars(ratingVal ? parseInt(ratingVal.value) : 0);
+                });
+                s.addEventListener('click', function () {
+                    var val = idx + 1;
+                    if (ratingVal) ratingVal.value = val;
+                    highlightStars(val);
+                });
+            });
+        }
+
+        // ── Form submit ──────────────────────────────────────────────────────
+        var submitBtn = document.getElementById('ec-review-submit');
+        var msgEl     = document.getElementById('ec-review-msg');
+        if (submitBtn) {
+            submitBtn.addEventListener('click', function () {
+                var val  = ratingVal ? parseInt(ratingVal.value) : 0;
+                var name = (document.getElementById('ec-reviewer-name') || {}).value || '';
+                var txt  = (document.getElementById('ec-review-comment') || {}).value || '';
+
+                if (val < 1) {
+                    if (msgEl) { msgEl.textContent = 'Por favor selecciona una puntuación.'; msgEl.style.color = '#e55'; }
+                    return;
+                }
+
+                submitBtn.disabled = true;
+                submitBtn.textContent = 'Enviando...';
+
+                var csrfToken = (document.querySelector('meta[name="csrf-token"]') || {}).content || '';
+                var body = new URLSearchParams();
+                body.append('_token',        csrfToken);
+                body.append('item_id',       ITEM_ID);
+                body.append('value',         val);
+                body.append('reviewer_name', name);
+                body.append('comment',       txt);
+
+                fetch('/ecommerce/rating_item', {
+                    method:  'POST',
+                    headers: { 'X-Requested-With': 'XMLHttpRequest', 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body:    body.toString()
+                })
+                .then(function (res) { return res.json(); })
+                .then(function () {
+                    if (msgEl) { msgEl.textContent = '¡Gracias por tu reseña!'; msgEl.style.color = '#22a'; }
+                    submitBtn.textContent = 'Publicar reseña';
+                    submitBtn.disabled = false;
+                    // Reset form
+                    if (ratingVal) ratingVal.value = 0;
+                    if (picker) picker.querySelectorAll('.ec-star-pick').forEach(function (s) { s.classList.remove('ec-star-pick--on'); });
+                    var nameInput = document.getElementById('ec-reviewer-name');
+                    var cmtInput  = document.getElementById('ec-review-comment');
+                    if (cmtInput) cmtInput.value = '';
+                    // Reload reviews
+                    loaded = false;
+                    loadReviews();
+                })
+                .catch(function () {
+                    if (msgEl) { msgEl.textContent = 'Ocurrió un error. Intenta de nuevo.'; msgEl.style.color = '#e55'; }
+                    submitBtn.textContent = 'Publicar reseña';
+                    submitBtn.disabled = false;
+                });
+            });
+        }
+    });
+
+    // ── Compatibilidad con onclick="getRating(id)" legado ───────────────────
+    window.getRating = function () { loadReviews(); };
+}());
+</script>
+
+@if($record->stock > 0)
+<script>
+// ── Sticky add-to-cart en desktop ───────────────────────────────────────────
+(function () {
+    var bar = document.createElement('div');
+    bar.id  = 'ec-sticky-desktop';
+    bar.className = 'ec-sticky-desktop';
+    bar.innerHTML = [
+        '<div class="ec-sticky-desktop__inner">',
+        '  <p class="ec-sticky-desktop__name">{{ addslashes($record->description) }}</p>',
+        '  <span class="ec-sticky-desktop__price">',
+        '    {{ $record->currency_type_symbol }} {{ number_format($record->sale_unit_price, 2) }}',
+        '  </span>',
+        '  <a href="#" class="paction add-cart ec-sticky-desktop__btn"',
+        '     data-product=\'{{ addslashes(json_encode($record)) }}\'',
+        '     data-ec-cart=\'{{ addslashes(json_encode($record)) }}\'',
+        '     title="Agregar al carrito">',
+        '    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"',
+        '         fill="none" stroke="currentColor" stroke-width="2.5">',
+        '      <circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/>',
+        '      <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/>',
+        '    </svg>',
+        '    Agregar al carrito',
+        '  </a>',
+        '</div>'
+    ].join('');
+    document.body.appendChild(bar);
+
+    var trigger = document.getElementById('product-actions');
+    if (!trigger || !('IntersectionObserver' in window)) return;
+
+    var observer = new IntersectionObserver(function (entries) {
+        var hidden = !entries[0].isIntersecting;
+        bar.classList.toggle('ec-sticky-desktop--visible', hidden);
+    }, { threshold: 0 });
+
+    observer.observe(trigger);
+}());
+</script>
+@endif
+
+@endpush

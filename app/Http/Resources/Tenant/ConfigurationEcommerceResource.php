@@ -85,7 +85,21 @@ class ConfigurationEcommerceResource extends JsonResource
             'cambios_devolucion' => $this->cambios_devolucion,
 
             // GOOGLE SITE VERIFICATION
-            'google_site_verification' => $this->google_site_verification
+            'google_site_verification' => $this->google_site_verification,
+
+            // GOOGLE OAUTH LOGIN
+            'google_client_id'     => $this->google_client_id,
+            'google_client_secret' => $this->google_client_secret,
+            'google_login_enabled' => (bool) $this->google_login_enabled,
+
+            // NEWSLETTER POPUP
+            'newsletter_popup_enabled' => (bool) $this->newsletter_popup_enabled,
+            'newsletter_popup_title'   => $this->newsletter_popup_title,
+            'newsletter_popup_desc'    => $this->newsletter_popup_desc,
+            'newsletter_discount_code' => $this->newsletter_discount_code,
+            'newsletter_popup_image'   => $this->newsletter_popup_image
+                ? asset('storage/uploads/logos/' . $this->newsletter_popup_image)
+                : null,
         ];
     }
 }

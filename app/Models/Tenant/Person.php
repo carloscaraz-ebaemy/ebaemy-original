@@ -134,6 +134,8 @@ use Illuminate\Support\Facades\DB;
             'state',
             'email',
             'password',
+            'google_id',
+            'avatar',
             'telephone',
             'perception_agent',
             'person_type_id',

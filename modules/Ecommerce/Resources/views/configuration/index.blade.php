@@ -22,7 +22,7 @@
     
     <tenant-ecommerce-configuration-seo></tenant-ecommerce-configuration-seo>
     <tenant-ecommerce-configuration-color></tenant-ecommerce-configuration-color>
-    <tenant-ecommerce-other-settings></tenant-ecommerce-other-settings>
+    <tenant-ecommerce-configuration-newsletter></tenant-ecommerce-configuration-newsletter>
 
      <tenant-ecommerce-configuration-script></tenant-ecommerce-configuration-script>
     
@@ -30,7 +30,10 @@
     
      
      <tenant-ecommerce-configuration-terms></tenant-ecommerce-configuration-terms>
-    
+
+    {{-- ── PRODUCT FEEDS ─────────────────────────────── --}}
+    @include('ecommerce::configuration.partials.feeds')
+
 </div>
 @endsection
 

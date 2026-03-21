@@ -13,46 +13,71 @@
                 <div class="form-group" :class="{'has-danger': errors.link_facebook}">
                   <label class="control-label">Link Facebook</label>
                   <el-input v-model="form.link_facebook"></el-input>
-                  <small
-                    class="form-control-feedback"
-                    v-if="errors.link_facebook"
-                    v-text="errors.link_facebook[0]"
-                  ></small>
+                  <small class="form-control-feedback" v-if="errors.link_facebook" v-text="errors.link_facebook[0]"></small>
                 </div>
               </div>
               <div class="col-md-12">
                 <div class="form-group" :class="{'has-danger': errors.link_youtube}">
                   <label class="control-label">Link YouTube</label>
                   <el-input v-model="form.link_youtube"></el-input>
-                  <small
-                    class="form-control-feedback"
-                    v-if="errors.link_youtube"
-                    v-text="errors.link_youtube[0]"
-                  ></small>
+                  <small class="form-control-feedback" v-if="errors.link_youtube" v-text="errors.link_youtube[0]"></small>
                 </div>
               </div>
               <div class="col-md-12">
                 <div class="form-group" :class="{'has-danger': errors.link_tiktok}">
                   <label class="control-label">Link TikTok</label>
                   <el-input v-model="form.link_tiktok"></el-input>
-                  <small
-                    class="form-control-feedback"
-                    v-if="errors.link_tiktok"
-                    v-text="errors.link_tiktok[0]"
-                  ></small>
+                  <small class="form-control-feedback" v-if="errors.link_tiktok" v-text="errors.link_tiktok[0]"></small>
                 </div>
               </div>
               <div class="col-md-12">
                 <div class="form-group" :class="{'has-danger': errors.link_instagram}">
                   <label class="control-label">Link Instagram</label>
                   <el-input v-model="form.link_instagram"></el-input>
-                  <small
-                    class="form-control-feedback"
-                    v-if="errors.link_instagram"
-                    v-text="errors.link_instagram[0]"
-                  ></small>
+                  <small class="form-control-feedback" v-if="errors.link_instagram" v-text="errors.link_instagram[0]"></small>
                 </div>
               </div>
+
+              <!-- ── Google OAuth Login ── -->
+              <div class="col-md-12 mt-3">
+                <el-divider content-position="left">
+                  <i class="fab fa-google mr-1"></i> Login con Google
+                </el-divider>
+              </div>
+              <div class="col-md-12">
+                <div class="form-group">
+                  <label class="control-label d-flex align-items-center gap-2">
+                    Activar login con Google
+                    <el-switch v-model="form.google_login_enabled" active-color="#34A853"></el-switch>
+                  </label>
+                </div>
+              </div>
+              <template v-if="form.google_login_enabled">
+                <div class="col-md-12">
+                  <div class="form-group">
+                    <label class="control-label">Google Client ID</label>
+                    <el-input v-model="form.google_client_id" placeholder="xxxxxxxx.apps.googleusercontent.com"></el-input>
+                    <small class="text-muted">Obtén el Client ID en Google Cloud Console → Credenciales</small>
+                  </div>
+                </div>
+                <div class="col-md-12">
+                  <div class="form-group">
+                    <label class="control-label">Google Client Secret</label>
+                    <el-input v-model="form.google_client_secret" type="password" show-password placeholder="GOCSPX-..."></el-input>
+                  </div>
+                </div>
+                <div class="col-md-12">
+                  <el-alert type="info" :closable="false" show-icon>
+                    <template slot="title">
+                      URI de redirección para Google Cloud Console:
+                    </template>
+                    <div class="mt-1">
+                      <code>{{ redirect_uri }}</code>
+                      <el-button size="mini" class="ml-2" @click="copyUri">Copiar</el-button>
+                    </div>
+                  </el-alert>
+                </div>
+              </template>
             </div>
           </div>
           <div class="form-actions text-end float-end pt-2">
@@ -72,26 +97,26 @@ export default {
   data() {
     return {
       loading_submit: false,
-      // headers: headers_token,
       resource: "ecommerce",
       errors: {},
       form: {},
-      soap_sends: [],
-      soap_types: []
+      redirect_uri: window.location.origin + '/ecommerce/auth/google/callback',
     };
   },
   async created() {
     await this.initForm();
-
     await this.$http.get(`/${this.resource}/record`).then(response => {
       if (response.data !== "") {
         let data = response.data.data;
-        this.form.id = data.id;
-        this.form.link_youtube = data.link_youtube;
-        this.form.link_facebook = data.link_facebook;
-        this.form.link_twitter = data.link_twitter;
-        this.form.link_tiktok = data.link_tiktok;
-        this.form.link_instagram = data.link_instagram;
+        this.form.id                   = data.id;
+        this.form.link_youtube         = data.link_youtube;
+        this.form.link_facebook        = data.link_facebook;
+        this.form.link_twitter         = data.link_twitter;
+        this.form.link_tiktok          = data.link_tiktok;
+        this.form.link_instagram       = data.link_instagram;
+        this.form.google_client_id     = data.google_client_id;
+        this.form.google_client_secret = data.google_client_secret;
+        this.form.google_login_enabled = !!data.google_login_enabled;
       }
     });
   },
@@ -104,8 +129,16 @@ export default {
         link_youtube: "",
         link_facebook: "",
         link_tiktok: "",
-        link_instagram: ""
+        link_instagram: "",
+        google_client_id: "",
+        google_client_secret: "",
+        google_login_enabled: false,
       };
+    },
+    copyUri() {
+      navigator.clipboard.writeText(this.redirect_uri)
+        .then(() => this.$message.success('URI copiado'))
+        .catch(() => this.$message.error('No se pudo copiar'));
     },
     submit() {
       this.loading_submit = true;

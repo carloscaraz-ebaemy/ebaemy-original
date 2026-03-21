@@ -213,6 +213,37 @@
                                     class="form-control-feedback"
                                     v-text="errors.item_id[0]"
                                 ></small>
+
+                                <!-- Stock inline por almacén — click para seleccionar -->
+                                <div v-if="form.item_id && form.item && form.item.warehouses && form.item.warehouses.length"
+                                     style="margin-top:5px; display:flex; flex-wrap:wrap; gap:4px;">
+                                    <span
+                                        v-for="wh in form.item.warehouses"
+                                        :key="wh.warehouse_id"
+                                        :style="{
+                                            display: 'inline-flex',
+                                            alignItems: 'center',
+                                            gap: '4px',
+                                            padding: '2px 8px',
+                                            borderRadius: '12px',
+                                            fontSize: '11px',
+                                            fontWeight: '600',
+                                            border: '1px solid',
+                                            borderColor: wh.checked ? '#409EFF' : '#dcdfe6',
+                                            color: wh.checked ? '#409EFF' : '#606266',
+                                            background: wh.checked ? '#ecf5ff' : '#f5f7fa',
+                                            cursor: 'pointer'
+                                        }"
+                                        :title="'Seleccionar: ' + wh.warehouse_description"
+                                        @click="selectWarehouseInline(wh)"
+                                    >
+                                        <i class="fa fa-warehouse" style="font-size:10px;opacity:.7"></i>
+                                        {{ wh.warehouse_description }}:
+                                        <strong v-if="wh.registered === false" style="color:#aaa;font-style:italic;font-weight:400">No registrado</strong>
+                                        <strong v-else :style="{color: wh.stock > 0 ? '#67C23A' : '#F56C6C'}">{{ parseFloat(wh.stock) }}</strong>
+                                    </span>
+                                </div>
+
                             </div>
                         </template>
                     </div>
@@ -1253,6 +1284,13 @@ export default {
                 this.form.item_id = item.id;
                 this.changeItem();
             }
+        },
+        selectWarehouseInline(wh) {
+            if (!this.form.item || !this.form.item.warehouses) return;
+            this.form.item.warehouses.forEach(w => { w.checked = false; });
+            wh.checked = true;
+            this.form.warehouse_id = wh.warehouse_id;
+            this.$eventHub.$emit('selectWarehouseId', wh.warehouse_id);
         },
         clickWarehouseDetail() {
             if (!this.form.item_id) {

@@ -28,6 +28,12 @@ class Kernel extends ConsoleKernel
         // Se ejecutara por hora guardando estado de cpu y memoria (windows/linux)
         $schedule->command('status:server')->everyMinute();
         $schedule->command('order:payments')->everyMinute()->appendOutputTo(storage_path('logs/order_create.log'));
+        $schedule->command('ecommerce:send-stock-notifications')->hourly();
+        // Libera reservas de stock de checkouts ecommerce abandonados (cada 30 minutos)
+        $schedule->command('stock:release-expired --minutes=60')
+                 ->everyThirtyMinutes()
+                 ->withoutOverlapping()
+                 ->appendOutputTo(storage_path('logs/stock_release.log'));
         // Llena las tablas para libro mayor - Se desactiva CMAR - buscar opcion de url
         // $schedule->command('account_ledger:fill')->hourly();
         

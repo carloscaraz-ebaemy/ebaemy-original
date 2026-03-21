@@ -13,10 +13,13 @@
 
         protected $fillable = [
             'external_id',
+            'person_id',
             'customer',
             'shipping_address',
             'items',
             'total',
+            'points_redeemed',
+            'points_earned',
             'reference_payment',
             'document_external_id',
             'number_document',
@@ -64,7 +67,9 @@
                 'created_at' => $this->created_at->format('Y-m-d'),
                 'status_order_id' => $this->status_order_id,
                 'purchase' => $this->purchase,
-                'status_order_description' => $this->status_order->description ?? null
+                'status_order_description' => $this->status_order->description ?? null,
+                'points_earned'   => (float) $this->points_earned,
+                'points_redeemed' => (float) $this->points_redeemed,
             ];
 
             return $data;

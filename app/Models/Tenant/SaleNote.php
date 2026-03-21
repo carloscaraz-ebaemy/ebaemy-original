@@ -235,6 +235,35 @@
             'consigned_id',
             'consigned_address',
             'consigned_ubigeo',
+
+            // ── Logística de almacén ──────────────────────────────────────────
+            'requires_warehouse_dispatch',
+            'logistic_status',
+            'warehouse_user_id',
+            'warehouse_id',
+            'courier_name',
+            'tracking_number',
+            'dispatch_date',
+            'delivery_type',
+            'is_urgent',
+            'pickup_person',
+            'warehouse_notes',
+            // Datos de envío (recogidos por el vendedor)
+            'shipping_recipient',
+            'shipping_phone',
+            'shipping_address',
+            'shipping_city',
+            'shipping_district_id',
+            'preferred_courier',
+            'preferred_carrier_id',
+            'shipping_notes',
+            'shipping_packages',
+            'shipping_cost_customer',
+            'shipping_cost_agency',
+            'shipping_carrier_type',
+            'shipping_carrier_cost',
+            'shipping_paid_by',
+            'shipping_cost_paid',
         ];
 
         protected $casts = [
@@ -282,7 +311,52 @@
             'created_from_pos' => 'bool',
             'dispatch_ticket_pdf' => 'bool',
 
+            // ── Logística ────────────────────────────────────────────────────
+            'requires_warehouse_dispatch' => 'bool',
+            'logistic_status'             => \App\Enums\LogisticStatusEnum::class,
+            'delivery_type'               => \App\Enums\DeliveryTypeEnum::class,
+            'warehouse_user_id'           => 'int',
+            'dispatch_date'               => 'datetime',
+            'is_urgent'                   => 'bool',
+
+            // ── Envío (no facturado) ─────────────────────────────────────────
+            'shipping_packages'       => 'int',
+            'shipping_cost_customer'  => 'float',
+            'shipping_cost_agency'    => 'float',
+            'shipping_carrier_cost'   => 'float',
+            'shipping_cost_paid'      => 'bool',
         ];
+
+        // ─── Scopes logísticos ────────────────────────────────────────────────────
+
+        /**
+         * Notas de Venta pendientes de atención en el almacén.
+         * Muestra PENDIENTE, PREPARANDO y LISTO_DESPACHO.
+         */
+        public function scopeWarehouseQueue($query)
+        {
+            return $query
+                ->where('requires_warehouse_dispatch', true)
+                ->whereIn('logistic_status', array_map(
+                    fn(\App\Enums\LogisticStatusEnum $s) => $s->value,
+                    \App\Enums\LogisticStatusEnum::queueStatuses()
+                ))
+                ->orderByRaw('is_urgent DESC, created_at ASC');
+        }
+
+        // ─── Helpers logísticos ───────────────────────────────────────────────────
+
+        public function isDispatched(): bool
+        {
+            return $this->logistic_status === \App\Enums\LogisticStatusEnum::DESPACHADO;
+        }
+
+        public function requiresQueue(): bool
+        {
+            return (bool) $this->requires_warehouse_dispatch;
+        }
+
+        // ─── Boot ─────────────────────────────────────────────────────────────────
 
         public static function boot()
         {
@@ -510,6 +584,11 @@
         public function user()
         {
             return $this->belongsTo(User::class);
+        }
+
+        public function warehouseUser()
+        {
+            return $this->belongsTo(User::class, 'warehouse_user_id');
         }
 
         /**

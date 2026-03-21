@@ -619,10 +619,42 @@
                 $warehouse_id = ($warehouse) ? $warehouse->id : null;
             }
 
-            return $items->transform(function ($row) use ($warehouse_id, $warehouse) {
+            // Cuando el módulo logístico NO está activo, mostrar todos los almacenes de la empresa
+            $hasLogistic = auth()->user()?->hasLogisticModule() ?? false;
+
+            $allWarehouses = $hasLogistic ? null : Warehouse::orderBy('description')->get();
+
+            return $items->transform(function ($row) use ($warehouse_id, $warehouse, $hasLogistic, $allWarehouses) {
                 /** @var Item $row */
 
                 $unit_price = $row->getSaleUnitPriceByWarehouse($row, $warehouse->id);
+
+                // Construir lista de almacenes para el modal
+                if ($hasLogistic || $allWarehouses === null) {
+                    // Módulo logístico activo: solo almacenes donde el ítem tiene registro
+                    $warehousesList = collect($row->warehouses)->transform(function ($iw) use ($warehouse_id) {
+                        $c_warehouse = $iw->warehouse;
+                        return [
+                            'warehouse_id'          => $c_warehouse->id,
+                            'warehouse_description' => $c_warehouse->description,
+                            'stock'                 => $iw->stock,
+                            'checked'               => ($c_warehouse->id == $warehouse_id),
+                        ];
+                    });
+                } else {
+                    // Sin módulo logístico: todos los almacenes de la empresa
+                    $iwByWarehouse = $row->warehouses->keyBy('warehouse_id');
+                    $warehousesList = $allWarehouses->map(function ($wh) use ($iwByWarehouse, $warehouse_id) {
+                        $iw = $iwByWarehouse->get($wh->id);
+                        return [
+                            'warehouse_id'          => $wh->id,
+                            'warehouse_description' => $wh->description,
+                            'stock'                 => $iw ? $iw->stock : 0,
+                            'registered'            => (bool) $iw,
+                            'checked'               => ($wh->id == $warehouse_id),
+                        ];
+                    });
+                }
 
                 $temp =   [
                     'id' => $row->id,
@@ -635,18 +667,7 @@
                     'lots_enabled' => (bool)$row->lots_enabled,
                     'series_enabled' => (bool)$row->series_enabled,
                     'is_set' => (bool)$row->is_set,
-                    'warehouses' => collect($row->warehouses)->transform(function ($row) use ($warehouse_id) {
-                        /** @var ItemWarehouse $row */
-                        /** @var Warehouse $c_warehouse */
-                        $c_warehouse = $row->warehouse;
-
-                        return [
-                            'warehouse_id' => $c_warehouse->id,
-                            'warehouse_description' => $c_warehouse->description,
-                            'stock' => $row->stock,
-                            'checked' => ($c_warehouse->id == $warehouse_id) ? true : false,
-                        ];
-                    }),
+                    'warehouses' => $warehousesList,
                     'item_unit_types' => $row->item_unit_types,
                     'lots' => [],
                     'lots_group' => collect($row->lots_group)->transform(function ($row) {

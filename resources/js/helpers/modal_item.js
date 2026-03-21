@@ -51,7 +51,7 @@ function ItemOptionDescription(item) {
         && item.stock !== undefined
         && item.stock !== null
     ) {
-        data += "Stock: " + item.stock + "<br>";
+        data += "Stock: " + parseFloat(item.stock) + "<br>";
     }
     if (item !== undefined
         && item.currency_type_symbol !== undefined

@@ -26,17 +26,25 @@ trait InventoryKardexTrait
     public function updateStock($item_id, $establishment_id, $quantity, $is_sale, $warehouse_id = null){
 
         $item_warehouse = $this->getItemWarehouse($item_id, $establishment_id, $warehouse_id);
-        $item_warehouse->stock = ($is_sale) ? $item_warehouse->stock - $quantity : $item_warehouse->stock + $quantity;
+        if (!$item_warehouse) return;
+
+        $delta = $is_sale ? -$quantity : $quantity;
+
+        // Campo legacy
+        $item_warehouse->stock = max(0, $item_warehouse->stock + $delta);
+
+        // Campos del sistema de stock inteligente
+        $item_warehouse->stock_physical  = max(0, ($item_warehouse->stock_physical ?? $item_warehouse->stock) + $delta);
+
         $item_warehouse->save();
 
     }
 
 
-    public function getWarehouseId($establishment_id){
-
-        $warehouse = Warehouse::where('establishment_id',$establishment_id)->first();
-        return $warehouse->id;
-
+    public function getWarehouseId($establishment_id): ?int
+    {
+        $warehouse = Warehouse::where('establishment_id', $establishment_id)->first();
+        return $warehouse?->id;
     }
 
     public function getItemWarehouse($item_id, $establishment_id, $warehouse_id = null){
