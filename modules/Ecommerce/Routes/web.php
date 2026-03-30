@@ -43,7 +43,7 @@ Route::get('/ecommerce/tracking', 'EcommerceController@tracking')
 // ========== Confirmación de pedido ==========
 Route::get('/ecommerce/order/confirmation/{external_id}', '\Modules\Ecommerce\Http\Controllers\EcommerceController@orderConfirmation')
     ->name('ecommerce.order.confirmation')
-    ->middleware(['identify.tenant', 'locked.tenant', 'set.theme']);
+    ->middleware(['locked.tenant', 'set.theme']);
 
 // ========== Estado de pago (polling L2 pre-auth Culqi) ==========
 Route::get('/ecommerce/order/{external_id}/payment-status', '\Modules\Ecommerce\Http\Controllers\EcommerceController@paymentStatus')
@@ -61,13 +61,13 @@ Route::post('/ecommerce/newsletter-subscribe', '\Modules\Ecommerce\Http\Controll
     ->middleware('throttle:5,1');
 
 // ========== Google OAuth (fuera del middleware de auth) ==========
-Route::middleware(['identify.tenant', 'locked.tenant', 'set.theme'])->prefix('ecommerce')->group(function () {
+Route::middleware(['locked.tenant', 'set.theme'])->prefix('ecommerce')->group(function () {
     Route::get('auth/google', 'EcommerceController@googleRedirect')->name('ecommerce.google.redirect');
     Route::get('auth/google/callback', 'EcommerceController@googleCallback')->name('ecommerce.google.callback');
 });
 
 // ========== Checkout + Pago + Reviews — accesibles sin login ==========
-Route::middleware(['identify.tenant', 'locked.tenant', 'set.theme'])->prefix('ecommerce')->group(function () {
+Route::middleware(['locked.tenant', 'set.theme'])->prefix('ecommerce')->group(function () {
     Route::get('checkout',       'EcommerceController@checkout')->name('tenant_ecommerce_checkout');
     Route::get('detail_cart',    'EcommerceController@detailCart')->name('tenant_detail_cart');
     Route::post('payment_cash',  'EcommerceController@paymentCash')->name('tenant_ecommerce_payment_cash')->middleware('throttle:10,1');
@@ -93,7 +93,7 @@ Route::middleware(['identify.tenant', 'locked.tenant', 'set.theme'])->prefix('ec
     Route::get('ubigeo-search', 'EcommerceController@ubigeoSearch')->middleware('throttle:10,1');
 });
 
-Route::middleware(['identify.tenant', 'check.permission', 'locked.tenant', 'check.email.verified', 'set.theme'])->prefix('ecommerce')->group(function () {
+Route::middleware(['check.permission', 'locked.tenant', 'check.email.verified', 'set.theme'])->prefix('ecommerce')->group(function () {
     // Route::get('/', 'EcommerceController@index');
 
     Route::get('/', 'EcommerceController@index')->name('tenant.ecommerce.index');
