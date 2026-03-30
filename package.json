@@ -5,6 +5,7 @@
         "watch": "node dev-with-css-sync.js --watch",
         "dev-simple": "vite",
         "build": "vite build",
+        "css:minify": "npx csso-cli public/porto-light/css/styles_ecommerce.css -o public/porto-light/css/styles_ecommerce.min.css",
         "sync-skins": "node css-watcher.js",
         "sync-skins-once": "node -e \"const fs=require('fs');const path=require('path');const glob=require('glob');glob.sync('storage/app/public/skins/*.css').forEach(f=>{const dest=path.join('public/storage/skins',path.basename(f));fs.copyFileSync(f,dest);console.log('✅',path.basename(f),'sincronizado');});console.log('🎉 Sincronización completa');\""
     },

@@ -76,6 +76,56 @@
         @yield('schema_product')
     @endif
 
+    {{-- SEO: Product Schema --}}
+    @if(isset($record))
+    <script type="application/ld+json">
+    {
+        "@context": "https://schema.org",
+        "@type": "Product",
+        "name": "{{ $record->description }}",
+        "image": "{{ asset('storage/uploads/items/' . $record->image) }}",
+        "description": "{{ strip_tags($record->description) }}",
+        "sku": "{{ $record->internal_id }}",
+        "brand": { "@type": "Brand", "name": "{{ $record->brand->name ?? '' }}" },
+        "offers": {
+            "@type": "Offer",
+            "priceCurrency": "PEN",
+            "price": "{{ $record->sale_unit_price }}",
+            "availability": "{{ $record->stock > 0 ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock' }}"
+        }
+    }
+    </script>
+    @endif
+
+    {{-- SEO: BreadcrumbList Schema --}}
+    @if(isset($record))
+    <script type="application/ld+json">
+    {
+        "@context": "https://schema.org",
+        "@type": "BreadcrumbList",
+        "itemListElement": [
+            {
+                "@type": "ListItem",
+                "position": 1,
+                "name": "Inicio",
+                "item": "{{ url('/ecommerce') }}"
+            },
+            {
+                "@type": "ListItem",
+                "position": 2,
+                "name": "{{ $record->category->name ?? 'Productos' }}",
+                "item": "{{ url('/ecommerce') }}"
+            },
+            {
+                "@type": "ListItem",
+                "position": 3,
+                "name": "{{ $record->description }}"
+            }
+        ]
+    }
+    </script>
+    @endif
+
     {{-- Favicon --}}
     <link rel="icon"             type="image/png" href="{{ $favicon_url }}?v={{ $v }}">
     <link rel="apple-touch-icon"                  href="{{ $favicon_url }}?v={{ $v }}">
@@ -87,8 +137,33 @@
     <link rel="stylesheet" href="{{ asset('porto-ecommerce/assets/css/custom.css') }}">
     <link rel="stylesheet" href="{{ asset('porto-ecommerce/assets/css/rating.css') }}">
     <link rel="stylesheet" href="{{ asset('porto-ecommerce/assets/font-awesome/css/fontawesome-all.min.css') }}">
-    <link rel="stylesheet" href="{{ asset('porto-light/css/styles_ecommerce.css') }}">
+    <link rel="stylesheet" href="{{ asset(file_exists(public_path('porto-light/css/styles_ecommerce.min.css')) ? 'porto-light/css/styles_ecommerce.min.css' : 'porto-light/css/styles_ecommerce.css') }}">
+    <link rel="stylesheet" href="{{ asset('porto-light/css/ecommerce-theme-override.css') }}">
+    @pluginCss
+    @php $__thm = ($seo->theme_template ?? 'generic'); @endphp
+    @if($__thm !== 'generic' && file_exists(public_path("porto-light/css/themes/{$__thm}.css")))
+        <link rel="stylesheet" href="{{ asset("porto-light/css/themes/{$__thm}.css") }}">
+    @endif
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.css">
+    @php
+        $__hex = $seo->color_ecommerce ?? '#ff8000';
+        $__hex = ltrim($__hex, '#');
+        if (strlen($__hex) === 3) { $__hex = $__hex[0].$__hex[0].$__hex[1].$__hex[1].$__hex[2].$__hex[2]; }
+        $__r = hexdec(substr($__hex,0,2))/255; $__g = hexdec(substr($__hex,2,2))/255; $__b = hexdec(substr($__hex,4,2))/255;
+        $__max = max($__r,$__g,$__b); $__min = min($__r,$__g,$__b); $__l = ($__max+$__min)/2;
+        if ($__max == $__min) { $__h = $__s = 0; } else {
+            $__d = $__max-$__min;
+            $__s = $__l > 0.5 ? $__d/(2-$__max-$__min) : $__d/($__max+$__min);
+            if ($__max==$__r) $__h = ($__g-$__b)/$__d + ($__g<$__b?6:0);
+            elseif ($__max==$__g) $__h = ($__b-$__r)/$__d + 2;
+            else $__h = ($__r-$__g)/$__d + 4;
+            $__h /= 6;
+        }
+    @endphp
+    <style>:root{--primary-h:{{ round($__h*360) }};--primary-s:{{ round($__s*100) }}%;--primary-l:{{ round($__l*100) }}%;}</style>
+    <!-- Vue debe cargarse ANTES del header (que usa new Vue) -->
+    <script src="{{ asset('porto-ecommerce/assets/js/vue.min.js') }}"></script>
+    <script src="{{ asset('porto-ecommerce/assets/js/axios.min.js') }}"></script>
 </head>
 
 <body>
@@ -147,7 +222,7 @@
     <script src="{{ asset('porto-ecommerce/assets/js/bootstrap.bundle.min.js') }}"></script>
     <script src="{{ asset('porto-ecommerce/assets/js/plugins.min.js') }}"></script>
     <script src="{{ asset('porto-ecommerce/assets/js/main.js') }}"></script>
-    <script src="{{ asset('porto-ecommerce/assets/js/vue.min.js') }}"></script>
+    <!-- Vue ya cargado en <head> -->
     <script src="{{ asset('porto-ecommerce/assets/js/rating.js') }}"></script>
     <script src="{{ asset('porto-ecommerce/assets/js/tracker.js') }}"></script>
     <script src="{{ asset('porto-ecommerce/assets/js/wishlist.js') }}"></script>
@@ -158,9 +233,12 @@
     <script src="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.js"></script>
     <script src="{{ asset('porto-ecommerce/assets/js/recently-viewed.js') }}"></script>
     <script src="{{ asset('porto-ecommerce/assets/js/compare.js') }}"></script>
-    @vite('resources/js/app.js')
+    {{-- NO cargar @vite app.js: el ecommerce usa su propia instancia Vue (CDN) --}}
+    @pluginJs
+    @include('themes._partials.plugins.product-enhancements')
+    @include('themes._partials.plugins.init')
     @stack('scripts')
-
+    @include('ecommerce::layouts.partials_ecommerce.auth_modal')
 </body>
 
 </html>

@@ -15,6 +15,9 @@ import 'bootstrap/dist/js/bootstrap.bundle.js'; // Incluye Popper
 import '../sass/element-ui.scss';
 import 'element-ui/lib/theme-chalk/index.css';
 
+// ERP Redesign 2026 — capa visual, sin romper layout de Porto-Light
+import '../sass/erp-redesign.scss';
+
 // Personalizar textos del idioma español
 lang.el.select.noData = 'No se encontraron resultados'
 lang.el.cascader.noData = 'No se encontraron resultados'
@@ -41,10 +44,8 @@ import './tenant-components'
 // Importar scripts migrados desde dom-fixes.js
 import { applyThemeAndShowContent, setupHeaderDomEvents, setupEcommerceAuthHandlers, updateTenantPageTitle } from './tenant/dom-fixes';
 
-// Inicializar lógica DOM migrada
-if (window && window.vc_visual && window.vc_visual.sidebar_theme) {
-    applyThemeAndShowContent(window.vc_visual.sidebar_theme);
-}
+// Inicializar lógica DOM migrada (siempre llamar para que body.visible se agregue)
+applyThemeAndShowContent((window.vc_visual || {}).sidebar_theme || '');
 setupHeaderDomEvents();
 setupEcommerceAuthHandlers();
 updateTenantPageTitle();

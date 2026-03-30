@@ -24,12 +24,14 @@ class SellnowController extends Controller
 
         $warehouse_id = auth()->user()->establishment->id;
 
-        $items = Item::whereNotNull('internal_id')
+        $items = Item::with(['item_type', 'unit_type', 'currency_type', 'warehouses', 'item_unit_types', 'tags'])
+            ->whereNotNull('internal_id')
             ->whereHas('warehouses', function ($query) use ($warehouse_id) {
                 $query->where('warehouse_id', $warehouse_id);
             })
             ->orderBy('favorite','desc')
             ->whereIsActive()
+            ->limit(200)
             ->get();
 
         $records = new ItemCollection($items);

@@ -295,6 +295,15 @@ class UploadFileHelper
         $allowed_extensions = explode(',', $mimes);
 
         if (!in_array($extension, $allowed_extensions, true)) self::notAllowedFile('Extensión del archivo no permitida.');
+
+        // Prevent double-extension bypass (e.g. file.php.jpg)
+        $dangerousExtensions = ['php', 'phtml', 'phar', 'php3', 'php4', 'php5', 'php7', 'phps'];
+        $allParts = explode('.', $filename);
+        foreach ($allParts as $part) {
+            if (in_array(strtolower($part), $dangerousExtensions, true)) {
+                self::notAllowedFile('Tipo de archivo no permitido');
+            }
+        }
     }
     
     

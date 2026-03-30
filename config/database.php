@@ -97,7 +97,28 @@ return [
                 PDO::MYSQL_ATTR_SSL_CA => env('MYSQL_ATTR_SSL_CA'),
                 PDO::ATTR_EMULATE_PREPARES => false
             ]) : [],
-        ]
+        ],
+
+        // ── L5: Data Warehouse ────────────────────────────────────────────────
+        // Base de datos analítica separada. Agregados de todos los tenants.
+        // Configurar en .env:
+        //   DW_DATABASE=ebaemy_warehouse
+        //   DW_USERNAME=warehouse_user      (o mismo que DB_USERNAME)
+        //   DW_PASSWORD=...
+        //   DW_HOST=127.0.0.1              (puede ser servidor analítico separado)
+        'warehouse' => [
+            'driver'    => 'mysql',
+            'host'      => env('DW_HOST',     env('DB_HOST', '127.0.0.1')),
+            'port'      => env('DW_PORT',     env('DB_PORT', '3306')),
+            'database'  => env('DW_DATABASE', 'ebaemy_warehouse'),
+            'username'  => env('DW_USERNAME', env('DB_USERNAME', 'forge')),
+            'password'  => env('DW_PASSWORD', env('DB_PASSWORD', '')),
+            'charset'   => 'utf8mb4',
+            'collation' => 'utf8mb4_unicode_ci',
+            'prefix'    => '',
+            'strict'    => false,   // warehouse permite modos más permisivos
+            'engine'    => 'InnoDB',
+        ],
     ],
 
     /*

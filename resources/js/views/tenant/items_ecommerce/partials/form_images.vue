@@ -11,6 +11,7 @@
                             :headers="headers"
                             :action="`/${resource}/upload`"
                             :on-success="onSuccessF"
+                            :on-error="onErrorF"
                             :on-remove="handleRemove" >
                             <i class="el-icon-plus"></i>
                         </el-upload>
@@ -66,10 +67,13 @@
                 {
                     this.source_images.push(response.data)
                 }else {
-
-                    // this.cleanFileList()
-                    this.$message.error(response.message)
+                    this.$message.error(response.message || 'Error al subir la imagen.')
                 }
+            },
+            onErrorF(err, file)
+            {
+                console.error('[form_images] upload error:', err)
+                this.$message.error('No se pudo subir la imagen "' + file.name + '". Intenta de nuevo.')
             },
             cleanFileList(){
                 // this.fileList = []

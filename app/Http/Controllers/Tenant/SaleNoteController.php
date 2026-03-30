@@ -93,6 +93,12 @@ class SaleNoteController extends Controller
     protected $sale_note;
     protected $company;
     protected $apply_change;
+    protected $queryService;
+
+    public function __construct(\App\Services\Tenant\SaleNoteQueryService $queryService)
+    {
+        $this->queryService = $queryService;
+    }
 
     public function index()
     {
@@ -128,7 +134,7 @@ class SaleNoteController extends Controller
             'success' => false,
         ];
 
-        if (auth()->user()->type !== 'admin') {
+        if (!\App\Helpers\AuthorizationHelper::isAdmin()) {
             return response()->json(['success' => false, 'message' => 'Solo los administradores pueden realizar esta accion'], 403);
         }
         $configuration = Configuration::first();
@@ -456,13 +462,7 @@ class SaleNoteController extends Controller
      */
     public function records(Request $request)
     {
-
-        $records = $this->getRecords($request);
-
-        /* $records = new SaleNoteCollection($records->paginate(config('tenant.items_per_page')));
-        dd($records); */
-        return new SaleNoteCollection($records->paginate(config('tenant.items_per_page')));
-
+        return new SaleNoteCollection($this->queryService->getPaginatedRecords($request));
     }
 
 
@@ -679,7 +679,7 @@ class SaleNoteController extends Controller
     {
         $sale_note = SaleNote::findOrFail($id);
         $user = auth()->user();
-        if ($user->type !== 'admin' && $sale_note->user_id !== $user->id) {
+        if (!\App\Helpers\AuthorizationHelper::isAdmin() && $sale_note->user_id !== $user->id) {
             return response()->json(['success' => false, 'message' => 'No tiene permiso para ver este registro.'], 403);
         }
         return new SaleNoteResource($sale_note);
@@ -689,7 +689,7 @@ class SaleNoteController extends Controller
     {
         $sale_note = SaleNote::findOrFail($id);
         $user = auth()->user();
-        if ($user->type !== 'admin' && $sale_note->user_id !== $user->id) {
+        if (!\App\Helpers\AuthorizationHelper::isAdmin() && $sale_note->user_id !== $user->id) {
             return response()->json(['success' => false, 'message' => 'No tiene permiso para ver este registro.'], 403);
         }
         return new SaleNoteResource2($sale_note);
@@ -751,6 +751,12 @@ class SaleNoteController extends Controller
                     }
                     $iwToCommit[] = ['iw' => $iw, 'qty' => $qty];
                 }
+
+                // Marcar para que el observer no duplique el PROVINCE_COMMIT
+                // (se aplicará manualmente después con las filas ya bloqueadas)
+                if (count($iwToCommit) > 0) {
+                    \App\Services\Tenant\SaleNoteStockService::$skipProvinceCommit = true;
+                }
             }
 
             foreach($data['items'] as $row)
@@ -810,9 +816,33 @@ class SaleNoteController extends Controller
 
             }
 
-            // Nota: el PROVINCE_COMMIT ya fue aplicado por SaleNoteItem::created
-            // via InventoryKardexServiceProvider → SaleNoteStockService::commitProvince().
-            // $iwToCommit se usó solo para pre-validar stock antes de crear los items.
+            // ── Aplicar PROVINCE_COMMIT usando las filas bloqueadas en la pre-validación ──
+            // Las instancias $iwToCommit ya tienen lockForUpdate() adquirido en ESTA misma
+            // transacción (beginTransaction línea 706), así que el lock persiste y se usa
+            // directamente para el commit de stock sin necesidad de re-consultar la BD.
+            // El observer SaleNoteStockService::commitProvince() se sigue ejecutando para
+            // ventas de tienda (non-province), pero para province usamos las filas ya bloqueadas.
+            foreach ($iwToCommit as $entry) {
+                $iw  = $entry['iw'];
+                $qty = $entry['qty'];
+
+                // Refrescar valores dentro del lock ya adquirido
+                $iw->refresh();
+
+                $iw->applyStockMovement(StockMovementTypeEnum::PROVINCE_COMMIT, $qty);
+
+                StockMovement::record(
+                    $iw,
+                    StockMovementTypeEnum::PROVINCE_COMMIT,
+                    $qty,
+                    auth()->id(),
+                    $this->sale_note,
+                    "Reserva NV #{$this->sale_note->number_full}"
+                );
+            }
+
+            // Resetear flag estático para no afectar requests subsiguientes
+            \App\Services\Tenant\SaleNoteStockService::$skipProvinceCommit = false;
 
             //pagos
             $this->savePayments($this->sale_note, $data['payments'], $isUpdate);
@@ -851,6 +881,7 @@ class SaleNoteController extends Controller
         }
         catch(Exception $e)
         {
+            \App\Services\Tenant\SaleNoteStockService::$skipProvinceCommit = false;
             $this->generalWriteErrorLog($e);
 
             DB::connection('tenant')->rollBack();
@@ -942,7 +973,7 @@ class SaleNoteController extends Controller
         $item = SaleNoteItem::findOrFail($id);
 
         $user = auth()->user();
-        if ($user->type !== 'admin' && $item->sale_note->user_id !== $user->id) {
+        if (!\App\Helpers\AuthorizationHelper::isAdmin() && $item->sale_note->user_id !== $user->id) {
             return ['success' => false, 'message' => 'No tiene permisos para eliminar este ítem'];
         }
 
@@ -1153,7 +1184,12 @@ class SaleNoteController extends Controller
     }
 
     private function reloadPDF($sale_note, $format, $filename) {
-        $this->createPdf($sale_note, $format, $filename);
+        try {
+            $this->createPdf($sale_note, $format, $filename);
+        } catch (\Throwable $e) {
+            \Log::error('[SaleNote PDF] Error generando PDF para ' . $sale_note->series . '-' . $sale_note->number . ': ' . $e->getMessage() . ' en ' . $e->getFile() . ':' . $e->getLine());
+            throw $e;
+        }
     }
 
 
@@ -1493,7 +1529,7 @@ class SaleNoteController extends Controller
         // Verificar ownership: solo el dueño o admin pueden imprimir
         if (auth()->check()) {
             $user = auth()->user();
-            if ($user->type !== 'admin' && $document->user_id !== $user->id) {
+            if (!\App\Helpers\AuthorizationHelper::isAdmin() && $document->user_id !== $user->id) {
                 abort(403, 'No tiene permiso para imprimir este documento.');
             }
         }
@@ -1877,7 +1913,7 @@ class SaleNoteController extends Controller
         $user = auth()->user();
         $sale_note = SaleNote::findOrFail($id);
 
-        if ($user->type !== 'admin' && $sale_note->user_id !== $user->id) {
+        if (!\App\Helpers\AuthorizationHelper::isAdmin() && $sale_note->user_id !== $user->id) {
             return ['success' => false, 'message' => 'No tiene permisos para anular esta nota de venta'];
         }
 
@@ -2239,11 +2275,11 @@ class SaleNoteController extends Controller
      */
     public function SaveSetAdvanceConfiguration(Request $request){
 
-        $data = $request->all();
+        $data = $request->only(['url', 'apiKey', 'send_data_to_other_server']);
         $data['success'] = false;
-        $data['send_data_to_other_server'] = (bool)$data['send_data_to_other_server'];
+        $data['send_data_to_other_server'] = (bool)($data['send_data_to_other_server'] ?? false);
 
-        if(auth()->user()->type !=='admin'){
+        if(!\App\Helpers\AuthorizationHelper::isAdmin()){
             return response()->json(['success' => false, 'message' => 'No puedes realizar cambios'], 403);
         }
         $configuration = Configuration::first();
@@ -2271,7 +2307,10 @@ class SaleNoteController extends Controller
      */
     public function transformDataOrder(Request $request){
 
-        $data = SaleNoteHelper::transformForOrder($request->all());
+        $data = SaleNoteHelper::transformForOrder($request->only([
+            'items', 'customer', 'customer_id', 'establishment_id', 'currency_type_id',
+            'exchange_rate_sale', 'total', 'payment_method_type_id',
+        ]));
 
         return [
             'data' => $data
@@ -2328,7 +2367,11 @@ class SaleNoteController extends Controller
         $id = $request->input('id');
 
         $record = DispatchSaleNote::firstOrNew(['id' => $id]);
-        $record->fill($request->all());
+        $record->fill($request->only([
+            'sale_note_id', 'date_of_issue', 'delivery_date', 'reference',
+            'observations', 'driver_name', 'driver_document', 'license_plate',
+            'status',
+        ]));
         $record->save();
         return [
             'success' => true,
@@ -2376,7 +2419,7 @@ class SaleNoteController extends Controller
      *
      */
     public function deleteRelationInvoice(Request $request) {
-        if (auth()->user()->type !== 'admin') {
+        if (!\App\Helpers\AuthorizationHelper::isAdmin()) {
             return response()->json(['success' => false, 'message' => 'Solo los administradores pueden desvincular facturas de notas de venta'], 403);
         }
 

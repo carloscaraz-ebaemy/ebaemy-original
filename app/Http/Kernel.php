@@ -19,7 +19,8 @@ class Kernel extends HttpKernel
         \App\Http\Middleware\TrimStrings::class,
         \Illuminate\Foundation\Http\Middleware\ConvertEmptyStringsToNull::class,
         \App\Http\Middleware\TrustProxies::class,
-        \Fruitcake\Cors\HandleCors::class,
+        \Illuminate\Http\Middleware\HandleCors::class, // Laravel 10 native CORS
+        \App\Http\Middleware\SecurityHeaders::class,
     ];
 
     /**
@@ -32,7 +33,7 @@ class Kernel extends HttpKernel
             \App\Http\Middleware\EncryptCookies::class,
             \Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse::class,
             \Illuminate\Session\Middleware\StartSession::class,
-            // \Illuminate\Session\Middleware\AuthenticateSession::class,
+            \Illuminate\Session\Middleware\AuthenticateSession::class,
             \Illuminate\View\Middleware\ShareErrorsFromSession::class,
             \App\Http\Middleware\VerifyCsrfToken::class,
             \Illuminate\Routing\Middleware\SubstituteBindings::class,
@@ -73,5 +74,9 @@ class Kernel extends HttpKernel
         'tenant.auto.login' => \Modules\MultiUser\Http\Middleware\Tenant\AutoLogin::class,
         'check.email.verified' => \Modules\LevelAccess\Http\Middleware\CheckEmailIsVerified::class,
         'enable.guest.register' => \App\Http\Middleware\EnableGuestRegister::class,
+        'permission' => \App\Http\Middleware\CheckPermission::class,
+        'set.theme' => \App\Http\Middleware\SetTheme::class,
+        'identify.tenant' => \App\Http\Middleware\IdentifyTenant::class,
+        'auth.or.signed' => \App\Http\Middleware\AuthOrSigned::class,
     ];
 }

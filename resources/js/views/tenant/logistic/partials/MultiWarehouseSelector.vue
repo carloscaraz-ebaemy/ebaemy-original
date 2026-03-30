@@ -117,7 +117,7 @@ export default {
 
             row.loadingStock = true
             try {
-                const { data } = await axios.get(
+                const { data } = await this.$http.get(
                     `/api/logistic/sale-notes/stock-by-item/${row.item_id}`
                 )
                 row.stockData = data.stocks?.find(

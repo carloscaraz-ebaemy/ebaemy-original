@@ -5,6 +5,8 @@ namespace Modules\Inventory\Providers;
 use App\Models\Tenant\DocumentItem;
 use App\Models\Tenant\Document;
 use App\Models\Tenant\Item;
+use App\Models\Tenant\ItemVariant;
+use App\Models\Tenant\ItemVariantWarehouse;
 use App\Models\Tenant\PurchaseItem;
 use App\Models\Tenant\PurchaseSettlementItem;
 use App\Models\Tenant\SaleNoteItem;
@@ -252,6 +254,24 @@ class InventoryKardexServiceProvider extends ServiceProvider
                 $this->createInventoryKardexSaleNote($sale_note_item->sale_note, $sale_note_item->item_id, (-1 * ($sale_note_item->quantity * $presentationQuantity)), $warehouse->id, $sale_note_item->id);
                 if(!$sale_note_item->sale_note->order_note_id) $this->updateStock($sale_note_item->item_id, (-1 * ($sale_note_item->quantity * $presentationQuantity)), $warehouse->id);
 
+                // ── Descontar stock de variante ───────────────────────────
+                $variantId = $sale_note_item->item->variant_id ?? null;
+                if ($variantId) {
+                    $deduction = $sale_note_item->quantity * $presentationQuantity;
+                    $vw = ItemVariantWarehouse::where('item_variant_id', $variantId)
+                        ->where('warehouse_id', $warehouse->id)
+                        ->first();
+                    if ($vw) {
+                        $vw->stock_physical  = max(0, $vw->stock_physical - $deduction);
+                        $vw->stock           = $vw->stock_physical;
+                        $vw->save();
+                    }
+                    // Actualizar stock agregado de la variante
+                    $totalVariant = ItemVariantWarehouse::where('item_variant_id', $variantId)->sum('stock_physical');
+                    ItemVariant::where('id', $variantId)->update(['stock' => $totalVariant]);
+                }
+                // ── /Descontar stock de variante ──────────────────────────
+
             }else{
 
                 $item = Item::findOrFail($sale_note_item->item_id);
@@ -331,6 +351,23 @@ class InventoryKardexServiceProvider extends ServiceProvider
                 $this->createInventoryKardex($sale_note_item->sale_note, $sale_note_item->item_id, ($sale_note_item->quantity * $presentationQuantity), $warehouse->id);
                 // $this->deleteInventoryKardex($sale_note_item->sale_note, $sale_note_item->inventory_kardex_id);
                 $this->updateStock($sale_note_item->item_id, (1 * ($sale_note_item->quantity * $presentationQuantity)), $warehouse->id);
+
+                // ── Revertir stock de variante ────────────────────────────
+                $variantId = $sale_note_item->item->variant_id ?? null;
+                if ($variantId) {
+                    $restitution = $sale_note_item->quantity * $presentationQuantity;
+                    $vw = ItemVariantWarehouse::where('item_variant_id', $variantId)
+                        ->where('warehouse_id', $warehouse->id)
+                        ->first();
+                    if ($vw) {
+                        $vw->stock_physical = $vw->stock_physical + $restitution;
+                        $vw->stock          = $vw->stock_physical;
+                        $vw->save();
+                    }
+                    $totalVariant = ItemVariantWarehouse::where('item_variant_id', $variantId)->sum('stock_physical');
+                    ItemVariant::where('id', $variantId)->update(['stock' => $totalVariant]);
+                }
+                // ── /Revertir stock de variante ───────────────────────────
 
             }else{
 

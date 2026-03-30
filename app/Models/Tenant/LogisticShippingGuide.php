@@ -39,6 +39,11 @@ class LogisticShippingGuide extends ModelTenant
         return $this->belongsTo(LogisticOrder::class, 'logistic_order_id');
     }
 
+    public function saleNote(): BelongsTo
+    {
+        return $this->belongsTo(SaleNote::class, 'sale_note_id');
+    }
+
     /**
      * URL pública del PDF de la guía de remisión.
      * Los PDFs se almacenan en storage/tenant/{uuid}/shipping_guides/

@@ -483,7 +483,7 @@ use Illuminate\Support\Str;
                     $type = 'dispatch';
 
                     foreach ($documents as $document) {
-                        dd([
+                        // dd([
                             __LINE__,
                             $document
                         ]);

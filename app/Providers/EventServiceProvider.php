@@ -19,6 +19,11 @@ class EventServiceProvider extends ServiceProvider
             SendEmailVerificationNotification::class,
         ],
 
+        // ─── Eventos de theme ──────────────────────────────────────────────────
+        \App\Events\ThemeChanged::class => [
+            \App\Listeners\ClearThemeCache::class,
+        ],
+
         // ─── Eventos logísticos ────────────────────────────────────────────────
         \App\Events\Logistic\ProvinceOrderCreated::class => [
             \App\Listeners\Logistic\LogProvinceOrderCreated::class,
@@ -32,6 +37,29 @@ class EventServiceProvider extends ServiceProvider
         \App\Events\Logistic\OrderStatusChanged::class => [
             \App\Listeners\Logistic\LogOrderStatusChanged::class,
             // \App\Listeners\Logistic\UpdateDashboardStats::class,
+        ],
+
+        // ─── Tenant — réplica MySQL de solo-lectura ────────────────────────────
+        // Registra 'tenant_read' cuando TENANT_REPLICA_HOST está en .env.
+        // Las queries de reportes usan ReplicaConnectionManager para enrutarse ahí.
+        \Hyn\Tenancy\Events\Database\ConnectionSet::class => [
+            \App\Listeners\Tenancy\SetupReplicaConnection::class,
+        ],
+
+        // ─── Tenant provisioning — snapshot de esquema ────────────────────────
+        // Importa tenant_schema_snapshot.sql en la nueva DB antes de que
+        // MigratesTenants corra las migraciones individuales.
+        // Generar/actualizar snapshot: php artisan tenant:snapshot
+        \Hyn\Tenancy\Events\Database\Created::class => [
+            \App\Listeners\Tenancy\ApplySchemaSnapshot::class,
+        ],
+
+        // ─── Eventos ecommerce ─────────────────────────────────────────────────
+        \App\Events\Ecommerce\OrderCreated::class => [
+            \App\Listeners\Ecommerce\SendOrderConfirmationEmail::class,
+            \App\Listeners\Ecommerce\SendWhatsAppNotification::class,
+            \App\Listeners\NotifyAdminNewOrder::class,
+            \App\Listeners\AutoGenerateSaleNote::class,
         ],
     ];
 

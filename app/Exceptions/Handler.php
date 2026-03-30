@@ -3,6 +3,7 @@
 namespace App\Exceptions;
 
 use Illuminate\Foundation\Exceptions\Handler as ExceptionHandler;
+use App\Exceptions\InvalidOrderTransitionException;
 use Http\Client\Exception\HttpException;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Auth\AuthenticationException;
@@ -61,6 +62,13 @@ class Handler extends ExceptionHandler
     */
     public function render($request, Throwable $exception)
     {
+        if ($exception instanceof InvalidOrderTransitionException) {
+            if ($request->expectsJson()) {
+                return response()->json(['success' => false, 'message' => $exception->getMessage()], 422);
+            }
+            return redirect()->back()->with('error', $exception->getMessage());
+        }
+
         if ($exception instanceof AuthenticationException)
         {
             if ($this->isFrontend($request))
@@ -83,6 +91,16 @@ class Handler extends ExceptionHandler
             return $this->convertValidationExceptionToResponse($exception, $request);
         }
 
+
+        // ModelNotFoundException (findOrFail) debe tratarse como 404, no 500
+        if ($exception instanceof \Illuminate\Database\Eloquent\ModelNotFoundException) {
+            if ($request->is('ecommerce*') && !$request->expectsJson()) {
+                try {
+                    return response(view('ecommerce::errors.404'), 404);
+                } catch (\Throwable $e) {}
+            }
+            return $this->errorResponse('No se encontró el recurso solicitado', 404, $exception);
+        }
 
         if($exception instanceof NotFoundHttpException)
         {
@@ -174,14 +192,14 @@ class Handler extends ExceptionHandler
     {
         $message = ($message === '')?$exception->getMessage():$message;
         $code = ($code === '')?$exception->getCode():$code;
-        $file = $exception->getFile();
-        $line = $exception->getLine();
 
-        return response()->json([
-            'success' => false,
-            'message' => $message,
-            'file' => $file,
-            'line' => $line
-        ], $code);
+        $response = ['success' => false, 'message' => $message];
+
+        if (config('app.debug')) {
+            $response['file'] = $exception->getFile();
+            $response['line'] = $exception->getLine();
+        }
+
+        return response()->json($response, $code);
     }
 }

@@ -34,6 +34,76 @@ class Kernel extends ConsoleKernel
                  ->everyThirtyMinutes()
                  ->withoutOverlapping()
                  ->appendOutputTo(storage_path('logs/stock_release.log'));
+
+        // Limpia carritos expirados (más de 7 días sin convertirse en orden)
+        $schedule->command('abandoned-carts:purge')
+                 ->daily()
+                 ->at('03:00')
+                 ->appendOutputTo(storage_path('logs/abandoned_carts.log'));
+
+        // Sincroniza estado de tracking con APIs de carriers (Chazki, 99Minutos, etc.)
+        // Solo actúa si hay couriers con api_driver != 'manual' configurados
+        $schedule->command('carrier:sync-tracking')
+                 ->everyThirtyMinutes()
+                 ->withoutOverlapping()
+                 ->appendOutputTo(storage_path('logs/carrier_tracking.log'));
+
+        // Detecta divergencias de inventario (dry-run, solo reporta — no corrige)
+        // Para corregir manualmente: php artisan stock:reconcile --fix
+        $schedule->command('stock:reconcile --threshold=0.01')
+                 ->weekly()
+                 ->sundays()
+                 ->at('02:00')
+                 ->appendOutputTo(storage_path('logs/stock_reconcile.log'));
+
+        // Solicita reseñas a clientes con pedidos entregados hace 3+ días
+        $schedule->command('ecommerce:send-review-requests')
+                 ->dailyAt('10:00')
+                 ->withoutOverlapping()
+                 ->appendOutputTo(storage_path('logs/review_requests.log'));
+
+        // Recordatorio de carritos abandonados: secuencia de 3 pasos (1h, 24h, 72h)
+        $schedule->command('cart:send-reminders')
+                 ->hourly()
+                 ->withoutOverlapping()
+                 ->appendOutputTo(storage_path('logs/cart_reminders.log'));
+
+        // ETL nocturno: sincroniza ventas e items de todos los tenants al warehouse analítico
+        // Rango: ayer → hoy (incremental). Incluye snapshot de catálogo con --with-items.
+        // Para correr manualmente: php artisan warehouse:sync-etl --from=Y-m-d --to=Y-m-d
+        $schedule->command('warehouse:sync-etl --with-items')
+                 ->dailyAt('02:30')
+                 ->withoutOverlapping()
+                 ->appendOutputTo(storage_path('logs/warehouse_etl.log'));
+        // Marketplace: sync stock + fetch orders cada 15 min
+        $schedule->command('marketplace:sync stock')
+                 ->everyFifteenMinutes()
+                 ->withoutOverlapping()
+                 ->appendOutputTo(storage_path('logs/marketplace_stock.log'));
+
+        $schedule->command('marketplace:sync orders')
+                 ->everyFifteenMinutes()
+                 ->withoutOverlapping()
+                 ->appendOutputTo(storage_path('logs/marketplace_orders.log'));
+
+        // Marketplace: regenerar feed Meta cada 6 horas
+        $schedule->command('marketplace:sync feed --platform=meta')
+                 ->everySixHours()
+                 ->withoutOverlapping()
+                 ->appendOutputTo(storage_path('logs/marketplace_feed.log'));
+
+        // Verificar dominios personalizados pendientes cada 30 minutos
+        $schedule->command('domains:verify-pending')
+                 ->everyThirtyMinutes()
+                 ->withoutOverlapping()
+                 ->appendOutputTo(storage_path('logs/domain_verification.log'));
+
+        // Recordar pedidos pendientes cada minuto via WhatsApp
+        $schedule->command('orders:remind-pending')
+                 ->everyMinute()
+                 ->withoutOverlapping()
+                 ->appendOutputTo(storage_path('logs/pending_orders_reminder.log'));
+
         // Llena las tablas para libro mayor - Se desactiva CMAR - buscar opcion de url
         // $schedule->command('account_ledger:fill')->hourly();
         

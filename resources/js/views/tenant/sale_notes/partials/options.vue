@@ -13,19 +13,19 @@
                 <div class="col-lg-12 col-md-12 col-sm-12 container-tabs">
                     <el-tabs v-model="activeName">
                         <el-tab-pane label="A4" name="first">
-                            <iframe :src="`${form.print_a4}?cache_bust=${Date.now()}`" width="100%" height="400px"/>
+                            <iframe :src="form.print_a4" type="application/pdf" width="100%" height="400px"/>
                         </el-tab-pane>
                         <el-tab-pane label="Ticket 80mm" name="fourth" v-if="ShowTicket80">
-                            <iframe :src="`${form.print_ticket}?cache_bust=${Date.now()}`" type="application/pdf" width="100%" height="400px"/>
+                            <iframe :src="form.print_ticket" type="application/pdf" width="100%" height="400px"/>
                         </el-tab-pane>
                         <el-tab-pane label="Ticket 58mm" name="third" v-if="ShowTicket58">
-                            <iframe :src="`${form.print_ticket_58}?cache_bust=${Date.now()}`" type="application/pdf" width="100%" height="400px"/>
+                            <iframe :src="form.print_ticket_58" type="application/pdf" width="100%" height="400px"/>
                         </el-tab-pane>
                         <el-tab-pane label="Ticket 50mm" name="fifth" v-if="ShowTicket50">
-                            <iframe :src="`${form.print_ticket_50}?cache_bust=${Date.now()}`" type="application/pdf" width="100%" height="400px"/>
+                            <iframe :src="form.print_ticket_50" type="application/pdf" width="100%" height="400px"/>
                         </el-tab-pane>
                         <el-tab-pane label="A5" name="second">
-                            <iframe :src="`${form.print_a5}?cache_bust=${Date.now()}`" type="application/pdf" width="100%" height="400px"/>
+                            <iframe :src="form.print_a5" type="application/pdf" width="100%" height="400px"/>
                         </el-tab-pane>
                     </el-tabs>
                     <!--<el-tabs v-model="activeName">
@@ -165,11 +165,10 @@ export default {
             showDialogOptions: false,
             documentNewId: null,
             activeName: 'first',
-            isSafari: false
+            isSafari: false,
         }
     },
     created() {
-        this.initForm()
         this.loadConfiguration(this.$store)
         this.$store.commit('setConfiguration', this.configuration)
     },

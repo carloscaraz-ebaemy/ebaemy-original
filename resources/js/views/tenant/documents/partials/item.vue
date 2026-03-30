@@ -240,6 +240,50 @@
                             </div>
                         </template>
                     </div>
+                    <!-- ── Selector de variantes ─────────────────────────── -->
+                    <div class="col-12" v-if="form.item_id && form.item.has_variants && form.item.item_options && form.item.item_options.length">
+                        <div class="form-group" style="background:#f8f9ff;border:1px solid #d9e1ff;border-radius:8px;padding:12px 14px;margin-bottom:8px;">
+                            <div style="font-weight:600;font-size:12px;color:#5a6acf;margin-bottom:10px;letter-spacing:.5px;">
+                                VARIANTE DEL PRODUCTO
+                            </div>
+                            <div v-for="opt in form.item.item_options" :key="opt.id" style="margin-bottom:10px;">
+                                <div style="font-size:12px;font-weight:600;color:#606266;margin-bottom:6px;">
+                                    {{ opt.name }}
+                                    <span v-if="selectedVariantOptions[opt.id]" style="font-weight:400;color:#409EFF;">
+                                        — {{ selectedVariantOptions[opt.id].value }}
+                                    </span>
+                                </div>
+                                <div style="display:flex;flex-wrap:wrap;gap:6px;">
+                                    <button
+                                        v-for="val in opt.values"
+                                        :key="val.id"
+                                        type="button"
+                                        @click="selectVariantOption(opt.id, val)"
+                                        :style="{
+                                            padding: '4px 12px',
+                                            borderRadius: '20px',
+                                            border: selectedVariantOptions[opt.id] && selectedVariantOptions[opt.id].id === val.id ? '2px solid #409EFF' : '1px solid #dcdfe6',
+                                            background: selectedVariantOptions[opt.id] && selectedVariantOptions[opt.id].id === val.id ? '#ecf5ff' : '#fff',
+                                            color: selectedVariantOptions[opt.id] && selectedVariantOptions[opt.id].id === val.id ? '#409EFF' : '#606266',
+                                            fontWeight: '600',
+                                            fontSize: '12px',
+                                            cursor: 'pointer',
+                                        }"
+                                    >{{ val.value }}</button>
+                                </div>
+                            </div>
+                            <div v-if="resolvedVariant" style="margin-top:6px;padding:6px 10px;background:#f0f9eb;border-radius:6px;display:flex;align-items:center;gap:8px;">
+                                <i class="el-icon-check" style="color:#67C23A;font-weight:700;"></i>
+                                <span style="font-size:12px;color:#67C23A;font-weight:600;">{{ resolvedVariant.display_name }}</span>
+                                <span v-if="resolvedVariant.sale_unit_price" style="font-size:12px;color:#606266;margin-left:auto;">
+                                    S/ {{ parseFloat(resolvedVariant.sale_unit_price).toFixed(2) }}
+                                </span>
+                            </div>
+                            <el-alert v-if="variantNotFound" type="warning" :closable="false"
+                                      title="Combinación no disponible. Elige otra opción." show-icon style="margin-top:6px;" />
+                        </div>
+                    </div>
+
                     <div class="col-md-5">
                         <div
                             :class="{
@@ -1057,6 +1101,10 @@ export default {
             is_client: false,
             titleDialog: "",
             resource: "documents",
+            // ── Variantes ──────────────────────────────────────────────────
+            selectedVariantOptions: {},
+            resolvedVariant: null,
+            variantNotFound: false,
             showDialogNewItem: false,
             has_list_prices: false,
             errors: {},
@@ -1574,7 +1622,8 @@ export default {
                 lots_group: [],
                 IdLoteSelected: null,
                 document_item_id: null,
-                name_product_pdf: ""
+                name_product_pdf: "",
+                variant_id: null,
             };
 
             this.activePanel = 0;
@@ -1816,12 +1865,56 @@ export default {
             this.initForm();
             this.$emit("update:showDialog", false);
         },
+        // ── Variantes ──────────────────────────────────────────────────────────
+        selectVariantOption(optionId, val) {
+            this.$set(this.selectedVariantOptions, optionId, val);
+            this.resolveVariant();
+        },
+
+        resolveVariant() {
+            const opts = this.form.item.item_options || [];
+            if (!opts.length) return;
+            const allSelected = opts.every(opt => this.selectedVariantOptions[opt.id]);
+            if (!allSelected) {
+                this.resolvedVariant = null;
+                this.variantNotFound = false;
+                this.form.variant_id = null;
+                return;
+            }
+            const selectedIds = opts
+                .map(opt => this.selectedVariantOptions[opt.id].id)
+                .sort((a, b) => a - b);
+            const variants = this.form.item.variants || [];
+            const found = variants.find(v => {
+                const vIds = [...(v.option_value_ids || [])].sort((a, b) => a - b);
+                return JSON.stringify(vIds) === JSON.stringify(selectedIds);
+            });
+            if (found) {
+                this.resolvedVariant = found;
+                this.variantNotFound = false;
+                this.form.variant_id = found.id;
+                if (found.sale_unit_price !== null && found.sale_unit_price !== undefined) {
+                    this.form.unit_price_value = parseFloat(found.sale_unit_price);
+                    this.calculateTotal();
+                }
+            } else {
+                this.resolvedVariant = null;
+                this.variantNotFound = true;
+                this.form.variant_id = null;
+            }
+        },
+        // ── /Variantes ─────────────────────────────────────────────────────────
+
         async changeItem() {
             this.clearExtraInfoItem();
 
             this.clearExtraInfoItem()
 
             this.form.item = _.find(this.items, {'id': this.form.item_id});
+            this.selectedVariantOptions = {};
+            this.resolvedVariant = null;
+            this.variantNotFound = false;
+            this.form.variant_id = null;
             this.form.item = this.setExtraFieldOfitem(this.form.item)
             this.form.item_unit_types = _.find(this.items, {'id': this.form.item_id}).item_unit_types
             this.form.unit_price_value = this.form.item.sale_unit_price;
@@ -1976,6 +2069,10 @@ export default {
                     );
             }
 
+            if (this.form.item.has_variants && this.form.item.item_options && this.form.item.item_options.length && !this.form.variant_id) {
+                return this.$message.warning('Selecciona todas las opciones de variante antes de agregar.');
+            }
+
             if (
                 !this.form.item.description ||
                 !this.form.item.description.trim().length
@@ -2074,6 +2171,14 @@ export default {
             );
 
             this.row.item.name_product_pdf = this.row.name_product_pdf || "";
+            if (this.form.variant_id && this.resolvedVariant) {
+                this.row.variant_id = this.form.variant_id;
+                this.row.item.variant_id = this.form.variant_id;
+                this.row.item.variant_display_name = this.resolvedVariant.display_name;
+                // Agregar variante a la descripción visible y al PDF
+                this.row.item.description = this.row.item.description + ' / ' + this.resolvedVariant.display_name;
+                this.row.item.name_product_pdf = '<p>' + this.row.item.description + '</p>';
+            }
             if (this.recordItem) {
                 this.row.indexi = this.recordItem.indexi;
             }

@@ -48,6 +48,13 @@ class MobileController extends Controller
 
     public function login(Request $request)
     {
+        // Rate limiting: max 5 attempts per minute per IP
+        $key = 'mobile_login_' . $request->ip();
+        if (\Illuminate\Support\Facades\RateLimiter::tooManyAttempts($key, 5)) {
+            return response()->json(['success' => false, 'message' => 'Demasiados intentos. Espere 1 minuto.'], 429);
+        }
+        \Illuminate\Support\Facades\RateLimiter::hit($key, 60);
+
         $credentials = request(['email', 'password']);
         if (!Auth::attempt($credentials)) {
             return [
@@ -67,7 +74,7 @@ class MobileController extends Controller
             'email' => $user->email,
             'establishment_id' => auth()->user()->establishment->id,
             'seriedefault' => $user->series_id,
-            'token' => $user->api_token,
+            'token' => substr($user->api_token, 0, 8) . '********',
             'restaurant_role_id' => $user->restaurant_role_id,
             'restaurant_role_code' => $user->restaurant_role_id ? $user->restaurant_role->code : null,
             'ruc' => $company->number,

@@ -193,7 +193,7 @@ export default {
             this.customerSearchTerm = input
             if (!input) { this.customers = []; return }
             this.loading_search = true
-            axios.get('/sale-notes/search/customers', { params: { input } })
+            this.$http.get('/sale-notes/search/customers', { params: { input } })
                 .then(({ data }) => { this.customers = data.customers || [] })
                 .catch(() => { this.customers = [] })
                 .finally(() => { this.loading_search = false })
@@ -202,7 +202,7 @@ export default {
         async onCustomerSelected(id) {
             if (!id) return
             try {
-                const { data } = await axios.get(`/persons/record/${id}`)
+                const { data } = await this.$http.get(`/persons/record/${id}`)
                 const p = data.data ?? data
                 this.form.shipping_recipient = p.name      || ''
                 this.form.shipping_phone     = p.telephone || ''
@@ -219,7 +219,7 @@ export default {
             this.showPersonForm = false
             if (!personId) return
             try {
-                const { data } = await axios.get(`/persons/record/${personId}`)
+                const { data } = await this.$http.get(`/persons/record/${personId}`)
                 const p = data.data ?? data
                 this.form.shipping_recipient = p.name      || ''
                 this.form.shipping_phone     = p.telephone || ''
@@ -237,7 +237,7 @@ export default {
 
         async loadUbigeo() {
             try {
-                const { data } = await axios.get('/persons/tables')
+                const { data } = await this.$http.get('/persons/tables')
                 this.locations = data.locations || []
                 if (this.form.shipping_district_id) {
                     this.preselectDistrict(this.form.shipping_district_id)
@@ -286,7 +286,7 @@ export default {
             this.saving = true
             this.errors = {}
             try {
-                const { data } = await axios.patch(
+                const { data } = await this.$http.patch(
                     `/logistic/queue-json/${this.order.id}/update-shipping`,
                     this.form
                 )

@@ -154,9 +154,8 @@ class GeneralItemCollection extends ResourceCollection
                 }
             }
         }
-        // TODO: revisar esta linea: Eliminando esta linea porque el precio de compra no puede ser igual al precio de venta,
-        // en conculusión esta condición nunca será 0, para los productos que no tienen una compra luego de registrarse
-        // $purchase_unit_price = ($purchase_item) ? $purchase_item->unit_price : $record->unit_price;
+        // Precio de compra se toma del último purchase_item; no se usa unit_price del sale
+        // porque compra != venta. Si no hay compra, se usa purchase_unit_price del catálogo.
 
         if ($purchase_unit_price == 0 && $record->relation_item->purchase_unit_price > 0) {
             $purchase_unit_price = $record->relation_item->purchase_unit_price;

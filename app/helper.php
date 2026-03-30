@@ -174,6 +174,19 @@ if (!function_exists('func_is_windows')) {
     }
 }
 
+if (!function_exists('tenantCtx')) {
+    /**
+     * Acceso rápido al TenantContextService.
+     * Ejemplo: tenantCtx()->isEcommerce()
+     *
+     * @return \App\Services\Tenant\TenantContextService
+     */
+    function tenantCtx(): \App\Services\Tenant\TenantContextService
+    {
+        return app(\App\Services\Tenant\TenantContextService::class);
+    }
+}
+
 if (!function_exists('func_get_templates')) {
     function func_get_templates()
     {
@@ -188,5 +201,36 @@ if (!function_exists('func_get_templates')) {
 
         return $files;            
 
+    }
+}
+
+// ─── L4: Feature Gate helpers ──────────────────────────────────────────────
+
+if (!function_exists('feature')) {
+    /**
+     * Verifica si el tenant activo tiene acceso al feature indicado.
+     *
+     * Uso en controllers:
+     *   if (!feature('smart_stock')) { abort(403, 'Plan no incluye Smart Stock.'); }
+     *
+     * Uso en Blade:
+     *   @if(feature('ecommerce')) ... @endif
+     *
+     * Equivalente a Gate::allows('feature:key') pero más conciso.
+     */
+    function feature(string $key): bool
+    {
+        return app(\App\Services\FeatureGate::class)->has($key);
+    }
+}
+
+if (!function_exists('feature_limit')) {
+    /**
+     * Devuelve el límite numérico de un feature metered.
+     * null = sin límite. 0 = feature no incluido en el plan.
+     */
+    function feature_limit(string $key): ?int
+    {
+        return app(\App\Services\FeatureGate::class)->limit($key);
     }
 }

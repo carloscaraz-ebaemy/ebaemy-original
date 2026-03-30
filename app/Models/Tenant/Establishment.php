@@ -12,7 +12,9 @@ use Illuminate\Database\Eloquent\Casts\Attribute;
 
 class Establishment extends ModelTenant
 {
-    protected $with = ['country', 'department', 'province', 'district'];
+    // Removido $with para evitar queries innecesarias en cada auth()->user()
+    // Cargar con: Establishment::with(['country','department','province','district'])->find($id)
+    // protected $with = ['country', 'department', 'province', 'district'];
     protected $fillable = [
         'description',
         'country_id',

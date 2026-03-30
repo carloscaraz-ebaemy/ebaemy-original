@@ -15,7 +15,7 @@ class ProductFeedController extends Controller
         $domain  = request()->getScheme() . '://' . request()->getHost();
         $base    = $domain . '/ecommerce';
         $company = Company::first();
-        $seo     = ConfigurationEcommerce::first();
+        $seo     = ConfigurationEcommerce::firstCached();
 
         return compact('domain', 'base', 'company', 'seo');
     }
@@ -198,5 +198,14 @@ class ProductFeedController extends Controller
         };
 
         return response()->stream($callback, 200, $headers);
+    }
+
+    /**
+     * TikTok Shop Feed (CSV format)
+     * GET /ecommerce/feed/tiktok
+     */
+    public function tiktokCatalog()
+    {
+        return $this->csvFeed();
     }
 }

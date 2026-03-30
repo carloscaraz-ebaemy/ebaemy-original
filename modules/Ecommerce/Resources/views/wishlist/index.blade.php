@@ -71,7 +71,12 @@
     var allItems = null; // cache
 
     function init() {
-        var ids = window.Wishlist ? window.Wishlist.getAll() : [];
+        // Esperar a que Wishlist esté disponible (puede tardar si los scripts cargan lento)
+        if (!window.Wishlist) {
+            setTimeout(init, 200);
+            return;
+        }
+        var ids = window.Wishlist.getAll();
 
         // ¿Hay IDs compartidos en la URL?
         var params = new URLSearchParams(window.location.search);

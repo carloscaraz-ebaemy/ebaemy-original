@@ -46,7 +46,8 @@ return [
     |
     */
 
-    'encrypt' => false,
+    // En producción SESSION_ENCRYPT=true para cifrar todos los datos de sesión
+    'encrypt' => env('SESSION_ENCRYPT', true),
 
     /*
     |--------------------------------------------------------------------------
@@ -194,6 +195,7 @@ return [
     |
     */
 
-    'same_site' => null,
+    // 'lax' protege contra CSRF en requests cross-site manteniendo compatibilidad con links externos
+    'same_site' => 'lax',
 
 ];

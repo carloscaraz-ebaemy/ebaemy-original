@@ -4,6 +4,7 @@ namespace App\Models\System;
 
 use Hyn\Tenancy\Traits\UsesSystemConnection;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Config;
 
 class Configuration extends Model
@@ -55,15 +56,8 @@ class Configuration extends Model
     public static function boot()
     {
         parent::boot();
-        static::creating(function (self $item) {
-
-            // if(empty($item->apk_url)) $item->apk_url = 'https://facturaloperu.com/apk/app-debug.apk';
-        });
-        static::retrieved(function (self $item) {
-
-            // if (empty($item->apk_url)) $item->apk_url = 'https://facturaloperu.com/apk/app-debug.apk';
-        });
-
+        static::saved(fn () => Cache::forget('system_config'));
+        static::deleted(fn () => Cache::forget('system_config'));
     }
 
     public function getUseLoginGlobalAttribute($value)
@@ -81,6 +75,13 @@ class Configuration extends Model
         return is_null($value) ? null : (object) json_decode($value);
     }
 
+
+    private const CACHE_TTL = 600;
+
+    public static function firstCached(): ?self
+    {
+        return Cache::remember('system_config', self::CACHE_TTL, fn () => self::first());
+    }
 
     public static function getApiServiceToken(){
         $configuration = self::first();

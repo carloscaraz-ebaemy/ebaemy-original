@@ -23,11 +23,37 @@
     <link rel="stylesheet" href="{{ asset('porto-ecommerce/assets/css/style.min.css') }}">
 
     <link rel="stylesheet" href="{{ asset('porto-ecommerce/assets/css/rating.css') }}">
+    <link rel="stylesheet" href="{{ asset(file_exists(public_path('porto-light/css/styles_ecommerce.min.css')) ? 'porto-light/css/styles_ecommerce.min.css' : 'porto-light/css/styles_ecommerce.css') }}">
+    <link rel="stylesheet" href="{{ asset('porto-light/css/ecommerce-theme-override.css') }}">
+    @php $__thm = (\App\Models\Tenant\ConfigurationEcommerce::first()->theme_template ?? 'generic'); @endphp
+    @if($__thm !== 'generic' && file_exists(public_path("porto-light/css/themes/{$__thm}.css")))
+        <link rel="stylesheet" href="{{ asset("porto-light/css/themes/{$__thm}.css") }}">
+    @endif
 
     @if (file_exists(public_path('theme/custom_styles_ecommerce.css')))
         <link rel="stylesheet" href="{{ asset('theme/custom_styles_ecommerce.css') }}" />
     @endif
+    @php
+        $__seo = \App\Models\Tenant\ConfigurationEcommerce::first();
+        $__hex = ($__seo->color_ecommerce ?? '#ff8000');
+        $__hex = ltrim($__hex, '#');
+        if (strlen($__hex) === 3) { $__hex = $__hex[0].$__hex[0].$__hex[1].$__hex[1].$__hex[2].$__hex[2]; }
+        $__r = hexdec(substr($__hex,0,2))/255; $__g = hexdec(substr($__hex,2,2))/255; $__b = hexdec(substr($__hex,4,2))/255;
+        $__max = max($__r,$__g,$__b); $__min = min($__r,$__g,$__b); $__l = ($__max+$__min)/2;
+        if ($__max == $__min) { $__h = $__s = 0; } else {
+            $__d = $__max-$__min;
+            $__s = $__l > 0.5 ? $__d/(2-$__max-$__min) : $__d/($__max+$__min);
+            if ($__max==$__r) $__h = ($__g-$__b)/$__d + ($__g<$__b?6:0);
+            elseif ($__max==$__g) $__h = ($__b-$__r)/$__d + 2;
+            else $__h = ($__r-$__g)/$__d + 4;
+            $__h /= 6;
+        }
+    @endphp
+    <style>:root{--primary-h:{{ round($__h*360) }};--primary-s:{{ round($__s*100) }}%;--primary-l:{{ round($__l*100) }}%;}</style>
 
+    <!-- Vue + Axios deben cargarse ANTES del header (que usa new Vue) -->
+    <script src="{{ asset('porto-ecommerce/assets/js/vue.min.js') }}"></script>
+    <script src="{{ asset('porto-ecommerce/assets/js/axios.min.js') }}"></script>
 </head>
 <body>
     <div class="page-wrapper">
@@ -260,12 +286,12 @@
 
      <!-- Main JS File -->
      <script src="{{ asset('porto-ecommerce/assets/js/main.js') }}"></script>
-     <script src="{{ asset('porto-ecommerce/assets/js/vue.min.js') }}"></script>
+     <!-- Vue ya cargado en <head> -->
      <script src="{{ asset('porto-ecommerce/assets/js/rating.js') }}"></script>
 
 
-    @vite('resources/js/app.js')
-
+    {{-- NO cargar @vite app.js: el ecommerce usa su propia instancia Vue (CDN) --}}
+    @include('ecommerce::layouts.partials_ecommerce.auth_modal')
 </body>
 
 <!-- Mirrored from portotheme.com/html/porto_ecommerce/demo-6/category.html by HTTrack Website Copier/3.x [XR&CO'2014], Sat, 07 Sep 2019 03:40:07 GMT -->

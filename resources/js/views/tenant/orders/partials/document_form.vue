@@ -103,26 +103,21 @@ export default {
     },
     methods: {
         async submit() {
+            const validate_items = await this.validateQuantityandSeries()
+            if (!validate_items.success)
+                return this.$message.error(validate_items.message)
 
-                let validate_items = await this.validateQuantityandSeries()
-                if(!validate_items.success)
-                    return this.$message.error(validate_items.message);
+            const { codigo_tipo_documento } = this.form
+            const series_id = await this.filterSeries(codigo_tipo_documento)
 
+            if (!series_id)
+                return this.$message.error('Serie de documento no disponibles')
 
-                const {codigo_tipo_documento} = this.form
-                const series_id = await this.filterSeries(codigo_tipo_documento)
+            this.form.serie_documento = series_id
 
-                if(!series_id)
-                    return this.$message.error("Serie de documento no disponibles")
-
-                this.form.serie_documento = series_id
-
-
-            try{
-
-                this.loader = true
-
-                const { data  } = await this.$http.post(`/api/documents`, this.form, this.headerConfig )
+            this.loader = true
+            try {
+                const { data } = await this.$http.post(`/api/documents`, this.form, this.headerConfig)
 
                 const { datos_del_cliente_o_receptor, totales } = this.form
 
@@ -132,24 +127,20 @@ export default {
                     orderId: this.order_id,
                     product: 'Compras Ecommerce Facturador Pro',
                     precio_culqi: Number(totales.total_venta),
-                    identity_document_type_id: datos_del_cliente_o_receptor.codigo_tipo_documento_identidad ,
+                    identity_document_type_id: datos_del_cliente_o_receptor.codigo_tipo_documento_identidad,
                     number: datos_del_cliente_o_receptor.numero_documento
                 }
 
                 await this.finallyProcess(payloadFinally)
                 await this.saveUpdateStatus()
 
-                this.$message.success('Transaccion finalizada correctamente')
-
+                this.$message.success('Transacción finalizada correctamente')
                 this.closeDialog()
-
-            }catch(error)
-            {
-                this.$message.error(error.response.data.message)
-            }
-            finally{
+            } catch(error) {
+                const msg = error?.response?.data?.message || error?.message || 'Error al generar el documento'
+                this.$message.error(msg)
+            } finally {
                 this.loader = false
-
             }
         },
         async finallyProcess(form) {
@@ -166,13 +157,16 @@ export default {
             this.showDialog = true
             this.loader = true
 
-            this.form = purchase
-            const type = await _.find(this.document_types, {'id': this.form.codigo_tipo_documento});
-            this.title = `Generar ${type.description}`
-            await this.setLotsItem()
-
-            this.loader = false
-
+            try {
+                this.form = purchase
+                const type = _.find(this.document_types, {'id': this.form.codigo_tipo_documento});
+                this.title = type ? `Generar ${type.description}` : 'Generar Documento'
+                await this.setLotsItem()
+            } catch(e) {
+                console.error('[document_form] sendPreview error:', e)
+            } finally {
+                this.loader = false
+            }
         },
         async create() {
 
@@ -180,12 +174,20 @@ export default {
         async setLotsItem()
         {
             for (const element of this.form.items) {
-
-                const item = await this.getItem(element.codigo_interno)
-                element['lots'] = item.lots
-                element['series_enabled'] = item.series_enabled
+                if (!element.codigo_interno) {
+                    element['lots'] = []
+                    element['series_enabled'] = false
+                    continue
+                }
+                try {
+                    const item = await this.getItem(element.codigo_interno)
+                    element['lots'] = item.lots ?? []
+                    element['series_enabled'] = item.series_enabled ?? false
+                } catch(e) {
+                    element['lots'] = []
+                    element['series_enabled'] = false
+                }
             }
-
         },
         close()
         {

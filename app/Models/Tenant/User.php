@@ -154,6 +154,7 @@ class User extends Authenticatable
 {
     use Notifiable;
     use UsesTenantConnection;
+    use \App\Traits\HasRoles;
 
     public const TEXT_INACTIVE_USER = '(SUSPENDIDO)';
 
@@ -170,7 +171,6 @@ class User extends Authenticatable
         'email',
         'password',
         'establishment_id',
-        'type',
         'warehouse_id',
         'locked',
         'identity_document_type_id',

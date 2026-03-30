@@ -10,6 +10,8 @@ use Maatwebsite\Excel\Concerns\Importable;
 use Maatwebsite\Excel\Concerns\ToCollection;
 use Carbon\Carbon;
 use PhpOffice\PhpSpreadsheet\Shared\Date;
+use Illuminate\Support\Facades\DB;
+use Exception;
 
 class DocumentsImportTwoFormat implements ToCollection
 {
@@ -19,15 +21,20 @@ class DocumentsImportTwoFormat implements ToCollection
 
     public function collection(Collection $rows)
     {
-
         $total = count($rows);
-            $registered = 0;
-            unset($rows[0]);
+        $registered = 0;
+        unset($rows[0]);
+
+        DB::beginTransaction();
+        try {
             foreach ($rows as $row)
             {
                 // dd($row);
                 //serie-correlativo
-                $nrodocumento = $row[1];
+                $nrodocumento = trim($row[1] ?? '');
+                if (!str_contains($nrodocumento, '-')) {
+                    throw new Exception("Formato inválido de documento: {$nrodocumento}. Debe contener '-'");
+                }
                 $serienumero = explode('-', $nrodocumento);
                 $serie = $serienumero[0];
                 $number = $serienumero[1];
@@ -41,7 +48,7 @@ class DocumentsImportTwoFormat implements ToCollection
                     $document_type = '01';
                     $document_type_operation = '0101';
                 }else {
-                    return 'el tipo de documento: '.$row[0].' no es válido para documentos electrónicos';
+                    throw new Exception('El tipo de documento: '.$row[0].' no es válido para documentos electrónicos');
                 }
 
                 //fecha de documento
@@ -54,7 +61,10 @@ class DocumentsImportTwoFormat implements ToCollection
                 $date_document = $date_create->format('Y-m-d');
 
                 //moneda
-                $currency = ($row[5] == 'S') ? 'PEN' : 'Registre con los administradores nueva moneda' ;
+                if ($row[5] != 'S') {
+                    throw new Exception("Moneda no soportada: '{$row[5]}'. Solo se acepta 'S' (PEN).");
+                }
+                $currency = 'PEN';
 
                 //cliente
                 $co_number = rtrim($row[3]);
@@ -219,15 +229,21 @@ class DocumentsImportTwoFormat implements ToCollection
                         'json' => $json
                     ]);
                 } catch (Exception $e) {
-                    dd($e);
+                    \Log::error('DocumentsImportTwoFormat error: ' . $e->getMessage());
                 }
 
                 // dd($response);
 
                 $registered += 1;
             }
-            $this->data = compact('total', 'registered');
 
+            DB::commit();
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            throw $e;
+        }
+
+        $this->data = compact('total', 'registered');
     }
 
     public function getData()

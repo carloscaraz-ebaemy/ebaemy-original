@@ -165,6 +165,8 @@ return [
         App\Providers\LogisticServiceProvider::class,
 
         App\Providers\CacheServiceProvider::class,
+        App\Providers\ThemeServiceProvider::class,
+        App\Providers\ThemePluginServiceProvider::class,
         App\Providers\ViewServiceProvider::class,
         Maatwebsite\Excel\ExcelServiceProvider::class,
 
@@ -189,7 +191,8 @@ return [
         Rap2hpoutre\LaravelLogViewer\LaravelLogViewerServiceProvider::class,
 
         ZanySoft\Zip\ZipServiceProvider::class,
-        Barryvdh\Debugbar\ServiceProvider::class,
+        // Debugbar solo en local (nunca en producción)
+        // Barryvdh\Debugbar\ServiceProvider::class,
         
 
     ],

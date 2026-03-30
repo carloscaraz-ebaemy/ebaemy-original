@@ -26,11 +26,11 @@ class DashboardController extends Controller
             ->pluck('total', 'logistic_status');
 
         $despachados_hoy = SaleNote::where('logistic_status', LogisticStatusEnum::DESPACHADO->value)
-            ->whereDate('updated_at', $today)
+            ->whereDate('dispatch_date', $today)
             ->count();
 
         $despachados_mes = SaleNote::where('logistic_status', LogisticStatusEnum::DESPACHADO->value)
-            ->where('updated_at', '>=', $thisMonth)
+            ->where('dispatch_date', '>=', $thisMonth)
             ->count();
 
         $en_cola = SaleNote::whereIn('logistic_status', [
@@ -71,11 +71,11 @@ class DashboardController extends Controller
 
         // ── Despachos por día (últimos 14 días) ───────────────────────────────
         $despachosDiario = SaleNote::select(
-                DB::raw('DATE(updated_at) as dia'),
+                DB::raw('DATE(dispatch_date) as dia'),
                 DB::raw('count(*) as total')
             )
             ->where('logistic_status', LogisticStatusEnum::DESPACHADO->value)
-            ->where('updated_at', '>=', Carbon::now()->subDays(13))
+            ->where('dispatch_date', '>=', Carbon::now()->subDays(13))
             ->groupBy('dia')
             ->orderBy('dia')
             ->get()

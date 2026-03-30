@@ -67,7 +67,7 @@
 @section('content')
 <div class="container">
     <div class="row">
-        <div class="col-lg-12 ecommerce-view" style="{{ isset($full_width_banner) && $full_width_banner ? 'padding-top: 60px' : 'padding-top: 8rem' }}">
+        <div class="col-lg-12 ecommerce-view" style="padding-top: 0">
 
             {{-- ── SLIDER / BANNER ──────────────────────────────────── --}}
             @if(!$tagid && !$hasCategoryFilter)

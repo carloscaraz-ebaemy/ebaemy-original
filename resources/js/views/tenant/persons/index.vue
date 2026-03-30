@@ -315,8 +315,16 @@
                                     Etiquetas
                                   </el-dropdown-item>
                               
+                                  <el-dropdown-item
+                                    v-if="type === 'customers'"
+                                    :command="{ action: 'history360', id: row.id }"
+                                  >
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon me-2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>
+                                    Vista 360°
+                                  </el-dropdown-item>
+
                                   <el-dropdown-item divided />
-                              
+
                                   <template v-if="typeUser === 'admin'">
                                     <el-dropdown-item
                                       v-if="row.enabled"
@@ -367,6 +375,11 @@
                 :showDialog.sync="showExportDialog"
                 :type="type"
             ></persons-export>
+
+            <tenant-person-history360
+                :showDialog.sync="showHistory360Dialog"
+                :personId="history360Id"
+            ></tenant-person-history360>
         </div>
     </div>
 </template>
@@ -388,6 +401,8 @@ export default {
             showDialog: false,
             showImportDialog: false,
             showExportDialog: false,
+            showHistory360Dialog: false,
+            history360Id: null,
             resource: "persons",
             recordId: null,
             columns: {
@@ -521,6 +536,10 @@ export default {
                     break;
                 case "printBarcode":
                     this.clickPrintBarcode(row);
+                    break;
+                case "history360":
+                    this.history360Id = id;
+                    this.showHistory360Dialog = true;
                     break;
                 default:
                     break;

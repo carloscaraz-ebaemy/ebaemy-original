@@ -1,4 +1,17 @@
 @extends('ecommerce::layouts.master')
+@push('scripts')
+<script>
+// Si alguien navega directo a /ecommerce/login, abrimos el modal automáticamente
+document.addEventListener('DOMContentLoaded', function () {
+    if (window.ecAuthModal) {
+        ecAuthModal.open(document.referrer || null);
+        // Ocultamos el contenido de la página standalone
+        var c = document.querySelector('.container');
+        if (c) c.style.display = 'none';
+    }
+});
+</script>
+@endpush
 
 @section('page_title', 'Iniciar sesión')
 @section('meta_description', 'Inicia sesión en tu cuenta para gestionar tus pedidos y comprobantes.')
@@ -46,25 +59,27 @@
     </div>
     @endif
 
+    {{-- Error alert --}}
+    <div id="ec-login-error" style="display:none;background:#fee2e2;border:1px solid #fca5a5;border-radius:8px;padding:12px 16px;margin-bottom:1.2rem;color:#b91c1c;font-size:1.35rem;"></div>
+
     {{-- Form login --}}
-    <form method="POST" action="{{ url('ecommerce/login') }}" id="ec-login-form">
+    <form id="ec-login-form" onsubmit="ecDoLogin(event)">
         @csrf
         <div style="margin-bottom:1.2rem;">
             <label style="display:block;font-size:1.3rem;font-weight:600;color:#444;margin-bottom:6px;">Correo electrónico</label>
-            <input type="email" name="email" required autofocus
-                   value="{{ old('email') }}"
+            <input type="email" name="email" id="ec-email" required autofocus
                    style="width:100%;padding:12px 14px;border:1.5px solid #ddd;border-radius:8px;font-size:1.4rem;outline:none;transition:border-color .2s;"
                    onfocus="this.style.borderColor='#333'" onblur="this.style.borderColor='#ddd'"
                    placeholder="tu@correo.com">
         </div>
         <div style="margin-bottom:1.8rem;">
             <label style="display:block;font-size:1.3rem;font-weight:600;color:#444;margin-bottom:6px;">Contraseña</label>
-            <input type="password" name="password" required
+            <input type="password" name="password" id="ec-pass" required
                    style="width:100%;padding:12px 14px;border:1.5px solid #ddd;border-radius:8px;font-size:1.4rem;outline:none;transition:border-color .2s;"
                    onfocus="this.style.borderColor='#333'" onblur="this.style.borderColor='#ddd'"
                    placeholder="••••••••">
         </div>
-        <button type="submit"
+        <button type="submit" id="ec-login-btn"
                 style="width:100%;padding:14px;background:#333;color:#fff;border:none;border-radius:8px;font-size:1.5rem;font-weight:700;cursor:pointer;transition:opacity .15s;"
                 onmouseover="this.style.opacity='.85'" onmouseout="this.style.opacity='1'">
             Iniciar sesión
@@ -77,4 +92,40 @@
     </p>
 
 </div>
+
+<script>
+function ecDoLogin(e) {
+    e.preventDefault();
+    var btn = document.getElementById('ec-login-btn');
+    var err = document.getElementById('ec-login-error');
+    btn.disabled = true;
+    btn.textContent = 'Verificando…';
+    err.style.display = 'none';
+
+    var fd = new FormData();
+    fd.append('email',    document.getElementById('ec-email').value);
+    fd.append('password', document.getElementById('ec-pass').value);
+    fd.append('_token',   document.querySelector('[name=_token]').value);
+
+    fetch('{{ url("ecommerce/login") }}', { method: 'POST', body: fd })
+        .then(function(r){ return r.json(); })
+        .then(function(data){
+            if (data.success) {
+                var redirect = new URLSearchParams(window.location.search).get('redirect');
+                window.location.href = redirect ? decodeURIComponent(redirect) : '{{ route("tenant.ecommerce.index") }}';
+            } else {
+                err.textContent = data.message || 'Usuario o contraseña incorrectos.';
+                err.style.display = 'block';
+                btn.disabled = false;
+                btn.textContent = 'Iniciar sesión';
+            }
+        })
+        .catch(function(){
+            err.textContent = 'Error de conexión. Intenta de nuevo.';
+            err.style.display = 'block';
+            btn.disabled = false;
+            btn.textContent = 'Iniciar sesión';
+        });
+}
+</script>
 @endsection

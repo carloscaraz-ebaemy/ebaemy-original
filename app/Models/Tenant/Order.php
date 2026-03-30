@@ -25,13 +25,22 @@
             'number_document',
             'status_order_id',
             'purchase',
-            'apply_restaurant'
+            'apply_restaurant',
+            // Canal de venta
+            'channel_id',
+            'external_order_ref',   // Nro pedido en Saga/ML/Instagram
+            'marketplace_notes',    // Notas/link del marketplace
+            'warehouse_id',
+            'seller_id',
+            // L2 — Culqi pre-autorización
+            'culqi_charge_id',
+            'payment_status',
         ];
 
         protected $casts = [
-            'customer' => 'object',
-            'items' => 'object',
-            'purchase' => 'object'
+            'customer' => 'array',
+            'items' => 'array',
+            'purchase' => 'array'
         ];
 
         public function status_order()
@@ -42,6 +51,43 @@
         public function sale_note()
         {
             return $this->hasOne(SaleNote::class);
+        }
+
+        public function channel()
+        {
+            return $this->belongsTo(SalesChannel::class, 'channel_id');
+        }
+
+        public function warehouse()
+        {
+            return $this->belongsTo(\Modules\Inventory\Models\Warehouse::class, 'warehouse_id');
+        }
+
+        public function seller()
+        {
+            return $this->belongsTo(\App\Models\Tenant\User::class, 'seller_id');
+        }
+
+        // ── Scopes ────────────────────────────────────────────────────────────
+
+        public function scopeByChannel($query, $channelId)
+        {
+            return $query->where('channel_id', $channelId);
+        }
+
+        public function scopeEcommerce($query)
+        {
+            return $query->whereHas('channel', fn($q) => $q->where('type', 'ecommerce'));
+        }
+
+        public function scopeNotCancelled($query)
+        {
+            return $query->where('status_order_id', '!=', 5);
+        }
+
+        public function reviews()
+        {
+            return $this->hasMany(\App\Models\Tenant\ProductReview::class);
         }
 
         /**

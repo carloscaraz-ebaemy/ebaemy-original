@@ -58,13 +58,31 @@ return [
             'driver' => 'local',
             'root' => app_path('CoreFacturalo')
         ],
+        // S3 / S3-compatible (AWS, Cloudflare R2, MinIO, DigitalOcean Spaces)
         's3' => [
-            'driver' => 's3',
-            'key' => env('AWS_ACCESS_KEY_ID'),
-            'secret' => env('AWS_SECRET_ACCESS_KEY'),
-            'region' => env('AWS_DEFAULT_REGION'),
-            'bucket' => env('AWS_BUCKET'),
-            'url' => env('AWS_URL'),
+            'driver'   => 's3',
+            'key'      => env('AWS_ACCESS_KEY_ID'),
+            'secret'   => env('AWS_SECRET_ACCESS_KEY'),
+            'region'   => env('AWS_DEFAULT_REGION', 'us-east-1'),
+            'bucket'   => env('AWS_BUCKET'),
+            'url'      => env('AWS_URL'),
+            // S3-compatible endpoint (Cloudflare R2, MinIO, etc.)
+            'endpoint' => env('AWS_ENDPOINT'),
+            'use_path_style_endpoint' => env('AWS_USE_PATH_STYLE_ENDPOINT', false),
+        ],
+
+        // Disco de medios — en local usa 'public', en producción cambia a 's3'
+        // Configurar: MEDIA_DISK=s3 en .env para activar almacenamiento en nube
+        'media' => [
+            'driver'   => 's3',
+            'key'      => env('AWS_ACCESS_KEY_ID'),
+            'secret'   => env('AWS_SECRET_ACCESS_KEY'),
+            'region'   => env('AWS_DEFAULT_REGION', 'us-east-1'),
+            'bucket'   => env('AWS_BUCKET'),
+            'url'      => env('AWS_URL'),
+            'endpoint' => env('AWS_ENDPOINT'),
+            'use_path_style_endpoint' => env('AWS_USE_PATH_STYLE_ENDPOINT', false),
+            'visibility' => 'public',
         ],
         'ftp' => [
             'driver' => 'ftp',

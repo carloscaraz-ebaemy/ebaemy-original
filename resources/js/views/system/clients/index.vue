@@ -636,6 +636,11 @@
                                             Configurar Demo
                                         </el-dropdown-item>
 
+                                        <el-dropdown-item :command="{action: 'domains', id: row.id}">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="me-2"><path d="M12 21a9 9 0 1 1 0-18 9 9 0 0 1 0 18z"/><path d="M3.6 9h16.8"/><path d="M3.6 15h16.8"/><path d="M12 3a15 15 0 0 1 4 9 15 15 0 0 1-4 9 15 15 0 0 1-4-9 15 15 0 0 1 4-9z"/></svg>
+                                            Dominios
+                                        </el-dropdown-item>
+
                                         <el-dropdown-item :command="{action: 'payments', id: row.id}">
                                             <svg  xmlns="http://www.w3.org/2000/svg"  width="16"  height="16"  viewBox="0 0 24 24"  fill="none"  stroke="currentColor"  stroke-width="2"  stroke-linecap="round"  stroke-linejoin="round"  class="icon icon-tabler icons-tabler-outline icon-tabler-cash-banknote me-2"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M9 12a3 3 0 1 0 6 0a3 3 0 0 0 -6 0" /><path d="M3 8a2 2 0 0 1 2 -2h14a2 2 0 0 1 2 2v8a2 2 0 0 1 -2 2h-14a2 2 0 0 1 -2 -2z" /><path d="M18 12h.01" /><path d="M6 12h.01" /></svg>
                                             Pagos
@@ -1206,6 +1211,9 @@ export default {
                     break;
                 case 'accountStatus':
                     this.clickAccountStatus(command.id);
+                    break;
+                case 'domains':
+                    window.location.href = '/clients/' + command.id + '/domains-panel';
                     break;
             }
         },

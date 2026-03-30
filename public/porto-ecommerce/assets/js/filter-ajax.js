@@ -79,6 +79,20 @@
         var catInput = document.getElementById('ec-filter-category');
         if (catInput) catInput.value = activeCatId;
 
+        // Al clickear cualquier categoría, limpiar búsqueda
+        var cleanUrl = new URL(window.location);
+        cleanUrl.searchParams.delete('q');
+        if (!activeCatId) {
+            cleanUrl.searchParams.delete('category_id');
+            window.history.replaceState({}, '', cleanUrl.pathname);
+        } else {
+            cleanUrl.searchParams.set('category_id', activeCatId);
+            window.history.replaceState({}, '', cleanUrl.pathname + '?' + cleanUrl.searchParams.toString());
+        }
+        // Ocultar badge de búsqueda
+        var clearWrap = document.getElementById('ec-clear-wrap');
+        if (clearWrap) clearWrap.style.display = 'none';
+
         scheduleFilter(0);
     });
 

@@ -443,7 +443,7 @@
                     $order_total_exonerated[$miTiendaPeOrder] += $itemTo['total_exonerated'];
                     /*
                     if($order_total_igv[$miTiendaPeOrder] == 5.19){
-                        dd([
+                        // dd([
                             $row,
                             $itemTo
                         ]);

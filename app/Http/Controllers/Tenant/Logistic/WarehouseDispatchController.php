@@ -21,6 +21,8 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use App\Models\Tenant\CourierCompany;
+use App\Services\Tenant\Carrier\CarrierServiceFactory;
+use App\Services\Tenant\Carrier\ShipmentRequest;
 use Modules\Inventory\Models\Warehouse;
 
 /**
@@ -396,6 +398,7 @@ class WarehouseDispatchController extends Controller
         DB::connection('tenant')->transaction(function () use ($request, $saleNote, $carrierType, $carrierCost) {
 
             $this->applyWarehouseOverrides($request, $saleNote);
+            $this->applyMainWarehouseDispatch($request, $saleNote, LogisticStatusEnum::DESPACHADO);
 
             $saleNote->update([
                 'logistic_status'       => LogisticStatusEnum::DESPACHADO->value,
@@ -413,16 +416,57 @@ class WarehouseDispatchController extends Controller
         });
 
         // Generar Guía de Remisión PDF
-        $guide = $this->generateGuideForSaleNote($saleNote->fresh());
+        $freshSaleNote = $saleNote->fresh();
+        $guide = $this->generateGuideForSaleNote($freshSaleNote);
+
+        // ── L3: Enviar al carrier API si está integrado ────────────────────────
+        $carrierApiMessage = null;
+        try {
+            $carrierService = CarrierServiceFactory::makeByName($request->courier_name);
+
+            if ($carrierService->hasApiIntegration()) {
+                $shipmentReq = ShipmentRequest::fromSaleNote($freshSaleNote);
+                $result      = $carrierService->createShipment($shipmentReq);
+
+                // Si el carrier devuelve tracking, actualizar en BD
+                if (!empty($result->trackingCode)) {
+                    $freshSaleNote->tracking_number = $result->trackingCode;
+                    $freshSaleNote->save();
+                }
+
+                $carrierApiMessage = "Envío creado en {$request->courier_name}. Tracking: {$result->trackingCode}";
+
+                Log::info('[WarehouseDispatch] Shipment created via carrier API.', [
+                    'sale_note_id' => $freshSaleNote->id,
+                    'carrier'      => $carrierService->getDriver(),
+                    'tracking'     => $result->trackingCode,
+                    'label_url'    => $result->labelUrl,
+                ]);
+            }
+        } catch (\Throwable $e) {
+            // No bloquear el despacho si la API del carrier falla —
+            // el operador puede ingresar el tracking manualmente.
+            Log::error('[WarehouseDispatch] Carrier API failed.', [
+                'sale_note_id' => $freshSaleNote->id,
+                'courier'      => $request->courier_name,
+                'error'        => $e->getMessage(),
+            ]);
+            $carrierApiMessage = "Despacho registrado. (API carrier no disponible: {$e->getMessage()})";
+        }
 
         // Notificar al vendedor que creó la NV
         if ($saleNote->user_id && $saleNote->user_id !== auth()->id()) {
             $this->pushDispatchNotification($saleNote, LogisticStatusEnum::DESPACHADO);
         }
 
+        $successMsg = "Pedido #{$saleNote->number_full} despachado. Courier: {$request->courier_name}.";
+        if ($carrierApiMessage) {
+            $successMsg .= " {$carrierApiMessage}";
+        }
+
         return redirect()
             ->route('logistic.sale_notes.queue')
-            ->with('success', "Pedido #{$saleNote->number_full} despachado. Courier: {$request->courier_name}.")
+            ->with('success', $successMsg)
             ->with('guide_id', $guide?->id);
     }
 
@@ -449,6 +493,7 @@ class WarehouseDispatchController extends Controller
         DB::connection('tenant')->transaction(function () use ($request, $saleNote) {
 
             $this->applyWarehouseOverrides($request, $saleNote);
+            $this->applyMainWarehouseDispatch($request, $saleNote, LogisticStatusEnum::RECOGIDO);
 
             $saleNote->update([
                 'logistic_status'   => LogisticStatusEnum::RECOGIDO->value,
@@ -471,6 +516,45 @@ class WarehouseDispatchController extends Controller
     }
 
     /**
+     * Aplica PROVINCE_DISPATCH para ítems que NO tienen warehouse_override (almacén principal).
+     * Los ítems con override ya reciben su movimiento en applyWarehouseOverrides().
+     */
+    private function applyMainWarehouseDispatch(Request $request, SaleNote $saleNote, LogisticStatusEnum $status): void
+    {
+        $overrideItemIds = collect($request->input('warehouse_overrides', []))->pluck('item_id')->map('intval');
+
+        $warehouseId = $saleNote->warehouse_id
+            ?? Warehouse::where('establishment_id', $saleNote->establishment_id)->value('id');
+
+        if (!$warehouseId) return;
+
+        $saleNote->loadMissing('items');
+
+        foreach ($saleNote->items as $item) {
+            if ($overrideItemIds->contains((int) $item->item_id)) continue;
+
+            $iw = ItemWarehouse::where('item_id',     $item->item_id)
+                               ->where('warehouse_id', $warehouseId)
+                               ->lockForUpdate()
+                               ->first();
+
+            if (!$iw || $item->quantity <= 0) continue;
+
+            $iw->applyStockMovement(StockMovementTypeEnum::PROVINCE_DISPATCH, (float) $item->quantity);
+
+            $label = $status === LogisticStatusEnum::RECOGIDO ? 'Retiro' : 'Despacho';
+            StockMovement::record(
+                $iw,
+                StockMovementTypeEnum::PROVINCE_DISPATCH,
+                (float) $item->quantity,
+                auth()->id(),
+                $saleNote,
+                "{$label} NV #{$saleNote->number_full} — Almacén principal"
+            );
+        }
+    }
+
+    /**
      * Aplica movimientos de stock para almacenes alternativos seleccionados.
      */
     private function applyWarehouseOverrides(Request $request, SaleNote $saleNote): void
@@ -479,8 +563,12 @@ class WarehouseDispatchController extends Controller
 
         if ($overrides->isEmpty()) return;
 
+        // Sólo los item_id que realmente pertenecen a esta NV
+        $validItemIds = $saleNote->items->pluck('item_id')->map('intval');
+
         foreach ($overrides as $override) {
             if (empty($override['warehouse_id'])) continue;
+            if (!$validItemIds->contains((int) $override['item_id'])) continue;
 
             $iw = ItemWarehouse::where('item_id', $override['item_id'])
                 ->where('warehouse_id', $override['warehouse_id'])
@@ -610,14 +698,16 @@ class WarehouseDispatchController extends Controller
     // ═══════════════════════════════════════════════════════════════
 
     /**
-     * Guarda una notificación en la sesión del vendedor para que la vea
+     * Guarda una notificación en caché para que el vendedor la vea
      * la próxima vez que cargue una página del sistema.
+     * Usa caché (no sesión) para que sea accesible entre sesiones distintas.
      */
     private function pushDispatchNotification(SaleNote $saleNote, LogisticStatusEnum $status): void
     {
-        $key     = 'dispatch_notifications_' . $saleNote->user_id;
-        $current = session($key, []);
+        $tenantUuid = app(\Hyn\Tenancy\Environment::class)->tenant()?->uuid ?? 'default';
+        $key        = "dispatch_notifications_{$tenantUuid}_{$saleNote->user_id}";
 
+        $current   = \Illuminate\Support\Facades\Cache::get($key, []);
         $current[] = [
             'type'         => $status->value,
             'number'       => $saleNote->number_full,
@@ -628,7 +718,7 @@ class WarehouseDispatchController extends Controller
             'dispatched_at'=> now()->format('d/m/Y H:i'),
         ];
 
-        session([$key => $current]);
+        \Illuminate\Support\Facades\Cache::put($key, $current, now()->addHours(24));
     }
 
     /**

@@ -12,7 +12,7 @@ class PromotionsViewComposer
     {
         $view->items = Promotion::where('apply_restaurant', 0)->get();
         
-        $config = ConfigurationEcommerce::first();
+        $config = ConfigurationEcommerce::firstCached();
         $preferences = $config && $config->preferences ? $config->preferences : [];
         $view->full_width_banner = $preferences['full_width_banner'] ?? 0;
     }

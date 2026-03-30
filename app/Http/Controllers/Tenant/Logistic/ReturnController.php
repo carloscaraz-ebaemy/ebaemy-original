@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Tenant\Logistic;
 
 use App\Http\Controllers\Controller;
+use App\Models\Tenant\LogisticOrder;
 use App\Models\Tenant\LogisticReturn;
 use App\Models\Tenant\LogisticReturnItem;
 use App\Models\Tenant\ItemWarehouse;
@@ -10,16 +11,29 @@ use App\Models\Tenant\SaleNote;
 use App\Models\Tenant\Warehouse;
 use App\Models\Tenant\StockMovement;
 use App\Enums\StockMovementTypeEnum;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
 class ReturnController extends Controller
 {
+    private function checkLogisticAccess(): ?RedirectResponse
+    {
+        $user = auth()->user();
+        if (!$user || !$user->hasLogisticModule()) {
+            return redirect()->route('tenant.dashboard.index')
+                ->with('error', 'No tienes acceso al módulo de despacho.');
+        }
+        return null;
+    }
+
     /**
      * Lista de devoluciones.
      */
     public function index(Request $request)
     {
+        if ($redirect = $this->checkLogisticAccess()) return $redirect;
+        $this->authorize('viewWarehouseQueue', LogisticOrder::class);
         $query = LogisticReturn::with(['saleNote', 'warehouse', 'user', 'items'])
             ->orderByDesc('created_at');
 
@@ -49,6 +63,8 @@ class ReturnController extends Controller
      */
     public function create(Request $request)
     {
+        if ($redirect = $this->checkLogisticAccess()) return $redirect;
+        $this->authorize('viewWarehouseQueue', LogisticOrder::class);
         $warehouses = Warehouse::orderBy('description')->get();
         $reasons    = LogisticReturn::reasons();
         $saleNote   = null;
@@ -66,6 +82,7 @@ class ReturnController extends Controller
      */
     public function searchOrder(Request $request)
     {
+        $this->authorize('viewWarehouseQueue', LogisticOrder::class);
         $q = trim($request->input('q', ''));
 
         if (str_contains($q, '-')) {
@@ -104,6 +121,8 @@ class ReturnController extends Controller
      */
     public function store(Request $request)
     {
+        if ($redirect = $this->checkLogisticAccess()) return $redirect;
+        $this->authorize('viewWarehouseQueue', LogisticOrder::class);
         $request->validate([
             'warehouse_id'           => 'required|integer',
             'reason'                 => 'required|string',
@@ -154,6 +173,8 @@ class ReturnController extends Controller
      */
     public function show(LogisticReturn $return)
     {
+        if ($redirect = $this->checkLogisticAccess()) return $redirect;
+        $this->authorize('viewWarehouseQueue', LogisticOrder::class);
         $return->load(['saleNote.person', 'warehouse', 'user', 'items.item']);
         return view('tenant.logistic.returns.show', compact('return'));
     }
@@ -163,6 +184,8 @@ class ReturnController extends Controller
      */
     public function process(LogisticReturn $return)
     {
+        if ($redirect = $this->checkLogisticAccess()) return $redirect;
+        $this->authorize('viewWarehouseQueue', LogisticOrder::class);
         if ($return->isProcesado()) {
             return back()->with('error', 'Esta devolución ya fue procesada.');
         }

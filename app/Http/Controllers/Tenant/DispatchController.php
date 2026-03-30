@@ -693,7 +693,7 @@ class DispatchController extends Controller
 
         $itemsId = $dispatch->items->pluck('item_id')->all();
 
-        $items = Item::whereIn('id', $itemsId)->get()->transform(function ($row) use ($warehouse, $dispatch, $relation_external_document, $set_unit_price_dispatch_related_record) {
+        $items = Item::with(['unit_type', 'currency_type', 'warehouses', 'item_unit_types'])->whereIn('id', $itemsId)->get()->transform(function ($row) use ($warehouse, $dispatch, $relation_external_document, $set_unit_price_dispatch_related_record) {
 
             $detail = $this->getFullDescription($row, $warehouse);
 

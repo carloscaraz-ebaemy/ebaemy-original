@@ -1,0 +1,106 @@
+/* ═══════════════════════════════════════════════════════════════
+   THEME: SPORTS / DEPORTES
+   Energético, dinámico, bold, acción
+   Tipografía: condensed, impactante
+   ═══════════════════════════════════════════════════════════════ */
+
+@import url('https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700;800&family=Barlow:wght@400;500;600&display=swap');
+
+:root {
+    --theme-font-heading: 'Barlow Condensed', sans-serif;
+    --theme-font-body: 'Barlow', sans-serif;
+    --theme-card-radius: 8px;
+    --theme-btn-radius: 6px;
+}
+
+body {
+    font-family: var(--theme-font-body) !important;
+}
+
+h1, h2, h3, .ec-section-title {
+    font-family: var(--theme-font-body) !important;
+    font-weight: 800 !important;
+    text-transform: uppercase !important;
+    letter-spacing: .02em;
+}
+
+.ec-section-title {
+    font-size: 26px !important;
+}
+
+/* Cards dinámicas */
+.pcard {
+    border-radius: var(--theme-card-radius) !important;
+    border: none !important;
+    box-shadow: 0 2px 8px rgba(0,0,0,.08) !important;
+    overflow: hidden;
+}
+.pcard:hover {
+    box-shadow: 0 12px 32px rgba(0,0,0,.15) !important;
+    transform: translateY(-6px);
+}
+
+/* Imagen zoom on hover */
+.pcard__img {
+    transition: transform .5s cubic-bezier(.25,.46,.45,.94) !important;
+}
+.pcard:hover .pcard__img {
+    transform: scale(1.08);
+}
+
+.pcard__body {
+    padding: 14px !important;
+}
+
+/* Título bold condensed */
+/* Product title — sans-serif */
+.pcard__title a {
+    font-family: var(--theme-font-body) !important;
+    font-weight: 700 !important;
+    font-size: 15px !important;
+    text-transform: uppercase !important;
+}
+
+/* Precio grande */
+.pcard__price, .product-price {
+    font-family: var(--theme-font-body) !important;
+    font-weight: 800 !important;
+    font-size: 22px !important;
+}
+
+/* Badges energéticos */
+.pbadge {
+    border-radius: 4px !important;
+    font-family: var(--theme-font-body) !important;
+    font-weight: 700 !important;
+    text-transform: uppercase !important;
+    letter-spacing: .05em;
+}
+
+/* Botones bold */
+.btn-primary, .paction.add-cart, #btn-add-to-cart, .ec-minicart-btn {
+    border-radius: var(--theme-btn-radius) !important;
+    font-family: var(--theme-font-body) !important;
+    font-weight: 700 !important;
+    text-transform: uppercase !important;
+    letter-spacing: .05em;
+}
+
+/* Category pills deportivas */
+.ec-cat-pill, .ec-cat-pills button {
+    border-radius: 4px !important;
+    font-family: var(--theme-font-body) !important;
+    font-weight: 600 !important;
+    text-transform: uppercase !important;
+}
+
+/* Banner slider más impactante */
+.full-width-banner .home-slide {
+    min-height: 500px !important;
+}
+
+/* Product detail */
+.product-title {
+    font-family: var(--theme-font-body) !important;
+    text-transform: uppercase !important;
+}

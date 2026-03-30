@@ -16,7 +16,10 @@ use App\CoreFacturalo\Helpers\Storage\StorageDocument;
 use App\Http\Resources\Tenant\ItemWarehouseCollection;
 use Modules\Inventory\Models\Warehouse as ModuleWarehouse;
 use App\Models\Tenant\Item;
+use App\Models\Tenant\SalesChannel;
 use App\Models\Tenant\Catalogs\DocumentType;
+use App\Services\Tenant\OrderService;
+use Illuminate\Support\Facades\DB;
 
 class OrderController extends Controller
 {
@@ -64,11 +67,17 @@ class OrderController extends Controller
 
         $row = Item::where('internal_id', $internal_id)->first();
 
+        if (!$row) {
+            return response()->json(['error' => 'Producto no encontrado: ' . $internal_id], 404);
+        }
+
+        $warehouseId = $warehouse ? $warehouse->id : null;
+
         return [
             'id' => $row->id,
             'description' => $row->description,
             'sale_unit_price' => round($row->sale_unit_price, 2),
-            'lots' => $row->item_lots->where('has_sale', false)->where('warehouse_id', $warehouse->id)->transform(function($row) {
+            'lots' => $row->item_lots->where('has_sale', false)->when($warehouseId, fn($c) => $c->where('warehouse_id', $warehouseId))->transform(function($row) {
                 return [
                     'id' => $row->id,
                     'series' => $row->series,
@@ -80,31 +89,193 @@ class OrderController extends Controller
                 ];
             })->values(),
             'series_enabled' => (bool) $row->series_enabled,
+            'warehouse_id'   => $warehouseId,
         ];
     }
 
     public function records(Request $request)
     {
-        $records = Order::where($request->column, 'like', "%{$request->value}%")->latest();
+        $allowedColumns = ['date_of_issue', 'id', 'shipping_address', 'reference_payment', 'total'];
+        $column = in_array($request->column, $allowedColumns) ? $request->column : 'id';
+        $query = Order::with('channel')->latest();
 
-        return new OrderCollection($records->paginate(config('tenant.items_per_page')));
+        if ($request->value) {
+            $query->where($column, 'like', "%{$request->value}%");
+        }
+
+        if ($request->status_order_id) {
+            $query->where('status_order_id', $request->status_order_id);
+        }
+
+        if ($request->channel_id) {
+            $query->where('channel_id', $request->channel_id);
+        }
+
+        if ($request->channel_type) {
+            $query->whereHas('channel', fn($q) => $q->where('type', $request->channel_type));
+        }
+
+        return new OrderCollection($query->paginate(config('tenant.items_per_page')));
+    }
+
+    public function stats()
+    {
+        $today      = now()->toDateString();
+        $monthStart = now()->startOfMonth()->toDateString();
+
+        $total        = Order::count();
+        $pending      = Order::where('status_order_id', 1)->count();
+        $verified     = Order::where('status_order_id', 2)->count();
+        $dispatched   = Order::where('status_order_id', 3)->count();
+        $revenueMonth = Order::whereDate('created_at', '>=', $monthStart)
+                             ->whereNotIn('status_order_id', [5])
+                             ->sum('total');
+        $revenueToday = Order::whereDate('created_at', $today)->sum('total');
+
+        // Desglose por canal (para el dashboard)
+        $byChannel = Order::selectRaw('channel_id, COUNT(*) as count, SUM(total) as revenue')
+                          ->whereDate('created_at', '>=', $monthStart)
+                          ->whereNotIn('status_order_id', [5])
+                          ->groupBy('channel_id')
+                          ->with('channel:id,name,type,code')
+                          ->get()
+                          ->map(fn($r) => [
+                              'channel_id'   => $r->channel_id,
+                              'channel_name' => $r->channel?->name ?? 'Sin canal',
+                              'channel_type' => $r->channel?->type ?? 'other',
+                              'count'        => (int) $r->count,
+                              'revenue'      => (float) $r->revenue,
+                          ]);
+
+        return response()->json(compact('total', 'pending', 'verified', 'dispatched', 'revenueMonth', 'revenueToday', 'byChannel'));
+    }
+
+    /**
+     * FASE 5 — Reporte completo de ventas por canal.
+     * GET /orders/channel-report?from=2026-01-01&to=2026-03-31
+     */
+    public function channelReport(Request $request)
+    {
+        $from = $request->from ?? now()->startOfMonth()->toDateString();
+        $to   = $request->to   ?? now()->toDateString();
+
+        $channels = SalesChannel::active()->get();
+
+        $report = $channels->map(fn($ch) => $ch->salesSummary($from, $to));
+
+        // Totales globales para comparación
+        $globalRevenue = Order::whereDate('created_at', '>=', $from)
+                              ->whereDate('created_at', '<=', $to)
+                              ->whereNotIn('status_order_id', [5])
+                              ->sum('total');
+
+        // Añadir porcentaje de participación
+        $report = $report->map(function ($row) use ($globalRevenue) {
+            $row['revenue_share'] = $globalRevenue > 0
+                ? round(($row['revenue'] / $globalRevenue) * 100, 1)
+                : 0;
+            return $row;
+        });
+
+        return response()->json([
+            'from'           => $from,
+            'to'             => $to,
+            'global_revenue' => (float) $globalRevenue,
+            'channels'       => $report->values(),
+        ]);
+    }
+
+    /**
+     * Devuelve los canales activos (para filtros en el frontend).
+     */
+    public function channels()
+    {
+        return response()->json(
+            SalesChannel::active()->get(['id', 'name', 'type', 'code'])
+        );
+    }
+
+    /**
+     * Crear pedido manual desde cualquier canal (Saga, ML, Instagram, WhatsApp, teléfono)
+     */
+    public function storeManual(Request $request)
+    {
+        $request->validate([
+            'channel_id' => 'required|integer',
+            'customer' => 'required|array',
+            'customer.name' => 'required|string',
+            'items' => 'required|array|min:1',
+            'items.*.item_id' => 'required|integer',
+            'items.*.quantity' => 'required|integer|min:1',
+        ]);
+
+        $channel = SalesChannel::findOrFail($request->channel_id);
+
+        // Calcular total
+        $total = 0;
+        $orderItems = [];
+        foreach ($request->items as $itemData) {
+            $item = Item::findOrFail($itemData['item_id']);
+            $price = $itemData['unit_price'] ?? $item->sale_unit_price;
+            $qty = $itemData['quantity'];
+            $subtotal = round($price * $qty, 2);
+            $total += $subtotal;
+
+            $orderItems[] = [
+                'item_id' => $item->id,
+                'description' => $item->description,
+                'internal_id' => $item->internal_id,
+                'quantity' => $qty,
+                'unit_price' => $price,
+                'sale_unit_price' => $price,
+                'subtotal' => $subtotal,
+                'variant_id' => $itemData['variant_id'] ?? null,
+            ];
+        }
+
+        $order = Order::create([
+            'external_id' => \Illuminate\Support\Str::uuid(),
+            'customer' => [
+                'apellidos_y_nombres_o_razon_social' => $request->customer['name'],
+                'correo_electronico' => $request->customer['email'] ?? null,
+                'telefono' => $request->customer['phone'] ?? null,
+                'direccion' => $request->customer['address'] ?? null,
+                'numero_documento' => $request->customer['document_number'] ?? null,
+            ],
+            'items' => $orderItems,
+            'total' => $total,
+            'reference_payment' => $request->reference_payment ?? $channel->name,
+            'status_order_id' => 1, // Pendiente
+            'channel_id' => $channel->id,
+            'external_order_ref' => $request->external_order_ref, // Nro pedido Saga/ML
+            'marketplace_notes' => $request->marketplace_notes,
+            'warehouse_id' => $request->warehouse_id ?? $channel->warehouse_id,
+            'seller_id' => auth()->id(),
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'message' => "Pedido #{$order->id} creado desde {$channel->name}",
+            'order' => $order,
+        ]);
     }
 
     public function updateStatusOrders(Request $request)
     {
-
+      // Despacho (status 3): delegar toda la lógica de stock al OrderService
       if ($request->record['status_order_id'] == 3) {
-        for ($i=0; $i <= count($request->discount)-1; $i++) {
-          if (isset($request->discount[$i]['id'])) {
-            $itemWarehouse = ItemWarehouse::where('id', $request->discount[$i]['id'])->first();
+        $order = Order::findOrFail($request->record['id']);
 
-            //if ($itemWarehouse->stock >= $request->discount[$i]['cantidad']) {
-              ItemWarehouse::where('id', $itemWarehouse->id)->update(['stock' => ($itemWarehouse->stock - $request->discount[$i]['cantidad'])]);
+        /** @var OrderService $orderService */
+        $orderService = app(OrderService::class);
 
-            //}
-          }
-        }
-        Order::where('id', $request->record['id'])->update(['status_order_id' => $request->record['status_order_id']]);
+        // Stock dispatch + status update en la MISMA transacción
+        DB::transaction(function () use ($request, $order, $orderService) {
+            $orderService->processEcommerceDispatch($order, $request->discount ?? []);
+            Order::where('id', $request->record['id'])->update([
+                'status_order_id' => $request->record['status_order_id']
+            ]);
+        });
 
         return [
           'message' => 'Estatus y Stock actualizado'
@@ -112,10 +283,19 @@ class OrderController extends Controller
       }
 
       Order::where('id', $request->record['id'])->update(['status_order_id' => $request->record['status_order_id']]);
+
+      // Auto-generate SaleNote when payment is verified (status 2)
+      if ($request->record['status_order_id'] == 2) {
+          $order = Order::find($request->record['id']);
+          if ($order) {
+              $autoSaleNoteService = app(\App\Services\Tenant\OrderToSaleNoteService::class);
+              $autoSaleNoteService->generate($order);
+          }
+      }
+
       return [
         'message' => 'Estatus actualizado'
       ];
-
     }
 
     public function searchWarehouse(Request $request)

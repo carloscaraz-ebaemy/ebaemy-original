@@ -1,0 +1,125 @@
+/* ═══════════════════════════════════════════════════════════════
+   THEME: FASHION / MODA
+   Minimalista, elegante, mucho espacio blanco
+   Tipografía: serif para títulos, sans para body
+   ═══════════════════════════════════════════════════════════════ */
+
+@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600;700&display=swap');
+
+:root {
+    --theme-font-heading: 'Cormorant Garamond', Georgia, serif;
+    --theme-font-body: 'Poppins', sans-serif;
+    --theme-card-radius: 0;
+    --theme-btn-radius: 0;
+    --theme-spacing: 1.2;
+}
+
+/* Títulos elegantes serif */
+h1, h2, h3, .ec-section-title, .product-title,
+.pcard__title, .pcard .product-title {
+    font-family: var(--theme-font-heading) !important;
+    letter-spacing: .02em;
+    font-weight: 500 !important;
+}
+
+.ec-section-title {
+    font-size: 28px !important;
+    text-transform: uppercase !important;
+    letter-spacing: .15em !important;
+}
+
+/* Cards sin bordes redondeados (estilo editorial) */
+.pcard {
+    border-radius: var(--theme-card-radius) !important;
+    border: none !important;
+    box-shadow: none !important;
+}
+.pcard:hover {
+    box-shadow: none !important;
+    transform: none !important;
+}
+.pcard__media, .pcard__img-link {
+    border-radius: 0 !important;
+}
+
+/* Imagen más grande, menos padding */
+.pcard__body {
+    padding: 12px 4px !important;
+    text-align: center;
+}
+
+/* Categoría en mayúsculas tiny */
+.pcard__cat {
+    font-size: 10px !important;
+    letter-spacing: .12em !important;
+    text-transform: uppercase !important;
+    font-family: var(--theme-font-body) !important;
+}
+
+/* Producto title — sans-serif limpia para legibilidad */
+.pcard__title a {
+    font-family: var(--theme-font-body) !important;
+    font-size: 13px !important;
+    font-weight: 500 !important;
+    color: #374151 !important;
+}
+
+/* Precio — claro y bold */
+.pcard__price, .product-price {
+    font-family: var(--theme-font-body) !important;
+    font-weight: 600 !important;
+    letter-spacing: .05em;
+}
+
+/* Botones rectangulares */
+.btn-primary, .paction.add-cart, #btn-add-to-cart,
+.ec-minicart-btn, .ec-cat-pill--active {
+    border-radius: var(--theme-btn-radius) !important;
+    text-transform: uppercase !important;
+    letter-spacing: .1em !important;
+    font-size: 12px !important;
+}
+
+/* Category pills rectangulares */
+.ec-cat-pill, .ec-cat-pills button {
+    border-radius: var(--theme-btn-radius) !important;
+    text-transform: uppercase !important;
+    letter-spacing: .08em !important;
+    font-size: 11px !important;
+}
+
+/* Badges minimalistas */
+.pbadge {
+    border-radius: 0 !important;
+    text-transform: uppercase !important;
+    letter-spacing: .1em !important;
+    font-size: 9px !important;
+}
+
+/* Newsletter elegante */
+.ec-newsletter-bar h3, .ec-newsletter-bar h4 {
+    font-family: var(--theme-font-heading) !important;
+    letter-spacing: .1em !important;
+    text-transform: uppercase !important;
+}
+
+/* Footer elegante */
+footer h4, footer h5, .footer-title {
+    font-family: var(--theme-font-heading) !important;
+    letter-spacing: .1em !important;
+    text-transform: uppercase !important;
+}
+
+/* Producto detail */
+.product-title, .product-single-tabs .nav-link {
+    font-family: var(--theme-font-heading) !important;
+}
+
+/* Wishlist corazón más sutil */
+.pcard__wish {
+    opacity: 0;
+    transition: opacity .3s ease;
+}
+.pcard:hover .pcard__wish {
+    opacity: 1;
+}

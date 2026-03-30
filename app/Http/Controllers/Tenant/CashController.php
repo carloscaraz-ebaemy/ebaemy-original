@@ -117,7 +117,7 @@ class CashController extends Controller
     public function opening_cash_check($user_id)
     {
         $authUser = auth()->user();
-        if ((int)$user_id !== $authUser->id && $authUser->type !== 'admin') {
+        if ((int)$user_id !== $authUser->id && !\App\Helpers\AuthorizationHelper::isAdmin()) {
             return ['cash' => null];
         }
         $cash = Cash::where([['user_id', $user_id],['state', true]])->first();
@@ -158,7 +158,7 @@ class CashController extends Controller
         $authUser = auth()->user();
 
         // Solo admin puede abrir caja para otro usuario
-        if ($user_id && $user_id != $authUser->id && $authUser->type !== 'admin') {
+        if ($user_id && $user_id != $authUser->id && !\App\Helpers\AuthorizationHelper::isAdmin()) {
             return [
                 'success' => false,
                 'message' => 'No tiene permisos para abrir una caja a nombre de otro usuario.',

@@ -3,9 +3,9 @@
     use App\CoreFacturalo\Helpers\Template\TemplateHelper;
     use App\Models\Tenant\SaleNote;
 /* foreach ($records as $value) {
-    dd($value->user->name);
+    // dd($value->user->name);
 } */
-    dd($records);
+    // dd($records);
 ?>
 <!DOCTYPE html>
 <html lang="es">

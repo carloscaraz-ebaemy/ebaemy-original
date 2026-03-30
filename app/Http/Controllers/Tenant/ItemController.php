@@ -70,6 +70,8 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Cache;
 use Modules\Item\Http\Controllers\EditorTagController;
 use Modules\Item\Models\TagTemplate;
+use App\Jobs\Tenant\ProcessProductImageJob;
+use App\Services\Tenant\ImageProcessingService;
 
 class ItemController extends Controller
 {
@@ -106,6 +108,20 @@ class ItemController extends Controller
             'inactive' => 'Inhabilitados',
             'category' => 'Categoria'
         ];
+    }
+
+    /**
+     * Lista simple de productos para asignación a canales marketplace.
+     */
+    public function recordsAllSimple()
+    {
+        $items = Item::where('apply_store', 1)
+            ->select('id', 'internal_id', 'description', 'sale_unit_price', 'stock', 'image', 'image_small')
+            ->orderBy('description')
+            ->limit(500)
+            ->get();
+
+        return response()->json(['data' => $items]);
     }
 
     public function records(Request $request)
@@ -158,13 +174,18 @@ class ItemController extends Controller
             default:
                 if($request->has('column'))
                 {
-                    if($this->applyAdvancedRecordsSearch() && $request->column === 'description')
-                    {
-                        if($request->value) $records->whereAdvancedRecordsSearch($request->column, $request->value);
-                    }
-                    else
-                    {
-                        $records->where($request->column, 'like', "%{$request->value}%");
+                    $col = $request->column;
+                    // Validar: debe ser string no numérico para evitar SQL "column '0'"
+                    $validColumns = array_keys($this->columns());
+                    if (is_string($col) && in_array($col, $validColumns, true)) {
+                        if($this->applyAdvancedRecordsSearch() && $col === 'description')
+                        {
+                            if($request->value) $records->whereAdvancedRecordsSearch($col, $request->value);
+                        }
+                        else
+                        {
+                            $records->where($col, 'like', "%{$request->value}%");
+                        }
                     }
                 }
                 break;
@@ -246,15 +267,15 @@ class ItemController extends Controller
 
         if(Configuration::getRecordIndividualColumn('list_items_by_warehouse') && !$isEcommerce)
         {
-            $records = Item::whereWarehouse()->whereNotIsSet();
+            $records = Item::with(['item_type', 'unit_type', 'currency_type', 'warehouses', 'item_unit_types', 'tags'])->whereWarehouse()->whereNotIsSet();
         }
         else
         {   
             if($isRestaurant === "true")
             {
-                $records = Item::whereTypeUser();
+                $records = Item::with(['item_type', 'unit_type', 'currency_type', 'warehouses', 'item_unit_types', 'tags'])->whereTypeUser();
             } else {
-                $records = Item::whereTypeUser()->whereNotIsSet();
+                $records = Item::with(['item_type', 'unit_type', 'currency_type', 'warehouses', 'item_unit_types', 'tags'])->whereTypeUser()->whereNotIsSet();
             }
         }
 
@@ -338,7 +359,7 @@ class ItemController extends Controller
 
     public function record($id)
     {
-        $record = new ItemResource(Item::findOrFail($id));
+        $record = new ItemResource(Item::with(['item_type', 'unit_type', 'currency_type', 'warehouses', 'item_unit_types', 'tags', 'item_lots'])->findOrFail($id));
 
         return $record;
     }
@@ -373,57 +394,42 @@ class ItemController extends Controller
             ])->first();
         }
 
+        // Preservar imagen actual ANTES del fill() para no perderla si no se sube una nueva
+        $existingImage       = $item->image;
+        $existingImageMedium = $item->image_medium;
+        $existingImageSmall  = $item->image_small;
+
         $item->fill($request->all());
 
         $temp_path = $request->input('temp_path');
-        if($temp_path) {
-
-            $directory = 'public'.DIRECTORY_SEPARATOR.'uploads'.DIRECTORY_SEPARATOR.'items'.DIRECTORY_SEPARATOR;
-
-            $slug_name = Str::slug($item->description);
-            if($item->internal_id){
-                $slug_name = Str::slug($item->internal_id);
+        if ($temp_path) {
+            // Mantener imagen anterior mientras el job procesa en segundo plano.
+            // Si no hay imagen previa, asignar placeholder temporal.
+            $item->image        = $existingImage       ?: 'imagen-no-disponible.jpg';
+            $item->image_medium = $existingImageMedium ?: 'imagen-no-disponible.jpg';
+            $item->image_small  = $existingImageSmall  ?: 'imagen-no-disponible.jpg';
+        } else {
+            // Sin nueva imagen — restaurar la existente o asignar placeholder
+            if ($existingImage && $existingImage !== '') {
+                $item->image        = $existingImage;
+                $item->image_medium = $existingImageMedium ?: $existingImage;
+                $item->image_small  = $existingImageSmall  ?: $existingImage;
+            } else {
+                $item->image        = 'imagen-no-disponible.jpg';
+                $item->image_medium = 'imagen-no-disponible.jpg';
+                $item->image_small  = 'imagen-no-disponible.jpg';
             }
-            $prefix_name = Str::limit($slug_name, 20, '');
-
-            $file_name_old = $request->input('image');
-            $file_name_old_array = explode('.', $file_name_old);
-            $file_content = file_get_contents($temp_path);
-            $datenow = date('YmdHis');
-            $file_name = $prefix_name.'-'.$datenow.'.'.$file_name_old_array[1];
-
-            UploadFileHelper::checkIfValidFile($file_name, $temp_path, true);
-
-            Storage::put($directory.$file_name, $file_content);
-            $item->image = $file_name;
-
-            //--- IMAGE SIZE MEDIUM
-            $image = \Image::make($temp_path);
-            $file_name = $prefix_name.'-'.$datenow.'_medium'.'.'.$file_name_old_array[1];
-            $image->resize(512, null, function ($constraint) {
-                $constraint->aspectRatio();
-                $constraint->upsize();
-            });
-            Storage::put($directory.$file_name,  (string) $image->encode('jpg', 30));
-            $item->image_medium = $file_name;
-
-              //--- IMAGE SIZE SMALL
-            $image = \Image::make($temp_path);
-            $file_name = $prefix_name.'-'.$datenow.'_small'.'.'.$file_name_old_array[1];
-            $image->resize(256, null, function ($constraint) {
-                $constraint->aspectRatio();
-                $constraint->upsize();
-            });
-            Storage::put($directory.$file_name,  (string) $image->encode('jpg', 20));
-            $item->image_small = $file_name;
-
-
-
-        }else if(!$request->input('image') && !$request->input('temp_path') && !$request->input('image_url')){
-            $item->image = 'imagen-no-disponible.jpg';
         }
 
         $item->save();
+
+        // Despachar procesamiento de imagen principal en segundo plano
+        if ($temp_path) {
+            $rawName  = $request->input('image', '');
+            $prefix   = $item->internal_id ?: Str::limit(Str::slug($item->description), 15, '');
+            $baseName = ImageProcessingService::sanitizeFilename($rawName ?: 'item', $prefix);
+            ProcessProductImageJob::dispatch($temp_path, $baseName, $item->id)->onQueue('images');
+        }
 
         foreach ($request->item_unit_types as $value) {
 
@@ -641,19 +647,11 @@ class ItemController extends Controller
             }
         }
 
-        $directory = 'public'.DIRECTORY_SEPARATOR.'uploads'.DIRECTORY_SEPARATOR.'items'.DIRECTORY_SEPARATOR;
-
-        $multi_images = isset($request->multi_images) ? $request->multi_images:[];
+        $multi_images = isset($request->multi_images) ? $request->multi_images : [];
 
         foreach ($multi_images as $im) {
-
-            $file_name = $im['filename'];
-            UploadFileHelper::checkIfValidFile($file_name, $im['temp_path'], true);
-
-            $file_content = file_get_contents($im['temp_path']);
-            Storage::put($directory.$file_name, $file_content);
-
-            ItemImage::create(['item_id'=> $item->id, 'image' => $file_name]);
+            ProcessProductImageJob::dispatch($im['temp_path'], $im['filename'], $item->id, true)
+                ->onQueue('images');
         }
 
         if (!$item->barcode) {
@@ -979,45 +977,58 @@ class ItemController extends Controller
 
     public function upload(Request $request)
     {
+        // Validación de MIME (acepta jpg, jpeg, png, gif, webp, bmp)
+        $validate_upload = UploadFileHelper::validateUploadFile(
+            $request, 'file', 'jpg,jpeg,png,gif,webp,bmp'
+        );
 
-        $validate_upload = UploadFileHelper::validateUploadFile($request, 'file', 'jpg,jpeg,png,gif,svg');
-
-        if(!$validate_upload['success']){
+        if (!$validate_upload['success']) {
             return $validate_upload;
         }
 
         if ($request->hasFile('file')) {
-            $new_request = [
-                'file' => $request->file('file'),
-                'type' => $request->input('type'),
-            ];
-
-            return $this->upload_image($new_request);
+            try {
+                return $this->upload_image([
+                    'file' => $request->file('file'),
+                    'type' => $request->input('type', 'items'),
+                ]);
+            } catch (\Throwable $e) {
+                Log::error('[ItemController::upload] Error: ' . $e->getMessage() . ' en ' . $e->getFile() . ':' . $e->getLine());
+                return ['success' => false, 'message' => 'Error al procesar imagen: ' . $e->getMessage()];
+            }
         }
-        return [
-            'success' => false,
-            'message' =>  __('app.actions.upload.error'),
-        ];
+
+        return ['success' => false, 'message' => __('app.actions.upload.error')];
     }
 
     function upload_image($request)
     {
         $file = $request['file'];
-        $type = $request['type'];
 
-        $temp = tempnam(sys_get_temp_dir(), $type);
-        file_put_contents($temp, file_get_contents($file));
+        // Copiar al temp propio (el PHP upload temp puede limpiarse antes del store())
+        $temp = tempnam(sys_get_temp_dir(), 'img_');
+        file_put_contents($temp, file_get_contents($file->getPathname()));
+
+        // Validación de seguridad: archivo real, no corrupto, no demasiado grande
+        $validation = ImageProcessingService::validate($temp);
+        if (!$validation['success']) {
+            @unlink($temp);
+            return ['success' => false, 'message' => $validation['message']];
+        }
 
         $mime = mime_content_type($temp);
         $data = file_get_contents($temp);
 
+        // Nombre original sanitizado (sin extensión — se añade .webp al guardar)
+        $safeName = ImageProcessingService::sanitizeFilename($file->getClientOriginalName());
+
         return [
             'success' => true,
-            'data' => [
-                'filename' => $file->getClientOriginalName(),
-                'temp_path' => $temp,
-                'temp_image' => 'data:' . $mime . ';base64,' . base64_encode($data)
-            ]
+            'data'    => [
+                'filename'   => $safeName,             // nombre seguro, sin extensión
+                'temp_path'  => $temp,
+                'temp_image' => 'data:' . $mime . ';base64,' . base64_encode($data),
+            ],
         ];
     }
 
@@ -1161,6 +1172,34 @@ class ItemController extends Controller
         return [
             'success' => true,
             'message' => 'Imagen eliminada con éxito'
+        ];
+    }
+
+    /**
+     * GET /items/without-image
+     * Retorna los productos que no tienen imagen asignada.
+     * Útil para reportes y dashboard de contenido.
+     */
+    public function withoutImage(Request $request)
+    {
+        $query = ImageProcessingService::queryItemsWithoutImage();
+
+        // Filtro opcional por categoría
+        if ($request->filled('category_id')) {
+            $query->where('category_id', $request->category_id);
+        }
+
+        // Filtro opcional activos/inactivos
+        if ($request->filled('active')) {
+            $query->where('active', (bool) $request->active);
+        }
+
+        $items = $query->get();
+
+        return [
+            'success' => true,
+            'total'   => $items->count(),
+            'data'    => $items,
         ];
     }
 
@@ -1570,7 +1609,7 @@ class ItemController extends Controller
     {
         $user = auth()->user();
         $warehouses = Warehouse::select('id', 'description');
-        if ($user->type !== 'admin') {
+        if (!\App\Helpers\AuthorizationHelper::isAdmin()) {
             $warehouses = $warehouses->where('id', $user->establishment_id);
         }
 

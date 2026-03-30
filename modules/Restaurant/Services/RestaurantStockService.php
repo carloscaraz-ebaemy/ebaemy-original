@@ -107,7 +107,7 @@ class RestaurantStockService
             // Incrementar cantidad reservada usando DB::raw para operación atómica
             RestaurantStockProduct::where('item_id', $item_id)
                 ->update([
-                    'quantity_reserved' => DB::raw("quantity_reserved + {$quantity}")
+                    'quantity_reserved' => DB::raw('quantity_reserved + ' . (float) $quantity)
                 ]);
 
             return true;
@@ -133,7 +133,7 @@ class RestaurantStockService
             RestaurantStockProduct::where('item_id', $item_id)
                 ->where('quantity_reserved', '>=', $quantity)
                 ->update([
-                    'quantity_reserved' => DB::raw("quantity_reserved - {$quantity}")
+                    'quantity_reserved' => DB::raw('quantity_reserved - ' . (float) $quantity)
                 ]);
 
             return true;

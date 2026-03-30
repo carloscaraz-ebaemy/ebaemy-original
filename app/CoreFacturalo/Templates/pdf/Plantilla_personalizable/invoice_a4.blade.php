@@ -276,7 +276,7 @@ $showColumns = $columnsConfig ? $columnsConfig->columns_config : [
         <tr>
 
             {{-- @php
-                dd($document->currency_type->toArray());
+                // dd($document->currency_type->toArray());
             @endphp --}}
             @if ($document->detraction)
             <td width="120px">MONTO DETRACCIÓN {{ $document->currency_type->id == 'USD' ? 'SOLES' : ''  }}
@@ -1201,7 +1201,7 @@ $showColumns = $columnsConfig ? $columnsConfig->columns_config : [
     @endif
 
     {{-- @php
- dd($document);
+ // dd($document);
 @endphp --}}
 
     @if ($document->terms_condition)

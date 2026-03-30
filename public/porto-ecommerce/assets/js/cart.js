@@ -8,17 +8,50 @@ function cart_add(data) {
         if (!Array.isArray(array)) array = [];
 
         let item = JSON.parse(data);
-        let found = array.find(x => x.id == item.id);
+
+        // Validar stock — usar stock de variante si existe, sino del producto
+        var stock = item.variant_stock ? parseFloat(item.variant_stock) : (parseFloat(item.stock) || 0);
+        // Si tiene variante seleccionada, confiar en su stock
+        if (item.variant_id && stock <= 0 && item.variant_stock === undefined) {
+            stock = 9999; // variante sin stock info — dejar pasar, el server validará
+        }
+        if (stock <= 0) {
+            if (typeof Swal !== 'undefined') {
+                Swal.fire({icon: 'warning', title: 'Sin stock', text: 'Este producto no tiene stock disponible.', timer: 3000});
+            } else {
+                alert('Este producto no tiene stock disponible.');
+            }
+            return;
+        }
+
+        // Diferenciar por variant_id si existe (mismo producto, distinta variante = línea separada)
+        let found = item.variant_id
+            ? array.find(x => x.id == item.id && x.variant_id == item.variant_id)
+            : array.find(x => x.id == item.id && !x.variant_id);
         const isUpdate = !!found;
 
+        // Cantidad seleccionada por el usuario (reemplaza, no suma)
+        var newQty = parseInt(item.quantity) || 1;
+        if (newQty > stock) {
+            if (typeof Swal !== 'undefined') {
+                Swal.fire({icon: 'warning', title: 'Stock insuficiente', text: 'Solo hay ' + stock + ' unidades disponibles.', timer: 3000});
+            } else {
+                alert('Solo hay ' + stock + ' unidades disponibles.');
+            }
+            return;
+        }
+
         if (!found) {
+            item.quantity = newQty;
             array.push(item);
         } else {
-            found.quantity = (parseInt(found.quantity) || 1) + (parseInt(item.quantity) || 1);
+            found.quantity = newQty;
+            if (item.sale_unit_price) found.sale_unit_price = item.sale_unit_price;
         }
 
         localStorage.setItem('products_cart', JSON.stringify(array));
         productsCartDropDown();
+        persistCartToServer();
 
         // ── Tracking: AddToCart ─────────────────────────
         if (typeof EcommerceTracker !== 'undefined') {
@@ -49,6 +82,9 @@ function showCartToast(item, isUpdate, totalItems) {
 
     var symbol   = item.currency_type_symbol || 'S/';
     var price    = parseFloat(item.sale_unit_price || item.sale_unit) || 0;
+    var itemName = item.variant_display_name
+        ? item.description + ' — ' + item.variant_display_name
+        : item.description;
     var qty      = parseInt(item.quantity) || 1;
     var cartUrl  = '/ecommerce/detail_cart';
 
@@ -68,7 +104,7 @@ function showCartToast(item, isUpdate, totalItems) {
         + '<div class="ec-toast__body">'
         +   '<div class="ec-toast__img"><img src="' + imagePath + '" alt="' + item.description + '" onerror="this.src=\'/logo/imagen-no-disponible.jpg\'"></div>'
         +   '<div class="ec-toast__info">'
-        +     '<div class="ec-toast__name">' + item.description + '</div>'
+        +     '<div class="ec-toast__name">' + itemName + '</div>'
         +     '<div class="ec-toast__meta">' + metaText + '</div>'
         +   '</div>'
         + '</div>'
@@ -130,54 +166,59 @@ function dismissToast(el) {
 
 function productsCartDropDown() {
 
-    jQuery(".dropdown-cart-products").empty();
-    jQuery(".cart-count").empty();
-    jQuery(".cart-count-label").empty();
+    // Vanilla JS — sin dependencia de jQuery
+    var cartContainer = document.querySelector('.dropdown-cart-products');
+    if (cartContainer) cartContainer.innerHTML = '';
+    document.querySelectorAll('.cart-count').forEach(function(el) { el.textContent = ''; });
+    document.querySelectorAll('.cart-count-label').forEach(function(el) { el.textContent = ''; });
 
-    let array = localStorage.getItem('products_cart');
+    var array = localStorage.getItem('products_cart');
     array = array ? JSON.parse(array) : [];
     if (!Array.isArray(array)) array = [];
 
-    let count = array.length;
+    var count = array.length;
 
-    array.forEach(element => {
-        const imagePath = (element.image_small && element.image_small !== 'imagen-no-disponible.jpg')
-            ? `/storage/uploads/items/${element.image_small}`
-            : `/logo/imagen-no-disponible.jpg`;
-        const qty      = element.quantity || 1;
-        const price    = parseFloat(element.sale_unit_price) || 0;
-        const subtotal = (price * qty).toFixed(2);
-        const symbol   = element.currency_type_symbol || element.currency_type_id || 'S/';
-        const slug     = element.slug ? `/ecommerce/item/${element.slug}` : '#';
+    array.forEach(function(element) {
+        var imagePath = (element.image_small && element.image_small !== 'imagen-no-disponible.jpg')
+            ? '/storage/uploads/items/' + element.image_small
+            : '/logo/imagen-no-disponible.jpg';
+        var qty      = element.quantity || 1;
+        var price    = parseFloat(element.sale_unit_price) || 0;
+        var subtotal = (price * qty).toFixed(2);
+        var symbol   = element.currency_type_symbol || element.currency_type_id || 'S/';
+        var slug     = element.slug ? '/ecommerce/item/' + element.slug : '#';
 
-        jQuery(".dropdown-cart-products").append(`
-            <div class="ec-minicart-item">
-                <a href="${slug}" class="ec-minicart-img">
-                    <img src="${imagePath}" alt="${element.description}" onerror="this.src='/logo/imagen-no-disponible.jpg'">
-                </a>
-                <div class="ec-minicart-info">
-                    <a href="${slug}" class="ec-minicart-name">${element.description}</a>
-                    <span class="ec-minicart-meta">${qty} × ${symbol} ${price.toFixed(2)}</span>
-                    <span class="ec-minicart-sub">${symbol} ${subtotal}</span>
-                </div>
-                <button type="button" onclick="cartRemove(${element.id})" class="ec-minicart-remove" title="Eliminar" aria-label="Eliminar">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none"
-                         stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-                </button>
-            </div>`
-        );
+        if (cartContainer) {
+            cartContainer.insertAdjacentHTML('beforeend',
+                '<div class="ec-minicart-item">' +
+                    '<a href="' + slug + '" class="ec-minicart-img">' +
+                        '<img src="' + imagePath + '" alt="' + (element.description || '') + '" onerror="this.src=\'/logo/imagen-no-disponible.jpg\'">' +
+                    '</a>' +
+                    '<div class="ec-minicart-info">' +
+                        '<a href="' + slug + '" class="ec-minicart-name">' + (element.description || '') + '</a>' +
+                        '<span class="ec-minicart-meta">' + qty + ' × ' + symbol + ' ' + price.toFixed(2) + '</span>' +
+                        '<span class="ec-minicart-sub">' + symbol + ' ' + subtotal + '</span>' +
+                    '</div>' +
+                    '<button type="button" class="ec-minicart-remove" data-item-id="' + element.id + '" data-variant-id="' + (element.variant_id || '') + '" title="Eliminar" aria-label="Eliminar">' +
+                        '<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>' +
+                    '</button>' +
+                '</div>'
+            );
+        }
     });
 
-    jQuery(".cart-count").append(count);
-    jQuery(".cart-count-label").append(count);
+    document.querySelectorAll('.cart-count').forEach(function(el) { el.textContent = count; });
+    document.querySelectorAll('.cart-count-label').forEach(function(el) { el.textContent = count; });
 
     // mostrar/ocultar estado vacío
+    var emptyEl = document.querySelector('.ec-minicart-empty');
+    var footerEl = document.querySelector('.ec-minicart-footer');
     if (count === 0) {
-        jQuery(".ec-minicart-empty").show();
-        jQuery(".ec-minicart-footer").hide();
+        if (emptyEl) emptyEl.style.display = '';
+        if (footerEl) footerEl.style.display = 'none';
     } else {
-        jQuery(".ec-minicart-empty").hide();
-        jQuery(".ec-minicart-footer").show();
+        if (emptyEl) emptyEl.style.display = 'none';
+        if (footerEl) footerEl.style.display = '';
     }
 }
 
@@ -194,19 +235,46 @@ function calculateTotalCart() {
         total += (parseFloat(element.sale_unit_price) || 0) * qty;
     });
 
-    $(".cart-total-price").empty();
-    $(".cart-total-price").append(total.toFixed(2));
+    document.querySelectorAll('.cart-total-price').forEach(function(el) { el.textContent = total.toFixed(2); });
 }
 
-function cartRemove(id) {
-    let array = localStorage.getItem('products_cart');
+function cartRemove(id, variantId) {
+    var array = localStorage.getItem('products_cart');
     array = array ? JSON.parse(array) : [];
     if (!Array.isArray(array)) array = [];
 
-    array = array.filter(x => x.id != id);
+    array = variantId
+        ? array.filter(function(x) { return !(x.id == id && x.variant_id == variantId); })
+        : array.filter(function(x) { return !(x.id == id && !x.variant_id); });
     localStorage.setItem('products_cart', JSON.stringify(array));
     productsCartDropDown();
     calculateTotalCart();
+    persistCartToServer();
+
+    // Si el carrito quedó vacío, limpiar también en el servidor inmediatamente
+    if (array.length === 0) {
+        clearCartOnServer();
+    }
+}
+
+/**
+ * Limpia el carrito en el servidor de forma inmediata (sin debounce).
+ * Se llama cuando el carrito queda vacío (último item eliminado o vaciar carrito).
+ */
+function clearCartOnServer() {
+    try {
+        var token = getCartSessionToken();
+        if (!token) return;
+        fetch('/ecommerce/cart/save', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': (document.querySelector('meta[name="csrf-token"]') || {}).content || '',
+            },
+            body: JSON.stringify({ session_token: token, items: [] }),
+            keepalive: true,
+        }).catch(function() {});
+    } catch (e) {}
 }
 
 function logout() {
@@ -214,7 +282,7 @@ function logout() {
         url: "/ecommerce/logout",
         method: 'get',
         headers: {
-            'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
+            'X-CSRF-TOKEN': (document.querySelector('meta[name="csrf-token"]') || {}).content || ''
         },
         success: function () {
             location.reload();
@@ -237,7 +305,75 @@ document.addEventListener('click', function (e) {
     }
 });
 
-// ── Inicializar localStorage al cargar ────────────────────────────────────
+// ── Carrito Abandonado — persistencia en servidor ────────────────────────────
+// Genera o recupera un token de sesión anónimo para identificar el carrito.
+var _cartSaveTimer = null;
+
+function getCartSessionToken() {
+    var key = 'ec_cart_token';
+    var token = localStorage.getItem(key);
+    if (!token) {
+        token = 'crt_' + Math.random().toString(36).slice(2) + Date.now().toString(36);
+        localStorage.setItem(key, token);
+    }
+    return token;
+}
+
+/**
+ * Guarda el carrito actual en el servidor (debounce 3 s para no saturar).
+ * Se llama automáticamente en cart_add y cartRemove.
+ */
+function persistCartToServer(extraData) {
+    clearTimeout(_cartSaveTimer);
+    _cartSaveTimer = setTimeout(function () {
+        try {
+            var items = JSON.parse(localStorage.getItem('products_cart') || '[]');
+            if (!Array.isArray(items)) items = [];
+
+            var payload = Object.assign({
+                session_token: getCartSessionToken(),
+                items: items,
+            }, extraData || {});
+
+            fetch('/ecommerce/cart/save', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': (document.querySelector('meta[name="csrf-token"]') || {}).content || '',
+                },
+                body: JSON.stringify(payload),
+                keepalive: true,
+            }).catch(function () {});
+        } catch (e) {}
+    }, 3000);
+}
+
+/**
+ * En el primer load, si el localStorage está vacío, intenta restaurar
+ * el carrito desde el servidor usando el token guardado.
+ */
+function maybeRestoreCartFromServer() {
+    try {
+        var existing = JSON.parse(localStorage.getItem('products_cart') || '[]');
+        if (Array.isArray(existing) && existing.length > 0) return; // ya tiene carrito local
+
+        var token = localStorage.getItem('ec_cart_token');
+        if (!token) return;
+
+        fetch('/ecommerce/cart/restore?token=' + encodeURIComponent(token))
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
+                if (data.items && data.items.length > 0) {
+                    localStorage.setItem('products_cart', JSON.stringify(data.items));
+                    productsCartDropDown();
+                    calculateTotalCart();
+                }
+            })
+            .catch(function () {});
+    } catch (e) {}
+}
+
+// Inicializar localStorage al cargar ─────────────────────────────────────────
 (function () {
     try {
         var cart = localStorage.getItem('products_cart');
@@ -247,4 +383,5 @@ document.addEventListener('click', function (e) {
     } catch (e) {}
     productsCartDropDown();
     calculateTotalCart();
+    maybeRestoreCartFromServer();
 })();

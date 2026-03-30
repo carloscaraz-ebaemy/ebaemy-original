@@ -1,0 +1,565 @@
+/* ═══════════════════════════════════════════════════════════════════════
+   ECOMMERCE THEME — Solo colores dinámicos, sin tocar layout/sizing
+   Usa --primary-h, --primary-s, --primary-l del color del cliente
+   ═══════════════════════════════════════════════════════════════════════ */
+
+:root {
+    --ec-primary: hsl(var(--primary-h), var(--primary-s), var(--primary-l));
+    --ec-primary-dark: hsl(var(--primary-h), var(--primary-s), calc(var(--primary-l) - 10%));
+    --ec-primary-vivid: hsl(var(--primary-h), 85%, 55%);
+}
+
+/* ── Header sticky ────────────────────────────────────────────────── */
+.header {
+    position: sticky !important;
+    top: 0 !important;
+    z-index: 1000 !important;
+    transition: box-shadow .3s ease;
+}
+.header.ec-header--scrolled {
+    box-shadow: 0 2px 12px rgba(0,0,0,.08);
+}
+.header.ec-header--scrolled .logo img {
+    max-height: 34px;
+    transition: max-height .3s ease;
+}
+
+/* ── Colores de precio ────────────────────────────────────────────── */
+.product-price,
+.pcard__price {
+    color: var(--ec-primary) !important;
+}
+
+/* ── Categoría label en cards ─────────────────────────────────────── */
+.pcard__cat {
+    color: var(--ec-primary-vivid) !important;
+}
+
+/* ── Category pill activo ─────────────────────────────────────────── */
+.ec-cat-pill--active,
+.ec-cat-pills button.active {
+    background: var(--ec-primary) !important;
+    border-color: var(--ec-primary) !important;
+    color: #fff !important;
+}
+
+/* ── Botones primarios — solo color, no layout ────────────────────── */
+.btn-primary,
+.paction.add-cart,
+#btn-add-to-cart,
+.ec-minicart-btn {
+    background-color: var(--ec-primary) !important;
+    border-color: var(--ec-primary) !important;
+}
+.btn-primary:hover,
+.paction.add-cart:hover,
+#btn-add-to-cart:hover,
+.ec-minicart-btn:hover {
+    background-color: var(--ec-primary-dark) !important;
+    border-color: var(--ec-primary-dark) !important;
+}
+
+/* ── Product card hover ───────────────────────────────────────────── */
+.pcard:hover {
+    box-shadow: 0 6px 20px rgba(0,0,0,.1);
+}
+
+/* ── Badges ───────────────────────────────────────────────────────── */
+.pbadge--new {
+    background: var(--ec-primary) !important;
+}
+
+/* ── Mini cart z-index ────────────────────────────────────────────── */
+.ec-minicart-dropdown {
+    z-index: 99999 !important;
+}
+.cart-dropdown,
+.dropdown.cart-dropdown {
+    z-index: 99999 !important;
+}
+
+/* ── Tabs en producto (reviews, descripcion) ──────────────────────── */
+.product-single-tabs .nav-tabs .nav-link.active {
+    color: var(--ec-primary) !important;
+    border-bottom-color: var(--ec-primary) !important;
+}
+
+/* ── Section title bar ────────────────────────────────────────────── */
+.ec-section-title::before {
+    background: var(--ec-primary) !important;
+}
+
+/* ── Focus accesibilidad (solo inputs y botones, no todo) ─────────── */
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+button:focus-visible {
+    outline: 2px solid var(--ec-primary);
+    outline-offset: 2px;
+}
+
+/* ── Selection ────────────────────────────────────────────────────── */
+::selection {
+    background: hsl(var(--primary-h), var(--primary-s), 85%);
+}
+
+/* ── Checkout stepper ─────────────────────────────────────────────── */
+.ec-step--active .ec-step__num,
+.ec-step--completed .ec-step__num {
+    background: var(--ec-primary) !important;
+    color: #fff !important;
+}
+
+/* ── Newsletter section ───────────────────────────────────────────── */
+.ec-newsletter-bar,
+.newsletter-section,
+.cta-section {
+    background: var(--ec-primary) !important;
+    color: #fff !important;
+}
+.ec-newsletter-bar h3,
+.ec-newsletter-bar h4,
+.ec-newsletter-bar p,
+.newsletter-section h3,
+.newsletter-section p {
+    color: #fff !important;
+}
+.ec-newsletter-bar .btn,
+.newsletter-section .btn,
+.ec-newsletter-bar button,
+.newsletter-section button {
+    background: #fff !important;
+    color: var(--ec-primary) !important;
+    border: none !important;
+    font-weight: 600 !important;
+}
+.ec-newsletter-bar .btn:hover,
+.newsletter-section .btn:hover {
+    background: hsl(var(--primary-h), var(--primary-s), 92%) !important;
+}
+.ec-newsletter-bar input,
+.newsletter-section input {
+    border: 2px solid rgba(255,255,255,.3) !important;
+    background: rgba(255,255,255,.15) !important;
+    color: #fff !important;
+}
+.ec-newsletter-bar input::placeholder,
+.newsletter-section input::placeholder {
+    color: rgba(255,255,255,.7) !important;
+}
+.ec-newsletter-bar input:focus,
+.newsletter-section input:focus {
+    background: rgba(255,255,255,.25) !important;
+    border-color: #fff !important;
+}
+
+/* ── Footer Moderno ────────────────────────────────────────────────── */
+.ec-footer-middle,
+.footer-middle {
+    background: hsl(var(--primary-h), 25%, 15%) !important;
+    padding: 48px 0 24px !important;
+}
+
+/* Títulos de sección */
+.ec-footer-middle h4.widget-title,
+.footer-middle h4.widget-title {
+    color: #fff !important;
+    font-size: 13px !important;
+    font-weight: 700 !important;
+    text-transform: uppercase !important;
+    letter-spacing: .08em !important;
+    margin-bottom: 20px !important;
+    position: relative;
+    padding-bottom: 10px;
+}
+.ec-footer-middle h4.widget-title::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 30px;
+    height: 2px;
+    background: var(--ec-primary, hsl(var(--primary-h), var(--primary-s), 50%));
+    border-radius: 2px;
+}
+
+/* Links */
+.ec-footer-links li,
+.ec-footer-middle .links li {
+    margin-bottom: 8px !important;
+}
+.ec-footer-links a,
+.ec-footer-middle .links a,
+.ec-footer-middle .contact-info a {
+    color: hsl(var(--primary-h), 15%, 70%) !important;
+    font-size: 13px !important;
+    text-decoration: none !important;
+    transition: color .15s, padding-left .15s !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 6px !important;
+}
+.ec-footer-links a:hover,
+.ec-footer-middle .links a:hover,
+.ec-footer-middle .contact-info a:hover {
+    color: #fff !important;
+    padding-left: 4px !important;
+}
+
+/* Contact info */
+.ec-footer-middle .contact-info li {
+    display: flex !important;
+    align-items: center !important;
+    gap: 10px !important;
+    margin-bottom: 14px !important;
+}
+.ec-footer-middle .contact-info svg {
+    width: 20px !important;
+    height: 20px !important;
+    flex-shrink: 0 !important;
+    color: var(--ec-primary, hsl(var(--primary-h), var(--primary-s), 55%)) !important;
+    stroke: currentColor !important;
+}
+.ec-footer-middle .contact-info a {
+    font-size: 14px !important;
+}
+
+/* Social icons */
+.ec-footer-middle .social-icons {
+    display: flex !important;
+    gap: 8px !important;
+}
+.ec-footer-middle .social-icons a {
+    width: 36px !important;
+    height: 36px !important;
+    border-radius: 8px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    background: rgba(255,255,255,.08) !important;
+    color: hsl(var(--primary-h), 15%, 70%) !important;
+    transition: all .2s !important;
+    margin: 0 !important;
+    padding: 0 !important;
+}
+.ec-footer-middle .social-icons a:hover {
+    background: var(--ec-primary, hsl(var(--primary-h), var(--primary-s), 50%)) !important;
+    color: #fff !important;
+    transform: translateY(-2px);
+}
+.ec-footer-middle .social-icons a svg {
+    width: 18px !important;
+    height: 18px !important;
+    stroke: currentColor !important;
+}
+
+/* Footer bottom */
+.container-footer {
+    background: hsl(var(--primary-h), 25%, 10%) !important;
+    border-top: 1px solid rgba(255,255,255,.08) !important;
+    padding: 16px 0 !important;
+}
+.container-footer .copy-text {
+    color: hsl(var(--primary-h), 15%, 55%) !important;
+    font-size: 12px !important;
+}
+.container-footer .footer-payments {
+    opacity: .7;
+    filter: brightness(2);
+}
+
+/* Reclamaciones link */
+.ec-footer-links__reclamaciones {
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 6px !important;
+    color: #fbbf24 !important;
+    font-weight: 600 !important;
+}
+
+footer,
+.footer,
+.footer-dark {
+    background: hsl(var(--primary-h), 25%, 15%) !important;
+}
+footer h4, footer h5,
+.footer h4, .footer h5,
+.footer-title,
+.footer-dark h4 {
+    color: #fff !important;
+}
+footer a, .footer a, .footer-dark a {
+    color: hsl(var(--primary-h), 30%, 75%) !important;
+}
+footer a:hover, .footer a:hover, .footer-dark a:hover {
+    color: hsl(var(--primary-h), var(--primary-s), 75%) !important;
+}
+footer .contact-info span,
+.footer .contact-info span {
+    color: #e2e8f0 !important;
+}
+footer .contact-info i,
+.footer .contact-info i,
+footer .contact-widget i {
+    color: hsl(var(--primary-h), var(--primary-s), 65%) !important;
+}
+
+/* Footer bottom bar */
+.footer-bottom,
+footer .container > hr + div,
+.copy-right {
+    border-top-color: hsl(var(--primary-h), 20%, 20%) !important;
+}
+
+/* Footer social icons */
+footer .social-icon a,
+.footer .social-icon a {
+    color: hsl(var(--primary-h), 20%, 70%) !important;
+}
+footer .social-icon a:hover,
+.footer .social-icon a:hover {
+    color: #fff !important;
+}
+
+/* ── WhatsApp flotante — color accent ─────────────────────────────── */
+a.ws-flotante {
+    background: #25D366 !important;
+}
+
+/* ══ PRODUCT DETAIL PAGE — Diseño profesional ══ */
+
+/* Categoría — sutil, no gritante */
+.product-single-details .product-cat,
+.product-details-ecommerce .product-cat {
+    font-size: 11px !important;
+    font-weight: 600 !important;
+    color: var(--ec-primary) !important;
+    text-transform: uppercase !important;
+    letter-spacing: .08em !important;
+    margin-bottom: 4px !important;
+}
+
+/* Título — limpio, sans-serif */
+.product-single-details .product-title,
+.product-details-ecommerce .product-title,
+.product-details-ecommerce .product-title-ecommerce,
+h2.product-title {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+    font-size: 22px !important;
+    font-weight: 700 !important;
+    color: #1f2937 !important;
+    line-height: 1.3 !important;
+    margin: 0 0 8px !important;
+}
+
+/* Marca (si visible) */
+.product-brand {
+    font-size: 13px;
+    color: #6b7280;
+    margin-bottom: 12px;
+}
+.product-brand strong {
+    color: #374151;
+}
+
+/* Precio — grande y bold */
+.product-single-details .product-price,
+.product-details-ecommerce .product-price {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+    font-size: 28px !important;
+    font-weight: 800 !important;
+    color: #111827 !important;
+    margin: 12px 0 !important;
+}
+
+/* Stock badge */
+.product-stock {
+    display: flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+    font-size: 14px !important;
+    margin-bottom: 16px !important;
+}
+.alert-stock {
+    background: #dcfce7 !important;
+    color: #166534 !important;
+    padding: 3px 10px !important;
+    border-radius: 20px !important;
+    font-size: 12px !important;
+    font-weight: 600 !important;
+    border: none !important;
+}
+.alert-sin-stock {
+    background: #fee2e2 !important;
+    color: #991b1b !important;
+    padding: 3px 10px !important;
+    border-radius: 20px !important;
+    font-size: 12px !important;
+    font-weight: 600 !important;
+    border: none !important;
+}
+
+/* Separador */
+.product-single-details hr,
+.product-details-ecommerce .product-desc + .ec-variant-selectors {
+    border-top: 1px solid #f3f4f6;
+    padding-top: 16px;
+}
+
+/* Variantes — label */
+.ec-variant-label {
+    font-size: 13px !important;
+    margin-bottom: 8px !important;
+}
+.ec-variant-label__name {
+    font-weight: 700 !important;
+    color: #374151 !important;
+    text-transform: uppercase !important;
+    font-size: 12px !important;
+    letter-spacing: .03em !important;
+}
+.ec-variant-label__val {
+    color: #6b7280 !important;
+    font-weight: 400 !important;
+    font-size: 12px !important;
+}
+
+/* Variante chip (talla) */
+.ec-variant-opt--chip {
+    padding: 8px 16px !important;
+    border: 2px solid #e5e7eb !important;
+    border-radius: 8px !important;
+    font-size: 13px !important;
+    font-weight: 600 !important;
+    color: #374151 !important;
+    background: #fff !important;
+    transition: all .15s !important;
+    cursor: pointer !important;
+}
+.ec-variant-opt--chip:hover {
+    border-color: #9ca3af !important;
+}
+.ec-variant-opt--chip[aria-pressed="true"] {
+    border-color: var(--ec-primary, #4f46e5) !important;
+    background: hsla(var(--primary-h,250),var(--primary-s,50%),var(--primary-l,50%),.08) !important;
+    color: var(--ec-primary, #4f46e5) !important;
+}
+
+/* Variante color swatch */
+.ec-variant-opt--color {
+    width: 36px !important;
+    height: 36px !important;
+    border-radius: 50% !important;
+    border: 2px solid #e5e7eb !important;
+    padding: 3px !important;
+    cursor: pointer !important;
+    transition: all .15s !important;
+}
+.ec-variant-opt--color:hover {
+    border-color: #9ca3af !important;
+    transform: scale(1.1);
+}
+.ec-variant-opt--color[aria-pressed="true"] {
+    border-color: var(--ec-primary, #4f46e5) !important;
+    box-shadow: 0 0 0 2px var(--ec-primary, #4f46e5) !important;
+}
+
+/* Resolved variant */
+#ec-variant-resolved {
+    background: #f0fdf4 !important;
+    border: 1px solid #bbf7d0 !important;
+    border-radius: 8px !important;
+    color: #166534 !important;
+    font-size: 13px !important;
+    padding: 8px 14px !important;
+}
+
+/* Cantidad selector */
+.ec-qty-selector {
+    display: inline-flex !important;
+    align-items: center !important;
+    border: 2px solid #e5e7eb !important;
+    border-radius: 10px !important;
+    overflow: hidden !important;
+}
+.ec-qty-btn {
+    width: 40px !important;
+    height: 40px !important;
+    border: none !important;
+    background: #f9fafb !important;
+    font-size: 18px !important;
+    font-weight: 600 !important;
+    color: #374151 !important;
+    cursor: pointer !important;
+    transition: background .15s !important;
+}
+.ec-qty-btn:hover { background: #e5e7eb !important; }
+.ec-qty-input {
+    width: 50px !important;
+    text-align: center !important;
+    border: none !important;
+    font-size: 15px !important;
+    font-weight: 600 !important;
+    color: #1f2937 !important;
+}
+
+/* Add to cart button */
+.paction.add-cart,
+#btn-add-to-cart {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 8px !important;
+    width: 100% !important;
+    padding: 14px 24px !important;
+    font-size: 15px !important;
+    font-weight: 700 !important;
+    border-radius: 10px !important;
+    text-transform: uppercase !important;
+    letter-spacing: .03em !important;
+}
+
+/* WhatsApp button */
+.btn-whatsapp {
+    border: 2px solid #25d366 !important;
+    border-radius: 10px !important;
+    color: #25d366 !important;
+    font-weight: 600 !important;
+    font-size: 14px !important;
+    padding: 12px !important;
+    transition: all .15s !important;
+}
+.btn-whatsapp:hover {
+    background: #25d366 !important;
+    color: #fff !important;
+}
+
+/* Tabs producto */
+.product-single-tabs {
+    margin-top: 32px !important;
+}
+.product-single-tabs .nav-tabs {
+    border-bottom: 2px solid #f3f4f6 !important;
+}
+.product-single-tabs .nav-tabs .nav-link {
+    font-size: 14px !important;
+    font-weight: 600 !important;
+    color: #6b7280 !important;
+    padding: 10px 20px !important;
+    border: none !important;
+    border-bottom: 2px solid transparent !important;
+    margin-bottom: -2px !important;
+}
+.product-single-tabs .nav-tabs .nav-link:hover {
+    color: #374151 !important;
+}
+.product-single-tabs .nav-tabs .nav-link.active {
+    color: var(--ec-primary, #4f46e5) !important;
+    border-bottom-color: var(--ec-primary, #4f46e5) !important;
+}
+
+/* Sidebar productos destacados */
+.sidebar-product .widget-title {
+    font-size: 14px !important;
+    font-weight: 700 !important;
+}

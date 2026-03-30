@@ -147,7 +147,7 @@ div.cart-dropdown {
 
 @media (max-width: 768px) {
     .session-text { display: none; }
-    .header-contact img { width: 25px !important; height: 25px !important; }
+    .header-contact { display: none !important; }
     .header-dropdown { min-width: 100px !important; }
 }
 @media (max-width: 991px) {
@@ -348,7 +348,30 @@ mark.ec-search-hl { background: hsl(var(--primary-h),90%,88%); color: inherit; b
 
  </style>
 
- <header class="header">
+ <header class="header" id="ec-main-header">
+
+ {{-- Sticky header: compactar al hacer scroll --}}
+ <script>
+ (function(){
+    var header = document.getElementById('ec-main-header');
+    if (!header) return;
+    var scrollThreshold = 80;
+    var ticking = false;
+    window.addEventListener('scroll', function() {
+        if (!ticking) {
+            window.requestAnimationFrame(function() {
+                if (window.scrollY > scrollThreshold) {
+                    header.classList.add('ec-header--scrolled');
+                } else {
+                    header.classList.remove('ec-header--scrolled');
+                }
+                ticking = false;
+            });
+            ticking = true;
+        }
+    });
+ })();
+ </script>
 
      <div class="header-middle">
          <div   class="container">
@@ -647,7 +670,25 @@ document.addEventListener("DOMContentLoaded", function () {
             // Mostrar historial
             var hist = loadHistory();
             if (hist.length === 0) {
-                body.innerHTML = '';
+                // Mostrar productos populares cuando no hay historial
+                var vue = window.headerVue;
+                var popular = vue && vue.suggestions ? vue.suggestions.slice(0, 6) : [];
+                if (popular.length > 0) {
+                    var phtml = '<div class="ec-mob-hist-header"><span>Productos populares</span></div>';
+                    popular.forEach(function(item) {
+                        var img = item.image_url_small || '/logo/imagen-no-disponible.jpg';
+                        phtml += '<a href="/ecommerce/item/' + (item.slug || item.id) + '" class="ec-mob-result">' +
+                            '<img class="ec-mob-result__img" src="' + img + '" onerror="this.src=\'/logo/imagen-no-disponible.jpg\'" alt="">' +
+                            '<div class="ec-mob-result__info"><span class="ec-mob-result__name">' + esc(item.description) + '</span>' +
+                            (item.category ? '<span class="ec-mob-result__cat">' + esc(item.category) + '</span>' : '') +
+                            '</div><span class="ec-mob-result__price">' + esc(String(item.sale_unit_price)) + '</span></a>';
+                    });
+                    body.innerHTML = phtml;
+                } else {
+                    body.innerHTML = '<div style="padding:40px 20px;text-align:center;color:#9ca3af">' +
+                        '<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#d1d5db" stroke-width="1.5" style="margin:0 auto 12px"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>' +
+                        '<p style="margin:0;font-size:14px">Escribe para buscar productos</p></div>';
+                }
                 return;
             }
             var html = '<div class="ec-mob-hist-header">' +
@@ -712,7 +753,7 @@ document.addEventListener("DOMContentLoaded", function () {
                 '<span class="ec-mob-result__name">' + highlight(item.description, query) + '</span>' +
                 (item.category ? '<span class="ec-mob-result__cat">' + esc(item.category) + '</span>' : '') +
                 '</div>' +
-                '<span class="ec-mob-result__price">S/ ' + esc(String(item.sale_unit_price)) + '</span>' +
+                '<span class="ec-mob-result__price">' + esc(String(item.sale_unit_price)) + '</span>' +
                 '</a>';
         });
 

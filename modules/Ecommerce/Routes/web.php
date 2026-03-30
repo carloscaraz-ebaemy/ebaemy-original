@@ -9,7 +9,6 @@
 | contains the "web" middleware group. Now create something great!
 |
 */
-use Modules\Ecommerce\Http\Controllers\ConfigurationPixelController;
 use Modules\Ecommerce\Http\Controllers\ConfigurationController;
 use Modules\Ecommerce\Http\Controllers\EcommerceController;
 use Modules\Ecommerce\Http\Controllers\ProductFeedController;
@@ -28,15 +27,28 @@ Route::get('/ecommerce/sitemap.xml', '\Modules\Ecommerce\Http\Controllers\Sitema
 // ========== Product Feeds ==========
 Route::get('/ecommerce/feed/google',   [ProductFeedController::class, 'googleMerchant'])->name('ecommerce.feed.google');
 Route::get('/ecommerce/feed/facebook', [ProductFeedController::class, 'facebookCatalog'])->name('ecommerce.feed.facebook');
+Route::get('/ecommerce/feed/tiktok',   [ProductFeedController::class, 'tiktokCatalog'])->name('ecommerce.feed.tiktok');
 Route::get('/ecommerce/feed/csv',      [ProductFeedController::class, 'csvFeed'])->name('ecommerce.feed.csv');
 
+// ========== Social Proof ==========
+Route::get('/ecommerce/social-proof', function () {
+    return response()->json(app(\App\Services\Tenant\SocialProofService::class)->getRecentPurchases());
+});
+
 // ========== Tracking público ==========
-Route::get('/ecommerce/tracking', 'EcommerceController@tracking')->name('ecommerce.tracking');
+Route::get('/ecommerce/tracking', 'EcommerceController@tracking')
+    ->name('ecommerce.tracking')
+    ->middleware('throttle:15,1');
 
 // ========== Confirmación de pedido ==========
 Route::get('/ecommerce/order/confirmation/{external_id}', '\Modules\Ecommerce\Http\Controllers\EcommerceController@orderConfirmation')
     ->name('ecommerce.order.confirmation')
-    ->middleware(['locked.tenant']);
+    ->middleware(['identify.tenant', 'locked.tenant', 'set.theme']);
+
+// ========== Estado de pago (polling L2 pre-auth Culqi) ==========
+Route::get('/ecommerce/order/{external_id}/payment-status', '\Modules\Ecommerce\Http\Controllers\EcommerceController@paymentStatus')
+    ->name('ecommerce.order.payment-status')
+    ->middleware(['locked.tenant', 'throttle:30,1']);
 
 // ========== Stock notifications ==========
 Route::post('/ecommerce/stock-notify', '\Modules\Ecommerce\Http\Controllers\StockNotificationController@subscribe')
@@ -49,28 +61,39 @@ Route::post('/ecommerce/newsletter-subscribe', '\Modules\Ecommerce\Http\Controll
     ->middleware('throttle:5,1');
 
 // ========== Google OAuth (fuera del middleware de auth) ==========
-Route::middleware(['locked.tenant'])->prefix('ecommerce')->group(function () {
+Route::middleware(['identify.tenant', 'locked.tenant', 'set.theme'])->prefix('ecommerce')->group(function () {
     Route::get('auth/google', 'EcommerceController@googleRedirect')->name('ecommerce.google.redirect');
     Route::get('auth/google/callback', 'EcommerceController@googleCallback')->name('ecommerce.google.callback');
 });
 
 // ========== Checkout + Pago + Reviews — accesibles sin login ==========
-Route::middleware(['locked.tenant'])->prefix('ecommerce')->group(function () {
+Route::middleware(['identify.tenant', 'locked.tenant', 'set.theme'])->prefix('ecommerce')->group(function () {
     Route::get('checkout',       'EcommerceController@checkout')->name('tenant_ecommerce_checkout');
     Route::get('detail_cart',    'EcommerceController@detailCart')->name('tenant_detail_cart');
-    Route::post('payment_cash',  'EcommerceController@paymentCash')->name('tenant_ecommerce_payment_cash');
-    Route::post('culqi',         'CulqiController@payment')->name('tenant_ecommerce_culqui');
-    Route::post('apply-coupon',  'EcommerceController@applyCoupon')->name('tenant_ecommerce_apply_coupon');
+    Route::post('payment_cash',  'EcommerceController@paymentCash')->name('tenant_ecommerce_payment_cash')->middleware('throttle:10,1');
+    Route::post('culqi',         'CulqiController@payment')->name('tenant_ecommerce_culqui')->middleware('throttle:10,1');
+    Route::post('apply-coupon',  'EcommerceController@applyCoupon')->name('tenant_ecommerce_apply_coupon')->middleware('throttle:20,1');
+    Route::post('preview-discounts',  'EcommerceController@previewDiscounts')->name('tenant_ecommerce_preview_discounts');
     Route::get('reviews/{id}',         'EcommerceController@getReviews')->name('ecommerce.reviews');
-    Route::post('rating_item',         'EcommerceController@ratingItem')->name('tenant_ecommerce_rating_item');
+    Route::post('rating_item',         'EcommerceController@ratingItem')->name('tenant_ecommerce_rating_item')->middleware('throttle:10,1');
     Route::get('rating_item/{id}',     'EcommerceController@getRating');
     // Ubigeo en cascada
     Route::get('ubigeo/departments',         'EcommerceController@ubigeoGetDepartments');
     Route::get('ubigeo/provinces/{dep_id}',  'EcommerceController@ubigeoGetProvinces');
     Route::get('ubigeo/districts/{prov_id}', 'EcommerceController@ubigeoGetDistricts');
+
+    // Carrito abandonado — persistencia y restauración
+    Route::post('cart/save',    'EcommerceController@saveCart')->name('ecommerce.cart.save')->middleware('throttle:30,1');
+    Route::get('cart/restore',  'EcommerceController@restoreCart')->name('ecommerce.cart.restore');
+
+    // Real-time stock validation for cart
+    Route::post('stock-check',  'EcommerceController@stockCheck')->name('ecommerce.stock_check')->middleware('throttle:20,1');
+
+    // Ubigeo autocomplete (cached, public)
+    Route::get('ubigeo-search', 'EcommerceController@ubigeoSearch')->middleware('throttle:10,1');
 });
 
-Route::middleware(['check.permission', 'locked.tenant', 'check.email.verified'])->prefix('ecommerce')->group(function () {
+Route::middleware(['identify.tenant', 'check.permission', 'locked.tenant', 'check.email.verified', 'set.theme'])->prefix('ecommerce')->group(function () {
     // Route::get('/', 'EcommerceController@index');
 
     Route::get('/', 'EcommerceController@index')->name('tenant.ecommerce.index');
@@ -107,8 +130,8 @@ Route::middleware(['check.permission', 'locked.tenant', 'check.email.verified'])
     Route::get('login', 'EcommerceController@showLogin')->name('tenant_ecommerce_login');
     Route::post('logout', 'EcommerceController@logout')->name('tenant_ecommerce_logout');
     Route::get('items_bar', 'EcommerceController@itemsBar');
-    Route::post('login', 'EcommerceController@login');
-    Route::post('storeUser', 'EcommerceController@storeUser')->name('tenant_ecommerce_store_user');
+    Route::post('login', 'EcommerceController@login')->middleware('throttle:5,3');
+    Route::post('storeUser', 'EcommerceController@storeUser')->name('tenant_ecommerce_store_user')->middleware('throttle:5,1');
     Route::get('color-ecommerce', 'ConfigurationController@getColorEcommerce');
     
 
@@ -125,14 +148,25 @@ Route::middleware(['check.permission', 'locked.tenant', 'check.email.verified'])
     // culqi, payment_cash y apply-coupon movidos a grupo guest-accessible arriba
     Route::post('transaction_finally', 'EcommerceController@transactionFinally')->name('tenant_ecommerce_transaction_finally');
 
-    Route::get('configuration', 'ConfigurationController@index')->middleware('redirect.module')->name('tenant_ecommerce_configuration');
+    Route::get('configuration', 'ConfigurationController@index')->middleware(['auth', 'redirect.module'])->name('tenant_ecommerce_configuration');
     Route::post('configuration', 'ConfigurationController@store_configuration');
     Route::post('configuration_culqui', 'ConfigurationController@store_configuration_culqui');
     Route::post('configuration_paypal', 'ConfigurationController@store_configuration_paypal');
     Route::post('configuration_social', 'ConfigurationController@store_configuration_social');
     Route::post('configuration_tags', 'ConfigurationController@store_configuration_tag');
     Route::post('configuration_color', 'ConfigurationController@store_configuration_color');
+    Route::get('configuration_themes', 'ConfigurationController@available_themes');
+    Route::post('configuration_theme', 'ConfigurationController@store_theme');
+    Route::get('themes', 'ConfigurationController@themesGallery')->middleware(['auth', 'redirect.module'])->name('tenant.ecommerce.themes');
+    Route::get('plugins', 'ConfigurationController@pluginsView')->middleware(['auth', 'redirect.module'])->name('tenant.ecommerce.plugins');
+    Route::get('notifications', 'ConfigurationController@notificationsView')->middleware(['auth', 'redirect.module'])->name('tenant.ecommerce.notifications');
+    Route::post('configuration_notifications', 'ConfigurationController@store_notifications');
+    Route::post('test_whatsapp', 'ConfigurationController@testWhatsApp');
     Route::post('configuration_newsletter', 'ConfigurationController@store_configuration_newsletter');
+    Route::get('configuration_marketplaces', 'ConfigurationController@get_marketplace_config');
+    Route::post('configuration_marketplaces', 'ConfigurationController@store_marketplace_config');
+    Route::post('test_marketplace_connection', 'ConfigurationController@test_marketplace_connection');
+    Route::post('regenerate_feed', 'ConfigurationController@regenerate_feed');
     Route::get('profile', 'EcommerceController@profile')->name('tenant.ecommerce.profile');
     Route::post('saveDataUser', 'EcommerceController@saveDataUser')->name('tenant_ecommerce_user_data');
     Route::post('change-password', 'EcommerceController@changePassword')->name('tenant.ecommerce.change_password');
@@ -147,7 +181,7 @@ Route::middleware(['check.permission', 'locked.tenant', 'check.email.verified'])
 
         
     Route::get('libro-reclamaciones', 'EcommerceController@libroReclamaciones')->name('tenant.libro_reclamaciones');
-    Route::post('libro-reclamaciones', 'EcommerceController@enviarReclamo')->name('tenant.libro_reclamaciones_enviar');
+    Route::post('libro-reclamaciones', 'EcommerceController@enviarReclamo')->name('tenant.libro_reclamaciones_enviar')->middleware('throttle:5,1');
 
 
     Route::get('record', 'ConfigurationController@record');
@@ -158,34 +192,49 @@ Route::middleware(['check.permission', 'locked.tenant', 'check.email.verified'])
     // Bundle/Pack landing page
     Route::get('bundle/{slug}', 'EcommerceController@bundleLanding')->name('tenant.ecommerce.bundle');
 
-    // Flash Sales
-    Route::get('flash-sales', 'FlashSaleController@index')->name('tenant.ecommerce.flash_sales');
-    Route::get('flash-sales/records', 'FlashSaleController@records');
-    Route::post('flash-sales', 'FlashSaleController@store');
-    Route::put('flash-sales/{id}', 'FlashSaleController@update');
-    Route::delete('flash-sales/{id}', 'FlashSaleController@destroy');
+    // Flash Sales (requiere auth)
+    Route::middleware('auth')->group(function () {
+        Route::get('flash-sales', 'FlashSaleController@index')->name('tenant.ecommerce.flash_sales');
+        Route::get('flash-sales/records', 'FlashSaleController@records');
+        Route::post('flash-sales', 'FlashSaleController@store');
+        Route::put('flash-sales/{id}', 'FlashSaleController@update');
+        Route::delete('flash-sales/{id}', 'FlashSaleController@destroy');
 
-    // Cupones
-    Route::get('coupons', 'CouponController@index')->name('tenant.ecommerce.coupons');
-    Route::get('coupons/records', 'CouponController@records');
-    Route::post('coupons', 'CouponController@store');
-    Route::put('coupons/{id}', 'CouponController@update');
-    Route::delete('coupons/{id}', 'CouponController@destroy');
+        // Cupones
+        Route::get('coupons', 'CouponController@index')->name('tenant.ecommerce.coupons');
+        Route::get('coupons/records', 'CouponController@records');
+        Route::post('coupons', 'CouponController@store');
+        Route::put('coupons/{id}', 'CouponController@update');
+        Route::delete('coupons/{id}', 'CouponController@destroy');
 
-    // Avisos de Stock (admin)
-    Route::get('stock-notifications', 'StockNotificationController@adminIndex')->name('tenant.ecommerce.stock_notifications');
-    Route::get('stock-notifications/records', 'StockNotificationController@adminRecords');
-    Route::post('stock-notifications/send', 'StockNotificationController@adminSend');
-    Route::delete('stock-notifications/{id}', 'StockNotificationController@adminDestroy');
+        // Avisos de Stock (admin)
+        Route::get('stock-notifications', 'StockNotificationController@adminIndex')->name('tenant.ecommerce.stock_notifications');
+        Route::get('stock-notifications/records', 'StockNotificationController@adminRecords');
+        Route::post('stock-notifications/send', 'StockNotificationController@adminSend');
+        Route::delete('stock-notifications/{id}', 'StockNotificationController@adminDestroy');
+
+        // Marketplace — productos y canales
+        Route::get('marketplace', '\App\Http\Controllers\Tenant\MarketplaceController@index')->name('tenant.ecommerce.marketplace');
+        Route::get('marketplace/channels', '\App\Http\Controllers\Tenant\MarketplaceController@channels');
+        Route::get('marketplace/channels/{channelId}/products', '\App\Http\Controllers\Tenant\MarketplaceController@products');
+        Route::post('marketplace/channels/{channelId}/sync-products', '\App\Http\Controllers\Tenant\MarketplaceController@syncProducts');
+        Route::post('marketplace/channels/{channelId}/sync-stock', '\App\Http\Controllers\Tenant\MarketplaceController@syncStock');
+        Route::post('marketplace/channels/{channelId}/auto-map', '\App\Http\Controllers\Tenant\MarketplaceController@autoMapProducts');
+        Route::post('marketplace/map-product', '\App\Http\Controllers\Tenant\MarketplaceController@mapProduct');
+        Route::post('marketplace/orders/{id}/convert', '\App\Http\Controllers\Tenant\MarketplaceController@convertToOrder');
+        Route::get('marketplace/products-by-channel', '\App\Http\Controllers\Tenant\MarketplaceController@productsByChannel')->name('tenant.ecommerce.marketplace.products');
+        Route::post('marketplace/channels/{channelId}/save-products', '\App\Http\Controllers\Tenant\MarketplaceController@saveChannelProducts');
+        Route::get('items_ecommerce/records_all', '\App\Http\Controllers\Tenant\ItemController@recordsAllSimple');
+        Route::get('marketplace/orders', '\App\Http\Controllers\Tenant\MarketplaceController@orders');
+        Route::get('marketplace/channels/{channelId}/fetch-orders', '\App\Http\Controllers\Tenant\MarketplaceController@fetchOrders');
+    });
 
     Route::post('uploads', 'ConfigurationController@uploadFile');
 
 
     // configuration pixel    
 
-    // Modules/Ecommerce/Routes/web.php (o api.php según tu proyecto)
-    // Route::get('configuration/pixels', 'ConfigurationPixelController@index')->name('tenant.ecommerce.configuration.pixels');
-    // Route::post('configuration/pixels', 'ConfigurationPixelController@store')->name('tenant.ecommerce.configuration.pixels.store');
+    Route::post('configuration/pixels', 'ConfigurationController@store_configuration_pixels');
   
     Route::get('social-scripts', 'ConfigurationController@getSocialScripts');
     Route::post('social-scripts/save-all', 'ConfigurationController@saveSocialScripts');

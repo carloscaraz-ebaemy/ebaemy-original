@@ -24,7 +24,7 @@ class HomeController extends Controller
      */
     public function index()
     {
-        if(auth()->user()->type == 'integrator')
+        if(auth()->user()->hasRole('integrator') || (auth()->user()->type ?? '') === 'integrator')
             return redirect('/documents');
 
         $is_contingency = 0;

@@ -243,7 +243,7 @@ trait ReportTrait
         }
         if($model == 'App\Models\Tenant\Document'){
             if(!empty($guides)){
-                $data->where('guides','like', DB::raw("%\"number\":\"%").$guides. DB::raw("%\"%"));
+                $data->where('guides', 'like', '%"number":"%' . str_replace(['%', '_'], ['\%', '\_'], $guides) . '%"%');
             }
         }
 

@@ -68,6 +68,16 @@ class LoginController extends Controller
 
         if (Auth::guard('admin')->attempt($credentials, $remember)) {
             $request->session()->regenerate();
+
+            $user = Auth::guard('admin')->user();
+            if ($user->hasTwoFactorEnabled()) {
+                // Guardar estado pendiente y desloguear hasta verificar OTP
+                Auth::guard('admin')->logout();
+                $request->session()->put('2fa_pending_user_id', $user->id);
+                $request->session()->put('2fa_remember', $remember);
+                return redirect()->route('system.2fa.verify');
+            }
+
             return redirect()->intended($this->redirectTo);
         }
 

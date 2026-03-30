@@ -8,12 +8,15 @@ use App\Models\System\Client;
 use App\Models\Tenant\User;
 use Hyn\Tenancy\Contracts\CurrentHostname;
 use Illuminate\Support\Facades\Auth;
+use Carbon\Carbon;
 use Exception;
 
 
 class SecretLoginHelper
 {
-    
+    /** Tiempo máximo de validez del secret login en minutos */
+    private const SECRET_LOGIN_EXPIRY_MINUTES = 15;
+
     /**
      *
      * @return int
@@ -23,7 +26,7 @@ class SecretLoginHelper
         return app(CurrentHostname::class)->id;
     }
 
-    
+
     /**
      *
      * @param  Client $client
@@ -34,9 +37,10 @@ class SecretLoginHelper
         $tenancy = app(Environment::class);
         $tenancy->tenant($client->hostname->website);
     }
-    
+
 
     /**
+     * Genera un hash HMAC-SHA256 firmado con la clave de la aplicación.
      *
      * @param  User $user
      * @param  Client $client
@@ -44,7 +48,7 @@ class SecretLoginHelper
      */
     public function createHash(User $user, Client $client)
     {
-        return sha1($this->createKeyString($user, $client));
+        return hash_hmac('sha256', $this->createKeyString($user, $client), config('app.key'));
     }
 
 
@@ -69,6 +73,34 @@ class SecretLoginHelper
 
 
     /**
+     * Verifica si el secret_login_time no ha expirado (máximo 15 minutos).
+     *
+     * @param  User $user
+     * @return bool
+     */
+    public function isExpired(User $user): bool
+    {
+        if (empty($user->secret_login_time)) {
+            return true;
+        }
+
+        $loginTime = Carbon::parse($user->secret_login_time);
+        $expiresAt = $loginTime->addMinutes(self::SECRET_LOGIN_EXPIRY_MINUTES);
+
+        if (Carbon::now()->greaterThan($expiresAt)) {
+            Log::warning('[SecretLogin] Token expirado.', [
+                'user_id' => $user->id,
+                'secret_login_time' => $user->secret_login_time,
+                'expired_at' => $expiresAt->toDateTimeString(),
+            ]);
+            return true;
+        }
+
+        return false;
+    }
+
+
+    /**
      *
      * @param  User $user
      * @param   $time
@@ -79,7 +111,7 @@ class SecretLoginHelper
         $user->secret_login_time = $time;
         $user->save();
     }
-    
+
 
     /**
      *
@@ -122,7 +154,7 @@ class SecretLoginHelper
     public function redirectUrl($fqdn, $key)
     {
         $protocol = config('tenant.force_https') ? 'https' : 'http';
-        
+
         return "{$protocol}://".$fqdn."/check-secret-login/{$key}";
     }
 
@@ -137,7 +169,7 @@ class SecretLoginHelper
         Log::error($message);
     }
 
-    
+
     /**
      *
      * @param  User $user

@@ -215,7 +215,7 @@ export default {
                     ...this.filters,
                     per_page: this.pagination.per_page,
                 }
-                const { data } = await axios.get('/logistic/queue-json', { params })
+                const { data } = await this.$http.get('/logistic/queue-json', { params })
                 this.orders     = data.data
                 this.summary    = data.summary
                 this.pagination = data.meta
@@ -236,7 +236,7 @@ export default {
 
         async startPreparation(order) {
             try {
-                const { data } = await axios.post(`/logistic/queue-json/${order.id}/start-preparation`)
+                const { data } = await this.$http.post(`/logistic/queue-json/${order.id}/start-preparation`)
                 // Actualizar la orden en la lista sin recargar todo
                 this.replaceOrder(data.data)
                 this.$notify?.({ type: 'success', text: `Preparación iniciada — Orden #${order.id}` })
@@ -249,7 +249,7 @@ export default {
 
         async markReady(order) {
             try {
-                const { data } = await axios.post(`/logistic/queue-json/${order.id}/ready`)
+                const { data } = await this.$http.post(`/logistic/queue-json/${order.id}/ready`)
                 this.replaceOrder(data.data)
                 this.$notify?.({ type: 'success', text: `Orden #${order.id} lista para despacho.` })
             } catch (e) {
@@ -275,7 +275,7 @@ export default {
         async confirmCancel(order) {
             if (!confirm(`¿Cancelar la orden #${order.id}?\nEsto liberará el stock reservado.`)) return
             try {
-                await axios.post(`/logistic/queue-json/${order.id}/cancel`, {
+                await this.$http.post(`/logistic/queue-json/${order.id}/cancel`, {
                     reason: 'Cancelado manualmente desde almacén'
                 })
                 this.$notify?.({ type: 'warning', text: `Orden #${order.id} cancelada. Stock liberado.` })
@@ -316,7 +316,7 @@ export default {
             this.pollTimer = setInterval(async () => {
                 if (this.isConnected) return
                 try {
-                    const { data } = await axios.get('/logistic/queue-json', {
+                    const { data } = await this.$http.get('/logistic/queue-json', {
                         params: { per_page: this.pagination.per_page, ...this.filters }
                     })
                     const newTotal = data.summary?.pending_count ?? 0
@@ -389,7 +389,7 @@ export default {
 
         async loadSummary() {
             try {
-                const { data } = await axios.get('/logistic/queue-json', { params: { per_page: 1 } })
+                const { data } = await this.$http.get('/logistic/queue-json', { params: { per_page: 1 } })
                 this.summary = data.summary
             } catch {}
         },

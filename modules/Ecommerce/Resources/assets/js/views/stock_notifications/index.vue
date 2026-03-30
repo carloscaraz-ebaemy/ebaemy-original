@@ -90,7 +90,7 @@ export default {
     methods: {
         load() {
             this.loading = true;
-            axios.get('/ecommerce/stock-notifications/records')
+            this.$http.get('/ecommerce/stock-notifications/records')
                 .then(r => { this.rows = r.data.data; this.filterData(); })
                 .finally(() => { this.loading = false; });
         },
@@ -111,7 +111,7 @@ export default {
             this.$confirm('¿Enviar emails a todos los suscriptores de productos con stock disponible?', 'Confirmar', { type: 'info' })
                 .then(() => {
                     this.sending = true;
-                    axios.post('/ecommerce/stock-notifications/send')
+                    this.$http.post('/ecommerce/stock-notifications/send')
                         .then(r => {
                             this.$message.success(r.data.message || 'Enviados');
                             this.load();
@@ -123,7 +123,7 @@ export default {
         remove(row) {
             this.$confirm('¿Eliminar la suscripción de ' + row.email + '?', 'Confirmar', { type: 'warning' })
                 .then(() => {
-                    axios.delete('/ecommerce/stock-notifications/' + row.id)
+                    this.$http.delete('/ecommerce/stock-notifications/' + row.id)
                         .then(() => { this.$message.success('Eliminado'); this.load(); });
                 }).catch(() => {});
         }

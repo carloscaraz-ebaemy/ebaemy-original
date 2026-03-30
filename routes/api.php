@@ -1,15 +1,17 @@
 <?php
 use App\Http\Controllers\Tenant\ConfigurationImageController;
 
-Route::get('generate_token', 'Tenant\Api\MobileController@getSeries');
-
+// generate_token requires auth — moved inside the auth:api group below
 $hostname = app(Hyn\Tenancy\Contracts\CurrentHostname::class);
 if ($hostname) {
     Route::domain($hostname->fqdn)->group(function () {
-        Route::post('configurations/default-image', [ConfigurationImageController::class, 'upload']);
         Route::post('login', 'Tenant\Api\MobileController@login');
 
         Route::middleware(['auth:api', 'locked.tenant'])->group(function () {
+            // Previously unprotected — now require auth
+            Route::get('generate_token', 'Tenant\Api\MobileController@getSeries');
+            Route::post('configurations/default-image', [ConfigurationImageController::class, 'upload']);
+
             //MOBILE
             Route::get('record/qrapi', 'Tenant\Api\MobileController@record_qrapi');
             Route::get('document/series', 'Tenant\Api\MobileController@getSeries');
@@ -126,18 +128,16 @@ if ($hostname) {
                 Route::get('/search_by_customer/{id}', 'Tenant\Api\ConsignedController@searchByCustomer');
                 Route::get('/addresses', 'Tenant\Api\ConsignedController@consignedAddresses');
             });
+            // ─── Endpoints movidos dentro de auth (antes estaban sin protección) ───
+            Route::get('documents/search/customers', 'Tenant\DocumentController@searchCustomers');
+            Route::post('documents/status', 'Tenant\Api\ServiceController@documentStatus');
+            Route::get('sendserver/{document_id}/{query?}', 'Tenant\DocumentController@sendServer');
+            Route::post('configurations/generateDispatch', 'Tenant\ConfigurationController@generateDispatch');
+
+            // Certificados qz tray — requieren auth:api + locked.tenant
+            Route::get('certificates-qztray/private', 'Tenant\CertificateQzTrayController@private');
+            Route::get('certificates-qztray/digital', 'Tenant\CertificateQzTrayController@digital');
         });
-        Route::get('documents/search/customers', 'Tenant\DocumentController@searchCustomers');
-
-        // Route::post('services/consult_status', 'Tenant\Api\ServiceController@consultStatus');
-        Route::post('documents/status', 'Tenant\Api\ServiceController@documentStatus');
-
-        Route::get('sendserver/{document_id}/{query?}', 'Tenant\DocumentController@sendServer');
-        Route::post('configurations/generateDispatch', 'Tenant\ConfigurationController@generateDispatch');
-
-        // Contenido de los certificados de qz tray
-        Route::get('certificates-qztray/private', 'Tenant\CertificateQzTrayController@private');
-        Route::get('certificates-qztray/digital', 'Tenant\CertificateQzTrayController@digital');
 
     });
 } else {

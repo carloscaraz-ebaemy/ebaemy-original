@@ -1,0 +1,11 @@
+{
+    "name": "Ropa-Elegante",
+    "version": "1.0.0",
+    "description": "Theme ropa-elegante",
+    "settings": {
+        "font_heading": "inherit",
+        "font_body": "inherit",
+        "card_style": "default",
+        "image_ratio": "1:1"
+    }
+}

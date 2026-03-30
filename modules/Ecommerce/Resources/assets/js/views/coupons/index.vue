@@ -156,7 +156,7 @@ export default {
         },
         load() {
             this.loading = true;
-            axios.get('/ecommerce/coupons/records')
+            this.$http.get('/ecommerce/coupons/records')
                 .then(r => { this.coupons = r.data.data; })
                 .finally(() => { this.loading = false; });
         },
@@ -183,8 +183,8 @@ export default {
                 if (!valid) return;
                 this.saving = true;
                 const req = this.form.id
-                    ? axios.put('/ecommerce/coupons/' + this.form.id, this.form)
-                    : axios.post('/ecommerce/coupons', this.form);
+                    ? this.$http.put('/ecommerce/coupons/' + this.form.id, this.form)
+                    : this.$http.post('/ecommerce/coupons', this.form);
                 req.then(r => {
                     this.$message.success(r.data.message || 'Guardado');
                     this.dialogVisible = false;
@@ -199,13 +199,13 @@ export default {
             });
         },
         toggleActive(row) {
-            axios.put('/ecommerce/coupons/' + row.id, { ...row, active: row.active })
+            this.$http.put('/ecommerce/coupons/' + row.id, { ...row, active: row.active })
                 .catch(() => { row.active = !row.active; });
         },
         remove(row) {
             this.$confirm('¿Eliminar el cupón "' + row.code + '"?', 'Confirmar', { type: 'warning' })
                 .then(() => {
-                    axios.delete('/ecommerce/coupons/' + row.id)
+                    this.$http.delete('/ecommerce/coupons/' + row.id)
                         .then(r => {
                             this.$message.success(r.data.message || 'Eliminado');
                             this.load();

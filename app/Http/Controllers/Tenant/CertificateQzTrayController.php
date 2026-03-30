@@ -91,11 +91,19 @@ class CertificateQzTrayController extends Controller
 
     public function private()
     {
+        // Private key — restrict to admin users only
+        if (!auth()->user() || auth()->user()->type !== 'admin') {
+            abort(403, 'Acceso denegado: solo administradores pueden obtener la clave privada.');
+        }
         return (new StorageHelper())->contentCertificaQzPrivate();
     }
 
     public function digital()
     {
+        // Digital certificate — restrict to admin users only
+        if (!auth()->user() || auth()->user()->type !== 'admin') {
+            abort(403, 'Acceso denegado: solo administradores pueden obtener el certificado digital.');
+        }
         return (new StorageHelper())->contentCertificaQzDigital();
     }
 

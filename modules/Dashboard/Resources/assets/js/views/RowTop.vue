@@ -1,100 +1,71 @@
 <template>
-  <div class="row top">
-    <div class="col" v-if="company.certificate_due">
-      <div class="card card-dashboard">
-        <div
-          class="card-body border-success"
-          :class="{
-            'border-danger': isDueWarning
-          }"
-        >
-        <span class="text-success font-weight-bold" :class="{
-            'text-danger': isDueWarning
-          }">{{ company.certificate_due }}</span>
-          <div class="card-title">Venci. del Certificado</div>
-        </div>
+  <div class="kpi-grid">
+
+    <!-- 1° VENTAS TOTALES — mayor peso visual, siempre visible -->
+    <div class="kpi-card" style="--kpi-accent:#10b981">
+      <div class="kpi-icon kpi-green"><i class="fas fa-chart-line"></i></div>
+      <el-tooltip :content="'S/ ' + String(total)" placement="top">
+        <div class="kpi-value">{{ total | formatNumber }}</div>
+      </el-tooltip>
+      <div class="kpi-label">Ventas totales</div>
+      <div class="kpi-sub">CPE + Notas de venta</div>
+    </div>
+
+    <!-- 2° UTILIDAD NETA — métrica de salud del negocio -->
+    <div class="kpi-card" v-if="utilities && utilities.totals" style="--kpi-accent:#14b8a6">
+      <div class="kpi-icon kpi-teal"><i class="fas fa-coins"></i></div>
+      <el-tooltip :content="'S/ ' + String(utilities.totals.utility)" placement="top">
+        <div class="kpi-value">{{ utilities.totals.utility | formatNumber }}</div>
+      </el-tooltip>
+      <div class="kpi-label">Utilidad neta</div>
+      <div class="kpi-sub">Ingresos − Costos</div>
+    </div>
+
+    <!-- 3° CPE EMITIDOS — volumen de facturación electrónica -->
+    <div class="kpi-card" style="--kpi-accent:#3b82f6">
+      <div class="kpi-icon kpi-blue"><i class="fas fa-file-invoice"></i></div>
+      <el-tooltip :content="String(total_cpe)" placement="top">
+        <div class="kpi-value">{{ total_cpe | formatNumber(0, 0) }}</div>
+      </el-tooltip>
+      <div class="kpi-label">CPE Emitidos</div>
+      <div class="kpi-sub">Comprobantes electrónicos</div>
+    </div>
+
+    <!-- 4° COMPROBANTES (S/) — monto de facturas/boletas -->
+    <div class="kpi-card" style="--kpi-accent:#8b5cf6">
+      <div class="kpi-icon kpi-purple"><i class="fas fa-receipt"></i></div>
+      <el-tooltip :content="'S/ ' + String(document_total_global)" placement="top">
+        <div class="kpi-value">{{ document_total_global | formatNumber }}</div>
+      </el-tooltip>
+      <div class="kpi-label">Comprobantes</div>
+      <div class="kpi-sub">Facturas y boletas</div>
+    </div>
+
+    <!-- 5° NOTAS DE VENTA — canal alternativo de venta -->
+    <div class="kpi-card" style="--kpi-accent:#f59e0b">
+      <div class="kpi-icon kpi-amber"><i class="fas fa-clipboard-list"></i></div>
+      <el-tooltip :content="'S/ ' + String(sale_note_total_global)" placement="top">
+        <div class="kpi-value">{{ sale_note_total_global | formatNumber }}</div>
+      </el-tooltip>
+      <div class="kpi-label">Notas de venta</div>
+      <div class="kpi-sub">Del periodo</div>
+    </div>
+
+    <!-- 6° CERTIFICADO DIGITAL — alerta operativa crítica -->
+    <div class="kpi-card" v-if="company.certificate_due"
+         :style="isDueWarning ? '--kpi-accent:#ef4444' : '--kpi-accent:#10b981'">
+      <div class="kpi-icon" :class="isDueWarning ? 'kpi-red' : 'kpi-green'">
+        <i class="fas fa-shield-alt"></i>
+      </div>
+      <div class="kpi-value" :class="isDueWarning ? 'text-danger' : ''">
+        {{ company.certificate_due }}
+      </div>
+      <div class="kpi-label">Certificado digital</div>
+      <div class="kpi-sub" :style="isDueWarning ? 'color:#ef4444;font-weight:600' : ''">
+        {{ isDueWarning ? '⚠ Próximo a vencer' : 'Vigente' }}
       </div>
     </div>
-    <div class="col">
-      <div class="card card-dashboard">
-        <i class="fas fa-folder-open"></i>
-        <div class="card-body">
-          <el-tooltip
-            class="item"
-            effect="dark"
-            :content="String(total_cpe)"
-            placement="top-start"
-          >
-            <h3 class="font-weight-bold m-0 mb-2">{{ total_cpe | formatNumber(0, 0) }}</h3>
-          </el-tooltip>
-          <small>CPE Emitidos</small>
-        </div>
-      </div>
-    </div>
-    <div class="col">
-      <div class="card card-dashboard">
-        <i class="fas fa-copy"></i>
-        <div class="card-body">
-          <el-tooltip
-            class="item"
-            effect="dark"
-            :content="String(document_total_global)"
-            placement="top-start"
-          >
-            <h3 class="font-weight-bold m-0 mb-2">{{ document_total_global | formatNumber }}</h3>
-          </el-tooltip>
-          <small>Total comprobantes</small>
-        </div>
-      </div>
-    </div>
-    <div class="col">
-      <div class="card card-dashboard">
-        <i class="fas fa-file-alt"></i>
-        <div class="card-body">
-          <el-tooltip
-            class="item"
-            effect="dark"
-            :content="String(sale_note_total_global)"
-            placement="top-start"
-          >
-            <h3 class="font-weight-bold m-0 mb-2">{{ sale_note_total_global | formatNumber }}</h3>
-          </el-tooltip>
-          <small>Total notas de ventas</small>
-        </div>
-      </div>
-    </div>
-    <div class="col">
-      <div class="card card-dashboard">
-        <i class="fas fa-chart-bar"></i>
-        <div class="card-body">
-          <el-tooltip
-            class="item"
-            effect="dark"
-            :content="String(total)"
-            placement="top-start"
-          >
-            <h3 class="font-weight-bold m-0 mb-2">{{ total | formatNumber }}</h3>
-          </el-tooltip>
-          <small>Ventas totales</small>
-        </div>
-      </div>
-    </div>
-    <div class="col" v-if="utilities.totals">
-      <div class="card card-dashboard">
-        <i class="fas fa-money-bill"></i>
-        <div class="card-body">
-          <el-tooltip
-            class="item"
-            effect="dark"
-            :content="String(utilities.totals.utility)"
-            placement="top-start"
-          >
-            <h3 class="font-weight-bold m-0 mb-2">{{ utilities.totals.utility | formatNumber }}</h3>
-          </el-tooltip>
-          <small>Utilidad neta</small>
-        </div>
-      </div>
-    </div>
+
   </div>
 </template>
 

@@ -18,7 +18,7 @@ class LockedTenant
      */
     public function handle($request, Closure $next)
     {
-        $configuration = Configuration::first();
+        $configuration = Configuration::firstCached();
         if(null === $configuration) {
             $configuration = new Configuration();
         }

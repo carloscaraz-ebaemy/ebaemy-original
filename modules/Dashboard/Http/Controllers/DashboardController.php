@@ -18,6 +18,7 @@ use Symfony\Component\Process\Process;
 use Symfony\Component\Process\Exception\ProcessFailedException;
 use Illuminate\Support\Arr;
 use Modules\Dashboard\Helpers\DashboardInventory;
+use Modules\Dashboard\Helpers\DashboardV2;
 use App\Models\Tenant\Configuration;
 
 /**
@@ -146,6 +147,120 @@ class DashboardController extends Controller
     public function productOfDue(Request $request)
     {
         return  (new DashboardInventory())->data($request);
+    }
+
+    // ─────────────────────────────────────────────────────────────────────
+    //  V2 ENDPOINTS — Dashboard operativo
+    // ─────────────────────────────────────────────────────────────────────
+
+    private function v2(Request $request): DashboardV2
+    {
+        return new DashboardV2($request->input('establishment_id') ? (int)$request->input('establishment_id') : null);
+    }
+
+    public function v2Summary(Request $request)
+    {
+        return response()->json($this->v2($request)->summary());
+    }
+
+    public function v2DailyChart(Request $request)
+    {
+        return response()->json($this->v2($request)->salesDailyChart());
+    }
+
+    public function v2MonthlyChart(Request $request)
+    {
+        return response()->json($this->v2($request)->salesMonthlyChart());
+    }
+
+    public function v2TopSellers(Request $request)
+    {
+        $start = $request->input('date_start', now()->startOfMonth()->toDateString());
+        $end   = $request->input('date_end',   now()->endOfMonth()->toDateString());
+
+        return response()->json($this->v2($request)->topSellers($start, $end));
+    }
+
+    public function v2TopProducts(Request $request)
+    {
+        $start = $request->input('date_start', now()->startOfMonth()->toDateString());
+        $end   = $request->input('date_end',   now()->endOfMonth()->toDateString());
+
+        return response()->json($this->v2($request)->topProducts($start, $end));
+    }
+
+    public function v2StockAlerts(Request $request)
+    {
+        return response()->json($this->v2($request)->stockAlerts());
+    }
+
+    public function v2Purchases(Request $request)
+    {
+        return response()->json($this->v2($request)->purchaseSummary());
+    }
+
+    public function v2Alerts(Request $request)
+    {
+        return response()->json($this->v2($request)->alerts());
+    }
+
+    public function v2Receivables(Request $request)
+    {
+        $start = $request->input('date_start', now()->startOfMonth()->toDateString());
+        $end   = $request->input('date_end',   now()->endOfMonth()->toDateString());
+        return response()->json($this->v2($request)->receivables($start, $end));
+    }
+
+    public function v2Customers(Request $request)
+    {
+        $start = $request->input('date_start', now()->startOfMonth()->toDateString());
+        $end   = $request->input('date_end',   now()->endOfMonth()->toDateString());
+        return response()->json($this->v2($request)->customers($start, $end));
+    }
+
+    public function v2PaymentMethods(Request $request)
+    {
+        $start = $request->input('date_start', now()->startOfMonth()->toDateString());
+        $end   = $request->input('date_end',   now()->endOfMonth()->toDateString());
+        return response()->json($this->v2($request)->paymentMethods($start, $end));
+    }
+
+    public function v2Profitability(Request $request)
+    {
+        $start = $request->input('date_start', now()->startOfMonth()->toDateString());
+        $end   = $request->input('date_end',   now()->endOfMonth()->toDateString());
+        return response()->json($this->v2($request)->profitability($start, $end));
+    }
+
+    public function v2PeriodComparison(Request $request)
+    {
+        return response()->json($this->v2($request)->periodComparison());
+    }
+
+    public function v2InventoryAdvanced(Request $request)
+    {
+        return response()->json($this->v2($request)->inventoryAdvanced());
+    }
+
+    public function v2SalesByHour(Request $request)
+    {
+        $start = $request->input('date_start', now()->startOfMonth()->toDateString());
+        $end   = $request->input('date_end',   now()->endOfMonth()->toDateString());
+        return response()->json($this->v2($request)->salesByHour($start, $end));
+    }
+
+    public function v2QuotationConversion(Request $request)
+    {
+        $start = $request->input('date_start', now()->startOfMonth()->toDateString());
+        $end   = $request->input('date_end',   now()->endOfMonth()->toDateString());
+        return response()->json($this->v2($request)->quotationConversion($start, $end));
+    }
+
+    public function v2SalesByCity(Request $request)
+    {
+        $start = $request->input('date_start', now()->startOfMonth()->toDateString());
+        $end   = $request->input('date_end',   now()->endOfMonth()->toDateString());
+        return response()->json($this->v2($request)->salesByCity($start, $end));
     }
 
 }

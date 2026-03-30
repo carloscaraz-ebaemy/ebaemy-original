@@ -194,7 +194,7 @@
         /**
          * Retorna moneda nacional por defecto
          * 
-         * @TODO considerar registro de moneda al rentar habitacion
+         * Siempre PEN. Si se necesita multi-moneda, agregar currency_type_id a hotel_rents.
          *
          * @return string
          */

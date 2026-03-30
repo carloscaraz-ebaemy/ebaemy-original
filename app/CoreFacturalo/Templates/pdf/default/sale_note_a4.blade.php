@@ -8,6 +8,8 @@
     $left =  ($document->series) ? $document->series : $document->prefix;
     $tittle = $left.'-'.str_pad($document->number, 8, '0', STR_PAD_LEFT);
     $payments = $document->payments;
+    // Cargar global_payment (sin anidados: destination puede ser Cash sin relación bank)
+    $payments->load(['global_payment']);
     // $accounts = \App\Models\Tenant\BankAccount::all();
     $accounts = (new TemplatePdf)->getBankAccountsForPdf($document->establishment_id);
 
@@ -520,9 +522,25 @@ foreach ($document->items as $row) {
         </tr>
         @php $payment = 0; @endphp
         @foreach($payments as $row)
+        @php
+            $bankInfo = '';
+            try {
+                $gp = $row->global_payment;
+                if ($gp && $gp->destination_type !== \App\Models\Tenant\Cash::class) {
+                    $dest = $gp->destination;
+                    if ($dest) {
+                        $bankName   = $dest->bank->description ?? null;
+                        $accountNum = $dest->number ?? $dest->cci ?? null;
+                        if ($bankName || $accountNum) {
+                            $bankInfo = ' (' . implode(' - ', array_filter([$bankName, $accountNum])) . ')';
+                        }
+                    }
+                }
+            } catch (\Exception $e) { $bankInfo = ''; }
+        @endphp
         <tr>
-            <td>&#8226; {{ $row->payment_method_type->description }}
-                - {{ $row->reference ? $row->reference.' - ':'' }} {{ $document->currency_type->symbol }} {{ $row->payment + $row->change }}</td>
+            <td>&#8226; {{ $row->payment_method_type->description }}{{ $bankInfo }}
+                {{ $row->reference ? '- '.$row->reference.' ' : '' }}- {{ $document->currency_type->symbol }} {{ number_format($row->payment + $row->change, 2) }}</td>
         </tr>
         @endforeach
         </tr>

@@ -15,16 +15,33 @@ class User extends Model implements AuthenticatableContract, AuthorizableContrac
 
     protected $fillable = [
         'name', 'email', 'password', 'phone', 'whatsapp_number', 'address_contact', 'introduction',
+        'two_factor_secret', 'two_factor_confirmed_at',
     ];
 
-    /**
-     * The attributes that should be hidden for arrays.
-     *
-     * @var array
-     */
     protected $hidden = [
-        'password', 'remember_token',
+        'password', 'remember_token', 'two_factor_secret',
     ];
+
+    protected $dates = ['two_factor_confirmed_at'];
+
+    /** El secreto TOTP se guarda encriptado en BD. */
+    public function getTwoFactorSecretAttribute(?string $value): ?string
+    {
+        if (empty($value)) return null;
+        try { return decrypt($value); } catch (\Throwable $e) { return $value; }
+    }
+
+    public function setTwoFactorSecretAttribute(?string $value): void
+    {
+        $this->attributes['two_factor_secret'] = $value ? encrypt($value) : null;
+    }
+
+    /** True si 2FA está activo y confirmado. */
+    public function hasTwoFactorEnabled(): bool
+    {
+        return !empty($this->attributes['two_factor_secret'])
+            && $this->two_factor_confirmed_at !== null;
+    }
 
     
     /**

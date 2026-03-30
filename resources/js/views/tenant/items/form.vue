@@ -216,6 +216,35 @@
                                        v-text="errors.stock_min[0]"></small>
                             </div>
                         </div>
+                        <!-- Peso y Dimensiones (envío / marketplace) -->
+                        <div class="col-12 mt-2 mb-1" v-show="form.unit_type_id !='ZZ'">
+                            <small class="text-muted"><strong>Envío / Marketplace</strong> (peso y dimensiones para cálculo de envío)</small>
+                        </div>
+                        <div class="col-md-3" v-show="form.unit_type_id !='ZZ'">
+                            <div class="form-group">
+                                <label class="control-label">Peso (kg)</label>
+                                <el-input v-model="form.weight" type="number" step="0.01" placeholder="0.00"></el-input>
+                            </div>
+                        </div>
+                        <div class="col-md-3" v-show="form.unit_type_id !='ZZ'">
+                            <div class="form-group">
+                                <label class="control-label">Largo (cm)</label>
+                                <el-input v-model="form.length" type="number" step="0.1" placeholder="0.0"></el-input>
+                            </div>
+                        </div>
+                        <div class="col-md-3" v-show="form.unit_type_id !='ZZ'">
+                            <div class="form-group">
+                                <label class="control-label">Ancho (cm)</label>
+                                <el-input v-model="form.width" type="number" step="0.1" placeholder="0.0"></el-input>
+                            </div>
+                        </div>
+                        <div class="col-md-3" v-show="form.unit_type_id !='ZZ'">
+                            <div class="form-group">
+                                <label class="control-label">Alto (cm)</label>
+                                <el-input v-model="form.height" type="number" step="0.1" placeholder="0.0"></el-input>
+                            </div>
+                        </div>
+
                         <div v-show="form.unit_type_id !='ZZ' && form.lots_enabled"
                              class="col-md-3">
                             <div :class="{'has-danger': errors.date_of_due}"
@@ -766,6 +795,7 @@
                                            :data="{'type': 'items'}"
                                            :headers="headers"
                                            :on-success="onSuccess"
+                                           :before-upload="beforeImageUpload"
                                            :show-file-list="false"
                                            class="avatar-uploader">
                                     <img v-if="form.image_url"
@@ -1228,6 +1258,19 @@
                         -->
                     </div>
                 </el-tab-pane>
+
+                <!-- ── Tab Variantes ──────────────────────────────────── -->
+                <el-tab-pane v-if="!isService" name="variants">
+                    <span slot="label">
+                        <i class="el-icon-s-grid"></i> Variantes
+                    </span>
+                    <variants-tab
+                        :item-id="form.id || null"
+                        :parent-price="parseFloat(form.sale_unit_price) || 0"
+                        @variants-updated="onVariantsUpdated"
+                    />
+                </el-tab-pane>
+
             </el-tabs>
             <div class="form-actions text-end pt-2 mt-2">
                 <template v-if="forOnlyShowAllDetails">
@@ -1257,6 +1300,7 @@
 <script>
 import LotsForm from './partials/lots.vue'
 import ExtraInfo from './partials/extra_info.vue'
+import VariantsTab from './partials/variants-tab.vue'
 import {mapActions, mapState} from "vuex";
 import {ItemOptionDescription, ItemSlotTooltip} from "../../../helpers/modal_item";
 
@@ -1273,7 +1317,8 @@ export default {
     ],
     components: {
         LotsForm,
-        ExtraInfo
+        ExtraInfo,
+        VariantsTab,
     },
     computed: {
         forOnlyShowAllDetails()
@@ -1554,6 +1599,13 @@ export default {
         changeProductioTab(){
 
         },
+        onVariantsUpdated(variants) {
+            // Actualiza el stock del form si el servidor propagó el cambio
+            if (variants && variants.length > 0) {
+                const total = variants.reduce((sum, v) => sum + (parseFloat(v.stock) || 0), 0)
+                this.form.stock = total
+            }
+        },
         addRowLot(lots) {
             this.form.lots = lots
         },
@@ -1643,6 +1695,10 @@ export default {
                 calculate_quantity: false,
                 stock: 0,
                 stock_min: 1,
+                weight: null,
+                length: null,
+                width: null,
+                height: null,
                 has_igv: true,
                 has_perception: false,
                 item_unit_types: [],
@@ -1686,6 +1742,26 @@ export default {
             this.enabled_percentage_of_profit = false
             this.loadCurrentEstablishment()
         },
+        // Validación del lado del cliente antes de enviar al servidor.
+        // Permite cualquier nombre de archivo — no se valida el nombre, solo peso y tipo.
+        beforeImageUpload(file) {
+            const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/bmp']
+            const MAX_MB        = 15
+
+            if (!ALLOWED_TYPES.includes(file.type)) {
+                this.$message.error('Solo se permiten imágenes JPG, PNG, GIF, WEBP o BMP.')
+                return false
+            }
+
+            const sizeMB = file.size / 1024 / 1024
+            if (sizeMB > MAX_MB) {
+                this.$message.error(`La imagen es demasiado grande (${sizeMB.toFixed(1)} MB). Máximo ${MAX_MB} MB.`)
+                return false
+            }
+
+            return true
+        },
+
         onSuccess(response, file, fileList) {
             if (response.success) {
                 this.form.image = response.data.filename

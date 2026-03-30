@@ -11,7 +11,7 @@ class InformationContactViewComposer
 {
     public function compose($view)
     {
-        $view->information = ConfigurationEcommerce::first();
+        $view->information = ConfigurationEcommerce::firstCached();
         // Agregar información de la empresa (nombre) para usarla en vistas como el footer
         $view->company = Company::first();
     }

@@ -1,0 +1,165 @@
+/* ═══════════════════════════════════════════════════════════════
+   THEME: LUXURY / JOYAS / PREMIUM
+   Elegante, premium, espaciado, dorado
+   Tipografía: serif delgada, elegante
+   ═══════════════════════════════════════════════════════════════ */
+
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600;700&family=Lato:wght@300;400;700&display=swap');
+
+:root {
+    --theme-font-heading: 'Playfair Display', Georgia, serif;
+    --theme-font-body: 'Lato', sans-serif;
+    --theme-card-radius: 0;
+    --theme-btn-radius: 0;
+    --theme-gold: #c9a96e;
+    --theme-dark: #1a1a1a;
+}
+
+body {
+    font-family: var(--theme-font-body) !important;
+    font-weight: 300;
+    letter-spacing: .02em;
+}
+
+h1, h2, h3, .ec-section-title {
+    font-family: var(--theme-font-body) !important;
+    font-weight: 400 !important;
+    letter-spacing: .05em;
+}
+
+.ec-section-title {
+    font-size: 30px !important;
+    text-align: center !important;
+    text-transform: none !important;
+}
+.ec-section-title::before {
+    display: none !important;
+}
+.ec-section-title::after {
+    content: '';
+    display: block;
+    width: 60px;
+    height: 1px;
+    background: var(--theme-gold);
+    margin: 12px auto 0;
+}
+
+/* Cards sin borde, puro espacio */
+.pcard {
+    border-radius: 0 !important;
+    border: none !important;
+    box-shadow: none !important;
+    background: transparent !important;
+}
+.pcard:hover {
+    box-shadow: none !important;
+    transform: none !important;
+}
+.pcard__media {
+    overflow: hidden;
+}
+.pcard__img {
+    transition: transform .8s cubic-bezier(.25,.46,.45,.94) !important;
+}
+.pcard:hover .pcard__img {
+    transform: scale(1.04);
+}
+
+.pcard__body {
+    padding: 16px 0 !important;
+    text-align: center;
+}
+
+/* Categoría dorada */
+.pcard__cat {
+    color: var(--theme-gold) !important;
+    font-size: 10px !important;
+    letter-spacing: .15em !important;
+    text-transform: uppercase !important;
+    font-family: var(--theme-font-body) !important;
+    font-weight: 400 !important;
+}
+
+/* Título serif elegante */
+/* Product title — sans-serif */
+.pcard__title a {
+    font-family: var(--theme-font-body) !important;
+    font-weight: 400 !important;
+    font-size: 16px !important;
+}
+
+/* Precio con peso light */
+.pcard__price, .product-price {
+    font-family: var(--theme-font-body) !important;
+    font-weight: 300 !important;
+    letter-spacing: .08em;
+    font-size: 16px !important;
+}
+
+/* Botones rectangulares con borde */
+.btn-primary, .paction.add-cart, #btn-add-to-cart, .ec-minicart-btn {
+    border-radius: 0 !important;
+    text-transform: uppercase !important;
+    letter-spacing: .15em !important;
+    font-size: 11px !important;
+    font-family: var(--theme-font-body) !important;
+    font-weight: 400 !important;
+    padding: 12px 28px !important;
+}
+
+/* Category pills elegantes */
+.ec-cat-pill, .ec-cat-pills button {
+    border-radius: 0 !important;
+    text-transform: uppercase !important;
+    letter-spacing: .12em !important;
+    font-size: 10px !important;
+    font-family: var(--theme-font-body) !important;
+    border-width: 1px !important;
+}
+
+/* Badges minimalistas */
+.pbadge {
+    border-radius: 0 !important;
+    letter-spacing: .12em !important;
+    font-size: 8px !important;
+    font-weight: 400 !important;
+    text-transform: uppercase !important;
+    padding: 4px 10px !important;
+}
+
+/* Ocultar wishlist y quick-view para look limpio */
+.pcard__wish {
+    opacity: 0;
+}
+.pcard:hover .pcard__wish {
+    opacity: .6;
+}
+
+/* Newsletter premium */
+.ec-newsletter-bar h3, .ec-newsletter-bar h4 {
+    font-family: var(--theme-font-body) !important;
+    font-weight: 400 !important;
+    letter-spacing: .1em !important;
+}
+
+/* Footer oscuro premium */
+footer h4, footer h5, .footer-title {
+    font-family: var(--theme-font-body) !important;
+    font-weight: 400 !important;
+    letter-spacing: .1em !important;
+}
+
+/* Grid 3 columnas en desktop (fotos más grandes) */
+@media (min-width: 992px) {
+    .product-col-item {
+        flex: 0 0 33.333% !important;
+        max-width: 33.333% !important;
+    }
+}
+
+/* Product detail */
+.product-title {
+    font-family: var(--theme-font-body) !important;
+    font-weight: 400 !important;
+    font-size: 28px !important;
+}

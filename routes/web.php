@@ -12,29 +12,35 @@ if ($hostname) {
             'verify'   => false
         ]);
 
-        Route::get('search', 'Tenant\SearchController@index')->name('search.index');
-        Route::get('buscar', 'Tenant\SearchController@index')->name('search.index');
-        Route::get('search/tables', 'Tenant\SearchController@tables');
-        Route::post('search', 'Tenant\SearchController@store');
+        // ── Búsqueda de documentos — requiere autenticación ─────────────
+        Route::middleware('auth')->group(function () {
+            Route::get('search', 'Tenant\SearchController@index')->name('search.index');
+            Route::get('buscar', 'Tenant\SearchController@index');
+            Route::get('search/tables', 'Tenant\SearchController@tables');
+            Route::post('search', 'Tenant\SearchController@store');
+        });
 
+        // ── Impresión/descarga de documentos — auth O URL firmada ────────
+        // Los links por email/WhatsApp usan URL firmada; el panel usa auth
+        Route::middleware('auth.or.signed')->group(function () {
+            Route::get('downloads/{model}/{type}/{external_id}/{format?}', 'Tenant\DownloadController@downloadExternal')->name('tenant.download.external_id');
+            Route::get('print/{model}/{external_id}/{format}/{filename?}', 'Tenant\DownloadController@toPrint')->name('tenant.print');
+            Route::get('print/{model}/{external_id}/{format?}', 'Tenant\DownloadController@toPrint');
+            Route::get('printticket/{model}/{external_id}/{format?}', 'Tenant\DownloadController@toTicket')->where('external_id', '[0-9]+');
+            Route::get('sale-notes/print/{external_id}/{format?}', 'Tenant\SaleNoteController@toPrint')->name('tenant.salenote.print');
+            Route::get('sale-notes/ticket/{id}/{format?}', 'Tenant\SaleNoteController@toTicket')->where('id', '[0-9]+');
+            Route::get('purchases/print/{external_id}/{format?}', 'Tenant\PurchaseController@toPrint');
+            Route::get('quotations/print/{external_id}/{format?}', 'Tenant\QuotationController@toPrint');
+        });
 
+        // ── Rutas públicas legítimas (rate-limited) ─────────────────────
+        Route::get('/exchange_rate/ecommence/{date}', 'Tenant\Api\ServiceController@exchangeRateTest')
+             ->middleware('throttle:30,1');
 
-
-        Route::get('downloads/{model}/{type}/{external_id}/{format?}', 'Tenant\DownloadController@downloadExternal')->name('tenant.download.external_id');
-        Route::get('print/{model}/{external_id}/{format}/{filename?}', 'Tenant\DownloadController@toPrint');
-        Route::get('print/{model}/{external_id}/{format?}', 'Tenant\DownloadController@toPrint');
-        Route::get('printticket/{model}/{external_id}/{format?}', 'Tenant\DownloadController@toTicket')->where('external_id', '[0-9]+');
-        Route::get('/exchange_rate/ecommence/{date}', 'Tenant\Api\ServiceController@exchangeRateTest');
-
-        Route::get('sale-notes/print/{external_id}/{format?}', 'Tenant\SaleNoteController@toPrint');
-        Route::get('sale-notes/ticket/{id}/{format?}', 'Tenant\SaleNoteController@toTicket')->where('id', '[0-9]+');
-
-        // ── Tracking público de pedidos (sin auth) ─────────────────────────
+        // ── Tracking público de pedidos (sin auth, rate-limited) ────────
         Route::get('logistic/tracking', [\App\Http\Controllers\Tenant\Logistic\TrackingController::class, 'index'])
-             ->name('logistic.tracking');
-        Route::get('purchases/print/{external_id}/{format?}', 'Tenant\PurchaseController@toPrint');
-
-        Route::get('quotations/print/{external_id}/{format?}', 'Tenant\QuotationController@toPrint');
+             ->name('logistic.tracking')
+             ->middleware('throttle:20,1');
         // Route::get('/ecommerce/color-ecommerce', [\App\Http\Controllers\Tenant\ConfigurationController::class, 'getColorEcommerce']);
 
         Route::middleware(['auth', 'redirect.module', 'locked.tenant','check.email.verified'])->group(function () {
@@ -68,6 +74,62 @@ if ($hostname) {
             //Orders
             Route::get('orders', 'Tenant\OrderController@index')->name('tenant_orders_index');
             Route::get('orders/columns', 'Tenant\OrderController@columns');
+            Route::get('orders/stats', 'Tenant\OrderController@stats');
+            Route::get('orders/channels', 'Tenant\OrderController@channels');
+            Route::get('orders/channel-report', 'Tenant\OrderController@channelReport');
+            Route::post('orders/manual', 'Tenant\OrderController@storeManual');
+
+            // Reglas de descuento automático
+            Route::get('discount-rules',                'Tenant\DiscountRuleController@index')->name('tenant.discount_rules.index');
+            Route::get('discount-rules/records',        'Tenant\DiscountRuleController@records');
+            Route::get('discount-rules/tables',         'Tenant\DiscountRuleController@tables');
+            Route::post('discount-rules',               'Tenant\DiscountRuleController@store');
+            Route::delete('discount-rules/{id}',        'Tenant\DiscountRuleController@destroy');
+            Route::post('discount-rules/{id}/toggle',   'Tenant\DiscountRuleController@toggle');
+
+            // Product Reviews
+            Route::prefix('reviews')->group(function () {
+                Route::get('/', 'Tenant\ProductReviewController@index');
+                Route::post('/', 'Tenant\ProductReviewController@store');
+                Route::get('/product/{itemId}', 'Tenant\ProductReviewController@forProduct');
+                Route::post('/{id}/moderate', 'Tenant\ProductReviewController@moderate');
+            });
+
+            // Ecommerce Reports
+            Route::prefix('reports/ecommerce')->group(function () {
+                Route::get('/', 'Tenant\EcommerceReportController@index');
+                Route::get('/kpis', 'Tenant\EcommerceReportController@kpis');
+                Route::get('/daily-sales', 'Tenant\EcommerceReportController@dailySales');
+                Route::get('/top-products', 'Tenant\EcommerceReportController@topProducts');
+                Route::get('/channels', 'Tenant\EcommerceReportController@channelBreakdown');
+                Route::get('/abandoned-carts', 'Tenant\EcommerceReportController@abandonedCartAnalysis');
+                Route::get('/sales-by-hour', 'Tenant\EcommerceReportController@salesByHour');
+                Route::get('/customer-ltv', 'Tenant\EcommerceReportController@customerLtv');
+            });
+
+            // CEO Dashboard
+            Route::prefix('dashboard/ceo')->group(function () {
+                Route::get('/kpis', function () {
+                    return response()->json(app(\App\Services\Tenant\CeoDashboardService::class)->getStrategicKpis(request('establishment_id')));
+                });
+                Route::get('/cohorts', function () {
+                    return response()->json(app(\App\Services\Tenant\CeoDashboardService::class)->getCustomerCohorts());
+                });
+            });
+
+            // Recommendations
+            Route::prefix('recommendations')->group(function () {
+                Route::get('/fbt/{itemId}', function ($itemId) {
+                    return response()->json(app(\App\Services\Tenant\RecommendationService::class)->frequentlyBoughtTogether((int)$itemId));
+                });
+                Route::get('/category/{itemId}', function ($itemId) {
+                    return response()->json(app(\App\Services\Tenant\RecommendationService::class)->topInCategory((int)$itemId));
+                });
+                Route::get('/trending', function () {
+                    return response()->json(app(\App\Services\Tenant\RecommendationService::class)->trending());
+                });
+            });
+
             Route::get('orders/records', 'Tenant\OrderController@records');
             Route::get('orders/record/{order}', 'Tenant\OrderController@record');
             //Route::get('orders/print/{external_id}/{format?}', 'Tenant\OrderController@toPrint');
@@ -339,6 +401,7 @@ if ($hostname) {
             Route::post('items/enableMassive', 'Tenant\ItemController@enableMassive');
             Route::get('items/images/{item}', 'Tenant\ItemController@images');
             Route::get('items/images/delete/{id}', 'Tenant\ItemController@delete_images');
+            Route::get('items/without-image', 'Tenant\ItemController@withoutImage');
             Route::get('items/export', 'Tenant\ItemController@export')->name('tenant.items.export');
             Route::get('items/export/wp', 'Tenant\ItemController@exportWp')->name('tenant.items.export.wp');
             Route::get('items/export/digemid', 'Tenant\ItemController@exportDigemid');
@@ -356,6 +419,16 @@ if ($hostname) {
             Route::get('items/export/barcode/print_x', 'Tenant\ItemController@printBarCodeX')->name('tenant.items.export.barcode.print.x');
             Route::get('items/export/barcode/last', 'Tenant\ItemController@itemLast')->name('tenant.items.last');
             Route::post('get-items', 'Tenant\ItemController@getAllItems');
+
+            // Item Variants
+            Route::prefix('items/{item}/variants')->group(function () {
+                Route::get('/',                   [\App\Http\Controllers\Tenant\ItemVariantController::class, 'index']);
+                Route::post('/options',            [\App\Http\Controllers\Tenant\ItemVariantController::class, 'saveOptions']);
+                Route::post('/generate',           [\App\Http\Controllers\Tenant\ItemVariantController::class, 'generate']);
+                Route::patch('/{variant}',         [\App\Http\Controllers\Tenant\ItemVariantController::class, 'update']);
+                Route::delete('/{variant}',        [\App\Http\Controllers\Tenant\ItemVariantController::class, 'destroy']);
+                Route::post('/{variant}/stock',    [\App\Http\Controllers\Tenant\ItemVariantController::class, 'updateStock']);
+            });
 
             //Persons
             Route::prefix('persons')->group(function () {
@@ -386,6 +459,7 @@ if ($hostname) {
                 Route::get('/search/{barcode}', 'Tenant\PersonController@getPersonByBarcode');
                 Route::get('accumulated-points/{id}', 'Tenant\PersonController@getAccumulatedPoints');
                 Route::get('search-data/{type}', 'Tenant\PersonController@searchData');
+                Route::get('/{person}/history', 'Tenant\PersonController@history')->name('tenant.persons.history');
 
             });
 
@@ -919,10 +993,27 @@ if ($hostname) {
 
             Route::get('general-get-current-warehouse', 'Controller@generalGetCurrentWarehouse');
 
+            // ── Marketplace Integration ──
+            Route::prefix('marketplace')->group(function () {
+                Route::get('/channels', 'MarketplaceController@channels');
+                Route::post('/channels', 'MarketplaceController@storeChannel');
+                Route::put('/channels/{id}', 'MarketplaceController@updateChannel');
+                Route::get('/channels/{channelId}/products', 'MarketplaceController@products');
+                Route::post('/channels/{channelId}/auto-map', 'MarketplaceController@autoMapProducts');
+                Route::post('/products/map', 'MarketplaceController@mapProduct');
+                Route::post('/channels/{channelId}/sync/products', 'MarketplaceController@syncProducts');
+                Route::post('/channels/{channelId}/sync/stock', 'MarketplaceController@syncStock');
+                Route::post('/channels/{channelId}/fetch/orders', 'MarketplaceController@fetchOrders');
+                Route::post('/channels/{channelId}/generate-feed', 'MarketplaceController@generateFeed');
+                Route::get('/orders', 'MarketplaceController@orders');
+                Route::get('/logs', 'MarketplaceController@logs');
+            });
+
             // test theme
             // Route::get('testtheme', function () {
             //     return view('tenant.layouts.partials.testtheme');
             // });
+
 
         });
     });
@@ -935,6 +1026,18 @@ if ($hostname) {
         Route::get('login', 'System\LoginController@showLoginForm')->name('login');
         Route::post('login', 'System\LoginController@login')->middleware('throttle:10,1');
         Route::post('logout', 'System\LoginController@logout')->name('logout');
+
+        // ── 2FA — verificación durante login (sin auth) ──────────────────────
+        Route::get('2fa/verify',  'System\TwoFactorController@showVerify')->name('system.2fa.verify');
+        Route::post('2fa/verify', 'System\TwoFactorController@verify')->middleware('throttle:5,1');
+
+        // ── 2FA — setup y gestión (requiere auth admin) ──────────────────────
+        Route::middleware(['auth:admin'])->group(function () {
+            Route::get('2fa/setup',    'System\TwoFactorController@showSetup')->name('system.2fa.setup');
+            Route::post('2fa/enable',  'System\TwoFactorController@enable')->name('system.2fa.enable');
+            Route::post('2fa/disable', 'System\TwoFactorController@disable')->name('system.2fa.disable');
+        });
+
         Route::get('phone', 'System\UserController@getPhone');
         
         //guest-Register
@@ -983,6 +1086,8 @@ if ($hostname) {
             Route::post('clients/update', 'System\ClientController@update');
             Route::get('clients/search', 'System\ClientController@search');
 
+            Route::get('clients/{client}/domains-panel', 'System\ClientController@domains')->name('system.client.domains');
+
             Route::delete('clients/{client}/{input_validate}', 'System\ClientController@destroy');
             // Route::delete('clients/{client}', 'System\ClientController@destroy');
 
@@ -1020,6 +1125,27 @@ if ($hostname) {
             Route::get('plans/record/{plan}', 'System\PlanController@record');
             Route::post('plans', 'System\PlanController@store');
             Route::delete('plans/{plan}', 'System\PlanController@destroy');
+            Route::get('plans/{plan}/features',  'System\PlanController@features');
+            Route::post('plans/{plan}/features', 'System\PlanController@syncFeatures');
+
+            // Themes
+            Route::get('themes', 'System\ThemeController@index')->name('system.themes.index');
+            Route::get('themes/records', 'System\ThemeController@records');
+            Route::get('themes/available', 'System\ThemeController@available');
+            Route::post('themes', 'System\ThemeController@store');
+            Route::post('themes/toggle/{id}', 'System\ThemeController@toggleStatus');
+            Route::delete('themes/{id}', 'System\ThemeController@destroy');
+            Route::post('themes/{id}/install', 'System\ThemeController@installForClient');
+
+            // Dominios de clientes
+            Route::get('clients/{client}/domains', 'System\ClientDomainController@index');
+            Route::post('clients/{client}/domains', 'System\ClientDomainController@store');
+            Route::post('domains/{verification}/verify', 'System\ClientDomainController@verify');
+            Route::get('domains/{verification}/instructions', 'System\ClientDomainController@getVerificationInstructions');
+            Route::post('hostnames/{hostname}/set-primary', 'System\ClientDomainController@setPrimary');
+            Route::post('hostnames/{hostname}/toggle-redirect', 'System\ClientDomainController@toggleRedirect');
+            Route::post('hostnames/{hostname}/change-subdomain', 'System\ClientDomainController@changeSubdomain');
+            Route::delete('hostnames/{hostname}', 'System\ClientDomainController@destroy');
 
             //Pagos
             Route::get('payment-orders', 'System\PaymentOrderController@index')->name('system.payments.index');
@@ -1095,6 +1221,15 @@ if ($hostname) {
             Route::post('configurations/qrapi', 'System\ConfigurationController@qrapi');
 
             Route::get('configurations/update-tenant-discount-type-base', 'System\ConfigurationController@updateTenantDiscountTypeBase');
+
+            // ── Analytics (Data Warehouse) ─────────────────────────────────────
+            Route::get('analytics', 'System\WarehouseAnalyticsController@index')->name('system.analytics');
+            Route::get('analytics/global-kpis',        'System\WarehouseAnalyticsController@globalKpis');
+            Route::get('analytics/daily-sales',        'System\WarehouseAnalyticsController@dailySales');
+            Route::get('analytics/top-tenants',        'System\WarehouseAnalyticsController@topTenants');
+            Route::get('analytics/by-doc-type',        'System\WarehouseAnalyticsController@byDocType');
+            Route::get('analytics/plan-distribution',  'System\WarehouseAnalyticsController@planDistribution');
+            Route::get('analytics/etl-log',            'System\WarehouseAnalyticsController@etlLog');
 
             // backup
             Route::get('backup', 'System\BackupController@index')->name('system.backup');

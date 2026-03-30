@@ -37,6 +37,9 @@
 
             /** @var User $user */
             $user = $request->user();
+            if (!$user) {
+                return redirect()->route('login');
+            }
             $level = $user->getLevel();
             $path = explode('/', $request->path());
             $levels = $user->getLevels();

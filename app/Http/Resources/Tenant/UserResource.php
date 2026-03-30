@@ -30,7 +30,6 @@ class UserResource extends JsonResource {
             'id'               => $this->id,
             'email'            => $this->email,
             'name'             => $this->name,
-            'api_token'        => $this->api_token,
             'establishment_id' => $this->establishment_id,
             'type'             => $this->type,
             'zone_id'             => $this->zone_id,
@@ -72,6 +71,7 @@ class UserResource extends JsonResource {
             'permission_edit_item_prices' => $this->permission_edit_item_prices,
             'restaurant_pin' => $this->restaurant_pin,
             'restaurant_role_id' => $this->restaurant_role_id,
+            'warehouse_id' => $this->warehouse_id,
         ];
     }
 }

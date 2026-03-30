@@ -62,6 +62,21 @@ class DashboardUtility
     private function utilities_totals($establishment_id, $d_start, $d_end, $enabled_expense, $item_id){
 
 
+        // Eager loads comunes para evitar N+1 en getPurchaseUnitPrice y getQuantityUnitPresentation
+        $itemEagerLoads = [
+            'document:id,currency_type_id,document_type_id,exchange_rate_sale',
+            'item:id,unit_type_id,purchase_unit_price',
+            'item.presentation:id,item_id,quantity_unit',
+            'relation_item:id,purchase_unit_price,unit_type_id',
+        ];
+
+        $saleNoteEagerLoads = [
+            'sale_note:id,currency_type_id,exchange_rate_sale',
+            'item:id,unit_type_id,purchase_unit_price',
+            'item.presentation:id,item_id,quantity_unit',
+            'relation_item:id,purchase_unit_price,unit_type_id',
+        ];
+
         if($d_start && $d_end){
 
             $document_items = DocumentItem::without(['affectation_igv_type', 'system_isc_type', 'price_type'])
@@ -71,6 +86,7 @@ class DashboardUtility
                                                         ->whereBetween('date_of_issue', [$d_start, $d_end])
                                                         ->whereIn('document_type_id', ['01','03','08']);
                                             })
+                                            ->with($itemEagerLoads)
                                             ->get();
 
 
@@ -81,11 +97,12 @@ class DashboardUtility
                                                         ->whereIn('state_type_id', ['01','03','05','07','13'])
                                                         ->whereBetween('date_of_issue', [$d_start, $d_end]);
                                             })
+                                            ->with($saleNoteEagerLoads)
                                             ->get();
 
             $expenses = ($enabled_expense) ? Expense::where('establishment_id', $establishment_id)
                                             ->whereBetween('date_of_issue', [$d_start, $d_end])
-                                            ->where('state_type_id', '!=', '11')  
+                                            ->where('state_type_id', '!=', '11')
                                             ->get() : null;
 
 
@@ -95,6 +112,7 @@ class DashboardUtility
                                                 $query->where('establishment_id', $establishment_id)
                                                         ->whereIn('state_type_id', ['01','03','05','07','13']);
                                             })
+                                            ->with($itemEagerLoads)
                                             ->get();
 
 
@@ -104,6 +122,7 @@ class DashboardUtility
                                                 $query->where([['establishment_id', $establishment_id],['changed',false]])
                                                         ->whereIn('state_type_id', ['01','03','05','07','13']);
                                             })
+                                            ->with($saleNoteEagerLoads)
                                             ->get();
 
 
@@ -202,7 +221,7 @@ class DashboardUtility
     /**
      * 
      * Obtener total de descuentos globales de nota de venta
-     * @TODO revisar total descuento cuando afecta a la BI
+     * Nota: El descuento global de NV no afecta la BI (base imponible) del IGV; solo reduce el total neto.
      * 
      * @param $establishment_id
      * @param $d_start
@@ -302,14 +321,13 @@ class DashboardUtility
         $document_purchase_total_usd = 0;
         $document_utility_total_usd = 0;
 
-        $documentsIds = $document_items->pluck('document_id')->all();
-        // Obteniendo todos los documentos de los items q recibe la función
-        $documents = Document::without(['user', 'soap_type', 'state_type', 'document_type', 'currency_type', 'group', 'items', 'invoice', 'note', 'payments'])
-            ->whereIn('id', $documentsIds)
-            ->select('id', 'total', 'document_type_id', 'currency_type_id')
-            ->get();
+        // Construir mapa id->document desde la relación ya eager-loaded en cada item
+        // (evita la query separada a Document y el N+1 de $doc_it->document en el loop)
+        $documentsMap = $document_items->map(fn($di) => $di->document)
+                                       ->filter()
+                                       ->keyBy('id');
 
-        foreach ($documents as $doc) {
+        foreach ($documentsMap as $doc) {
             if($doc->currency_type_id === 'PEN'){
                 if(in_array($doc->document_type_id,['01','03','08'])){
                     $document_sale_total_pen += $doc->total;
@@ -325,32 +343,28 @@ class DashboardUtility
             }
         }
 
-        foreach ($document_items as $doc_it) 
+        foreach ($document_items as $doc_it)
         {
+            $doc = $documentsMap->get($doc_it->document_id);
+            if (!$doc) continue;
+
             $purchase_unit_price = $this->getPurchaseUnitPrice($doc_it);
 
             $presentation_quantity = $this->getQuantityUnitPresentation($doc_it);
 
             $doc_total_purchase = $purchase_unit_price * ($doc_it->quantity * $presentation_quantity);
-            
-            // $doc_total_purchase = $purchase_unit_price * $doc_it->quantity;
 
-            if($doc_it->document->currency_type_id === 'PEN'){
-                if(in_array($doc_it->document->document_type_id,['01','03','08'])){
+            if($doc->currency_type_id === 'PEN'){
+                if(in_array($doc->document_type_id,['01','03','08'])){
                     $document_purchase_total_pen += $doc_total_purchase;
-                    // $document_sale_total_pen += $doc_it->total;
                 }else{
                     $document_purchase_total_pen -= $doc_total_purchase;
-                    // $document_sale_total_pen -= $doc_it->total;
                 }
             } else {
-                if(in_array($doc_it->document->document_type_id,['01','03','08'])){
+                if(in_array($doc->document_type_id,['01','03','08'])){
                     $document_purchase_total_usd += $doc_total_purchase;
-                    // $document_sale_total_usd += $doc_it->total * $doc_it->document->exchange_rate_sale;
                 }else{
-
                     $document_purchase_total_usd -= $doc_total_purchase;
-                    // $document_sale_total_usd -= $doc_it->total * $doc_it->document->exchange_rate_sale;
                 }
             }
         }

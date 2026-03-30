@@ -4,6 +4,7 @@ namespace App\Models\Tenant;
 
 use App\Enums\StockMovementTypeEnum;
 use Illuminate\Support\Facades\Config;
+use Illuminate\Support\Facades\Log;
 
 class ItemWarehouse extends ModelTenant
 {
@@ -15,6 +16,12 @@ class ItemWarehouse extends ModelTenant
         'stock',
         'stock_physical',
         'stock_committed',
+    ];
+
+    protected $casts = [
+        'stock' => 'float',
+        'item_id' => 'int',
+        'warehouse_id' => 'int',
     ];
 
     protected $appends = ['stock_available'];
@@ -47,6 +54,26 @@ class ItemWarehouse extends ModelTenant
     {
         $physicalDelta   = $type->physicalDelta($qty);
         $committedDelta  = $type->committedDelta($qty);
+
+        if ($this->stock_physical + $physicalDelta < 0) {
+            Log::warning('Stock would go negative', [
+                'item_id' => $this->item_id,
+                'warehouse_id' => $this->warehouse_id,
+                'current_physical' => $this->stock_physical,
+                'delta' => $physicalDelta,
+                'type' => $type->value,
+            ]);
+        }
+
+        if ($this->stock_committed + $committedDelta < 0) {
+            Log::warning('Stock committed would go negative', [
+                'item_id' => $this->item_id,
+                'warehouse_id' => $this->warehouse_id,
+                'current_committed' => $this->stock_committed,
+                'delta' => $committedDelta,
+                'type' => $type->value,
+            ]);
+        }
 
         $this->stock_physical  = max(0, $this->stock_physical  + $physicalDelta);
         $this->stock_committed = max(0, $this->stock_committed + $committedDelta);

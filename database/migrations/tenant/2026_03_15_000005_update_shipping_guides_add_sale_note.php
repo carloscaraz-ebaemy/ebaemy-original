@@ -8,14 +8,24 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::table('logistic_shipping_guides', function (Blueprint $table) {
-            // Desvincular la FK para poder hacerla nullable
-            $table->dropForeign(['logistic_order_id']);
-            $table->unsignedBigInteger('logistic_order_id')->nullable()->change();
+        // Drop FK solo si existe (llamada separada para capturar error a nivel PHP)
+        try {
+            Schema::table('logistic_shipping_guides', function (Blueprint $table) {
+                $table->dropForeign(['logistic_order_id']);
+            });
+        } catch (\Throwable $e) {
+            // La FK ya no existe o nunca se creó — ignorar
+        }
 
-            // Nuevo vínculo directo con SaleNote
-            $table->unsignedBigInteger('sale_note_id')->nullable()->after('logistic_order_id')->index();
+        Schema::table('logistic_shipping_guides', function (Blueprint $table) {
+            $table->unsignedBigInteger('logistic_order_id')->nullable()->change();
         });
+
+        if (!Schema::hasColumn('logistic_shipping_guides', 'sale_note_id')) {
+            Schema::table('logistic_shipping_guides', function (Blueprint $table) {
+                $table->unsignedBigInteger('sale_note_id')->nullable()->after('logistic_order_id')->index();
+            });
+        }
     }
 
     public function down(): void

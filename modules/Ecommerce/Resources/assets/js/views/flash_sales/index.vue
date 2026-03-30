@@ -185,7 +185,7 @@ export default {
     methods: {
         load() {
             this.loading = true;
-            axios.get('/ecommerce/flash-sales/records')
+            this.$http.get('/ecommerce/flash-sales/records')
                 .then(r => { this.sales = r.data.data; })
                 .finally(() => { this.loading = false; });
         },
@@ -225,8 +225,8 @@ export default {
                     items: this.form.items.map(i => ({ id: i.id, flash_price: i.flash_price }))
                 };
                 const req = this.form.id
-                    ? axios.put('/ecommerce/flash-sales/' + this.form.id, payload)
-                    : axios.post('/ecommerce/flash-sales', payload);
+                    ? this.$http.put('/ecommerce/flash-sales/' + this.form.id, payload)
+                    : this.$http.post('/ecommerce/flash-sales', payload);
 
                 req.then(r => {
                     this.$message.success(r.data.message || 'Guardado');
@@ -240,7 +240,7 @@ export default {
             });
         },
         toggleActive(row) {
-            axios.put('/ecommerce/flash-sales/' + row.id, {
+            this.$http.put('/ecommerce/flash-sales/' + row.id, {
                 title: row.title,
                 ends_at: row.ends_at,
                 active: row.active
@@ -249,7 +249,7 @@ export default {
         remove(row) {
             this.$confirm('¿Eliminar "' + row.title + '"?', 'Confirmar', { type: 'warning' })
                 .then(() => {
-                    axios.delete('/ecommerce/flash-sales/' + row.id)
+                    this.$http.delete('/ecommerce/flash-sales/' + row.id)
                         .then(r => {
                             this.$message.success(r.data.message || 'Eliminada');
                             this.load();
@@ -259,7 +259,7 @@ export default {
         searchItems(query, cb) {
             if (!query || query.length < 2) { cb([]); return; }
             if (this._allItems) { cb(this._filterItems(query)); return; }
-            axios.get('/ecommerce/items_bar')
+            this.$http.get('/ecommerce/items_bar')
                 .then(r => {
                     this._allItems = Array.isArray(r.data) ? r.data : (r.data.data || []);
                     cb(this._filterItems(query));

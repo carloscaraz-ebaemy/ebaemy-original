@@ -43,144 +43,273 @@
     </div>
 </div>
 
-<div class="row" id="app" style="margin-top:20px;">
+<div class="row checkout-container" id="app" style="margin-top:20px;">
 
-    {{-- ══ LEFT: FORMULARIOS ══ --}}
+    {{-- ══ LEFT: FORMULARIOS POR PASOS ══ --}}
     <div class="col-lg-7">
 
-        {{-- Datos de contacto --}}
-        <div class="ec-checkout-card">
+        {{-- Progress bar visual --}}
+        <div class="ec-progress-bar">
+            <div class="ec-progress-step" :class="{ 'ec-progress-step--active': step >= 1, 'ec-progress-step--done': step > 1 }" @click="goToStep(1)">
+                <span class="ec-progress-num">1</span>
+                <span class="ec-progress-label">Contacto</span>
+            </div>
+            <div class="ec-progress-line" :class="{ 'ec-progress-line--done': step > 1 }"></div>
+            <div class="ec-progress-step" :class="{ 'ec-progress-step--active': step >= 2, 'ec-progress-step--done': step > 2 }" @click="step > 1 ? goToStep(2) : null">
+                <span class="ec-progress-num">2</span>
+                <span class="ec-progress-label">Entrega</span>
+            </div>
+            <div class="ec-progress-line" :class="{ 'ec-progress-line--done': step > 2 }"></div>
+            <div class="ec-progress-step" :class="{ 'ec-progress-step--active': step >= 3, 'ec-progress-step--done': step > 3 }" @click="step > 2 ? goToStep(3) : null">
+                <span class="ec-progress-num">3</span>
+                <span class="ec-progress-label">Comprobante</span>
+            </div>
+            <div class="ec-progress-line" :class="{ 'ec-progress-line--done': step > 3 }"></div>
+            <div class="ec-progress-step" :class="{ 'ec-progress-step--active': step >= 4 }">
+                <span class="ec-progress-num">4</span>
+                <span class="ec-progress-label">Pago</span>
+            </div>
+        </div>
+
+        {{-- ═══ PASO 1: CONTACTO ═══ --}}
+        <div class="ec-checkout-card" v-show="step === 1">
             <div class="ec-checkout-card__header">
-                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 1 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
-                <span>Datos de contacto y envío</span>
+                <span class="ec-checkout-step-num">1</span>
+                <span>Contacto</span>
             </div>
             <form autocomplete="off" action="#" class="ec-checkout-form">
-
-                {{-- Email — solo visible para invitados --}}
                 @guest('ecommerce')
-                <div class="ec-field ec-guest-notice" :class="{'ec-field--error': errors.guest_email}">
-                    <label>
-                        Correo electrónico
-                        <span class="ec-field-badge-guest">Invitado</span>
-                    </label>
-                    <div class="ec-field__input-wrap">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0 1.1.9 2 2 2z"/><polyline points="22,6 12,12 2,6"/></svg>
-                        <input v-model="guest_email" type="email" autocomplete="email" class="ec-field__input" placeholder="tu@correo.com — para tu confirmación">
+                <div class="row">
+                    <div class="col-md-7">
+                        <div class="ec-field ec-guest-notice" :class="{'ec-field--error': errors.guest_email}">
+                            <label>Correo electrónico <span class="ec-field-badge-guest">Invitado</span></label>
+                            <input v-model="guest_email" type="email" autocomplete="email" class="ec-field__input" placeholder="tu@correo.com">
+                            <small class="ec-field__error" v-if="errors.guest_email">@{{ errors.guest_email }}</small>
+                            <p class="ec-guest-login-hint">¿Ya tienes cuenta? <a href="{{ route('tenant_ecommerce_login') }}">Inicia sesión</a></p>
+                        </div>
                     </div>
-                    <small class="ec-field__error" v-if="errors.guest_email">@{{ errors.guest_email }}</small>
-                    <p class="ec-guest-login-hint">
-                        ¿Ya tienes cuenta?
-                        <a href="{{ route('tenant_ecommerce_login') }}">Inicia sesión</a>
-                        para ver tu historial de pedidos.
-                    </p>
+                    <div class="col-md-5">
+                        <div class="ec-field" :class="{'ec-field--error': errors.telefono}">
+                            <label>Teléfono</label>
+                            <input v-model="form_contact.telephone" type="tel" autocomplete="tel" class="ec-field__input" placeholder="987 654 321">
+                            <small class="ec-field__error" v-if="errors.telefono" v-text="errors.telefono[0]"></small>
+                        </div>
+                    </div>
+                </div>
+                @else
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="ec-field" :class="{'ec-field--error': errors.telefono}">
+                            <label>Teléfono</label>
+                            <input v-model="form_contact.telephone" type="tel" autocomplete="tel" class="ec-field__input" placeholder="987 654 321">
+                            <small class="ec-field__error" v-if="errors.telefono" v-text="errors.telefono[0]"></small>
+                        </div>
+                    </div>
                 </div>
                 @endguest
-
-                <div class="ec-field" :class="{'ec-field--error': errors.telefono}">
-                    <label>Teléfono</label>
-                    <div class="ec-field__input-wrap">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.62 3.22 2 2 0 0 1 3.62 1h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.09a16 16 0 0 0 6 6l.96-.96a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 21.73 15z"/></svg>
-                        <input v-model="form_contact.telephone" type="text" autocomplete="off" class="ec-field__input" placeholder="Ej: 987 654 321">
-                    </div>
-                    <small class="ec-field__error" v-if="errors.telefono" v-text="errors.telefono[0]"></small>
-                </div>
-                {{-- Ubigeo: Departamento → Provincia → Distrito --}}
-                <div class="ec-ubigeo-row">
-                    <div class="ec-field" :class="{'ec-field--error': errors.department_id}">
-                        <label>Departamento</label>
-                        <div class="ec-field__input-wrap">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
-                            <select v-model="ubigeo.department_id" class="ec-field__select" @change="loadProvinces">
-                                <option value="">Departamento</option>
-                                <option v-for="d in ubigeo.departments" :key="d.id" :value="d.id">@{{ d.description }}</option>
-                            </select>
-                        </div>
-                    </div>
-                    <div class="ec-field" :class="{'ec-field--error': errors.province_id}">
-                        <label>Provincia</label>
-                        <div class="ec-field__input-wrap">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
-                            <select v-model="ubigeo.province_id" class="ec-field__select" @change="loadDistricts" :disabled="!ubigeo.provinces.length">
-                                <option value="">Provincia</option>
-                                <option v-for="p in ubigeo.provinces" :key="p.id" :value="p.id">@{{ p.description }}</option>
-                            </select>
-                        </div>
-                    </div>
-                    <div class="ec-field" :class="{'ec-field--error': errors.district_id}">
-                        <label>Distrito <span style="color:#ef4444;font-size:1.1rem">*</span></label>
-                        <div class="ec-field__input-wrap">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
-                            <select v-model="ubigeo.district_id" class="ec-field__select" :disabled="!ubigeo.districts.length">
-                                <option value="">Distrito</option>
-                                <option v-for="d in ubigeo.districts" :key="d.id" :value="d.id">@{{ d.description }}</option>
-                            </select>
-                        </div>
-                        <small class="ec-field__error" v-if="errors.district_id">Selecciona tu distrito.</small>
-                    </div>
-                </div>
-
-                <div class="ec-field" :class="{'ec-field--error': errors.address}">
-                    <label>Dirección de envío</label>
-                    <div class="ec-field__input-wrap">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" stroke-width="2" style="align-self:flex-start;margin-top:10px"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
-                        <textarea v-model="form_contact.address" class="ec-field__input ec-field__textarea" placeholder="Calle, número, referencia..." rows="2"></textarea>
-                    </div>
-                    <small class="ec-field__error" v-if="errors.address" v-text="errors.address[0]"></small>
+                <div class="ec-step-nav">
+                    <a href="{{ route('tenant_detail_cart') }}" class="ec-step-btn ec-step-btn--back">← Volver al carrito</a>
+                    <button type="button" class="ec-step-btn ec-step-btn--next" @click="nextStep(1)">Continuar a Entrega →</button>
                 </div>
             </form>
         </div>
 
-        {{-- Datos de facturación --}}
-        <div class="ec-checkout-card">
+        {{-- Resumen paso 1 (colapsado cuando paso > 1) --}}
+        <div class="ec-step-summary" v-show="step > 1" @click="goToStep(1)">
+            <span class="ec-step-summary__num">1</span>
+            <div class="ec-step-summary__info">
+                <strong>Contacto</strong>
+                <span>@{{ guest_email || (user && user.email ? user.email : '') }} · @{{ form_contact.telephone || 'Sin teléfono' }}</span>
+            </div>
+            <span class="ec-step-summary__edit">Editar</span>
+        </div>
+
+        {{-- ═══ PASO 2: ENTREGA ═══ --}}
+        <div class="ec-checkout-card" v-show="step === 2">
             <div class="ec-checkout-card__header">
-                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
-                <span>Datos de facturación</span>
+                <span class="ec-checkout-step-num">2</span>
+                <span>Entrega</span>
             </div>
             <div class="ec-checkout-form">
-                <div class="ec-field" :class="{'ec-field--error': errors.codigo_tipo_documento}">
-                    <label>Tipo de comprobante</label>
-                    <div class="ec-field__input-wrap">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
-                        <select v-model="form_document.codigo_tipo_documento" class="ec-field__select" @change="optionDocument">
-                            <option value="" disabled>Seleccionar comprobante</option>
-                            <option value="01">Factura</option>
-                            <option value="03">Boleta de venta</option>
-                            <option value="80">Nota de venta</option>
-                        </select>
+
+                {{-- Tipo de entrega --}}
+                <div class="ec-field" style="margin-bottom:16px">
+                    <label>¿Cómo deseas recibir tu pedido?</label>
+                    <div class="ec-delivery-options">
+                        <label class="ec-delivery-opt" :class="{ 'ec-delivery-opt--active': deliveryType === 'delivery' }" @click="deliveryType = 'delivery'">
+                            <span class="ec-delivery-opt__icon">🚚</span>
+                            <span class="ec-delivery-opt__text">
+                                <strong>Envío a domicilio</strong>
+                                <small>Lima y provincias</small>
+                            </span>
+                        </label>
+                        <label class="ec-delivery-opt" :class="{ 'ec-delivery-opt--active': deliveryType === 'pickup' }" @click="deliveryType = 'pickup'">
+                            <span class="ec-delivery-opt__icon">🏪</span>
+                            <span class="ec-delivery-opt__text">
+                                <strong>Recojo en tienda</strong>
+                                <small>Gratis — sin costo de envío</small>
+                            </span>
+                        </label>
                     </div>
-                    <small class="ec-field__error" v-if="errors.codigo_tipo_documento">El campo comprobante es obligatorio.</small>
                 </div>
-                <div class="ec-field" :class="{'ec-field--error': errors.codigo_tipo_documento_identidad}">
-                    <label>Tipo de documento</label>
-                    <div class="ec-field__input-wrap">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
-                        <select v-model="typeDocuments" class="ec-field__select">
-                            <option value="" disabled>Seleccionar documento</option>
-                            <option v-for="item in typeDocumentList" :value="item.id">@{{ item.name }}</option>
-                        </select>
+
+                {{-- Dirección (solo si envío a domicilio) --}}
+                <template v-if="deliveryType === 'delivery'">
+                    <div class="ec-field" style="margin-bottom:14px">
+                        <label>Buscar ubicación</label>
+                        <div style="position:relative">
+                            <input type="text" id="ubigeo-search" class="ec-field__input" placeholder="Escribe tu distrito, ej: Miraflores" autocomplete="off" style="padding-left:36px">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" stroke-width="2" style="position:absolute;left:12px;top:50%;transform:translateY(-50%)"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                        </div>
                     </div>
-                    <small class="ec-field__error" v-if="errors.codigo_tipo_documento_identidad" v-text="errors.codigo_tipo_documento_identidad[0]"></small>
-                </div>
-                <div class="ec-field" :class="{'ec-field--error': errors.numero_documento}">
-                    <label>Número de documento</label>
-                    <div class="ec-field__input-wrap">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" stroke-width="2"><rect x="3" y="4" width="18" height="16" rx="2"/><line x1="7" y1="9" x2="17" y2="9"/><line x1="7" y1="13" x2="17" y2="13"/><line x1="7" y1="17" x2="12" y2="17"/></svg>
-                        <input v-model="numberDocument" :maxlength="maxLength" type="text" class="ec-field__input" placeholder="Ingrese número">
+
+                    <div class="row">
+                        <div class="col-md-4">
+                            <div class="ec-field" :class="{'ec-field--error': errors.department_id}">
+                                <label>Departamento</label>
+                                <select v-model="ubigeo.department_id" class="ec-field__select ec-field__input" @change="loadProvinces">
+                                    <option value="">Seleccionar</option>
+                                    <option v-for="d in ubigeo.departments" :key="d.id" :value="d.id">@{{ d.description }}</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="ec-field" :class="{'ec-field--error': errors.province_id}">
+                                <label>Provincia</label>
+                                <select v-model="ubigeo.province_id" class="ec-field__select ec-field__input" @change="loadDistricts" :disabled="!ubigeo.provinces.length">
+                                    <option value="">Seleccionar</option>
+                                    <option v-for="p in ubigeo.provinces" :key="p.id" :value="p.id">@{{ p.description }}</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="ec-field" :class="{'ec-field--error': errors.district_id}">
+                                <label>Distrito <span style="color:#ef4444">*</span></label>
+                                <select v-model="ubigeo.district_id" class="ec-field__select ec-field__input" :disabled="!ubigeo.districts.length">
+                                    <option value="">Seleccionar</option>
+                                    <option v-for="d in ubigeo.districts" :key="d.id" :value="d.id">@{{ d.description }}</option>
+                                </select>
+                                <small class="ec-field__error" v-if="errors.district_id">Selecciona tu distrito.</small>
+                            </div>
+                        </div>
                     </div>
-                    <small class="ec-field__error" v-if="errors.numero_documento" v-text="errors.numero_documento[0]"></small>
+
+                    <div class="ec-field" :class="{'ec-field--error': errors.address}">
+                        <label>Dirección completa</label>
+                        <textarea v-model="form_contact.address" class="ec-field__input" placeholder="Calle, número, urbanización, referencia..." rows="2" style="resize:vertical"></textarea>
+                        <small class="ec-field__error" v-if="errors.address" v-text="errors.address[0]"></small>
+                    </div>
+                </template>
+
+                {{-- Recojo en tienda --}}
+                <template v-if="deliveryType === 'pickup'">
+                    <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:14px 16px;display:flex;gap:10px;align-items:flex-start">
+                        <span style="font-size:20px">📍</span>
+                        <div>
+                            <strong style="color:#166534">Dirección de recojo</strong>
+                            <p style="margin:4px 0 0;color:#374151;font-size:13px">{{ $information->information_contact_address ?? 'Consultar dirección en tienda' }}</p>
+                            <p style="margin:4px 0 0;color:#6b7280;font-size:12px">Horario: Lunes a Sábado 9:00am - 6:00pm</p>
+                        </div>
+                    </div>
+                </template>
+
+                <div class="ec-step-nav">
+                    <button type="button" class="ec-step-btn ec-step-btn--back" @click="goToStep(1)">← Contacto</button>
+                    <button type="button" class="ec-step-btn ec-step-btn--next" @click="nextStep(2)">Continuar a Comprobante →</button>
                 </div>
             </div>
         </div>
 
-        {{-- Link volver al carrito --}}
-        <a href="{{ route('tenant_detail_cart') }}" class="ec-btn-ghost" style="margin-bottom:20px;display:inline-flex;">
-            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
-            Volver al carrito
-        </a>
+        {{-- Resumen paso 2 (colapsado) --}}
+        <div class="ec-step-summary" v-show="step > 2" @click="goToStep(2)">
+            <span class="ec-step-summary__num">2</span>
+            <div class="ec-step-summary__info">
+                <strong>Entrega</strong>
+                <span>@{{ deliveryType === 'pickup' ? 'Recojo en tienda' : (form_contact.address || 'Sin dirección') }}</span>
+            </div>
+            <span class="ec-step-summary__edit">Editar</span>
+        </div>
+
+        {{-- ═══ PASO 3: COMPROBANTE ═══ --}}
+        <div class="ec-checkout-card" v-show="step === 3">
+            <div class="ec-checkout-card__header">
+                <span class="ec-checkout-step-num">3</span>
+                <span>Comprobante</span>
+            </div>
+            <div class="ec-checkout-form">
+                <div class="row">
+                    <div class="col-md-5">
+                        <div class="ec-field" :class="{'ec-field--error': errors.codigo_tipo_documento}">
+                            <label>Tipo de comprobante</label>
+                            <select v-model="form_document.codigo_tipo_documento" class="ec-field__select ec-field__input" @change="optionDocument">
+                                <option value="" disabled>Seleccionar</option>
+                                <option value="01">Factura</option>
+                                <option value="03">Boleta de venta</option>
+                                <option value="80">Nota de venta</option>
+                            </select>
+                            <small class="ec-field__error" v-if="errors.codigo_tipo_documento">Obligatorio</small>
+                        </div>
+                    </div>
+                </div>
+
+                {{-- Campos dinámicos según tipo de comprobante --}}
+                <div class="row">
+                    <div class="col-md-4">
+                        <div class="ec-field" :class="{'ec-field--error': errors.codigo_tipo_documento_identidad}">
+                            <label>@{{ form_document.codigo_tipo_documento === '01' ? 'RUC' : 'Tipo documento' }}</label>
+                            <select v-model="typeDocuments" class="ec-field__select ec-field__input">
+                                <option value="" disabled>Seleccionar</option>
+                                <option v-for="item in typeDocumentList" :value="item.id">@{{ item.name }}</option>
+                            </select>
+                            <small class="ec-field__error" v-if="errors.codigo_tipo_documento_identidad" v-text="errors.codigo_tipo_documento_identidad[0]"></small>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="ec-field" :class="{'ec-field--error': errors.numero_documento}">
+                            <label>Nro. documento</label>
+                            <input v-model="numberDocument" :maxlength="maxLength" type="text" class="ec-field__input" :placeholder="form_document.codigo_tipo_documento === '01' ? '20123456789' : '12345678'">
+                            <small class="ec-field__error" v-if="errors.numero_documento" v-text="errors.numero_documento[0]"></small>
+                        </div>
+                    </div>
+                    {{-- Razón social / Nombre (visible para Factura) --}}
+                    <div class="col-md-4" v-if="form_document.codigo_tipo_documento === '01'">
+                        <div class="ec-field">
+                            <label>Razón social</label>
+                            <input v-model="form_document.razon_social" type="text" class="ec-field__input" placeholder="Empresa S.A.C.">
+                        </div>
+                    </div>
+                </div>
+
+                {{-- Dirección fiscal (solo Factura) --}}
+                <div class="row" v-if="form_document.codigo_tipo_documento === '01'">
+                    <div class="col-md-12">
+                        <div class="ec-field">
+                            <label>Dirección fiscal</label>
+                            <input v-model="form_document.direccion_fiscal" type="text" class="ec-field__input" placeholder="Av. Principal 123, Lima">
+                        </div>
+                    </div>
+                </div>
+                <div class="ec-step-nav">
+                    <button type="button" class="ec-step-btn ec-step-btn--back" @click="goToStep(2)">← Entrega</button>
+                    <button type="button" class="ec-step-btn ec-step-btn--next" @click="nextStep(3)">Continuar al Pago →</button>
+                </div>
+            </div>
+        </div>
+
+        {{-- Resumen paso 3 (colapsado) --}}
+        <div class="ec-step-summary" v-show="step > 3" @click="goToStep(3)">
+            <span class="ec-step-summary__num">3</span>
+            <div class="ec-step-summary__info">
+                <strong>Comprobante</strong>
+                <span>@{{ form_document.codigo_tipo_documento === '01' ? 'Factura' : (form_document.codigo_tipo_documento === '03' ? 'Boleta' : 'Nota de venta') }} · @{{ numberDocument || 'Sin documento' }}</span>
+            </div>
+            <span class="ec-step-summary__edit">Editar</span>
+        </div>
+
     </div>
 
-    {{-- ══ RIGHT: RESUMEN + PAGO ══ --}}
-    <div class="col-lg-5">
+    {{-- ══ RIGHT: RESUMEN + PAGO (siempre visible en desktop, paso 4 en mobile) ══ --}}
+    <div class="col-lg-5" :class="{ 'ec-mobile-step4': step < 4 }">
 
         {{-- Resumen de productos --}}
         <div class="ec-checkout-card">
@@ -212,6 +341,16 @@
                 </div>
                 <div class="ec-order-line" v-if="summary.total_igv > 0">
                     <span>IGV (18%)</span><span>S/ @{{ summary.total_igv }}</span>
+                </div>
+                <!-- Descuentos automáticos por regla (volumen, canal, etc.) -->
+                <div v-for="(line, idx) in autoDiscount.breakdown" :key="'auto-'+idx"
+                     v-if="line.type !== 'coupon' && line.type !== 'points' && line.amount < 0"
+                     class="ec-order-line ec-order-line--discount">
+                    <span style="display:flex;align-items:center;gap:4px;">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#16a34a" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+                        @{{ line.label }}
+                    </span>
+                    <span style="color:#16a34a;font-weight:700;">- S/ @{{ Math.abs(line.amount).toFixed(2) }}</span>
                 </div>
                 <div class="ec-order-line ec-order-line--discount" v-if="coupon.applied && coupon.discount > 0">
                     <span><span class="ec-coupon-tag"><svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>@{{ coupon.code }}</span></span>
@@ -308,6 +447,30 @@
 @endsection
 
 @push('scripts')
+<script src="{{ asset('porto-ecommerce/assets/js/ubigeo-filter.js') }}"></script>
+<script src="{{ asset('porto-ecommerce/assets/js/ubigeo-autocomplete.js') }}"></script>
+<script type="text/javascript">
+    // Ubigeo autocomplete — se conecta al Vue instance después de crearlo
+    document.addEventListener('DOMContentLoaded', function() {
+        if (typeof UbigeoAutocomplete !== 'undefined') {
+            UbigeoAutocomplete.init('ubigeo-search', {
+                onSelect: function(item) {
+                    if (typeof app_cart !== 'undefined' && app_cart.ubigeo) {
+                        app_cart.ubigeo.department_id = item.department_id;
+                        app_cart.loadProvinces && app_cart.loadProvinces();
+                        setTimeout(function() {
+                            app_cart.ubigeo.province_id = item.province_id;
+                            app_cart.loadDistricts && app_cart.loadDistricts();
+                            setTimeout(function() {
+                                app_cart.ubigeo.district_id = item.district_id;
+                            }, 300);
+                        }, 300);
+                    }
+                }
+            });
+        }
+    });
+</script>
 <script type="text/javascript">
     var app_cart = new Vue({
         el: '#app',
@@ -315,14 +478,17 @@
             form_contact: { address: '', telephone: '' },
             payment_cash: { amount: '', clicked: false },
             coupon: { code: '', applied: false, discount: 0, message: '', loading: false },
+            autoDiscount: { discount: 0, breakdown: [], loaded: false },
             ubigeo: { department_id: '', province_id: '', district_id: '', departments: [], provinces: [], districts: [] },
             points: { enabled: false, balance: 0, applied: false, discount: 0 },
+            deliveryType: 'delivery', // delivery | pickup
+            step: 1, // checkout wizard step (1-4)
             records: [],
             records_old: [],
             order_generated: {},
             summary: { subtotal: '0.0', tax: '0.0', total: '0.0' },
             aux_totals: {},
-            form_document: {},
+            form_document: { codigo_tipo_documento: '03', razon_social: '', direccion_fiscal: '' },
             user: {},
             guest_email: '',   // solo para invitados
             is_guest: {!! auth('ecommerce')->check() ? 'false' : 'true' !!},
@@ -333,7 +499,7 @@
             typeDocuments: '',
             typeDocumentList: [],
             numberDocument: '',
-            phone_whatsapp: {!! json_encode($configuration->phone_whatsapp) !!},
+            phone_whatsapp: {!! \Illuminate\Support\Js::from($configuration->phone_whatsapp) !!},
             all_identity_document_types: [{id:'6',name:'RUC'},{id:'0',name:'DOC'},{id:'4',name:'CE'},{id:'1',name:'DNI'}]
         },
         computed: {
@@ -348,15 +514,17 @@
                 return Math.max(0, base - disc).toFixed(2);
             },
             totalFinal() {
-                var base  = parseFloat(this.summary.total) || 0;
-                var disc  = this.coupon.applied  ? (this.coupon.discount  || 0) : 0;
-                var pdisc = this.points.applied   ? (this.points.discount  || 0) : 0;
-                return Math.max(0, base - disc - pdisc).toFixed(2);
+                var base   = parseFloat(this.summary.total) || 0;
+                var disc   = this.coupon.applied ? (this.coupon.discount || 0) : 0;
+                var auto   = this.autoDiscount.discount || 0;
+                var pdisc  = this.points.applied ? (this.points.discount || 0) : 0;
+                return Math.max(0, base - disc - auto - pdisc).toFixed(2);
             },
             maxPointsToApply() {
                 var base = parseFloat(this.summary.total) || 0;
                 var couponDisc = this.coupon.applied ? (this.coupon.discount || 0) : 0;
-                return Math.min(this.points.balance, Math.max(0, base - couponDisc) * 0.5);
+                var auto = this.autoDiscount.discount || 0;
+                return Math.min(this.points.balance, Math.max(0, base - couponDisc - auto) * 0.5);
             }
         },
         async mounted() {
@@ -376,6 +544,8 @@
             } catch(e) {}
             @endauth
             try { await this.changeExchangeRate(moment().format("YYYY-MM-DD")); } catch(e) {}
+            // Cargar descuentos automáticos (volumen, canal, etc.) sin cupón
+            this.$nextTick(() => this.loadAutoDiscounts());
             this.records.forEach(item => {
                 if (item.currency_type_id === 'USD') {
                     item.sub_total = (parseFloat(item.sub_total) * this.exchange_rate_sale).toFixed(2);
@@ -406,6 +576,33 @@
             this.initForm();
         },
         methods: {
+            // ── Checkout wizard navigation ──
+            nextStep(currentStep) {
+                // Validación por paso
+                if (currentStep === 1) {
+                    if (!this.form_contact.telephone && !this.guest_email) {
+                        this.$message.warning('Ingresa al menos un teléfono o correo');
+                        return;
+                    }
+                }
+                if (currentStep === 2 && this.deliveryType === 'delivery') {
+                    if (!this.ubigeo.district_id) {
+                        this.$message.warning('Selecciona tu distrito');
+                        return;
+                    }
+                    if (!this.form_contact.address) {
+                        this.$message.warning('Ingresa tu dirección');
+                        return;
+                    }
+                }
+                this.step = currentStep + 1;
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            },
+            goToStep(s) {
+                this.step = s;
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            },
+
             async changeExchangeRate(date) {
                 var response = await axios.get(`/exchange_rate/ecommence/${date}`);
                 this.exchange_rate_sale = parseFloat(response.data.sale);
@@ -430,7 +627,7 @@
                 return this.all_identity_document_types.filter(i => ids.includes(i.id));
             },
             refreshSetDataCustomer() {
-                this.form_document.datos_del_cliente_o_receptor.direccion = this.form_contact.address;
+                this.form_document.datos_del_cliente_o_receptor.direccion = this.deliveryType === 'pickup' ? 'Recojo en tienda' : this.form_contact.address;
                 this.form_document.datos_del_cliente_o_receptor.telefono  = this.form_contact.telephone;
                 this.form_document.datos_del_cliente_o_receptor.codigo_tipo_documento_identidad = this.typeDocuments;
                 this.form_document.datos_del_cliente_o_receptor.numero_documento = this.numberDocument;
@@ -470,13 +667,18 @@
                 try {
                     var r = await axios.post('/ecommerce/apply-coupon', {
                         coupon_code: code,
-                        amount: parseFloat(this.summary.total) || 0
+                        amount: parseFloat(this.summary.total) || 0,
+                        items:  this.records,
                     });
                     if (r.data.success) {
-                        this.coupon.applied  = true;
-                        this.coupon.code     = r.data.code;
-                        this.coupon.discount = r.data.discount;
-                        this.coupon.message  = '';
+                        this.coupon.applied       = true;
+                        this.coupon.code          = code;
+                        this.coupon.discount      = parseFloat(r.data.coupon_discount || r.data.discount) || 0;
+                        this.coupon.message       = '';
+                        // Descuentos automáticos devueltos junto con el cupón
+                        this.autoDiscount.discount  = parseFloat(r.data.rule_discount) || 0;
+                        this.autoDiscount.breakdown = r.data.breakdown || [];
+                        this.autoDiscount.loaded    = true;
                         this.$nextTick(() => {
                             $("#total_amount").data('total', this.totalFinal);
                             this.payment_cash.amount = this.totalFinal;
@@ -492,10 +694,27 @@
             },
             removeCoupon() {
                 this.coupon = { code: '', applied: false, discount: 0, message: '', loading: false };
+                this.autoDiscount = { discount: 0, breakdown: [], loaded: false };
+                this.loadAutoDiscounts(); // recargar descuentos automáticos sin cupón
                 this.$nextTick(() => {
                     $("#total_amount").data('total', this.totalFinal);
                     this.payment_cash.amount = this.totalFinal;
                 });
+            },
+            async loadAutoDiscounts() {
+                try {
+                    var r = await axios.post('/ecommerce/preview-discounts', {
+                        amount: parseFloat(this.summary.total) || 0,
+                        items:  this.records,
+                    });
+                    this.autoDiscount.discount  = parseFloat(r.data.rule_discount) || 0;
+                    this.autoDiscount.breakdown = r.data.breakdown || [];
+                    this.autoDiscount.loaded    = true;
+                    this.$nextTick(() => {
+                        $("#total_amount").data('total', this.totalFinal);
+                        this.payment_cash.amount = this.totalFinal;
+                    });
+                } catch(e) { /* silencioso */ }
             },
             async getFormPaymentCash() {
                 this.refreshSetDataCustomer();
@@ -529,6 +748,20 @@
                 if (!this.form_document.codigo_tipo_documento) {
                     return this.showSwalMessage('Ocurrió un error!', 'El campo tipo de comprobante es obligatorio', 'error');
                 }
+                // Validación client-side de campos requeridos
+                this.refreshSetDataCustomer();
+                const cust = this.form_document.datos_del_cliente_o_receptor;
+                let clientErrors = {};
+                if (!cust.telefono || String(cust.telefono).trim() === '') clientErrors.telefono = ['El teléfono es requerido.'];
+                if (!cust.direccion || String(cust.direccion).trim() === '') clientErrors.direccion = ['La dirección de envío es requerida.'];
+                if (!cust.numero_documento || cust.numero_documento == '0') clientErrors.numero_documento = ['El número de documento es requerido.'];
+                if (Object.keys(clientErrors).length > 0) {
+                    this.errors = clientErrors;
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                    const firstMsg = Object.values(clientErrors)[0][0];
+                    return this.showSwalMessage('Campos requeridos', firstMsg, 'warning');
+                }
+                this.errors = {};
                 let product = JSON.parse(localStorage.getItem('products_cart'));
                 if (!product || product.length < 1) {
                     swal({ title: "No se han encontrado productos", text: "Por favor seleccione algún producto.", type: "error" });
@@ -550,7 +783,37 @@
                             swal({ title: "Error", text: response.data.message, type: "error" });
                         }
                     }).catch(error => {
-                        swal({ title: "Error", text: "Ocurrió un error al procesar el pago.", type: "error" });
+                        let msg = "Ocurrió un error al procesar el pago.";
+                        let title = "Error";
+                        if (error.response) {
+                            const status = error.response.status;
+                            const d = error.response.data;
+                            if (status === 422 && d && typeof d === 'object' && !d.message) {
+                                // Errores de validación Laravel — mostrarlos en el formulario
+                                this.errors = d;
+                                window.scrollTo({ top: 0, behavior: 'smooth' });
+                                const labels = {
+                                    telefono: 'Teléfono',
+                                    direccion: 'Dirección de envío',
+                                    numero_documento: 'Número de documento',
+                                    codigo_tipo_documento_identidad: 'Tipo de documento',
+                                    identity_document_type_id: 'Tipo de documento'
+                                };
+                                const firstKey = Object.keys(d)[0];
+                                const label = labels[firstKey] || firstKey;
+                                title = "Campos requeridos";
+                                msg = `Por favor completa el campo "${label}": ` + (Array.isArray(d[firstKey]) ? d[firstKey][0] : d[firstKey]);
+                            } else if (d && d.message) {
+                                msg = d.message;
+                                // Detectar error de stock para título apropiado
+                                title = msg.toLowerCase().includes('stock') ? 'Stock insuficiente' : 'Error al procesar el pedido';
+                            } else if (typeof d === 'string') {
+                                msg = d;
+                            }
+                        } else if (error.message) {
+                            msg = error.message;
+                        }
+                        swal({ title: title, text: msg, type: "error" });
                     });
             },
             getHeaderConfig() {
@@ -632,7 +895,7 @@
             },
             initForm() {
                 this.errors = {};
-                this.user = JSON.parse('{!! json_encode(Auth::guard("ecommerce")->user()) !!}');
+                this.user = {!! \Illuminate\Support\Js::from(Auth::guard("ecommerce")->user()) !!};
                 var userName  = this.user ? this.user.name  : '';
                 var userEmail = this.user ? this.user.email : '';
                 var userAddr  = this.user ? (this.user.address   || '') : '';
@@ -695,7 +958,26 @@
 </script>
 
 <script>
-    Culqi.publicKey = {!! json_encode($configuration->token_public_culqui) !!};
+    // ── Tracking: InitiateCheckout ───────────────────────────
+    document.addEventListener('DOMContentLoaded', function () {
+        if (window.EcommerceTracker) {
+            try {
+                var cartItems = JSON.parse(localStorage.getItem('products_cart') || '[]');
+                var total = cartItems.reduce(function (sum, i) {
+                    return sum + (parseFloat(i.sale_unit_price) || 0) * (parseInt(i.quantity) || 1);
+                }, 0);
+                EcommerceTracker.initiateCheckout({
+                    items: cartItems.map(function (i) {
+                        return { id: i.id, name: i.description, price: parseFloat(i.sale_unit_price) || 0, quantity: parseInt(i.quantity) || 1 };
+                    }),
+                    total:    total,
+                    currency: 'PEN'
+                });
+            } catch (e) { /* silencioso */ }
+        }
+    });
+
+    Culqi.publicKey = {!! \Illuminate\Support\Js::from($configuration->token_public_culqui) !!};
     if (!Culqi.publicKey) { $('.culqi').hide(); }
     Culqi.options({ installments: true });
 

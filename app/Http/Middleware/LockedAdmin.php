@@ -16,7 +16,7 @@ class LockedAdmin
      */
     public function handle($request, Closure $next)
     {
-        $configuration = Configuration::first();
+        $configuration = Configuration::firstCached();
 
         if($configuration->locked_admin){
             abort(403);

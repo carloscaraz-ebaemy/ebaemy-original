@@ -41,29 +41,31 @@ use App\Models\System\PlanPeriod;
             return view('system.clients.form');
         }
 
+        public function domains($clientId)
+        {
+            $client = \App\Models\System\Client::findOrFail($clientId);
+            return view('system.clients.domains', compact('client'));
+        }
+
         public function tables()
         {
 
             $url_base = '.' . config('tenant.app_url_base');
             $plans = Plan::all();
             $types = [['type' => 'admin', 'description' => 'Administrador'], ['type' => 'integrator', 'description' => 'Listar Documentos']];
-            $modules = Module::with('levels')
-                ->where('sort', '<', 14)
-                ->where('value', '!=', 'production_app')
-                ->orderBy('sort')
-                ->get()
-                ->each(function ($module) {
-                    return $this->prepareModules($module);
-                });
 
-            $apps = Module::with('levels')
-                ->where('sort', '>', 13)
+            // ── UNA SOLA QUERY: cargar TODOS los módulos con levels (antes eran 25+ queries) ──
+            $allModules = Module::with('levels')
                 ->where('value', '!=', 'production_app')
                 ->orderBy('sort')
                 ->get()
-                ->each(function ($module) {
-                    return $this->prepareModules($module);
-                });
+                ->each(fn($m) => $this->prepareModules($m));
+
+            $modules = $allModules->where('sort', '<', 14)->values();
+            $apps    = $allModules->where('sort', '>', 13)->values();
+
+            // Helper: filtrar en memoria sin queries adicionales
+            $filterByIds = fn(array $ids) => $allModules->whereIn('id', $ids)->sortBy('sort')->values();
 
             // Grupos de módulos por giro de negocio
             // IDs: 1=Ventas, 2=Compras, 4=Reportes, 5=Config, 6=POS, 7=Dashboard
@@ -77,140 +79,29 @@ use App\Models\System\PlanPeriod;
             $base_desp_ids  = [7, 1, 6, 17, 18, 5, 14, 8, 2, 4, 12, 51, 53];
             $base_full_desp = [7, 1, 6, 17, 18, 5, 14, 8, 2, 4, 12, 51, 50, 53];
 
-            $group_basic = Module::with('levels')
-                ->whereIn('id', $base_ids)
-                ->orderBy('sort')->get()
-                ->each(fn($m) => $this->prepareModules($m));
-
-            // Farmacia: inventario + compras + reportes + finanzas + guías + cola despacho + DIGEMID
-            $group_pharmacy = Module::with('levels')
-                ->whereIn('id', $base_desp_ids)
-                ->orderBy('sort')->get()
-                ->each(fn($m) => $this->prepareModules($m));
-
-            // Hotel: inventario + compras + reportes + finanzas
-            $group_hotel = Module::with('levels')
-                ->whereIn('id', $base_full_ids)
-                ->orderBy('sort')->get()
-                ->each(fn($m) => $this->prepareModules($m));
-
-            // Restaurante: inventario + reportes + finanzas (sin compras)
-            $group_restaurant = Module::with('levels')
-                ->whereIn('id', [7, 1, 6, 17, 18, 5, 14, 8, 4, 12])
-                ->orderBy('sort')->get()
-                ->each(fn($m) => $this->prepareModules($m));
-
-            // Ferretería: preventa + guías + inventario + compras + reportes + finanzas + cola despacho
-            $group_ferreteria = Module::with('levels')
-                ->whereIn('id', $base_full_desp)
-                ->orderBy('sort')->get()
-                ->each(fn($m) => $this->prepareModules($m));
-
-            // Distribuidora/Mayorista: preventa + guías + inventario + compras + reportes + finanzas + cola despacho
-            $group_distribuidora = Module::with('levels')
-                ->whereIn('id', $base_full_desp)
-                ->orderBy('sort')->get()
-                ->each(fn($m) => $this->prepareModules($m));
-
-            // Minimarket/Bodega: básico + inventario + compras + reportes + finanzas + cola despacho
-            $group_minimarket = Module::with('levels')
-                ->whereIn('id', array_merge($base_full_ids, [53]))
-                ->orderBy('sort')->get()
-                ->each(fn($m) => $this->prepareModules($m));
-
-            // Auto partes: inventario + compras + reportes + finanzas + guías + cola despacho
-            $group_autopartes = Module::with('levels')
-                ->whereIn('id', $base_desp_ids)
-                ->orderBy('sort')->get()
-                ->each(fn($m) => $this->prepareModules($m));
-
-            // Veterinaria: inventario + compras + reportes + finanzas
-            $group_veterinaria = Module::with('levels')
-                ->whereIn('id', $base_full_ids)
-                ->orderBy('sort')->get()
-                ->each(fn($m) => $this->prepareModules($m));
-
-            // Óptica: inventario + compras + reportes + finanzas
-            $group_optica = Module::with('levels')
-                ->whereIn('id', $base_full_ids)
-                ->orderBy('sort')->get()
-                ->each(fn($m) => $this->prepareModules($m));
-
-            // Clínica/Consultorio: inventario + compras + reportes + finanzas
-            $group_clinica = Module::with('levels')
-                ->whereIn('id', $base_full_ids)
-                ->orderBy('sort')->get()
-                ->each(fn($m) => $this->prepareModules($m));
-
-            // Panadería/Producción: inventario + compras + reportes + finanzas
-            $group_panaderia = Module::with('levels')
-                ->whereIn('id', $base_full_ids)
-                ->orderBy('sort')->get()
-                ->each(fn($m) => $this->prepareModules($m));
-
-            // Agrícola/Agroveterinaria: inventario + compras + reportes + finanzas + guías + cola despacho
-            $group_agricola = Module::with('levels')
-                ->whereIn('id', $base_desp_ids)
-                ->orderBy('sort')->get()
-                ->each(fn($m) => $this->prepareModules($m));
-
-            // Lubricentro: POS + inventario + compras + reportes + finanzas
-            $group_lubricentro = Module::with('levels')
-                ->whereIn('id', $base_full_ids)
-                ->orderBy('sort')->get()
-                ->each(fn($m) => $this->prepareModules($m));
-
-            // Inmobiliaria: ventas + clientes + reportes + finanzas (sin POS ni inventario)
-            $group_inmobiliaria = Module::with('levels')
-                ->whereIn('id', [7, 1, 17, 18, 5, 14, 4, 12])
-                ->orderBy('sort')->get()
-                ->each(fn($m) => $this->prepareModules($m));
-
-            // Constructora: compras + guías + reportes + finanzas + cola despacho
-            $group_constructora = Module::with('levels')
-                ->whereIn('id', $base_desp_ids)
-                ->orderBy('sort')->get()
-                ->each(fn($m) => $this->prepareModules($m));
-
-            // Transportes/Carga: compras + guías + reportes + finanzas + cola despacho
-            $group_transportes = Module::with('levels')
-                ->whereIn('id', $base_desp_ids)
-                ->orderBy('sort')->get()
-                ->each(fn($m) => $this->prepareModules($m));
-
-            // Educación/Academia: ventas + clientes + reportes + finanzas
-            $group_educacion = Module::with('levels')
-                ->whereIn('id', [7, 1, 6, 17, 18, 5, 14, 4, 12])
-                ->orderBy('sort')->get()
-                ->each(fn($m) => $this->prepareModules($m));
-
-            // Gimnasio/Spa: ventas + clientes + reportes + finanzas
-            $group_gimnasio = Module::with('levels')
-                ->whereIn('id', [7, 1, 6, 17, 18, 5, 14, 4, 12])
-                ->orderBy('sort')->get()
-                ->each(fn($m) => $this->prepareModules($m));
-
-            // Importación: inventario + compras + reportes + finanzas + guías + cola despacho
-            $group_importacion = Module::with('levels')
-                ->whereIn('id', $base_desp_ids)
-                ->orderBy('sort')->get()
-                ->each(fn($m) => $this->prepareModules($m));
-
-            // Apps por giro
-            $group_hotel_apps = Module::with('levels')
-                ->whereIn('id', [15])
-                ->orderBy('sort')->get()
-                ->each(fn($m) => $this->prepareModules($m));
-
-            $group_pharmacy_apps = Module::with('levels')
-                ->whereIn('id', [19])
-                ->orderBy('sort')->get()
-                ->each(fn($m) => $this->prepareModules($m));
-
-            $group_restaurant_apps = Module::with('levels')
-                ->whereIn('id', [23])
-                ->orderBy('sort')->get()
-                ->each(fn($m) => $this->prepareModules($m));
+            $group_basic         = $filterByIds($base_ids);
+            $group_pharmacy      = $filterByIds($base_desp_ids);
+            $group_hotel         = $filterByIds($base_full_ids);
+            $group_restaurant    = $filterByIds([7, 1, 6, 17, 18, 5, 14, 8, 4, 12]);
+            $group_ferreteria    = $filterByIds($base_full_desp);
+            $group_distribuidora = $filterByIds($base_full_desp);
+            $group_minimarket    = $filterByIds(array_merge($base_full_ids, [53]));
+            $group_autopartes    = $filterByIds($base_desp_ids);
+            $group_veterinaria   = $filterByIds($base_full_ids);
+            $group_optica        = $filterByIds($base_full_ids);
+            $group_clinica       = $filterByIds($base_full_ids);
+            $group_panaderia     = $filterByIds($base_full_ids);
+            $group_agricola      = $filterByIds($base_desp_ids);
+            $group_lubricentro   = $filterByIds($base_full_ids);
+            $group_inmobiliaria  = $filterByIds([7, 1, 17, 18, 5, 14, 4, 12]);
+            $group_constructora  = $filterByIds($base_desp_ids);
+            $group_transportes   = $filterByIds($base_desp_ids);
+            $group_educacion     = $filterByIds([7, 1, 6, 17, 18, 5, 14, 4, 12]);
+            $group_gimnasio      = $filterByIds([7, 1, 6, 17, 18, 5, 14, 4, 12]);
+            $group_importacion   = $filterByIds($base_desp_ids);
+            $group_hotel_apps      = $filterByIds([15]);
+            $group_pharmacy_apps   = $filterByIds([19]);
+            $group_restaurant_apps = $filterByIds([23]);
             $plan_periods = PlanPeriod::all();
 
             $config = Configuration::first();
@@ -681,10 +572,7 @@ use App\Models\System\PlanPeriod;
                 DB::connection('tenant')
                     ->table('modules')
                     ->wherein('value', $valueModules)
-                    ->select(
-                        'id as module_id',
-                        DB::raw(" CONCAT($user_id) as user_id")
-                    )
+                    ->selectRaw('id as module_id, ? as user_id', [$user_id])
                     ->get()
                     ->transform(function ($module) use (&$array_modules) {
                         $array_modules[] = (array)$module;
@@ -692,10 +580,7 @@ use App\Models\System\PlanPeriod;
                 DB::connection('tenant')
                     ->table('module_levels')
                     ->wherein('value', $valueLevels)
-                    ->select(
-                        'id as module_level_id',
-                        DB::raw(" CONCAT($user_id) as user_id")
-                    )
+                    ->selectRaw('id as module_level_id, ? as user_id', [$user_id])
                     ->get()
                     ->transform(function ($level) use (&$array_levels) {
                         $array_levels[] = (array)$level;

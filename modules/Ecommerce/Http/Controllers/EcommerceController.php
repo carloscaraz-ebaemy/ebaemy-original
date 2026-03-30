@@ -33,6 +33,10 @@ use App\Mail\Tenant\ReclamoEmail;
 use Illuminate\Support\Facades\Cache;
 use App\Models\Tenant\Coupon;
 use App\Models\Tenant\FlashSale;
+use App\Models\Tenant\ItemVariant;
+use App\Models\Tenant\ItemVariantWarehouse;
+use App\Services\Tenant\PromotionEngine;
+use App\Models\Tenant\AbandonedCart;
 
 
 
@@ -61,7 +65,7 @@ class EcommerceController extends Controller
         $category = Category::where('name', $name)->first();
         
         // Obtener preferencias de configuración
-        $configEcommerce = ConfigurationEcommerce::first();
+        $configEcommerce = ConfigurationEcommerce::firstCached();
         $preferences = $configEcommerce && $configEcommerce->preferences 
             ? (is_string($configEcommerce->preferences) ? json_decode($configEcommerce->preferences, true) : $configEcommerce->preferences)
             : ['show_description' => 1, 'show_stock' => 0, 'only_available_products' => 0];
@@ -79,17 +83,27 @@ class EcommerceController extends Controller
             $category = Category::find((int)$categoryId);
         }
 
+        // Prefijo de cache por tenant para aislar datos entre tenants del SaaS
+        $tenantUuid = app(\Hyn\Tenancy\Environment::class)->tenant()?->uuid ?? 'default';
+        $cachePrefix = 'ec_' . $tenantUuid . '_';
+
         // Rango de precios disponibles (para el slider)
-        $priceRange = Cache::remember('ecommerce_price_range', 600, function () {
-            $base = Item::where([['apply_store', 1], ['internal_id', '!=', null]]);
+        $priceRange = Cache::remember($cachePrefix . 'price_range', 600, function () {
+            $base = Item::where('apply_store', 1);
             return [
                 'min' => (int) floor($base->min('sale_unit_price') ?? 0),
                 'max' => (int) ceil($base->max('sale_unit_price') ?? 9999),
             ];
         });
 
-        // Query base
-        $query = Item::where([['apply_store', 1], ['internal_id', '!=', null]]);
+        // Query base — con eager load para evitar N+1 en la vista
+        $query = Item::where([['apply_store', 1], ['internal_id', '!=', null]])
+            ->with([
+                'currency_type',
+                'category',
+                'images'   => fn($q) => $q->select(['item_id','image'])->orderBy('id'),
+                'variants' => fn($q) => $q->select(['id','item_id','stock']),
+            ]);
 
         // Búsqueda por nombre
         if ($searchQ) {
@@ -100,9 +114,16 @@ class EcommerceController extends Controller
         }
 
         // Filtrar solo productos disponibles (config o parámetro URL)
+        // Incluir productos con variantes activas con stock aunque items.stock = 0
         $forceAvail = (isset($preferences['only_available_products']) && $preferences['only_available_products'] == 1);
         if ($forceAvail || $onlyAvail) {
-            $query->where('stock', '>', 0);
+            $query->where(function ($q) {
+                $q->where('stock', '>', 0)
+                  ->orWhere(function ($q2) {
+                      $q2->where('has_variants', 1)
+                         ->whereHas('variants', fn($v) => $v->where('stock', '>', 0)->where('is_active', 1));
+                  });
+            });
         }
 
         // Filtrar por rango de precio
@@ -126,15 +147,17 @@ class EcommerceController extends Controller
             ->category($category ? $category->id : null)
             ->paginate(24)
             ->appends(request()->query());
-            
-        $configuration = InventoryConfiguration::first();
 
-        // Caché de 30 minutos para datos estáticos (categorías y spots)
-        $categories = Cache::remember('ecommerce_categories', 1800, function () {
-            return Category::get();
+        $configuration = InventoryConfiguration::first() ?? new InventoryConfiguration(['stock_control' => false]);
+
+        // Solo categorías que tienen al menos 1 producto en tienda
+        $categories = Cache::remember($cachePrefix . 'categories_with_items', 1800, function () {
+            return Category::whereHas('items', function ($q) {
+                $q->where('apply_store', 1)->whereNotNull('internal_id');
+            })->get();
         });
 
-        $spots = Cache::remember('ecommerce_spots', 1800, function () {
+        $spots = Cache::remember($cachePrefix . 'spots', 1800, function () {
             return Promotion::where('apply_restaurant', 0)
                 ->where('type', 'spots')
                 ->where('status', 1)
@@ -144,7 +167,7 @@ class EcommerceController extends Controller
         });
 
         // Paquetes/bundles visibles en tienda
-        $bundles = Cache::remember('ecommerce_bundles', 1800, function () {
+        $bundles = Cache::remember($cachePrefix . 'bundles', 1800, function () {
             return Item::where('apply_store', 1)
                 ->where('is_set', true)
                 ->whereNotNull('internal_id')
@@ -212,13 +235,13 @@ class EcommerceController extends Controller
     
         public function terminosCondiciones()
     {
-        $config = ConfigurationEcommerce::first();
+        $config = ConfigurationEcommerce::firstCached();
         return view('ecommerce::layouts.terminos_condiciones.terminos_condiciones', [
             'terms' => $config ? $config->termino_conditions : ''
         ]);
     }
     public function politicaPrivacy(){
-        $config = ConfigurationEcommerce::first();
+        $config = ConfigurationEcommerce::firstCached();
     // Ajusta la ruta con puntos para entrar en las subcarpetas
     return view('ecommerce::layouts.terminos_condiciones.politica_privacidad', [
         'terms' => $config ? $config->politica_privacy : ''
@@ -226,7 +249,7 @@ class EcommerceController extends Controller
     }
     public function cambiosDevolucion()
     {
-        $config = ConfigurationEcommerce::first();
+        $config = ConfigurationEcommerce::firstCached();
         return view('ecommerce::layouts.terminos_condiciones.cambios_devolucion', [
             'terms' => $config ? $config->cambios_devolucion : ''
         ]);
@@ -234,7 +257,7 @@ class EcommerceController extends Controller
 
     public function politicaEnvio()
     {
-        $config = ConfigurationEcommerce::first();
+        $config = ConfigurationEcommerce::firstCached();
         return view('ecommerce::layouts.terminos_condiciones.politica_envio', [
             'terms' => $config ? $config->politica_envio : ''
         ]);
@@ -245,7 +268,7 @@ class EcommerceController extends Controller
     
     public function libroReclamaciones()
     {
-        $config = ConfigurationEcommerce::first();
+        $config = ConfigurationEcommerce::firstCached();
         $company = Company::first();
 
         return view('ecommerce::layouts.terminos_condiciones.libro_reclamaciones', [
@@ -261,16 +284,21 @@ class EcommerceController extends Controller
     public function enviarReclamo(Request $request)
     {
         $request->validate([
-            'nombres' => 'required',
-            'apellidos' => 'required',
-            'tipo_documento' => 'required',
-            'numero_documento' => 'required',
-            'descripcion' => 'required',
-            'detalle_reclamo' => 'required',
-            'pedido_consumidor' => 'required',
+            'nombres'           => 'required|string|max:100',
+            'apellidos'         => 'required|string|max:100',
+            'tipo_documento'    => 'required|string|max:20',
+            'numero_documento'  => 'required|string|max:20',
+            'descripcion'       => 'required|string|max:2000',
+            'detalle_reclamo'   => 'required|string|max:2000',
+            'pedido_consumidor' => 'required|string|max:500',
+            'archivos'          => 'nullable|array|max:5',
+            'archivos.*'        => 'file|mimes:jpg,jpeg,png,pdf|max:5120',
         ]);
 
-        $datosFormulario = $request->all();
+        $datosFormulario = $request->only([
+            'nombres', 'apellidos', 'tipo_documento', 'numero_documento',
+            'descripcion', 'detalle_reclamo', 'pedido_consumidor',
+        ]);
 
         // Guardar archivos
         if ($request->hasFile('archivos')) {
@@ -281,7 +309,7 @@ class EcommerceController extends Controller
         }
 
         $company = Company::first();
-        $configuration = ConfigurationEcommerce::first();
+        $configuration = ConfigurationEcommerce::firstCached();
 
         // 👇 usa el email referencial del cliente
         $email = $configuration->information_contact_email;
@@ -312,13 +340,46 @@ class EcommerceController extends Controller
     }
     public function item($slug, $promotion_id = null)
     {
-        $row = Item::where('slug', $slug)->firstOrFail();
+        $row = Item::with(['currency_type', 'warehouses', 'images', 'tags', 'item_unit_types'])->where('slug', $slug)->firstOrFail();
 
         $exchange_rate_sale = $this->getExchangeRateSale();
 
         $sale_unit_price = ($row->has_igv) ? $row->sale_unit_price : $row->sale_unit_price * 1.18;
 
         $description = $promotion_id ? $this->getDescriptionWithPromotion($row, $promotion_id) : $row->description;
+
+        // Cargar variantes si el producto las tiene
+        $itemOptions = [];
+        $itemVariants = [];
+        if ($row->has_variants) {
+            $row->load('itemOptions.values', 'variants.optionValues', 'variants.warehouseStocks');
+            $itemOptions = $row->itemOptions->map(function($opt) {
+                return [
+                    'id'     => $opt->id,
+                    'name'   => $opt->name,
+                    'values' => $opt->values->map(fn($v) => [
+                        'id'        => $v->id,
+                        'value'     => $v->value,
+                        'color_hex' => $v->color_hex,
+                    ])->toArray(),
+                ];
+            })->toArray();
+            $itemVariants = $row->variants->map(function($v) {
+                // Stock disponible = físico - comprometido (no mostrar reservado como disponible)
+                $available = $v->warehouseStocks->sum(function($ws) {
+                    return max(0, $ws->stock_physical - $ws->stock_committed);
+                });
+                return [
+                    'id'               => $v->id,
+                    'display_name'     => $v->display_name,
+                    'sale_unit_price'  => $v->sale_unit_price,
+                    'stock'            => $available,
+                    'is_active'        => (bool) $v->is_active,
+                    'image'            => $v->image,
+                    'option_value_ids' => $v->optionValues->pluck('id')->toArray(),
+                ];
+            })->toArray();
+        }
 
         $record = (object)[
             'id'                          => $row->id,
@@ -344,6 +405,9 @@ class EcommerceController extends Controller
             'images'                      => $row->images,
             'attributes'                  => $row->attributes ?? [],
             'promotion_id'                => $promotion_id,
+            'has_variants'                => (bool) $row->has_variants,
+            'item_options'                => $itemOptions,
+            'item_variants'               => $itemVariants,
         ];
 
         // Productos relacionados: misma categoría, excluir el actual, máx 8
@@ -367,13 +431,13 @@ class EcommerceController extends Controller
 
     public function items()
     {
-        $records = Item::where('apply_store', 1)->get();
+        $records = Item::with(['currency_type', 'category', 'images', 'warehouses'])->where('apply_store', 1)->orderBy('description')->limit(200)->get();
         return view('ecommerce::items.index', compact('records'));
     }
 
     public function itemsBar()
     {
-        $records = Item::where('apply_store', 1)->get();
+        $records = Item::with(['currency_type', 'warehouses'])->where('apply_store', 1)->limit(500)->get();
         // return new ItemCollection($records);
         return new ItemBarCollection($records);
 
@@ -443,28 +507,71 @@ class EcommerceController extends Controller
 
     public function detailCart()
     {
-        $configuration = ConfigurationEcommerce::first();
+        $configuration = ConfigurationEcommerce::firstCached();
         return view('ecommerce::cart.detail', compact(['configuration']));
     }
 
     public function checkout()
     {
-        $configuration = ConfigurationEcommerce::first();
+        $configuration = ConfigurationEcommerce::firstCached();
         return view('ecommerce::cart.checkout', compact(['configuration']));
     }
 
     public function orderConfirmation($external_id)
     {
         $order = Order::where('external_id', $external_id)->firstOrFail();
-        $configuration = ConfigurationEcommerce::first();
+
+        // Verificar autorización: usuario autenticado debe ser dueño, o
+        // permitir acceso a invitados solo si la sesión guarda el external_id.
+        $authUser = auth('ecommerce')->user();
+        if ($authUser) {
+            // Comparar person_id si la orden lo tiene
+            if ($order->person_id && $order->person_id !== $authUser->id) {
+                abort(403, 'No tienes permiso para ver esta orden.');
+            }
+        } else {
+            // Guest: solo permitir si el external_id fue guardado en sesión al pagar
+            $allowedIds = session('confirmed_order_ids', []);
+            if (!in_array($external_id, $allowedIds)) {
+                abort(403, 'Acceso no autorizado.');
+            }
+        }
+
+        $configuration = ConfigurationEcommerce::firstCached();
         $company = Company::first();
         return view('ecommerce::order.confirmation', compact('order', 'configuration', 'company'));
+    }
+
+    /**
+     * Polling endpoint para estado del pago Culqi (L2 — pre-auth async).
+     * El frontend llama cada 2s hasta que payment_status != 'pending_capture'.
+     * GET /ecommerce/order/{external_id}/payment-status
+     */
+    public function paymentStatus($external_id)
+    {
+        $order = Order::where('external_id', $external_id)
+            ->select('external_id', 'payment_status', 'status_order_id')
+            ->firstOrFail();
+
+        $authUser = auth('ecommerce')->user();
+        if (!$authUser) {
+            $allowedIds = session('confirmed_order_ids', []);
+            if (!in_array($external_id, $allowedIds)) {
+                return response()->json(['error' => 'Unauthorized'], 403);
+            }
+        }
+
+        return response()->json([
+            'payment_status'  => $order->payment_status,
+            'status_order_id' => $order->status_order_id,
+            'ready'           => in_array($order->payment_status, ['captured', 'capture_failed', null]),
+        ]);
     }
 
     public function orderList()
     {
         if (auth('ecommerce')->user()) {
-            $configuration = ConfigurationEcommerce::first();
+            $configuration = ConfigurationEcommerce::firstCached();
             return view('ecommerce::document_list.order', compact('configuration'));
         } else {
             return redirect('ecommerce');
@@ -628,7 +735,7 @@ class EcommerceController extends Controller
      */
     private function googleDriver()
     {
-        $config = ConfigurationEcommerce::first();
+        $config = ConfigurationEcommerce::firstCached();
 
         if ($config && $config->google_login_enabled && $config->google_client_id && $config->google_client_secret) {
             config([
@@ -721,7 +828,7 @@ class EcommerceController extends Controller
         try {
             $validator = Validator::make($request->all(), [
                 'email' => 'required|email|max:255',
-                'pswd'  => 'required|string|min:6',
+                'pswd'  => 'required|string|min:8|max:128',
                 'name'  => 'nullable|string|max:255',
             ]);
 
@@ -769,8 +876,14 @@ class EcommerceController extends Controller
     public function transactionFinally(Request $request)
     {
         try{
-            //1. confirmar dato de comprobante en order
-            $order_generated = Order::find($request->orderId);
+            $order_generated = Order::findOrFail($request->orderId);
+
+            // Verificar que la orden pertenece al usuario autenticado (evita IDOR)
+            $userId = auth('ecommerce')->id();
+            if ($userId && $order_generated->person_id && $order_generated->person_id !== $userId) {
+                return ['success' => false, 'message' => 'No autorizado.'];
+            }
+
             $order_generated->document_external_id = $request->document_external_id;
             $order_generated->number_document = $request->number_document;
             $order_generated->save();
@@ -793,8 +906,17 @@ class EcommerceController extends Controller
 
     public function paymentCash(Request $request)
     {
+        // ── Extraer datos como arrays puros (Axios envía stdClass anidados) ──
+        $input = json_decode($request->getContent(), true) ?: json_decode(json_encode($request->all()), true);
 
-        $validator = Validator::make($request->customer, [
+        $customer = $input['customer'] ?? [];
+
+        // Si es recojo en tienda, la dirección no es obligatoria
+        if (empty($customer['direccion'])) {
+            $customer['direccion'] = 'Recojo en tienda';
+        }
+
+        $validator = Validator::make($customer, [
             'telefono' => 'required|numeric',
             'direccion' => 'required',
             'codigo_tipo_documento_identidad' => 'required|numeric',
@@ -806,11 +928,17 @@ class EcommerceController extends Controller
             return response()->json($validator->errors(), 422);
         } else {
             try {
+                $user = auth('ecommerce')->user();
+
                 // ===== VERIFICACIÓN SERVER-SIDE DE PRECIOS =====
                 // Recalcular total desde BD ignorando precios del cliente
-                $clientItems = $request->items ?? [];
+                $clientItems = $input['items'] ?? [];
                 $verifiedTotal = 0;
                 $verifiedItems = [];
+
+                // Canal ecommerce: se resuelve una sola vez fuera del loop
+                $ecomChannel     = \App\Models\Tenant\SalesChannel::ecommerceChannel();
+                $ecomWarehouseId = $ecomChannel->warehouse_id;
 
                 foreach ($clientItems as $clientItem) {
                     $itemId = $clientItem['id'] ?? null;
@@ -825,7 +953,46 @@ class EcommerceController extends Controller
                     }
 
                     $qty = max(1, (int)($clientItem['quantity'] ?? 1));
-                    $realPrice = (float) $dbItem->sale_unit_price;
+
+                    // Validar stock de variante si aplica
+                    $variantId = $clientItem['variant_id'] ?? null;
+                    if ($variantId) {
+                        $variant = ItemVariant::find($variantId);
+                        if (!$variant || !$variant->is_active) {
+                            return response()->json([
+                                'success' => false,
+                                'message' => 'La variante seleccionada no está disponible.',
+                            ], 422);
+                        }
+                        $availableStock = max(0, (float)$variant->stock - (float)ItemVariantWarehouse::where('item_variant_id', $variantId)->sum('stock_committed'));
+                        if ($availableStock < $qty) {
+                            return response()->json([
+                                'success' => false,
+                                'message' => 'Stock insuficiente para "' . ($variant->display_name ?? $dbItem->description) . '". Disponible: ' . $availableStock,
+                            ], 422);
+                        }
+                        $qty = min($qty, (int) floor($availableStock));
+                        $realPrice = (float) ($variant->sale_unit_price ?: $dbItem->sale_unit_price);
+                    } else {
+                        // Validar stock del ítem en almacén del canal ecommerce
+                        $iw = $ecomWarehouseId
+                            ? \App\Models\Tenant\ItemWarehouse::where('item_id', $dbItem->id)->where('warehouse_id', $ecomWarehouseId)->first()
+                            : \App\Models\Tenant\ItemWarehouse::where('item_id', $dbItem->id)->orderByDesc('stock_physical')->first();
+
+                        if ($iw) {
+                            $availableStock = $iw->stock_available;
+                            if ($availableStock < $qty) {
+                                return response()->json([
+                                    'success' => false,
+                                    'message' => 'Stock insuficiente para "' . $dbItem->description . '". Disponible: ' . $availableStock,
+                                ], 422);
+                            }
+                            $qty = min($qty, (int) floor($availableStock));
+                        }
+
+                        $realPrice = (float) $dbItem->sale_unit_price;
+                    }
+
                     $verifiedTotal += $realPrice * $qty;
 
                     // Reemplazar datos del item con valores verificados de BD
@@ -836,37 +1003,30 @@ class EcommerceController extends Controller
                     ]);
                 }
 
-                // ── Aplicar cupón de descuento ──────────────────────────────────
-                $couponDiscount = 0;
-                $couponCode     = strtoupper(trim($request->coupon_code ?? ''));
-                $appliedCoupon  = null;
+                // ── PromotionEngine: cupón + reglas automáticas + puntos ────────────
+                $pointsRequested = ($input['redeem_points'] ?? false) && auth('ecommerce')->check()
+                    ? (float) ($input['points_amount'] ?? optional($user)->accumulated_points ?? 0)
+                    : 0;
 
-                if ($couponCode) {
-                    $coupon = Coupon::where('code', $couponCode)->first();
-                    if ($coupon && !$coupon->validate($verifiedTotal)) {
-                        $couponDiscount = $coupon->calculateDiscount($verifiedTotal);
-                        $appliedCoupon  = $coupon;
-                    }
+                try {
+                    $promo = PromotionEngine::make($verifiedItems, $verifiedTotal)
+                        ->withCoupon(($input['coupon_code'] ?? null) ?? null)
+                        ->withChannel($ecomChannel->id, 'ecommerce')
+                        ->withPointRedemption($user, $pointsRequested)
+                        ->calculate();
+                } catch (\InvalidArgumentException $e) {
+                    return response()->json(['success' => false, 'message' => $e->getMessage()], 422);
                 }
 
-                // ── Canjear puntos ───────────────────────────────────────────────────
-                $pointsDiscount = 0;
-                if ($request->input('redeem_points') && auth('ecommerce')->check()) {
-                    $person       = auth('ecommerce')->user();
-                    $ptConfig     = Configuration::getDataPointSystem();
-                    if ($ptConfig->enabled_point_system) {
-                        $balance      = (float) $person->accumulated_points;
-                        $maxByPercent = ($verifiedTotal - $couponDiscount) * 0.5; // máx 50%
-                        $requested    = (float) $request->input('points_amount', $balance);
-                        $pointsDiscount = min($balance, $maxByPercent, $requested);
-                        $pointsDiscount = max(0, round($pointsDiscount, 2));
-                    }
-                }
-
-                $finalTotal = max(0, round($verifiedTotal - $couponDiscount - $pointsDiscount, 2));
+                $couponDiscount = $promo['coupon_discount'];
+                $appliedCoupon  = $promo['applied_coupon'];
+                $ruleDiscount   = $promo['rule_discount'];
+                $pointsDiscount = $promo['points_discount'];
+                $earnedPoints   = $promo['points_earned'];
+                $finalTotal     = $promo['final_total'];
 
                 // Convertir a centavos para Culqi (si aplica) y comparar
-                $clientTotal = (float) ($request->precio_culqi ?? 0);
+                $clientTotal = (float) (($input['precio_culqi'] ?? null) ?? 0);
                 $tolerance   = 0.10; // tolerancia de S/. 0.10 por redondeo
 
                 if (abs($finalTotal - $clientTotal) > $tolerance) {
@@ -874,36 +1034,33 @@ class EcommerceController extends Controller
                         'user_id'        => auth('ecommerce')->id(),
                         'client_total'   => $clientTotal,
                         'verified_total' => $finalTotal,
-                        'coupon'         => $couponCode,
+                        'coupon'         => ($input['coupon_code'] ?? null) ?? '',
                         'ip'             => request()->ip(),
                     ]);
                     // Usar total verificado en lugar del enviado por el cliente
                 }
 
-                $type = ($request->purchase["datos_del_cliente_o_receptor"]["codigo_tipo_documento_identidad"]=='6')?'ruc':'dni';
-                $document_number = $request->purchase["datos_del_cliente_o_receptor"]["numero_documento"];
+                $purchase = $input['purchase'] ?? [];
+                $datosCliente = $purchase['datos_del_cliente_o_receptor'] ?? [];
+                $type = ($datosCliente['codigo_tipo_documento_identidad'] ?? '') == '6' ? 'ruc' : 'dni';
+                $document_number = $datosCliente['numero_documento'] ?? '';
 
-                $dataDocument = $this->searchDocument($type,$document_number);
+                $dataDocument = $this->searchDocument($type, $document_number);
                 if ($dataDocument["success"]) {
-                    $clientData = [ "apellidos_y_nombres_o_razon_social" => $dataDocument["data"]["name"] ];
+                    $clientData = ["apellidos_y_nombres_o_razon_social" => $dataDocument["data"]["name"]];
                     if ($type === 'ruc') {
                         $clientData["direccion"] = $dataDocument['data']['address'];
                         $clientData["ubigeo"] = $dataDocument['data']['location_id'][2] ?? null;
                     }
-                    $request->merge([
-                        'purchase' => array_merge($request->purchase, [
-                            "datos_del_cliente_o_receptor" => array_merge(
-                                $request->purchase["datos_del_cliente_o_receptor"],
-                                $clientData
-                            )
-                        ])
-                    ]);
+                    $datosCliente = array_merge($datosCliente, $clientData);
+                    $purchase['datos_del_cliente_o_receptor'] = $datosCliente;
+                    $input['purchase'] = $purchase;
                 }
 
                 $user = auth('ecommerce')->user();
 
                 // ── Email: usar del usuario autenticado o del campo enviado por el invitado ──
-                $customerData  = $request->customer ?? [];
+                $customerData  = $input['customer'] ?? [];
                 $customer_email = $user
                     ? $user->email
                     : ($customerData['correo_electronico'] ?? null);
@@ -911,18 +1068,26 @@ class EcommerceController extends Controller
                     ? $user->name
                     : ($customerData['apellidos_y_nombres_o_razon_social'] ?? 'Cliente');
 
-                // ── Calcular puntos a otorgar ────────────────────────────────────────
-                $earnedPoints = 0;
-                $ptConfig2 = Configuration::getDataPointSystem();
-                if ($ptConfig2->enabled_point_system && $ptConfig2->point_system_sale_amount > 0) {
-                    $rawEarned   = ($finalTotal / $ptConfig2->point_system_sale_amount) * $ptConfig2->quantity_of_points;
-                    $earnedPoints = $ptConfig2->round_points_of_sale ? intval($rawEarned) : round($rawEarned, 2);
+                // ── Vincular Person por DNI/RUC (evita duplicados en clientes invitados) ──
+                $personId = $user ? $user->id : null;
+                if (!$personId) {
+                    $docNumber  = $input['purchase']['datos_del_cliente_o_receptor']['numero_documento'] ?? null;
+                    $docTypeId  = $input['purchase']['datos_del_cliente_o_receptor']['identity_document_type_id'] ?? null;
+                    if ($docNumber) {
+                        $personId = Person::where('number', $docNumber)
+                            ->where('type', 'customers')
+                            ->value('id');
+                    }
                 }
+
+                // ── Resolver canal ecommerce y su almacén por defecto ──────────────
+                // $ecomChannel ya fue resuelto arriba en la verificación de stock
+                $channelWarehouseId = $ecomWarehouseId;
 
                 $order = Order::create([
                     'external_id'       => Str::uuid()->toString(),
-                    'person_id'         => $user ? $user->id : null,
-                    'customer'          => $request->customer,
+                    'person_id'         => $personId,
+                    'customer'          => $input['customer'] ?? [],
                     'shipping_address'  => $customerData['direccion'] ?? 'Sin dirección',
                     'items'             => $verifiedItems,
                     'total'             => $finalTotal,
@@ -930,12 +1095,38 @@ class EcommerceController extends Controller
                     'points_earned'     => $earnedPoints,
                     'reference_payment' => 'efectivo',
                     'status_order_id'   => 1,
-                    'purchase'          => $request->purchase,
+                    'purchase'          => $input['purchase'] ?? [],
+                    // Canal de venta + almacén
+                    'channel_id'        => $ecomChannel->id,
+                    'warehouse_id'      => $channelWarehouseId,
+                    'seller_id'         => null, // ventas digitales no tienen vendedor asignado
                 ]);
+
+                // Reservar stock de variantes para el pedido (con lock para evitar race condition)
+                foreach ($verifiedItems as $item) {
+                    $variantId = $item['variant_id'] ?? null;
+                    if (!$variantId) continue;
+                    $qty = (float)($item['quantity'] ?? 1);
+                    \Illuminate\Support\Facades\DB::transaction(function () use ($variantId, $qty) {
+                        $vw = ItemVariantWarehouse::where('item_variant_id', $variantId)
+                            ->orderByDesc('stock_physical')
+                            ->lockForUpdate()
+                            ->first();
+                        if ($vw) {
+                            $vw->stock_committed = $vw->stock_committed + $qty;
+                            $vw->save();
+                        }
+                    });
+                }
 
                 // Incrementar uso del cupón
                 if ($appliedCoupon) {
                     $appliedCoupon->increment('used_count');
+                }
+
+                // Incrementar uso de cada regla de descuento aplicada
+                foreach ($promo['applied_rules'] as $appliedRule) {
+                    $appliedRule->increment('used_count');
                 }
 
                 // ── Actualizar puntos del cliente ────────────────────────────────────
@@ -945,16 +1136,19 @@ class EcommerceController extends Controller
                     $user->save();
                 }
 
-                // ── Enviar email de confirmación ─────────────────────────────────────
-                if ($customer_email) {
-                    try {
-                        \Mail::to($customer_email)->send(
-                            new \App\Mail\Tenant\OrderConfirmationEmail($order, $customer_name, $customer_email)
-                        );
-                    } catch (\Exception $mailEx) {
-                        \Log::warning('OrderConfirmationEmail failed: ' . $mailEx->getMessage());
-                    }
-                }
+                // ── Disparar evento de pedido creado (email + WhatsApp via Listeners) ──
+                $customerPhone = $customerData['telefono'] ?? ($user ? optional($user)->telefono ?? '' : '');
+                \App\Events\Ecommerce\OrderCreated::dispatch(
+                    $order,
+                    $customer_name,
+                    $customer_email ?? '',
+                    (string) $customerPhone
+                );
+
+                // Guardar external_id en sesión para autorización de invitados
+                $confirmedIds = session('confirmed_order_ids', []);
+                $confirmedIds[] = $order->external_id;
+                session(['confirmed_order_ids' => array_slice($confirmedIds, -10)]);
 
                 return [
                     'success'        => true,
@@ -962,8 +1156,9 @@ class EcommerceController extends Controller
                     'redirect_route' => url('/ecommerce/order/confirmation/' . $order->external_id),
                 ];
 
-        }catch(Exception $e)
+        }catch(\Throwable $e)
         {
+            \Log::error('paymentCash error: ' . $e->getMessage() . ' at ' . $e->getFile() . ':' . $e->getLine() . "\n" . $e->getTraceAsString());
             return [
                 'success' => false,
                 'message' =>  $e->getMessage()
@@ -997,7 +1192,7 @@ class EcommerceController extends Controller
         $savings     = max(0, $normalTotal - $packPrice);
         $savingsPct  = $normalTotal > 0 ? round(($savings / $normalTotal) * 100) : 0;
         $stock       = $bundle->warehouses->sum('stock');
-        $symbol      = $bundle->currency_type['symbol'] ?? 'S/';
+        $symbol      = optional($bundle->currency_type)->symbol ?? 'S/';
 
         // Imagen principal
         $mainImage = ($bundle->image && $bundle->image !== 'imagen-no-disponible.jpg')
@@ -1077,17 +1272,25 @@ class EcommerceController extends Controller
 
     public function ratingItem(Request $request)
     {
-        if (auth('ecommerce')->user()) {
-            $user_id = auth('ecommerce')->id();
-            $user    = auth('ecommerce')->user();
-            $row = ItemsRating::firstOrNew(['user_id' => $user_id, 'item_id' => $request->item_id]);
-            $row->value         = $request->value;
-            $row->reviewer_name = $request->reviewer_name ?? $user->name ?? 'Usuario';
-            $row->comment       = $request->comment ?? null;
-            $row->save();
-            return ['success' => true, 'message' => 'Rating Guardado'];
+        if (!auth('ecommerce')->user()) {
+            return ['success' => false, 'message' => 'No se guardó Rating'];
         }
-        return ['success' => false, 'message' => 'No se guardó Rating'];
+
+        $request->validate([
+            'item_id'       => 'required|integer|exists:items,id',
+            'value'         => 'required|integer|min:1|max:5',
+            'reviewer_name' => 'nullable|string|max:100',
+            'comment'       => 'nullable|string|max:1000',
+        ]);
+
+        $user_id = auth('ecommerce')->id();
+        $user    = auth('ecommerce')->user();
+        $row = ItemsRating::firstOrNew(['user_id' => $user_id, 'item_id' => $request->item_id]);
+        $row->value         = $request->value;
+        $row->reviewer_name = $request->reviewer_name ?? $user->name ?? 'Usuario';
+        $row->comment       = $request->comment ?? null;
+        $row->save();
+        return ['success' => true, 'message' => 'Rating Guardado'];
     }
 
     public function getReviews($id)
@@ -1115,7 +1318,7 @@ class EcommerceController extends Controller
     public function manifest()
     {
         $company = Company::first();
-        $config  = ConfigurationEcommerce::first();
+        $config  = ConfigurationEcommerce::firstCached();
 
         $name      = $company->trade_name ?? $company->name ?? 'Tienda Online';
         $short     = mb_substr($name, 0, 12);
@@ -1158,45 +1361,70 @@ class EcommerceController extends Controller
     public function offline()
     {
         $company = Company::first();
-        $config  = ConfigurationEcommerce::first();
+        $config  = ConfigurationEcommerce::firstCached();
         return view('ecommerce::offline', compact('company', 'config'));
     }
 
+    /**
+     * Validar cupón + preview de TODOS los descuentos automáticos aplicables.
+     * Devuelve breakdown completo para mostrar en el carrito antes del pago.
+     */
     public function applyCoupon(Request $request)
     {
-        $code   = strtoupper(trim($request->coupon_code ?? ''));
+        $code   = strtoupper(trim(($input['coupon_code'] ?? null) ?? ''));
         $amount = (float) ($request->amount ?? 0);
+        $items  = $request->items ?? [];
 
         if (!$code) {
             return response()->json(['success' => false, 'message' => 'Ingresa un código de cupón.']);
         }
 
-        try {
-            $coupon = Coupon::where('code', $code)->first();
-        } catch (\Exception $e) {
-            return response()->json(['success' => false, 'message' => 'Cupón no válido.']);
-        }
+        $ecomCh = \App\Models\Tenant\SalesChannel::ecommerceChannel();
 
-        if (!$coupon) {
-            return response()->json(['success' => false, 'message' => 'Cupón no válido.']);
-        }
+        $preview = PromotionEngine::make($items, $amount)
+            ->withCoupon($code)
+            ->withChannel($ecomCh->id, 'ecommerce')
+            ->preview();
 
-        $error = $coupon->validate($amount);
-        if ($error) {
-            return response()->json(['success' => false, 'message' => $error]);
+        if (!empty($preview['coupon_error'])) {
+            return response()->json(['success' => false, 'message' => $preview['coupon_error']]);
         }
-
-        $discount = $coupon->calculateDiscount($amount);
-        $label    = $coupon->type === 'percentage'
-            ? $coupon->value . '% de descuento'
-            : 'S/ ' . number_format($coupon->value, 2) . ' de descuento';
 
         return response()->json([
-            'success'  => true,
-            'code'     => $coupon->code,
-            'discount' => $discount,
-            'label'    => $label,
-            'message'  => '¡Cupón aplicado! ' . $label,
+            'success'        => true,
+            'discount'       => $preview['total_discount'],
+            'coupon_discount'=> $preview['coupon_discount'],
+            'rule_discount'  => $preview['rule_discount'],
+            'final_total'    => $preview['final_total'],
+            'breakdown'      => $preview['breakdown'],
+            'message'        => '¡Descuentos aplicados! Ahorraste S/ ' . number_format($preview['total_discount'], 2),
+        ]);
+    }
+
+    /**
+     * Preview de descuentos automáticos sin cupón (volumen, canal, etc.).
+     * GET /ecommerce/promotions/preview?amount=X
+     */
+    public function previewDiscounts(Request $request)
+    {
+        $amount = (float) ($request->amount ?? 0);
+        $items  = $request->items ?? [];
+        $ecomCh = \App\Models\Tenant\SalesChannel::ecommerceChannel();
+
+        $preview = PromotionEngine::make($items, $amount)
+            ->withChannel($ecomCh->id, 'ecommerce')
+            ->preview();
+
+        return response()->json([
+            'rule_discount'  => $preview['rule_discount'],
+            'final_total'    => $preview['final_total'],
+            'breakdown'      => $preview['breakdown'],
+            'applied_rules'  => collect($preview['applied_rules'])->map(fn($r) => [
+                'name'           => $r->name,
+                'type'           => $r->type,
+                'discount_value' => $r->discount_value,
+                'discount_type'  => $r->discount_type,
+            ]),
         ]);
     }
 
@@ -1240,16 +1468,20 @@ class EcommerceController extends Controller
 
     public function saveDataUser(Request $request)
     {
+        $validator = Validator::make($request->all(), [
+            'name'      => 'nullable|string|max:200',
+            'address'   => 'nullable|string|max:500',
+            'telephone' => 'nullable|string|max:20',
+        ]);
+
+        if ($validator->fails()) {
+            return ['success' => false, 'message' => $validator->errors()->first()];
+        }
+
         $user = auth('ecommerce')->user();
-        if ($request->address) {
-            $user->address = $request->address;
-        }
-        if ($request->telephone) {
-            $user->telephone = $request->telephone;
-        }
-        if ($request->name) {
-            $user->name = $request->name;
-        }
+        if ($request->filled('address'))   $user->address   = $request->address;
+        if ($request->filled('telephone')) $user->telephone = $request->telephone;
+        if ($request->filled('name'))      $user->name      = $request->name;
 
         $user->save();
 
@@ -1263,16 +1495,18 @@ class EcommerceController extends Controller
             return response()->json(['success' => false, 'message' => 'No autenticado'], 401);
         }
 
+        $validator = Validator::make($request->all(), [
+            'current_password'      => 'required|string',
+            'new_password'          => 'required|string|min:8|max:128',
+            'new_password_confirmation' => 'required|string|same:new_password',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(['success' => false, 'message' => $validator->errors()->first()]);
+        }
+
         if (!\Hash::check($request->current_password, $user->password)) {
             return response()->json(['success' => false, 'message' => 'La contraseña actual no es correcta']);
-        }
-
-        if ($request->new_password !== $request->new_password_confirmation) {
-            return response()->json(['success' => false, 'message' => 'Las contraseñas no coinciden']);
-        }
-
-        if (strlen($request->new_password) < 6) {
-            return response()->json(['success' => false, 'message' => 'La contraseña debe tener al menos 6 caracteres']);
         }
 
         $user->password = \Hash::make($request->new_password);
@@ -1299,8 +1533,14 @@ class EcommerceController extends Controller
         if ($query) {
             $q = trim($query);
 
+            if (strlen($q) > 100) {
+                $error    = 'Consulta inválida.';
+                $timeline = [];
+                return view('ecommerce::tracking.index', compact('saleNote', 'timeline', 'error', 'query'));
+            }
+
             $saleNote = \App\Models\Tenant\SaleNote::where('tracking_number', $q)
-                ->with(['person', 'items.relation_item'])
+                ->with(['items.relation_item'])
                 ->first();
 
             if (!$saleNote) {
@@ -1308,11 +1548,11 @@ class EcommerceController extends Controller
                     [$series, $number] = explode('-', $q, 2);
                     $saleNote = \App\Models\Tenant\SaleNote::where('series', trim($series))
                         ->where('number', (int) trim($number))
-                        ->with(['person', 'items.relation_item'])
+                        ->with(['items.relation_item'])
                         ->first();
                 } else {
                     $saleNote = \App\Models\Tenant\SaleNote::where('number', (int) $q)
-                        ->with(['person', 'items.relation_item'])
+                        ->with(['items.relation_item'])
                         ->first();
                 }
             }
@@ -1381,6 +1621,145 @@ class EcommerceController extends Controller
             ->where('active', 1)
             ->orderBy('description')
             ->get(['id', 'description']);
+        return response()->json($data);
+    }
+
+    // ── Carrito Abandonado ────────────────────────────────────────────────────
+
+    /**
+     * Persiste el carrito del cliente en BD.
+     * POST /ecommerce/cart/save
+     *
+     * Llamado desde cart.js cada vez que el carrito cambia.
+     * Identificado por session_token (generado en JS, guardado en localStorage).
+     */
+    public function saveCart(Request $request)
+    {
+        // Validar token: no vacío, formato seguro, longitud acotada
+        $token = $request->input('session_token');
+        if (!$token || !is_string($token) || strlen($token) > 100 || strlen($token) < 8) {
+            return response()->json(['ok' => false], 400);
+        }
+
+        $items = $request->input('items', []);
+        if (!is_array($items)) $items = [];
+
+        // Si items vacío, BORRAR el registro del servidor (FIX C4)
+        if (empty($items)) {
+            AbandonedCart::where('session_token', $token)->delete();
+            return response()->json(['ok' => true, 'cleared' => true]);
+        }
+
+        // Acotar a 100 ítems para evitar payload abusivo
+        $items    = array_slice($items, 0, 100);
+        $subtotal = collect($items)->sum(fn($i) => ($i['sale_unit_price'] ?? 0) * ($i['quantity'] ?? 1));
+
+        AbandonedCart::updateOrCreate(
+            ['session_token' => $token],
+            [
+                'user_id'        => auth()->id(),
+                'items'          => $items,
+                'subtotal'       => round($subtotal, 2),
+                'item_count'     => count($items),
+                'customer_email' => $request->input('email'),
+                'customer_phone' => $request->input('phone'),
+                'customer_name'  => $request->input('name'),
+                'recovered_at'   => null,
+                'expires_at'     => now()->addDays(7),
+            ]
+        );
+
+        return response()->json(['ok' => true]);
+    }
+
+    /**
+     * Restaura el carrito guardado para el session_token del cliente.
+     * GET /ecommerce/cart/restore?token=xxx
+     */
+    public function restoreCart(Request $request)
+    {
+        $token = $request->query('token');
+        if (!$token || !is_string($token) || strlen($token) > 100 || strlen($token) < 8) {
+            return response()->json(['items' => []]);
+        }
+
+        $cart = AbandonedCart::active()
+            ->where('session_token', $token)
+            ->first();
+
+        if (!$cart) {
+            return response()->json(['items' => []]);
+        }
+
+        return response()->json(['items' => $cart->items]);
+    }
+
+    /**
+     * Real-time stock check for cart items (prevents oversell from stale cart).
+     */
+    public function stockCheck(Request $request)
+    {
+        $itemIds = $request->input('items', []);
+
+        if (!is_array($itemIds) || empty($itemIds)) {
+            return response()->json(['stocks' => []]);
+        }
+
+        // Limit to 50 items to prevent abuse
+        $itemIds = array_slice($itemIds, 0, 50);
+
+        $stocks = Item::whereIn('id', $itemIds)
+            ->select('id', 'stock', 'has_variants', 'description')
+            ->with([
+                'variants' => function ($q) {
+                    $q->select('id', 'item_id', 'stock', 'is_active')->where('is_active', true);
+                },
+                'warehouses' => function ($q) {
+                    $q->select('item_id', 'warehouse_id', 'stock', 'stock_physical', 'stock_committed');
+                },
+            ])
+            ->get()
+            ->map(function ($item) {
+                if ($item->has_variants) {
+                    $effectiveStock = $item->variants->sum('stock');
+                } else {
+                    $wh = $item->warehouses->first();
+                    $effectiveStock = $wh
+                        ? max(0, ($wh->stock_physical ?? $wh->stock) - ($wh->stock_committed ?? 0))
+                        : max(0, (float) $item->stock);
+                }
+
+                return [
+                    'id'    => $item->id,
+                    'stock' => (int) $effectiveStock,
+                ];
+            });
+
+        return response()->json(['stocks' => $stocks]);
+    }
+
+    /**
+     * Ubigeo flat list for autocomplete (cached 24h).
+     */
+    public function ubigeoSearch()
+    {
+        $data = \Illuminate\Support\Facades\Cache::remember('ubigeo_flat_list', 86400, function () {
+            return \DB::connection('tenant')
+                ->table('districts')
+                ->join('provinces', 'districts.province_id', '=', 'provinces.id')
+                ->join('departments', 'provinces.department_id', '=', 'departments.id')
+                ->select([
+                    'districts.id as district_id',
+                    'provinces.id as province_id',
+                    'departments.id as department_id',
+                    \DB::raw("CONCAT(districts.description, ', ', provinces.description, ', ', departments.description) as label"),
+                ])
+                ->orderBy('departments.description')
+                ->orderBy('provinces.description')
+                ->orderBy('districts.description')
+                ->get();
+        });
+
         return response()->json($data);
     }
 }

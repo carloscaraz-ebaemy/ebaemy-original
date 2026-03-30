@@ -6,7 +6,7 @@
     $feedSitemap  = $domain . '/ecommerce/sitemap.xml';
 @endphp
 
-<div class="col-md-12">
+<div class="col-lg-6 col-md-12">
     <div class="card card-default">
         <div class="card-header">
             <h3 class="card-title">

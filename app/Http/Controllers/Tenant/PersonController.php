@@ -437,6 +437,73 @@ class PersonController extends Controller
      * @param  Request $request
      * @return array
      */
+    /**
+     * Vista 360° del cliente — historial unificado de compras, documentos y órdenes.
+     * GET /persons/{id}/history
+     */
+    public function history($id)
+    {
+        $person = Person::findOrFail($id);
+
+        $documents = $person->documents_where_customer()
+            ->select('id','series','number','date_of_issue','total','state_type_id','document_type_id','currency_type_id')
+            ->latest('date_of_issue')
+            ->limit(30)
+            ->get()
+            ->map(fn($d) => [
+                'id'           => $d->id,
+                'label'        => "{$d->series}-{$d->number}",
+                'date'         => $d->date_of_issue,
+                'total'        => $d->total,
+                'state'        => $d->state_type_id,
+                'type'         => $d->document_type_id,
+                'currency'     => $d->currency_type_id,
+            ]);
+
+        $saleNotes = $person->sale_notes_where_customer()
+            ->select('id','series','number','date_of_issue','total','state_type_id','currency_type_id')
+            ->latest('date_of_issue')
+            ->limit(30)
+            ->get()
+            ->map(fn($sn) => [
+                'id'       => $sn->id,
+                'label'    => "{$sn->series}-{$sn->number}",
+                'date'     => $sn->date_of_issue,
+                'total'    => $sn->total,
+                'state'    => $sn->state_type_id,
+                'currency' => $sn->currency_type_id,
+            ]);
+
+        $docTotal   = $person->documents_where_customer()->sum('total');
+        $snTotal    = $person->sale_notes_where_customer()->sum('total');
+        $docCount   = $person->documents_where_customer()->count();
+        $snCount    = $person->sale_notes_where_customer()->count();
+        $lastPurchase = $person->documents_where_customer()
+                            ->max('date_of_issue')
+                            ?? $person->sale_notes_where_customer()->max('date_of_issue');
+
+        return response()->json([
+            'person' => [
+                'id'           => $person->id,
+                'name'         => $person->name,
+                'number'       => $person->number,
+                'email'        => $person->email,
+                'telephone'    => $person->telephone,
+                'address'      => $person->address,
+            ],
+            'summary' => [
+                'total_lifetime'   => round($docTotal + $snTotal, 2),
+                'total_documents'  => round($docTotal, 2),
+                'total_sale_notes' => round($snTotal, 2),
+                'doc_count'        => $docCount,
+                'sn_count'         => $snCount,
+                'last_purchase'    => $lastPurchase,
+            ],
+            'documents'  => $documents,
+            'sale_notes' => $saleNotes,
+        ]);
+    }
+
     public function searchData($type, Request $request)
     {
         $id = $request->id ?? null;

@@ -45,7 +45,6 @@ class UserCollection extends ResourceCollection
                 'id' => $row->id,
                 'email' => $row->email,
                 'name' => $row->name,
-                'api_token' => $row->api_token,
                 'document_id' => $row->document_id,
                 'serie_id' => ($row->series_id == 0)?null:$row->series_id,
                 'establishment_description' => optional($row->establishment)->description,

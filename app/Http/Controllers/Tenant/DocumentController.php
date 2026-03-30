@@ -204,7 +204,7 @@ class DocumentController extends Controller
 
     public function create()
     {
-        if (auth()->user()->type == 'integrator')
+        if (auth()->user()->hasRole('integrator') || (auth()->user()->type ?? '') === 'integrator')
             return redirect('/documents');
 
         $cash = Cash::where([['user_id', auth()->user()->id], ['state', true]])->first();
@@ -220,7 +220,7 @@ class DocumentController extends Controller
 
     public function create_tensu()
     {
-        if (auth()->user()->type == 'integrator')
+        if (auth()->user()->hasRole('integrator') || (auth()->user()->type ?? '') === 'integrator')
             return redirect('/documents');
 
         $cash = Cash::where([['user_id', auth()->user()->id], ['state', true]])->first();
@@ -897,7 +897,7 @@ class DocumentController extends Controller
 
     public function edit($documentId)
     {
-        if (auth()->user()->type == 'integrator') {
+        if (auth()->user()->hasRole('integrator') || (auth()->user()->type ?? '') === 'integrator') {
             return redirect('/documents');
         }
         $configuration = Configuration::first();
@@ -1410,6 +1410,7 @@ class DocumentController extends Controller
         $items = Item::where('description', 'like', "%{$request->input}%")
             ->orWhere('internal_id', 'like', "%{$request->input}%")
             ->orderBy('description')
+            ->limit(50)
             ->get()->transform(function ($row) {
                 return [
                     'id' => $row->id,
@@ -1512,7 +1513,7 @@ class DocumentController extends Controller
 
             // Only admin or the creator can delete
             $user = auth()->user();
-            if ($user->type !== 'admin' && $record->user_id !== $user->id) {
+            if (!\App\Helpers\AuthorizationHelper::isAdmin() && $record->user_id !== $user->id) {
                 return [
                     'success' => false,
                     'message' => 'No tiene permiso para eliminar este documento.',

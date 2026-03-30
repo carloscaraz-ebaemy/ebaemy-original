@@ -42,5 +42,7 @@ class DatabaseSeeder extends Seeder
             'locked' => true
         ]);
 
+        // Crear planes con features asignadas
+        $this->call(PlanSeeder::class);
     }
 }

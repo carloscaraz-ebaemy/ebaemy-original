@@ -59,7 +59,15 @@ class Company extends ModelTenant
     ];
 
     protected $casts = [
-        'send_document_to_pse' => 'bool',
+        'send_document_to_pse'            => 'bool',
+        // Campos sensibles — encriptar DESPUÉS de migrar datos con: php artisan tenants:encrypt-credentials
+        // No usar cast 'encrypted' hasta que los datos existentes hayan sido migrados
+    ];
+
+    protected $hidden = [
+        'soap_password', 'integrated_query_client_secret', 'password_pse',
+        'ws_api_token', 'soap_sunat_password', 'api_sunat_secret',
+        'certificate', 'digital_certificate_qztray', 'private_certificate_qztray',
     ];
 
     /**

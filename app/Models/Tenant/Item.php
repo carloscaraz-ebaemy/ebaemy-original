@@ -113,7 +113,7 @@ use Modules\Purchase\Helpers\WeightedAverageCostHelper;
  */
 class Item extends ModelTenant
 {
-    protected $with = ['item_type', 'unit_type', 'currency_type', 'warehouses','item_unit_types', 'tags','item_lots'];
+    protected $with = []; // Eager load explicitly per query to avoid N+1 on collections
     protected $appends = ['modifiers'];
 
     public const SERVICE_UNIT_TYPE = 'ZZ';
@@ -145,6 +145,10 @@ class Item extends ModelTenant
 
         'stock',
         'stock_min',
+        'weight',     // kg
+        'length',     // cm
+        'width',      // cm
+        'height',     // cm
         'percentage_of_profit',
 
         'attributes',
@@ -191,7 +195,8 @@ class Item extends ModelTenant
         'restrict_sale_cpe',
 
         'preparation_area_id',
-        'slug'
+        'slug',
+        'has_variants',
 
         // 'warehouse_id'
     ];
@@ -208,7 +213,8 @@ class Item extends ModelTenant
         'favorite' => 'boolean',
         'exchange_points' => 'boolean',
         'quantity_of_points' => 'float',
-        'restrict_sale_cpe' => 'boolean'
+        'restrict_sale_cpe' => 'boolean',
+        'has_variants'      => 'boolean',
     ];
 
     /**
@@ -514,7 +520,7 @@ class Item extends ModelTenant
     public function scopeWhereTypeUser($query)
     {
         $user = auth()->user();
-        return ($user->type == 'seller') ? $this->scopeWhereWarehouse($query) : null;
+        return ($user->type == 'seller') ? $this->scopeWhereWarehouse($query) : $query;
     }
 
     /**
@@ -594,8 +600,9 @@ class Item extends ModelTenant
      */
     public function getStockByWarehouseMain()
     {
-        $warehouse = Warehouse::where('establishment_id', 1)->first();
-        $item_warehouse = $this->warehouses->where('warehouse_id',$warehouse->id)->first();
+        $warehouse = Warehouse::orderBy('id')->first();
+        if (!$warehouse) return 0;
+        $item_warehouse = $this->warehouses->where('warehouse_id', $warehouse->id)->first();
         return ($item_warehouse) ? $item_warehouse->stock : 0;
     }
 
@@ -606,6 +613,16 @@ class Item extends ModelTenant
     public function warehouses()
     {
         return $this->hasMany(ItemWarehouse::class)->with('warehouse');
+    }
+
+    public function itemOptions(): HasMany
+    {
+        return $this->hasMany(ItemOption::class)->orderBy('position');
+    }
+
+    public function variants(): HasMany
+    {
+        return $this->hasMany(ItemVariant::class)->where('is_active', true)->orderBy('id');
     }
 
 
@@ -1268,7 +1285,31 @@ class Item extends ModelTenant
             'image_url' => $this->getImageUrl(),
             'name' => $this->name,
             'preparation_area_id' => $this->preparation_area_id,
-            'preparation_area' => $this->preparationArea
+            'preparation_area' => $this->preparationArea,
+
+            // ── Variantes ──────────────────────────────────────────────────
+            'has_variants'  => (bool) $this->has_variants,
+            'variants'      => $this->has_variants ? $this->loadMissing('variants.optionValues')->variants->map(function ($v) {
+                return [
+                    'id'               => $v->id,
+                    'display_name'     => $v->display_name,
+                    'sale_unit_price'  => $v->sale_unit_price,
+                    'stock'            => $v->stock,
+                    'is_active'        => (bool) $v->is_active,
+                    'option_value_ids' => $v->optionValues->pluck('id')->toArray(),
+                ];
+            })->values()->toArray() : [],
+            'item_options'  => $this->has_variants ? $this->loadMissing('itemOptions.values')->itemOptions->map(function ($opt) {
+                return [
+                    'id'     => $opt->id,
+                    'name'   => $opt->name,
+                    'values' => $opt->values->map(fn ($v) => [
+                        'id'        => $v->id,
+                        'value'     => $v->value,
+                        'color_hex' => $v->color_hex,
+                    ])->toArray(),
+                ];
+            })->values()->toArray() : [],
         ];
 
         // El nombre de producto, por defecto, sera la misma descripcion.
@@ -1497,6 +1538,7 @@ class Item extends ModelTenant
             }),
             'is_for_production'=>$this->isIsForProduction(),
             'supplies' => $itemSupply,
+            'has_variants' => (bool) $this->has_variants,
 
         ];
     }
@@ -2148,7 +2190,7 @@ class Item extends ModelTenant
             'item_unit_types' => collect($this->item_unit_types)->transform(function($row) {
                 // validar este
                 /*
-                dd([
+                // dd([
                     __LINE__,
                     __FILE__,
                     $this->item_unit_types

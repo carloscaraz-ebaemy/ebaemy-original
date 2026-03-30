@@ -198,6 +198,13 @@
 
                 <h1 class="product-title" itemprop="name">{{ $record->description }}</h1>
 
+                {{-- Rating y reviews (estilo Falabella) --}}
+                <div class="ec-product-rating" id="ec-product-rating">
+                    <div class="ec-product-rating__stars" id="ec-inline-stars"></div>
+                    <a href="#product-reviews-content" class="ec-product-rating__count" id="ec-inline-rating-link"
+                       onclick="document.getElementById('product-tab-reviews').click()"></a>
+                </div>
+
                 {{-- Precio — SIN precio falso tachado a menos que haya descuento real --}}
                 <div class="price-box" itemprop="offers" itemscope itemtype="https://schema.org/Offer">
                     <meta itemprop="priceCurrency" content="{{ $record->currency_type_id ?? 'PEN' }}">
@@ -208,22 +215,298 @@
                 </div>
 
                 {{-- Stock --}}
+                @php
+                    $totalStock = $record->stock;
+                    if ($record->has_variants && !empty($record->item_variants)) {
+                        $totalStock = collect($record->item_variants)->where('is_active', true)->sum('stock');
+                    }
+                @endphp
                 <div class="product-desc">
                     <p class="product-stock">
-                        Disponible: <span>{{ number_format($record->stock, 0) }}</span>
-                        @if($record->stock > 0)
-                            <span class="alert-stock" role="alert">En stock</span>
+                        Disponible: <span id="ec-stock-num">{{ number_format($totalStock, 0) }}</span>
+                        @if($totalStock > 0)
+                            <span class="alert-stock" id="ec-stock-badge" role="alert">En stock</span>
                         @else
-                            <span class="alert-sin-stock" role="alert">Sin stock</span>
+                            <span class="alert-sin-stock" id="ec-stock-badge" role="alert">Sin stock</span>
+                        @endif
+                        @if($record->has_variants)
+                            <span id="ec-stock-hint" style="font-size:12px;color:#9ca3af;display:block;margin-top:2px">Selecciona una opción para ver disponibilidad</span>
                         @endif
                     </p>
                     @if($record->name)
                     <p>{{ $record->name }}</p>
                     @endif
                 </div>
+                {{-- Indicador de pocas unidades --}}
+                <div id="ec-low-stock" style="display:none">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"
+                         fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true">
+                        <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+                    </svg>
+                    <span id="ec-low-stock-txt"></span>
+                </div>
+
+                {{-- ── Variantes reales del sistema (estilo Falabella) ──────── --}}
+                @if($record->has_variants && count($record->item_options ?? []))
+                @php
+                    // Mapear imágenes de variantes a cada valor de opción de color
+                    $variantImageMap = [];
+                    foreach ($record->item_variants as $v) {
+                        if (!empty($v['image'])) {
+                            foreach ($v['option_value_ids'] as $ovId) {
+                                if (!isset($variantImageMap[$ovId])) {
+                                    $variantImageMap[$ovId] = asset('storage/uploads/items/' . $v['image']);
+                                }
+                            }
+                        }
+                    }
+                @endphp
+                <div class="ec-variant-selectors ec-variant-selectors--falabella" id="ec-variant-selectors">
+                    @foreach($record->item_options as $opt)
+                    @php
+                        $isColor = stripos($opt['name'], 'color') !== false || stripos($opt['name'], 'colour') !== false;
+                        $hasImages = $isColor && collect($opt['values'])->contains(fn($v) => isset($variantImageMap[$v['id']]));
+                    @endphp
+                    <div class="ec-variant-group" data-option-id="{{ $opt['id'] }}">
+                        <div class="ec-variant-label">
+                            <span class="ec-variant-label__name">{{ $opt['name'] }}:</span>
+                            <span class="ec-variant-label__val" id="ec-optval-{{ $opt['id'] }}"></span>
+                        </div>
+                        <div class="ec-variant-options {{ $hasImages ? 'ec-variant-options--thumbs' : ($isColor ? 'ec-variant-options--colors' : 'ec-variant-options--sizes') }}">
+                            @foreach($opt['values'] as $val)
+                            @php
+                                $cssColor = $val['color_hex'] ?? null;
+                                $thumbUrl = $variantImageMap[$val['id']] ?? null;
+                                $lightColors = ['#f9fafb','#fef3c7','#f0e6c8','#d6c3a8','#fef9c3'];
+                                $isLight = $cssColor && in_array($cssColor, $lightColors);
+                            @endphp
+                            @if($hasImages)
+                            {{-- Color con miniatura de imagen (estilo Falabella) --}}
+                            <button type="button"
+                                    class="ec-variant-opt ec-variant-opt--thumb ec-rv-opt"
+                                    data-option-id="{{ $opt['id'] }}"
+                                    data-value-id="{{ $val['id'] }}"
+                                    data-val="{{ $val['value'] }}"
+                                    data-label-id="ec-optval-{{ $opt['id'] }}"
+                                    title="{{ $val['value'] }}"
+                                    aria-pressed="false">
+                                <img src="{{ $thumbUrl ?? $defaultImagePath }}"
+                                     alt="{{ $val['value'] }}"
+                                     loading="lazy">
+                            </button>
+                            @elseif($isColor && $cssColor)
+                            {{-- Color con swatch circular (fallback si no hay imágenes) --}}
+                            <button type="button"
+                                    class="ec-variant-opt ec-variant-opt--color ec-rv-opt"
+                                    data-option-id="{{ $opt['id'] }}"
+                                    data-value-id="{{ $val['id'] }}"
+                                    data-val="{{ $val['value'] }}"
+                                    data-label-id="ec-optval-{{ $opt['id'] }}"
+                                    @if($cssColor) style="--swatch:{{ $cssColor }}" @endif
+                                    title="{{ $val['value'] }}"
+                                    aria-pressed="false">
+                                <span class="ec-swatch {{ $isLight ? 'ec-swatch--light' : '' }}"
+                                      style="background:{{ $cssColor }}"></span>
+                            </button>
+                            @else
+                            {{-- Talla / otro: botón rectangular (estilo Falabella) --}}
+                            <button type="button"
+                                    class="ec-variant-opt ec-variant-opt--size ec-rv-opt"
+                                    data-option-id="{{ $opt['id'] }}"
+                                    data-value-id="{{ $val['id'] }}"
+                                    data-val="{{ $val['value'] }}"
+                                    data-label-id="ec-optval-{{ $opt['id'] }}"
+                                    title="{{ $val['value'] }}"
+                                    aria-pressed="false">
+                                {{ $val['value'] }}
+                            </button>
+                            @endif
+                            @endforeach
+                        </div>
+                    </div>
+                    @endforeach
+                </div>
+                <div id="ec-variant-resolved" style="display:none;margin:8px 0;padding:8px 12px;background:#f0f9eb;border-radius:8px;font-size:13px;color:#67C23A;font-weight:600;"></div>
+                <p class="ec-variant-required" id="ec-variant-required" style="display:none">
+                    Por favor selecciona todas las opciones antes de agregar al carrito.
+                </p>
+                <script>
+                (function(){
+                    var variants  = @json($record->item_variants);
+                    var options   = @json($record->item_options);
+                    var basePrice = {{ $record->sale_unit_price }};
+                    var symbol    = '{{ $record->currency_type_symbol }}';
+                    var selected  = {}; // optionId -> valueId
+
+                    // ── Matriz de disponibilidad ─────────────────────────────────────
+                    // Dado el estado actual de selección, ¿puede un valor ser seleccionado?
+                    function canSelect(optionId, valueId){
+                        var test = Object.assign({}, selected);
+                        test[String(optionId)] = valueId;
+                        return variants.some(function(v){
+                            if(!v.is_active || (v.stock || 0) <= 0) return false;
+                            return Object.keys(test).every(function(oid){
+                                return (v.option_value_ids || []).indexOf(test[oid]) !== -1;
+                            });
+                        });
+                    }
+
+                    function refreshAvailability(){
+                        document.querySelectorAll('.ec-rv-opt').forEach(function(btn){
+                            var optId = btn.getAttribute('data-option-id');
+                            var valId = parseInt(btn.getAttribute('data-value-id'));
+                            var avail = canSelect(optId, valId);
+                            btn.disabled = !avail;
+                            btn.classList.toggle('ec-variant-opt--oos', !avail);
+                        });
+                    }
+
+                    // ── Click handler ────────────────────────────────────────────────
+                    document.querySelectorAll('.ec-rv-opt').forEach(function(btn){
+                        btn.addEventListener('click', function(){
+                            if(this.disabled) return;
+                            var optId   = this.getAttribute('data-option-id');
+                            var valId   = parseInt(this.getAttribute('data-value-id'));
+                            var val     = this.getAttribute('data-val');
+                            var labelId = this.getAttribute('data-label-id');
+
+                            // Deselect siblings — el CSS maneja el estilo via aria-pressed
+                            document.querySelectorAll('.ec-rv-opt[data-option-id="'+optId+'"]').forEach(function(b){
+                                b.setAttribute('aria-pressed', 'false');
+                            });
+                            this.setAttribute('aria-pressed', 'true');
+
+                            selected[optId] = valId;
+                            var lbl = document.getElementById(labelId);
+                            if(lbl) lbl.textContent = '— ' + val;
+
+                            refreshAvailability();
+                            resolveVariant();
+                        });
+                    });
+
+                    // ── Resolver combinación actual ──────────────────────────────────
+                    function resolveVariant(){
+                        var reqEl = document.getElementById('ec-variant-required');
+                        var resEl = document.getElementById('ec-variant-resolved');
+                        var allSelected = options.every(function(opt){
+                            return selected[String(opt.id)] !== undefined;
+                        });
+                        if(!allSelected){
+                            setPriceDisplay(null);
+                            if(resEl) resEl.style.display = 'none';
+                            if(reqEl) reqEl.style.display = 'none';
+                            window._ecSelectedVariant = null;
+                            return;
+                        }
+                        var selIds = options.map(function(o){ return selected[String(o.id)]; })
+                                           .sort(function(a,b){ return a-b; });
+                        var found = variants.find(function(v){
+                            var vIds = (v.option_value_ids||[]).slice().sort(function(a,b){return a-b;});
+                            return JSON.stringify(vIds) === JSON.stringify(selIds);
+                        });
+                        if(found && found.is_active && (found.stock||0) > 0){
+                            window._ecSelectedVariant = found;
+                            setPriceDisplay(found.sale_unit_price != null ? parseFloat(found.sale_unit_price) : null);
+                            updateStockUI(found.stock);
+                            if(resEl){ resEl.style.display='block'; resEl.textContent='✓ '+found.display_name; }
+                            if(reqEl) reqEl.style.display='none';
+                            if(found.image) swapMainImage('/storage/uploads/items/'+found.image);
+                        } else {
+                            window._ecSelectedVariant = null;
+                            if(resEl) resEl.style.display='none';
+                            if(reqEl){
+                                reqEl.style.display='block';
+                                reqEl.textContent='⚠ '+(found ? 'Esta combinación no tiene stock.' : 'Combinación no disponible.');
+                            }
+                        }
+                    }
+
+                    // ── Precio con animación flash ───────────────────────────────────
+                    function setPriceDisplay(price){
+                        var el = document.querySelector('.product-price');
+                        if(!el) return;
+                        var p = (price != null) ? price : basePrice;
+                        el.classList.add('ec-price-flash');
+                        setTimeout(function(){
+                            el.textContent = symbol + ' ' + p.toFixed(2);
+                            el.classList.remove('ec-price-flash');
+                        }, 130);
+                    }
+
+                    // ── Stock UI ─────────────────────────────────────────────────────
+                    function updateStockUI(stock){
+                        var s = Math.floor(stock || 0);
+                        // Número
+                        var numEl = document.getElementById('ec-stock-num');
+                        if(numEl) numEl.textContent = s;
+                        // Ocultar hint de "selecciona una opción"
+                        var hint = document.getElementById('ec-stock-hint');
+                        if(hint) hint.style.display = 'none';
+                        // Badge En stock / Sin stock
+                        var badge = document.getElementById('ec-stock-badge');
+                        if(badge){
+                            badge.className = s > 0 ? 'alert-stock' : 'alert-sin-stock';
+                            badge.textContent = s > 0 ? 'En stock' : 'Sin stock';
+                        }
+                        // Indicador pocas unidades
+                        var lowEl  = document.getElementById('ec-low-stock');
+                        var lowTxt = document.getElementById('ec-low-stock-txt');
+                        if(lowEl){
+                            if(s > 0 && s <= 5){
+                                if(lowTxt) lowTxt.textContent = '¡Solo quedan '+s+' unidades!';
+                                lowEl.style.display = 'flex';
+                            } else {
+                                lowEl.style.display = 'none';
+                            }
+                        }
+                        // Max del input de cantidad
+                        var inp = document.getElementById('ec-qty-input');
+                        if(inp){ inp.max = s; if(parseInt(inp.value) > s) inp.value = Math.max(1, s); }
+                        // Mostrar/ocultar selector cantidad y botón carrito
+                        var qtyWrap = document.getElementById('ec-qty-selector');
+                        if(qtyWrap && qtyWrap.closest('.mb-3')) qtyWrap.closest('.mb-3').style.display = s > 0 ? '' : 'none';
+                        var addBtn = document.getElementById('btn-add-to-cart');
+                        if(addBtn) addBtn.style.display = s > 0 ? '' : 'none';
+                        // Mostrar botón "Avisarme" si agotado
+                        var notifyBtn = document.querySelector('.ec-btn-notify');
+                        if(notifyBtn) notifyBtn.style.display = s > 0 ? 'none' : '';
+                    }
+
+                    // ── Swap imagen principal ────────────────────────────────────────
+                    function swapMainImage(url){
+                        var img = document.querySelector('.product-single-carousel .product-single-image');
+                        if(!img || img.src.endsWith(url)) return;
+                        img.style.transition = 'opacity .15s ease';
+                        img.style.opacity = '0';
+                        setTimeout(function(){
+                            img.src = url;
+                            if(img.dataset.zoomImage !== undefined) img.dataset.zoomImage = url;
+                            img.style.opacity = '1';
+                        }, 150);
+                        // Actualizar thumbnail activo
+                        var thumb = document.querySelector('#carousel-custom-dots .owl-dot.active img');
+                        if(thumb) thumb.src = url;
+                    }
+
+                    // ── NO auto-seleccionar (estilo Shopify) ──────────────────────
+                    // El usuario debe elegir. Mostramos stock total y deshabilitamos
+                    // opciones sin stock desde el inicio.
+                    refreshAvailability();
+
+                    // Estado inicial: ocultar qty selector y mostrar hint
+                    var qtyWrapInit = document.getElementById('ec-qty-selector');
+                    if(qtyWrapInit && qtyWrapInit.closest('.mb-3')) qtyWrapInit.closest('.mb-3').style.display = 'none';
+                    var addBtnInit = document.getElementById('btn-add-to-cart');
+                    if(addBtnInit) addBtnInit.style.display = 'none';
+                    // Mostrar mensaje de selección requerida
+                    var reqInit = document.getElementById('ec-variant-required');
+                    if(reqInit){ reqInit.style.display = 'block'; reqInit.textContent = 'Selecciona talla y color para agregar al carrito'; reqInit.style.color = '#6b7280'; }
+                })();
+                </script>
 
                 {{-- Atributos del producto — selector interactivo --}}
-                @if($record->attributes && count($record->attributes))
+                @elseif($record->attributes && count($record->attributes))
                 @php
                     // Types that render as selectable chips/swatches
                     $selectableTypes = ['color','talla','tamaño','size','presentacion','presentación','modelo','sabor','fragancia','capacidad','material'];
@@ -318,16 +601,35 @@
 
                 {{-- Acciones --}}
                 @php
-                    $showWhatsapp = ($configurationModel->enable_whatsapp ?? false) && !empty($phoneWhatsapp);
+                    // ── Stock efectivo (considera variantes) ───────────────────────────
+                    $effectiveStock = $record->stock;
+                    if ($record->has_variants && !empty($record->item_variants)) {
+                        $effectiveStock = collect($record->item_variants)->sum('stock');
+                    }
+                    $isAvailable = $effectiveStock > 0;
+
+                    // ── WhatsApp ────────────────────────────────────────────────────────
+                    $showWhatsapp = ($configurationModel->enable_whatsapp ?? false)
+                                    && !empty($phoneWhatsapp)
+                                    && $isAvailable;           // ← ocultar si agotado
                     $waPhoneRaw   = $showWhatsapp ? preg_replace('/\D+/', '', $phoneWhatsapp) : '';
                     $waPhone      = ($showWhatsapp && strlen($waPhoneRaw) == 9 && str_starts_with($waPhoneRaw, '9'))
                                     ? '51' . $waPhoneRaw : $waPhoneRaw;
-                    $waText       = rawurlencode("Hola, me interesa el producto *{$record->description}* a {$record->currency_type['symbol']}{$record->sale_unit_price}. ¿Está disponible?");
+                    $waMsgLines   = [
+                        "Hola, me interesa este producto:",
+                        "",
+                        "*{$record->description}*",
+                        "Código: " . ($record->internal_id ?? 'S/N'),
+                        "Precio: {$record->currency_type['symbol']} " . number_format($record->sale_unit_price, 2),
+                        "",
+                        "🔗 {$productUrl}",
+                    ];
+                    $waText       = rawurlencode(implode("\n", $waMsgLines));
                     $waLink       = $showWhatsapp ? "https://wa.me/{$waPhone}?text={$waText}" : '#';
                 @endphp
 
                 <div class="product-action product-all-icons" id="product-actions">
-                    @if($record->stock > 0)
+                    @if($isAvailable)
                     <a href="#" class="paction add-cart"
                        id="btn-add-to-cart"
                        data-product="{{ json_encode($record) }}"
@@ -335,6 +637,44 @@
                        title="Agregar al carrito">
                         <span>Agregar al Carrito</span>
                     </a>
+                    @if($record->has_variants)
+                    <script>
+                    (function(){
+                        document.getElementById('btn-add-to-cart').addEventListener('click', function(e){
+                            e.preventDefault();
+                            e.stopImmediatePropagation();
+                            if(!window._ecSelectedVariant){
+                                document.getElementById('ec-variant-required').style.display='block';
+                                document.getElementById('ec-variant-required').textContent='⚠ Por favor selecciona todas las opciones antes de agregar al carrito.';
+                                this.closest('.product-single-details').querySelector('.ec-variant-selectors').scrollIntoView({behavior:'smooth',block:'nearest'});
+                                return;
+                            }
+                            var v = window._ecSelectedVariant;
+                            var base = JSON.parse(this.getAttribute('data-ec-cart'));
+                            base.variant_id = v.id;
+                            base.variant_display_name = v.display_name;
+                            base.variant_stock = v.stock || 0;
+                            base.stock = v.stock || 0; // override parent stock with variant stock
+                            if(v.sale_unit_price !== null && v.sale_unit_price !== undefined){
+                                base.sale_unit_price = parseFloat(v.sale_unit_price);
+                                base.sale_unit = parseFloat(v.sale_unit_price);
+                            }
+                            var qtyEl = document.getElementById('ec-qty-input');
+                            base.quantity = qtyEl ? (parseInt(qtyEl.value)||1) : 1;
+                            cart_add(JSON.stringify(base));
+                        });
+                        // Mobile bar btn
+                        var mobBtn = document.querySelector('.ec-mob-cart-btn');
+                        if(mobBtn){
+                            mobBtn.addEventListener('click', function(e){
+                                e.preventDefault();
+                                e.stopImmediatePropagation();
+                                document.getElementById('btn-add-to-cart').click();
+                            });
+                        }
+                    })();
+                    </script>
+                    @endif
                     @else
                     <button type="button" class="ec-btn-notify ec-btn-notify--full"
                             data-item-id="{{ $record->id }}"
@@ -358,6 +698,30 @@
                     </a>
                     @endif
                 </div>
+
+                {{-- Código de producto (estilo Falabella) --}}
+                <div class="ec-product-codes">
+                    @if($record->internal_id)
+                    <span class="ec-product-code">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+                        Código: {{ $record->internal_id }}
+                    </span>
+                    @endif
+                </div>
+
+                {{-- Info de envío / disponibilidad (estilo Falabella) --}}
+                @if($isAvailable)
+                <div class="ec-delivery-info">
+                    <div class="ec-delivery-row">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+                        <span>Stock disponible</span>
+                    </div>
+                    <div class="ec-delivery-row">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
+                        <span>Despacho a domicilio</span>
+                    </div>
+                </div>
+                @endif
 
                 {{-- Comparar --}}
                 <div class="mt-2">
@@ -425,7 +789,7 @@
             </div><!-- End .product-single-details -->
 
             {{-- ── MOBILE STICKY BAR (solo visible en móvil ≤ 767px) ── --}}
-            @if($record->stock > 0)
+            @if($isAvailable)
             <div class="ec-mobile-action-bar d-md-none">
                 @if($showWhatsapp)
                 <a href="{{ $waLink }}" class="btn-whatsapp ec-mob-wa-btn" target="_blank" rel="noopener noreferrer"
@@ -552,15 +916,73 @@
         <div class="tab-pane fade" id="product-especTecn-content" role="tabpanel" aria-labelledby="product-tab-especTecn">
             <div class="product-especTecn-content">
                 @php
-                    // Sanitizar HTML para prevenir XSS — sólo permitir etiquetas seguras
+                    // Sanitizar HTML: permitir solo etiquetas seguras y eliminar atributos de eventos
                     $allowedTags = '<p><br><b><strong><i><em><ul><ol><li><table><thead><tbody><tr><th><td><h1><h2><h3><h4><h5><h6><span><div>';
                     $safeSpecs = strip_tags($record->technical_specifications ?? '', $allowedTags);
+                    // Remover atributos on* (onclick, onmouseover, etc.) y javascript: en href/src
+                    $safeSpecs = preg_replace('/\s+on\w+\s*=\s*(?:"[^"]*"|\'[^\']*\'|[^\s>]*)/i', '', $safeSpecs);
+                    $safeSpecs = preg_replace('/\s+(?:href|src|action)\s*=\s*["\']?\s*javascript:[^"\'>\s]*/i', '', $safeSpecs);
                 @endphp
                 <div class="specs-content">{!! $safeSpecs !!}</div>
             </div>
         </div><!-- End .tab-pane -->
     </div>
 </div>
+
+{{-- ── Rating inline (carga al abrir la página) ──────── --}}
+<script>
+(function(){
+    fetch('/ecommerce/reviews/{{ $record->id }}')
+        .then(function(r){ return r.json(); })
+        .then(function(data){
+            if(!data || !data.total) return;
+            var starsEl = document.getElementById('ec-inline-stars');
+            var linkEl  = document.getElementById('ec-inline-rating-link');
+            if(!starsEl || !linkEl) return;
+            var avg = data.avg || 0;
+            var html = '';
+            for(var i = 1; i <= 5; i++){
+                if(i <= Math.floor(avg)) html += '<span class="ec-star ec-star--full">★</span>';
+                else if(i - avg < 1) html += '<span class="ec-star ec-star--half">★</span>';
+                else html += '<span class="ec-star ec-star--empty">★</span>';
+            }
+            starsEl.innerHTML = html;
+            linkEl.textContent = avg.toFixed(1) + ' (' + data.total + ')';
+            document.getElementById('ec-product-rating').style.display = 'flex';
+        }).catch(function(){});
+})();
+</script>
+
+{{-- ── FRECUENTEMENTE COMPRADOS JUNTOS ──────────────── --}}
+<div class="container mt-5" id="ec-fbt-section" style="display:none">
+    <h3 style="font-size:18px;font-weight:700;margin-bottom:16px">Frecuentemente comprados juntos</h3>
+    <div class="row" id="ec-fbt-grid"></div>
+</div>
+<script>
+(function(){
+    fetch('/recommendations/fbt/{{ $record->id }}')
+        .then(function(r){ return r.json(); })
+        .then(function(items){
+            if (!items || !items.length) return;
+            var grid = document.getElementById('ec-fbt-grid');
+            var section = document.getElementById('ec-fbt-section');
+            if (!grid || !section) return;
+            items.forEach(function(item){
+                var img = item.image_small ? '/storage/uploads/items/' + item.image_small : '/logo/imagen-no-disponible.jpg';
+                grid.insertAdjacentHTML('beforeend',
+                    '<div class="col-6 col-md-3 mb-3">' +
+                    '<div style="background:#fff;border-radius:12px;padding:12px;box-shadow:0 1px 4px rgba(0,0,0,.08);text-align:center">' +
+                    '<img src="' + img + '" loading="lazy" style="width:100%;max-height:160px;object-fit:contain;border-radius:8px" alt="' + (item.description||'') + '" onerror="this.src=\'/logo/imagen-no-disponible.jpg\'">' +
+                    '<p style="font-size:13px;font-weight:600;margin:8px 0 4px;color:#1f2937;line-height:1.3">' + (item.description||'').substring(0,50) + '</p>' +
+                    '<span style="font-size:15px;font-weight:700;color:#7c3aed">S/ ' + parseFloat(item.sale_unit_price||0).toFixed(2) + '</span>' +
+                    '</div></div>'
+                );
+            });
+            section.style.display = '';
+        })
+        .catch(function(){});
+})();
+</script>
 
 {{-- ── PRODUCTOS RELACIONADOS ───────────────────────── --}}
 <div class="container mt-5">
@@ -737,7 +1159,7 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     // Tracking ViewContent
-    var productData = {!! json_encode([
+    var productData = {!! \Illuminate\Support\Js::from([
         'id'               => $record->id,
         'description'      => $record->description,
         'sale_unit_price'  => $record->sale_unit_price,

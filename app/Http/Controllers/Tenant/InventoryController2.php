@@ -31,7 +31,7 @@ class InventoryController2 extends Controller
 
     public function tables() {
         return [
-            'items' => Item::where('item_type_id', '01')->get(),
+            'items' => Item::with(['unit_type', 'currency_type'])->where('item_type_id', '01')->select('id', 'description', 'internal_id', 'unit_type_id', 'currency_type_id')->orderBy('description')->limit(500)->get(),
             'warehouses' => Warehouse::all()
         ];
     }

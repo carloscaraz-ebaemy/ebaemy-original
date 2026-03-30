@@ -16,7 +16,8 @@ return [
 
     'allowed_methods' => ['*'],
 
-    'allowed_origins' => ['*'],
+    // En producción definir CORS_ALLOWED_ORIGINS=https://tudominio.com,https://admin.tudominio.com
+    'allowed_origins' => explode(',', env('CORS_ALLOWED_ORIGINS', '*')),
 
     'allowed_origins_patterns' => [],
 

@@ -170,7 +170,7 @@ $inventory_configuration = InventoryConfiguration::getSidebarPermissions();
                                 <span>VENTAS</span>
                             </a>
                             <ul class="nav nav-children" style="">
-                                {{-- @if(auth()->user()->type != 'integrator' && $vc_company->soap_type_id != '03')
+                                {{-- @if((auth()->user()->type ?? '') != 'integrator' && $vc_company->soap_type_id != '03')
                                     @if(in_array('documents', $vc_modules))
                                         @if(in_array('new_document', $vc_module_levels))
                                             <li
@@ -229,8 +229,8 @@ $inventory_configuration = InventoryConfiguration::getSidebarPermissions();
                             </ul>
                         </li>
                     @endif
-                     @if(auth()->check() && auth()->user()->type != 'integrator')       
-                    {{-- @if(auth()->user()->type != 'integrator') --}}
+                     @if(auth()->check() && (auth()->user()->type ?? '') != 'integrator')       
+                    {{-- @if((auth()->user()->type ?? '') != 'integrator') --}}
                                     @if(in_array('purchases', $vc_modules))
                                                     <li
                                                         class="
@@ -915,8 +915,8 @@ $inventory_configuration = InventoryConfiguration::getSidebarPermissions();
                                         <a class="nav-link" href="{{route('tenant.order_forms.index')}}">Ordenes de pedido</a>
                                     </li>
                                 @endif
-                                @if(auth()->user()->type != 'integrator' && in_array('documents', $vc_modules))
-                                    @if(auth()->user()->type != 'integrator' && in_array('document_contingengy', $vc_module_levels) && $vc_company->soap_type_id != '03')
+                                @if((auth()->user()->type ?? '') != 'integrator' && in_array('documents', $vc_modules))
+                                    @if((auth()->user()->type ?? '') != 'integrator' && in_array('document_contingengy', $vc_module_levels) && $vc_company->soap_type_id != '03')
                                         <li class="{{ ($firstLevel === 'contingencies') ? 'nav-active' : '' }}">
                                             <a class="nav-link" href="{{route('tenant.contingencies.index')}}">
                                                 Documentos de contingencia
@@ -1033,64 +1033,131 @@ $inventory_configuration = InventoryConfiguration::getSidebarPermissions();
                                 <span>Tienda Virtual</span>
                             </a>
                             <ul class="nav nav-children">
+                                {{-- TIENDA --}}
                                 @if(in_array('ecommerce', $vc_module_levels))
+                                    <span class="sb-group-label">Tienda</span>
                                     <li class="">
-                                        <a class="nav-link" onclick="window.open( '{{ route("tenant.ecommerce.index") }} ')">Ir
-                                            a
-                                            Tienda</a>
+                                        <a class="nav-link" onclick="window.open('{{ route("tenant.ecommerce.index") }}')">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M12 6h-6a2 2 0 0 0 -2 2v10a2 2 0 0 0 2 2h10a2 2 0 0 0 2 -2v-6" /><path d="M11 13l9 -9" /><path d="M15 4h5v5" /></svg>
+                                            <span>Ir a Tienda</span>
+                                        </a>
                                     </li>
                                 @endif
+
+                                {{-- GESTIÓN --}}
+                                <span class="sb-group-label">Gestión</span>
                                 @if(in_array('ecommerce_orders', $vc_module_levels))
                                     <li class="{{ ($firstLevel === 'orders') ? 'nav-active' : '' }}">
-                                        <a class="nav-link" href="{{route('tenant_orders_index')}}">Pedidos</a>
+                                        <a class="nav-link" href="{{route('tenant_orders_index')}}">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M6 19m-2 0a2 2 0 1 0 4 0a2 2 0 1 0 -4 0" /><path d="M17 19m-2 0a2 2 0 1 0 4 0a2 2 0 1 0 -4 0" /><path d="M17 17h-11v-14h-2" /><path d="M6 5l14 1l-1 7h-13" /></svg>
+                                            <span>Pedidos</span>
+                                        </a>
                                     </li>
                                 @endif
                                 @if(in_array('ecommerce_items', $vc_module_levels))
                                     <li class="{{ ($firstLevel === 'items_ecommerce') ? 'nav-active' : '' }}">
-                                        <a class="nav-link" href="{{route('tenant.items_ecommerce.index')}}">Productos Tienda
-                                            Virtual</a>
+                                        <a class="nav-link" href="{{route('tenant.items_ecommerce.index')}}">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M12 3l8 4.5v9l-8 4.5l-8 -4.5v-9z" /><path d="M12 12l8 -4.5" /><path d="M12 12v9" /><path d="M12 12l-8 -4.5" /></svg>
+                                            <span>Productos</span>
+                                        </a>
                                     </li>
                                 @endif
-
                                 <li class="{{ ($secondLevel === 'item-sets') ? 'nav-active' : '' }}">
-                                    <a class="nav-link"
-                                        href="{{route('tenant.ecommerce.item_sets.index')}}">Conjuntos y Packs</a>
+                                    <a class="nav-link" href="{{route('tenant.ecommerce.item_sets.index')}}">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M4 4m0 1a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v4a1 1 0 0 1 -1 1h-4a1 1 0 0 1 -1 -1z" /><path d="M14 4m0 1a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v4a1 1 0 0 1 -1 1h-4a1 1 0 0 1 -1 -1z" /><path d="M4 14m0 1a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v4a1 1 0 0 1 -1 1h-4a1 1 0 0 1 -1 -1z" /><path d="M14 14m0 1a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v4a1 1 0 0 1 -1 1h-4a1 1 0 0 1 -1 -1z" /></svg>
+                                        <span>Conjuntos y Packs</span>
+                                    </a>
                                 </li>
 
+                                {{-- MARKETING --}}
+                                <span class="sb-group-label">Marketing</span>
                                 <li class="{{ ($secondLevel === 'flash-sales') ? 'nav-active' : '' }}">
                                     <a class="nav-link" href="{{ route('tenant.ecommerce.flash_sales') }}">
-                                        <i class="fas fa-bolt" style="color:#f59e0b;margin-right:4px"></i>Flash Sales
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M13 3l0 7l6 0l-8 11l0 -7l-6 0l8 -11" /></svg>
+                                        <span>Flash Sales</span>
                                     </a>
                                 </li>
-
                                 <li class="{{ ($secondLevel === 'coupons') ? 'nav-active' : '' }}">
                                     <a class="nav-link" href="{{ route('tenant.ecommerce.coupons') }}">
-                                        <i class="fas fa-tag" style="color:#6366f1;margin-right:4px"></i>Cupones
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M9 15l6 -6" /><path d="M9.5 9.5m-0.5 0a0.5 0.5 0 1 0 1 0a0.5 0.5 0 1 0 -1 0" /><path d="M14.5 14.5m-0.5 0a0.5 0.5 0 1 0 1 0a0.5 0.5 0 1 0 -1 0" /><path d="M5 7.2a2.2 2.2 0 0 1 2.2 -2.2h1a2.2 2.2 0 0 0 1.55 -.64l.7 -.7a2.2 2.2 0 0 1 3.12 0l.7 .7c.412 .41 .97 .64 1.55 .64h1a2.2 2.2 0 0 1 2.2 2.2v1c0 .58 .23 1.138 .64 1.55l.7 .7a2.2 2.2 0 0 1 0 3.12l-.7 .7a2.2 2.2 0 0 0 -.64 1.55v1a2.2 2.2 0 0 1 -2.2 2.2h-1a2.2 2.2 0 0 0 -1.55 .64l-.7 .7a2.2 2.2 0 0 1 -3.12 0l-.7 -.7a2.2 2.2 0 0 0 -1.55 -.64h-1a2.2 2.2 0 0 1 -2.2 -2.2v-1a2.2 2.2 0 0 0 -.64 -1.55l-.7 -.7a2.2 2.2 0 0 1 0 -3.12l.7 -.7a2.2 2.2 0 0 0 .64 -1.55v-1" /></svg>
+                                        <span>Cupones</span>
                                     </a>
                                 </li>
-
                                 <li class="{{ ($secondLevel === 'stock-notifications') ? 'nav-active' : '' }}">
                                     <a class="nav-link" href="{{ route('tenant.ecommerce.stock_notifications') }}">
-                                        <i class="fas fa-bell" style="color:#22c55e;margin-right:4px"></i>Avisos de Stock
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M10 5a2 2 0 1 1 4 0a7 7 0 0 1 4 6v3a4 4 0 0 0 2 3h-16a4 4 0 0 0 2 -3v-3a7 7 0 0 1 4 -6" /><path d="M9 17v1a3 3 0 0 0 6 0v-1" /></svg>
+                                        <span>Avisos de Stock</span>
+                                    </a>
+                                </li>
+                                <li class="{{ request()->routeIs('tenant.discount_rules.index') ? 'nav-active' : '' }}">
+                                    <a class="nav-link" href="{{ route('tenant.discount_rules.index') }}">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M17 8v.01" /><path d="M7 16v.01" /><path d="M6 6m-3 0a3 3 0 1 0 6 0a3 3 0 1 0 -6 0" /><path d="M18 18m-3 0a3 3 0 1 0 6 0a3 3 0 1 0 -6 0" /><path d="M6 9l12 6" /></svg>
+                                        <span>Reglas de Descuento</span>
                                     </a>
                                 </li>
 
+                                {{-- CONTENIDO --}}
+                                @if(in_array('ecommerce_tags', $vc_module_levels) || in_array('ecommerce_promotions', $vc_module_levels))
+                                    <span class="sb-group-label">Contenido</span>
+                                @endif
                                 @if(in_array('ecommerce_tags', $vc_module_levels))
                                     <li class="{{ ($firstLevel === 'tags') ? 'nav-active' : '' }}">
-                                        <a class="nav-link" href="{{route('tenant.tags.index')}}">Tags -
-                                            Categorias(Etiquetas)</a>
+                                        <a class="nav-link" href="{{route('tenant.tags.index')}}">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M7.859 6h-2.834a2.025 2.025 0 0 0 -2.025 2.025v2.834c0 .537 .213 1.052 .593 1.432l6.116 6.116a2.025 2.025 0 0 0 2.864 0l2.834 -2.834a2.025 2.025 0 0 0 0 -2.864l-6.116 -6.116a2.025 2.025 0 0 0 -1.432 -.593z" /><path d="M17.573 18.407l2.834 -2.834a2.025 2.025 0 0 0 0 -2.864l-7.117 -7.116" /><path d="M6 9h-.01" /></svg>
+                                            <span>Tags / Categorías</span>
+                                        </a>
                                     </li>
                                 @endif
                                 @if(in_array('ecommerce_promotions', $vc_module_levels))
                                     <li class="{{ ($firstLevel === 'promotions') ? 'nav-active' : '' }}">
-                                        <a class="nav-link" href="{{route('tenant.promotion.index')}}">Promociones(Banners)</a>
+                                        <a class="nav-link" href="{{route('tenant.promotion.index')}}">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M15 8h.01" /><path d="M3 6a3 3 0 0 1 3 -3h12a3 3 0 0 1 3 3v12a3 3 0 0 1 -3 3h-12a3 3 0 0 1 -3 -3v-12z" /><path d="M3 16l5 -5c.928 -.893 2.072 -.893 3 0l4 4" /><path d="M14 14l1 -1c.928 -.893 2.072 -.893 3 0l3 3" /></svg>
+                                            <span>Banners</span>
+                                        </a>
                                     </li>
                                 @endif
-                                {{-- @if(in_array('ecommerce_settings', $vc_module_levels))
-                                <li class="{{ ($secondLevel === 'configuration')?'nav-active':'' }}">
-                                    <a class="nav-link" href="{{route('tenant_ecommerce_configuration')}}">Configuración</a>
+
+                                {{-- CANALES --}}
+                                <span class="sb-group-label">Canales</span>
+                                <li class="{{ request()->routeIs('tenant.ecommerce.marketplace') ? 'nav-active' : '' }}">
+                                    <a class="nav-link" href="{{ route('tenant.ecommerce.marketplace') }}">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+                                        <span>Marketplace</span>
+                                    </a>
                                 </li>
-                                @endif --}}
+                                <li class="{{ request()->routeIs('tenant.ecommerce.marketplace.products') ? 'nav-active' : '' }}">
+                                    <a class="nav-link" href="{{ route('tenant.ecommerce.marketplace.products') }}">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
+                                        <span>Productos por Canal</span>
+                                    </a>
+                                </li>
+
+                                {{-- APARIENCIA --}}
+                                <span class="sb-group-label">Apariencia</span>
+                                <li class="{{ request()->routeIs('tenant.ecommerce.themes') ? 'nav-active' : '' }}">
+                                    <a class="nav-link" href="{{ route('tenant.ecommerce.themes') }}">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21a9 9 0 1 1 0-18 9 9 0 0 1 0 18z"/><path d="M3.6 9h16.8"/><path d="M3.6 15h16.8"/><path d="M12 3a15 15 0 0 1 4 9 15 15 0 0 1-4 9 15 15 0 0 1-4-9 15 15 0 0 1 4-9z"/></svg>
+                                        <span>Temas</span>
+                                    </a>
+                                </li>
+                                <li class="{{ request()->routeIs('tenant.ecommerce.plugins') ? 'nav-active' : '' }}">
+                                    <a class="nav-link" href="{{ route('tenant.ecommerce.plugins') }}">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v6m0 12v2M4.93 4.93l4.24 4.24m5.66 5.66l4.24 4.24M2 12h6m12 0h2M4.93 19.07l4.24-4.24m5.66-5.66l4.24-4.24"/></svg>
+                                        <span>Plugins</span>
+                                    </a>
+                                </li>
+                                <li class="{{ request()->routeIs('tenant.ecommerce.notifications') ? 'nav-active' : '' }}">
+                                    <a class="nav-link" href="{{ route('tenant.ecommerce.notifications') }}">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg>
+                                        <span>Notificaciones</span>
+                                    </a>
+                                </li>
+                                <li class="{{ ($firstLevel === 'configuration') ? 'nav-active' : '' }}">
+                                    <a class="nav-link" href="{{ route('tenant_ecommerce_configuration') }}">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M10.325 4.317c.426 -1.756 2.924 -1.756 3.35 0a1.724 1.724 0 0 0 2.573 1.066c1.543 -.94 3.31 .826 2.37 2.37a1.724 1.724 0 0 0 1.065 2.572c1.756 .426 1.756 2.924 0 3.35a1.724 1.724 0 0 0 -1.066 2.573c.94 1.543 -.826 3.31 -2.37 2.37a1.724 1.724 0 0 0 -2.572 1.065c-.426 1.756 -2.924 1.756 -3.35 0a1.724 1.724 0 0 0 -2.573 -1.066c-1.543 .94 -3.31 -.826 -2.37 -2.37a1.724 1.724 0 0 0 -1.065 -2.572c-1.756 -.426 -1.756 -2.924 0 -3.35a1.724 1.724 0 0 0 1.066 -2.573c-.94 -1.543 .826 -3.31 2.37 -2.37c1 .608 2.296 .07 2.572 -1.065z" /><path d="M9 12a3 3 0 1 0 6 0a3 3 0 0 0 -6 0" /></svg>
+                                        <span>Configuración</span>
+                                    </a>
+                                </li>
                             </ul>
                         </li>
                     @endif

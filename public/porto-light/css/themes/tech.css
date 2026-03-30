@@ -1,0 +1,89 @@
+/* ═══════════════════════════════════════════════════════════════
+   THEME: TECH / ELECTRÓNICA
+   Moderno, oscuro disponible, contrastes fuertes, specs visibles
+   Tipografía: bold sans-serif
+   ═══════════════════════════════════════════════════════════════ */
+
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&display=swap');
+
+:root {
+    --theme-font-heading: 'DM Sans', sans-serif;
+    --theme-font-body: 'DM Sans', sans-serif;
+    --theme-card-radius: 16px;
+    --theme-btn-radius: 10px;
+}
+
+body {
+    font-family: var(--theme-font-body) !important;
+}
+
+h1, h2, h3, .ec-section-title {
+    font-family: var(--theme-font-heading) !important;
+    font-weight: 700 !important;
+}
+
+/* Cards con bordes gruesos y sombra tech */
+.pcard {
+    border-radius: var(--theme-card-radius) !important;
+    border: 2px solid #f1f5f9 !important;
+    transition: all .2s ease;
+}
+.pcard:hover {
+    border-color: var(--ec-primary, #6366f1) !important;
+    box-shadow: 0 0 0 1px var(--ec-primary, #6366f1), 0 8px 24px rgba(0,0,0,.08) !important;
+    transform: translateY(-2px);
+}
+
+.pcard__body {
+    padding: 14px !important;
+}
+
+/* Precio grande y bold */
+.pcard__price, .product-price {
+    font-size: 20px !important;
+    font-weight: 700 !important;
+    font-family: var(--theme-font-heading) !important;
+}
+
+/* Badges con pill style */
+.pbadge {
+    border-radius: 20px !important;
+    padding: 4px 12px !important;
+    font-weight: 700 !important;
+}
+
+/* Botones redondeados */
+.btn-primary, .paction.add-cart, #btn-add-to-cart, .ec-minicart-btn {
+    border-radius: var(--theme-btn-radius) !important;
+    font-weight: 700 !important;
+}
+
+/* Category pills redondeadas */
+.ec-cat-pill, .ec-cat-pills button {
+    border-radius: 20px !important;
+    font-weight: 600 !important;
+}
+
+/* Especificaciones visibles en card (si hay) */
+.pcard__specs {
+    display: block !important;
+}
+
+/* Search input tech */
+.search_input, .ec-search-wrap input {
+    border-radius: 14px !important;
+}
+
+/* Product detail - specs prominentes */
+.product-single-tabs .nav-link {
+    font-weight: 700 !important;
+    font-family: var(--theme-font-heading) !important;
+}
+
+/* Grid más compacto */
+@media (min-width: 992px) {
+    .product-col-item {
+        padding-left: 6px !important;
+        padding-right: 6px !important;
+    }
+}

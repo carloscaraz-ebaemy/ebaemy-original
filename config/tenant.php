@@ -50,4 +50,12 @@ return [
     'internal_dispatch' => env('INTERNAL_DISPATCH', false),
 
     'ubigeo_default_invoice_import' => env('UBIGEO_DEFAULT_INVOICE_IMPORT', '150101'),
+
+    // ── Theme & Domain System ──────────────────────────
+    'base_domain'                => env('TENANT_BASE_DOMAIN', 'ebaemy.test'),
+    'excluded_subdomains'        => ['admin', 'api', 'www', 'mail', 'ftp'],
+    'domain_cache_ttl'           => (int) env('TENANT_CACHE_TTL', 3600),
+    'verification_cname_target'  => env('TENANT_CNAME_TARGET', 'verify.ebaemy.com'),
+    'ssl_email'                  => env('TENANT_SSL_EMAIL', 'admin@ebaemy.com'),
+    'default_theme'              => env('TENANT_DEFAULT_THEME', 'default'),
 ];

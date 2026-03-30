@@ -74,6 +74,7 @@
                         <tr>
                             <th>Nombre</th>
                             <th class="text-center">Estado</th>
+                            <th class="text-center">API</th>
                             <th class="text-center">Acciones</th>
                         </tr>
                     </thead>
@@ -93,6 +94,12 @@
                                                maxlength="120"
                                                required>
                                         <input type="hidden" name="is_active" value="{{ $courier->is_active ? 1 : 0 }}">
+                                        {{-- API hidden fields (populated by modal) --}}
+                                        <input type="hidden" name="api_driver"   id="hf-driver-{{ $courier->id }}"   value="{{ $courier->api_driver ?? 'manual' }}">
+                                        <input type="hidden" name="api_key"      id="hf-key-{{ $courier->id }}"      value="">
+                                        <input type="hidden" name="api_secret"   id="hf-secret-{{ $courier->id }}"   value="">
+                                        <input type="hidden" name="api_endpoint" id="hf-endpoint-{{ $courier->id }}" value="{{ $courier->api_endpoint ?? '' }}">
+                                        <input type="hidden" name="api_sandbox"  id="hf-sandbox-{{ $courier->id }}"  value="{{ $courier->api_sandbox ? 1 : 0 }}">
                                     </form>
                                 </td>
                                 <td class="text-center">
@@ -107,6 +114,24 @@
                                             {{ $courier->is_active ? 'Activo' : 'Inactivo' }}
                                         </span>
                                     </div>
+                                </td>
+                                <td class="text-center">
+                                    @if(($courier->api_driver ?? 'manual') !== 'manual')
+                                        <span class="badge bg-primary" style="font-size:.7rem">
+                                            {{ strtoupper($courier->api_driver) }}
+                                        </span>
+                                    @else
+                                        <span class="text-muted small">—</span>
+                                    @endif
+                                    <button type="button"
+                                            class="btn btn-xs btn-outline-secondary ms-1 btn-api-config"
+                                            data-id="{{ $courier->id }}"
+                                            data-driver="{{ $courier->api_driver ?? 'manual' }}"
+                                            data-endpoint="{{ $courier->api_endpoint ?? '' }}"
+                                            data-sandbox="{{ $courier->api_sandbox ? '1' : '0' }}"
+                                            title="Configurar API">
+                                        <i class="fas fa-plug"></i>
+                                    </button>
                                 </td>
                                 <td class="text-center">
                                     <div class="d-flex justify-content-center gap-1">
@@ -138,9 +163,62 @@
 </div>
 @endsection
 
+{{-- Modal configuración API --}}
+<div class="modal fade" id="apiConfigModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="fas fa-plug me-2"></i>Integración API — Courier</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Driver / Proveedor</label>
+                    <select class="form-select" id="modal-driver">
+                        <option value="manual">Manual (sin integración)</option>
+                        <option value="chazki">Chazki</option>
+                        <option value="nueveminutos">99Minutos</option>
+                    </select>
+                </div>
+                <div id="api-fields" style="display:none">
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Endpoint base</label>
+                        <input type="url" class="form-control" id="modal-endpoint"
+                               placeholder="https://api.chazki.com/v1">
+                        <div class="form-text">URL base de la API del carrier (sin barra final)</div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">API Key</label>
+                        <input type="password" class="form-control" id="modal-key"
+                               placeholder="Dejar vacío para no cambiar">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">API Secret</label>
+                        <input type="password" class="form-control" id="modal-secret"
+                               placeholder="Dejar vacío para no cambiar">
+                    </div>
+                    <div class="form-check form-switch mb-3">
+                        <input class="form-check-input" type="checkbox" id="modal-sandbox">
+                        <label class="form-check-label" for="modal-sandbox">Modo sandbox (pruebas)</label>
+                    </div>
+                    <div class="alert alert-info py-2 small mb-0">
+                        <strong>API Key / Secret</strong> se almacenan cifrados. Déjalos vacíos si no quieres cambiarlos.
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" id="modal-save">
+                    <i class="fas fa-save me-1"></i> Aplicar
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 @push('scripts')
 <script>
-// Toggle activo/inactivo sin recargar — actualiza el hidden input y hace submit
+// Toggle activo/inactivo sin recargar
 document.querySelectorAll('.toggle-active').forEach(function(toggle) {
     toggle.addEventListener('change', function() {
         var id    = this.dataset.id;
@@ -158,5 +236,43 @@ document.querySelectorAll('.toggle-active').forEach(function(toggle) {
         form.submit();
     });
 });
+
+// API config modal
+(function () {
+    var currentId  = null;
+    var driverEl   = document.getElementById('modal-driver');
+    var apiFields  = document.getElementById('api-fields');
+
+    driverEl.addEventListener('change', function () {
+        apiFields.style.display = this.value === 'manual' ? 'none' : 'block';
+    });
+
+    document.querySelectorAll('.btn-api-config').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            currentId = this.dataset.id;
+            driverEl.value                                   = this.dataset.driver  || 'manual';
+            document.getElementById('modal-endpoint').value = this.dataset.endpoint || '';
+            document.getElementById('modal-sandbox').checked = this.dataset.sandbox === '1';
+            document.getElementById('modal-key').value    = '';
+            document.getElementById('modal-secret').value = '';
+            apiFields.style.display = driverEl.value === 'manual' ? 'none' : 'block';
+
+            var modal = new bootstrap.Modal(document.getElementById('apiConfigModal'));
+            modal.show();
+        });
+    });
+
+    document.getElementById('modal-save').addEventListener('click', function () {
+        if (!currentId) return;
+
+        document.getElementById('hf-driver-'   + currentId).value = driverEl.value;
+        document.getElementById('hf-endpoint-' + currentId).value = document.getElementById('modal-endpoint').value;
+        document.getElementById('hf-sandbox-'  + currentId).value = document.getElementById('modal-sandbox').checked ? '1' : '0';
+        document.getElementById('hf-key-'      + currentId).value = document.getElementById('modal-key').value;
+        document.getElementById('hf-secret-'   + currentId).value = document.getElementById('modal-secret').value;
+
+        bootstrap.Modal.getInstance(document.getElementById('apiConfigModal')).hide();
+    });
+})();
 </script>
 @endpush

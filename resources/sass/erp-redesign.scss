@@ -1,0 +1,1129 @@
+// ============================================================
+//  ERP REDESIGN 2026 — ebaemy
+//  Solo capa visual. NO se tocan propiedades de layout de
+//  Porto-Light (.content-body, #main-wrapper, .inner-wrapper,
+//  .sidebar-left width, .page-wrapper).
+// ============================================================
+
+// ── TOKENS ───────────────────────────────────────────────────
+// Los tokens con var(--theme-var, fallback) se actualizan
+// automáticamente cuando applyTheme() inyecta el tema elegido.
+// Las variables de tema vienen de /json/themes/themes.json:
+//   --primary-color, --dark-color, --light-color, --accent-color,
+//   --highlight-color, --muted, --background-dark, --contents-dark,
+//   --inputs-dark, --borders-dark, --button-second, --font-family
+:root {
+  --p:      var(--primary-color,  #4f46e5);   // primary — respeta tema
+  --p-d:    var(--primary-color,  #4338ca);
+  --p-l:    var(--accent-color,   #eef2ff);
+
+  --ok:     #10b981;  --ok-l:  #d1fae5;
+  --warn:   #f59e0b;  --warn-l:#fef3c7;
+  --err:    #ef4444;  --err-l: #fee2e2;
+  --info:   #3b82f6;  --info-l:#dbeafe;
+  --pur:    #8b5cf6;  --pur-l: #ede9fe;
+  --teal:   #14b8a6;  --teal-l:#ccfbf1;
+  --rose:   #f43f5e;  --rose-l:#ffe4e6;
+
+  --bg:     var(--light-color,   #f1f5f9);    // fondo página
+  --card:   #ffffff;
+  --bd:     var(--accent-color,  #e2e8f0);    // borders suaves
+  --bd2:    #f8fafc;
+
+  --t1: var(--dark-color,  #1e293b);          // texto principal (legible, no extremo)
+  --t2: var(--muted,       #334155);          // texto medio
+  --t3: var(--muted,       #64748b);          // texto suave
+  --t4: #94a3b8;                               // solo decoración
+  --th: var(--primary-color, #4f46e5);        // títulos — color del tema
+
+  // ── Sidebar LIGHT (estilo ebaemy) ─────────────────────────
+  --sb-bg:    #ffffff;                          // blanco
+  --sb-bg2:   #f8fafc;                          // logo area
+  --sb-hover: rgba(99,102,241,.08);             // indigo sutil hover
+  --sb-act:   var(--primary-color, #4f46e5);   // color primario del tema para activo
+  --sb-t:     #374151;                          // gris oscuro para textos e iconos
+  --sb-th:    #1f2937;                          // gris oscuro hover
+  --sb-ta:    #ffffff;                          // texto activo (sobre color)
+  --sb-acc:   var(--primary-color, #6366f1);    // acento — respeta tema
+  --sb-bd:    #e2e8f0;                          // borde claro
+  --sb-child: #f8fafc;                          // fondo sub-menú
+
+  --r-sm: 6px;
+  --r:    12px;
+  --r-lg: 16px;
+  --r-xl: 22px;
+
+  --s0: 0 1px 2px rgba(0,0,0,.05);
+  --s1: 0 1px 3px rgba(0,0,0,.07),0 1px 2px rgba(0,0,0,.04);
+  --s2: 0 4px 16px rgba(0,0,0,.07),0 1px 4px rgba(0,0,0,.04);
+  --s3: 0 12px 32px rgba(0,0,0,.09),0 4px 8px rgba(0,0,0,.04);
+  --s4: 0 24px 60px rgba(0,0,0,.12);
+
+  // font-family también respeta el tema elegido
+  --font: var(--font-family, 'Inter', 'Montserrat', system-ui, sans-serif);
+  --ease: .15s cubic-bezier(.4,0,.2,1);
+}
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,300;0,14..32,400;0,14..32,500;0,14..32,600;0,14..32,700;0,14..32,800;0,14..32,900&display=swap');
+
+// ── BASE ─────────────────────────────────────────────────────
+body {
+  font-family: var(--font) !important;
+  background: var(--bg) !important;
+  color: var(--t1) !important;
+  -webkit-font-smoothing: antialiased;
+}
+
+// ── SIDEBAR LIGHT (estilo ebaemy) ────────────────────────────
+#sidebar-left, .sidebar-left {
+  background: var(--sb-bg) !important;
+  border-right: 1px solid var(--sb-bd) !important;
+  box-shadow: 2px 0 12px rgba(0,0,0,.06) !important;
+}
+
+.sidebar-header,
+.sidebar-left .logo-container {
+  background: var(--sb-bg) !important;
+  border-bottom: 1px solid var(--sb-bd) !important;
+}
+
+.nano > .nano-pane { background: transparent !important; }
+.nano > .nano-pane > .nano-slider {
+  background: rgba(0,0,0,.1) !important;
+  border-radius: 3px !important;
+}
+
+.nav-main { padding: 6px 0 24px !important; }
+
+.nav-main > li {
+  margin: 1px 8px !important;
+  border-radius: var(--r-sm) !important;
+  overflow: visible !important;
+}
+
+// ── Iconos SVG primer nivel — 18 px ────────────────────────
+.nav-main > li > a svg.icon,
+.nav-main > li > a > svg {
+  width: 18px !important;
+  height: 18px !important;
+  min-width: 18px !important;
+  flex-shrink: 0 !important;
+  margin-right: 8px !important;
+  color: var(--sb-t) !important;
+  opacity: 1;
+}
+
+// ── Links primer nivel ─────────────────────────────────────
+.nav-main .nav-link,
+.nav-main > li > a {
+  color: var(--sb-t) !important;
+  border-radius: var(--r-sm) !important;
+  font-family: var(--font) !important;
+  font-size: 14px !important;
+  font-weight: 600 !important;
+  letter-spacing: .01em !important;
+  transition: background var(--ease), color var(--ease) !important;
+  text-decoration: none !important;
+  display: flex !important;
+  align-items: center !important;
+  padding-top: 9px !important;
+  padding-bottom: 9px !important;
+  background: transparent !important;
+
+  i { opacity: 1; transition: opacity var(--ease); font-size: 14px; color: var(--sb-t) !important; }
+
+  &:hover {
+    background: var(--sb-hover) !important;
+    color: var(--sb-th) !important;
+    text-decoration: none !important;
+    svg { opacity: 1; }
+    i { opacity: 1; }
+  }
+}
+
+// ── Item activo/expandido ──────────────────────────────────
+.nav-main > li.nav-active > a,
+.nav-main > li.active > a {
+  background: #1e293b !important;  // navy oscuro fijo — garantiza contraste
+  color: #fff !important;
+  font-weight: 700 !important;
+  border-radius: 8px !important;
+
+  svg { color: #fff !important; opacity: 1 !important; }
+  i { color: #fff !important; opacity: 1 !important; }
+}
+
+// nav-parent expandido (sub-menú visible) — sin fondo oscuro, solo bold
+.nav-main > li.nav-expanded:not(.nav-active) > a {
+  background: transparent !important;
+  color: var(--sb-th) !important;
+  font-weight: 700 !important;
+}
+
+// ── Sub-menú (.nav-children) ───────────────────────────────
+.nav-main .nav-children {
+  background: transparent !important;
+  border-radius: 0 !important;
+  margin: 0 0 6px !important;
+  padding: 2px 0 !important;
+  border: none !important;
+  list-style: none !important;
+}
+
+// Suprimir el círculo decorativo del tema Porto (::before en theme.css l.20976)
+.nav-main .nav-children li a::before,
+.nav-main .nav-children li a::after {
+  display: none !important;
+  content: none !important;
+}
+
+.nav-main .nav-children li {
+  list-style: none !important;
+}
+
+.nav-main .nav-children li > a {
+  color: var(--sb-t) !important;
+  font-size: 13.5px !important;
+  font-weight: 500 !important;
+  padding: 7px 12px 7px 14px !important;
+  border-radius: 6px !important;
+  margin: 1px 6px !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  transition: background var(--ease), color var(--ease) !important;
+  line-height: 1.35 !important;
+  background: transparent !important;
+  position: relative !important;
+
+  // Icono SVG dentro del enlace
+  svg {
+    width: 15px !important;
+    height: 15px !important;
+    flex-shrink: 0 !important;
+    opacity: 1 !important;
+    color: var(--sb-t) !important;
+    stroke: currentColor !important;
+  }
+
+  // Compatibilidad con <i> FA legacy
+  i {
+    font-size: 13px !important;
+    flex-shrink: 0 !important;
+    opacity: 1 !important;
+    color: var(--sb-t) !important;
+    width: 15px !important;
+    text-align: center !important;
+  }
+
+  &:hover {
+    color: var(--sb-acc) !important;
+    background: rgba(99,102,241,.08) !important;
+    svg, i { opacity: 1 !important; }
+  }
+}
+
+// Sub-item activo — alto contraste para que sea visible
+.nav-main .nav-children li.nav-active > a {
+  background: var(--p, #4f46e5) !important;
+  color: #fff !important;
+  font-weight: 600 !important;
+  border-left: none !important;
+  border-radius: 24px !important;
+  padding: 8px 16px !important;
+  svg, i { opacity: 1 !important; color: #fff !important; }
+}
+
+// ── Micro-labels de grupo (TIENDA, GESTIÓN…) ─────────────
+.sb-group-label {
+  font-size: 10px !important;
+  font-weight: 700 !important;
+  letter-spacing: .1em !important;
+  text-transform: uppercase !important;
+  color: #64748b !important;
+  padding: 9px 12px 2px 28px !important;
+  display: block !important;
+  font-family: var(--font) !important;
+  line-height: 1 !important;
+  pointer-events: none !important;
+}
+
+// ── Sidebar mobile fix ──────────────────────────────────
+@media (max-width: 991px) {
+  // Asegurar que el sidebar tenga ancho suficiente
+  .sidebar, .sidebar-left, .nav-main {
+    overflow-x: hidden !important;
+  }
+  // Items activos legibles
+  .nav-main > li.nav-active > a,
+  .nav-main > li.active > a {
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+  }
+  // Sub-items con padding correcto
+  .nav-main .nav-children li > a {
+    font-size: 13px !important;
+    padding: 8px 10px 8px 12px !important;
+  }
+  // Sub-item activo más visible
+  .nav-main .nav-children li.nav-active > a {
+    background: rgba(99,102,241,.12) !important;
+  }
+}
+
+// ── Section labels (top-level group separators) ───────────
+.nav-main li > span,
+.nav-main .nav-separator {
+  color: rgba(148,163,184,.5) !important;
+  font-size: 10px !important;
+  font-weight: 800 !important;
+  letter-spacing: .13em !important;
+  text-transform: uppercase !important;
+  font-family: var(--font) !important;
+  padding: 18px 18px 4px !important;
+  display: block !important;
+}
+
+// ── HEADER ───────────────────────────────────────────────────
+.header {
+  background: var(--card) !important;
+  border-bottom: 1px solid var(--bd) !important;
+  box-shadow: var(--s0) !important;
+  font-family: var(--font) !important;
+}
+
+// ── CARDS BASE ───────────────────────────────────────────────
+.card {
+  background: var(--card) !important;
+  border: 1px solid var(--bd) !important;
+  border-radius: var(--r) !important;
+  box-shadow: var(--s1) !important;
+  font-family: var(--font) !important;
+  transition: box-shadow var(--ease) !important;
+}
+
+.card-header {
+  background: var(--card) !important;
+  border-bottom: 1px solid var(--bd) !important;
+  font-family: var(--font) !important;
+  font-weight: 600 !important;
+  font-size: 14px !important;
+  color: var(--th) !important;
+}
+
+// Fix: headers con fondo OSCURO de Bootstrap deben tener texto blanco
+// NO incluir [style*="background"] porque captura fondos claros inline
+.card-header.bg-primary,
+.card-header.bg-secondary,
+.card-header.bg-dark,
+.card-header.bg-info,
+.card-header.bg-success,
+.card-header.bg-danger,
+.bg-primary .card-header,
+.bg-dark .card-header,
+.bg-info .card-header {
+  color: #fff !important;
+
+  h1, h2, h3, h4, h5, h6, p, span, .card-title {
+    color: #fff !important;
+  }
+}
+
+// Headers de secciones que usan fondo de color del tema
+.card-header h4, .card-header h5, .card-header h6,
+.card-header .card-title,
+.panel-heading, .panel-title,
+.box-header, .box-title {
+  color: inherit !important;
+  font-size: 14px !important;
+  font-weight: 600 !important;
+  margin: 0 !important;
+}
+
+.card-body { font-family: var(--font) !important; }
+
+// ── KPI CARDS ────────────────────────────────────────────────
+// Jerarquía: Ventas totales > Utilidad > CPE > Comprobantes > Notas
+.kpi-grid {
+  display: grid !important;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)) !important;
+  gap: 12px !important;
+  margin-bottom: 20px !important;
+}
+
+.kpi-card {
+  background: var(--card) !important;
+  border: 1px solid var(--bd) !important;
+  border-radius: var(--r) !important;
+  padding: 18px 16px 16px !important;
+  box-shadow: var(--s1) !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 3px !important;
+  position: relative !important;
+  overflow: visible !important;
+  transition: box-shadow var(--ease), transform var(--ease) !important;
+  cursor: default !important;
+
+  // Barra de acento top — color por tipo de kpi-card
+  &::after {
+    content: '';
+    position: absolute !important;
+    top: 0; left: 16px; right: 16px;
+    height: 2px !important;
+    border-radius: 0 0 2px 2px !important;
+    background: var(--kpi-accent, var(--p)) !important;
+    opacity: .5 !important;
+  }
+
+  &:hover {
+    box-shadow: var(--s2) !important;
+    transform: translateY(-1px) !important;
+  }
+}
+
+.kpi-icon {
+  width: 36px !important;
+  height: 36px !important;
+  border-radius: 10px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  font-size: 15px !important;
+  margin-bottom: 10px !important;
+  flex-shrink: 0 !important;
+
+  &.kpi-blue   { background: var(--info-l) !important; color: var(--info) !important; --kpi-accent: var(--info); }
+  &.kpi-green  { background: var(--ok-l)   !important; color: var(--ok)   !important; --kpi-accent: var(--ok); }
+  &.kpi-amber  { background: var(--warn-l) !important; color: var(--warn)  !important; --kpi-accent: var(--warn); }
+  &.kpi-red    { background: var(--err-l)  !important; color: var(--err)   !important; --kpi-accent: var(--err); }
+  &.kpi-purple { background: var(--pur-l)  !important; color: var(--pur)   !important; --kpi-accent: var(--pur); }
+  &.kpi-teal   { background: var(--teal-l) !important; color: var(--teal)  !important; --kpi-accent: var(--teal); }
+}
+
+.kpi-value {
+  font-size: 22px !important;
+  font-weight: 800 !important;
+  color: var(--t1) !important;
+  line-height: 1.1 !important;
+  font-family: var(--font) !important;
+  letter-spacing: -.03em !important;
+  margin-top: 2px !important;
+}
+
+.kpi-label {
+  font-size: 12px !important;
+  color: var(--t2) !important;
+  font-weight: 600 !important;
+  font-family: var(--font) !important;
+  margin-top: 4px !important;
+  line-height: 1.3 !important;
+}
+
+.kpi-sub {
+  font-size: 11px !important;
+  color: var(--t3) !important;
+  font-family: var(--font) !important;
+  font-weight: 400 !important;
+  line-height: 1.3 !important;
+}
+
+// ── DASHBOARD — CARDS DE GRÁFICOS ────────────────────────────
+// Cada card tiene: label en header + gráfico + tabla resumen
+.card-dashboard {
+  border-radius: var(--r) !important;
+  border: 1px solid var(--bd) !important;
+  box-shadow: var(--s1) !important;
+  background: var(--card) !important;
+  font-family: var(--font) !important;
+  transition: box-shadow var(--ease) !important;
+
+  &:hover { box-shadow: var(--s2) !important; }
+
+  .card-body {
+    padding: 16px !important;
+
+    // Label de sección = header visual de la card
+    > label:first-child,
+    .widget-summary-col label,
+    .summary label {
+      display: flex !important;
+      align-items: center !important;
+      gap: 6px !important;
+      font-size: 10px !important;
+      font-weight: 700 !important;
+      color: var(--t3) !important;
+      text-transform: uppercase !important;
+      letter-spacing: .1em !important;
+      margin-bottom: 14px !important;
+      padding-bottom: 10px !important;
+      border-bottom: 1px solid var(--bd2) !important;
+      font-family: var(--font) !important;
+
+      i { font-size: 12px !important; color: var(--t4) !important; }
+    }
+  }
+
+  .card-body-border-radius { border-radius: var(--r) !important; }
+}
+
+// Tabla resumen dentro de card de gráfico
+.table-dashboard {
+  width: 100% !important;
+  font-family: var(--font) !important;
+  font-size: 12.5px !important;
+  border-collapse: collapse !important;
+
+  tbody tr {
+    border-bottom: 1px solid var(--bd2) !important;
+
+    &:last-child { border-bottom: none !important; }
+
+    td {
+      padding: 8px 0 !important;
+      border: none !important;
+      color: var(--t2) !important;
+      font-weight: 400 !important;
+      line-height: 1.4 !important;
+
+      &:last-child {
+        text-align: right !important;
+        font-weight: 700 !important;
+        color: var(--t1) !important;
+        font-size: 13px !important;
+        letter-spacing: -.01em !important;
+      }
+    }
+  }
+
+  // Fila "Total cobrado"
+  tr.text-info td { color: var(--info) !important; &:last-child { color: var(--info) !important; } }
+
+  // Fila "Cobro pendiente"
+  tr.text-danger td { color: var(--err) !important; &:last-child { color: var(--err) !important; } }
+
+  // Fila total (separador + bold)
+  tr.td-total {
+    border-top: 1px solid var(--bd) !important;
+
+    td {
+      padding-top: 10px !important;
+      font-weight: 700 !important;
+      color: var(--t1) !important;
+      font-size: 13.5px !important;
+
+      &:last-child { font-size: 15px !important; }
+    }
+  }
+}
+
+// Dashboard page-header
+.dashboard .page-header {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  margin: 0 !important;
+  padding: 0 0 20px !important;
+  min-height: auto !important;
+  height: auto !important;
+
+  h2 {
+    font-family: var(--font) !important;
+    font-size: 26px !important;
+    font-weight: 800 !important;
+    color: var(--t1) !important;
+    letter-spacing: -.03em !important;
+    margin: 0 !important;
+  }
+}
+
+// Sección filtros
+.dashboard-cards > .row:first-child .card-dashboard {
+  border-style: dashed !important;
+  background: #fafbfd !important;
+}
+
+// Botón de filtro toggle
+.btn-dashboard-filter {
+  border-radius: var(--r-sm) !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  transition: all var(--ease) !important;
+}
+
+// ── TIPOGRAFÍA GLOBAL ────────────────────────────────────────
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font) !important;
+  color: var(--t1) !important;
+}
+
+// Títulos de página — usan color del tema
+.page-header h1, .page-header h2 {
+  font-family: var(--font) !important;
+  font-weight: 700 !important;
+  letter-spacing: -.02em !important;
+  color: var(--th) !important;
+}
+
+// Títulos generales h1-h4 en contenido — color del tema
+.content-body h1, .content-body h2, .content-body h3,
+.page-inner h1, .page-inner h2, .page-inner h3,
+.main-panel h1, .main-panel h2, .main-panel h3 {
+  color: var(--th) !important;
+}
+
+p, span, small, a, td, th, li,
+input, select, textarea, button {
+  font-family: var(--font) !important;
+}
+
+// ── BOTONES ──────────────────────────────────────────────────
+.btn {
+  border-radius: var(--r-sm) !important;
+  font-family: var(--font) !important;
+  font-weight: 600 !important;
+  font-size: 12.5px !important;
+  letter-spacing: .01em !important;
+  transition: all var(--ease) !important;
+}
+
+.btn-primary {
+  background: var(--p) !important; border-color: var(--p) !important; color: #fff !important;
+  &:hover { background: var(--p-d) !important; border-color: var(--p-d) !important; box-shadow: 0 4px 14px rgba(79,70,229,.35) !important; }
+}
+.btn-success {
+  background: var(--ok) !important; border-color: var(--ok) !important;
+  &:hover { box-shadow: 0 4px 14px rgba(16,185,129,.35) !important; }
+}
+.btn-danger {
+  background: var(--err) !important; border-color: var(--err) !important;
+  &:hover { box-shadow: 0 4px 14px rgba(239,68,68,.35) !important; }
+}
+.btn-warning {
+  background: var(--warn) !important; border-color: var(--warn) !important;
+}
+.btn-info {
+  background: var(--info) !important; border-color: var(--info) !important;
+}
+
+// ── TABLAS GENERALES ─────────────────────────────────────────
+.table {
+  font-family: var(--font) !important;
+  font-size: 13px !important;
+  color: var(--t1) !important;
+
+  thead th {
+    background: var(--bg) !important;
+    color: var(--t3) !important;
+    font-weight: 700 !important;
+    font-size: 10px !important;
+    text-transform: uppercase !important;
+    letter-spacing: .08em !important;
+    border-top: none !important;
+    border-bottom: 1px solid var(--bd) !important;
+    padding: 10px 12px !important;
+    white-space: nowrap !important;
+  }
+
+  tbody td {
+    border-color: var(--bd2) !important;
+    padding: 9px 12px !important;
+    vertical-align: middle !important;
+    font-size: 12.5px !important;
+    color: var(--t1) !important;
+  }
+
+  tbody tr { transition: background var(--ease) !important; }
+  tbody tr:hover td { background: #f8fafc !important; }
+}
+
+// DataTables wrapper
+.dataTables_wrapper {
+  font-family: var(--font) !important;
+
+  .dataTables_filter input,
+  .dataTables_length select {
+    border: 1px solid var(--bd) !important;
+    border-radius: var(--r-sm) !important;
+    font-family: var(--font) !important;
+    font-size: 12.5px !important;
+    padding: 4px 10px !important;
+    outline: none !important;
+    &:focus { border-color: var(--p) !important; box-shadow: 0 0 0 2px rgba(79,70,229,.1) !important; }
+  }
+
+  .dataTables_info, .dataTables_paginate {
+    font-size: 11.5px !important;
+    color: var(--t3) !important;
+    font-family: var(--font) !important;
+  }
+
+  .paginate_button {
+    border-radius: var(--r-sm) !important;
+    font-size: 12px !important;
+    font-family: var(--font) !important;
+    &.current { background: var(--p) !important; border-color: var(--p) !important; color: #fff !important; }
+  }
+}
+
+// ── ELEMENT UI ───────────────────────────────────────────────
+.el-input__inner,
+.el-textarea__inner {
+  border-radius: var(--r-sm) !important;
+  border-color: var(--bd) !important;
+  font-family: var(--font) !important;
+  color: var(--t1) !important;
+  font-size: 13px !important;
+  transition: border-color var(--ease), box-shadow var(--ease) !important;
+
+  &:focus {
+    border-color: var(--p) !important;
+    box-shadow: 0 0 0 3px rgba(79,70,229,.1) !important;
+  }
+}
+
+.el-input__prefix, .el-input__suffix { color: var(--t3) !important; }
+
+.el-select-dropdown__item {
+  font-family: var(--font) !important;
+  font-size: 13px !important;
+  &.selected { color: var(--p) !important; font-weight: 600 !important; }
+  &:hover { background: var(--p-l) !important; }
+}
+
+.el-button {
+  border-radius: var(--r-sm) !important;
+  font-family: var(--font) !important;
+  font-weight: 600 !important;
+  font-size: 12.5px !important;
+  transition: all var(--ease) !important;
+}
+
+.el-button--primary {
+  background: var(--p) !important; border-color: var(--p) !important;
+  &:hover { background: var(--p-d) !important; border-color: var(--p-d) !important; box-shadow: 0 4px 14px rgba(79,70,229,.3) !important; }
+}
+
+.el-button--success { background: var(--ok) !important; border-color: var(--ok) !important; }
+.el-button--danger  { background: var(--err) !important; border-color: var(--err) !important; }
+.el-button--warning { background: var(--warn) !important; border-color: var(--warn) !important; }
+
+// Dialog
+.el-dialog {
+  border-radius: var(--r-lg) !important;
+  box-shadow: var(--s4) !important;
+  font-family: var(--font) !important;
+}
+
+.el-dialog__header {
+  border-bottom: 1px solid var(--bd) !important;
+  padding: 18px 22px !important;
+}
+
+.el-dialog__title {
+  font-family: var(--font) !important;
+  font-weight: 700 !important;
+  color: var(--t1) !important;
+  font-size: 15px !important;
+  letter-spacing: -.01em !important;
+}
+
+.el-dialog__body { padding: 22px !important; font-family: var(--font) !important; }
+
+.el-dialog__footer {
+  padding: 14px 22px !important;
+  border-top: 1px solid var(--bd) !important;
+}
+
+// Table
+.el-table {
+  font-family: var(--font) !important;
+  font-size: 13px !important;
+  color: var(--t1) !important;
+
+  th.el-table__cell {
+    background: var(--bg) !important;
+    color: var(--t3) !important;
+    font-weight: 700 !important;
+    font-size: 10px !important;
+    text-transform: uppercase !important;
+    letter-spacing: .08em !important;
+  }
+
+  td.el-table__cell {
+    color: var(--t1) !important;
+    font-size: 12.5px !important;
+  }
+
+  .el-table__row:hover > td { background: #f8fafc !important; }
+}
+
+// Tags
+.el-tag {
+  border-radius: 20px !important;
+  font-family: var(--font) !important;
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  letter-spacing: .02em !important;
+  border: none !important;
+}
+
+.el-tag--success { background: var(--ok-l) !important;   color: #065f46 !important; }
+.el-tag--danger  { background: var(--err-l) !important;  color: #9b1c1c !important; }
+.el-tag--warning { background: var(--warn-l) !important; color: #92400e !important; }
+.el-tag--info    { background: var(--info-l) !important; color: #1e40af !important; }
+
+// Tabs
+.el-tabs__item {
+  font-family: var(--font) !important;
+  font-weight: 500 !important;
+  color: var(--t2) !important;
+  font-size: 13px !important;
+  &.is-active { color: var(--p) !important; font-weight: 700 !important; }
+}
+.el-tabs__active-bar { background: var(--p) !important; height: 2px !important; }
+.el-tabs__nav-wrap::after { background: var(--bd) !important; height: 1px !important; }
+
+// Pagination
+.el-pagination {
+  font-family: var(--font) !important;
+  .el-pager li {
+    border-radius: var(--r-sm) !important;
+    font-family: var(--font) !important;
+    font-size: 12px !important;
+    &.active { background: var(--p) !important; color: #fff !important; }
+  }
+  button { border-radius: var(--r-sm) !important; }
+}
+
+// ── DIALOG / MODAL — inputs contenidos ──────────────────────
+.el-dialog {
+  max-width: 95vw !important;
+
+  .el-dialog__body {
+    overflow-x: hidden !important;
+  }
+
+  // Todos los inputs dentro de dialogs deben respetar el ancho
+  .el-input, .el-select, .el-input-number, .el-date-editor,
+  .el-textarea, .form-control, input, select, textarea {
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+  }
+
+  .el-input-number {
+    max-width: 200px !important;
+  }
+
+  .el-select {
+    width: 100% !important;
+  }
+
+  .row {
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+  }
+}
+
+// Form items
+.el-form-item__label {
+  font-family: var(--font) !important;
+  font-size: 12.5px !important;
+  font-weight: 600 !important;
+  color: var(--t2) !important;
+  letter-spacing: .02em !important;
+}
+
+// Date picker
+.el-date-table td.today .el-date-table-cell__text { color: var(--p) !important; }
+.el-date-table td.current .el-date-table-cell__text { background: var(--p) !important; }
+
+// ── FORMULARIOS ──────────────────────────────────────────────
+.form-control {
+  border-radius: var(--r-sm) !important;
+  border-color: var(--bd) !important;
+  font-family: var(--font) !important;
+  font-size: 13px !important;
+  color: var(--t1) !important;
+  transition: border-color var(--ease), box-shadow var(--ease) !important;
+
+  &:focus {
+    border-color: var(--p) !important;
+    box-shadow: 0 0 0 3px rgba(79,70,229,.1) !important;
+  }
+}
+
+.control-label,
+label.control-label,
+.form-group > label {
+  font-family: var(--font) !important;
+  font-size: 12px !important;
+  font-weight: 600 !important;
+  color: var(--t2) !important;
+  text-transform: none !important;
+  letter-spacing: .01em !important;
+  margin-bottom: 5px !important;
+}
+
+// ── BADGES ───────────────────────────────────────────────────
+.badge {
+  border-radius: 20px !important;
+  font-family: var(--font) !important;
+  font-size: 10.5px !important;
+  font-weight: 700 !important;
+  letter-spacing: .03em !important;
+  padding: 3px 10px !important;
+}
+
+.badge-success { background: var(--ok-l) !important;   color: #065f46 !important; }
+.badge-danger  { background: var(--err-l) !important;  color: #9b1c1c !important; }
+.badge-warning { background: var(--warn-l) !important; color: #92400e !important; }
+.badge-info    { background: var(--info-l) !important; color: #1e40af !important; }
+.badge-primary { background: var(--p-l) !important;    color: var(--p-d) !important; }
+
+// custom-badge (dashboard balance)
+.custom-badge {
+  font-family: var(--font) !important;
+  font-size: 12px !important;
+  color: var(--t2) !important;
+  font-weight: 500 !important;
+}
+
+// ── SCROLLBAR ────────────────────────────────────────────────
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--bd); border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: var(--t3); }
+
+// ── DARK MODE ────────────────────────────────────────────────
+html.dark {
+  --bg:   #0f172a;
+  --card: #1e293b;
+  --bd:   #334155;
+  --bd2:  #1e293b;
+  --t1:   #f1f5f9;
+  --t2:   #94a3b8;
+  --t3:   #475569;
+  --t4:   #334155;
+
+  .table tbody tr:hover td,
+  .el-table .el-table__row:hover > td { background: rgba(255,255,255,.03) !important; }
+
+  .dataTables_wrapper .dataTables_filter input,
+  .dataTables_wrapper .dataTables_length select,
+  .form-control { background: #1e293b !important; color: var(--t1) !important; }
+}
+
+// ── Dark Mode Extended ──
+html.dark {
+    --bg-body: #0f172a;
+    --bg-card: #1e293b;
+    --bg-sidebar: #1e293b;
+    --text-primary: #f1f5f9;
+    --text-secondary: #94a3b8;
+    --border-color: #334155;
+
+    body { background-color: var(--bg-body); color: var(--text-primary); }
+    .main-panel, .page-inner { background-color: var(--bg-body); }
+    .card, .el-card { background-color: var(--bg-card); border-color: var(--border-color); }
+    .sidebar { background-color: var(--bg-sidebar) !important; }
+    .sidebar .nav-link { color: var(--text-secondary) !important; }
+    .sidebar .nav-link:hover, .sidebar .nav-link.active { color: var(--text-primary) !important; }
+    .table, .el-table { background-color: var(--bg-card); color: var(--text-primary); }
+    .el-table th, .el-table td { border-color: var(--border-color); }
+    .el-input__inner, .el-textarea__inner, .el-select .el-input__inner {
+        background-color: var(--bg-body); color: var(--text-primary); border-color: var(--border-color);
+    }
+    .el-dialog { background-color: var(--bg-card); }
+    .el-dialog__title { color: var(--text-primary); }
+    .breadcrumbs, .page-header { color: var(--text-secondary); }
+    h1, h2, h3, h4, h5, h6 { color: var(--text-primary); }
+    .el-tabs__item { color: var(--text-secondary); }
+    .el-tabs__item.is-active { color: var(--text-primary); }
+}
+
+// ══════════════════════════════════════════════════════════════
+// ── RESPONSIVE PROFESIONAL — ERP ADMIN ─────────────────────
+// ══════════════════════════════════════════════════════════════
+
+// ── TABLET (768px - 1199px) — solo ajustes ligeros, NO compactar sidebar
+@media (max-width: 1199px) {
+  // Cards full-width en tablet
+  .row > [class*="col-lg-6"] { flex: 0 0 100% !important; max-width: 100% !important; }
+}
+
+// ── MOBILE (max 768px) ──────────────────────────────────────
+@media (max-width: 768px) {
+  // KPIs grid
+  .kpi-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 8px !important;
+  }
+  .kpi-value { font-size: 18px !important; }
+  .kpi-label { font-size: 10px !important; }
+
+  // Page header
+  .page-header {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 8px !important;
+    padding: 12px 16px !important;
+
+    h2 { font-size: 18px !important; }
+    .breadcrumbs { font-size: 11px !important; }
+  }
+
+  // Header top bar
+  .header-right {
+    .notifications, .header-icon { margin: 0 2px !important; }
+  }
+
+  // Cards full width
+  .row > [class*="col-lg-"],
+  .row > [class*="col-md-6"] {
+    flex: 0 0 100% !important;
+    max-width: 100% !important;
+  }
+
+  // Card body padding reducido
+  .card-body {
+    padding: 12px !important;
+  }
+
+  // Tables responsive
+  .el-table {
+    font-size: 12px !important;
+  }
+  .el-table th, .el-table td {
+    padding: 6px 8px !important;
+  }
+  // Scroll horizontal en tablas
+  .el-table__body-wrapper {
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+  }
+
+  // Formularios
+  .el-form-item {
+    margin-bottom: 12px !important;
+  }
+  .el-input__inner, .el-textarea__inner, .el-select .el-input__inner {
+    font-size: 16px !important; // Previene zoom iOS
+  }
+
+  // Botones full width en mobile
+  .el-button--primary,
+  .el-button--success,
+  .btn-primary,
+  .form-actions .el-button {
+    width: 100% !important;
+    margin: 4px 0 !important;
+  }
+
+  // Modals/Dialogs
+  .el-dialog {
+    width: 95% !important;
+    margin: 10px auto !important;
+  }
+  .el-dialog__body {
+    padding: 12px !important;
+    max-height: 70vh !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+  }
+
+  // Quick access buttons (NC, POS, ME)
+  .header-top-nav {
+    .btn, a { font-size: 10px !important; padding: 4px 6px !important; }
+    span { display: none !important; }
+  }
+
+  // Ocultar elementos no esenciales
+  .breadcrumbs { display: none !important; }
+
+  // Sidebar overlay
+  .sidebar {
+    position: fixed !important;
+    z-index: 9999 !important;
+    height: 100vh !important;
+    transform: translateX(-100%) !important;
+    transition: transform .3s ease !important;
+    width: 260px !important;
+    box-shadow: var(--s4) !important;
+
+    &.sidebar-open, &.active {
+      transform: translateX(0) !important;
+    }
+  }
+  .content-body, .page-inner {
+    margin-left: 0 !important;
+  }
+
+  // Content padding
+  .container-fluid, .container {
+    padding-left: 12px !important;
+    padding-right: 12px !important;
+  }
+}
+
+// ── SMALL MOBILE (max 480px) ────────────────────────────────
+@media (max-width: 480px) {
+  .kpi-grid { grid-template-columns: 1fr 1fr !important; gap: 6px !important; }
+  .kpi-card { padding: 10px !important; }
+  .kpi-value { font-size: 16px !important; }
+
+  // Tablas: ocultar columnas secundarias
+  .el-table {
+    .el-table-column--hidden-mobile,
+    .hidden-mobile { display: none !important; }
+  }
+
+  // Page header aún más compacto
+  .page-header h2 { font-size: 16px !important; }
+
+  // Select/Input full width
+  .el-select, .el-input, .el-date-editor {
+    width: 100% !important;
+  }
+
+  // Tabs de navegación: scroll horizontal
+  .el-tabs__nav-wrap {
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+  }
+  .el-tabs__nav { flex-wrap: nowrap !important; }
+  .el-tabs__item { white-space: nowrap !important; font-size: 12px !important; padding: 0 12px !important; }
+
+  // Card header más compacto
+  .card-header {
+    font-size: 13px !important;
+    padding: 10px 12px !important;
+  }
+}
+
+// ── LANDSCAPE PHONE ─────────────────────────────────────────
+@media (max-height: 500px) and (orientation: landscape) {
+  .el-dialog { margin-top: 5px !important; }
+  .el-dialog__body { max-height: 60vh !important; }
+  .sidebar { height: 100vh !important; overflow-y: auto !important; }
+}
+
+// ── PRINT ───────────────────────────────────────────────────
+@media print {
+  .sidebar, .header, .page-header, .breadcrumbs,
+  .btn, .el-button, .form-actions, footer,
+  .ws-flotante { display: none !important; }
+  .content-body, .page-inner { margin: 0 !important; padding: 0 !important; }
+  .card { box-shadow: none !important; border: 1px solid #ddd !important; }
+  .el-table { font-size: 11px !important; }
+}
+
+// ── UTILIDADES ──────────────────────────────────────────────
+.text-truncate { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.overflow-x-auto { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.d-mobile-none { @media (max-width: 768px) { display: none !important; } }
+.d-mobile-block { @media (min-width: 769px) { display: none !important; } }
+.d-tablet-none { @media (max-width: 1199px) { display: none !important; } }
+

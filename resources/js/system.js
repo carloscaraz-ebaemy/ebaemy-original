@@ -14,37 +14,8 @@ import '../sass/element-ui.scss';
 import 'element-ui/lib/theme-chalk/index.css';
 
 
-// components
-import SystemSupportConfiguration from './views/system/configuration/supportConfiguration.vue';
-import SystemConfigurationQrApi from './views/system/configuration/qrApiConfiguration.vue'
-import SystemClientsIndex from './views/system/clients/index.vue';
-import SystemClientsForm from './views/system/clients/form.vue';
-import SystemUsersform from './views/system/users/form.vue';
-import SystemUsersTokenUser from './views/system/users/token-user.vue';
-import SystemCertificateIndex from './views/system/certificate/index.vue';
-import SystemCompaniesForm from './views/system/companies/form.vue';
-import SystemAccountingIndex from '@viewsModuleAccount/system/accounting/index.vue';
-import SystemMultiUsersIndex from '@viewsModuleMultiUser/system/multi-users/index.vue';
-import SystemMassiveInvoiceIndex from './views/system/massive_invoice/index.vue';
-import SystemUpdateIndex from './views/system/update/index.vue';
-import SystemBackupIndex from './views/system/backup/index.vue';
-import SystemConfigurationCulqui from './views/system/configuration/culqi.vue';
-import SystemConfigurationApkUrl from './views/system/configuration/apk-url.vue';
-import SystemConfigurationTokenRucDni from './views/system/configuration/token_ruc_dni.vue';
-import SystemConfigurationPhpInfo from './views/system/configuration/php_info.vue';
-import SystemConfigurationServerStatus from './views/system/configuration/server_status.vue';
-import SystemConfigurationLogin from './views/system/configuration/login.vue';
-import SystemConfigurationOtherConfiguration from './views/system/configuration/other_configuration.vue';
-import SystemConfigurationEmail from './views/system/configuration/emailConfiguration.vue';
-import SystemReportLoginLockout from '@viewsModuleReport/system/report_login_lockout/index.vue';
-import SystemUserNotChangePassword from '@viewsModuleReport/system/user_not_change_password/index.vue';
-import SystemPlansIndex from './views/system/plans/index.vue';
-import SystemPlansForm from './views/system/plans/form.vue';
-import SystemConfigurationCronOrderPayments from './views/system/configuration/cronOrderPayments.vue';
-import SystemPaymentsIndex from './views/system/payments/index.vue';
-
-import InputService from '../../modules/ApiPeruDev/Resources/assets/js/components/InputService.vue'// apiperu - porque cambiar el input si tiene el mismo contenido?
-
+// ─── SYNCHRONOUS: shared small component ────────────────────────────────────
+import InputService from '../../modules/ApiPeruDev/Resources/assets/js/components/InputService.vue'
 
 locale.use(lang)
 
@@ -59,51 +30,58 @@ export default ElementUI;
 Vue.use(ElementUI, { size: 'small' })
 Vue.prototype.$eventHub = new Vue()
 
-// System components only
-Vue.component('system-support-configuration', SystemSupportConfiguration);
-
-Vue.component('system-clients-index', SystemClientsIndex);
-Vue.component('system-qrapi-configuration', SystemConfigurationQrApi);
-Vue.component('system-clients-form', SystemClientsForm);
-Vue.component('system-users-form', SystemUsersform);
-Vue.component('system-users-token-user', SystemUsersTokenUser);
-
-Vue.component('system-certificate-index', SystemCertificateIndex);
-Vue.component('system-companies-form', SystemCompaniesForm);
-
-Vue.component('system-accounting-index', SystemAccountingIndex);
-
-Vue.component('system-multi-users-index', SystemMultiUsersIndex);
-Vue.component('system-massive-invoice-index', SystemMassiveInvoiceIndex);
-
-// Tools & config in System
-Vue.component('system-update', SystemUpdateIndex);
-Vue.component('system-backup', SystemBackupIndex);
-Vue.component('system-configuration-culqi', SystemConfigurationCulqui);
-Vue.component('system-configuration-apk-url', SystemConfigurationApkUrl);
-Vue.component('system-configuration-token', SystemConfigurationTokenRucDni);
-Vue.component('system-php-configuration', SystemConfigurationPhpInfo);
-Vue.component('system-server-status', SystemConfigurationServerStatus);
-
-// Login/Access settings
-Vue.component('system-login-settings', SystemConfigurationLogin);
-Vue.component('system-login-other-configuration', SystemConfigurationOtherConfiguration);
-Vue.component('system-email-configuration', SystemConfigurationEmail);
-
-// Reports in system
-Vue.component('system-report-login-lockout-index', SystemReportLoginLockout);
-Vue.component('system-user-not-change-password-index', SystemUserNotChangePassword);
-
-// System plans
-Vue.component('system-plans-index', SystemPlansIndex);
-Vue.component('system-plans-form', SystemPlansForm);
-
-// inputservice
+// inputservice (sync - small shared component)
 Vue.component('x-input-service', InputService);
 
-//system payments
-Vue.component('system-payments-index', SystemPaymentsIndex);
-Vue.component('system-cron-order-configuration', SystemConfigurationCronOrderPayments);
+// ─── LAZY-LOADED: Page-level system components ──────────────────────────────
+
+// System configurations
+Vue.component('system-support-configuration', () => import('./views/system/configuration/supportConfiguration.vue'));
+Vue.component('system-qrapi-configuration', () => import('./views/system/configuration/qrApiConfiguration.vue'));
+Vue.component('system-configuration-culqi', () => import('./views/system/configuration/culqi.vue'));
+Vue.component('system-configuration-apk-url', () => import('./views/system/configuration/apk-url.vue'));
+Vue.component('system-configuration-token', () => import('./views/system/configuration/token_ruc_dni.vue'));
+Vue.component('system-php-configuration', () => import('./views/system/configuration/php_info.vue'));
+Vue.component('system-server-status', () => import('./views/system/configuration/server_status.vue'));
+Vue.component('system-login-settings', () => import('./views/system/configuration/login.vue'));
+Vue.component('system-login-other-configuration', () => import('./views/system/configuration/other_configuration.vue'));
+Vue.component('system-email-configuration', () => import('./views/system/configuration/emailConfiguration.vue'));
+Vue.component('system-cron-order-configuration', () => import('./views/system/configuration/cronOrderPayments.vue'));
+
+// System clients
+Vue.component('system-clients-index', () => import('./views/system/clients/index.vue'));
+Vue.component('system-clients-form', () => import('./views/system/clients/form.vue'));
+
+// System users
+Vue.component('system-users-form', () => import('./views/system/users/form.vue'));
+Vue.component('system-users-token-user', () => import('./views/system/users/token-user.vue'));
+
+// System certificate & companies
+Vue.component('system-certificate-index', () => import('./views/system/certificate/index.vue'));
+Vue.component('system-companies-form', () => import('./views/system/companies/form.vue'));
+
+// System modules
+Vue.component('system-accounting-index', () => import('@viewsModuleAccount/system/accounting/index.vue'));
+Vue.component('system-multi-users-index', () => import('@viewsModuleMultiUser/system/multi-users/index.vue'));
+Vue.component('system-massive-invoice-index', () => import('./views/system/massive_invoice/index.vue'));
+
+// Tools
+Vue.component('system-update', () => import('./views/system/update/index.vue'));
+Vue.component('system-backup', () => import('./views/system/backup/index.vue'));
+
+// Reports
+Vue.component('system-report-login-lockout-index', () => import('@viewsModuleReport/system/report_login_lockout/index.vue'));
+Vue.component('system-user-not-change-password-index', () => import('@viewsModuleReport/system/user_not_change_password/index.vue'));
+
+// Plans
+Vue.component('system-plans-index', () => import('./views/system/plans/index.vue'));
+Vue.component('system-plans-form', () => import('./views/system/plans/form.vue'));
+
+// Payments
+Vue.component('system-payments-index', () => import('./views/system/payments/index.vue'));
+
+// Analytics
+Vue.component('system-analytics-dashboard', () => import('./views/system/analytics/index.vue'));
 
 import VueClipboard from 'vue-clipboard2'
 Vue.use(VueClipboard)

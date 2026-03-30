@@ -53,6 +53,22 @@ class Plan extends Model
         return $this->hasMany(Client::class);
     }
 
+    public function features()
+    {
+        return $this->belongsToMany(Feature::class, 'plan_features')
+            ->withPivot(['limit', 'meta'])
+            ->withTimestamps();
+    }
+
+    /**
+     * Verifica si este plan incluye el feature indicado.
+     * @param  string  $featureKey  ej: 'smart_stock', 'ecommerce'
+     */
+    public function hasFeature(string $featureKey): bool
+    {
+        return $this->features->contains('key', $featureKey);
+    }
+
     
     /**
      *

@@ -13,7 +13,13 @@ class ModuleViewComposer
     {
         $user = auth()->user();
         if (is_null($user)) {
-            return redirect()->route('login');
+            $view->vc_modules = Module::all()->pluck('value')->toArray();
+            $view->vc_modules_levels = ModuleLevel::all()->pluck('value')->toArray();
+            $view->vc_configuration = TenantConfiguration::first();
+            $view->useLoginGlobal = false;
+            $view->tenant_show_ads = false;
+            $view->url_tenant_image_ads = '';
+            return;
         }
 
         $modules = $user->modules()->pluck('value')->toArray();

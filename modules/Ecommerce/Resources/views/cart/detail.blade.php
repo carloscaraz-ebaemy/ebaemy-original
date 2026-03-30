@@ -74,6 +74,7 @@
                     </div>
                     <div class="ec-cart-item__info">
                         <p class="ec-cart-item__name">@{{ row.description }}</p>
+                        <span v-if="row.variant_display_name" class="ec-cart-item__variant">@{{ row.variant_display_name }}</span>
                         <span class="ec-cart-item__price">@{{ row.currency_type_symbol }} @{{ row.sale_unit_price }}</span>
                     </div>
                     <div class="ec-cart-item__qty">
@@ -167,6 +168,16 @@
                 <div class="ec-order-line" v-if="summary.total_igv > 0">
                     <span>IGV (18%)</span><span>S/ @{{ summary.total_igv }}</span>
                 </div>
+                <!-- Descuentos automáticos (volumen, canal, etc.) -->
+                <div v-for="(line, idx) in autoDiscount.breakdown" :key="'auto-'+idx"
+                     v-if="line.type !== 'coupon' && line.type !== 'points' && line.amount < 0"
+                     class="ec-order-line ec-order-line--discount">
+                    <span style="display:flex;align-items:center;gap:4px;">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#16a34a" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+                        @{{ line.label }}
+                    </span>
+                    <span style="color:#16a34a;font-weight:700;">- S/ @{{ Math.abs(line.amount).toFixed(2) }}</span>
+                </div>
                 <div class="ec-order-line ec-order-line--discount" v-if="coupon.applied && coupon.discount > 0">
                     <span><span class="ec-coupon-tag"><svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>@{{ coupon.code }}</span></span>
                     <span style="color:#16a34a;font-weight:700;">- S/ @{{ coupon.discount.toFixed(2) }}</span>
@@ -191,6 +202,22 @@
                     <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
                     Pago 100% seguro y encriptado
                 </p>
+
+                {{-- Trust badges --}}
+                <div style="display:flex;justify-content:center;gap:1.5rem;padding:12px 20px 20px;flex-wrap:wrap">
+                    <div style="display:flex;flex-direction:column;align-items:center;gap:4px;font-size:10px;color:#6b7280;font-weight:600">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#16a34a" stroke-width="1.5"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
+                        Envío seguro
+                    </div>
+                    <div style="display:flex;flex-direction:column;align-items:center;gap:4px;font-size:10px;color:#6b7280;font-weight:600">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#16a34a" stroke-width="1.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                        Compra protegida
+                    </div>
+                    <div style="display:flex;flex-direction:column;align-items:center;gap:4px;font-size:10px;color:#6b7280;font-weight:600">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#16a34a" stroke-width="1.5"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg>
+                        Garantía
+                    </div>
+                </div>
             </div>
         </div>
     </div>{{-- End col-lg-5 --}}
@@ -229,6 +256,11 @@
 
 
 <script type="text/javascript">
+    console.log('[Cart] Vue available:', typeof Vue !== 'undefined', 'ELEMENT available:', typeof ELEMENT !== 'undefined');
+    if (typeof Vue === 'undefined') {
+        console.error('[Cart] Vue is NOT loaded! Check script loading order.');
+        document.getElementById('app').innerHTML = '<div style="padding:40px;text-align:center;color:red"><h3>Error: Vue.js no se cargó correctamente</h3><p>Recarga la página con Ctrl+Shift+R</p></div>';
+    }
     var app_cart = new Vue({
         el: '#app',
         data: {
@@ -247,6 +279,7 @@
                 message:  '',
                 loading:  false,
             },
+            autoDiscount: { discount: 0, breakdown: [], loaded: false },
             points: {
                 enabled:  false,
                 balance:  0,
@@ -284,7 +317,7 @@
             typeDocuments: '',
             typeDocumentList: [],
             numberDocument: '',
-            phone_whatsapp: {!! json_encode($configuration->phone_whatsapp ) !!},
+            phone_whatsapp: {!! \Illuminate\Support\Js::from($configuration->phone_whatsapp) !!},
             all_identity_document_types : [{id: '6', name: 'RUC'}, {id: '0', name: 'DOC'},{id: '4', name: 'CE'},{id: '1', name: 'DNI'}]
         },
         computed: {
@@ -335,7 +368,11 @@
             item.sale_unit_price = parseFloat(item.sale_unit_price).toFixed(2)
           })
 
-          this.calculateSummary()
+          this.calculateSummary();
+          // Validar stock real desde servidor (previene oversell por carrito desactualizado)
+          this.validateCartStock();
+          // Cargar descuentos automáticos (volumen, canal, etc.)
+          this.$nextTick(() => this.loadAutoDiscounts());
         },
         created() {
             let array = localStorage.getItem('products_cart');
@@ -362,14 +399,16 @@
             },
             totalFinal() {
                 var base  = parseFloat(this.summary.total) || 0;
-                var disc  = this.coupon.applied  ? (this.coupon.discount  || 0) : 0;
-                var pdisc = this.points.applied   ? (this.points.discount  || 0) : 0;
-                return Math.max(0, base - disc - pdisc).toFixed(2);
+                var disc  = this.coupon.applied ? (this.coupon.discount || 0) : 0;
+                var auto  = this.autoDiscount.discount || 0;
+                var pdisc = this.points.applied ? (this.points.discount || 0) : 0;
+                return Math.max(0, base - disc - auto - pdisc).toFixed(2);
             },
             maxPointsToApply() {
                 var base      = parseFloat(this.summary.total) || 0;
                 var couponDisc= this.coupon.applied ? (this.coupon.discount || 0) : 0;
-                var afterCoupon = Math.max(0, base - couponDisc);
+                var auto      = this.autoDiscount.discount || 0;
+                var afterCoupon = Math.max(0, base - couponDisc - auto);
                 var maxByHalf = afterCoupon * 0.5;
                 return Math.min(this.points.balance, maxByHalf);
             }
@@ -394,8 +433,14 @@
                 row.cantidad = value;
                 row.quantity = value;
                 let cartArr = JSON.parse(localStorage.getItem('products_cart') || '[]');
-                let cartRow = cartArr.find(x => x.id == row.id);
+                const rowVariantId = row.variant_id ?? null;
+                let cartRow = cartArr.find(x => x.id == row.id && (x.variant_id ?? null) == rowVariantId);
+                if (!cartRow) cartRow = cartArr.find(x => x.id == row.id);
                 if (cartRow) { cartRow.quantity = value; localStorage.setItem('products_cart', JSON.stringify(cartArr)); }
+                // Sync quantity change to server (FIX C3)
+                if (typeof persistCartToServer === 'function') persistCartToServer();
+                if (typeof productsCartDropDown === 'function') productsCartDropDown();
+                if (typeof calculateTotalCart === 'function') calculateTotalCart();
                 this.calculateSummary();
             },
             increaseQty(row) {
@@ -411,6 +456,47 @@
                 const current = parseInt(row.cantidad) || 1;
                 if (current <= 1) return;
                 this.updateQtyItem(row, current - 1);
+            },
+            validateCartStock() {
+                if (!this.records.length) return;
+                var self = this;
+                var itemIds = this.records.map(function(r) { return r.id; });
+                fetch('/ecommerce/stock-check', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
+                    },
+                    body: JSON.stringify({ items: itemIds })
+                })
+                .then(function(r) { return r.json(); })
+                .then(function(data) {
+                    if (data.stocks) {
+                        var changed = false;
+                        self.records.forEach(function(record) {
+                            var fresh = data.stocks.find(function(s) { return s.id == record.id; });
+                            if (fresh) {
+                                self.$set(record, 'stock', fresh.stock);
+                                if (record.cantidad > fresh.stock) {
+                                    var newQty = Math.max(1, fresh.stock);
+                                    if (fresh.stock <= 0) {
+                                        self.$set(record, 'stock_warning', true);
+                                    } else {
+                                        self.updateQtyItem(record, newQty);
+                                        self.$set(record, 'stock_warning', true);
+                                    }
+                                    changed = true;
+                                }
+                            }
+                        });
+                        if (changed) {
+                            // Persist adjusted quantities to localStorage
+                            localStorage.setItem('products_cart', JSON.stringify(self.records));
+                            self.calculateSummary();
+                        }
+                    }
+                })
+                .catch(function() {});
             },
             proceedToCheckout() {
                 if (this.records.length === 0) return;
@@ -487,13 +573,17 @@
                     var total = parseFloat(this.summary.total) || 0;
                     var res = await axios.post('{{ route("tenant_ecommerce_apply_coupon") }}', {
                         coupon_code: this.coupon.code.trim().toUpperCase(),
-                        amount: total
+                        amount:      total,
+                        items:       this.records,
                     }, { headers: { 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content } });
                     if (res.data.success) {
-                        this.coupon.applied  = true;
-                        this.coupon.discount = parseFloat(res.data.discount);
-                        this.coupon.code     = res.data.code;
-                        this.coupon.message  = res.data.message;
+                        this.coupon.applied       = true;
+                        this.coupon.discount      = parseFloat(res.data.coupon_discount || res.data.discount) || 0;
+                        this.coupon.code          = this.coupon.code.trim().toUpperCase();
+                        this.coupon.message       = res.data.message;
+                        this.autoDiscount.discount  = parseFloat(res.data.rule_discount) || 0;
+                        this.autoDiscount.breakdown = res.data.breakdown || [];
+                        this.autoDiscount.loaded    = true;
                         this.$nextTick(() => {
                             $("#total_amount").data('total', this.totalFinal);
                             this.payment_cash.amount = this.totalFinal;
@@ -511,10 +601,27 @@
             },
             removeCoupon() {
                 this.coupon = { code: '', applied: false, discount: 0, message: '', loading: false };
+                this.autoDiscount = { discount: 0, breakdown: [], loaded: false };
+                this.loadAutoDiscounts();
                 this.$nextTick(() => {
                     $("#total_amount").data('total', this.totalFinal);
                     this.payment_cash.amount = this.totalFinal;
                 });
+            },
+            async loadAutoDiscounts() {
+                try {
+                    var res = await axios.post('{{ route("tenant_ecommerce_preview_discounts") }}', {
+                        amount: parseFloat(this.summary.total) || 0,
+                        items:  this.records,
+                    }, { headers: { 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content } });
+                    this.autoDiscount.discount  = parseFloat(res.data.rule_discount) || 0;
+                    this.autoDiscount.breakdown = res.data.breakdown || [];
+                    this.autoDiscount.loaded    = true;
+                    this.$nextTick(() => {
+                        $("#total_amount").data('total', this.totalFinal);
+                        this.payment_cash.amount = this.totalFinal;
+                    });
+                } catch(e) { /* silencioso */ }
             },
             applyPoints() {
                 var maxPts = this.maxPointsToApply;
@@ -609,12 +716,22 @@
                             window.location = '/ecommerce/order/confirmation/' + response.data.order.external_id;
                         }
                     }).catch(error => {
-                        swal("Pago No realizado", 'Sucedio algo inesperado.', "error");
-                        if (error.response.status === 422) {
-                          this.errors = error.response.data;
-                        } else {
-                          console.log(error);
+                        let msg = 'Ocurrió un error al procesar el pago.';
+                        let title = 'Error al procesar el pedido';
+                        if (error.response) {
+                            const status = error.response.status;
+                            const d = error.response.data;
+                            if (status === 422 && d && typeof d === 'object' && !d.message) {
+                                this.errors = d;
+                                const firstKey = Object.keys(d)[0];
+                                title = 'Campos requeridos';
+                                msg = Array.isArray(d[firstKey]) ? d[firstKey][0] : d[firstKey];
+                            } else if (d && d.message) {
+                                msg = d.message;
+                                title = msg.toLowerCase().includes('stock') ? 'Stock insuficiente' : 'Error al procesar el pedido';
+                            }
                         }
+                        swal(title, msg, 'error');
                     });
 
             },
@@ -679,6 +796,7 @@
                 let rec = await this.records.map((item) => {
 
                     let sale_unit_price = 0
+                    let unit_value = 0
                     let total_exonerated = 0
                     let total_igv = 0
                     let total_val = 0
@@ -764,7 +882,7 @@
             },
             initForm() {
               this.errors = {}
-                this.user = JSON.parse('{!! json_encode( Auth::guard("ecommerce")->user() ) !!}')
+                this.user = {!! \Illuminate\Support\Js::from(Auth::guard("ecommerce")->user()) !!}
                 if(!this.user){
                     return false
                 }
@@ -807,37 +925,50 @@
                 this.optionDocument()
             },
             deleteItem(id, index) {
-                //remove en fronted
-                this.records.splice(index, 1)
-                //set remove en localstorage
-                let array = localStorage.getItem('products_cart');
-                array = JSON.parse(array);
-                let indexFound = array.findIndex(x => x.id == id)
-                array.splice(indexFound, 1);
+                var removedRow = this.records[index];
+                var removedVariantId = removedRow ? (removedRow.variant_id || null) : null;
+                // Remove from Vue
+                this.records.splice(index, 1);
+                // Remove from localStorage
+                var array = JSON.parse(localStorage.getItem('products_cart') || '[]');
+                var indexFound = array.findIndex(function(x) { return x.id == id && (x.variant_id || null) == removedVariantId; });
+                if (indexFound === -1) indexFound = array.findIndex(function(x) { return x.id == id; });
+                if (indexFound !== -1) array.splice(indexFound, 1);
                 localStorage.setItem('products_cart', JSON.stringify(array));
 
-                this.calculateSummary()
+                // Sync to server (FIX C2)
+                if (typeof persistCartToServer === 'function') persistCartToServer();
+                if (typeof productsCartDropDown === 'function') productsCartDropDown();
+                if (typeof calculateTotalCart === 'function') calculateTotalCart();
 
+                // Si carrito quedó vacío, limpiar en servidor inmediatamente
+                if (array.length === 0 && typeof clearCartOnServer === 'function') {
+                    clearCartOnServer();
+                }
 
+                this.calculateSummary();
             },
             clearShoppingCart() {
-              this.errors = {}
-                this.records_old = this.records
-                this.records = []
-                localStorage.setItem('products_cart', JSON.stringify([]))
-                // this.calculateSummary()
+                var self = this;
+                self.errors = {};
+                self.records_old = self.records;
+                self.records = [];
+                localStorage.setItem('products_cart', JSON.stringify([]));
 
-                this.summary = {
-                    subtotal: '0.0',
-                    tax: '0.0',
-                    total: '0.00',
-                    total_taxed: '0.0',
-                    total_value: '0.0',
-                    total_exonerated: '0.0',
-                    total_igv: '0.0'
-                }
-                this.payment_cash.amount = '0.00'
-                location.reload()
+                // Limpiar en servidor PRIMERO, luego reload (FIX C1)
+                if (typeof clearCartOnServer === 'function') { clearCartOnServer(); }
+                if (typeof productsCartDropDown === 'function') productsCartDropDown();
+                if (typeof calculateTotalCart === 'function') calculateTotalCart();
+
+                self.summary = {
+                    subtotal: '0.0', tax: '0.0', total: '0.00',
+                    total_taxed: '0.0', total_value: '0.0',
+                    total_exonerated: '0.0', total_igv: '0.0'
+                };
+                self.payment_cash.amount = '0.00';
+
+                // Esperar a que el servidor procese ANTES de recargar (FIX C1)
+                setTimeout(function() { location.reload(); }, 500);
             },
             calculateSummary() {
 
@@ -933,7 +1064,7 @@
 </script>
 
 <script>
-    Culqi.publicKey = {!! json_encode($configuration->token_public_culqui ) !!};
+    Culqi.publicKey = {!! \Illuminate\Support\Js::from($configuration->token_public_culqui) !!};
     if(!Culqi.publicKey)
     {
       $('.culqi').hide()
@@ -1047,7 +1178,7 @@
     };
 
     function getCustomer() {
-        let user = JSON.parse('{!! json_encode( Auth::guard("ecommerce")->user() ) !!}')
+        let user = {!! \Illuminate\Support\Js::from(Auth::guard("ecommerce")->user()) !!}
         return {
             "codigo_tipo_documento_identidad": "0",
             "numero_documento": "0",

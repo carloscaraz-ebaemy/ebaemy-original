@@ -268,7 +268,10 @@ return [
          *
          * @info set to true to enable.
          */
-        'auto-delete-tenant-database' => env('TENANCY_DATABASE_AUTO_DELETE', false),
+        // Hardcoded to false — borrar una BD de tenant es una operación
+        // catastrófica e irreversible. Debe hacerse SOLO manualmente con backup previo.
+        // NO leer de env para evitar accidentes en producción.
+        'auto-delete-tenant-database' => false,
 
         /**
          * Automatically delete the user needed to access the tenant database.
@@ -276,7 +279,7 @@ return [
          * @info Set to false to disable.
          * @info Only deletes in case tenant database is set to be deleted.
          */
-        'auto-delete-tenant-database-user' => env('TENANCY_DATABASE_AUTO_DELETE_USER', false),
+        'auto-delete-tenant-database-user' => false,
 
         /**
          * Define a list of classes that you wish to force onto the tenant or system connection.

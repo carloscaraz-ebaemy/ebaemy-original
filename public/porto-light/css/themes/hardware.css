@@ -1,0 +1,116 @@
+/* ═══════════════════════════════════════════════════════════════
+   THEME: HARDWARE / FERRETERÍA / INDUSTRIAL
+   Funcional, robusto, organizado, práctico
+   Tipografía: bold sans, industrial
+   ═══════════════════════════════════════════════════════════════ */
+
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap');
+
+:root {
+    --theme-font-heading: 'Montserrat', sans-serif;
+    --theme-font-body: 'Montserrat', sans-serif;
+    --theme-card-radius: 6px;
+    --theme-btn-radius: 4px;
+}
+
+body {
+    font-family: var(--theme-font-body) !important;
+    background: #f5f5f4 !important;
+}
+
+h1, h2, h3, .ec-section-title {
+    font-family: var(--theme-font-body) !important;
+    font-weight: 800 !important;
+    text-transform: uppercase !important;
+}
+
+.ec-section-title {
+    font-size: 20px !important;
+}
+
+/* Cards compactas funcionales */
+.pcard {
+    border-radius: var(--theme-card-radius) !important;
+    border: 1px solid #d6d3d1 !important;
+    background: #fff !important;
+}
+.pcard:hover {
+    border-color: var(--ec-primary) !important;
+    box-shadow: 0 4px 12px rgba(0,0,0,.1) !important;
+    transform: none !important;
+}
+
+.pcard__body {
+    padding: 10px !important;
+}
+
+/* Código de producto visible */
+.pcard__cat {
+    font-size: 10px !important;
+    font-weight: 700 !important;
+    text-transform: uppercase !important;
+}
+
+/* Título práctico */
+/* Product title — sans-serif */
+.pcard__title a {
+    font-size: 13px !important;
+    font-weight: 600 !important;
+}
+
+/* Precio prominente */
+.pcard__price, .product-price {
+    font-weight: 800 !important;
+    font-size: 18px !important;
+}
+
+/* Badges industriales */
+.pbadge {
+    border-radius: 3px !important;
+    font-weight: 700 !important;
+    text-transform: uppercase !important;
+    font-size: 9px !important;
+}
+
+/* Botones robustos */
+.btn-primary, .paction.add-cart, #btn-add-to-cart, .ec-minicart-btn {
+    border-radius: var(--theme-btn-radius) !important;
+    font-weight: 700 !important;
+    text-transform: uppercase !important;
+    font-size: 12px !important;
+}
+
+/* Category pills cuadradas */
+.ec-cat-pill, .ec-cat-pills button {
+    border-radius: 4px !important;
+    font-weight: 600 !important;
+    text-transform: uppercase !important;
+    font-size: 11px !important;
+}
+
+/* Grid compacto - 5 columnas */
+@media (min-width: 1200px) {
+    .product-col-item {
+        flex: 0 0 20% !important;
+        max-width: 20% !important;
+    }
+}
+@media (min-width: 768px) and (max-width: 1199px) {
+    .product-col-item {
+        flex: 0 0 25% !important;
+        max-width: 25% !important;
+    }
+}
+
+/* Filtros prominentes */
+.ec-filter-bar, .ec-filter-sticky-zone {
+    background: #fff !important;
+    border: 1px solid #e7e5e4 !important;
+    border-radius: 6px !important;
+    padding: 12px !important;
+}
+
+/* Footer industrial */
+footer, .footer {
+    background: #292524 !important;
+}

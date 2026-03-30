@@ -173,7 +173,7 @@ export default {
                                         ? `Conductor: ${this.form.driver_name} — Licencia: ${this.form.driver_license}`
                                         : null,
                 }
-                const { data } = await axios.post(
+                const { data } = await this.$http.post(
                     `/logistic/queue-json/${this.order.id}/dispatch`,
                     payload
                 )

@@ -140,8 +140,8 @@
             $search_item_by_barcode_presentation = $request->has('search_item_by_barcode_presentation') && (bool)$request->search_item_by_barcode_presentation;
 
             // $item = Item:: whereIsActive();
-            $item = Item::query();
-            $ItemToSearchBySeries = Item:: whereIsActive();
+            $item = Item::with(['item_type', 'unit_type', 'currency_type', 'warehouses', 'item_unit_types', 'tags', 'item_lots']);
+            $ItemToSearchBySeries = Item::with(['item_type', 'unit_type', 'currency_type', 'warehouses', 'item_unit_types', 'tags', 'item_lots'])->whereIsActive();
 
             if ($service == false) {
                 $item->WhereNotService();

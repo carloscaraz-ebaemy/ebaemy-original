@@ -326,7 +326,13 @@
                                 height="32px"
                             />
                         </td>
-                        <td>{{ row.description }}</td>
+                        <td>
+                            {{ row.description }}
+                            <el-tag v-if="row.has_variants" size="mini" type="primary"
+                                    style="margin-left:5px;vertical-align:middle;font-size:10px;">
+                                Variantes
+                            </el-tag>
+                        </td>
                         <td v-if="columns.description.visible">
                             {{ row.name }}
                         </td>

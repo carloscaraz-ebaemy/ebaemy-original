@@ -17,7 +17,7 @@ class SecurityHeaders
         // Evita que el navegador detecte automáticamente el tipo de contenido
         $response->headers->set('X-Content-Type-Options', 'nosniff');
 
-        // Activa el filtro XSS del navegador
+        // Activa el filtro XSS del navegador (legacy, reforzado por CSP)
         $response->headers->set('X-XSS-Protection', '1; mode=block');
 
         // Controla la información enviada en el header Referer
@@ -28,6 +28,26 @@ class SecurityHeaders
 
         // Permissions Policy: desactiva funcionalidades de navegador no necesarias
         $response->headers->set('Permissions-Policy', 'camera=(), microphone=(), geolocation=(), payment=()');
+
+        // Content-Security-Policy — solo para rutas de ecommerce público
+        // El panel admin usa Vite + CDNs variados que CSP estricto bloquea
+        $path = $request->path();
+        $isEcommerce = str_starts_with($path, 'ecommerce');
+
+        if ($isEcommerce) {
+            $csp = implode('; ', [
+                "default-src 'self'",
+                "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://unpkg.com https://cdn.jsdelivr.net https://checkout.culqi.com https://www.googletagmanager.com https://connect.facebook.net https://cdnjs.cloudflare.com",
+                "style-src 'self' 'unsafe-inline' https://unpkg.com https://fonts.googleapis.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com",
+                "img-src 'self' data: https: blob:",
+                "font-src 'self' data: https://fonts.gstatic.com https://unpkg.com https://cdn.jsdelivr.net",
+                "connect-src 'self' https://api.culqi.com https://graph.facebook.com https://www.google-analytics.com",
+                "frame-ancestors 'self'",
+                "object-src 'none'",
+                "base-uri 'self'",
+            ]);
+            $response->headers->set('Content-Security-Policy', $csp);
+        }
 
         return $response;
     }

@@ -152,6 +152,7 @@ use Illuminate\Support\Facades\Log;
     class Configuration extends ModelTenant
     {
         protected $fillable = [
+            'business_type',
             'active_allowance_charge',
             'active_warehouse_prices',
             'affectation_igv_type_id',
@@ -341,6 +342,7 @@ use Illuminate\Support\Facades\Log;
         ];
 
         protected $casts = [
+            'business_type' => \App\Enums\BusinessTypeEnum::class,
             'quotation_allow_seller_generate_sale' => 'boolean',
             'allow_edit_unit_price_to_seller' => 'boolean',
             'seller_can_create_product' => 'boolean',
@@ -485,13 +487,57 @@ use Illuminate\Support\Facades\Log;
             'available_cash_report_seller' => 'bool',
             'from_guest_register' => 'bool',
             'was_verified_guest_user' => 'bool',
-            'enable_consigned' => 'bool'
+            'enable_consigned' => 'bool',
+            // Campos sensibles — encriptar DESPUÉS de migrar datos con: php artisan tenants:encrypt-credentials
+            // No usar cast 'encrypted' hasta que los datos existentes hayan sido migrados
         ];
 
         protected $hidden = [
             'smtp_password',
-
+            'token_private_culqui',
+            'token_public_culqui',
+            'token_apiruc',
+            'qrchat_app_key',
+            'qrchat_auth_key',
+            'qr_api_apiKey',
         ];
+
+        // ── Cache helpers ────────────────────────────────────────────────────────
+        // TTL de 10 min. Se invalida automáticamente en saved/deleted.
+        // Reduce las ~153 queries Configuration::first() a 1 query cada 10 min.
+        private const CACHE_TTL = 600; // segundos
+
+        private static function cacheKey(): string
+        {
+            try {
+                $uuid = app(\Hyn\Tenancy\Environment::class)->tenant()?->uuid ?? 'default';
+            } catch (\Throwable) {
+                $uuid = 'default';
+            }
+            return "tenant_config_{$uuid}";
+        }
+
+        /**
+         * Devuelve la configuración del tenant desde caché (Redis).
+         * Equivalente a Configuration::first() pero con cache automático.
+         */
+        public static function firstCached(): ?self
+        {
+            return \Illuminate\Support\Facades\Cache::remember(
+                self::cacheKey(),
+                self::CACHE_TTL,
+                fn () => self::first()
+            );
+        }
+
+        /**
+         * Invalida el caché de configuración del tenant activo.
+         */
+        public static function flushCache(): void
+        {
+            \Illuminate\Support\Facades\Cache::forget(self::cacheKey());
+        }
+        // ─────────────────────────────────────────────────────────────────────
 
         public static function boot()
         {
@@ -504,7 +550,9 @@ use Illuminate\Support\Facades\Log;
 
                 // if (empty($item->apk_url)) $item->apk_url = 'https://facturaloperu.com/apk/app-debug.apk';
             });
-
+            // Invalidar caché cuando la configuración cambia
+            static::saved(fn () => self::flushCache());
+            static::deleted(fn () => self::flushCache());
         }
 
         /**

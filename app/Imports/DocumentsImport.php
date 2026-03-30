@@ -10,6 +10,7 @@ use Maatwebsite\Excel\Concerns\Importable;
 use Maatwebsite\Excel\Concerns\ToCollection;
 use Carbon\Carbon;
 use PhpOffice\PhpSpreadsheet\Shared\Date;
+use Illuminate\Support\Facades\DB;
 use Exception;
 
 
@@ -21,13 +22,19 @@ class DocumentsImport implements ToCollection
 
     public function collection(Collection $rows)
     {
-            $total = count($rows);
-            $registered = 0;
-            unset($rows[0]);
+        $total = count($rows);
+        $registered = 0;
+        unset($rows[0]);
+
+        DB::beginTransaction();
+        try {
             foreach ($rows as $row)
             {
                 // dd($row);
-                $nrodocumento = $row[3];
+                $nrodocumento = trim($row[3] ?? '');
+                if (!str_contains($nrodocumento, '-')) {
+                    throw new Exception("Formato inválido de documento: {$nrodocumento}. Debe contener '-'");
+                }
                 $serienumero = explode('-', $nrodocumento);
                 $serie = $serienumero[0];
                 // $number = $serienumero[1];
@@ -44,7 +51,7 @@ class DocumentsImport implements ToCollection
                     $document_type = '01';
                     $document_type_operation = '0101';
                 }else {
-                    return 'la serie: '.$serie.' no es valida para documentos electrónicos';
+                    throw new Exception('La serie: '.$serie.' no es válida para documentos electrónicos');
                 }
 
                 // dd("row2:".$row[2]."document_type:".$document_type);
@@ -52,7 +59,10 @@ class DocumentsImport implements ToCollection
                 $create_date = Carbon::instance(Date::excelToDateTimeObject($row[5]));
                 $date_create = Carbon::parse($create_date)->format('Y-m-d');
 
-                $currency = ($row[11] == 'S') ? 'PEN' : 'Registre nueva moneda' ;
+                if ($row[11] != 'S') {
+                    throw new Exception("Moneda no soportada: '{$row[11]}'. Solo se acepta 'S' (PEN).");
+                }
+                $currency = 'PEN';
 
                 //cliente
                 $co_number = rtrim($row[9]);
@@ -205,13 +215,19 @@ class DocumentsImport implements ToCollection
                         'json' => $json
                     ]);
                 } catch (Exception $e) {
-                    dd($e);
+                    \Log::error('DocumentsImport error: ' . $e->getMessage());
                 }
 
                 $registered += 1;
             }
-            $this->data = compact('total', 'registered');
 
+            DB::commit();
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            throw $e;
+        }
+
+        $this->data = compact('total', 'registered');
     }
 
     public function getData()

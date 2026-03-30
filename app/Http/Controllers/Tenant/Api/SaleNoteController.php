@@ -73,7 +73,7 @@ class SaleNoteController extends Controller
         $data = [];
         if ($request['force_create_if_not_exist']) {
             // Se saca de tenant, para que pueda guardar el item correctamente.
-            self::ExtraLog(__FILE__ . "::" . __LINE__ . "   " . __FUNCTION__ . "  \n Entra por crear " . __FUNCTION__ . " \n" . var_export($request->all(), true) . "\n\n\n\n");
+            self::ExtraLog(__FILE__ . "::" . __LINE__ . "   " . __FUNCTION__ . "  \n Entra por crear " . __FUNCTION__ . " \n" . json_encode(['action' => 'sale_note_api', 'user_id' => auth()->id(), 'timestamp' => now()]) . "\n\n\n\n");
             $data = $this->mergeData($request);
         }
 
@@ -186,12 +186,12 @@ class SaleNoteController extends Controller
             }
             $inputs['customer_id'] = $person->id;
             $items = $inputs['items'];
-            self::ExtraLog(__FILE__ . "::" . __LINE__ . "   " . __FUNCTION__ . "  \n Buscando Items " . var_export($items, true) . "\n\n\n\n");
+            self::ExtraLog(__FILE__ . "::" . __LINE__ . "   " . __FUNCTION__ . "  \n Buscando Items count=" . count($items) . "\n\n\n\n");
 
             foreach ($items as $key => $item) {
                 if(key_exists('full_item', $item)) {
                     $item_in = $item['full_item'];
-                    self::ExtraLog('Item Antes \n\n\n\n\n' . var_export($item_in, true) . "\n<<<<<<<<<<<<<<<<<<<<<<<<");
+                    self::ExtraLog('Item Antes id=' . ($item_in['id'] ?? 'new') . "\n<<<<<<<<<<<<<<<<<<<<<<<<");
                     unset(
                         $item_in['item_id'],
                         $item_in['internal_id'],
@@ -209,7 +209,7 @@ class SaleNoteController extends Controller
                             unset($item_in[$k]);
                         }
                     }
-                    self::ExtraLog('Item Despues \n\n\n\n\n' . var_export($item_in, true) . "\n<<<<<<<<<<<<<<<<<<<<<<<<");
+                    self::ExtraLog('Item Despues keys=' . implode(',', array_keys($item_in)) . "\n<<<<<<<<<<<<<<<<<<<<<<<<");
                     $identicalItem = Item::where($item_in)->first();
                     if ($identicalItem === null) {
                         $identicalItem = new Item($item_in);
@@ -293,8 +293,8 @@ class SaleNoteController extends Controller
     }
 
     /**
-     * //TODO Falta colocar lotes en la app, esta funcion es para que se parezca a la web.
-     * Asignar lote a item (regularizar propiedad en json item)
+     * Asignar lote a item (regularizar propiedad en json item).
+     * Nota: La app móvil no envía lotes; esta función normaliza el campo para compatibilidad con la web.
      *
      * @param  array $row
      * @return void

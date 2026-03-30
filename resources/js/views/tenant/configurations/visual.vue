@@ -378,13 +378,49 @@ export default {
             }
 
             let cssString = ":root {";
+            // Variables originales del tema
             Object.keys(colors).forEach(variable => {
                 cssString += `${variable}: ${colors[variable]}; `;
+            });
+
+            // Mapeo directo a los tokens ERP
+            // Sidebar es SIEMPRE light — solo el acento cambia con el tema
+            const tokenMap = {
+                '--p':        colors['--primary-color'],
+                '--p-d':      colors['--primary-color'],
+                '--p-l':      colors['--accent-color'],
+                '--bg':       colors['--light-color'],
+                '--t1':       colors['--dark-color'],
+                '--t2':       colors['--muted'],
+                '--t3':       colors['--muted'],
+                '--bd':       colors['--accent-color'],
+                // sidebar accent — cambia con el tema
+                '--sb-acc':   colors['--highlight-color'] || colors['--primary-color'],
+                '--font':     colors['--font-family'],
+                // sb-bg, sb-act, sb-hover, sb-bd NO se mapean — el sidebar
+                // siempre usa los valores light del :root para mantener
+                // coherencia con el diseño light (como ebaemy)
+            };
+            Object.entries(tokenMap).forEach(([token, value]) => {
+                if (value) cssString += `${token}: ${value}; `;
             });
 
             cssString += "}";
 
             styleTag.innerHTML = cssString;
+
+            // Cargar la fuente del tema si es una Google Font
+            if (colors['--font-family']) {
+                const fontName = colors['--font-family'].replace(/['"]/g, '').split(',')[0].trim();
+                const fontId = `gfont-${fontName.replace(/\s+/g, '-').toLowerCase()}`;
+                if (!document.getElementById(fontId)) {
+                    const link = document.createElement('link');
+                    link.id = fontId;
+                    link.rel = 'stylesheet';
+                    link.href = `https://fonts.googleapis.com/css2?family=${encodeURIComponent(fontName)}:wght@300;400;500;600;700&display=swap`;
+                    document.head.appendChild(link);
+                }
+            }
         },
         onChangeTheme(theme) {
             this.visuals.sidebar_theme = theme;

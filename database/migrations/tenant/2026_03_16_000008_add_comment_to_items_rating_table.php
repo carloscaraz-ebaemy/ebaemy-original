@@ -9,8 +9,12 @@ class AddCommentToItemsRatingTable extends Migration
     public function up()
     {
         Schema::table('items_rating', function (Blueprint $table) {
-            $table->string('reviewer_name')->nullable()->after('value');
-            $table->text('comment')->nullable()->after('reviewer_name');
+            if (!Schema::hasColumn('items_rating', 'reviewer_name')) {
+                $table->string('reviewer_name')->nullable()->after('value');
+            }
+            if (!Schema::hasColumn('items_rating', 'comment')) {
+                $table->text('comment')->nullable()->after('reviewer_name');
+            }
         });
     }
 

@@ -18,6 +18,12 @@
 @php
     $outOfStock   = stock($item, $configuration);
     $totalStock   = stockCount($item);
+    // Para productos con variantes: stock total = suma de stock de variantes activas
+    if ($item->has_variants && $item->relationLoaded('variants')) {
+        $variantStock = $item->variants->sum('stock');
+        $outOfStock   = $variantStock <= 0;
+        $totalStock   = $variantStock;
+    }
     $isNew        = $item->created_at && $item->created_at->diffInDays(now()) <= 30;
     $isLowStock   = !$outOfStock && $totalStock > 0 && $totalStock <= 5;
     $defaultImage = $configuration->product_default_image ?? 'imagen-no-disponible.jpg';
@@ -28,6 +34,14 @@
     $imagePath    = $hasRealImage
         ? asset('storage/uploads/items/' . $item->image)
         : $defaultPath;
+    // Segunda imagen para hover swap
+    $hoverImage = null;
+    if ($item->relationLoaded('images') && $item->images->isNotEmpty()) {
+        $firstGallery = $item->images->first();
+        if ($firstGallery && $firstGallery->image && $firstGallery->image !== 'imagen-no-disponible.jpg') {
+            $hoverImage = asset('storage/uploads/items/' . $firstGallery->image);
+        }
+    }
     $productUrl   = route('tenant.ecommerce.item', ['slug' => $item->slug ?: $item->id]);
     $altText      = $item->description . ($item->category ? ' — ' . $item->category->name : '');
     $symbol       = $item->currency_type['symbol'] ?? 'S/';
@@ -50,13 +64,16 @@
             <div class="pcard__badges">
                 @if($outOfStock)
                     <span class="pbadge pbadge--oos">Agotado</span>
-                @elseif($isLowStock)
+                @elseif($isLowStock && !$item->has_variants)
                     <span class="pbadge pbadge--hot">
                         <svg xmlns="http://www.w3.org/2000/svg" width="9" height="9" viewBox="0 0 24 24" fill="currentColor"><path d="M13 2L3 14h9l-1 8 10-12h-9z"/></svg>
                         Últimas {{ $totalStock }}
                     </span>
                 @elseif($isNew)
                     <span class="pbadge pbadge--new">Nuevo</span>
+                @endif
+                @if($item->has_variants)
+                    <span class="pbadge pbadge--variants">Variantes</span>
                 @endif
             </div>
 
@@ -75,22 +92,35 @@
             </button>
 
             {{-- Product image --}}
-            <a href="{{ $productUrl }}" class="pcard__img-link" tabindex="-1" aria-label="{{ $altText }}">
+            <a href="{{ $productUrl }}"
+               class="pcard__img-link{{ $hoverImage ? ' pcard__img-link--has-hover' : '' }}"
+               tabindex="-1" aria-label="{{ $altText }}">
                 @if($hasRealImage)
                 <img src="{{ asset('porto-ecommerce/assets/images/placeholder.svg') }}"
                      data-src="{{ $imagePath }}"
                      alt="{{ $altText }}"
+                     loading="lazy" decoding="async"
                      width="400" height="400"
-                     class="pcard__img ec-img-lazy"
+                     class="pcard__img pcard__img--primary ec-img-lazy"
                      onerror="this.src='{{ asset('logo/imagen-no-disponible.jpg') }}'"
                      itemprop="image">
                 @else
                 <img src="{{ $defaultPath }}"
                      alt="{{ $altText }}"
                      width="400" height="400"
-                     class="pcard__img"
+                     class="pcard__img pcard__img--primary"
                      onerror="this.src='{{ asset('logo/imagen-no-disponible.jpg') }}'"
                      itemprop="image">
+                @endif
+
+                {{-- Segunda imagen: aparece al hacer hover --}}
+                @if($hoverImage)
+                <img src="{{ asset('porto-ecommerce/assets/images/placeholder.svg') }}"
+                     data-src="{{ $hoverImage }}"
+                     alt="{{ $altText }}"
+                     width="400" height="400"
+                     class="pcard__img pcard__img--hover ec-img-lazy"
+                     aria-hidden="true">
                 @endif
             </a>
 
@@ -174,7 +204,20 @@
             </div>
 
             {{-- CTA --}}
-            @if(!$outOfStock)
+            @if($item->has_variants && !$outOfStock)
+                <a href="{{ $productUrl }}"
+                   class="pcard__cta pcard__cta--variants"
+                   aria-label="Ver opciones de {{ $item->description }}"
+                   title="Elegir variante">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24"
+                         fill="none" stroke="currentColor" stroke-width="2.5"
+                         stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <circle cx="12" cy="12" r="10"/>
+                        <polyline points="12 8 16 12 12 16"/><line x1="8" y1="12" x2="16" y2="12"/>
+                    </svg>
+                    <span class="pcard__cta-text">Elegir opciones</span>
+                </a>
+            @elseif(!$outOfStock)
                 <button type="button"
                         class="pcard__cta ec-btn-cart"
                         data-ec-cart="{{ json_encode($item) }}"

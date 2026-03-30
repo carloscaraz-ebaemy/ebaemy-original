@@ -19,6 +19,10 @@ class ModuleLevelViewComposer
     {
         /** @var \App\Models\Tenant\User $user */
         $user = auth()->user();
+        if (!$user || !method_exists($user, 'getCurrentModuleLevelByTenant')) {
+            $view->vc_module_levels = ModuleLevel::all()->pluck('value')->toArray();
+            return;
+        }
         $myLevels = $user
             ->getCurrentModuleLevelByTenant()
             ->pluck('module_level_id')

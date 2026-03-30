@@ -12,7 +12,7 @@ class SitemapController extends Controller
 {
     public function index()
     {
-        $seo = ConfigurationEcommerce::first();
+        $seo = ConfigurationEcommerce::firstCached();
 
         if ($seo && !$seo->indexable) {
             abort(404);

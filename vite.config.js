@@ -9,7 +9,7 @@ export default defineConfig({
     host: '127.0.0.1',
     port: 5173,
     cors: true,
-    origin: 'http://1.facturaloperu-pro7.oo',
+    origin: process.env.VITE_DEV_SERVER_URL || 'http://localhost:5173',
     strictPort: true,
   },
   plugins: [

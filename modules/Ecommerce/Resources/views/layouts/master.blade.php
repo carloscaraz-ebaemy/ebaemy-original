@@ -121,6 +121,22 @@
     }
     </script>
 
+    {{-- SEO: Organization Schema --}}
+    <script type="application/ld+json">
+    {
+        "@context": "https://schema.org",
+        "@type": "Organization",
+        "name": "{{ $company->name ?? config('app.name') }}",
+        "url": "{{ url('/ecommerce') }}",
+        "logo": "{{ $share_image }}",
+        "contactPoint": {
+            "@type": "ContactPoint",
+            "telephone": "{{ $company->telephone ?? '' }}",
+            "contactType": "customer service"
+        }
+    }
+    </script>
+
     {{-- SEO: BreadcrumbList --}}
     @hasSection('breadcrumb_json')
         @yield('breadcrumb_json')
@@ -136,9 +152,21 @@
     <link rel="stylesheet" href="{{ asset('porto-ecommerce/assets/css/style.min.css') }}">
     <link rel="stylesheet" href="{{ asset('porto-ecommerce/assets/css/custom.css') }}">
     <link rel="stylesheet" href="{{ asset('porto-ecommerce/assets/css/rating.css') }}">
-    @vite('resources/js/app.js')
+    {{-- NO cargar @vite app.js: el ecommerce usa su propia instancia Vue (CDN) --}}
     <link rel="stylesheet" href="{{ asset('porto-ecommerce/assets/font-awesome/css/fontawesome-all.min.css') }}">
-    <link rel="stylesheet" href="{{ asset('porto-light/css/styles_ecommerce.css') }}">
+    <link rel="stylesheet" href="{{ asset(file_exists(public_path('porto-light/css/styles_ecommerce.min.css')) ? 'porto-light/css/styles_ecommerce.min.css' : 'porto-light/css/styles_ecommerce.css') }}">
+    <link rel="stylesheet" href="{{ asset('porto-light/css/ecommerce-theme-override.css') }}">
+    {{-- Plugins CSS (Swiper, Drift Zoom, GLightbox — según página) --}}
+    @pluginCss
+    {{-- Theme por rubro (dinámico según configuración del tenant) --}}
+    @php
+        $__themeConf = \App\Models\Tenant\ConfigurationEcommerce::first();
+        $__theme = $__themeConf->theme_template ?? 'generic';
+        $__themeFile = "porto-light/css/themes/{$__theme}.css";
+    @endphp
+    @if($__theme !== 'generic' && file_exists(public_path($__themeFile)))
+        <link rel="stylesheet" href="{{ asset($__themeFile) }}">
+    @endif
 
     {{-- ── Color primario del cliente: inyectado server-side para evitar flash ── --}}
     @php
@@ -165,6 +193,9 @@
         $__pL = round($__l*100).'%';
     @endphp
     <style>:root{--primary-h:{{ $__pH }};--primary-s:{{ $__pS }};--primary-l:{{ $__pL }};}</style>
+    <!-- Vue debe cargarse ANTES del header (que usa new Vue) -->
+    <script src="{{ asset('porto-ecommerce/assets/js/vue.min.js') }}"></script>
+    <script src="{{ asset('porto-ecommerce/assets/js/axios.min.js') }}"></script>
 </head>
 
 <body>
@@ -174,6 +205,50 @@
                 {!! $item->script !!}
             @endif
         @endforeach
+    @endif
+
+    {{-- ── Meta (Facebook / Instagram) Pixel ────────────────────────────── --}}
+    @if(!empty($seo->facebook_pixel_id))
+    <script>
+    !function(f,b,e,v,n,t,s){if(f.fbq)return;n=f.fbq=function(){n.callMethod?
+    n.callMethod.apply(n,arguments):n.queue.push(arguments)};if(!f._fbq)f._fbq=n;
+    n.push=n;n.loaded=!0;n.version='2.0';n.queue=[];t=b.createElement(e);t.async=!0;
+    t.src=v;s=b.getElementsByTagName(e)[0];s.parentNode.insertBefore(t,s)}(window,
+    document,'script','https://connect.facebook.net/en_US/fbevents.js');
+    fbq('init', '{{ $seo->facebook_pixel_id }}');
+    fbq('track', 'PageView');
+    </script>
+    <noscript><img height="1" width="1" style="display:none"
+      src="https://www.facebook.com/tr?id={{ $seo->facebook_pixel_id }}&ev=PageView&noscript=1"/></noscript>
+    @endif
+
+    {{-- ── TikTok Pixel ────────────────────────────────────────────────── --}}
+    @if(!empty($seo->tiktok_pixel_id))
+    <script>
+    !function(w,d,t){w.TiktokAnalyticsObject=t;var ttq=w[t]=w[t]||[];
+    ttq.methods=["page","track","identify","instances","debug","on","off","once","ready","alias","group","enableCookie","disableCookie"];
+    ttq.setAndDefer=function(t,e){t[e]=function(){t.push([e].concat(Array.prototype.slice.call(arguments,0)))}};
+    for(var i=0;i<ttq.methods.length;i++)ttq.setAndDefer(ttq,ttq.methods[i]);
+    ttq.instance=function(t){for(var e=ttq._i[t]||[],n=0;n<ttq.methods.length;n++)ttq.setAndDefer(e,ttq.methods[n]);return e};
+    ttq.load=function(e,n){var i="https://analytics.tiktok.com/i18n/pixel/events.js";
+    ttq._i=ttq._i||{};ttq._i[e]=[];ttq._i[e]._u=i;ttq._t=ttq._t||{};ttq._t[e]=+new Date;
+    ttq._o=ttq._o||{};ttq._o[e]=n||{};var o=document.createElement("script");o.type="text/javascript";
+    o.async=!0;o.src=i+"?sdkid="+e+"&lib="+t;var a=document.getElementsByTagName("script")[0];
+    a.parentNode.insertBefore(o,a)};
+    ttq.load('{{ $seo->tiktok_pixel_id }}');
+    ttq.page();}(window, document, 'ttq');
+    </script>
+    @endif
+
+    {{-- ── Google Analytics 4 ─────────────────────────────────────────── --}}
+    @if(!empty($seo->ga4_measurement_id))
+    <script async src="https://www.googletagmanager.com/gtag/js?id={{ $seo->ga4_measurement_id }}"></script>
+    <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+    gtag('config', '{{ $seo->ga4_measurement_id }}', { send_page_view: true });
+    </script>
     @endif
 
     <div class="page-wrapper">
@@ -336,7 +411,7 @@
     <script src="{{ asset('porto-ecommerce/assets/js/wishlist.js') }}"></script>
     <script src="{{ asset('porto-ecommerce/assets/js/cart.js') }}"></script>
     <script src="{{ asset('porto-ecommerce/assets/js/main.js') }}"></script>
-    <script src="{{ asset('porto-ecommerce/assets/js/vue.min.js') }}"></script>
+    <!-- Vue ya cargado en <head> -->
     <script src="{{ asset('porto-ecommerce/assets/js/lazy-load.js') }}"></script>
     <script src="{{ asset('porto-ecommerce/assets/js/stock-notify.js') }}"></script>
     <script src="{{ asset('porto-ecommerce/assets/js/recently-viewed.js') }}"></script>
@@ -345,6 +420,17 @@
     <script src="{{ asset('porto-ecommerce/assets/js/quick-view.js') }}"></script>
     <script src="{{ asset('porto-ecommerce/assets/js/image-zoom.js') }}"></script>
     <script src="{{ asset('porto-ecommerce/assets/js/newsletter-popup.js') }}"></script>
+    {{-- Plugins JS (GSAP, Swiper, Drift Zoom, GLightbox — según página) --}}
+    @pluginJs
+
+    {{-- Inicialización de plugins en páginas de producto --}}
+    @if(request()->is('ecommerce/item/*'))
+        @include('themes._partials.plugins.product-enhancements')
+    @endif
+
+    {{-- Inicialización global de plugins --}}
+    @include('themes._partials.plugins.init')
+
     @stack('scripts')
 
     {{-- PWA: Service Worker registration --}}
@@ -378,6 +464,54 @@
         requestAnimationFrame(function () { t.classList.add('ec-pwa-update-toast--in'); });
     }
     </script>
+
+    @include('ecommerce::layouts.partials_ecommerce.auth_modal')
+
+    {{-- Social Proof Toast Notifications --}}
+    <div id="ec-social-proof" style="position:fixed;bottom:20px;left:20px;z-index:9998;pointer-events:none;"></div>
+    <style>
+    .ec-sp-toast{background:#fff;border-radius:12px;box-shadow:0 4px 20px rgba(0,0,0,.15);padding:14px 18px;display:flex;align-items:center;gap:12px;max-width:340px;opacity:0;transform:translateY(20px);transition:all .4s ease;pointer-events:auto;margin-top:8px}
+    .ec-sp-toast--visible{opacity:1;transform:translateY(0)}
+    .ec-sp-toast--hiding{opacity:0;transform:translateY(-10px)}
+    .ec-sp-icon{font-size:20px;flex-shrink:0}
+    .ec-sp-text{font-size:13px;color:#374151;line-height:1.4}
+    .ec-sp-name{font-weight:600;color:#1f2937}
+    .ec-sp-time{font-size:11px;color:#9ca3af;margin-top:2px}
+    </style>
+    <script>
+    (function(){
+        var container = document.getElementById('ec-social-proof');
+        if (!container) return;
+
+        fetch('/ecommerce/social-proof')
+            .then(function(r){ return r.json(); })
+            .then(function(purchases){
+                if (!purchases || !purchases.length) return;
+                var idx = 0;
+                function showNext() {
+                    if (idx >= purchases.length) idx = 0;
+                    var p = purchases[idx++];
+                    var toast = document.createElement('div');
+                    toast.className = 'ec-sp-toast';
+                    toast.innerHTML = '<span class="ec-sp-icon">🛒</span><div class="ec-sp-text"><span class="ec-sp-name">' +
+                        p.name + (p.city ? ' de ' + p.city : '') +
+                        '</span> compró <strong>' + p.product + '</strong><div class="ec-sp-time">' + p.time_ago + '</div></div>';
+                    container.appendChild(toast);
+                    setTimeout(function(){ toast.classList.add('ec-sp-toast--visible'); }, 50);
+                    setTimeout(function(){
+                        toast.classList.remove('ec-sp-toast--visible');
+                        toast.classList.add('ec-sp-toast--hiding');
+                        setTimeout(function(){ if(toast.parentNode) toast.parentNode.removeChild(toast); }, 500);
+                    }, 5000);
+                }
+                // Show first after 8s, then every 25s
+                setTimeout(showNext, 8000);
+                setInterval(showNext, 25000);
+            })
+            .catch(function(){});
+    })();
+    </script>
+
 </body>
 
 </html>

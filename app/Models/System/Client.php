@@ -99,6 +99,13 @@ class Client extends Model
         'phone_ws',
         'client_name',
         'contact_email',
+        // Theme & ecommerce
+        'theme_id',
+        'ecommerce_mode_id',
+        'business_type_id',
+        'theme_settings',
+        'timezone',
+        'currency',
     ];
 
 
@@ -110,6 +117,7 @@ class Client extends Model
         'restrict_sales_limit' => 'boolean',
         'enable_list_product' => 'boolean',
         'from_guest_register' => 'boolean',
+        'theme_settings'      => 'array',
     ];
 
 
@@ -232,6 +240,65 @@ class Client extends Model
     public function orders()
     {
         return $this->hasMany(PaymentOrder::class, 'client_id');
+    }
+
+    public function theme()
+    {
+        return $this->belongsTo(Theme::class);
+    }
+
+    public function ecommerceMode()
+    {
+        return $this->belongsTo(EcommerceMode::class);
+    }
+
+    public function businessType()
+    {
+        return $this->belongsTo(BusinessType::class);
+    }
+
+    public function themeInstallations()
+    {
+        return $this->hasMany(ThemeInstallation::class, 'hostname_id', 'hostname_id');
+    }
+
+    public function domainVerifications()
+    {
+        return $this->hasManyThrough(
+            DomainVerification::class,
+            Hostname::class,
+            'website_id',        // FK en hostnames que apunta al website del client
+            'hostname_id',       // FK en domain_verifications
+            'hostname_id',       // Columna local en clients → usada para encontrar el website
+            'id'                 // PK en hostnames
+        );
+    }
+
+    /**
+     * Todos los hostnames asociados al mismo website del client.
+     */
+    public function allHostnames()
+    {
+        if (!$this->hostname || !$this->hostname->website_id) {
+            return collect();
+        }
+        return Hostname::where('website_id', $this->hostname->website_id)->get();
+    }
+
+    /**
+     * ¿Está suspendido el client?
+     */
+    public function isSuspended(): bool
+    {
+        return (bool) $this->locked_tenant;
+    }
+
+    /**
+     * ¿Está activo?
+     */
+    public function isActive(): bool
+    {
+        return !$this->locked && !$this->locked_tenant;
     }
 
     /**

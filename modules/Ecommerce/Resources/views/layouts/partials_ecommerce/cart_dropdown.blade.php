@@ -31,5 +31,33 @@
     </div>
 </div><!-- End .dropdown -->
 
+{{-- Cart dropdown: stopPropagation + remove delegation --}}
+<script>
+// Ejecutar inmediatamente (no esperar DOMContentLoaded — este script está después del dropdown)
+(function(){
+    // 1. Evitar que Bootstrap cierre el dropdown al click dentro
+    document.addEventListener('click', function(e) {
+        var inDropdown = e.target.closest('.ec-minicart-dropdown');
+        var isNavLink = e.target.closest('a.ec-minicart-btn') || e.target.closest('a.ec-minicart-name') || e.target.closest('a.ec-minicart-img');
 
-{{-- Cart JS handled by cart.js (productsCartDropDown / calculateTotalCart / cartRemove) --}}
+        // Si es el botón remove, ejecutar remove y evitar cierre
+        var removeBtn = e.target.closest('.ec-minicart-remove');
+        if (removeBtn) {
+            e.preventDefault();
+            e.stopPropagation();
+            e.stopImmediatePropagation();
+            var itemId = removeBtn.getAttribute('data-item-id');
+            var variantId = removeBtn.getAttribute('data-variant-id') || null;
+            if (itemId && typeof cartRemove === 'function') {
+                cartRemove(parseInt(itemId), variantId ? parseInt(variantId) : undefined);
+            }
+            return false;
+        }
+
+        // Si click dentro del dropdown pero no en un link de navegación, evitar cierre
+        if (inDropdown && !isNavLink) {
+            e.stopPropagation();
+        }
+    }, true); // true = capture phase (se ejecuta ANTES del handler de Bootstrap)
+})();
+</script>

@@ -485,6 +485,7 @@
                                                 :data="{'type': 'items'}"
                                                 :headers="headers"
                                                 :on-success="onSuccess"
+                                                :on-error="onUploadError"
                                                 :show-file-list="false"
                                                 class="avatar-uploader">
                                             <img v-if="form.image_url"
@@ -1006,8 +1007,12 @@ export default {
                 this.form.image_url = response.data.temp_image
                 this.form.temp_path = response.data.temp_path
             } else {
-                this.$message.error(response.message)
+                this.$message.error(response.message || 'Error al subir la imagen.')
             }
+        },
+        onUploadError(err, file) {
+            console.error('[items_ecommerce] upload error:', err)
+            this.$message.error('No se pudo subir "' + file.name + '". ' + (err.message || 'Intenta de nuevo.'))
         },
         changeAffectationIgvType() {
 

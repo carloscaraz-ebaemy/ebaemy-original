@@ -15,12 +15,13 @@ class FeaturedProductsViewComposer
     {
         $exchange_rate_sale = $this->getExchangeRateSale();
 
-        // Buscar el tag "Destacado" (nombre case-insensitive)
-        $featuredTag = Cache::remember('featured_tag_id', 3600, function () {
+        // Buscar el tag "Destacado" — clave prefijada por tenant para aislar datos en SaaS
+        $tenantUuid  = app(\Hyn\Tenancy\Environment::class)->tenant()?->uuid ?? 'default';
+        $featuredTag = Cache::remember('ec_' . $tenantUuid . '_featured_tag', 3600, function () {
             return Tag::whereRaw('LOWER(name) = ?', ['destacado'])->first();
         });
 
-        $query = Item::with(['warehouses', 'tags', 'tags.tag'])
+        $query = Item::with(['currency_type', 'warehouses', 'tags', 'tags.tag'])
             ->where('apply_store', 1)
             ->where('internal_id', '!=', null);
 

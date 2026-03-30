@@ -12,10 +12,14 @@ use App\Exceptions\InsufficientStockException;
 use App\Exceptions\InvalidOrderTransitionException;
 use App\Models\Tenant\Document;
 use App\Models\Tenant\Item;
+use App\Models\Tenant\ItemSet;
+use App\Models\Tenant\ItemVariant;
+use App\Models\Tenant\ItemVariantWarehouse;
 use App\Models\Tenant\ItemWarehouse;
 use App\Models\Tenant\LogisticOrder;
 use App\Models\Tenant\LogisticOrderItem;
 use App\Models\Tenant\LogisticShippingGuide;
+use App\Models\Tenant\Order;
 use App\Models\Tenant\SaleNote;
 use App\Models\Tenant\StockMovement;
 use Illuminate\Support\Facades\DB;
@@ -248,6 +252,17 @@ class OrderService
                                    ->lockForUpdate()
                                    ->firstOrFail();
 
+                // Audit: warn if stock_committed is less than expected (dispatch proceeds regardless)
+                if ($iw->stock_committed < $orderItem->quantity) {
+                    Log::warning('[OrderService] Dispatch without prior commitment', [
+                        'order_id'     => $order->id,
+                        'item_id'      => $orderItem->item_id,
+                        'warehouse_id' => $iw->warehouse_id,
+                        'committed'    => $iw->stock_committed,
+                        'dispatch_qty' => $orderItem->quantity,
+                    ]);
+                }
+
                 $iw->applyStockMovement(StockMovementTypeEnum::PROVINCE_DISPATCH, $orderItem->quantity);
 
                 StockMovement::record(
@@ -335,6 +350,132 @@ class OrderService
 
             return $order;
         });
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // DESPACHO — Pedido Ecommerce (Order del ecommerce legacy)
+    // ═══════════════════════════════════════════════════════════════
+
+    /**
+     * Procesa el despacho de un pedido ecommerce (modelo Order).
+     * Descuenta stock de ítems normales, bundles y variantes.
+     *
+     * @param Order $order        El pedido ecommerce
+     * @param array $discountItems Array de items con 'id' (ItemWarehouse id) y 'cantidad'
+     */
+    public function processEcommerceDispatch(Order $order, array $discountItems): void
+    {
+        DB::transaction(function () use ($order, $discountItems) {
+
+            // ── 1. Descontar stock de ítems normales y bundles ──────────────
+            foreach ($discountItems as $discountItem) {
+                if (!isset($discountItem['id'])) continue;
+
+                $itemWarehouse = ItemWarehouse::where('id', $discountItem['id'])
+                    ->lockForUpdate()
+                    ->first();
+
+                if (!$itemWarehouse) continue;
+
+                $parentItem = Item::find($itemWarehouse->item_id);
+
+                // Saltar productos con variantes: su stock se gestiona via ItemVariantWarehouse
+                if ($parentItem && $parentItem->has_variants) continue;
+
+                $qty = (float) $discountItem['cantidad'];
+
+                // ── Pack/Bundle → descontar componentes individuales ─────
+                if ($parentItem && $parentItem->is_set) {
+                    $this->dispatchBundleStock($itemWarehouse, $parentItem, $qty);
+                    continue;
+                }
+
+                // ── Producto normal ──────────────────────────────────────
+                $itemWarehouse->applyStockMovement(StockMovementTypeEnum::ECOMMERCE_DISPATCH, $qty);
+            }
+
+            // ── 2. Descontar stock de variantes ─────────────────────────────
+            $this->dispatchVariantStock($order);
+
+            // ── 3. Actualizar estado de la orden ────────────────────────────
+            $order->status_order_id = 3; // dispatched
+            $order->save();
+
+            Log::info('[OrderService] Pedido ecommerce despachado', [
+                'order_id' => $order->id,
+            ]);
+        });
+    }
+
+    /**
+     * Descuenta stock de componentes de un bundle/pack al despachar.
+     */
+    private function dispatchBundleStock(ItemWarehouse $bundleIW, Item $parentItem, float $bundleQty): void
+    {
+        $components = ItemSet::where('item_id', $parentItem->id)
+            ->with('individual_item')
+            ->get();
+
+        foreach ($components as $component) {
+            $componentQtyToDeduct = $bundleQty * (float) $component->quantity;
+
+            $componentIW = ItemWarehouse::where('item_id', $component->individual_item_id)
+                ->where('warehouse_id', $bundleIW->warehouse_id)
+                ->lockForUpdate()
+                ->first();
+
+            if ($componentIW) {
+                $componentIW->applyStockMovement(StockMovementTypeEnum::ECOMMERCE_DISPATCH, $componentQtyToDeduct);
+            }
+        }
+
+        // También descontar del stock del bundle (unidades de pack despachadas)
+        $bundleIW->applyStockMovement(StockMovementTypeEnum::ECOMMERCE_DISPATCH, $bundleQty);
+    }
+
+    /**
+     * Libera stock_committed y descuenta stock físico de variantes al despachar.
+     */
+    private function dispatchVariantStock(Order $order): void
+    {
+        if (!$order->items) return;
+
+        $orderItems = is_array($order->items) ? $order->items : (array) $order->items;
+
+        foreach ($orderItems as $item) {
+            $item = (array) $item;
+            $variantId = $item['variant_id'] ?? null;
+            if (!$variantId) continue;
+
+            $qty = (float) ($item['quantity'] ?? 1);
+
+            $vw = ItemVariantWarehouse::where('item_variant_id', $variantId)
+                ->orderByDesc('stock_physical')
+                ->first();
+
+            if ($vw) {
+                DB::transaction(function () use ($vw, $qty) {
+                    $vw = ItemVariantWarehouse::lockForUpdate()->find($vw->id);
+
+                    if ($vw->stock_physical - $qty < 0) {
+                        Log::warning('Variant stock would go negative', [
+                            'variant_id'   => $vw->item_variant_id,
+                            'warehouse_id' => $vw->warehouse_id,
+                            'current'      => $vw->stock_physical,
+                            'requested'    => $qty,
+                        ]);
+                    }
+
+                    $vw->stock_physical  = max(0, $vw->stock_physical - $qty);
+                    $vw->stock           = $vw->stock_physical;
+                    $vw->stock_committed = max(0, $vw->stock_committed - $qty);
+                    $vw->save();
+                });
+            }
+
+            $total = ItemVariantWarehouse::where('item_variant_id', $variantId)->sum('stock_physical');
+            ItemVariant::where('id', $variantId)->update(['stock' => $total]);
+        }
     }
 
     // ═══════════════════════════════════════════════════════════════

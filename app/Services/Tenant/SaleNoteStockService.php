@@ -36,6 +36,12 @@ class SaleNoteStockService
     use InventoryKardexTrait;
 
     /**
+     * Flag estático: cuando true, el observer omite PROVINCE_COMMIT
+     * porque el controlador ya lo aplicó con las filas lockForUpdate().
+     */
+    public static bool $skipProvinceCommit = false;
+
+    /**
      * Aplica el movimiento de stock cuando se crea un ítem de NV.
      * Punto de entrada desde InventoryKardexServiceProvider.
      */
@@ -56,6 +62,12 @@ class SaleNoteStockService
         }
 
         if ($saleNote->requires_warehouse_dispatch) {
+            // Si el controlador ya aplicó PROVINCE_COMMIT con filas bloqueadas,
+            // no duplicar el movimiento. Se usa un flag estático en el Service
+            // porque $item->sale_note hace una query fresca sin propiedades en memoria.
+            if (self::$skipProvinceCommit) {
+                return;
+            }
             $this->commitProvince($item, $saleNote, $warehouseId, $qty);
         } else {
             $this->deductStore($item, $saleNote, $warehouseId, $qty, $estId);

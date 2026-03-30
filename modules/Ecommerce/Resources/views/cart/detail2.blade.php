@@ -265,6 +265,8 @@
                 contex.calculateSummary()
             });
             this.calculateSummary()
+            // Validar stock real desde servidor (previene oversell por carrito desactualizado)
+            this.validateCartStock();
         },
         created() {
             let array = localStorage.getItem('products_cart');
@@ -280,6 +282,41 @@
             this.initForm();
         },
         methods: {
+            validateCartStock() {
+                if (!this.records.length) return;
+                var self = this;
+                var itemIds = this.records.map(function(r) { return r.id; });
+                fetch('/ecommerce/stock-check', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
+                    },
+                    body: JSON.stringify({ items: itemIds })
+                })
+                .then(function(r) { return r.json(); })
+                .then(function(data) {
+                    if (data.stocks) {
+                        var changed = false;
+                        self.records.forEach(function(record) {
+                            var fresh = data.stocks.find(function(s) { return s.id == record.id; });
+                            if (fresh) {
+                                record.stock = fresh.stock;
+                                if (record.cantidad > fresh.stock && fresh.stock > 0) {
+                                    record.cantidad = Math.max(1, fresh.stock);
+                                    record.sub_total = (parseFloat(record.sale_unit_price) * record.cantidad).toFixed(2);
+                                    changed = true;
+                                }
+                            }
+                        });
+                        if (changed) {
+                            localStorage.setItem('products_cart', JSON.stringify(self.records));
+                            self.calculateSummary();
+                        }
+                    }
+                })
+                .catch(function() {});
+            },
             async searchCustomer() {
                 this.response_search = {
                     succes: false,
@@ -466,7 +503,7 @@
 
             },
             initForm() {
-                this.user = JSON.parse('{!! json_encode( Auth::user() ) !!}')
+                this.user = {!! \Illuminate\Support\Js::from(Auth::user() ? ['id' => Auth::id(), 'name' => Auth::user()->name, 'email' => Auth::user()->email, 'identity_document_type_id' => Auth::user()->identity_document_type_id, 'number' => Auth::user()->number] : null) !!}
                 this.form_document = {
                     "serie_documento": "",
                     "numero_documento": "#",
@@ -624,7 +661,7 @@
 
     function getCustomer() {
 
-        let user = '{!! json_encode( Auth::user() ) !!}'
+        let user = {!! \Illuminate\Support\Js::from(Auth::user() ? ['id' => Auth::id(), 'name' => Auth::user()->name, 'email' => Auth::user()->email, 'identity_document_type_id' => Auth::user()->identity_document_type_id, 'number' => Auth::user()->number] : null) !!}
 
         return {
             "codigo_tipo_documento_identidad": "0",

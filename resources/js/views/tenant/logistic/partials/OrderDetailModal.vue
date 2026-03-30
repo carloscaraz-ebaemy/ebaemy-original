@@ -191,7 +191,7 @@ export default {
             setTimeout(() => { this.movementsDebounced = false }, 2000)
             this.loadingMovements = true
             try {
-                const { data } = await axios.get(`/logistic/queue-json/${this.order.id}/stock-movements`)
+                const { data } = await this.$http.get(`/logistic/queue-json/${this.order.id}/stock-movements`)
                 this.movements = data.data ?? []
             } catch (e) {
                 console.error('Error cargando movimientos:', e)
