@@ -37,11 +37,11 @@ class SecurityHeaders
         if ($isEcommerce) {
             $csp = implode('; ', [
                 "default-src 'self'",
-                "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://unpkg.com https://cdn.jsdelivr.net https://checkout.culqi.com https://www.googletagmanager.com https://connect.facebook.net https://cdnjs.cloudflare.com",
+                "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://unpkg.com https://cdn.jsdelivr.net https://checkout.culqi.com https://www.googletagmanager.com https://connect.facebook.net https://cdnjs.cloudflare.com https://instant.page https://analytics.tiktok.com",
                 "style-src 'self' 'unsafe-inline' https://unpkg.com https://fonts.googleapis.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com",
                 "img-src 'self' data: https: blob:",
                 "font-src 'self' data: https://fonts.gstatic.com https://unpkg.com https://cdn.jsdelivr.net",
-                "connect-src 'self' https://api.culqi.com https://graph.facebook.com https://www.google-analytics.com",
+                "connect-src 'self' https://api.culqi.com https://graph.facebook.com https://www.google-analytics.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com",
                 "frame-ancestors 'self'",
                 "object-src 'none'",
                 "base-uri 'self'",
