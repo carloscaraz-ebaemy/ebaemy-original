@@ -139,7 +139,9 @@
     <link rel="stylesheet" href="{{ asset('porto-ecommerce/assets/font-awesome/css/fontawesome-all.min.css') }}">
     <link rel="stylesheet" href="{{ asset(file_exists(public_path('porto-light/css/styles_ecommerce.min.css')) ? 'porto-light/css/styles_ecommerce.min.css' : 'porto-light/css/styles_ecommerce.css') }}">
     <link rel="stylesheet" href="{{ asset('porto-light/css/ecommerce-theme-override.css') }}">
-    @pluginCss
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/drift-zoom@1/dist/drift-basic.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/glightbox@3/dist/css/glightbox.min.css">
     @php $__thm = ($seo->theme_template ?? 'generic'); @endphp
     @if($__thm !== 'generic' && file_exists(public_path("porto-light/css/themes/{$__thm}.css")))
         <link rel="stylesheet" href="{{ asset("porto-light/css/themes/{$__thm}.css") }}">
@@ -234,7 +236,11 @@
     <script src="{{ asset('porto-ecommerce/assets/js/recently-viewed.js') }}"></script>
     <script src="{{ asset('porto-ecommerce/assets/js/compare.js') }}"></script>
     {{-- NO cargar @vite app.js: el ecommerce usa su propia instancia Vue (CDN) --}}
-    @pluginJs
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/ScrollTrigger.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/drift-zoom@1/dist/Drift.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/glightbox@3/dist/js/glightbox.min.js"></script>
     @include('themes._partials.plugins.product-enhancements')
     @include('themes._partials.plugins.init')
     @stack('scripts')

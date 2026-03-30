@@ -156,8 +156,10 @@
     <link rel="stylesheet" href="{{ asset('porto-ecommerce/assets/font-awesome/css/fontawesome-all.min.css') }}">
     <link rel="stylesheet" href="{{ asset(file_exists(public_path('porto-light/css/styles_ecommerce.min.css')) ? 'porto-light/css/styles_ecommerce.min.css' : 'porto-light/css/styles_ecommerce.css') }}">
     <link rel="stylesheet" href="{{ asset('porto-light/css/ecommerce-theme-override.css') }}">
-    {{-- Plugins CSS (Swiper, Drift Zoom, GLightbox — según página) --}}
-    @pluginCss
+    {{-- Plugins CSS — carga directa sin directiva para compatibilidad --}}
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/drift-zoom@1/dist/drift-basic.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/glightbox@3/dist/css/glightbox.min.css">
     {{-- Theme por rubro (dinámico según configuración del tenant) --}}
     @php
         $__themeConf = \App\Models\Tenant\ConfigurationEcommerce::first();
@@ -420,8 +422,13 @@
     <script src="{{ asset('porto-ecommerce/assets/js/quick-view.js') }}"></script>
     <script src="{{ asset('porto-ecommerce/assets/js/image-zoom.js') }}"></script>
     <script src="{{ asset('porto-ecommerce/assets/js/newsletter-popup.js') }}"></script>
-    {{-- Plugins JS (GSAP, Swiper, Drift Zoom, GLightbox — según página) --}}
-    @pluginJs
+    {{-- Plugins JS — carga directa sin directiva para compatibilidad --}}
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/ScrollTrigger.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/drift-zoom@1/dist/Drift.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/glightbox@3/dist/js/glightbox.min.js"></script>
+    <script src="https://instant.page/5.2.0" type="module"></script>
 
     {{-- Inicialización de plugins en páginas de producto --}}
     @if(request()->is('ecommerce/item/*'))
