@@ -14,7 +14,7 @@ use Illuminate\Support\Facades\Schema;
  * Se usa addIndex con verificación previa para ser idempotente
  * (no falla si el índice ya existe por alguna migración anterior).
  */
-class AddPerformanceIndexesV2 extends Migration
+return new class extends Migration
 {
     private array $indexes = [
         // ── Sale Notes ────────────────────────────────────────────────────────
@@ -77,4 +77,4 @@ class AddPerformanceIndexesV2 extends Migration
             });
         }
     }
-}
+};
