@@ -201,9 +201,7 @@
                 </div>
             </div>
 
-            <div class="featured-section">
-                @include('ecommerce::layouts.partials_ecommerce.featured_products_bottom')
-            </div>
+            {{-- Productos relacionados ahora se muestran en items/partials/related_products.blade.php --}}
         </main>
 
         <footer class="footer" role="contentinfo">
