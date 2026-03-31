@@ -20,24 +20,41 @@ class UpdateController extends Controller
 
     public function version()
     {
-        $id = new Process(['git', 'describe',  '--tags']);
-        $id->run();
-        $res_id = $id->getOutput();
-        // $tag = new Process('git tag | sort -V | tail -1');
-        // $tag->run();
-        // $res_tag = $tag->getOutput();
-        return json_encode($res_id);
+        try {
+            $id = new Process(['git', 'describe', '--tags']);
+            $id->setWorkingDirectory(base_path());
+            $id->run();
+            $res_id = $id->getOutput();
+            return json_encode($res_id);
+        } catch (\Throwable $e) {
+            return response()->json(['error' => $e->getMessage()], 500);
+        }
     }
 
     public function branch()
     {
-        $process = new Process(['git', 'rev-parse', '--abbrev-ref', 'HEAD']);
-        $process->run();
-        if (!$process->isSuccessful()) {
-            throw new ProcessFailedException($process);
+        try {
+            $process = new Process(['git', 'rev-parse', '--abbrev-ref', 'HEAD']);
+            $process->setWorkingDirectory(base_path());
+            $process->setEnv(['GIT_DIR' => base_path('.git')]);
+            $process->run();
+            if (!$process->isSuccessful()) {
+                // Intentar agregar safe.directory automáticamente
+                $fix = new Process(['git', 'config', '--global', '--add', 'safe.directory', base_path()]);
+                $fix->run();
+                // Reintentar
+                $process = new Process(['git', 'rev-parse', '--abbrev-ref', 'HEAD']);
+                $process->setWorkingDirectory(base_path());
+                $process->run();
+                if (!$process->isSuccessful()) {
+                    throw new ProcessFailedException($process);
+                }
+            }
+            $output = $process->getOutput();
+            return json_encode($output);
+        } catch (\Throwable $e) {
+            return response()->json(['error' => $e->getMessage()], 500);
         }
-        $output = $process->getOutput();
-        return json_encode($output);
     }
 
     public function pull($branch)
@@ -63,21 +80,32 @@ class UpdateController extends Controller
 
     public function artisanMigrate()
     {
-        $output = Artisan::call('migrate');
-        return json_encode($output);
+        try {
+            $output = Artisan::call('migrate', ['--force' => true]);
+            $log = Artisan::output();
+            return response()->json(['status' => 'success', 'output' => $output, 'log' => $log]);
+        } catch (\Throwable $e) {
+            return response()->json(['status' => 'error', 'message' => $e->getMessage()], 500);
+        }
     }
 
     public function artisanTenancyMigrate()
     {
-        $output = Artisan::call('tenancy:migrate');
-        return json_encode($output);
+        try {
+            $output = Artisan::call('tenancy:migrate', ['--force' => true]);
+            $log = Artisan::output();
+            return response()->json(['status' => 'success', 'output' => $output, 'log' => $log]);
+        } catch (\Throwable $e) {
+            return response()->json(['status' => 'error', 'message' => $e->getMessage()], 500);
+        }
     }
 
     public function artisanClear()
     {
-        $configcache = Artisan::call('config:cache');
         $cacheclear = Artisan::call('cache:clear');
-        return json_encode($configcache);
+        Artisan::call('config:clear');
+        Artisan::call('view:clear');
+        return json_encode($cacheclear);
     }
 
     public function composerInstall()
@@ -130,8 +158,20 @@ class UpdateController extends Controller
     }
 
     public function changelog() {
-
-        $file = File::get(base_path('CHANGELOG.md'));
-        return Markdown::convertToHtml($file);
+        try {
+            $path = base_path('CHANGELOG.md');
+            if (!File::exists($path)) {
+                return '<p>No hay changelog disponible.</p>';
+            }
+            $file = File::get($path);
+            // Convertir manualmente si Markdown facade falla (incompatibilidad commonmark)
+            try {
+                return Markdown::convertToHtml($file);
+            } catch (\Throwable $e) {
+                return '<pre>' . e($file) . '</pre>';
+            }
+        } catch (\Throwable $e) {
+            return '<p>Error al leer changelog: ' . e($e->getMessage()) . '</p>';
+        }
     }
 }

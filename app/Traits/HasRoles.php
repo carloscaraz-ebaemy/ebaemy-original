@@ -15,31 +15,47 @@ trait HasRoles
 
     public function hasRole(string $roleName, ?int $establishmentId = null): bool
     {
-        $query = $this->roles()->where('name', $roleName);
-        if ($establishmentId) {
-            $query->wherePivot('establishment_id', $establishmentId);
+        try {
+            $query = $this->roles()->where('name', $roleName);
+            if ($establishmentId) {
+                $query->wherePivot('establishment_id', $establishmentId);
+            }
+            return $query->exists();
+        } catch (\Throwable $e) {
+            return false;
         }
-        return $query->exists();
     }
 
     public function hasAnyRole(array $roleNames): bool
     {
-        return $this->roles()->whereIn('name', $roleNames)->exists();
+        try {
+            return $this->roles()->whereIn('name', $roleNames)->exists();
+        } catch (\Throwable $e) {
+            return false;
+        }
     }
 
     public function hasPermission(string $permissionKey, ?int $establishmentId = null): bool
     {
-        return $this->roles()
-            ->when($establishmentId, fn($q) => $q->wherePivot('establishment_id', $establishmentId))
-            ->whereHas('permissions', fn($q) => $q->where('key', $permissionKey))
-            ->exists();
+        try {
+            return $this->roles()
+                ->when($establishmentId, fn($q) => $q->wherePivot('establishment_id', $establishmentId))
+                ->whereHas('permissions', fn($q) => $q->where('key', $permissionKey))
+                ->exists();
+        } catch (\Throwable $e) {
+            return false;
+        }
     }
 
     public function hasModuleAccess(string $module): bool
     {
-        return $this->roles()
-            ->whereHas('permissions', fn($q) => $q->where('module', $module))
-            ->exists();
+        try {
+            return $this->roles()
+                ->whereHas('permissions', fn($q) => $q->where('module', $module))
+                ->exists();
+        } catch (\Throwable $e) {
+            return false;
+        }
     }
 
     public function assignRole(string $roleName, ?int $establishmentId = null): void
@@ -60,6 +76,10 @@ trait HasRoles
 
     public function getAllPermissions(): \Illuminate\Support\Collection
     {
-        return $this->roles->flatMap->permissions->unique('id');
+        try {
+            return $this->roles->flatMap->permissions->unique('id');
+        } catch (\Throwable $e) {
+            return collect();
+        }
     }
 }

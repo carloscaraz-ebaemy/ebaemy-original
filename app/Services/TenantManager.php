@@ -260,7 +260,7 @@ class TenantManager
     {
         try {
             $gate = app(\App\Services\FeatureGate::class);
-            return $gate->allows($feature);
+            return $gate->has($feature);
         } catch (\Throwable $e) {
             return false;
         }
