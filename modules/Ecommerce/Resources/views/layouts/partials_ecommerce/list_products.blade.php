@@ -8,10 +8,7 @@
     function stockCount($item) {
         $total = 0;
         foreach ($item->warehouses as $wh) {
-            // Usar stock_available (smart stock) si existe, sino stock legacy
-            $total += $wh->stock_physical !== null
-                ? max(0, $wh->stock_physical - ($wh->stock_committed ?? 0))
-                : $wh->stock;
+            $total += (float) $wh->stock;
         }
         return $total;
     }
