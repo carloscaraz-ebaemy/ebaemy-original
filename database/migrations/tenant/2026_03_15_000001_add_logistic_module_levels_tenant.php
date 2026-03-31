@@ -13,6 +13,7 @@ class AddLogisticModuleLevelsTenant extends Migration
             $moduleId = DB::table('modules')->insertGetId([
                 'value' => 'logistic',
                 'description' => 'Módulo Logístico',
+                'order_menu' => 99,
             ]);
         }
 
