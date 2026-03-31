@@ -388,11 +388,13 @@ class EcommerceController extends Controller
             'unit_type_id'                => $row->unit_type_id,
             'description'                 => $description,
             'category'                    => $row->category,
-            'stock'                       => $row->warehouses->sum(function($wh) {
+            'stock'                       => $row->warehouses->count() > 0
+                                                ? $row->warehouses->sum(function($wh) {
                                                     return $wh->stock_physical !== null
                                                         ? max(0, (float)$wh->stock_physical - (float)($wh->stock_committed ?? 0))
                                                         : (float)$wh->stock;
-                                                }) ?: $row->stock,
+                                                  })
+                                                : $row->stock,
             'technical_specifications'    => $row->technical_specifications,
             'name'                        => $row->name,
             'second_name'                 => $row->second_name,
