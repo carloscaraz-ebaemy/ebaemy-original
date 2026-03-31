@@ -11,6 +11,8 @@ use Exception;
 use Illuminate\Http\Request;
 use App\Models\Tenant\Promotion;
 use App\Models\Tenant\Item;
+use Illuminate\Support\Facades\Cache;
+use Hyn\Tenancy\Environment;
 use Modules\Finance\Helpers\UploadFileHelper;
 
 
@@ -121,6 +123,7 @@ class PromotionController extends Controller
         }
 
         $item->save();
+        $this->clearEcommerceCache();
 
         return [
             'success' => true,
@@ -168,6 +171,7 @@ class PromotionController extends Controller
         }
 
         $item->save();
+        $this->clearEcommerceCache();
 
         return [
             'success' => true,
@@ -233,6 +237,7 @@ class PromotionController extends Controller
         }
 
         $item->save();
+        $this->clearEcommerceCache();
 
         return [
             'success' => true,
@@ -243,15 +248,30 @@ class PromotionController extends Controller
     
     public function destroy($id)
     {
-        //return 'sd';
         $item = Promotion::findOrFail($id);
         $item->status = 0;
         $item->save();
+
+        $this->clearEcommerceCache();
 
         return [
             'success' => true,
             'message' => 'Promocion eliminada con éxito'
         ];
+    }
+
+    private function clearEcommerceCache(): void
+    {
+        try {
+            $uuid = app(Environment::class)->tenant()?->uuid ?? 'system';
+            $prefix = 'ec_' . $uuid . '_';
+            Cache::forget($prefix . 'spots');
+            Cache::forget($prefix . 'categories_with_items');
+            Cache::forget($prefix . 'bundles');
+            Cache::forget($prefix . 'price_range');
+        } catch (\Throwable $e) {
+            // No bloquear la operación si falla el cache clear
+        }
     }
 
 
