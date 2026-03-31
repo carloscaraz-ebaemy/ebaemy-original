@@ -61,11 +61,11 @@
                     </button>
 
                     <a href="{{ $productUrl }}" class="ec-product-card__img-wrap" tabindex="-1">
-                        <img src="{{ asset('porto-ecommerce/assets/images/placeholder.svg') }}"
-                             data-src="{{ $imagePath }}"
+                        <img src="{{ $imagePath }}"
                              alt="{{ $item->description }}"
                              width="300" height="300"
-                             class="ec-product-card__img ec-img-lazy"
+                             loading="lazy"
+                             class="ec-product-card__img"
                              onerror="this.src='{{ asset('logo/imagen-no-disponible.jpg') }}'">
                     </a>
 
@@ -82,7 +82,7 @@
                             </div>
                             @if(!$outOfStock)
                                 <button type="button"
-                                        class="ec-btn-cart paction add-cart"
+                                        class="ec-btn-cart"
                                         data-ec-cart="{{ json_encode(['id' => $item->id, 'description' => $item->description, 'sale_unit_price' => $item->sale_unit_price, 'currency_type_id' => $item->currency_type_id, 'currency_type_symbol' => $item->currency_type['symbol'] ?? 'S/', 'image' => $item->image, 'image_medium' => $item->image_medium, 'image_small' => $item->image_small, 'stock' => $item->warehouses->sum('stock'), 'slug' => $item->slug]) }}"
                                         aria-label="Agregar {{ $item->description }} al carrito"
                                         title="Agregar al carrito">
