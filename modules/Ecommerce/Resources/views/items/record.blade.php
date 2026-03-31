@@ -216,9 +216,18 @@
 
                 {{-- Stock --}}
                 @php
-                    $totalStock = $record->stock;
+                    // Fuente de verdad: item_warehouse (stock por almacén)
+                    $totalStock = 0;
                     if ($record->has_variants && !empty($record->item_variants)) {
                         $totalStock = collect($record->item_variants)->where('is_active', true)->sum('stock');
+                    } elseif ($record->warehouses && $record->warehouses->count() > 0) {
+                        foreach ($record->warehouses as $wh) {
+                            $totalStock += $wh->stock_physical !== null
+                                ? max(0, $wh->stock_physical - ($wh->stock_committed ?? 0))
+                                : $wh->stock;
+                        }
+                    } else {
+                        $totalStock = $record->stock;
                     }
                 @endphp
                 <div class="product-desc">
