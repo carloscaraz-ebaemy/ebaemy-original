@@ -6,17 +6,12 @@
         return stockCount($item) <= 0;
     }
     function stockCount($item) {
-        // Primero intentar con warehouses (stock por almacén)
         $total = 0;
         foreach ($item->warehouses as $wh) {
             // Usar stock_available (smart stock) si existe, sino stock legacy
             $total += $wh->stock_physical !== null
                 ? max(0, $wh->stock_physical - ($wh->stock_committed ?? 0))
                 : $wh->stock;
-        }
-        // Fallback: si warehouses no tiene stock, usar item.stock directamente
-        if ($total <= 0 && $item->stock > 0) {
-            $total = $item->stock;
         }
         return $total;
     }
