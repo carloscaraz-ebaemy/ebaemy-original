@@ -218,16 +218,20 @@
                 @php
                     // Fuente de verdad: item_warehouse (stock por almacén)
                     $totalStock = 0;
-                    if ($record->has_variants && !empty($record->item_variants)) {
-                        $totalStock = collect($record->item_variants)->where('is_active', true)->sum('stock');
-                    } elseif ($record->warehouses && $record->warehouses->count() > 0) {
-                        foreach ($record->warehouses as $wh) {
-                            $totalStock += $wh->stock_physical !== null
-                                ? max(0, $wh->stock_physical - ($wh->stock_committed ?? 0))
-                                : $wh->stock;
+                    try {
+                        if ($record->has_variants && !empty($record->item_variants)) {
+                            $totalStock = collect($record->item_variants)->where('is_active', true)->sum('stock');
+                        } elseif (isset($record->warehouses) && $record->warehouses->count() > 0) {
+                            foreach ($record->warehouses as $wh) {
+                                $totalStock += isset($wh->stock_physical)
+                                    ? max(0, (float)$wh->stock_physical - (float)($wh->stock_committed ?? 0))
+                                    : (float)$wh->stock;
+                            }
+                        } else {
+                            $totalStock = $record->stock ?? 0;
                         }
-                    } else {
-                        $totalStock = $record->stock;
+                    } catch (\Throwable $e) {
+                        $totalStock = $record->stock ?? 0;
                     }
                 @endphp
                 <div class="product-desc">
