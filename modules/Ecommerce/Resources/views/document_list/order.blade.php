@@ -195,7 +195,7 @@
             filters: {},
             last_page: null,
             filterId: 1,
-            phone_whatsapp: '{{ optional(\App\Models\Tenant\ConfigurationEcommerce::first())->whatsapp_api_phone ?? "" }}',
+            phone_whatsapp: '{{ optional(\App\Models\Tenant\ConfigurationEcommerce::first())->phone_whatsapp ?? "" }}',
         },
         computed: {
             pagL: function () {

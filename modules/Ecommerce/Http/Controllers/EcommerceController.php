@@ -1374,7 +1374,7 @@ class EcommerceController extends Controller
      */
     public function applyCoupon(Request $request)
     {
-        $code   = strtoupper(trim(($input['coupon_code'] ?? null) ?? ''));
+        $code   = strtoupper(trim($request->get('coupon_code', '')));
         $amount = (float) ($request->amount ?? 0);
         $items  = $request->items ?? [];
 
