@@ -97,18 +97,20 @@
          */
         public function getCollectionData()
         {
+            $customer = $this->customer ?? [];
+
             $data = [
                 'id' => $this->id,
                 'external_id' => $this->external_id,
                 'number_document' => $this->number_document,
                 'order_id' => str_pad($this->id, 6, "0", STR_PAD_LEFT),
-                'customer' => $this->customer->apellidos_y_nombres_o_razon_social,
-                'customer_email' => $this->customer->correo_electronico,
-                'customer_telefono' => $this->customer->telefono,
-                'customer_direccion' => $this->customer->direccion,
+                'customer' => $customer['apellidos_y_nombres_o_razon_social'] ?? null,
+                'customer_email' => $customer['correo_electronico'] ?? null,
+                'customer_telefono' => $customer['telefono'] ?? null,
+                'customer_direccion' => $customer['direccion'] ?? null,
                 'items' => $this->items,
                 'total' => $this->total,
-                'reference_payment' => strtoupper($this->reference_payment),
+                'reference_payment' => strtoupper($this->reference_payment ?? ''),
                 'document_external_id' => $this->document_external_id,
                 'created_at' => $this->created_at->format('Y-m-d'),
                 'status_order_id' => $this->status_order_id,
