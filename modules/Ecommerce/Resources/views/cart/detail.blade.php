@@ -1155,7 +1155,12 @@
               success: function (data) {
                 if (data.success == true) {
                   app_cart.saveContactDataUser();
-                  app_cart.clearShoppingCart();
+                  // Marcar compra exitosa para evitar restauración del carrito
+                  localStorage.setItem('ec_order_completed', '1');
+                  localStorage.setItem('products_cart', JSON.stringify([]));
+                  if (typeof clearCartOnServer === 'function') { clearCartOnServer(); }
+                  if (typeof productsCartDropDown === 'function') productsCartDropDown();
+                  if (typeof calculateTotalCart === 'function') calculateTotalCart();
                   window.location = '/ecommerce/order/confirmation/' + data.order.external_id;
                 } else {
                   const message = data.message

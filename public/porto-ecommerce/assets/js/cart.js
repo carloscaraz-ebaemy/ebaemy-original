@@ -354,6 +354,13 @@ function persistCartToServer(extraData) {
  */
 function maybeRestoreCartFromServer() {
     try {
+        // No restaurar si acaba de completar una compra
+        if (localStorage.getItem('ec_order_completed')) {
+            localStorage.removeItem('ec_order_completed');
+            localStorage.removeItem('ec_cart_token');
+            return;
+        }
+
         var existing = JSON.parse(localStorage.getItem('products_cart') || '[]');
         if (Array.isArray(existing) && existing.length > 0) return; // ya tiene carrito local
 
