@@ -7666,10 +7666,8 @@ input,select,textarea,.form-control {
     display: none !important;
 }
 @media (max-width: 767px) {
-    .ec-btn-compare--detail,
-    .compare-popup,
-    #compare-bar,
-    .sticky-bar.compare-products { display: none !important; }
+    .ec-btn-compare--detail { font-size: 0; padding: 6px 10px !important; min-width: auto; }
+    .ec-btn-compare--detail svg { width: 18px; height: 18px; }
 }
 @media (max-width: 360px) {
     .ec-mobile-action-bar .ec-mob-cart-btn { font-size: 13px; gap: 6px; }
