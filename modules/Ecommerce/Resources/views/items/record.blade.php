@@ -1161,10 +1161,10 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // Tracking ViewContent
     var productData = {!! \Illuminate\Support\Js::from([
-        'id'               => $record->id,
-        'description'      => $record->description,
-        'sale_unit_price'  => $record->sale_unit_price,
-        'currency_type_id' => $record->currency_type_id ?? 'PEN',
+        'id'       => $record->id,
+        'name'     => $record->description,
+        'price'    => $record->sale_unit_price,
+        'currency' => $record->currency_type_id ?? 'PEN',
     ]) !!};
     if (window.EcommerceTracker) {
         window.EcommerceTracker.viewContent(productData);
