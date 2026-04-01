@@ -7666,8 +7666,11 @@ input,select,textarea,.form-control {
     display: none !important;
 }
 @media (max-width: 767px) {
-    .ec-btn-compare--detail { font-size: 0; padding: 6px 10px !important; min-width: auto; }
-    .ec-btn-compare--detail svg { width: 18px; height: 18px; }
+    .ec-compare-bar { padding: 6px 10px !important; bottom: 60px !important; }
+    .ec-compare-bar__label { display: none; }
+    .ec-compare-bar__slots img { width: 32px !important; height: 32px !important; }
+    .ec-compare-bar__open { font-size: 11px; padding: 4px 10px; }
+    .ec-compare-bar__clear { font-size: 11px; padding: 4px 8px; }
 }
 @media (max-width: 360px) {
     .ec-mobile-action-bar .ec-mob-cart-btn { font-size: 13px; gap: 6px; }
