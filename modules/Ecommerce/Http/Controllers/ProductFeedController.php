@@ -99,41 +99,51 @@ class ProductFeedController extends Controller
         $storeName = $company->trade_name ?? $company->name ?? 'Tienda Online';
         $currency  = 'PEN';
 
-        $catalog = [];
-
-        foreach ($products as $product) {
-            $slug       = $product->slug ?: $product->id;
-            $productUrl = $base . '/item/' . $slug;
-            $imageUrl   = ($product->image && $product->image !== 'imagen-no-disponible.jpg')
-                ? asset('storage/uploads/items/' . $product->image)
-                : asset('logo/imagen-no-disponible.jpg');
-
-            $stock        = 0;
-            foreach ($product->warehouses as $wh) {
-                $stock += $wh->stock;
-            }
-            $availability = $stock > 0 ? 'in stock' : 'out of stock';
-            $price        = number_format((float)$product->sale_unit_price, 2, '.', '') . ' ' . $currency;
-            $description  = $product->name ?: $product->description;
-            $categoryName = $product->category ? $product->category->name : '';
-
-            $catalog[] = [
-                'id'                     => (string)$product->id,
-                'title'                  => $product->description,
-                'description'            => Str::limit($description, 500),
-                'availability'           => $availability,
-                'condition'              => 'new',
-                'price'                  => $price,
-                'link'                   => $productUrl,
-                'image_link'             => $imageUrl,
-                'brand'                  => $storeName,
-                'google_product_category'=> $categoryName,
-            ];
-        }
-
-        return response()->json(['data' => $catalog], 200, [
+        $headers = [
+            'Content-Type'  => 'text/csv; charset=UTF-8',
             'Cache-Control' => 'public, max-age=3600',
-        ]);
+        ];
+
+        $callback = function () use ($products, $base, $storeName, $currency) {
+            $out = fopen('php://output', 'w');
+
+            fputcsv($out, [
+                'id', 'title', 'description', 'availability', 'condition',
+                'price', 'link', 'image_link', 'brand',
+            ]);
+
+            foreach ($products as $product) {
+                $slug       = $product->slug ?: $product->id;
+                $productUrl = $base . '/item/' . $slug;
+                $imageUrl   = ($product->image && $product->image !== 'imagen-no-disponible.jpg')
+                    ? asset('storage/uploads/items/' . $product->image)
+                    : asset('logo/imagen-no-disponible.jpg');
+
+                $stock = 0;
+                foreach ($product->warehouses as $wh) {
+                    $stock += $wh->stock;
+                }
+                $availability = $stock > 0 ? 'in stock' : 'out of stock';
+                $price        = number_format((float)$product->sale_unit_price, 2, '.', '') . ' ' . $currency;
+                $description  = $product->name ?: $product->description;
+
+                fputcsv($out, [
+                    (string)$product->id,
+                    Str::limit($product->description, 65),
+                    Str::limit($description, 500),
+                    $availability,
+                    'new',
+                    $price,
+                    $productUrl,
+                    $imageUrl,
+                    $storeName,
+                ]);
+            }
+
+            fclose($out);
+        };
+
+        return response()->stream($callback, 200, $headers);
     }
 
     /**
