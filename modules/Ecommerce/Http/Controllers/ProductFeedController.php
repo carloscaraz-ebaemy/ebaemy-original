@@ -66,7 +66,7 @@ class ProductFeedController extends Controller
             $description  = $product->name ?: $product->description;
 
             $xml .= '  <item>' . "\n";
-            $xml .= '    <g:id>'              . htmlspecialchars($product->internal_id ?? $product->id) . '</g:id>' . "\n";
+            $xml .= '    <g:id>'              . htmlspecialchars($product->id) . '</g:id>' . "\n";
             $xml .= '    <g:title>'           . htmlspecialchars($product->description) . '</g:title>' . "\n";
             $xml .= '    <g:description>'     . htmlspecialchars(Str::limit($description, 500)) . '</g:description>' . "\n";
             $xml .= '    <g:link>'            . htmlspecialchars($productUrl) . '</g:link>' . "\n";
@@ -118,7 +118,7 @@ class ProductFeedController extends Controller
             $categoryName = $product->category ? $product->category->name : '';
 
             $catalog[] = [
-                'id'                     => (string)($product->internal_id ?? $product->id),
+                'id'                     => (string)$product->id,
                 'title'                  => $product->description,
                 'description'            => Str::limit($description, 500),
                 'availability'           => $availability,
@@ -181,7 +181,7 @@ class ProductFeedController extends Controller
                 $categoryName = $product->category ? $product->category->name : '';
 
                 fputcsv($out, [
-                    (string)($product->internal_id ?? $product->id),
+                    (string)$product->id,
                     $product->description,
                     \Illuminate\Support\Str::limit($description, 500),
                     $availability,
