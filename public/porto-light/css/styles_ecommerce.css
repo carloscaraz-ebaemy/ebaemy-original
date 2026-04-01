@@ -7662,6 +7662,15 @@ input,select,textarea,.form-control {
     font-weight: 700;
     color: #fff !important;
 }
+.ec-mobile-action-bar .ec-mob-cart-btn::before {
+    display: none !important;
+}
+@media (max-width: 767px) {
+    .ec-btn-compare--detail,
+    .compare-popup,
+    #compare-bar,
+    .sticky-bar.compare-products { display: none !important; }
+}
 @media (max-width: 360px) {
     .ec-mobile-action-bar .ec-mob-cart-btn { font-size: 13px; gap: 6px; }
     .ec-mobile-action-bar .ec-mob-wa-btn   { width: 44px; height: 44px; }
