@@ -46,6 +46,11 @@ class ConfigurationEcommerceResource extends JsonResource
             'customised_link_two' => $this->customised_link_two,
             'customised_link_three' => $this->customised_link_three,
 
+            // PÍXELES DE PUBLICIDAD
+            'facebook_pixel_id'  => $this->facebook_pixel_id,
+            'tiktok_pixel_id'    => $this->tiktok_pixel_id,
+            'ga4_measurement_id' => $this->ga4_measurement_id,
+
             // ESTILO
             'color_ecommerce' => $this->color_ecommerce,
             'preferences' => $this->preferences,
