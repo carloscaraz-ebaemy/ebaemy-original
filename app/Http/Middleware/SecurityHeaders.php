@@ -23,8 +23,10 @@ class SecurityHeaders
         // Controla la información enviada en el header Referer
         $response->headers->set('Referrer-Policy', 'strict-origin-when-cross-origin');
 
-        // Forza HTTPS en navegadores que ya visitaron el sitio (6 meses)
-        $response->headers->set('Strict-Transport-Security', 'max-age=15552000; includeSubDomains');
+        // HSTS solo en producción (evita bloquear Webmin y otros servicios en el mismo dominio)
+        if (app()->environment('production') && $request->isSecure()) {
+            $response->headers->set('Strict-Transport-Security', 'max-age=15552000; includeSubDomains');
+        }
 
         // Permissions Policy: desactiva funcionalidades de navegador no necesarias
         $response->headers->set('Permissions-Policy', 'camera=(), microphone=(), geolocation=(), payment=()');
@@ -41,7 +43,7 @@ class SecurityHeaders
                 "style-src 'self' 'unsafe-inline' https://unpkg.com https://fonts.googleapis.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com",
                 "img-src 'self' data: https: blob:",
                 "font-src 'self' data: https://fonts.gstatic.com https://unpkg.com https://cdn.jsdelivr.net",
-                "connect-src 'self' https://api.culqi.com https://graph.facebook.com https://www.google-analytics.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com",
+                "connect-src 'self' https://api.culqi.com https://graph.facebook.com https://www.google-analytics.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://analytics.tiktok.com https://social.buho.la",
                 "frame-ancestors 'self'",
                 "object-src 'none'",
                 "base-uri 'self'",
