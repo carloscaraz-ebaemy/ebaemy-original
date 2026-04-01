@@ -114,7 +114,7 @@
 
     <!-- Main JS File -->
     <script src="{{ asset('porto-ecommerce/assets/js/main.js') }}"></script>
-    <script src="{{ asset('porto-ecommerce/assets/js/cart.js') }}"></script>
+    <script src="{{ asset('porto-ecommerce/assets/js/cart.js') }}?v=20260401"></script>
     <!-- Vue, Axios, Element UI ya cargados en <head> -->
 
     {{-- NO cargar @vite app.js aquí: esta página usa su propia instancia Vue (CDN) --}}

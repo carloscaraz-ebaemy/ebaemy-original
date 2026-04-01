@@ -226,7 +226,7 @@
     <script src="{{ asset('porto-ecommerce/assets/js/rating.js') }}"></script>
     <script src="{{ asset('porto-ecommerce/assets/js/tracker.js') }}"></script>
     <script src="{{ asset('porto-ecommerce/assets/js/wishlist.js') }}"></script>
-    <script src="{{ asset('porto-ecommerce/assets/js/cart.js') }}"></script>
+    <script src="{{ asset('porto-ecommerce/assets/js/cart.js') }}?v=20260401"></script>
     <script src="{{ asset('porto-ecommerce/assets/js/stock-notify.js') }}"></script>
     <script src="{{ asset('porto-ecommerce/assets/js/product-gallery.js') }}"></script>
     <script src="{{ asset('porto-ecommerce/assets/js/image-zoom.js') }}"></script>

@@ -411,7 +411,7 @@
     <script src="{{ asset('porto-ecommerce/assets/js/plugins.min.js') }}"></script>
     <script src="{{ asset('porto-ecommerce/assets/js/tracker.js') }}"></script>
     <script src="{{ asset('porto-ecommerce/assets/js/wishlist.js') }}"></script>
-    <script src="{{ asset('porto-ecommerce/assets/js/cart.js') }}"></script>
+    <script src="{{ asset('porto-ecommerce/assets/js/cart.js') }}?v=20260401"></script>
     <script src="{{ asset('porto-ecommerce/assets/js/main.js') }}"></script>
     <!-- Vue ya cargado en <head> -->
     <script src="{{ asset('porto-ecommerce/assets/js/lazy-load.js') }}"></script>
