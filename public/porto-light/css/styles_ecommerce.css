@@ -7660,6 +7660,7 @@ input,select,textarea,.form-control {
     gap: 8px;
     font-size: 15px;
     font-weight: 700;
+    color: #fff !important;
 }
 @media (max-width: 360px) {
     .ec-mobile-action-bar .ec-mob-cart-btn { font-size: 13px; gap: 6px; }
