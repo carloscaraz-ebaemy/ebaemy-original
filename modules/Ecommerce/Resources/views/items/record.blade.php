@@ -628,7 +628,7 @@
                     $waLink       = $showWhatsapp ? "https://wa.me/{$waPhone}?text={$waText}" : '#';
                 @endphp
 
-                <div class="product-action product-all-icons" id="product-actions">
+                <div class="product-action product-all-icons d-none d-md-block" id="product-actions">
                     @if($isAvailable)
                     <a href="#" class="paction add-cart"
                        id="btn-add-to-cart"
@@ -687,7 +687,7 @@
                     @endif
 
                     @if($showWhatsapp)
-                    <a href="{{ $waLink }}" class="btn-whatsapp mt-2" target="_blank" rel="noopener noreferrer"
+                    <a href="{{ $waLink }}" class="btn-whatsapp mt-2 d-none d-md-inline-flex" target="_blank" rel="noopener noreferrer"
                        title="Consultar por WhatsApp">
                         <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24"
                              fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
