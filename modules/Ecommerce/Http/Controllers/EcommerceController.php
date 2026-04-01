@@ -793,6 +793,7 @@ class EcommerceController extends Controller
                 'avatar'                     => $googleUser->getAvatar(),
                 'condition'                  => '01',
                 'state'                      => '01',
+                'country_id'                 => 'PE', // Perú por defecto
             ]);
         } else {
             // Update google_id and avatar if not set
