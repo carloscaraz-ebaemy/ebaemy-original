@@ -426,6 +426,15 @@ class OrderService
 
             if ($componentIW) {
                 $componentIW->applyStockMovement(StockMovementTypeEnum::ECOMMERCE_DISPATCH, $componentQtyToDeduct);
+            } else {
+                \Log::warning('Bundle dispatch: componente sin stock en warehouse', [
+                    'bundle_id'    => $parentItem->id,
+                    'bundle_name'  => $parentItem->description,
+                    'component_id' => $component->individual_item_id,
+                    'component'    => $component->individual_item->description ?? 'ELIMINADO',
+                    'warehouse_id' => $bundleIW->warehouse_id,
+                    'qty_needed'   => $componentQtyToDeduct,
+                ]);
             }
         }
 

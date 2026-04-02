@@ -148,12 +148,18 @@ class ItemSetController extends Controller
             $item->sets()->delete();
 
             foreach ($request->individual_items as $row) {
+                $componentId = $row['individual_item_id'] ?? null;
+                $componentQty = $row['quantity'] ?? 1;
+
+                // Validar que el componente existe y no es un bundle
+                $componentItem = Item::find($componentId);
+                if (!$componentItem) continue;
+                if ($componentItem->is_set) continue; // No permitir bundles recursivos
 
                 $item->sets()->create([
-                    'individual_item_id' => $row['individual_item_id'],
-                    'quantity' => $row['quantity'],
+                    'individual_item_id' => $componentId,
+                    'quantity' => $componentQty,
                 ]);
-
             }
 
             $item->update();

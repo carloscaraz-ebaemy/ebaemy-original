@@ -1030,6 +1030,32 @@ class EcommerceController extends Controller
                         $realPrice = (float) $dbItem->sale_unit_price;
                     }
 
+                    // ── Validar stock de componentes si es bundle ──────────────
+                    if ($dbItem->is_set) {
+                        $realPrice = (float) ($dbItem->sale_unit_price_set ?: $dbItem->sale_unit_price);
+                        $bundleComponents = \App\Models\Tenant\ItemSet::where('item_id', $dbItem->id)
+                            ->with('individual_item')
+                            ->get();
+
+                        foreach ($bundleComponents as $comp) {
+                            if (!$comp->individual_item) continue;
+                            $compQtyNeeded = $qty * (float) $comp->quantity;
+                            $compIw = $ecomWarehouseId
+                                ? \App\Models\Tenant\ItemWarehouse::where('item_id', $comp->individual_item_id)->where('warehouse_id', $ecomWarehouseId)->first()
+                                : \App\Models\Tenant\ItemWarehouse::where('item_id', $comp->individual_item_id)->orderByDesc('stock_physical')->first();
+
+                            if ($compIw) {
+                                $compAvailable = $compIw->stock_available;
+                                if ($compAvailable < $compQtyNeeded) {
+                                    return response()->json([
+                                        'success' => false,
+                                        'message' => 'Stock insuficiente del componente "' . $comp->individual_item->description . '" para el pack "' . $dbItem->description . '". Necesario: ' . $compQtyNeeded . ', Disponible: ' . $compAvailable,
+                                    ], 422);
+                                }
+                            }
+                        }
+                    }
+
                     $verifiedTotal += $realPrice * $qty;
 
                     // Reemplazar datos del item con valores verificados de BD

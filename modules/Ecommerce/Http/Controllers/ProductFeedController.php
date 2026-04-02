@@ -26,6 +26,7 @@ class ProductFeedController extends Controller
             ->whereNotNull('internal_id')
             ->with(['category', 'warehouses'])
             ->select(['id', 'slug', 'description', 'name', 'image', 'sale_unit_price',
+                      'sale_unit_price_set', 'is_set',
                       'currency_type_id', 'updated_at', 'stock', 'internal_id'])
             ->get();
     }
@@ -61,7 +62,10 @@ class ProductFeedController extends Controller
                 $stock += $wh->stock;
             }
             $availability = $stock > 0 ? 'in stock' : 'out of stock';
-            $price        = number_format((float)$product->sale_unit_price, 2, '.', '');
+            $unitPrice    = ($product->is_set && $product->sale_unit_price_set)
+                            ? (float)$product->sale_unit_price_set
+                            : (float)$product->sale_unit_price;
+            $price        = number_format($unitPrice, 2, '.', '');
             $categoryName = $product->category ? $product->category->name : 'General';
             $description  = $product->name ?: $product->description;
 
@@ -124,7 +128,10 @@ class ProductFeedController extends Controller
                     $stock += $wh->stock;
                 }
                 $availability = $stock > 0 ? 'in stock' : 'out of stock';
-                $price        = number_format((float)$product->sale_unit_price, 2, '.', '') . ' ' . $currency;
+                $unitPrice    = ($product->is_set && $product->sale_unit_price_set)
+                                ? (float)$product->sale_unit_price_set
+                                : (float)$product->sale_unit_price;
+                $price        = number_format($unitPrice, 2, '.', '') . ' ' . $currency;
                 $description  = $product->name ?: $product->description;
 
                 fputcsv($out, [
