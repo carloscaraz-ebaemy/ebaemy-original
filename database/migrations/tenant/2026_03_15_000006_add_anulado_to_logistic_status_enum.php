@@ -16,12 +16,16 @@ return new class extends Migration
 
     public function up(): void
     {
-        DB::connection('tenant')->statement(
-            "ALTER TABLE sale_notes
-             MODIFY COLUMN logistic_status
-             ENUM('PENDIENTE','PREPARANDO','LISTO_DESPACHO','DESPACHADO','RECOGIDO','ENTREGA_INMEDIATA','ANULADO')
-             NULL"
-        );
+        try {
+            DB::connection('tenant')->statement(
+                "ALTER TABLE sale_notes
+                 MODIFY COLUMN logistic_status
+                 ENUM('PENDIENTE','PREPARANDO','LISTO_DESPACHO','DESPACHADO','RECOGIDO','ENTREGA_INMEDIATA','ANULADO')
+                 NULL"
+            );
+        } catch (\Throwable $e) {
+            // ENUM ya contiene ANULADO o la columna no existe — ignorar
+        }
     }
 
     public function down(): void
@@ -31,11 +35,15 @@ return new class extends Migration
             ->where('logistic_status', 'ANULADO')
             ->update(['logistic_status' => 'DESPACHADO']);
 
-        DB::connection('tenant')->statement(
-            "ALTER TABLE sale_notes
-             MODIFY COLUMN logistic_status
-             ENUM('PENDIENTE','PREPARANDO','LISTO_DESPACHO','DESPACHADO','RECOGIDO','ENTREGA_INMEDIATA')
-             NULL"
-        );
+        try {
+            DB::connection('tenant')->statement(
+                "ALTER TABLE sale_notes
+                 MODIFY COLUMN logistic_status
+                 ENUM('PENDIENTE','PREPARANDO','LISTO_DESPACHO','DESPACHADO','RECOGIDO','ENTREGA_INMEDIATA')
+                 NULL"
+            );
+        } catch (\Throwable $e) {
+            // ignore
+        }
     }
 };

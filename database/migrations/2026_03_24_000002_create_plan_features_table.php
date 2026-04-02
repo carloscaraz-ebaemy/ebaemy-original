@@ -18,6 +18,8 @@ return new class extends Migration
 {
     public function up(): void
     {
+        if (Schema::hasTable('plan_features')) return;
+
         Schema::create('plan_features', function (Blueprint $table) {
             $table->increments('id');
             $table->unsignedInteger('plan_id');

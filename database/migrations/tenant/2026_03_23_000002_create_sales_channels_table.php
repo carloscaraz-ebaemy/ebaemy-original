@@ -23,9 +23,9 @@ class CreateSalesChannelsTable extends Migration
 {
     public function up()
     {
-        if (Schema::connection('tenant')->hasTable('sales_channels')) return;
+        if (Schema::hasTable('sales_channels')) return;
 
-        Schema::connection('tenant')->create('sales_channels', function (Blueprint $table) {
+        Schema::create('sales_channels', function (Blueprint $table) {
             $table->increments('id');
 
             $table->string('name', 60)
@@ -53,6 +53,6 @@ class CreateSalesChannelsTable extends Migration
 
     public function down()
     {
-        Schema::connection('tenant')->dropIfExists('sales_channels');
+        Schema::dropIfExists('sales_channels');
     }
 }

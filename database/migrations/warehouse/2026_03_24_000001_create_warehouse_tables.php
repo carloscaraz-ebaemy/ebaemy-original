@@ -27,8 +27,11 @@ return new class extends Migration
 
     public function up(): void
     {
+        $conn = 'warehouse';
+
         // ── 1. Ventas diarias por tenant ──────────────────────────────────────
-        Schema::connection('warehouse')->create('dw_daily_sales', function (Blueprint $table) {
+        if (!Schema::connection($conn)->hasTable('dw_daily_sales')) {
+        Schema::connection($conn)->create('dw_daily_sales', function (Blueprint $table) {
             $table->id();
             $table->string('tenant_uuid', 36)->index();  // hyn website uuid
             $table->date('sale_date')->index();
@@ -42,9 +45,11 @@ return new class extends Migration
             $table->timestamp('etl_synced_at')->useCurrent(); // última sincronización
             $table->unique(['tenant_uuid', 'sale_date', 'document_type'], 'dw_daily_sales_unique');
         });
+        }
 
         // ── 2. Catálogo de items por tenant (snapshot diario) ─────────────────
-        Schema::connection('warehouse')->create('dw_tenant_items', function (Blueprint $table) {
+        if (!Schema::connection($conn)->hasTable('dw_tenant_items')) {
+        Schema::connection($conn)->create('dw_tenant_items', function (Blueprint $table) {
             $table->id();
             $table->string('tenant_uuid', 36)->index();
             $table->unsignedBigInteger('item_id');    // ID en el tenant
@@ -61,9 +66,11 @@ return new class extends Migration
             $table->index(['tenant_uuid', 'snapshot_date']);
             $table->unique(['tenant_uuid', 'item_id', 'snapshot_date'], 'dw_items_unique');
         });
+        }
 
         // ── 3. Métricas generales por tenant ──────────────────────────────────
-        Schema::connection('warehouse')->create('dw_tenant_metrics', function (Blueprint $table) {
+        if (!Schema::connection($conn)->hasTable('dw_tenant_metrics')) {
+        Schema::connection($conn)->create('dw_tenant_metrics', function (Blueprint $table) {
             $table->id();
             $table->string('tenant_uuid', 36)->unique();
             $table->string('tenant_hostname', 150)->nullable();
@@ -85,9 +92,11 @@ return new class extends Migration
             $table->timestamp('last_sale_at')->nullable();
             $table->timestamp('etl_synced_at')->useCurrent();
         });
+        }
 
         // ── 4. Log de corridas ETL ─────────────────────────────────────────────
-        Schema::connection('warehouse')->create('dw_etl_log', function (Blueprint $table) {
+        if (!Schema::connection($conn)->hasTable('dw_etl_log')) {
+        Schema::connection($conn)->create('dw_etl_log', function (Blueprint $table) {
             $table->id();
             $table->string('tenant_uuid', 36)->nullable()->index();  // null = corrida global
             $table->string('job_type', 50)->default('full');         // full | incremental | metrics
@@ -99,6 +108,7 @@ return new class extends Migration
             $table->timestamp('finished_at')->nullable();
             $table->index('started_at');
         });
+        }
     }
 
     public function down(): void

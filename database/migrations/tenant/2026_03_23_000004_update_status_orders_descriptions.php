@@ -2,6 +2,7 @@
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 /**
  * FASE 9 — Actualizar descripciones de status_orders para flujo ecommerce claro.
@@ -37,6 +38,8 @@ class UpdateStatusOrdersDescriptions extends Migration
 
     public function up()
     {
+        if (!Schema::connection('tenant')->hasTable('status_orders')) return;
+
         foreach ($this->updates as $id => $description) {
             DB::connection('tenant')->table('status_orders')->where('id', $id)->update(['description' => $description]);
         }

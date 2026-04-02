@@ -9,14 +9,23 @@ return new class extends Migration
     public function up(): void
     {
         if (!Schema::hasTable('configuration_ecommerce')) return;
-        if (Schema::hasColumn('configuration_ecommerce', 'notification_interval')) return;
 
         Schema::table('configuration_ecommerce', function (Blueprint $table) {
-            $table->unsignedInteger('notification_interval')->default(5)->after('phone_whatsapp');
-            $table->boolean('notify_new_order')->default(true)->after('notification_interval');
-            $table->boolean('notify_pending_reminder')->default(true)->after('notify_new_order');
-            $table->boolean('notify_order_confirmed')->default(true)->after('notify_pending_reminder');
-            $table->boolean('notify_customer_order')->default(true)->after('notify_order_confirmed');
+            if (!Schema::hasColumn('configuration_ecommerce', 'notification_interval')) {
+                $table->unsignedInteger('notification_interval')->default(5)->after('phone_whatsapp');
+            }
+            if (!Schema::hasColumn('configuration_ecommerce', 'notify_new_order')) {
+                $table->boolean('notify_new_order')->default(true)->after('notification_interval');
+            }
+            if (!Schema::hasColumn('configuration_ecommerce', 'notify_pending_reminder')) {
+                $table->boolean('notify_pending_reminder')->default(true)->after('notify_new_order');
+            }
+            if (!Schema::hasColumn('configuration_ecommerce', 'notify_order_confirmed')) {
+                $table->boolean('notify_order_confirmed')->default(true)->after('notify_pending_reminder');
+            }
+            if (!Schema::hasColumn('configuration_ecommerce', 'notify_customer_order')) {
+                $table->boolean('notify_customer_order')->default(true)->after('notify_order_confirmed');
+            }
         });
     }
 

@@ -9,11 +9,21 @@ class AddNewsletterPopupToConfigurationEcommerce extends Migration
     public function up()
     {
         Schema::table('configuration_ecommerce', function (Blueprint $table) {
-            $table->boolean('newsletter_popup_enabled')->default(false)->after('google_login_enabled');
-            $table->string('newsletter_popup_title')->nullable()->after('newsletter_popup_enabled');
-            $table->string('newsletter_popup_desc')->nullable()->after('newsletter_popup_title');
-            $table->string('newsletter_discount_code')->nullable()->after('newsletter_popup_desc');
-            $table->string('newsletter_popup_image')->nullable()->after('newsletter_discount_code');
+            if (!Schema::hasColumn('configuration_ecommerce', 'newsletter_popup_enabled')) {
+                $table->boolean('newsletter_popup_enabled')->default(false)->after('google_login_enabled');
+            }
+            if (!Schema::hasColumn('configuration_ecommerce', 'newsletter_popup_title')) {
+                $table->string('newsletter_popup_title')->nullable()->after('newsletter_popup_enabled');
+            }
+            if (!Schema::hasColumn('configuration_ecommerce', 'newsletter_popup_desc')) {
+                $table->string('newsletter_popup_desc')->nullable()->after('newsletter_popup_title');
+            }
+            if (!Schema::hasColumn('configuration_ecommerce', 'newsletter_discount_code')) {
+                $table->string('newsletter_discount_code')->nullable()->after('newsletter_popup_desc');
+            }
+            if (!Schema::hasColumn('configuration_ecommerce', 'newsletter_popup_image')) {
+                $table->string('newsletter_popup_image')->nullable()->after('newsletter_discount_code');
+            }
         });
     }
 

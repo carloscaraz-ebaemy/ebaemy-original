@@ -19,19 +19,29 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::table('logistic_order_items', function (Blueprint $table) {
-            $table->unsignedBigInteger('variant_id')
-                  ->nullable()
-                  ->after('item_id')
-                  ->comment('FK a item_variants; null = producto sin variante');
+        if (!Schema::hasColumn('logistic_order_items', 'variant_id')) {
+            Schema::table('logistic_order_items', function (Blueprint $table) {
+                $table->unsignedBigInteger('variant_id')
+                      ->nullable()
+                      ->after('item_id')
+                      ->comment('FK a item_variants; null = producto sin variante');
+            });
 
-            $table->foreign('variant_id')
-                  ->references('id')
-                  ->on('item_variants')
-                  ->onDelete('set null');
+            try {
+                Schema::table('logistic_order_items', function (Blueprint $table) {
+                    $table->foreign('variant_id')
+                          ->references('id')
+                          ->on('item_variants')
+                          ->onDelete('set null');
+                });
+            } catch (\Exception $e) {}
 
-            $table->index('variant_id', 'idx_loi_variant');
-        });
+            try {
+                Schema::table('logistic_order_items', function (Blueprint $table) {
+                    $table->index('variant_id', 'idx_loi_variant');
+                });
+            } catch (\Exception $e) {}
+        }
     }
 
     public function down(): void

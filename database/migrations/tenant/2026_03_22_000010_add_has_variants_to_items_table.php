@@ -13,8 +13,8 @@ return new class extends Migration
 {
     public function up(): void
     {
-        if (!Schema::connection('tenant')->hasColumn('items', 'has_variants')) {
-            Schema::connection('tenant')->table('items', function (Blueprint $table) {
+        if (!Schema::hasColumn('items', 'has_variants')) {
+            Schema::table('items', function (Blueprint $table) {
                 $table->boolean('has_variants')->default(false)->after('active')
                     ->comment('Si true, el stock y precio se gestionan por variante');
             });
@@ -23,7 +23,7 @@ return new class extends Migration
 
     public function down(): void
     {
-        Schema::connection('tenant')->table('items', function (Blueprint $table) {
+        Schema::table('items', function (Blueprint $table) {
             $table->dropColumn('has_variants');
         });
     }

@@ -311,7 +311,7 @@ export default {
     methods: {
         beforeUpload(file) {
             return new Promise((resolve) => {
-                if (!file || !file.type.startsWith('image/') || file.size <= 500 * 1024) return resolve(file);
+                if (!file || (!file.type.startsWith('image/') && !file.name.match(/\.(heic|heif)$/i))) return resolve(file);
                 var reader = new FileReader();
                 reader.onload = function(e) {
                     var img = new Image();

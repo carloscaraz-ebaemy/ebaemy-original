@@ -22,6 +22,8 @@ return new class extends Migration
 {
     public function up(): void
     {
+        if (Schema::hasTable('item_variant_warehouse')) return;
+
         Schema::create('item_variant_warehouse', function (Blueprint $table) {
             $table->id();
 

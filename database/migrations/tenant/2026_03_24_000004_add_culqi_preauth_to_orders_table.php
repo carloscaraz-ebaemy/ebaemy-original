@@ -28,7 +28,7 @@ return new class extends Migration
             }
             if (!Schema::hasColumn('orders', 'payment_status')) {
                 $table->string('payment_status', 20)->nullable()->after('culqi_charge_id');
-                $table->index('payment_status');
+                try { $table->index('payment_status'); } catch (\Throwable $e) {}
             }
         });
     }

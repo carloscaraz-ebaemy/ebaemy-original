@@ -53,26 +53,20 @@ return new class extends Migration
             });
         }
 
-        // Seed default roles (only if table was just created / empty)
-        if (\DB::table('roles')->count() > 0) return;
-
+        // Seed default roles (idempotent via insertOrIgnore on unique `name`)
+        $now = now();
         $roles = [
-            ['name' => 'super-admin', 'display_name' => 'Super Administrador', 'is_system' => true],
-            ['name' => 'admin', 'display_name' => 'Administrador', 'is_system' => true],
-            ['name' => 'seller', 'display_name' => 'Vendedor', 'is_system' => true],
-            ['name' => 'warehouse', 'display_name' => 'Almacenero', 'is_system' => true],
-            ['name' => 'cashier', 'display_name' => 'Cajero', 'is_system' => true],
-            ['name' => 'accountant', 'display_name' => 'Contador', 'is_system' => true],
+            ['name' => 'super-admin', 'display_name' => 'Super Administrador', 'is_system' => true, 'created_at' => $now, 'updated_at' => $now],
+            ['name' => 'admin', 'display_name' => 'Administrador', 'is_system' => true, 'created_at' => $now, 'updated_at' => $now],
+            ['name' => 'seller', 'display_name' => 'Vendedor', 'is_system' => true, 'created_at' => $now, 'updated_at' => $now],
+            ['name' => 'warehouse', 'display_name' => 'Almacenero', 'is_system' => true, 'created_at' => $now, 'updated_at' => $now],
+            ['name' => 'cashier', 'display_name' => 'Cajero', 'is_system' => true, 'created_at' => $now, 'updated_at' => $now],
+            ['name' => 'accountant', 'display_name' => 'Contador', 'is_system' => true, 'created_at' => $now, 'updated_at' => $now],
         ];
 
-        foreach ($roles as $role) {
-            \DB::table('roles')->insert(array_merge($role, [
-                'created_at' => now(),
-                'updated_at' => now(),
-            ]));
-        }
+        \DB::table('roles')->insertOrIgnore($roles);
 
-        // Seed default permissions
+        // Seed default permissions (idempotent via insertOrIgnore on unique `key`)
         $modules = [
             'dashboard' => ['view'],
             'documents' => ['view', 'create', 'update', 'delete', 'export', 'send-sunat'],
@@ -93,18 +87,21 @@ return new class extends Migration
             'restaurant' => ['view', 'tables', 'menu', 'orders'],
         ];
 
+        $permRows = [];
         foreach ($modules as $module => $actions) {
             foreach ($actions as $action) {
-                \DB::table('permissions')->insert([
+                $permRows[] = [
                     'module' => $module,
                     'action' => $action,
                     'key' => "{$module}.{$action}",
                     'display_name' => ucfirst($module) . ' - ' . ucfirst(str_replace('-', ' ', $action)),
-                    'created_at' => now(),
-                    'updated_at' => now(),
-                ]);
+                    'created_at' => $now,
+                    'updated_at' => $now,
+                ];
             }
         }
+
+        \DB::table('permissions')->insertOrIgnore($permRows);
     }
 
     public function down(): void

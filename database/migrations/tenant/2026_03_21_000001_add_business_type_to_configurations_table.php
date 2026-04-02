@@ -21,12 +21,14 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::table('configurations', function (Blueprint $table) {
-            $table->string('business_type', 30)
-                  ->default('retail')
-                  ->after('id')
-                  ->comment('Rubro del negocio. Ver BusinessTypeEnum.');
-        });
+        if (!Schema::hasColumn('configurations', 'business_type')) {
+            Schema::table('configurations', function (Blueprint $table) {
+                $table->string('business_type', 30)
+                      ->default('retail')
+                      ->after('id')
+                      ->comment('Rubro del negocio. Ver BusinessTypeEnum.');
+            });
+        }
     }
 
     public function down(): void

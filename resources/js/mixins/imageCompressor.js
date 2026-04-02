@@ -15,13 +15,12 @@ export const imageCompressor = {
                     return resolve(file);
                 }
 
-                const maxSizeKB = 500;
                 const maxWidth = 1200;
                 const maxHeight = 1200;
                 const quality = 0.82;
 
-                // Si ya es menor al limite, no comprimir
-                if (file.size <= maxSizeKB * 1024) {
+                // Solo saltar SVG (no se puede comprimir con canvas)
+                if (file.type === 'image/svg+xml') {
                     return resolve(file);
                 }
 

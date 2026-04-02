@@ -8,7 +8,11 @@ return new class extends Migration
 {
     public function up(): void
     {
-        // Drop FK solo si existe (llamada separada para capturar error a nivel PHP)
+        if (!Schema::hasTable('logistic_shipping_guides')) {
+            return;
+        }
+
+        // Drop FK solo si existe
         try {
             Schema::table('logistic_shipping_guides', function (Blueprint $table) {
                 $table->dropForeign(['logistic_order_id']);
@@ -17,9 +21,13 @@ return new class extends Migration
             // La FK ya no existe o nunca se creó — ignorar
         }
 
-        Schema::table('logistic_shipping_guides', function (Blueprint $table) {
-            $table->unsignedBigInteger('logistic_order_id')->nullable()->change();
-        });
+        try {
+            Schema::table('logistic_shipping_guides', function (Blueprint $table) {
+                $table->unsignedBigInteger('logistic_order_id')->nullable()->change();
+            });
+        } catch (\Throwable $e) {
+            // Ya es nullable — ignorar
+        }
 
         if (!Schema::hasColumn('logistic_shipping_guides', 'sale_note_id')) {
             Schema::table('logistic_shipping_guides', function (Blueprint $table) {
@@ -30,10 +38,23 @@ return new class extends Migration
 
     public function down(): void
     {
-        Schema::table('logistic_shipping_guides', function (Blueprint $table) {
-            $table->dropColumn('sale_note_id');
-            $table->unsignedBigInteger('logistic_order_id')->nullable(false)->change();
-            $table->foreign('logistic_order_id')->references('id')->on('logistic_orders')->onDelete('cascade');
-        });
+        if (!Schema::hasTable('logistic_shipping_guides')) {
+            return;
+        }
+
+        if (Schema::hasColumn('logistic_shipping_guides', 'sale_note_id')) {
+            Schema::table('logistic_shipping_guides', function (Blueprint $table) {
+                $table->dropColumn('sale_note_id');
+            });
+        }
+
+        try {
+            Schema::table('logistic_shipping_guides', function (Blueprint $table) {
+                $table->unsignedBigInteger('logistic_order_id')->nullable(false)->change();
+                $table->foreign('logistic_order_id')->references('id')->on('logistic_orders')->onDelete('cascade');
+            });
+        } catch (\Throwable $e) {
+            // ignore
+        }
     }
 };

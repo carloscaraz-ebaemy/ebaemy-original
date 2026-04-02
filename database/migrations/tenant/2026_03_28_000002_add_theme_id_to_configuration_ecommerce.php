@@ -17,14 +17,16 @@ return new class extends Migration
             return;
         }
 
-        if (Schema::hasColumn('configuration_ecommerce', 'theme_id')) {
-            return;
-        }
-
         Schema::table('configuration_ecommerce', function (Blueprint $table) {
-            $table->unsignedBigInteger('theme_id')->nullable()->after('theme_template');
-            $table->string('ecommerce_mode', 20)->default('general')->after('theme_id'); // general | nicho
-            $table->string('business_type', 30)->nullable()->after('ecommerce_mode');    // ropa, tecnologia, etc.
+            if (!Schema::hasColumn('configuration_ecommerce', 'theme_id')) {
+                $table->unsignedBigInteger('theme_id')->nullable()->after('theme_template');
+            }
+            if (!Schema::hasColumn('configuration_ecommerce', 'ecommerce_mode')) {
+                $table->string('ecommerce_mode', 20)->default('general')->after('theme_id'); // general | nicho
+            }
+            if (!Schema::hasColumn('configuration_ecommerce', 'business_type')) {
+                $table->string('business_type', 30)->nullable()->after('ecommerce_mode');    // ropa, tecnologia, etc.
+            }
         });
     }
 

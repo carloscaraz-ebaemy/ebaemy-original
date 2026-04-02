@@ -2,6 +2,7 @@
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 /**
  * Seed de canales de venta por defecto.
@@ -15,6 +16,8 @@ class SeedDefaultSalesChannels extends Migration
 {
     public function up()
     {
+        if (!Schema::connection('tenant')->hasTable('sales_channels')) return;
+
         // Obtener el primer almacén disponible (warehouse central)
         $defaultWarehouseId = DB::connection('tenant')->table('warehouses')->value('id');
 

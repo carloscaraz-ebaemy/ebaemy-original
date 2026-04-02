@@ -17,16 +17,16 @@ class AddChannelFieldsToOrdersTable extends Migration
 {
     public function up()
     {
-        Schema::connection('tenant')->table('orders', function (Blueprint $table) {
-            if (!Schema::connection('tenant')->hasColumn('orders', 'channel_id')) {
+        Schema::table('orders', function (Blueprint $table) {
+            if (!Schema::hasColumn('orders', 'channel_id')) {
                 $table->unsignedInteger('channel_id')->nullable()->after('status_order_id')
                       ->comment('Canal de venta: ecommerce, pos, whatsapp, etc.');
             }
-            if (!Schema::connection('tenant')->hasColumn('orders', 'warehouse_id')) {
+            if (!Schema::hasColumn('orders', 'warehouse_id')) {
                 $table->unsignedInteger('warehouse_id')->nullable()->after('channel_id')
                       ->comment('Almacén asignado para despacho de este pedido');
             }
-            if (!Schema::connection('tenant')->hasColumn('orders', 'seller_id')) {
+            if (!Schema::hasColumn('orders', 'seller_id')) {
                 $table->unsignedInteger('seller_id')->nullable()->after('warehouse_id')
                       ->comment('Vendedor responsable — null para canales digitales');
             }
@@ -35,7 +35,7 @@ class AddChannelFieldsToOrdersTable extends Migration
 
     public function down()
     {
-        Schema::connection('tenant')->table('orders', function (Blueprint $table) {
+        Schema::table('orders', function (Blueprint $table) {
             $table->dropColumn(['channel_id', 'warehouse_id', 'seller_id']);
         });
     }

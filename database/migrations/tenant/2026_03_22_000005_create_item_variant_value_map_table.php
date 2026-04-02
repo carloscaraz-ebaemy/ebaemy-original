@@ -19,6 +19,8 @@ return new class extends Migration
 {
     public function up(): void
     {
+        if (Schema::hasTable('item_variant_value_map')) return;
+
         Schema::create('item_variant_value_map', function (Blueprint $table) {
             $table->id();
 
