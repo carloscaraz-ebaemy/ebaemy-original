@@ -12,9 +12,13 @@
         @foreach ($banners as $item)
             <div class="home-slide">
                 @php
-                    $bannerHref = !empty($item->item_id)
-                        ? url('/ecommerce/item/'.$item->item_id.'/'.$item->id)
-                        : null;
+                    if (!empty($item->banner_url)) {
+                        $bannerHref = $item->banner_url;
+                    } elseif (!empty($item->item_id)) {
+                        $bannerHref = url('/ecommerce/item/'.$item->item_id.'/'.$item->id);
+                    } else {
+                        $bannerHref = null;
+                    }
                 @endphp
 
                 @if($bannerHref)

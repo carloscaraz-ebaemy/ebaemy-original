@@ -15,7 +15,8 @@ class Promotion extends ModelTenant
         'image',
         'item_id',
         'apply_restaurant',
-        'spot_url'
+        'spot_url',
+        'banner_url'
     ];
     
     protected $appends = ['image_url'];
