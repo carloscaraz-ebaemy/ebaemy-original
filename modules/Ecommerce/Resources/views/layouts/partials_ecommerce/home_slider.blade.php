@@ -22,6 +22,7 @@
                 @endif
 
                 <div class="owl-lazy slide-bg" data-src="{{ asset('storage/uploads/promotions/'.$item->image) }}"></div>
+                <noscript><img src="{{ asset('storage/uploads/promotions/'.$item->image) }}" alt="{{ $item->name ?? 'Banner promocional' }}" width="1200" height="400" style="width:100%;height:auto"></noscript>
                 <div class="home-slide-content text-white">
                     {{-- <h1>{{ $item->name }}</h1>
                     <p>{{ $item->description }}</p>

@@ -95,23 +95,13 @@
             <a href="{{ $productUrl }}"
                class="pcard__img-link{{ $hoverImage ? ' pcard__img-link--has-hover' : '' }}"
                tabindex="-1" aria-label="{{ $altText }}">
-                @if($hasRealImage)
-                <img src="{{ asset('porto-ecommerce/assets/images/placeholder.svg') }}"
-                     data-src="{{ $imagePath }}"
+                <img src="{{ $imagePath }}"
                      alt="{{ $altText }}"
                      loading="lazy" decoding="async"
-                     width="400" height="400"
-                     class="pcard__img pcard__img--primary ec-img-lazy"
-                     onerror="this.src='{{ asset('logo/imagen-no-disponible.jpg') }}'"
-                     itemprop="image">
-                @else
-                <img src="{{ $defaultPath }}"
-                     alt="{{ $altText }}"
                      width="400" height="400"
                      class="pcard__img pcard__img--primary"
                      onerror="this.src='{{ asset('logo/imagen-no-disponible.jpg') }}'"
                      itemprop="image">
-                @endif
 
                 {{-- Segunda imagen: aparece al hacer hover --}}
                 @if($hoverImage)
@@ -120,6 +110,7 @@
                      alt="{{ $altText }}"
                      width="400" height="400"
                      class="pcard__img pcard__img--hover ec-img-lazy"
+                     loading="lazy"
                      aria-hidden="true">
                 @endif
             </a>
