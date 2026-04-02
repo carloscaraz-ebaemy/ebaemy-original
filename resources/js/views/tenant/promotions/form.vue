@@ -15,6 +15,7 @@
             :action="`/${resource}/upload`"
             :show-file-list="false"
             :on-success="onSuccess"
+            :before-upload="beforeUpload"
             drag
           >
             <div v-if="form.image_url" class="banner-uploader__preview">
@@ -94,7 +95,10 @@
 </template>
 
 <script>
+import { imageCompressor } from '../../../mixins/imageCompressor'
+
 export default {
+  mixins: [imageCompressor],
   props: ["showDialog", "recordId", "external"],
   data() {
     return {

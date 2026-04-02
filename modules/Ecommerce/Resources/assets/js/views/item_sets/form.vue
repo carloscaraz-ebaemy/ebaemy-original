@@ -157,7 +157,8 @@
                                     :headers="headers"
                                     :action="`/${resource}/upload`"
                                     :show-file-list="false"
-                                    :on-success="onSuccess">
+                                    :on-success="onSuccess"
+                                    :before-upload="beforeUpload">
                                 <img v-if="form.image_url" :src="form.image_url" class="avatar" style="max-width:100%;height:auto;border-radius:8px">
                                 <div v-else class="bundle-img-placeholder">
                                     <i class="el-icon-camera" style="font-size:28px;color:#ccc"></i>
@@ -308,6 +309,30 @@ export default {
             })
     },
     methods: {
+        beforeUpload(file) {
+            return new Promise((resolve) => {
+                if (!file || !file.type.startsWith('image/') || file.size <= 500 * 1024) return resolve(file);
+                var reader = new FileReader();
+                reader.onload = function(e) {
+                    var img = new Image();
+                    img.onload = function() {
+                        var canvas = document.createElement('canvas');
+                        var w = img.width, h = img.height;
+                        if (w > 1200) { h = Math.round(h * 1200 / w); w = 1200; }
+                        if (h > 1200) { w = Math.round(w * 1200 / h); h = 1200; }
+                        canvas.width = w; canvas.height = h;
+                        canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+                        canvas.toBlob(function(blob) {
+                            resolve(blob ? new File([blob], file.name, { type: 'image/jpeg' }) : file);
+                        }, 'image/jpeg', 0.82);
+                    };
+                    img.onerror = function() { resolve(file); };
+                    img.src = e.target.result;
+                };
+                reader.onerror = function() { resolve(file); };
+                reader.readAsDataURL(file);
+            });
+        },
         calculateTotal() {
             this.total = 0;
             this.form.individual_items.forEach(row => {

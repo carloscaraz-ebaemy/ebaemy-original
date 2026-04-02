@@ -20,6 +20,7 @@
                   :action="`/promotions/upload`"
                   :show-file-list="false"
                   :on-success="onSuccess"
+                  :before-upload="beforeUpload"
                 >
                   <img v-if="form.image_url" :src="form.image_url" class="avatar" />
                   <i v-else class="el-icon-plus avatar-uploader-icon"></i>
@@ -74,7 +75,10 @@
 </template>
 
 <script>
+import { imageCompressor } from '../../../mixins/imageCompressor'
+
 export default {
+  mixins: [imageCompressor],
   props: ["showDialog", "recordId"],
   data() {
       return {
