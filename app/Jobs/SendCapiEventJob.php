@@ -14,7 +14,6 @@ class SendCapiEventJob implements ShouldQueue
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
     public $tries = 2;
-    public $queue = 'default';
 
     private string $eventName;
     private array  $data;
