@@ -22,7 +22,9 @@ Route::get('/ecommerce/offline',       'EcommerceController@offline')->name('eco
 // ========== SEO - Rutas públicas (sin auth ni middleware) ==========
 Route::get('/sitemap.xml', '\Modules\Ecommerce\Http\Controllers\SitemapController@index');
 Route::get('/robots.txt', '\Modules\Ecommerce\Http\Controllers\RobotsController@index');
-Route::get('/ecommerce/sitemap.xml', '\Modules\Ecommerce\Http\Controllers\SitemapController@index');
+Route::get('/ecommerce/sitemap.xml', function () {
+    return redirect('/sitemap.xml', 301);
+});
 
 // ========== Product Feeds ==========
 Route::get('/ecommerce/feed/google',   [ProductFeedController::class, 'googleMerchant'])->name('ecommerce.feed.google');

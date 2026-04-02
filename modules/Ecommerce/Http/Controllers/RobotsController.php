@@ -16,12 +16,25 @@ class RobotsController extends Controller
         if ($indexable) {
             $content = "User-agent: *\n";
             $content .= "Allow: /ecommerce/\n";
+            $content .= "Allow: /ecommerce/item/\n";
+            $content .= "\n";
             $content .= "Disallow: /admin/\n";
+            $content .= "Disallow: /api/\n";
+            $content .= "Disallow: /dashboard/\n";
             $content .= "Disallow: /login\n";
             $content .= "Disallow: /register\n";
             $content .= "Disallow: /ecommerce/detail_cart\n";
             $content .= "Disallow: /ecommerce/pay_cart\n";
+            $content .= "Disallow: /ecommerce/checkout\n";
+            $content .= "Disallow: /ecommerce/cart/\n";
             $content .= "Disallow: /ecommerce/login\n";
+            $content .= "Disallow: /ecommerce/stock-check\n";
+            $content .= "Disallow: /ecommerce/order/\n";
+            $content .= "Disallow: /ecommerce/configuration\n";
+            $content .= "Disallow: /ecommerce/feed/\n";
+            $content .= "Disallow: /storage/\n";
+            $content .= "Allow: /storage/uploads/items/\n";
+            $content .= "Allow: /storage/uploads/logos/\n";
             $content .= "\n";
             $content .= "Sitemap: {$domain}/sitemap.xml\n";
         } else {

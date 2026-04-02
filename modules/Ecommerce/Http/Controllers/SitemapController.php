@@ -55,7 +55,10 @@ class SitemapController extends Controller
                 ->get();
 
             foreach ($products as $product) {
-                $slug     = $product->slug ?: $product->id;
+                // Solo incluir productos con slug real (no IDs numéricos)
+                if (empty($product->slug)) continue;
+
+                $slug     = $product->slug;
                 $imageUrl = ($product->image && $product->image !== 'imagen-no-disponible.jpg')
                             ? asset('storage/uploads/items/' . $product->image)
                             : null;
