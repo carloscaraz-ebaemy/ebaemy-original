@@ -60,6 +60,7 @@ class EventServiceProvider extends ServiceProvider
             \App\Listeners\Ecommerce\SendWhatsAppNotification::class,
             \App\Listeners\NotifyAdminNewOrder::class,
             \App\Listeners\AutoGenerateSaleNote::class,
+            \App\Listeners\Ecommerce\SendFacebookConversionEvent::class,
         ],
     ];
 

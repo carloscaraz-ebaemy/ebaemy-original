@@ -434,11 +434,25 @@ public function uploadFile(Request $request)
         }
 
         $config->facebook_pixel_id  = $request->input('facebook_pixel_id')  ?: null;
+        if ($request->has('facebook_capi_token')) {
+            $config->facebook_capi_token = $request->input('facebook_capi_token') ?: null;
+        }
         $config->tiktok_pixel_id    = $request->input('tiktok_pixel_id')    ?: null;
         $config->ga4_measurement_id = $request->input('ga4_measurement_id') ?: null;
         $config->save();
 
         return ['success' => true, 'message' => 'Píxeles de publicidad guardados correctamente'];
+    }
+
+    public function test_capi_connection()
+    {
+        $capi = \App\Services\Tenant\FacebookConversionsApiService::fromConfig();
+
+        if (!$capi) {
+            return ['success' => false, 'message' => 'Configura el Pixel ID y el CAPI Token primero'];
+        }
+
+        return $capi->testConnection();
     }
 
     // ══════════════════════════════════════════════════════════════

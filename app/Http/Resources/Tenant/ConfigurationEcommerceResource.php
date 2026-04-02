@@ -47,9 +47,13 @@ class ConfigurationEcommerceResource extends JsonResource
             'customised_link_three' => $this->customised_link_three,
 
             // PÍXELES DE PUBLICIDAD
-            'facebook_pixel_id'  => $this->facebook_pixel_id,
-            'tiktok_pixel_id'    => $this->tiktok_pixel_id,
-            'ga4_measurement_id' => $this->ga4_measurement_id,
+            'facebook_pixel_id'   => $this->facebook_pixel_id,
+            'facebook_capi_token' => $this->facebook_capi_token
+                ? str_repeat('*', 8) . substr($this->facebook_capi_token, -6)
+                : null,
+            'facebook_capi_active' => !empty($this->facebook_capi_token),
+            'tiktok_pixel_id'     => $this->tiktok_pixel_id,
+            'ga4_measurement_id'  => $this->ga4_measurement_id,
 
             // ESTILO
             'color_ecommerce' => $this->color_ecommerce,

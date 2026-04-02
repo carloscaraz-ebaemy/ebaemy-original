@@ -31,15 +31,39 @@
                 <div class="pixel-block__hint">Rastrea ViewContent, AddToCart, Checkout y Purchase</div>
               </div>
             </div>
-            <div class="form-group mt-2 mb-0">
+            <div class="form-group mt-2 mb-2">
               <el-input v-model="form.facebook_pixel_id"
                         placeholder="Ej: 123456789012345"
                         clearable>
                 <template slot="prepend">Pixel ID</template>
               </el-input>
               <small class="text-muted">
-                Meta Business Suite → Administrador de Eventos → Píxeles
+                Meta Business Suite &rarr; Administrador de Eventos &rarr; Píxeles
               </small>
+            </div>
+            <div class="form-group mt-2 mb-0">
+              <el-input v-model="form.facebook_capi_token"
+                        placeholder="EAAxxxxxxx..."
+                        clearable
+                        :type="showCapiToken ? 'text' : 'password'">
+                <template slot="prepend">CAPI Token</template>
+                <template slot="append">
+                  <el-button @click="showCapiToken = !showCapiToken" style="padding:0 8px">
+                    <i :class="showCapiToken ? 'el-icon-view' : 'el-icon-hide'"></i>
+                  </el-button>
+                </template>
+              </el-input>
+              <div class="d-flex align-items-center gap-2 mt-1">
+                <small class="text-muted">
+                  Conversions API &mdash; Administrador de Eventos &rarr; Configuraci&oacute;n &rarr; Generar token de acceso
+                </small>
+                <el-button size="mini" type="text"
+                           @click="testCapi"
+                           :loading="testing_capi"
+                           style="padding:0;margin-left:8px">
+                  Probar conexi&oacute;n
+                </el-button>
+              </div>
             </div>
           </div>
 
@@ -93,7 +117,11 @@
           <div class="pixel-status-row">
             <span class="pixel-badge" :class="form.facebook_pixel_id ? 'pixel-badge--on' : 'pixel-badge--off'">
               <i class="fab fa-facebook-f"></i>
-              Meta {{ form.facebook_pixel_id ? 'Activo' : 'Inactivo' }}
+              Pixel {{ form.facebook_pixel_id ? 'Activo' : 'Inactivo' }}
+            </span>
+            <span class="pixel-badge" :class="form.facebook_capi_token ? 'pixel-badge--on' : 'pixel-badge--off'">
+              <i class="fas fa-server"></i>
+              CAPI {{ form.facebook_capi_token ? 'Activo' : 'Inactivo' }}
             </span>
             <span class="pixel-badge" :class="form.tiktok_pixel_id ? 'pixel-badge--on' : 'pixel-badge--off'">
               <i class="fab fa-tiktok"></i>
@@ -122,11 +150,15 @@ export default {
     return {
       headers: headers_token,
       loading_submit: false,
+      testing_capi: false,
+      showCapiToken: false,
+      capiTokenOriginal: '',
       resource: 'ecommerce',
       form: {
-        facebook_pixel_id:  '',
-        tiktok_pixel_id:    '',
-        ga4_measurement_id: '',
+        facebook_pixel_id:   '',
+        facebook_capi_token: '',
+        tiktok_pixel_id:     '',
+        ga4_measurement_id:  '',
       },
     };
   },
@@ -140,9 +172,11 @@ export default {
       try {
         const r = await this.$http.get(`/${this.resource}/record`);
         if (r.data && r.data.data) {
-          this.form.facebook_pixel_id  = r.data.data.facebook_pixel_id  || '';
-          this.form.tiktok_pixel_id    = r.data.data.tiktok_pixel_id    || '';
-          this.form.ga4_measurement_id = r.data.data.ga4_measurement_id || '';
+          this.form.facebook_pixel_id   = r.data.data.facebook_pixel_id   || '';
+          this.form.facebook_capi_token = r.data.data.facebook_capi_token || '';
+          this.capiTokenOriginal        = this.form.facebook_capi_token;
+          this.form.tiktok_pixel_id     = r.data.data.tiktok_pixel_id     || '';
+          this.form.ga4_measurement_id  = r.data.data.ga4_measurement_id  || '';
         }
       } catch (e) {
         console.error('Error cargando píxeles:', e);
@@ -152,10 +186,12 @@ export default {
     async submit() {
       this.loading_submit = true;
       try {
+        var capiChanged = this.form.facebook_capi_token !== this.capiTokenOriginal;
         const r = await this.$http.post(`/${this.resource}/configuration/pixels`, {
-          facebook_pixel_id:  this.form.facebook_pixel_id  || null,
-          tiktok_pixel_id:    this.form.tiktok_pixel_id    || null,
-          ga4_measurement_id: this.form.ga4_measurement_id || null,
+          facebook_pixel_id:   this.form.facebook_pixel_id   || null,
+          facebook_capi_token: capiChanged ? (this.form.facebook_capi_token || null) : undefined,
+          tiktok_pixel_id:     this.form.tiktok_pixel_id     || null,
+          ga4_measurement_id:  this.form.ga4_measurement_id  || null,
         });
         if (r.data.success) {
           this.$message.success(r.data.message);
@@ -164,6 +200,22 @@ export default {
         this.$message.error('Error al guardar los píxeles');
       } finally {
         this.loading_submit = false;
+      }
+    },
+
+    async testCapi() {
+      this.testing_capi = true;
+      try {
+        const r = await this.$http.post(`/${this.resource}/configuration/pixels/test-capi`);
+        if (r.data.success) {
+          this.$message.success(r.data.message);
+        } else {
+          this.$message.warning(r.data.message);
+        }
+      } catch (e) {
+        this.$message.error('Error al probar la conexion CAPI');
+      } finally {
+        this.testing_capi = false;
       }
     },
   },

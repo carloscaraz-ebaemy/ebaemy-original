@@ -99,6 +99,7 @@ class ConfigurationEcommerce extends ModelTenant
 
         // PÍXELES DE PUBLICIDAD
         'facebook_pixel_id',
+        'facebook_capi_token',
         'tiktok_pixel_id',
         'ga4_measurement_id',
 
@@ -187,6 +188,21 @@ class ConfigurationEcommerce extends ModelTenant
                     return decrypt($value);
                 } catch (\Throwable) {
                     return $value; // valor legacy en texto plano
+                }
+            },
+            set: fn ($value) => empty($value) ? null : encrypt($value),
+        );
+    }
+
+    protected function facebookCapiToken(): Attribute
+    {
+        return Attribute::make(
+            get: function ($value) {
+                if (empty($value)) return null;
+                try {
+                    return decrypt($value);
+                } catch (\Throwable) {
+                    return $value;
                 }
             },
             set: fn ($value) => empty($value) ? null : encrypt($value),

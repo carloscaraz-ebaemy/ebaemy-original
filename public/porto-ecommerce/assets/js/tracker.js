@@ -19,6 +19,14 @@
 
         _currency: function (val) { return (val || 'PEN').toUpperCase(); },
 
+        /**
+         * Generate a unique event ID for CAPI deduplication.
+         * Facebook uses event_id to match browser pixel events with server events.
+         */
+        _eventId: function (prefix) {
+            return (prefix || 'evt') + '_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+        },
+
         // ── ViewContent ──────────────────────────────────────────────────────
 
         viewContent: function (data) {
@@ -34,7 +42,7 @@
                     content_type: 'product',
                     value:        price,
                     currency:     currency
-                });
+                }, { eventID: this._eventId('vc') });
             }
 
             if (this._hasTtq()) {
@@ -78,7 +86,7 @@
                     content_type: 'product',
                     value:        value,
                     currency:     currency
-                });
+                }, { eventID: this._eventId('atc') });
             }
 
             if (this._hasTtq()) {
@@ -123,7 +131,7 @@
                     num_items:     count,
                     value:         total,
                     currency:      currency
-                });
+                }, { eventID: this._eventId('ic') });
             }
 
             if (this._hasTtq()) {
@@ -164,7 +172,7 @@
                     content_type: 'product',
                     value:        total,
                     currency:     currency
-                });
+                }, { eventID: this._eventId('pur') });
             }
 
             if (this._hasTtq()) {

@@ -232,9 +232,10 @@ Route::middleware(['check.permission', 'locked.tenant', 'check.email.verified', 
     Route::post('uploads', 'ConfigurationController@uploadFile');
 
 
-    // configuration pixel    
+    // configuration pixel
 
     Route::post('configuration/pixels', 'ConfigurationController@store_configuration_pixels');
+    Route::post('configuration/pixels/test-capi', 'ConfigurationController@test_capi_connection');
   
     Route::get('social-scripts', 'ConfigurationController@getSocialScripts');
     Route::post('social-scripts/save-all', 'ConfigurationController@saveSocialScripts');
