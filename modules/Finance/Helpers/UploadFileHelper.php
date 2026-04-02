@@ -40,8 +40,13 @@ class UploadFileHelper
 
         if($is_image)
         {
-            $processed = self::imageCanBeProcessed($request->file($column)->getPathName());
-            if(!$processed['success']) return $processed;
+            // HEIC/HEIF (iPhone) no es soportado por Intervention Image,
+            // pero es un formato válido — skip validation para estos
+            $ext = strtolower($request->file($column)->getClientOriginalExtension());
+            if (!in_array($ext, ['heic', 'heif'])) {
+                $processed = self::imageCanBeProcessed($request->file($column)->getPathName());
+                if(!$processed['success']) return $processed;
+            }
         }
         
 

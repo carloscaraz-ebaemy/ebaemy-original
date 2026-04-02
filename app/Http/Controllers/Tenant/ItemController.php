@@ -977,9 +977,9 @@ class ItemController extends Controller
 
     public function upload(Request $request)
     {
-        // Validación de MIME (acepta jpg, jpeg, png, gif, webp, bmp)
+        // Validación de MIME (acepta formatos comunes + iPhone HEIC)
         $validate_upload = UploadFileHelper::validateUploadFile(
-            $request, 'file', 'jpg,jpeg,png,gif,webp,bmp'
+            $request, 'file', 'jpg,jpeg,png,gif,webp,bmp,heic,heif'
         );
 
         if (!$validate_upload['success']) {
