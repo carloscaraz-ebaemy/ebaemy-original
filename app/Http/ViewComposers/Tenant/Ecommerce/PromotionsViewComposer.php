@@ -9,6 +9,6 @@ class PromotionsViewComposer
 {
     public function compose($view)
     {
-        $view->items = Promotion::all();
+        $view->items = Promotion::where('status', 1)->get();
     }
 }
