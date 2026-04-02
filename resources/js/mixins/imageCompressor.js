@@ -49,7 +49,9 @@ export const imageCompressor = {
 
                         canvas.toBlob((blob) => {
                             if (!blob) return resolve(file);
-                            const compressed = new File([blob], file.name, {
+                            // Cambiar extension a .jpg para que Laravel no rechace
+                            const name = file.name.replace(/\.[^.]+$/, '.jpg');
+                            const compressed = new File([blob], name, {
                                 type: 'image/jpeg',
                                 lastModified: Date.now()
                             });

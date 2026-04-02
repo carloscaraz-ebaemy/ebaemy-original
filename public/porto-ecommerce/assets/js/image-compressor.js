@@ -57,7 +57,8 @@
                         canvas.toBlob(function (blob) {
                             if (!blob) return resolve(file);
 
-                            var compressed = new File([blob], file.name, {
+                            var name = file.name.replace(/\.[^.]+$/, '.jpg');
+                            var compressed = new File([blob], name, {
                                 type: opts.type,
                                 lastModified: Date.now()
                             });

@@ -323,7 +323,8 @@ export default {
                         canvas.width = w; canvas.height = h;
                         canvas.getContext('2d').drawImage(img, 0, 0, w, h);
                         canvas.toBlob(function(blob) {
-                            resolve(blob ? new File([blob], file.name, { type: 'image/jpeg' }) : file);
+                            var name = file.name.replace(/\.[^.]+$/, '.jpg');
+                            resolve(blob ? new File([blob], name, { type: 'image/jpeg' }) : file);
                         }, 'image/jpeg', 0.82);
                     };
                     img.onerror = function() { resolve(file); };
