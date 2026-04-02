@@ -184,7 +184,7 @@ class Handler extends ExceptionHandler
 
     private function isFrontend(Request $request)
     {
-        return $request->acceptsHtml() && collect($request->route()->middleware())->contains('web');
+        return $request->acceptsHtml() && $request->route() && collect($request->route()->middleware())->contains('web');
     }
 
 
