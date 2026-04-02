@@ -428,6 +428,18 @@ class EcommerceController extends Controller
             }
         } catch (\Exception $e) {}
 
+        // CAPI: ViewContent server-side
+        \App\Jobs\SendCapiEventJob::dispatch('ViewContent', [
+            'event_id'     => 'vc_' . $row->id . '_' . time(),
+            'content_ids'  => [(string) $row->id],
+            'content_type' => 'product',
+            'value'        => (float) $record['sale_unit_price'],
+            'currency'     => 'PEN',
+            'source_url'   => request()->fullUrl(),
+            'client_ip'    => request()->ip(),
+            'user_agent'   => request()->userAgent(),
+        ]);
+
         return view('ecommerce::items.record', compact('record', 'relatedProducts'));
     }
 
@@ -932,6 +944,24 @@ class EcommerceController extends Controller
         } else {
             try {
                 $user = auth('ecommerce')->user();
+
+                // CAPI: InitiateCheckout server-side
+                $icItems = $input['items'] ?? [];
+                $icIds   = collect($icItems)->pluck('id')->map(fn($id) => (string) $id)->toArray();
+                $icTotal = collect($icItems)->sum(fn($i) => ($i['sale_unit_price'] ?? 0) * ($i['quantity'] ?? 1));
+                \App\Jobs\SendCapiEventJob::dispatch('InitiateCheckout', [
+                    'event_id'     => 'ic_' . ($user->id ?? 'guest') . '_' . time(),
+                    'content_ids'  => $icIds,
+                    'content_type' => 'product',
+                    'value'        => round($icTotal, 2),
+                    'currency'     => 'PEN',
+                    'num_items'    => count($icItems),
+                    'email'        => $customer['correo_electronico'] ?? null,
+                    'phone'        => $customer['telefono'] ?? null,
+                    'source_url'   => request()->headers->get('referer'),
+                    'client_ip'    => request()->ip(),
+                    'user_agent'   => request()->userAgent(),
+                ]);
 
                 // ===== VERIFICACIÓN SERVER-SIDE DE PRECIOS =====
                 // Recalcular total desde BD ignorando precios del cliente
@@ -1671,6 +1701,22 @@ class EcommerceController extends Controller
                 'expires_at'     => now()->addDays(7),
             ]
         );
+
+        // CAPI: AddToCart server-side
+        $contentIds = collect($items)->pluck('id')->map(fn($id) => (string) $id)->toArray();
+        \App\Jobs\SendCapiEventJob::dispatch('AddToCart', [
+            'event_id'     => 'atc_' . $token . '_' . time(),
+            'content_ids'  => $contentIds,
+            'content_type' => 'product',
+            'value'        => round($subtotal, 2),
+            'currency'     => 'PEN',
+            'num_items'    => count($items),
+            'email'        => $request->input('email'),
+            'phone'        => $request->input('phone'),
+            'source_url'   => $request->headers->get('referer'),
+            'client_ip'    => $request->ip(),
+            'user_agent'   => $request->userAgent(),
+        ]);
 
         return response()->json(['ok' => true]);
     }
