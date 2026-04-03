@@ -78,6 +78,35 @@ class SitemapController extends Controller
             }
         } catch (\Exception $e) {}
 
+        // ── Packs / Bundles ───────────────────────────────────────────────
+        try {
+            $bundles = Item::where('apply_store', 1)
+                ->where('is_set', true)
+                ->whereNotNull('internal_id')
+                ->select(['id', 'slug', 'description', 'image', 'updated_at'])
+                ->get();
+
+            foreach ($bundles as $bundle) {
+                if (empty($bundle->slug)) continue;
+                $imageUrl = ($bundle->image && $bundle->image !== 'imagen-no-disponible.jpg')
+                            ? asset('storage/uploads/items/' . $bundle->image)
+                            : null;
+
+                $entries->push([
+                    'loc'        => $base . '/bundle/' . $bundle->slug,
+                    'lastmod'    => $bundle->updated_at
+                                   ? $bundle->updated_at->format('Y-m-d')
+                                   : now()->toDateString(),
+                    'changefreq' => 'weekly',
+                    'priority'   => '0.8',
+                    'image'      => $imageUrl ? [
+                        'loc'   => $imageUrl,
+                        'title' => $bundle->description . ' — Pack',
+                    ] : null,
+                ]);
+            }
+        } catch (\Exception $e) {}
+
         // ── Páginas legales ────────────────────────────────────────────────
         $legalPages = [
             '/terminos-condiciones',

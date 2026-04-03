@@ -171,7 +171,7 @@ class EcommerceController extends Controller
             return Item::where('apply_store', 1)
                 ->where('is_set', true)
                 ->whereNotNull('internal_id')
-                ->with(['sets.individual_item', 'warehouses'])
+                ->with(['sets.individual_item.warehouses', 'warehouses'])
                 ->select(['id', 'slug', 'description', 'image', 'sale_unit_price',
                           'sale_unit_price_set', 'currency_type_id', 'stock', 'created_at'])
                 ->limit(8)
@@ -1254,7 +1254,17 @@ class EcommerceController extends Controller
         $packPrice   = (float) ($bundle->sale_unit_price_set ?: $bundle->sale_unit_price);
         $savings     = max(0, $normalTotal - $packPrice);
         $savingsPct  = $normalTotal > 0 ? round(($savings / $normalTotal) * 100) : 0;
-        $stock       = $bundle->warehouses->sum('stock');
+        // Stock del pack = mínimo de (stock_componente / qty_en_pack)
+        $componentStocks = [];
+        foreach ($bundle->sets as $setItem) {
+            if ($setItem->individual_item && $setItem->quantity > 0) {
+                $compStock = $setItem->individual_item->warehouses
+                    ? $setItem->individual_item->warehouses->sum('stock')
+                    : 0;
+                $componentStocks[] = (int) floor($compStock / $setItem->quantity);
+            }
+        }
+        $stock = count($componentStocks) > 0 ? min($componentStocks) : 0;
         $symbol      = optional($bundle->currency_type)->symbol ?? 'S/';
 
         // Imagen principal

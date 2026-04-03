@@ -7,6 +7,26 @@
 @section('og_image', $mainImage)
 
 @section('content')
+
+{{-- SEO: Schema.org Product para el pack --}}
+<script type="application/ld+json">
+{
+    "@context": "https://schema.org",
+    "@type": "Product",
+    "name": "{{ $bundle->description }}",
+    "description": "Pack especial: {{ $bundle->description }}. Ahorra {{ $savingsPct }}%.",
+    "image": "{{ $mainImage }}",
+    "sku": "{{ $bundle->internal_id ?? 'PACK-' . $bundle->id }}",
+    "offers": {
+        "@type": "Offer",
+        "priceCurrency": "PEN",
+        "price": "{{ number_format($packPrice, 2, '.', '') }}",
+        "availability": "{{ $stock > 0 ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock' }}",
+        "url": "{{ url()->current() }}"
+    }
+}
+</script>
+
 <div class="ec-bundle-landing">
 
     {{-- ── HERO ────────────────────────────────────────────────────── --}}

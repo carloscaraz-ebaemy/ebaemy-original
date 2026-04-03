@@ -8,7 +8,22 @@
     <div class="row">
         @foreach($bundles as $bundle)
         @php
-            $stock       = $bundle->warehouses->sum('stock');
+            // Stock del pack = mínimo de (stock_componente / qty_en_pack)
+            $stock = 0;
+            if ($bundle->sets && $bundle->sets->count() > 0) {
+                $componentStocks = [];
+                foreach ($bundle->sets as $setItem) {
+                    if ($setItem->individual_item && $setItem->quantity > 0) {
+                        $compStock = $setItem->individual_item->warehouses
+                            ? $setItem->individual_item->warehouses->sum('stock')
+                            : 0;
+                        $componentStocks[] = floor($compStock / $setItem->quantity);
+                    }
+                }
+                $stock = count($componentStocks) > 0 ? min($componentStocks) : 0;
+            } else {
+                $stock = $bundle->warehouses->sum('stock');
+            }
             $outOfStock  = $stock <= 0;
             $imagePath   = ($bundle->image && $bundle->image !== 'imagen-no-disponible.jpg')
                 ? asset('storage/uploads/items/' . $bundle->image)
