@@ -423,12 +423,21 @@ class ItemController extends Controller
 
         $item->save();
 
-        // Despachar procesamiento de imagen principal en segundo plano
+        // Procesar imagen principal de forma síncrona
         if ($temp_path) {
-            $rawName  = $request->input('image', '');
-            $prefix   = $item->internal_id ?: Str::limit(Str::slug($item->description), 15, '');
-            $baseName = ImageProcessingService::sanitizeFilename($rawName ?: 'item', $prefix);
-            ProcessProductImageJob::dispatch($temp_path, $baseName, $item->id)->onQueue('images');
+            try {
+                $rawName  = $request->input('image', '');
+                $prefix   = $item->internal_id ?: Str::limit(Str::slug($item->description), 15, '');
+                $baseName = ImageProcessingService::sanitizeFilename($rawName ?: 'item', $prefix);
+                $result   = ImageProcessingService::processAndStore($temp_path, $baseName);
+
+                if ($result['main'])   $item->image        = $result['main'];
+                if ($result['medium']) $item->image_medium = $result['medium'];
+                if ($result['small'])  $item->image_small  = $result['small'];
+                $item->saveQuietly();
+            } catch (\Throwable $e) {
+                \Log::error('[ItemController::store] Error procesando imagen: ' . $e->getMessage());
+            }
         }
 
         foreach ($request->item_unit_types as $value) {
@@ -650,8 +659,14 @@ class ItemController extends Controller
         $multi_images = isset($request->multi_images) ? $request->multi_images : [];
 
         foreach ($multi_images as $im) {
-            ProcessProductImageJob::dispatch($im['temp_path'], $im['filename'], $item->id, true)
-                ->onQueue('images');
+            try {
+                $result = ImageProcessingService::processAndStore($im['temp_path'], $im['filename']);
+                if ($result['main']) {
+                    \App\Models\Tenant\ItemImage::create(['item_id' => $item->id, 'image' => $result['main']]);
+                }
+            } catch (\Throwable $e) {
+                \Log::error('[ItemController] Error procesando imagen galería: ' . $e->getMessage());
+            }
         }
 
         if (!$item->barcode) {
