@@ -123,6 +123,20 @@ class ItemSetController extends Controller
             $item->fill($request->all());
             $item->apply_store = 1;
 
+            // Auto-generar código interno si no tiene
+            if (empty($item->internal_id)) {
+                $lastCode = Item::whereNotNull('internal_id')
+                    ->orderByRaw('CAST(internal_id AS UNSIGNED) DESC')
+                    ->value('internal_id');
+                $nextCode = str_pad(((int) $lastCode) + 1, 5, '0', STR_PAD_LEFT);
+                $item->internal_id = $nextCode;
+            }
+
+            // Auto-generar slug si no tiene
+            if (empty($item->slug) && !empty($item->description)) {
+                $item->slug = Str::slug($item->description);
+            }
+
 
             $temp_path = $request->input('temp_path');
             if($temp_path) {
