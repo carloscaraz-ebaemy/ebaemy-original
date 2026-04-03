@@ -12,7 +12,8 @@
                             :action="`/${resource}/upload`"
                             :on-success="onSuccessF"
                             :on-error="onErrorF"
-                            :on-remove="handleRemove" >
+                            :on-remove="handleRemove"
+                            :before-upload="beforeUpload" >
                             <i class="el-icon-plus"></i>
                         </el-upload>
                     </div>
@@ -28,8 +29,10 @@
 </template>
 
 <script>
+    import { imageCompressor } from '../../../../mixins/imageCompressor';
 
     export default {
+          mixins: [imageCompressor],
           props: ['showDialog', 'recordId'],
         data() {
             return {

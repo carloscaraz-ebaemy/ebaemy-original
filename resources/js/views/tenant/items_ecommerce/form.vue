@@ -486,6 +486,7 @@
                                                 :headers="headers"
                                                 :on-success="onSuccess"
                                                 :on-error="onUploadError"
+                                                :before-upload="beforeUpload"
                                                 :show-file-list="false"
                                                 class="avatar-uploader">
                                             <img v-if="form.image_url"
@@ -728,8 +729,10 @@ import SuppliesTab from "../../../../../modules/Restaurant/Resources/assets/js/v
 import ModifiersTab from "../../../../../modules/Restaurant/Resources/assets/js/views/items/modifiers-tab.vue";
 import ClassicEditor from '@ckeditor/ckeditor5-build-classic';
 import VueCkeditor from 'vue-ckeditor5';
+import { imageCompressor } from '../../../mixins/imageCompressor';
 
 export default {
+    mixins: [imageCompressor],
     props: ['showDialog', 'recordId', 'external', 'fromRestaurant'],
     components: {
         FormImages,
