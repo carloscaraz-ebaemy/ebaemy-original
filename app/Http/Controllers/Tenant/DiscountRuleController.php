@@ -59,13 +59,20 @@ class DiscountRuleController extends Controller
 
     public function store(Request $request)
     {
+        // FIX BUG #2: limitar discount_value según tipo
+        $maxDiscount = $request->discount_type === 'percentage' ? 100 : 99999;
+
         $request->validate([
             'name'           => 'required|string|max:100',
             'type'           => 'required|in:volume,auto,channel,flash_sale,bundle',
             'discount_type'  => 'required|in:percentage,fixed',
-            'discount_value' => 'required|numeric|min:0',
+            'discount_value' => "required|numeric|min:0.01|max:{$maxDiscount}",
             'applies_to'     => 'required|in:all,item,bundle,category',
             'priority'       => 'integer|min:0|max:999',
+            'max_uses'       => 'nullable|integer|min:0',
+            // FIX BUG #5: validar rango de fechas
+            'starts_at'      => 'nullable|date',
+            'ends_at'        => 'nullable|date|after_or_equal:starts_at',
         ]);
 
         $data = $request->only([

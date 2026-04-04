@@ -5,10 +5,8 @@ namespace App\Models\Tenant;
 /**
  * Regla de descuento automático.
  *
- * Diseño: un solo modelo que soporta todos los tipos de descuento automático,
- * con un campo JSON flexible para las condiciones de activación.
- *
- * Diferencia con Coupon: las DiscountRules se aplican sin código del cliente.
+ * Tipos: volume, auto, channel, flash_sale, bundle
+ * Se aplican sin código del cliente, a diferencia de Coupon.
  */
 class DiscountRule extends ModelTenant
 {
@@ -48,13 +46,13 @@ class DiscountRule extends ModelTenant
         return $query->where('is_active', true)
                      ->where(fn($q) => $q->whereNull('starts_at')->orWhere('starts_at', '<=', now()))
                      ->where(fn($q) => $q->whereNull('ends_at')->orWhere('ends_at', '>=', now()))
-                     ->where(fn($q) => $q->whereNull('max_uses')->orWhereColumn('used_count', '<', 'max_uses'));
+                     ->where(fn($q) => $q->whereNull('max_uses')->orWhere('max_uses', 0)->orWhereColumn('used_count', '<', 'max_uses'));
     }
 
     public function scopeForChannel($query, ?int $channelId, ?string $channelType = null)
     {
         return $query->where(function ($q) use ($channelId, $channelType) {
-            $q->whereNull('channel_id'); // aplica a todos los canales
+            $q->whereNull('channel_id');
             if ($channelId) {
                 $q->orWhere('channel_id', $channelId);
             }
@@ -83,39 +81,31 @@ class DiscountRule extends ModelTenant
 
     // ─── Lógica de cálculo ────────────────────────────────────────────────────
 
-    /**
-     * Calcular el descuento monetario que aplica esta regla.
-     *
-     * @param float $amount  Monto sobre el cual calcular
-     * @return float
-     */
     public function calculateDiscount(float $amount): float
     {
+        if ($amount <= 0) return 0;
+
         $discount = $this->discount_type === 'percentage'
-            ? round($amount * $this->discount_value / 100, 2)
+            ? round($amount * min($this->discount_value, 100) / 100, 2)
             : (float) $this->discount_value;
 
-        return min($discount, $amount);
+        return min(max($discount, 0), $amount);
     }
 
     /**
      * Verificar si esta regla aplica dado el contexto del carrito.
-     *
-     * @param array $cart      Array de items: [{id, quantity, sale_unit_price, is_set, ...}]
-     * @param float $subtotal  Total del carrito antes de descuentos
-     * @param int|null $channelId
-     * @param string|null $channelType
-     * @return bool
      */
     public function matches(array $cart, float $subtotal, ?int $channelId = null, ?string $channelType = null): bool
     {
+        if (empty($cart) || $subtotal <= 0) return false;
+
         $trigger = $this->trigger_json ?? [];
 
         return match ($this->type) {
             'volume'     => $this->matchesVolume($cart, $trigger),
             'auto'       => $this->matchesAuto($subtotal, $trigger),
             'channel'    => $this->matchesChannel($channelId, $channelType, $trigger),
-            'flash_sale' => true, // Vigencia ya controlada por scope active()
+            'flash_sale' => true, // Vigencia controlada por scope active()
             'bundle'     => $this->matchesBundle($cart, $trigger),
             default      => false,
         };
@@ -125,8 +115,9 @@ class DiscountRule extends ModelTenant
 
     private function matchesVolume(array $cart, array $trigger): bool
     {
-        $minQty    = (int) ($trigger['min_qty'] ?? 2);
-        $targetId  = $trigger['item_id'] ?? null; // null = cualquier producto
+        // FIX BUG #1: aceptar ambos nombres de campo
+        $minQty   = (int) ($trigger['min_quantity'] ?? $trigger['min_qty'] ?? 2);
+        $targetId = $trigger['item_id'] ?? null;
 
         foreach ($cart as $item) {
             $item = (array) $item;

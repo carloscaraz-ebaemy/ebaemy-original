@@ -10,32 +10,10 @@ use App\Models\Tenant\Person;
 /**
  * PromotionEngine — Motor unificado de promociones y descuentos.
  *
- * Centraliza TODA la lógica de descuentos:
- *   1. Cupones manuales (código del cliente)
- *   2. Reglas automáticas (volumen, monto mínimo, canal, flash sale)
- *   3. Canje de puntos de fidelidad
- *
- * Uso:
- *   $result = PromotionEngine::make($cart, $subtotal)
- *       ->withCoupon('PROMO10')
- *       ->withChannel($channelId, 'ecommerce')
- *       ->withPointRedemption($user, $requestedPoints)
- *       ->calculate();
- *
- * Retorna:
- *   [
- *     'subtotal'          => 150.00,
- *     'coupon_discount'   => 15.00,
- *     'rule_discount'     => 7.50,
- *     'points_discount'   => 10.00,
- *     'total_discount'    => 32.50,
- *     'final_total'       => 117.50,
- *     'applied_coupon'    => Coupon|null,
- *     'applied_rules'     => [DiscountRule, ...],
- *     'points_redeemed'   => 10.00,
- *     'points_earned'     => 5.00,
- *     'breakdown'         => [...],  // para mostrar al cliente
- *   ]
+ * Orden de aplicación:
+ *   1. Cupones manuales (código del cliente) — máxima prioridad
+ *   2. Reglas automáticas (volumen, monto mínimo, canal, flash sale, bundle)
+ *   3. Canje de puntos de fidelidad — mínima prioridad
  */
 class PromotionEngine
 {
@@ -50,7 +28,7 @@ class PromotionEngine
     private function __construct(array $cart, float $subtotal)
     {
         $this->cart     = $cart;
-        $this->subtotal = $subtotal;
+        $this->subtotal = max(0, $subtotal);
     }
 
     public static function make(array $cart, float $subtotal): self
@@ -78,18 +56,13 @@ class PromotionEngine
         return $this;
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
-
     /**
      * Ejecutar el motor y retornar el resultado de todos los descuentos.
-     *
-     * @return array
-     * @throws \InvalidArgumentException si el cupón no es válido
      */
     public function calculate(): array
     {
-        $breakdown  = [];
-        $remaining  = $this->subtotal;
+        $breakdown = [];
+        $remaining = $this->subtotal;
 
         // ── 1. Cupón manual (máxima prioridad) ───────────────────────────────
         [$couponDiscount, $appliedCoupon, $couponError] = $this->resolveCoupon($remaining);
@@ -97,16 +70,13 @@ class PromotionEngine
             throw new \InvalidArgumentException($couponError);
         }
         if ($couponDiscount > 0) {
-            $breakdown[]    = ['label' => 'Cupón ' . $this->couponCode, 'amount' => -$couponDiscount, 'type' => 'coupon'];
-            $remaining     -= $couponDiscount;
+            $breakdown[] = ['label' => 'Cupón ' . $this->couponCode, 'amount' => -$couponDiscount, 'type' => 'coupon'];
+            $remaining  -= $couponDiscount;
         }
 
         // ── 2. Reglas automáticas ────────────────────────────────────────────
-        [$ruleDiscount, $appliedRules] = $this->resolveRules($remaining, $appliedCoupon);
-        foreach ($appliedRules as $rule) {
-            $d = $rule->calculateDiscount($remaining);
-            $breakdown[] = ['label' => $rule->name, 'amount' => -$d, 'type' => $rule->type];
-        }
+        [$ruleDiscount, $appliedRules, $ruleBreakdown] = $this->resolveRules($remaining, $appliedCoupon);
+        $breakdown = array_merge($breakdown, $ruleBreakdown);
         if ($ruleDiscount > 0) {
             $remaining -= $ruleDiscount;
         }
@@ -165,17 +135,26 @@ class PromotionEngine
                              ->byPriority()
                              ->get();
 
-        $appliedRules    = [];
+        $appliedRules      = [];
         $totalRuleDiscount = 0;
-        $remaining       = $amountAfterCoupon;
+        $remaining         = $amountAfterCoupon;
+        $breakdown         = [];
+        $hasExclusiveApplied = false;
 
         foreach ($rules as $rule) {
-            // Si no es apilable y ya hay un cupón o regla anterior, saltar
+            if ($remaining <= 0) break;
+
+            // FIX BUG #3: Lógica stackable corregida
+            // Si ya se aplicó una regla exclusiva, saltar todo lo demás
+            if ($hasExclusiveApplied) {
+                continue;
+            }
+            // Si esta regla no es stackable y ya hay cupón u otras reglas, saltar
             if (!$rule->stackable && ($appliedCoupon || !empty($appliedRules))) {
                 continue;
             }
 
-            if (!$rule->matches($this->cart, $remaining, $this->channelId, $this->channelType)) {
+            if (!$rule->matches($this->cart, $this->subtotal, $this->channelId, $this->channelType)) {
                 continue;
             }
 
@@ -188,12 +167,19 @@ class PromotionEngine
             $totalRuleDiscount += $d;
             $remaining         -= $d;
 
-            if ($remaining <= 0) {
-                break;
+            // FIX BUG #4: breakdown usa el descuento real calculado en cada paso
+            $breakdown[] = ['label' => $rule->name, 'amount' => -$d, 'type' => $rule->type];
+
+            // FIX BUG #7: incrementar used_count
+            $rule->increment('used_count');
+
+            // Si la regla no es stackable, marcar como exclusiva
+            if (!$rule->stackable) {
+                $hasExclusiveApplied = true;
             }
         }
 
-        return [$totalRuleDiscount, $appliedRules];
+        return [$totalRuleDiscount, $appliedRules, $breakdown];
     }
 
     private function resolvePoints(float $amountAfterDiscounts): array
@@ -208,7 +194,6 @@ class PromotionEngine
             return [0, 0];
         }
 
-        // Puntos disponibles del usuario
         $balance = (float) $this->user->accumulated_points;
 
         // Máximo canjeable: 50% del monto actual
@@ -227,11 +212,8 @@ class PromotionEngine
         return [$pointsDiscount, $pointsEarned];
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
-
     /**
-     * Preview de descuentos para el carrito (sin lanzar excepción en cupón inválido).
-     * Útil para el frontend: muestra qué descuentos aplican sin procesar el pago.
+     * Preview sin lanzar excepción en cupón inválido.
      */
     public function preview(): array
     {
