@@ -51,7 +51,8 @@
                     content_name: name,
                     content_type: 'product',
                     value:        price,
-                    currency:     currency
+                    currency:     currency,
+                    contents: [{ content_id: id, content_name: name, quantity: 1, price: price }]
                 });
             }
 
@@ -97,7 +98,8 @@
                     quantity:     qty,
                     price:        price,
                     value:        value,
-                    currency:     currency
+                    currency:     currency,
+                    contents: [{ content_id: id, content_name: name, quantity: qty, price: price }]
                 });
             }
 
@@ -137,7 +139,15 @@
             if (this._hasTtq()) {
                 ttq.track('InitiateCheckout', {
                     value:    total,
-                    currency: currency
+                    currency: currency,
+                    contents: items.map(function (i) {
+                        return {
+                            content_id:   String(i.id || ''),
+                            content_name: String(i.name || ''),
+                            quantity:     parseInt(i.quantity) || 1,
+                            price:        parseFloat(i.price) || 0
+                        };
+                    })
                 });
             }
 
@@ -178,7 +188,15 @@
             if (this._hasTtq()) {
                 ttq.track('CompletePayment', {
                     value:    total,
-                    currency: currency
+                    currency: currency,
+                    contents: items.map(function (i) {
+                        return {
+                            content_id:   String(i.id || ''),
+                            content_name: String(i.name || ''),
+                            quantity:     parseInt(i.quantity) || 1,
+                            price:        parseFloat(i.price) || 0
+                        };
+                    })
                 });
             }
 
@@ -195,6 +213,60 @@
                             quantity:  parseInt(i.quantity) || 1
                         };
                     })
+                });
+            }
+        },
+
+        // ── Search ──────────────────────────────────────────────────────────
+
+        search: function (data) {
+            var query = String(data.query || '');
+            if (!query) return;
+
+            if (this._hasFbq()) {
+                fbq('track', 'Search', {
+                    search_string: query,
+                    content_category: String(data.category || '')
+                }, { eventID: this._eventId('src') });
+            }
+
+            if (this._hasTtq()) {
+                ttq.track('Search', {
+                    query: query
+                });
+            }
+
+            if (this._hasGtag()) {
+                gtag('event', 'search', {
+                    search_term: query
+                });
+            }
+        },
+
+        // ── ViewCategory ────────────────────────────────────────────────────
+
+        viewCategory: function (data) {
+            var category = String(data.category || '');
+            if (!category) return;
+
+            if (this._hasFbq()) {
+                fbq('trackCustom', 'ViewCategory', {
+                    content_category: category
+                });
+            }
+
+            if (this._hasTtq()) {
+                ttq.track('ViewContent', {
+                    content_id:   String(data.id || ''),
+                    content_type: 'product_group',
+                    content_name: category
+                });
+            }
+
+            if (this._hasGtag()) {
+                gtag('event', 'view_item_list', {
+                    item_list_id:   String(data.id || ''),
+                    item_list_name: category
                 });
             }
         }

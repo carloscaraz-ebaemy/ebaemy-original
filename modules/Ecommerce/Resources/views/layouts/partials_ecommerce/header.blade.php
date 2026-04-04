@@ -886,6 +886,9 @@ window.headerVue = new Vue({
             const q = this.value.trim();
             if (!q) return;
             this.saveHistory(q);
+            if (window.EcommerceTracker) {
+                EcommerceTracker.search({ query: q });
+            }
             window.location = '/ecommerce?q=' + encodeURIComponent(q);
         },
 

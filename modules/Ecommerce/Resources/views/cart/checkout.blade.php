@@ -623,6 +623,26 @@
                 item.sale_unit_price = parseFloat(item.sale_unit_price).toFixed(2);
             });
             this.calculateSummary();
+
+            // ── Tracking: InitiateCheckout ───────────────────────
+            this.$nextTick(() => {
+                if (window.EcommerceTracker && this.records.length) {
+                    try {
+                        var items = this.records.map(i => ({
+                            id:       String(i.id || i.item_id || ''),
+                            name:     String(i.description || i.name || ''),
+                            price:    parseFloat(i.sale_unit_price) || 0,
+                            quantity: parseInt(i.cantidad || i.quantity) || 1
+                        }));
+                        var total = items.reduce((s, i) => s + i.price * i.quantity, 0);
+                        EcommerceTracker.initiateCheckout({
+                            items:    items,
+                            total:    total,
+                            currency: 'PEN'
+                        });
+                    } catch (e) { /* silencioso */ }
+                }
+            });
         },
         created() {
             // Cargar productos del carrito

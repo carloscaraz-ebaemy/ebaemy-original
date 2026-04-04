@@ -218,11 +218,80 @@ class ProductFeedController extends Controller
     }
 
     /**
-     * TikTok Shop Feed (CSV format)
+     * TikTok Catalog Feed (CSV)
+     * Formato oficial: https://ads.tiktok.com/help/article/product-catalog-specs
      * GET /ecommerce/feed/tiktok
      */
     public function tiktokCatalog()
     {
-        return $this->csvFeed();
+        ['base' => $base, 'company' => $company] = $this->getBaseData();
+        $products  = $this->getProducts();
+        $storeName = $company->trade_name ?? $company->name ?? 'Tienda Online';
+        $currency  = 'PEN';
+
+        $headers = [
+            'Content-Type'  => 'text/csv; charset=UTF-8',
+            'Cache-Control' => 'public, max-age=3600',
+        ];
+
+        $callback = function () use ($products, $base, $storeName, $currency) {
+            $out = fopen('php://output', 'w');
+
+            // UTF-8 BOM
+            fputs($out, "\xEF\xBB\xBF");
+
+            // Columnas requeridas y recomendadas por TikTok Catalog
+            fputcsv($out, [
+                'sku_id',
+                'title',
+                'description',
+                'availability',
+                'condition',
+                'price',
+                'link',
+                'image_link',
+                'brand',
+                'google_product_category',
+                'item_group_id',
+            ]);
+
+            foreach ($products as $product) {
+                $slug       = $product->slug ?: $product->id;
+                $productUrl = $base . '/item/' . $slug;
+                $imageUrl   = ($product->image && $product->image !== 'imagen-no-disponible.jpg')
+                    ? asset('storage/uploads/items/' . $product->image)
+                    : asset('logo/imagen-no-disponible.jpg');
+
+                $stock = 0;
+                foreach ($product->warehouses as $wh) {
+                    $stock += $wh->stock;
+                }
+                $availability = $stock > 0 ? 'in stock' : 'out of stock';
+                $unitPrice    = ($product->is_set && $product->sale_unit_price_set)
+                                ? (float) $product->sale_unit_price_set
+                                : (float) $product->sale_unit_price;
+                $price        = number_format($unitPrice, 2, '.', '') . ' ' . $currency;
+                $description  = $product->name ?: $product->description;
+                $categoryName = $product->category ? $product->category->name : 'General';
+
+                fputcsv($out, [
+                    (string) $product->id,                          // sku_id
+                    Str::limit($product->description, 150),         // title (máx 150)
+                    Str::limit(strip_tags($description), 5000),     // description
+                    $availability,                                  // availability
+                    'new',                                          // condition
+                    $price,                                         // price
+                    $productUrl,                                    // link
+                    $imageUrl,                                      // image_link
+                    $storeName,                                     // brand
+                    $categoryName,                                  // google_product_category
+                    $product->is_set ? 'pack-' . $product->id : '', // item_group_id
+                ]);
+            }
+
+            fclose($out);
+        };
+
+        return response()->stream($callback, 200, $headers);
     }
 }

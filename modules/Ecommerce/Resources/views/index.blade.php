@@ -129,6 +129,30 @@
                 </div>
             </section>
 
+            {{-- ── Tracking: ViewCategory / Search ──────────────────── --}}
+            @if($hasCategoryFilter)
+            <script>
+            document.addEventListener('DOMContentLoaded', function () {
+                if (window.EcommerceTracker) {
+                    EcommerceTracker.viewCategory({
+                        id:       '{{ $currentCategory->id }}',
+                        category: '{{ addslashes($currentCategory->name) }}'
+                    });
+                }
+            });
+            </script>
+            @endif
+
+            @if(request('q'))
+            <script>
+            document.addEventListener('DOMContentLoaded', function () {
+                if (window.EcommerceTracker) {
+                    EcommerceTracker.search({ query: '{{ addslashes(request("q")) }}' });
+                }
+            });
+            </script>
+            @endif
+
             {{-- ── OFERTAS / SPOTS ──────────────────────────────────── --}}
             @if(!$hasCategoryFilter)
             @php

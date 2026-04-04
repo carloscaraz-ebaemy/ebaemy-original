@@ -28,6 +28,7 @@ use Modules\Finance\Helpers\UploadFileHelper;
 use Modules\Item\Models\Brand;
 use Modules\Item\Models\Category;
 use Modules\Item\Models\WebPlatform;
+use Illuminate\Support\Facades\Cache;
 
 
 
@@ -191,6 +192,10 @@ class ItemSetController extends Controller
             return $item;
         });
 
+        // Limpiar caché de bundles para que el grid muestre el precio actualizado
+        $tenantUuid = app(\Hyn\Tenancy\Environment::class)->tenant()?->uuid ?? 'default';
+        Cache::forget('ec_' . $tenantUuid . '_bundles');
+
         return [
             'success' => true,
             'message' => ($id)?'Producto compuesto editado con éxito':'Producto compuesto registrado con éxito',
@@ -206,6 +211,9 @@ class ItemSetController extends Controller
             $item = Item::findOrFail($id);
             $this->deleteRecordInitialKardex($item);
             $item->delete();
+
+            $tenantUuid = app(\Hyn\Tenancy\Environment::class)->tenant()?->uuid ?? 'default';
+            Cache::forget('ec_' . $tenantUuid . '_bundles');
 
             return [
                 'success' => true,
