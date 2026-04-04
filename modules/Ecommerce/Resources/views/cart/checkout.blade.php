@@ -818,6 +818,7 @@
                     coupon_code:   this.coupon.applied ? this.coupon.code : '',
                     redeem_points: this.points.applied,
                     points_amount: this.points.applied ? this.points.discount : 0,
+                    session_token: localStorage.getItem('ec_cart_token') || null,
                 };
             },
             showSwalMessage(title, text, type) {

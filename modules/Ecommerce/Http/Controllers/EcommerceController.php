@@ -1242,6 +1242,14 @@ class EcommerceController extends Controller
                     $user->save();
                 }
 
+                // ── Marcar carrito abandonado como recuperado ────────────────────────
+                $sessionToken = $request->input('session_token');
+                if ($sessionToken) {
+                    \App\Models\Tenant\AbandonedCart::where('session_token', $sessionToken)
+                        ->whereNull('recovered_at')
+                        ->update(['recovered_at' => now()]);
+                }
+
                 // ── Disparar evento de pedido creado (email + WhatsApp via Listeners) ──
                 $customerPhone = $customerData['telefono'] ?? ($user ? optional($user)->telefono ?? '' : '');
                 \App\Events\Ecommerce\OrderCreated::dispatch(

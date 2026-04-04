@@ -277,6 +277,8 @@ class OrderController extends Controller
             ]);
         });
 
+        $this->sendWhatsAppStatusNotification($order, 3);
+
         return [
           'message' => 'Estatus y Stock actualizado'
         ];
@@ -284,14 +286,16 @@ class OrderController extends Controller
 
       Order::where('id', $request->record['id'])->update(['status_order_id' => $request->record['status_order_id']]);
 
+      $order = Order::find($request->record['id']);
+
       // Auto-generate SaleNote when payment is verified (status 2)
-      if ($request->record['status_order_id'] == 2) {
-          $order = Order::find($request->record['id']);
-          if ($order) {
-              $autoSaleNoteService = app(\App\Services\Tenant\OrderToSaleNoteService::class);
-              $autoSaleNoteService->generate($order);
-          }
+      if ($request->record['status_order_id'] == 2 && $order) {
+          $autoSaleNoteService = app(\App\Services\Tenant\OrderToSaleNoteService::class);
+          $autoSaleNoteService->generate($order);
       }
+
+      // Notificación WhatsApp automática al cambiar estado
+      $this->sendWhatsAppStatusNotification($order, $request->record['status_order_id']);
 
       return [
         'message' => 'Estatus actualizado'
@@ -304,7 +308,35 @@ class OrderController extends Controller
       return new ItemWarehouseCollection($product);
     }
 
+    /**
+     * Enviar notificación WhatsApp al cliente según el nuevo estado del pedido.
+     */
+    private function sendWhatsAppStatusNotification(?Order $order, int $statusId): void
+    {
+        if (!$order) return;
 
+        try {
+            $wa = app(\App\Services\Tenant\WhatsAppService::class);
+            if (!$wa->isEnabled()) return;
 
+            $customer = $order->customer ?? [];
+            $phone = $customer['telefono'] ?? null;
+            $name  = $customer['apellidos_y_nombres_o_razon_social'] ?? 'Cliente';
+            $orderId = str_pad($order->id, 6, '0', STR_PAD_LEFT);
+
+            if (!$phone) return;
+
+            match ((int) $statusId) {
+                2 => $wa->send($phone, "¡Hola {$name}! ✅\n\nTu pago para el pedido *#{$orderId}* ha sido *verificado*.\nEstamos preparando tu pedido.\n\n¡Gracias por tu compra!"),
+                3 => $wa->notifyClientOrderDispatched($phone, $name, $orderId),
+                4 => $wa->send($phone, "¡Hola {$name}! 🚚\n\nTu pedido *#{$orderId}* está *en camino*.\n\n¡Pronto lo recibirás!"),
+                6 => $wa->notifyClientOrderDelivered($phone, $name, $orderId),
+                5 => $wa->send($phone, "Hola {$name},\n\nTu pedido *#{$orderId}* ha sido *cancelado*.\nSi tienes dudas, contáctanos.\n\nDisculpa las molestias."),
+                default => null,
+            };
+        } catch (\Throwable $e) {
+            \Log::warning('WhatsApp notification failed', ['order' => $order->id, 'error' => $e->getMessage()]);
+        }
+    }
 }
 
