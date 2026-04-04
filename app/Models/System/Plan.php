@@ -16,8 +16,9 @@ class Plan extends Model
         'limit_users',
         'limit_documents',
         'plan_documents', 
-        'locked', 
-        'establishments_limit', 
+        'locked',
+        'is_default',
+        'establishments_limit',
         'establishments_unlimited', 
         
         'sales_limit', 
@@ -28,6 +29,7 @@ class Plan extends Model
 
 
     protected $casts = [
+        'is_default' => 'boolean',
         'establishments_unlimited' => 'boolean',
         'establishments_limit' => 'int',
         'sales_unlimited' => 'boolean',

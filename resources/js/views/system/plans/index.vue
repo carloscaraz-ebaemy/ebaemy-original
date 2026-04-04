@@ -24,7 +24,7 @@
                         <!-- Header -->
                         <div class="d-flex align-items-center">
                             <h3 class="text-start fw-semibold mb-0">{{row.name}}</h3>
-                            <span v-if="row.locked" class="tag-popular d-flex align-items-center ms-2">
+                            <span v-if="row.is_default" class="tag-popular d-flex align-items-center ms-2">
                                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M13 3l0 7l6 0l-8 11l0 -7l-6 0l8 -11"/></svg>
                                 Default
                             </span>
@@ -90,7 +90,7 @@
                         </div>
 
                         <!-- Botones -->
-                        <div v-if="!row.locked" class="col-12 d-flex justify-content-center flex-wrap gap-1 mt-auto pt-3">
+                        <div v-if="!row.is_default" class="col-12 d-flex justify-content-center flex-wrap gap-1 mt-auto pt-3">
                             <button type="button" class="btn waves-effect waves-light btn-xs btn-danger col-5 me-1" @click.prevent="clickDelete(row.id)">
                                 <i class="fa fa-trash"></i> Eliminar
                             </button>

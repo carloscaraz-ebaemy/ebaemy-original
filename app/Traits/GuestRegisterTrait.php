@@ -196,7 +196,8 @@ trait GuestRegisterTrait
      */
     private function firstPlanId()
     {
-        $plan = Plan::select('id')->firstOrFail();
+        $plan = Plan::where('is_default', true)->first()
+            ?? Plan::orderBy('pricing')->firstOrFail();
 
         return [
             'plan_id' => $plan->id,
