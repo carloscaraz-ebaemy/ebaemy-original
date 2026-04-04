@@ -1010,8 +1010,9 @@ class EcommerceController extends Controller
                         }
                         $qty = min($qty, (int) floor($availableStock));
                         $realPrice = (float) ($variant->sale_unit_price ?: $dbItem->sale_unit_price);
-                    } else {
+                    } else if (!$dbItem->is_set) {
                         // Validar stock del ítem en almacén del canal ecommerce
+                        // (bundles validan stock de componentes abajo, no stock propio)
                         $iw = $ecomWarehouseId
                             ? \App\Models\Tenant\ItemWarehouse::where('item_id', $dbItem->id)->where('warehouse_id', $ecomWarehouseId)->first()
                             : \App\Models\Tenant\ItemWarehouse::where('item_id', $dbItem->id)->orderByDesc('stock_physical')->first();

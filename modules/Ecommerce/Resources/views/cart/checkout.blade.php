@@ -230,65 +230,82 @@
             <span class="ec-step-summary__edit">Editar</span>
         </div>
 
-        {{-- ═══ PASO 3: COMPROBANTE ═══ --}}
+        {{-- ═══ PASO 3: COMPROBANTE (OPCIONAL) ═══ --}}
         <div class="ec-checkout-card" v-show="step === 3">
             <div class="ec-checkout-card__header">
                 <span class="ec-checkout-step-num">3</span>
                 <span>Comprobante</span>
+                <small style="color:#6b7280;font-weight:400;margin-left:4px">(opcional)</small>
             </div>
             <div class="ec-checkout-form">
-                <div class="row">
-                    <div class="col-md-5">
-                        <div class="ec-field" :class="{'ec-field--error': errors.codigo_tipo_documento}">
-                            <label>Tipo de comprobante</label>
-                            <select v-model="form_document.codigo_tipo_documento" class="ec-field__select ec-field__input" @change="optionDocument">
-                                <option value="" disabled>Seleccionar</option>
-                                <option value="01">Factura</option>
-                                <option value="03">Boleta de venta</option>
-                                <option value="80">Nota de venta</option>
-                            </select>
-                            <small class="ec-field__error" v-if="errors.codigo_tipo_documento">Obligatorio</small>
-                        </div>
-                    </div>
+
+                {{-- Toggle comprobante fiscal --}}
+                <div class="ec-invoice-toggle">
+                    <label class="ec-toggle-card" :class="{ 'ec-toggle-card--active': !wantsInvoice }" @click="wantsInvoice = false">
+                        <span class="ec-toggle-card__radio" :class="{ 'ec-toggle-card__radio--on': !wantsInvoice }"></span>
+                        <span class="ec-toggle-card__text">
+                            <strong>Sin comprobante fiscal</strong>
+                            <small>Nota de venta (sin datos adicionales)</small>
+                        </span>
+                    </label>
+                    <label class="ec-toggle-card" :class="{ 'ec-toggle-card--active': wantsInvoice }" @click="wantsInvoice = true">
+                        <span class="ec-toggle-card__radio" :class="{ 'ec-toggle-card__radio--on': wantsInvoice }"></span>
+                        <span class="ec-toggle-card__text">
+                            <strong>Necesito boleta o factura</strong>
+                            <small>Requiere documento de identidad</small>
+                        </span>
+                    </label>
                 </div>
 
-                {{-- Campos dinámicos según tipo de comprobante --}}
-                <div class="row">
-                    <div class="col-md-4">
-                        <div class="ec-field" :class="{'ec-field--error': errors.codigo_tipo_documento_identidad}">
-                            <label>@{{ form_document.codigo_tipo_documento === '01' ? 'RUC' : 'Tipo documento' }}</label>
-                            <select v-model="typeDocuments" class="ec-field__select ec-field__input">
-                                <option value="" disabled>Seleccionar</option>
-                                <option v-for="item in typeDocumentList" :value="item.id">@{{ item.name }}</option>
-                            </select>
-                            <small class="ec-field__error" v-if="errors.codigo_tipo_documento_identidad" v-text="errors.codigo_tipo_documento_identidad[0]"></small>
+                {{-- Campos de comprobante (solo si quiere) --}}
+                <template v-if="wantsInvoice">
+                    <div class="row" style="margin-top:14px">
+                        <div class="col-md-5">
+                            <div class="ec-field" :class="{'ec-field--error': errors.codigo_tipo_documento}">
+                                <label>Tipo de comprobante</label>
+                                <select v-model="form_document.codigo_tipo_documento" class="ec-field__select ec-field__input" @change="optionDocument">
+                                    <option value="03">Boleta de venta</option>
+                                    <option value="01">Factura</option>
+                                </select>
+                            </div>
                         </div>
                     </div>
-                    <div class="col-md-4">
-                        <div class="ec-field" :class="{'ec-field--error': errors.numero_documento}">
-                            <label>Nro. documento</label>
-                            <input v-model="numberDocument" :maxlength="maxLength" type="text" class="ec-field__input" :placeholder="form_document.codigo_tipo_documento === '01' ? '20123456789' : '12345678'">
-                            <small class="ec-field__error" v-if="errors.numero_documento" v-text="errors.numero_documento[0]"></small>
-                        </div>
-                    </div>
-                    {{-- Razón social / Nombre (visible para Factura) --}}
-                    <div class="col-md-4" v-if="form_document.codigo_tipo_documento === '01'">
-                        <div class="ec-field">
-                            <label>Razón social</label>
-                            <input v-model="form_document.razon_social" type="text" class="ec-field__input" placeholder="Empresa S.A.C.">
-                        </div>
-                    </div>
-                </div>
 
-                {{-- Dirección fiscal (solo Factura) --}}
-                <div class="row" v-if="form_document.codigo_tipo_documento === '01'">
-                    <div class="col-md-12">
-                        <div class="ec-field">
-                            <label>Dirección fiscal</label>
-                            <input v-model="form_document.direccion_fiscal" type="text" class="ec-field__input" placeholder="Av. Principal 123, Lima">
+                    <div class="row">
+                        <div class="col-md-4">
+                            <div class="ec-field" :class="{'ec-field--error': errors.codigo_tipo_documento_identidad}">
+                                <label>@{{ form_document.codigo_tipo_documento === '01' ? 'RUC' : 'Tipo documento' }}</label>
+                                <select v-model="typeDocuments" class="ec-field__select ec-field__input">
+                                    <option value="" disabled>Seleccionar</option>
+                                    <option v-for="item in typeDocumentList" :value="item.id">@{{ item.name }}</option>
+                                </select>
+                                <small class="ec-field__error" v-if="errors.codigo_tipo_documento_identidad" v-text="errors.codigo_tipo_documento_identidad[0]"></small>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="ec-field" :class="{'ec-field--error': errors.numero_documento}">
+                                <label>Nro. documento</label>
+                                <input v-model="numberDocument" :maxlength="maxLength" type="text" class="ec-field__input" :placeholder="form_document.codigo_tipo_documento === '01' ? '20123456789' : '12345678'">
+                                <small class="ec-field__error" v-if="errors.numero_documento" v-text="errors.numero_documento[0]"></small>
+                            </div>
+                        </div>
+                        <div class="col-md-4" v-if="form_document.codigo_tipo_documento === '01'">
+                            <div class="ec-field">
+                                <label>Razón social</label>
+                                <input v-model="form_document.razon_social" type="text" class="ec-field__input" placeholder="Empresa S.A.C.">
+                            </div>
                         </div>
                     </div>
-                </div>
+                    <div class="row" v-if="form_document.codigo_tipo_documento === '01'">
+                        <div class="col-md-12">
+                            <div class="ec-field">
+                                <label>Dirección fiscal</label>
+                                <input v-model="form_document.direccion_fiscal" type="text" class="ec-field__input" placeholder="Av. Principal 123, Lima">
+                            </div>
+                        </div>
+                    </div>
+                </template>
+
                 <div class="ec-step-nav">
                     <button type="button" class="ec-step-btn ec-step-btn--back" @click="goToStep(2)">← Entrega</button>
                     <button type="button" class="ec-step-btn ec-step-btn--next" @click="nextStep(3)">Continuar al Pago →</button>
@@ -301,7 +318,8 @@
             <span class="ec-step-summary__num">3</span>
             <div class="ec-step-summary__info">
                 <strong>Comprobante</strong>
-                <span>@{{ form_document.codigo_tipo_documento === '01' ? 'Factura' : (form_document.codigo_tipo_documento === '03' ? 'Boleta' : 'Nota de venta') }} · @{{ numberDocument || 'Sin documento' }}</span>
+                <span v-if="!wantsInvoice">Nota de venta (sin comprobante fiscal)</span>
+                <span v-else>@{{ form_document.codigo_tipo_documento === '01' ? 'Factura' : 'Boleta' }} · @{{ numberDocument || 'Sin documento' }}</span>
             </div>
             <span class="ec-step-summary__edit">Editar</span>
         </div>
@@ -532,6 +550,7 @@
             deliveryType: 'delivery', // delivery | pickup
             paymentMethod: 'cash', // cash | card | paypal
             loading_payment: false,
+            wantsInvoice: false, // comprobante fiscal opcional
             step: 1, // checkout wizard step (1-4)
             records: [],
             records_old: [],
