@@ -3,6 +3,7 @@
 namespace App\Services\Tenant;
 
 use App\Exceptions\InsufficientStockException;
+use App\Models\Tenant\FlashSale;
 use App\Models\Tenant\Item;
 use App\Models\Tenant\ItemWarehouse;
 use App\Models\Tenant\LogisticOrder;
@@ -85,6 +86,15 @@ class CheckoutService
      */
     private function enrichAndValidateItems(array $cartItems, int $warehouseId): array
     {
+        // Cargar flash sale activa una sola vez para todos los items
+        $flashSale = FlashSale::active()->with('items')->first();
+        $flashPrices = [];
+        if ($flashSale) {
+            foreach ($flashSale->items as $fi) {
+                $flashPrices[$fi->id] = (float) $fi->pivot->flash_price;
+            }
+        }
+
         $enriched = [];
 
         foreach ($cartItems as $cartItem) {
@@ -107,13 +117,26 @@ class CheckoutService
                 );
             }
 
+            // Determinar precio: Flash Sale > Pack price > Precio normal
+            $unitPrice = (float) $item->sale_unit_price;
+
+            // Si es pack/bundle, usar precio de pack
+            if ($item->is_set && $item->sale_unit_price_set) {
+                $unitPrice = (float) $item->sale_unit_price_set;
+            }
+
+            // Si tiene precio flash activo, usar ese (tiene prioridad)
+            if (isset($flashPrices[$item->id]) && $flashPrices[$item->id] < $unitPrice) {
+                $unitPrice = $flashPrices[$item->id];
+            }
+
             $enriched[] = [
                 'item_id'                 => $item->id,
                 'description'             => $item->description,
                 'unit_type_id'            => $item->unit_type_id ?? 'NIU',
                 'quantity'                => (float) $cartItem['quantity'],
-                // Precio del backend — NO del frontend
-                'unit_price'              => (float) $item->sale_unit_price,
+                // Precio del backend: flash > pack > normal
+                'unit_price'              => $unitPrice,
                 'affectation_igv_type_id' => $item->affectation_igv_type_id ?? '10',
             ];
         }

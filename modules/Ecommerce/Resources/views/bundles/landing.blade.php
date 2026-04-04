@@ -20,7 +20,7 @@
     "offers": {
         "@type": "Offer",
         "priceCurrency": "PEN",
-        "price": "{{ number_format($packPrice, 2, '.', '') }}",
+        "price": "{{ number_format(($flashPrice && $flashPrice < $packPrice) ? $flashPrice : $packPrice, 2, '.', '') }}",
         "availability": "{{ $stock > 0 ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock' }}",
         "url": "{{ url()->current() }}"
     }
@@ -71,18 +71,24 @@
                     @endif
 
                     {{-- Precio --}}
+                    @php
+                        $displayPrice = ($flashPrice && $flashPrice < $packPrice) ? $flashPrice : $packPrice;
+                        $strikePrice  = ($flashPrice && $flashPrice < $packPrice) ? $packPrice : $normalTotal;
+                        $showStrike   = $strikePrice > $displayPrice;
+                        $totalSavings = $strikePrice - $displayPrice;
+                    @endphp
                     <div class="ec-bl-price-block">
-                        @if($savings > 0)
+                        @if($showStrike)
                         <span class="ec-bl-price-old">
-                            {{ $symbol }} {{ number_format($normalTotal, 2) }}
+                            {{ $symbol }} {{ number_format($strikePrice, 2) }}
                         </span>
                         @endif
                         <span class="ec-bl-price-now">
-                            {{ $symbol }} {{ number_format($packPrice, 2) }}
+                            {{ $symbol }} {{ number_format($displayPrice, 2) }}
                         </span>
-                        @if($savings > 0)
+                        @if($showStrike)
                         <span class="ec-bl-price-save">
-                            Ahorras {{ $symbol }} {{ number_format($savings, 2) }}
+                            Ahorras {{ $symbol }} {{ number_format($totalSavings, 2) }}
                         </span>
                         @endif
                     </div>
@@ -132,7 +138,7 @@
                         $cartData = json_encode([
                             'id'              => $bundle->id,
                             'description'     => $bundle->description,
-                            'sale_unit_price' => $packPrice,
+                            'sale_unit_price' => $displayPrice,
                             'image'           => $bundle->image,
                             'currency_type_id'=> $bundle->currency_type_id,
                             'is_set'          => true,
@@ -247,9 +253,15 @@
                     <span>-{{ $symbol }} {{ number_format($savings, 2) }}</span>
                 </div>
                 @endif
+                @if($flashPrice && $flashPrice < $packPrice)
+                <div class="ec-bl-ps-row ec-bl-ps-row--save">
+                    <span>Oferta Flash</span>
+                    <span>-{{ $symbol }} {{ number_format($packPrice - $flashPrice, 2) }}</span>
+                </div>
+                @endif
                 <div class="ec-bl-ps-row ec-bl-ps-row--total">
                     <span>Precio del pack</span>
-                    <span>{{ $symbol }} {{ number_format($packPrice, 2) }}</span>
+                    <span>{{ $symbol }} {{ number_format($displayPrice, 2) }}</span>
                 </div>
             </div>
 
@@ -258,7 +270,7 @@
             <div class="text-center mt-4">
                 <button type="button"
                         class="ec-bl-cta ec-bl-cta--outline"
-                        data-ec-cart="{{ $cartData ?? json_encode(['id' => $bundle->id, 'description' => $bundle->description, 'sale_unit_price' => $packPrice, 'image' => $bundle->image, 'currency_type_id' => $bundle->currency_type_id]) }}"
+                        data-ec-cart="{{ $cartData ?? json_encode(['id' => $bundle->id, 'description' => $bundle->description, 'sale_unit_price' => $displayPrice, 'image' => $bundle->image, 'currency_type_id' => $bundle->currency_type_id]) }}"
                         onclick="window.scrollTo({top:0,behavior:'smooth'})">
                     Quiero este pack ahora
                 </button>

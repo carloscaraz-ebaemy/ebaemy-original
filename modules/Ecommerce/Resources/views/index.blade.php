@@ -76,14 +76,14 @@
 
             {{-- Categorías: se muestran como pills de filtro dentro de la sección de productos --}}
 
+            {{-- ── FLASH SALE (primero: urgencia temporal) ──────────── --}}
+            @if(!$hasCategoryFilter)
+                @include('ecommerce::layouts.partials_ecommerce.flash_sale')
+            @endif
+
             {{-- ── PAQUETES / BUNDLES ───────────────────────────────── --}}
             @if(!$hasCategoryFilter)
                 @include('ecommerce::layouts.partials_ecommerce.bundles')
-            @endif
-
-            {{-- ── FLASH SALE ───────────────────────────────────────── --}}
-            @if(!$hasCategoryFilter)
-                @include('ecommerce::layouts.partials_ecommerce.flash_sale')
             @endif
 
             {{-- ── PRODUCTOS ────────────────────────────────────────── --}}

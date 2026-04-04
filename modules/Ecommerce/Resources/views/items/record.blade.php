@@ -205,14 +205,34 @@
                        onclick="document.getElementById('product-tab-reviews').click()"></a>
                 </div>
 
-                {{-- Precio — SIN precio falso tachado a menos que haya descuento real --}}
+                {{-- Precio — muestra descuento si hay Flash Sale o Pack --}}
                 <div class="price-box" itemprop="offers" itemscope itemtype="https://schema.org/Offer">
                     <meta itemprop="priceCurrency" content="{{ $record->currency_type_id ?? 'PEN' }}">
                     <meta itemprop="price" content="{{ $record->sale_unit_price }}">
-                    <span class="product-price">
+                    @if($record->original_price)
+                    <span class="product-price-old" style="text-decoration:line-through;color:#999;font-size:16px;margin-right:8px">
+                        {{ $record->currency_type['symbol'] }} {{ number_format($record->original_price, 2) }}
+                    </span>
+                    @endif
+                    <span class="product-price" style="{{ $record->original_price ? 'color:#e53e3e' : '' }}">
                         {{ $record->currency_type['symbol'] }} {{ number_format($record->sale_unit_price, 2) }}
                     </span>
+                    @if($record->is_set)
+                    <span style="display:inline-block;background:#7c3aed;color:#fff;font-size:11px;padding:2px 8px;border-radius:4px;margin-left:8px;vertical-align:middle">PACK ESPECIAL</span>
+                    @endif
                 </div>
+
+                {{-- Countdown Flash Sale --}}
+                @if($record->flash_ends_at)
+                <div class="ec-bl-countdown" id="ec-bl-countdown"
+                     data-ends="{{ $record->flash_ends_at->timestamp * 1000 }}"
+                     style="margin:10px 0;padding:8px 12px;background:#fff3cd;border-radius:8px;display:inline-flex;align-items:center;gap:8px;font-size:13px">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"
+                         fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                    <span>Oferta flash termina en:</span>
+                    <strong><span id="ec-cd-h">00</span>:<span id="ec-cd-m">00</span>:<span id="ec-cd-s">00</span></strong>
+                </div>
+                @endif
 
                 {{-- Stock --}}
                 @php
@@ -1168,6 +1188,24 @@ document.addEventListener('DOMContentLoaded', function () {
     ]) !!};
     if (window.EcommerceTracker) {
         window.EcommerceTracker.viewContent(productData);
+    }
+
+    // Flash Sale Countdown
+    var cdEl = document.getElementById('ec-bl-countdown');
+    if (cdEl) {
+        var ends = parseInt(cdEl.getAttribute('data-ends'));
+        var hEl = document.getElementById('ec-cd-h');
+        var mEl = document.getElementById('ec-cd-m');
+        var sEl = document.getElementById('ec-cd-s');
+        setInterval(function() {
+            var diff = Math.max(0, ends - Date.now());
+            var h = Math.floor(diff / 3600000);
+            var m = Math.floor((diff % 3600000) / 60000);
+            var s = Math.floor((diff % 60000) / 1000);
+            if (hEl) hEl.textContent = h < 10 ? '0' + h : h;
+            if (mEl) mEl.textContent = m < 10 ? '0' + m : m;
+            if (sEl) sEl.textContent = s < 10 ? '0' + s : s;
+        }, 1000);
     }
 });
 </script>

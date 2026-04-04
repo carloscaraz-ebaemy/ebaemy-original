@@ -1,4 +1,11 @@
-@if(isset($bundles) && $bundles->count() > 0)
+@php
+    // Excluir bundles que ya están en Flash Sale activa para no duplicar
+    $flashItemIds = (isset($flashSale) && $flashSale && $flashSale->items)
+        ? $flashSale->items->pluck('id')->toArray()
+        : [];
+    $filteredBundles = isset($bundles) ? $bundles->filter(fn($b) => !in_array($b->id, $flashItemIds)) : collect();
+@endphp
+@if($filteredBundles->count() > 0)
 <section class="ec-home-section ec-bundles-section" aria-label="Paquetes y combos">
     <div class="ec-section-header">
         <h2 class="ec-section-title">Paquetes y combos</h2>
@@ -6,7 +13,7 @@
     </div>
 
     <div class="row">
-        @foreach($bundles as $bundle)
+        @foreach($filteredBundles as $bundle)
         @php
             // Stock del pack = mínimo de (stock_componente / qty_en_pack)
             $stock = 0;

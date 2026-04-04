@@ -381,6 +381,46 @@ class EcommerceController extends Controller
             })->toArray();
         }
 
+        // Flash sale activa para este producto
+        $flashPrice = null;
+        try {
+            $itemFlash = FlashSale::active()
+                ->whereHas('items', fn($q) => $q->where('items.id', $row->id))
+                ->with(['items' => fn($q) => $q->where('items.id', $row->id)])
+                ->first();
+            if ($itemFlash && $itemFlash->items->first()) {
+                $flashPrice = (float) $itemFlash->items->first()->pivot->flash_price;
+            }
+        } catch (\Exception $e) {}
+
+        // Stock: para bundles calcular desde componentes
+        $totalStock = $row->warehouses->count() > 0
+            ? $row->warehouses->sum('stock')
+            : $row->stock;
+        if ($row->is_set) {
+            $row->load('sets.individual_item.warehouses');
+            $componentStocks = [];
+            foreach ($row->sets as $setItem) {
+                if ($setItem->individual_item && $setItem->quantity > 0) {
+                    $compStock = $setItem->individual_item->warehouses
+                        ? $setItem->individual_item->warehouses->sum('stock')
+                        : 0;
+                    $componentStocks[] = (int) floor($compStock / $setItem->quantity);
+                }
+            }
+            $totalStock = count($componentStocks) > 0 ? min($componentStocks) : 0;
+        }
+
+        // Precio final: flash > pack > normal
+        $finalPrice = $sale_unit_price;
+        if ($row->is_set && $row->sale_unit_price_set) {
+            $finalPrice = ($row->has_igv) ? (float) $row->sale_unit_price_set : (float) $row->sale_unit_price_set * 1.18;
+        }
+        $originalPrice = $finalPrice;
+        if ($flashPrice && $flashPrice < $finalPrice) {
+            $finalPrice = $flashPrice;
+        }
+
         $record = (object)[
             'id'                          => $row->id,
             'slug'                        => $row->slug,
@@ -388,16 +428,18 @@ class EcommerceController extends Controller
             'unit_type_id'                => $row->unit_type_id,
             'description'                 => $description,
             'category'                    => $row->category,
-            'stock'                       => $row->warehouses->count() > 0
-                                                ? $row->warehouses->sum('stock')
-                                                : $row->stock,
+            'stock'                       => $totalStock,
             'technical_specifications'    => $row->technical_specifications,
             'name'                        => $row->name,
             'second_name'                 => $row->second_name,
-            'sale_unit_price'             => ($row->currency_type_id === 'PEN') ? $sale_unit_price : ($sale_unit_price * $exchange_rate_sale),
+            'sale_unit_price'             => ($row->currency_type_id === 'PEN') ? $finalPrice : ($finalPrice * $exchange_rate_sale),
+            'original_price'              => ($originalPrice != $finalPrice) ? $originalPrice : null,
+            'flash_price'                 => $flashPrice,
+            'flash_ends_at'               => ($itemFlash ?? null)?->ends_at,
+            'is_set'                      => (bool) $row->is_set,
             'currency_type'               => $row->currency_type,
             'has_igv'                     => (bool) $row->has_igv,
-            'sale_unit'                   => $row->sale_unit_price,
+            'sale_unit'                   => $finalPrice,
             'sale_affectation_igv_type_id'=> $row->sale_affectation_igv_type_id,
             'currency_type_symbol'        => $row->currency_type->symbol,
             'image'                       => $row->image,
@@ -1285,13 +1327,18 @@ class EcommerceController extends Controller
         // Flash sale activa para este item
         $flashSale = \App\Models\Tenant\FlashSale::active()
             ->whereHas('items', fn($q) => $q->where('items.id', $bundle->id))
+            ->with(['items' => fn($q) => $q->where('items.id', $bundle->id)])
             ->first();
 
         $flashEndsAt = $flashSale ? $flashSale->ends_at : null;
+        $flashPrice  = null;
+        if ($flashSale && $flashSale->items->first()) {
+            $flashPrice = (float) $flashSale->items->first()->pivot->flash_price;
+        }
 
         return view('ecommerce::bundles.landing', compact(
             'bundle', 'normalTotal', 'packPrice', 'savings', 'savingsPct',
-            'stock', 'symbol', 'mainImage', 'galleryImages', 'flashEndsAt'
+            'stock', 'symbol', 'mainImage', 'galleryImages', 'flashEndsAt', 'flashPrice'
         ));
     }
 
