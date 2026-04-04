@@ -493,6 +493,52 @@ class EcommerceController extends Controller
         return view('ecommerce::items.index', compact('records'));
     }
 
+    public function compare()
+    {
+        $company = \App\Models\Tenant\Company::first();
+        return view('ecommerce::compare.index', compact('company'));
+    }
+
+    public function itemsForCompare(Request $request)
+    {
+        $ids = explode(',', $request->input('ids', ''));
+        $ids = array_filter(array_map('intval', $ids));
+
+        if (empty($ids) || count($ids) > 4) {
+            return response()->json([]);
+        }
+
+        $items = Item::with(['currency_type', 'category', 'brand', 'images', 'variants', 'warehouses'])
+            ->whereIn('id', $ids)
+            ->where('apply_store', 1)
+            ->get()
+            ->map(function ($item) {
+                return [
+                    'id'          => $item->id,
+                    'description' => $item->description,
+                    'name'        => $item->name,
+                    'slug'        => $item->slug,
+                    'price'       => $item->sale_unit_price,
+                    'currency'    => $item->currency_type->symbol ?? 'S/',
+                    'stock'       => (int) $item->stock,
+                    'category'    => $item->category->name ?? '-',
+                    'brand'       => $item->brand->name ?? '-',
+                    'image'       => $item->image && $item->image !== 'imagen-no-disponible.jpg'
+                        ? url("storage/uploads/items/{$item->image}")
+                        : url('logo/imagen-no-disponible.jpg'),
+                    'variants'    => $item->variants->where('is_active', true)->map(fn($v) => [
+                        'name'  => $v->display_name,
+                        'price' => $v->sale_unit_price,
+                        'stock' => (int) $v->stock,
+                    ])->values(),
+                    'has_variants' => $item->has_variants,
+                    'internal_id'  => $item->internal_id,
+                ];
+            });
+
+        return response()->json($items);
+    }
+
     public function itemsBar()
     {
         $records = Item::with(['currency_type', 'warehouses'])->where('apply_store', 1)->limit(500)->get();
@@ -925,7 +971,18 @@ class EcommerceController extends Controller
                 'password' => $request->pswd,
             ]);
 
-            return ['success' => true, 'message' => '¡Cuenta creada!'];
+            // Procesar referido si viene con codigo
+            $referralMsg = '';
+            if ($request->filled('ref_code')) {
+                $referral = \App\Services\Tenant\ReferralService::processReferralForPerson(
+                    $request->ref_code, $person
+                );
+                if ($referral) {
+                    $referralMsg = ' Tienes un cupón de descuento: ' . $referral->referredCoupon->code;
+                }
+            }
+
+            return ['success' => true, 'message' => '¡Cuenta creada!' . $referralMsg];
 
         } catch (\Exception $e) {
             return ['success' => false, 'message' => $e->getMessage()];
@@ -1593,6 +1650,104 @@ class EcommerceController extends Controller
         }
         $user = auth('ecommerce')->user();
         return view('ecommerce::profile.index', compact('user'));
+    }
+
+    /**
+     * Buscador avanzado con filtros (precio, categoria, marca, rating, stock).
+     */
+    public function advancedSearch(Request $request)
+    {
+        $query = Item::with(['currency_type', 'category', 'brand', 'images'])
+            ->where('apply_store', 1);
+
+        // Busqueda por texto
+        if ($request->filled('q')) {
+            $q = $request->q;
+            $query->where(function ($w) use ($q) {
+                $w->where('description', 'LIKE', "%{$q}%")
+                  ->orWhere('name', 'LIKE', "%{$q}%")
+                  ->orWhere('internal_id', 'LIKE', "%{$q}%");
+            });
+        }
+
+        // Filtro por categoria
+        if ($request->filled('category_id')) {
+            $query->where('category_id', $request->category_id);
+        }
+
+        // Filtro por marca
+        if ($request->filled('brand_id')) {
+            $query->where('brand_id', $request->brand_id);
+        }
+
+        // Filtro por rango de precio
+        if ($request->filled('min_price')) {
+            $query->where('sale_unit_price', '>=', (float) $request->min_price);
+        }
+        if ($request->filled('max_price')) {
+            $query->where('sale_unit_price', '<=', (float) $request->max_price);
+        }
+
+        // Filtro solo con stock
+        if ($request->boolean('in_stock')) {
+            $query->where('stock', '>', 0);
+        }
+
+        // Ordenamiento
+        $sort = $request->input('sort', 'relevance');
+        match ($sort) {
+            'price_asc'  => $query->orderBy('sale_unit_price', 'asc'),
+            'price_desc' => $query->orderBy('sale_unit_price', 'desc'),
+            'newest'     => $query->orderByDesc('created_at'),
+            'name'       => $query->orderBy('description'),
+            default      => $query->orderByDesc('stock')->orderBy('description'),
+        };
+
+        $items = $query->paginate($request->input('per_page', 24));
+
+        // Transformar para frontend
+        $items->getCollection()->transform(function ($item) {
+            return [
+                'id'          => $item->id,
+                'description' => $item->description,
+                'slug'        => $item->slug,
+                'price'       => $item->sale_unit_price,
+                'currency'    => $item->currency_type->symbol ?? 'S/',
+                'stock'       => (int) $item->stock,
+                'category'    => $item->category->name ?? null,
+                'brand'       => $item->brand->name ?? null,
+                'image'       => $item->image && $item->image !== 'imagen-no-disponible.jpg'
+                    ? url("storage/uploads/items/{$item->image}")
+                    : url('logo/imagen-no-disponible.jpg'),
+                'has_variants' => $item->has_variants,
+            ];
+        });
+
+        // Filtros disponibles (para sidebar)
+        $filters = [
+            'categories' => \Modules\Item\Models\Category::whereHas('items', fn($q) => $q->where('apply_store', 1))
+                ->orderBy('name')->get(['id', 'name']),
+            'brands' => \App\Models\Tenant\Brand::whereHas('items', fn($q) => $q->where('apply_store', 1))
+                ->orderBy('name')->get(['id', 'name']),
+            'price_range' => [
+                'min' => Item::where('apply_store', 1)->min('sale_unit_price') ?? 0,
+                'max' => Item::where('apply_store', 1)->max('sale_unit_price') ?? 0,
+            ],
+        ];
+
+        return response()->json([
+            'items'   => $items,
+            'filters' => $filters,
+        ]);
+    }
+
+    public function referralInfo()
+    {
+        $user = auth('ecommerce')->user();
+        if (!$user) {
+            return response()->json(['error' => 'No autenticado'], 401);
+        }
+        return response()->json(\App\Services\Tenant\ReferralService::stats($user));
     }
 
     public function saveDataUser(Request $request)

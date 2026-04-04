@@ -28,6 +28,7 @@ class AppServiceProvider extends ServiceProvider
 			URL::forceScheme('https');
 		}
 		Document::observe(DocumentObserver::class);
+		\App\Models\Tenant\Item::observe(\App\Observers\ItemPriceObserver::class);
 
 		// Macro DB::replica() — devuelve la conexión de solo-lectura (réplica)
 		// si TENANT_REPLICA_HOST está configurado, o la primaria como fallback.

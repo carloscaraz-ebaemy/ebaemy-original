@@ -52,6 +52,15 @@ Route::get('/ecommerce/order/{external_id}/payment-status', '\Modules\Ecommerce\
     ->name('ecommerce.order.payment-status')
     ->middleware(['locked.tenant', 'throttle:30,1']);
 
+// ========== Price history ==========
+Route::get('/ecommerce/price-history/{itemId}', function ($itemId) {
+    $history = \App\Models\Tenant\ItemPriceHistory::where('item_id', $itemId)
+        ->orderByDesc('created_at')
+        ->limit(50)
+        ->get(['old_price', 'new_price', 'source', 'created_at']);
+    return response()->json($history);
+})->middleware('throttle:30,1');
+
 // ========== Stock notifications ==========
 Route::post('/ecommerce/stock-notify', '\Modules\Ecommerce\Http\Controllers\StockNotificationController@subscribe')
     ->name('ecommerce.stock_notify')
@@ -116,6 +125,8 @@ Route::middleware(['check.permission', 'locked.tenant', 'check.email.verified', 
         ->where('slug', '[a-z0-9-]+');
 
     Route::get('items', 'EcommerceController@items')->name('tenant.ecommerce.item.index');
+    Route::get('compare', 'EcommerceController@compare')->name('tenant.ecommerce.compare');
+    Route::get('api/items-compare', 'EcommerceController@itemsForCompare');
     Route::get('item_partial/{id}', 'EcommerceController@partialItem')->name('item_partial');
     Route::get('item_quick/{id}', 'EcommerceController@quickView')->name('ecommerce.quick_view');
     // detail_cart y checkout movidos a grupo guest-accessible arriba
@@ -132,6 +143,7 @@ Route::middleware(['check.permission', 'locked.tenant', 'check.email.verified', 
     Route::get('login', 'EcommerceController@showLogin')->name('tenant_ecommerce_login');
     Route::post('logout', 'EcommerceController@logout')->name('tenant_ecommerce_logout');
     Route::get('items_bar', 'EcommerceController@itemsBar');
+    Route::get('api/search', 'EcommerceController@advancedSearch');
     Route::post('login', 'EcommerceController@login')->middleware('throttle:5,3');
     Route::post('storeUser', 'EcommerceController@storeUser')->name('tenant_ecommerce_store_user')->middleware('throttle:5,1');
     Route::get('color-ecommerce', 'ConfigurationController@getColorEcommerce');
@@ -172,6 +184,7 @@ Route::middleware(['check.permission', 'locked.tenant', 'check.email.verified', 
     Route::get('profile', 'EcommerceController@profile')->name('tenant.ecommerce.profile');
     Route::post('saveDataUser', 'EcommerceController@saveDataUser')->name('tenant_ecommerce_user_data');
     Route::post('change-password', 'EcommerceController@changePassword')->name('tenant.ecommerce.change_password');
+    Route::get('referral', 'EcommerceController@referralInfo')->name('tenant.ecommerce.referral');
     Route::post('configuration_links', 'ConfigurationController@store_configuration_links');
 
 
