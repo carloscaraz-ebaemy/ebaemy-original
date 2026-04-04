@@ -206,31 +206,65 @@
                 </div>
 
                 {{-- Precio — muestra descuento si hay Flash Sale o Pack --}}
+                @php
+                    $hasDiscount = !empty($record->original_price);
+                    $discountPct = $hasDiscount ? round((1 - $record->sale_unit_price / $record->original_price) * 100) : 0;
+                @endphp
                 <div class="price-box" itemprop="offers" itemscope itemtype="https://schema.org/Offer">
                     <meta itemprop="priceCurrency" content="{{ $record->currency_type_id ?? 'PEN' }}">
                     <meta itemprop="price" content="{{ $record->sale_unit_price }}">
-                    @if($record->original_price)
-                    <span class="product-price-old" style="text-decoration:line-through;color:#999;font-size:16px;margin-right:8px">
-                        {{ $record->currency_type['symbol'] }} {{ number_format($record->original_price, 2) }}
-                    </span>
+
+                    @if($hasDiscount)
+                    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:4px">
+                        <span style="text-decoration:line-through;color:#9ca3af;font-size:18px;font-weight:400">
+                            {{ $record->currency_type['symbol'] }} {{ number_format($record->original_price, 2) }}
+                        </span>
+                        <span style="background:#e53e3e;color:#fff;font-size:12px;font-weight:700;padding:3px 10px;border-radius:20px">
+                            -{{ $discountPct }}%
+                        </span>
+                        @if($record->is_set)
+                        <span style="background:#7c3aed;color:#fff;font-size:11px;font-weight:600;padding:3px 10px;border-radius:20px">PACK</span>
+                        @endif
+                    </div>
                     @endif
-                    <span class="product-price" style="{{ $record->original_price ? 'color:#e53e3e' : '' }}">
+
+                    <span class="product-price" style="font-size:32px;font-weight:800;{{ $hasDiscount ? 'color:#e53e3e' : 'color:#1a1a1a' }}">
                         {{ $record->currency_type['symbol'] }} {{ number_format($record->sale_unit_price, 2) }}
                     </span>
-                    @if($record->is_set)
-                    <span style="display:inline-block;background:#7c3aed;color:#fff;font-size:11px;padding:2px 8px;border-radius:4px;margin-left:8px;vertical-align:middle">PACK ESPECIAL</span>
+
+                    @if($hasDiscount)
+                    <p style="color:#16a34a;font-size:13px;font-weight:600;margin:4px 0 0">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none"
+                             stroke="currentColor" stroke-width="2.5" style="vertical-align:-2px;margin-right:3px">
+                            <polyline points="20 6 9 17 4 12"/>
+                        </svg>
+                        Ahorras {{ $record->currency_type['symbol'] }} {{ number_format($record->original_price - $record->sale_unit_price, 2) }}
+                    </p>
+                    @endif
+
+                    @if(!$hasDiscount && $record->is_set)
+                    <span style="display:inline-block;background:#7c3aed;color:#fff;font-size:11px;font-weight:600;padding:3px 10px;border-radius:20px;margin-top:6px">PACK ESPECIAL</span>
                     @endif
                 </div>
 
                 {{-- Countdown Flash Sale --}}
                 @if($record->flash_ends_at)
-                <div class="ec-bl-countdown" id="ec-bl-countdown"
-                     data-ends="{{ $record->flash_ends_at->timestamp * 1000 }}"
-                     style="margin:10px 0;padding:8px 12px;background:#fff3cd;border-radius:8px;display:inline-flex;align-items:center;gap:8px;font-size:13px">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"
-                         fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-                    <span>Oferta flash termina en:</span>
-                    <strong><span id="ec-cd-h">00</span>:<span id="ec-cd-m">00</span>:<span id="ec-cd-s">00</span></strong>
+                <div id="ec-bl-countdown" data-ends="{{ $record->flash_ends_at->timestamp * 1000 }}"
+                     style="margin:12px 0;padding:10px 16px;background:linear-gradient(135deg,#fff7ed,#ffedd5);border:1px solid #fed7aa;border-radius:10px;display:inline-flex;align-items:center;gap:10px">
+                    <div style="background:#ea580c;color:#fff;width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"
+                             fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+                    </div>
+                    <div>
+                        <span style="font-size:12px;color:#9a3412;font-weight:600;display:block">OFERTA FLASH</span>
+                        <div style="display:flex;align-items:center;gap:4px;margin-top:2px">
+                            <span style="background:#ea580c;color:#fff;font-size:14px;font-weight:700;padding:2px 7px;border-radius:5px;min-width:28px;text-align:center" id="ec-cd-h">00</span>
+                            <span style="color:#ea580c;font-weight:700">:</span>
+                            <span style="background:#ea580c;color:#fff;font-size:14px;font-weight:700;padding:2px 7px;border-radius:5px;min-width:28px;text-align:center" id="ec-cd-m">00</span>
+                            <span style="color:#ea580c;font-weight:700">:</span>
+                            <span style="background:#ea580c;color:#fff;font-size:14px;font-weight:700;padding:2px 7px;border-radius:5px;min-width:28px;text-align:center" id="ec-cd-s">00</span>
+                        </div>
+                    </div>
                 </div>
                 @endif
 

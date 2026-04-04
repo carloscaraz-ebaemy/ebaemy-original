@@ -75,7 +75,17 @@
                     <div class="ec-cart-item__info">
                         <p class="ec-cart-item__name">@{{ row.description }}</p>
                         <span v-if="row.variant_display_name" class="ec-cart-item__variant">@{{ row.variant_display_name }}</span>
-                        <span class="ec-cart-item__price">@{{ row.currency_type_symbol }} @{{ row.sale_unit_price }}</span>
+                        <span v-if="row.original_price && parseFloat(row.original_price) > parseFloat(row.sale_unit_price)"
+                              style="text-decoration:line-through;color:#9ca3af;font-size:13px;margin-right:6px">
+                            @{{ row.currency_type_symbol }} @{{ parseFloat(row.original_price).toFixed(2) }}
+                        </span>
+                        <span class="ec-cart-item__price" :style="row.original_price && parseFloat(row.original_price) > parseFloat(row.sale_unit_price) ? 'color:#e53e3e;font-weight:700' : ''">
+                            @{{ row.currency_type_symbol }} @{{ row.sale_unit_price }}
+                        </span>
+                        <span v-if="row.original_price && parseFloat(row.original_price) > parseFloat(row.sale_unit_price)"
+                              style="display:inline-block;background:#e53e3e;color:#fff;font-size:10px;font-weight:700;padding:1px 6px;border-radius:10px;margin-left:6px">
+                            -@{{ Math.round((1 - parseFloat(row.sale_unit_price) / parseFloat(row.original_price)) * 100) }}%
+                        </span>
                     </div>
                     <div class="ec-cart-item__qty">
                         <div class="ec-qty-selector" style="margin-bottom:0">
