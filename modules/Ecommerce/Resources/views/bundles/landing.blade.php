@@ -152,6 +152,7 @@
                             'image'           => $bundle->image,
                             'currency_type_id'=> $bundle->currency_type_id,
                             'is_set'          => true,
+                            'stock'           => $stock,
                         ]);
                     @endphp
                     <button type="button"
@@ -344,10 +345,12 @@
     function tick() {
         var diff = endsAt - Date.now();
         if (diff <= 0) {
-            document.getElementById('ec-cd-h').textContent = '00';
-            document.getElementById('ec-cd-m').textContent = '00';
-            document.getElementById('ec-cd-s').textContent = '00';
-            return;
+            // Reiniciar timer a 24h (crear urgencia continua)
+            endsAt = Date.now() + 24 * 60 * 60 * 1000;
+            if (isRolling) {
+                localStorage.setItem(STORAGE_KEY, endsAt);
+            }
+            diff = endsAt - Date.now();
         }
         var h = Math.floor(diff / 3600000);
         var m = Math.floor((diff % 3600000) / 60000);
