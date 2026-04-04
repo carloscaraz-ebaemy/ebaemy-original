@@ -29,6 +29,87 @@ class MetaFeedService
     }
 
     // ══════════════════════════════════════════════════════════════
+    // SYNC — Auto-mapear productos y regenerar feeds
+    // ══════════════════════════════════════════════════════════════
+
+    /**
+     * "Sync productos" para Meta = auto-mapear items + regenerar feeds.
+     */
+    public function syncProducts(): array
+    {
+        // 1. Auto-mapear todos los items con apply_store=1
+        $items = Item::where('apply_store', 1)
+            ->whereNotNull('internal_id')
+            ->with(['variants'])
+            ->get();
+
+        $mapped = 0;
+
+        foreach ($items as $item) {
+            if ($item->has_variants && $item->variants->where('is_active', true)->count() > 0) {
+                foreach ($item->variants->where('is_active', true) as $variant) {
+                    MarketplaceProduct::updateOrCreate([
+                        'channel_id'      => $this->channel->id,
+                        'item_id'         => $item->id,
+                        'item_variant_id' => $variant->id,
+                    ], [
+                        'external_sku' => $variant->sku ?: "{$item->internal_id}-V{$variant->id}",
+                        'sync_status'  => 'synced',
+                    ]);
+                    $mapped++;
+                }
+            } else {
+                MarketplaceProduct::updateOrCreate([
+                    'channel_id' => $this->channel->id,
+                    'item_id'    => $item->id,
+                ], [
+                    'external_sku' => $item->internal_id,
+                    'sync_status'  => 'synced',
+                ]);
+                $mapped++;
+            }
+        }
+
+        // 2. Regenerar feeds XML y CSV
+        $this->generateXmlFeed();
+        $this->generateCsvFeed();
+
+        // 3. Actualizar last_synced_at del canal
+        $this->channel->markSynced();
+
+        return [
+            'success'   => true,
+            'processed' => $mapped,
+            'message'   => "{$mapped} productos sincronizados y feeds regenerados.",
+            'feeds'     => [
+                'xml' => asset('storage/feeds/meta-catalog.xml'),
+                'csv' => asset('storage/feeds/meta-catalog.csv'),
+            ],
+        ];
+    }
+
+    /**
+     * "Sync stock" para Meta = regenerar feeds (el stock va incluido).
+     */
+    public function syncStock(): array
+    {
+        $this->generateXmlFeed();
+        $this->generateCsvFeed();
+
+        $productCount = MarketplaceProduct::where('channel_id', $this->channel->id)
+            ->where('sync_status', 'synced')
+            ->count();
+
+        $this->channel->markSynced();
+
+        return [
+            'success'   => true,
+            'processed' => $productCount,
+            'message'   => "Stock actualizado en feeds ({$productCount} productos).",
+        ];
+    }
+
+    // ══════════════════════════════════════════════════════════════
     // XML FEED — Compatible con Facebook/Instagram Catalog
     // ══════════════════════════════════════════════════════════════
 

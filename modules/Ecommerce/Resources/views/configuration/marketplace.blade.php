@@ -88,7 +88,8 @@ document.addEventListener('DOMContentLoaded', function(){
             .then(function(r){return r.json()})
             .then(function(prods){
                 var el = document.getElementById('mp-count-'+ch.id);
-                if(el) el.textContent = (prods.length || 0) + ' productos';
+                var count = prods.total || prods.length || (prods.data ? prods.data.length : 0);
+                if(el) el.textContent = count + ' productos';
             });
         });
     })
@@ -106,7 +107,8 @@ document.addEventListener('DOMContentLoaded', function(){
         tbody.innerHTML = '<tr><td colspan="5" class="text-center py-3">Cargando...</td></tr>';
         fetch('/ecommerce/marketplace/channels/'+channelId+'/products', {headers:{'Accept':'application/json'}})
         .then(function(r){return r.json()})
-        .then(function(prods){
+        .then(function(response){
+            var prods = response.data || response;
             if(!prods.length){
                 tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted py-3">No hay productos mapeados en este canal.<br><button class="btn btn-sm btn-primary mt-2" onclick="autoMap('+channelId+')"><i class="fas fa-magic"></i> Auto-mapear productos</button></td></tr>';
                 return;
