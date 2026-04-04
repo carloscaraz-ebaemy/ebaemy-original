@@ -87,7 +87,7 @@
                         @endif
                     </div>
 
-                    {{-- Countdown --}}
+                    {{-- Countdown: SOLO si hay Flash Sale activa --}}
                     @if($flashEndsAt)
                     <div class="ec-bl-countdown" id="ec-bl-countdown"
                          data-ends="{{ $flashEndsAt->timestamp * 1000 }}"
@@ -107,24 +107,8 @@
                             <div class="ec-bl-cd-sep">:</div>
                             <div class="ec-bl-cd-box"><span id="ec-cd-s">00</span><small>s</small></div>
                         </div>
-                    </div>
-                    @else
-                    <div class="ec-bl-countdown ec-bl-countdown--rolling" id="ec-bl-countdown"
-                         aria-label="Tiempo restante de la oferta">
-                        <span class="ec-bl-countdown__label">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"
-                                 fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-                                <circle cx="12" cy="12" r="10"/>
-                                <polyline points="12 6 12 12 16 14"/>
-                            </svg>
-                            Precio especial disponible:
-                        </span>
-                        <div class="ec-bl-countdown__boxes">
-                            <div class="ec-bl-cd-box"><span id="ec-cd-h">00</span><small>h</small></div>
-                            <div class="ec-bl-cd-sep">:</div>
-                            <div class="ec-bl-cd-box"><span id="ec-cd-m">00</span><small>m</small></div>
-                            <div class="ec-bl-cd-sep">:</div>
-                            <div class="ec-bl-cd-box"><span id="ec-cd-s">00</span><small>s</small></div>
+                        <div class="ec-bl-expired" id="ec-bl-expired" style="display:none">
+                            <span class="ec-bl-expired__text">Esta oferta ha expirado</span>
                         </div>
                     </div>
                     @endif
@@ -320,37 +304,51 @@
         });
     }
 
-    // ── Countdown ────────────────────────────────────────────────
+    // ── Countdown (solo Flash Sale real) ─────────────────────────
     var countdownEl = document.getElementById('ec-bl-countdown');
     if (!countdownEl) return;
 
     var endsAt = parseInt(countdownEl.getAttribute('data-ends'), 10);
-    var isRolling = countdownEl.classList.contains('ec-bl-countdown--rolling');
+    if (!endsAt) return;
 
-    if (isRolling || !endsAt) {
-        // Timer de 24h almacenado en localStorage
-        var STORAGE_KEY = 'ec_bundle_timer_{{ $bundle->id }}';
-        var stored = parseInt(localStorage.getItem(STORAGE_KEY), 10);
-        var now = Date.now();
-        if (!stored || stored <= now) {
-            stored = now + 24 * 60 * 60 * 1000; // 24 horas
-            localStorage.setItem(STORAGE_KEY, stored);
-        }
-        endsAt = stored;
-        countdownEl.setAttribute('data-ends', endsAt);
-    }
+    var expired = false;
 
     function pad(n) { return n < 10 ? '0' + n : String(n); }
+
+    function onExpired() {
+        if (expired) return;
+        expired = true;
+        // Ocultar countdown boxes y mostrar mensaje de expirado
+        var boxes = countdownEl.querySelector('.ec-bl-countdown__boxes');
+        var label = countdownEl.querySelector('.ec-bl-countdown__label');
+        var expiredEl = document.getElementById('ec-bl-expired');
+        if (boxes) boxes.style.display = 'none';
+        if (label) label.style.display = 'none';
+        if (expiredEl) expiredEl.style.display = 'block';
+
+        // Deshabilitar boton de agregar al carrito
+        var addBtn = document.getElementById('ec-bl-add-cart');
+        if (addBtn) {
+            addBtn.disabled = true;
+            addBtn.classList.add('ec-bl-cta--oos');
+            addBtn.innerHTML = 'Oferta expirada';
+        }
+
+        // Ocultar precio de descuento y mostrar precio normal
+        var priceOld = document.querySelector('.ec-bl-price-old');
+        var priceSave = document.querySelector('.ec-bl-price-save');
+        if (priceOld) priceOld.style.display = 'none';
+        if (priceSave) priceSave.style.display = 'none';
+    }
 
     function tick() {
         var diff = endsAt - Date.now();
         if (diff <= 0) {
-            // Reiniciar timer a 24h (crear urgencia continua)
-            endsAt = Date.now() + 24 * 60 * 60 * 1000;
-            if (isRolling) {
-                localStorage.setItem(STORAGE_KEY, endsAt);
-            }
-            diff = endsAt - Date.now();
+            document.getElementById('ec-cd-h').textContent = '00';
+            document.getElementById('ec-cd-m').textContent = '00';
+            document.getElementById('ec-cd-s').textContent = '00';
+            onExpired();
+            return;
         }
         var h = Math.floor(diff / 3600000);
         var m = Math.floor((diff % 3600000) / 60000);
