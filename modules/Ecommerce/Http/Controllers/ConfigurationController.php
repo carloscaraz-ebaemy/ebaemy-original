@@ -550,16 +550,45 @@ public function uploadFile(Request $request)
     protected function syncMarketplaceChannels(array $config): void
     {
         $channelMap = [
-            'falabella' => ['field' => 'falabella_active', 'code' => 'SAGA', 'name' => 'Saga Falabella'],
-            'mercadolibre' => ['field' => 'mercadolibre_active', 'code' => 'MELI', 'name' => 'MercadoLibre'],
-            'meta' => ['field' => 'meta_active', 'code' => 'FBSHOP', 'name' => 'Facebook Shop'],
-            'tiktok' => ['field' => 'tiktok_active', 'code' => 'TIKTOK', 'name' => 'TikTok Shop'],
+            'falabella' => [
+                'field' => 'falabella_active', 'code' => 'SAGA', 'name' => 'Saga Falabella',
+                'creds' => ['user_id' => 'falabella_user_id', 'api_key' => 'falabella_api_key', 'api_url' => 'falabella_api_url'],
+            ],
+            'mercadolibre' => [
+                'field' => 'mercadolibre_active', 'code' => 'MELI', 'name' => 'MercadoLibre',
+                'creds' => ['access_token' => 'mercadolibre_token', 'seller_id' => 'mercadolibre_seller_id'],
+            ],
+            'meta' => [
+                'field' => 'meta_active', 'code' => 'FBSHOP', 'name' => 'Meta Commerce Feed',
+                'creds' => ['catalog_id' => 'meta_catalog_id', 'access_token' => 'meta_access_token'],
+            ],
+            'tiktok' => [
+                'field' => 'tiktok_active', 'code' => 'TIKTOK', 'name' => 'TikTok Shop',
+                'creds' => ['app_key' => 'tiktok_app_key', 'app_secret' => 'tiktok_app_secret'],
+            ],
         ];
 
         foreach ($channelMap as $platform => $info) {
             $isActive = $config[$info['field']] ?? false;
+
+            // Actualizar SalesChannel
             \App\Models\Tenant\SalesChannel::where('code', $info['code'])
                 ->update(['is_active' => $isActive ? 1 : 0]);
+
+            // Crear o actualizar MarketplaceChannel
+            $credentials = [];
+            foreach ($info['creds'] as $credKey => $configKey) {
+                $credentials[$credKey] = $config[$configKey] ?? '';
+            }
+
+            \App\Models\Tenant\MarketplaceChannel::updateOrCreate(
+                ['platform' => $platform],
+                [
+                    'name' => $info['name'],
+                    'status' => $isActive ? 'active' : 'inactive',
+                    'credentials' => $credentials,
+                ]
+            );
         }
     }
 

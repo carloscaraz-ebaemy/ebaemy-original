@@ -121,7 +121,7 @@ class MarketplaceController extends Controller
     public function storeChannel(Request $request)
     {
         $request->validate([
-            'platform' => 'required|in:falabella,meta,mercadolibre',
+            'platform' => 'required|in:falabella,meta,mercadolibre,tiktok',
             'name' => 'required|string|max:100',
         ]);
 

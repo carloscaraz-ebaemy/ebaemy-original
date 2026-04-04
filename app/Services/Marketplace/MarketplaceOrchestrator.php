@@ -86,9 +86,11 @@ class MarketplaceOrchestrator
     public static function resolveService(MarketplaceChannel $channel): ?object
     {
         return match ($channel->platform) {
-            'falabella' => new FalabellaService($channel),
-            'meta' => new MetaFeedService($channel),
-            default => null,
+            'falabella'    => new FalabellaService($channel),
+            'meta'         => new MetaFeedService($channel),
+            'mercadolibre' => new MercadoLibreService($channel),
+            'tiktok'       => new TikTokService($channel),
+            default        => null,
         };
     }
 }
