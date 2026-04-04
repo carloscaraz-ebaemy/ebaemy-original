@@ -814,6 +814,12 @@
                     }
                     this.errors = {};
                 }
+                // Si no quiere comprobante fiscal, usar nota de venta
+                if (!this.wantsInvoice) {
+                    this.form_document.codigo_tipo_documento = '80';
+                    this.typeDocuments = '0';
+                    this.numberDocument = '00000000';
+                }
                 if (!this.form_document.codigo_tipo_documento) {
                     return this.showSwalMessage('Ocurrió un error!', 'El campo tipo de comprobante es obligatorio', 'error');
                 }
@@ -822,8 +828,8 @@
                 const cust = this.form_document.datos_del_cliente_o_receptor;
                 let clientErrors = {};
                 if (!cust.telefono || String(cust.telefono).trim() === '') clientErrors.telefono = ['El teléfono es requerido.'];
-                if (!cust.direccion || String(cust.direccion).trim() === '') clientErrors.direccion = ['La dirección de envío es requerida.'];
-                if (!cust.numero_documento || cust.numero_documento == '0') clientErrors.numero_documento = ['El número de documento es requerido.'];
+                if (this.deliveryType === 'delivery' && (!cust.direccion || String(cust.direccion).trim() === '')) clientErrors.direccion = ['La dirección de envío es requerida.'];
+                if (this.wantsInvoice && (!cust.numero_documento || cust.numero_documento == '0')) clientErrors.numero_documento = ['El número de documento es requerido.'];
                 if (Object.keys(clientErrors).length > 0) {
                     this.errors = clientErrors;
                     window.scrollTo({ top: 0, behavior: 'smooth' });
