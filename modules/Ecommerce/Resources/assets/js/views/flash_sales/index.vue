@@ -137,9 +137,12 @@
                         <label>Agregar producto</label>
                         <el-autocomplete v-model="itemSearch" :fetch-suggestions="searchItems" placeholder="Buscar producto..." @select="addItem" style="width:100%" value-key="description">
                             <template slot-scope="{item}">
-                                <div style="display:flex;justify-content:space-between;align-items:center">
+                                <div style="display:flex;justify-content:space-between;align-items:center;gap:8px">
                                     <span>{{ item.description }}</span>
-                                    <span class="text-muted small">S/ {{ item.sale_unit_price }}</span>
+                                    <span style="display:flex;align-items:center;gap:6px">
+                                        <span v-if="item.is_set" style="background:#eef0ff;color:#5b5ea6;padding:1px 6px;border-radius:8px;font-size:10px;font-weight:700">PACK</span>
+                                        <span class="text-muted small">{{ item.sale_unit_price }}</span>
+                                    </span>
                                 </div>
                             </template>
                         </el-autocomplete>

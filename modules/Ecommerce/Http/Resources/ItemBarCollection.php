@@ -73,6 +73,7 @@ class ItemBarCollection extends ResourceCollection
                 'image_url_small' => ($row->image_small !== 'imagen-no-disponible.jpg') ? asset('storage'.DIRECTORY_SEPARATOR.'uploads'.DIRECTORY_SEPARATOR.'items'.DIRECTORY_SEPARATOR.$row->image_small) : asset("/logo/{$row->image_small}"),
                 'tags' => $row->tags,
                 'tags_id' => $row->tags->pluck('tag_id'),
+                'is_set' => (bool) $row->is_set,
                  
 
 
