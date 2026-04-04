@@ -99,9 +99,15 @@
     });
 
     function buildCard(p) {
-        var placeholder = '/porto-ecommerce/assets/images/placeholder.svg';
-        var imgSrc = (p.image_url_small && !p.image_url_small.includes('imagen-no-disponible'))
-                     ? p.image_url_small : placeholder;
+        var fallback = '/logo/imagen-no-disponible.jpg';
+        var imgSrc = fallback;
+        if (p.image_url_small && !p.image_url_small.includes('imagen-no-disponible') && !p.image_url_small.endsWith('/null') && !p.image_url_small.endsWith('/')) {
+            imgSrc = p.image_url_small;
+        } else if (p.image_url_medium && !p.image_url_medium.includes('imagen-no-disponible') && !p.image_url_medium.endsWith('/null')) {
+            imgSrc = p.image_url_medium;
+        } else if (p.image_url && !p.image_url.includes('imagen-no-disponible') && !p.image_url.endsWith('/null')) {
+            imgSrc = p.image_url;
+        }
         // amount_sale_unit_price es numérico; sale_unit_price viene formateado "S/ X.XX"
         var rawPrice = parseFloat(p.amount_sale_unit_price || p.sale_unit_price) || 0;
         var price    = rawPrice > 0 ? 'S/ ' + rawPrice.toFixed(2) : (p.sale_unit_price || '');
