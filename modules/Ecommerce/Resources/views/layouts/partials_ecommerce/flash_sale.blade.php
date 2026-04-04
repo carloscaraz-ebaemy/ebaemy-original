@@ -37,7 +37,19 @@
         </div>
     </div>
 
-    <div class="ec-flash-sale__products">
+    @php $flashItemCount = $flashSale->items->count(); @endphp
+    <div style="position:relative">
+        @if($flashItemCount > 2)
+        <button type="button" class="ec-flash-nav ec-flash-nav--prev" aria-label="Anterior"
+                style="position:absolute;left:-6px;top:50%;transform:translateY(-50%);z-index:5;background:rgba(255,255,255,.9);border:none;border-radius:50%;width:32px;height:32px;display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.15)">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#333" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
+        </button>
+        <button type="button" class="ec-flash-nav ec-flash-nav--next" aria-label="Siguiente"
+                style="position:absolute;right:-6px;top:50%;transform:translateY(-50%);z-index:5;background:rgba(255,255,255,.9);border:none;border-radius:50%;width:32px;height:32px;display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.15)">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#333" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
+        </button>
+        @endif
+    <div class="ec-flash-sale__products{{ $flashItemCount <= 2 ? ' ec-flash--few' : '' }}" id="ec-flash-scroll">
         @foreach($flashSale->items as $item)
         @php
             $flashPrice   = $item->pivot->flash_price;
@@ -70,7 +82,20 @@
         </a>
         @endforeach
     </div>
+    </div>
 </section>
+
+<script>
+(function(){
+    var scroll = document.getElementById('ec-flash-scroll');
+    if (!scroll) return;
+    var prev = document.querySelector('.ec-flash-nav--prev');
+    var next = document.querySelector('.ec-flash-nav--next');
+    var step = function(){ return scroll.querySelector('.ec-flash-card')?.offsetWidth + 16 || 200; };
+    if (prev) prev.addEventListener('click', function(){ scroll.scrollBy({left: -step(), behavior:'smooth'}); });
+    if (next) next.addEventListener('click', function(){ scroll.scrollBy({left: step(), behavior:'smooth'}); });
+}());
+</script>
 
 @push('scripts')
 <script>
