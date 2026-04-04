@@ -11,6 +11,12 @@
         <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon icon-tabler icons-tabler-outline icon-tabler-shopping-bag"><path stroke="none" d="M0 0h24v24H0z" fill="none"></path><path d="M6.331 8h11.339a2 2 0 0 1 1.977 2.304l-1.255 8.152a3 3 0 0 1 -2.966 2.544h-6.852a3 3 0 0 1 -2.965 -2.544l-1.255 -8.152a2 2 0 0 1 1.977 -2.304z"></path><path d="M9 11v-5a3 3 0 0 1 6 0v5"></path></svg>
     </a>
     <span class="cart-count" style="position:absolute;top:-6px;right:-6px;background:#e53e3e;color:#fff;font-size:11px;font-weight:700;min-width:18px;height:18px;border-radius:50%;display:flex;align-items:center;justify-content:center;padding:0 3px;pointer-events:none;">0</span>
+    <style>
+    @media(max-width:767px){
+        .ec-minicart-dropdown.show{position:fixed!important;bottom:0!important;left:0!important;right:0!important;top:auto!important;width:100vw!important;max-width:100vw!important;min-width:100vw!important;border-radius:16px 16px 0 0!important;max-height:70vh!important;box-shadow:0 -4px 24px rgba(0,0,0,.2)!important;margin:0!important}
+        .ec-minicart-dropdown.show .ec-minicart-list{max-height:40vh!important}
+    }
+    </style>
     <div class="dropdown-menu ec-minicart-dropdown">
         <div class="ec-minicart-header">
             <span>Mi carrito</span>
