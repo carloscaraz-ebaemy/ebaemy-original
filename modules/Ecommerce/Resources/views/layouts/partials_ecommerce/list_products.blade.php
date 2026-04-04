@@ -12,6 +12,20 @@
         }
         return $total;
     }
+
+    // Flash sale activa: mapear item_id => flash_price
+    if (!isset($__flashPricesLoaded)) {
+        $__flashPricesLoaded = true;
+        $__flashPrices = [];
+        try {
+            $__fs = \App\Models\Tenant\FlashSale::active()->with('items')->first();
+            if ($__fs) {
+                foreach ($__fs->items as $__fi) {
+                    $__flashPrices[$__fi->id] = (float) $__fi->pivot->flash_price;
+                }
+            }
+        } catch (\Exception $e) {}
+    }
 @endphp
 
 @foreach ($dataPaginate as $item)
@@ -45,7 +59,22 @@
     $productUrl   = route('tenant.ecommerce.item', ['slug' => $item->slug ?: $item->id]);
     $altText      = $item->description . ($item->category ? ' — ' . $item->category->name : '');
     $symbol       = $item->currency_type['symbol'] ?? 'S/';
-    $price        = number_format($item->sale_unit_price, 2);
+    // Flash sale / pack price
+    $originalPrice = (float) $item->sale_unit_price;
+    $displayPrice  = $originalPrice;
+    if ($item->is_set && $item->sale_unit_price_set) {
+        $displayPrice = (float) $item->sale_unit_price_set;
+    }
+    $hasFlash = isset($__flashPrices[$item->id]) && $__flashPrices[$item->id] < $displayPrice;
+    if ($hasFlash) {
+        $originalPrice = $displayPrice;
+        $displayPrice  = $__flashPrices[$item->id];
+    } elseif ($displayPrice < $originalPrice) {
+        // pack discount
+    } else {
+        $originalPrice = 0; // no discount
+    }
+    $price = number_format($displayPrice, 2);
     // Stagger delay (1-based position in the page)
     $loop_i       = $loop->iteration;
     $delay        = min($loop_i * 40, 400);
@@ -191,7 +220,10 @@
                 @else
                     <link itemprop="availability" href="https://schema.org/InStock">
                 @endif
-                <span class="pcard__price-current">{{ $symbol }} {{ $price }}</span>
+                @if($originalPrice > 0 && $originalPrice > $displayPrice)
+                <span style="text-decoration:line-through;color:#9ca3af;font-size:12px;margin-right:4px">{{ $symbol }} {{ number_format($originalPrice, 2) }}</span>
+                @endif
+                <span class="pcard__price-current" style="{{ ($originalPrice > 0 && $originalPrice > $displayPrice) ? 'color:#e53e3e' : '' }}">{{ $symbol }} {{ $price }}</span>
             </div>
 
             {{-- CTA --}}
@@ -211,7 +243,7 @@
             @elseif(!$outOfStock)
                 <button type="button"
                         class="pcard__cta ec-btn-cart"
-                        data-ec-cart="{{ json_encode($item) }}"
+                        data-ec-cart="{{ json_encode(array_merge($item->toArray(), ['sale_unit_price' => $displayPrice, 'original_price' => ($originalPrice > 0 && $originalPrice > $displayPrice) ? $originalPrice : null])) }}"
                         aria-label="Agregar {{ $item->description }} al carrito"
                         title="Agregar al carrito">
                     <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24"
