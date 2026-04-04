@@ -405,38 +405,86 @@
         <div class="ec-checkout-card">
             <div class="ec-checkout-card__header">
                 <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
-                <span>Método de pago</span>
+                <span>Elige tu método de pago</span>
             </div>
-            <div class="ec-payment-actions">
-                {{-- Pagar con tarjeta (Culqi) --}}
-                <button class="ec-pay-btn ec-pay-btn--visa culqi" onclick="execCulqi()">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
-                    Pagar con Tarjeta
-                </button>
 
-                {{-- Pagar con efectivo --}}
-                <button @click="payment_cash.clicked = !payment_cash.clicked" class="ec-pay-btn ec-pay-btn--cash">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2"/><path d="M6 12h.01M18 12h.01"/></svg>
-                    Pagar con Efectivo / Contra entrega
-                </button>
-                <div v-show="payment_cash.clicked" class="ec-cash-input-wrap">
-                    <div class="ec-cash-input-group">
-                        <span class="ec-cash-prefix">S/</span>
-                        <input readonly placeholder="0.00" v-model="payment_cash.amount" type="text"
-                               onkeypress="return isNumberKey(event)" maxlength="14" class="ec-cash-input" aria-label="Monto">
-                        <button @click="paymentCash" class="ec-cash-ok">Confirmar pedido</button>
-                    </div>
-                </div>
+            <div class="ec-payment-methods">
+                {{-- Opción 1: Solo pedir (contra entrega) --}}
+                <label class="ec-payment-option" :class="{ 'ec-payment-option--active': paymentMethod === 'cash' }" @click="paymentMethod = 'cash'">
+                    <span class="ec-payment-option__radio"></span>
+                    <span class="ec-payment-option__icon" style="background:#f0fdf4;color:#16a34a">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2"/><path d="M6 12h.01M18 12h.01"/></svg>
+                    </span>
+                    <span class="ec-payment-option__text">
+                        <strong>Pagar al recibir</strong>
+                        <small>Efectivo o transferencia al momento de la entrega</small>
+                    </span>
+                </label>
+
+                {{-- Opción 2: Pagar con tarjeta --}}
+                <label class="ec-payment-option" :class="{ 'ec-payment-option--active': paymentMethod === 'card' }" @click="paymentMethod = 'card'">
+                    <span class="ec-payment-option__radio"></span>
+                    <span class="ec-payment-option__icon" style="background:#eef2ff;color:#4f46e5">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
+                    </span>
+                    <span class="ec-payment-option__text">
+                        <strong>Pagar con tarjeta</strong>
+                        <small>Visa, Mastercard, American Express</small>
+                    </span>
+                    <span class="ec-payment-cards">
+                        <img src="{{ asset('porto-ecommerce/assets/images/visa.svg') }}" alt="Visa" width="32" height="20" onerror="this.style.display='none'">
+                        <img src="{{ asset('porto-ecommerce/assets/images/mastercard.svg') }}" alt="Mastercard" width="32" height="20" onerror="this.style.display='none'">
+                    </span>
+                </label>
 
                 @if($information->script_paypal)
-                    {!!html_entity_decode($information->script_paypal)!!}
+                {{-- Opción 3: PayPal --}}
+                <label class="ec-payment-option" :class="{ 'ec-payment-option--active': paymentMethod === 'paypal' }" @click="paymentMethod = 'paypal'">
+                    <span class="ec-payment-option__radio"></span>
+                    <span class="ec-payment-option__icon" style="background:#fff7ed;color:#ea580c">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M16 8h-6a2 2 0 0 0-2 2v4"/></svg>
+                    </span>
+                    <span class="ec-payment-option__text">
+                        <strong>PayPal</strong>
+                        <small>Paga con tu cuenta PayPal</small>
+                    </span>
+                </label>
                 @endif
-
-                <p class="ec-secure-note">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-                    Pago 100% seguro y encriptado
-                </p>
             </div>
+
+            {{-- Botón de acción según método seleccionado --}}
+            <div class="ec-payment-action-wrap">
+                {{-- Efectivo: confirmar pedido directo --}}
+                <button v-if="paymentMethod === 'cash'"
+                        @click="paymentCash"
+                        class="ec-pay-btn ec-pay-btn--main"
+                        :disabled="loading_payment">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                    <span v-if="!loading_payment">Confirmar pedido — S/ @{{ totalFinal }}</span>
+                    <span v-else>Procesando...</span>
+                </button>
+
+                {{-- Tarjeta: abrir Culqi --}}
+                <button v-if="paymentMethod === 'card'"
+                        class="ec-pay-btn ec-pay-btn--main ec-pay-btn--card culqi"
+                        onclick="execCulqi()"
+                        :disabled="loading_payment">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                    Pagar S/ @{{ totalFinal }} con tarjeta
+                </button>
+
+                {{-- PayPal --}}
+                <div v-if="paymentMethod === 'paypal'" class="ec-paypal-wrap">
+                    @if($information->script_paypal)
+                        {!!html_entity_decode($information->script_paypal)!!}
+                    @endif
+                </div>
+            </div>
+
+            <p class="ec-secure-note">
+                <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                Pago 100% seguro y encriptado
+            </p>
         </div>
 
     </div>
@@ -482,6 +530,8 @@
             ubigeo: { department_id: '', province_id: '', district_id: '', departments: [], provinces: [], districts: [] },
             points: { enabled: false, balance: 0, applied: false, discount: 0 },
             deliveryType: 'delivery', // delivery | pickup
+            paymentMethod: 'cash', // cash | card | paypal
+            loading_payment: false,
             step: 1, // checkout wizard step (1-4)
             records: [],
             records_old: [],
