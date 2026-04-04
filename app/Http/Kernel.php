@@ -78,5 +78,6 @@ class Kernel extends HttpKernel
         'set.theme' => \App\Http\Middleware\SetTheme::class,
         'identify.tenant' => \App\Http\Middleware\IdentifyTenant::class,
         'auth.or.signed' => \App\Http\Middleware\AuthOrSigned::class,
+        'feature' => \App\Http\Middleware\CheckFeature::class,
     ];
 }
