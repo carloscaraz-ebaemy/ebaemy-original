@@ -231,7 +231,7 @@
     <script src="{{ asset('porto-ecommerce/assets/js/product-gallery.js') }}"></script>
     <script src="{{ asset('porto-ecommerce/assets/js/image-zoom.js') }}"></script>
     <script src="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.js"></script>
-    <script src="{{ asset('porto-ecommerce/assets/js/recently-viewed.js') }}"></script>
+    <script src="{{ asset('porto-ecommerce/assets/js/recently-viewed.js?v=20260404') }}"></script>
     <script src="{{ asset('porto-ecommerce/assets/js/compare.js') }}"></script>
     {{-- NO cargar @vite app.js: el ecommerce usa su propia instancia Vue (CDN) --}}
     <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
