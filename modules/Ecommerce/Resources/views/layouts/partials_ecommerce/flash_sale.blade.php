@@ -40,16 +40,18 @@
     @php $flashItemCount = $flashSale->items->count(); @endphp
     <div style="position:relative">
         @if($flashItemCount > 2)
-        <button type="button" class="ec-flash-nav ec-flash-nav--prev" aria-label="Anterior"
-                style="position:absolute;left:-6px;top:50%;transform:translateY(-50%);z-index:5;background:rgba(255,255,255,.9);border:none;border-radius:50%;width:32px;height:32px;display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.15)">
+        <button type="button" class="ec-flash-nav ec-flash-nav--prev d-none d-md-{{ $flashItemCount > 4 ? 'flex' : 'none' }}" aria-label="Anterior"
+                style="position:absolute;left:-6px;top:50%;transform:translateY(-50%);z-index:5;background:rgba(255,255,255,.9);border:none;border-radius:50%;width:36px;height:36px;display:none;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.15)">
             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#333" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
         </button>
-        <button type="button" class="ec-flash-nav ec-flash-nav--next" aria-label="Siguiente"
-                style="position:absolute;right:-6px;top:50%;transform:translateY(-50%);z-index:5;background:rgba(255,255,255,.9);border:none;border-radius:50%;width:32px;height:32px;display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.15)">
+        <button type="button" class="ec-flash-nav ec-flash-nav--next d-none d-md-{{ $flashItemCount > 4 ? 'flex' : 'none' }}" aria-label="Siguiente"
+                style="position:absolute;right:-6px;top:50%;transform:translateY(-50%);z-index:5;background:rgba(255,255,255,.9);border:none;border-radius:50%;width:36px;height:36px;display:none;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.15)">
             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#333" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
         </button>
+        {{-- Flechas mobile: siempre visibles si > 2 items --}}
+        <style>@media(max-width:767px){.ec-flash-nav{display:flex!important}}</style>
         @endif
-    <div class="ec-flash-sale__products{{ $flashItemCount <= 2 ? ' ec-flash--few' : '' }}" id="ec-flash-scroll">
+    <div class="ec-flash-sale__products ec-flash--count-{{ $flashItemCount }}" id="ec-flash-scroll">
         @foreach($flashSale->items as $item)
         @php
             $flashPrice   = $item->pivot->flash_price;
