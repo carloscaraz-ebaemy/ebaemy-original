@@ -3839,7 +3839,7 @@
       "resources/js/views/system/payments/index.vue",
       "resources/js/views/system/analytics/index.vue"
     ],
-    "file": "assets/system-f4c97317.js",
+    "file": "assets/system-ff92a035.js",
     "imports": [
       "_vue-clipboard-37f3156a.js"
     ],
@@ -4040,15 +4040,8 @@
     "isDynamicEntry": true,
     "src": "resources/js/views/system/payments/index.vue"
   },
-  "resources/js/views/system/plans/form.css": {
-    "file": "assets/form-07f050aa.css",
-    "src": "resources/js/views/system/plans/form.css"
-  },
   "resources/js/views/system/plans/form.vue": {
-    "css": [
-      "assets/form-07f050aa.css"
-    ],
-    "file": "assets/form-fe911c2a.js",
+    "file": "assets/form-54143529.js",
     "imports": [
       "_vue-clipboard-37f3156a.js"
     ],
@@ -4056,7 +4049,7 @@
     "src": "resources/js/views/system/plans/form.vue"
   },
   "resources/js/views/system/plans/index.vue": {
-    "file": "assets/index-a1a7150c.js",
+    "file": "assets/index-0508d14e.js",
     "imports": [
       "resources/js/views/system/plans/form.vue",
       "_vue-clipboard-37f3156a.js",
