@@ -178,6 +178,16 @@ class ItemSetController extends Controller
 
             $item->update();
 
+            // Sincronizar stock_physical de componentes donde esté en 0
+            // (corrige inconsistencia entre stock legacy y stock_physical)
+            foreach ($item->sets as $setItem) {
+                $iw = \App\Models\Tenant\ItemWarehouse::where('item_id', $setItem->individual_item_id)->first();
+                if ($iw && $iw->stock_physical == 0 && $iw->stock > 0) {
+                    $iw->stock_physical = $iw->stock;
+                    $iw->save();
+                }
+            }
+
             return $item;
         });
 
