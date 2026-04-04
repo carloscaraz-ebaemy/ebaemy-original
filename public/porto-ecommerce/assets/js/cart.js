@@ -188,6 +188,19 @@ function productsCartDropDown() {
         var symbol   = element.currency_type_symbol || element.currency_type_id || 'S/';
         var slug     = element.slug ? '/ecommerce/item/' + element.slug : '#';
 
+        var origPrice = parseFloat(element.original_price) || 0;
+        var hasDisc   = origPrice > 0 && origPrice > price;
+        var discPct   = hasDisc ? Math.round((1 - price / origPrice) * 100) : 0;
+
+        var priceHtml = '';
+        if (hasDisc) {
+            priceHtml = '<span style="text-decoration:line-through;color:#9ca3af;font-size:11px">' + symbol + ' ' + origPrice.toFixed(2) + '</span> ';
+        }
+        priceHtml += '<span style="' + (hasDisc ? 'color:#e53e3e;font-weight:700' : '') + '">' + symbol + ' ' + price.toFixed(2) + '</span>';
+        if (hasDisc) {
+            priceHtml += ' <span style="background:#e53e3e;color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:8px">-' + discPct + '%</span>';
+        }
+
         if (cartContainer) {
             cartContainer.insertAdjacentHTML('beforeend',
                 '<div class="ec-minicart-item">' +
@@ -196,7 +209,7 @@ function productsCartDropDown() {
                     '</a>' +
                     '<div class="ec-minicart-info">' +
                         '<a href="' + slug + '" class="ec-minicart-name">' + (element.description || '') + '</a>' +
-                        '<span class="ec-minicart-meta">' + qty + ' × ' + symbol + ' ' + price.toFixed(2) + '</span>' +
+                        '<span class="ec-minicart-meta">' + qty + ' × ' + priceHtml + '</span>' +
                         '<span class="ec-minicart-sub">' + symbol + ' ' + subtotal + '</span>' +
                     '</div>' +
                     '<button type="button" class="ec-minicart-remove" data-item-id="' + element.id + '" data-variant-id="' + (element.variant_id || '') + '" title="Eliminar" aria-label="Eliminar">' +
