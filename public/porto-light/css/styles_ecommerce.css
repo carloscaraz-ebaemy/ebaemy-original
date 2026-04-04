@@ -3189,11 +3189,11 @@ ul.contact-info li a:hover {
     .ec-mobile-action-bar {
         position: fixed;
         bottom: 0; left: 0; right: 0;
-        z-index: 1000;
+        z-index: 10000;
         background: #fff;
         padding: 10px 16px calc(10px + env(safe-area-inset-bottom));
         box-shadow: 0 -3px 16px rgba(0,0,0,.10);
-        display: flex;
+        display: flex !important;
         gap: 10px;
         border-top: 1px solid hsl(var(--primary-h), var(--primary-s), 90%);
     }
