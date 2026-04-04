@@ -845,7 +845,7 @@
             {{-- ── MOBILE STICKY BAR (solo visible en móvil ≤ 767px) ── --}}
             @if($isAvailable)
             <div class="ec-mobile-action-bar d-md-none">
-                <script>document.addEventListener('DOMContentLoaded',function(){var f=document.querySelector('.ws-flotante');if(f&&window.innerWidth<768)f.style.display='none';});</script>
+                <style>@media(max-width:767px){a.ws-flotante{display:none!important}}</style>
                 @if($showWhatsapp)
                 <a href="{{ $waLink }}" class="btn-whatsapp ec-mob-wa-btn" target="_blank" rel="noopener noreferrer"
                    title="Consultar por WhatsApp" aria-label="WhatsApp">
