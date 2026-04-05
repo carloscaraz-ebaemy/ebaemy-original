@@ -31,18 +31,25 @@
                 </div>
 
                 <div class="col-md-12 form-group">
+                  <label class="font-weight-bold">Palabras clave (Keywords)</label>
+                  <el-input type="textarea" :rows="2" v-model="form.seo_keywords" maxlength="300" show-word-limit
+                    placeholder="decoracion, hogar, muebles, plantas artificiales, tienda online" />
+                  <small class="text-muted">Separadas por comas. Ayudan a Google a entender de qué trata tu tienda.</small>
+                </div>
+
+                <div class="col-md-12 form-group">
                   <label class="font-weight-bold">Indexación</label>
                   <br>
                   <el-switch v-model="form.indexable" active-text="Indexar en Google" inactive-text="No indexar" />
                 </div>
 
                 <div class="col-md-12 mt-4">
+                  <label class="font-weight-bold mb-2 d-block" style="font-size:12px;color:#6b7280">Vista previa en Google</label>
                   <div class="google-preview p-3 border rounded">
                     <div class="google-title">{{ form.seo_title || 'Título de ejemplo para Google' }}</div>
                     <div class="google-url">{{ siteUrl }}</div>
                     <div class="google-description">
-                      {{ form.seo_description || 'Descripción de ejemplo que aparecerá en los resultados de búsqueda.'
-                      }}
+                      {{ form.seo_description || 'Descripción de ejemplo que aparecerá en los resultados de búsqueda.' }}
                     </div>
                   </div>
                 </div>
@@ -188,6 +195,7 @@
         id: null,
         seo_title: "",
         seo_description: "",
+        seo_keywords: "",
         og_image: null,
         twitter_image: null,
         google_site_verification: null,
@@ -236,7 +244,7 @@
       this.cleanGoogleVerification();
 
       const seoFields = [
-        'id', 'seo_title', 'seo_description', 'seo_author', 'seo_robots',
+        'id', 'seo_title', 'seo_description', 'seo_keywords', 'seo_author', 'seo_robots',
         'og_title', 'og_description', 'og_image', 'og_type',
         'twitter_title', 'twitter_description', 'twitter_image', 'twitter_card',
         'canonical_url', 'indexable', 'schema_json',
