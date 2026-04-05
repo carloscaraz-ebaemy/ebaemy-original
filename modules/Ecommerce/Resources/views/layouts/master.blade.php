@@ -205,6 +205,19 @@
     <!-- Vue debe cargarse ANTES del header (que usa new Vue) -->
     <script src="{{ asset('porto-ecommerce/assets/js/vue.min.js') }}"></script>
     <script src="{{ asset('porto-ecommerce/assets/js/axios.min.js') }}"></script>
+
+    {{-- Ocultar comparador de productos en móvil --}}
+    <style>
+    @media (max-width: 767px) {
+        .ec-btn-compare,
+        .ec-btn-compare--detail,
+        .pcard__compare-mini,
+        .ec-compare-bar,
+        .ec-compare-modal,
+        .ec-compare-toast,
+        [data-compare-id] { display: none !important; }
+    }
+    </style>
 </head>
 
 <body>
