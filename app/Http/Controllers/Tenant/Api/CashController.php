@@ -28,6 +28,14 @@ class CashController extends Controller
      */
     public function storeRestaurant(Request $request) {
 
+        $request->validate([
+            'dateOpening'     => 'required|date',
+            'timeOpening'     => 'required|string',
+            'beginningBalance'=> 'required|numeric|min:0',
+            'referenceNumber' => 'nullable|string|max:50',
+            'internalsId'     => 'required|array',
+        ]);
+
         $cash = new Cash();
         $cash->user_id = auth()->user()->id;
         $cash->date_opening = $request->dateOpening;

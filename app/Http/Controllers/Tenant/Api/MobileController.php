@@ -114,7 +114,7 @@ class MobileController extends Controller
 
     public function customers()
     {
-        $customers = Person::whereType('customers')->orderBy('name')->take(20)->get()->transform(function($row) {
+        $customers = Person::with(['identity_document_type', 'addresses'])->whereType('customers')->orderBy('name')->take(20)->get()->transform(function($row) {
             return [
                 'id' => $row->id,
                 'description' => $row->number.' - '.$row->name,
@@ -129,16 +129,13 @@ class MobileController extends Controller
                 'district_id' => $row->district_id,
                 'email' => $row->email,
                 'selected' => false,
-                'addresses' => PersonAddress::where('person_id',$row->id)
-                                ->get()
-                                ->transform(function ($row) {
-                                    $location_id = [$row->department_id,$row->province_id,$row->district_id];
+                'addresses' => $row->addresses->map(function ($addr) {
                                     return [
-                                        'id' => $row->id,
-                                        'location_id' => $location_id,
-                                        'address' => $row->address,
-                                        'code' => $row->establishment_code,
-                                        'has_consigned' => (bool)$row->has_consigned,
+                                        'id' => $addr->id,
+                                        'location_id' => [$addr->department_id, $addr->province_id, $addr->district_id],
+                                        'address' => $addr->address,
+                                        'code' => $addr->establishment_code,
+                                        'has_consigned' => (bool) $addr->has_consigned,
                                     ];
                                 }),
             ];
@@ -298,7 +295,7 @@ class MobileController extends Controller
             $row = new Item();
             $row->item_type_id = '01';
             $row->amount_plastic_bag_taxes = Configuration::firstOrFail()->amount_plastic_bag_taxes;
-            $row->fill($request->all());
+            $row->fill($request->only($row->getFillable()));
             $temp_path = $request->input('temp_path');
 
             if($temp_path) {
@@ -389,7 +386,7 @@ class MobileController extends Controller
                 'district_id'   => null
             ]);
         }
-        $row->fill($request->all());
+        $row->fill($request->only($row->getFillable()));
         $row->save();
         $addresses = $request->input('addresses');
         if (isset($addresses)) {
@@ -665,10 +662,28 @@ class MobileController extends Controller
         $file = $request['file'];
         $type = $request['type'];
 
+        // Validar MIME type (solo imágenes permitidas)
+        $allowedMimes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/svg+xml'];
+        $mime = $file->getMimeType();
+
+        if (!in_array($mime, $allowedMimes)) {
+            return [
+                'success' => false,
+                'message' => 'Tipo de archivo no permitido. Solo imágenes: JPG, PNG, GIF, WebP.',
+            ];
+        }
+
+        // Validar tamaño (max 5MB)
+        if ($file->getSize() > 5 * 1024 * 1024) {
+            return [
+                'success' => false,
+                'message' => 'El archivo excede el tamaño máximo de 5MB.',
+            ];
+        }
+
         $temp = tempnam(sys_get_temp_dir(), $type);
         file_put_contents($temp, file_get_contents($file));
 
-        $mime = mime_content_type($temp);
         $data = file_get_contents($temp);
 
         return [

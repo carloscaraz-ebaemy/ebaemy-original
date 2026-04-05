@@ -691,12 +691,20 @@ use Illuminate\Support\Facades\DB;
          */
         public function getOptionalEmailArray(): array
         {
-            $data = unserialize($this->optional_email);
-            if ($data === false) {
-                $data = [];
+            if (empty($this->optional_email)) {
+                return [];
             }
 
-            return $data;
+            // Intentar JSON primero (formato nuevo seguro)
+            $data = json_decode($this->optional_email, true);
+            if (is_array($data)) {
+                return $data;
+            }
+
+            // Fallback: datos legacy en formato serialize (solo tipos seguros)
+            $data = @unserialize($this->optional_email, ['allowed_classes' => false]);
+
+            return is_array($data) ? $data : [];
         }
 
         /**
@@ -764,7 +772,7 @@ use Illuminate\Support\Facades\DB;
          */
         public function setOptionalEmailArray(array $optional_email_array = []): Person
         {
-            $this->optional_email = serialize($optional_email_array);
+            $this->optional_email = json_encode($optional_email_array);
             return $this;
         }
 

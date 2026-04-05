@@ -37,9 +37,16 @@ class ConsignedController extends Controller
 
     public function store(Request $request)
     {
+        $request->validate([
+            'name'      => 'required|string|max:255',
+            'number'    => 'nullable|string|max:50',
+            'email'     => 'nullable|email|max:255',
+            'telephone' => 'nullable|string|max:30',
+        ]);
+
         $id = $request->input('id');
         $consigned = Consigned::firstOrNew(['id' => $id]);
-        $consigned->fill($request->all());
+        $consigned->fill($request->only($consigned->getFillable()));
         $consigned->save();
 
         return [
