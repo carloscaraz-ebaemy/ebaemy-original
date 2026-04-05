@@ -2223,6 +2223,8 @@ export default {
             } else {
                 this.setFocusSelectItem();
             }
+
+            return this.row;
         },
         showMessageDetraction() {
             let total =

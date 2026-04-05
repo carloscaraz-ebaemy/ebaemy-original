@@ -1725,6 +1725,8 @@ export default {
             } else {
                 this.setFocusSelectItem();
             }
+
+            return this.row;
         },
         cleanItems() {
             this.items = [];

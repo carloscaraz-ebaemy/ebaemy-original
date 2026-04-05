@@ -1126,10 +1126,17 @@ export default {
             this.items = [{ ...item }];
 
             await this.changeItem();
-            await this.generalSleep(500);
-            const add_item = await this.clickAddItem();
+            await this.generalSleep(800);
 
-            if (add_item !== null && add_item !== undefined) return add_item;
+            try {
+                const add_item = await this.clickAddItem();
+                if (add_item !== null && add_item !== undefined) return add_item;
+            } catch (e) {
+                // Retry once with more wait time
+                await this.generalSleep(500);
+                const retry = await this.clickAddItem();
+                if (retry !== null && retry !== undefined) return retry;
+            }
 
             throw new Error("No se pudo agregar el producto.");
         },
@@ -1967,6 +1974,8 @@ export default {
             } else {
                 this.setFocusSelectItem();
             }
+
+            return this.row;
         },
         cleanItems() {
             this.items = [];
