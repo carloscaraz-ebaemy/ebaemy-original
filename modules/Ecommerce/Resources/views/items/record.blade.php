@@ -790,6 +790,78 @@
                         <span>Despacho a domicilio</span>
                     </div>
                 </div>
+
+                {{-- Calculadora de envío --}}
+                <div class="ec-shipping-calc" id="ec-shipping-calc">
+                    <div class="ec-shipping-calc__header">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>
+                        <span>Calcular costo de envio</span>
+                    </div>
+                    <div class="ec-shipping-calc__body">
+                        <select id="ec-ship-dept" class="ec-shipping-calc__select" onchange="loadProvinces(this.value)">
+                            <option value="">Departamento</option>
+                        </select>
+                        <select id="ec-ship-prov" class="ec-shipping-calc__select" onchange="loadDistricts(this.value)" disabled>
+                            <option value="">Provincia</option>
+                        </select>
+                        <select id="ec-ship-dist" class="ec-shipping-calc__select" onchange="calcShipping()" disabled>
+                            <option value="">Distrito</option>
+                        </select>
+                    </div>
+                    <div id="ec-ship-result" class="ec-shipping-calc__result" style="display:none"></div>
+                </div>
+                <script>
+                (function(){
+                    // Cargar departamentos
+                    fetch('/ecommerce/ubigeo/departments').then(r=>r.json()).then(data=>{
+                        var sel = document.getElementById('ec-ship-dept');
+                        (data.data||data||[]).forEach(function(d){ sel.innerHTML += '<option value="'+d.id+'">'+d.description+'</option>'; });
+                    });
+                    window.loadProvinces = function(deptId){
+                        var sel = document.getElementById('ec-ship-prov');
+                        sel.innerHTML = '<option value="">Provincia</option>';
+                        sel.disabled = !deptId;
+                        document.getElementById('ec-ship-dist').innerHTML = '<option value="">Distrito</option>';
+                        document.getElementById('ec-ship-dist').disabled = true;
+                        document.getElementById('ec-ship-result').style.display = 'none';
+                        if(!deptId) return;
+                        fetch('/ecommerce/ubigeo/provinces/'+deptId).then(r=>r.json()).then(data=>{
+                            (data.data||data||[]).forEach(function(p){ sel.innerHTML += '<option value="'+p.id+'">'+p.description+'</option>'; });
+                        });
+                    };
+                    window.loadDistricts = function(provId){
+                        var sel = document.getElementById('ec-ship-dist');
+                        sel.innerHTML = '<option value="">Distrito</option>';
+                        sel.disabled = !provId;
+                        document.getElementById('ec-ship-result').style.display = 'none';
+                        if(!provId) return;
+                        fetch('/ecommerce/ubigeo/districts/'+provId).then(r=>r.json()).then(data=>{
+                            (data.data||data||[]).forEach(function(d){ sel.innerHTML += '<option value="'+d.id+'">'+d.description+'</option>'; });
+                        });
+                    };
+                    window.calcShipping = function(){
+                        var dept = document.getElementById('ec-ship-dept');
+                        var deptName = dept.options[dept.selectedIndex]?.text || '';
+                        var result = document.getElementById('ec-ship-result');
+                        var isLima = deptName.toLowerCase().includes('lima');
+                        if(isLima){
+                            result.innerHTML = '<div class="ec-ship-ok"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#10B981" stroke-width="2"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg> <strong>Envio: S/ 10.00</strong> — Entrega en 1-2 dias habiles</div>';
+                        } else {
+                            result.innerHTML = '<div class="ec-ship-ok"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg> <strong>Envio: S/ 20.00</strong> — Entrega en 3-5 dias habiles (agencia)</div>';
+                        }
+                        result.style.display = 'block';
+                    };
+                })();
+                </script>
+                <style>
+                .ec-shipping-calc { border: 1px solid #e5e7eb; border-radius: 12px; padding: 14px; margin-top: 12px; }
+                .ec-shipping-calc__header { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; color: #374151; margin-bottom: 10px; }
+                .ec-shipping-calc__body { display: flex; gap: 8px; flex-wrap: wrap; }
+                .ec-shipping-calc__select { flex: 1; min-width: 120px; padding: 8px 10px; border: 1px solid #e5e7eb; border-radius: 8px; font-size: 13px; background: #fff; }
+                .ec-shipping-calc__select:disabled { background: #f9fafb; color: #9ca3af; }
+                .ec-shipping-calc__result { margin-top: 10px; }
+                .ec-ship-ok { display: flex; align-items: center; gap: 8px; font-size: 13px; color: #374151; padding: 10px; background: #f0fdf4; border-radius: 8px; }
+                </style>
                 @endif
 
                 {{-- Comparar --}}
