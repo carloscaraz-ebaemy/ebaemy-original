@@ -2211,7 +2211,7 @@ class SaleNoteController extends Controller
     public function getConfigGroupItems()
     {
         return [
-            'group_items_generate_document' => Configuration::select('group_items_generate_document')->first()->group_items_generate_document
+            'group_items_generate_document' => Configuration::select('group_items_generate_document')->first()?->group_items_generate_document ?? false
         ];
     }
 

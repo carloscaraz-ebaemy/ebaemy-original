@@ -400,7 +400,7 @@
                                         <td>{{ index + 1 }}</td>
                                         <td>{{
                                                 setDescriptionOfItem(row.item)
-                                            }}<br/><small>{{ row.affectation_igv_type.description }}</small></td>
+                                            }}<br/><small><small v-if="row.affectation_igv_type">{{ row.affectation_igv_type.description }}</small></small></td>
                                         <td class="text-left">{{ getWarehouseDescription(row) }}</td>
                                         <!-- <td class="text-left">{{ (row.warehouse_description) ? row.warehouse_description : row.warehouse.description  }}</td> -->
                                         <td class="text-left">{{ row.lot_code }}</td>

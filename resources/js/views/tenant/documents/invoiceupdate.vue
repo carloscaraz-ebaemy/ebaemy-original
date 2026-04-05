@@ -264,7 +264,7 @@
                                             {{ row.total_plastic_bag_taxes }}</small>
                                         </template>
 
-                                        <br/><small>{{ row.affectation_igv_type.description }}</small>
+                                        <br/><small><small v-if="row.affectation_igv_type">{{ row.affectation_igv_type.description }}</small></small>
                                     </td>
                                     <td class="text-center">{{ row.item.unit_type_id }}</td>
 

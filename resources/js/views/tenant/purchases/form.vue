@@ -527,7 +527,7 @@
                                                         setDescriptionOfItem(row.item)
                                                     }}
                                                 </template>
-                                                <br/><small>{{ row.affectation_igv_type.description }}</small>
+                                                <br/><small><small v-if="row.affectation_igv_type">{{ row.affectation_igv_type.description }}</small></small>
                                             </td>
                                             <td class="text-start">{{ row.warehouse_description }}</td>
                                             <td class="text-start">{{ row.lot_code }}</td>

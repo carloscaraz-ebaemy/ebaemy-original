@@ -300,7 +300,7 @@ class DocumentController extends Controller
         $affectation_igv_types = AffectationIgvType::whereActive()->get();
         $user = $userType;
         $global_discount_types = ChargeDiscountType::whereIn('id', ['02', '03'])->whereActive()->get();
-        $enable_consigned = Configuration::first()->enable_consigned;
+        $enable_consigned = Configuration::first()?->enable_consigned ?? false;
 
         return compact(
             'document_id',
@@ -565,9 +565,10 @@ class DocumentController extends Controller
             if (isset($row['stock'])) {
                 $warehouse_stock = number_format($row['stock'], 2);
             } else {
-                $warehouse_stock = ($row->warehouses && $warehouse) ?
-                    number_format($row->warehouses->where('warehouse_id', $warehouse->id)->first()->stock, 2) :
-                    0;
+                $warehouseItem = ($row->warehouses && $warehouse)
+                    ? $row->warehouses->where('warehouse_id', $warehouse->id)->first()
+                    : null;
+                $warehouse_stock = $warehouseItem ? number_format($warehouseItem->stock, 2) : 0;
             }
 
             $stock = ($row->warehouses && $warehouse) ? "{$warehouse_stock}" : "";

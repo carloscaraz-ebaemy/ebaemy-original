@@ -1571,8 +1571,10 @@ class ItemController extends Controller
         $format = $request->input('format');
 
         $record = Item::find($id);
-        $item_warehouse = ItemWarehouse::where([['item_id', $id], ['warehouse_id', auth()->user()
-            ->establishment->warehouse->id]])->first();
+        $warehouseId = auth()->user()->establishment?->warehouse?->id;
+        $item_warehouse = $warehouseId
+            ? ItemWarehouse::where([['item_id', $id], ['warehouse_id', $warehouseId]])->first()
+            : null;
 
         if(!$item_warehouse){
             return [
