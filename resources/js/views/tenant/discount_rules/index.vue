@@ -141,18 +141,27 @@
                         <el-input v-model="form.name" maxlength="100" placeholder="Ej: 10% dcto en compras mayores a S/ 200" show-word-limit></el-input>
                     </el-form-item>
 
-                    <div class="row">
-                        <div class="col-8">
-                            <el-form-item label="Tipo de regla" prop="type" :rules="[{required:true,message:'Selecciona un tipo'}]">
-                                <el-select v-model="form.type" style="width:100%" @change="onTypeChange" placeholder="Selecciona tipo">
-                                    <el-option v-for="t in types" :key="t.id" :value="t.id">
-                                        <span>{{ t.icon }} {{ t.label }}</span>
-                                    </el-option>
-                                </el-select>
-                            </el-form-item>
-                        </div>
-                        <div class="col-4 d-flex align-items-center pt-2">
-                            <el-switch v-model="form.is_active" active-text="Activa" inactive-text="Inactiva" active-color="#22c55e"></el-switch>
+                    <el-form-item label="Tipo de regla" prop="type" :rules="[{required:true,message:'Selecciona un tipo'}]">
+                        <el-select v-model="form.type" style="width:100%" @change="onTypeChange" placeholder="Selecciona tipo">
+                            <el-option v-for="t in types" :key="t.id" :value="t.id" :label="t.icon + ' ' + t.label">
+                                <div class="dr-type-option">
+                                    <span class="dr-type-option-icon">{{ t.icon }}</span>
+                                    <div>
+                                        <strong>{{ t.label }}</strong>
+                                        <small class="dr-type-option-desc">{{ t.desc }}</small>
+                                    </div>
+                                </div>
+                            </el-option>
+                        </el-select>
+                    </el-form-item>
+
+                    <div class="dr-status-bar">
+                        <span class="dr-status-label">Estado de la regla</span>
+                        <div class="dr-status-toggle">
+                            <el-switch v-model="form.is_active" active-color="#22c55e" inactive-color="#e5e7eb"></el-switch>
+                            <span :class="form.is_active ? 'dr-status-active' : 'dr-status-inactive'">
+                                {{ form.is_active ? 'Activa' : 'Inactiva' }}
+                            </span>
                         </div>
                     </div>
                 </div>
@@ -417,9 +426,17 @@ export default {
         },
         loadTables() {
             this.$http.get('/discount-rules/tables').then(r => {
+                var descs = {
+                    volume: 'Aplica al comprar X o mas unidades',
+                    auto: 'Aplica al superar un monto minimo',
+                    channel: 'Solo para un canal de venta especifico',
+                    flash_sale: 'Oferta por tiempo limitado',
+                    bundle: 'Aplica al comprar un pack/conjunto',
+                };
                 this.types = (r.data.types || []).map(t => ({
                     ...t,
                     icon: { volume: '📦', auto: '💰', channel: '🏪', flash_sale: '⚡', bundle: '🎁' }[t.id] || '',
+                    desc: descs[t.id] || '',
                 }));
                 this.channels = r.data.channels;
             });
@@ -599,6 +616,19 @@ export default {
 .dr-usage-max { color: #9ca3af; }
 .dr-usage-bar { width: 100%; height: 4px; background: #e5e7eb; border-radius: 2px; margin-top: 4px; }
 .dr-usage-bar-fill { height: 100%; background: #4F46E5; border-radius: 2px; transition: width .3s; }
+
+/* Type option in select dropdown */
+.dr-type-option { display: flex; align-items: center; gap: 10px; padding: 4px 0; }
+.dr-type-option-icon { font-size: 20px; width: 32px; text-align: center; }
+.dr-type-option strong { display: block; font-size: 13px; color: #1e293b; }
+.dr-type-option-desc { display: block; font-size: 11px; color: #94a3b8; line-height: 1.3; }
+
+/* Status bar */
+.dr-status-bar { display: flex; justify-content: space-between; align-items: center; padding: 14px 16px; background: #f8fafc; border: 1px solid #e5e7eb; border-radius: 10px; margin-top: 4px; }
+.dr-status-label { font-size: 13px; font-weight: 600; color: #64748b; }
+.dr-status-toggle { display: flex; align-items: center; gap: 10px; }
+.dr-status-active { font-size: 13px; font-weight: 600; color: #16a34a; }
+.dr-status-inactive { font-size: 13px; font-weight: 500; color: #94a3b8; }
 
 /* Element UI overrides */
 .dr-form >>> .el-form-item { margin-bottom: 16px; }
