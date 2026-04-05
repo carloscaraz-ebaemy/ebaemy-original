@@ -37,6 +37,11 @@ if ($hostname) {
         Route::get('/exchange_rate/ecommence/{date}', 'Tenant\Api\ServiceController@exchangeRateTest')
              ->middleware('throttle:30,1');
 
+        // ── Raíz: redirigir a la tienda ecommerce ────────────────────────
+        Route::get('/', function () {
+            return redirect('/ecommerce');
+        });
+
         // ── Tracking público de pedidos (sin auth, rate-limited) ────────
         Route::get('logistic/tracking', [\App\Http\Controllers\Tenant\Logistic\TrackingController::class, 'index'])
              ->name('logistic.tracking')
