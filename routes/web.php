@@ -7,12 +7,6 @@ $hostname = app(Hyn\Tenancy\Contracts\CurrentHostname::class);
 
 if ($hostname) {
     Route::domain($hostname->fqdn)->group(function () {
-
-        // ── Raíz: redirigir a la tienda ecommerce (ANTES de Auth::routes) ──
-        Route::get('/', function () {
-            return redirect('/ecommerce');
-        });
-
         Auth::routes([
             'register' => false,
             'verify'   => false
