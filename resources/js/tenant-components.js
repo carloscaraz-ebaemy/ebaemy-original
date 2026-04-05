@@ -296,6 +296,7 @@ Vue.component('tenant-item-sets-index', () => import('./views/tenant/item_sets/i
 Vue.component('tenant-person-types-index', () => import('./views/tenant/person_types/index.vue'))
 Vue.component('tenant-orders-index', () => import('./views/tenant/orders/index.vue'))
 Vue.component('tenant-discount-rules-index', () => import('./views/tenant/discount_rules/index.vue'))
+Vue.component('tenant-webhooks-index', () => import('./views/tenant/webhooks/index.vue'))
 
 // Account (tenant)
 Vue.component('tenant-account-payment-index', () => import('./views/tenant/account/payment_index.vue'))

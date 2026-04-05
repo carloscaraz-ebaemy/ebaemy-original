@@ -87,6 +87,18 @@ if ($hostname) {
             Route::delete('discount-rules/{id}',        'Tenant\DiscountRuleController@destroy');
             Route::post('discount-rules/{id}/toggle',   'Tenant\DiscountRuleController@toggle');
 
+            // Webhooks
+            Route::prefix('webhooks')->group(function () {
+                Route::get('/', 'Tenant\WebhookController@index');
+                Route::get('/records', 'Tenant\WebhookController@records');
+                Route::get('/tables', 'Tenant\WebhookController@tables');
+                Route::post('/', 'Tenant\WebhookController@store');
+                Route::delete('/{id}', 'Tenant\WebhookController@destroy');
+                Route::post('/{id}/toggle', 'Tenant\WebhookController@toggle');
+                Route::get('/{id}/logs', 'Tenant\WebhookController@logs');
+                Route::post('/{id}/test', 'Tenant\WebhookController@test');
+            });
+
             // Product Reviews
             Route::prefix('reviews')->group(function () {
                 Route::get('/', 'Tenant\ProductReviewController@index');

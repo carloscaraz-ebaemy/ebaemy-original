@@ -297,6 +297,15 @@ class OrderController extends Controller
       // Notificación WhatsApp automática al cambiar estado
       $this->sendWhatsAppStatusNotification($order, $request->record['status_order_id']);
 
+      // Webhook: order.status_changed
+      $statusId = (int) $request->record['status_order_id'];
+      $event = $statusId === 5 ? 'order.cancelled' : 'order.status_changed';
+      \App\Services\Tenant\WebhookDispatcher::dispatchAsync($event, [
+          'order_id'  => $order->id,
+          'status_id' => $statusId,
+          'total'     => $order->total,
+      ]);
+
       return [
         'message' => 'Estatus actualizado'
       ];

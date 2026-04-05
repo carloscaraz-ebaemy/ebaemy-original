@@ -1801,6 +1801,12 @@ $inventory_configuration = InventoryConfiguration::getSidebarPermissions();
                         </a>
                     </li>
                 @endif
+                <li class="{{ request()->is('webhooks*') ? 'nav-active' : '' }}">
+                    <a class="nav-link" href="/webhooks">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 5a7 7 0 1 0 7 7"/><path d="M13 5h6v6"/><path d="M13 11l6-6"/></svg>
+                        Webhooks
+                    </a>
+                </li>
                 @if(in_array('configuration', $vc_modules))
                     <li
                         class="{{in_array($firstLevel, ['list-platforms', 'list-cards', 'list-currencies', 'list-bank-accounts', 'list-banks', 'list-attributes', 'list-detractions', 'list-units', 'list-payment-methods', 'list-incomes', 'list-payments', 'company_accounts', 'list-vouchers-type', 'companies', 'advanced', 'tasks', 'inventories', 'bussiness_turns', 'offline-configurations', 'series-configurations', 'configurations', 'login-page', 'list-settings']) ? 'nav-active' : ''}}">

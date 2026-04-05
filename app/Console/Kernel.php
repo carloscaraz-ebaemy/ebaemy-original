@@ -68,6 +68,12 @@ class Kernel extends ConsoleKernel
                  ->withoutOverlapping()
                  ->appendOutputTo(storage_path('logs/cart_reminders.log'));
 
+        // Reportes programados por email
+        $schedule->command('reports:send-scheduled')
+                 ->everyMinute()
+                 ->withoutOverlapping()
+                 ->appendOutputTo(storage_path('logs/scheduled_reports.log'));
+
         // ETL nocturno: sincroniza ventas e items de todos los tenants al warehouse analítico
         // Rango: ayer → hoy (incremental). Incluye snapshot de catálogo con --with-items.
         // Para correr manualmente: php artisan warehouse:sync-etl --from=Y-m-d --to=Y-m-d

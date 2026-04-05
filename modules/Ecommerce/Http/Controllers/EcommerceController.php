@@ -1316,6 +1316,14 @@ class EcommerceController extends Controller
                     (string) $customerPhone
                 );
 
+                // Webhook: order.created
+                \App\Services\Tenant\WebhookDispatcher::dispatchAsync('order.created', [
+                    'order_id' => $order->id,
+                    'total'    => $order->total,
+                    'customer' => $customer_name,
+                    'items'    => count($verifiedItems),
+                ]);
+
                 // Guardar external_id en sesión para autorización de invitados
                 $confirmedIds = session('confirmed_order_ids', []);
                 $confirmedIds[] = $order->external_id;
