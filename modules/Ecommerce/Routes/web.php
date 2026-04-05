@@ -104,20 +104,16 @@ Route::middleware(['locked.tenant', 'set.theme'])->prefix('ecommerce')->group(fu
     Route::get('ubigeo-search', 'EcommerceController@ubigeoSearch')->middleware('throttle:10,1');
 });
 
-Route::middleware(['check.permission', 'locked.tenant', 'check.email.verified', 'set.theme'])->prefix('ecommerce')->group(function () {
-    // Route::get('/', 'EcommerceController@index');
-
+// ========== Rutas PÚBLICAS del ecommerce (accesibles por Googlebot y visitantes) ==========
+Route::middleware(['locked.tenant', 'set.theme'])->prefix('ecommerce')->group(function () {
     Route::get('/', 'EcommerceController@index')->name('tenant.ecommerce.index');
     Route::get('/category/{category}', 'EcommerceController@category')->name('tenant.ecommerce.category');
 
-  // ANTES
-// Route::get('item/{id}/{promotion_id?}', 'EcommerceController@item')->name('tenant.ecommerce.item');
-
     Route::get('item/{id}/{promotion_id?}', function ($id, $promotion_id = null) {
-    $item = \App\Models\Tenant\Item::findOrFail($id);
-    $params = ['slug' => $item->slug];
-    if ($promotion_id) $params['promotion_id'] = $promotion_id;
-    return redirect()->route('tenant.ecommerce.item', $params, 301);
+        $item = \App\Models\Tenant\Item::findOrFail($id);
+        $params = ['slug' => $item->slug];
+        if ($promotion_id) $params['promotion_id'] = $promotion_id;
+        return redirect()->route('tenant.ecommerce.item', $params, 301);
     })->where('id', '[0-9]+');
 
     Route::get('item/{slug}/{promotion_id?}', 'EcommerceController@item')
@@ -127,6 +123,11 @@ Route::middleware(['check.permission', 'locked.tenant', 'check.email.verified', 
     Route::get('items', 'EcommerceController@items')->name('tenant.ecommerce.item.index');
     Route::get('compare', 'EcommerceController@compare')->name('tenant.ecommerce.compare');
     Route::get('api/items-compare', 'EcommerceController@itemsForCompare');
+    Route::get('api/search', 'EcommerceController@advancedSearch');
+});
+
+// ========== Rutas AUTENTICADAS del ecommerce (panel del usuario logueado) ==========
+Route::middleware(['check.permission', 'locked.tenant', 'check.email.verified', 'set.theme'])->prefix('ecommerce')->group(function () {
     Route::get('item_partial/{id}', 'EcommerceController@partialItem')->name('item_partial');
     Route::get('item_quick/{id}', 'EcommerceController@quickView')->name('ecommerce.quick_view');
     // detail_cart y checkout movidos a grupo guest-accessible arriba
@@ -143,7 +144,6 @@ Route::middleware(['check.permission', 'locked.tenant', 'check.email.verified', 
     Route::get('login', 'EcommerceController@showLogin')->name('tenant_ecommerce_login');
     Route::post('logout', 'EcommerceController@logout')->name('tenant_ecommerce_logout');
     Route::get('items_bar', 'EcommerceController@itemsBar');
-    Route::get('api/search', 'EcommerceController@advancedSearch');
     Route::post('login', 'EcommerceController@login')->middleware('throttle:5,3');
     Route::post('storeUser', 'EcommerceController@storeUser')->name('tenant_ecommerce_store_user')->middleware('throttle:5,1');
     Route::get('color-ecommerce', 'ConfigurationController@getColorEcommerce');
@@ -274,7 +274,4 @@ Route::middleware(['check.permission', 'locked.tenant', 'check.email.verified', 
 });
 
 
-Route::middleware(['locked.tenant'])->group(function () {
-    // ecommerce
-    Route::get('/ecommerce/{name?}', 'EcommerceController@index');
-});
+// Fallback eliminado — las rutas públicas del ecommerce ya están en el grupo sin auth arriba

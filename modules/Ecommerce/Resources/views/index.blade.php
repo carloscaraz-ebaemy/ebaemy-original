@@ -69,6 +69,18 @@
     <div class="row">
         <div class="col-lg-12 ecommerce-view" style="padding-top: 0">
 
+            {{-- ── H1 SEO (oculto visualmente si hay slider, visible si no) ── --}}
+            @php
+                $storeName = $company->trade_name ?? $company->name ?? 'Tienda Online';
+                $storeDesc = $seo->seo_description ?? 'Descubre nuestros productos al mejor precio.';
+            @endphp
+            @if(!$tagid && !$hasCategoryFilter)
+                <h1 class="ec-seo-h1">{{ $storeName }}</h1>
+                <p class="ec-seo-intro">{{ $storeDesc }}</p>
+            @elseif($hasCategoryFilter)
+                <h1 class="ec-seo-h1">{{ $categoryName }} — {{ $storeName }}</h1>
+            @endif
+
             {{-- ── SLIDER / BANNER ──────────────────────────────────── --}}
             @if(!$tagid && !$hasCategoryFilter)
                 @include('ecommerce::layouts.partials_ecommerce.home_slider')
@@ -248,6 +260,10 @@
 </div>
 
 <style>
+/* ═══ SEO H1 ═══ */
+.ec-seo-h1 { font-size: 1.6rem; font-weight: 700; color: #1e293b; margin: 1.5rem 0 0.3rem; }
+.ec-seo-intro { font-size: 14px; color: #64748b; margin: 0 0 1rem; line-height: 1.5; }
+
 /* ═══ TRUST BADGES ═══ */
 .ec-trust-badges { padding: 2rem 0; border-top: 1px solid #f1f5f9; border-bottom: 1px solid #f1f5f9; margin: 2rem 0; }
 .ec-trust-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1.5rem; max-width: 900px; margin: 0 auto; text-align: center; }
