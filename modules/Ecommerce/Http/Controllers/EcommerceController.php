@@ -942,29 +942,40 @@ class EcommerceController extends Controller
             }
 
             // Check email uniqueness
-            if (Person::where('email', $request->email)->exists()) {
+            // Buscar Person existente por email (puede existir sin password, creado desde admin)
+            $person = Person::where('email', $request->email)->first();
+
+            if ($person && $person->password) {
                 return ['success' => false, 'message' => 'Ya existe una cuenta con ese correo electrónico.'];
             }
 
-            // Use provided name or derive from email
             $name = $request->name
                 ? trim($request->name)
                 : ucfirst(explode('@', $request->email)[0]);
 
-            // Generate a unique internal number (no real DNI required)
-            $number = 'EC' . strtoupper(Str::random(8));
+            if ($person) {
+                // Person existe (creado desde admin) — vincular password sin duplicar
+                $person->password = bcrypt($request->pswd);
+                if (!$person->name || $person->name === '') {
+                    $person->name = $name;
+                }
+                $person->save();
+            } else {
+                // Crear nuevo Person
+                $number = 'EC' . strtoupper(Str::random(8));
 
-            $person = new Person();
-            $person->type                      = 'customers';
-            $person->identity_document_type_id = 0;   // Sin documento
-            $person->number                    = $number;
-            $person->name                      = $name;
-            $person->country_id                = 'PE';
-            $person->nationality_id            = 'PE';
-            $person->establishment_code        = '0000';
-            $person->email                     = $request->email;
-            $person->password                  = bcrypt($request->pswd);
-            $person->save();
+                $person = new Person();
+                $person->type                      = 'customers';
+                $person->identity_document_type_id = 0;
+                $person->number                    = $number;
+                $person->name                      = $name;
+                $person->country_id                = 'PE';
+                $person->nationality_id            = 'PE';
+                $person->establishment_code        = '0000';
+                $person->email                     = $request->email;
+                $person->password                  = bcrypt($request->pswd);
+                $person->save();
+            }
 
             Auth::guard('ecommerce')->attempt([
                 'email'    => $person->email,
@@ -1231,13 +1242,22 @@ class EcommerceController extends Controller
                     ? $user->name
                     : ($customerData['apellidos_y_nombres_o_razon_social'] ?? 'Cliente');
 
-                // ── Vincular Person por DNI/RUC (evita duplicados en clientes invitados) ──
+                // ── Vincular Person por DNI/RUC o email (evita duplicados) ──
                 $personId = $user ? $user->id : null;
                 if (!$personId) {
                     $docNumber  = $input['purchase']['datos_del_cliente_o_receptor']['numero_documento'] ?? null;
-                    $docTypeId  = $input['purchase']['datos_del_cliente_o_receptor']['identity_document_type_id'] ?? null;
-                    if ($docNumber) {
+                    $customerEmail = $customerData['correo_electronico'] ?? null;
+
+                    // Primero buscar por documento
+                    if ($docNumber && $docNumber !== '0' && $docNumber !== '00000000') {
                         $personId = Person::where('number', $docNumber)
+                            ->where('type', 'customers')
+                            ->value('id');
+                    }
+
+                    // Si no encontró por documento, buscar por email
+                    if (!$personId && $customerEmail) {
+                        $personId = Person::where('email', $customerEmail)
                             ->where('type', 'customers')
                             ->value('id');
                     }
