@@ -7,6 +7,12 @@ $hostname = app(Hyn\Tenancy\Contracts\CurrentHostname::class);
 
 if ($hostname) {
     Route::domain($hostname->fqdn)->group(function () {
+
+        // ── Raíz: redirigir a la tienda ecommerce (ANTES de Auth::routes) ──
+        Route::get('/', function () {
+            return redirect('/ecommerce');
+        });
+
         Auth::routes([
             'register' => false,
             'verify'   => false
@@ -36,11 +42,6 @@ if ($hostname) {
         // ── Rutas públicas legítimas (rate-limited) ─────────────────────
         Route::get('/exchange_rate/ecommence/{date}', 'Tenant\Api\ServiceController@exchangeRateTest')
              ->middleware('throttle:30,1');
-
-        // ── Raíz: redirigir a la tienda ecommerce ────────────────────────
-        Route::get('/', function () {
-            return redirect('/ecommerce');
-        });
 
         // ── Tracking público de pedidos (sin auth, rate-limited) ────────
         Route::get('logistic/tracking', [\App\Http\Controllers\Tenant\Logistic\TrackingController::class, 'index'])
