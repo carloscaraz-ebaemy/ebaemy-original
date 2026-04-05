@@ -23,10 +23,10 @@
                                     <div v-if="establishment.address != '-'">
                                         {{ establishment.address }},
                                     </div>
-                                    {{ establishment.district.description }},
-                                    {{ establishment.province.description }},
-                                    {{ establishment.department.description }} -
-                                    {{ establishment.country.description }}
+                                    {{ establishment.district ? establishment.district.description : '' }}
+                                    {{ establishment.province ? ', ' + establishment.province.description : '' }}
+                                    {{ establishment.department ? ', ' + establishment.department.description : '' }}
+                                    {{ establishment.country ? ' - ' + establishment.country.description : '' }}
                                     <br />
                                     {{ establishment.email }} -
                                     <span v-if="establishment.telephone != '-'">{{ establishment.telephone }}</span>
