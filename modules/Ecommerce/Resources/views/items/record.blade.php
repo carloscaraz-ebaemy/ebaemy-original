@@ -74,6 +74,21 @@
             "name": "{{ addslashes($company->name ?? 'Tienda Online') }}"
         }
     }
+    @php
+        $reviewStats = \App\Models\Tenant\ProductReview::where('item_id', $record->id)
+            ->where('status', 'approved')
+            ->selectRaw('COUNT(*) as count, AVG(rating) as avg_rating')
+            ->first();
+    @endphp
+    @if($reviewStats && $reviewStats->count > 0)
+    ,"aggregateRating": {
+        "@type": "AggregateRating",
+        "ratingValue": "{{ number_format($reviewStats->avg_rating, 1) }}",
+        "reviewCount": "{{ $reviewStats->count }}",
+        "bestRating": "5",
+        "worstRating": "1"
+    }
+    @endif
 }
 </script>
 

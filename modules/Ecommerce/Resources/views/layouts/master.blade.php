@@ -35,6 +35,13 @@
     }
 @endphp
 
+    {{-- Performance: Preconnect/DNS-Prefetch --}}
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin>
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="dns-prefetch" href="https://cdn.jsdelivr.net">
+    <link rel="dns-prefetch" href="https://www.googletagmanager.com">
+    <link rel="dns-prefetch" href="https://connect.facebook.net">
+
     {{-- SEO: Título dinámico por página --}}
     <title>@yield('page_title', $seo->seo_title ?? $company->name ?? 'Tienda Online')</title>
     <meta name="description" content="@yield('meta_description', $seo->seo_description ?? 'Bienvenido a nuestra tienda.')">
