@@ -633,7 +633,7 @@ class DocumentController extends Controller
         {
             $this->generalWriteErrorLog($e);
 
-            return $this->generalResponse(false, 'Ocurrió un error al procesar el documento.');
+            return $this->generalResponse(false, 'Ocurrió un error al procesar el documento: ' . $e->getMessage());
         }
     }
 
