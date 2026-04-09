@@ -135,6 +135,10 @@
     <script src="{{ asset('porto-light/vendor/modernizr/modernizr.js') }}"></script>
 
     <style>
+        /* Ocultar body hasta que Vite inyecte los estilos de Element UI / Bootstrap */
+        body:not(.visible) { opacity: 0; }
+        body.visible { opacity: 1; transition: opacity .15s ease; }
+
         html.sidebar-left-opened,
         html.options-user-mobile-opened {
             overflow: hidden !important;

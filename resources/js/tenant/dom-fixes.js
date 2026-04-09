@@ -4,8 +4,12 @@
 // 1. Script de tema visual (de app.blade.php)
 export function applyThemeAndShowContent(savedTheme) {
     // Theme CSS variables are now injected server-side in app.blade.php
-    // This function only needs to show the body content
-    document.body.classList.add('visible');
+    // Wait for next paint so Vite-injected CSS (Element UI, Bootstrap) is applied
+    requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+            document.body.classList.add('visible');
+        });
+    });
 }
 
 // 2. Scripts de header (de header.blade.php)
