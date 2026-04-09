@@ -466,6 +466,76 @@ body {
   }
 
   .card-body-border-radius { border-radius: var(--r) !important; }
+
+  // ── Settings page cards (list-settings) ──────────────────
+  &.card-reports {
+    transition: transform .15s ease, box-shadow .15s ease !important;
+
+    &:hover {
+      transform: translateY(-2px) !important;
+    }
+
+    .card-body {
+      padding: 20px 24px !important;
+    }
+
+    .card-title {
+      font-size: 13px !important;
+      font-weight: 700 !important;
+      text-transform: uppercase !important;
+      letter-spacing: .06em !important;
+      color: var(--t1) !important;
+      margin-bottom: 16px !important;
+      padding-bottom: 12px !important;
+      border-bottom: 2px solid var(--p, #4f46e5) !important;
+      font-family: var(--font) !important;
+    }
+
+    .card-report-links {
+      list-style: none !important;
+      padding-left: 0 !important;
+      margin-bottom: 0 !important;
+
+      li {
+        margin-bottom: 2px !important;
+
+        &:last-child { margin-bottom: 0 !important; }
+      }
+
+      a {
+        display: flex !important;
+        align-items: center !important;
+        gap: 8px !important;
+        padding: 8px 12px !important;
+        border-radius: 6px !important;
+        font-size: 13px !important;
+        font-weight: 500 !important;
+        color: var(--t2) !important;
+        text-decoration: none !important;
+        transition: all .12s ease !important;
+        font-family: var(--font) !important;
+
+        &::before {
+          content: '' !important;
+          width: 6px !important;
+          height: 6px !important;
+          border-radius: 50% !important;
+          background: var(--bd) !important;
+          flex-shrink: 0 !important;
+          transition: background .12s ease !important;
+        }
+
+        &:hover {
+          background: rgba(79, 70, 229, .06) !important;
+          color: var(--p, #4f46e5) !important;
+
+          &::before {
+            background: var(--p, #4f46e5) !important;
+          }
+        }
+      }
+    }
+  }
 }
 
 // Tabla resumen dentro de card de gráfico
