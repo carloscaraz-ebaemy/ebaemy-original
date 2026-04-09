@@ -207,7 +207,7 @@
                         <span style="font-size:20px">📍</span>
                         <div>
                             <strong style="color:#166534">Dirección de recojo</strong>
-                            <p style="margin:4px 0 0;color:#374151;font-size:13px">{{ $information->information_contact_address ?? 'Consultar dirección en tienda' }}</p>
+                            <p style="margin:4px 0 0;color:#374151;font-size:13px">{{ $configuration->information_contact_address ?? 'Consultar dirección en tienda' }}</p>
                             <p style="margin:4px 0 0;color:#6b7280;font-size:12px">Horario: Lunes a Sábado 9:00am - 6:00pm</p>
                         </div>
                     </div>
@@ -455,7 +455,7 @@
                     </span>
                 </label>
 
-                @if($information->script_paypal)
+                @if($configuration->script_paypal)
                 {{-- Opción 3: PayPal --}}
                 <label class="ec-payment-option" :class="{ 'ec-payment-option--active': paymentMethod === 'paypal' }" @click="paymentMethod = 'paypal'">
                     <span class="ec-payment-option__radio"></span>
@@ -493,8 +493,8 @@
 
                 {{-- PayPal --}}
                 <div v-if="paymentMethod === 'paypal'" class="ec-paypal-wrap">
-                    @if($information->script_paypal)
-                        {!!html_entity_decode($information->script_paypal)!!}
+                    @if($configuration->script_paypal)
+                        {!!html_entity_decode($configuration->script_paypal)!!}
                     @endif
                 </div>
             </div>

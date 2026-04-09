@@ -123,7 +123,7 @@
                     </div>
                 </div>
 
-                <div class="mt-3 d-none sidebar-mode-selector">
+                <div class="mt-3 sidebar-mode-selector">
                     <h5>Tema del menú lateral</h5>
                     <div>
                         <el-switch

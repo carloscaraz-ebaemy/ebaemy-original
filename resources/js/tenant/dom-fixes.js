@@ -3,39 +3,9 @@
 
 // 1. Script de tema visual (de app.blade.php)
 export function applyThemeAndShowContent(savedTheme) {
-    const timeoutDuration = 3000;
-    const showContent = () => {
-        document.body.classList.add('visible');
-    };
-    const timeout = setTimeout(() => {
-        console.warn('Timeout: Mostrando contenido sin aplicar el tema.');
-        showContent();
-    }, timeoutDuration);
-    if (savedTheme) {
-        fetch('/json/themes/themes.json')
-            .then(response => response.json())
-            .then(themes => {
-                if (themes[savedTheme]) {
-                    const styleElement = document.createElement('style');
-                    let cssVariables = '';
-                    Object.keys(themes[savedTheme]).forEach(variable => {
-                        cssVariables += `${variable}: ${themes[savedTheme][variable]};\n`;
-                    });
-                    styleElement.innerHTML = `:root { ${cssVariables} }`;
-                    document.head.appendChild(styleElement);
-                }
-            })
-            .catch(error => {
-                console.error('Error loading themes:', error);
-            })
-            .finally(() => {
-                clearTimeout(timeout);
-                showContent();
-            });
-    } else {
-        clearTimeout(timeout);
-        showContent();
-    }
+    // Theme CSS variables are now injected server-side in app.blade.php
+    // This function only needs to show the body content
+    document.body.classList.add('visible');
 }
 
 // 2. Scripts de header (de header.blade.php)

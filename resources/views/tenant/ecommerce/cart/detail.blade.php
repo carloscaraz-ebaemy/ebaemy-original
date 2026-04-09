@@ -658,7 +658,7 @@
                 items: JSON.stringify(getItems())
             }
 
-            $.ajaxajax({
+            $.ajax({
                 url: "{{route('tenant_ecommerce_culqui')}}",
                 method: 'post',
                 headers: {

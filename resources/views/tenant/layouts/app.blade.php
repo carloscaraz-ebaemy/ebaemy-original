@@ -39,6 +39,46 @@
     <meta name="googlebot" content="noindex">
     <meta name="robots" content="noindex">
 
+    @php
+        $themeName = $visual->sidebar_theme ?? '';
+        $themeVars = '';
+        if ($themeName) {
+            $themesPath = public_path('json/themes/themes.json');
+            if (file_exists($themesPath)) {
+                $allThemes = json_decode(file_get_contents($themesPath), true);
+                $colors = $allThemes[$themeName] ?? null;
+                if ($colors) {
+                    $first = reset($colors);
+                    if (is_array($first) && !str_starts_with(array_key_first($colors), '--')) {
+                        $colors = $colors['default'] ?? $colors['light'] ?? $colors;
+                    }
+                    $tokenMap = [
+                        '--p'      => $colors['--primary-color'] ?? null,
+                        '--p-d'    => $colors['--primary-color'] ?? null,
+                        '--p-l'    => $colors['--accent-color'] ?? null,
+                        '--bg'     => $colors['--light-color'] ?? null,
+                        '--t1'     => $colors['--dark-color'] ?? null,
+                        '--t2'     => $colors['--muted'] ?? null,
+                        '--t3'     => $colors['--muted'] ?? null,
+                        '--bd'     => $colors['--accent-color'] ?? null,
+                        '--th'     => $colors['--primary-color'] ?? null,
+                        '--sb-acc' => $colors['--highlight-color'] ?? $colors['--primary-color'] ?? null,
+                        '--sb-act' => $colors['--primary-color'] ?? null,
+                        '--font'   => $colors['--font-family'] ?? null,
+                    ];
+                    $vars = '';
+                    foreach ($colors as $k => $v) { $vars .= "{$k}: {$v}; "; }
+                    foreach ($tokenMap as $k => $v) { if ($v) $vars .= "{$k}: {$v}; "; }
+                    $themeVars = $vars;
+                }
+            }
+        }
+    @endphp
+
+    @if($themeVars)
+        <style id="theme-styles">:root { {!! $themeVars !!} }</style>
+    @endif
+
     <script>
         window.vc_visual = window.vc_visual || {};
         window.vc_visual.sidebar_theme = @json($visual->sidebar_theme);
@@ -87,116 +127,7 @@
         @endif
     @endif
 
-    {{-- ERP Redesign — sidebar LIGHT — cargado DESPUÉS de Porto --}}
-    <style id="erp-sb-overrides">
-        /* ── Sidebar base blanco ────────────────────── */
-        html #sidebar-left,
-        html .sidebar-left,
-        html.dark #sidebar-left,
-        html.dark .sidebar-left {
-            background: var(--sb-bg, #ffffff) !important;
-            border-right: 1px solid var(--sb-bd, #e2e8f0) !important;
-            box-shadow: 2px 0 12px rgba(0,0,0,.06) !important;
-        }
-
-        /* ── Links primer nivel ─────────────────────── */
-        html ul.nav-main .nav-link,
-        html ul.nav-main > li > a,
-        html.dark ul.nav-main .nav-link,
-        html.dark ul.nav-main > li > a {
-            font-size: 14.5px !important;
-            font-family: var(--font, 'Inter', system-ui, sans-serif) !important;
-            font-weight: 500 !important;
-            color: var(--sb-t, #475569) !important;
-            letter-spacing: .01em !important;
-            background: transparent !important;
-        }
-
-        /* ── Hover ──────────────────────────────────── */
-        html ul.nav-main .nav-link:hover,
-        html ul.nav-main > li > a:hover,
-        html ul.nav-main > li > a:focus,
-        html.dark ul.nav-main > li > a:hover,
-        html.dark ul.nav-main > li > a:focus {
-            background: var(--sb-hover, rgba(99,102,241,.08)) !important;
-            color: var(--sb-th, #1e293b) !important;
-        }
-
-        /* ── Item activo — dark navy con texto blanco ── */
-        /* Sobreescribe html.dark #161d31 !important de Porto */
-        html ul.nav-main > li.nav-active > a,
-        html ul.nav-main > li.active > a,
-        html.dark ul.nav-main > li.nav-active > a,
-        html.dark ul.nav-main > li.active > a,
-        html.dark ul.nav-main li.nav-expanded > a {
-            background: var(--sb-act, #1e293b) !important;
-            color: var(--sb-ta, #ffffff) !important;
-        }
-
-        /* ── nav-expanded no activo ─────────────────── */
-        html ul.nav-main > li.nav-expanded:not(.nav-active) > a {
-            background: var(--sb-hover, rgba(99,102,241,.08)) !important;
-            color: var(--sb-th, #1e293b) !important;
-        }
-
-        /* ── Sub-menú — fondo gris muy claro ────────── */
-        /* Sobreescribe #161d31 !important de Porto dark */
-        html ul.nav-main li.nav-parent > ul.nav-children,
-        html:not(.sidebar-light) ul.nav-main li.nav-parent > ul.nav-children,
-        html.dark ul.nav-main li.nav-parent > ul.nav-children {
-            background-color: var(--sb-child, #f8fafc) !important;
-            border: 1px solid var(--sb-bd, #e2e8f0) !important;
-        }
-
-        /* ── Sub-menú links ─────────────────────────── */
-        html ul.nav-main .nav-children li > a,
-        html.dark ul.nav-main .nav-children li > a {
-            font-size: 14px !important;
-            font-family: var(--font, 'Inter', system-ui, sans-serif) !important;
-            font-weight: 400 !important;
-            color: var(--sb-t, #475569) !important;
-            padding: 7px 12px 7px 28px !important;
-            background: transparent !important;
-        }
-        html ul.nav-main .nav-children li > a:hover,
-        html.dark ul.nav-main .nav-children li > a:hover {
-            background: rgba(99,102,241,.08) !important;
-            color: var(--sb-acc, #6366f1) !important;
-        }
-        html ul.nav-main .nav-children li.nav-active > a {
-            background: rgba(99,102,241,.1) !important;
-            color: var(--sb-acc, #6366f1) !important;
-            font-weight: 600 !important;
-            border-left: 2px solid var(--sb-acc, #6366f1) !important;
-            padding-left: 26px !important;
-        }
-
-        /* ── Separadores ────────────────────────────── */
-        html ul.nav-main li > span,
-        html ul.nav-main .nav-separator,
-        html.dark ul.nav-main li > span {
-            color: #94a3b8 !important;
-            font-size: 10px !important;
-            background: transparent !important;
-        }
-
-        /* ── "Configuración y más" ──────────────────── */
-        html .more-config,
-        html .more-config .nano-content-config,
-        html.dark .more-config {
-            background: var(--sb-bg, #ffffff) !important;
-            border-top: 1px solid var(--sb-bd, #e2e8f0) !important;
-        }
-        html .more-config ul.nav-main li > a,
-        html.dark .more-config ul.nav-main li > a {
-            color: var(--sb-t, #475569) !important;
-            background: transparent !important;
-        }
-        html .more-config ul.nav-main li > a:hover {
-            background: var(--sb-hover, rgba(99,102,241,.08)) !important;
-            color: var(--sb-th, #1e293b) !important;
-        }
-    </style>
+    {{-- Sidebar styles now handled entirely by erp-redesign.scss via Vite --}}
 
     @stack('styles')
 
@@ -204,19 +135,9 @@
     <script src="{{ asset('porto-light/vendor/modernizr/modernizr.js') }}"></script>
 
     <style>
-        body {
-            opacity: 0;
-            transition: opacity 0.5s ease-in-out;
-            transition: overflow 0.3s;
-        }
-
         html.sidebar-left-opened,
         html.options-user-mobile-opened {
             overflow: hidden !important;
-        }
-
-        body.visible {
-            opacity: 1;
         }
 
         .descarga {
