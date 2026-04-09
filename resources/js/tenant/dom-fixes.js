@@ -4,12 +4,32 @@
 // 1. Script de tema visual (de app.blade.php)
 export function applyThemeAndShowContent(savedTheme) {
     // Theme CSS variables are now injected server-side in app.blade.php
-    // Wait for next paint so Vite-injected CSS (Element UI, Bootstrap) is applied
-    requestAnimationFrame(() => {
-        requestAnimationFrame(() => {
-            document.body.classList.add('visible');
-        });
-    });
+    // Wait for all stylesheets to finish loading before showing content
+    const show = () => document.body.classList.add('visible');
+
+    // Check if all <link rel="stylesheet"> are loaded
+    const allStylesLoaded = () => {
+        const links = document.querySelectorAll('link[rel="stylesheet"]');
+        for (const link of links) {
+            if (!link.sheet) return false;
+        }
+        return true;
+    };
+
+    if (allStylesLoaded()) {
+        requestAnimationFrame(show);
+        return;
+    }
+
+    // Poll briefly until stylesheets are ready (max 2s fallback)
+    let elapsed = 0;
+    const interval = setInterval(() => {
+        elapsed += 30;
+        if (allStylesLoaded() || elapsed >= 2000) {
+            clearInterval(interval);
+            requestAnimationFrame(show);
+        }
+    }, 30);
 }
 
 // 2. Scripts de header (de header.blade.php)
