@@ -135,9 +135,11 @@
     <script src="{{ asset('porto-light/vendor/modernizr/modernizr.js') }}"></script>
 
     <style>
-        /* Ocultar body hasta que Vite inyecte los estilos de Element UI / Bootstrap */
-        body:not(.visible) { opacity: 0; }
-        body.visible { opacity: 1; transition: opacity .15s ease; }
+        /* Ocultar body hasta que CSS + Vue estén listos */
+        body { opacity: 0; }
+        body.visible { opacity: 1; transition: opacity .12s ease; }
+        /* v-cloak: ocultar templates Vue sin compilar */
+        [v-cloak] { display: none !important; }
 
         html.sidebar-left-opened,
         html.options-user-mobile-opened {
