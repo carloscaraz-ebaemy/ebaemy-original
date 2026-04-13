@@ -6,7 +6,6 @@ use App\Http\Controllers\Controller;
 use App\Models\Tenant\Item;
 use App\Models\Tenant\ConfigurationEcommerce;
 use Modules\Item\Models\Category;
-use Illuminate\Support\Str;
 
 class SitemapController extends Controller
 {
@@ -14,7 +13,7 @@ class SitemapController extends Controller
     {
         $seo = ConfigurationEcommerce::firstCached();
 
-        if ($seo && !$seo->indexable) {
+        if ($seo && !(bool) ($seo->indexable ?? true)) {
             abort(404);
         }
 
@@ -36,7 +35,7 @@ class SitemapController extends Controller
         try {
             foreach (Category::all() as $category) {
                 $entries->push([
-                    'loc'        => $base . '/' . Str::slug($category->name),
+                    'loc'        => route('tenant.ecommerce.category', ['category' => $category->id]),
                     'lastmod'    => $category->updated_at
                                    ? $category->updated_at->format('Y-m-d')
                                    : now()->toDateString(),

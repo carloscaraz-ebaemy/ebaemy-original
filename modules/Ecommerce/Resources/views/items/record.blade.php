@@ -30,7 +30,7 @@
 @section('breadcrumb_item')
     @if($record->category)
     <li class="breadcrumb-item">
-        <a href="{{ route('tenant.ecommerce.index', \Illuminate\Support\Str::slug($record->category->name)) }}">
+        <a href="{{ route('tenant.ecommerce.category', ['category' => $record->category->id]) }}">
             {{ $record->category->name }}
         </a>
     </li>

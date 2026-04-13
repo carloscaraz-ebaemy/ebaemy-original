@@ -39,7 +39,7 @@
     <meta name="author"      content="{{ $company->name ?? 'Tienda Online' }}">
 
     {{-- SEO: Robots --}}
-    @if($seo && $seo->indexable)
+    @if(($seo->indexable ?? true))
         <meta name="robots" content="index, follow">
     @else
         <meta name="robots" content="noindex, nofollow">

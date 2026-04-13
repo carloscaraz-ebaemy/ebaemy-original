@@ -184,22 +184,28 @@ class ConfigurationController extends Controller
         $configuration = ConfigurationEcommerce::create([]);
     }
 
-    $configuration->update([
-        'seo_title' => $request->seo_title,
-        'seo_description' => $request->seo_description,
-        'seo_keywords' => $request->seo_keywords,
+      $payload = [
+          'seo_title' => $request->seo_title,
+          'seo_description' => $request->seo_description,
+          'seo_keywords' => $request->seo_keywords,
 
         'og_title' => $request->og_title,
         'og_description' => $request->og_description,
         'og_image' => $request->og_image,
 
-        'twitter_title' => $request->twitter_title,
-        'twitter_description' => $request->twitter_description,
-        'twitter_image' => $request->twitter_image,
-        'google_site_verification' => $request->google_site_verification,
+          'twitter_title' => $request->twitter_title,
+          'twitter_description' => $request->twitter_description,
+          'twitter_image' => $request->twitter_image,
+          'google_site_verification' => $request->google_site_verification,
+      ];
 
-        'indexable' => (bool) $request->indexable,
-    ]);
+      // Solo actualizar indexable si llega explícitamente en el request
+      // para evitar apagar indexación accidentalmente.
+      if ($request->has('indexable')) {
+          $payload['indexable'] = $request->boolean('indexable');
+      }
+
+      $configuration->update($payload);
 
     return [
         'success' => true,

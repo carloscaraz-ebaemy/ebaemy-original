@@ -4,7 +4,7 @@
     $tagid           = Request::segment(3);
     $hasCategoryFilter = isset($currentCategory) && $currentCategory;
     $categoryName    = $hasCategoryFilter ? $currentCategory->name : null;
-    $categoryUrl     = $hasCategoryFilter ? url('/ecommerce/' . $currentCategory->name) : null;
+    $categoryUrl     = $hasCategoryFilter ? route('tenant.ecommerce.category', ['category' => $currentCategory->id]) : null;
     $homeUrl         = route('tenant.ecommerce.index');
 @endphp
 

@@ -50,7 +50,7 @@
     <meta name="author" content="{{ $seo->seo_author ?? $company->name }}">
 
     {{-- SEO: Robots --}}
-    @if($seo->indexable)
+    @if(($seo->indexable ?? true))
         <meta name="robots" content="{{ $seo->seo_robots ?? 'index, follow' }}">
     @else
         <meta name="robots" content="noindex, nofollow">

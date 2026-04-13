@@ -10,7 +10,8 @@ class RobotsController extends Controller
     public function index()
     {
         $seo = ConfigurationEcommerce::first();
-        $indexable = $seo ? $seo->indexable : false;
+        // Por defecto permitimos indexación si no existe configuración SEO explícita.
+        $indexable = $seo ? (bool) ($seo->indexable ?? true) : true;
         $domain = request()->getScheme() . '://' . request()->getHost();
 
         if ($indexable) {
