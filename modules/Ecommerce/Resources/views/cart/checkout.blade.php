@@ -8,6 +8,21 @@
         ? asset('logo/imagen-no-disponible.jpg')
         : asset('storage/defaults/' . $defaultImage);
     $itemsBasePath = asset('storage/uploads/items');
+    $paypalScriptSrc = null;
+    if (!empty($configuration->script_paypal)) {
+        $storedPaypal = html_entity_decode($configuration->script_paypal, ENT_QUOTES, 'UTF-8');
+        if (preg_match('/<script[^>]*\ssrc=["\']([^"\']+)["\'][^>]*><\/script>/i', $storedPaypal, $matches)) {
+            $storedPaypal = $matches[1];
+        }
+        $parsedPaypal = parse_url($storedPaypal);
+        $paypalHost = strtolower($parsedPaypal['host'] ?? '');
+        $paypalPath = $parsedPaypal['path'] ?? '';
+        if (($parsedPaypal['scheme'] ?? '') === 'https' &&
+            in_array($paypalHost, ['www.paypal.com', 'paypal.com'], true) &&
+            str_ends_with($paypalPath, '/sdk/js')) {
+            $paypalScriptSrc = $storedPaypal;
+        }
+    }
 @endphp
 
 {{-- ── STEPPER (Paso 2 activo) ─────────────────────────── --}}
@@ -455,7 +470,7 @@
                     </span>
                 </label>
 
-                @if($configuration->script_paypal)
+                @if($paypalScriptSrc)
                 {{-- Opción 3: PayPal --}}
                 <label class="ec-payment-option" :class="{ 'ec-payment-option--active': paymentMethod === 'paypal' }" @click="paymentMethod = 'paypal'">
                     <span class="ec-payment-option__radio"></span>
@@ -493,8 +508,8 @@
 
                 {{-- PayPal --}}
                 <div v-if="paymentMethod === 'paypal'" class="ec-paypal-wrap">
-                    @if($configuration->script_paypal)
-                        {!!html_entity_decode($configuration->script_paypal)!!}
+                    @if($paypalScriptSrc)
+                        <script src="{{ e($paypalScriptSrc) }}"></script>
                     @endif
                 </div>
             </div>

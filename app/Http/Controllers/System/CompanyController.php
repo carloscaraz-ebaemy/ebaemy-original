@@ -11,6 +11,8 @@ use App\Http\Requests\System\CompanyRequest;
 
 class CompanyController extends Controller
 {
+    private const SECRET_MASK = '********';
+
     public function create()
     {
         return view('tenant.companies.form');
@@ -34,9 +36,17 @@ class CompanyController extends Controller
 
     public function store(CompanyRequest $request)
     {
-       // $id = $request->input('id');
         $company = Configuration::first();
-        $company->fill($request->all());
+        $data = $request->all();
+
+        if (isset($data['soap_password'])) {
+            $soapPassword = trim((string) $data['soap_password']);
+            if ($soapPassword === '' || $soapPassword === self::SECRET_MASK) {
+                unset($data['soap_password']);
+            }
+        }
+
+        $company->fill($data);
         $company->save();
 
         return [

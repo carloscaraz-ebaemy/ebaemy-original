@@ -1005,10 +1005,13 @@ class EcommerceController extends Controller
         try{
             $order_generated = Order::findOrFail($request->orderId);
 
-            // Verificar que la orden pertenece al usuario autenticado (evita IDOR)
+            // Bloqueo estricto IDOR: sin identidad ecommerce o sin dueño trazable, negar.
             $userId = auth('ecommerce')->id();
-            if ($userId && $order_generated->person_id && $order_generated->person_id !== $userId) {
-                return ['success' => false, 'message' => 'No autorizado.'];
+            if (!$userId || !$order_generated->person_id || (int) $order_generated->person_id !== (int) $userId) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'No autorizado.',
+                ], 403);
             }
 
             $order_generated->document_external_id = $request->document_external_id;

@@ -24,6 +24,8 @@ use Modules\PseService\Models\PseProvider;
  */
 class CompanyController extends Controller
 {
+    private const SECRET_MASK = '********';
+
     public function create()
     {
         return view('tenant.companies.form');
@@ -100,6 +102,11 @@ class CompanyController extends Controller
 
     public function uploadFile(Request $request)
     {
+        $request->validate([
+            'type' => 'required|in:logo,logo_dark,favicon,app_logo,img_firm',
+            'file' => 'required|file',
+        ]);
+
         if ($request->hasFile('file')) {
 
             $company = Company::active();
@@ -204,10 +211,14 @@ class CompanyController extends Controller
         $company->pse_provider_id = $request->pse_provider_id; // Guardar el proveedor seleccionado
         $company->url_signature_pse = $request->url_signature_pse;
         $company->url_send_cdr_pse = $request->url_send_cdr_pse;
-        $company->client_id_pse = $request->client_id_pse;
+        if ($this->canUpdateSecret($request->client_id_pse)) {
+            $company->client_id_pse = trim((string) $request->client_id_pse);
+        }
         $company->url_login_pse = $request->url_login_pse;
         $company->user_pse = $request->user_pse;
-        $company->password_pse = $request->password_pse ?? $company->password_pse;
+        if ($this->canUpdateSecret($request->password_pse)) {
+            $company->password_pse = trim((string) $request->password_pse);
+        }
         $company->save();
 
         return [
@@ -233,10 +244,12 @@ class CompanyController extends Controller
             'pse_provider_id' => $company->pse_provider_id,
             'url_signature_pse' => $company->url_signature_pse,
             'url_send_cdr_pse' => $company->url_send_cdr_pse,
-            'client_id_pse' => $company->client_id_pse,
+            'client_id_pse' => filled($company->client_id_pse) ? self::SECRET_MASK : null,
+            'client_id_pse_configured' => filled($company->client_id_pse),
             'url_login_pse' => $company->url_login_pse,
             'user_pse' => $company->user_pse,
-            'password_pse' => $company->password_pse,
+            'password_pse' => filled($company->password_pse) ? self::SECRET_MASK : null,
+            'password_pse_configured' => filled($company->password_pse),
         ];
 
     }
@@ -251,7 +264,9 @@ class CompanyController extends Controller
     public function storeWhatsAppApi(CompanyWhatsAppApiRequest $request)
     {
         $company = Company::active();
-        $company->ws_api_token = $request->ws_api_token;
+        if ($this->canUpdateSecret($request->ws_api_token)) {
+            $company->ws_api_token = trim((string) $request->ws_api_token);
+        }
         $company->ws_api_phone_number_id = $request->ws_api_phone_number_id;
         $company->save();
 
@@ -274,9 +289,20 @@ class CompanyController extends Controller
         $company = Company::selectDataWhatsAppApi()->firstOrFail();
 
         return [
-            'ws_api_token' => $company->ws_api_token,
+            'ws_api_token' => filled($company->ws_api_token) ? self::SECRET_MASK : null,
+            'ws_api_token_configured' => filled($company->ws_api_token),
             'ws_api_phone_number_id' => $company->ws_api_phone_number_id,
         ];
+    }
+
+    private function canUpdateSecret($value): bool
+    {
+        if (!is_string($value)) {
+            return false;
+        }
+
+        $trimmed = trim($value);
+        return $trimmed !== '' && $trimmed !== self::SECRET_MASK;
     }
 
     /**

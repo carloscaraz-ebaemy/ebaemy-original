@@ -83,6 +83,10 @@ class UserController extends Controller
 
     public function getPhone()
     {
+        if (!auth('admin')->check()) {
+            abort(403, 'No autorizado.');
+        }
+
         $user = User::first();
 
         $user_resource = new UserResource($user);

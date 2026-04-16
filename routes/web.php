@@ -1050,7 +1050,7 @@ if ($hostname) {
             Route::post('2fa/disable', 'System\TwoFactorController@disable')->name('system.2fa.disable');
         });
 
-        Route::get('phone', 'System\UserController@getPhone');
+        Route::get('phone', 'System\UserController@getPhone')->middleware('auth:admin');
         
         //guest-Register
         Route::prefix('guest-register')->group(function () {     
@@ -1114,7 +1114,7 @@ if ($hostname) {
             Route::post('clients/set_billing_cycle', 'System\ClientController@startBillingCycle');
 
             Route::post('clients/locked-by-column', 'System\ClientController@lockedByColumn');
-            Route::post('secret-login', 'System\SecretLoginController@secretLogin');
+            Route::post('secret-login', 'System\SecretLoginController@secretLogin')->middleware('throttle:10,1');
 
             Route::post('clients/upload', 'System\ClientController@upload');
             Route::get('clients/confirm-limit-reseller', 'System\ClientController@confirmLimitReseller');
@@ -1124,7 +1124,7 @@ if ($hostname) {
             Route::get('client_payments/tables', 'System\ClientPaymentController@tables');
             Route::post('client_payments', 'System\ClientPaymentController@store');
             Route::delete('client_payments/{client_payment}', 'System\ClientPaymentController@destroy');
-            Route::get('client_payments/cancel_payment/{client_payment_id}', 'System\ClientPaymentController@cancel_payment');
+            Route::post('client_payments/cancel_payment/{client_payment_id}', 'System\ClientPaymentController@cancel_payment');
 
             Route::get('client_account_status/records/{client_id}', 'System\AccountStatusController@records');
             Route::get('client_account_status/client/{client_id}', 'System\AccountStatusController@client');
@@ -1163,9 +1163,9 @@ if ($hostname) {
             Route::get('payment-orders', 'System\PaymentOrderController@index')->name('system.payments.index');
             Route::get('payment-orders/records', 'System\PaymentOrderController@records');
             Route::get('payment-orders/tables', 'System\PaymentOrderController@tables');
-            Route::get('payment-orders/cancel/{id}','System\PaymentOrderController@cancel' );
-            Route::get('payment-orders/pays/{id}','System\PaymentOrderController@pays' );
-            Route::get('payment-orders/notify/{id}','System\PaymentOrderController@notify' );
+            Route::post('payment-orders/cancel/{id}','System\PaymentOrderController@cancel' );
+            Route::post('payment-orders/pays/{id}','System\PaymentOrderController@pays' );
+            Route::post('payment-orders/notify/{id}','System\PaymentOrderController@notify' );
             Route::post('payment-orders/updateTable','System\PaymentOrderController@updateTable');
             Route::post('payment-orders/create','System\PaymentOrderController@create' );
             Route::post('payment-orders/updateClient/{id}','System\PaymentOrderController@updateClient' );
@@ -1205,12 +1205,12 @@ if ($hostname) {
             // auto-update
             Route::get('auto-update', 'System\UpdateController@index')->name('system.update');
             Route::get('auto-update/branch', 'System\UpdateController@branch')->name('system.update.branch');
-            Route::get('auto-update/pull/{branch}', 'System\UpdateController@pull')->name('system.update.pull');
-            Route::get('auto-update/artisan/migrate', 'System\UpdateController@artisanMigrate')->name('system.update.artisan.migrate');
-            Route::get('auto-update/artisan/migrate/tenant', 'System\UpdateController@artisanTenancyMigrate')->name('system.update.artisan.tenancy.migrate');
-            Route::get('auto-update/artisan/clear', 'System\UpdateController@artisanClear')->name('system.update.artisan.clear');
-            Route::get('auto-update/composer/install', 'System\UpdateController@composerInstall')->name('system.update.composer.install');
-            Route::get('auto-update/keygen', 'System\UpdateController@keygen')->name('system.update.keygen');
+            Route::post('auto-update/pull/{branch}', 'System\UpdateController@pull')->name('system.update.pull');
+            Route::post('auto-update/artisan/migrate', 'System\UpdateController@artisanMigrate')->name('system.update.artisan.migrate');
+            Route::post('auto-update/artisan/migrate/tenant', 'System\UpdateController@artisanTenancyMigrate')->name('system.update.artisan.tenancy.migrate');
+            Route::post('auto-update/artisan/clear', 'System\UpdateController@artisanClear')->name('system.update.artisan.clear');
+            Route::post('auto-update/composer/install', 'System\UpdateController@composerInstall')->name('system.update.composer.install');
+            Route::post('auto-update/keygen', 'System\UpdateController@keygen')->name('system.update.keygen');
             Route::get('auto-update/version', 'System\UpdateController@version')->name('system.update.version');
             Route::get('auto-update/changelog', 'System\UpdateController@changelog')->name('system.changelog');
 
@@ -1232,7 +1232,7 @@ if ($hostname) {
             Route::post('configurations/emails', 'System\ConfigurationController@emails');
             Route::post('configurations/qrapi', 'System\ConfigurationController@qrapi');
 
-            Route::get('configurations/update-tenant-discount-type-base', 'System\ConfigurationController@updateTenantDiscountTypeBase');
+            Route::post('configurations/update-tenant-discount-type-base', 'System\ConfigurationController@updateTenantDiscountTypeBase');
 
             // ── Analytics (Data Warehouse) ─────────────────────────────────────
             Route::get('analytics', 'System\WarehouseAnalyticsController@index')->name('system.analytics');

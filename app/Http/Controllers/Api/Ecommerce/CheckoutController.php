@@ -51,6 +51,11 @@ class CheckoutController extends Controller
                               ->with(['items', 'shippingGuide'])
                               ->firstOrFail();
 
+        $ownerValidation = $this->validateOwnership($order);
+        if ($ownerValidation !== null) {
+            return $ownerValidation;
+        }
+
         return response()->json([
             'success' => true,
             'data'    => new LogisticOrderResource($order),
@@ -66,12 +71,35 @@ class CheckoutController extends Controller
                               ->where('source', 'ecommerce')
                               ->firstOrFail();
 
+        $ownerValidation = $this->validateOwnership($order);
+        if ($ownerValidation !== null) {
+            return $ownerValidation;
+        }
+
         $this->checkoutService->releaseCheckoutReservation($order);
 
         return response()->json([
             'success' => true,
             'message' => 'Pedido cancelado y stock liberado.',
         ]);
+    }
+
+    /**
+     * En auth:api, el dueño trazable de la orden ecommerce es user_id.
+     * Si no existe identidad propietaria en la orden o no coincide, negar.
+     */
+    private function validateOwnership(LogisticOrder $order): ?JsonResponse
+    {
+        $authUserId = auth('api')->id();
+
+        if (!$authUserId || !$order->user_id || (int) $order->user_id !== (int) $authUserId) {
+            return response()->json([
+                'success' => false,
+                'message' => 'No autorizado.',
+            ], 403);
+        }
+
+        return null;
     }
 
     /**

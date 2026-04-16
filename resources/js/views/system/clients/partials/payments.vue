@@ -183,7 +183,7 @@
                     });
             },
             async clickCancelPayment(client_payment_id){
-                await this.$http.get(`/${this.resource}/cancel_payment/${client_payment_id}`)
+                await this.$http.post(`/${this.resource}/cancel_payment/${client_payment_id}`)
                     .then(response => { 
                         if (response.data.success) {
                             this.$message.success(response.data.message);

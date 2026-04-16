@@ -281,7 +281,7 @@
             },
             execPull() {
                 this.messajeOk('Se están descargando los datos')
-                this.$http.get(`/${this.resource}/pull/${this.branch.name}`)
+                this.$http.post(`/${this.resource}/pull/${this.branch.name}`)
                 .then(response => {
                     this.hideInfo();
                     if (response.data !== '') {
@@ -317,7 +317,7 @@
             },
             execComposer() {
                 this.messajeOk('Se están instalando dependencias Composer')
-                this.$http.get(`/${this.resource}/composer/install`)
+                this.$http.post(`/${this.resource}/composer/install`)
                 .then(response => {
                     this.hideInfo();
                     if (response.data !== '') {
@@ -356,7 +356,7 @@
             },
             execArtisanMigrate() {
                 this.messajeOk('Se están ejecutando las migraciones')
-                this.$http.get(`/${this.resource}/artisan/migrate`)
+                this.$http.post(`/${this.resource}/artisan/migrate`)
                 .then(response => {
                     this.hideInfo();
                     if (response.data !== '') {
@@ -381,7 +381,7 @@
             },
             execArtisanMigrateTenant() {
                 this.messajeOk('Se están ejecutando las migraciones de los tenant')
-                this.$http.get(`/${this.resource}/artisan/migrate/tenant`)
+                this.$http.post(`/${this.resource}/artisan/migrate/tenant`)
                 .then(response => {
                     this.hideInfo();
                     if (response.data !== '') {
@@ -403,7 +403,7 @@
             },
             execArtisanClear() {
                 this.messajeOk('Se esta limpiando los procesos artisan')
-                this.$http.get(`/${this.resource}/artisan/clear`)
+                this.$http.post(`/${this.resource}/artisan/clear`)
                 .then(response => {
                     this.hideInfo();
                     if (response.data !== '') {

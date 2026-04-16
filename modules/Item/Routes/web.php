@@ -102,8 +102,8 @@ if($hostname) {
                 Route::get('records', 'EditorTagController@records');
                 Route::get('tables', 'EditorTagController@tables' );
                 Route::post('tags/save', 'EditorTagController@store');
-                Route::get('tags/delete/{id}', 'EditorTagController@delete');
-                Route::get('tags/default/{id}', 'EditorTagController@default');
+                Route::post('tags/delete/{id}', 'EditorTagController@delete');
+                Route::post('tags/default/{id}', 'EditorTagController@default');
                 Route::get('export', 'EditorTagController@export');
                 Route::post('tags/update/{id}', 'EditorTagController@update');
                 Route::post('tags/save-image', 'EditorTagController@saveImage');

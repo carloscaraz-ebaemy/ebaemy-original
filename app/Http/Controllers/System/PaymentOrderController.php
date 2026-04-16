@@ -174,7 +174,15 @@ class PaymentOrderController extends Controller
 
     public function pays(int $id)
     {
-        $model = PaymentOrder::find($id);
+        $model = PaymentOrder::findOrFail($id);
+
+        if ((int) $model->order_state_id !== 1 && (int) $model->order_state_id !== 3) {
+            return [
+                'success' => false,
+                'message' => 'La orden no puede marcarse como pagada en su estado actual',
+            ];
+        }
+
         $model->date_of_payment = now()->toDateTimeString();
         $model->order_state_id = 2;
         $model->save();
@@ -195,7 +203,14 @@ class PaymentOrderController extends Controller
 
     public function cancel($id, Request $request)
     {
-        $model = PaymentOrder::find($id);
+        $model = PaymentOrder::findOrFail($id);
+
+        if ((int) $model->order_state_id === 2 || (int) $model->order_state_id === 4) {
+            return [
+                'success' => false,
+                'message' => 'La orden no puede anularse en su estado actual',
+            ];
+        }
 
         $model->order_state_id = 4;
         $model->save();
@@ -248,7 +263,14 @@ class PaymentOrderController extends Controller
 
     public function notify($id)
     {
-        $model = PaymentOrder::find($id);
+        $model = PaymentOrder::findOrFail($id);
+
+        if ((int) $model->order_state_id !== 1 && (int) $model->order_state_id !== 3) {
+            return [
+                'success' => false,
+                'message' => 'La orden no puede notificarse en su estado actual',
+            ];
+        }
 
         $response = $model->client->notifyOrder($id);
         if ($response['success']) {

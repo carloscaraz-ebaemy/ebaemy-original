@@ -146,8 +146,17 @@ class BackupController extends Controller
 
     public function download($filename)
     {
+        $safeFilename = basename((string) $filename);
+        if (!preg_match('/^[A-Za-z0-9._-]+\.zip$/', $safeFilename)) {
+            abort(404);
+        }
 
-        return Storage::download('backups'.DIRECTORY_SEPARATOR.'zip'.DIRECTORY_SEPARATOR.$filename);
+        $path = 'backups'.DIRECTORY_SEPARATOR.'zip'.DIRECTORY_SEPARATOR.$safeFilename;
+        if (!Storage::exists($path)) {
+            abort(404);
+        }
+
+        return Storage::download($path);
 
     }
 

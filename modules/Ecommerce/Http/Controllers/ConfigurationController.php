@@ -15,6 +15,8 @@ use App\Models\Tenant\ConfigurationScript;
 
 class ConfigurationController extends Controller
 {
+    private const SECRET_MASK = '********';
+
     /**
      * Display a listing of the resource.
      * @return Response
@@ -218,30 +220,41 @@ class ConfigurationController extends Controller
     public function store_configuration_culqui(Request $request)
     {
         $configuration = ConfigurationEcommerce::firstCached();
-        if (!$configuration) return ['success' => false, 'message' => 'No existe configuración'];
-        $configuration->fill($request->only([
-            'token_private_culqui', 'token_public_culqui',
-        ]));
+        if (!$configuration) return ['success' => false, 'message' => 'No existe configuracion'];
+
+        $request->validate([
+            'token_public_culqui' => 'nullable|string|max:255',
+            'token_private_culqui' => 'nullable|string|max:255',
+        ]);
+
+        $configuration->token_public_culqui = $request->input('token_public_culqui');
+        $privateToken = $request->input('token_private_culqui');
+        if ($this->canUpdateSecret($privateToken)) {
+            $configuration->token_private_culqui = trim((string) $privateToken);
+        }
         $configuration->save();
 
         return [
             'success' => true,
-            'message' => 'Configuración Culqui actualizada'
+            'message' => 'Configuracion Culqui actualizada'
         ];
     }
 
     public function store_configuration_paypal(Request $request)
     {
         $configuration = ConfigurationEcommerce::firstCached();
-        if (!$configuration) return ['success' => false, 'message' => 'No existe configuración'];
-        $configuration->fill($request->only([
-            'script_paypal',
-        ]));
+        if (!$configuration) return ['success' => false, 'message' => 'No existe configuracion'];
+
+        $request->validate([
+            'script_paypal' => 'nullable|string|max:4000',
+        ]);
+
+        $configuration->script_paypal = $this->sanitizePaypalScript($request->input('script_paypal'));
         $configuration->save();
 
         return [
             'success' => true,
-            'message' => 'Configuración Paypal actualizada'
+            'message' => 'Configuracion Paypal actualizada'
         ];
     }
 
@@ -265,18 +278,30 @@ class ConfigurationController extends Controller
     public function store_configuration_social(Request $request)
     {
         $configuration = ConfigurationEcommerce::firstCached();
-        if (!$configuration) return ['success' => false, 'message' => 'No existe configuración'];
+        if (!$configuration) return ['success' => false, 'message' => 'No existe configuracion'];
+
+        $request->validate([
+            'google_client_id' => 'nullable|string|max:255',
+            'google_client_secret' => 'nullable|string|max:255',
+            'google_login_enabled' => 'nullable|boolean',
+        ]);
+
         $configuration->fill($request->only([
             'link_youtube', 'link_twitter', 'link_facebook', 'link_tiktok', 'link_instagram',
             'phone_whatsapp',
             'whatsapp_api_token', 'whatsapp_phone_id', 'whatsapp_vendor_number',
-            'google_client_id', 'google_client_secret', 'google_login_enabled',
+            'google_client_id', 'google_login_enabled',
         ]));
+
+        $googleSecret = $request->input('google_client_secret');
+        if ($this->canUpdateSecret($googleSecret)) {
+            $configuration->google_client_secret = trim((string) $googleSecret);
+        }
         $configuration->save();
 
         return [
             'success' => true,
-            'message' => 'Configuración de Redes Sociales actualizada'
+            'message' => 'Configuracion de Redes Sociales actualizada'
         ];
     }
 public function uploadFile(Request $request)
@@ -655,5 +680,56 @@ public function uploadFile(Request $request)
         } catch (\Throwable $e) {
             return ['success' => false, 'message' => $e->getMessage()];
         }
+    }
+
+    protected function canUpdateSecret($value): bool
+    {
+        if (!is_string($value)) {
+            return false;
+        }
+
+        $trimmed = trim($value);
+        return $trimmed !== '' && $trimmed !== self::SECRET_MASK;
+    }
+
+    protected function sanitizePaypalScript(?string $raw): ?string
+    {
+        if (!is_string($raw) || trim($raw) === '') {
+            return null;
+        }
+
+        $candidate = trim(html_entity_decode($raw, ENT_QUOTES, 'UTF-8'));
+
+        if (preg_match('/<script[^>]*\ssrc=["\']([^"\']+)["\'][^>]*><\/script>/i', $candidate, $matches)) {
+            $candidate = $matches[1];
+        }
+
+        $parts = parse_url($candidate);
+        if (!$parts || empty($parts['host']) || empty($parts['scheme'])) {
+            abort(422, 'Script de PayPal invalido.');
+        }
+
+        $host = strtolower($parts['host']);
+        $path = $parts['path'] ?? '';
+
+        if ($parts['scheme'] !== 'https' || !in_array($host, ['www.paypal.com', 'paypal.com'], true) || !str_ends_with($path, '/sdk/js')) {
+            abort(422, 'Solo se permite el SDK oficial de PayPal.');
+        }
+
+        parse_str($parts['query'] ?? '', $query);
+        $allowed = ['client-id', 'currency', 'intent', 'components', 'disable-funding', 'enable-funding', 'commit', 'locale'];
+        $filtered = [];
+
+        foreach ($allowed as $key) {
+            if (array_key_exists($key, $query) && $query[$key] !== '') {
+                $filtered[$key] = is_array($query[$key]) ? implode(',', $query[$key]) : $query[$key];
+            }
+        }
+
+        if (empty($filtered['client-id'])) {
+            abort(422, 'Falta client-id en la configuracion de PayPal.');
+        }
+
+        return 'https://www.paypal.com/sdk/js?' . http_build_query($filtered, '', '&', PHP_QUERY_RFC3986);
     }
 }

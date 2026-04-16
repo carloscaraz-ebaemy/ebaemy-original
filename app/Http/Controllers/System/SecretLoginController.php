@@ -16,6 +16,14 @@ class SecretLoginController extends Controller
      */
     public function secretLogin(Request $request)
     {
+        if (!auth('admin')->check()) {
+            abort(403, 'No autorizado.');
+        }
+
+        $request->validate([
+            'client_id' => 'required|integer|min:1',
+        ]);
+
         $helper = new SecretLoginHelper();
 
         $client = $helper->getClient($request->client_id);

@@ -1456,7 +1456,7 @@
       },
   
       deleteTemplate (id) {
-        this.$http.get(`${this.resource}/tags/delete/${id}`)
+        this.$http.post(`${this.resource}/tags/delete/${id}`)
           .then(response => {
             if (response.data.success) {
               this.$message.success(response.data.message);
@@ -1469,7 +1469,7 @@
           });
       },
       isDefault(id) {
-        this.$http.get(`${this.resource}/tags/default/${id}`)
+        this.$http.post(`${this.resource}/tags/default/${id}`)
           .then(response => {
             if (response.data.success) {
               this.$message.success(response.data.message);

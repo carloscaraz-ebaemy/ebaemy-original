@@ -35,16 +35,14 @@ class TransactionController extends Controller
         try {
             
             $access_token_mp = PaymentConfiguration::getAccessTokenMp();
-            $validator = $this->validateStore($request, $access_token_mp);
+            $this->payment_link = PaymentLink::findOrFail($request->payment_link_id);
+            $validator = $this->validateStore($request, $access_token_mp, $this->payment_link);
             
             if(!$validator['success']){
                 return $validator;
             }
 
             $record = DB::connection()->transaction(function () use ($request, $access_token_mp) {
-                
-                $this->payment_link = PaymentLink::findOrFail($request->payment_link_id); 
-
                 SDK::setAccessToken($access_token_mp);
 
                 $payment = new Payment();
@@ -91,7 +89,7 @@ class TransactionController extends Controller
     }
      
 
-    public function validateStore($request, $access_token_mp)
+    public function validateStore($request, $access_token_mp, PaymentLink $paymentLink)
     {
 
         // if(strcmp($request->payment_type_id, 'credit_card') !== 0){
@@ -105,6 +103,13 @@ class TransactionController extends Controller
         // if($request->transaction_amount > 2000){
         //     return $this->getErrorMessage('No puede realizar transacciones con montos mayores a 2000 soles');
         // }
+
+        // Mitiga tampering de monto: el cargo debe coincidir con el total del link.
+        $expectedAmount = (float) $paymentLink->total;
+        $requestAmount = (float) $request->transaction_amount;
+        if (abs($requestAmount - $expectedAmount) > 0.01) {
+            return $this->getErrorMessage('Monto de transaccion invalido');
+        }
 
         return [
             'success' => true

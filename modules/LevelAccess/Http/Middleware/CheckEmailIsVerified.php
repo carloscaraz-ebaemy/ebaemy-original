@@ -3,9 +3,6 @@
 namespace Modules\LevelAccess\Http\Middleware;
 
 use Closure;
-use Illuminate\Contracts\Auth\MustVerifyEmail;
-use Illuminate\Support\Facades\Redirect;
-use Illuminate\Support\Facades\URL;
 use App\Models\Tenant\Configuration;
 
 
@@ -20,11 +17,24 @@ class CheckEmailIsVerified
      */
     public function handle($request, Closure $next)
     {
-        if ($request->ajax()) return $next($request);
+        $user = $request->user();
 
-        if(Configuration::getDataToCheckGuestEmail()->applyCheckGuestEmail())
-        {
-            if($request->user()->isNotVerifiedUserEmail()) return redirect()->route('tenant.not-verified-email.index');
+        // Este middleware valida verificación de email; no fuerza autenticación.
+        if (!$user) {
+            return $next($request);
+        }
+
+        if (Configuration::getDataToCheckGuestEmail()->applyCheckGuestEmail()) {
+            if ($user->isNotVerifiedUserEmail()) {
+                if ($request->expectsJson()) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Email no verificado.',
+                    ], 403);
+                }
+
+                return redirect()->route('tenant.not-verified-email.index');
+            }
         }
 
         return $next($request);

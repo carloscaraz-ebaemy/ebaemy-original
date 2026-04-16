@@ -6,6 +6,11 @@ use Illuminate\Http\Resources\Json\JsonResource;
 
 class ConfigurationEcommerceResource extends JsonResource
 {
+    protected function maskedSecret($value)
+    {
+        return filled($value) ? '********' : null;
+    }
+
     public function toArray($request)
     {
         return [
@@ -20,7 +25,8 @@ class ConfigurationEcommerceResource extends JsonResource
 
             // PAGOS
             'script_paypal' => $this->script_paypal,
-            'token_private_culqui' => $this->token_private_culqui,
+            'token_private_culqui' => $this->maskedSecret($this->token_private_culqui),
+            'token_private_culqui_configured' => filled($this->token_private_culqui),
             'token_public_culqui' => $this->token_public_culqui,
 
             // LOGO
@@ -98,7 +104,8 @@ class ConfigurationEcommerceResource extends JsonResource
 
             // GOOGLE OAUTH LOGIN
             'google_client_id'     => $this->google_client_id,
-            'google_client_secret' => $this->google_client_secret,
+            'google_client_secret' => $this->maskedSecret($this->google_client_secret),
+            'google_client_secret_configured' => filled($this->google_client_secret),
             'google_login_enabled' => (bool) $this->google_login_enabled,
 
             // NEWSLETTER POPUP

@@ -31,6 +31,8 @@ use App\Models\System\PlanPeriod;
 
     class ClientController extends Controller
     {
+        private const SECRET_MASK = '********';
+
         public function index()
         {
             return view('system.clients.index');
@@ -108,7 +110,8 @@ use App\Models\System\PlanPeriod;
 
             $certificate_admin = $config->certificate;
             $soap_username = $config->soap_username;
-            $soap_password = $config->soap_password;
+            $soap_password = self::SECRET_MASK;
+            $soap_password_configured = !empty($config->soap_password);
             $regex_password_client = $config->regex_password_client;
 
             return compact(
@@ -121,6 +124,7 @@ use App\Models\System\PlanPeriod;
                 'certificate_admin',
                 'soap_username',
                 'soap_password',
+                'soap_password_configured',
                 'regex_password_client',
                 'group_basic',
                 'group_pharmacy',
@@ -533,6 +537,17 @@ use App\Models\System\PlanPeriod;
                     ->where('id', 1)
                     ->update($clientData);
 
+                $tenantCompany = DB::connection('tenant')
+                    ->table('companies')
+                    ->select('soap_password')
+                    ->where('id', 1)
+                    ->first();
+
+                $resolvedSoapPassword = $this->resolveMaskedSecret(
+                    $request->soap_password,
+                    optional($tenantCompany)->soap_password
+                );
+
                 DB::connection('tenant')
                     ->table('companies')
                     ->where('id', 1)
@@ -540,7 +555,7 @@ use App\Models\System\PlanPeriod;
                         'soap_type_id' => $request->soap_type_id,
                         'soap_send_id' => $request->soap_send_id,
                         'soap_username' => $request->soap_username,
-                        'soap_password' => $request->soap_password,
+                        'soap_password' => $resolvedSoapPassword,
                         'soap_url' => $request->soap_url,
                         'certificate' => $name_certificate
                     ]);
@@ -1218,5 +1233,19 @@ use App\Models\System\PlanPeriod;
             }
 
             return $this->generalResponse(true, 'Aun puede registrar más clientes');
+        }
+
+        private function resolveMaskedSecret($incoming, $current)
+        {
+            if (!is_string($incoming)) {
+                return $current;
+            }
+
+            $value = trim($incoming);
+            if ($value === '' || $value === self::SECRET_MASK) {
+                return $current;
+            }
+
+            return $value;
         }
     }

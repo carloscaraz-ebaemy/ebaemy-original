@@ -7,6 +7,11 @@
 
     class ClientResource extends JsonResource
     {
+        protected function maskedSecret($value)
+        {
+            return filled($value) ? '********' : null;
+        }
+
         /**
          * Transform the resource into an array.
          *
@@ -55,7 +60,8 @@
                 'soap_send_id' => $this->soap_send_id,
                 'soap_type_id' => $this->soap_type_id,
                 'soap_username' => $this->soap_username,
-                'soap_password' => $this->soap_password,
+                'soap_password' => $this->maskedSecret($this->soap_password),
+                'soap_password_configured' => filled($this->soap_password),
                 'soap_url' => $this->soap_url,
                 'config_system_env' => (bool)$this->config_system_env,
                 'certificate' => $this->certificate,

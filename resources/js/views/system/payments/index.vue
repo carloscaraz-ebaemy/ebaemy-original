@@ -525,7 +525,7 @@ import EditClient from './partials/edit-client.vue'
             },
             actionsPaymentOrder(action, id)
             {
-                this.$http.get(`/${this.resource}/${action}/${id}`)
+                this.$http.post(`/${this.resource}/${action}/${id}`)
                     .then(response => {
                         if (response.data.success) {
                             this.$message({
