@@ -120,7 +120,7 @@
 import ItemsForm from './form.vue'
 import WarehousesDetail from './partials/warehouses.vue'
 import ItemsImport from './import.vue'
-import DataTable from '../../components/DataTable.vue'
+import DataTable from '../../components/Datatable.vue'
 import {deletable} from '@mixins/deletable'
 import ItemsImportSetIndividual from './partials/import_set_individual.vue'
 import {mapActions, mapState} from "vuex/dist/vuex.mjs";
