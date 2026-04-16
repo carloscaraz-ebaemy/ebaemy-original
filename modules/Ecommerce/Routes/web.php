@@ -160,44 +160,43 @@ Route::middleware(['check.permission', 'locked.tenant', 'check.email.verified', 
     // culqi, payment_cash y apply-coupon movidos a grupo guest-accessible arriba
     Route::post('transaction_finally', 'EcommerceController@transactionFinally')->name('tenant_ecommerce_transaction_finally');
 
-    Route::get('configuration', 'ConfigurationController@index')->middleware(['auth', 'redirect.module'])->name('tenant_ecommerce_configuration');
-    Route::post('configuration', 'ConfigurationController@store_configuration');
-    Route::post('configuration_culqui', 'ConfigurationController@store_configuration_culqui');
-    Route::post('configuration_paypal', 'ConfigurationController@store_configuration_paypal');
-    Route::post('configuration_social', 'ConfigurationController@store_configuration_social');
-    Route::post('configuration_tags', 'ConfigurationController@store_configuration_tag');
-    Route::post('configuration_color', 'ConfigurationController@store_configuration_color');
-    Route::get('configuration_themes', 'ConfigurationController@available_themes');
-    Route::post('configuration_theme', 'ConfigurationController@store_theme');
-    Route::get('themes', 'ConfigurationController@themesGallery')->middleware(['auth', 'redirect.module'])->name('tenant.ecommerce.themes');
-    Route::get('plugins', 'ConfigurationController@pluginsView')->middleware(['auth', 'redirect.module'])->name('tenant.ecommerce.plugins');
-    Route::get('notifications', 'ConfigurationController@notificationsView')->middleware(['auth', 'redirect.module'])->name('tenant.ecommerce.notifications');
-    Route::post('configuration_notifications', 'ConfigurationController@store_notifications');
-    Route::post('test_whatsapp', 'ConfigurationController@testWhatsApp');
-    Route::post('configuration_newsletter', 'ConfigurationController@store_configuration_newsletter');
-    Route::get('configuration_marketplaces', 'ConfigurationController@get_marketplace_config');
-    Route::post('configuration_marketplaces', 'ConfigurationController@store_marketplace_config');
-    Route::post('test_marketplace_connection', 'ConfigurationController@test_marketplace_connection');
-    Route::post('regenerate_feed', 'ConfigurationController@regenerate_feed');
+    Route::middleware(['auth', 'redirect.module'])->group(function () {
+        Route::get('configuration', 'ConfigurationController@index')->name('tenant_ecommerce_configuration');
+        Route::post('configuration', 'ConfigurationController@store_configuration');
+        Route::post('configuration_culqui', 'ConfigurationController@store_configuration_culqui');
+        Route::post('configuration_paypal', 'ConfigurationController@store_configuration_paypal');
+        Route::post('configuration_social', 'ConfigurationController@store_configuration_social');
+        Route::post('configuration_tags', 'ConfigurationController@store_configuration_tag');
+        Route::post('configuration_color', 'ConfigurationController@store_configuration_color');
+        Route::get('configuration_themes', 'ConfigurationController@available_themes');
+        Route::post('configuration_theme', 'ConfigurationController@store_theme');
+        Route::get('themes', 'ConfigurationController@themesGallery')->name('tenant.ecommerce.themes');
+        Route::get('plugins', 'ConfigurationController@pluginsView')->name('tenant.ecommerce.plugins');
+        Route::get('notifications', 'ConfigurationController@notificationsView')->name('tenant.ecommerce.notifications');
+        Route::post('configuration_notifications', 'ConfigurationController@store_notifications');
+        Route::post('test_whatsapp', 'ConfigurationController@testWhatsApp');
+        Route::post('configuration_newsletter', 'ConfigurationController@store_configuration_newsletter');
+        Route::get('configuration_marketplaces', 'ConfigurationController@get_marketplace_config');
+        Route::post('configuration_marketplaces', 'ConfigurationController@store_marketplace_config');
+        Route::post('test_marketplace_connection', 'ConfigurationController@test_marketplace_connection');
+        Route::post('regenerate_feed', 'ConfigurationController@regenerate_feed');
+        Route::post('configuration_links', 'ConfigurationController@store_configuration_links');
+        Route::post('configuration/seo', 'ConfigurationController@store_configuration_seo');
+        Route::post('configuration_terms', 'ConfigurationController@store_configuration_terms');
+        Route::get('record', 'ConfigurationController@record');
+        Route::post('uploads', 'ConfigurationController@uploadFile');
+        Route::post('configuration/pixels', 'ConfigurationController@store_configuration_pixels');
+        Route::post('configuration/pixels/test-capi', 'ConfigurationController@test_capi_connection');
+        Route::get('social-scripts', 'ConfigurationController@getSocialScripts');
+        Route::post('social-scripts/save-all', 'ConfigurationController@saveSocialScripts');
+    });
     Route::get('profile', 'EcommerceController@profile')->name('tenant.ecommerce.profile');
     Route::post('saveDataUser', 'EcommerceController@saveDataUser')->name('tenant_ecommerce_user_data');
     Route::post('change-password', 'EcommerceController@changePassword')->name('tenant.ecommerce.change_password');
     Route::get('referral', 'EcommerceController@referralInfo')->name('tenant.ecommerce.referral');
-    Route::post('configuration_links', 'ConfigurationController@store_configuration_links');
-
-
-    Route::post('configuration/seo', 'ConfigurationController@store_configuration_seo');
-
-
     /*terminos y condiciones  */
-    Route::post('configuration_terms', 'ConfigurationController@store_configuration_terms');
-
-        
     Route::get('libro-reclamaciones', 'EcommerceController@libroReclamaciones')->name('tenant.libro_reclamaciones');
     Route::post('libro-reclamaciones', 'EcommerceController@enviarReclamo')->name('tenant.libro_reclamaciones_enviar')->middleware('throttle:5,1');
-
-
-    Route::get('record', 'ConfigurationController@record');
 
     // Programa de puntos
     Route::get('points', 'EcommerceController@pointsBalance')->name('tenant.ecommerce.points');
@@ -211,6 +210,7 @@ Route::middleware(['check.permission', 'locked.tenant', 'check.email.verified', 
         Route::get('flash-sales/records', 'FlashSaleController@records');
         Route::post('flash-sales', 'FlashSaleController@store');
         Route::put('flash-sales/{id}', 'FlashSaleController@update');
+        Route::post('flash-sales/{id}/send-whatsapp', 'FlashSaleController@sendWhatsApp');
         Route::delete('flash-sales/{id}', 'FlashSaleController@destroy');
 
         // Cupones
@@ -242,19 +242,8 @@ Route::middleware(['check.permission', 'locked.tenant', 'check.email.verified', 
         Route::get('marketplace/channels/{channelId}/fetch-orders', '\App\Http\Controllers\Tenant\MarketplaceController@fetchOrders');
     });
 
-    Route::post('uploads', 'ConfigurationController@uploadFile');
-
-
-    // configuration pixel
-
-    Route::post('configuration/pixels', 'ConfigurationController@store_configuration_pixels');
-    Route::post('configuration/pixels/test-capi', 'ConfigurationController@test_capi_connection');
-  
-    Route::get('social-scripts', 'ConfigurationController@getSocialScripts');
-    Route::post('social-scripts/save-all', 'ConfigurationController@saveSocialScripts');
-
     //Item Sets
-    Route::prefix('item-sets')->group(function () {
+    Route::prefix('item-sets')->middleware(['auth', 'redirect.module'])->group(function () {
 
         Route::get('', 'ItemSetController@index')->name('tenant.ecommerce.item_sets.index')->middleware('redirect.level');
         Route::get('columns', 'ItemSetController@columns');

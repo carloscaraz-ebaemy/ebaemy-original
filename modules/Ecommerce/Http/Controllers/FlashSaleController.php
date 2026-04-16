@@ -5,6 +5,7 @@ namespace Modules\Ecommerce\Http\Controllers;
 use App\Http\Controllers\Controller;
 use App\Models\Tenant\FlashSale;
 use App\Models\Tenant\Item;
+use App\Services\Tenant\WhatsAppOfferCampaignService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 
@@ -109,5 +110,30 @@ class FlashSaleController extends Controller
         FlashSale::withoutGlobalScopes()->findOrFail($id)->delete();
         Cache::forget('ecommerce_flash_sale');
         return response()->json(['success' => true, 'message' => 'Flash sale eliminada']);
+    }
+
+    public function sendWhatsApp(Request $request, $id)
+    {
+        $request->validate([
+            'limit_customers' => 'nullable|integer|min:1|max:2000',
+            'max_products' => 'nullable|integer|min:1|max:8',
+            'cooldown_hours' => 'nullable|integer|min:0|max:720',
+            'force' => 'nullable|boolean',
+        ]);
+
+        $result = (new WhatsAppOfferCampaignService())->runForFlashSale((int)$id, [
+            'campaign_name' => 'Flash Sale #' . (int)$id,
+            'limit_customers' => (int)$request->input('limit_customers', 200),
+            'max_products' => (int)$request->input('max_products', 3),
+            'cooldown_hours' => (int)$request->input('cooldown_hours', 48),
+            'force' => (bool)$request->input('force', false),
+            'base_ecommerce_url' => url('/ecommerce'),
+        ]);
+
+        if (!($result['success'] ?? false)) {
+            return response()->json($result, 422);
+        }
+
+        return response()->json($result);
     }
 }

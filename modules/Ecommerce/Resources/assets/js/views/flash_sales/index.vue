@@ -31,6 +31,11 @@
                         <p class="fs-card__subtitle" v-if="sale.subtitle">{{ sale.subtitle }}</p>
                     </div>
                     <div class="fs-card__actions">
+                        <el-tooltip content="Enviar a clientes por WhatsApp" placement="top">
+                            <button class="fs-btn-icon fs-btn-icon--wa" @click="sendWhatsApp(sale)">
+                                <i class="fab fa-whatsapp"></i>
+                            </button>
+                        </el-tooltip>
                         <el-switch v-model="sale.active" @change="toggleActive(sale)" active-color="#16a34a"></el-switch>
                         <el-tooltip content="Editar" placement="top">
                             <button class="fs-btn-icon" @click="openEdit(sale)"><i class="fa fa-pencil"></i></button>
@@ -259,6 +264,25 @@ export default {
                     });
                 }).catch(() => {});
         },
+        sendWhatsApp(row) {
+            this.$confirm(
+                'Se enviaran productos en oferta de esta flash sale a clientes registrados con WhatsApp. Deseas continuar?',
+                'Enviar por WhatsApp',
+                { type: 'warning' }
+            ).then(() => {
+                this.$http.post('/ecommerce/flash-sales/' + row.id + '/send-whatsapp', {
+                    limit_customers: 200,
+                    max_products: 3,
+                    cooldown_hours: 48
+                }).then(({ data }) => {
+                    this.$message.success(
+                        `Campana enviada. Exito: ${data.sent || 0}, Fallidos: ${data.failed || 0}`
+                    );
+                }).catch((e) => {
+                    this.$message.error(e.response?.data?.message || 'No se pudo enviar la campana');
+                });
+            }).catch(() => {});
+        },
         searchItems(query, cb) {
             if (!query || query.length < 2) { cb([]); return; }
             if (this._allItems) { cb(this._filterItems(query)); return; }
@@ -326,6 +350,8 @@ export default {
 
 .fs-btn-icon { width: 32px; height: 32px; border-radius: 8px; border: 1px solid #e5e7eb; background: #fff; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 12px; transition: all 0.15s; }
 .fs-btn-icon:hover { background: #f3f4f6; }
+.fs-btn-icon--wa { color: #16a34a; border-color: #bbf7d0; background: #f0fdf4; }
+.fs-btn-icon--wa:hover { background: #dcfce7; border-color: #86efac; }
 .fs-btn-icon--danger:hover { background: #fef2f2; border-color: #ef4444; color: #ef4444; }
 .fs-btn-icon--sm { width: 26px; height: 26px; }
 
