@@ -287,6 +287,7 @@ Vue.component('tenant-ecommerce-item-sets-index', () => import('../../modules/Ec
 Vue.component('tenant-ecommerce-flash-sales', () => import('../../modules/Ecommerce/Resources/assets/js/views/flash_sales/index.vue'))
 Vue.component('tenant-ecommerce-coupons', () => import('../../modules/Ecommerce/Resources/assets/js/views/coupons/index.vue'))
 Vue.component('tenant-ecommerce-stock-notifications', () => import('../../modules/Ecommerce/Resources/assets/js/views/stock_notifications/index.vue'))
+Vue.component('tenant-ecommerce-whatsapp-campaigns', () => import('../../modules/Ecommerce/Resources/assets/js/views/whatsapp_campaigns/index.vue'))
 
 // Ecommerce items, tags, promos, orders
 Vue.component('tenant-items-ecommerce-index', () => import('./views/tenant/items_ecommerce/index.vue'))

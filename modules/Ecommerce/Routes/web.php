@@ -213,6 +213,12 @@ Route::middleware(['check.permission', 'locked.tenant', 'check.email.verified', 
         Route::post('flash-sales/{id}/send-whatsapp', 'FlashSaleController@sendWhatsApp');
         Route::delete('flash-sales/{id}', 'FlashSaleController@destroy');
 
+        // Campanas WhatsApp
+        Route::get('whatsapp-campaigns', 'WhatsAppCampaignController@index')->name('tenant.ecommerce.whatsapp_campaigns');
+        Route::get('whatsapp-campaigns/records', 'WhatsAppCampaignController@records');
+        Route::get('whatsapp-campaigns/{id}/messages', 'WhatsAppCampaignController@messages');
+        Route::post('whatsapp-campaigns/{id}/retry-failed', 'WhatsAppCampaignController@retryFailed');
+
         // Cupones
         Route::get('coupons', 'CouponController@index')->name('tenant.ecommerce.coupons');
         Route::get('coupons/records', 'CouponController@records');
