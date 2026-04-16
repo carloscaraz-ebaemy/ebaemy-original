@@ -33,7 +33,7 @@
                     <div class="fs-card__actions">
                         <el-tooltip content="Enviar a clientes por WhatsApp" placement="top">
                             <button class="fs-btn-icon fs-btn-icon--wa" @click="sendWhatsApp(sale)">
-                                <i class="fab fa-whatsapp"></i>
+                                <span class="fs-btn-icon__label">WA</span>
                             </button>
                         </el-tooltip>
                         <el-switch v-model="sale.active" @change="toggleActive(sale)" active-color="#16a34a"></el-switch>
@@ -352,6 +352,7 @@ export default {
 .fs-btn-icon:hover { background: #f3f4f6; }
 .fs-btn-icon--wa { color: #16a34a; border-color: #bbf7d0; background: #f0fdf4; }
 .fs-btn-icon--wa:hover { background: #dcfce7; border-color: #86efac; }
+.fs-btn-icon__label { font-size: 10px; font-weight: 700; line-height: 1; }
 .fs-btn-icon--danger:hover { background: #fef2f2; border-color: #ef4444; color: #ef4444; }
 .fs-btn-icon--sm { width: 26px; height: 26px; }
 
