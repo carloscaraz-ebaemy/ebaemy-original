@@ -1,6 +1,6 @@
 <?php
 
-namespace App\CoreFacturalo\Services\Reniec;
+namespace App\CoreFacturalo\Services\Dni;
 
 use App\CoreFacturalo\Services\Helpers\CaptchaCodes;
 use App\CoreFacturalo\Services\Helpers\Http\ClientInterface;

@@ -1,6 +1,6 @@
 <?php
 
-namespace App\CoreFacturalo\Cpe;
+namespace App\CoreFacturalo\Services\Cpe;
 
 use App\CoreFacturalo\Helpers\StorageDocument;
 use App\Models\Tenant\Company;

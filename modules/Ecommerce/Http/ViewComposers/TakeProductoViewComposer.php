@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Http\View\Composers;
+namespace Modules\Ecommerce\Http\ViewComposers;
 
 use App\Repositories\UserRepository;
 use Illuminate\View\View;

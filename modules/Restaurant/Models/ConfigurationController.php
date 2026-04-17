@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Http\Controllers\Tenant;
+namespace Modules\Restaurant\Models;
 
 use App\Http\Requests\Tenant\ConfigurationRequest;
 use App\Http\Resources\Tenant\ConfigurationResource;
