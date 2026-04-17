@@ -200,6 +200,9 @@ export default {
             this.initDocument()
         },
         async submit() {
+            if (!this.document.series_id) {
+                return this.$message.error('No hay serie disponible para Nota de Venta (tipo 80).');
+            }
 
             let validate_items = await this.validateQuantitySeriesLots()
             if (!validate_items.success)

@@ -700,15 +700,28 @@ export default {
                 if (statusId === 2) {
                     this.order_id = record.id;
                     const purchaseType = record?.purchase?.codigo_tipo_documento;
+                    const purchaseItems = record?.purchase?.items;
+                    const hasPurchaseItems = Array.isArray(purchaseItems) && purchaseItems.length > 0;
                     if (!purchaseType) {
                         await this.saveUpdateStatus();
+                        this.$message.warning("El pedido no tiene datos de comprobante. Se actualizó solo el estado.");
                     } else if (String(purchaseType) == "80") {
+                        if (!hasPurchaseItems) {
+                            await this.saveUpdateStatus();
+                            this.$message.warning("El pedido no tiene detalle para generar nota. Se actualizó solo el estado.");
+                            return;
+                        }
                         if (record.has_sale_note) {
                             this.$message.success("Ya existe una nota de venta");
                         } else {
                             this.openDialogSaleNote(record.purchase);
                         }
                     } else {
+                        if (!hasPurchaseItems) {
+                            await this.saveUpdateStatus();
+                            this.$message.warning("El pedido no tiene detalle para generar comprobante. Se actualizó solo el estado.");
+                            return;
+                        }
                         if (record.document_external_id) {
                             this.$message.success("Ya existe un comprobante.");
                         } else {
