@@ -13,6 +13,8 @@
     @section('page_title', $categoryName . ' — Tienda Online')
     @section('meta_description', 'Explora todos los productos de ' . $categoryName . ' en nuestra tienda.')
     @section('canonical_url', $categoryUrl)
+@else
+    @section('canonical_url', $homeUrl)
 @endif
 
 {{-- ── Schema.org BreadcrumbList ────────────────────────────────── --}}

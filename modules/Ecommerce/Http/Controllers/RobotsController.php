@@ -39,6 +39,7 @@ class RobotsController extends Controller
             $content .= "Allow: /storage/uploads/promotions/\n";
             $content .= "Allow: /storage/uploads/favicons/\n";
             $content .= "\n";
+            $content .= "Sitemap: {$domain}/ecommerce/sitemap.xml\n";
             $content .= "Sitemap: {$domain}/sitemap.xml\n";
         } else {
             $content = "User-agent: *\n";

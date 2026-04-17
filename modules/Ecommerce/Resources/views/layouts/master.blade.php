@@ -218,6 +218,37 @@
         .ec-compare-toast,
         [data-compare-id] { display: none !important; }
     }
+
+    /* E-commerce: en todas las variantes de cards, cubrir completamente el bloque de imagen */
+    .pcard__img,
+    .pcard__img--hover,
+    .tech-card__img,
+    .urb-card__img,
+    .eleg-card__img,
+    .food-card__img,
+    .sport-card__img,
+    .lux-card__img,
+    .ropa-card__img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover !important;
+        object-position: center;
+        padding: 0 !important;
+    }
+
+    @media (max-width: 767px) {
+        .pcard__media,
+        .tech-card__media,
+        .urb-card__media,
+        .eleg-card__media,
+        .food-card__media,
+        .sport-card__media,
+        .lux-card__media,
+        .ropa-card__media {
+            aspect-ratio: 1 / 1;
+            overflow: hidden;
+        }
+    }
     </style>
 </head>
 
