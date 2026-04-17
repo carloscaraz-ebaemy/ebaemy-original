@@ -16,17 +16,35 @@ class OrderCollection extends ResourceCollection
     {
 
         return $this->collection->transform(function($row, $key) {
-            $customer = $row->customer;
+            $customer = $row->customer ?? [];
+            if (is_object($customer)) {
+                $customer = (array) $customer;
+            }
+
+            $customerName = data_get($customer, 'apellidos_y_nombres_o_razon_social')
+                ?? data_get($customer, 'name')
+                ?? 'Invitado';
+            $customerEmail = data_get($customer, 'correo_electronico')
+                ?? data_get($customer, 'email')
+                ?? '';
+            $customerPhone = data_get($customer, 'telefono')
+                ?? data_get($customer, 'phone')
+                ?? data_get($customer, 'telephone')
+                ?? '';
+            $customerAddress = data_get($customer, 'direccion')
+                ?? data_get($customer, 'address')
+                ?? ($row->shipping_address ?? '');
+
             $items    = is_array($row->items) ? $row->items : (array)($row->items ?? []);
             return [
                 'id'                   => $row->id,
                 'external_id'          => $row->external_id,
                 'number_document'      => $row->number_document,
                 'order_id'             => str_pad($row->id, 6, "0", STR_PAD_LEFT),
-                'customer'             => optional($customer)->apellidos_y_nombres_o_razon_social ?? 'Invitado',
-                'customer_email'       => optional($customer)->correo_electronico ?? '',
-                'customer_telefono'    => optional($customer)->telefono ?? '',
-                'customer_direccion'   => optional($customer)->direccion ?? '',
+                'customer'             => $customerName,
+                'customer_email'       => $customerEmail,
+                'customer_telefono'    => $customerPhone,
+                'customer_direccion'   => $customerAddress,
                 'items'                => $row->items,
                 'item_count'           => count($items),
                 'total'                => $row->total,
@@ -55,3 +73,4 @@ class OrderCollection extends ResourceCollection
 
     }
 }
+

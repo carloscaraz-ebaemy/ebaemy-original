@@ -182,10 +182,13 @@
                                     </el-table>
                                     <div class="eco-popover__contact">
                                         <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12"/></svg>
-                                        {{ row.customer_telefono }}
+                                        {{ row.customer_telefono || '-' }}
                                         &nbsp;·&nbsp;
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16v16H4z"/><path d="m22 6-10 7L2 6"/></svg>
+                                        {{ row.customer_email || '-' }}
+                                        &nbsp;|&nbsp;
                                         <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
-                                        {{ row.customer_direccion }}
+                                        {{ row.customer_direccion || '-' }}
                                     </div>
                                 </div>
                                 <button slot="reference" class="eco-detail-btn">
@@ -222,10 +225,10 @@
                             <div class="eco-status-wrap">
                                 <span class="eco-status-badge" :class="statusBadgeClass(row.status_order_id)">{{ statusLabel(row.status_order_id) }}</span>
                                 <el-select
-                                    v-model="row.status_order_id"
+                                    :value="Number(row.status_order_id)"
                                     size="mini"
                                     class="eco-status-select"
-                                    @change="updateStatus(row)"
+                                    @change="value => updateStatus(row, value)"
                                 >
                                     <el-option v-for="item in options" :key="item.id" :label="item.description" :value="item.id"></el-option>
                                 </el-select>
@@ -626,6 +629,7 @@ export default {
             return name.trim()[0].toUpperCase();
         },
         statusLabel(id) {
+            const statusId = Number(id);
             const map = {
                 1: 'Pago pendiente',
                 2: 'Pago verificado',
@@ -634,17 +638,17 @@ export default {
                 5: 'Cancelado',
                 6: 'Entregado',
             };
-            return map[id] || '—';
+            return map[statusId] || '-';
         },
         channelIcon(type) {
             const icons = { ecommerce: '🛒', pos: '🏪', whatsapp: '💬', phone: '📞', marketplace: '🏬', social: '📱', other: '📦' };
             return icons[type] || '📦';
         },
         statusBadgeClass(id) {
-            return `eco-badge--${id}`;
+            return `eco-badge--${Number(id) || 0}`;
         },
         rowClass(row) {
-            return row.status_order_id === 3 ? 'eco-row--dispatched' : '';
+            return Number(row.status_order_id) === 3 ? 'eco-row--dispatched' : '';
         },
         paymentClass(ref) {
             if (!ref) return '';
@@ -679,32 +683,60 @@ export default {
             }
         },
         openDialogSaleNote(sale_note) { this.dataSaleNote = sale_note; this.showDialogSaleNote = true; },
-        async updateStatus(record) {
-            this.record = record;
-            if (record.status_order_id === 2) {
-                this.order_id = record.id;
-                if (record.purchase.codigo_tipo_documento == "80") {
-                    if (record.has_sale_note) return this.$message.success("Ya existe una nota de venta");
-                    this.openDialogSaleNote(record.purchase);
-                } else {
-                    if (record.document_external_id) return this.$message.success("Ya existe un comprobante.");
-                    this.$refs.document_form.sendPreview(record.purchase);
-                }
-            } else if (record.status_order_id === 3) {
-                this.totalProduct = await this.products(record);
-                await this.$http.post('/orders/warehouse', { item_id: this.totalProduct }).then(r => {
-                    this.warehouses = r.data.data;
-                    this.showDialog = true;
-                });
-            } else {
-                this.saveUpdateStatus();
+        async updateStatus(record, value) {
+            const previousStatusId = Number(record.status_order_id);
+            const statusId = Number(value);
+
+            if (!Number.isFinite(statusId) || statusId === previousStatusId) {
+                return;
             }
+
+            // Optimistic UI update
+            record.status_order_id = statusId;
+            this.record = record;
+            this.record.status_order_id = statusId;
+
+            try {
+                if (statusId === 2) {
+                    this.order_id = record.id;
+                    const purchaseType = record?.purchase?.codigo_tipo_documento;
+                    if (!purchaseType) {
+                        await this.saveUpdateStatus();
+                    } else if (String(purchaseType) == "80") {
+                        if (record.has_sale_note) {
+                            this.$message.success("Ya existe una nota de venta");
+                        } else {
+                            this.openDialogSaleNote(record.purchase);
+                        }
+                    } else {
+                        if (record.document_external_id) {
+                            this.$message.success("Ya existe un comprobante.");
+                        } else {
+                            this.$refs.document_form.sendPreview(record.purchase);
+                        }
+                    }
+                } else if (statusId === 3) {
+                    this.totalProduct = await this.products(record);
+                    await this.$http.post('/orders/warehouse', { item_id: this.totalProduct }).then(r => {
+                        this.warehouses = r.data.data;
+                        this.showDialog = true;
+                    });
+                } else {
+                    await this.saveUpdateStatus();
+                }
+            } catch (error) {
+                record.status_order_id = previousStatusId;
+                const msg = error?.response?.data?.message || "No se pudo actualizar el estado.";
+                this.$message.error(msg);
+            }
+
             // Refresh stats
             this.$http.get('/orders/stats').then(r => { this.stats = r.data; });
         },
         saveUpdateStatus() {
-            this.$http.post('/statusOrder/update', { record: this.record }).then(r => {
+            return this.$http.post('/statusOrder/update', { record: this.record }).then(r => {
                 this.$message.success(r.data.message);
+                this.$eventHub.$emit('reloadDataTable');
             });
         },
         async save() {
@@ -716,6 +748,7 @@ export default {
             }
             await this.$http.post('/statusOrder/update', { record: this.record, discount: save }).then(r => {
                 this.$message.success(r.data.message);
+                this.$eventHub.$emit('reloadDataTable');
                 this.close();
             });
         },
@@ -730,3 +763,4 @@ export default {
     }
 };
 </script>
+

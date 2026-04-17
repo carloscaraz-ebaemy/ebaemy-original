@@ -262,9 +262,17 @@ class OrderController extends Controller
 
     public function updateStatusOrders(Request $request)
     {
+      $validated = $request->validate([
+        'record.id' => 'required|integer|exists:orders,id',
+        'record.status_order_id' => 'required|integer|in:1,2,3,4,5,6',
+      ]);
+
+      $orderId = (int) data_get($validated, 'record.id');
+      $statusId = (int) data_get($validated, 'record.status_order_id');
+
       // Despacho (status 3): delegar toda la lógica de stock al OrderService
-      if ($request->record['status_order_id'] == 3) {
-        $order = Order::findOrFail($request->record['id']);
+      if ($statusId === 3) {
+        $order = Order::findOrFail($orderId);
 
         /** @var OrderService $orderService */
         $orderService = app(OrderService::class);
@@ -272,8 +280,8 @@ class OrderController extends Controller
         // Stock dispatch + status update en la MISMA transacción
         DB::transaction(function () use ($request, $order, $orderService) {
             $orderService->processEcommerceDispatch($order, $request->discount ?? []);
-            Order::where('id', $request->record['id'])->update([
-                'status_order_id' => $request->record['status_order_id']
+            Order::where('id', $order->id)->update([
+                'status_order_id' => 3
             ]);
         });
 
@@ -284,21 +292,20 @@ class OrderController extends Controller
         ];
       }
 
-      Order::where('id', $request->record['id'])->update(['status_order_id' => $request->record['status_order_id']]);
+      Order::where('id', $orderId)->update(['status_order_id' => $statusId]);
 
-      $order = Order::find($request->record['id']);
+      $order = Order::find($orderId);
 
       // Auto-generate SaleNote when payment is verified (status 2)
-      if ($request->record['status_order_id'] == 2 && $order) {
+      if ($statusId === 2 && $order) {
           $autoSaleNoteService = app(\App\Services\Tenant\OrderToSaleNoteService::class);
           $autoSaleNoteService->generate($order);
       }
 
       // Notificación WhatsApp automática al cambiar estado
-      $this->sendWhatsAppStatusNotification($order, $request->record['status_order_id']);
+      $this->sendWhatsAppStatusNotification($order, $statusId);
 
       // Webhook: order.status_changed
-      $statusId = (int) $request->record['status_order_id'];
       $event = $statusId === 5 ? 'order.cancelled' : 'order.status_changed';
       \App\Services\Tenant\WebhookDispatcher::dispatchAsync($event, [
           'order_id'  => $order->id,
