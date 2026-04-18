@@ -1040,15 +1040,17 @@ class EcommerceController extends Controller
         $input = json_decode($request->getContent(), true) ?: json_decode(json_encode($request->all()), true);
 
         $customer = $input['customer'] ?? [];
+        $deliveryType = strtolower((string)($input['delivery_type'] ?? 'delivery'));
+        $isPickup = $deliveryType === 'pickup';
 
-        // Si es recojo en tienda, la dirección no es obligatoria
-        if (empty($customer['direccion'])) {
+        // Normalizar dirección según tipo de entrega
+        if ($isPickup) {
             $customer['direccion'] = 'Recojo en tienda';
         }
 
         $validator = Validator::make($customer, [
             'telefono' => 'required|numeric',
-            'direccion' => 'required',
+            'direccion' => $isPickup ? 'nullable|string' : 'required|string',
             'codigo_tipo_documento_identidad' => 'required|numeric',
             'numero_documento' => 'required|numeric',
             'identity_document_type_id' => 'required|numeric'
@@ -1058,6 +1060,8 @@ class EcommerceController extends Controller
             return response()->json($validator->errors(), 422);
         } else {
             try {
+                // Persistir customer normalizado (incluye dirección de recojo)
+                $input['customer'] = $customer;
                 $user = auth('ecommerce')->user();
 
                 // CAPI: InitiateCheckout server-side

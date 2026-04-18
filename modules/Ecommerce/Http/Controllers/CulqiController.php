@@ -44,11 +44,26 @@ class CulqiController extends Controller
     {
       try{
 
-        $customer = (array)json_decode($request->customer);
+        $input = json_decode($request->getContent(), true) ?: $request->all();
+        $customerRaw = $input['customer'] ?? $request->customer ?? [];
+        if (is_string($customerRaw)) {
+            $decoded = json_decode($customerRaw, true);
+            $customer = is_array($decoded) ? $decoded : [];
+        } elseif (is_object($customerRaw)) {
+            $customer = (array) $customerRaw;
+        } else {
+            $customer = (array) $customerRaw;
+        }
+
+        $deliveryType = strtolower((string)($input['delivery_type'] ?? $request->input('delivery_type', 'delivery')));
+        $isPickup = $deliveryType === 'pickup';
+        if ($isPickup) {
+            $customer['direccion'] = 'Recojo en tienda';
+        }
 
         $validator = Validator::make($customer, [
             'telefono' => 'required|numeric',
-            'direccion' => 'required',
+            'direccion' => $isPickup ? 'nullable|string' : 'required|string',
             'codigo_tipo_documento_identidad' => 'required|numeric',
             'numero_documento' => 'required|numeric',
             'identity_document_type_id' => 'required|numeric'
@@ -62,7 +77,12 @@ class CulqiController extends Controller
         $user = auth()->user();
         $configuration = ConfigurationEcommerce::firstCached();
 
-        $culqiItems = json_decode($request->items, true) ?? [];
+        $itemsRaw = $input['items'] ?? $request->items ?? [];
+        if (is_string($itemsRaw)) {
+            $culqiItems = json_decode($itemsRaw, true) ?? [];
+        } else {
+            $culqiItems = is_array($itemsRaw) ? $itemsRaw : [];
+        }
 
         // ── VERIFICACIÓN SERVER-SIDE DE PRECIOS ──────────────────────────────
         // Recalcular total desde BD — ignorar completamente los precios enviados
@@ -235,15 +255,16 @@ class CulqiController extends Controller
             'email'     => $request->email,
         ]);
 
-        $customerData = (array) json_decode($request->customer, true);
+        $customerData = $customer;
         $customer_name  = $user ? $user->name : ($customerData['apellidos_y_nombres_o_razon_social'] ?? 'Cliente');
-        $customer_email = $request->email ?: ($customerData['correo_electronico'] ?? null);
-        $shipping_addr  = $customerData['direccion'] ?? 'direccion 1';
+        $customer_email = ($request->email ?? null) ?: ($customerData['correo_electronico'] ?? null);
+        $shipping_addr  = $isPickup ? 'Recojo en tienda' : ($customerData['direccion'] ?? 'Sin dirección');
 
         // ── Vincular Person por DNI/RUC (evita duplicados en clientes invitados) ──
         $personId = $user ? $user->id : null;
         if (!$personId) {
-            $purchaseData = json_decode($request->purchase, true) ?? [];
+            $purchaseRaw = $input['purchase'] ?? $request->purchase ?? [];
+            $purchaseData = is_string($purchaseRaw) ? (json_decode($purchaseRaw, true) ?? []) : (is_array($purchaseRaw) ? $purchaseRaw : []);
             $docNumber = $purchaseData['datos_del_cliente_o_receptor']['numero_documento'] ?? null;
             if ($docNumber) {
                 $personId = Person::where('number', $docNumber)
@@ -258,7 +279,7 @@ class CulqiController extends Controller
         $order = Order::create([
             'external_id'       => Str::uuid()->toString(),
             'person_id'         => $personId,
-            'customer'          => json_decode($request->customer),
+            'customer'          => $customerData,
             'shipping_address'  => $shipping_addr,
             'items'             => $verifiedItems,
             'total'             => $finalTotal,
@@ -267,7 +288,7 @@ class CulqiController extends Controller
             'reference_payment' => 'culqi',
             'culqi_charge_id'   => $charge->id,
             'payment_status'    => 'pending_capture',
-            'purchase'          => json_decode($request->purchase),
+            'purchase'          => $purchaseData,
             'status_order_id'   => 1,               // Pendiente
             'channel_id'        => $ecomChannel->id,
             'warehouse_id'      => $ecomWarehouseId,

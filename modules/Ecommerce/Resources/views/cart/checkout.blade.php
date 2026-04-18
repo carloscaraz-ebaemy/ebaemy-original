@@ -827,6 +827,7 @@
                     producto:      'Compras Ecommerce Facturador Pro',
                     precio:        Math.round(finalTotal * 100).toFixed(2),
                     precio_culqi:  finalTotal,
+                    delivery_type: this.deliveryType, // delivery | pickup
                     customer:      this.form_document.datos_del_cliente_o_receptor,
                     items:         this.records,
                     purchase:      await this.getDocument(),

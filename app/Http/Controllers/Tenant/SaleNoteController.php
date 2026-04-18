@@ -2306,11 +2306,9 @@ class SaleNoteController extends Controller
      * @return array
      */
     public function transformDataOrder(Request $request){
-
-        $data = SaleNoteHelper::transformForOrder($request->only([
-            'items', 'customer', 'customer_id', 'establishment_id', 'currency_type_id',
-            'exchange_rate_sale', 'total', 'payment_method_type_id',
-        ]));
+        // La transformación para pedidos ecommerce requiere estructura completa:
+        // datos_del_cliente_o_receptor, totales, items, codigo_tipo_documento, etc.
+        $data = SaleNoteHelper::transformForOrder($request->all());
 
         return [
             'data' => $data

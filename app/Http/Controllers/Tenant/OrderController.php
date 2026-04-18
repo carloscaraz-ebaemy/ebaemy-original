@@ -3,6 +3,7 @@ namespace App\Http\Controllers\Tenant;
 
 use Exception;
 
+use App\Exceptions\InvalidOrderTransitionException;
 use App\Models\Tenant\Order;
 use Illuminate\Http\Request;
 use App\Models\Tenant\Series;
@@ -269,10 +270,30 @@ class OrderController extends Controller
 
       $orderId = (int) data_get($validated, 'record.id');
       $statusId = (int) data_get($validated, 'record.status_order_id');
+      $order = Order::findOrFail($orderId);
+
+      $allowedTransitions = [
+        1 => [2, 5], // Pendiente -> Pago verificado / Cancelado
+        2 => [3, 5], // Pago verificado -> En preparación / Cancelado
+        3 => [4, 5], // En preparación -> Enviado / Cancelado
+        4 => [6, 5], // Enviado -> Entregado / Cancelado
+        5 => [],     // Cancelado (final)
+        6 => [],     // Entregado (final)
+      ];
+
+      $currentStatusId = (int) $order->status_order_id;
+      if ($currentStatusId === $statusId) {
+        return [
+          'message' => 'El pedido ya se encuentra en ese estado'
+        ];
+      }
+
+      if (!in_array($statusId, $allowedTransitions[$currentStatusId] ?? [], true)) {
+        throw new InvalidOrderTransitionException("Transición inválida de estado: {$currentStatusId} → {$statusId}");
+      }
 
       // Despacho (status 3): delegar toda la lógica de stock al OrderService
       if ($statusId === 3) {
-        $order = Order::findOrFail($orderId);
 
         /** @var OrderService $orderService */
         $orderService = app(OrderService::class);
@@ -293,8 +314,7 @@ class OrderController extends Controller
       }
 
       Order::where('id', $orderId)->update(['status_order_id' => $statusId]);
-
-      $order = Order::find($orderId);
+      $order->status_order_id = $statusId;
 
       // Auto-generate SaleNote when payment is verified (status 2)
       if ($statusId === 2 && $order) {

@@ -52,6 +52,7 @@ class OrderToSaleNoteService
 
                 // Resolve customer data from order
                 $customerData = $this->getCustomerArray($order);
+                $isPickup = $this->isPickupOrder($order, $customerData);
 
                 // Create SaleNote
                 $saleNote = new SaleNote();
@@ -74,10 +75,10 @@ class OrderToSaleNoteService
                 $saleNote->total_canceled = true;
                 $saleNote->paid = true;
 
-                // Logistic fields
-                $saleNote->requires_warehouse_dispatch = true;
+                // Logistic fields: pickup != envío provincia
+                $saleNote->requires_warehouse_dispatch = !$isPickup;
                 $saleNote->logistic_status = 'PENDIENTE';
-                $saleNote->delivery_type = 'province';
+                $saleNote->delivery_type = $isPickup ? 'pickup' : 'province';
                 $saleNote->warehouse_id = $order->warehouse_id;
 
                 // Shipping info from order customer data
@@ -230,5 +231,15 @@ class OrderToSaleNoteService
         }
 
         return null;
+    }
+
+    /**
+     * Determina si el pedido fue de recojo en tienda.
+     */
+    protected function isPickupOrder(Order $order, ?array $customerData = null): bool
+    {
+        $customerData = $customerData ?? $this->getCustomerArray($order) ?? [];
+        $address = strtolower(trim((string)($customerData['direccion'] ?? $order->shipping_address ?? '')));
+        return $address === 'recojo en tienda';
     }
 }
