@@ -56,6 +56,7 @@ use App\Models\Tenant\User;
 use App\Traits\OfflineTrait;
 use Carbon\Carbon;
 use Exception;
+use Throwable;
 use GuzzleHttp\Client;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
@@ -629,7 +630,7 @@ class DocumentController extends Controller
 
             return $res;
         }
-        catch(Exception $e)
+        catch(Throwable $e)
         {
             $this->generalWriteErrorLog($e);
 
@@ -639,8 +640,15 @@ class DocumentController extends Controller
 
     public function validationOpenCash($request)
     {
+        $payments = $request->payments;
+
+        // Si no hay pagos enviados, no aplica esta validación.
+        if (!is_array($payments) || empty($payments)) {
+            return true;
+        }
+
         // busca una caja chica en el array de pagos
-        $find_cash = array_search('cash', array_column($request->payments,'payment_destination_id'));
+        $find_cash = array_search('cash', array_column($payments,'payment_destination_id'));
         // si ha seleccionado una caja chica (array_search returns false when not found; >= 0 is WRONG because false casts to 0)
         if($find_cash !== false) {
             // no hay id de la caja seleccionada por lo que si es abierta una nueva será seleccionada como destino
@@ -1752,25 +1760,26 @@ class DocumentController extends Controller
         
         $document = new Document($inputs);
 
-        $facturalo->setPaymentsPreview($document, $inputs['payments']);
-        $facturalo->setFeePreview($document, $inputs['fee']);
+        $payments = (isset($inputs['payments']) && is_array($inputs['payments'])) ? $inputs['payments'] : [];
+        $facturalo->setPaymentsPreview($document, $payments);
+        $facturalo->setFeePreview($document, $inputs['fee'] ?? null);
 
         foreach ($inputs['items'] as $row) {
             $item = new \App\Models\Tenant\DocumentItem($row);
             $document->items[] = $item;
         }
 
-        if ($inputs['hotel']) {
+        if (!empty($inputs['hotel']) && is_array($inputs['hotel'])) {
             $hotel = new \Modules\BusinessTurn\Models\DocumentHotel($inputs['hotel']);
             $document->hotel = $hotel;
         }
 
-        if ($inputs['transport']) {
+        if (!empty($inputs['transport']) && is_array($inputs['transport'])) {
             $transport = new \Modules\BusinessTurn\Models\DocumentTransport($inputs['transport']);
             $document->transport = $transport;
         }
         
-        $invoice = new \App\Models\Tenant\Invoice($inputs['invoice']);
+        $invoice = new \App\Models\Tenant\Invoice($inputs['invoice'] ?? []);
         $document->invoice = $invoice;
 
         $facturalo->previewPdf($document, $inputs['type']);
