@@ -121,46 +121,60 @@ body {
    AUTH CONTAINER — solo envuelve el form encima
    ────────────────────────────────────────── */
 .auth {
-  position: relative;
+  position: relative !important;
   z-index: 2;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 100%;
-  max-width: 480px;
-  margin: 0 auto;
+  display: block !important;
+  width: 100% !important;
+  max-width: 480px !important;
+  margin: 0 auto !important;
+  min-height: 0 !important;
   grid-template-columns: none !important;
   gap: 0 !important;
+  padding: 0 !important;
 }
 
 /* ──────────────────────────────────────────
    FORM CARD — glass morphism centrado
    ────────────────────────────────────────── */
 .auth__form {
-  position: relative;
+  position: relative !important;
   z-index: 2;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 100%;
-  min-width: 0;
-  max-width: 480px;
-  padding: 48px 40px;
-  background: rgba(255, 255, 255, 0.92);
+  display: block !important;
+  box-sizing: border-box !important;
+  width: 100% !important;
+  max-width: 480px !important;
+  min-width: 0 !important;
+  padding: 48px 40px !important;
+  background: rgba(255, 255, 255, 0.94) !important;
   backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
   border: 1px solid rgba(255, 255, 255, 0.6);
-  border-radius: 24px;
+  border-radius: 24px !important;
   box-shadow:
     0 30px 90px rgba(17, 48, 58, 0.35),
-    0 8px 24px rgba(17, 48, 58, 0.12);
-  min-height: auto;
+    0 8px 24px rgba(17, 48, 58, 0.12) !important;
+  min-height: auto !important;
+  margin: 0 auto !important;
 }
 
 .auth__form form {
-  width: 100%;
-  max-width: 100%;
+  width: 100% !important;
+  max-width: 100% !important;
   position: relative;
+  display: block !important;
+}
+
+.auth__form .d-flex {
+  width: 100%;
+}
+
+/* Asegurar que el título no se rompa en columnas */
+.auth__title,
+.auth__subtitle,
+.auth__subtitle__black {
+  word-break: normal !important;
+  overflow-wrap: break-word !important;
+  white-space: normal !important;
 }
 
 /* Logo arriba del form */
