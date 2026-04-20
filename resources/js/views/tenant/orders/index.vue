@@ -248,27 +248,23 @@
 
                         <!-- Documento -->
                         <td class="eco-td text-center">
-                            <template v-if="row.document_type_id == '80'">
-                                <span v-if="row.sale_note_number_full" class="eco-doc-number">{{ row.sale_note_number_full }}</span>
-                                <span v-else class="eco-doc-empty">—</span>
-                            </template>
-                            <template v-else>
-                                <span v-if="row.number_document" class="eco-doc-number">{{ row.number_document }}</span>
-                                <span v-else class="eco-doc-empty">—</span>
-                            </template>
+                            <span v-if="row.sale_note_number_full" class="eco-doc-number">{{ row.sale_note_number_full }}</span>
+                            <span v-else-if="row.number_document" class="eco-doc-number">{{ row.number_document }}</span>
+                            <span v-else class="eco-doc-empty">—</span>
                         </td>
 
                         <!-- Acciones -->
                         <td class="eco-td text-center">
                             <div class="eco-actions">
-                                <template v-if="row.document_type_id == '80'">
-                                    <el-button v-if="row.sale_note_id" size="mini" type="success" icon="el-icon-tickets" title="Ver nota de venta"
-                                               @click.prevent="clickOptions(row.sale_note_id)"></el-button>
-                                </template>
-                                <template v-else>
-                                    <el-button v-if="row.document_external_id" size="mini" type="success" icon="el-icon-tickets" title="Ver comprobante"
-                                               @click.prevent="clickDownload(row.document_external_id)"></el-button>
-                                </template>
+                                <!-- Ver opciones de NV (modal: A4, ticket 80mm, email, etc.) -->
+                                <el-button v-if="row.sale_note_id" size="mini" type="success" icon="el-icon-tickets" title="Ver nota de venta"
+                                           @click.prevent="clickOptions(row.sale_note_id)"></el-button>
+                                <!-- Imprimir PDF directo en nueva pestaña -->
+                                <el-button v-if="row.sale_note_external_id" size="mini" type="primary" icon="el-icon-printer" title="Imprimir PDF (A4)"
+                                           @click.prevent="printSaleNote(row.sale_note_external_id, 'a4')"></el-button>
+                                <!-- Ver comprobante si es boleta/factura -->
+                                <el-button v-if="row.document_external_id" size="mini" type="warning" icon="el-icon-document" title="Ver comprobante"
+                                           @click.prevent="clickDownload(row.document_external_id)"></el-button>
                                 <el-button size="mini" type="info" icon="el-icon-time" title="Ver historial del pedido"
                                            @click.prevent="openHistory(row)"></el-button>
                             </div>
@@ -979,6 +975,16 @@ export default {
             this.statusDocument.send = "";
             this.resource_options = "documents";
             this.showDialogOptions = true;
+        },
+        /**
+         * Abre el PDF de la Nota de Venta en una pestaña nueva.
+         * Usa la ruta `/sale-notes/print/{external_id}/{format}` que ya existe
+         * en el sistema (SaleNoteController@toPrint).
+         */
+        printSaleNote(externalId, format = 'a4') {
+            if (!externalId) return;
+            const url = `/sale-notes/print/${externalId}/${format}`;
+            window.open(url, '_blank');
         },
         optionDisable(product, stock) {
             for (let i = 0; i < this.record.items.length; i++) {

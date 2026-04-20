@@ -58,6 +58,7 @@ class OrderCollection extends ResourceCollection
                 'has_sale_note'        => !is_null($row->sale_note),
                 'sale_note_number_full'=> optional($row->sale_note)->number_full,
                 'sale_note_id'         => optional($row->sale_note)->id,
+                'sale_note_external_id'=> optional($row->sale_note)->external_id,
                 'points_earned'        => (float) $row->points_earned,
                 'points_redeemed'      => (float) $row->points_redeemed,
                 // Canal de venta
