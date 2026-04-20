@@ -944,13 +944,17 @@ export default {
                             this.$refs.document_form.sendPreview(record.purchase);
                         }
                     }
-                } else if (statusId === 3) {
+                } else if (statusId === 4) {
+                    // 3→4 (Despachar): abre modal de selección de almacén
+                    // porque en este paso SÍ se descuenta stock físico.
                     this.totalProduct = await this.products(record);
                     await this.$http.post('/orders/warehouse', { item_id: this.totalProduct }).then(r => {
                         this.warehouses = r.data.data;
                         this.showDialog = true;
                     });
                 } else {
+                    // 2→3 (Preparar), 4→6 (Entregar), *→5 (Cancelar)
+                    // Flujo directo: sin modal, solo actualiza estado.
                     await this.saveUpdateStatus();
                 }
             } catch (error) {
