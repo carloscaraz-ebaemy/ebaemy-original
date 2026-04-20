@@ -145,6 +145,7 @@ if ($hostname) {
             Route::get('orders/records', 'Tenant\OrderController@records');
             Route::get('orders/record/{order}', 'Tenant\OrderController@record');
             Route::get('orders/{order}/status-logs', 'Tenant\OrderController@statusLogs')->where('order', '[0-9]+');
+            Route::get('orders/payment-catalogs', 'Tenant\OrderController@paymentCatalogs');
             //Route::get('orders/print/{external_id}/{format?}', 'Tenant\OrderController@toPrint');
             Route::post('statusOrder/update/', 'Tenant\OrderController@updateStatusOrders');
             Route::get('orders/pdf/{id}', 'Tenant\OrderController@pdf')->where('id', '[0-9]+');

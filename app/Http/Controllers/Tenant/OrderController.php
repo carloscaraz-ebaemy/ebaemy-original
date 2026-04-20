@@ -21,12 +21,17 @@ use App\Models\Tenant\SalesChannel;
 use App\Models\Tenant\Catalogs\DocumentType;
 use App\Services\Tenant\OrderService;
 use App\Models\Tenant\OrderStatusLog;
+use App\Models\Tenant\OrderPayment;
+use App\Models\Tenant\Catalogs\PaymentMethodType;
+use App\Models\Tenant\CardBrand;
 use Illuminate\Support\Facades\DB;
+use Modules\Finance\Traits\FinanceTrait;
 
 class OrderController extends Controller
 {
 
   use StorageDocument;
+  use FinanceTrait;
 
   protected $company;
 
@@ -373,6 +378,19 @@ class OrderController extends Controller
       }
 
       // ── 1 → 2  (Pago verificado) ─────────────────────────────────────────
+      // Si viene un array `payments` en la request, los guarda como OrderPayment
+      // antes de generar la Nota de Venta. Eso permite que el modal "Verificar pago"
+      // registre método (efectivo/transferencia/tarjeta), banco destino y referencia
+      // — y que esos datos viajen al SaleNotePayment del comprobante.
+      if ($statusId === 2) {
+          $payments = $request->input('payments', []);
+          if (is_array($payments) && !empty($payments)) {
+              DB::transaction(function () use ($order, $payments) {
+                  $this->saveOrderPayments($order, $payments);
+              });
+          }
+      }
+
       Order::where('id', $orderId)->update(['status_order_id' => $statusId]);
       $order->status_order_id = $statusId;
 
@@ -413,6 +431,70 @@ class OrderController extends Controller
               'exception' => get_class($e),
           ], 500);
       }
+    }
+
+    /**
+     * GET /orders/payment-catalogs
+     * Retorna los catálogos necesarios para el modal de "Verificar pago":
+     *   - payment_method_types: métodos SUNAT (01=Efectivo, 02=Crédito, etc.)
+     *   - payment_destinations: caja + cuentas bancarias activas
+     *   - card_brands: marcas de tarjeta (Visa, Mastercard, etc.)
+     *
+     * Reutiliza el mismo helper `FinanceTrait::getPaymentDestinations()` que
+     * usa el form de SaleNote para que el comportamiento sea 1:1.
+     */
+    public function paymentCatalogs()
+    {
+        $payment_method_types = PaymentMethodType::all()->map(function ($row) {
+            return [
+                'id'          => $row->id,
+                'description' => $row->description,
+            ];
+        });
+
+        $payment_destinations = $this->getPaymentDestinations();
+        $card_brands = CardBrand::all()->map(function ($row) {
+            return [
+                'id'          => $row->id,
+                'description' => $row->description,
+            ];
+        });
+
+        return response()->json([
+            'payment_method_types' => $payment_method_types,
+            'payment_destinations' => $payment_destinations,
+            'card_brands'          => $card_brands,
+        ]);
+    }
+
+    /**
+     * Guarda los pagos de un pedido (reemplazando los existentes si aplica).
+     * Usa la misma estructura que `SaleNoteController::savePayments()`.
+     *
+     * @param  Order  $order
+     * @param  array  $payments Array de pagos con estructura:
+     *   [{date_of_payment, payment_method_type_id, has_card, card_brand_id,
+     *     reference, change, payment, payment_destination_id}, ...]
+     */
+    private function saveOrderPayments(Order $order, array $payments): void
+    {
+        // Reemplaza los pagos existentes (patrón consistente con SaleNote)
+        $order->payments()->delete();
+
+        foreach ($payments as $row) {
+            if (empty($row['payment_method_type_id'])) continue;
+
+            $order->payments()->create([
+                'date_of_payment'         => $row['date_of_payment'] ?? now()->toDateString(),
+                'payment_method_type_id'  => $row['payment_method_type_id'],
+                'has_card'                => (bool) ($row['has_card'] ?? false),
+                'card_brand_id'           => $row['card_brand_id'] ?? null,
+                'reference'               => $row['reference'] ?? null,
+                'change'                  => $row['change'] ?? null,
+                'payment'                 => (float) ($row['payment'] ?? 0),
+                'payment_destination_id'  => (string) ($row['payment_destination_id'] ?? 'cash'),
+            ]);
+        }
     }
 
     /**

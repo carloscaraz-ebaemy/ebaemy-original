@@ -60,6 +60,11 @@
             return $this->hasOne(SaleNote::class);
         }
 
+        public function payments()
+        {
+            return $this->hasMany(OrderPayment::class);
+        }
+
         public function channel()
         {
             return $this->belongsTo(SalesChannel::class, 'channel_id');

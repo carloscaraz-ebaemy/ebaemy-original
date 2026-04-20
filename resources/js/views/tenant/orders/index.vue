@@ -318,6 +318,65 @@
 
         <sale-note-form :showDialog.sync="showDialogSaleNote" :orderId="order_id" :dataSaleNote="dataSaleNote"></sale-note-form>
 
+        <!-- ── Verificar pago (registro de pagos) ─────────────────────── -->
+        <el-dialog :title="`Verificar pago — Pedido #${paymentDlg.orderIdPad}`" width="65%"
+                   :visible.sync="showDialogPayment" :close-on-click-modal="false" append-to-body>
+            <div v-loading="paymentDlg.loading" class="eco-payment-dlg">
+                <div class="eco-payment-dlg__summary">
+                    <div>Total del pedido: <b>S/ {{ Number(paymentDlg.total).toFixed(2) }}</b></div>
+                    <div>Registrado: <b>S/ {{ paymentsSum.toFixed(2) }}</b></div>
+                    <div :class="{ 'eco-payment-dlg__ok': paymentsBalance === 0, 'eco-payment-dlg__warn': paymentsBalance !== 0 }">
+                        Diferencia: <b>S/ {{ paymentsBalance.toFixed(2) }}</b>
+                    </div>
+                </div>
+
+                <table class="eco-payment-table">
+                    <thead>
+                        <tr>
+                            <th style="width:160px">Fecha</th>
+                            <th>Método</th>
+                            <th>Destino</th>
+                            <th>Referencia</th>
+                            <th style="width:130px">Monto</th>
+                            <th style="width:40px"></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr v-for="(p, idx) in paymentDlg.payments" :key="idx">
+                            <td><el-date-picker v-model="p.date_of_payment" type="date" size="mini" format="dd/MM/yyyy" value-format="yyyy-MM-dd" :clearable="false" style="width:100%"></el-date-picker></td>
+                            <td>
+                                <el-select v-model="p.payment_method_type_id" size="mini" placeholder="Método" @change="onChangePaymentMethod(p)" style="width:100%">
+                                    <el-option v-for="m in paymentDlg.methods" :key="m.id" :label="m.description" :value="m.id"></el-option>
+                                </el-select>
+                            </td>
+                            <td>
+                                <el-select v-model="p.payment_destination_id" size="mini" placeholder="Destino" style="width:100%">
+                                    <el-option v-for="d in paymentDlg.destinations" :key="d.id" :label="d.description" :value="String(d.id)"></el-option>
+                                </el-select>
+                            </td>
+                            <td><el-input v-model="p.reference" size="mini" placeholder="Nro. operación/voucher"></el-input></td>
+                            <td><el-input-number v-model="p.payment" size="mini" :min="0" :precision="2" :controls="false" style="width:100%"></el-input-number></td>
+                            <td>
+                                <el-button v-if="paymentDlg.payments.length > 1" size="mini" type="danger" plain icon="el-icon-delete" @click="removePaymentRow(idx)"></el-button>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <div class="eco-payment-dlg__actions">
+                    <el-button size="mini" type="primary" plain icon="el-icon-plus" @click="addPaymentRow">Agregar pago</el-button>
+                    <el-button size="mini" plain @click="distributeTotal">Distribuir total</el-button>
+                </div>
+            </div>
+
+            <div slot="footer">
+                <el-button @click="showDialogPayment = false">Cancelar</el-button>
+                <el-button type="primary" :disabled="!canConfirmPayment" @click="confirmPaymentVerification">
+                    Confirmar pago y generar comprobante
+                </el-button>
+            </div>
+        </el-dialog>
+
         <!-- ── Historial del pedido (timeline) ──────────────────────────── -->
         <el-dialog :title="history.title" width="48%" :visible.sync="showDialogHistory"
                    :close-on-click-modal="true" append-to-body>
@@ -614,6 +673,31 @@
     display: flex; flex-direction: column; gap: 4px;
 }
 
+/* ── Modal Verificar pago ───────────────────────────────────────── */
+.eco-payment-dlg { font-size: 1.25rem; }
+.eco-payment-dlg__summary {
+    display: flex; gap: 24px; flex-wrap: wrap;
+    padding: 10px 14px; margin-bottom: 12px;
+    background: #f9fafb; border-radius: 8px;
+    border: 1px solid #e5e7eb;
+}
+.eco-payment-dlg__ok   b { color: #059669; }
+.eco-payment-dlg__warn b { color: #dc2626; }
+
+.eco-payment-table { width: 100%; border-collapse: separate; border-spacing: 0 6px; }
+.eco-payment-table th {
+    text-align: left; padding: 6px 8px; color: #6b7280;
+    font-weight: 500; font-size: 1.1rem;
+    border-bottom: 1px solid #e5e7eb;
+}
+.eco-payment-table td { padding: 4px 6px; vertical-align: middle; }
+.eco-payment-table tbody tr { background: #fff; }
+
+.eco-payment-dlg__actions {
+    display: flex; gap: 8px; margin-top: 12px;
+    padding-top: 10px; border-top: 1px dashed #e5e7eb;
+}
+
 /* Status tab gray (cancelado) */
 .eco-stab--gray { color: #6b7280; }
 .eco-stab--gray.eco-stab--active { background: #6b7280; color: #fff; }
@@ -709,6 +793,18 @@ export default {
                 payment_status: null,
                 phases: null,
             },
+            showDialogPayment: false,
+            paymentDlg: {
+                loading: false,
+                orderId: null,
+                orderIdPad: '',
+                record: null,
+                total: 0,
+                methods: [],
+                destinations: [],
+                cardBrands: [],
+                payments: [],
+            },
             filterStatus: null,
             filterChannel: null,
             searchValue: "",
@@ -722,6 +818,19 @@ export default {
         this.$http.get('/orders/stats').then(r => { this.stats = r.data; });
         this.$http.get('/orders/channels').then(r => { this.channels = r.data; });
         this.events();
+    },
+    computed: {
+        paymentsSum() {
+            return (this.paymentDlg.payments || []).reduce((acc, p) => acc + (Number(p.payment) || 0), 0);
+        },
+        paymentsBalance() {
+            return Number((this.paymentDlg.total - this.paymentsSum).toFixed(2));
+        },
+        canConfirmPayment() {
+            if (!this.paymentDlg.payments.length) return false;
+            if (this.paymentsBalance !== 0) return false;
+            return this.paymentDlg.payments.every(p => p.payment_method_type_id && p.date_of_payment && Number(p.payment) > 0);
+        },
     },
     methods: {
         setStatus(id) {
@@ -877,6 +986,104 @@ export default {
             }
         },
         openDialogSaleNote(sale_note) { this.dataSaleNote = sale_note; this.showDialogSaleNote = true; },
+        // ── Modal "Verificar pago" ────────────────────────────────────
+        async openPaymentVerificationDialog(record) {
+            const total = Number(record.total) || 0;
+            this.paymentDlg = {
+                loading: true,
+                orderId: record.id,
+                orderIdPad: String(record.id).padStart(6, '0'),
+                record: record,
+                total: total,
+                methods: [],
+                destinations: [],
+                cardBrands: [],
+                payments: [],
+            };
+            this.showDialogPayment = true;
+
+            try {
+                const r = await this.$http.get('/orders/payment-catalogs');
+                this.paymentDlg.methods = r.data.payment_method_types || [];
+                this.paymentDlg.destinations = (r.data.payment_destinations || []).map(d => ({ id: d.id ?? 'cash', description: d.description }));
+                this.paymentDlg.cardBrands = r.data.card_brands || [];
+                // Prepagar una fila con método efectivo por el total completo
+                const today = new Date().toISOString().slice(0, 10);
+                const defaultMethod = this.paymentDlg.methods.find(m => m.id === '01')?.id || this.paymentDlg.methods[0]?.id;
+                const defaultDest = String(this.paymentDlg.destinations[0]?.id || 'cash');
+                this.paymentDlg.payments = [{
+                    date_of_payment: today,
+                    payment_method_type_id: defaultMethod,
+                    payment_destination_id: defaultDest,
+                    reference: null,
+                    payment: total,
+                    has_card: false,
+                    card_brand_id: null,
+                }];
+            } catch (err) {
+                this.$message.error('No se pudieron cargar los catálogos de pago');
+            } finally {
+                this.paymentDlg.loading = false;
+            }
+        },
+        addPaymentRow() {
+            const today = new Date().toISOString().slice(0, 10);
+            const defaultMethod = this.paymentDlg.methods[0]?.id;
+            const defaultDest = String(this.paymentDlg.destinations[0]?.id || 'cash');
+            this.paymentDlg.payments.push({
+                date_of_payment: today,
+                payment_method_type_id: defaultMethod,
+                payment_destination_id: defaultDest,
+                reference: null,
+                payment: Math.max(0, this.paymentsBalance),
+                has_card: false,
+                card_brand_id: null,
+            });
+        },
+        removePaymentRow(idx) {
+            this.paymentDlg.payments.splice(idx, 1);
+        },
+        distributeTotal() {
+            const n = this.paymentDlg.payments.length;
+            if (!n) return;
+            const per = Number((this.paymentDlg.total / n).toFixed(2));
+            this.paymentDlg.payments.forEach((p, i) => {
+                p.payment = i === n - 1
+                    ? Number((this.paymentDlg.total - per * (n - 1)).toFixed(2))
+                    : per;
+            });
+        },
+        onChangePaymentMethod(payment) {
+            // '02'=Crédito, '03'=Débito (tarjetas) → marca has_card
+            payment.has_card = ['02', '03'].includes(String(payment.payment_method_type_id));
+            if (!payment.has_card) payment.card_brand_id = null;
+        },
+        async confirmPaymentVerification() {
+            if (!this.canConfirmPayment) return;
+            const record = this.paymentDlg.record;
+            const payload = {
+                record: { ...record, status_order_id: 2 },
+                payments: this.paymentDlg.payments.map(p => ({
+                    date_of_payment: p.date_of_payment,
+                    payment_method_type_id: p.payment_method_type_id,
+                    payment_destination_id: p.payment_destination_id,
+                    reference: p.reference,
+                    payment: Number(p.payment),
+                    has_card: !!p.has_card,
+                    card_brand_id: p.card_brand_id,
+                })),
+            };
+            try {
+                const r = await this.$http.post('/statusOrder/update', payload);
+                this.$message.success(r.data.message || 'Pago verificado y comprobante generado');
+                this.showDialogPayment = false;
+                this.$eventHub.$emit('reloadDataTable');
+                this.$http.get('/orders/stats').then(x => { this.stats = x.data; });
+            } catch (err) {
+                const msg = err?.response?.data?.message || 'No se pudo verificar el pago.';
+                this.$message.error(msg);
+            }
+        },
         openHistory(row) {
             this.history = {
                 title: `Historial del pedido #${String(row.id).padStart(6, '0')}`,
@@ -914,6 +1121,15 @@ export default {
 
             try {
                 if (statusId === 2) {
+                    // Antes de marcar el pago como verificado, abrir modal para
+                    // registrar el/los pago(s) (método, banco, fecha, referencia).
+                    // Esos pagos se guardarán como OrderPayments y luego se
+                    // copiarán al SaleNotePayment al generar el comprobante.
+                    record.status_order_id = previousStatusId; // revertir optimistic
+                    this.openPaymentVerificationDialog(record);
+                    return;
+                } else if (statusId === 2 && false) {
+                    // (legacy — dead code, preservado por si hay que reactivar)
                     this.order_id = record.id;
                     const purchaseType = record?.purchase?.codigo_tipo_documento;
                     const purchaseItems = record?.purchase?.items;

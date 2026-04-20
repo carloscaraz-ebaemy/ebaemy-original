@@ -159,6 +159,12 @@ class OrderToSaleNoteService
                 $saleNote->total_taxes = round($totalIgv, 2);
                 $saleNote->save();
 
+                // Copiar los OrderPayments registrados (método, banco, fecha, referencia)
+                // a SaleNotePayments para que el comprobante refleje los pagos reales.
+                // Si no hay OrderPayments, cae al fallback legacy (1 pago por el total
+                // con método inferido de `reference_payment`).
+                $this->copyPaymentsToSaleNote($order, $saleNote);
+
                 // Link order to sale note
                 $order->update([
                     'number_document' => $saleNote->number_full,
@@ -181,6 +187,49 @@ class OrderToSaleNoteService
             ]);
             return null;
         }
+    }
+
+    /**
+     * Copia los OrderPayments del pedido a SaleNotePayments del comprobante.
+     * Si no hay OrderPayments registrados (flujo legacy o pedido sin pago explícito),
+     * crea un único SaleNotePayment con el total y método inferido por heurística.
+     */
+    protected function copyPaymentsToSaleNote(Order $order, SaleNote $saleNote): void
+    {
+        $orderPayments = $order->payments()->get();
+
+        if ($orderPayments->isNotEmpty()) {
+            foreach ($orderPayments as $op) {
+                \App\Models\Tenant\SaleNotePayment::create([
+                    'sale_note_id'           => $saleNote->id,
+                    'date_of_payment'        => $op->date_of_payment,
+                    'payment_method_type_id' => $op->payment_method_type_id,
+                    'has_card'               => (bool) $op->has_card,
+                    'card_brand_id'          => $op->card_brand_id,
+                    'reference'              => $op->reference,
+                    'change'                 => $op->change,
+                    'payment'                => $op->payment,
+                ]);
+            }
+            Log::channel('payments')->info('SaleNote payments from OrderPayments', [
+                'order_id'     => $order->id,
+                'sale_note_id' => $saleNote->id,
+                'count'        => $orderPayments->count(),
+            ]);
+            return;
+        }
+
+        // Fallback legacy: 1 pago único con método inferido del string reference_payment
+        \App\Models\Tenant\SaleNotePayment::create([
+            'sale_note_id'           => $saleNote->id,
+            'date_of_payment'        => now()->toDateString(),
+            'payment_method_type_id' => $this->resolvePaymentMethod($order),
+            'has_card'               => false,
+            'card_brand_id'          => null,
+            'reference'              => $order->reference_payment,
+            'change'                 => null,
+            'payment'                => $saleNote->total,
+        ]);
     }
 
     protected function resolveCustomer(Order $order): ?Person
