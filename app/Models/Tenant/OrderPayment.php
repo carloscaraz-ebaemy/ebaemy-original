@@ -2,7 +2,6 @@
 
 namespace App\Models\Tenant;
 
-use App\Models\Tenant\Catalogs\PaymentMethodType;
 use Modules\Finance\Models\GlobalPayment;
 
 /**

@@ -22,7 +22,7 @@ use App\Models\Tenant\Catalogs\DocumentType;
 use App\Services\Tenant\OrderService;
 use App\Models\Tenant\OrderStatusLog;
 use App\Models\Tenant\OrderPayment;
-use App\Models\Tenant\Catalogs\PaymentMethodType;
+use App\Models\Tenant\PaymentMethodType;
 use App\Models\Tenant\CardBrand;
 use Illuminate\Support\Facades\DB;
 use Modules\Finance\Traits\FinanceTrait;
