@@ -20,6 +20,7 @@ use App\Models\Tenant\Item;
 use App\Models\Tenant\SalesChannel;
 use App\Models\Tenant\Catalogs\DocumentType;
 use App\Services\Tenant\OrderService;
+use App\Models\Tenant\OrderStatusLog;
 use Illuminate\Support\Facades\DB;
 
 class OrderController extends Controller
@@ -272,15 +273,6 @@ class OrderController extends Controller
       $statusId = (int) data_get($validated, 'record.status_order_id');
       $order = Order::findOrFail($orderId);
 
-      $allowedTransitions = [
-        1 => [2, 5], // Pendiente -> Pago verificado / Cancelado
-        2 => [3, 5], // Pago verificado -> En preparación / Cancelado
-        3 => [4, 5], // En preparación -> Enviado / Cancelado
-        4 => [6, 5], // Enviado -> Entregado / Cancelado
-        5 => [],     // Cancelado (final)
-        6 => [],     // Entregado (final)
-      ];
-
       $currentStatusId = (int) $order->status_order_id;
       if ($currentStatusId === $statusId) {
         return [
@@ -288,46 +280,97 @@ class OrderController extends Controller
         ];
       }
 
-      if (!in_array($statusId, $allowedTransitions[$currentStatusId] ?? [], true)) {
-        throw new InvalidOrderTransitionException("Transición inválida de estado: {$currentStatusId} → {$statusId}");
-      }
+      // Delegamos TODAS las reglas de transición (mapa + guard de payment_status +
+      // reglas por rol) al OrderPolicy::transitionTo. Si la transición es inválida
+      // lanza InvalidOrderTransitionException con mensaje específico; si la autorización
+      // falla por rol, `authorize` lanza AuthorizationException (403).
+      $this->authorize('transitionTo', [$order, $statusId]);
 
-      // Despacho (status 3): delegar toda la lógica de stock al OrderService
+      /** @var OrderService $orderService */
+      $orderService = app(OrderService::class);
+      $discountItems = $request->discount ?? [];
+
+      // ── 2 → 3  (En preparación) ──────────────────────────────────────────
+      // Flujo nuevo: solo marca prepared_at, no toca stock (ya reservado en checkout).
+      // Retrocompat: si el UI envía `discount` (legacy), se despacha físico aquí mismo
+      // y queda también marcado dispatched_at para evitar doble descuento en 3→4.
       if ($statusId === 3) {
+        if (!empty($discountItems)) {
+          $orderService->processEcommerceDispatch($order, $discountItems);
+          $this->logStatusTransition($order->fresh(), $currentStatusId, 3, ['discount' => $discountItems, 'mode' => 'legacy']);
+          $this->sendWhatsAppStatusNotification($order->fresh(), 3);
+          return ['message' => 'Estatus y Stock actualizado'];
+        }
 
-        /** @var OrderService $orderService */
-        $orderService = app(OrderService::class);
-
-        // Stock dispatch + status update en la MISMA transacción
-        DB::transaction(function () use ($request, $order, $orderService) {
-            $orderService->processEcommerceDispatch($order, $request->discount ?? []);
-            Order::where('id', $order->id)->update([
-                'status_order_id' => 3
-            ]);
-        });
-
-        $this->sendWhatsAppStatusNotification($order, 3);
-
-        return [
-          'message' => 'Estatus y Stock actualizado'
-        ];
+        $orderService->prepareEcommerceOrder($order);
+        $this->logStatusTransition($order->fresh(), $currentStatusId, 3, ['mode' => 'prepare']);
+        $this->sendWhatsAppStatusNotification($order->fresh(), 3);
+        return ['message' => 'Pedido marcado como en preparación'];
       }
 
+      // ── 3 → 4  (Despachado / Enviado) ────────────────────────────────────
+      // Descuento físico real. Idempotente: si ya se hizo en 2→3 (legacy),
+      // solo actualiza el estado sin volver a descontar stock.
+      if ($statusId === 4) {
+        $orderService->dispatchEcommerceOrder($order, $discountItems);
+        $this->logStatusTransition($order->fresh(), $currentStatusId, 4, ['discount' => $discountItems]);
+        $this->sendWhatsAppStatusNotification($order->fresh(), 4);
+
+        \App\Services\Tenant\WebhookDispatcher::dispatchAsync('order.status_changed', [
+            'order_id'  => $order->id,
+            'status_id' => 4,
+            'total'     => $order->total,
+        ]);
+
+        return ['message' => 'Pedido despachado'];
+      }
+
+      // ── 4 → 6  (Entregado) ───────────────────────────────────────────────
+      if ($statusId === 6) {
+        $orderService->markEcommerceDelivered($order);
+        $this->logStatusTransition($order->fresh(), $currentStatusId, 6, []);
+        $this->sendWhatsAppStatusNotification($order->fresh(), 6);
+
+        \App\Services\Tenant\WebhookDispatcher::dispatchAsync('order.status_changed', [
+            'order_id'  => $order->id,
+            'status_id' => 6,
+            'total'     => $order->total,
+        ]);
+
+        return ['message' => 'Pedido entregado'];
+      }
+
+      // ── * → 5  (Cancelado) ───────────────────────────────────────────────
+      // Libera stock_committed si el pedido todavía no fue despachado.
+      if ($statusId === 5) {
+        $reason = (string) $request->input('cancel_reason', '');
+        $orderService->cancelEcommerceOrder($order, $reason);
+        $this->logStatusTransition($order->fresh(), $currentStatusId, 5, ['reason' => $reason]);
+        $this->sendWhatsAppStatusNotification($order->fresh(), 5);
+
+        \App\Services\Tenant\WebhookDispatcher::dispatchAsync('order.cancelled', [
+            'order_id'  => $order->id,
+            'status_id' => 5,
+            'total'     => $order->total,
+            'reason'    => $reason,
+        ]);
+
+        return ['message' => 'Pedido cancelado'];
+      }
+
+      // ── 1 → 2  (Pago verificado) ─────────────────────────────────────────
       Order::where('id', $orderId)->update(['status_order_id' => $statusId]);
       $order->status_order_id = $statusId;
 
-      // Auto-generate SaleNote when payment is verified (status 2)
       if ($statusId === 2 && $order) {
           $autoSaleNoteService = app(\App\Services\Tenant\OrderToSaleNoteService::class);
           $autoSaleNoteService->generate($order);
       }
 
-      // Notificación WhatsApp automática al cambiar estado
+      $this->logStatusTransition($order, $currentStatusId, $statusId, []);
       $this->sendWhatsAppStatusNotification($order, $statusId);
 
-      // Webhook: order.status_changed
-      $event = $statusId === 5 ? 'order.cancelled' : 'order.status_changed';
-      \App\Services\Tenant\WebhookDispatcher::dispatchAsync($event, [
+      \App\Services\Tenant\WebhookDispatcher::dispatchAsync('order.status_changed', [
           'order_id'  => $order->id,
           'status_id' => $statusId,
           'total'     => $order->total,
@@ -336,6 +379,89 @@ class OrderController extends Controller
       return [
         'message' => 'Estatus actualizado'
       ];
+    }
+
+    /**
+     * GET /orders/{order}/status-logs
+     * Devuelve el historial de transiciones del pedido para renderizar timeline.
+     */
+    public function statusLogs($orderId)
+    {
+        $order = Order::findOrFail((int) $orderId);
+
+        $labels = [
+            1 => 'Pendiente',
+            2 => 'Pago verificado',
+            3 => 'En preparación',
+            4 => 'Despachado',
+            5 => 'Cancelado',
+            6 => 'Entregado',
+        ];
+
+        $logs = OrderStatusLog::where('order_id', $order->id)
+            ->with('actor:id,name,email')
+            ->orderBy('created_at', 'asc')
+            ->orderBy('id', 'asc')
+            ->get()
+            ->map(function ($log) use ($labels) {
+                return [
+                    'id'               => $log->id,
+                    'from_status'      => $log->from_status,
+                    'from_label'       => $labels[$log->from_status] ?? null,
+                    'to_status'        => $log->to_status,
+                    'to_label'         => $labels[$log->to_status] ?? null,
+                    'payment_status'   => $log->payment_status,
+                    'actor'            => $log->actor ? [
+                        'id'    => $log->actor->id,
+                        'name'  => $log->actor->name,
+                        'email' => $log->actor->email,
+                    ] : null,
+                    'payload'          => $log->payload,
+                    'created_at'       => $log->created_at?->format('Y-m-d H:i:s'),
+                    'created_at_human' => $log->created_at?->diffForHumans(),
+                ];
+            });
+
+        return response()->json([
+            'order_id' => $order->id,
+            'current_status' => [
+                'id'    => (int) $order->status_order_id,
+                'label' => $labels[(int) $order->status_order_id] ?? null,
+            ],
+            'payment_status' => $order->payment_status,
+            'phases' => [
+                'prepared_at'   => optional($order->prepared_at)->format('Y-m-d H:i:s'),
+                'dispatched_at' => optional($order->dispatched_at)->format('Y-m-d H:i:s'),
+                'delivered_at'  => optional($order->delivered_at)->format('Y-m-d H:i:s'),
+            ],
+            'logs' => $logs,
+        ]);
+    }
+
+    /**
+     * Registra una transición de estado en `order_status_logs`.
+     * Falla silenciosa (solo log en canal laravel) — el audit trail
+     * no debe romper operaciones de negocio.
+     */
+    private function logStatusTransition(?Order $order, int $from, int $to, array $payload = []): void
+    {
+        if (!$order) return;
+        try {
+            OrderStatusLog::create([
+                'order_id'       => $order->id,
+                'from_status'    => $from,
+                'to_status'      => $to,
+                'payment_status' => $order->payment_status,
+                'actor_id'       => auth()->id(),
+                'payload'        => $payload ?: null,
+                'created_at'     => now(),
+            ]);
+        } catch (\Throwable $e) {
+            \Log::warning('Failed to write OrderStatusLog', [
+                'order_id' => $order->id,
+                'error'    => $e->getMessage(),
+            ]);
+        }
     }
 
     public function searchWarehouse(Request $request)

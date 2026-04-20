@@ -35,12 +35,19 @@
             // L2 — Culqi pre-autorización
             'culqi_charge_id',
             'payment_status',
+            // Fases del despacho ecommerce (ver migration add_warehouse_phase_timestamps_to_orders)
+            'prepared_at',
+            'dispatched_at',
+            'delivered_at',
         ];
 
         protected $casts = [
             'customer' => 'array',
             'items' => 'array',
-            'purchase' => 'array'
+            'purchase' => 'array',
+            'prepared_at' => 'datetime',
+            'dispatched_at' => 'datetime',
+            'delivered_at' => 'datetime',
         ];
 
         public function status_order()

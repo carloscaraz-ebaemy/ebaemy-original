@@ -30,8 +30,29 @@ class OrderToSaleNoteService
             return null;
         }
 
+        // Guard: no generar si el pago está marcado como fallido.
+        // `payment_status` puede ser null (flujo legacy), 'captured' (Culqi ok),
+        // 'cash' (efectivo), 'pending_capture' (Culqi en curso) o 'capture_failed'.
+        if ($order->payment_status === 'capture_failed') {
+            Log::warning('Skip SaleNote: payment_status=capture_failed', [
+                'order_id' => $order->id,
+            ]);
+            return null;
+        }
+
         try {
             return DB::transaction(function () use ($order) {
+                // Lock pesimista sobre la Order y re-chequeo de NV existente para
+                // evitar race conditions entre CapturePaymentJob y updateStatusOrders.
+                $locked = Order::lockForUpdate()->find($order->id);
+                if (!$locked) {
+                    return null;
+                }
+                if ($locked->sale_note()->lockForUpdate()->exists()) {
+                    Log::info('Order already has sale_note (concurrent)', ['order_id' => $order->id]);
+                    return $locked->sale_note;
+                }
+
                 $establishment = Establishment::first();
 
                 // Find or create the person (customer)

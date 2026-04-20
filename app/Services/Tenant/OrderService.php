@@ -357,8 +357,17 @@ class OrderService
     // ═══════════════════════════════════════════════════════════════
 
     /**
-     * Procesa el despacho de un pedido ecommerce (modelo Order).
+     * [LEGACY] Procesa el despacho de un pedido ecommerce (modelo Order).
      * Descuenta stock de ítems normales, bundles y variantes.
+     *
+     * Comportamiento legacy: pasa directamente a status=3 y descuenta físico
+     * en el mismo paso. Se mantiene por retrocompatibilidad con UIs que
+     * todavía envían el payload de descuento en la transición 2→3.
+     *
+     * Para el flujo nuevo de 4 pasos usar:
+     *   prepareEcommerceOrder()   — 2→3 (marca preparación, no toca stock)
+     *   dispatchEcommerceOrder()  — 3→4 (descuenta stock físico)
+     *   markEcommerceDelivered()  — 4→6 (marca entrega)
      *
      * @param Order $order        El pedido ecommerce
      * @param array $discountItems Array de items con 'id' (ItemWarehouse id) y 'cantidad'
@@ -366,45 +375,261 @@ class OrderService
     public function processEcommerceDispatch(Order $order, array $discountItems): void
     {
         DB::transaction(function () use ($order, $discountItems) {
+            $this->deductEcommerceStock($order, $discountItems);
 
-            // ── 1. Descontar stock de ítems normales y bundles ──────────────
-            foreach ($discountItems as $discountItem) {
-                if (!isset($discountItem['id'])) continue;
-
-                $itemWarehouse = ItemWarehouse::where('id', $discountItem['id'])
-                    ->lockForUpdate()
-                    ->first();
-
-                if (!$itemWarehouse) continue;
-
-                $parentItem = Item::find($itemWarehouse->item_id);
-
-                // Saltar productos con variantes: su stock se gestiona via ItemVariantWarehouse
-                if ($parentItem && $parentItem->has_variants) continue;
-
-                $qty = (float) $discountItem['cantidad'];
-
-                // ── Pack/Bundle → descontar componentes individuales ─────
-                if ($parentItem && $parentItem->is_set) {
-                    $this->dispatchBundleStock($itemWarehouse, $parentItem, $qty);
-                    continue;
-                }
-
-                // ── Producto normal ──────────────────────────────────────
-                $itemWarehouse->applyStockMovement(StockMovementTypeEnum::ECOMMERCE_DISPATCH, $qty);
-            }
-
-            // ── 2. Descontar stock de variantes ─────────────────────────────
-            $this->dispatchVariantStock($order);
-
-            // ── 3. Actualizar estado de la orden ────────────────────────────
-            $order->status_order_id = 3; // dispatched
+            $order->status_order_id = 3;
+            $order->dispatched_at   = now();
             $order->save();
 
-            Log::info('[OrderService] Pedido ecommerce despachado', [
+            Log::info('[OrderService] Pedido ecommerce despachado (legacy 2→3)', [
                 'order_id' => $order->id,
             ]);
         });
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // FLUJO 4 PASOS — Pedido Ecommerce (paid → preparing → dispatched → delivered)
+    // ═══════════════════════════════════════════════════════════════
+
+    /**
+     * Marca el pedido como "En preparación" (status=3). No modifica stock.
+     *
+     * El stock reservado (stock_committed) puede haberse creado antes en:
+     *   - CulqiController::payment() (pre-autorización con lockForUpdate)
+     *   - EcommerceController::paymentCash() (reserva de variantes)
+     *
+     * Es idempotente: si `prepared_at` ya estaba seteado, no hace nada.
+     */
+    public function prepareEcommerceOrder(Order $order): void
+    {
+        if ($order->prepared_at) {
+            return;
+        }
+
+        DB::transaction(function () use ($order) {
+            $order = Order::lockForUpdate()->find($order->id);
+
+            if ($order->prepared_at) {
+                return;
+            }
+
+            $order->status_order_id = 3;
+            $order->prepared_at     = now();
+            $order->save();
+
+            Log::info('[OrderService] Pedido ecommerce marcado como en preparación', [
+                'order_id' => $order->id,
+            ]);
+        });
+    }
+
+    /**
+     * Despacha el pedido ecommerce (status 3→4): descuenta stock_physical
+     * y libera stock_committed (ECOMMERCE_DISPATCH aplica ambos deltas).
+     *
+     * Idempotente: si `dispatched_at` ya estaba seteado, no descuenta de nuevo.
+     *
+     * Retrocompatible: si el pedido provenía del flujo legacy (status=3 sin
+     * `prepared_at` Y sin `dispatched_at`), asume que `processEcommerceDispatch`
+     * ya descontó físico y solo actualiza estado — evita doble descuento.
+     *
+     * @param Order $order
+     * @param array $discountItems Items a descontar: [{id: ItemWarehouse id, cantidad: float}, ...]
+     */
+    public function dispatchEcommerceOrder(Order $order, array $discountItems = []): void
+    {
+        if ($order->dispatched_at) {
+            return;
+        }
+
+        DB::transaction(function () use ($order, $discountItems) {
+            $order = Order::lockForUpdate()->find($order->id);
+
+            if ($order->dispatched_at) {
+                return;
+            }
+
+            $legacyAlreadyDeducted = ($order->status_order_id >= 3 && !$order->prepared_at);
+
+            if (!$legacyAlreadyDeducted && !empty($discountItems)) {
+                $this->deductEcommerceStock($order, $discountItems);
+            }
+
+            $order->status_order_id = 4;
+            $order->dispatched_at   = now();
+            $order->save();
+
+            Log::info('[OrderService] Pedido ecommerce despachado (3→4)', [
+                'order_id'       => $order->id,
+                'legacy_skip'    => $legacyAlreadyDeducted,
+                'had_discount'   => !empty($discountItems),
+            ]);
+        });
+    }
+
+    /**
+     * Marca el pedido como "Entregado" (status=6). No modifica stock.
+     * Idempotente.
+     */
+    public function markEcommerceDelivered(Order $order): void
+    {
+        if ($order->delivered_at) {
+            return;
+        }
+
+        DB::transaction(function () use ($order) {
+            $order = Order::lockForUpdate()->find($order->id);
+
+            if ($order->delivered_at) {
+                return;
+            }
+
+            $order->status_order_id = 6;
+            $order->delivered_at    = now();
+            $order->save();
+        });
+    }
+
+    /**
+     * Cancela un pedido ecommerce (status → 5). Libera stock_committed para
+     * cada item que haya quedado reservado (checkout Culqi, paymentCash con
+     * variantes, o `prepareEcommerceOrder` previo).
+     *
+     * Idempotente: si el pedido ya estaba cancelado o ya fue despachado
+     * (dispatched_at seteado), no aplica liberación de committed — el stock
+     * físico ya fue descontado y no se puede devolver a committed sin una
+     * devolución formal (RETURN_RESTOCK).
+     *
+     * @param Order  $order
+     * @param string $reason Motivo (para logging y futuro audit trail)
+     */
+    public function cancelEcommerceOrder(Order $order, string $reason = ''): void
+    {
+        if ((int)$order->status_order_id === 5) {
+            return;
+        }
+
+        DB::transaction(function () use ($order, $reason) {
+            $order = Order::lockForUpdate()->find($order->id);
+            if (!$order || (int)$order->status_order_id === 5) {
+                return;
+            }
+
+            // Solo liberamos committed si el pedido aún NO fue despachado físicamente.
+            if (!$order->dispatched_at) {
+                $this->releaseEcommerceCommittedStock($order);
+            }
+
+            $order->status_order_id = 5;
+            $order->save();
+
+            Log::info('[OrderService] Pedido ecommerce cancelado', [
+                'order_id'  => $order->id,
+                'reason'    => $reason,
+                'released'  => !$order->dispatched_at,
+            ]);
+        });
+    }
+
+    /**
+     * Libera stock_committed de los items del pedido que estén actualmente
+     * reservados. Aplica ECOMMERCE_CANCEL a cada ItemWarehouse / ItemVariantWarehouse
+     * hasta agotar la cantidad del pedido (o el committed disponible).
+     *
+     * Nota: este método es conservador — si no encuentra reserva activa,
+     * no hace nada (no genera committed negativo).
+     */
+    private function releaseEcommerceCommittedStock(Order $order): void
+    {
+        $items = is_array($order->items) ? $order->items : (array) $order->items;
+        if (empty($items)) {
+            return;
+        }
+
+        foreach ($items as $item) {
+            $item    = (array) $item;
+            $itemId  = $item['item_id'] ?? $item['id'] ?? null;
+            $qty     = (float) ($item['quantity'] ?? $item['cantidad'] ?? 0);
+            $variantId = $item['variant_id'] ?? null;
+            if ($qty <= 0) continue;
+
+            if ($variantId) {
+                $vw = ItemVariantWarehouse::where('item_variant_id', $variantId)
+                    ->where('stock_committed', '>', 0)
+                    ->orderByDesc('stock_committed')
+                    ->lockForUpdate()
+                    ->first();
+                if ($vw) {
+                    $release = min((float)$vw->stock_committed, $qty);
+                    $vw->stock_committed = max(0, (float)$vw->stock_committed - $release);
+                    $vw->save();
+                }
+                continue;
+            }
+
+            if (!$itemId) continue;
+
+            $iw = ItemWarehouse::where('item_id', $itemId)
+                ->where('warehouse_id', $order->warehouse_id)
+                ->where('stock_committed', '>', 0)
+                ->lockForUpdate()
+                ->first();
+
+            if (!$iw) {
+                $iw = ItemWarehouse::where('item_id', $itemId)
+                    ->where('stock_committed', '>', 0)
+                    ->lockForUpdate()
+                    ->first();
+            }
+
+            if ($iw) {
+                $release = min((float)$iw->stock_committed, $qty);
+                if ($release > 0) {
+                    $iw->applyStockMovement(StockMovementTypeEnum::ECOMMERCE_CANCEL, $release);
+                    StockMovement::record(
+                        $iw,
+                        StockMovementTypeEnum::ECOMMERCE_CANCEL,
+                        $release,
+                        auth()->id(),
+                        $order,
+                        "Liberación por cancelación pedido #{$order->id}"
+                    );
+                }
+            }
+        }
+    }
+
+    /**
+     * Descuenta stock físico de items normales, bundles y variantes.
+     * Núcleo compartido entre `processEcommerceDispatch` (legacy) y
+     * `dispatchEcommerceOrder` (nuevo flujo).
+     */
+    private function deductEcommerceStock(Order $order, array $discountItems): void
+    {
+        foreach ($discountItems as $discountItem) {
+            if (!isset($discountItem['id'])) continue;
+
+            $itemWarehouse = ItemWarehouse::where('id', $discountItem['id'])
+                ->lockForUpdate()
+                ->first();
+
+            if (!$itemWarehouse) continue;
+
+            $parentItem = Item::find($itemWarehouse->item_id);
+
+            if ($parentItem && $parentItem->has_variants) continue;
+
+            $qty = (float) $discountItem['cantidad'];
+
+            if ($parentItem && $parentItem->is_set) {
+                $this->dispatchBundleStock($itemWarehouse, $parentItem, $qty);
+                continue;
+            }
+
+            $itemWarehouse->applyStockMovement(StockMovementTypeEnum::ECOMMERCE_DISPATCH, $qty);
+        }
+
+        $this->dispatchVariantStock($order);
     }
 
     /**

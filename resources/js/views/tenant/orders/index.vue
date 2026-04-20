@@ -224,14 +224,25 @@
                         <td class="eco-td">
                             <div class="eco-status-wrap">
                                 <span class="eco-status-badge" :class="statusBadgeClass(row.status_order_id)">{{ statusLabel(row.status_order_id) }}</span>
-                                <el-select
-                                    :value="Number(row.status_order_id)"
-                                    size="mini"
-                                    class="eco-status-select"
-                                    @change="value => updateStatus(row, value)"
-                                >
-                                    <el-option v-for="item in options" :key="item.id" :label="item.description" :value="item.id"></el-option>
-                                </el-select>
+                                <div v-if="primaryActionFor(row.status_order_id)" class="eco-status-actions">
+                                    <el-button
+                                        size="mini"
+                                        :type="primaryActionFor(row.status_order_id).type"
+                                        :title="primaryActionFor(row.status_order_id).label"
+                                        @click.prevent="updateStatus(row, primaryActionFor(row.status_order_id).target)">
+                                        {{ primaryActionFor(row.status_order_id).label }}
+                                    </el-button>
+                                    <el-button
+                                        v-if="canCancel(row.status_order_id)"
+                                        size="mini"
+                                        type="danger"
+                                        plain
+                                        title="Cancelar pedido"
+                                        @click.prevent="confirmCancel(row)">
+                                        ✕
+                                    </el-button>
+                                </div>
+                                <span v-else class="eco-status-final">final</span>
                             </div>
                         </td>
 
@@ -258,6 +269,8 @@
                                     <el-button v-if="row.document_external_id" size="mini" type="success" icon="el-icon-tickets" title="Ver comprobante"
                                                @click.prevent="clickDownload(row.document_external_id)"></el-button>
                                 </template>
+                                <el-button size="mini" type="info" icon="el-icon-time" title="Ver historial del pedido"
+                                           @click.prevent="openHistory(row)"></el-button>
                             </div>
                         </td>
 
@@ -304,6 +317,57 @@
         <document-form :order_id="order_id" :user="user" :document_types="document_types" ref="document_form"></document-form>
 
         <sale-note-form :showDialog.sync="showDialogSaleNote" :orderId="order_id" :dataSaleNote="dataSaleNote"></sale-note-form>
+
+        <!-- ── Historial del pedido (timeline) ──────────────────────────── -->
+        <el-dialog :title="history.title" width="48%" :visible.sync="showDialogHistory"
+                   :close-on-click-modal="true" append-to-body>
+            <div v-loading="history.loading" class="eco-history">
+                <div v-if="!history.loading && !history.logs.length" class="eco-history__empty">
+                    Sin transiciones registradas todavía.
+                </div>
+
+                <div v-if="history.current" class="eco-history__header">
+                    <span class="eco-status-badge" :class="statusBadgeClass(history.current.id)">{{ history.current.label }}</span>
+                    <span v-if="history.payment_status" class="eco-history__payment">Pago: <b>{{ history.payment_status }}</b></span>
+                </div>
+
+                <ul class="eco-timeline">
+                    <li v-for="log in history.logs" :key="log.id" class="eco-timeline__item">
+                        <span class="eco-timeline__dot" :class="statusBadgeClass(log.to_status)"></span>
+                        <div class="eco-timeline__body">
+                            <div class="eco-timeline__title">
+                                <span v-if="log.from_label">{{ log.from_label }} → </span>
+                                <b>{{ log.to_label }}</b>
+                            </div>
+                            <div class="eco-timeline__meta">
+                                <span v-if="log.actor">👤 {{ log.actor.name || log.actor.email }}</span>
+                                <span v-if="log.payment_status">• pago: {{ log.payment_status }}</span>
+                                <span>• {{ log.created_at }}</span>
+                                <span class="eco-timeline__human">({{ log.created_at_human }})</span>
+                            </div>
+                            <div v-if="log.payload && Object.keys(log.payload).length" class="eco-timeline__payload">
+                                <template v-if="log.payload.reason">
+                                    <i>Motivo:</i> {{ log.payload.reason }}
+                                </template>
+                                <template v-else-if="log.payload.mode">
+                                    <i>Modo:</i> {{ log.payload.mode }}
+                                </template>
+                                <template v-else-if="log.payload.discount">
+                                    <i>Items descontados:</i> {{ log.payload.discount.length }}
+                                </template>
+                            </div>
+                        </div>
+                    </li>
+                </ul>
+
+                <div v-if="history.phases && (history.phases.prepared_at || history.phases.dispatched_at || history.phases.delivered_at)"
+                     class="eco-history__phases">
+                    <div v-if="history.phases.prepared_at">📦 Preparado: <b>{{ history.phases.prepared_at }}</b></div>
+                    <div v-if="history.phases.dispatched_at">🚚 Despachado: <b>{{ history.phases.dispatched_at }}</b></div>
+                    <div v-if="history.phases.delivered_at">🎉 Entregado: <b>{{ history.phases.delivered_at }}</b></div>
+                </div>
+            </div>
+        </el-dialog>
 
     </div>
 </template>
@@ -499,6 +563,56 @@
 .eco-badge--6 { background: #d1fae5; color: #065f46; border: 1px solid #a7f3d0; }
 .eco-badge--6::before { content: '🎉'; }
 .eco-status-select { width: 100% !important; }
+.eco-status-actions { display: flex; gap: 4px; margin-top: 6px; flex-wrap: wrap; }
+.eco-status-actions .el-button { padding: 6px 10px; font-size: 1.1rem; }
+.eco-status-final {
+    display: inline-block; padding: 2px 10px; margin-top: 4px;
+    font-size: 1rem; color: #6b7280; font-style: italic;
+    background: #f3f4f6; border-radius: 10px;
+}
+
+/* ── Historial / timeline del pedido ────────────────────────────── */
+.eco-history { font-size: 1.25rem; }
+.eco-history__header {
+    display: flex; align-items: center; gap: 12px; margin-bottom: 12px;
+    padding-bottom: 10px; border-bottom: 1px dashed #e5e7eb;
+}
+.eco-history__payment { color: #374151; }
+.eco-history__empty { padding: 24px; text-align: center; color: #9ca3af; }
+
+.eco-timeline { list-style: none; padding: 0; margin: 0; }
+.eco-timeline__item {
+    position: relative; padding: 0 0 16px 26px;
+    border-left: 2px solid #e5e7eb;
+    margin-left: 8px;
+}
+.eco-timeline__item:last-child { border-left-color: transparent; padding-bottom: 0; }
+.eco-timeline__dot {
+    position: absolute; left: -9px; top: 2px;
+    width: 16px; height: 16px; border-radius: 50%;
+    border: 2px solid #fff; box-shadow: 0 0 0 2px #d1d5db;
+    background: #9ca3af;
+}
+.eco-timeline__dot.eco-badge--1 { background: #f59e0b; box-shadow: 0 0 0 2px #fde68a; }
+.eco-timeline__dot.eco-badge--2 { background: #22c55e; box-shadow: 0 0 0 2px #bbf7d0; }
+.eco-timeline__dot.eco-badge--3 { background: #3b82f6; box-shadow: 0 0 0 2px #bfdbfe; }
+.eco-timeline__dot.eco-badge--4 { background: #6366f1; box-shadow: 0 0 0 2px #c7d2fe; }
+.eco-timeline__dot.eco-badge--5 { background: #ef4444; box-shadow: 0 0 0 2px #fecaca; }
+.eco-timeline__dot.eco-badge--6 { background: #10b981; box-shadow: 0 0 0 2px #a7f3d0; }
+.eco-timeline__dot::before { content: none; }
+.eco-timeline__title { font-weight: 500; color: #111827; }
+.eco-timeline__meta { margin-top: 4px; color: #6b7280; font-size: 1.1rem; display: flex; flex-wrap: wrap; gap: 6px; }
+.eco-timeline__human { color: #9ca3af; font-style: italic; }
+.eco-timeline__payload {
+    margin-top: 6px; padding: 6px 10px;
+    background: #f9fafb; border-radius: 6px; color: #374151;
+}
+
+.eco-history__phases {
+    margin-top: 16px; padding: 10px 14px;
+    background: #f9fafb; border-radius: 8px; font-size: 1.2rem;
+    display: flex; flex-direction: column; gap: 4px;
+}
 
 /* Status tab gray (cancelado) */
 .eco-stab--gray { color: #6b7280; }
@@ -586,6 +700,15 @@ export default {
             order_id: null,
             dataSaleNote: {},
             showDialogSaleNote: false,
+            showDialogHistory: false,
+            history: {
+                title: 'Historial del pedido',
+                loading: false,
+                logs: [],
+                current: null,
+                payment_status: null,
+                phases: null,
+            },
             filterStatus: null,
             filterChannel: null,
             searchValue: "",
@@ -647,6 +770,77 @@ export default {
         statusBadgeClass(id) {
             return `eco-badge--${Number(id) || 0}`;
         },
+        /**
+         * Retorna las opciones del `el-select` filtradas según las transiciones
+         * permitidas desde el estado actual. Debe reflejar el mapa del backend
+         * en OrderController::updateStatusOrders:
+         *   1 → [2, 5]   (Pendiente → Pago verificado / Cancelado)
+         *   2 → [3, 5]   (Pago verificado → En preparación / Cancelado)
+         *   3 → [4, 5]   (En preparación → Despachado / Cancelado)
+         *   4 → [6, 5]   (Despachado → Entregado / Cancelado)
+         *   5, 6 → []    (finales, solo lectura)
+         */
+        allowedOptionsFor(currentStatusId) {
+            const allowed = {
+                1: [2, 5],
+                2: [3, 5],
+                3: [4, 5],
+                4: [6, 5],
+                5: [],
+                6: [],
+            };
+            const targets = allowed[Number(currentStatusId)] ?? [];
+            if (!targets.length || !Array.isArray(this.options)) return [];
+            return this.options.filter(o => targets.includes(Number(o.id)));
+        },
+        /**
+         * Acción principal del pedido según estado actual.
+         * Devuelve {target, label, type} o null si el estado es final.
+         */
+        primaryActionFor(currentStatusId) {
+            const map = {
+                1: { target: 2, label: 'Verificar pago',  type: 'primary' },
+                2: { target: 3, label: 'Preparar',        type: 'primary' },
+                3: { target: 4, label: 'Despachar',       type: 'success' },
+                4: { target: 6, label: 'Marcar entregado', type: 'success' },
+            };
+            return map[Number(currentStatusId)] || null;
+        },
+        canCancel(currentStatusId) {
+            return [1, 2, 3, 4].includes(Number(currentStatusId));
+        },
+        async confirmCancel(row) {
+            try {
+                const { value: reason } = await this.$prompt(
+                    'Escribe el motivo de la cancelación (opcional):',
+                    'Cancelar pedido',
+                    {
+                        confirmButtonText: 'Cancelar pedido',
+                        cancelButtonText: 'No, volver',
+                        inputPattern: /.*/,
+                        inputPlaceholder: 'ej: cliente pidió cancelar',
+                        type: 'warning',
+                    }
+                );
+                const previousStatusId = Number(row.status_order_id);
+                row.status_order_id = 5;
+                this.record = row;
+                try {
+                    await this.$http.post('/statusOrder/update', {
+                        record: row,
+                        cancel_reason: reason || ''
+                    });
+                    this.$message.success('Pedido cancelado');
+                    this.$eventHub.$emit('reloadDataTable');
+                    this.$http.get('/orders/stats').then(r => { this.stats = r.data; });
+                } catch (err) {
+                    row.status_order_id = previousStatusId;
+                    this.$message.error(err?.response?.data?.message || 'No se pudo cancelar.');
+                }
+            } catch (_) {
+                // usuario canceló el prompt — no-op
+            }
+        },
         rowClass(row) {
             return Number(row.status_order_id) === 3 ? 'eco-row--dispatched' : '';
         },
@@ -683,6 +877,28 @@ export default {
             }
         },
         openDialogSaleNote(sale_note) { this.dataSaleNote = sale_note; this.showDialogSaleNote = true; },
+        openHistory(row) {
+            this.history = {
+                title: `Historial del pedido #${String(row.id).padStart(6, '0')}`,
+                loading: true,
+                logs: [],
+                current: null,
+                payment_status: null,
+                phases: null,
+            };
+            this.showDialogHistory = true;
+            this.$http.get(`/orders/${row.id}/status-logs`).then(r => {
+                const d = r.data || {};
+                this.history.logs = d.logs || [];
+                this.history.current = d.current_status || null;
+                this.history.payment_status = d.payment_status || null;
+                this.history.phases = d.phases || null;
+            }).catch(() => {
+                this.$message.error('No se pudo cargar el historial del pedido.');
+            }).finally(() => {
+                this.history.loading = false;
+            });
+        },
         async updateStatus(record, value) {
             const previousStatusId = Number(record.status_order_id);
             const statusId = Number(value);
