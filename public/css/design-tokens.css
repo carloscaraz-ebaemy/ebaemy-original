@@ -1,0 +1,197 @@
+/* ============================================================
+   ebaemy Design Tokens — v1 (2026-04-20)
+
+   Variables CSS globales del sistema con prefijo `--eb-*` para
+   evitar colisión con Bootstrap (--bs-*), Element UI (--el-*) o
+   cualquier lib legacy. Incluir este archivo ANTES de los CSS
+   específicos de vistas permite que cualquier componente marcado
+   con clase `.eb-*` use los tokens.
+
+   Co-existe con Bootstrap/Porto/Element UI — no los reemplaza.
+
+   Uso:
+     <link rel="stylesheet" href="{{ asset('css/design-tokens.css') }}">
+
+   Override por tenant (opcional):
+     <body data-tenant-theme="gold">   → paleta dorada
+     <body data-tenant-theme="violet"> → paleta violeta
+   ============================================================ */
+
+:root {
+  /* ── COLORES MARCA ───────────────────────────────────────── */
+  --eb-brand:            #0f8a82;   /* turquesa — principal */
+  --eb-brand-dark:       #0a6f68;
+  --eb-brand-light:      #1fb1a6;
+  --eb-brand-soft:       #e8f6f5;   /* fondos sutiles, hover */
+
+  --eb-accent:           #c9962b;   /* dorado — acento */
+  --eb-accent-dark:      #a17420;
+  --eb-accent-light:     #e3b756;
+  --eb-accent-soft:      #f5ecd1;
+
+  /* ── NEUTRALES (Tailwind-style slate) ────────────────────── */
+  --eb-ink:              #0f172a;   /* texto principal */
+  --eb-ink-soft:         #475569;   /* texto secundario */
+  --eb-muted:            #94a3b8;   /* texto deshabilitado/placeholder */
+  --eb-line:             #e2e8f0;   /* bordes normales */
+  --eb-line-soft:        #f1f5f9;   /* bordes muy sutiles */
+  --eb-surface:          #ffffff;
+  --eb-surface-soft:     #fafbfc;
+  --eb-surface-muted:    #f1f5f9;
+
+  /* ── ESTADOS ─────────────────────────────────────────────── */
+  --eb-success:          #10b981;
+  --eb-success-soft:     #d1fae5;
+  --eb-warning:          #f59e0b;
+  --eb-warning-soft:     #fef3c7;
+  --eb-danger:           #ef4444;
+  --eb-danger-soft:      #fee2e2;
+  --eb-info:             #3b82f6;
+  --eb-info-soft:        #dbeafe;
+
+  /* ── TIPOGRAFÍA ──────────────────────────────────────────── */
+  --eb-font:             'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --eb-font-heading:     'Inter', system-ui, sans-serif;
+  --eb-font-mono:        'JetBrains Mono', ui-monospace, 'SF Mono', Consolas, monospace;
+
+  /* Escala tipográfica (ratio 1.125) */
+  --eb-text-xs:    12px;
+  --eb-text-sm:    13px;
+  --eb-text-base:  14px;
+  --eb-text-md:    15px;
+  --eb-text-lg:    17px;
+  --eb-text-xl:    20px;
+  --eb-text-2xl:   24px;
+  --eb-text-3xl:   30px;
+  --eb-text-4xl:   36px;
+
+  /* Pesos */
+  --eb-weight-normal:   400;
+  --eb-weight-medium:   500;
+  --eb-weight-semibold: 600;
+  --eb-weight-bold:     700;
+
+  /* Altura de línea */
+  --eb-leading-tight:   1.25;
+  --eb-leading-normal:  1.5;
+  --eb-leading-relaxed: 1.7;
+
+  /* ── ESPACIADO (base 4px) ────────────────────────────────── */
+  --eb-space-0:   0;
+  --eb-space-1:   4px;
+  --eb-space-2:   8px;
+  --eb-space-3:   12px;
+  --eb-space-4:   16px;
+  --eb-space-5:   20px;
+  --eb-space-6:   24px;
+  --eb-space-8:   32px;
+  --eb-space-10:  40px;
+  --eb-space-12:  48px;
+  --eb-space-16:  64px;
+  --eb-space-20:  80px;
+
+  /* ── RADIOS ──────────────────────────────────────────────── */
+  --eb-radius-none: 0;
+  --eb-radius-sm:   6px;
+  --eb-radius:      10px;
+  --eb-radius-md:   14px;
+  --eb-radius-lg:   20px;
+  --eb-radius-xl:   28px;
+  --eb-radius-full: 9999px;
+
+  /* ── SOMBRAS (escala tipo Tailwind) ──────────────────────── */
+  --eb-shadow-sm:  0 1px 2px 0 rgba(15, 23, 42, 0.05);
+  --eb-shadow:     0 4px 6px -1px rgba(15, 23, 42, 0.07), 0 2px 4px -2px rgba(15, 23, 42, 0.04);
+  --eb-shadow-md:  0 10px 15px -3px rgba(15, 23, 42, 0.10), 0 4px 6px -4px rgba(15, 23, 42, 0.05);
+  --eb-shadow-lg:  0 20px 40px -8px rgba(15, 23, 42, 0.18), 0 10px 20px -10px rgba(15, 23, 42, 0.10);
+  --eb-shadow-xl:  0 40px 80px -16px rgba(15, 23, 42, 0.25), 0 20px 40px -20px rgba(15, 23, 42, 0.12);
+
+  /* Sombra con tint de marca (para CTAs) */
+  --eb-shadow-brand: 0 4px 12px rgba(15, 138, 130, 0.25), 0 1px 3px rgba(15, 138, 130, 0.15);
+
+  /* ── TRANSICIONES ────────────────────────────────────────── */
+  --eb-ease:        cubic-bezier(0.4, 0, 0.2, 1);
+  --eb-ease-out:    cubic-bezier(0, 0, 0.2, 1);
+  --eb-ease-in:     cubic-bezier(0.4, 0, 1, 1);
+
+  --eb-duration-fast:   120ms;
+  --eb-duration:        180ms;
+  --eb-duration-slow:   280ms;
+
+  /* ── Z-INDEX (escala coherente) ──────────────────────────── */
+  --eb-z-base:       1;
+  --eb-z-sticky:     10;
+  --eb-z-dropdown:   100;
+  --eb-z-overlay:    500;
+  --eb-z-modal:      1000;
+  --eb-z-popover:    1100;
+  --eb-z-tooltip:    1200;
+  --eb-z-toast:      1300;
+
+  /* ── BREAKPOINTS (solo referencia, no usables directo en CSS) ─
+     sm: 640px  md: 768px  lg: 1024px  xl: 1280px  2xl: 1536px
+     Úsalos en @media en components/_*.css */
+}
+
+/* ============================================================
+   TEMAS POR TENANT (opcional, aditivo)
+
+   Para activar un tema alterno en un tenant específico, agregar
+   data-tenant-theme="<theme>" en <body> vía blade:
+
+     <body data-tenant-theme="{{ $tenant->theme ?? 'default' }}">
+
+   No rompe nada — si el atributo no existe, se usan los tokens default.
+   ============================================================ */
+
+[data-tenant-theme="gold"] {
+  --eb-brand:       #c9962b;
+  --eb-brand-dark:  #a17420;
+  --eb-brand-light: #e3b756;
+  --eb-brand-soft:  #f5ecd1;
+  --eb-accent:      #0f8a82;
+  --eb-accent-dark: #0a6f68;
+  --eb-accent-soft: #e8f6f5;
+  --eb-shadow-brand: 0 4px 12px rgba(201, 150, 43, 0.25), 0 1px 3px rgba(201, 150, 43, 0.15);
+}
+
+[data-tenant-theme="violet"] {
+  --eb-brand:       #7c3aed;
+  --eb-brand-dark:  #5b21b6;
+  --eb-brand-light: #a78bfa;
+  --eb-brand-soft:  #ede9fe;
+  --eb-accent:      #db2777;
+  --eb-accent-dark: #9f1239;
+  --eb-accent-soft: #fce7f3;
+  --eb-shadow-brand: 0 4px 12px rgba(124, 58, 237, 0.25), 0 1px 3px rgba(124, 58, 237, 0.15);
+}
+
+[data-tenant-theme="blue"] {
+  --eb-brand:       #2563eb;
+  --eb-brand-dark:  #1d4ed8;
+  --eb-brand-light: #60a5fa;
+  --eb-brand-soft:  #dbeafe;
+  --eb-accent:      #f59e0b;
+  --eb-accent-dark: #d97706;
+  --eb-accent-soft: #fef3c7;
+  --eb-shadow-brand: 0 4px 12px rgba(37, 99, 235, 0.25), 0 1px 3px rgba(37, 99, 235, 0.15);
+}
+
+/* ============================================================
+   DARK MODE (preparado — aún no activo)
+
+   Cuando quieras habilitar dark mode, basta con setear:
+     <body data-theme="dark">
+   y los componentes .eb-* lo adoptarán automáticamente.
+   ============================================================ */
+
+[data-theme="dark"] {
+  --eb-ink:           #f8fafc;
+  --eb-ink-soft:      #cbd5e1;
+  --eb-muted:         #64748b;
+  --eb-line:          #334155;
+  --eb-line-soft:     #1e293b;
+  --eb-surface:       #0f172a;
+  --eb-surface-soft:  #1e293b;
+  --eb-surface-muted: #334155;
+}
