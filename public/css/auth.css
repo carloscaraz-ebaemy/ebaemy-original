@@ -64,7 +64,7 @@ body {
   justify-content: center;
   overflow: hidden;
   background:
-    linear-gradient(135deg, rgba(31, 177, 166, 0.78) 0%, rgba(15, 138, 130, 0.72) 50%, rgba(168, 131, 28, 0.68) 100%);
+    linear-gradient(135deg, #0a9d92 0%, #0f7a72 40%, #8a6c14 100%) !important;
   border-radius: 0 !important;
   padding: 0 !important;
   margin: 0 !important;
@@ -78,31 +78,31 @@ body {
   width: 100vw !important;
   height: 100vh !important;
   object-fit: cover !important;
-  opacity: 0.55;
-  mix-blend-mode: overlay;
+  opacity: 0.28;
+  mix-blend-mode: soft-light;
   z-index: 0;
 }
 
-/* capa decorativa encima de la imagen — blobs dorado/turquesa */
+/* capa decorativa encima de la imagen — blobs más intensos */
 .auth__image::before,
 .auth__image::after {
   content: '';
   position: absolute;
   border-radius: 50%;
-  filter: blur(90px);
-  opacity: 0.45;
+  filter: blur(100px);
+  opacity: 0.75;
   z-index: 1;
   pointer-events: none;
 }
 .auth__image::before {
-  top: -140px; left: -140px;
-  width: 480px; height: 480px;
-  background: radial-gradient(circle, var(--teal-light) 0%, transparent 70%);
+  top: -160px; left: -160px;
+  width: 560px; height: 560px;
+  background: radial-gradient(circle, #14d4c3 0%, transparent 65%);
 }
 .auth__image::after {
-  bottom: -160px; right: -160px;
-  width: 520px; height: 520px;
-  background: radial-gradient(circle, var(--gold-light) 0%, transparent 70%);
+  bottom: -180px; right: -180px;
+  width: 600px; height: 600px;
+  background: radial-gradient(circle, #ffc83d 0%, transparent 65%);
 }
 
 /* Logo del tenant en la imagen de fondo */
