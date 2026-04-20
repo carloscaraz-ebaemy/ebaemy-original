@@ -1121,58 +1121,17 @@ export default {
 
             try {
                 if (statusId === 2) {
-                    // Antes de marcar el pago como verificado, abrir modal para
-                    // registrar el/los pago(s) (método, banco, fecha, referencia).
-                    // Esos pagos se guardarán como OrderPayments y luego se
-                    // copiarán al SaleNotePayment al generar el comprobante.
+                    // 1→2 (Verificar pago): abre modal de pagos (método, banco, fecha,
+                    // referencia). Los pagos se guardan como OrderPayments y se copian
+                    // al SaleNotePayment al generar el comprobante automáticamente.
                     record.status_order_id = previousStatusId; // revertir optimistic
                     this.openPaymentVerificationDialog(record);
                     return;
-                } else if (statusId === 2 && false) {
-                    // (legacy — dead code, preservado por si hay que reactivar)
-                    this.order_id = record.id;
-                    const purchaseType = record?.purchase?.codigo_tipo_documento;
-                    const purchaseItems = record?.purchase?.items;
-                    const hasPurchaseItems = Array.isArray(purchaseItems) && purchaseItems.length > 0;
-                    if (!purchaseType) {
-                        await this.saveUpdateStatus();
-                        this.$message.warning("El pedido no tiene datos de comprobante. Se actualizó solo el estado.");
-                    } else if (String(purchaseType) == "80") {
-                        if (!hasPurchaseItems) {
-                            await this.saveUpdateStatus();
-                            this.$message.warning("El pedido no tiene detalle para generar nota. Se actualizó solo el estado.");
-                            return;
-                        }
-                        if (record.has_sale_note) {
-                            this.$message.success("Ya existe una nota de venta");
-                        } else {
-                            this.openDialogSaleNote(record.purchase);
-                        }
-                    } else {
-                        if (!hasPurchaseItems) {
-                            await this.saveUpdateStatus();
-                            this.$message.warning("El pedido no tiene detalle para generar comprobante. Se actualizó solo el estado.");
-                            return;
-                        }
-                        if (record.document_external_id) {
-                            this.$message.success("Ya existe un comprobante.");
-                        } else {
-                            this.$refs.document_form.sendPreview(record.purchase);
-                        }
-                    }
-                } else if (statusId === 4) {
-                    // 3→4 (Despachar): abre modal de selección de almacén
-                    // porque en este paso SÍ se descuenta stock físico.
-                    this.totalProduct = await this.products(record);
-                    await this.$http.post('/orders/warehouse', { item_id: this.totalProduct }).then(r => {
-                        this.warehouses = r.data.data;
-                        this.showDialog = true;
-                    });
-                } else {
-                    // 2→3 (Preparar), 4→6 (Entregar), *→5 (Cancelar)
-                    // Flujo directo: sin modal, solo actualiza estado.
-                    await this.saveUpdateStatus();
                 }
+                // Resto de transiciones (2→3, 3→4, 4→6, *→5): directo sin modal.
+                // 3→4 (Despachar) descuenta stock físico automático en backend
+                // usando warehouse del pedido (OrderService::buildDiscountItemsFromOrder).
+                await this.saveUpdateStatus();
             } catch (error) {
                 record.status_order_id = previousStatusId;
                 const msg = error?.response?.data?.message || "No se pudo actualizar el estado.";

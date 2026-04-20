@@ -451,6 +451,15 @@ class OrderService
 
             $legacyAlreadyDeducted = ($order->status_order_id >= 3 && !$order->prepared_at);
 
+            // Si no viene discountItems del UI, auto-construir desde los items del
+            // pedido usando el warehouse del pedido. Eso elimina el modal legacy y
+            // evita que el stock no se descuente por dropdowns vacíos.
+            $wasAutoBuilt = false;
+            if (!$legacyAlreadyDeducted && empty($discountItems)) {
+                $discountItems = $this->buildDiscountItemsFromOrder($order);
+                $wasAutoBuilt = !empty($discountItems);
+            }
+
             if (!$legacyAlreadyDeducted && !empty($discountItems)) {
                 $this->deductEcommerceStock($order, $discountItems);
             }
@@ -460,11 +469,73 @@ class OrderService
             $order->save();
 
             Log::info('[OrderService] Pedido ecommerce despachado (3→4)', [
-                'order_id'       => $order->id,
-                'legacy_skip'    => $legacyAlreadyDeducted,
-                'had_discount'   => !empty($discountItems),
+                'order_id'     => $order->id,
+                'legacy_skip'  => $legacyAlreadyDeducted,
+                'had_discount' => !empty($discountItems),
+                'auto_built'   => $wasAutoBuilt,
+                'items_count'  => count($discountItems),
             ]);
         });
+    }
+
+    /**
+     * Construye el array `discountItems` desde `$order->items` (JSON) usando
+     * el `warehouse_id` del pedido. Para cada item busca su `ItemWarehouse`
+     * correspondiente y arma la estructura que `deductEcommerceStock` espera.
+     *
+     * Si el pedido no tiene `warehouse_id`, busca el primer ItemWarehouse con
+     * stock disponible por cada item — fallback seguro.
+     *
+     * Omite silenciosamente items para los que no encuentra ItemWarehouse,
+     * así el despacho no falla si hay un item desconfigurado.
+     *
+     * @return array<array{id:int, cantidad:float}>
+     */
+    private function buildDiscountItemsFromOrder(Order $order): array
+    {
+        $items = is_array($order->items) ? $order->items : (array) $order->items;
+        if (empty($items)) {
+            return [];
+        }
+
+        $warehouseId = $order->warehouse_id ?: null;
+        $result = [];
+
+        foreach ($items as $item) {
+            $item = (array) $item;
+            $itemId = $item['item_id'] ?? $item['id'] ?? null;
+            $qty    = (float) ($item['quantity'] ?? $item['cantidad'] ?? 0);
+            if (!$itemId || $qty <= 0) continue;
+
+            // Skip variantes — dispatchVariantStock las maneja aparte
+            if (!empty($item['variant_id'])) continue;
+
+            $query = ItemWarehouse::where('item_id', $itemId);
+            if ($warehouseId) {
+                $query->where('warehouse_id', $warehouseId);
+            }
+
+            $iw = $query->orderByDesc('stock_physical')->first();
+
+            // Fallback: cualquier warehouse con stock
+            if (!$iw) {
+                $iw = ItemWarehouse::where('item_id', $itemId)
+                    ->orderByDesc('stock_physical')
+                    ->first();
+            }
+
+            if ($iw) {
+                $result[] = ['id' => $iw->id, 'cantidad' => $qty];
+            } else {
+                Log::warning('[OrderService] Auto-dispatch: item sin ItemWarehouse', [
+                    'order_id' => $order->id,
+                    'item_id'  => $itemId,
+                    'qty'      => $qty,
+                ]);
+            }
+        }
+
+        return $result;
     }
 
     /**
