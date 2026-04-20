@@ -31,7 +31,9 @@ class CreateWhatsappOfferCampaignTables extends Migration
             Schema::create('whatsapp_offer_campaign_messages', function (Blueprint $table) {
                 $table->id();
                 $table->unsignedBigInteger('campaign_id');
-                $table->unsignedBigInteger('person_id');
+                // persons.id es `int unsigned` (legacy), NO bigint — debe coincidir
+                // o MySQL rechaza la FK con error 3780 (incompatible columns).
+                $table->unsignedInteger('person_id');
                 $table->string('phone', 30)->nullable();
                 $table->string('status', 20)->default('pending'); // pending|sent|failed|skipped
                 $table->json('payload')->nullable();
