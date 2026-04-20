@@ -264,14 +264,22 @@ class OrderController extends Controller
 
     public function updateStatusOrders(Request $request)
     {
+      // NOTA: `exists:orders,id` removido — en multi-tenant la regla usa la
+      // conexión default (system) donde `orders` no existe, generando un 500.
+      // El `findOrFail` de abajo ya valida la existencia en la conexión tenant.
       $validated = $request->validate([
-        'record.id' => 'required|integer|exists:orders,id',
+        'record.id' => 'required|integer|min:1',
         'record.status_order_id' => 'required|integer|in:1,2,3,4,5,6',
       ]);
 
       $orderId = (int) data_get($validated, 'record.id');
       $statusId = (int) data_get($validated, 'record.status_order_id');
-      $order = Order::findOrFail($orderId);
+
+      try {
+          $order = Order::findOrFail($orderId);
+      } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+          return response()->json(['message' => "Pedido #{$orderId} no encontrado"], 404);
+      }
 
       $currentStatusId = (int) $order->status_order_id;
       if ($currentStatusId === $statusId) {
@@ -282,14 +290,20 @@ class OrderController extends Controller
 
       // Delegamos TODAS las reglas de transición (mapa + guard de payment_status +
       // reglas por rol) al OrderPolicy::transitionTo. Si la transición es inválida
-      // lanza InvalidOrderTransitionException con mensaje específico; si la autorización
-      // falla por rol, `authorize` lanza AuthorizationException (403).
-      $this->authorize('transitionTo', [$order, $statusId]);
+      // lanza InvalidOrderTransitionException con mensaje específico.
+      try {
+          $this->authorize('transitionTo', [$order, $statusId]);
+      } catch (\App\Exceptions\InvalidOrderTransitionException $e) {
+          return response()->json(['message' => $e->getMessage()], 422);
+      } catch (\Illuminate\Auth\Access\AuthorizationException $e) {
+          return response()->json(['message' => $e->getMessage() ?: 'No autorizado para esta acción'], 403);
+      }
 
       /** @var OrderService $orderService */
       $orderService = app(OrderService::class);
       $discountItems = $request->discount ?? [];
 
+      try {
       // ── 2 → 3  (En preparación) ──────────────────────────────────────────
       // Flujo nuevo: solo marca prepared_at, no toca stock (ya reservado en checkout).
       // Retrocompat: si el UI envía `discount` (legacy), se despacha físico aquí mismo
@@ -379,6 +393,26 @@ class OrderController extends Controller
       return [
         'message' => 'Estatus actualizado'
       ];
+      } catch (\App\Exceptions\InsufficientStockException $e) {
+          return response()->json(['message' => $e->getMessage()], 422);
+      } catch (\App\Exceptions\InvalidOrderTransitionException $e) {
+          return response()->json(['message' => $e->getMessage()], 422);
+      } catch (\Throwable $e) {
+          \Log::error('[updateStatusOrders] unexpected error', [
+              'order_id'   => $orderId,
+              'status_id'  => $statusId,
+              'from'       => $currentStatusId,
+              'discount'   => $discountItems,
+              'exception'  => get_class($e),
+              'message'    => $e->getMessage(),
+              'file'       => $e->getFile() . ':' . $e->getLine(),
+              'trace'      => collect($e->getTrace())->take(8)->map(fn($f) => ($f['file'] ?? '?') . ':' . ($f['line'] ?? '?') . ' ' . ($f['class'] ?? '') . ($f['type'] ?? '') . ($f['function'] ?? ''))->all(),
+          ]);
+          return response()->json([
+              'message' => 'Error al actualizar el estado: ' . $e->getMessage(),
+              'exception' => get_class($e),
+          ], 500);
+      }
     }
 
     /**
