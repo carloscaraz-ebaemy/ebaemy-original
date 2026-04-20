@@ -173,80 +173,83 @@ use App\Models\System\PlanPeriod;
             $records = Client::latest()
                 ->get();
             foreach ($records as &$row) {
-                $tenancy = app(Environment::class);
-                $tenancy->tenant($row->hostname->website);
-                // $row->count_doc = DB::connection('tenant')-> table('documents') ->count();
-
-                // #1256 aqui
-                $current_day = Carbon::now();
-                $current_month_start = $current_day->startOfMonth()->format('Y-m-d');
-                $current_month_end = $current_day->endOfMonth()->format('Y-m-d');
-                $row->current_count_doc_month = DB::connection('tenant')->table('documents')->whereBetween('date_of_issue', [$current_month_start, $current_month_end])->count(); // contador mensual
-                $row->count_doc_pse = DB::connection('tenant')->table('documents')->where('send_to_pse', true)->count();
-                // dd($row->count_doc_pse);
-
-                $row->count_doc = DB::connection('tenant')
-                    ->table('configurations')
-                    ->first()
-                    ->quantity_documents;
-                $row->soap_type = DB::connection('tenant')
-                    ->table('companies')
-                    ->first()
-                    ->soap_type_id;
-                $row->count_user = DB::connection('tenant')
-                    ->table('users')
-                    ->count();
-                $row->count_sales_notes = DB::connection('tenant')
-                ->table('configurations')
-                ->first()
-                ->quantity_sales_notes;
-                $quantity_pending_documents = $this->getQuantityPendingDocuments();
-                $row->document_regularize_shipping = $quantity_pending_documents['document_regularize_shipping'];
-                $row->document_not_sent = $quantity_pending_documents['document_not_sent'];
-                $row->document_to_be_canceled = $quantity_pending_documents['document_to_be_canceled'];
+                // Valores por defecto para que la tabla no se rompa si un tenant falla.
+                $row->current_count_doc_month = 0;
+                $row->count_doc_pse = 0;
+                $row->count_doc = 0;
+                $row->soap_type = null;
+                $row->count_user = 0;
+                $row->count_sales_notes = 0;
+                $row->document_regularize_shipping = 0;
+                $row->document_not_sent = 0;
+                $row->document_to_be_canceled = 0;
                 $row->monthly_sales_total = 0;
+                $row->count_doc_month = 0;
+                $row->sale_notes_quantity_if_include = 0;
+                $row->count_sales_notes_month = 0;
+                $row->quantity_establishments = 0;
 
-                if ($row->start_billing_cycle) {
-
-                    $start_end_date = DocumentHelper::getStartEndDateForFilterDocument($row->start_billing_cycle);
-                    $init = $start_end_date['start_date'];
-                    $end = $start_end_date['end_date'];
-
-                    // $row->init_cycle = $init;
-                    // $row->end_cycle = $end;
-                    // dd($start_end_date);
-                    $client_helper = new ClientHelper();
-
-                    $row->count_doc_month = DB::connection('tenant')->table('documents')->whereBetween('date_of_issue', [$init, $end])->count();
-                    $row->sale_notes_quantity_if_include = 0;
-
-                    if($row->plan->includeSaleNotesLimitDocuments())
-                    {
-                        $row->sale_notes_quantity_if_include = $client_helper->getQuantitySaleNotesByDates($init->format('Y-m-d'), $end->format('Y-m-d'));
+                try {
+                    if (!$row->hostname || !$row->hostname->website) {
+                        throw new \RuntimeException('Cliente sin hostname/website asociado');
                     }
 
-                    $row->count_sales_notes_month = DB::connection('tenant')->table('sale_notes')->whereBetween('date_of_issue', [$init, $end])->count();
+                    $tenancy = app(Environment::class);
+                    $tenancy->tenant($row->hostname->website);
 
-                    if ($row->count_sales_notes_month>0) {
-                        if ($row->count_sales_notes!=$row->count_sales_notes_month) {
-                            $row->count_sales_notes = DB::connection('tenant')
-                            ->table('configurations')
-                            ->where('id', 1)
-                            ->update([
-                                'quantity_sales_notes' => $row->count_sales_notes_month
-                            ]);
+                    // #1256 aqui
+                    $current_day = Carbon::now();
+                    $current_month_start = $current_day->startOfMonth()->format('Y-m-d');
+                    $current_month_end = $current_day->endOfMonth()->format('Y-m-d');
+                    $row->current_count_doc_month = DB::connection('tenant')->table('documents')->whereBetween('date_of_issue', [$current_month_start, $current_month_end])->count(); // contador mensual
+                    $row->count_doc_pse = DB::connection('tenant')->table('documents')->where('send_to_pse', true)->count();
+
+                    $configuration = DB::connection('tenant')->table('configurations')->first();
+                    $company = DB::connection('tenant')->table('companies')->first();
+
+                    $row->count_doc = $configuration->quantity_documents ?? 0;
+                    $row->soap_type = $company->soap_type_id ?? null;
+                    $row->count_user = DB::connection('tenant')->table('users')->count();
+                    $row->count_sales_notes = $configuration->quantity_sales_notes ?? 0;
+                    $quantity_pending_documents = $this->getQuantityPendingDocuments();
+                    $row->document_regularize_shipping = $quantity_pending_documents['document_regularize_shipping'];
+                    $row->document_not_sent = $quantity_pending_documents['document_not_sent'];
+                    $row->document_to_be_canceled = $quantity_pending_documents['document_to_be_canceled'];
+
+                    if ($row->start_billing_cycle) {
+                        $start_end_date = DocumentHelper::getStartEndDateForFilterDocument($row->start_billing_cycle);
+                        $init = $start_end_date['start_date'];
+                        $end = $start_end_date['end_date'];
+
+                        $client_helper = new ClientHelper();
+
+                        $row->count_doc_month = DB::connection('tenant')->table('documents')->whereBetween('date_of_issue', [$init, $end])->count();
+
+                        if($row->plan->includeSaleNotesLimitDocuments())
+                        {
+                            $row->sale_notes_quantity_if_include = $client_helper->getQuantitySaleNotesByDates($init->format('Y-m-d'), $end->format('Y-m-d'));
                         }
+
+                        $row->count_sales_notes_month = DB::connection('tenant')->table('sale_notes')->whereBetween('date_of_issue', [$init, $end])->count();
+
+                        if ($row->count_sales_notes_month > 0 && $row->count_sales_notes != $row->count_sales_notes_month) {
+                            DB::connection('tenant')
+                                ->table('configurations')
+                                ->where('id', 1)
+                                ->update([
+                                    'quantity_sales_notes' => $row->count_sales_notes_month
+                                ]);
+
+                            $row->count_sales_notes = $row->count_sales_notes_month;
+                        }
+
+                        $row->monthly_sales_total = $client_helper->getSalesTotal($init->format('Y-m-d'), $end->format('Y-m-d'), $row->plan);
                     }
-                    $row->count_sales_notes = DB::connection('tenant')
-                    ->table('configurations')
-                    ->first()
-                    ->quantity_sales_notes;
-                    //dd($row->count_sales_notes);
 
-                    $row->monthly_sales_total = $client_helper->getSalesTotal($init->format('Y-m-d'), $end->format('Y-m-d'), $row->plan);
+                    $row->quantity_establishments = $this->getQuantityRecordsFromTable('establishments');
+                } catch (\Throwable $e) {
+                    \Log::warning("Error al cargar métricas del cliente {$row->id}: {$e->getMessage()}");
                 }
-
-                $row->quantity_establishments = $this->getQuantityRecordsFromTable('establishments');
             }
 
             return new ClientCollection($records);
