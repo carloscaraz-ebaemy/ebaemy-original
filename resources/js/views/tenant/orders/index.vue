@@ -961,6 +961,10 @@ export default {
                 record.status_order_id = previousStatusId;
                 const msg = error?.response?.data?.message || "No se pudo actualizar el estado.";
                 this.$message.error(msg);
+                // Recargar la tabla para re-sincronizar con el backend.
+                // Si el UI tenía un estado stale (ej. por un intento previo fallido
+                // que no se revirtió), esto lo corrige.
+                this.$eventHub.$emit('reloadDataTable');
             }
 
             // Refresh stats
