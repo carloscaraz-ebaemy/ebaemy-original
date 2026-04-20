@@ -223,7 +223,14 @@
                         />
                     </template>
 
-                    <div class="col-md-6 mt-4"></div>
+                    <div class="col-md-6 mt-4">
+                        <el-button
+                            class="float-left"
+                            @click="close"
+                            icon="el-icon-close"
+                            >Cerrar</el-button
+                        >
+                    </div>
                     <div class="col-md-6 mt-4">
                         <el-button
                             type="primary"
@@ -395,6 +402,12 @@ export default {
             await this.initForm();
             await this.$eventHub.$emit("cancelSale");
             await this.$eventHub.$emit("cancelSaleGarage");
+            this.$emit("update:showDialog", false);
+        },
+        close() {
+            // Solo cierra el modal, sin disparar la lógica de "nueva venta"
+            // (que reinicia formularios externos en POS). Útil cuando el admin
+            // solo quiere ver/imprimir el documento desde el panel de pedidos.
             this.$emit("update:showDialog", false);
         },
         initForm() {
