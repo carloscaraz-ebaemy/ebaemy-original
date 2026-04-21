@@ -4,6 +4,7 @@ namespace App\Console\Commands;
 
 use App\Models\System\Client;
 use App\Models\System\MarketplaceListing;
+use App\Services\System\MarketplaceListingSyncService;
 use Hyn\Tenancy\Environment;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
@@ -23,7 +24,7 @@ class SyncMarketplaceListings extends Command
     protected $signature = 'ebaemy-marketplace:sync {--client= : Sincronizar solo un client_id} {--dry-run : No escribir cambios}';
     protected $description = 'Sincroniza items publicables de cada tenant al marketplace central (ebaemy.com/marketplace)';
 
-    public function handle(): int
+    public function handle(MarketplaceListingSyncService $service): int
     {
         $clients = Client::query()
             ->when($this->option('client'), fn($q, $id) => $q->where('id', $id))
@@ -67,49 +68,9 @@ class SyncMarketplaceListings extends Command
                 foreach ($items as $it) {
                     $seenRemoteIds[] = (int) $it->id;
 
-                    $stockPhysical = DB::connection('tenant')->table('item_warehouse')
-                        ->where('item_id', $it->id)
-                        ->sum('stock');
-
-                    $imageUrl = $it->image
-                        ? rtrim(($hostname->fqdn ? 'https://' . $hostname->fqdn : url('/')), '/')
-                          . '/storage/uploads/items/' . $it->image
-                        : null;
-
-                    $categoryName = null;
-                    if (!empty($it->category_id)) {
-                        $categoryName = DB::connection('tenant')->table('categories')
-                            ->where('id', $it->category_id)
-                            ->value('name');
-                    }
-
-                    $brandName = null;
-                    if (!empty($it->brand_id)) {
-                        $brandName = DB::connection('tenant')->table('brands')
-                            ->where('id', $it->brand_id)
-                            ->value('name');
-                    }
-
-                    $payload = [
-                        'hostname_id'       => $hostname->id,
-                        'tenant_fqdn'       => $hostname->fqdn,
-                        'client_id'         => $client->id,
-                        'remote_item_id'    => $it->id,
-                        'title'             => Str::limit((string) ($it->description ?: $it->name ?: 'Producto'), 250, ''),
-                        'slug'              => $this->buildSlug($it, $hostname->id),
-                        'internal_id'       => $it->internal_id,
-                        'short_description' => null,
-                        'description'       => $it->mp_notes ?: null,
-                        'image_url'         => $imageUrl,
-                        'category_name'     => $categoryName,
-                        'brand_name'        => $brandName,
-                        'price'             => (float) ($it->sale_unit_price ?? 0),
-                        'mp_price'          => $it->mp_price !== null ? (float) $it->mp_price : null,
-                        'stock'             => max(0, (int) $stockPhysical),
-                        'status'            => $it->mp_status ?: 'active',
-                        'is_active'         => true,
-                        'synced_at'         => now(),
-                    ];
+                    // Reutilizar exactamente el mismo payload del service —
+                    // mantiene la lógica idéntica al sync inmediato del toggle.
+                    $payload = $service->buildPayload($it, $client, $hostname->id);
 
                     if ($dry) {
                         $this->line("  · [dry] {$payload['title']}  S/ {$payload['price']}  stock={$payload['stock']}");
@@ -157,15 +118,5 @@ class SyncMarketplaceListings extends Command
         $this->info("Total desactivados:  {$totalRemoved}");
 
         return self::SUCCESS;
-    }
-
-    /**
-     * Slug único globalmente — combina slug del item con identificador del tenant
-     * para evitar colisiones entre productos homónimos de distintas tiendas.
-     */
-    private function buildSlug($item, int $hostnameId): string
-    {
-        $base = $item->slug ?: Str::slug($item->description ?: $item->name ?: 'producto');
-        return Str::limit($base, 180, '') . '-t' . $hostnameId . '-' . $item->id;
     }
 }

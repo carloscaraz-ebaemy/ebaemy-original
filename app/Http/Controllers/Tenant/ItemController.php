@@ -1096,6 +1096,7 @@ class ItemController extends Controller
     /**
      * Publica o despublica el item en el marketplace central (ebaemy.com).
      * Requiere internal_id para que el sync pueda identificar el producto.
+     * Sincroniza al instante al índice central para evitar esperar al cron.
      */
     public function marketplaceToggle(Request $request)
     {
@@ -1115,13 +1116,31 @@ class ItemController extends Controller
 
         $item->marketplace_publishable = $enable;
         $item->mp_status = $enable ? 'active' : 'paused';
-        $item->mp_synced_at = null; // fuerza resync
+        $item->mp_synced_at = now();
         $item->save();
+
+        // Sync inmediato al índice central (marketplace_listings) — sin esperar el cron.
+        // El tenant_id se infiere del hostname actual vía hyn CurrentHostname.
+        $syncedOk = false;
+        try {
+            $hostname = app(\Hyn\Tenancy\Contracts\CurrentHostname::class);
+            if ($hostname) {
+                app(\App\Services\System\MarketplaceListingSyncService::class)
+                    ->syncItem($hostname->id, (int) $item->id);
+                $syncedOk = true;
+            }
+        } catch (\Throwable $e) {
+            \Log::warning('marketplaceToggle: sync inmediato falló', [
+                'item_id' => $item->id, 'error' => $e->getMessage(),
+            ]);
+        }
 
         return [
             'success' => true,
             'message' => $enable
-                ? 'Publicado en Marketplace ebaemy (sincronizará en los próximos minutos)'
+                ? ($syncedOk
+                    ? 'Publicado en Marketplace ebaemy ✓'
+                    : 'Publicado (aparecerá en el panel central tras el próximo sync)')
                 : 'Retirado del Marketplace ebaemy',
             'id'     => $item->id,
         ];
