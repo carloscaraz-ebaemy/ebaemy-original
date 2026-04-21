@@ -25,6 +25,8 @@ class ConfigurationEcommerce extends ModelTenant
         'whatsapp_api_token',
         'whatsapp_phone_id',
         'whatsapp_vendor_number',
+        'whatsapp_driver',
+        'whatsapp_notifications_enabled',
 
         // PAGOS
         'script_paypal',
@@ -123,6 +125,7 @@ class ConfigurationEcommerce extends ModelTenant
         'preferences' => 'array',
         'indexable'   => 'boolean',
         'marketplace_config' => 'encrypted:array',
+        'whatsapp_notifications_enabled' => 'array',
     ];
 
     // ── Cache helpers ─────────────────────────────────────────────────────────
