@@ -9,11 +9,31 @@
     $defaultImagePath      = $defaultImage === 'imagen-no-disponible.jpg'
                              ? asset('logo/imagen-no-disponible.jpg')
                              : asset('storage/defaults/' . $defaultImage);
-    $mainImagePath         = ($record->image && $record->image !== 'imagen-no-disponible.jpg')
+    $productHasRealImage   = $record->image && $record->image !== 'imagen-no-disponible.jpg';
+    $mainImagePath         = $productHasRealImage
                              ? asset('storage/uploads/items/'.$record->image)
                              : $defaultImagePath;
     $productUrl            = route('tenant.ecommerce.item', ['slug' => $record->slug ?: $record->id]);
     $shortDesc             = \Illuminate\Support\Str::limit(strip_tags($record->name ?: $record->description), 155);
+
+    // Resolución de og:image en cascada para compartir en redes (WhatsApp, FB, Twitter):
+    //   1) Imagen real del producto (si existe y no es placeholder)
+    //   2) Imagen SEO global (og_image) configurada en Configuracion > SEO
+    //   3) Logo corporativo / imagen por defecto
+    // `secure_url()` fuerza HTTPS — los crawlers oficiales rechazan mixed content.
+    $og_seo_global = null;
+    if ($ecommerceConfiguration && $ecommerceConfiguration->og_image) {
+        $og_seo_global = str_contains($ecommerceConfiguration->og_image, 'storage/')
+            ? secure_url($ecommerceConfiguration->og_image)
+            : secure_url('storage/uploads/logos/' . $ecommerceConfiguration->og_image);
+    }
+    $socialImage = $productHasRealImage
+        ? secure_url('storage/uploads/items/' . $record->image)
+        : ($og_seo_global ?: $mainImagePath);
+    // Cache-bust para que FB/WhatsApp refresquen el preview al actualizar la imagen.
+    $socialImageV = $record->updated_at?->timestamp
+        ?? ($ecommerceConfiguration?->updated_at?->timestamp ?? time());
+    $socialImage = $socialImage . (str_contains($socialImage, '?') ? '&' : '?') . 'v=' . $socialImageV;
 @endphp
 
 {{-- ── SEO META DINÁMICOS POR PRODUCTO ─────────────── --}}
@@ -23,7 +43,7 @@
 @section('og_type', 'product')
 @section('og_title', $record->description)
 @section('og_description', $shortDesc)
-@section('og_image', $mainImagePath)
+@section('og_image', $socialImage)
 @section('canonical_url', $productUrl)
 
 {{-- ── BREADCRUMB SCHEMA + VISIBLE ─────────────────── --}}

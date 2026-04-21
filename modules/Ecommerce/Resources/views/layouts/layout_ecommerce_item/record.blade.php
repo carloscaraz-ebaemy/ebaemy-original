@@ -21,10 +21,14 @@
             $favicon_url = asset('porto-ecommerce/assets/images/icons/favicon.ico');
         }
 
+        // Fallback og:image con HTTPS absoluto. Los crawlers de WhatsApp / Facebook
+        // rechazan URLs mixed-content o relativas y caen al favicon.
         if ($seo && $seo->og_image) {
             $share_image = str_contains($seo->og_image, 'storage/')
-                ? asset($seo->og_image)
-                : asset('storage/uploads/logos/' . $seo->og_image);
+                ? secure_url($seo->og_image)
+                : secure_url('storage/uploads/logos/' . $seo->og_image);
+            $share_image .= (str_contains($share_image, '?') ? '&' : '?')
+                          . 'v=' . ($seo->updated_at?->timestamp ?? time());
         } else {
             $share_image = $favicon_url;
         }

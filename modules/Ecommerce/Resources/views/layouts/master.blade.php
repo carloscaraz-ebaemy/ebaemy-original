@@ -27,10 +27,12 @@
         $favicon_url = asset('porto-ecommerce/assets/images/icons/favicon.ico');
     }
     
+    // HTTPS absoluto: los crawlers de WhatsApp/Facebook rechazan mixed-content y
+    // caen al favicon cuando reciben URLs relativas o con esquema inconsistente.
     if ($seo->og_image) {
-        $share_image = str_contains($seo->og_image, 'storage/') 
-                       ? asset($seo->og_image) 
-                       : asset('storage/uploads/logos/' . $seo->og_image);
+        $share_image = str_contains($seo->og_image, 'storage/')
+                       ? secure_url($seo->og_image)
+                       : secure_url('storage/uploads/logos/' . $seo->og_image);
     } else {
         $share_image = $favicon_url;
     }
