@@ -114,4 +114,71 @@ class MarketplaceController extends Controller
         $listing = MarketplaceListing::where('slug', $slug)->firstOrFail();
         return view('marketplace.thanks', compact('listing'));
     }
+
+    /**
+     * sitemap-marketplace.xml — expone todas las fichas públicas del marketplace
+     * para que Google / Bing indexen los productos. Incluye la home y el detalle
+     * de cada listing activo. Respuesta cacheada por 1 hora para reducir carga.
+     */
+    public function sitemap()
+    {
+        $listings = MarketplaceListing::published()
+            ->orderByDesc('updated_at')
+            ->limit(40000) // límite seguro, sitemap máx 50k
+            ->get(['slug', 'updated_at', 'image_url', 'title']);
+
+        $xml  = '<?xml version="1.0" encoding="UTF-8"?>' . "\n";
+        $xml .= '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" '
+              . 'xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">' . "\n";
+
+        $xml .= $this->sitemapUrl(url('/marketplace'), now(), '1.0', 'daily');
+
+        foreach ($listings as $l) {
+            $loc     = url('/marketplace/item/' . $l->slug);
+            $lastmod = optional($l->updated_at)->toIso8601String() ?: now()->toIso8601String();
+            $xml .= "<url>\n";
+            $xml .= "  <loc>{$loc}</loc>\n";
+            $xml .= "  <lastmod>{$lastmod}</lastmod>\n";
+            $xml .= "  <changefreq>weekly</changefreq>\n";
+            $xml .= "  <priority>0.8</priority>\n";
+            if ($l->image_url) {
+                $xml .= "  <image:image>\n";
+                $xml .= '    <image:loc>' . htmlspecialchars($l->image_url, ENT_XML1) . "</image:loc>\n";
+                $xml .= '    <image:title>' . htmlspecialchars($l->title, ENT_XML1) . "</image:title>\n";
+                $xml .= "  </image:image>\n";
+            }
+            $xml .= "</url>\n";
+        }
+
+        $xml .= '</urlset>';
+
+        return response($xml, 200, [
+            'Content-Type'  => 'application/xml; charset=utf-8',
+            'Cache-Control' => 'public, max-age=3600',
+        ]);
+    }
+
+    public function robots()
+    {
+        $lines = [
+            'User-agent: *',
+            'Allow: /marketplace',
+            'Disallow: /admin',
+            'Disallow: /login',
+            '',
+            'Sitemap: ' . url('/sitemap-marketplace.xml'),
+        ];
+        return response(implode("\n", $lines), 200, ['Content-Type' => 'text/plain']);
+    }
+
+    private function sitemapUrl(string $loc, $lastmod, string $priority, string $changefreq): string
+    {
+        $lastmod = $lastmod instanceof \DateTimeInterface ? $lastmod->toIso8601String() : (string) $lastmod;
+        return "<url>\n"
+             . "  <loc>{$loc}</loc>\n"
+             . "  <lastmod>{$lastmod}</lastmod>\n"
+             . "  <changefreq>{$changefreq}</changefreq>\n"
+             . "  <priority>{$priority}</priority>\n"
+             . "</url>\n";
+    }
 }

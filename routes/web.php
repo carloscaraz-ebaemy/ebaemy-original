@@ -1110,6 +1110,8 @@ if ($hostname) {
              ->middleware('throttle:10,1')
              ->name('marketplace.lead');
         Route::get('marketplace/gracias/{slug}',  'MarketplaceController@thanks')->name('marketplace.thanks');
+        Route::get('sitemap-marketplace.xml',     'MarketplaceController@sitemap')->name('marketplace.sitemap');
+        Route::get('robots.txt',                  'MarketplaceController@robots')->name('marketplace.robots');
 
         // Root del central: visitantes caen al marketplace; admins logueados
         // ven su dashboard (HomeController lo maneja internamente vía auth).

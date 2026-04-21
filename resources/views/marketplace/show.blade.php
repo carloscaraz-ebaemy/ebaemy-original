@@ -1,11 +1,50 @@
 @extends('marketplace.layout')
 
-@section('title', $listing->title . ' — Marketplace ebaemy')
+@section('title', $listing->title . ' — ' . $listing->tenant_fqdn . ' | Marketplace ebaemy')
 @section('description', \Illuminate\Support\Str::limit(strip_tags($listing->description ?? $listing->title), 155))
+@section('keywords', $listing->title . ', ' . ($listing->category_name ?? '') . ', ' . $listing->tenant_fqdn . ', marketplace ebaemy')
 @section('og_title', $listing->title)
 @section('og_description', \Illuminate\Support\Str::limit(strip_tags($listing->description ?? $listing->title), 155))
 @section('og_image', $listing->image_url ?: asset('logo/logo.png'))
 @section('og_type', 'product')
+@section('canonical', route('marketplace.item', $listing->slug))
+
+@push('styles')
+<script type="application/ld+json">
+{
+    "@context": "https://schema.org/",
+    "@type": "Product",
+    "name": @json($listing->title),
+    "image": @json($listing->image_url ?: asset('logo/logo.png')),
+    "description": @json(\Illuminate\Support\Str::limit(strip_tags($listing->description ?? $listing->title), 500)),
+    @if($listing->brand_name) "brand": { "@type": "Brand", "name": @json($listing->brand_name) }, @endif
+    @if($listing->internal_id) "sku": @json($listing->internal_id), @endif
+    "offers": {
+        "@type": "Offer",
+        "url": @json(route('marketplace.item', $listing->slug)),
+        "priceCurrency": "PEN",
+        "price": @json(number_format($listing->display_price, 2, '.', '')),
+        "availability": @json($listing->stock > 0 ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock'),
+        "seller": { "@type": "Organization", "name": @json($listing->tenant_fqdn) }
+    }
+}
+</script>
+<script type="application/ld+json">
+{
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    "itemListElement": [
+        { "@type": "ListItem", "position": 1, "name": "Marketplace", "item": @json(route('marketplace.index')) },
+        @if($listing->category_name)
+        { "@type": "ListItem", "position": 2, "name": @json($listing->category_name), "item": @json(route('marketplace.index', ['category' => $listing->category_name])) },
+        { "@type": "ListItem", "position": 3, "name": @json($listing->title) }
+        @else
+        { "@type": "ListItem", "position": 2, "name": @json($listing->title) }
+        @endif
+    ]
+}
+</script>
+@endpush
 
 @push('styles')
 <style>

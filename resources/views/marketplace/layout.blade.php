@@ -5,13 +5,28 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>@yield('title', 'Marketplace ebaemy — productos de todas nuestras tiendas')</title>
     <meta name="description" content="@yield('description', 'Descubre productos publicados por miles de tiendas que usan ebaemy. Un solo lugar para comprar, contactar o solicitar envío.')">
+    <meta name="keywords"    content="@yield('keywords', 'marketplace peru, ebaemy, tiendas online, compra, productos, cataloogo')">
+    <meta name="robots"      content="index, follow">
 
+    <link rel="canonical" href="@yield('canonical', url()->current())">
+
+    {{-- Open Graph — WhatsApp / Facebook / LinkedIn --}}
+    <meta property="og:site_name"   content="ebaemy Marketplace">
+    <meta property="og:locale"      content="es_PE">
     <meta property="og:type"        content="@yield('og_type', 'website')">
     <meta property="og:title"       content="@yield('og_title', 'Marketplace ebaemy')">
     <meta property="og:description" content="@yield('og_description', 'Productos de todas las tiendas ebaemy en un solo lugar.')">
     <meta property="og:image"       content="@yield('og_image', asset('logo/logo.png'))">
-    <meta property="og:url"         content="{{ url()->current() }}">
-    <meta name="twitter:card"       content="summary_large_image">
+    <meta property="og:image:secure_url" content="@yield('og_image', asset('logo/logo.png'))">
+    <meta property="og:image:width"  content="1200">
+    <meta property="og:image:height" content="630">
+    <meta property="og:url"         content="@yield('canonical', url()->current())">
+
+    {{-- Twitter Card --}}
+    <meta name="twitter:card"        content="summary_large_image">
+    <meta name="twitter:title"       content="@yield('og_title', 'Marketplace ebaemy')">
+    <meta name="twitter:description" content="@yield('og_description', 'Productos de todas las tiendas ebaemy en un solo lugar.')">
+    <meta name="twitter:image"       content="@yield('og_image', asset('logo/logo.png'))">
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
