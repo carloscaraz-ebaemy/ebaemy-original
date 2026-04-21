@@ -19,32 +19,44 @@ class FlashSaleController extends Controller
     public function records()
     {
         try {
-        $sales = FlashSale::withoutGlobalScopes()
-            ->with(['items:id,description,sale_unit_price,image'])
-            ->orderBy('created_at', 'desc')
-            ->get()
-            ->map(function ($fs) {
-                return [
-                    'id'          => $fs->id,
-                    'title'       => $fs->title,
-                    'subtitle'    => $fs->subtitle,
-                    'starts_at'   => $fs->starts_at?->format('Y-m-d H:i'),
-                    'ends_at'     => $fs->ends_at->format('Y-m-d H:i'),
-                    'active'      => $fs->active,
-                    'is_live'     => $fs->is_active_now,
-                    'items_count' => $fs->items->count(),
-                    'items'       => $fs->items->map(fn($i) => [
-                        'id'          => $i->id,
-                        'description' => $i->description,
-                        'regular_price' => $i->sale_unit_price,
-                        'flash_price' => $i->pivot->flash_price,
-                    ]),
-                ];
-            });
+            // withoutGlobalScopes() se mantiene: hyn/multi-tenant usa DB-per-tenant,
+            // no hay riesgo de cross-tenant. Evita que algún global scope externo
+            // (ej. una fecha legacy) oculte flash sales válidas al admin.
+            $sales = FlashSale::withoutGlobalScopes()
+                ->with(['items:id,description,sale_unit_price,image'])
+                ->orderBy('created_at', 'desc')
+                ->get()
+                ->map(function ($fs) {
+                    return [
+                        'id'          => $fs->id,
+                        'title'       => $fs->title,
+                        'subtitle'    => $fs->subtitle,
+                        'starts_at'   => optional($fs->starts_at)->format('Y-m-d H:i'),
+                        // ends_at null-safe: si la migración antigua permitió nulls,
+                        // no queremos que la UI explote con un TypeError.
+                        'ends_at'     => optional($fs->ends_at)->format('Y-m-d H:i'),
+                        'active'      => (bool) $fs->active,
+                        'is_live'     => (bool) ($fs->is_active_now ?? false),
+                        'items_count' => $fs->items->count(),
+                        'items'       => $fs->items->map(fn($i) => [
+                            'id'            => $i->id,
+                            'description'   => $i->description,
+                            'regular_price' => $i->sale_unit_price,
+                            'flash_price'   => optional($i->pivot)->flash_price,
+                        ]),
+                    ];
+                });
 
-        return response()->json(['data' => $sales]);
-        } catch (\Exception $e) {
-            return response()->json(['data' => []]);
+            return response()->json(['data' => $sales]);
+        } catch (\Throwable $e) {
+            // Antes se devolvía array vacío en silencio — ocultaba fallos reales.
+            // Ahora se loguea para diagnóstico. UI sigue recibiendo data=[] para
+            // no romper el render.
+            \Log::warning('FlashSale records fetch failed', [
+                'error' => $e->getMessage(),
+                'file'  => $e->getFile() . ':' . $e->getLine(),
+            ]);
+            return response()->json(['data' => [], 'error' => 'No se pudieron cargar las flash sales']);
         }
     }
 

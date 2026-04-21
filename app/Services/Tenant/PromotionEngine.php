@@ -58,8 +58,15 @@ class PromotionEngine
 
     /**
      * Ejecutar el motor y retornar el resultado de todos los descuentos.
+     *
+     * @param bool $commit  Si es true, aplica side effects (incrementar used_count
+     *                      de DiscountRule). Si es false, solo simula — uso típico
+     *                      en preview/apply-coupon antes de que el cliente pague.
+     *                      Los callers que finalizan la compra (paymentCash, Culqi
+     *                      captura) deben usar commit=true. Default true por
+     *                      compatibilidad con callers existentes.
      */
-    public function calculate(): array
+    public function calculate(bool $commit = true): array
     {
         $breakdown = [];
         $remaining = $this->subtotal;
@@ -75,7 +82,7 @@ class PromotionEngine
         }
 
         // ── 2. Reglas automáticas ────────────────────────────────────────────
-        [$ruleDiscount, $appliedRules, $ruleBreakdown] = $this->resolveRules($remaining, $appliedCoupon);
+        [$ruleDiscount, $appliedRules, $ruleBreakdown] = $this->resolveRules($remaining, $appliedCoupon, $commit);
         $breakdown = array_merge($breakdown, $ruleBreakdown);
         if ($ruleDiscount > 0) {
             $remaining -= $ruleDiscount;
@@ -128,7 +135,7 @@ class PromotionEngine
         return [$coupon->calculateDiscount($amount), $coupon, null];
     }
 
-    private function resolveRules(float $amountAfterCoupon, ?Coupon $appliedCoupon): array
+    private function resolveRules(float $amountAfterCoupon, ?Coupon $appliedCoupon, bool $commit = true): array
     {
         $rules = DiscountRule::active()
                              ->forChannel($this->channelId, $this->channelType)
@@ -170,8 +177,12 @@ class PromotionEngine
             // FIX BUG #4: breakdown usa el descuento real calculado en cada paso
             $breakdown[] = ['label' => $rule->name, 'amount' => -$d, 'type' => $rule->type];
 
-            // FIX BUG #7: incrementar used_count
-            $rule->increment('used_count');
+            // FIX BUG #7: incrementar used_count — SOLO si $commit (pago real, no preview)
+            // Antes se incrementaba en preview() lo que duplicaba el conteo cuando
+            // el cliente primero aplicaba cupón (preview) y luego pagaba (calculate).
+            if ($commit) {
+                $rule->increment('used_count');
+            }
 
             // Si la regla no es stackable, marcar como exclusiva
             if (!$rule->stackable) {
@@ -213,12 +224,15 @@ class PromotionEngine
     }
 
     /**
-     * Preview sin lanzar excepción en cupón inválido.
+     * Preview sin lanzar excepción en cupón inválido y SIN side effects.
+     * Uso: endpoint /ecommerce/apply-coupon y /ecommerce/preview-discounts
+     * — el cliente aún no ha pagado, por lo que no debe incrementarse el
+     * conteo de usos de las reglas de descuento.
      */
     public function preview(): array
     {
         try {
-            return $this->calculate();
+            return $this->calculate(false);
         } catch (\InvalidArgumentException $e) {
             return [
                 'subtotal'        => $this->subtotal,

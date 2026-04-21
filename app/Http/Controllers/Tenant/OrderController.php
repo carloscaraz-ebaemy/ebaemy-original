@@ -378,25 +378,26 @@ class OrderController extends Controller
       }
 
       // ── 1 → 2  (Pago verificado) ─────────────────────────────────────────
-      // Si viene un array `payments` en la request, los guarda como OrderPayment
-      // antes de generar la Nota de Venta. Eso permite que el modal "Verificar pago"
-      // registre método (efectivo/transferencia/tarjeta), banco destino y referencia
-      // — y que esos datos viajen al SaleNotePayment del comprobante.
+      // Guardar pagos + actualizar estado + generar NV en UNA sola transacción.
+      // Antes los 3 pasos iban en secuencia sin atomicidad: si la generación de NV
+      // fallaba, el status quedaba en 2 sin comprobante. Ahora si algo falla,
+      // todo se revierte y la orden permanece en 1 (el admin puede reintentar).
       if ($statusId === 2) {
-          $payments = $request->input('payments', []);
-          if (is_array($payments) && !empty($payments)) {
-              DB::transaction(function () use ($order, $payments) {
+          DB::transaction(function () use ($order, $orderId, $statusId, $request) {
+              $payments = $request->input('payments', []);
+              if (is_array($payments) && !empty($payments)) {
                   $this->saveOrderPayments($order, $payments);
-              });
-          }
-      }
+              }
 
-      Order::where('id', $orderId)->update(['status_order_id' => $statusId]);
-      $order->status_order_id = $statusId;
+              Order::where('id', $orderId)->update(['status_order_id' => $statusId]);
+              $order->status_order_id = $statusId;
 
-      if ($statusId === 2 && $order) {
-          $autoSaleNoteService = app(\App\Services\Tenant\OrderToSaleNoteService::class);
-          $autoSaleNoteService->generate($order);
+              $autoSaleNoteService = app(\App\Services\Tenant\OrderToSaleNoteService::class);
+              $autoSaleNoteService->generate($order);
+          });
+      } else {
+          Order::where('id', $orderId)->update(['status_order_id' => $statusId]);
+          $order->status_order_id = $statusId;
       }
 
       $this->logStatusTransition($order, $currentStatusId, $statusId, []);

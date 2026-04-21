@@ -112,8 +112,15 @@ class StockNotificationController extends Controller
                     $html .= '<p style="margin-top:24px;font-size:12px;color:#999">Si no solicitaste este aviso, ignora este mensaje.</p>';
                     $html .= '</body></html>';
 
+                    // Sanitizar el productName antes de usarlo en subject:
+                    // - remover line breaks (previene header injection SMTP)
+                    // - recortar a 100 chars (evita asuntos gigantes)
+                    // - colapsar espacios en blanco repetidos
+                    $safeSubject = trim(preg_replace('/\s+/', ' ', str_replace(["\r", "\n", "\t"], ' ', (string) $productName)));
+                    $safeSubject = mb_substr($safeSubject, 0, 100);
+
                     $message->to($notification->email)
-                            ->subject('¡Ya está disponible! — ' . $productName)
+                            ->subject('¡Ya está disponible! — ' . $safeSubject)
                             ->setBody($html, 'text/html');
                 });
 

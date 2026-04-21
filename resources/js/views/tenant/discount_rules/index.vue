@@ -111,7 +111,8 @@
         <!-- ═══════════════════════════════════════════════════════════════ -->
         <el-dialog
             :visible.sync="dialogVisible"
-            width="720px"
+            width="860px"
+            top="6vh"
             :close-on-click-modal="false"
             :show-close="false"
             custom-class="dr-dialog"
@@ -299,7 +300,7 @@
                     </div>
 
                     <div class="row mt-3">
-                        <div class="col-5">
+                        <div class="col-lg-5 col-md-6 col-12">
                             <el-form-item :label="form.discount_type === 'percentage' ? 'Porcentaje de descuento' : 'Monto del descuento (S/)'"
                                           prop="discount_value" :rules="[{required:true,message:'Requerido'},{type:'number',min:0.01,message:'Mayor a 0'}]">
                                 <el-input-number v-model="form.discount_value" :min="0.01"
@@ -307,7 +308,7 @@
                                     :precision="2" :step="5" controls-position="right" style="width:100%"></el-input-number>
                             </el-form-item>
                         </div>
-                        <div class="col-7 d-flex align-items-center">
+                        <div class="col-lg-7 col-md-6 col-12 d-flex align-items-center">
                             <div class="dr-preview-pill" v-if="form.discount_value > 0">
                                 <template v-if="form.discount_type === 'percentage'">
                                     Ejemplo: En S/ 100 → descuenta <strong>S/ {{ (100 * form.discount_value / 100).toFixed(2) }}</strong>
@@ -327,44 +328,44 @@
                         <h4 class="dr-section-title">Configuracion avanzada</h4>
                     </div>
 
-                    <div class="row">
-                        <div class="col-4">
-                            <el-form-item label="Prioridad">
+                    <div class="row dr-adv-grid">
+                        <div class="col-lg-4 col-md-6 col-12 dr-adv-col">
+                            <el-form-item label="Prioridad" class="dr-form-item">
                                 <el-input-number v-model="form.priority" :min="0" :max="999" :precision="0" controls-position="right" style="width:100%"></el-input-number>
-                                <p class="dr-help">Mayor numero = se evalua primero</p>
                             </el-form-item>
+                            <p class="dr-help">Mayor número = se evalúa primero</p>
                         </div>
-                        <div class="col-4">
-                            <el-form-item label="Limite de usos">
+                        <div class="col-lg-4 col-md-6 col-12 dr-adv-col">
+                            <el-form-item label="Límite de usos" class="dr-form-item">
                                 <el-input-number v-model="form.max_uses" :min="0" :precision="0" :step="10" controls-position="right" style="width:100%"></el-input-number>
-                                <p class="dr-help">0 = ilimitado</p>
                             </el-form-item>
+                            <p class="dr-help">0 = ilimitado</p>
                         </div>
-                        <div class="col-4 d-flex align-items-center pt-1">
-                            <div>
-                                <label class="dr-help" style="display:block;margin-bottom:8px;font-weight:600;color:#374151">Acumulable</label>
+                        <div class="col-lg-4 col-md-12 col-12 dr-adv-col">
+                            <label class="dr-switch-label">Acumulable</label>
+                            <div class="dr-switch-wrap">
                                 <el-switch v-model="form.stackable" active-color="#22c55e"
-                                    :active-text="form.stackable ? 'Si' : 'No'"
+                                    :active-text="form.stackable ? 'Sí' : 'No'"
                                 ></el-switch>
-                                <p class="dr-help">{{ form.stackable ? 'Se combina con otras reglas' : 'Solo aplica sola (exclusiva)' }}</p>
                             </div>
+                            <p class="dr-help">{{ form.stackable ? 'Se combina con otras reglas' : 'Solo aplica sola (exclusiva)' }}</p>
                         </div>
                     </div>
 
                     <!-- Vigencia para tipos que no son flash_sale -->
-                    <div class="row" v-if="form.type !== 'flash_sale'">
-                        <div class="col-6">
+                    <div class="row mt-2" v-if="form.type !== 'flash_sale'">
+                        <div class="col-lg-6 col-md-6 col-12">
                             <el-form-item label="Vigencia desde (opcional)">
                                 <el-date-picker v-model="form.starts_at" type="datetime"
                                     format="dd/MM/yyyy HH:mm" value-format="yyyy-MM-dd HH:mm"
-                                    placeholder="Sin limite de inicio" style="width:100%" size="small" clearable></el-date-picker>
+                                    placeholder="Sin límite de inicio" style="width:100%" size="small" clearable></el-date-picker>
                             </el-form-item>
                         </div>
-                        <div class="col-6">
+                        <div class="col-lg-6 col-md-6 col-12">
                             <el-form-item label="Vigencia hasta (opcional)">
                                 <el-date-picker v-model="form.ends_at" type="datetime"
                                     format="dd/MM/yyyy HH:mm" value-format="yyyy-MM-dd HH:mm"
-                                    placeholder="Sin limite de fin" style="width:100%" size="small" clearable></el-date-picker>
+                                    placeholder="Sin límite de fin" style="width:100%" size="small" clearable></el-date-picker>
                             </el-form-item>
                         </div>
                     </div>
@@ -604,7 +605,36 @@ export default {
 .dr-applies-group >>> .el-radio-button__inner { border-radius: 8px !important; font-size: 13px; }
 
 /* Help */
-.dr-help { font-size: 11px; color: #9ca3af; margin: 4px 0 0; }
+.dr-help { font-size: 12px; color: #64748b; margin: 6px 0 0; line-height: 1.4; }
+
+/* Sección avanzada — grid responsivo */
+.dr-adv-grid { row-gap: 16px; }
+.dr-adv-col { display: flex; flex-direction: column; }
+.dr-form-item { margin-bottom: 0 !important; }
+
+.dr-switch-label {
+    display: block;
+    font-size: 14px;
+    font-weight: 500;
+    color: #606266;
+    line-height: 1;
+    padding: 0 0 8px;
+}
+.dr-switch-wrap {
+    display: flex;
+    align-items: center;
+    height: 40px;
+}
+
+/* Dialog responsive */
+@media (max-width: 900px) {
+    .dr-dialog >>> .el-dialog { width: 94% !important; max-width: 640px; margin: 3vh auto !important; }
+}
+@media (max-width: 640px) {
+    .dr-dialog >>> .el-dialog { width: 98% !important; margin: 2vh auto !important; }
+    .dr-section { padding: 18px 16px !important; }
+    .dr-dialog-header { padding: 14px 16px !important; }
+}
 
 /* Footer */
 .dr-dialog-footer { display: flex; justify-content: flex-end; gap: 8px; }

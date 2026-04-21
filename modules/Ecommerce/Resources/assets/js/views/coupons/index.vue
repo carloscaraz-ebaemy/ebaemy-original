@@ -199,7 +199,8 @@ export default {
             });
         },
         toggleActive(row) {
-            this.$http.put('/ecommerce/coupons/' + row.id, { ...row, active: row.active })
+            // Endpoint dedicado — solo cambia el flag active, no expone code/value.
+            this.$http.patch('/ecommerce/coupons/' + row.id + '/toggle-active', { active: row.active })
                 .catch(() => { row.active = !row.active; });
         },
         remove(row) {

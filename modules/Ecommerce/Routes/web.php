@@ -224,6 +224,7 @@ Route::middleware(['check.permission', 'locked.tenant', 'check.email.verified', 
         Route::get('coupons/records', 'CouponController@records');
         Route::post('coupons', 'CouponController@store');
         Route::put('coupons/{id}', 'CouponController@update');
+        Route::patch('coupons/{id}/toggle-active', 'CouponController@toggleActive');
         Route::delete('coupons/{id}', 'CouponController@destroy');
 
         // Avisos de Stock (admin)

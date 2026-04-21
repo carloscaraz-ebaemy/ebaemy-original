@@ -92,4 +92,25 @@ class CouponController extends Controller
         Coupon::findOrFail($id)->delete();
         return response()->json(['success' => true, 'message' => 'Cupón eliminado']);
     }
+
+    /**
+     * PATCH /ecommerce/coupons/{id}/toggle-active
+     *
+     * Endpoint dedicado que solo cambia el flag `active`. Más seguro que el
+     * update() genérico porque NO expone ni permite modificar code/value/type.
+     */
+    public function toggleActive(Request $request, $id)
+    {
+        $coupon = Coupon::findOrFail($id);
+        $validated = $request->validate([
+            'active' => 'required|boolean',
+        ]);
+        $coupon->update(['active' => $validated['active']]);
+
+        return response()->json([
+            'success' => true,
+            'message' => $coupon->active ? 'Cupón activado' : 'Cupón desactivado',
+            'active'  => (bool) $coupon->active,
+        ]);
+    }
 }
