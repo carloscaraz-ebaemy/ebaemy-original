@@ -1281,6 +1281,11 @@ class EcommerceController extends Controller
                     'shipping_address'  => $customerData['direccion'] ?? 'Sin dirección',
                     'items'             => $verifiedItems,
                     'total'             => $finalTotal,
+                    // Persistir desglose del descuento para que el comprobante lo refleje
+                    'subtotal'          => $promo['subtotal'] ?? $verifiedTotal,
+                    'total_discount'    => $promo['total_discount'] ?? 0,
+                    'coupon_code'       => $appliedCoupon?->code,
+                    'discounts'         => $promo['breakdown'] ?? [],
                     'points_redeemed'   => $pointsDiscount,
                     'points_earned'     => $earnedPoints,
                     'reference_payment' => 'efectivo',

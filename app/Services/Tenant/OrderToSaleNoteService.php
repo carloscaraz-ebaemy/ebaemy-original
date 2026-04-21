@@ -152,11 +152,36 @@ class OrderToSaleNoteService
                     }
                 }
 
-                // Update totals
-                $saleNote->total_taxed = round($totalTaxed, 2);
-                $saleNote->total_igv = round($totalIgv, 2);
-                $saleNote->total_value = round($totalValue, 2);
-                $saleNote->total_taxes = round($totalIgv, 2);
+                // ── Descuentos globales de la Order (cupón + reglas + puntos) ──
+                // Si hubo descuento, se persiste en el SaleNote y se ajustan los
+                // totales cabecera para que cuadren con el total cobrado.
+                // El template del comprobante (PDF/A4/ticket) ya consume
+                // `total_discount` y `discounts` desde la NV.
+                $orderDiscount = (float) ($order->total_discount ?? 0);
+                $orderBreakdown = $order->discounts;
+                if (is_string($orderBreakdown)) {
+                    $orderBreakdown = json_decode($orderBreakdown, true) ?: [];
+                }
+                if ($orderDiscount > 0) {
+                    // El descuento se aplica sobre el total bruto (con IGV).
+                    // Recalcular la base gravada y el IGV desde el total final
+                    // para evitar desfases de céntimos entre cabecera e items.
+                    $finalTotal = (float) $order->total;
+                    $taxed      = round($finalTotal / 1.18, 2);
+                    $igv        = round($finalTotal - $taxed, 2);
+
+                    $saleNote->total_taxed    = $taxed;
+                    $saleNote->total_value    = $taxed;
+                    $saleNote->total_igv      = $igv;
+                    $saleNote->total_taxes    = $igv;
+                    $saleNote->total_discount = round($orderDiscount, 2);
+                    $saleNote->discounts      = is_array($orderBreakdown) ? $orderBreakdown : [];
+                } else {
+                    $saleNote->total_taxed = round($totalTaxed, 2);
+                    $saleNote->total_igv   = round($totalIgv, 2);
+                    $saleNote->total_value = round($totalValue, 2);
+                    $saleNote->total_taxes = round($totalIgv, 2);
+                }
                 $saleNote->save();
 
                 // Copiar los OrderPayments registrados (método, banco, fecha, referencia)
