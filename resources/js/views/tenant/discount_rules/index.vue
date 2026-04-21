@@ -262,12 +262,64 @@
                     </template>
 
                     <el-form-item label="Aplica a" prop="applies_to" :rules="[{required:true}]" class="mt-3">
-                        <el-radio-group v-model="form.applies_to" class="dr-applies-group">
+                        <el-radio-group v-model="form.applies_to" class="dr-applies-group" @change="onAppliesToChange">
                             <el-radio-button label="all">Todo el carrito</el-radio-button>
                             <el-radio-button label="item">Producto</el-radio-button>
                             <el-radio-button label="bundle">Pack</el-radio-button>
                             <el-radio-button label="category">Categoria</el-radio-button>
                         </el-radio-group>
+                    </el-form-item>
+
+                    <!-- Scope: Producto -->
+                    <el-form-item v-if="form.applies_to === 'item'"
+                                  label="Producto objetivo"
+                                  prop="apply_item_id"
+                                  :rules="[{required:true,message:'Selecciona el producto'}]"
+                                  class="mt-2">
+                        <el-select v-model="form.apply_item_id" filterable remote
+                                   :remote-method="searchItems"
+                                   :loading="itemsLoading"
+                                   placeholder="Busca por nombre o código interno"
+                                   style="width:100%">
+                            <el-option v-for="it in itemOptions"
+                                       :key="it.id"
+                                       :label="(it.internal_id ? it.internal_id + ' — ' : '') + it.description"
+                                       :value="it.id"></el-option>
+                        </el-select>
+                        <span class="dr-condition-hint">El descuento solo aplicará a la línea de este producto.</span>
+                    </el-form-item>
+
+                    <!-- Scope: Pack -->
+                    <el-form-item v-if="form.applies_to === 'bundle'"
+                                  label="Pack objetivo"
+                                  prop="apply_item_id"
+                                  :rules="[{required:true,message:'Selecciona el pack'}]"
+                                  class="mt-2">
+                        <el-select v-model="form.apply_item_id" filterable remote
+                                   :remote-method="(q) => searchItems(q, 'bundle')"
+                                   :loading="itemsLoading"
+                                   placeholder="Busca un pack (item con is_set)"
+                                   style="width:100%">
+                            <el-option v-for="it in itemOptions"
+                                       :key="it.id"
+                                       :label="(it.internal_id ? it.internal_id + ' — ' : '') + it.description"
+                                       :value="it.id"></el-option>
+                        </el-select>
+                        <span class="dr-condition-hint">El descuento solo aplica a la línea del pack en el carrito.</span>
+                    </el-form-item>
+
+                    <!-- Scope: Categoría -->
+                    <el-form-item v-if="form.applies_to === 'category'"
+                                  label="Categoría objetivo"
+                                  prop="apply_category_id"
+                                  :rules="[{required:true,message:'Selecciona la categoría'}]"
+                                  class="mt-2">
+                        <el-select v-model="form.apply_category_id" filterable
+                                   placeholder="Selecciona una categoría"
+                                   style="width:100%">
+                            <el-option v-for="c in categories" :key="c.id" :label="c.name" :value="c.id"></el-option>
+                        </el-select>
+                        <span class="dr-condition-hint">El descuento aplica a todas las líneas cuya categoría coincida.</span>
                     </el-form-item>
                 </div>
 
@@ -393,6 +445,9 @@ export default {
             records: [],
             types: [],
             channels: [],
+            categories: [],
+            itemOptions: [],
+            itemsLoading: false,
             loading: false,
             saving: false,
             dialogVisible: false,
@@ -415,6 +470,8 @@ export default {
                 discount_type: 'percentage',
                 discount_value: 10,
                 applies_to: 'all',
+                apply_item_id: null,
+                apply_category_id: null,
                 channel_id: null,
                 max_uses: 0,
                 starts_at: null,
@@ -440,6 +497,7 @@ export default {
                     desc: descs[t.id] || '',
                 }));
                 this.channels = r.data.channels;
+                this.categories = r.data.categories || [];
             });
         },
         load(page) {
@@ -463,22 +521,52 @@ export default {
         },
         openEdit(row) {
             this.form = {
-                id:             row.id,
-                name:           row.name,
-                type:           row.type,
-                discount_type:  row.discount_type,
-                discount_value: Number(row.discount_value),
-                applies_to:     row.applies_to,
-                channel_id:     row.channel_id,
-                max_uses:       row.max_uses || 0,
-                starts_at:      row.starts_at || null,
-                ends_at:        row.ends_at   || null,
-                is_active:      !!row.is_active,
-                priority:       row.priority  || 0,
-                stackable:      !!row.stackable,
-                trigger:        row.trigger_json || { min_quantity: 3, min_amount: 100 },
+                id:                row.id,
+                name:              row.name,
+                type:              row.type,
+                discount_type:     row.discount_type,
+                discount_value:    Number(row.discount_value),
+                applies_to:        row.applies_to,
+                apply_item_id:     row.apply_item_id || null,
+                apply_category_id: row.apply_category_id || null,
+                channel_id:        row.channel_id,
+                max_uses:          row.max_uses || 0,
+                starts_at:         row.starts_at || null,
+                ends_at:           row.ends_at   || null,
+                is_active:         !!row.is_active,
+                priority:          row.priority  || 0,
+                stackable:         !!row.stackable,
+                trigger:           row.trigger_json || { min_quantity: 3, min_amount: 100 },
             };
+            // Pre-cargar la opción del producto target (si existe) para que aparezca en el el-select
+            if (row.apply_item_id && row.apply_item) {
+                this.itemOptions = [row.apply_item];
+            } else {
+                this.itemOptions = [];
+            }
             this.dialogVisible = true;
+        },
+        onAppliesToChange(val) {
+            // Limpia campos sueltos al cambiar de scope para evitar data zombie
+            if (val === 'all') {
+                this.form.apply_item_id = null;
+                this.form.apply_category_id = null;
+            } else if (val === 'category') {
+                this.form.apply_item_id = null;
+            } else {
+                this.form.apply_category_id = null;
+            }
+            this.itemOptions = [];
+        },
+        searchItems(q, mode) {
+            if (!q || q.length < 2) {
+                this.itemOptions = [];
+                return;
+            }
+            this.itemsLoading = true;
+            this.$http.get('/discount-rules/items/search', { params: { q, mode: mode || null } })
+                .then(r => { this.itemOptions = r.data.data || []; })
+                .finally(() => { this.itemsLoading = false; });
         },
         onTypeChange() {
             this.form.trigger = { min_quantity: 3, min_amount: 100 };

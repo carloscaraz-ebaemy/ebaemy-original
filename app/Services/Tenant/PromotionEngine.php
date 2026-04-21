@@ -165,7 +165,9 @@ class PromotionEngine
                 continue;
             }
 
-            $d = $rule->calculateDiscount($remaining);
+            // Calcula sobre la porción real del carrito (applies_to):
+            // all/item/bundle/category. Si el producto target no está, retorna 0.
+            $d = $rule->calculateScopedDiscount($this->cart, $remaining);
             if ($d <= 0) {
                 continue;
             }

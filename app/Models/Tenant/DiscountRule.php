@@ -20,6 +20,7 @@ class DiscountRule extends ModelTenant
         'discount_value',
         'applies_to',
         'apply_item_id',
+        'apply_category_id',
         'channel_id',
         'max_uses',
         'used_count',
@@ -74,6 +75,11 @@ class DiscountRule extends ModelTenant
         return $this->belongsTo(Item::class, 'apply_item_id');
     }
 
+    public function applyCategory()
+    {
+        return $this->belongsTo(\Modules\Item\Models\Category::class, 'apply_category_id');
+    }
+
     public function channel()
     {
         return $this->belongsTo(SalesChannel::class, 'channel_id');
@@ -90,6 +96,88 @@ class DiscountRule extends ModelTenant
             : (float) $this->discount_value;
 
         return min(max($discount, 0), $amount);
+    }
+
+    /**
+     * Calcula el descuento considerando `applies_to`:
+     *   all       → sobre el total restante del carrito
+     *   item      → solo sobre la suma de líneas del producto seleccionado
+     *   bundle    → solo sobre la suma de líneas del pack (is_set) seleccionado
+     *   category  → solo sobre las líneas de la categoría seleccionada
+     *
+     * El resultado nunca excede $remaining (el monto pendiente del carrito) para
+     * evitar que dos reglas sumadas dejen un total negativo.
+     */
+    public function calculateScopedDiscount(array $cart, float $remaining): float
+    {
+        if ($remaining <= 0) return 0;
+
+        $base = $this->resolveScopedBase($cart, $remaining);
+        if ($base <= 0) return 0;
+
+        $discount = $this->discount_type === 'percentage'
+            ? round($base * min($this->discount_value, 100) / 100, 2)
+            : (float) $this->discount_value;
+
+        return min(max($discount, 0), $remaining);
+    }
+
+    /**
+     * Monto base (con IGV, tal como lo ve el cliente) al que aplica el descuento.
+     * Si no hay matching (ej. el producto target no está en el carrito), retorna 0
+     * y la regla queda neutralizada.
+     */
+    private function resolveScopedBase(array $cart, float $fallback): float
+    {
+        $scope = $this->applies_to ?: 'all';
+
+        if ($scope === 'all') {
+            return $fallback;
+        }
+
+        if ($scope === 'item') {
+            $targetId = $this->apply_item_id
+                ?? ($this->trigger_json['item_id'] ?? null);
+            if (!$targetId) return $fallback; // legacy: sin target = todo
+            return $this->sumCartLines($cart, fn($item) => (int)($item['id'] ?? 0) === (int)$targetId);
+        }
+
+        if ($scope === 'bundle') {
+            $targetId = $this->apply_item_id
+                ?? ($this->trigger_json['bundle_item_id'] ?? $this->trigger_json['item_id'] ?? null);
+            if (!$targetId) return $fallback;
+            return $this->sumCartLines(
+                $cart,
+                fn($item) => ($item['is_set'] ?? false) && (int)($item['id'] ?? 0) === (int)$targetId
+            );
+        }
+
+        if ($scope === 'category') {
+            if (!$this->apply_category_id) return $fallback;
+            $itemIds = collect($cart)->map(fn($i) => (int)((array)$i)['id'] ?? 0)->filter()->unique()->values()->all();
+            if (empty($itemIds)) return 0;
+            $matching = Item::whereIn('id', $itemIds)
+                ->where('category_id', $this->apply_category_id)
+                ->pluck('id')
+                ->all();
+            if (empty($matching)) return 0;
+            return $this->sumCartLines($cart, fn($item) => in_array((int)($item['id'] ?? 0), $matching, true));
+        }
+
+        return $fallback;
+    }
+
+    private function sumCartLines(array $cart, callable $predicate): float
+    {
+        $total = 0;
+        foreach ($cart as $raw) {
+            $item = (array) $raw;
+            if (!$predicate($item)) continue;
+            $qty   = (float) ($item['quantity'] ?? $item['cantidad'] ?? 1);
+            $price = (float) ($item['sale_unit_price'] ?? $item['unit_price'] ?? $item['price'] ?? 0);
+            $total += $qty * $price;
+        }
+        return round($total, 2);
     }
 
     /**

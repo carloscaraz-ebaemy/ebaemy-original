@@ -83,6 +83,7 @@ if ($hostname) {
             Route::get('discount-rules',                'Tenant\DiscountRuleController@index')->name('tenant.discount_rules.index');
             Route::get('discount-rules/records',        'Tenant\DiscountRuleController@records');
             Route::get('discount-rules/tables',         'Tenant\DiscountRuleController@tables');
+            Route::get('discount-rules/items/search',   'Tenant\DiscountRuleController@searchItems');
             Route::post('discount-rules',               'Tenant\DiscountRuleController@store');
             Route::delete('discount-rules/{id}',        'Tenant\DiscountRuleController@destroy');
             Route::post('discount-rules/{id}/toggle',   'Tenant\DiscountRuleController@toggle');

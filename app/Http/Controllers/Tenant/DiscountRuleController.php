@@ -7,6 +7,7 @@ use App\Models\Tenant\DiscountRule;
 use App\Models\Tenant\Item;
 use App\Models\Tenant\SalesChannel;
 use Illuminate\Http\Request;
+use Modules\Item\Models\Category;
 
 /**
  * CRUD para reglas de descuento automático (DiscountRule).
@@ -29,7 +30,10 @@ class DiscountRuleController extends Controller
 
     public function records(Request $request)
     {
-        $query = DiscountRule::query()->orderByDesc('priority')->orderByDesc('id');
+        $query = DiscountRule::query()
+            ->with(['applyItem:id,description,internal_id', 'applyCategory:id,name'])
+            ->orderByDesc('priority')
+            ->orderByDesc('id');
 
         if ($request->type) {
             $query->where('type', $request->type);
@@ -38,22 +42,60 @@ class DiscountRuleController extends Controller
             $query->where('name', 'like', '%' . $request->search . '%');
         }
 
-        return response()->json(
-            $query->paginate(config('tenant.items_per_page'))
-        );
+        $paginator = $query->paginate(config('tenant.items_per_page'));
+
+        // Expone apply_item / apply_category_name en forma plana para el front
+        $paginator->getCollection()->transform(function ($r) {
+            $r->apply_item = $r->applyItem ? [
+                'id'          => $r->applyItem->id,
+                'description' => $r->applyItem->description,
+                'internal_id' => $r->applyItem->internal_id,
+            ] : null;
+            $r->apply_category_name = $r->applyCategory?->name;
+            unset($r->applyItem, $r->applyCategory);
+            return $r;
+        });
+
+        return response()->json($paginator);
     }
 
     public function tables()
     {
         return response()->json([
-            'channels' => SalesChannel::active()->get(['id', 'name', 'type', 'code']),
-            'types'    => [
+            'channels'   => SalesChannel::active()->get(['id', 'name', 'type', 'code']),
+            'categories' => Category::orderBy('name')->get(['id', 'name']),
+            'types'      => [
                 ['id' => 'volume',     'label' => 'Descuento por volumen'],
                 ['id' => 'auto',       'label' => 'Descuento automático (monto mínimo)'],
                 ['id' => 'channel',    'label' => 'Descuento por canal'],
                 ['id' => 'flash_sale', 'label' => 'Flash Sale (tiempo limitado)'],
                 ['id' => 'bundle',     'label' => 'Descuento por pack/bundle'],
             ],
+        ]);
+    }
+
+    /**
+     * Búsqueda remota de items para los selectores de scope (applies_to = item / bundle).
+     * Retorna hasta 20 resultados filtrados por descripción o internal_id.
+     */
+    public function searchItems(Request $request)
+    {
+        $q    = trim((string) $request->input('q', ''));
+        $mode = $request->input('mode'); // 'bundle' para restringir a is_set=true
+
+        $query = Item::query()->where(function ($w) use ($q) {
+            if ($q !== '') {
+                $w->where('description', 'like', "%{$q}%")
+                  ->orWhere('internal_id', 'like', "%{$q}%");
+            }
+        })->limit(20);
+
+        if ($mode === 'bundle') {
+            $query->where('is_set', true);
+        }
+
+        return response()->json([
+            'data' => $query->get(['id', 'description', 'internal_id', 'is_set'])
         ]);
     }
 
@@ -77,9 +119,25 @@ class DiscountRuleController extends Controller
 
         $data = $request->only([
             'name', 'type', 'trigger_json', 'discount_type', 'discount_value',
-            'applies_to', 'apply_item_id', 'channel_id', 'max_uses',
+            'applies_to', 'apply_item_id', 'apply_category_id',
+            'channel_id', 'max_uses',
             'starts_at', 'ends_at', 'is_active', 'priority', 'stackable',
         ]);
+
+        // Limpia referencias sueltas según el scope para no dejar datos zombies
+        switch ($data['applies_to'] ?? 'all') {
+            case 'all':
+                $data['apply_item_id'] = null;
+                $data['apply_category_id'] = null;
+                break;
+            case 'item':
+            case 'bundle':
+                $data['apply_category_id'] = null;
+                break;
+            case 'category':
+                $data['apply_item_id'] = null;
+                break;
+        }
 
         if (isset($data['trigger_json']) && is_string($data['trigger_json'])) {
             $data['trigger_json'] = json_decode($data['trigger_json'], true);
