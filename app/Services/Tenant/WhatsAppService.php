@@ -2,118 +2,103 @@
 
 namespace App\Services\Tenant;
 
-use App\Models\Tenant\Configuration;
 use App\Models\Tenant\ConfigurationEcommerce;
-use Illuminate\Support\Facades\Http;
+use App\Models\Tenant\WhatsAppMessageLog;
+use App\Services\Tenant\WhatsApp\Contracts\WhatsAppDriverInterface;
+use App\Services\Tenant\WhatsApp\WhatsAppDriverFactory;
 use Illuminate\Support\Facades\Log;
 
 /**
- * WhatsApp via QR API (alasitas.devaemy.com o similar).
+ * WhatsApp — servicio principal del sistema.
  *
- * Endpoint: {url}/api/message/send-text
- * Auth: Bearer {apiKey}
- * Body: { "number": "51XXXXXXXXX", "message": "texto" }
+ * Actúa como fachada (Facade): mantiene la API pública histórica
+ * (send, notifyClientOrderReceived, etc.) pero delega toda la
+ * comunicación real a un driver seleccionado por WhatsAppDriverFactory.
  *
- * Config: configurations.qr_api_enable, qr_api_url, qr_api_apiKey
- * Fallback: configuration_ecommerce.whatsapp_api_token, whatsapp_phone_id (Meta Cloud API)
+ * Drivers disponibles: meta_cloud (oficial), qr_api, none (no-op).
+ *
+ * Cada envío se registra en `whatsapp_messages_log` para auditoría y
+ * dashboard — previamente solo se loggeaba a laravel.log.
+ *
+ * Backward compatible: TODOS los métodos anteriores siguen funcionando.
  */
 class WhatsAppService
 {
-    protected ?string $url = null;
-    protected ?string $apiKey = null;
+    protected WhatsAppDriverInterface $driver;
     protected ?string $vendorPhone = null;
-    protected bool $enabled = false;
-    protected string $driver = 'none'; // qr_api | meta | none
 
-    public function __construct()
+    public function __construct(?WhatsAppDriverInterface $driver = null)
     {
-        // Intentar QR API primero (configuración del tenant)
-        $config = Configuration::first();
-        if ($config && $config->qr_api_enable && $config->qr_api_url && $config->qr_api_apiKey) {
-            $this->url = rtrim($config->qr_api_url, '/');
-            $this->apiKey = $config->qr_api_apiKey;
-            $this->enabled = true;
-            $this->driver = 'qr_api';
-        }
+        $this->driver = $driver ?? WhatsAppDriverFactory::make();
 
-        // Vendor phone (para notificar al admin)
         $ecomConfig = ConfigurationEcommerce::first();
-        $this->vendorPhone = $ecomConfig->phone_whatsapp ?? $config->phone_whatsapp ?? null;
+        $this->vendorPhone = $ecomConfig->phone_whatsapp
+            ?? $ecomConfig->whatsapp_vendor_number
+            ?? null;
     }
+
+    // ══════════════════════════════════════════════════════════════
+    // API PÚBLICA — backward compatible
+    // ══════════════════════════════════════════════════════════════
 
     public function isEnabled(): bool
     {
-        return $this->enabled;
+        return $this->driver->isConfigured();
     }
 
-    // ══════════════════════════════════════════════════════════════
-    // ENVÍO DE MENSAJE
-    // ══════════════════════════════════════════════════════════════
-
-    public function send(string $phone, string $message): bool
+    public function isConfigured(): bool
     {
-        if (!$this->enabled) {
-            Log::debug('WhatsApp no configurado, mensaje no enviado', ['phone' => $phone]);
+        return $this->isEnabled();
+    }
+
+    public function driverName(): string
+    {
+        return $this->driver->name();
+    }
+
+    public function send(string $phone, string $message, ?string $source = null, ?int $sourceId = null): bool
+    {
+        if (!$this->driver->isConfigured()) {
+            $this->logFailed($phone, $message, 'driver not configured', $source, $sourceId);
             return false;
         }
 
-        $phone = $this->normalizePhone($phone);
-        if (!$phone) return false;
+        $ok = $this->driver->send($phone, $message);
 
-        try {
-            if ($this->driver === 'qr_api') {
-                return $this->sendViaQrApi($phone, $message);
-            }
-            return false;
-        } catch (\Throwable $e) {
-            Log::warning('WhatsApp send failed', ['error' => $e->getMessage(), 'phone' => $phone]);
-            return false;
+        if ($ok) {
+            $this->logSent($phone, $message, 'text', null, $source, $sourceId);
+        } else {
+            $this->logFailed($phone, $message, $this->driver->lastError() ?? 'unknown', $source, $sourceId);
         }
+
+        return $ok;
     }
 
-    protected function sendViaQrApi(string $phone, string $message): bool
+    public function sendTemplate(string $phone, string $templateName, array $params = [], string $lang = 'es', ?string $source = null, ?int $sourceId = null): bool
     {
-        $response = Http::withToken($this->apiKey)
-            ->withOptions(['verify' => false])
-            ->timeout(15)
-            ->post($this->url . '/api/message/send-text', [
-                'number' => $phone,
-                'message' => $message,
-            ]);
-
-        if ($response->successful()) {
-            Log::channel('payments')->info('WhatsApp QR API enviado', [
-                'phone' => $phone,
-                'driver' => 'qr_api',
-            ]);
-            return true;
+        if (!$this->driver->isConfigured()) {
+            $this->logFailed($phone, "[template:{$templateName}]", 'driver not configured', $source, $sourceId);
+            return false;
         }
 
-        Log::warning('WhatsApp QR API error', [
-            'phone' => $phone,
-            'status' => $response->status(),
-            'body' => substr($response->body(), 0, 200),
-        ]);
-        return false;
+        $ok = $this->driver->sendTemplate($phone, $templateName, $params, $lang);
+
+        if ($ok) {
+            $this->logSent($phone, "[template:{$templateName}] " . json_encode($params), 'template', $templateName, $source, $sourceId);
+        } else {
+            $this->logFailed($phone, "[template:{$templateName}]", $this->driver->lastError() ?? 'unknown', $source, $sourceId, $templateName);
+        }
+
+        return $ok;
     }
 
-    protected function normalizePhone(string $phone): ?string
-    {
-        $phone = preg_replace('/\D/', '', $phone);
-        if (empty($phone)) return null;
-        if (strlen($phone) === 9 && str_starts_with($phone, '9')) {
-            $phone = '51' . $phone;
-        }
-        return $phone;
-    }
+    // Backward compat aliases
+    public function sendText(string $to, string $message): bool { return $this->send($to, $message); }
 
     // ══════════════════════════════════════════════════════════════
-    // NOTIFICACIONES DE PEDIDO
+    // NOTIFICACIONES DE PEDIDO (API histórica, backward compatible)
     // ══════════════════════════════════════════════════════════════
 
-    /**
-     * AL CLIENTE: Pedido recibido
-     */
     public function notifyClientOrderReceived(string $phone, string $name, string $orderId, float $total, string $storeName = ''): bool
     {
         if (!$storeName) {
@@ -125,13 +110,9 @@ class WhatsAppService
              . "📦 Estado: _Pendiente de verificación_\n\n"
              . "Te notificaremos cuando sea despachado.\n"
              . "¡Gracias por tu compra! 🙌";
-
-        return $this->send($phone, $msg);
+        return $this->send($phone, $msg, 'order', (int) $orderId);
     }
 
-    /**
-     * AL ADMIN/VENDEDOR: Nuevo pedido recibido
-     */
     public function notifyAdminNewOrder(string $clientName, string $orderId, float $total, array $items = []): bool
     {
         if (!$this->vendorPhone) return false;
@@ -152,13 +133,9 @@ class WhatsAppService
              . "💰 Total: *S/ " . number_format($total, 2) . "*\n\n"
              . "Productos:\n{$itemList}\n"
              . "Gestiona en el panel de administración.";
-
-        return $this->send($this->vendorPhone, $msg);
+        return $this->send($this->vendorPhone, $msg, 'order_admin', (int) $orderId);
     }
 
-    /**
-     * AL CLIENTE: Pedido despachado
-     */
     public function notifyClientOrderDispatched(string $phone, string $name, string $orderId, ?string $tracking = null): bool
     {
         $msg = "¡Hola {$name}! 📦\n\n"
@@ -167,26 +144,70 @@ class WhatsAppService
             $msg .= "Seguimiento: *{$tracking}*\n";
         }
         $msg .= "\n¡Pronto lo recibirás! 🚚";
-
-        return $this->send($phone, $msg);
+        return $this->send($phone, $msg, 'order', (int) $orderId);
     }
 
-    /**
-     * AL CLIENTE: Pedido entregado
-     */
     public function notifyClientOrderDelivered(string $phone, string $name, string $orderId): bool
     {
         $msg = "¡Hola {$name}! ✅\n\n"
              . "Tu pedido *#{$orderId}* ha sido *entregado*.\n\n"
              . "¿Todo bien? Déjanos tu opinión ⭐\n"
              . "¡Gracias por confiar en nosotros!";
-
-        return $this->send($phone, $msg);
+        return $this->send($phone, $msg, 'order', (int) $orderId);
     }
 
-    // Backward compatibility
-    public function sendText(string $to, string $message): bool { return $this->send($to, $message); }
-    public function isConfigured(): bool { return $this->isEnabled(); }
+    // Aliases legacy
     public function notifyCustomerOrderReceived(...$args): bool { return $this->notifyClientOrderReceived(...$args); }
-    public function notifyVendorNewOrder(string $clientName, string $orderId, float $total, array $items): bool { return $this->notifyAdminNewOrder($clientName, $orderId, $total, $items); }
+    public function notifyVendorNewOrder(string $clientName, string $orderId, float $total, array $items): bool
+    {
+        return $this->notifyAdminNewOrder($clientName, $orderId, $total, $items);
+    }
+
+    // ══════════════════════════════════════════════════════════════
+    // LOGGING — auditoría en whatsapp_messages_log
+    // ══════════════════════════════════════════════════════════════
+
+    protected function logSent(string $phone, string $message, string $type = 'text', ?string $templateName = null, ?string $source = null, ?int $sourceId = null): void
+    {
+        $this->writeLog([
+            'phone'         => $phone,
+            'driver'        => $this->driver->name(),
+            'type'          => $type,
+            'template_name' => $templateName,
+            'message'       => substr($message, 0, 2000),
+            'status'        => 'sent',
+            'source'        => $source,
+            'source_id'     => $sourceId,
+            'user_id'       => auth()->id(),
+            'sent_at'       => now(),
+        ]);
+    }
+
+    protected function logFailed(string $phone, string $message, string $error, ?string $source = null, ?int $sourceId = null, ?string $templateName = null): void
+    {
+        $this->writeLog([
+            'phone'         => $phone,
+            'driver'        => $this->driver->name(),
+            'type'          => $templateName ? 'template' : 'text',
+            'template_name' => $templateName,
+            'message'       => substr($message, 0, 2000),
+            'status'        => 'failed',
+            'source'        => $source,
+            'source_id'     => $sourceId,
+            'error_message' => substr($error, 0, 500),
+            'user_id'       => auth()->id(),
+        ]);
+    }
+
+    protected function writeLog(array $data): void
+    {
+        try {
+            WhatsAppMessageLog::create($data);
+        } catch (\Throwable $e) {
+            // No propagar — el log es secundario, nunca debe romper el envío.
+            Log::warning('WhatsApp log write failed', [
+                'error' => $e->getMessage(),
+            ]);
+        }
+    }
 }
