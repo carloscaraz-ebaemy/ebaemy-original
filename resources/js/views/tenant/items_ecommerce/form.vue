@@ -608,6 +608,19 @@
                                             <div class="form-group">
                                                 <el-checkbox v-model="form.apply_store">Aplica en Tienda</el-checkbox>
                                                 <br>
+                                                <el-checkbox v-model="form.marketplace_publishable" style="margin-top:4px">
+                                                    🌐 Publicar en Marketplace ebaemy
+                                                </el-checkbox>
+                                                <el-tooltip content="Si se activa, el producto aparecerá en ebaemy.com/marketplace. Las solicitudes llegan como pedidos en el canal 'Marketplace ebaemy'." placement="top">
+                                                    <i class="el-icon-info text-info" style="margin-left:4px;cursor:help"></i>
+                                                </el-tooltip>
+                                                <div v-if="form.marketplace_publishable" style="margin-top:8px;padding:10px 12px;background:#faf5ff;border:1px solid #e9d5ff;border-radius:8px">
+                                                    <label style="display:block;font-size:12px;color:#6b21a8;margin-bottom:4px;font-weight:500">Precio en marketplace (opcional)</label>
+                                                    <el-input-number v-model="form.mp_price" :min="0" :precision="2" :step="1"
+                                                        placeholder="Usar precio normal" controls-position="right" size="mini"
+                                                        style="width:100%"></el-input-number>
+                                                    <small style="color:#7c3aed;font-size:11px">Deja vacío para usar el precio de venta normal.</small>
+                                                </div>
                                             </div>
                                         </div>
                                         <div class="col-md-5">
@@ -997,6 +1010,8 @@ export default {
                 temp_path: null,
                 account_id: null,
                 apply_store: false,
+                marketplace_publishable: false,
+                mp_price: null,
                 tags_id: [],
                 multi_images: [],
                 attributes: [],

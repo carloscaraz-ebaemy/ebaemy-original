@@ -1100,11 +1100,27 @@ if ($hostname) {
         //     }
         // });
 
+        // ─── Marketplace público (ebaemy.com/marketplace) ────────────────────
+        // Vitrina agregadora: productos de tenants opt-in. Redirige la compra
+        // a un lead que se convierte en Order dentro del tenant.
+        Route::get('marketplace',                 'MarketplaceController@index')->name('marketplace.index');
+        Route::get('marketplace/item/{slug}',     'MarketplaceController@show')->name('marketplace.item');
+        Route::post('marketplace/item/{slug}/solicitar', 'MarketplaceController@lead')
+             ->middleware('throttle:10,1')
+             ->name('marketplace.lead');
+        Route::get('marketplace/gracias/{slug}',  'MarketplaceController@thanks')->name('marketplace.thanks');
+
+        // Root del central: visitantes caen al marketplace; admins logueados
+        // ven su dashboard (HomeController lo maneja internamente vía auth).
+        Route::get('/', function () {
+            if (auth('admin')->check()) {
+                return redirect()->route('system.dashboard');
+            }
+            return redirect()->route('marketplace.index');
+        });
+
         Route::middleware('auth:admin')->group(function () {
             Route::get('logs', '\Rap2hpoutre\LaravelLogViewer\LogViewerController@index');
-            Route::get('/', function () {
-                return redirect()->route('system.dashboard');
-            });
             Route::get('dashboard', 'System\HomeController@index')->name('system.dashboard');
 
             //Clients

@@ -120,6 +120,11 @@
                 'date_of_due' => !empty($this->date_of_due) ? $this->date_of_due->format('Y-m-d H:i:s') : null,
                 'image_url' => ($this->image !== 'imagen-no-disponible.jpg') ? asset('storage' . DIRECTORY_SEPARATOR . 'uploads' . DIRECTORY_SEPARATOR . 'items' . DIRECTORY_SEPARATOR . $this->image) : asset("/logo/{$this->image}"),
                 'apply_store' => (bool)$this->apply_store,
+                // Marketplace central (ebaemy.com): flag de publicación y precio alterno
+                'marketplace_publishable' => (bool) ($this->marketplace_publishable ?? false),
+                'mp_price'     => $this->mp_price,
+                'mp_status'    => $this->mp_status,
+                'mp_notes'     => $this->mp_notes,
                 'has_plastic_bag_taxes' => (bool)$this->has_plastic_bag_taxes,
                 'tags' => $this->tags,
                 'tags_id' => $this->tags->pluck('tag_id'),
