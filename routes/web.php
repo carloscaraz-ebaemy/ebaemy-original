@@ -148,14 +148,22 @@ if ($hostname) {
             Route::get('orders/payment-catalogs', 'Tenant\OrderController@paymentCatalogs');
 
             // WhatsApp — Configuración y panel de control
-            Route::get('whatsapp/settings', 'Tenant\WhatsAppSettingsController@index');
-            Route::get('whatsapp/settings/data', 'Tenant\WhatsAppSettingsController@data');
-            Route::put('whatsapp/settings', 'Tenant\WhatsAppSettingsController@update');
-            Route::post('whatsapp/settings/test', 'Tenant\WhatsAppSettingsController@test');
-            Route::get('whatsapp/settings/templates', 'Tenant\WhatsAppSettingsController@templates');
-            Route::get('whatsapp/settings/logs', 'Tenant\WhatsAppSettingsController@logs');
-            Route::get('whatsapp/dashboard', 'Tenant\WhatsAppSettingsController@dashboardIndex');
-            Route::get('whatsapp/dashboard/data', 'Tenant\WhatsAppSettingsController@dashboardData');
+            // RBAC: whatsapp.view (ver), whatsapp.config (editar), whatsapp.send_test (probar).
+            // super-admin y type=admin legacy bypasean (ver CheckPermission middleware).
+            Route::middleware('permission:whatsapp.view')->group(function () {
+                Route::get('whatsapp/settings', 'Tenant\WhatsAppSettingsController@index');
+                Route::get('whatsapp/settings/data', 'Tenant\WhatsAppSettingsController@data');
+                Route::get('whatsapp/settings/templates', 'Tenant\WhatsAppSettingsController@templates');
+                Route::get('whatsapp/settings/logs', 'Tenant\WhatsAppSettingsController@logs');
+                Route::get('whatsapp/dashboard', 'Tenant\WhatsAppSettingsController@dashboardIndex');
+                Route::get('whatsapp/dashboard/data', 'Tenant\WhatsAppSettingsController@dashboardData');
+            });
+            Route::middleware('permission:whatsapp.config')->group(function () {
+                Route::put('whatsapp/settings', 'Tenant\WhatsAppSettingsController@update');
+            });
+            Route::middleware('permission:whatsapp.send_test')->group(function () {
+                Route::post('whatsapp/settings/test', 'Tenant\WhatsAppSettingsController@test');
+            });
             //Route::get('orders/print/{external_id}/{format?}', 'Tenant\OrderController@toPrint');
             Route::post('statusOrder/update/', 'Tenant\OrderController@updateStatusOrders');
             Route::get('orders/pdf/{id}', 'Tenant\OrderController@pdf')->where('id', '[0-9]+');
