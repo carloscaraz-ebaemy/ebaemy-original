@@ -1093,6 +1093,40 @@ class ItemController extends Controller
 
     }
 
+    /**
+     * Publica o despublica el item en el marketplace central (ebaemy.com).
+     * Requiere internal_id para que el sync pueda identificar el producto.
+     */
+    public function marketplaceToggle(Request $request)
+    {
+        $item = Item::find($request->id);
+        if (!$item) {
+            return ['success' => false, 'message' => 'Producto no encontrado'];
+        }
+
+        $enable = filter_var($request->marketplace_publishable, FILTER_VALIDATE_BOOLEAN);
+
+        if ($enable && !$item->internal_id) {
+            return [
+                'success' => false,
+                'message' => 'Asigna un código interno antes de publicar en marketplace',
+            ];
+        }
+
+        $item->marketplace_publishable = $enable;
+        $item->mp_status = $enable ? 'active' : 'paused';
+        $item->mp_synced_at = null; // fuerza resync
+        $item->save();
+
+        return [
+            'success' => true,
+            'message' => $enable
+                ? 'Publicado en Marketplace ebaemy (sincronizará en los próximos minutos)'
+                : 'Retirado del Marketplace ebaemy',
+            'id'     => $item->id,
+        ];
+    }
+
     public function duplicate(Request $request)
     {
         // return $request->id;

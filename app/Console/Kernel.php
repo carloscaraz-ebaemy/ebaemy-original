@@ -87,6 +87,13 @@ class Kernel extends ConsoleKernel
                  ->withoutOverlapping()
                  ->appendOutputTo(storage_path('logs/marketplace_stock.log'));
 
+        // Marketplace ebaemy (agregador central): refresca el índice de
+        // listings de los tenants que publicaron productos.
+        $schedule->command('ebaemy-marketplace:sync')
+                 ->everyThirtyMinutes()
+                 ->withoutOverlapping()
+                 ->appendOutputTo(storage_path('logs/ebaemy_marketplace_sync.log'));
+
         $schedule->command('marketplace:sync orders')
                  ->everyFifteenMinutes()
                  ->withoutOverlapping()

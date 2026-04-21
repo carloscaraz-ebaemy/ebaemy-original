@@ -427,6 +427,7 @@ if ($hostname) {
             Route::get('items/import/tables', 'Tenant\ItemController@tablesImport');
             Route::post('items/upload', 'Tenant\ItemController@upload');
             Route::post('items/visible_store', 'Tenant\ItemController@visibleStore');
+            Route::post('items/marketplace-toggle', 'Tenant\ItemController@marketplaceToggle');
             Route::post('items/duplicate', 'Tenant\ItemController@duplicate');
             Route::get('items/disable/{item}', 'Tenant\ItemController@disable');
             Route::post('items/disableMassive', 'Tenant\ItemController@disableMassive');
@@ -1122,6 +1123,15 @@ if ($hostname) {
         Route::middleware('auth:admin')->group(function () {
             Route::get('logs', '\Rap2hpoutre\LaravelLogViewer\LogViewerController@index');
             Route::get('dashboard', 'System\HomeController@index')->name('system.dashboard');
+
+            // ── Moderación marketplace central ──────────────────────────────
+            Route::prefix('admin/marketplace')->name('system.marketplace.')->group(function () {
+                Route::get('listings',                'System\MarketplaceAdminController@listings')->name('listings');
+                Route::post('listings/{id}/status',   'System\MarketplaceAdminController@updateListingStatus')->name('listings.status');
+                Route::get('leads',                   'System\MarketplaceAdminController@leads')->name('leads');
+                Route::post('leads/{id}/retry',       'System\MarketplaceAdminController@retryLead')->name('leads.retry');
+                Route::post('leads/{id}/archive',     'System\MarketplaceAdminController@archiveLead')->name('leads.archive');
+            });
 
             //Clients
             Route::get('clients', 'System\ClientController@index')->name('system.clients.index');

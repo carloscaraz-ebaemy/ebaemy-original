@@ -84,6 +84,23 @@
                         </a>
                     </li>
 
+                    {{-- ── MARKETPLACE (agregador central) ──────────────── --}}
+                    <li class="nav-separator">Marketplace</li>
+
+                    <li class="{{ (isset($path[1]) && $path[1] === 'marketplace' && $path[2] === 'listings')?'nav-active':'' }}">
+                        <a class="nav-link" href="{{ route('system.marketplace.listings') }}">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7l3 -3h12l3 3"/><path d="M3 7v12a2 2 0 0 0 2 2h14a2 2 0 0 0 2 -2v-12"/><path d="M9 7v4a3 3 0 0 1 -6 0v-4"/><path d="M15 7v4a3 3 0 0 0 6 0v-4"/><path d="M12 7v4a3 3 0 0 1 -6 0"/><path d="M12 7v4a3 3 0 0 0 6 0"/></svg>
+                            <span>Productos publicados</span>
+                        </a>
+                    </li>
+
+                    <li class="{{ (isset($path[1]) && $path[1] === 'marketplace' && $path[2] === 'leads')?'nav-active':'' }}">
+                        <a class="nav-link" href="{{ route('system.marketplace.leads') }}">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7l9 6l9 -6"/><path d="M3 7a2 2 0 0 1 2 -2h14a2 2 0 0 1 2 2v10a2 2 0 0 1 -2 2h-14a2 2 0 0 1 -2 -2z"/></svg>
+                            <span>Solicitudes / Leads</span>
+                        </a>
+                    </li>
+
                     {{-- ── SISTEMA ──────────────────────────────────────── --}}
                     <li class="nav-separator">Sistema</li>
 

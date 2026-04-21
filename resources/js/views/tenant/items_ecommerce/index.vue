@@ -70,6 +70,12 @@
                         <th class="text-center">Tags</th>
 
                         <th class="text-center">Visible en Tienda</th>
+                        <th class="text-center" style="min-width:90px">
+                            Marketplace
+                            <el-tooltip content="Publicar este producto en ebaemy.com/marketplace" placement="top">
+                                <i class="el-icon-info text-info" style="cursor:help;margin-left:2px"></i>
+                            </el-tooltip>
+                        </th>
                         <th class="text-end">Acciones</th>
                     </tr>
                     <tr></tr>
@@ -113,6 +119,13 @@
                                 @change="visibleStore($event, row.id)"
                                 v-model="row.apply_store"
                             ></el-checkbox>
+                        </td>
+                        <td class="text-center">
+                            <el-switch
+                                v-model="row.marketplace_publishable"
+                                active-color="#8b5cf6"
+                                @change="toggleMarketplace($event, row.id)"
+                            ></el-switch>
                         </td>
                         <td class="text-end">
                             <template>
@@ -281,6 +294,22 @@ export default {
                 })
                 .catch(error => {})
                 .then(() => {});
+        },
+        toggleMarketplace(value, id) {
+            this.$http
+                .post(`/items/marketplace-toggle`, { id, marketplace_publishable: value })
+                .then(response => {
+                    if (response.data.success) {
+                        value
+                            ? this.$message.success(response.data.message)
+                            : this.$message.warning(response.data.message);
+                    } else {
+                        this.$message.error(response.data.message || 'No se pudo actualizar');
+                    }
+                })
+                .catch(() => {
+                    this.$message.error('Error al actualizar marketplace');
+                });
         },
         clickWarehouseDetail(warehouses) {
             this.warehousesDetail = warehouses;
