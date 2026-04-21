@@ -1,40 +1,32 @@
-/* =========================================================================
-   Login ebaemy — SaaS 2026 premium (Stripe / Linear / Shopify feel)
-   ========================================================================= */
+/* ==========================================================================
+   ebaemy Login — SaaS 2026 premium
+   Stripe / Linear / Shopify / Notion feel
+   Imagen admin fullscreen + card glass centrada + micro-interacciones
+   Depende de design-tokens.css (variables --eb-*) cargado antes.
+   ========================================================================== */
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
 
+/* Fallbacks si design-tokens.css no se cargó */
 :root {
-  /* Paleta refinada */
-  --brand: #0f8a82;
-  --brand-dark: #0a6f68;
-  --brand-light: #1fb1a6;
-  --brand-soft: #e8f6f5;
-  --gold: #c9962b;
-  --gold-soft: #f5ecd1;
-
-  /* Neutrales */
-  --ink: #0f172a;
-  --ink-soft: #475569;
-  --muted: #94a3b8;
-  --line: #e2e8f0;
-  --line-soft: #f1f5f9;
-  --bg: #ffffff;
-  --bg-soft: #fafbfc;
-
-  /* Shadows (Tailwind-like, profesional) */
-  --shadow-sm: 0 1px 2px 0 rgba(15, 23, 42, 0.05);
-  --shadow-md: 0 4px 6px -1px rgba(15, 23, 42, 0.07), 0 2px 4px -2px rgba(15, 23, 42, 0.04);
-  --shadow-lg: 0 20px 40px -8px rgba(15, 23, 42, 0.18), 0 10px 20px -10px rgba(15, 23, 42, 0.10);
-  --shadow-xl: 0 40px 80px -16px rgba(15, 23, 42, 0.25), 0 20px 40px -20px rgba(15, 23, 42, 0.12);
-
-  --font: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-
-  --ease: cubic-bezier(0.4, 0, 0.2, 1);
+  --eb-brand: var(--eb-brand, #0f8a82);
+  --eb-brand-dark: var(--eb-brand-dark, #0a6f68);
+  --eb-brand-light: var(--eb-brand-light, #1fb1a6);
+  --eb-brand-soft: var(--eb-brand-soft, #e8f6f5);
+  --eb-accent: var(--eb-accent, #c9962b);
+  --eb-ink: var(--eb-ink, #0f172a);
+  --eb-ink-soft: var(--eb-ink-soft, #475569);
+  --eb-muted: var(--eb-muted, #94a3b8);
+  --eb-line: var(--eb-line, #e2e8f0);
+  --eb-surface: var(--eb-surface, #ffffff);
+  --eb-font: var(--eb-font, 'Inter', system-ui, sans-serif);
+  --eb-ease: var(--eb-ease, cubic-bezier(0.4, 0, 0.2, 1));
+  --eb-shadow-sm: var(--eb-shadow-sm, 0 1px 2px rgba(15,23,42,.05));
+  --eb-shadow-xl: var(--eb-shadow-xl, 0 40px 80px -16px rgba(15,23,42,.25));
 }
 
-/* =========================================================================
-   Base
-   ========================================================================= */
+/* ==========================================================================
+   BASE
+   ========================================================================== */
 html, body, .app {
   min-height: 100vh;
   margin: 0;
@@ -42,11 +34,12 @@ html, body, .app {
 }
 
 body {
-  font-family: var(--font);
-  color: var(--ink);
+  font-family: var(--eb-font);
+  color: var(--eb-ink);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   letter-spacing: -0.01em;
+  overflow-x: hidden;
 }
 
 .app {
@@ -55,24 +48,24 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 24px;
+  padding: clamp(16px, 4vw, 32px);
   background: linear-gradient(135deg, #f6fbfc 0%, #eef6f8 50%, #fff8e4 100%);
 }
 
-/* =========================================================================
-   FONDO FULLSCREEN — imagen administrable del tenant
-   ========================================================================= */
+/* ==========================================================================
+   FONDO FULLSCREEN ADMINISTRABLE (imagen del tenant)
+   ========================================================================== */
 .auth__image {
-  position: fixed;
-  inset: 0;
+  position: fixed !important;
+  inset: 0 !important;
   z-index: 0;
-  width: 100vw;
-  height: 100vh;
+  width: 100vw !important;
+  height: 100vh !important;
   display: flex;
   align-items: center;
   justify-content: center;
   overflow: hidden;
-  background: linear-gradient(135deg, #0a9d92 0%, #0f7a72 40%, #8a6c14 100%) !important;
+  background: linear-gradient(135deg, #0a9d92 0%, #0f7a72 45%, #8a6c14 100%) !important;
   border-radius: 0 !important;
   padding: 0 !important;
   margin: 0 !important;
@@ -85,35 +78,45 @@ body {
   width: 100vw !important;
   height: 100vh !important;
   object-fit: cover !important;
-  opacity: 0.28;
+  opacity: 0.32;
   mix-blend-mode: soft-light;
   z-index: 0;
+  filter: saturate(0.85);
 }
 
-/* overlay oscuro sutil para mejorar contraste con la card */
+/* Overlay gradiente sutil para mejor contraste con card */
 .auth__image::before {
   content: '';
   position: absolute;
   inset: 0;
-  background: linear-gradient(135deg, rgba(15, 23, 42, 0.15) 0%, transparent 50%, rgba(15, 23, 42, 0.25) 100%);
-  z-index: 2;
+  background:
+    radial-gradient(circle at 20% 30%, rgba(255, 255, 255, 0.12) 0%, transparent 50%),
+    radial-gradient(circle at 80% 70%, rgba(212, 169, 60, 0.18) 0%, transparent 50%),
+    linear-gradient(135deg, rgba(15, 23, 42, 0.1) 0%, transparent 40%, rgba(15, 23, 42, 0.18) 100%);
+  z-index: 1;
   pointer-events: none;
 }
 
-/* blob decorativo (solo uno, sutil) */
+/* Glow decorativo sutil detrás de la card */
 .auth__image::after {
   content: '';
   position: absolute;
   top: 50%; left: 50%;
   transform: translate(-50%, -50%);
-  width: 800px; height: 800px;
-  background: radial-gradient(circle, rgba(255, 255, 255, 0.08) 0%, transparent 60%);
+  width: 900px; height: 900px;
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.08) 0%, transparent 55%);
   border-radius: 50%;
-  z-index: 1;
+  z-index: 2;
   pointer-events: none;
+  animation: ebGlowPulse 8s ease-in-out infinite;
 }
 
-/* Logo del tenant en esquina de la pantalla (si está configurado) */
+@keyframes ebGlowPulse {
+  0%, 100% { opacity: 0.8; transform: translate(-50%, -50%) scale(1); }
+  50%      { opacity: 1;   transform: translate(-50%, -50%) scale(1.08); }
+}
+
+/* Logo en esquina de la pantalla (marca de agua) */
 .auth__logo {
   position: absolute;
   z-index: 3;
@@ -121,14 +124,14 @@ body {
   opacity: 0.85;
   filter: drop-shadow(0 6px 20px rgba(0, 0, 0, 0.25));
 }
-.auth__logo.top-left    { top: 28px; left: 28px; }
-.auth__logo.top-right   { top: 28px; right: 28px; }
-.auth__logo.bottom-left { bottom: 28px; left: 28px; }
-.auth__logo.bottom-right{ bottom: 28px; right: 28px; }
+.auth__logo.top-left    { top: 32px; left: 32px; }
+.auth__logo.top-right   { top: 32px; right: 32px; }
+.auth__logo.bottom-left { bottom: 32px; left: 32px; }
+.auth__logo.bottom-right{ bottom: 32px; right: 32px; }
 
-/* =========================================================================
-   CONTENEDOR — solo envuelve el form encima del fondo
-   ========================================================================= */
+/* ==========================================================================
+   WRAPPER / AUTH CONTAINER — solo centra el card
+   ========================================================================== */
 .auth {
   position: relative !important;
   z-index: 2;
@@ -142,9 +145,9 @@ body {
   min-height: 0 !important;
 }
 
-/* =========================================================================
-   CARD — minimalista premium con animación de entrada
-   ========================================================================= */
+/* ==========================================================================
+   CARD — glass morphism premium con entrada animada
+   ========================================================================== */
 .auth__form {
   position: relative !important;
   z-index: 2;
@@ -155,19 +158,23 @@ body {
   min-width: 0 !important;
   padding: 44px 40px 36px !important;
   margin: 0 auto !important;
-  background: #ffffff !important;
-  border: 1px solid rgba(226, 232, 240, 0.8) !important;
+  background: rgba(255, 255, 255, 0.88) !important;
+  backdrop-filter: blur(20px) saturate(1.2);
+  -webkit-backdrop-filter: blur(20px) saturate(1.2);
+  border: 1px solid rgba(255, 255, 255, 0.5) !important;
   border-radius: 20px !important;
-  box-shadow: var(--shadow-xl) !important;
+  box-shadow:
+    0 30px 80px -20px rgba(17, 48, 58, 0.35),
+    0 8px 24px -8px rgba(17, 48, 58, 0.15),
+    inset 0 1px 0 rgba(255, 255, 255, 0.7) !important;
   min-height: auto !important;
-
-  /* Animación de entrada */
-  animation: authCardIn 0.55s var(--ease) both;
+  animation: ebAuthCardIn 0.6s var(--eb-ease) both;
 }
 
-@keyframes authCardIn {
-  from { opacity: 0; transform: translateY(16px) scale(0.985); }
-  to   { opacity: 1; transform: translateY(0) scale(1); }
+@keyframes ebAuthCardIn {
+  0%   { opacity: 0; transform: translateY(20px) scale(0.97); filter: blur(6px); }
+  60%  { filter: blur(0); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
 }
 
 .auth__form form {
@@ -176,66 +183,65 @@ body {
   position: relative;
   display: block !important;
 }
+.auth__form .d-flex { width: 100%; }
 
-.auth__form .d-flex {
-  width: 100%;
-}
-
-/* =========================================================================
-   LOGO (arriba del form)
-   ========================================================================= */
+/* ==========================================================================
+   LOGO (dentro del card)
+   ========================================================================== */
 .form-logo-container {
   display: flex !important;
   justify-content: center !important;
   align-items: center;
-  margin: 0 0 28px !important;
+  margin: 0 0 24px !important;
   padding: 0;
+  animation: ebFadeInUp 0.7s var(--eb-ease) 0.1s both;
 }
 
 .auth__logo-form {
-  max-width: 160px !important;
-  max-height: 64px;
+  max-width: 150px !important;
+  max-height: 60px;
   width: auto !important;
   height: auto !important;
   object-fit: contain;
   display: block;
+  filter: drop-shadow(0 4px 12px rgba(15, 138, 130, 0.15));
 }
 
-/* =========================================================================
-   TÍTULOS — jerarquía clara
-   ========================================================================= */
+/* ==========================================================================
+   TÍTULOS — jerarquía SaaS clara
+   ========================================================================== */
 .title-login-container {
   text-align: center !important;
-  margin-bottom: 32px !important;
+  margin-bottom: 28px !important;
+  animation: ebFadeInUp 0.7s var(--eb-ease) 0.15s both;
 }
 
 .auth__title {
-  font-family: var(--font);
+  font-family: var(--eb-font);
   font-size: 12px !important;
   line-height: 1.2 !important;
-  font-weight: 500 !important;
+  font-weight: 600 !important;
   margin: 0 !important;
-  color: var(--muted) !important;
+  color: var(--eb-muted) !important;
   text-transform: uppercase;
-  letter-spacing: 0.12em;
+  letter-spacing: 0.15em;
   word-break: normal !important;
   overflow-wrap: break-word !important;
   white-space: normal !important;
 }
 
-.auth__title .text-xs {
-  display: none !important;  /* eliminamos "bienvenido a" redundante */
-}
+/* Oculta texto legacy "bienvenido a" para usar nuestra jerarquía */
+.auth__title .text-xs { display: none !important; }
 
 .auth__title b {
   display: block;
   margin-top: 10px;
-  font-size: 22px;
-  line-height: 1.25;
+  font-size: clamp(20px, 2.5vw, 26px);
+  line-height: 1.2;
   font-weight: 700;
-  letter-spacing: -0.015em;
+  letter-spacing: -0.02em;
   text-transform: none;
-  color: var(--ink);
+  color: var(--eb-ink);
   background: none !important;
   -webkit-background-clip: unset !important;
   background-clip: unset !important;
@@ -244,32 +250,32 @@ body {
 
 .auth__subtitle {
   margin: 8px 0 0 !important;
-  font-size: 13px !important;
-  color: var(--ink-soft) !important;
+  font-size: 14px !important;
+  color: var(--eb-ink-soft) !important;
   font-weight: 400 !important;
   line-height: 1.5;
 }
 
 .auth__subtitle__black {
-  margin-top: 12px !important;
+  margin-top: 10px !important;
   font-size: 13px !important;
   line-height: 1.55;
-  color: var(--ink-soft) !important;
+  color: var(--eb-ink-soft) !important;
   font-weight: 400 !important;
 }
 
-/* Si el usuario desea mostrar "bienvenido a NOMBRE" en vez del estilo minimal,
-   el elemento .text-xs tiene display:none — basta con quitarlo en ese caso. */
-
-/* =========================================================================
-   FORM INPUTS — estilo premium clean
-   ========================================================================= */
-.auth label {
-  display: block !important;
+/* ==========================================================================
+   INPUTS — premium con iconos inline (data-uri en ::before)
+   ========================================================================== */
+.auth label,
+.auth .label-email,
+.auth .label-password {
+  display: flex !important;
+  align-items: center !important;
   font-size: 13px !important;
   font-weight: 600 !important;
-  color: var(--ink) !important;
-  margin: 0 0 6px !important;
+  color: var(--eb-ink) !important;
+  margin: 0 0 8px !important;
   letter-spacing: -0.005em;
   line-height: 1.4;
 }
@@ -277,26 +283,73 @@ body {
 .auth .form-group {
   margin-bottom: 18px !important;
   position: relative;
+  animation: ebFadeInUp 0.7s var(--eb-ease) 0.22s both;
+}
+
+.auth .form-group-email {
+  animation-delay: 0.25s;
+}
+
+.auth .form-group:nth-of-type(2) {
+  animation-delay: 0.30s;
+}
+
+/* Wrapper de input con icono */
+.auth .form-group .position-relative,
+.auth .form-group-email { position: relative; }
+
+/* Icono inline usando pseudo-element sobre el input */
+.auth .form-group-email::after,
+.auth .form-group .position-relative::after {
+  content: '';
+  position: absolute;
+  left: 16px;
+  top: calc(50% + 12px);                 /* 50% del input (bajo el label) */
+  transform: translateY(-50%);
+  width: 18px;
+  height: 18px;
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: contain;
+  opacity: 0.55;
+  pointer-events: none;
+  transition: opacity 0.2s var(--eb-ease);
+}
+
+.auth .form-group-email::after {
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z'/><polyline points='22,6 12,13 2,6'/></svg>");
+}
+
+.auth .form-group .position-relative::after {
+  top: 50%;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><rect x='3' y='11' width='18' height='11' rx='2' ry='2'/><path d='M7 11V7a5 5 0 0 1 10 0v4'/></svg>");
+}
+
+/* Al hacer focus dentro del form-group, el icono toma color marca */
+.auth .form-group-email:focus-within::after,
+.auth .form-group .position-relative:focus-within::after {
+  opacity: 1;
+  filter: brightness(0) saturate(100%) invert(48%) sepia(40%) saturate(650%) hue-rotate(130deg);
 }
 
 .auth .form-control {
   width: 100% !important;
-  height: 46px !important;
-  border-radius: 10px !important;
-  border: 1.5px solid var(--line) !important;
-  background: var(--bg) !important;
-  color: var(--ink) !important;
-  padding: 0 14px !important;
+  height: 48px !important;
+  border-radius: 12px !important;
+  border: 1.5px solid var(--eb-line) !important;
+  background: rgba(255, 255, 255, 0.95) !important;
+  color: var(--eb-ink) !important;
+  padding: 0 16px 0 44px !important;              /* espacio para el icono */
   font-size: 14px !important;
-  font-family: var(--font) !important;
+  font-family: var(--eb-font) !important;
   font-weight: 500;
   letter-spacing: -0.005em;
-  box-shadow: var(--shadow-sm) !important;
+  box-shadow: var(--eb-shadow-sm) !important;
   transition:
-    border-color 0.18s var(--ease),
-    background-color 0.18s var(--ease),
-    box-shadow 0.18s var(--ease),
-    transform 0.18s var(--ease) !important;
+    border-color 0.2s var(--eb-ease),
+    background-color 0.2s var(--eb-ease),
+    box-shadow 0.2s var(--eb-ease),
+    transform 0.15s var(--eb-ease) !important;
 }
 
 .auth .form-control::placeholder {
@@ -304,14 +357,17 @@ body {
   font-weight: 400;
 }
 
-.auth .form-control:hover {
+.auth .form-control:hover:not(:focus) {
   border-color: #cbd5e1 !important;
+  background: #ffffff !important;
 }
 
 .auth .form-control:focus {
-  border-color: var(--brand) !important;
-  background: var(--bg) !important;
-  box-shadow: 0 0 0 4px rgba(15, 138, 130, 0.12), var(--shadow-sm) !important;
+  border-color: var(--eb-brand) !important;
+  background: #ffffff !important;
+  box-shadow:
+    0 0 0 4px rgba(15, 138, 130, 0.14),
+    0 2px 8px rgba(15, 138, 130, 0.08) !important;
   outline: none !important;
 }
 
@@ -321,266 +377,280 @@ body {
   box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.10) !important;
 }
 
-/* ojo para mostrar/ocultar password */
+/* Botón ojo (mostrar/ocultar password) */
 .btn-eye {
-  position: absolute;
-  right: 4px;
-  top: 50%;
-  transform: translateY(-50%);
-  width: 38px;
-  height: 38px;
+  position: absolute !important;
+  right: 8px !important;
+  top: 50% !important;
+  transform: translateY(-50%) !important;
+  width: 36px !important;
+  height: 36px !important;
   border: 0 !important;
   background: transparent !important;
-  color: var(--muted);
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 8px;
-  transition: all 0.18s var(--ease);
+  color: var(--eb-muted) !important;
+  cursor: pointer !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  border-radius: 8px !important;
+  transition: all 0.2s var(--eb-ease) !important;
+  z-index: 2;
 }
 .btn-eye:hover,
 .btn-eye:focus {
-  background: var(--brand-soft) !important;
-  color: var(--brand-dark) !important;
+  background: var(--eb-brand-soft) !important;
+  color: var(--eb-brand-dark) !important;
   box-shadow: none !important;
   outline: none !important;
 }
+/* Ajuste del padding derecho cuando hay btn-eye (password) */
+.auth .form-group .position-relative .form-control { padding-right: 50px !important; }
 
 .invalid-feedback {
   display: block !important;
-  margin-top: 6px;
+  margin-top: 6px !important;
   color: #ef4444 !important;
-  font-size: 12px;
-  font-weight: 500;
+  font-size: 12px !important;
+  font-weight: 500 !important;
 }
 
-/* =========================================================================
-   LABEL DE CONTRASEÑA — con forgot link alineado
-   ========================================================================= */
+/* Label de contraseña con forgot inline */
 .label-password {
   display: flex !important;
-  align-items: center;
-  justify-content: space-between;
+  align-items: center !important;
+  justify-content: space-between !important;
   gap: 12px;
 }
 .label-password .forgot-password {
   font-size: 12px !important;
   font-weight: 500 !important;
-  color: var(--brand-dark) !important;
-  text-decoration: none;
-  transition: color 0.15s var(--ease);
+  color: var(--eb-brand-dark) !important;
+  text-decoration: none !important;
+  transition: color 0.15s var(--eb-ease);
   letter-spacing: -0.005em;
 }
-.label-password .forgot-password:hover {
-  color: var(--brand) !important;
-  text-decoration: underline;
-}
+.label-password .forgot-password:hover { color: var(--eb-brand) !important; text-decoration: underline !important; }
 
-/* remember + forgot row */
 .auth__forgot-password {
   display: flex !important;
-  align-items: center;
-  justify-content: space-between;
-  margin: -8px 0 14px !important;
-  min-height: 0;
+  align-items: center !important;
+  justify-content: space-between !important;
+  margin: -4px 0 16px !important;
+  min-height: 0 !important;
 }
 .auth__forgot-password a {
-  color: var(--brand-dark) !important;
+  color: var(--eb-brand-dark) !important;
   font-size: 12px !important;
   font-weight: 500 !important;
-  text-decoration: none;
+  text-decoration: none !important;
 }
-.auth__forgot-password a:hover {
-  color: var(--brand) !important;
-  text-decoration: underline;
-}
+.auth__forgot-password a:hover { color: var(--eb-brand) !important; text-decoration: underline !important; }
 
-/* =========================================================================
-   BOTÓN INICIAR SESIÓN — premium con hover elevado
-   ========================================================================= */
+/* ==========================================================================
+   BOTÓN CTA — premium con gradient + glow + lift
+   ========================================================================== */
 .btn-signin {
+  position: relative !important;
   display: flex !important;
-  align-items: center;
-  justify-content: center;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 8px !important;
   width: 100% !important;
   min-height: 50px !important;
   padding: 14px 20px !important;
-  margin-top: 6px !important;
-  background: linear-gradient(135deg, var(--brand-light) 0%, var(--brand) 55%, var(--brand-dark) 100%) !important;
-  background-size: 150% auto;
+  margin-top: 8px !important;
+  background: linear-gradient(135deg, var(--eb-brand-light) 0%, var(--eb-brand) 55%, var(--eb-brand-dark) 100%) !important;
+  background-size: 180% auto !important;
   color: #ffffff !important;
   border: 0 !important;
-  border-radius: 10px !important;
-  font-family: var(--font) !important;
+  border-radius: 12px !important;
+  font-family: var(--eb-font) !important;
   font-size: 14px !important;
   font-weight: 600 !important;
-  letter-spacing: 0.01em;
+  letter-spacing: 0.01em !important;
   text-transform: none !important;
-  cursor: pointer;
+  cursor: pointer !important;
+  overflow: hidden;
   box-shadow:
-    0 4px 12px rgba(15, 138, 130, 0.25),
-    0 1px 3px rgba(15, 138, 130, 0.15),
-    inset 0 1px 0 rgba(255, 255, 255, 0.15) !important;
+    0 4px 12px rgba(15, 138, 130, 0.28),
+    0 1px 3px rgba(15, 138, 130, 0.14),
+    inset 0 1px 0 rgba(255, 255, 255, 0.18) !important;
   transition:
-    transform 0.18s var(--ease),
-    box-shadow 0.18s var(--ease),
-    background-position 0.3s var(--ease),
-    filter 0.18s var(--ease) !important;
+    transform 0.2s var(--eb-ease),
+    box-shadow 0.2s var(--eb-ease),
+    background-position 0.35s var(--eb-ease),
+    filter 0.2s var(--eb-ease) !important;
+  animation: ebFadeInUp 0.7s var(--eb-ease) 0.38s both;
+}
+
+/* Shimmer sutil dentro del botón al hover */
+.btn-signin::before {
+  content: '';
+  position: absolute;
+  top: 0; left: -120%;
+  width: 60%; height: 100%;
+  background: linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.25) 50%, transparent 100%);
+  transform: skewX(-20deg);
+  transition: left 0.6s var(--eb-ease);
+  pointer-events: none;
 }
 
 .btn-signin:hover {
   color: #ffffff !important;
-  background-position: right center;
-  transform: translateY(-1px);
+  background-position: right center !important;
+  transform: translateY(-2px) !important;
   box-shadow:
-    0 8px 20px rgba(15, 138, 130, 0.35),
-    0 2px 6px rgba(15, 138, 130, 0.20),
-    inset 0 1px 0 rgba(255, 255, 255, 0.20) !important;
-  filter: brightness(1.03);
+    0 12px 28px rgba(15, 138, 130, 0.35),
+    0 4px 12px rgba(15, 138, 130, 0.18),
+    inset 0 1px 0 rgba(255, 255, 255, 0.22) !important;
+  filter: brightness(1.04) !important;
 }
+.btn-signin:hover::before { left: 120%; }
 
 .btn-signin:focus {
   color: #ffffff !important;
   outline: none !important;
   box-shadow:
-    0 0 0 4px rgba(15, 138, 130, 0.20),
-    0 4px 12px rgba(15, 138, 130, 0.25) !important;
+    0 0 0 4px rgba(15, 138, 130, 0.22),
+    0 4px 12px rgba(15, 138, 130, 0.28) !important;
 }
 
 .btn-signin:active {
-  transform: translateY(0);
-  filter: brightness(0.98);
+  transform: translateY(0) scale(0.99) !important;
+  filter: brightness(0.97) !important;
+  transition-duration: 0.08s !important;
 }
 
 .btn-signin .icon-login {
   display: inline-block !important;
-  margin-right: 6px;
   width: 18px;
   height: 18px;
+  margin: 0 !important;
 }
 
-/* =========================================================================
-   LINK ¿OLVIDASTE CONTRASEÑA? (abajo)
-   ========================================================================= */
+/* ==========================================================================
+   LINK "¿OLVIDASTE CONTRASEÑA?" (bajo el botón)
+   ========================================================================== */
 .password-down {
-  text-align: center;
+  text-align: center !important;
   padding: 18px 0 0 !important;
-  margin: 0;
+  margin: 0 !important;
+  animation: ebFadeInUp 0.7s var(--eb-ease) 0.45s both;
 }
 .password-down a {
-  color: var(--ink-soft) !important;
+  color: var(--eb-ink-soft) !important;
   font-size: 13px !important;
-  font-weight: 500;
-  text-decoration: none;
-  transition: color 0.15s var(--ease);
+  font-weight: 500 !important;
+  text-decoration: none !important;
+  transition: color 0.15s var(--eb-ease);
 }
-.password-down a:hover {
-  color: var(--brand-dark) !important;
-  text-decoration: underline;
-}
+.password-down a:hover { color: var(--eb-brand-dark) !important; text-decoration: underline !important; }
 
-/* =========================================================================
+/* ==========================================================================
    SOCIAL LOGIN
-   ========================================================================= */
+   ========================================================================== */
 .auth__social {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin-top: 20px;
-  gap: 10px;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  margin-top: 20px !important;
+  gap: 10px !important;
+  animation: ebFadeInUp 0.7s var(--eb-ease) 0.5s both;
 }
 .auth__social a {
-  width: 40px;
-  height: 40px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: #ffffff;
-  border: 1.5px solid var(--line);
-  border-radius: 10px;
-  color: var(--ink-soft);
-  font-size: 15px;
-  transition: all 0.2s var(--ease);
-  box-shadow: var(--shadow-sm);
+  width: 42px !important;
+  height: 42px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  background: rgba(255, 255, 255, 0.8) !important;
+  border: 1.5px solid var(--eb-line) !important;
+  border-radius: 12px !important;
+  color: var(--eb-ink-soft) !important;
+  font-size: 15px !important;
+  transition: all 0.2s var(--eb-ease) !important;
+  box-shadow: var(--eb-shadow-sm) !important;
+  backdrop-filter: blur(6px);
 }
 .auth__social a:hover {
-  border-color: var(--brand);
-  background: var(--brand-soft);
-  color: var(--brand-dark);
-  transform: translateY(-1px);
-  box-shadow: var(--shadow-md);
-  text-decoration: none;
+  border-color: var(--eb-brand) !important;
+  background: var(--eb-brand-soft) !important;
+  color: var(--eb-brand-dark) !important;
+  transform: translateY(-2px) !important;
+  box-shadow: 0 6px 16px rgba(15, 138, 130, 0.18) !important;
+  text-decoration: none !important;
 }
 
-/* checkbox */
+/* Checkbox (recuerdame) */
 .checkbox-custom label {
-  font-size: 13px;
-  color: var(--ink-soft);
-  font-weight: 400;
+  font-size: 13px !important;
+  color: var(--eb-ink-soft) !important;
+  font-weight: 400 !important;
   cursor: pointer;
 }
 
-/* =========================================================================
+/* ==========================================================================
+   KEYFRAMES reutilizables
+   ========================================================================== */
+@keyframes ebFadeInUp {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ==========================================================================
    RESPONSIVE
-   ========================================================================= */
+   ========================================================================== */
 @media (max-width: 640px) {
-  .app { padding: 16px; }
+  .app { padding: 16px !important; }
   .auth { max-width: 100% !important; }
   .auth__form {
     padding: 36px 24px 28px !important;
     border-radius: 18px !important;
   }
-  .auth__title b {
-    font-size: 19px;
-  }
-  .auth__logo-form {
-    max-width: 140px !important;
-    max-height: 56px;
-  }
-  .auth__logo {
-    max-width: 76px;
-  }
-  .btn-signin {
-    min-height: 48px !important;
-    font-size: 14px !important;
-  }
+  .auth__title b { font-size: 20px; }
+  .auth__logo-form { max-width: 130px !important; max-height: 52px; }
+  .auth__logo { max-width: 76px; }
+  .btn-signin { min-height: 48px !important; font-size: 14px !important; }
+  .auth .form-control { height: 46px !important; }
 }
 
 @media (max-width: 380px) {
-  .auth__form {
-    padding: 28px 18px 22px !important;
-  }
-  .auth__title b {
-    font-size: 17px;
-  }
-  .form-logo-container {
-    margin-bottom: 20px !important;
-  }
+  .auth__form { padding: 28px 18px 22px !important; }
+  .auth__title b { font-size: 18px; }
+  .form-logo-container { margin-bottom: 18px !important; }
 }
 
-/* Accesibilidad — focus visible */
+/* ==========================================================================
+   ACCESIBILIDAD
+   ========================================================================== */
 .auth a:focus-visible,
 .auth button:focus-visible,
 .auth .form-control:focus-visible {
-  outline: 2px solid var(--brand);
+  outline: 2px solid var(--eb-brand);
   outline-offset: 2px;
 }
 
-/* Reset order swap legacy */
-.auth.auth__form-left .auth__image,
-.auth.auth__form-right .auth__image {
-  order: 0;
-}
-
-/* Respetar preferencia de movimiento reducido */
+/* Respeto a prefers-reduced-motion */
 @media (prefers-reduced-motion: reduce) {
-  .auth__form {
+  .auth__form,
+  .form-logo-container,
+  .title-login-container,
+  .auth .form-group,
+  .btn-signin,
+  .password-down,
+  .auth__social {
     animation: none !important;
   }
   .btn-signin,
   .auth .form-control,
-  .auth__social a {
+  .auth__social a,
+  .auth__image::after {
     transition: none !important;
+    animation: none !important;
   }
+  .btn-signin::before { display: none; }
 }
+
+/* Reset legacy order swap */
+.auth.auth__form-left .auth__image,
+.auth.auth__form-right .auth__image { order: 0; }
