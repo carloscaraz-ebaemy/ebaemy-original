@@ -68,7 +68,9 @@
         .mp-card-body { padding:14px 16px; }
         .mp-card-title { font-size:14px; font-weight:500; color:#111; line-height:1.35; margin:0 0 8px; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
         .mp-card-price { font-weight:700; font-size:16px; color:#0f172a; }
-        .mp-card-shop { font-size:12px; color:#64748b; margin-top:4px; }
+        .mp-card-shop { font-size:12px; color:#64748b; margin-top:4px; display:flex; justify-content:space-between; align-items:center; }
+        .mp-card-buy { background:#059669; color:#fff; padding:3px 8px; border-radius:6px; font-size:11px; font-weight:600; text-decoration:none; }
+        .mp-card-buy:hover { background:#047857; color:#fff; }
 
         .mp-empty { background:#fff; border-radius:12px; padding:60px 24px; text-align:center; color:#64748b; }
 

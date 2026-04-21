@@ -43,7 +43,10 @@
                     <th>Tienda</th>
                     <th class="text-end">Precio</th>
                     <th class="text-center">Stock</th>
-                    <th class="text-center">Leads</th>
+                    <th class="text-center" title="Clicks / Leads / Conversión">
+                        Tráfico
+                        <br><small class="text-muted fw-normal" style="font-size:10px">clicks · leads · conv.</small>
+                    </th>
                     <th class="text-center">Estado</th>
                     <th class="text-end">Acciones</th>
                 </tr>
@@ -68,8 +71,14 @@
                         <td class="text-end">S/ {{ number_format($l->display_price, 2) }}</td>
                         <td class="text-center">{{ $l->stock }}</td>
                         <td class="text-center">
-                            <span class="badge bg-info">{{ $l->lead_count }}</span>
-                            <small class="text-muted">· {{ $l->view_count }} vistas</small>
+                            <div style="font-size:13px">
+                                🖱 <strong>{{ $l->click_count }}</strong>
+                                · 📩 <strong class="text-info">{{ $l->lead_count }}</strong>
+                                @if($l->click_count > 0)
+                                    · <span class="text-success">{{ $l->conversion_rate }}%</span>
+                                @endif
+                            </div>
+                            <small class="text-muted">{{ $l->view_count }} vistas</small>
                         </td>
                         <td class="text-center">
                             @php

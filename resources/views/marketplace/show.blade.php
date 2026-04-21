@@ -65,6 +65,10 @@
     .mp-cta { background:#111; color:#fff; padding:14px 24px; border:none; border-radius:10px; font-weight:600; font-size:15px; cursor:pointer; width:100%; }
     .mp-cta:hover { background:#000; }
     .mp-errors { background:#fee2e2; border:1px solid #fca5a5; color:#991b1b; padding:10px 14px; border-radius:8px; font-size:13px; }
+    .mp-cta-primary { display:block; text-align:center; background:linear-gradient(135deg,#059669 0%, #047857 100%); color:#fff !important; padding:16px 24px; border-radius:12px; font-weight:700; font-size:16px; text-decoration:none; margin-bottom:16px; transition:transform .15s ease, box-shadow .15s ease; }
+    .mp-cta-primary:hover { transform:translateY(-1px); box-shadow:0 10px 24px rgba(5,150,105,.3); }
+    .mp-cta-divider { display:flex; align-items:center; gap:10px; color:#9ca3af; font-size:12px; margin:18px 0 14px; }
+    .mp-cta-divider::before, .mp-cta-divider::after { content:''; flex:1; height:1px; background:#e5e7eb; }
     .mp-meta { font-size:13px; color:#64748b; display:flex; gap:14px; margin-bottom:20px; flex-wrap:wrap; }
     .mp-description { border-top:1px solid #e5e7eb; padding-top:20px; line-height:1.6; color:#334155; font-size:14px; }
     .mp-related { margin-top:40px; }
@@ -119,6 +123,15 @@
                 <div class="mp-errors">
                     @foreach($errors->all() as $err) <div>{{ $err }}</div> @endforeach
                 </div>
+            @endif
+
+            {{-- CTA directa al storefront del tenant (el tenant factura con su RUC) --}}
+            @if($listing->stock > 0)
+                <a href="{{ route('marketplace.go', $listing->slug) }}" rel="nofollow sponsored"
+                   class="mp-cta-primary">
+                    🛒 Comprar ahora en {{ $listing->tenant_fqdn }}
+                </a>
+                <div class="mp-cta-divider"><span>o solicita información / envío</span></div>
             @endif
 
             <form method="POST" action="{{ route('marketplace.lead', $listing->slug) }}" class="mp-lead-form">

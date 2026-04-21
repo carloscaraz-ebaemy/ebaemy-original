@@ -1106,6 +1106,7 @@ if ($hostname) {
         // a un lead que se convierte en Order dentro del tenant.
         Route::get('marketplace',                 'MarketplaceController@index')->name('marketplace.index');
         Route::get('marketplace/item/{slug}',     'MarketplaceController@show')->name('marketplace.item');
+        Route::get('marketplace/go/{slug}',       'MarketplaceController@go')->name('marketplace.go');
         Route::post('marketplace/item/{slug}/solicitar', 'MarketplaceController@lead')
              ->middleware('throttle:10,1')
              ->name('marketplace.lead');

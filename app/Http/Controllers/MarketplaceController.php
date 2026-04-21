@@ -116,6 +116,20 @@ class MarketplaceController extends Controller
     }
 
     /**
+     * Click-through al storefront del tenant. Incrementa click_count y
+     * redirige con UTM tags para que el tenant sepa que el visitante vino
+     * de ebaemy.com. El tenant factura la venta con su RUC por su cuenta.
+     */
+    public function go(string $slug)
+    {
+        $listing = MarketplaceListing::where('slug', $slug)->firstOrFail();
+
+        MarketplaceListing::where('id', $listing->id)->increment('click_count');
+
+        return redirect()->away($listing->tenant_item_url_with_utm, 302);
+    }
+
+    /**
      * sitemap-marketplace.xml — expone todas las fichas públicas del marketplace
      * para que Google / Bing indexen los productos. Incluye la home y el detalle
      * de cada listing activo. Respuesta cacheada por 1 hora para reducir carga.

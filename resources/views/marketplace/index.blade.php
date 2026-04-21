@@ -54,7 +54,9 @@
                     <div class="mp-card-body">
                         <h3 class="mp-card-title">{{ $listing->title }}</h3>
                         <div class="mp-card-price">S/ {{ number_format($listing->display_price, 2) }}</div>
-                        <div class="mp-card-shop">{{ $listing->tenant_fqdn }}</div>
+                        <div class="mp-card-shop">
+                            <span>{{ $listing->tenant_fqdn }}</span>
+                        </div>
                     </div>
                 </a>
             @endforeach

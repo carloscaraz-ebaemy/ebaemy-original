@@ -38,6 +38,7 @@ class MarketplaceListing extends Model
         'sort_score',
         'view_count',
         'lead_count',
+        'click_count',
         'synced_at',
     ];
 
@@ -48,6 +49,7 @@ class MarketplaceListing extends Model
         'stock'       => 'integer',
         'view_count'  => 'integer',
         'lead_count'  => 'integer',
+        'click_count' => 'integer',
         'sort_score'  => 'integer',
         'synced_at'   => 'datetime',
     ];
@@ -119,5 +121,30 @@ class MarketplaceListing extends Model
         $scheme = request()->secure() ? 'https' : 'http';
         $base   = rtrim("{$scheme}://{$this->tenant_fqdn}", '/');
         return $base . '/ecommerce/item/' . $this->remote_item_id;
+    }
+
+    /**
+     * URL al storefront del tenant con UTM tracking para que el tenant sepa
+     * de dónde viene el visitante. Se usa desde el endpoint /marketplace/go.
+     */
+    public function getTenantItemUrlWithUtmAttribute(): string
+    {
+        $url = $this->tenant_item_url;
+        $utm = http_build_query([
+            'utm_source'   => 'ebaemy_marketplace',
+            'utm_medium'   => 'referral',
+            'utm_campaign' => 'listing_' . $this->id,
+            'ref'          => 'ebaemy',
+        ]);
+        return $url . (str_contains($url, '?') ? '&' : '?') . $utm;
+    }
+
+    /**
+     * Ratio de conversión click → lead (%). Útil en el panel admin.
+     */
+    public function getConversionRateAttribute(): float
+    {
+        if ($this->click_count <= 0) return 0;
+        return round(($this->lead_count / $this->click_count) * 100, 1);
     }
 }
