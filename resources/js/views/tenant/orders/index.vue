@@ -218,6 +218,10 @@
                                 {{ channelIcon(row.channel_type) }} {{ row.channel_name }}
                             </span>
                             <span v-else class="eco-doc-empty">—</span>
+                            <!-- Indicador extra cuando viene del marketplace central de ebaemy -->
+                            <div v-if="row.channel_type === 'marketplace'" class="eco-mkt-flag" title="Pedido recibido desde ebaemy.com/marketplace">
+                                🌐 Ebaemy
+                            </div>
                         </td>
 
                         <!-- Estado -->
@@ -709,6 +713,7 @@
 .eco-ch--whatsapp    { background: #dcfce7; color: #15803d; }
 .eco-ch--phone       { background: #fef3c7; color: #92400e; }
 .eco-ch--marketplace { background: #f3e8ff; color: #7e22ce; }
+.eco-mkt-flag { display:inline-block; margin-top:4px; padding:2px 8px; background:linear-gradient(135deg,#8b5cf6,#6366f1); color:#fff; border-radius:6px; font-size:10px; font-weight:700; letter-spacing:.3px; }
 .eco-ch--other       { background: #f3f4f6; color: #374151; }
 
 /* Canal select en toolbar */

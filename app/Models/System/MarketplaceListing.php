@@ -19,6 +19,8 @@ class MarketplaceListing extends Model
     protected $fillable = [
         'hostname_id',
         'tenant_fqdn',
+        'tenant_name',
+        'tenant_logo_url',
         'client_id',
         'remote_item_id',
         'title',
@@ -146,5 +148,14 @@ class MarketplaceListing extends Model
     {
         if ($this->click_count <= 0) return 0;
         return round(($this->lead_count / $this->click_count) * 100, 1);
+    }
+
+    /**
+     * Nombre visible de la tienda vendedora. Prioridad: tenant_name (trade_name)
+     * y cae al fqdn si no se capturó todavía.
+     */
+    public function getSellerDisplayAttribute(): string
+    {
+        return $this->tenant_name ?: $this->tenant_fqdn;
     }
 }

@@ -1,8 +1,8 @@
 @extends('marketplace.layout')
 
-@section('title', $listing->title . ' — ' . $listing->tenant_fqdn . ' | Marketplace ebaemy')
+@section('title', $listing->title . ' — ' . $listing->seller_display . ' | Marketplace ebaemy')
 @section('description', \Illuminate\Support\Str::limit(strip_tags($listing->description ?? $listing->title), 155))
-@section('keywords', $listing->title . ', ' . ($listing->category_name ?? '') . ', ' . $listing->tenant_fqdn . ', marketplace ebaemy')
+@section('keywords', $listing->title . ', ' . ($listing->category_name ?? '') . ', ' . $listing->seller_display . ', marketplace ebaemy')
 @section('og_title', $listing->title)
 @section('og_description', \Illuminate\Support\Str::limit(strip_tags($listing->description ?? $listing->title), 155))
 @section('og_image', $listing->image_url ?: asset('logo/logo.png'))
@@ -25,7 +25,7 @@
         "priceCurrency": "PEN",
         "price": @json(number_format($listing->display_price, 2, '.', '')),
         "availability": @json($listing->stock > 0 ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock'),
-        "seller": { "@type": "Organization", "name": @json($listing->tenant_fqdn) }
+        "seller": { "@type": "Organization", "name": @json($listing->seller_display), "url": @json('https://' . $listing->tenant_fqdn) }
     }
 }
 </script>
@@ -98,7 +98,11 @@
 
         <div>
             <a class="mp-shop-link" href="https://{{ $listing->tenant_fqdn }}" target="_blank" rel="noopener">
-                Vendido por {{ $listing->tenant_fqdn }} →
+                @if($listing->tenant_logo_url)
+                    <img src="{{ $listing->tenant_logo_url }}" alt="{{ $listing->seller_display }}"
+                         style="height:18px;width:18px;object-fit:cover;border-radius:4px;vertical-align:middle;margin-right:6px">
+                @endif
+                🏪 Vendido por <strong>{{ $listing->seller_display }}</strong> →
             </a>
             <h1>{{ $listing->title }}</h1>
 
@@ -129,7 +133,7 @@
             @if($listing->stock > 0)
                 <a href="{{ route('marketplace.go', $listing->slug) }}" rel="nofollow sponsored"
                    class="mp-cta-primary">
-                    🛒 Comprar ahora en {{ $listing->tenant_fqdn }}
+                    🛒 Comprar en {{ $listing->seller_display }}
                 </a>
                 <div class="mp-cta-divider"><span>o solicita información / envío</span></div>
             @endif
@@ -161,7 +165,7 @@
                 <button type="submit" class="mp-cta" @if($listing->stock <= 0) disabled style="opacity:.5;cursor:not-allowed" @endif>
                     @if($listing->stock <= 0) Sin stock @else Enviar solicitud / Pedir este producto @endif
                 </button>
-                <small style="color:#64748b;text-align:center">Tu solicitud se envía directamente a {{ $listing->tenant_fqdn }}</small>
+                <small style="color:#64748b;text-align:center">Tu solicitud se envía directamente a {{ $listing->seller_display }}</small>
             </form>
 
             @if($listing->description)
@@ -184,7 +188,7 @@
                         <div class="mp-card-body">
                             <h3 class="mp-card-title">{{ $r->title }}</h3>
                             <div class="mp-card-price">S/ {{ number_format($r->display_price, 2) }}</div>
-                            <div class="mp-card-shop">{{ $r->tenant_fqdn }}</div>
+                            <div class="mp-card-shop">🏪 {{ \Illuminate\Support\Str::limit($r->seller_display, 24) }}</div>
                         </div>
                     </a>
                 @endforeach

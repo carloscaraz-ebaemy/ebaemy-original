@@ -674,9 +674,21 @@ class OrderService
      * Descuenta stock físico de items normales, bundles y variantes.
      * Núcleo compartido entre `processEcommerceDispatch` (legacy) y
      * `dispatchEcommerceOrder` (nuevo flujo).
+     *
+     * Debe llamarse SIEMPRE dentro de DB::transaction() — el outer de
+     * dispatchEcommerceOrder ya provee esa garantía. El lock pesimista sobre
+     * la Order previene que dos despachos concurrentes se solapen.
+     *
+     * Orden consistente de locks: se procesan `discountItems` por `id` ASC
+     * para que dos pedidos distintos que descuentan los mismos ItemWarehouse
+     * adquieran los locks en el mismo orden y NUNCA produzcan deadlock.
      */
     private function deductEcommerceStock(Order $order, array $discountItems): void
     {
+        // Orden determinista: previene deadlocks cuando dos pedidos comparten
+        // ItemWarehouses pero vienen en orden distinto desde el UI.
+        usort($discountItems, fn($a, $b) => ((int) ($a['id'] ?? 0)) <=> ((int) ($b['id'] ?? 0)));
+
         foreach ($discountItems as $discountItem) {
             if (!isset($discountItem['id'])) continue;
 
@@ -705,11 +717,14 @@ class OrderService
 
     /**
      * Descuenta stock de componentes de un bundle/pack al despachar.
+     * Los componentes se procesan ordenados por individual_item_id ASC para
+     * mantener orden de locks consistente con deductEcommerceStock().
      */
     private function dispatchBundleStock(ItemWarehouse $bundleIW, Item $parentItem, float $bundleQty): void
     {
         $components = ItemSet::where('item_id', $parentItem->id)
             ->with('individual_item')
+            ->orderBy('individual_item_id')
             ->get();
 
         foreach ($components as $component) {
@@ -740,6 +755,13 @@ class OrderService
 
     /**
      * Libera stock_committed y descuenta stock físico de variantes al despachar.
+     *
+     * Requiere transacción outer — el lock sobre Order ya previene despachos
+     * concurrentes del mismo pedido. Se eliminan las sub-transacciones que
+     * había antes (redundantes bajo la outer tx con savepoints).
+     *
+     * Se ordenan los variant_ids para garantizar orden de locks consistente
+     * entre pedidos distintos que comparten variantes.
      */
     private function dispatchVariantStock(Order $order): void
     {
@@ -747,37 +769,50 @@ class OrderService
 
         $orderItems = is_array($order->items) ? $order->items : (array) $order->items;
 
+        // Consolidar cantidades por variant_id (por si un item viene repetido)
+        // y procesar en orden ascendente para evitar deadlocks cross-order.
+        $variantQtys = [];
         foreach ($orderItems as $item) {
             $item = (array) $item;
             $variantId = $item['variant_id'] ?? null;
             if (!$variantId) continue;
-
             $qty = (float) ($item['quantity'] ?? 1);
+            $variantQtys[(int) $variantId] = ($variantQtys[(int) $variantId] ?? 0) + $qty;
+        }
+        ksort($variantQtys);
 
+        foreach ($variantQtys as $variantId => $qty) {
+            // Lock pesimista + re-select para obtener el registro con más stock
+            // dentro de la transacción outer (stock_physical más alto).
             $vw = ItemVariantWarehouse::where('item_variant_id', $variantId)
                 ->orderByDesc('stock_physical')
+                ->lockForUpdate()
                 ->first();
 
-            if ($vw) {
-                DB::transaction(function () use ($vw, $qty) {
-                    $vw = ItemVariantWarehouse::lockForUpdate()->find($vw->id);
-
-                    if ($vw->stock_physical - $qty < 0) {
-                        Log::warning('Variant stock would go negative', [
-                            'variant_id'   => $vw->item_variant_id,
-                            'warehouse_id' => $vw->warehouse_id,
-                            'current'      => $vw->stock_physical,
-                            'requested'    => $qty,
-                        ]);
-                    }
-
-                    $vw->stock_physical  = max(0, $vw->stock_physical - $qty);
-                    $vw->stock           = $vw->stock_physical;
-                    $vw->stock_committed = max(0, $vw->stock_committed - $qty);
-                    $vw->save();
-                });
+            if (!$vw) {
+                Log::warning('[OrderService] Variant sin warehouse al despachar', [
+                    'order_id'   => $order->id,
+                    'variant_id' => $variantId,
+                    'qty'        => $qty,
+                ]);
+                continue;
             }
 
+            if ($vw->stock_physical - $qty < 0) {
+                Log::warning('Variant stock would go negative', [
+                    'variant_id'   => $vw->item_variant_id,
+                    'warehouse_id' => $vw->warehouse_id,
+                    'current'      => $vw->stock_physical,
+                    'requested'    => $qty,
+                ]);
+            }
+
+            $vw->stock_physical  = max(0, $vw->stock_physical - $qty);
+            $vw->stock           = $vw->stock_physical;
+            $vw->stock_committed = max(0, $vw->stock_committed - $qty);
+            $vw->save();
+
+            // Actualizar el stock agregado del variant (cache denormalizada)
             $total = ItemVariantWarehouse::where('item_variant_id', $variantId)->sum('stock_physical');
             ItemVariant::where('id', $variantId)->update(['stock' => $total]);
         }

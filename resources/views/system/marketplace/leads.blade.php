@@ -22,7 +22,10 @@
                 <option value="archived"       {{ request('status')==='archived' ? 'selected':'' }}>Archivados</option>
             </select>
         </div>
-        <div class="col-md-3"><button class="btn btn-primary btn-sm">Filtrar</button></div>
+        <div class="col-md-3">
+            <button class="btn btn-primary btn-sm">Filtrar</button>
+            <a href="{{ route('system.marketplace.leads.export', request()->query()) }}" class="btn btn-success btn-sm">📥 Export CSV</a>
+        </div>
     </form>
 
     <div class="card">

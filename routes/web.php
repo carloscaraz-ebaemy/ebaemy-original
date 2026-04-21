@@ -1129,9 +1129,11 @@ if ($hostname) {
 
             // ── Moderación marketplace central ──────────────────────────────
             Route::prefix('admin/marketplace')->name('system.marketplace.')->group(function () {
+                Route::get('/',                       'System\MarketplaceAdminController@dashboard')->name('dashboard');
                 Route::get('listings',                'System\MarketplaceAdminController@listings')->name('listings');
                 Route::post('listings/{id}/status',   'System\MarketplaceAdminController@updateListingStatus')->name('listings.status');
                 Route::get('leads',                   'System\MarketplaceAdminController@leads')->name('leads');
+                Route::get('leads/export',            'System\MarketplaceAdminController@exportLeads')->name('leads.export');
                 Route::post('leads/{id}/retry',       'System\MarketplaceAdminController@retryLead')->name('leads.retry');
                 Route::post('leads/{id}/archive',     'System\MarketplaceAdminController@archiveLead')->name('leads.archive');
             });

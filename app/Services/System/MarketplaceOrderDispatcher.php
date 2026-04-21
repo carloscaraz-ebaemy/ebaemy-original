@@ -8,6 +8,7 @@ use App\Models\System\MarketplaceListing;
 use Hyn\Tenancy\Environment;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
 
 /**
@@ -110,6 +111,9 @@ class MarketplaceOrderDispatcher
 
             MarketplaceListing::where('id', $listing->id)->increment('lead_count');
 
+            // Notificar al tenant — no bloqueante (swallow errors, ya hay orden creada)
+            $this->notifyTenant($client, $lead, $listing, $externalId);
+
             return true;
         } catch (\Throwable $e) {
             Log::error('MarketplaceOrderDispatcher failed', [
@@ -121,6 +125,76 @@ class MarketplaceOrderDispatcher
             return false;
         } finally {
             $tenancy->tenant(null);
+        }
+    }
+
+    /**
+     * Avisa al dueño del tenant por email que llegó un nuevo pedido desde el
+     * marketplace central. Si el SMTP del tenant está mal configurado o falla,
+     * solo se loggea — la Order ya quedó creada y es lo crítico.
+     */
+    protected function notifyTenant(Client $client, MarketplaceLead $lead, MarketplaceListing $listing, string $externalId): void
+    {
+        $to = $client->email;
+        if (!$to) {
+            return;
+        }
+
+        try {
+            $subject = '🛒 Nuevo pedido desde Marketplace ebaemy';
+            $tenantFqdn = $client->hostname->fqdn;
+            $total = number_format($lead->snapshot_price * $lead->quantity, 2);
+
+            $html  = '<!DOCTYPE html><html><body style="font-family:sans-serif;color:#333;max-width:560px;margin:0 auto;padding:24px">';
+            $html .= '<div style="background:linear-gradient(135deg,#8b5cf6 0%,#6366f1 100%);color:#fff;padding:20px;border-radius:12px 12px 0 0;text-align:center">';
+            $html .= '<h2 style="margin:0;font-size:20px">🛒 Nuevo pedido desde Marketplace ebaemy</h2>';
+            $html .= '</div>';
+            $html .= '<div style="background:#fff;border:1px solid #e5e7eb;border-top:none;padding:24px;border-radius:0 0 12px 12px">';
+
+            $html .= '<p>Hola, llegó un nuevo pedido desde <strong>ebaemy.com/marketplace</strong> para tu tienda.</p>';
+
+            $html .= '<div style="background:#f9fafb;border-radius:10px;padding:16px;margin:20px 0">';
+            $html .= '<div style="font-size:13px;color:#64748b;margin-bottom:4px">Producto</div>';
+            $html .= '<div style="font-weight:600">' . htmlspecialchars($listing->title) . '</div>';
+            $html .= '<div style="margin-top:10px;font-size:13px;color:#64748b">Cantidad · Total</div>';
+            $html .= '<div style="font-weight:600">' . $lead->quantity . ' unidades · S/ ' . $total . '</div>';
+            $html .= '</div>';
+
+            $html .= '<div style="background:#fef3c7;border-radius:10px;padding:16px;margin:20px 0">';
+            $html .= '<div style="font-size:13px;color:#92400e;margin-bottom:6px;font-weight:600">👤 Cliente</div>';
+            $html .= '<div><strong>' . htmlspecialchars($lead->customer_name) . '</strong></div>';
+            if ($lead->customer_phone) {
+                $html .= '<div>📱 ' . htmlspecialchars($lead->customer_phone) . '</div>';
+            }
+            if ($lead->customer_email) {
+                $html .= '<div>✉️ ' . htmlspecialchars($lead->customer_email) . '</div>';
+            }
+            if ($lead->message) {
+                $html .= '<div style="margin-top:10px;padding-top:10px;border-top:1px solid #fde68a;font-size:13px">💬 ' . htmlspecialchars($lead->message) . '</div>';
+            }
+            $html .= '</div>';
+
+            $html .= '<a href="https://' . $tenantFqdn . '/orders" style="display:inline-block;background:#111;color:#fff;padding:12px 28px;border-radius:8px;text-decoration:none;font-weight:600">';
+            $html .= 'Ver pedido en mi panel →</a>';
+            $html .= '<p style="font-size:12px;color:#9ca3af;margin-top:20px">Código externo: ' . substr($externalId, 0, 8) . '</p>';
+            $html .= '</div></body></html>';
+
+            $safeSubject = trim(preg_replace('/\s+/', ' ', str_replace(["\r", "\n", "\t"], ' ', $subject)));
+            $safeSubject = mb_substr($safeSubject, 0, 100);
+
+            Mail::send([], [], function ($message) use ($to, $safeSubject, $html) {
+                $message->to($to)->subject($safeSubject)->setBody($html, 'text/html');
+            });
+
+            Log::info('marketplace lead notification sent', [
+                'lead_id' => $lead->id,
+                'to'      => $to,
+            ]);
+        } catch (\Throwable $e) {
+            Log::warning('marketplace lead notification failed', [
+                'lead_id' => $lead->id,
+                'error'   => $e->getMessage(),
+            ]);
         }
     }
 }

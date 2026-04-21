@@ -7,7 +7,7 @@
         <div style="font-size:48px; margin-bottom:12px">✅</div>
         <h1 style="font-size:24px; margin:0 0 8px; color:#059669">¡Solicitud enviada!</h1>
         <p style="color:#374151; font-size:15px; line-height:1.6; margin:0 0 20px">
-            Tu solicitud fue recibida y enviada a <strong>{{ $listing->tenant_fqdn }}</strong>.<br>
+            Tu solicitud fue recibida y enviada a <strong>{{ $listing->seller_display }}</strong>.<br>
             El vendedor se contactará contigo pronto para coordinar el pago y envío.
         </p>
 

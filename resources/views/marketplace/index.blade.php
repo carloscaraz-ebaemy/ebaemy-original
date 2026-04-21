@@ -55,7 +55,9 @@
                         <h3 class="mp-card-title">{{ $listing->title }}</h3>
                         <div class="mp-card-price">S/ {{ number_format($listing->display_price, 2) }}</div>
                         <div class="mp-card-shop">
-                            <span>{{ $listing->tenant_fqdn }}</span>
+                            <span title="Vendido por {{ $listing->seller_display }}">
+                                🏪 {{ \Illuminate\Support\Str::limit($listing->seller_display, 24) }}
+                            </span>
                         </div>
                     </div>
                 </a>

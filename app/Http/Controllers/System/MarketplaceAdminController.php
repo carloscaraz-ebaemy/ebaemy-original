@@ -15,6 +15,52 @@ use Illuminate\Http\Request;
  */
 class MarketplaceAdminController extends Controller
 {
+    // ── Dashboard ─────────────────────────────────────────────────────────────
+
+    public function dashboard()
+    {
+        $stats = [
+            'listings_total'   => MarketplaceListing::count(),
+            'listings_active'  => MarketplaceListing::where('status', 'active')->count(),
+            'listings_paused'  => MarketplaceListing::where('status', 'paused')->count(),
+            'listings_rejected' => MarketplaceListing::where('status', 'rejected')->count(),
+            'tenants_active'   => MarketplaceListing::distinct('hostname_id')
+                                    ->where('is_active', true)->count('hostname_id'),
+            'views_total'      => MarketplaceListing::sum('view_count'),
+            'clicks_total'     => MarketplaceListing::sum('click_count'),
+            'leads_total'      => MarketplaceLead::count(),
+            'leads_converted'  => MarketplaceLead::where('status', 'converted')->count(),
+            'leads_failed'     => MarketplaceLead::where('status', 'failed')->count(),
+            'leads_30d'        => MarketplaceLead::where('created_at', '>=', now()->subDays(30))->count(),
+        ];
+
+        // Tasa de conversión global click → lead
+        $stats['conversion_rate'] = $stats['clicks_total'] > 0
+            ? round(($stats['leads_total'] / $stats['clicks_total']) * 100, 2)
+            : 0;
+
+        // Top 10 tiendas por leads
+        $topTenants = MarketplaceListing::selectRaw('tenant_fqdn, SUM(view_count) as v, SUM(click_count) as c, SUM(lead_count) as l, COUNT(*) as listings')
+            ->groupBy('tenant_fqdn')
+            ->orderByDesc('l')
+            ->limit(10)
+            ->get();
+
+        // Top 10 productos por clicks
+        $topListings = MarketplaceListing::orderByDesc('click_count')
+            ->limit(10)
+            ->get();
+
+        // Leads por día últimos 30
+        $leadsByDay = MarketplaceLead::selectRaw('DATE(created_at) as day, COUNT(*) as count')
+            ->where('created_at', '>=', now()->subDays(30))
+            ->groupBy('day')
+            ->orderBy('day')
+            ->get();
+
+        return view('system.marketplace.dashboard', compact('stats', 'topTenants', 'topListings', 'leadsByDay'));
+    }
+
     // ── Listings ──────────────────────────────────────────────────────────────
 
     public function listings(Request $request)
@@ -99,5 +145,51 @@ class MarketplaceAdminController extends Controller
         $lead = MarketplaceLead::findOrFail($id);
         $lead->update(['status' => 'archived']);
         return back()->with('ok', 'Lead archivado');
+    }
+
+    /**
+     * Export de leads a CSV respetando filtros activos. Stream para no cargar
+     * todos los leads en memoria si crece la tabla.
+     */
+    public function exportLeads(Request $request)
+    {
+        $query = MarketplaceLead::query()->orderByDesc('created_at');
+        if ($request->filled('status'))  $query->where('status', $request->status);
+        if ($request->filled('tenant'))  $query->where('tenant_fqdn', 'like', '%' . $request->tenant . '%');
+
+        $filename = 'marketplace-leads-' . now()->format('Ymd-His') . '.csv';
+
+        return response()->streamDownload(function () use ($query) {
+            $out = fopen('php://output', 'w');
+            // BOM para que Excel abra UTF-8 correctamente
+            fputs($out, "\xEF\xBB\xBF");
+            fputcsv($out, [
+                'Fecha', 'Tienda', 'Producto', 'SKU', 'Cliente',
+                'Telefono', 'Email', 'Cantidad', 'Precio snapshot', 'Total',
+                'Mensaje', 'Estado', 'Order externo', 'Error',
+            ]);
+
+            $query->chunk(500, function ($leads) use ($out) {
+                foreach ($leads as $l) {
+                    fputcsv($out, [
+                        $l->created_at?->format('Y-m-d H:i'),
+                        $l->tenant_fqdn,
+                        $l->snapshot_title,
+                        $l->remote_item_id,
+                        $l->customer_name,
+                        $l->customer_phone,
+                        $l->customer_email,
+                        $l->quantity,
+                        $l->snapshot_price,
+                        number_format($l->snapshot_price * $l->quantity, 2, '.', ''),
+                        $l->message,
+                        $l->status,
+                        $l->tenant_order_external_id,
+                        $l->sync_error,
+                    ]);
+                }
+            });
+            fclose($out);
+        }, $filename, ['Content-Type' => 'text/csv; charset=UTF-8']);
     }
 }

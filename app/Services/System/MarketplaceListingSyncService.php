@@ -90,8 +90,10 @@ class MarketplaceListingSyncService
             ->where('item_id', $item->id)
             ->sum('stock');
 
+        $fqdn = $client->hostname->fqdn;
+
         $imageUrl = $item->image
-            ? 'https://' . $client->hostname->fqdn . '/storage/uploads/items/' . $item->image
+            ? 'https://' . $fqdn . '/storage/uploads/items/' . $item->image
             : null;
 
         $categoryName = null;
@@ -108,9 +110,14 @@ class MarketplaceListingSyncService
                 ->value('name');
         }
 
+        // Tienda vendedora: trade_name comercial y logo desde Company del tenant
+        [$tenantName, $tenantLogoUrl] = $this->resolveTenantBranding($fqdn, $client);
+
         return [
             'hostname_id'       => $hostnameId,
-            'tenant_fqdn'       => $client->hostname->fqdn,
+            'tenant_fqdn'       => $fqdn,
+            'tenant_name'       => $tenantName,
+            'tenant_logo_url'   => $tenantLogoUrl,
             'client_id'         => $client->id,
             'remote_item_id'    => $item->id,
             'title'             => Str::limit((string) ($item->description ?: $item->name ?: 'Producto'), 250, ''),
@@ -128,6 +135,36 @@ class MarketplaceListingSyncService
             'is_active'         => true,
             'synced_at'         => now(),
         ];
+    }
+
+    /**
+     * Obtiene el nombre comercial y logo del tenant. Prioriza trade_name del
+     * registro Company; si no hay, usa el name; último fallback es el fqdn.
+     * Logo: se resuelve desde companies.logo, o desde configurations.logo.
+     */
+    private function resolveTenantBranding(string $fqdn, Client $client): array
+    {
+        $name = null;
+        $logoFile = null;
+
+        try {
+            $company = DB::connection('tenant')->table('companies')->first();
+            if ($company) {
+                $name = $company->trade_name ?: $company->name;
+                $logoFile = $company->logo ?? null;
+            }
+        } catch (\Throwable $e) {
+            // Si la tabla companies no existe, caer al client->name
+        }
+
+        $name = $name ?: ($client->name ?: $fqdn);
+
+        $logoUrl = null;
+        if ($logoFile) {
+            $logoUrl = 'https://' . $fqdn . '/storage/uploads/logos/' . $logoFile;
+        }
+
+        return [Str::limit($name, 140, ''), $logoUrl];
     }
 
     public function buildSlug(object $item, int $hostnameId): string
