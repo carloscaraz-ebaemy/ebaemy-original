@@ -1089,18 +1089,44 @@ $inventory_configuration = InventoryConfiguration::getSidebarPermissions();
                                         <span>Avisos de Stock</span>
                                     </a>
                                 </li>
-                                <li class="{{ ($secondLevel === 'whatsapp-campaigns') ? 'nav-active' : '' }}">
-                                    <a class="nav-link" href="{{ route('tenant.ecommerce.whatsapp_campaigns') }}">
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21l1.65 -4.45a9 9 0 1 1 3.4 3.4l-4.05 1.05z" /><path d="M9 10a.5 .5 0 0 0 0 1a5 5 0 0 0 5 5a.5 .5 0 0 0 0 -1a4 4 0 0 1 -4 -4a.5 .5 0 0 0 -1 0" /></svg>
-                                        <span>Campañas WhatsApp</span>
-                                    </a>
-                                </li>
                                 <li class="{{ request()->routeIs('tenant.discount_rules.index') ? 'nav-active' : '' }}">
                                     <a class="nav-link" href="{{ route('tenant.discount_rules.index') }}">
                                         <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M17 8v.01" /><path d="M7 16v.01" /><path d="M6 6m-3 0a3 3 0 1 0 6 0a3 3 0 1 0 -6 0" /><path d="M18 18m-3 0a3 3 0 1 0 6 0a3 3 0 1 0 -6 0" /><path d="M6 9l12 6" /></svg>
                                         <span>Reglas de Descuento</span>
                                     </a>
                                 </li>
+
+                                {{-- WHATSAPP — Campañas + Configuración + Métricas --}}
+                                @php
+                                    $_u_wa = auth()->user();
+                                    $_waVisible = $_u_wa && (
+                                        (method_exists($_u_wa, 'hasRole') && $_u_wa->hasRole('super-admin')) ||
+                                        (($_u_wa->type ?? '') === 'admin') ||
+                                        (method_exists($_u_wa, 'hasPermission') && $_u_wa->hasPermission('whatsapp.view')) ||
+                                        !method_exists($_u_wa, 'hasPermission')
+                                    );
+                                @endphp
+                                @if($_waVisible)
+                                    <span class="sb-group-label">WhatsApp</span>
+                                    <li class="{{ ($secondLevel === 'whatsapp-campaigns') ? 'nav-active' : '' }}">
+                                        <a class="nav-link" href="{{ route('tenant.ecommerce.whatsapp_campaigns') }}">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M3 12a9 9 0 1 0 18 0a9 9 0 0 0 -18 0"/><path d="M15 9l-6 6"/><path d="M9 9l6 6"/><path d="M3 12h.01"/></svg>
+                                            <span>Campañas</span>
+                                        </a>
+                                    </li>
+                                    <li class="{{ request()->is('whatsapp/settings') ? 'nav-active' : '' }}">
+                                        <a class="nav-link" href="/whatsapp/settings">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M10.325 4.317c.426 -1.756 2.924 -1.756 3.35 0a1.724 1.724 0 0 0 2.573 1.066c1.543 -.94 3.31 .826 2.37 2.37a1.724 1.724 0 0 0 1.065 2.572c1.756 .426 1.756 2.924 0 3.35a1.724 1.724 0 0 0 -1.066 2.573c.94 1.543 -.826 3.31 -2.37 2.37a1.724 1.724 0 0 0 -2.572 1.065c-.426 1.756 -2.924 1.756 -3.35 0a1.724 1.724 0 0 0 -2.573 -1.066c-1.543 .94 -3.31 -.826 -2.37 -2.37a1.724 1.724 0 0 0 -1.065 -2.572c-1.756 -.426 -1.756 -2.924 0 -3.35a1.724 1.724 0 0 0 1.066 -2.573c-.94 -1.543 .826 -3.31 2.37 -2.37c1 .608 2.296 .07 2.572 -1.065z"/><path d="M9 12a3 3 0 1 0 6 0a3 3 0 0 0 -6 0"/></svg>
+                                            <span>Configuración</span>
+                                        </a>
+                                    </li>
+                                    <li class="{{ request()->is('whatsapp/dashboard') ? 'nav-active' : '' }}">
+                                        <a class="nav-link" href="/whatsapp/dashboard">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M3 3v18h18"/><path d="M9 15l3 -3l3 3l5 -5"/></svg>
+                                            <span>Métricas</span>
+                                        </a>
+                                    </li>
+                                @endif
 
                                 {{-- CONTENIDO --}}
                                 @if(in_array('ecommerce_tags', $vc_module_levels) || in_array('ecommerce_promotions', $vc_module_levels))
@@ -1814,43 +1840,10 @@ $inventory_configuration = InventoryConfiguration::getSidebarPermissions();
                     </a>
                 </li>
 
-                {{-- WhatsApp — Configuración + Dashboard
-                     RBAC: visible solo si el usuario tiene permiso whatsapp.view,
-                     es admin legacy (type='admin') o super-admin.
-                     Si el RBAC no está activado (sin método hasPermission), se muestra
-                     para backward compat (tenants antiguos). --}}
-                @php
-                    $_u = auth()->user();
-                    $_waVisible = $_u && (
-                        (method_exists($_u, 'hasRole') && $_u->hasRole('super-admin')) ||
-                        (($_u->type ?? '') === 'admin') ||
-                        (method_exists($_u, 'hasPermission') && $_u->hasPermission('whatsapp.view')) ||
-                        !method_exists($_u, 'hasPermission')
-                    );
-                @endphp
-                @if($_waVisible)
-                <li class="nav-parent {{ request()->is('whatsapp*') ? 'nav-expanded nav-active' : '' }}">
-                    <a class="nav-link" href="#">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-                            <path d="M3 21l1.65 -3.8a9 9 0 1 1 3.4 2.9l-5.05 .9" />
-                            <path d="M9 10a.5 .5 0 0 0 1 0v-1a.5 .5 0 0 0 -1 0v1a5 5 0 0 0 5 5h1a.5 .5 0 0 0 0 -1h-1a.5 .5 0 0 0 0 1" />
-                        </svg>
-                        WhatsApp
-                    </a>
-                    <ul class="nav nav-children">
-                        <li class="{{ request()->is('whatsapp/settings') ? 'nav-active' : '' }}">
-                            <a class="nav-link" href="/whatsapp/settings">
-                                <span class="pl-1"></span>Configuración
-                            </a>
-                        </li>
-                        <li class="{{ request()->is('whatsapp/dashboard') ? 'nav-active' : '' }}">
-                            <a class="nav-link" href="/whatsapp/dashboard">
-                                <span class="pl-1"></span>Dashboard de métricas
-                            </a>
-                        </li>
-                    </ul>
-                </li>
-                @endif
+                {{-- Nota: las opciones WhatsApp ahora viven dentro del menú "Tienda Virtual"
+                     agrupadas en la sección WHATSAPP (Campañas, Configuración, Dashboard).
+                     Esto da una experiencia unificada para el cliente — todo lo de
+                     WhatsApp en un solo lugar, con nav-group propio. --}}
 
                 @if(in_array('configuration', $vc_modules))
                     <li
