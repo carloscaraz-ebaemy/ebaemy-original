@@ -154,6 +154,8 @@ if ($hostname) {
             Route::post('whatsapp/settings/test', 'Tenant\WhatsAppSettingsController@test');
             Route::get('whatsapp/settings/templates', 'Tenant\WhatsAppSettingsController@templates');
             Route::get('whatsapp/settings/logs', 'Tenant\WhatsAppSettingsController@logs');
+            Route::get('whatsapp/dashboard', 'Tenant\WhatsAppSettingsController@dashboardIndex');
+            Route::get('whatsapp/dashboard/data', 'Tenant\WhatsAppSettingsController@dashboardData');
             //Route::get('orders/print/{external_id}/{format?}', 'Tenant\OrderController@toPrint');
             Route::post('statusOrder/update/', 'Tenant\OrderController@updateStatusOrders');
             Route::get('orders/pdf/{id}', 'Tenant\OrderController@pdf')->where('id', '[0-9]+');

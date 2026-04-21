@@ -8,6 +8,9 @@
           <path d="M9 10a.5.5 0 0 0 1 0V9a.5.5 0 0 0-1 0v1a5 5 0 0 0 5 5h1a.5.5 0 0 0 0-1h-1a.5.5 0 0 0 0 1"></path>
         </svg>
         WhatsApp — Configuración
+        <a href="/whatsapp/dashboard" class="el-button el-button--primary el-button--small" style="margin-left:14px">
+          📊 Ver dashboard
+        </a>
       </h2>
       <ol class="breadcrumbs">
         <li class="active"><span>Tienda Virtual / WhatsApp</span></li>

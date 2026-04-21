@@ -299,6 +299,7 @@ Vue.component('tenant-orders-index', () => import('./views/tenant/orders/index.v
 Vue.component('tenant-discount-rules-index', () => import('./views/tenant/discount_rules/index.vue'))
 Vue.component('tenant-webhooks-index', () => import('./views/tenant/webhooks/index.vue'))
 Vue.component('whatsapp-settings', () => import('./views/tenant/whatsapp_settings/index.vue'))
+Vue.component('whatsapp-dashboard', () => import('./views/tenant/whatsapp_settings/dashboard.vue'))
 
 // Account (tenant)
 Vue.component('tenant-account-payment-index', () => import('./views/tenant/account/payment_index.vue'))

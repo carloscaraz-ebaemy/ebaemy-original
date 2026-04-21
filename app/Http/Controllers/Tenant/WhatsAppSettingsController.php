@@ -42,6 +42,150 @@ class WhatsAppSettingsController extends Controller
     }
 
     /**
+     * Vista del dashboard con métricas agregadas.
+     */
+    public function dashboardIndex()
+    {
+        return view('tenant.whatsapp_settings.dashboard');
+    }
+
+    /**
+     * GET /whatsapp/dashboard/data
+     * Devuelve métricas agregadas para el dashboard.
+     *
+     * Query params opcionales:
+     *   - range: 7|30|90  (días hacia atrás; default 30)
+     */
+    public function dashboardData(Request $request)
+    {
+        $days = (int) $request->input('range', 30);
+        $days = in_array($days, [7, 30, 90], true) ? $days : 30;
+
+        $since = now()->subDays($days - 1)->startOfDay();
+        $now = now()->endOfDay();
+
+        // ── 1. Totales del período ────────────────────────────────────
+        $totals = [
+            'sent'   => WhatsAppMessageLog::sent()->whereBetween('created_at', [$since, $now])->count(),
+            'failed' => WhatsAppMessageLog::failed()->whereBetween('created_at', [$since, $now])->count(),
+        ];
+        $totals['total'] = $totals['sent'] + $totals['failed'];
+        $totals['success_rate'] = $totals['total'] > 0
+            ? round(($totals['sent'] / $totals['total']) * 100, 1)
+            : 0;
+
+        // ── 2. Serie temporal (envíos por día) ────────────────────────
+        $timeseriesRaw = WhatsAppMessageLog::selectRaw(
+                "DATE(created_at) as day, status, COUNT(*) as count"
+            )
+            ->whereBetween('created_at', [$since, $now])
+            ->groupBy('day', 'status')
+            ->orderBy('day')
+            ->get()
+            ->groupBy('day');
+
+        $timeseries = [];
+        $cursor = $since->copy();
+        while ($cursor->lte($now)) {
+            $key = $cursor->format('Y-m-d');
+            $row = $timeseriesRaw->get($key, collect());
+            $timeseries[] = [
+                'day'    => $key,
+                'label'  => $cursor->format('d/m'),
+                'sent'   => (int) (optional($row->firstWhere('status', 'sent'))->count ?? 0),
+                'failed' => (int) (optional($row->firstWhere('status', 'failed'))->count ?? 0),
+            ];
+            $cursor->addDay();
+        }
+
+        // ── 3. Distribución por driver ────────────────────────────────
+        $byDriver = WhatsAppMessageLog::selectRaw("driver, COUNT(*) as count")
+            ->whereBetween('created_at', [$since, $now])
+            ->groupBy('driver')
+            ->get()
+            ->map(fn($r) => ['driver' => $r->driver, 'count' => (int) $r->count])
+            ->values();
+
+        // ── 4. Distribución por tipo (text vs template) ───────────────
+        $byType = WhatsAppMessageLog::selectRaw("type, COUNT(*) as count")
+            ->whereBetween('created_at', [$since, $now])
+            ->groupBy('type')
+            ->get()
+            ->map(fn($r) => ['type' => $r->type, 'count' => (int) $r->count])
+            ->values();
+
+        // ── 5. Distribución por origen (order, campaign, abandoned_cart, etc.)
+        $bySource = WhatsAppMessageLog::selectRaw("COALESCE(source, 'otros') as source, COUNT(*) as count")
+            ->whereBetween('created_at', [$since, $now])
+            ->groupBy('source')
+            ->orderByDesc('count')
+            ->limit(8)
+            ->get()
+            ->map(fn($r) => ['source' => $r->source, 'count' => (int) $r->count])
+            ->values();
+
+        // ── 6. Top 10 destinatarios ───────────────────────────────────
+        $topRecipients = WhatsAppMessageLog::selectRaw("phone, COUNT(*) as count, SUM(status='sent') as sent, SUM(status='failed') as failed")
+            ->whereBetween('created_at', [$since, $now])
+            ->groupBy('phone')
+            ->orderByDesc('count')
+            ->limit(10)
+            ->get()
+            ->map(fn($r) => [
+                'phone'  => $r->phone,
+                'total'  => (int) $r->count,
+                'sent'   => (int) $r->sent,
+                'failed' => (int) $r->failed,
+            ])->values();
+
+        // ── 7. Últimos errores (diagnóstico rápido) ───────────────────
+        $recentErrors = WhatsAppMessageLog::failed()
+            ->whereBetween('created_at', [$since, $now])
+            ->whereNotNull('error_message')
+            ->orderByDesc('id')
+            ->limit(8)
+            ->get()
+            ->map(fn($l) => [
+                'created_at' => $l->created_at?->format('Y-m-d H:i'),
+                'phone'      => $l->phone,
+                'driver'     => $l->driver,
+                'error'      => mb_substr($l->error_message ?? '', 0, 120),
+                'source'     => $l->source,
+            ])->values();
+
+        // ── 8. Horas pico (cuando se envía más) ───────────────────────
+        $byHour = WhatsAppMessageLog::selectRaw("HOUR(created_at) as hour, COUNT(*) as count")
+            ->whereBetween('created_at', [$since, $now])
+            ->groupBy('hour')
+            ->orderBy('hour')
+            ->get()
+            ->keyBy('hour');
+
+        $hourly = [];
+        for ($h = 0; $h < 24; $h++) {
+            $hourly[] = [
+                'hour'  => sprintf('%02d', $h),
+                'count' => (int) (optional($byHour->get($h))->count ?? 0),
+            ];
+        }
+
+        return response()->json([
+            'range_days'     => $days,
+            'from'           => $since->format('Y-m-d'),
+            'to'             => $now->format('Y-m-d'),
+            'totals'         => $totals,
+            'timeseries'     => $timeseries,
+            'by_driver'      => $byDriver,
+            'by_type'        => $byType,
+            'by_source'      => $bySource,
+            'top_recipients' => $topRecipients,
+            'recent_errors'  => $recentErrors,
+            'hourly'         => $hourly,
+            'active_driver'  => WhatsAppDriverFactory::make()->name(),
+        ]);
+    }
+
+    /**
      * GET /whatsapp/settings/data
      * Retorna config actual + drivers disponibles + último log.
      */
