@@ -246,7 +246,9 @@
                                         ✕
                                     </el-button>
                                 </div>
-                                <span v-else class="eco-status-final">final</span>
+                                <span v-else class="eco-status-final" :class="`eco-final--${finalStateTag(row.status_order_id).type}`">
+                                    {{ finalStateTag(row.status_order_id).icon }} {{ finalStateTag(row.status_order_id).label }}
+                                </span>
                             </div>
                         </td>
 
@@ -625,10 +627,13 @@
 .eco-status-actions { display: flex; gap: 4px; margin-top: 6px; flex-wrap: wrap; }
 .eco-status-actions .el-button { padding: 6px 10px; font-size: 1.1rem; }
 .eco-status-final {
-    display: inline-block; padding: 2px 10px; margin-top: 4px;
-    font-size: 1rem; color: #6b7280; font-style: italic;
-    background: #f3f4f6; border-radius: 10px;
+    display: inline-block; padding: 3px 10px; margin-top: 4px;
+    font-size: 0.95rem; font-weight: 600;
+    border-radius: 10px;
 }
+.eco-final--success { background: #dcfce7; color: #15803d; }
+.eco-final--danger  { background: #fee2e2; color: #991b1b; }
+.eco-final--muted   { background: #f3f4f6; color: #6b7280; }
 
 /* ── Historial / timeline del pedido ────────────────────────────── */
 .eco-history { font-size: 1.25rem; }
@@ -915,6 +920,19 @@ export default {
                 4: { target: 6, label: 'Marcar entregado', type: 'success' },
             };
             return map[Number(currentStatusId)] || null;
+        },
+        /**
+         * Etiqueta visual para estados terminales (5=cancelado, 6=entregado)
+         * o cualquier otro id no mapeado — reemplaza el "final" genérico con
+         * un tag que describe qué pasó con el pedido.
+         */
+        finalStateTag(statusId) {
+            const id = Number(statusId);
+            const map = {
+                5: { label: 'Cancelado',  icon: '✕', type: 'danger' },
+                6: { label: 'Entregado',  icon: '✓', type: 'success' },
+            };
+            return map[id] || { label: 'Finalizado', icon: '•', type: 'muted' };
         },
         canCancel(currentStatusId) {
             return [1, 2, 3, 4].includes(Number(currentStatusId));

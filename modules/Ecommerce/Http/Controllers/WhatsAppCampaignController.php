@@ -163,10 +163,25 @@ class WhatsAppCampaignController extends Controller
         ]);
     }
 
+    /**
+     * Extrae el texto del mensaje desde el payload original de la campaña.
+     * El payload puede venir como:
+     *   - array con ['text' => '...']                → usar text
+     *   - array con ['subject' => ..., 'body' => ...]  → concatenar
+     *   - string JSON                                → decodificar primero
+     *   - null / cualquier otra cosa                 → caer al greeting default
+     *
+     * Siempre valida el resultado final para evitar enviar WhatsApp con
+     * payload malformado o con strings demasiado largos (>4000 chars).
+     */
     private function messageFromPayload($payload, ?string $customerName): string
     {
-        if (is_array($payload) && !empty($payload['text'])) {
-            return (string) $payload['text'];
+        // Normalizar a array — soporta string JSON (DB) y objeto (casts legacy)
+        if (is_string($payload)) {
+            $decoded = json_decode($payload, true);
+            $payload = is_array($decoded) ? $decoded : null;
+        } elseif (is_object($payload)) {
+            $payload = (array) $payload;
         }
 
         $name = trim((string) $customerName);
@@ -175,7 +190,46 @@ class WhatsAppCampaignController extends Controller
         }
         $greeting = $name !== '' ? "Hola {$name}" : 'Hola';
 
-        return $greeting . ", tenemos nuevas ofertas para ti.\nEscribenos y te ayudamos con tu pedido.";
+        if (is_array($payload)) {
+            // Texto explícito
+            if (!empty($payload['text']) && is_string($payload['text'])) {
+                return $this->clampMessage($payload['text']);
+            }
+
+            // Subject + body (plantillas viejas)
+            $parts = [];
+            if (!empty($payload['subject']))   $parts[] = (string) $payload['subject'];
+            if (!empty($payload['body']))      $parts[] = (string) $payload['body'];
+            if (!empty($parts)) {
+                return $this->clampMessage(implode("\n\n", $parts));
+            }
+
+            // Lista de productos simple (payload de flash sale)
+            if (!empty($payload['products']) && is_array($payload['products'])) {
+                $lines = [$greeting . ", tenemos estas ofertas para ti:"];
+                foreach (array_slice($payload['products'], 0, 5) as $p) {
+                    $p = (array) $p;
+                    if (!empty($p['name'])) {
+                        $price = isset($p['price']) ? ' — S/ ' . number_format((float) $p['price'], 2) : '';
+                        $lines[] = '• ' . $p['name'] . $price;
+                    }
+                }
+                return $this->clampMessage(implode("\n", $lines));
+            }
+        }
+
+        return $this->clampMessage($greeting . ", tenemos nuevas ofertas para ti.\nEscribenos y te ayudamos con tu pedido.");
+    }
+
+    /**
+     * Limita el mensaje a 4000 chars (límite WhatsApp Business API) y quita
+     * caracteres de control. Previene que un payload corrupto de BD reviente
+     * la llamada al proveedor.
+     */
+    private function clampMessage(string $text): string
+    {
+        $text = preg_replace('/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/u', '', $text) ?? '';
+        return mb_substr(trim($text), 0, 4000);
     }
 }
 
