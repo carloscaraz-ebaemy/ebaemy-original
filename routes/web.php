@@ -1145,6 +1145,7 @@ if ($hostname) {
                 Route::get('/',                       'System\MarketplaceAdminController@dashboard')->name('dashboard');
                 Route::get('listings',                'System\MarketplaceAdminController@listings')->name('listings');
                 Route::post('listings/{id}/status',   'System\MarketplaceAdminController@updateListingStatus')->name('listings.status');
+                Route::post('tenant/{clientId}/verify', 'System\MarketplaceAdminController@toggleTenantVerified')->name('tenant.verify');
                 Route::get('leads',                   'System\MarketplaceAdminController@leads')->name('leads');
                 Route::get('leads/export',            'System\MarketplaceAdminController@exportLeads')->name('leads.export');
                 Route::post('leads/{id}/retry',       'System\MarketplaceAdminController@retryLead')->name('leads.retry');

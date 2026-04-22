@@ -79,6 +79,9 @@ class Client extends Model
         'locked_emission',
         'locked_tenant',
         'locked_users',
+        'is_verified',
+        'verified_at',
+        'verified_note',
         'plan_id',
         'price',
         'plan_period_id',
@@ -118,6 +121,9 @@ class Client extends Model
         'enable_list_product' => 'boolean',
         'from_guest_register' => 'boolean',
         'theme_settings'      => 'array',
+        // Tenant verificado para marketplace central
+        'is_verified'         => 'boolean',
+        'verified_at'         => 'datetime',
     ];
 
 

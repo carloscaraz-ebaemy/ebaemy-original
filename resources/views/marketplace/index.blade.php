@@ -92,6 +92,12 @@
                             <span title="Vendido por {{ $listing->seller_display }}">
                                 🏪 {{ \Illuminate\Support\Str::limit($listing->seller_display, 24) }}
                             </span>
+                            @if($listing->tenant_verified)
+                                <span class="mp-verified-badge" title="Tienda verificada por ebaemy">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="#2563eb"><path d="M12 2l2.39 5.42L20 8.27l-4 4.15.94 5.58L12 15.77l-4.94 2.23L8 12.42 4 8.27l5.61-.85L12 2z"/></svg>
+                                    Verificada
+                                </span>
+                            @endif
                         </div>
                     </div>
                 </a>

@@ -67,6 +67,9 @@
                         </td>
                         <td>
                             <small>{{ $l->tenant_fqdn }}</small>
+                            @if($l->tenant_verified)
+                                <br><span class="badge bg-primary" style="font-size:10px;font-weight:600" title="Tienda verificada por ebaemy">✓ Verificada</span>
+                            @endif
                         </td>
                         <td class="text-end">S/ {{ number_format($l->display_price, 2) }}</td>
                         <td class="text-center">{{ $l->stock }}</td>
@@ -114,6 +117,20 @@
                                             <button class="dropdown-item text-danger" @if($l->status==='rejected') disabled @endif>✖ Rechazar</button>
                                         </form>
                                     </li>
+                                    @if($l->client_id)
+                                    <li><hr class="dropdown-divider"></li>
+                                    <li>
+                                        <form method="POST" action="{{ route('system.marketplace.tenant.verify', $l->client_id) }}"
+                                              onsubmit="var n = prompt('Nota interna (opcional):') || ''; this.querySelector('[name=note]').value = n;">
+                                            @csrf
+                                            <input type="hidden" name="is_verified" value="{{ $l->tenant_verified ? 0 : 1 }}">
+                                            <input type="hidden" name="note" value="">
+                                            <button class="dropdown-item text-primary">
+                                                {{ $l->tenant_verified ? '✖ Remover verificación' : '✓ Verificar tienda' }}
+                                            </button>
+                                        </form>
+                                    </li>
+                                    @endif
                                 </ul>
                             </div>
                         </td>

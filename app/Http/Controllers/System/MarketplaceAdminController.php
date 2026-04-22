@@ -110,6 +110,33 @@ class MarketplaceAdminController extends Controller
         return back()->with('ok', "Listing actualizado: {$request->status}");
     }
 
+    /**
+     * Toggle de tenant verificado — muestra badge "Tienda verificada" en la
+     * vitrina pública del marketplace central. Actualiza el cache denormalizado
+     * en todos los listings del cliente afectado.
+     */
+    public function toggleTenantVerified(Request $request, $clientId)
+    {
+        $request->validate([
+            'is_verified' => 'required|boolean',
+            'note'        => 'nullable|string|max:180',
+        ]);
+
+        $client = \App\Models\System\Client::findOrFail($clientId);
+        $client->is_verified = (bool) $request->is_verified;
+        $client->verified_at = $client->is_verified ? now() : null;
+        $client->verified_note = $request->note;
+        $client->save();
+
+        // Propagar cache denormalizado a todos los listings del tenant
+        MarketplaceListing::where('client_id', $client->id)
+            ->update(['tenant_verified' => $client->is_verified]);
+
+        return back()->with('ok', $client->is_verified
+            ? "Tienda verificada: {$client->name}"
+            : "Verificación removida: {$client->name}");
+    }
+
     // ── Leads ─────────────────────────────────────────────────────────────────
 
     public function leads(Request $request)

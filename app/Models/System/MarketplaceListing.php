@@ -21,6 +21,7 @@ class MarketplaceListing extends Model
         'tenant_fqdn',
         'tenant_name',
         'tenant_logo_url',
+        'tenant_verified',
         'client_id',
         'remote_item_id',
         'title',
@@ -45,15 +46,16 @@ class MarketplaceListing extends Model
     ];
 
     protected $casts = [
-        'is_active'   => 'boolean',
-        'price'       => 'float',
-        'mp_price'    => 'float',
-        'stock'       => 'integer',
-        'view_count'  => 'integer',
-        'lead_count'  => 'integer',
-        'click_count' => 'integer',
-        'sort_score'  => 'integer',
-        'synced_at'   => 'datetime',
+        'is_active'       => 'boolean',
+        'tenant_verified' => 'boolean',
+        'price'           => 'float',
+        'mp_price'        => 'float',
+        'stock'           => 'integer',
+        'view_count'      => 'integer',
+        'lead_count'      => 'integer',
+        'click_count'     => 'integer',
+        'sort_score'      => 'integer',
+        'synced_at'       => 'datetime',
     ];
 
     public function hostname()

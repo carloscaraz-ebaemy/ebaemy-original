@@ -118,6 +118,7 @@ class MarketplaceListingSyncService
             'tenant_fqdn'       => $fqdn,
             'tenant_name'       => $tenantName,
             'tenant_logo_url'   => $tenantLogoUrl,
+            'tenant_verified'   => (bool) ($client->is_verified ?? false),
             'client_id'         => $client->id,
             'remote_item_id'    => $item->id,
             'title'             => Str::limit((string) ($item->description ?: $item->name ?: 'Producto'), 250, ''),

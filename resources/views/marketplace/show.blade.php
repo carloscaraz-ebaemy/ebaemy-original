@@ -126,7 +126,14 @@
                     <img src="{{ $listing->tenant_logo_url }}" alt="{{ $listing->seller_display }}"
                          style="height:18px;width:18px;object-fit:cover;border-radius:4px;vertical-align:middle;margin-right:6px">
                 @endif
-                🏪 Vendido por <strong>{{ $listing->seller_display }}</strong> →
+                🏪 Vendido por <strong>{{ $listing->seller_display }}</strong>
+                @if($listing->tenant_verified)
+                    <span class="mp-verified-inline" title="Tienda verificada por ebaemy">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="#2563eb"><path d="M12 2l2.39 5.42L20 8.27l-4 4.15.94 5.58L12 15.77l-4.94 2.23L8 12.42 4 8.27l5.61-.85L12 2z"/></svg>
+                        Verificada
+                    </span>
+                @endif
+                →
             </a>
             <h1>{{ $listing->title }}</h1>
 

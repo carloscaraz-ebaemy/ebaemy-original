@@ -71,6 +71,10 @@
         .mp-card-shop { font-size:12px; color:#64748b; margin-top:4px; display:flex; justify-content:space-between; align-items:center; }
         .mp-card-buy { background:#059669; color:#fff; padding:3px 8px; border-radius:6px; font-size:11px; font-weight:600; text-decoration:none; }
         .mp-card-buy:hover { background:#047857; color:#fff; }
+        /* Tenant verificado — insignia de confianza */
+        .mp-verified-badge { display:inline-flex; align-items:center; gap:3px; background:#eff6ff; color:#1d4ed8; padding:2px 8px; border-radius:999px; font-size:10px; font-weight:700; border:1px solid #bfdbfe; }
+        .mp-verified-badge svg { flex-shrink:0; }
+        .mp-verified-inline { display:inline-flex; align-items:center; gap:4px; color:#1d4ed8; font-weight:600; font-size:13px; margin-left:6px; vertical-align:middle; }
 
         .mp-empty { background:#fff; border-radius:12px; padding:60px 24px; text-align:center; color:#64748b; }
 
