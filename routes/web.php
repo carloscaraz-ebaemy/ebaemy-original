@@ -440,6 +440,15 @@ if ($hostname) {
             Route::post('items/visible_store', 'Tenant\ItemController@visibleStore');
             Route::post('items/marketplace-toggle', 'Tenant\ItemController@marketplaceToggle');
             Route::get('items/marketplace-stats',    'Tenant\ItemController@marketplaceStats');
+
+            // Shipping zones (configuración del tenant)
+            Route::get('shipping-zones',              'Tenant\ShippingZoneController@index');
+            Route::get('shipping-zones/records',      'Tenant\ShippingZoneController@records');
+            Route::get('shipping-zones/tables',       'Tenant\ShippingZoneController@tables');
+            Route::get('shipping-zones/record/{id}',  'Tenant\ShippingZoneController@record');
+            Route::post('shipping-zones',             'Tenant\ShippingZoneController@store');
+            Route::put('shipping-zones/{id}',         'Tenant\ShippingZoneController@update');
+            Route::delete('shipping-zones/{id}',      'Tenant\ShippingZoneController@destroy');
             Route::post('items/duplicate', 'Tenant\ItemController@duplicate');
             Route::get('items/disable/{item}', 'Tenant\ItemController@disable');
             Route::post('items/disableMassive', 'Tenant\ItemController@disableMassive');
