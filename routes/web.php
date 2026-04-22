@@ -33,6 +33,17 @@ if ($hostname) {
             Route::get('quotations/print/{external_id}/{format?}', 'Tenant\QuotationController@toPrint');
         });
 
+        // ── Redirect raíz (/) según autenticación ────────────────────────
+        // Visitantes anónimos → storefront ecommerce (/ecommerce).
+        // Usuarios autenticados del panel → su dashboard (HomeController lo resuelve).
+        // Si el tenant no tiene ecommerce, el EcommerceController maneja fallback a login.
+        Route::get('/', function () {
+            if (auth()->check()) {
+                return redirect('/dashboard');
+            }
+            return redirect('/ecommerce');
+        });
+
         // ── Rutas públicas legítimas (rate-limited) ─────────────────────
         Route::get('/exchange_rate/ecommence/{date}', 'Tenant\Api\ServiceController@exchangeRateTest')
              ->middleware('throttle:30,1');
