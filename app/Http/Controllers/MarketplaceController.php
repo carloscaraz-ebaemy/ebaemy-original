@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\System\MarketplaceLead;
 use App\Models\System\MarketplaceListing;
+use App\Models\System\MarketplaceReview;
 use App\Services\System\MarketplaceOrderDispatcher;
 use Illuminate\Http\Request;
 
@@ -121,7 +122,13 @@ class MarketplaceController extends Controller
             ->limit(6)
             ->get();
 
-        return view('marketplace.show', compact('listing', 'related'));
+        $reviews = MarketplaceReview::where('listing_id', $listing->id)
+            ->approved()
+            ->orderByDesc('created_at')
+            ->limit(20)
+            ->get();
+
+        return view('marketplace.show', compact('listing', 'related', 'reviews'));
     }
 
     /**
@@ -185,6 +192,60 @@ class MarketplaceController extends Controller
         $listing = MarketplaceListing::where('slug', $slug)->firstOrFail();
         $leadStatus = session('lead_status');
         return view('marketplace.thanks', compact('listing', 'leadStatus'));
+    }
+
+    /**
+     * Recibe un review del público sobre un listing. Queda 'pending' hasta
+     * que un admin lo aprueba. Anti-spam: honeypot + throttle ruta +
+     * chequeo de duplicado por email/ip dentro de 24h.
+     */
+    public function review(Request $request, string $slug)
+    {
+        $listing = MarketplaceListing::where('slug', $slug)->firstOrFail();
+
+        // Honeypot
+        if (trim((string) $request->input('website')) !== '') {
+            return redirect()->route('marketplace.item', $slug)
+                ->with('review_msg', '¡Gracias por tu opinión!');
+        }
+
+        $data = $request->validate([
+            'customer_name'  => 'required|string|max:120',
+            'customer_email' => 'nullable|email|max:180',
+            'rating'         => 'required|integer|min:1|max:5',
+            'comment'        => 'nullable|string|max:1000',
+        ]);
+
+        // Evita duplicados: mismo email/IP en las últimas 24h sobre este listing
+        $duplicate = MarketplaceReview::where('listing_id', $listing->id)
+            ->where('created_at', '>=', now()->subDay())
+            ->where(function ($q) use ($request, $data) {
+                $q->where('source_ip', $request->ip());
+                if (!empty($data['customer_email'])) {
+                    $q->orWhere('customer_email', $data['customer_email']);
+                }
+            })
+            ->exists();
+
+        if ($duplicate) {
+            return redirect()->route('marketplace.item', $slug)
+                ->with('review_msg', 'Ya enviaste una reseña recientemente. ¡Gracias!');
+        }
+
+        MarketplaceReview::create([
+            'listing_id'     => $listing->id,
+            'hostname_id'    => $listing->hostname_id,
+            'customer_name'  => $data['customer_name'],
+            'customer_email' => $data['customer_email'] ?? null,
+            'rating'         => $data['rating'],
+            'comment'        => $data['comment'] ?? null,
+            'status'         => 'pending',
+            'source_ip'      => $request->ip(),
+            'source_ua'      => substr((string) $request->header('User-Agent'), 0, 250),
+        ]);
+
+        return redirect()->route('marketplace.item', $slug)
+            ->with('review_msg', '¡Gracias por tu opinión! Será publicada tras revisión.');
     }
 
     /**

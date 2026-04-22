@@ -88,6 +88,14 @@
                     <div class="mp-card-body">
                         <h3 class="mp-card-title">{{ $listing->title }}</h3>
                         <div class="mp-card-price">S/ {{ number_format($listing->display_price, 2) }}</div>
+                        @if($listing->rating_count > 0)
+                            <div class="mp-card-rating">
+                                <span style="color:#f59e0b">
+                                    @for($i=1;$i<=5;$i++){{ $i <= round($listing->avg_rating) ? '★' : '☆' }}@endfor
+                                </span>
+                                <small>({{ $listing->rating_count }})</small>
+                            </div>
+                        @endif
                         <div class="mp-card-shop">
                             <span title="Vendido por {{ $listing->seller_display }}">
                                 🏪 {{ \Illuminate\Support\Str::limit($listing->seller_display, 24) }}

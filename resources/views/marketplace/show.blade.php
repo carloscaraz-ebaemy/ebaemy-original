@@ -39,6 +39,16 @@
     ];
     if ($listing->brand_name) $product['brand'] = ['@type' => 'Brand', 'name' => $listing->brand_name];
     if ($listing->internal_id) $product['sku'] = $listing->internal_id;
+    // Rich snippet de estrellas en Google (solo si hay al menos 1 review aprobada)
+    if (($listing->rating_count ?? 0) > 0) {
+        $product['aggregateRating'] = [
+            '@type' => 'AggregateRating',
+            'ratingValue' => number_format((float) $listing->avg_rating, 1),
+            'reviewCount' => (int) $listing->rating_count,
+            'bestRating' => '5',
+            'worstRating' => '1',
+        ];
+    }
 
     $breadcrumbItems = [
         ['@type' => 'ListItem', 'position' => 1, 'name' => 'Marketplace', 'item' => $bcIndexUrl],
@@ -97,6 +107,36 @@
     .mp-description { border-top:1px solid #e5e7eb; padding-top:20px; line-height:1.6; color:#334155; font-size:14px; }
     .mp-related { margin-top:40px; }
     .mp-related h3 { margin:0 0 16px; font-size:18px; }
+
+    /* ══ Reviews ══════════════════════════════════════════ */
+    .mp-reviews { margin-top:40px; background:#fff; border-radius:16px; padding:28px; }
+    .mp-reviews-head { display:flex; justify-content:space-between; align-items:flex-end; flex-wrap:wrap; gap:8px; margin-bottom:18px; border-bottom:1px solid #e5e7eb; padding-bottom:14px; }
+    .mp-reviews-head h3 { margin:0; font-size:18px; color:#0f172a; }
+    .mp-reviews-stars { display:flex; align-items:center; gap:8px; }
+    .mp-stars { color:#f59e0b; font-size:18px; letter-spacing:2px; }
+    .mp-stars--sm { font-size:14px; letter-spacing:1px; }
+    .mp-reviews-meta { font-size:13px; color:#64748b; font-weight:500; }
+    .mp-reviews-empty { font-size:13px; color:#94a3b8; }
+    .mp-review-notice { background:#dcfce7; border:1px solid #86efac; color:#166534; padding:10px 14px; border-radius:10px; font-size:13px; margin-bottom:14px; }
+    .mp-reviews-list { display:grid; gap:14px; margin-bottom:18px; }
+    .mp-review { background:#f9fafb; border-radius:10px; padding:14px 16px; border:1px solid #e5e7eb; }
+    .mp-review-head { display:flex; justify-content:space-between; align-items:center; gap:8px; margin-bottom:6px; flex-wrap:wrap; }
+    .mp-review-body { margin:4px 0 0; font-size:14px; color:#374151; line-height:1.5; }
+    .mp-review-form-wrap { border-top:1px solid #e5e7eb; padding-top:16px; margin-top:6px; }
+    .mp-review-form-wrap summary { cursor:pointer; font-size:14px; color:#6366f1; font-weight:500; padding:6px 0; }
+    .mp-review-form-wrap summary:hover { color:#4f46e5; }
+    .mp-review-form { display:grid; gap:12px; margin-top:12px; }
+    .mp-review-form label { font-size:13px; font-weight:500; color:#374151; }
+    .mp-review-form input, .mp-review-form textarea { width:100%; padding:10px 12px; border:1px solid #d1d5db; border-radius:8px; font-size:14px; font-family:inherit; }
+    .mp-review-form textarea { min-height:80px; resize:vertical; }
+
+    /* Star rating input — radios invertidos */
+    .mp-rating-radios { display:inline-flex; flex-direction:row-reverse; gap:2px; }
+    .mp-rating-radios input { display:none; }
+    .mp-rating-radios label { font-size:28px; color:#d1d5db; cursor:pointer; transition:color .15s; padding:0 4px; }
+    .mp-rating-radios input:checked ~ label,
+    .mp-rating-radios label:hover,
+    .mp-rating-radios label:hover ~ label { color:#f59e0b; }
 
     @media (max-width:760px){
         .mp-detail { grid-template-columns:1fr; padding:20px; }
@@ -212,6 +252,91 @@
                 </div>
             @endif
         </div>
+    </section>
+
+    {{-- ══ REVIEWS ══════════════════════════════════════════════════ --}}
+    <section class="mp-reviews">
+        <div class="mp-reviews-head">
+            <h3>Opiniones de clientes</h3>
+            @if($listing->rating_count > 0)
+                <div class="mp-reviews-stars">
+                    @php $r = $listing->avg_rating; @endphp
+                    <span class="mp-stars">
+                        @for($i=1;$i<=5;$i++)
+                            {{ $i <= round($r) ? '★' : '☆' }}
+                        @endfor
+                    </span>
+                    <span class="mp-reviews-meta">{{ number_format($r, 1) }} · {{ $listing->rating_count }} {{ $listing->rating_count === 1 ? 'opinión' : 'opiniones' }}</span>
+                </div>
+            @else
+                <span class="mp-reviews-empty">Aún sin opiniones. Sé el primero.</span>
+            @endif
+        </div>
+
+        @if(session('review_msg'))
+            <div class="mp-review-notice">{{ session('review_msg') }}</div>
+        @endif
+
+        @if($errors->any())
+            <div class="mp-errors" style="margin-bottom:14px">
+                @foreach($errors->all() as $err) <div>{{ $err }}</div> @endforeach
+            </div>
+        @endif
+
+        @if($reviews->isNotEmpty())
+            <div class="mp-reviews-list">
+                @foreach($reviews as $review)
+                    <div class="mp-review">
+                        <div class="mp-review-head">
+                            <div>
+                                <strong>{{ $review->customer_name }}</strong>
+                                <small style="color:#94a3b8;margin-left:8px">{{ $review->created_at->diffForHumans() }}</small>
+                            </div>
+                            <span class="mp-stars mp-stars--sm">
+                                @for($i=1;$i<=5;$i++)
+                                    {{ $i <= $review->rating ? '★' : '☆' }}
+                                @endfor
+                            </span>
+                        </div>
+                        @if($review->comment)
+                            <p class="mp-review-body">{{ $review->comment }}</p>
+                        @endif
+                    </div>
+                @endforeach
+            </div>
+        @endif
+
+        {{-- Form para nueva review --}}
+        <details class="mp-review-form-wrap">
+            <summary>Escribir una opinión</summary>
+            <form method="POST" action="{{ route('marketplace.review', $listing->slug) }}" class="mp-review-form">
+                @csrf
+                <input type="text" name="website" tabindex="-1" autocomplete="off"
+                       style="position:absolute;left:-9999px;width:1px;height:1px;opacity:0" aria-hidden="true">
+                <div>
+                    <label>Nombre *</label>
+                    <input type="text" name="customer_name" value="{{ old('customer_name') }}" required maxlength="120">
+                </div>
+                <div>
+                    <label>Email (opcional, no se publica)</label>
+                    <input type="email" name="customer_email" value="{{ old('customer_email') }}" maxlength="180">
+                </div>
+                <div>
+                    <label>Calificación *</label>
+                    <div class="mp-rating-radios">
+                        @for($i=5;$i>=1;$i--)
+                            <input type="radio" name="rating" id="rating-{{ $i }}" value="{{ $i }}" {{ old('rating')==$i ? 'checked' : '' }} required>
+                            <label for="rating-{{ $i }}" title="{{ $i }} estrellas">★</label>
+                        @endfor
+                    </div>
+                </div>
+                <div>
+                    <label>Tu opinión</label>
+                    <textarea name="comment" maxlength="1000" placeholder="Comparte tu experiencia...">{{ old('comment') }}</textarea>
+                </div>
+                <button type="submit" class="mp-cta">Enviar opinión</button>
+            </form>
+        </details>
     </section>
 
     @if($related->isNotEmpty())

@@ -55,6 +55,8 @@ class MarketplaceListing extends Model
         'lead_count'      => 'integer',
         'click_count'     => 'integer',
         'sort_score'      => 'integer',
+        'avg_rating'      => 'float',
+        'rating_count'    => 'integer',
         'synced_at'       => 'datetime',
     ];
 
@@ -71,6 +73,11 @@ class MarketplaceListing extends Model
     public function leads()
     {
         return $this->hasMany(MarketplaceLead::class, 'listing_id');
+    }
+
+    public function reviews()
+    {
+        return $this->hasMany(MarketplaceReview::class, 'listing_id');
     }
 
     // ── Scopes ────────────────────────────────────────────────────────────────

@@ -1123,6 +1123,9 @@ if ($hostname) {
         Route::post('marketplace/item/{slug}/solicitar', 'MarketplaceController@lead')
              ->middleware('throttle:10,1')
              ->name('marketplace.lead');
+        Route::post('marketplace/item/{slug}/review', 'MarketplaceController@review')
+             ->middleware('throttle:5,1')
+             ->name('marketplace.review');
         Route::get('marketplace/gracias/{slug}',  'MarketplaceController@thanks')->name('marketplace.thanks');
         Route::get('sitemap-marketplace.xml',     'MarketplaceController@sitemap')->name('marketplace.sitemap');
         Route::get('robots.txt',                  'MarketplaceController@robots')->name('marketplace.robots');
@@ -1146,6 +1149,9 @@ if ($hostname) {
                 Route::get('listings',                'System\MarketplaceAdminController@listings')->name('listings');
                 Route::post('listings/{id}/status',   'System\MarketplaceAdminController@updateListingStatus')->name('listings.status');
                 Route::post('tenant/{clientId}/verify', 'System\MarketplaceAdminController@toggleTenantVerified')->name('tenant.verify');
+                Route::get('reviews',                   'System\MarketplaceAdminController@reviews')->name('reviews');
+                Route::post('reviews/{id}/approve',     'System\MarketplaceAdminController@approveReview')->name('reviews.approve');
+                Route::post('reviews/{id}/reject',      'System\MarketplaceAdminController@rejectReview')->name('reviews.reject');
                 Route::get('leads',                   'System\MarketplaceAdminController@leads')->name('leads');
                 Route::get('leads/export',            'System\MarketplaceAdminController@exportLeads')->name('leads.export');
                 Route::post('leads/{id}/retry',       'System\MarketplaceAdminController@retryLead')->name('leads.retry');

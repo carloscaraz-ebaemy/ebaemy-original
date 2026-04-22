@@ -5,6 +5,7 @@ namespace App\Http\Controllers\System;
 use App\Http\Controllers\Controller;
 use App\Models\System\MarketplaceLead;
 use App\Models\System\MarketplaceListing;
+use App\Models\System\MarketplaceReview;
 use App\Services\System\MarketplaceOrderDispatcher;
 use Illuminate\Http\Request;
 
@@ -172,6 +173,52 @@ class MarketplaceAdminController extends Controller
         $lead = MarketplaceLead::findOrFail($id);
         $lead->update(['status' => 'archived']);
         return back()->with('ok', 'Lead archivado');
+    }
+
+    // ── Reviews ───────────────────────────────────────────────────────────────
+
+    public function reviews(Request $request)
+    {
+        $query = MarketplaceReview::with('listing:id,title,slug,tenant_fqdn')
+            ->orderByDesc('created_at');
+
+        if ($request->filled('status')) {
+            $query->where('status', $request->status);
+        }
+        if ($request->filled('tenant')) {
+            $tenantFqdn = $request->tenant;
+            $query->whereHas('listing', fn($q) => $q->where('tenant_fqdn', 'like', '%'.$tenantFqdn.'%'));
+        }
+
+        $reviews = $query->paginate(20)->withQueryString();
+        $stats = [
+            'pending'  => MarketplaceReview::where('status', 'pending')->count(),
+            'approved' => MarketplaceReview::where('status', 'approved')->count(),
+            'rejected' => MarketplaceReview::where('status', 'rejected')->count(),
+        ];
+
+        return view('system.marketplace.reviews', compact('reviews', 'stats'));
+    }
+
+    public function approveReview($id)
+    {
+        $review = MarketplaceReview::findOrFail($id);
+        $review->update(['status' => 'approved', 'approved_at' => now(), 'rejection_reason' => null]);
+        MarketplaceReview::recalculateListingStats($review->listing_id);
+        return back()->with('ok', 'Review aprobada');
+    }
+
+    public function rejectReview(Request $request, $id)
+    {
+        $request->validate(['rejection_reason' => 'nullable|string|max:200']);
+        $review = MarketplaceReview::findOrFail($id);
+        $review->update([
+            'status' => 'rejected',
+            'approved_at' => null,
+            'rejection_reason' => $request->rejection_reason,
+        ]);
+        MarketplaceReview::recalculateListingStats($review->listing_id);
+        return back()->with('ok', 'Review rechazada');
     }
 
     /**

@@ -75,6 +75,9 @@
         .mp-verified-badge { display:inline-flex; align-items:center; gap:3px; background:#eff6ff; color:#1d4ed8; padding:2px 8px; border-radius:999px; font-size:10px; font-weight:700; border:1px solid #bfdbfe; }
         .mp-verified-badge svg { flex-shrink:0; }
         .mp-verified-inline { display:inline-flex; align-items:center; gap:4px; color:#1d4ed8; font-weight:600; font-size:13px; margin-left:6px; vertical-align:middle; }
+        /* Rating en card de listing */
+        .mp-card-rating { display:flex; align-items:center; gap:4px; font-size:13px; margin-top:3px; }
+        .mp-card-rating small { color:#64748b; font-size:11px; }
 
         .mp-empty { background:#fff; border-radius:12px; padding:60px 24px; text-align:center; color:#64748b; }
 
