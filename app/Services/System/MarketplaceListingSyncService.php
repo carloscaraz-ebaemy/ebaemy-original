@@ -138,9 +138,14 @@ class MarketplaceListingSyncService
     }
 
     /**
-     * Obtiene el nombre comercial y logo del tenant. Prioriza trade_name del
-     * registro Company; si no hay, usa el name; último fallback es el fqdn.
-     * Logo: se resuelve desde companies.logo, o desde configurations.logo.
+     * Obtiene el nombre comercial y logo del tenant. Prioridad:
+     *   1. companies.title_web (nombre SEO/web — el más cercano a la marca pública)
+     *   2. companies.name (razón social — en muchos tenants coincide con la marca)
+     *   3. companies.trade_name (último recurso — algunos tenants guardan aquí el
+     *      nombre personal del titular por mal llenado de datos)
+     *   4. $client->name → $fqdn (fallbacks externos a la BD del tenant)
+     *
+     * Logo: se resuelve desde companies.logo.
      */
     private function resolveTenantBranding(string $fqdn, Client $client): array
     {
@@ -150,7 +155,9 @@ class MarketplaceListingSyncService
         try {
             $company = DB::connection('tenant')->table('companies')->first();
             if ($company) {
-                $name = $company->trade_name ?: $company->name;
+                $name = ($company->title_web ?? null)
+                    ?: ($company->name ?? null)
+                    ?: ($company->trade_name ?? null);
                 $logoFile = $company->logo ?? null;
             }
         } catch (\Throwable $e) {
