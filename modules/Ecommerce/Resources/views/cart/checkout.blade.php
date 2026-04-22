@@ -25,6 +25,19 @@
     }
 @endphp
 
+{{-- ── HERO + TRUST BAR (estilo Saga Falabella) ─────────────────── --}}
+<div class="ec-hero-bar">
+    <div class="ec-hero-bar__title">
+        <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+        <span>Finalizar compra</span>
+    </div>
+    <div class="ec-hero-bar__badges">
+        <span class="ec-hero-badge"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg> Compra 100% segura</span>
+        <span class="ec-hero-badge"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg> Envío a todo el Perú</span>
+        <span class="ec-hero-badge"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg> Paga con tarjeta o al recibir</span>
+    </div>
+</div>
+
 {{-- ── STEPPER (Paso 2 activo) ─────────────────────────── --}}
 <div class="ec-checkout-stepper" aria-label="Pasos del proceso de compra">
     <div class="ec-step ec-step--done">
@@ -520,12 +533,200 @@
             </p>
         </div>
 
+        {{-- ── TRUST BADGES estilo Saga Falabella ─────────────────────── --}}
+        <div class="ec-trust-grid">
+            <div class="ec-trust-item">
+                <div class="ec-trust-item__icon" style="background:#ecfdf5;color:#059669">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><polyline points="9 12 11 14 15 10"/></svg>
+                </div>
+                <div class="ec-trust-item__body">
+                    <strong>Compra protegida</strong>
+                    <small>Tu información está encriptada</small>
+                </div>
+            </div>
+            <div class="ec-trust-item">
+                <div class="ec-trust-item__icon" style="background:#eff6ff;color:#2563eb">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
+                </div>
+                <div class="ec-trust-item__body">
+                    <strong>Entrega garantizada</strong>
+                    <small>Seguimiento en tiempo real</small>
+                </div>
+            </div>
+            <div class="ec-trust-item">
+                <div class="ec-trust-item__icon" style="background:#fef3c7;color:#d97706">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M3 21v-5h5"/></svg>
+                </div>
+                <div class="ec-trust-item__body">
+                    <strong>Cambios y devoluciones</strong>
+                    <small>Fácil y gratis</small>
+                </div>
+            </div>
+            <div class="ec-trust-item">
+                <div class="ec-trust-item__icon" style="background:#f3e8ff;color:#7c3aed">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+                </div>
+                <div class="ec-trust-item__body">
+                    <strong>Soporte al cliente</strong>
+                    <small>Te atendemos por WhatsApp</small>
+                </div>
+            </div>
+        </div>
+
+        {{-- Logos de tarjetas aceptadas --}}
+        <div class="ec-payment-logos">
+            <small>Aceptamos:</small>
+            <div class="ec-payment-logos__row">
+                <span class="ec-card-chip">VISA</span>
+                <span class="ec-card-chip">Mastercard</span>
+                <span class="ec-card-chip">AmEx</span>
+                <span class="ec-card-chip">Efectivo</span>
+                <span class="ec-card-chip">Transferencia</span>
+            </div>
+        </div>
+
     </div>
 </div>
 
 <input type="hidden" id="total_amount" data-total="0.0">
 
 @endsection
+
+@push('styles')
+<style>
+/* ═══ Hero bar estilo Saga Falabella ═══ */
+.ec-hero-bar {
+    background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+    color: #fff;
+    border-radius: 14px;
+    padding: 18px 24px;
+    margin-bottom: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+}
+.ec-hero-bar__title {
+    display: flex; align-items: center; gap: 10px;
+    font-size: 1.15rem; font-weight: 700;
+}
+.ec-hero-bar__badges {
+    display: flex; gap: 8px; flex-wrap: wrap;
+}
+.ec-hero-badge {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: rgba(255, 255, 255, .1);
+    border: 1px solid rgba(255, 255, 255, .2);
+    padding: 6px 12px;
+    border-radius: 999px;
+    font-size: 0.78rem;
+    font-weight: 500;
+}
+@media (max-width: 640px) {
+    .ec-hero-bar { padding: 14px 18px; flex-direction: column; align-items: flex-start; }
+    .ec-hero-bar__title { font-size: 1rem; }
+    .ec-hero-badge { font-size: 0.72rem; padding: 5px 10px; }
+}
+
+/* ═══ Trust badges grid ═══ */
+.ec-trust-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-top: 14px;
+    padding: 0 6px;
+}
+.ec-trust-item {
+    display: flex; gap: 10px;
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+    padding: 10px 12px;
+    align-items: flex-start;
+    transition: border-color .15s ease, transform .15s ease;
+}
+.ec-trust-item:hover { border-color: #cbd5e1; transform: translateY(-1px); }
+.ec-trust-item__icon {
+    flex-shrink: 0;
+    width: 36px; height: 36px;
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+}
+.ec-trust-item__body { display: flex; flex-direction: column; gap: 2px; }
+.ec-trust-item__body strong {
+    font-size: 0.78rem; color: #0f172a; font-weight: 600;
+    line-height: 1.2;
+}
+.ec-trust-item__body small {
+    font-size: 0.68rem; color: #64748b;
+    line-height: 1.2;
+}
+
+/* ═══ Payment logos footer ═══ */
+.ec-payment-logos {
+    margin-top: 14px;
+    padding: 14px 16px;
+    background: #f8fafc;
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+    text-align: center;
+}
+.ec-payment-logos small {
+    color: #64748b;
+    font-size: 0.72rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    display: block;
+    margin-bottom: 8px;
+}
+.ec-payment-logos__row {
+    display: flex; gap: 6px; justify-content: center; flex-wrap: wrap;
+}
+.ec-card-chip {
+    background: #fff;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    padding: 5px 10px;
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: #374151;
+}
+
+/* ═══ Refuerzos al botón CTA ═══ */
+.ec-pay-btn.ec-pay-btn--main {
+    font-size: 1.05rem !important;
+    padding: 16px 20px !important;
+    font-weight: 700 !important;
+    box-shadow: 0 6px 16px rgba(16, 185, 129, 0.25);
+    letter-spacing: 0.2px;
+}
+.ec-pay-btn.ec-pay-btn--card {
+    box-shadow: 0 6px 16px rgba(79, 70, 229, 0.25);
+}
+
+/* ═══ Resumen: thumbnails más visibles ═══ */
+.ec-co-item {
+    padding: 10px 0 !important;
+}
+.ec-co-item__img {
+    width: 56px !important; height: 56px !important;
+    border-radius: 8px !important;
+    overflow: hidden;
+    background: #f8fafc;
+    border: 1px solid #e5e7eb;
+}
+.ec-co-item__img img {
+    width: 100%; height: 100%;
+    object-fit: cover;
+}
+
+@media (max-width: 991px) {
+    .ec-trust-grid { grid-template-columns: 1fr; }
+}
+</style>
+@endpush
 
 @push('scripts')
 <script src="{{ asset('porto-ecommerce/assets/js/ubigeo-filter.js') }}"></script>
