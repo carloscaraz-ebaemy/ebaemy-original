@@ -1206,6 +1206,18 @@ class EcommerceController extends Controller
                 $earnedPoints   = $promo['points_earned'];
                 $finalTotal     = $promo['final_total'];
 
+                // ── Costo de envío server-side (no confiar en el cliente) ──
+                $shippingZoneId = $input['shipping_zone_id'] ?? null;
+                $shippingCost   = 0.0;
+                $shippingZone   = null;
+                if ($shippingZoneId) {
+                    $shippingZone = \App\Models\Tenant\ShippingZone::find($shippingZoneId);
+                    if ($shippingZone && $shippingZone->is_active) {
+                        $shippingCost = (float) $shippingZone->cost;
+                    }
+                }
+                $finalTotal += $shippingCost;
+
                 // Convertir a centavos para Culqi (si aplica) y comparar
                 $clientTotal = (float) (($input['precio_culqi'] ?? null) ?? 0);
                 $tolerance   = 0.10; // tolerancia de S/. 0.10 por redondeo
@@ -1291,6 +1303,9 @@ class EcommerceController extends Controller
                     'reference_payment' => 'efectivo',
                     'status_order_id'   => 1,
                     'purchase'          => $input['purchase'] ?? [],
+                    // Shipping — cost verificado server-side
+                    'shipping_cost'     => $shippingCost,
+                    'shipping_zone_id'  => $shippingZone?->id,
                     // Canal de venta + almacén
                     'channel_id'        => $ecomChannel->id,
                     'warehouse_id'      => $channelWarehouseId,
@@ -2034,6 +2049,38 @@ class EcommerceController extends Controller
         }
 
         return response()->json(['items' => $cart->items]);
+    }
+
+    /**
+     * Calcula el costo de envío según distrito o recojo en tienda.
+     * Devuelve la zona aplicable o la default como fallback.
+     */
+    public function calculateShipping(Request $request)
+    {
+        $districtId = $request->input('district_id');
+        $deliveryType = $request->input('delivery_type', 'delivery'); // delivery | pickup
+
+        $zone = \App\Models\Tenant\ShippingZone::resolveForDistrict(
+            $districtId,
+            $deliveryType === 'pickup'
+        );
+
+        if (!$zone) {
+            return response()->json([
+                'success' => false,
+                'message' => 'No hay zonas de envío configuradas',
+                'cost' => 0,
+            ]);
+        }
+
+        return response()->json([
+            'success'        => true,
+            'zone_id'        => $zone->id,
+            'zone_name'      => $zone->name,
+            'cost'           => (float) $zone->cost,
+            'estimated_days' => (int) $zone->estimated_days,
+            'is_pickup'      => (bool) $zone->is_pickup,
+        ]);
     }
 
     /**

@@ -98,6 +98,11 @@ Route::middleware(['locked.tenant', 'set.theme'])->prefix('ecommerce')->group(fu
     // Real-time stock validation for cart
     Route::post('stock-check',  'EcommerceController@stockCheck')->name('ecommerce.stock_check')->middleware('throttle:20,1');
 
+    // Shipping calculator — cost por distrito/pickup
+    Route::post('calculate-shipping', 'EcommerceController@calculateShipping')
+         ->name('ecommerce.calculate_shipping')
+         ->middleware('throttle:30,1');
+
     // Ubigeo autocomplete (cached, public)
     Route::get('ubigeo-search', 'EcommerceController@ubigeoSearch')->middleware('throttle:10,1');
 });

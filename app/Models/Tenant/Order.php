@@ -43,6 +43,9 @@
             'prepared_at',
             'dispatched_at',
             'delivered_at',
+            // Shipping calculator
+            'shipping_cost',
+            'shipping_zone_id',
         ];
 
         protected $casts = [

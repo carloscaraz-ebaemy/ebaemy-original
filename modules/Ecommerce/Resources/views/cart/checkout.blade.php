@@ -406,6 +406,16 @@
                     <span><span class="ec-coupon-tag" style="background:#fef3c7;color:#92400e;border-color:#fde68a;"><svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="#f59e0b"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>Puntos</span></span>
                     <span style="color:#16a34a;font-weight:700;">- S/ @{{ points.discount.toFixed(2) }}</span>
                 </div>
+                {{-- Costo de envío (se calcula cuando cambia distrito o tipo de entrega) --}}
+                <div class="ec-order-line" v-if="shipping.loaded">
+                    <span style="display:flex;align-items:center;gap:4px;">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
+                        Envío · @{{ shipping.zone_name }}
+                        <small v-if="shipping.estimated_days > 0" style="color:#64748b">(@{{ shipping.estimated_days }}d)</small>
+                    </span>
+                    <span v-if="shipping.cost > 0">S/ @{{ shipping.cost.toFixed(2) }}</span>
+                    <span v-else style="color:#16a34a;font-weight:700">Gratis</span>
+                </div>
             </div>
             <div class="ec-order-total">
                 <span>Total a pagar</span>
@@ -765,6 +775,14 @@
             points: { enabled: false, balance: 0, applied: false, discount: 0 },
             deliveryType: 'delivery', // delivery | pickup
             paymentMethod: 'cash', // cash | card | paypal
+            shipping: {
+                loaded: false,
+                zone_id: null,
+                zone_name: '',
+                cost: 0,
+                estimated_days: 0,
+                is_pickup: false,
+            },
             loading_payment: false,
             wantsInvoice: false, // comprobante fiscal opcional
             step: 1, // checkout wizard step (1-4)
@@ -803,7 +821,9 @@
                 var disc   = this.coupon.applied ? (this.coupon.discount || 0) : 0;
                 var auto   = this.autoDiscount.discount || 0;
                 var pdisc  = this.points.applied ? (this.points.discount || 0) : 0;
-                return Math.max(0, base - disc - auto - pdisc).toFixed(2);
+                var ship   = parseFloat(this.shipping.cost) || 0;
+                // El envío se suma al final (después de descuentos)
+                return Math.max(0, base - disc - auto - pdisc + ship).toFixed(2);
             },
             maxPointsToApply() {
                 var base = parseFloat(this.summary.total) || 0;
@@ -811,6 +831,15 @@
                 var auto = this.autoDiscount.discount || 0;
                 return Math.min(this.points.balance, Math.max(0, base - couponDisc - auto) * 0.5);
             }
+        },
+        watch: {
+            // Recalcula envío cuando cambia el distrito o tipo de entrega
+            'ubigeo.district_id'(newVal) {
+                if (this.deliveryType === 'delivery') this.calculateShipping();
+            },
+            deliveryType(newVal) {
+                this.calculateShipping();
+            },
         },
         async mounted() {
             // Cargar departamentos
@@ -964,6 +993,31 @@
                     this.ubigeo.districts = r.data;
                 } catch(e) {}
             },
+            async calculateShipping() {
+                // Consulta el costo de envío según el distrito o tipo de entrega.
+                // Se dispara desde watchers de district_id y deliveryType.
+                try {
+                    var r = await axios.post('/ecommerce/calculate-shipping', {
+                        district_id: this.ubigeo.district_id || null,
+                        delivery_type: this.deliveryType,
+                    });
+                    if (r.data && r.data.success) {
+                        this.shipping.loaded = true;
+                        this.shipping.zone_id = r.data.zone_id;
+                        this.shipping.zone_name = r.data.zone_name;
+                        this.shipping.cost = parseFloat(r.data.cost) || 0;
+                        this.shipping.estimated_days = r.data.estimated_days || 0;
+                        this.shipping.is_pickup = !!r.data.is_pickup;
+                    } else {
+                        this.shipping.loaded = false;
+                        this.shipping.cost = 0;
+                    }
+                } catch(e) {
+                    // Si falla el backend, no bloqueamos checkout — envío queda en 0
+                    this.shipping.loaded = false;
+                    this.shipping.cost = 0;
+                }
+            },
             async applyCoupon() {
                 var code = (this.coupon.code || '').trim().toUpperCase();
                 if (!code) return;
@@ -1036,6 +1090,8 @@
                     redeem_points: this.points.applied,
                     points_amount: this.points.applied ? this.points.discount : 0,
                     session_token: localStorage.getItem('ec_cart_token') || null,
+                    // Envío: el server revalida el costo consultando ShippingZone
+                    shipping_zone_id: this.shipping.zone_id,
                 };
             },
             showSwalMessage(title, text, type) {
