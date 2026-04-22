@@ -399,7 +399,17 @@ class ItemController extends Controller
         $existingImageMedium = $item->image_medium;
         $existingImageSmall  = $item->image_small;
 
+        // Snapshot del flag marketplace antes del fill() — si cambia con save(),
+        // disparamos sync al central para reflejarlo en marketplace_listings.
+        $mpPublishableBefore = (bool) $item->marketplace_publishable;
+
         $item->fill($request->all());
+
+        // Si el usuario activó marketplace_publishable pero no seteó mp_status,
+        // default a 'active' para que el sync no lo trate como rejected.
+        if ($item->marketplace_publishable && empty($item->mp_status)) {
+            $item->mp_status = 'active';
+        }
 
         $temp_path = $request->input('temp_path');
         if ($temp_path) {
@@ -738,6 +748,24 @@ class ItemController extends Controller
         if ($id) {
             Cache::forget("item_{$id}");
             Log::info('Caché eliminada para el ítem actualizado:', ['item_id' => $id]);
+        }
+
+        // Sync al marketplace central si el flag cambió o si está publicado.
+        // Si el usuario toggleó desde el form de edición, esto replica el efecto
+        // que hace marketplaceToggle() pero sin duplicar la lógica.
+        $mpPublishableAfter = (bool) $item->marketplace_publishable;
+        if ($mpPublishableAfter !== $mpPublishableBefore || $mpPublishableAfter) {
+            try {
+                $hostname = app(\Hyn\Tenancy\Contracts\CurrentHostname::class);
+                if ($hostname) {
+                    app(\App\Services\System\MarketplaceListingSyncService::class)
+                        ->syncItem($hostname->id, (int) $item->id);
+                }
+            } catch (\Throwable $e) {
+                \Log::warning('ItemController::store marketplace sync falló', [
+                    'item_id' => $item->id, 'error' => $e->getMessage(),
+                ]);
+            }
         }
 
         return [

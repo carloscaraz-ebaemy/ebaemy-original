@@ -220,6 +220,12 @@ class Item extends ModelTenant
         'quantity_of_points' => 'float',
         'restrict_sale_cpe' => 'boolean',
         'has_variants'      => 'boolean',
+        // Marketplace central — sin cast bool, MySQL TINYINT(1) llegaba como
+        // int al JSON y el-switch (strict ===) lo renderizaba OFF.
+        'apply_store'             => 'boolean',
+        'marketplace_publishable' => 'boolean',
+        'mp_price'                => 'float',
+        'mp_synced_at'            => 'datetime',
     ];
 
     /**
