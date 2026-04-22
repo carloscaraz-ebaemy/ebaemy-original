@@ -428,6 +428,7 @@ if ($hostname) {
             Route::post('items/upload', 'Tenant\ItemController@upload');
             Route::post('items/visible_store', 'Tenant\ItemController@visibleStore');
             Route::post('items/marketplace-toggle', 'Tenant\ItemController@marketplaceToggle');
+            Route::get('items/marketplace-stats',    'Tenant\ItemController@marketplaceStats');
             Route::post('items/duplicate', 'Tenant\ItemController@duplicate');
             Route::get('items/disable/{item}', 'Tenant\ItemController@disable');
             Route::post('items/disableMassive', 'Tenant\ItemController@disableMassive');
@@ -1104,8 +1105,9 @@ if ($hostname) {
         // ─── Marketplace público (ebaemy.com/marketplace) ────────────────────
         // Vitrina agregadora: productos de tenants opt-in. Redirige la compra
         // a un lead que se convierte en Order dentro del tenant.
-        Route::get('marketplace',                 'MarketplaceController@index')->name('marketplace.index');
-        Route::get('marketplace/item/{slug}',     'MarketplaceController@show')->name('marketplace.item');
+        Route::get('marketplace',                       'MarketplaceController@index')->name('marketplace.index');
+        Route::get('marketplace/categoria/{categorySlug}', 'MarketplaceController@category')->name('marketplace.category');
+        Route::get('marketplace/item/{slug}',           'MarketplaceController@show')->name('marketplace.item');
         Route::get('marketplace/go/{slug}',       'MarketplaceController@go')->name('marketplace.go');
         Route::post('marketplace/item/{slug}/solicitar', 'MarketplaceController@lead')
              ->middleware('throttle:10,1')

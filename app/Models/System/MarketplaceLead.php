@@ -34,11 +34,13 @@ class MarketplaceLead extends Model
         'sync_error',
         'source_ip',
         'source_ua',
+        'retry_count',
     ];
 
     protected $casts = [
         'snapshot_price' => 'float',
         'quantity'       => 'integer',
+        'retry_count'    => 'integer',
     ];
 
     public function listing()

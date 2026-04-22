@@ -43,6 +43,26 @@
                 </template>
             </div>
         </div>
+        <!-- ── Marketplace stats (solo si tenant tiene listings publicados) ── -->
+        <div v-if="mpStats.published > 0" class="mp-stats-card">
+            <div class="mp-stats-head">
+                <span class="mp-stats-title">🌐 Tus productos en <strong>ebaemy.com/marketplace</strong></span>
+                <a href="/items_ecommerce?published_mp=1" class="mp-stats-link">Ver todos</a>
+            </div>
+            <div class="mp-stats-grid">
+                <div class="mp-stat"><div class="mp-stat__n">{{ mpStats.published }}</div><div class="mp-stat__l">Publicados</div></div>
+                <div class="mp-stat"><div class="mp-stat__n">{{ mpStats.views }}</div><div class="mp-stat__l">Vistas totales</div></div>
+                <div class="mp-stat"><div class="mp-stat__n">{{ mpStats.clicks }}</div><div class="mp-stat__l">Clicks a tienda</div></div>
+                <div class="mp-stat mp-stat--hl"><div class="mp-stat__n">{{ mpStats.leads_30d }}</div><div class="mp-stat__l">Pedidos 30d</div></div>
+            </div>
+            <div v-if="mpStats.top && mpStats.top.length" class="mp-stats-top">
+                <span class="mp-stats-top__label">Más vistos:</span>
+                <span v-for="(t, i) in mpStats.top" :key="i" class="mp-stats-top__item">
+                    {{ t.title }} <small>({{ t.view_count }} vistas)</small>
+                </span>
+            </div>
+        </div>
+
         <div class="card tab-content-default row-new mb-0">
             <!-- <div class="card-header bg-info">
         <h3 class="my-0">Listado de productos Tienda Virtual</h3>
@@ -225,6 +245,30 @@
         }
     }
 }
+
+/* ── Marketplace stats card ─────────────────────────────────────────── */
+.mp-stats-card {
+    background: linear-gradient(135deg,#faf5ff 0%,#f3e8ff 100%);
+    border: 1px solid #e9d5ff;
+    border-radius: 12px;
+    padding: 14px 18px;
+    margin: 0 0 12px;
+}
+.mp-stats-head { display:flex; align-items:center; justify-content:space-between; margin-bottom:10px; }
+.mp-stats-title { font-size:14px; color:#6b21a8; }
+.mp-stats-link  { font-size:12px; color:#7e22ce; text-decoration:none; }
+.mp-stats-link:hover { text-decoration:underline; }
+.mp-stats-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:10px; }
+.mp-stat { background:#fff; border-radius:8px; padding:10px 12px; text-align:center; border:1px solid #f3e8ff; }
+.mp-stat__n { font-size:20px; font-weight:700; color:#111827; }
+.mp-stat__l { font-size:11px; color:#6b7280; margin-top:2px; text-transform:uppercase; letter-spacing:.3px; }
+.mp-stat--hl .mp-stat__n { color:#7e22ce; }
+.mp-stats-top { margin-top:10px; font-size:12px; color:#64748b; display:flex; gap:12px; flex-wrap:wrap; }
+.mp-stats-top__label { font-weight:600; }
+.mp-stats-top__item small { color:#9ca3af; }
+@media (max-width:680px) {
+    .mp-stats-grid { grid-template-columns:repeat(2,1fr); }
+}
 </style>
 <script>
 import ItemsForm from "./form.vue";
@@ -253,10 +297,13 @@ export default {
             },
             ecommerce: true,
             sortField: localStorage.getItem('itemSortField') || 'id',
-            sortDirection: localStorage.getItem('itemSortDirection') || 'desc'
+            sortDirection: localStorage.getItem('itemSortDirection') || 'desc',
+            mpStats: { published: 0, views: 0, clicks: 0, leads_total: 0, leads_30d: 0, top: [] }
         };
     },
-    created() {},
+    created() {
+        this.loadMarketplaceStats();
+    },
     methods: {
         handleSortChange(sort) {
             if (this.sortField === sort.field && this.sortDirection === 'desc' && sort.field === 'description') {
@@ -303,6 +350,8 @@ export default {
                         value
                             ? this.$message.success(response.data.message)
                             : this.$message.warning(response.data.message);
+                        // Recarga stats para reflejar el cambio sin refrescar la página
+                        this.loadMarketplaceStats();
                     } else {
                         this.$message.error(response.data.message || 'No se pudo actualizar');
                     }
@@ -310,6 +359,12 @@ export default {
                 .catch(() => {
                     this.$message.error('Error al actualizar marketplace');
                 });
+        },
+        loadMarketplaceStats() {
+            this.$http
+                .get(`/items/marketplace-stats`)
+                .then(r => { if (r.data) this.mpStats = r.data; })
+                .catch(() => { /* stats opcionales; si fallan, el card queda oculto */ });
         },
         clickWarehouseDetail(warehouses) {
             this.warehousesDetail = warehouses;

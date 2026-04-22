@@ -94,6 +94,14 @@ class Kernel extends ConsoleKernel
                  ->withoutOverlapping()
                  ->appendOutputTo(storage_path('logs/ebaemy_marketplace_sync.log'));
 
+        // Reintenta leads del marketplace central que quedaron failed/new
+        // por fallos transitorios (tenant temporalmente down, timeout, etc.).
+        // Backoff: solo toca leads con 2+ min de antigüedad; auto-archiva tras 5 intentos.
+        $schedule->command('marketplace:retry-failed-leads')
+                 ->everyFifteenMinutes()
+                 ->withoutOverlapping()
+                 ->appendOutputTo(storage_path('logs/marketplace_retry_leads.log'));
+
         $schedule->command('marketplace:sync orders')
                  ->everyFifteenMinutes()
                  ->withoutOverlapping()

@@ -20,17 +20,28 @@ class MarketplaceController extends Controller
         $q        = $request->input('q');
         $category = $request->input('category');
         $sort     = $request->input('sort', 'relevance');
+        // Filtros de precio — usa el campo efectivo (mp_price ?? price).
+        $priceMin = $request->filled('price_min') ? max(0, (float) $request->input('price_min')) : null;
+        $priceMax = $request->filled('price_max') ? max(0, (float) $request->input('price_max')) : null;
 
         $query = MarketplaceListing::published()
             ->search($q)
             ->category($category);
 
+        // COALESCE(mp_price, price) → precio efectivo mostrado al usuario
+        if ($priceMin !== null) {
+            $query->whereRaw('COALESCE(mp_price, price) >= ?', [$priceMin]);
+        }
+        if ($priceMax !== null) {
+            $query->whereRaw('COALESCE(mp_price, price) <= ?', [$priceMax]);
+        }
+
         switch ($sort) {
             case 'price_asc':
-                $query->orderBy('mp_price')->orderBy('price');
+                $query->orderByRaw('COALESCE(mp_price, price) ASC');
                 break;
             case 'price_desc':
-                $query->orderByDesc('mp_price')->orderByDesc('price');
+                $query->orderByRaw('COALESCE(mp_price, price) DESC');
                 break;
             case 'newest':
                 $query->orderByDesc('created_at');
@@ -48,12 +59,58 @@ class MarketplaceController extends Controller
             ->limit(40)
             ->pluck('category_name');
 
-        return view('marketplace.index', compact('listings', 'categories', 'q', 'category', 'sort'));
+        return view('marketplace.index', compact('listings', 'categories', 'q', 'category', 'sort', 'priceMin', 'priceMax'));
+    }
+
+    /**
+     * Página de categoría con SEO propio: URL canónica distinta a /marketplace?category=X,
+     * meta tags específicos, JSON-LD BreadcrumbList. Listado filtrado por categoría.
+     * Usa el mismo scope published y sorting del index.
+     */
+    public function category(Request $request, string $categorySlug)
+    {
+        // El slug es URL-friendly; recuperamos el category_name real buscando por
+        // Str::slug(category_name) === $categorySlug sobre categorías publicadas.
+        $category = MarketplaceListing::published()
+            ->whereNotNull('category_name')
+            ->get(['category_name'])
+            ->pluck('category_name')
+            ->unique()
+            ->first(fn($c) => \Illuminate\Support\Str::slug($c) === $categorySlug);
+
+        if (!$category) {
+            abort(404);
+        }
+
+        $sort     = $request->input('sort', 'relevance');
+        $priceMin = $request->filled('price_min') ? max(0, (float) $request->input('price_min')) : null;
+        $priceMax = $request->filled('price_max') ? max(0, (float) $request->input('price_max')) : null;
+
+        $query = MarketplaceListing::published()->where('category_name', $category);
+
+        if ($priceMin !== null) $query->whereRaw('COALESCE(mp_price, price) >= ?', [$priceMin]);
+        if ($priceMax !== null) $query->whereRaw('COALESCE(mp_price, price) <= ?', [$priceMax]);
+
+        switch ($sort) {
+            case 'price_asc':  $query->orderByRaw('COALESCE(mp_price, price) ASC');  break;
+            case 'price_desc': $query->orderByRaw('COALESCE(mp_price, price) DESC'); break;
+            case 'newest':     $query->orderByDesc('created_at');                    break;
+            default:           $query->orderByDesc('sort_score')->orderByDesc('view_count');
+        }
+
+        $listings = $query->paginate(24)->withQueryString();
+        $total    = MarketplaceListing::published()->where('category_name', $category)->count();
+
+        return view('marketplace.category', compact('listings', 'category', 'categorySlug', 'sort', 'priceMin', 'priceMax', 'total'));
     }
 
     public function show(string $slug)
     {
-        $listing = MarketplaceListing::where('slug', $slug)->firstOrFail();
+        // Solo listings publicados (activos, con stock). Los pausados/rechazados
+        // devuelven 404 para no exponer productos retirados en búsquedas Google.
+        $listing = MarketplaceListing::published()
+            ->where('slug', $slug)
+            ->firstOrFail();
 
         // Pageview — se incrementa asíncronamente para no ralentizar render
         MarketplaceListing::where('id', $listing->id)->increment('view_count');
@@ -73,13 +130,23 @@ class MarketplaceController extends Controller
      */
     public function lead(Request $request, string $slug, MarketplaceOrderDispatcher $dispatcher)
     {
-        $listing = MarketplaceListing::where('slug', $slug)->firstOrFail();
+        // Solo acepta leads sobre listings publicados — evita crear órdenes
+        // a partir de productos que el admin ya retiró/pausó.
+        $listing = MarketplaceListing::published()
+            ->where('slug', $slug)
+            ->firstOrFail();
+
+        // Honeypot anti-bot: si el campo `website` trae contenido, es un bot.
+        // Respondemos 200 falso (para no dar pistas) sin crear lead.
+        if (trim((string) $request->input('website')) !== '') {
+            return redirect()->route('marketplace.thanks', ['slug' => $slug]);
+        }
 
         $data = $request->validate([
             'customer_name'  => 'required|string|max:180',
             'customer_phone' => 'nullable|string|max:40',
             'customer_email' => 'nullable|email|max:180',
-            'quantity'       => 'nullable|integer|min:1|max:999',
+            'quantity'       => ['nullable', 'integer', 'min:1', 'max:' . max(1, (int) $listing->stock)],
             'message'        => 'nullable|string|max:1000',
         ]);
 
@@ -106,13 +173,18 @@ class MarketplaceController extends Controller
 
         return redirect()
             ->route('marketplace.thanks', ['slug' => $slug])
-            ->with('lead_id', $lead->id);
+            ->with('lead_id', $lead->id)
+            // dispatchLead() ya persistió el status en $lead, no recargamos de BD
+            ->with('lead_status', $lead->status);
     }
 
     public function thanks(string $slug)
     {
+        // En thanks se muestra incluso el listing pausado — el visitante llegó
+        // acá desde su propio POST, no vale la pena ocultar la ficha de su compra.
         $listing = MarketplaceListing::where('slug', $slug)->firstOrFail();
-        return view('marketplace.thanks', compact('listing'));
+        $leadStatus = session('lead_status');
+        return view('marketplace.thanks', compact('listing', 'leadStatus'));
     }
 
     /**
@@ -122,7 +194,11 @@ class MarketplaceController extends Controller
      */
     public function go(string $slug)
     {
-        $listing = MarketplaceListing::where('slug', $slug)->firstOrFail();
+        // Solo redirige si el listing sigue publicado. Evita deep-links viejos
+        // llevando a tenants que ya pausaron la venta en el marketplace.
+        $listing = MarketplaceListing::published()
+            ->where('slug', $slug)
+            ->firstOrFail();
 
         MarketplaceListing::where('id', $listing->id)->increment('click_count');
 
@@ -141,11 +217,27 @@ class MarketplaceController extends Controller
             ->limit(40000) // límite seguro, sitemap máx 50k
             ->get(['slug', 'updated_at', 'image_url', 'title']);
 
+        // Categorías publicadas — cada una expone una página canónica con SEO propio
+        $categories = MarketplaceListing::published()
+            ->whereNotNull('category_name')
+            ->select('category_name')
+            ->groupBy('category_name')
+            ->pluck('category_name');
+
         $xml  = '<?xml version="1.0" encoding="UTF-8"?>' . "\n";
         $xml .= '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" '
               . 'xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">' . "\n";
 
         $xml .= $this->sitemapUrl(url('/marketplace'), now(), '1.0', 'daily');
+
+        foreach ($categories as $cat) {
+            $xml .= $this->sitemapUrl(
+                url('/marketplace/categoria/' . \Illuminate\Support\Str::slug($cat)),
+                now(),
+                '0.7',
+                'daily'
+            );
+        }
 
         foreach ($listings as $l) {
             $loc     = url('/marketplace/item/' . $l->slug);

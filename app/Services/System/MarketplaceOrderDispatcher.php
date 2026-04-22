@@ -100,6 +100,30 @@ class MarketplaceOrderDispatcher
                 'order_id' => $orderId,
             ]);
 
+            // Notificación WhatsApp al dueño de la tienda — SE HACE AQUÍ (con
+            // conexión tenant activa) para que WhatsAppService lea el driver
+            // configurado por el tenant y el vendorPhone de configuration_ecommerce.
+            // Usamos `new` en lugar de app() para forzar una instancia fresca
+            // en cada iteración del command retry-failed-leads (el container
+            // puede cachear instancias entre llamadas dentro del mismo proceso).
+            // Non-blocking: si falla, la Order ya está creada.
+            try {
+                (new \App\Services\Tenant\WhatsAppService())
+                    ->notifyAdminMarketplaceOrder(
+                        $lead->customer_name,
+                        (string) $orderId,
+                        (float) $total,
+                        (string) $listing->title,
+                        (int) $qty,
+                        $lead->customer_phone
+                    );
+            } catch (\Throwable $e) {
+                Log::warning('marketplace WhatsApp notification failed', [
+                    'lead_id' => $lead->id,
+                    'error'   => $e->getMessage(),
+                ]);
+            }
+
             // Volver al central para guardar estado
             $tenancy->tenant(null);
 
@@ -130,8 +154,10 @@ class MarketplaceOrderDispatcher
 
     /**
      * Avisa al dueño del tenant por email que llegó un nuevo pedido desde el
-     * marketplace central. Si el SMTP del tenant está mal configurado o falla,
-     * solo se loggea — la Order ya quedó creada y es lo crítico.
+     * marketplace central. El envío usa la configuración SMTP del central
+     * (landlord) — en este punto del flujo ya se retornó a la conexión base
+     * con $tenancy->tenant(null). Si Mail falla, solo se loggea: la Order
+     * ya quedó creada en el tenant y es lo crítico.
      */
     protected function notifyTenant(Client $client, MarketplaceLead $lead, MarketplaceListing $listing, string $externalId): void
     {
@@ -183,7 +209,8 @@ class MarketplaceOrderDispatcher
             $safeSubject = mb_substr($safeSubject, 0, 100);
 
             Mail::send([], [], function ($message) use ($to, $safeSubject, $html) {
-                $message->to($to)->subject($safeSubject)->setBody($html, 'text/html');
+                // html() es la API vigente en Symfony Mailer (Laravel 9+); setBody() está deprecated
+                $message->to($to)->subject($safeSubject)->html($html);
             });
 
             Log::info('marketplace lead notification sent', [

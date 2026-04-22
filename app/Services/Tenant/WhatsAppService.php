@@ -136,6 +136,31 @@ class WhatsAppService
         return $this->send($this->vendorPhone, $msg, 'order_admin', (int) $orderId);
     }
 
+    /**
+     * Notifica al dueño de la tienda que llegó un pedido desde el marketplace
+     * central (ebaemy.com/marketplace). Distingue del flujo de tienda propia
+     * para que el tenant sepa inmediatamente que debe revisar el canal MKP01.
+     * Usa $vendorPhone configurado en configuration_ecommerce.phone_whatsapp.
+     */
+    public function notifyAdminMarketplaceOrder(string $clientName, string $orderId, float $total, string $productTitle, int $quantity, ?string $customerPhone = null): bool
+    {
+        if (!$this->vendorPhone) return false;
+
+        $msg = "🌐 *PEDIDO DESDE MARKETPLACE EBAEMY #{$orderId}*\n\n"
+             . "👤 Cliente: *{$clientName}*\n"
+             . "🛒 Producto: *{$productTitle}*\n"
+             . "📦 Cantidad: {$quantity}\n"
+             . "💰 Total: *S/ " . number_format($total, 2) . "*\n";
+
+        if ($customerPhone) {
+            $msg .= "📱 Contacto: {$customerPhone}\n";
+        }
+
+        $msg .= "\nRevisa el pedido en tu panel y coordina con el cliente.";
+
+        return $this->send($this->vendorPhone, $msg, 'order_marketplace', (int) $orderId);
+    }
+
     public function notifyClientOrderDispatched(string $phone, string $name, string $orderId, ?string $tracking = null): bool
     {
         $msg = "¡Hola {$name}! 📦\n\n"

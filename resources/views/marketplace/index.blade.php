@@ -14,18 +14,30 @@
         </p>
     </section>
 
+    @php
+        // Query base conservada entre chips de categoría
+        $baseQs = array_filter([
+            'q'         => $q,
+            'sort'      => $sort,
+            'price_min' => $priceMin,
+            'price_max' => $priceMax,
+        ], fn($v) => $v !== null && $v !== '');
+    @endphp
+
     <div class="mp-filters">
-        <a href="{{ route('marketplace.index', array_filter(['q' => $q, 'sort' => $sort])) }}"
+        <a href="{{ route('marketplace.index', $baseQs) }}"
            class="mp-chip {{ !$category ? 'mp-chip--active' : '' }}">Todas</a>
 
         @foreach($categories as $cat)
-            <a href="{{ route('marketplace.index', array_filter(['q' => $q, 'category' => $cat, 'sort' => $sort])) }}"
+            <a href="{{ route('marketplace.index', array_merge($baseQs, ['category' => $cat])) }}"
                class="mp-chip {{ $category === $cat ? 'mp-chip--active' : '' }}">{{ $cat }}</a>
         @endforeach
 
         <form method="GET" action="{{ route('marketplace.index') }}" class="mp-sort-form" style="margin-left:auto">
             @if($q) <input type="hidden" name="q" value="{{ $q }}"> @endif
             @if($category) <input type="hidden" name="category" value="{{ $category }}"> @endif
+            @if($priceMin !== null) <input type="hidden" name="price_min" value="{{ $priceMin }}"> @endif
+            @if($priceMax !== null) <input type="hidden" name="price_max" value="{{ $priceMax }}"> @endif
             <select name="sort" class="mp-sort" onchange="this.form.submit()">
                 <option value="relevance" {{ $sort === 'relevance' ? 'selected' : '' }}>Relevancia</option>
                 <option value="price_asc" {{ $sort === 'price_asc' ? 'selected' : '' }}>Precio: menor a mayor</option>
@@ -34,6 +46,28 @@
             </select>
         </form>
     </div>
+
+    <form method="GET" action="{{ route('marketplace.index') }}" class="mp-price-form"
+          style="display:flex;gap:8px;align-items:center;margin:10px 0 18px;flex-wrap:wrap">
+        @if($q) <input type="hidden" name="q" value="{{ $q }}"> @endif
+        @if($category) <input type="hidden" name="category" value="{{ $category }}"> @endif
+        @if($sort && $sort !== 'relevance') <input type="hidden" name="sort" value="{{ $sort }}"> @endif
+        <span style="font-size:13px;color:#64748b">Precio:</span>
+        <input type="number" name="price_min" min="0" step="0.01" placeholder="Desde S/"
+               value="{{ $priceMin !== null ? $priceMin : '' }}"
+               style="width:120px;padding:8px 10px;border:1px solid #d1d5db;border-radius:8px;font-size:13px">
+        <input type="number" name="price_max" min="0" step="0.01" placeholder="Hasta S/"
+               value="{{ $priceMax !== null ? $priceMax : '' }}"
+               style="width:120px;padding:8px 10px;border:1px solid #d1d5db;border-radius:8px;font-size:13px">
+        <button type="submit"
+                style="background:#111;color:#fff;border:none;padding:8px 16px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer">
+            Aplicar
+        </button>
+        @if($priceMin !== null || $priceMax !== null)
+            <a href="{{ route('marketplace.index', array_filter(['q' => $q, 'category' => $category, 'sort' => $sort])) }}"
+               style="font-size:13px;color:#6366f1;text-decoration:none">Limpiar</a>
+        @endif
+    </form>
 
     @if($listings->isEmpty())
         <div class="mp-empty">

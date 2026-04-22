@@ -36,7 +36,7 @@
     "itemListElement": [
         { "@type": "ListItem", "position": 1, "name": "Marketplace", "item": @json(route('marketplace.index')) },
         @if($listing->category_name)
-        { "@type": "ListItem", "position": 2, "name": @json($listing->category_name), "item": @json(route('marketplace.index', ['category' => $listing->category_name])) },
+        { "@type": "ListItem", "position": 2, "name": @json($listing->category_name), "item": @json(route('marketplace.category', \Illuminate\Support\Str::slug($listing->category_name))) },
         { "@type": "ListItem", "position": 3, "name": @json($listing->title) }
         @else
         { "@type": "ListItem", "position": 2, "name": @json($listing->title) }
@@ -107,7 +107,10 @@
             <h1>{{ $listing->title }}</h1>
 
             <div class="mp-meta">
-                @if($listing->category_name) <span>📂 {{ $listing->category_name }}</span> @endif
+                @if($listing->category_name)
+                    <span>📂 <a href="{{ route('marketplace.category', \Illuminate\Support\Str::slug($listing->category_name)) }}"
+                                style="color:#6366f1;text-decoration:none">{{ $listing->category_name }}</a></span>
+                @endif
                 @if($listing->brand_name)    <span>🏷️ {{ $listing->brand_name }}</span> @endif
                 @if($listing->internal_id)   <span>🔖 SKU: {{ $listing->internal_id }}</span> @endif
             </div>
@@ -140,6 +143,10 @@
 
             <form method="POST" action="{{ route('marketplace.lead', $listing->slug) }}" class="mp-lead-form">
                 @csrf
+                {{-- Honeypot: humanos no lo ven, bots lo llenan y son rechazados. --}}
+                <input type="text" name="website" tabindex="-1" autocomplete="off"
+                       style="position:absolute;left:-9999px;width:1px;height:1px;opacity:0"
+                       aria-hidden="true">
                 <div>
                     <label>Nombre completo *</label>
                     <input type="text" name="customer_name" value="{{ old('customer_name') }}" required maxlength="180">

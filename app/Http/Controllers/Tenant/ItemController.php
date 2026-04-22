@@ -1146,6 +1146,51 @@ class ItemController extends Controller
         ];
     }
 
+    /**
+     * KPIs agregados de los listings del tenant en ebaemy.com/marketplace.
+     * Consulta la BD central (MarketplaceListing usa UsesSystemConnection) filtrada
+     * por hostname_id del tenant activo. Si no hay listings, devuelve ceros.
+     */
+    public function marketplaceStats()
+    {
+        $hostname = app(\Hyn\Tenancy\Contracts\CurrentHostname::class);
+        if (!$hostname) {
+            return [
+                'published' => 0, 'views' => 0, 'clicks' => 0,
+                'leads_30d' => 0, 'leads_total' => 0, 'top' => [],
+            ];
+        }
+
+        $hostnameId = $hostname->id;
+        $row = \App\Models\System\MarketplaceListing::where('hostname_id', $hostnameId)
+            ->selectRaw('
+                SUM(CASE WHEN is_active=1 AND status=\'active\' THEN 1 ELSE 0 END) as published,
+                COALESCE(SUM(view_count), 0)  as views,
+                COALESCE(SUM(click_count), 0) as clicks,
+                COALESCE(SUM(lead_count), 0)  as leads_total
+            ')
+            ->first();
+
+        $leads30d = \App\Models\System\MarketplaceLead::where('hostname_id', $hostnameId)
+            ->where('created_at', '>=', now()->subDays(30))
+            ->count();
+
+        $top = \App\Models\System\MarketplaceListing::where('hostname_id', $hostnameId)
+            ->where('is_active', true)
+            ->orderByDesc('click_count')
+            ->limit(3)
+            ->get(['title', 'view_count', 'click_count', 'lead_count']);
+
+        return [
+            'published'   => (int) ($row->published ?? 0),
+            'views'       => (int) ($row->views ?? 0),
+            'clicks'      => (int) ($row->clicks ?? 0),
+            'leads_total' => (int) ($row->leads_total ?? 0),
+            'leads_30d'   => $leads30d,
+            'top'         => $top,
+        ];
+    }
+
     public function duplicate(Request $request)
     {
         // return $request->id;
