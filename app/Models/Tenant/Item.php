@@ -1550,6 +1550,10 @@ class Item extends ModelTenant
             'is_for_production'=>$this->isIsForProduction(),
             'supplies' => $itemSupply,
             'has_variants' => (bool) $this->has_variants,
+            // Marketplace central (ebaemy.com) — toggle + precio alterno
+            'marketplace_publishable' => (bool) ($this->marketplace_publishable ?? false),
+            'mp_price'   => $this->mp_price,
+            'mp_status'  => $this->mp_status,
 
         ];
     }
