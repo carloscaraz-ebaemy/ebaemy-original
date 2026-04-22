@@ -1,31 +1,40 @@
 @extends('marketplace.layout')
 
+@php
+    // Pre-calculamos expresiones para evitar el parser bug de @json() con
+    // argumentos que tienen comas anidadas (ver show.blade.php).
+    $categoryUrl = route('marketplace.category', $categorySlug);
+    $indexUrl    = route('marketplace.index');
+    $breadcrumb = [
+        '@context' => 'https://schema.org',
+        '@type'    => 'BreadcrumbList',
+        'itemListElement' => [
+            ['@type' => 'ListItem', 'position' => 1, 'name' => 'Marketplace', 'item' => $indexUrl],
+            ['@type' => 'ListItem', 'position' => 2, 'name' => $category],
+        ],
+    ];
+    $collectionPage = [
+        '@context' => 'https://schema.org',
+        '@type' => 'CollectionPage',
+        'name' => $category . ' — Marketplace ebaemy',
+        'url'  => $categoryUrl,
+        'numberOfItems' => (int) $total,
+    ];
+@endphp
+
 @section('title', $category . ' — Marketplace ebaemy')
 @section('description', 'Explora productos de la categoría ' . $category . ' de tiendas peruanas en ebaemy. ' . $total . ' producto(s) disponibles.')
 @section('keywords', $category . ', marketplace, tiendas, ebaemy, Perú')
 @section('og_title', $category . ' en Marketplace ebaemy')
 @section('og_description', $total . ' productos de la categoría ' . $category . ' en ebaemy.com.')
-@section('canonical', route('marketplace.category', $categorySlug))
+@section('canonical', $categoryUrl)
 
 @push('styles')
 <script type="application/ld+json">
-{
-    "@context": "https://schema.org",
-    "@type": "BreadcrumbList",
-    "itemListElement": [
-        { "@type": "ListItem", "position": 1, "name": "Marketplace", "item": @json(route('marketplace.index')) },
-        { "@type": "ListItem", "position": 2, "name": @json($category) }
-    ]
-}
+{!! json_encode($breadcrumb, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) !!}
 </script>
 <script type="application/ld+json">
-{
-    "@context": "https://schema.org",
-    "@type": "CollectionPage",
-    "name": @json($category . ' — Marketplace ebaemy'),
-    "url": @json(route('marketplace.category', $categorySlug)),
-    "numberOfItems": {{ (int) $total }}
-}
+{!! json_encode($collectionPage, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) !!}
 </script>
 @endpush
 

@@ -1,48 +1,72 @@
 @extends('marketplace.layout')
 
-@section('title', $listing->title . ' — ' . $listing->seller_display . ' | Marketplace ebaemy')
-@section('description', \Illuminate\Support\Str::limit(strip_tags($listing->description ?? $listing->title), 155))
-@section('keywords', $listing->title . ', ' . ($listing->category_name ?? '') . ', ' . $listing->seller_display . ', marketplace ebaemy')
+@php
+    // Pre-calculamos todas las expresiones complejas. Blade's @json() parsea
+    // argumentos con explode(',') ingenuamente y se rompe cuando hay comas
+    // dentro de route(), Str::limit(), ternarios, etc. — genera PHP inválido
+    // con ParseError. Usamos variables planas y json_encode() directo.
+    $seoTitle       = $listing->title . ' — ' . $listing->seller_display . ' | Marketplace ebaemy';
+    $seoDescription = \Illuminate\Support\Str::limit(strip_tags($listing->description ?? $listing->title), 155);
+    $seoKeywords    = $listing->title . ', ' . ($listing->category_name ?? '') . ', ' . $listing->seller_display . ', marketplace ebaemy';
+    $seoImage       = $listing->image_url ?: asset('logo/logo.png');
+    $canonical      = route('marketplace.item', $listing->slug);
+    $ldDescription  = \Illuminate\Support\Str::limit(strip_tags($listing->description ?? $listing->title), 500);
+    $ldUrl          = route('marketplace.item', $listing->slug);
+    $ldPrice        = number_format($listing->display_price, 2, '.', '');
+    $ldAvailability = $listing->stock > 0 ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock';
+    $ldSellerUrl    = 'https://' . $listing->tenant_fqdn;
+    $bcIndexUrl     = route('marketplace.index');
+    $bcCategoryUrl  = $listing->category_name ? route('marketplace.category', \Illuminate\Support\Str::slug($listing->category_name)) : null;
+
+    $product = [
+        '@context'    => 'https://schema.org/',
+        '@type'       => 'Product',
+        'name'        => $listing->title,
+        'image'       => $seoImage,
+        'description' => $ldDescription,
+        'offers'      => [
+            '@type'         => 'Offer',
+            'url'           => $ldUrl,
+            'priceCurrency' => 'PEN',
+            'price'         => $ldPrice,
+            'availability'  => $ldAvailability,
+            'seller'        => [
+                '@type' => 'Organization',
+                'name'  => $listing->seller_display,
+                'url'   => $ldSellerUrl,
+            ],
+        ],
+    ];
+    if ($listing->brand_name) $product['brand'] = ['@type' => 'Brand', 'name' => $listing->brand_name];
+    if ($listing->internal_id) $product['sku'] = $listing->internal_id;
+
+    $breadcrumbItems = [
+        ['@type' => 'ListItem', 'position' => 1, 'name' => 'Marketplace', 'item' => $bcIndexUrl],
+    ];
+    if ($listing->category_name) {
+        $breadcrumbItems[] = ['@type' => 'ListItem', 'position' => 2, 'name' => $listing->category_name, 'item' => $bcCategoryUrl];
+        $breadcrumbItems[] = ['@type' => 'ListItem', 'position' => 3, 'name' => $listing->title];
+    } else {
+        $breadcrumbItems[] = ['@type' => 'ListItem', 'position' => 2, 'name' => $listing->title];
+    }
+    $breadcrumb = ['@context' => 'https://schema.org', '@type' => 'BreadcrumbList', 'itemListElement' => $breadcrumbItems];
+@endphp
+
+@section('title', $seoTitle)
+@section('description', $seoDescription)
+@section('keywords', $seoKeywords)
 @section('og_title', $listing->title)
-@section('og_description', \Illuminate\Support\Str::limit(strip_tags($listing->description ?? $listing->title), 155))
-@section('og_image', $listing->image_url ?: asset('logo/logo.png'))
+@section('og_description', $seoDescription)
+@section('og_image', $seoImage)
 @section('og_type', 'product')
-@section('canonical', route('marketplace.item', $listing->slug))
+@section('canonical', $canonical)
 
 @push('styles')
 <script type="application/ld+json">
-{
-    "@context": "https://schema.org/",
-    "@type": "Product",
-    "name": @json($listing->title),
-    "image": @json($listing->image_url ?: asset('logo/logo.png')),
-    "description": @json(\Illuminate\Support\Str::limit(strip_tags($listing->description ?? $listing->title), 500)),
-    @if($listing->brand_name) "brand": { "@type": "Brand", "name": @json($listing->brand_name) }, @endif
-    @if($listing->internal_id) "sku": @json($listing->internal_id), @endif
-    "offers": {
-        "@type": "Offer",
-        "url": @json(route('marketplace.item', $listing->slug)),
-        "priceCurrency": "PEN",
-        "price": @json(number_format($listing->display_price, 2, '.', '')),
-        "availability": @json($listing->stock > 0 ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock'),
-        "seller": { "@type": "Organization", "name": @json($listing->seller_display), "url": @json('https://' . $listing->tenant_fqdn) }
-    }
-}
+{!! json_encode($product, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) !!}
 </script>
 <script type="application/ld+json">
-{
-    "@context": "https://schema.org",
-    "@type": "BreadcrumbList",
-    "itemListElement": [
-        { "@type": "ListItem", "position": 1, "name": "Marketplace", "item": @json(route('marketplace.index')) },
-        @if($listing->category_name)
-        { "@type": "ListItem", "position": 2, "name": @json($listing->category_name), "item": @json(route('marketplace.category', \Illuminate\Support\Str::slug($listing->category_name))) },
-        { "@type": "ListItem", "position": 3, "name": @json($listing->title) }
-        @else
-        { "@type": "ListItem", "position": 2, "name": @json($listing->title) }
-        @endif
-    ]
-}
+{!! json_encode($breadcrumb, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) !!}
 </script>
 @endpush
 
