@@ -41,4 +41,12 @@ return [
         'redirect'      => env('GOOGLE_REDIRECT_URI', '/ecommerce/auth/google/callback'),
     ],
 
+    // Validación de RUC contra SUNAT (usado por RucValidationService).
+    // Sin url configurada, el service solo valida formato y marca las
+    // solicitudes como requires_manual_review. Provider sugerido: apis.net.pe.
+    'ruc_validation' => [
+        'url'   => env('RUC_VALIDATION_API_URL'),
+        'token' => env('RUC_VALIDATION_API_TOKEN'),
+    ],
+
 ];
