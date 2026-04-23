@@ -1139,6 +1139,13 @@ if ($hostname) {
         Route::get('sitemap-marketplace.xml',     'MarketplaceController@sitemap')->name('marketplace.sitemap');
         Route::get('robots.txt',                  'MarketplaceController@robots')->name('marketplace.robots');
 
+        // ─── Onboarding de sellers (captación pública) ───────────────────────
+        // Landing para vendedores — reemplaza el botón "Vender en ebaemy" del
+        // marketplace que antes apuntaba erróneamente al login del SuperAdmin.
+        // Formulario de pre-registro y portal de seguimiento se agregan en
+        // fases posteriores (ver plan de onboarding de sellers).
+        Route::get('seller', 'SellerLandingController@show')->name('seller.landing');
+
         // Root del central: visitantes caen al marketplace; admins logueados
         // ven su dashboard (HomeController lo maneja internamente vía auth).
         Route::get('/', function () {

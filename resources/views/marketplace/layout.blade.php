@@ -108,8 +108,8 @@
             <input type="search" name="q" value="{{ $q ?? '' }}" placeholder="Busca productos, tiendas, categorías…">
         </form>
         <div class="mp-nav-right">
-            <a href="{{ url('/login') }}">Ingresar</a>
-            <a href="{{ url('/login') }}" class="mp-btn-login">Vender en ebaemy</a>
+            <a href="{{ route('seller.landing') }}">Ingresar a mi tienda</a>
+            <a href="{{ route('seller.landing') }}" class="mp-btn-login">Vender en ebaemy</a>
         </div>
     </header>
 
@@ -120,7 +120,7 @@
     <footer class="mp-footer">
         <div>© {{ date('Y') }} ebaemy — Todas las tiendas, un solo lugar.</div>
         <div style="margin-top:6px">
-            <a href="{{ url('/login') }}">Panel de administración</a>
+            <a href="{{ route('seller.landing') }}">¿Quieres vender?</a>
             ·
             <a href="{{ url('/guest-register') }}">Crear cuenta</a>
         </div>

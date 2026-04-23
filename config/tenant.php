@@ -53,7 +53,14 @@ return [
 
     // ── Theme & Domain System ──────────────────────────
     'base_domain'                => env('TENANT_BASE_DOMAIN', 'ebaemy.test'),
-    'excluded_subdomains'        => ['admin', 'api', 'www', 'mail', 'ftp'],
+    'excluded_subdomains'        => [
+        'admin', 'api', 'app', 'www', 'root', 'superadmin',
+        'mail', 'ftp', 'cdn', 'static', 'assets',
+        'marketplace', 'seller', 'sellers',
+        'login', 'register', 'signup', 'logout', 'auth',
+        'dashboard', 'panel', 'store', 'shop',
+        'soporte', 'support', 'help', 'blog', 'docs', 'status',
+    ],
     'domain_cache_ttl'           => (int) env('TENANT_CACHE_TTL', 3600),
     'verification_cname_target'  => env('TENANT_CNAME_TARGET', 'verify.ebaemy.com'),
     'ssl_email'                  => env('TENANT_SSL_EMAIL', 'admin@ebaemy.com'),
