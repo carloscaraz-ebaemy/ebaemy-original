@@ -1,8 +1,8 @@
 <article class="auth__image" style="padding: {{ ($login->padding_in_form ?? false) ? '0' : '2.5%' }}; display: flex; justify-content: center; align-items: center; overflow: hidden; background-color: {{ $loginBgColor ?? '#ffffff' }};">
-    <img 
-        src="{{ $login->image }}" 
-        alt="Background Image" 
-        style="width: 100%; height: 100%; object-fit: {{ ($login->padding_in_form ?? false) ? 'cover' : 'contain' }}" 
+    <img
+        src="{{ $login->image ?? asset('images/login-v2.svg') }}"
+        alt="Background Image"
+        style="width: 100%; height: 100%; object-fit: {{ ($login->padding_in_form ?? false) ? 'cover' : 'contain' }}"
     />
     @if ($useLoginGlobal)
         @if ($login->logo ?? false)

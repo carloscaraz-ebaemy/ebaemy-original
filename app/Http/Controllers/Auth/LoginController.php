@@ -63,13 +63,22 @@ class LoginController extends Controller
      */
     public function showLoginForm()
     {
-        $config = SystemConfiguration::first();
-        if (! $config->use_login_global) {
-            $config = Configuration::first();
-        }
-        $useLoginGlobal = $config->use_login_global;
-        $login = $config->login;
-        $loginBgColor = $config->login_bg_color ?? '#ffffff';
+        $systemConfig = SystemConfiguration::first();
+        $useLoginGlobal = $systemConfig && $systemConfig->use_login_global ? true : false;
+        $config = $useLoginGlobal ? $systemConfig : Configuration::first();
+
+        $login = $config && $config->login ? $config->login : (object)[
+            'type'              => 'image',
+            'image'             => asset('images/login-v2.svg'),
+            'position_form'     => 'right',
+            'show_logo_in_form' => false,
+            'position_logo'     => 'top-left',
+            'show_socials'      => false,
+            'padding_in_form'   => false,
+        ];
+        $loginBgColor = ($config && isset($config->login_bg_color) && $config->login_bg_color)
+            ? $config->login_bg_color
+            : '#ffffff';
         $company = Company::first();
         
         // Obtener el tema seleccionado
