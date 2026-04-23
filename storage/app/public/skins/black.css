@@ -1031,10 +1031,6 @@ html.sidebar-left-collapsed .sidebar-left .nano:hover {
 .auth a, .auth h1, .auth h2, .auth h3, .auth h4, .auth h5, .auth h6, .auth label, .auth p, .auth span{
     font-family: var(--black-font-family, sans-serif);
 }
-.btn-signin {
-    background-color: var(--black-primary);
-    text-transform: capitalize;
-}
 .auth__image {
     background-size: auto !important;
 }
@@ -1063,18 +1059,6 @@ html.sidebar-left-collapsed .sidebar-left .nano:hover {
     --tw-ring-shadow: var(--tw-ring-inset) 0 0 0 calc(3px + var(--tw-ring-offset-width)) var(--tw-ring-color);
     box-shadow: var(--tw-ring-shadow);
     border-color: oklch(70.4% .04 256.788);
-}
-.auth .btn-signin{
-    min-height: 36px;
-    height: 36px;
-    padding: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: .875rem;
-}
-.auth .btn-signin .icon-login{
-    display: block !important;
 }
 .auth .btn-eye:focus {
     outline: none !important;

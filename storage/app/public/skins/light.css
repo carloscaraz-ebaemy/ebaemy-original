@@ -335,10 +335,6 @@ html.sidebar-left-collapsed .sidebar-left .nano:hover {
     width: 300px;
     box-shadow: 0 30px 30px rgb(0 0 0 / 20%);
 }
-.btn-signin {
-    background-color: var(--primary-color);
-    text-transform: uppercase;
-}
 .auth__image {
     background-size: contain;
 }
@@ -371,10 +367,6 @@ html.sidebar-left-collapsed .sidebar-left .nano:hover {
     border-color: var(--highlight-color);
     box-shadow: 0 0 0 3px var(--accent-color);
     background-color: #fff;
-}
-.auth .btn-signin{
-    height: 42px;
-    padding: 0;
 }
 .auth .btn-eye:focus {
     outline: none !important;
