@@ -203,7 +203,7 @@
                                         <tbody v-if="form.items.length > 0">
                                             <tr v-for="(row, index) in form.items">
                                                 <td>{{index + 1}}</td>
-                                                <td>{{row.item.description}} {{row.item.presentation.hasOwnProperty('description') ? row.item.presentation.description : ''}}<br/><small>{{row.affectation_igv_type.description}}</small></td>
+                                                <td>{{row.item.description}} <template v-if="row.item.presentation">{{row.item.presentation.hasOwnProperty('description') ? row.item.presentation.description : ''}}</template><br/><small v-if="row.affectation_igv_type">{{row.affectation_igv_type.description}}</small></td>
                                                 <td class="text-center">{{row.item.unit_type_id}}</td>
                                                 
                                                 <td class="text-right">{{row.quantity}}</td>

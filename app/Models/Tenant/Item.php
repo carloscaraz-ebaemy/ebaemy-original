@@ -1525,18 +1525,6 @@ class Item extends ModelTenant
             'item_unit_types' => $this->item_unit_types->transform(function ($row) use ($decimal_units) {
                 /** @var ItemUnitType $row */
                 return $row->getCollectionData($decimal_units);
-                /** Movido al modelo */
-                return [
-                    'id' => $row->id,
-                    'description' => "{$row->description}",
-                    'item_id' => $row->item_id,
-                    'unit_type_id' => $row->unit_type_id,
-                    'quantity_unit' => number_format($this->quantity_unit, $configuration->decimal_quantity, '.', ''),
-                    'price1' => number_format($this->price1, $configuration->decimal_quantity, '.', ''),
-                    'price2' => number_format($this->price2, $configuration->decimal_quantity, '.', ''),
-                    'price3' => number_format($this->price3, $configuration->decimal_quantity, '.', ''),
-                    'price_default' => $this->price_default,
-                ];
             }),
             'item_warehouse_prices' => $this->warehousePrices->transform(function ($row) {
                 return [

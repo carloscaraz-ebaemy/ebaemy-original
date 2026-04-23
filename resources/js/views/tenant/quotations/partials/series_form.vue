@@ -19,10 +19,10 @@
                                 <tbody>
                                     <tr v-for="(row, index) in items" :key="index">
                                         <td class="text-center">{{ setDescriptionOfItem(row.item) }}
-                                        {{
+                                        <template v-if="row.item.presentation">{{
                                         row.item.presentation.hasOwnProperty('description') ?
                                         row.item.presentation.description : ''
-                                        }}</td>
+                                        }}</template></td>
                                         <td class="text-center">{{row.quantity}}</td>
                                         <td class="series-table-actions text-right">
                                             

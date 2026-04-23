@@ -468,7 +468,7 @@
                                                 >
                                                 </pack-item-description>
 
-                                                {{ row.item.presentation.hasOwnProperty('description') ? row.item.presentation.description : '' }}<br/><small><small v-if="row.affectation_igv_type">{{ row.affectation_igv_type.description }}</small></small>
+                                                <template v-if="row.item.presentation">{{ row.item.presentation.hasOwnProperty('description') ? row.item.presentation.description : '' }}</template><br/><small><small v-if="row.affectation_igv_type">{{ row.affectation_igv_type.description }}</small></small>
                                                 
                                                 <p class="control-label font-weight-bold text-info" v-if="configuration.show_all_item_details">
                                                     <a href="#" @click.prevent="clickShowItemDetail(row.item_id)">[Ver detalle]</a>

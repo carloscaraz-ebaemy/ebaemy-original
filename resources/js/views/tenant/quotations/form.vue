@@ -628,7 +628,7 @@
                                                             }}
                                                         </template>
                                                         <br />
-                                                        <small>{{
+                                                        <small v-if="row.affectation_igv_type">{{
                                                             row
                                                                 .affectation_igv_type
                                                                 .description
@@ -1027,7 +1027,7 @@
                                                         >
                                                         </pack-item-description>
 
-                                                        {{
+                                                        <template v-if="row.item.presentation">{{
                                                             row.item.presentation.hasOwnProperty(
                                                                 "description"
                                                             )
@@ -1035,7 +1035,7 @@
                                                                       .presentation
                                                                       .description
                                                                 : ""
-                                                        }}<br /><small>{{
+                                                        }}</template><br /><small v-if="row.affectation_igv_type">{{
                                                             row
                                                                 .affectation_igv_type
                                                                 .description

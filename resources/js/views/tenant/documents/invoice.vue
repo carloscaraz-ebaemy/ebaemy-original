@@ -253,10 +253,10 @@
                                     :key="index">
                                     <td>{{ index + 1 }}</td>
                                     <td>{{ setDescriptionOfItem(row.item) }}
-                                        {{
+                                        <template v-if="row.item.presentation">{{
                                         row.item.presentation.hasOwnProperty('description') ?
                                         row.item.presentation.description : ''
-                                        }}
+                                        }}</template>
 
                                         <template v-if="row.total_plastic_bag_taxes > 0">
                                             <br/><small>ICBPER: {{ currency_type.symbol }} {{ row.total_plastic_bag_taxes }}</small>

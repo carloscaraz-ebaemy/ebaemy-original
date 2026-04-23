@@ -508,7 +508,7 @@
                                                             }}
                                                         </template>
                                                         <br />
-                                                        <small>{{
+                                                        <small v-if="row.affectation_igv_type">{{
                                                             row
                                                                 .affectation_igv_type
                                                                 .description
@@ -800,7 +800,7 @@
                                                                     : ""
                                                             }}
                                                         </template>
-                                                        <br /><small>{{
+                                                        <br /><small v-if="row.affectation_igv_type">{{
                                                             row
                                                                 .affectation_igv_type
                                                                 .description

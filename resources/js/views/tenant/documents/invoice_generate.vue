@@ -1294,14 +1294,14 @@
                                             >
                                             </pack-item-description>
 
-                                            {{
+                                            <template v-if="row.item.presentation">{{
                                                 row.item.presentation.hasOwnProperty(
                                                     "description"
                                                 )
                                                     ? row.item.presentation
                                                           .description
                                                     : ""
-                                            }}
+                                            }}</template>
                                             <template
                                                 v-if="
                                                     row.total_plastic_bag_taxes >
@@ -1316,7 +1316,7 @@
                                                     }}</small
                                                 >
                                             </template>
-                                            <br /><small>{{
+                                            <br /><small v-if="row.affectation_igv_type">{{
                                                 row.affectation_igv_type
                                                     .description
                                             }}</small>
