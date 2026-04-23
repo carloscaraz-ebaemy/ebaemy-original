@@ -1,17 +1,16 @@
-@if ($useLoginGlobal)
-    @if ($login->logo ?? false)
-        {{-- En login global respetamos la preferencia show_logo_in_form --}}
-        @if ($login->show_logo_in_form)
-            <img class="auth__logo-form" src="{{ $login->logo }}" alt="Logo formulario" />
-        @endif
-    @endif
+{{-- Logo arriba del formulario — SIEMPRE prioriza el logo del tenant (identidad
+     de cada empresa), independientemente de si la imagen de fondo viene de la
+     configuración global del super admin o del propio tenant.
+
+     Orden de prioridad:
+     1. Logo del tenant (company->logo)         → cada empresa ve su propio logo
+     2. Logo global + show_logo_in_form=true    → override del super admin
+     3. Fallback tulogo.png                     → genérico si no hay nada --}}
+@if (!empty($company->logo))
+    <img class="auth__logo-form" src="{{ asset('storage/uploads/logos/' . $company->logo) }}" alt="Logo de {{ $company->trade_name ?? '' }}" width="250" />
+@elseif ($useLoginGlobal && ($login->logo ?? false) && ($login->show_logo_in_form ?? false))
+    <img class="auth__logo-form" src="{{ $login->logo }}" alt="Logo formulario" />
 @else
-    {{-- En el login propio del tenant, SIEMPRE mostrar el logo arriba del
-         formulario — es la identidad visual de la marca en el login. --}}
-    @if($company->logo)
-    <img class="auth__logo-form" src="{{ asset('storage/uploads/logos/' . $company->logo) }}" alt="Logo formulario" width="250" />
-    @else
-    <img class="auth__logo-form" src="{{asset('logo/tulogo.png')}}" alt="Logo formulario" width="250" />
-    @endif
+    <img class="auth__logo-form" src="{{ asset('logo/tulogo.png') }}" alt="Logo formulario" width="250" />
 @endif
 <br>
