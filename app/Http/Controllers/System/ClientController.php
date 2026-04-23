@@ -668,261 +668,100 @@ use App\Models\System\PlanPeriod;
             ini_set('memory_limit', '2048M');
             \Log::info('=== INICIO STORE CLIENT ===', ['timestamp' => now()]);
 
-            $hostname = new Hostname();
-            $website = new Website();
-
+            // Paso 1 — procesar certificado si vino en el upload.
+            // Se mantiene aquí (fuera del service) porque depende del request
+            // HTTP (temp_path apunta a un archivo temporal propio de la subida).
             try {
-                $temp_path = $request->input('temp_path');
-                $configuration = Configuration::first();
-                \Log::info('Configuración obtenida', ['config_id' => $configuration->id ?? 'null']);
-
-                $name_certificate = $configuration->certificate;
-
-                if ($temp_path) {
-                    \Log::info('Procesando certificado', ['temp_path' => $temp_path]);
-                    try {
-                        $number = $request->input('number');
-                        $password = $request->input('password_certificate');
-                        $pfx = file_get_contents($temp_path);
-                        $pem = GenerateCertificate::typePEM($pfx, $password);
-                        $name = 'certificate_' . 'admin_tenant'. "_$number" . '.pem';
-                        if (!file_exists(storage_path('app' . DIRECTORY_SEPARATOR . 'certificates'))) {
-                            mkdir(storage_path('app' . DIRECTORY_SEPARATOR . 'certificates'));
-                        }
-                        file_put_contents(storage_path('app' . DIRECTORY_SEPARATOR . 'certificates' . DIRECTORY_SEPARATOR . $name), $pem);
-                        $name_certificate = $name;
-                        \Log::info('Certificado procesado exitosamente', ['name' => $name]);
-
-                    } catch (Exception $e) {
-                        \Log::error('Error procesando certificado', ['error' => $e->getMessage()]);
-                        return [
-                            'success' => false,
-                            'message' => $e->getMessage()
-                        ];
-                    }
-                }
-
-                $subDom = strtolower($request->input('subdomain'));
-                $uuid = config('tenant.prefix_database') . '_' . $subDom;
-                $fqdn = $subDom . '.' . config('tenant.app_url_base');
-                \Log::info('Variables de tenant creadas', ['uuid' => $uuid, 'fqdn' => $fqdn]);
-
-                $this->validateWebsite($uuid, $website);
-                \Log::info('Validación de website completada');
-
-                \Log::info('Creando website...');
-                $website->uuid = $uuid;
-                app(WebsiteRepository::class)->create($website);
-                \Log::info('Website creado', ['website_id' => $website->id]);
-
-                \Log::info('Creando y asociando hostname...');
-                $hostname->fqdn = $fqdn;
-                $hostname = app(HostnameRepository::class)->create($hostname);
-                app(HostnameRepository::class)->attach($hostname, $website);
-                \Log::info('Hostname creado y asociado', ['hostname_id' => $hostname->id]);
-
-                $token = Str::random(50);
-
-                \Log::info('Creando cliente...');
-                $client = Client::query()->create([
-                    'hostname_id' => $hostname->id,
-                    'token' => $token,
-                    'email' => strtolower($request->input('email')),
-                    'name' => $request->input('name'),
-                    'number' => $request->input('number'),
-                    'plan_id' => $request->input('plan_id'),
-                    'locked_emission' => $request->input('locked_emission'),
-                    'enable_list_product' => $request->input('enable_list_product'),
-                    'price' => $request->input('price'),
-                    'plan_period_id' => $request->input('plan_period_id'),
-                    'start_billing_cycle' => Carbon::now()->toDateString(),
-                    'ending_billing_cycle' => Carbon::now()->toDateString(),
-                    'client_name' => $request->input('client_name') ? $request->input('client_name') : $request->input('name'),
-                    'phone_ws' => $request->input('phone_ws'),
-                    'contact_email' => $request->input('contact_email') ? $request->input('contact_email') : $request->input('email'),
-                ]);
-                \Log::info('Cliente creado', ['client_id' => $client->id]);
-
-                $client->createPayemtnOrder();
-                \Log::info('Configurando tenancy...');
-                $tenancy = app(Environment::class);
-                $tenancy->tenant($website);
-                \Log::info('Tenancy configurado');
-
-                \Log::info('=== INICIANDO OPERACIONES EN TENANT DATABASE ===');
-                \Log::info('Insertando company...');
-                DB::connection('tenant')->table('companies')->insert([
-                    'identity_document_type_id' => '6',
-                    'number' => $request->input('number'),
-                    'name' => $request->input('name'),
-                    'trade_name' => $request->input('name'),
-                    'soap_type_id' => $request->soap_type_id,
-                    'soap_send_id' => $request->soap_send_id,
-                    'soap_username' => $request->soap_username,
-                    'soap_password' => $request->soap_password,
-                    'soap_url' => $request->soap_url,
-                    'certificate' => $name_certificate, 
-                ]);
-
-                \Log::info('Company insertada');
-
-            $plan = Plan::findOrFail($request->input('plan_id'));
-            $http = config('tenant.force_https') == true ? 'https://' : 'http://';
-            
-            // Definir variable para registro de invitado
-            $from_guest_register = $request->input('from_guest_register', false);
-
-            \Log::info('Insertando configuración...');
-            DB::connection('tenant')->table('configurations')->insert([
-                'send_auto' => true,
-                'locked_emission' => $request->input('locked_emission'),
-                'enable_list_product' => $request->input('enable_list_product'),
-                'locked_tenant' => false,
-                'locked_users' => false,
-                'limit_documents' => $plan->limit_documents,
-                'limit_users' => $plan->limit_users,
-                'plan' => json_encode($plan),
-                'date_time_start' => date('Y-m-d H:i:s'),
-                'quantity_documents' => 0,
-                'config_system_env' => $request->config_system_env,
-                'login' => json_encode([
-                    'type' => 'image',
-                    'image' => $http.$fqdn.'/images/fondo-5.svg',
-                    'position_form' => 'right',
-                    'show_logo_in_form' => false,
-                    'position_logo' => 'top-left',
-                    'padding_in_form' => '2.5%',
-                    'show_socials' => false,
-                    'facebook' => null,
-                    'twitter' => null,
-                    'instagram' => null,
-                    'linkedin' => null,
-                    'tiktok' => null
-                ]),
-                'visual' => json_encode([
-                    'bg' => 'white',
-                    'header' => 'light',
-                    'navbar' => 'fixed',
-                    'sidebars' => 'light',
-                    'sidebar_theme' => 'white'
-                ]),
-                'skin_id' => 2,
-                'top_menu_a_id' => 1,
-                'top_menu_b_id' => 15,
-                'top_menu_c_id' => 76,
-                'quantity_sales_notes' => 0,
-                'from_guest_register' => $from_guest_register
-            ]);
-            \Log::info('Configuración insertada');
-
-            \Log::info('Insertando establishment...');
-            $establishment_id = DB::connection('tenant')->table('establishments')->insertGetId([
-                'description' => 'Oficina Principal',
-                'country_id' => 'PE',
-                'department_id' => '15',
-                'province_id' => '1501',
-                'district_id' => '150101',
-                'address' => '-',
-                'email' => $request->input('email'),
-                'telephone' => '-',
-                'code' => '0000'
-            ]);
-            \Log::info('Establishment insertado', ['establishment_id' => $establishment_id]);
-
-            \Log::info('Insertando warehouse...');
-            DB::connection('tenant')->table('warehouses')->insertGetId([
-                'establishment_id' => $establishment_id,
-                'description' => 'Almacén Oficina Principal',
-                'created_at' => now(),
-                'updated_at' => now(),
-            ]);
-            \Log::info('Warehouse insertado');
-
-            \Log::info('Insertando series...');
-            DB::connection('tenant')->table('series')->insert([
-                ['establishment_id' => 1, 'document_type_id' => '01', 'number' => 'F001'],
-                ['establishment_id' => 1, 'document_type_id' => '03', 'number' => 'B001'],
-                ['establishment_id' => 1, 'document_type_id' => '07', 'number' => 'FC01'],
-                ['establishment_id' => 1, 'document_type_id' => '07', 'number' => 'BC01'],
-                ['establishment_id' => 1, 'document_type_id' => '08', 'number' => 'FD01'],
-                ['establishment_id' => 1, 'document_type_id' => '08', 'number' => 'BD01'],
-                ['establishment_id' => 1, 'document_type_id' => '20', 'number' => 'R001'],
-                ['establishment_id' => 1, 'document_type_id' => '09', 'number' => 'T001'],
-                ['establishment_id' => 1, 'document_type_id' => '40', 'number' => 'P001'],
-                ['establishment_id' => 1, 'document_type_id' => '80', 'number' => 'NV01'],
-                ['establishment_id' => 1, 'document_type_id' => '04', 'number' => 'L001'],
-                ['establishment_id' => 1, 'document_type_id' => '31', 'number' => 'V001'],
-
-                ['establishment_id' => 1, 'document_type_id' => 'U2', 'number' => 'NIA1'],
-                ['establishment_id' => 1, 'document_type_id' => 'U3', 'number' => 'NSA1'],
-                ['establishment_id' => 1, 'document_type_id' => 'U4', 'number' => 'NTA1'],
-            ]);
-            \Log::info('Series insertadas');
-
-            \Log::info('Insertando usuario...');
-            $user_id = DB::connection('tenant')->table('users')->insert([
-                'name' => 'Administrador',
-                'email' => $request->input('email'),
-                'password' => bcrypt($request->input('password')),
-                'api_token' => $token,
-                'establishment_id' => $establishment_id,
-                'type' => $request->input('type'),
-                'locked' => true,
-                'permission_edit_cpe' => true,
-                'last_password_update' => date('Y-m-d H:i:s'),
-                'from_guest_register' => $from_guest_register
-            ]);
-            \Log::info('Usuario insertado', ['user_id' => $user_id]);
-
-            \Log::info('Configurando módulos y permisos...');
-            if ($request->input('type') == 'admin') {
-                $array_modules = [];
-                $array_levels = [];
-                foreach ($request->modules as $module) {
-                    array_push($array_modules, [
-                        'module_id' => $module, 'user_id' => $user_id
-                    ]);
-                }
-                foreach ($request->levels as $level) {
-                    array_push($array_levels, [
-                        'module_level_id' => $level, 'user_id' => $user_id
-                    ]);
-                }
-                \Log::info('Insertando módulos de usuario...');
-                DB::connection('tenant')->table('module_user')->insert($array_modules);
-                \Log::info('Insertando niveles de usuario...');
-                DB::connection('tenant')->table('module_level_user')->insert($array_levels);
-
-                \Log::info('Insertando módulos de app...');
-                $this->insertAppModules($user_id);
-                \Log::info('Módulos de app insertados');
-
-            } else {
-                \Log::info('Insertando módulos básicos para integrator...');
-                DB::connection('tenant')->table('module_user')->insert([
-                    ['module_id' => 1, 'user_id' => $user_id],
-                    ['module_id' => 3, 'user_id' => $user_id],
-                    ['module_id' => 5, 'user_id' => $user_id],
-                ]);
-                \Log::info('Módulos básicos insertados');
+                $name_certificate = $this->resolveCertificateName($request);
+            } catch (Exception $e) {
+                \Log::error('Error procesando certificado', ['error' => $e->getMessage()]);
+                return [
+                    'success' => false,
+                    'message' => $e->getMessage(),
+                ];
             }
 
-            \Log::info('=== CLIENTE REGISTRADO EXITOSAMENTE ===', ['timestamp' => now()]);
-            return [
-                'success' => true,
-                'message' => 'Cliente Registrado satisfactoriamente'
+            // Paso 2 — armar payload y delegar al service.
+            $subDom = strtolower($request->input('subdomain'));
+            $payload = [
+                'subdomain'           => $subDom,
+                'uuid'                => config('tenant.prefix_database') . '_' . $subDom,
+                'fqdn'                => $subDom . '.' . config('tenant.app_url_base'),
+                'token'               => Str::random(50),
+                'email'               => $request->input('email'),
+                'name'                => $request->input('name'),
+                'number'              => $request->input('number'),
+                'plan_id'             => $request->input('plan_id'),
+                'locked_emission'     => $request->input('locked_emission'),
+                'enable_list_product' => $request->input('enable_list_product'),
+                'price'               => $request->input('price'),
+                'plan_period_id'      => $request->input('plan_period_id'),
+                'client_name'         => $request->input('client_name'),
+                'phone_ws'            => $request->input('phone_ws'),
+                'contact_email'       => $request->input('contact_email'),
+                'certificate_name'    => $name_certificate,
+                'soap_type_id'        => $request->soap_type_id,
+                'soap_send_id'        => $request->soap_send_id,
+                'soap_username'       => $request->soap_username,
+                'soap_password'       => $request->soap_password,
+                'soap_url'            => $request->soap_url,
+                'config_system_env'   => $request->config_system_env,
+                'password'            => $request->input('password'),
+                'type'                => $request->input('type'),
+                'modules'             => $request->input('modules', []),
+                'levels'              => $request->input('levels', []),
+                'from_guest_register' => $request->input('from_guest_register', false),
             ];
 
-        } catch (Exception $e) {
-            \Log::error('Error en store client', ['error' => $e->getMessage()]);
-            app(HostnameRepository::class)->delete($hostname, true);
-            app(WebsiteRepository::class)->delete($website, true);
-            return [
-                'success' => false,
-                'message' => $e->getMessage()
-            ];
+            \Log::info('Variables de tenant creadas', ['uuid' => $payload['uuid'], 'fqdn' => $payload['fqdn']]);
+
+            $result = app(\App\Services\System\TenantCreationService::class)->create($payload);
+
+            // Compatibilidad: el response anterior solo devolvía success+message.
+            // El service adjunta 'client' si la creación fue exitosa; lo quitamos
+            // del payload de respuesta para no cambiar el contrato con el frontend.
+            unset($result['client']);
+
+            return $result;
         }
-    }
+
+        /**
+         * Procesa el certificado digital si el request trae un temp_path.
+         * Si no hay temp_path, devuelve el certificado por defecto de la
+         * configuración del sistema.
+         *
+         * @throws Exception si falla la conversión .pfx → .pem
+         */
+        private function resolveCertificateName(ClientRequest $request): ?string
+        {
+            $temp_path = $request->input('temp_path');
+            $configuration = Configuration::first();
+            \Log::info('Configuración obtenida', ['config_id' => $configuration->id ?? 'null']);
+
+            $name_certificate = $configuration->certificate ?? null;
+
+            if (!$temp_path) {
+                return $name_certificate;
+            }
+
+            \Log::info('Procesando certificado', ['temp_path' => $temp_path]);
+
+            $number   = $request->input('number');
+            $password = $request->input('password_certificate');
+            $pfx      = file_get_contents($temp_path);
+            $pem      = GenerateCertificate::typePEM($pfx, $password);
+            $name     = 'certificate_admin_tenant_' . $number . '.pem';
+
+            $certDir = storage_path('app' . DIRECTORY_SEPARATOR . 'certificates');
+            if (!file_exists($certDir)) {
+                mkdir($certDir);
+            }
+            file_put_contents($certDir . DIRECTORY_SEPARATOR . $name, $pem);
+
+            \Log::info('Certificado procesado exitosamente', ['name' => $name]);
+
+            return $name;
+        }
 
         public function validateWebsite($uuid, $website)
         {
