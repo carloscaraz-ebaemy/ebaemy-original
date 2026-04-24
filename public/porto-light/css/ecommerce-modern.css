@@ -1,0 +1,1066 @@
+/* ══════════════════════════════════════════════════════════════════════════
+ * ecommerce-modern.css — Rediseño visual 2026 del ecommerce tenant (aditivo)
+ *
+ * Cargado DESPUÉS de:
+ *   1. styles_ecommerce.min.css (base Porto Light — 264KB)
+ *   2. ecommerce-theme-override.css (overrides legacy)
+ *   3. themes/{rubro}.css (color accent por rubro)
+ *
+ * Repinta la UI vía los selectores existentes. NO cambia HTML ni JS.
+ * Todas las clases con lógica (data-ec-cart, .ec-btn-*, .cart-count, etc.)
+ * se preservan intactas; solo se refinan sus estilos visuales.
+ *
+ * Sistema de tokens basado en los --mp-* del marketplace central para
+ * coherencia visual entre tenant y marketplace.
+ * ══════════════════════════════════════════════════════════════════════════ */
+
+:root {
+    /* Sistema de sombras — layering consistente */
+    --ec-shadow-xs: 0 1px 2px rgba(15, 23, 42, .04);
+    --ec-shadow-sm: 0 1px 3px rgba(15, 23, 42, .06), 0 1px 2px rgba(15, 23, 42, .04);
+    --ec-shadow-md: 0 4px 12px -2px rgba(15, 23, 42, .08), 0 2px 4px -1px rgba(15, 23, 42, .05);
+    --ec-shadow-lg: 0 12px 24px -8px rgba(15, 23, 42, .12), 0 4px 8px -2px rgba(15, 23, 42, .06);
+    --ec-shadow-xl: 0 24px 48px -12px rgba(15, 23, 42, .18);
+
+    /* Sistema de radios */
+    --ec-radius-xs: 6px;
+    --ec-radius-sm: 8px;
+    --ec-radius-md: 12px;
+    --ec-radius-lg: 18px;
+    --ec-radius-xl: 24px;
+    --ec-radius-pill: 999px;
+
+    /* Sistema de espaciado */
+    --ec-space-1: 4px;
+    --ec-space-2: 8px;
+    --ec-space-3: 12px;
+    --ec-space-4: 16px;
+    --ec-space-5: 24px;
+    --ec-space-6: 32px;
+    --ec-space-7: 48px;
+    --ec-space-8: 64px;
+
+    /* Neutrales — misma escala que --mp-* del marketplace */
+    --ec-ink: #111827;            /* texto principal */
+    --ec-ink-soft: #374151;       /* texto secundario */
+    --ec-ink-muted: #6b7280;      /* texto terciario / labels */
+    --ec-ink-faint: #9ca3af;      /* placeholder / hints */
+    --ec-line: #e5e7eb;           /* bordes */
+    --ec-line-soft: #f3f4f6;      /* dividers sutiles */
+    --ec-bg: #ffffff;             /* fondo cards */
+    --ec-bg-soft: #f9fafb;        /* fondo secciones */
+    --ec-bg-muted: #f3f4f6;       /* fondo deshabilitados */
+
+    /* Estados */
+    --ec-success: #10b981;
+    --ec-success-bg: #ecfdf5;
+    --ec-success-border: #a7f3d0;
+    --ec-warning: #f59e0b;
+    --ec-warning-bg: #fffbeb;
+    --ec-warning-border: #fcd34d;
+    --ec-danger: #ef4444;
+    --ec-danger-bg: #fef2f2;
+    --ec-danger-border: #fca5a5;
+    --ec-info: #3b82f6;
+    --ec-info-bg: #eff6ff;
+
+    /* Transiciones */
+    --ec-ease: cubic-bezier(.4, 0, .2, 1);
+    --ec-ease-bounce: cubic-bezier(.34, 1.56, .64, 1);
+    --ec-duration-fast: 120ms;
+    --ec-duration: 200ms;
+    --ec-duration-slow: 320ms;
+
+    /* Container */
+    --ec-container-max: 1280px;
+
+    /* Primary del tenant (HSL inyectado por master.blade.php en línea ~190).
+       Aliases cómodos para usar sin repetir la fórmula HSL: */
+    --ec-primary: hsl(var(--primary-h), var(--primary-s), var(--primary-l));
+    --ec-primary-soft: hsl(var(--primary-h), var(--primary-s), calc(var(--primary-l) + 38%));
+    --ec-primary-dark: hsl(var(--primary-h), var(--primary-s), calc(var(--primary-l) - 10%));
+    --ec-primary-ink: #ffffff;  /* texto sobre primary (blanco funciona en la mayoría de tonos) */
+}
+
+/* ── Tipografía refinada ──────────────────────────────────────────────────
+ * Mantengo Poppins como fallback por compatibilidad con Porto pero preferir
+ * Inter que es más neutra y profesional (alineada con el marketplace).
+ * Si el tenant no tiene Inter localmente, cae a Poppins sin quejarse.
+ * ────────────────────────────────────────────────────────────────────── */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+
+body {
+    font-family: 'Inter', 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    color: var(--ec-ink);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+/* Refinamiento de jerarquía tipográfica */
+.ec-modern h1, .ec-modern .h1 { letter-spacing: -.02em; font-weight: 800; }
+.ec-modern h2, .ec-modern .h2 { letter-spacing: -.015em; font-weight: 700; }
+.ec-modern h3, .ec-modern .h3 { letter-spacing: -.01em; font-weight: 700; }
+
+/* ── Utilities aditivas (opt-in) ──────────────────────────────────────── */
+.ec-container {
+    max-width: var(--ec-container-max);
+    margin: 0 auto;
+    padding-left: clamp(12px, 2vw, 24px);
+    padding-right: clamp(12px, 2vw, 24px);
+}
+
+/* Estas sobrecargan paddings de Porto sin tocar sus clases originales */
+.ec-section {
+    padding-block: var(--ec-space-6);
+}
+
+.ec-section--tight  { padding-block: var(--ec-space-5); }
+.ec-section--loose  { padding-block: var(--ec-space-7); }
+
+.ec-section-head {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: var(--ec-space-4);
+    margin-bottom: var(--ec-space-5);
+    flex-wrap: wrap;
+}
+
+.ec-section-title {
+    font-size: clamp(20px, 2.5vw, 26px);
+    font-weight: 700;
+    letter-spacing: -.015em;
+    color: var(--ec-ink);
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: var(--ec-space-2);
+}
+
+.ec-section-subtitle {
+    font-size: 14px;
+    color: var(--ec-ink-muted);
+    margin-top: 4px;
+}
+
+/* Focus accesible consistente en TODO el ecommerce */
+.ec-modern *:focus-visible,
+.ec-modern a:focus-visible,
+.ec-modern button:focus-visible,
+.ec-modern input:focus-visible,
+.ec-modern select:focus-visible,
+.ec-modern textarea:focus-visible {
+    outline: 2px solid var(--ec-primary);
+    outline-offset: 2px;
+    border-radius: var(--ec-radius-xs);
+}
+
+/* Scroll suave para anclas internas */
+html {
+    scroll-behavior: smooth;
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+ *  FASE 1 — HEADER + BUSCADOR
+ *  Refinamiento del header existente sin tocar HTML/JS.
+ *  Todas las reglas selectan clases/ids existentes.
+ * ══════════════════════════════════════════════════════════════════════════ */
+
+/* Header base más limpio */
+.header {
+    background: #fff;
+    border-bottom: 1px solid var(--ec-line);
+    transition: box-shadow var(--ec-duration) var(--ec-ease),
+                border-color var(--ec-duration) var(--ec-ease);
+}
+
+.header .header-middle {
+    padding-block: 14px;
+}
+
+.header .header-middle .container {
+    display: flex;
+    align-items: center;
+    gap: clamp(8px, 2vw, 24px);
+}
+
+/* Sticky más elegante al hacer scroll */
+#ec-main-header.ec-header--scrolled {
+    box-shadow: var(--ec-shadow-md);
+    border-bottom-color: transparent;
+    backdrop-filter: saturate(180%) blur(8px);
+    background: rgba(255, 255, 255, .92);
+}
+
+/* Logo más contenido */
+.header .logo {
+    display: flex;
+    align-items: center;
+}
+.header .logo img {
+    max-height: 46px;
+    width: auto;
+    object-fit: contain;
+}
+
+/* ── Buscador desktop — más prominente y moderno ── */
+.ec-search-wrap {
+    display: flex;
+    align-items: center;
+    position: relative;
+}
+
+.ec-search-wrap .search_input {
+    height: 44px !important;
+    border-radius: var(--ec-radius-pill) !important;
+    background: var(--ec-bg-soft) !important;
+    border: 1.5px solid transparent !important;
+    padding-left: 44px !important;
+    padding-right: 44px !important;
+    font-size: 14px;
+    color: var(--ec-ink);
+    transition: background var(--ec-duration) var(--ec-ease),
+                border-color var(--ec-duration) var(--ec-ease),
+                box-shadow var(--ec-duration) var(--ec-ease);
+}
+
+.ec-search-wrap .search_input::placeholder {
+    color: var(--ec-ink-faint);
+    font-weight: 400;
+}
+
+.ec-search-wrap .search_input:hover {
+    background: #fff !important;
+    border-color: var(--ec-line) !important;
+}
+
+.ec-search-wrap .search_input:focus {
+    background: #fff !important;
+    border-color: var(--ec-primary) !important;
+    box-shadow: 0 0 0 4px hsla(var(--primary-h), var(--primary-s), 65%, .15) !important;
+}
+
+.ec-search-wrap .search-icon {
+    width: 18px !important;
+    height: 18px !important;
+    opacity: .55;
+    transition: opacity var(--ec-duration) var(--ec-ease);
+    left: 15px !important;
+}
+.ec-search-wrap .search_input:focus ~ .search-icon,
+.ec-search-wrap:focus-within .search-icon {
+    opacity: 1;
+}
+
+/* Clear icon del buscador */
+.ec-search-wrap .clear-icon {
+    right: 14px !important;
+    opacity: .6;
+}
+.ec-search-wrap .clear-icon:hover { opacity: 1; }
+
+/* Dropdown de resultados más moderno */
+.ec-search-wrap .header-menu {
+    border-radius: var(--ec-radius-md) !important;
+    box-shadow: var(--ec-shadow-xl) !important;
+    border: 1px solid var(--ec-line) !important;
+    margin-top: 6px;
+    overflow: hidden;
+    background: #fff;
+}
+
+/* Items del dropdown */
+.ec-search-wrap .ec-search-item {
+    padding: 10px 14px !important;
+    transition: background var(--ec-duration-fast) var(--ec-ease);
+}
+.ec-search-wrap .ec-search-item:hover,
+.ec-search-wrap .ec-search-item--active .ec-search-item {
+    background: var(--ec-bg-soft) !important;
+    color: var(--ec-ink);
+}
+.ec-search-wrap .ec-search-img {
+    border-radius: var(--ec-radius-sm);
+    object-fit: cover;
+    border: 1px solid var(--ec-line-soft);
+}
+.ec-search-wrap .ec-search-name { font-weight: 500; color: var(--ec-ink); }
+.ec-search-wrap .ec-search-cat  { font-size: 11px; color: var(--ec-ink-muted); }
+.ec-search-wrap .ec-search-price { font-weight: 700; color: var(--ec-primary-dark); }
+
+/* "Ver N resultados" */
+.ec-search-wrap .ec-search-more {
+    padding: 10px 14px;
+    background: var(--ec-bg-soft);
+    border-top: 1px solid var(--ec-line);
+    text-align: center;
+    font-size: 13px;
+}
+.ec-search-wrap .ec-search-more a {
+    color: var(--ec-primary-dark);
+    font-weight: 600;
+    text-decoration: none;
+}
+
+/* Empty state / historial panel */
+.ec-search-wrap .ec-search-empty {
+    padding: 24px;
+    text-align: center;
+    color: var(--ec-ink-muted);
+    font-size: 14px;
+}
+.ec-search-wrap .ec-search-history-header {
+    padding: 10px 14px 4px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: .06em;
+    color: var(--ec-ink-muted);
+    border-bottom: 1px solid var(--ec-line-soft);
+}
+.ec-search-wrap .ec-search-history-clear {
+    background: none;
+    border: none;
+    color: var(--ec-primary-dark);
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+}
+.ec-search-wrap .ec-search-history-item {
+    position: relative;
+}
+
+/* ── Botón de búsqueda mobile ── */
+#ec-main-header .mobile-search-btn {
+    width: 40px;
+    height: 40px;
+    border-radius: var(--ec-radius-sm);
+    color: var(--ec-ink-soft);
+    transition: background var(--ec-duration-fast) var(--ec-ease);
+}
+#ec-main-header .mobile-search-btn:hover {
+    background: var(--ec-bg-soft);
+}
+
+/* ── Header-right: iconos consistentes ── */
+.header-right {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+/* Wishlist, tema, cart — tamaño y hover uniformes */
+.ec-header-wishlist,
+#ec-theme-toggle,
+.header .cart-dropdown > a {
+    width: 40px;
+    height: 40px;
+    display: inline-flex !important;
+    align-items: center;
+    justify-content: center;
+    border-radius: var(--ec-radius-sm);
+    color: var(--ec-ink-soft);
+    transition: background var(--ec-duration-fast) var(--ec-ease),
+                color var(--ec-duration-fast) var(--ec-ease);
+    text-decoration: none;
+    background: none;
+    border: none;
+}
+.ec-header-wishlist:hover,
+#ec-theme-toggle:hover,
+.header .cart-dropdown > a:hover {
+    background: var(--ec-bg-soft);
+    color: var(--ec-ink);
+}
+
+/* Badge del wishlist más limpio */
+.ec-header-wishlist__count {
+    position: absolute;
+    top: -2px;
+    right: -2px;
+    min-width: 16px;
+    height: 16px;
+    padding: 0 4px;
+    border-radius: var(--ec-radius-pill);
+    background: var(--ec-danger);
+    color: #fff;
+    font-size: 10px;
+    font-weight: 700;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
+}
+
+/* Reset tipografía del cart-dropdown para alinearlo */
+.header .dropdown-toggle {
+    background: none !important;
+    color: var(--ec-ink-soft) !important;
+    border-radius: var(--ec-radius-sm) !important;
+    padding: 0 !important;
+    font-size: 12px !important;
+}
+
+/* Header contact (WhatsApp) */
+.header-contact {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 12px;
+    border-radius: var(--ec-radius-pill);
+    background: var(--ec-success-bg);
+    color: var(--ec-success);
+    font-size: 13px;
+    font-weight: 500;
+    border: 1px solid var(--ec-success-border);
+    text-decoration: none;
+    transition: background var(--ec-duration-fast) var(--ec-ease);
+}
+.header-contact:hover { background: #dcfce7; }
+.header-contact i.fab { font-size: 15px; }
+.header-contact a { color: inherit; text-decoration: none; }
+.header-contact a:hover { text-decoration: none; }
+.header-contact strong { font-weight: 600; color: #065f46; }
+
+/* Header-bottom: más compacto */
+.header .header-bottom {
+    padding: 0;
+    border-top: 1px solid var(--ec-line);
+}
+.header .header-bottom .container {
+    min-height: 46px;
+    align-items: center;
+}
+
+/* Mobile overlay search refinado */
+.ec-mob-search__input-wrap {
+    border-radius: var(--ec-radius-pill) !important;
+}
+.ec-mob-search__input {
+    font-size: 15px !important;
+}
+
+/* Responsive header mobile */
+@media (max-width: 767px) {
+    .header .header-middle {
+        padding-block: 10px;
+    }
+    .header .logo img {
+        max-height: 38px;
+    }
+    .ec-header-wishlist,
+    #ec-theme-toggle,
+    .header .cart-dropdown > a,
+    #ec-main-header .mobile-search-btn {
+        width: 36px;
+        height: 36px;
+    }
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+ *  FASE 2 — HERO / BANNER + TRUST STRIP
+ *  Refina el slider Owl y los trust badges.
+ * ══════════════════════════════════════════════════════════════════════════ */
+
+/* Banner hero: contenedor con espacio */
+.banner-slider-wrapper {
+    position: relative;
+    margin-block-end: var(--ec-space-5);
+    border-radius: var(--ec-radius-lg);
+    overflow: hidden;
+    box-shadow: var(--ec-shadow-md);
+}
+.banner-slider-wrapper .home-slider { margin: 0 !important; }
+.banner-slider-wrapper .home-slide { position: relative; }
+
+/* Slide bg con aspecto fijo para evitar CLS */
+.banner-slider-wrapper .slide-bg {
+    width: 100%;
+    min-height: clamp(220px, 40vw, 440px);
+    background-size: cover;
+    background-position: center;
+}
+
+/* Overlay sutil en gradiente sobre los banners para legibilidad si hay texto */
+.banner-slider-wrapper .home-slide::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background: linear-gradient(180deg, transparent 0%, transparent 55%, rgba(0, 0, 0, .15) 100%);
+    transition: opacity var(--ec-duration) var(--ec-ease);
+}
+
+/* Botones de navegación del slider — refinados */
+.banner-slider-wrapper .banner-nav-btn {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, .92) !important;
+    color: var(--ec-ink);
+    border: none;
+    box-shadow: var(--ec-shadow-md);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: all var(--ec-duration) var(--ec-ease);
+    opacity: 0;
+    z-index: 3;
+}
+.banner-slider-wrapper:hover .banner-nav-btn { opacity: 1; }
+.banner-slider-wrapper .banner-nav-btn:hover {
+    background: #fff !important;
+    transform: translateY(-50%) scale(1.08);
+}
+.banner-slider-wrapper .banner-nav-btn svg {
+    width: 22px;
+    height: 22px;
+    stroke-width: 2.5;
+}
+.banner-slider-wrapper .banner-nav-prev { left: 14px; }
+.banner-slider-wrapper .banner-nav-next { right: 14px; }
+
+/* En mobile los nav buttons siempre visibles */
+@media (max-width: 767px) {
+    .banner-slider-wrapper .banner-nav-btn {
+        width: 38px;
+        height: 38px;
+        opacity: .9;
+    }
+    .banner-slider-wrapper .banner-nav-btn svg { width: 18px; height: 18px; }
+    .banner-slider-wrapper { border-radius: var(--ec-radius-md); }
+    .banner-slider-wrapper .slide-bg { min-height: 180px; }
+}
+
+/* Dots del Owl Carousel */
+.banner-slider-wrapper .owl-dots {
+    position: absolute;
+    bottom: 12px;
+    left: 0;
+    right: 0;
+    text-align: center;
+    z-index: 3;
+}
+.banner-slider-wrapper .owl-dot span {
+    width: 8px !important;
+    height: 8px !important;
+    background: rgba(255, 255, 255, .6) !important;
+    margin: 0 4px !important;
+    transition: all var(--ec-duration) var(--ec-ease) !important;
+}
+.banner-slider-wrapper .owl-dot.active span {
+    background: #fff !important;
+    width: 24px !important;
+    border-radius: var(--ec-radius-pill);
+}
+
+/* ── TRUST STRIP — refinado con layout alineado al marketplace ── */
+.ec-trust-badges {
+    background: var(--ec-bg);
+    border: 1px solid var(--ec-line);
+    border-radius: var(--ec-radius-lg);
+    padding: var(--ec-space-4);
+    margin-block: var(--ec-space-5);
+    box-shadow: var(--ec-shadow-sm);
+}
+
+.ec-trust-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: var(--ec-space-3);
+}
+
+.ec-trust-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: 6px;
+    padding: var(--ec-space-3);
+    border-radius: var(--ec-radius-md);
+    transition: background var(--ec-duration) var(--ec-ease),
+                transform var(--ec-duration) var(--ec-ease);
+}
+
+.ec-trust-item:hover {
+    background: var(--ec-bg-soft);
+    transform: translateY(-2px);
+}
+
+.ec-trust-item svg {
+    width: 32px;
+    height: 32px;
+    stroke-width: 1.8;
+}
+
+.ec-trust-item strong {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--ec-ink);
+    line-height: 1.25;
+}
+
+.ec-trust-item span {
+    font-size: 11px;
+    color: var(--ec-ink-muted);
+    line-height: 1.4;
+}
+
+/* Tablet: 2 filas de 2 */
+@media (max-width: 991px) {
+    .ec-trust-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+/* Mobile: mantener 2 columnas pero más compacto */
+@media (max-width: 575px) {
+    .ec-trust-badges {
+        padding: var(--ec-space-3);
+        border-radius: var(--ec-radius-md);
+    }
+    .ec-trust-item {
+        padding: var(--ec-space-2);
+    }
+    .ec-trust-item svg { width: 26px; height: 26px; }
+    .ec-trust-item strong { font-size: 12px; }
+    .ec-trust-item span { font-size: 10px; }
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+ *  FASE 3 — PRODUCT CARDS (.pcard)
+ *
+ *  Rediseño visual 2026. Todas las clases existen ya en el HTML; esto
+ *  repinta vía override. Los data-attrs que usa JS (data-ec-cart,
+ *  data-wishlist-id, etc.) se mantienen intactos.
+ * ══════════════════════════════════════════════════════════════════════════ */
+
+/* Container de la grid — respira más */
+.product-col-item {
+    padding-inline: 8px;
+}
+
+/* Card base */
+.pcard {
+    position: relative;
+    background: #fff;
+    border: 1px solid var(--ec-line);
+    border-radius: var(--ec-radius-md) !important;
+    overflow: hidden;
+    transition: box-shadow var(--ec-duration) var(--ec-ease),
+                border-color var(--ec-duration) var(--ec-ease),
+                transform var(--ec-duration) var(--ec-ease);
+    display: flex !important;
+    flex-direction: column !important;
+    height: 100%;
+}
+
+.pcard:hover {
+    border-color: transparent;
+    box-shadow: var(--ec-shadow-lg);
+    transform: translateY(-3px);
+}
+
+.pcard--oos {
+    opacity: .85;
+}
+
+/* ── Media zone (imagen + badges + overlay) ── */
+.pcard__media {
+    position: relative;
+    aspect-ratio: 1 / 1;
+    overflow: hidden;
+    background: var(--ec-bg-soft);
+}
+
+.pcard__img-link {
+    display: block;
+    width: 100%;
+    height: 100%;
+    position: relative;
+}
+
+.pcard__img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform 450ms var(--ec-ease),
+                opacity 250ms var(--ec-ease);
+}
+
+.pcard:hover .pcard__img--primary {
+    transform: scale(1.06);
+}
+
+.pcard__img--hover {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    transition: opacity 320ms var(--ec-ease);
+}
+
+.pcard__img-link--has-hover:hover .pcard__img--hover {
+    opacity: 1;
+}
+.pcard__img-link--has-hover:hover .pcard__img--primary {
+    opacity: 0;
+}
+
+/* ── Badges (top-left) ── */
+.pcard__badges {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    z-index: 2;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    align-items: flex-start;
+}
+
+.pbadge {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    padding: 4px 9px;
+    border-radius: var(--ec-radius-pill);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: .02em;
+    text-transform: uppercase;
+    line-height: 1;
+    backdrop-filter: blur(4px);
+    box-shadow: var(--ec-shadow-sm);
+}
+
+.pbadge--new {
+    background: var(--ec-primary);
+    color: var(--ec-primary-ink);
+}
+
+.pbadge--hot {
+    background: #f97316;
+    color: #fff;
+}
+
+.pbadge--oos {
+    background: rgba(107, 114, 128, .92);
+    color: #fff;
+    backdrop-filter: blur(4px);
+}
+
+.pbadge--variants {
+    background: rgba(255, 255, 255, .92);
+    color: var(--ec-ink);
+    border: 1px solid var(--ec-line);
+}
+
+/* ── Wishlist button (top-right glassmorphism) ── */
+.pcard__wish {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    z-index: 2;
+    width: 36px;
+    height: 36px;
+    display: inline-flex !important;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, .92) !important;
+    backdrop-filter: blur(6px);
+    border: 1px solid rgba(255, 255, 255, .6) !important;
+    box-shadow: var(--ec-shadow-sm);
+    color: var(--ec-ink-soft);
+    cursor: pointer;
+    transition: all var(--ec-duration) var(--ec-ease);
+    padding: 0;
+}
+
+.pcard__wish:hover {
+    background: #fff !important;
+    color: var(--ec-danger);
+    transform: scale(1.08);
+    box-shadow: var(--ec-shadow-md);
+}
+
+.pcard__wish[aria-pressed="true"] {
+    color: var(--ec-danger);
+    background: #fff !important;
+}
+
+.pcard__wish[aria-pressed="true"] svg {
+    fill: currentColor;
+}
+
+/* ── Hover overlay (quick view + compare) ── */
+.pcard__overlay {
+    position: absolute;
+    inset: auto 0 0 0;
+    padding: 10px;
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+    opacity: 0;
+    transform: translateY(20%);
+    transition: all var(--ec-duration-slow) var(--ec-ease);
+    background: linear-gradient(180deg, transparent, rgba(0, 0, 0, .35) 90%);
+    z-index: 1;
+    pointer-events: none;
+}
+
+.pcard:hover .pcard__overlay {
+    opacity: 1;
+    transform: translateY(0);
+    pointer-events: auto;
+}
+
+.pcard__quickview,
+.pcard__compare-mini {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    padding: 7px 12px;
+    border-radius: var(--ec-radius-pill);
+    background: rgba(255, 255, 255, .96);
+    color: var(--ec-ink);
+    border: none;
+    font-size: 11px;
+    font-weight: 600;
+    box-shadow: var(--ec-shadow-sm);
+    cursor: pointer;
+    transition: all var(--ec-duration) var(--ec-ease);
+}
+
+.pcard__quickview:hover,
+.pcard__compare-mini:hover {
+    background: #fff;
+    transform: translateY(-1px);
+    box-shadow: var(--ec-shadow-md);
+}
+
+.pcard__compare-mini {
+    width: 34px;
+    padding: 7px;
+}
+
+/* En mobile, el overlay no se muestra (no hay hover táctil útil) */
+@media (hover: none) {
+    .pcard__overlay { display: none; }
+}
+
+/* ── Body (contenido bajo la imagen) ── */
+.pcard__body {
+    padding: 12px 14px 14px !important;
+    display: flex !important;
+    flex-direction: column !important;
+    flex-grow: 1;
+    gap: 4px;
+}
+
+/* Categoría label discreta */
+.pcard__cat {
+    font-size: 10px !important;
+    text-transform: uppercase !important;
+    letter-spacing: .06em !important;
+    color: var(--ec-ink-muted) !important;
+    font-weight: 600 !important;
+    margin: 0 !important;
+    line-height: 1.2;
+}
+
+/* Título */
+.pcard__title {
+    font-size: 14px !important;
+    font-weight: 600 !important;
+    line-height: 1.35 !important;
+    color: var(--ec-ink) !important;
+    margin: 2px 0 0 !important;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    min-height: 2.7em;
+}
+
+.pcard__title a {
+    color: inherit !important;
+    text-decoration: none !important;
+    transition: color var(--ec-duration) var(--ec-ease);
+}
+
+.pcard__title a:hover {
+    color: var(--ec-primary-dark) !important;
+}
+
+/* Descripción corta (opcional) */
+.pcard__desc {
+    font-size: 12px !important;
+    color: var(--ec-ink-muted) !important;
+    line-height: 1.4 !important;
+    margin: 0 !important;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+/* Stock indicators */
+.pcard__stock-pill {
+    display: inline-flex !important;
+    align-items: center;
+    gap: 5px;
+    font-size: 11px !important;
+    color: var(--ec-success) !important;
+    font-weight: 500 !important;
+    margin: 2px 0 !important;
+}
+
+.pcard__stock-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--ec-success);
+    box-shadow: 0 0 0 3px rgba(16, 185, 129, .18);
+}
+
+.pcard__low-stock {
+    margin-top: 4px;
+    font-size: 11px;
+}
+
+.pcard__low-stock span {
+    color: #f97316;
+    font-weight: 600;
+    display: block;
+    margin-bottom: 3px;
+}
+
+.pcard__stock-bar {
+    height: 4px;
+    background: var(--ec-line-soft);
+    border-radius: var(--ec-radius-pill);
+    overflow: hidden;
+}
+
+.pcard__stock-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #fb923c, #f97316);
+    transition: width var(--ec-duration-slow) var(--ec-ease);
+}
+
+/* Precio destacado */
+.pcard__price {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+    flex-wrap: wrap;
+    margin-top: auto;
+    padding-top: 6px;
+}
+
+.pcard__price-current {
+    font-size: 18px !important;
+    font-weight: 800 !important;
+    color: var(--ec-ink) !important;
+    letter-spacing: -.02em;
+    line-height: 1;
+}
+
+/* CTA (botón principal — Agregar al carrito / Elegir opciones / Notificar) */
+.pcard__cta {
+    margin-top: 10px !important;
+    display: inline-flex !important;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    width: 100%;
+    padding: 10px 14px !important;
+    border-radius: var(--ec-radius-sm) !important;
+    background: var(--ec-primary) !important;
+    color: var(--ec-primary-ink) !important;
+    border: none !important;
+    font-size: 13px !important;
+    font-weight: 600 !important;
+    cursor: pointer;
+    text-decoration: none !important;
+    transition: background var(--ec-duration) var(--ec-ease),
+                transform var(--ec-duration) var(--ec-ease),
+                box-shadow var(--ec-duration) var(--ec-ease);
+}
+
+.pcard__cta:hover {
+    background: var(--ec-primary-dark) !important;
+    color: var(--ec-primary-ink) !important;
+    transform: translateY(-1px);
+    box-shadow: 0 6px 16px -4px hsla(var(--primary-h), var(--primary-s), 40%, .35);
+}
+
+.pcard__cta:active {
+    transform: translateY(0);
+}
+
+.pcard__cta svg {
+    width: 15px;
+    height: 15px;
+}
+
+/* Variante "Elegir opciones" — mismo estilo pero outline */
+.pcard__cta--variants {
+    background: #fff !important;
+    color: var(--ec-primary-dark) !important;
+    border: 1.5px solid var(--ec-primary) !important;
+}
+
+.pcard__cta--variants:hover {
+    background: var(--ec-primary) !important;
+    color: var(--ec-primary-ink) !important;
+}
+
+/* Notify me (agotado) */
+.pcard__notify {
+    margin-top: 10px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    width: 100%;
+    padding: 10px 14px;
+    border-radius: var(--ec-radius-sm);
+    background: var(--ec-bg-soft);
+    color: var(--ec-ink-muted);
+    border: 1px solid var(--ec-line);
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background var(--ec-duration) var(--ec-ease);
+}
+
+.pcard__notify:hover {
+    background: var(--ec-line-soft);
+    color: var(--ec-ink);
+}
+
+/* En mobile, el texto del CTA es más corto */
+@media (max-width: 575px) {
+    .pcard__body { padding: 10px 12px 12px !important; gap: 3px; }
+    .pcard__title { font-size: 13px !important; min-height: 2.7em; }
+    .pcard__price-current { font-size: 16px !important; }
+    .pcard__cta { font-size: 12px !important; padding: 9px 12px !important; }
+    .pcard__cta-text { /* mantener visible — es 13px; ocultar sólo en muy pequeños */ }
+}
+
+@media (max-width: 380px) {
+    /* En pantallas realmente pequeñas ocultar texto del CTA para que el icono respire */
+    .pcard__cta { padding: 9px !important; }
+    .pcard__cta-text { display: none; }
+}
+
+/* Grid spacing refinado */
+.products .row,
+.ec-products-grid {
+    row-gap: var(--ec-space-4);
+}
