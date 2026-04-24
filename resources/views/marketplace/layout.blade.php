@@ -5,12 +5,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>@yield('title', 'Marketplace ebaemy — productos de todas nuestras tiendas')</title>
     <meta name="description" content="@yield('description', 'Descubre productos publicados por miles de tiendas que usan ebaemy. Un solo lugar para comprar, contactar o solicitar envío.')">
-    <meta name="keywords"    content="@yield('keywords', 'marketplace peru, ebaemy, tiendas online, compra, productos, cataloogo')">
+    <meta name="keywords"    content="@yield('keywords', 'marketplace peru, ebaemy, tiendas online, compra, productos, catalogo')">
     <meta name="robots"      content="index, follow">
+    <meta name="theme-color" content="#0f8a82">
 
     <link rel="canonical" href="@yield('canonical', url()->current())">
 
-    {{-- Open Graph — WhatsApp / Facebook / LinkedIn --}}
+    {{-- Open Graph --}}
     <meta property="og:site_name"   content="ebaemy Marketplace">
     <meta property="og:locale"      content="es_PE">
     <meta property="og:type"        content="@yield('og_type', 'website')">
@@ -22,7 +23,6 @@
     <meta property="og:image:height" content="630">
     <meta property="og:url"         content="@yield('canonical', url()->current())">
 
-    {{-- Twitter Card --}}
     <meta name="twitter:card"        content="summary_large_image">
     <meta name="twitter:title"       content="@yield('og_title', 'Marketplace ebaemy')">
     <meta name="twitter:description" content="@yield('og_description', 'Productos de todas las tiendas ebaemy en un solo lugar.')">
@@ -30,100 +30,152 @@
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-
-    <style>
-        * { box-sizing: border-box; }
-        body { margin:0; font-family: 'Inter', -apple-system, Segoe UI, sans-serif; background:#f7f7f9; color:#0f172a; }
-        a { color:inherit; text-decoration:none; }
-        img { max-width:100%; display:block; }
-
-        .mp-nav { background:#fff; border-bottom:1px solid #e5e7eb; padding:14px 24px; display:flex; align-items:center; justify-content:space-between; position:sticky; top:0; z-index:20; }
-        .mp-nav-left { display:flex; align-items:center; gap:20px; }
-        .mp-logo { font-weight:700; font-size:20px; color:#111; display:flex; align-items:center; gap:8px; }
-        .mp-logo-badge { background:#8b5cf6; color:#fff; padding:2px 8px; border-radius:6px; font-size:11px; font-weight:600; letter-spacing:.5px; }
-        .mp-search { flex:1; max-width:560px; margin:0 20px; display:flex; background:#f3f4f6; border-radius:10px; padding:8px 12px; align-items:center; gap:8px; }
-        .mp-search input { flex:1; border:none; background:transparent; outline:none; font-size:14px; }
-        .mp-nav-right { display:flex; gap:14px; align-items:center; font-size:14px; color:#4b5563; }
-        .mp-nav-right a { color:#4b5563; font-weight:500; }
-        .mp-nav-right a:hover { color:#111; }
-        .mp-btn-login { background:#111; color:#fff !important; padding:8px 16px; border-radius:8px; font-weight:500; }
-
-        .mp-container { max-width:1200px; margin:0 auto; padding:24px; }
-
-        .mp-hero { background:linear-gradient(135deg,#8b5cf6 0%, #6366f1 100%); color:#fff; padding:48px 24px; border-radius:16px; margin-bottom:32px; }
-        .mp-hero h1 { margin:0 0 10px; font-size:32px; font-weight:700; }
-        .mp-hero p { margin:0; opacity:.9; font-size:16px; }
-
-        .mp-filters { display:flex; gap:10px; margin-bottom:20px; flex-wrap:wrap; align-items:center; }
-        .mp-chip { background:#fff; border:1px solid #e5e7eb; color:#374151; padding:6px 14px; border-radius:999px; font-size:13px; cursor:pointer; }
-        .mp-chip--active { background:#111; color:#fff; border-color:#111; }
-        .mp-sort { margin-left:auto; background:#fff; border:1px solid #e5e7eb; padding:6px 10px; border-radius:8px; font-size:13px; }
-
-        .mp-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(220px, 1fr)); gap:18px; }
-        .mp-card { background:#fff; border-radius:12px; overflow:hidden; border:1px solid #eef0f3; transition:transform .15s ease, box-shadow .15s ease; }
-        .mp-card:hover { transform:translateY(-2px); box-shadow:0 8px 24px rgba(0,0,0,.08); }
-        .mp-card-img { aspect-ratio:1/1; background:#f3f4f6; overflow:hidden; }
-        .mp-card-img img { width:100%; height:100%; object-fit:cover; }
-        .mp-card-body { padding:14px 16px; }
-        .mp-card-title { font-size:14px; font-weight:500; color:#111; line-height:1.35; margin:0 0 8px; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
-        .mp-card-price { font-weight:700; font-size:16px; color:#0f172a; }
-        .mp-card-shop { font-size:12px; color:#64748b; margin-top:4px; display:flex; justify-content:space-between; align-items:center; }
-        .mp-card-buy { background:#059669; color:#fff; padding:3px 8px; border-radius:6px; font-size:11px; font-weight:600; text-decoration:none; }
-        .mp-card-buy:hover { background:#047857; color:#fff; }
-        /* Tenant verificado — insignia de confianza */
-        .mp-verified-badge { display:inline-flex; align-items:center; gap:3px; background:#eff6ff; color:#1d4ed8; padding:2px 8px; border-radius:999px; font-size:10px; font-weight:700; border:1px solid #bfdbfe; }
-        .mp-verified-badge svg { flex-shrink:0; }
-        .mp-verified-inline { display:inline-flex; align-items:center; gap:4px; color:#1d4ed8; font-weight:600; font-size:13px; margin-left:6px; vertical-align:middle; }
-        /* Rating en card de listing */
-        .mp-card-rating { display:flex; align-items:center; gap:4px; font-size:13px; margin-top:3px; }
-        .mp-card-rating small { color:#64748b; font-size:11px; }
-
-        .mp-empty { background:#fff; border-radius:12px; padding:60px 24px; text-align:center; color:#64748b; }
-
-        .mp-footer { background:#111; color:#d1d5db; padding:32px 24px; margin-top:60px; text-align:center; font-size:13px; }
-        .mp-footer a { color:#a5b4fc; }
-
-        .mp-pag { display:flex; justify-content:center; margin-top:32px; gap:6px; }
-        .mp-pag a, .mp-pag span { padding:8px 12px; border-radius:8px; background:#fff; border:1px solid #e5e7eb; color:#374151; font-size:13px; }
-        .mp-pag .active { background:#111; color:#fff; border-color:#111; }
-
-        @media (max-width: 640px) {
-            .mp-search { margin:0 8px; }
-            .mp-nav-right { display:none; }
-            .mp-hero h1 { font-size:24px; }
-        }
-    </style>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ asset('css/design-tokens.css') }}">
+    <link rel="stylesheet" href="{{ asset('css/marketplace.css') }}">
     @stack('styles')
 </head>
 <body>
-    <header class="mp-nav">
-        <div class="mp-nav-left">
-            <a href="{{ route('marketplace.index') }}" class="mp-logo">
-                ebaemy <span class="mp-logo-badge">MARKETPLACE</span>
+
+{{-- ═══════════════════════ TOP BAR (desktop) ═══════════════════════ --}}
+<div class="mp-topbar">
+    <div class="mp-topbar-inner">
+        <div class="mp-topbar-left">
+            <span>🚚 Envío a todo el Perú</span>
+            <span>✓ Compra 100% segura</span>
+            <span>⭐ {{ \App\Models\System\Client::query()->where('is_verified', true)->count() }}+ tiendas verificadas</span>
+        </div>
+        <div class="mp-topbar-right">
+            <a href="{{ route('seller.landing') }}">¿Quieres vender?</a>
+            <a href="mailto:soporte@ebaemy.com">Ayuda</a>
+        </div>
+    </div>
+</div>
+
+{{-- ═══════════════════════ NAV PRINCIPAL ═══════════════════════ --}}
+<header class="mp-nav">
+    <div class="mp-nav-main">
+        <a href="{{ route('marketplace.index') }}" class="mp-logo" aria-label="ebaemy marketplace">
+            <span class="mp-logo-mark">e</span>
+            <span>
+                ebaemy
+                <span class="mp-logo-badge">Marketplace</span>
+            </span>
+        </a>
+
+        <form action="{{ route('marketplace.index') }}" method="GET" class="mp-search" role="search">
+            <select name="category" class="mp-search-category" aria-label="Categoría">
+                <option value="">Todas las categorías</option>
+                @isset($categories)
+                    @foreach($categories as $cat)
+                        <option value="{{ $cat }}" @if(($category ?? null) === $cat) selected @endif>{{ $cat }}</option>
+                    @endforeach
+                @endisset
+            </select>
+            <input type="search"
+                   name="q"
+                   value="{{ $q ?? '' }}"
+                   class="mp-search-input"
+                   placeholder="Busca productos, tiendas o categorías…"
+                   aria-label="Buscar">
+            <button type="submit" class="mp-search-btn" aria-label="Buscar">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+            </button>
+        </form>
+
+        <div class="mp-nav-actions">
+            <a href="{{ route('seller.landing') }}" class="mp-nav-link" title="Ingresar a mi tienda">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                <span class="mp-nav-link-text">Mi tienda</span>
+            </a>
+            <a href="{{ route('seller.landing') }}" class="mp-btn-sell">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13l-1.4 7h12.8"/><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/></svg>
+                <span class="mp-btn-sell-text">Vender en ebaemy</span>
             </a>
         </div>
-        <form action="{{ route('marketplace.index') }}" method="GET" class="mp-search">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6b7280" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
-            <input type="search" name="q" value="{{ $q ?? '' }}" placeholder="Busca productos, tiendas, categorías…">
-        </form>
-        <div class="mp-nav-right">
-            <a href="{{ route('seller.landing') }}">Ingresar a mi tienda</a>
-            <a href="{{ route('seller.landing') }}" class="mp-btn-login">Vender en ebaemy</a>
-        </div>
-    </header>
+    </div>
 
-    <main class="mp-container">
-        @yield('content')
-    </main>
+    @isset($categories)
+        @if(!empty($categories) && count($categories) > 0)
+            <nav class="mp-cats-bar" aria-label="Categorías">
+                <div class="mp-cats-inner">
+                    <a href="{{ route('marketplace.index') }}"
+                       class="mp-cat-chip {{ empty($category) ? 'is-active' : '' }}">
+                        📦 Todas
+                    </a>
+                    @foreach($categories as $cat)
+                        <a href="{{ route('marketplace.index', ['category' => $cat]) }}"
+                           class="mp-cat-chip {{ ($category ?? null) === $cat ? 'is-active' : '' }}">
+                            {{ $cat }}
+                        </a>
+                    @endforeach
+                </div>
+            </nav>
+        @endif
+    @endisset
+</header>
 
-    <footer class="mp-footer">
-        <div>© {{ date('Y') }} ebaemy — Todas las tiendas, un solo lugar.</div>
-        <div style="margin-top:6px">
-            <a href="{{ route('seller.landing') }}">¿Quieres vender?</a>
-            ·
-            <a href="{{ url('/guest-register') }}">Crear cuenta</a>
+{{-- ═══════════════════════ CONTENIDO ═══════════════════════ --}}
+<main class="mp-container">
+    @yield('content')
+</main>
+
+{{-- ═══════════════════════ FOOTER ═══════════════════════ --}}
+<footer class="mp-footer">
+    <div class="mp-footer-grid">
+        <div class="mp-footer-brand">
+            <h3>
+                <span style="display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:8px;background:linear-gradient(135deg,#1fb1a6,#0a6f68);font-weight:800;">e</span>
+                ebaemy
+            </h3>
+            <p>El marketplace peruano que conecta compradores con tiendas verificadas. Todas las empresas tienen RUC validado y facturación electrónica.</p>
+            <div class="mp-footer-socials">
+                <a href="#" class="mp-footer-social" aria-label="Facebook">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
+                </a>
+                <a href="#" class="mp-footer-social" aria-label="Instagram">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zM12 0C8.741 0 8.333.014 7.053.072 2.695.272.273 2.69.073 7.052.014 8.333 0 8.741 0 12c0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98C8.333 23.986 8.741 24 12 24c3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98C15.668.014 15.259 0 12 0zm0 5.838a6.162 6.162 0 1 0 0 12.324 6.162 6.162 0 0 0 0-12.324zM12 16a4 4 0 1 1 0-8 4 4 0 0 1 0 8zm6.406-11.845a1.44 1.44 0 1 0 0 2.881 1.44 1.44 0 0 0 0-2.881z"/></svg>
+                </a>
+                <a href="#" class="mp-footer-social" aria-label="WhatsApp">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981zm11.387-5.464c-.074-.124-.272-.198-.57-.347-.297-.149-1.758-.868-2.031-.967-.272-.099-.47-.149-.669.149-.198.297-.768.967-.941 1.165-.173.198-.347.223-.644.074-.297-.149-1.255-.462-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.52.149-.173.198-.297.298-.495.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51l-.57-.01c-.198 0-.52.074-.792.372s-1.04 1.016-1.04 2.479 1.065 2.876 1.213 3.074c.149.198 2.095 3.2 5.076 4.487.709.306 1.263.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413z"/></svg>
+                </a>
+            </div>
         </div>
-    </footer>
+
+        <div class="mp-footer-col">
+            <h4>Comprar</h4>
+            <ul>
+                <li><a href="{{ route('marketplace.index') }}">Explorar marketplace</a></li>
+                <li><a href="{{ route('marketplace.index', ['sort' => 'newest']) }}">Novedades</a></li>
+                <li><a href="{{ route('marketplace.index', ['sort' => 'price_asc']) }}">Ofertas</a></li>
+            </ul>
+        </div>
+
+        <div class="mp-footer-col">
+            <h4>Vender</h4>
+            <ul>
+                <li><a href="{{ route('seller.landing') }}">Vender en ebaemy</a></li>
+                <li><a href="{{ route('seller.register') }}">Crear solicitud</a></li>
+                <li><a href="{{ url('/guest-register') }}">Registro rápido</a></li>
+            </ul>
+        </div>
+
+        <div class="mp-footer-col">
+            <h4>Soporte</h4>
+            <ul>
+                <li><a href="mailto:soporte@ebaemy.com">Contacto</a></li>
+                <li><a href="#">Preguntas frecuentes</a></li>
+                <li><a href="#">Términos y condiciones</a></li>
+                <li><a href="#">Política de privacidad</a></li>
+            </ul>
+        </div>
+    </div>
+
+    <div class="mp-footer-bottom">
+        <div>© {{ date('Y') }} ebaemy — Todas las tiendas del Perú, un solo lugar.</div>
+        <div>Hecho en 🇵🇪 con Laravel + ebaemy SaaS</div>
+    </div>
+</footer>
+
 </body>
 </html>

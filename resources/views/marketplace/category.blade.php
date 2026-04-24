@@ -14,12 +14,20 @@
         ],
     ];
     $collectionPage = [
-        '@context' => 'https://schema.org',
-        '@type' => 'CollectionPage',
-        'name' => $category . ' — Marketplace ebaemy',
-        'url'  => $categoryUrl,
+        '@context'      => 'https://schema.org',
+        '@type'         => 'CollectionPage',
+        'name'          => $category . ' — Marketplace ebaemy',
+        'url'           => $categoryUrl,
         'numberOfItems' => (int) $total,
     ];
+
+    $baseQs = array_filter([
+        'sort'      => $sort,
+        'price_min' => $priceMin,
+        'price_max' => $priceMax,
+    ], fn($v) => $v !== null && $v !== '');
+
+    $hasFilters = $priceMin !== null || $priceMax !== null;
 @endphp
 
 @section('title', $category . ' — Marketplace ebaemy')
@@ -39,72 +47,134 @@
 @endpush
 
 @section('content')
-    <nav style="font-size:13px;color:#64748b;margin-bottom:10px">
-        <a href="{{ route('marketplace.index') }}" style="color:#6366f1;text-decoration:none">Marketplace</a>
-        <span style="margin:0 6px;color:#9ca3af">›</span>
-        <span>{{ $category }}</span>
-    </nav>
 
-    <section class="mp-hero">
-        <h1>{{ $category }}</h1>
-        <p>{{ $total }} producto(s) en esta categoría — vendidos por tiendas peruanas en ebaemy.</p>
-    </section>
+<nav class="mp-breadcrumb" aria-label="breadcrumb">
+    <a href="{{ route('marketplace.index') }}">Marketplace</a>
+    <span class="sep">›</span>
+    <span style="color:var(--mp-ink);font-weight:500">{{ $category }}</span>
+</nav>
 
-    <form method="GET" action="{{ route('marketplace.category', $categorySlug) }}" class="mp-price-form"
-          style="display:flex;gap:8px;align-items:center;margin:10px 0 18px;flex-wrap:wrap">
-        @if($sort && $sort !== 'relevance') <input type="hidden" name="sort" value="{{ $sort }}"> @endif
-        <span style="font-size:13px;color:#64748b">Precio:</span>
-        <input type="number" name="price_min" min="0" step="0.01" placeholder="Desde S/"
-               value="{{ $priceMin !== null ? $priceMin : '' }}"
-               style="width:120px;padding:8px 10px;border:1px solid #d1d5db;border-radius:8px;font-size:13px">
-        <input type="number" name="price_max" min="0" step="0.01" placeholder="Hasta S/"
-               value="{{ $priceMax !== null ? $priceMax : '' }}"
-               style="width:120px;padding:8px 10px;border:1px solid #d1d5db;border-radius:8px;font-size:13px">
-        <button type="submit"
-                style="background:#111;color:#fff;border:none;padding:8px 16px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer">
-            Aplicar
-        </button>
+{{-- Hero compacto de categoría --}}
+<section class="mp-hero" style="min-height:180px;padding:clamp(24px, 4vw, 48px) clamp(20px, 4vw, 56px)">
+    <div>
+        <span class="mp-hero-eyebrow">Categoría</span>
+        <h1 style="font-size:clamp(24px, 3.5vw, 36px)">{{ $category }}</h1>
+        <p>{{ $total }} producto{{ $total === 1 ? '' : 's' }} en esta categoría — vendidos por tiendas verificadas en ebaemy.</p>
+    </div>
+</section>
 
-        <select name="sort" onchange="this.form.submit()"
-                style="margin-left:auto;padding:8px 10px;border:1px solid #d1d5db;border-radius:8px;font-size:13px">
-            <option value="relevance" {{ $sort === 'relevance' ? 'selected' : '' }}>Relevancia</option>
-            <option value="price_asc" {{ $sort === 'price_asc' ? 'selected' : '' }}>Precio: menor a mayor</option>
-            <option value="price_desc" {{ $sort === 'price_desc' ? 'selected' : '' }}>Precio: mayor a menor</option>
-            <option value="newest" {{ $sort === 'newest' ? 'selected' : '' }}>Más recientes</option>
-        </select>
-    </form>
+<div class="mp-list-layout">
 
-    @if($listings->isEmpty())
-        <div class="mp-empty">
-            <h3>Sin productos en esta categoría</h3>
-            <p>Ajusta los filtros o vuelve al <a href="{{ route('marketplace.index') }}">marketplace completo</a>.</p>
+    {{-- Sidebar --}}
+    <button type="button" class="mp-filters-mobile-btn" onclick="document.getElementById('mpFilters').classList.add('is-open'); document.body.style.overflow='hidden';">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></svg>
+        Filtros{{ $hasFilters ? ' (activos)' : '' }}
+    </button>
+
+    <aside class="mp-filters-card" id="mpFilters">
+        <div class="mp-filters-header">
+            <h3>Filtrar</h3>
+            @if($hasFilters)
+                <a href="{{ $categoryUrl }}" class="mp-filters-clear">Limpiar</a>
+            @endif
+            <button type="button" class="mp-filters-close"
+                    onclick="document.getElementById('mpFilters').classList.remove('is-open'); document.body.style.overflow='';"
+                    style="display:none" id="mpFiltersClose">×</button>
         </div>
-    @else
-        <div class="mp-grid">
-            @foreach($listings as $listing)
-                <a href="{{ route('marketplace.item', $listing->slug) }}" class="mp-card">
-                    <div class="mp-card-img">
-                        @if($listing->image_url)
-                            <img src="{{ $listing->image_url }}" alt="{{ $listing->title }}" loading="lazy">
-                        @else
-                            <div style="display:flex;height:100%;align-items:center;justify-content:center;color:#9ca3af;font-size:12px">Sin imagen</div>
-                        @endif
-                    </div>
-                    <div class="mp-card-body">
-                        <h3 class="mp-card-title">{{ $listing->title }}</h3>
-                        <div class="mp-card-price">S/ {{ number_format($listing->display_price, 2) }}</div>
-                        <div class="mp-card-shop">
-                            <span title="Vendido por {{ $listing->seller_display }}">
-                                🏪 {{ \Illuminate\Support\Str::limit($listing->seller_display, 24) }}
-                            </span>
+
+        <div class="mp-filter-group">
+            <div class="mp-filter-label">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+                Precio (S/)
+            </div>
+            <form method="GET" action="{{ $categoryUrl }}">
+                @if($sort && $sort !== 'relevance') <input type="hidden" name="sort" value="{{ $sort }}"> @endif
+                <div class="mp-price-range">
+                    <input type="number" name="price_min" min="0" step="0.01" placeholder="Desde" value="{{ $priceMin !== null ? $priceMin : '' }}">
+                    <span class="mp-price-range-sep">—</span>
+                    <input type="number" name="price_max" min="0" step="0.01" placeholder="Hasta" value="{{ $priceMax !== null ? $priceMax : '' }}">
+                </div>
+                <button type="submit" class="mp-filter-apply">Aplicar</button>
+            </form>
+        </div>
+    </aside>
+
+    <div class="mp-main-col">
+        <div class="mp-toolbar">
+            <div class="mp-toolbar-count">
+                <strong>{{ $total }}</strong> producto{{ $total === 1 ? '' : 's' }} en <strong>{{ $category }}</strong>
+            </div>
+            <form method="GET" action="{{ $categoryUrl }}" style="margin:0">
+                @if($priceMin !== null) <input type="hidden" name="price_min" value="{{ $priceMin }}"> @endif
+                @if($priceMax !== null) <input type="hidden" name="price_max" value="{{ $priceMax }}"> @endif
+                <select name="sort" class="mp-sort-dropdown" onchange="this.form.submit()" aria-label="Ordenar">
+                    <option value="relevance" {{ $sort === 'relevance'  ? 'selected' : '' }}>Relevancia</option>
+                    <option value="price_asc" {{ $sort === 'price_asc'  ? 'selected' : '' }}>Precio: menor a mayor</option>
+                    <option value="price_desc"{{ $sort === 'price_desc' ? 'selected' : '' }}>Precio: mayor a menor</option>
+                    <option value="newest"    {{ $sort === 'newest'     ? 'selected' : '' }}>Más recientes</option>
+                </select>
+            </form>
+        </div>
+
+        @if($listings->isEmpty())
+            <div class="mp-empty">
+                <div class="mp-empty-icon">
+                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+                </div>
+                <h3>Sin productos en esta categoría</h3>
+                <p>Ajusta los filtros o vuelve al <a href="{{ route('marketplace.index') }}" style="color:var(--mp-primary-dark);font-weight:600">marketplace completo</a>.</p>
+            </div>
+        @else
+            <div class="mp-grid">
+                @foreach($listings as $listing)
+                    <a href="{{ route('marketplace.item', $listing->slug) }}" class="mp-card">
+                        <div class="mp-card-img">
+                            @if($listing->image_url)
+                                <img src="{{ $listing->image_url }}" alt="{{ $listing->title }}" loading="lazy">
+                            @else
+                                <div class="mp-card-img-empty">Sin imagen</div>
+                            @endif
+                            <div class="mp-card-badges">
+                                @if(!empty($listing->tenant_verified))
+                                    <span class="mp-badge mp-badge--verified">
+                                        <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l2.39 5.42L20 8.27l-4 4.15.94 5.58L12 15.77l-4.94 2.23L8 12.42 4 8.27l5.61-.85L12 2z"/></svg>
+                                        Verificado
+                                    </span>
+                                @endif
+                            </div>
                         </div>
-                    </div>
-                </a>
-            @endforeach
-        </div>
+                        <div class="mp-card-body">
+                            <h3 class="mp-card-title">{{ $listing->title }}</h3>
+                            @if(!empty($listing->rating_count) && $listing->rating_count > 0)
+                                <div class="mp-card-rating">
+                                    <span class="mp-card-rating-stars">
+                                        @for($i=1;$i<=5;$i++){{ $i <= round($listing->avg_rating) ? '★' : '☆' }}@endfor
+                                    </span>
+                                    <span class="mp-card-rating-count">({{ $listing->rating_count }})</span>
+                                </div>
+                            @endif
+                            <div class="mp-card-price-row">
+                                <span class="mp-card-price">S/ {{ number_format($listing->display_price, 2) }}</span>
+                            </div>
+                            <div class="mp-card-shop">
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9h18"/><path d="m3 9 1.5-6h15L21 9"/><path d="M3 9v10a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V9"/></svg>
+                                <span class="mp-card-shop-name">{{ \Illuminate\Support\Str::limit($listing->seller_display, 24) }}</span>
+                            </div>
+                        </div>
+                    </a>
+                @endforeach
+            </div>
 
-        <div class="mp-pag">
-            {{ $listings->links() }}
-        </div>
-    @endif
+            <div class="mp-pag">
+                {{ $listings->links() }}
+            </div>
+        @endif
+    </div>
+</div>
+
+<script>
+if (window.matchMedia('(max-width: 899px)').matches) {
+    document.getElementById('mpFiltersClose').style.display = 'inline-block';
+}
+</script>
 @endsection
