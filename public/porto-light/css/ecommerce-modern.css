@@ -2694,20 +2694,30 @@ img.ec-img-lazy[src*="placeholder"] {
     left: 125%;
 }
 
-/* El "Agregar al Carrito" queda como SECUNDARIO (outline) */
-.product-single-details .paction.add-cart {
+/* El "Agregar al Carrito" queda como SECUNDARIO (outline).
+   Selector con id #btn-add-to-cart para ganar sobre el override global
+   en ecommerce-theme-override.css que fuerza background primary. */
+.product-single-details .paction.add-cart,
+.product-single-details #btn-add-to-cart.add-cart,
+#btn-add-to-cart.paction.add-cart {
     background: #fff !important;
+    background-color: #fff !important;
     color: var(--ec-primary-700) !important;
     border: 2px solid var(--ec-primary) !important;
+    border-color: var(--ec-primary) !important;
     box-shadow: none !important;
     text-transform: none !important;
     font-size: 14px !important;
     font-weight: 700 !important;
 }
 
-.product-single-details .paction.add-cart:hover {
+.product-single-details .paction.add-cart:hover,
+.product-single-details #btn-add-to-cart.add-cart:hover,
+#btn-add-to-cart.paction.add-cart:hover {
     background: var(--ec-primary-50) !important;
+    background-color: var(--ec-primary-50) !important;
     color: var(--ec-primary-700) !important;
+    border-color: var(--ec-primary) !important;
     transform: translateY(-1px);
 }
 
