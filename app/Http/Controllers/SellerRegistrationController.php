@@ -64,12 +64,21 @@ class SellerRegistrationController extends Controller
 
     /**
      * Valida un RUC contra SUNAT y devuelve datos normalizados para
-     * autocompletar el form del usuario.
+     * autocompletar el form del usuario. Adicionalmente señala si el RUC
+     * ya está asociado a un tenant existente o a una solicitud en pipeline,
+     * para que el form pueda avisar al seller antes de que complete todo
+     * el registro.
      */
     public function validateRuc(Request $request): JsonResponse
     {
         $ruc = trim((string) $request->input('ruc', ''));
         $result = $this->rucValidator->validate($ruc);
+
+        // Check rápido: ¿el RUC ya está registrado?
+        $existing = null;
+        if ($result['valid'] ?? false) {
+            $existing = $this->service->findExistingRegistration(['ruc' => $ruc]);
+        }
 
         return response()->json([
             'valid'                  => $result['valid'],
@@ -82,6 +91,10 @@ class SellerRegistrationController extends Controller
             'province'               => $result['province'],
             'district'               => $result['district'],
             'requires_manual_review' => $result['requires_manual_review'],
+            'already_registered'     => $existing ? [
+                'type'    => $existing['type'],
+                'message' => $existing['message'],
+            ] : null,
         ]);
     }
 

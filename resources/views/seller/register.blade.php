@@ -530,6 +530,10 @@ function srValidateStep(n) {
             form.querySelector('[name="ruc"]').classList.add('is-invalid');
             srShowError('El RUC debe tener 11 dígitos y empezar con 10, 15, 17 o 20.');
             valid = false;
+        } else if (srRucBlocked) {
+            form.querySelector('[name="ruc"]').classList.add('is-invalid');
+            // El mensaje visual ya está en el error box de srSetRucBlocked
+            valid = false;
         }
     }
     if (n === 2) {
@@ -610,6 +614,7 @@ document.getElementById('srRuc').addEventListener('input', e => {
 
 async function srValidateRuc(ruc) {
     const hint = document.getElementById('srRucHint');
+    srSetRucBlocked(false); // reset
     try {
         const res = await fetch(`/seller/register/validate-ruc?ruc=${encodeURIComponent(ruc)}`, {
             headers: { 'Accept': 'application/json' }
@@ -620,6 +625,14 @@ async function srValidateRuc(ruc) {
             hint.textContent = data.error || 'RUC inválido.';
             return;
         }
+
+        // Si el RUC ya está asociado a un tenant o solicitud activa,
+        // bloqueamos el flujo y mostramos el mensaje + CTA correspondiente.
+        if (data.already_registered) {
+            srSetRucBlocked(true, data.already_registered);
+            return;
+        }
+
         if (data.business_name) document.getElementById('srBusinessName').value = data.business_name;
         if (data.fiscal_address) document.getElementById('srFiscalAddress').value = data.fiscal_address;
         if (data.requires_manual_review) {
@@ -633,6 +646,48 @@ async function srValidateRuc(ruc) {
         hint.className = 'sr-hint warn';
         hint.textContent = 'No pudimos verificar el RUC online, pero puedes continuar.';
     }
+}
+
+/**
+ * Cuando el RUC ya está registrado:
+ *   - type='tenant'      → Ya existe una tienda, mostrar CTA login
+ *   - type='application' → Ya hay solicitud en pipeline, ofrecer link al portal
+ * Bloqueamos el botón "Continuar" hasta que el usuario cambie el RUC.
+ */
+let srRucBlocked = false;
+function srSetRucBlocked(blocked, info = null) {
+    srRucBlocked = blocked;
+    const btn = document.getElementById('srBtnNext');
+    // Solo aplica al paso 1 (donde está el RUC). En pasos siguientes ignoramos.
+    if (srStep === 1) {
+        btn.disabled = blocked;
+        btn.style.opacity = blocked ? '0.5' : '';
+    }
+
+    const errBox = document.getElementById('srErrorBox');
+    if (!blocked || !info) {
+        // Limpiar alertas previas del tipo "already_registered"
+        const existing = errBox.querySelector('[data-role="already-registered"]');
+        if (existing) existing.remove();
+        return;
+    }
+
+    const icon = info.type === 'tenant' ? '🔒' : '⏳';
+    const title = info.type === 'tenant'
+        ? 'Esta empresa ya tiene una tienda'
+        : 'Ya tienes una solicitud en proceso';
+
+    const existing = errBox.querySelector('[data-role="already-registered"]');
+    if (existing) existing.remove();
+
+    const cls = info.type === 'tenant' ? 'err' : 'warn';
+    const html = `
+        <div class="sr-alert ${cls}" data-role="already-registered">
+            <div style="font-weight:700; margin-bottom:4px;">${icon} ${title}</div>
+            <div>${srEscape(info.message)}</div>
+        </div>
+    `;
+    errBox.insertAdjacentHTML('afterbegin', html);
 }
 
 // ────────────────────────────────────────────────────────

@@ -84,6 +84,19 @@ class SellerApplicationService
     public function createApplication(array $input): array
     {
         try {
+            // 0. Detectar RUC/email/subdominio ya registrados ANTES de consultar SUNAT.
+            //    Evitamos crear solicitudes duplicadas o conflictivas.
+            $existing = $this->findExistingRegistration([
+                'ruc'       => $input['ruc'] ?? null,
+                'email'     => $input['email'] ?? null,
+                'subdomain' => $input['requested_subdomain'] ?? null,
+            ]);
+            if ($existing !== null) {
+                return array_merge([
+                    'success' => false,
+                ], $existing);
+            }
+
             // 1. Validar RUC (formato + API si está configurada)
             $rucResult = $this->rucValidator->validate($input['ruc'] ?? '');
 
@@ -461,6 +474,112 @@ class SellerApplicationService
     // ─────────────────────────────────────────────────────────
     //  Helpers privados
     // ─────────────────────────────────────────────────────────
+
+    /**
+     * Busca si un RUC, email o subdominio ya están registrados en el sistema
+     * — sea como tenant activo o como solicitud de seller en pipeline.
+     *
+     * Retorna null si nada existe, o un array con:
+     *   [
+     *     'type'    => 'tenant' | 'application',
+     *     'message' => string legible para el seller (sin exponer subdominio
+     *                  real por privacidad del tenant preexistente)
+     *     'detail'  => string interno para logs/debug
+     *   ]
+     *
+     * Se usa tanto en createApplication (server-side al enviar form) como
+     * en validateRuc (AJAX al tipear) para avisar al seller antes de que
+     * complete toda la solicitud.
+     */
+    public function findExistingRegistration(array $criteria): ?array
+    {
+        $ruc       = isset($criteria['ruc'])       ? trim((string) $criteria['ruc'])       : null;
+        $email     = isset($criteria['email'])     ? strtolower(trim((string) $criteria['email'])) : null;
+        $subdomain = isset($criteria['subdomain']) ? strtolower(trim((string) $criteria['subdomain'])) : null;
+
+        // ── 1. Tenant (clients) ya existente ─────────────────
+        $clientsTable = DB::connection('system')->table('clients');
+
+        if (!empty($ruc) && $clientsTable->where('number', $ruc)->exists()) {
+            return [
+                'type'    => 'tenant',
+                'message' => 'Ya existe una tienda registrada con este RUC. Inicia sesión desde el subdominio de tu empresa.',
+                'detail'  => "RUC {$ruc} ya es tenant",
+            ];
+        }
+
+        if (!empty($email) && $clientsTable->whereRaw('LOWER(email) = ?', [$email])->exists()) {
+            return [
+                'type'    => 'tenant',
+                'message' => 'Ya existe una tienda registrada con este correo. Inicia sesión desde el subdominio de tu empresa.',
+                'detail'  => "Email {$email} ya es tenant",
+            ];
+        }
+
+        if (!empty($subdomain)) {
+            $uuid = config('tenant.prefix_database') . '_' . $subdomain;
+            $websiteTaken = DB::connection('system')->table('websites')->where('uuid', $uuid)->exists();
+            if ($websiteTaken) {
+                return [
+                    'type'    => 'tenant',
+                    'message' => "El subdominio '{$subdomain}' ya está en uso por otra tienda.",
+                    'detail'  => "Subdomain {$subdomain} uuid ya existe",
+                ];
+            }
+        }
+
+        // ── 2. Solicitud de seller en pipeline activo ────────
+        $activeStatuses = SellerApplication::ACTIVE_STATUSES;
+
+        if (!empty($ruc)) {
+            $app = SellerApplication::query()
+                ->whereIn('status', $activeStatuses)
+                ->where('ruc', $ruc)
+                ->first();
+            if ($app) {
+                return [
+                    'type'    => 'application',
+                    'message' => $this->messageForExistingApplication($app),
+                    'detail'  => "RUC {$ruc} tiene solicitud {$app->id} en estado {$app->status}",
+                ];
+            }
+        }
+
+        if (!empty($subdomain)) {
+            $app = SellerApplication::query()
+                ->whereIn('status', $activeStatuses)
+                ->where('requested_subdomain', $subdomain)
+                ->first();
+            if ($app) {
+                return [
+                    'type'    => 'application',
+                    'message' => "El subdominio '{$subdomain}' está reservado por otra solicitud en revisión.",
+                    'detail'  => "Subdomain {$subdomain} reservado por solicitud {$app->id}",
+                ];
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Mensaje legible según el estado de la solicitud existente. No exponemos
+     * el tracking_token por privacidad — si el seller es el dueño, puede
+     * pedir reenvío del link a su correo desde el frontend.
+     */
+    private function messageForExistingApplication(SellerApplication $app): string
+    {
+        switch ($app->status) {
+            case SellerApplication::STATUS_APPROVED:
+                return 'Ya existe una tienda aprobada con este RUC. Inicia sesión desde el subdominio de tu empresa.';
+            case SellerApplication::STATUS_REQUIRES_DOCUMENTS:
+                return 'Tienes una solicitud en revisión que requiere documentos adicionales. Revisa el correo que te enviamos.';
+            case SellerApplication::STATUS_REQUIRES_REVIEW:
+                return 'Ya tienes una solicitud en revisión manual por nuestro equipo.';
+            default:
+                return 'Ya tienes una solicitud de vendedor en revisión con este RUC. Te notificaremos por correo cuando haya novedades.';
+        }
+    }
 
     /**
      * Aplica overrides de email/password del SuperAdmin al SellerApplication.
