@@ -26,7 +26,7 @@
             </h2>
             <ol class="breadcrumbs">
                 <li class="active">
-                    <span>Productos Tienda Virtual</span>
+                    <span>Productos en tu tienda online</span>
                 </li>
             </ol>
             <div class="right-wrapper pull-right">
@@ -43,6 +43,20 @@
                 </template>
             </div>
         </div>
+        <!-- ── Banner unificación catálogo (Opción A) ── -->
+        <div style="margin-bottom:12px;padding:12px 16px;background:#ecfdf5;border:1px solid #a7f3d0;border-radius:10px;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+            <div style="font-size:22px;line-height:1">📚</div>
+            <div style="flex:1;min-width:240px">
+                <div style="font-weight:600;font-size:14px;color:#065f46">Estos son productos de tu catálogo publicados en la tienda online</div>
+                <div style="font-size:12px;color:#047857;margin-top:2px">
+                    No se duplican: es el mismo producto de "Productos y Servicios". El precio, stock y datos de facturación viven en el catálogo maestro.
+                </div>
+            </div>
+            <a href="/items" class="btn btn-sm btn-outline-success" style="border-color:#10b981;color:#065f46">
+                Ver catálogo completo →
+            </a>
+        </div>
+
         <!-- ── Marketplace stats (solo si tenant tiene listings publicados) ── -->
         <div v-if="mpStats.published > 0" class="mp-stats-card">
             <div class="mp-stats-head">
@@ -150,13 +164,24 @@
                         <td class="text-end">
                             <template>
                                 <!-- v-if="typeUser === 'admin'" -->
-                                <button
-                                    type="button"
-                                    class="btn waves-effect waves-light btn-xs btn-info"
-                                    @click.prevent="clickCreate(row.id)"
-                                >
-                                    Editar
-                                </button>
+                                <el-tooltip content="Edición rápida (datos web)" placement="top">
+                                    <button
+                                        type="button"
+                                        class="btn waves-effect waves-light btn-xs btn-info"
+                                        @click.prevent="clickCreate(row.id)"
+                                    >
+                                        Editar
+                                    </button>
+                                </el-tooltip>
+                                <el-tooltip content="Abrir ficha completa del catálogo (stock, compras, lotes, atributos)" placement="top">
+                                    <a
+                                        :href="'/items#edit-' + row.id"
+                                        class="btn waves-effect waves-light btn-xs btn-default ms-1"
+                                        style="background:#f3f4f6;border:1px solid #d1d5db;color:#374151"
+                                    >
+                                        Ficha ERP
+                                    </a>
+                                </el-tooltip>
                                 <button
                                     type="button"
                                     class="btn waves-effect waves-light btn-xs btn-danger ms-1"

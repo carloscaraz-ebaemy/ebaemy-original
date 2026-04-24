@@ -8,6 +8,17 @@
                @close="close"
                @open="create">
 
+        <!-- Banner: edición rápida sobre el catálogo maestro -->
+        <div style="margin:-8px 0 12px;padding:10px 14px;background:#ecfdf5;border:1px solid #a7f3d0;border-radius:8px;display:flex;align-items:center;gap:10px;font-size:13px">
+            <span style="font-size:18px;line-height:1">📚</span>
+            <div style="flex:1;color:#065f46">
+                <strong>Edición rápida del catálogo.</strong> Cambios aquí afectan el producto maestro (inventario, facturación, tienda, marketplace).
+            </div>
+            <a v-if="form.id" :href="'/items#edit-' + form.id" style="color:#065f46;font-size:12px;font-weight:500;text-decoration:underline">
+                Abrir ficha completa →
+            </a>
+        </div>
+
         <!-- Tabs adicionales para Restaurant -->
         <el-tabs v-model="activeTab" class="mt-3">
             <el-tab-pane label="General" name="general">
@@ -1072,7 +1083,7 @@ export default {
                 image_url: null,
                 temp_path: null,
                 account_id: null,
-                apply_store: false,
+                apply_store: true,
                 marketplace_publishable: false,
                 mp_price: null,
                 marketplace_category_id: null,
