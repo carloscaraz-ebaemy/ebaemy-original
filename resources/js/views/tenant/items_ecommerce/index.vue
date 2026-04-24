@@ -182,6 +182,26 @@
                                         Ficha ERP
                                     </a>
                                 </el-tooltip>
+                                <el-tooltip v-if="row.apply_store && row.slug" content="Abrir en tu tienda online (pública)" placement="top">
+                                    <a
+                                        :href="'/item/' + row.slug"
+                                        target="_blank" rel="noopener"
+                                        class="btn waves-effect waves-light btn-xs ms-1"
+                                        style="background:#ecfdf5;border:1px solid #10b981;color:#065f46"
+                                    >
+                                        🛍️
+                                    </a>
+                                </el-tooltip>
+                                <el-tooltip v-if="row.marketplace_publishable && row.mp_status === 'active'" content="Ver en ebaemy.com/marketplace" placement="top">
+                                    <a
+                                        :href="'https://ebaemy.com/marketplace?q=' + encodeURIComponent(row.description || row.name || '')"
+                                        target="_blank" rel="noopener"
+                                        class="btn waves-effect waves-light btn-xs ms-1"
+                                        style="background:#faf5ff;border:1px solid #a78bfa;color:#5b21b6"
+                                    >
+                                        🌐
+                                    </a>
+                                </el-tooltip>
                                 <button
                                     type="button"
                                     class="btn waves-effect waves-light btn-xs btn-danger ms-1"

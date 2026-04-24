@@ -565,10 +565,20 @@
                                     <el-dropdown-item
                                       @click.native.prevent="duplicate(row.id)"
                                     >
-                                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon icon-tabler icons-tabler-outline icon-tabler-copy me-2"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M7 7m0 2.667a2.667 2.667 0 0 1 2.667 -2.667h8.666a2.667 2.667 0 0 1 2.667 2.667v8.666a2.667 2.667 0 0 1 -2.667 2.667h-8.666a2.667 2.667 0 0 1 -2.667 -2.667z" /><path d="M4.012 16.737a2.005 2.005 0 0 1 -1.012 -1.737v-10c0 -1.1 .9 -2 2 -2h10c.75 0 1.158 .385 1.5 1" /></svg>
+                                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon icon-tabler icons-tabler-outline icon-tabler-copy me-2"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M7 7m0 2.667a2.667 2.667 0 0 1 2.667 -2.667h8.666a2.667 2.667 0 0 1 2.667 2.667v8.666a2.667 2.667 0 0 1 -2.667 -2.667z" /><path d="M4.012 16.737a2.005 2.005 0 0 1 -1.012 -1.737v-10c0 -1.1 .9 -2 2 -2h10c.75 0 1.158 .385 1.5 1" /></svg>
                                       Duplicar
                                     </el-dropdown-item>
-                                
+
+                                    <el-dropdown-item v-if="row.apply_store && row.slug" @click.native.prevent="openInStore(row)">
+                                      <span style="margin-right:6px">🛍️</span>
+                                      Ver en Tienda online
+                                    </el-dropdown-item>
+
+                                    <el-dropdown-item v-if="row.marketplace_publishable && row.mp_status === 'active'" @click.native.prevent="openInMarketplace(row)">
+                                      <span style="margin-right:6px">🌐</span>
+                                      Ver en Marketplace
+                                    </el-dropdown-item>
+
                                     <el-dropdown-item divided />
                                 
                                     <el-dropdown-item
@@ -1075,6 +1085,13 @@ export default {
             this.warehousesDetail = warehouses;
             this.item_unit_types = item_unit_types;
             this.showWarehousesDetail = true;
+        },
+        openInStore(row) {
+            if (row && row.slug) window.open('/item/' + row.slug, '_blank', 'noopener')
+        },
+        openInMarketplace(row) {
+            const q = encodeURIComponent(row.description || row.name || '')
+            window.open('https://ebaemy.com/marketplace?q=' + q, '_blank', 'noopener')
         },
         clickCreate(recordId = null) {
             this.recordId = recordId;

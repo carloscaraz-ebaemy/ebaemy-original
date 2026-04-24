@@ -50,6 +50,7 @@ class ItemCollection extends ResourceCollection
                 'unit_type_id' => $row->unit_type_id,
                 'description' => $row->description,
                 'name' => $row->name,
+                'slug' => $row->slug,
                 'second_name' => $row->second_name,
                 'model' => $row->model,
                 'barcode' => $row->barcode,
