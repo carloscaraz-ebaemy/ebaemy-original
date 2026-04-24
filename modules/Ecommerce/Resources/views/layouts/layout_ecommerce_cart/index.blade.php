@@ -51,6 +51,16 @@
         }
     @endphp
     <style>:root{--primary-h:{{ round($__h*360) }};--primary-s:{{ round($__s*100) }}%;--primary-l:{{ round($__l*100) }}%;}</style>
+
+    {{-- Rediseño visual 2026 (aditivo). Carga al final para que gane sobre
+         Porto legacy. Respeta --primary-h/s/l del tenant inyectado arriba. --}}
+    @php
+        $__modernCssPath = public_path('porto-light/css/ecommerce-modern.css');
+        $__modernCssV = file_exists($__modernCssPath) ? filemtime($__modernCssPath) : time();
+    @endphp
+    <link rel="stylesheet" href="{{ asset('porto-light/css/ecommerce-modern.css') }}?v={{ $__modernCssV }}" />
+    <script>document.documentElement.classList.add('ec-modern');</script>
+
     <style>
         /* En la página del carrito/checkout el mini-carrito del header no tiene sentido */
         .cart-dropdown .dropdown-toggle { pointer-events: none; cursor: default; }
