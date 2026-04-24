@@ -93,6 +93,7 @@ class SellerRegistrationController extends Controller
             'requires_manual_review' => $result['requires_manual_review'],
             'already_registered'     => $existing ? [
                 'type'    => $existing['type'],
+                'subtype' => $existing['subtype'] ?? null,
                 'message' => $existing['message'],
             ] : null,
         ]);

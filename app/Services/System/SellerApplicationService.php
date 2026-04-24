@@ -498,22 +498,30 @@ class SellerApplicationService
         $subdomain = isset($criteria['subdomain']) ? strtolower(trim((string) $criteria['subdomain'])) : null;
 
         // ── 1. Tenant (clients) ya existente ─────────────────
+        // Distinguimos dos subtipos:
+        //   - active_seller      → el tenant ya tiene marketplace_enabled=true
+        //                          (tienda virtual activa). Debe iniciar sesión.
+        //   - needs_activation   → es cliente pero sin marketplace habilitado
+        //                          (p.ej. solo usa facturación/POS). Debe
+        //                          solicitar activación al equipo de soporte.
         $clientsTable = DB::connection('system')->table('clients');
 
-        if (!empty($ruc) && $clientsTable->where('number', $ruc)->exists()) {
-            return [
-                'type'    => 'tenant',
-                'message' => 'Ya existe una tienda registrada con este RUC. Inicia sesión desde el subdominio de tu empresa.',
-                'detail'  => "RUC {$ruc} ya es tenant",
-            ];
+        if (!empty($ruc)) {
+            $client = $clientsTable->where('number', $ruc)
+                ->select(['id', 'marketplace_enabled', 'seller_status'])
+                ->first();
+            if ($client) {
+                return $this->buildTenantConflict($client, 'RUC', $ruc);
+            }
         }
 
-        if (!empty($email) && $clientsTable->whereRaw('LOWER(email) = ?', [$email])->exists()) {
-            return [
-                'type'    => 'tenant',
-                'message' => 'Ya existe una tienda registrada con este correo. Inicia sesión desde el subdominio de tu empresa.',
-                'detail'  => "Email {$email} ya es tenant",
-            ];
+        if (!empty($email)) {
+            $client = $clientsTable->whereRaw('LOWER(email) = ?', [$email])
+                ->select(['id', 'marketplace_enabled', 'seller_status'])
+                ->first();
+            if ($client) {
+                return $this->buildTenantConflict($client, 'correo', $email);
+            }
         }
 
         if (!empty($subdomain)) {
@@ -522,6 +530,7 @@ class SellerApplicationService
             if ($websiteTaken) {
                 return [
                     'type'    => 'tenant',
+                    'subtype' => 'active_seller',
                     'message' => "El subdominio '{$subdomain}' ya está en uso por otra tienda.",
                     'detail'  => "Subdomain {$subdomain} uuid ya existe",
                 ];
@@ -539,6 +548,7 @@ class SellerApplicationService
             if ($app) {
                 return [
                     'type'    => 'application',
+                    'subtype' => 'active_application',
                     'message' => $this->messageForExistingApplication($app),
                     'detail'  => "RUC {$ruc} tiene solicitud {$app->id} en estado {$app->status}",
                 ];
@@ -553,6 +563,7 @@ class SellerApplicationService
             if ($app) {
                 return [
                     'type'    => 'application',
+                    'subtype' => 'active_application',
                     'message' => "El subdominio '{$subdomain}' está reservado por otra solicitud en revisión.",
                     'detail'  => "Subdomain {$subdomain} reservado por solicitud {$app->id}",
                 ];
@@ -560,6 +571,35 @@ class SellerApplicationService
         }
 
         return null;
+    }
+
+    /**
+     * Construye el payload de conflicto para un tenant preexistente
+     * distinguiendo si ya tiene marketplace activo o solo es cliente de
+     * otros módulos (facturación/POS sin ecommerce).
+     */
+    private function buildTenantConflict(object $client, string $field, string $value): array
+    {
+        $hasMarketplace = (bool) ($client->marketplace_enabled ?? false)
+                       || ($client->seller_status ?? null) === 'active';
+
+        if ($hasMarketplace) {
+            return [
+                'type'    => 'tenant',
+                'subtype' => 'active_seller',
+                'message' => "Ya existe una tienda registrada con este {$field}. Inicia sesión desde el subdominio de tu empresa.",
+                'detail'  => "{$field} {$value} ya es seller activo (client #{$client->id})",
+            ];
+        }
+
+        return [
+            'type'    => 'tenant',
+            'subtype' => 'needs_activation',
+            'message' => "Ya eres cliente de " . config('app.name', 'ebaemy')
+                       . " con este {$field}, pero tu tienda virtual no está habilitada. "
+                       . "Puedes solicitar la activación al equipo de soporte.",
+            'detail'  => "{$field} {$value} es client #{$client->id} sin marketplace_enabled",
+        ];
     }
 
     /**

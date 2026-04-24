@@ -219,9 +219,11 @@
             padding: 12px 16px; border-radius: 10px; margin-bottom: 16px;
             font-size: 13.5px; line-height: 1.55;
         }
-        .sr-alert.err { background: #fef2f2; color: #991b1b; border: 1px solid #fecaca; }
+        .sr-alert.err  { background: #fef2f2; color: #991b1b; border: 1px solid #fecaca; }
         .sr-alert.info { background: #eff6ff; color: #1e3a8a; border: 1px solid #bfdbfe; }
         .sr-alert.warn { background: #fef3c7; color: #92400e; border: 1px solid #fde68a; }
+        .sr-alert a.sr-btn { color: #fff !important; }
+        .sr-alert a.sr-btn.sr-btn-ghost { color: var(--eb-ink, #0f172a) !important; }
 
         .sr-loading { display: inline-block; width: 14px; height: 14px; border: 2px solid rgba(255,255,255,0.4); border-top-color: #fff; border-radius: 50%; animation: srSpin .7s linear infinite; }
         @keyframes srSpin { to { transform: rotate(360deg); } }
@@ -649,45 +651,99 @@ async function srValidateRuc(ruc) {
 }
 
 /**
- * Cuando el RUC ya está registrado:
- *   - type='tenant'      → Ya existe una tienda, mostrar CTA login
- *   - type='application' → Ya hay solicitud en pipeline, ofrecer link al portal
+ * Cuando el RUC ya está registrado, el AJAX devuelve type + subtype:
+ *
+ *   type='tenant' subtype='active_seller'
+ *     → La empresa ya tiene tienda virtual. CTA: iniciar sesión.
+ *
+ *   type='tenant' subtype='needs_activation'
+ *     → Es cliente de ebaemy (facturación/POS) pero SIN tienda virtual.
+ *       CTA: contactar soporte para solicitar activación.
+ *
+ *   type='application' subtype='active_application'
+ *     → Ya hay una solicitud de seller en revisión. CTA: consultar correo.
+ *
  * Bloqueamos el botón "Continuar" hasta que el usuario cambie el RUC.
  */
+const SR_SUPPORT_EMAIL = @json(config('services.support.email'));
+const SR_SUPPORT_WHATSAPP = @json(config('services.support.whatsapp'));
+
 let srRucBlocked = false;
+
 function srSetRucBlocked(blocked, info = null) {
     srRucBlocked = blocked;
     const btn = document.getElementById('srBtnNext');
-    // Solo aplica al paso 1 (donde está el RUC). En pasos siguientes ignoramos.
     if (srStep === 1) {
         btn.disabled = blocked;
         btn.style.opacity = blocked ? '0.5' : '';
     }
 
     const errBox = document.getElementById('srErrorBox');
-    if (!blocked || !info) {
-        // Limpiar alertas previas del tipo "already_registered"
-        const existing = errBox.querySelector('[data-role="already-registered"]');
-        if (existing) existing.remove();
-        return;
-    }
-
-    const icon = info.type === 'tenant' ? '🔒' : '⏳';
-    const title = info.type === 'tenant'
-        ? 'Esta empresa ya tiene una tienda'
-        : 'Ya tienes una solicitud en proceso';
-
     const existing = errBox.querySelector('[data-role="already-registered"]');
     if (existing) existing.remove();
 
-    const cls = info.type === 'tenant' ? 'err' : 'warn';
+    if (!blocked || !info) return;
+
+    const config = srAlreadyRegisteredConfig(info);
     const html = `
-        <div class="sr-alert ${cls}" data-role="already-registered">
-            <div style="font-weight:700; margin-bottom:4px;">${icon} ${title}</div>
+        <div class="sr-alert ${config.cls}" data-role="already-registered">
+            <div style="font-weight:700; margin-bottom:4px;">${config.icon} ${config.title}</div>
             <div>${srEscape(info.message)}</div>
+            ${config.cta ? `<div style="margin-top:10px;">${config.cta}</div>` : ''}
         </div>
     `;
     errBox.insertAdjacentHTML('afterbegin', html);
+}
+
+function srAlreadyRegisteredConfig(info) {
+    const subtype = info.subtype || info.type;
+
+    // Tenant que es cliente pero NO tiene marketplace activo:
+    // ofrecemos contacto con soporte para activar la tienda virtual.
+    if (info.type === 'tenant' && info.subtype === 'needs_activation') {
+        const ruc = document.getElementById('srRuc')?.value || '';
+        const subject = encodeURIComponent(`Solicitud de activación de tienda virtual — RUC ${ruc}`);
+        const body = encodeURIComponent(
+            `Hola,\n\nSoy cliente de {{ config('app.name', 'ebaemy') }} y quiero activar mi tienda virtual para vender en el marketplace.\n\n`
+            + `RUC: ${ruc}\n`
+            + `Empresa: (completar)\n`
+            + `Responsable: (completar)\n`
+            + `Teléfono: (completar)\n\n`
+            + `Gracias.`
+        );
+        const email = SR_SUPPORT_EMAIL || 'soporte@ebaemy.com';
+        let ctaHtml = `<a href="mailto:${email}?subject=${subject}&body=${body}" class="sr-btn sr-btn-primary" style="padding:10px 18px; font-size:13px; display:inline-flex; text-decoration:none;">✉️ Solicitar activación por correo</a>`;
+
+        if (SR_SUPPORT_WHATSAPP) {
+            const wa = encodeURIComponent(`Hola, soy cliente de ebaemy y quiero activar mi tienda virtual. RUC: ${ruc}`);
+            ctaHtml += ` <a href="https://wa.me/${SR_SUPPORT_WHATSAPP}?text=${wa}" target="_blank" class="sr-btn sr-btn-ghost" style="padding:10px 18px; font-size:13px; display:inline-flex; text-decoration:none;">💬 WhatsApp</a>`;
+        }
+
+        return {
+            icon:  '🛍️',
+            title: 'Eres cliente, pero te falta activar tu tienda',
+            cls:   'info',
+            cta:   ctaHtml,
+        };
+    }
+
+    // Tenant ya con marketplace activo
+    if (info.type === 'tenant') {
+        return {
+            icon:  '🔒',
+            title: 'Esta empresa ya tiene una tienda',
+            cls:   'err',
+            cta:   null,
+        };
+    }
+
+    // Application activa en pipeline
+    return {
+        icon:  '⏳',
+        title: 'Ya tienes una solicitud en proceso',
+        cls:   'warn',
+        cta:   null,
+    };
 }
 
 // ────────────────────────────────────────────────────────

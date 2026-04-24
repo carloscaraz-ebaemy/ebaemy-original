@@ -49,4 +49,13 @@ return [
         'token' => env('RUC_VALIDATION_API_TOKEN'),
     ],
 
+    // Canales de soporte expuestos en flujos públicos (form /seller/register,
+    // CTA "solicitar activación de tienda virtual" para clientes preexistentes).
+    // Se referencian desde vistas blade via config('services.support.*').
+    'support' => [
+        'email'       => env('SUPPORT_EMAIL', 'soporte@ebaemy.com'),
+        'whatsapp'    => env('SUPPORT_WHATSAPP'),      // Ej: 51999999999 (solo números con código país)
+        'help_url'    => env('SUPPORT_HELP_URL'),      // Opcional: https://ebaemy.com/ayuda
+    ],
+
 ];
