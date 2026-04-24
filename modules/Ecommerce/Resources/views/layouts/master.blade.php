@@ -180,16 +180,6 @@
         <link rel="stylesheet" href="{{ asset($__themeFile) }}">
     @endif
 
-    {{-- Rediseño visual 2026 (aditivo, NO toca lógica). Se carga al final
-         para que sus tokens y reglas ganen sobre Porto legacy.
-         El ?v=filemtime bustea cache del navegador automáticamente. --}}
-    @php
-        $__modernCssPath = public_path('porto-light/css/ecommerce-modern.css');
-        $__modernCssV = file_exists($__modernCssPath) ? filemtime($__modernCssPath) : time();
-    @endphp
-    <link rel="stylesheet" href="{{ asset('porto-light/css/ecommerce-modern.css') }}?v={{ $__modernCssV }}">
-    <script>document.documentElement.classList.add('ec-modern');</script>
-
     {{-- ── Color primario del cliente: inyectado server-side para evitar flash ── --}}
     @php
         $__hex = $seo->color_ecommerce ?? '#ff8000';
