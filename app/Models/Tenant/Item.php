@@ -170,6 +170,7 @@ class Item extends ModelTenant
         'mp_status',
         'mp_notes',
         'mp_synced_at',
+        'marketplace_category_id',
         'apply_restaurant',
         'brand_id',
         'category_id',
@@ -1542,8 +1543,28 @@ class Item extends ModelTenant
             'marketplace_publishable' => (bool) ($this->marketplace_publishable ?? false),
             'mp_price'   => $this->mp_price,
             'mp_status'  => $this->mp_status,
+            'marketplace_category_id'   => $this->marketplace_category_id,
+            'marketplace_category_path' => $this->resolveMarketplaceCategoryPath(),
 
         ];
+    }
+
+    /**
+     * Devuelve la ruta de IDs (ancestros + self) de la categoría oficial
+     * del marketplace — la usa el cascader del form del item para hidratar
+     * la selección actual al editar. Vive en system DB.
+     */
+    public function resolveMarketplaceCategoryPath(): array
+    {
+        if (!$this->marketplace_category_id) return [];
+
+        try {
+            $cat = \App\Models\System\MarketplaceCategory::query()->find($this->marketplace_category_id);
+            if (!$cat) return [];
+            return $cat->ancestorIds();
+        } catch (\Throwable $e) {
+            return [];
+        }
     }
 
 

@@ -449,6 +449,12 @@ if ($hostname) {
             Route::post('shipping-zones',             'Tenant\ShippingZoneController@store');
             Route::put('shipping-zones/{id}',         'Tenant\ShippingZoneController@update');
             Route::delete('shipping-zones/{id}',      'Tenant\ShippingZoneController@destroy');
+
+            // Categorías oficiales del marketplace (árbol desde system DB)
+            Route::get('marketplace-categories/tree',         'Tenant\MarketplaceCategoryController@tree');
+            Route::get('marketplace-categories/flat',         'Tenant\MarketplaceCategoryController@flat');
+            Route::post('marketplace-categories/request-new', 'Tenant\MarketplaceCategoryController@requestNew');
+
             Route::post('items/duplicate', 'Tenant\ItemController@duplicate');
             Route::get('items/disable/{item}', 'Tenant\ItemController@disable');
             Route::post('items/disableMassive', 'Tenant\ItemController@disableMassive');

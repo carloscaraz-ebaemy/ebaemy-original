@@ -128,6 +128,7 @@ class MarketplaceListingSyncService
             'description'       => $item->mp_notes ?? null,
             'image_url'         => $imageUrl,
             'category_name'     => $categoryName,
+            'marketplace_category_id' => $item->marketplace_category_id ?? null,
             'brand_name'        => $brandName,
             'price'             => (float) ($item->sale_unit_price ?? 0),
             'mp_price'          => isset($item->mp_price) && $item->mp_price !== null ? (float) $item->mp_price : null,
