@@ -2,11 +2,13 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\System\MarketplaceCategory;
 use App\Models\System\MarketplaceLead;
 use App\Models\System\MarketplaceListing;
 use App\Models\System\MarketplaceReview;
 use App\Services\System\MarketplaceOrderDispatcher;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 
 /**
  * Vista pública del marketplace central (ebaemy.com/marketplace).
@@ -18,16 +20,18 @@ class MarketplaceController extends Controller
 {
     public function index(Request $request)
     {
-        $q        = $request->input('q');
-        $category = $request->input('category');
-        $sort     = $request->input('sort', 'relevance');
+        $q              = $request->input('q');
+        $category       = $request->input('category');
+        $officialCatId  = $request->filled('official_category_id') ? (int) $request->input('official_category_id') : null;
+        $sort           = $request->input('sort', 'relevance');
         // Filtros de precio — usa el campo efectivo (mp_price ?? price).
         $priceMin = $request->filled('price_min') ? max(0, (float) $request->input('price_min')) : null;
         $priceMax = $request->filled('price_max') ? max(0, (float) $request->input('price_max')) : null;
 
         $query = MarketplaceListing::published()
             ->search($q)
-            ->category($category);
+            ->category($category)
+            ->inOfficialCategory($officialCatId);
 
         // COALESCE(mp_price, price) → precio efectivo mostrado al usuario
         if ($priceMin !== null) {
@@ -60,7 +64,30 @@ class MarketplaceController extends Controller
             ->limit(40)
             ->pluck('category_name');
 
-        return view('marketplace.index', compact('listings', 'categories', 'q', 'category', 'sort', 'priceMin', 'priceMax'));
+        // Árbol oficial (sólo raíces visibles) — cacheado 30min.
+        $officialRoots = $this->getOfficialRootsCached();
+
+        return view('marketplace.index', compact(
+            'listings', 'categories', 'officialRoots',
+            'q', 'category', 'officialCatId',
+            'sort', 'priceMin', 'priceMax'
+        ));
+    }
+
+    /**
+     * Raíces publicables del árbol oficial con conteo de listings. Cacheado
+     * 30 min — el SuperAdmin rara vez cambia el árbol y el TTL corto basta.
+     */
+    private function getOfficialRootsCached()
+    {
+        return Cache::remember('marketplace_public_roots_v1', 1800, function () {
+            return MarketplaceCategory::query()
+                ->active()
+                ->visible()
+                ->roots()
+                ->orderBy('sort_order')
+                ->get(['id', 'name', 'slug', 'full_slug', 'icon', 'image', 'listings_count_cache']);
+        });
     }
 
     /**
@@ -70,6 +97,18 @@ class MarketplaceController extends Controller
      */
     public function category(Request $request, string $categorySlug)
     {
+        // Migración Fase D: si el slug viejo coincide con una categoría oficial
+        // (por slug final, no full_slug), redirigimos 301 a la URL canónica nueva.
+        // Así recuperamos el SEO de las URLs legacy sin romper backlinks.
+        $officialMatch = MarketplaceCategory::query()
+            ->where('slug', $categorySlug)
+            ->active()
+            ->visible()
+            ->first();
+        if ($officialMatch) {
+            return redirect()->to('/marketplace/c/' . $officialMatch->full_slug, 301);
+        }
+
         // El slug es URL-friendly; recuperamos el category_name real buscando por
         // Str::slug(category_name) === $categorySlug sobre categorías publicadas.
         $category = MarketplaceListing::published()
@@ -105,6 +144,66 @@ class MarketplaceController extends Controller
         return view('marketplace.category', compact('listings', 'category', 'categorySlug', 'sort', 'priceMin', 'priceMax', 'total'));
     }
 
+    /**
+     * Página de categoría oficial del marketplace. URL canónica:
+     *   /marketplace/c/{fullSlug}   p.ej. /marketplace/c/hogar/muebles/sillas
+     *
+     * Filtra por la FK `marketplace_category_id` incluyendo toda la descendencia
+     * (una categoría padre muestra productos publicados en cualquier hoja interna).
+     *
+     * Convive con /marketplace/categoria/{categorySlug} (legacy basada en
+     * category_name string). En Fase E, cuando >95% de listings tengan FK,
+     * se retira la vieja.
+     */
+    public function categoryOfficial(Request $request, string $fullSlug)
+    {
+        $fullSlug = trim($fullSlug, '/');
+        $category = MarketplaceCategory::query()
+            ->where('full_slug', $fullSlug)
+            ->active()
+            ->visible()
+            ->first();
+
+        if (!$category) {
+            abort(404);
+        }
+
+        $sort     = $request->input('sort', 'relevance');
+        $priceMin = $request->filled('price_min') ? max(0, (float) $request->input('price_min')) : null;
+        $priceMax = $request->filled('price_max') ? max(0, (float) $request->input('price_max')) : null;
+
+        $query = MarketplaceListing::published()->inOfficialCategory($category->id);
+
+        if ($priceMin !== null) $query->whereRaw('COALESCE(mp_price, price) >= ?', [$priceMin]);
+        if ($priceMax !== null) $query->whereRaw('COALESCE(mp_price, price) <= ?', [$priceMax]);
+
+        switch ($sort) {
+            case 'price_asc':  $query->orderByRaw('COALESCE(mp_price, price) ASC');  break;
+            case 'price_desc': $query->orderByRaw('COALESCE(mp_price, price) DESC'); break;
+            case 'newest':     $query->orderByDesc('created_at');                    break;
+            default:           $query->orderByDesc('sort_score')->orderByDesc('view_count');
+        }
+
+        $listings = $query->paginate(24)->withQueryString();
+        $total    = MarketplaceListing::published()->inOfficialCategory($category->id)->count();
+
+        // Breadcrumb oficial: ancestros + self
+        $breadcrumb = $category->ancestorsAndSelf();
+
+        // Subcategorías inmediatas del nodo actual (si no es hoja) — para navegación lateral
+        $subcategories = MarketplaceCategory::query()
+            ->active()
+            ->visible()
+            ->where('parent_id', $category->id)
+            ->orderBy('sort_order')
+            ->get(['id', 'name', 'full_slug', 'icon', 'listings_count_cache']);
+
+        return view('marketplace.category_official', compact(
+            'listings', 'category', 'breadcrumb', 'subcategories',
+            'sort', 'priceMin', 'priceMax', 'total'
+        ));
+    }
+
     public function show(string $slug)
     {
         // Solo listings publicados (activos, con stock). Los pausados/rechazados
@@ -116,11 +215,15 @@ class MarketplaceController extends Controller
         // Pageview — se incrementa asíncronamente para no ralentizar render
         MarketplaceListing::where('id', $listing->id)->increment('view_count');
 
-        $related = MarketplaceListing::published()
-            ->where('id', '!=', $listing->id)
-            ->where('category_name', $listing->category_name)
-            ->limit(6)
-            ->get();
+        // Relacionados: prefiere FK oficial si está disponible, sino fallback
+        // a category_name legacy para listings que todavía no migraron.
+        $relatedQ = MarketplaceListing::published()->where('id', '!=', $listing->id);
+        if ($listing->marketplace_category_id) {
+            $relatedQ->inOfficialCategory($listing->marketplace_category_id);
+        } elseif ($listing->category_name) {
+            $relatedQ->where('category_name', $listing->category_name);
+        }
+        $related = $relatedQ->limit(6)->get();
 
         $reviews = MarketplaceReview::where('listing_id', $listing->id)
             ->approved()
@@ -128,7 +231,20 @@ class MarketplaceController extends Controller
             ->limit(20)
             ->get();
 
-        return view('marketplace.show', compact('listing', 'related', 'reviews'));
+        // Breadcrumb oficial si el listing tiene FK
+        $officialBreadcrumb = null;
+        $officialCategoryUrl = null;
+        if ($listing->marketplace_category_id) {
+            $cat = MarketplaceCategory::query()->find($listing->marketplace_category_id);
+            if ($cat) {
+                $officialBreadcrumb  = $cat->ancestorsAndSelf();
+                $officialCategoryUrl = url('/marketplace/c/' . $cat->full_slug);
+            }
+        }
+
+        return view('marketplace.show', compact(
+            'listing', 'related', 'reviews', 'officialBreadcrumb', 'officialCategoryUrl'
+        ));
     }
 
     /**
@@ -291,11 +407,27 @@ class MarketplaceController extends Controller
 
         $xml .= $this->sitemapUrl(url('/marketplace'), now(), '1.0', 'daily');
 
+        // Categorías oficiales (URL canónica nueva) — prioridad alta.
+        $officialCategories = MarketplaceCategory::query()
+            ->active()
+            ->visible()
+            ->orderBy('full_slug')
+            ->get(['full_slug', 'updated_at']);
+        foreach ($officialCategories as $oc) {
+            $xml .= $this->sitemapUrl(
+                url('/marketplace/c/' . $oc->full_slug),
+                $oc->updated_at ?: now(),
+                '0.8',
+                'daily'
+            );
+        }
+
+        // Legacy category_name — transición. Google seguirá las 301s al índice oficial.
         foreach ($categories as $cat) {
             $xml .= $this->sitemapUrl(
                 url('/marketplace/categoria/' . \Illuminate\Support\Str::slug($cat)),
                 now(),
-                '0.7',
+                '0.5',
                 'daily'
             );
         }

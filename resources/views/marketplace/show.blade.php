@@ -16,7 +16,9 @@
     $ldAvailability = $listing->stock > 0 ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock';
     $ldSellerUrl    = 'https://' . $listing->tenant_fqdn;
     $bcIndexUrl     = route('marketplace.index');
-    $bcCategoryUrl  = $listing->category_name ? route('marketplace.category', \Illuminate\Support\Str::slug($listing->category_name)) : null;
+    // Prefiere URL oficial (Fase D). Fallback a slug legacy por category_name.
+    $bcCategoryUrl  = $officialCategoryUrl
+                    ?? ($listing->category_name ? route('marketplace.category', \Illuminate\Support\Str::slug($listing->category_name)) : null);
 
     $product = [
         '@context'    => 'https://schema.org/',
@@ -52,7 +54,18 @@
     $breadcrumbItems = [
         ['@type' => 'ListItem', 'position' => 1, 'name' => 'Marketplace', 'item' => $bcIndexUrl],
     ];
-    if ($listing->category_name) {
+    if (!empty($officialBreadcrumb) && $officialBreadcrumb->count()) {
+        $pos = 2;
+        foreach ($officialBreadcrumb as $node) {
+            $breadcrumbItems[] = [
+                '@type'    => 'ListItem',
+                'position' => $pos++,
+                'name'     => $node->name,
+                'item'     => url('/marketplace/c/' . $node->full_slug),
+            ];
+        }
+        $breadcrumbItems[] = ['@type' => 'ListItem', 'position' => $pos, 'name' => $listing->title];
+    } elseif ($listing->category_name) {
         $breadcrumbItems[] = ['@type' => 'ListItem', 'position' => 2, 'name' => $listing->category_name, 'item' => $bcCategoryUrl];
         $breadcrumbItems[] = ['@type' => 'ListItem', 'position' => 3, 'name' => $listing->title];
     } else {
@@ -84,7 +97,12 @@
 {{-- Breadcrumb --}}
 <nav class="mp-breadcrumb" aria-label="breadcrumb">
     <a href="{{ route('marketplace.index') }}">Marketplace</a>
-    @if($listing->category_name)
+    @if(!empty($officialBreadcrumb) && $officialBreadcrumb->count())
+        @foreach($officialBreadcrumb as $node)
+            <span class="sep">›</span>
+            <a href="{{ url('/marketplace/c/' . $node->full_slug) }}">{{ $node->name }}</a>
+        @endforeach
+    @elseif($listing->category_name)
         <span class="sep">›</span>
         <a href="{{ route('marketplace.category', \Illuminate\Support\Str::slug($listing->category_name)) }}">{{ $listing->category_name }}</a>
     @endif
@@ -145,7 +163,11 @@
         @endif
 
         <div class="mp-meta">
-            @if($listing->category_name)
+            @if(!empty($officialCategoryUrl))
+                <span class="mp-meta-chip">
+                    <a href="{{ $officialCategoryUrl }}">📂 {{ $officialBreadcrumb->last()->name ?? $listing->category_name }}</a>
+                </span>
+            @elseif($listing->category_name)
                 <span class="mp-meta-chip">
                     <a href="{{ route('marketplace.category', \Illuminate\Support\Str::slug($listing->category_name)) }}">📂 {{ $listing->category_name }}</a>
                 </span>

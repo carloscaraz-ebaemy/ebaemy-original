@@ -111,6 +111,35 @@
     </div>
 </section>
 
+{{-- ═══════════════════════ CATEGORÍAS OFICIALES (Fase D) ═══════════════════════ --}}
+@if(!empty($officialRoots) && $officialRoots->count())
+    <section class="mp-section">
+        <div class="mp-section-head">
+            <div>
+                <h2 class="mp-section-title">
+                    <span class="mp-section-title-emoji">🗂️</span>
+                    Explora por categoría
+                </h2>
+                <p class="mp-section-subtitle">Navega el catálogo oficial del marketplace.</p>
+            </div>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fill, minmax(140px, 1fr));gap:12px">
+            @foreach($officialRoots as $root)
+                <a href="{{ url('/marketplace/c/' . $root->full_slug) }}"
+                   style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:16px 10px;background:#fff;border:1px solid #e5e7eb;border-radius:12px;text-decoration:none;color:#111827;transition:all .15s;min-height:110px;text-align:center"
+                   onmouseover="this.style.borderColor='var(--mp-primary, #0f8a82)';this.style.transform='translateY(-2px)';this.style.boxShadow='0 6px 16px -8px rgba(15,138,130,.25)'"
+                   onmouseout="this.style.borderColor='#e5e7eb';this.style.transform='';this.style.boxShadow=''">
+                    <div style="font-size:32px;line-height:1;margin-bottom:6px">{{ $root->icon ?: '📦' }}</div>
+                    <div style="font-size:13px;font-weight:600">{{ $root->name }}</div>
+                    @if($root->listings_count_cache)
+                        <div style="font-size:11px;color:#9ca3af;margin-top:2px">{{ $root->listings_count_cache }} prod.</div>
+                    @endif
+                </a>
+            @endforeach
+        </div>
+    </section>
+@endif
+
 {{-- ═══════════════════════ TIENDAS DESTACADAS (solo home) ═══════════════════════ --}}
 @if($featuredShops->count() >= 3)
     <section class="mp-section">

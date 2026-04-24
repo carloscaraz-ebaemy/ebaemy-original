@@ -31,6 +31,7 @@ class MarketplaceListing extends Model
         'description',
         'image_url',
         'category_name',
+        'marketplace_category_id',
         'brand_name',
         'price',
         'mp_price',
@@ -103,6 +104,31 @@ class MarketplaceListing extends Model
     {
         if (!$category) return $query;
         return $query->where('category_name', $category);
+    }
+
+    /**
+     * Filtra listings por categoría oficial del marketplace (FK) incluyendo
+     * toda la descendencia del nodo. Usa `depth_path` denormalizado para
+     * resolver los IDs de descendientes con una sola query.
+     *
+     * Pasar null o 0 es no-op (no aplica filtro).
+     */
+    public function scopeInOfficialCategory($query, ?int $categoryId)
+    {
+        if (!$categoryId) return $query;
+
+        $node = MarketplaceCategory::query()->find($categoryId);
+        if (!$node) {
+            return $query->where('marketplace_category_id', $categoryId);
+        }
+
+        $ids = $node->descendantAndSelfIds();
+        return $query->whereIn('marketplace_category_id', $ids);
+    }
+
+    public function marketplaceCategory()
+    {
+        return $this->belongsTo(MarketplaceCategory::class, 'marketplace_category_id');
     }
 
     // ── Accessors ─────────────────────────────────────────────────────────────

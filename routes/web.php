@@ -1132,6 +1132,10 @@ if ($hostname) {
         // Vitrina agregadora: productos de tenants opt-in. Redirige la compra
         // a un lead que se convierte en Order dentro del tenant.
         Route::get('marketplace',                       'MarketplaceController@index')->name('marketplace.index');
+        // URL canónica de categoría oficial (Fase D). fullSlug puede contener slashes (p.ej. hogar/muebles/sillas).
+        Route::get('marketplace/c/{fullSlug}',          'MarketplaceController@categoryOfficial')
+             ->where('fullSlug', '[a-z0-9\-/]+')
+             ->name('marketplace.category_official');
         Route::get('marketplace/categoria/{categorySlug}', 'MarketplaceController@category')->name('marketplace.category');
         Route::get('marketplace/item/{slug}',           'MarketplaceController@show')->name('marketplace.item');
         Route::get('marketplace/go/{slug}',       'MarketplaceController@go')->name('marketplace.go');
