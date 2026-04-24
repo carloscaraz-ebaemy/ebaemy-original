@@ -2071,6 +2071,11 @@ this.activeName =  'first'
                         }
                         this.changeAffectationIgvType()
                         this.changePurchaseAffectationIgvType()
+                        // Si el item ya viene con marketplace activado, precarga el árbol
+                        // (el watcher no dispara porque no hay "cambio" de valor).
+                        if (this.form.marketplace_publishable) {
+                            this.loadMarketplaceCategoryTree()
+                        }
                     })
             }
         },

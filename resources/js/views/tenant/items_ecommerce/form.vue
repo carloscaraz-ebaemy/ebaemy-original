@@ -1146,6 +1146,11 @@ export default {
                             this.form.marketplace_category_path = []
                         }
                         this.changeAffectationIgvType()
+                        // Si el item ya viene con marketplace activado, precarga el árbol
+                        // (el watcher no dispara porque el valor no "cambió" respecto al default).
+                        if (this.form.marketplace_publishable) {
+                            this.loadMarketplaceCategoryTree()
+                        }
                     })
             }
         },
