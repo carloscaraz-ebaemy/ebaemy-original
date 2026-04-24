@@ -161,6 +161,35 @@
                 </button>
             </div>
         </div>
+        <!-- Widget stats por canal (Fase 7) — chips clickeables que aplican el filtro -->
+        <div v-if="channelStats.total > 0" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px;padding:12px 14px;background:#fff;border:1px solid #e5e7eb;border-radius:10px;align-items:center">
+            <div style="font-size:12px;color:#6b7280;font-weight:500;margin-right:4px">Catálogo:</div>
+            <a href="#" @click.prevent="applyChannelFilter('all')"
+               :class="['cs-chip', activeChannel === 'all' ? 'cs-chip--active' : '']">
+                📦 Todos <strong>{{ channelStats.total }}</strong>
+            </a>
+            <a href="#" @click.prevent="applyChannelFilter('in_store')"
+               :class="['cs-chip', activeChannel === 'in_store' ? 'cs-chip--active' : '']">
+                🛍️ En tienda <strong>{{ channelStats.in_store }}</strong>
+            </a>
+            <a href="#" @click.prevent="applyChannelFilter('in_marketplace')"
+               :class="['cs-chip', activeChannel === 'in_marketplace' ? 'cs-chip--active' : '']">
+                🌐 En marketplace <strong>{{ channelStats.in_marketplace }}</strong>
+            </a>
+            <a v-if="channelStats.pending_mp > 0" href="#" @click.prevent="applyChannelFilter('pending_mp')"
+               :class="['cs-chip', 'cs-chip--warn', activeChannel === 'pending_mp' ? 'cs-chip--active' : '']">
+                ⏳ Pendientes MP <strong>{{ channelStats.pending_mp }}</strong>
+            </a>
+            <a v-if="channelStats.rejected_mp > 0" href="#" @click.prevent="applyChannelFilter('rejected_mp')"
+               :class="['cs-chip', 'cs-chip--danger', activeChannel === 'rejected_mp' ? 'cs-chip--active' : '']">
+                ❌ Rechazados <strong>{{ channelStats.rejected_mp }}</strong>
+            </a>
+            <a href="#" @click.prevent="applyChannelFilter('unpublished')"
+               :class="['cs-chip', 'cs-chip--muted', activeChannel === 'unpublished' ? 'cs-chip--active' : '']">
+                💤 Sin publicar <strong>{{ channelStats.unpublished }}</strong>
+            </a>
+        </div>
+
         <div class="card tab-content-default row-new mb-0">
             <!-- <div class="card-header bg-info">
                 <h3 class="my-0">{{ title }}</h3>
@@ -698,6 +727,36 @@
     width: 23px;
     height: 23px;
 }
+/* Chips clickeables del widget stats por canal */
+.cs-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 5px 11px;
+    background: #f9fafb;
+    border: 1px solid #e5e7eb;
+    border-radius: 999px;
+    font-size: 12px;
+    color: #374151;
+    text-decoration: none;
+    transition: all .15s;
+    cursor: pointer;
+    user-select: none;
+}
+.cs-chip:hover { background: #f3f4f6; border-color: #d1d5db; color: #111827; text-decoration: none; }
+.cs-chip strong { font-weight: 700; color: #111827; }
+.cs-chip--warn   { background: #fffbeb; border-color: #fcd34d; color: #92400e; }
+.cs-chip--warn strong { color: #78350f; }
+.cs-chip--danger { background: #fef2f2; border-color: #fca5a5; color: #991b1b; }
+.cs-chip--danger strong { color: #7f1d1d; }
+.cs-chip--muted  { background: #f3f4f6; color: #6b7280; }
+.cs-chip--active {
+    background: #0f8a82;
+    border-color: #0f8a82;
+    color: #fff;
+    box-shadow: 0 2px 6px -1px rgba(15,138,130,.35);
+}
+.cs-chip--active strong { color: #fff; }
 </style>
 <script>
 import ItemsForm from "./form.vue";
@@ -742,6 +801,8 @@ export default {
             selected: [],
             selectedMeta: {},
             visibleRows: [],
+            channelStats: { total: 0, in_store: 0, in_marketplace: 0, pending_mp: 0, paused_mp: 0, rejected_mp: 0, unpublished: 0 },
+            activeChannel: 'all',
             can_add_new_product: false,
             showDialog: false,
             showImportDialog: false,
@@ -836,6 +897,9 @@ export default {
         });
         this.canCreateProduct();
         this.getItems();
+        this.loadChannelStats();
+
+        this.$eventHub.$on('reloadData', () => this.loadChannelStats());
 
         this.filterDisabled = localStorage.getItem('filterDisabled') || 'all'
     },
@@ -1098,6 +1162,20 @@ export default {
             this.warehousesDetail = warehouses;
             this.item_unit_types = item_unit_types;
             this.showWarehousesDetail = true;
+        },
+        loadChannelStats() {
+            this.$http.get(`/${this.resource}/channel-stats`)
+                .then(res => { this.channelStats = res.data })
+                .catch(() => {})
+        },
+        applyChannelFilter(value) {
+            this.activeChannel = value
+            const dt = this.$refs.DataTable
+            if (dt && dt.search) {
+                dt.search.channel_filter = value
+                if (dt.pagination) dt.pagination.current_page = 1
+                if (typeof dt.getRecords === 'function') dt.getRecords()
+            }
         },
         openInStore(row) {
             if (row && row.slug) window.open('/item/' + row.slug, '_blank', 'noopener')

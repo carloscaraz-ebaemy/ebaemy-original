@@ -1305,6 +1305,38 @@ class ItemController extends Controller
     }
 
     /**
+     * Contadores rápidos del catálogo por canal. Lo consume el listado ERP
+     * como un widget de chips clickeables — cada número setea el filtro
+     * channel_filter correspondiente.
+     *
+     * Una sola query agregada con SUM(CASE WHEN...) para no hacer 6 round trips.
+     */
+    public function channelStats()
+    {
+        $row = \DB::connection('tenant')->table('items')
+            ->selectRaw("
+                COUNT(*) AS total,
+                SUM(CASE WHEN apply_store = 1 THEN 1 ELSE 0 END) AS in_store,
+                SUM(CASE WHEN marketplace_publishable = 1 AND mp_status = 'active' THEN 1 ELSE 0 END) AS in_marketplace,
+                SUM(CASE WHEN marketplace_publishable = 1 AND (mp_status IS NULL OR mp_status = 'pending') THEN 1 ELSE 0 END) AS pending_mp,
+                SUM(CASE WHEN marketplace_publishable = 1 AND mp_status = 'paused' THEN 1 ELSE 0 END) AS paused_mp,
+                SUM(CASE WHEN mp_status = 'rejected' THEN 1 ELSE 0 END) AS rejected_mp,
+                SUM(CASE WHEN (apply_store = 0 OR apply_store IS NULL) AND (marketplace_publishable = 0 OR marketplace_publishable IS NULL) THEN 1 ELSE 0 END) AS unpublished
+            ")
+            ->first();
+
+        return [
+            'total'          => (int) ($row->total ?? 0),
+            'in_store'       => (int) ($row->in_store ?? 0),
+            'in_marketplace' => (int) ($row->in_marketplace ?? 0),
+            'pending_mp'     => (int) ($row->pending_mp ?? 0),
+            'paused_mp'      => (int) ($row->paused_mp ?? 0),
+            'rejected_mp'    => (int) ($row->rejected_mp ?? 0),
+            'unpublished'    => (int) ($row->unpublished ?? 0),
+        ];
+    }
+
+    /**
      * KPIs agregados de los listings del tenant en ebaemy.com/marketplace.
      * Consulta la BD central (MarketplaceListing usa UsesSystemConnection) filtrada
      * por hostname_id del tenant activo. Si no hay listings, devuelve ceros.
