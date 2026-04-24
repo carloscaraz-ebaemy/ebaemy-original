@@ -423,20 +423,12 @@ html {
 .header-contact a:hover { text-decoration: none; }
 .header-contact strong { font-weight: 600; color: #065f46; }
 
-/* Header-bottom: si está vacío (nav sin items), colapsar para no dejar franja blanca */
+/* Header-bottom: ocultar siempre — el nav viene vacío en el setup actual
+   y dejaba una franja blanca (que parecía "segundo header") bajo el header
+   principal. Si algún tenant quiere activar menú adicional, puede hacer un
+   override localmente. */
 .header .header-bottom {
-    padding: 0;
-}
-.header .header-bottom:has(.main-nav:empty) {
-    display: none;
-}
-/* Fallback para navegadores sin :has() (iOS <15.4) */
-.header .header-bottom .main-nav:empty {
-    padding: 0;
-    min-height: 0;
-}
-.header .header-bottom .main-nav:empty ~ * {
-    display: none;
+    display: none !important;
 }
 
 /* Mobile overlay search refinado */
