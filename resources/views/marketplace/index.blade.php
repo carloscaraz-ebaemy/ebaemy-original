@@ -13,81 +13,144 @@
     ], fn($v) => $v !== null && $v !== '');
 
     $hasFilters = !empty($q) || !empty($category) || $priceMin !== null || $priceMax !== null;
+    $isHome = empty($q) && empty($category) && $priceMin === null && $priceMax === null;
+
+    // Tiendas únicas derivadas del listado actual (para la sección "Tiendas destacadas").
+    // Usamos la data que el listing ya carga — cero cambios al controller.
+    $featuredShops = collect();
+    if ($isHome && !$listings->isEmpty()) {
+        $featuredShops = collect($listings->items())
+            ->filter(fn ($l) => !empty($l->tenant_fqdn))
+            ->groupBy('tenant_fqdn')
+            ->map(fn ($items) => $items->first())
+            ->take(6)
+            ->values();
+    }
 @endphp
 
-{{-- ═══════════════════════ HERO ═══════════════════════ --}}
-@if(empty($q) && empty($category))
+{{-- ═══════════════════════ HERO COMERCIAL ═══════════════════════ --}}
+@if($isHome)
     <section class="mp-hero">
         <div>
-            <span class="mp-hero-eyebrow">🇵🇪 Marketplace peruano</span>
-            <h1>Descubre miles de productos<br>en un solo lugar</h1>
-            <p>Compra con confianza a tiendas verificadas con RUC validado. Pago seguro y entrega en todo el Perú.</p>
+            <span class="mp-hero-urgency">🔥 Ofertas por tiempo limitado</span>
+            <h1>Descubre miles de productos<br>de tiendas verificadas 🇵🇪</h1>
+            <p>Compra con confianza, paga seguro y recibe en todo el Perú. Empresas reales con RUC validado.</p>
             <div class="mp-hero-actions">
                 <a href="#productos" class="mp-btn mp-btn-primary">
-                    Explorar productos
+                    Comprar ahora
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
                 </a>
-                <a href="{{ route('seller.landing') }}" class="mp-btn mp-btn-outline">Vender en ebaemy</a>
+                <a href="{{ route('marketplace.index', ['sort' => 'price_asc']) }}" class="mp-btn mp-btn-outline">
+                    Ver ofertas
+                </a>
             </div>
         </div>
-        <div class="mp-hero-visual" aria-hidden="true">
-            <div class="mp-hero-card-stack">
-                <div class="mp-hero-card mp-hero-card--1">
-                    <div style="font-size:11px;opacity:.85;font-weight:600;text-transform:uppercase;letter-spacing:.08em;">Tiendas</div>
-                    <div style="font-size:32px;font-weight:800;margin:4px 0 0;letter-spacing:-.02em;">+500</div>
-                    <div style="font-size:12px;opacity:.85;">verificadas con RUC</div>
-                </div>
-                <div class="mp-hero-card mp-hero-card--2">
-                    <div style="font-size:11px;opacity:.85;font-weight:600;text-transform:uppercase;letter-spacing:.08em;">Productos</div>
-                    <div style="font-size:32px;font-weight:800;margin:4px 0 0;letter-spacing:-.02em;">+10k</div>
-                    <div style="font-size:12px;opacity:.85;">en todo el Perú</div>
-                </div>
-            </div>
-        </div>
-    </section>
 
-    {{-- Trust strip --}}
-    <section class="mp-trust-strip">
-        <div class="mp-trust-item">
-            <span class="mp-trust-icon">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg>
-            </span>
-            <div>
-                <div class="mp-trust-label">Compra segura</div>
-                <div class="mp-trust-sub">Protegida por ebaemy</div>
-            </div>
-        </div>
-        <div class="mp-trust-item">
-            <span class="mp-trust-icon">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="13" height="10" rx="2"/><path d="M15 9h5l2 4v4h-7V9z"/><circle cx="7" cy="17" r="2"/><circle cx="17" cy="17" r="2"/></svg>
-            </span>
-            <div>
-                <div class="mp-trust-label">Envío a todo el Perú</div>
-                <div class="mp-trust-sub">Coordinado por cada vendedor</div>
-            </div>
-        </div>
-        <div class="mp-trust-item">
-            <span class="mp-trust-icon">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l2.39 5.42L20 8.27l-4 4.15.94 5.58L12 15.77l-4.94 2.23L8 12.42 4 8.27l5.61-.85L12 2z"/></svg>
-            </span>
-            <div>
-                <div class="mp-trust-label">Tiendas verificadas</div>
-                <div class="mp-trust-sub">Empresas reales con RUC</div>
-            </div>
-        </div>
-        <div class="mp-trust-item">
-            <span class="mp-trust-icon">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M16 13H8"/><path d="M16 17H8"/><path d="M10 9H8"/></svg>
-            </span>
-            <div>
-                <div class="mp-trust-label">Factura electrónica</div>
-                <div class="mp-trust-sub">Emitida por el vendedor</div>
+        {{-- Cards decorativas flotantes comerciales --}}
+        <div class="mp-hero-visual" aria-hidden="true">
+            <div class="mp-hero-card-stack" style="position:relative;height:280px">
+                <div class="mp-hero-float mp-hero-float--1">
+                    <div class="mp-hero-float-icon offer">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12V2H4v10l8 10 8-10z"/></svg>
+                    </div>
+                    <div>
+                        <div class="mp-hero-float-label">Descuentos</div>
+                        <div class="mp-hero-float-value">Hasta -40%</div>
+                    </div>
+                </div>
+                <div class="mp-hero-float mp-hero-float--2">
+                    <div class="mp-hero-float-icon popular">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3v18"/><path d="M6 9l6 6 6-6"/></svg>
+                    </div>
+                    <div>
+                        <div class="mp-hero-float-label">Más populares</div>
+                        <div class="mp-hero-float-value">Top ventas</div>
+                    </div>
+                </div>
+                <div class="mp-hero-float mp-hero-float--3">
+                    <div class="mp-hero-float-icon free">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="13" height="10" rx="2"/><path d="M15 9h5l2 4v4h-7V9z"/><circle cx="7" cy="17" r="2"/><circle cx="17" cy="17" r="2"/></svg>
+                    </div>
+                    <div>
+                        <div class="mp-hero-float-label">Envío</div>
+                        <div class="mp-hero-float-value">A todo Perú</div>
+                    </div>
+                </div>
             </div>
         </div>
     </section>
 @endif
 
-{{-- ═══════════════════════ BREADCRUMB + RESULTADOS ═══════════════════════ --}}
+{{-- ═══════════════════════ TRUST BAR STICKY ═══════════════════════ --}}
+<section class="mp-trust-sticky">
+    <div class="mp-trust-sticky-inner">
+        <span class="mp-trust-sticky-item">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg>
+            <span><strong>Compra segura</strong></span>
+        </span>
+        <span class="mp-trust-sticky-item">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="13" height="10" rx="2"/><path d="M15 9h5l2 4v4h-7V9z"/><circle cx="7" cy="17" r="2"/><circle cx="17" cy="17" r="2"/></svg>
+            <span>Envío <strong>a todo Perú</strong></span>
+        </span>
+        <span class="mp-trust-sticky-item">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l2.39 5.42L20 8.27l-4 4.15.94 5.58L12 15.77l-4.94 2.23L8 12.42 4 8.27l5.61-.85L12 2z"/></svg>
+            <span>Tiendas <strong>verificadas</strong></span>
+        </span>
+        <span class="mp-trust-sticky-item">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
+            <span>Pago <strong>contra entrega</strong></span>
+        </span>
+        <span class="mp-trust-sticky-item">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>
+            <span><strong>Factura</strong> electrónica</span>
+        </span>
+        <span class="mp-trust-sticky-item">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
+            <span>Soporte <strong>directo</strong></span>
+        </span>
+    </div>
+</section>
+
+{{-- ═══════════════════════ TIENDAS DESTACADAS (solo home) ═══════════════════════ --}}
+@if($featuredShops->count() >= 3)
+    <section class="mp-section">
+        <div class="mp-section-head">
+            <div>
+                <h2 class="mp-section-title">
+                    <span class="mp-section-title-emoji">🏪</span>
+                    Tiendas destacadas
+                </h2>
+                <p class="mp-section-subtitle">Empresas peruanas reales con RUC verificado vendiendo en ebaemy.</p>
+            </div>
+        </div>
+        <div class="mp-shops-row">
+            @foreach($featuredShops as $shop)
+                <a href="https://{{ $shop->tenant_fqdn }}" target="_blank" rel="noopener" class="mp-shop-card">
+                    <div class="mp-shop-card-logo">
+                        @if(!empty($shop->tenant_logo_url))
+                            <img src="{{ $shop->tenant_logo_url }}" alt="{{ $shop->seller_display }}">
+                        @else
+                            <span class="mp-shop-card-logo-fallback">{{ mb_strtoupper(mb_substr($shop->seller_display, 0, 2)) }}</span>
+                        @endif
+                    </div>
+                    <h3 class="mp-shop-card-name">{{ \Illuminate\Support\Str::limit($shop->seller_display, 34) }}</h3>
+                    @if(!empty($shop->tenant_verified))
+                        <span class="mp-shop-card-meta">
+                            <svg width="10" height="10" viewBox="0 0 24 24" fill="#2563eb"><path d="M12 2l2.39 5.42L20 8.27l-4 4.15.94 5.58L12 15.77l-4.94 2.23L8 12.42 4 8.27l5.61-.85L12 2z"/></svg>
+                            Verificada
+                        </span>
+                    @endif
+                    <span class="mp-shop-card-cta">
+                        Ver tienda
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+                    </span>
+                </a>
+            @endforeach
+        </div>
+    </section>
+@endif
+
+{{-- ═══════════════════════ BREADCRUMB (resultados filtrados) ═══════════════════════ --}}
 @if($q || $category)
     <nav class="mp-breadcrumb">
         <a href="{{ route('marketplace.index') }}">Marketplace</a>
@@ -105,7 +168,6 @@
 {{-- ═══════════════════════ LAYOUT LISTADO ═══════════════════════ --}}
 <div class="mp-list-layout" id="productos">
 
-    {{-- Sidebar filtros --}}
     <button type="button" class="mp-filters-mobile-btn" onclick="document.getElementById('mpFilters').classList.add('is-open'); document.body.style.overflow='hidden';">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></svg>
         Filtros{{ $hasFilters ? ' (activos)' : '' }}
@@ -122,7 +184,6 @@
                     style="display:none" id="mpFiltersClose">×</button>
         </div>
 
-        {{-- Categorías --}}
         @if(!empty($categories) && count($categories) > 0)
             <div class="mp-filter-group">
                 <div class="mp-filter-label">
@@ -144,7 +205,6 @@
             </div>
         @endif
 
-        {{-- Precio --}}
         <div class="mp-filter-group">
             <div class="mp-filter-label">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
@@ -163,7 +223,6 @@
             </form>
         </div>
 
-        {{-- Ofertas (placeholder UI) --}}
         <div class="mp-filter-group">
             <div class="mp-filter-label">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M20 12V2H4v10l8 10 8-10z"/></svg>
@@ -171,15 +230,14 @@
             </div>
             <label class="mp-filter-checkbox">
                 <input type="checkbox" disabled> Con descuento
-                <span style="font-size:10px;color:var(--mp-muted);margin-left:auto">Próximamente</span>
+                <span style="font-size:10px;color:var(--mp-muted);margin-left:auto">Próx.</span>
             </label>
             <label class="mp-filter-checkbox">
                 <input type="checkbox" disabled> Envío gratis
-                <span style="font-size:10px;color:var(--mp-muted);margin-left:auto">Próximamente</span>
+                <span style="font-size:10px;color:var(--mp-muted);margin-left:auto">Próx.</span>
             </label>
         </div>
 
-        {{-- Tiendas verificadas --}}
         <div class="mp-filter-group">
             <div class="mp-filter-label">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 2l2.39 5.42L20 8.27l-4 4.15.94 5.58L12 15.77l-4.94 2.23L8 12.42 4 8.27l5.61-.85L12 2z"/></svg>
@@ -189,16 +247,24 @@
                 <input type="checkbox" disabled> Solo tiendas verificadas
                 <span style="font-size:10px;color:var(--mp-muted);margin-left:auto">Próx.</span>
             </label>
+            <label class="mp-filter-checkbox">
+                <input type="checkbox" disabled> Con stock disponible
+                <span style="font-size:10px;color:var(--mp-muted);margin-left:auto">Próx.</span>
+            </label>
         </div>
     </aside>
 
-    {{-- Columna main --}}
     <div class="mp-main-col">
         <div class="mp-toolbar">
-            <div class="mp-toolbar-count">
-                <strong>{{ $listings->total() }}</strong>
-                producto{{ $listings->total() === 1 ? '' : 's' }}
-                @if($q) para "{{ $q }}"@endif
+            <div>
+                <div class="mp-toolbar-count">
+                    <strong>{{ $listings->total() }}</strong>
+                    producto{{ $listings->total() === 1 ? '' : 's' }}
+                    @if($q) para "{{ $q }}"@endif
+                </div>
+                @if($isHome && $listings->total() > 0)
+                    <div style="font-size:12px;color:var(--mp-muted);margin-top:2px">🔥 Productos destacados de nuestro marketplace</div>
+                @endif
             </div>
             <form method="GET" action="{{ route('marketplace.index') }}" style="margin:0">
                 @if($q)        <input type="hidden" name="q"        value="{{ $q }}">        @endif
@@ -224,7 +290,16 @@
             </div>
         @else
             <div class="mp-grid">
-                @foreach($listings as $listing)
+                @foreach($listings as $idx => $listing)
+                    @php
+                        // Badges derivados del loop: primer producto de cada página
+                        // recibe "Top", segundo "Más vendido" cuando está en home.
+                        $showTopBadge  = $isHome && $idx === 0 && $listings->currentPage() === 1;
+                        $showBestBadge = $isHome && $idx === 1 && $listings->currentPage() === 1;
+                        $showNewBadge  = !$showTopBadge && !$showBestBadge
+                                         && isset($listing->created_at)
+                                         && \Carbon\Carbon::parse($listing->created_at)->gt(now()->subDays(14));
+                    @endphp
                     <a href="{{ route('marketplace.item', $listing->slug) }}" class="mp-card">
                         <div class="mp-card-img">
                             @if($listing->image_url)
@@ -232,7 +307,15 @@
                             @else
                                 <div class="mp-card-img-empty">Sin imagen</div>
                             @endif
+
                             <div class="mp-card-badges">
+                                @if($showTopBadge)
+                                    <span class="mp-badge mp-badge--top" title="Destacado">⭐ Top</span>
+                                @elseif($showBestBadge)
+                                    <span class="mp-badge mp-badge--best" title="Más vendido">🔥 Más vendido</span>
+                                @elseif($showNewBadge)
+                                    <span class="mp-badge mp-badge--new" title="Nuevo">NUEVO</span>
+                                @endif
                                 @if($listing->tenant_verified)
                                     <span class="mp-badge mp-badge--verified" title="Tienda verificada">
                                         <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l2.39 5.42L20 8.27l-4 4.15.94 5.58L12 15.77l-4.94 2.23L8 12.42 4 8.27l5.61-.85L12 2z"/></svg>
@@ -240,9 +323,12 @@
                                     </span>
                                 @endif
                             </div>
+
                             <button type="button" class="mp-card-fav" onclick="event.preventDefault();" aria-label="Favoritos">
                                 <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
                             </button>
+
+                            <div class="mp-card-hover-btn">Ver producto →</div>
                         </div>
                         <div class="mp-card-body">
                             <h3 class="mp-card-title">{{ $listing->title }}</h3>
@@ -277,7 +363,6 @@
 </div>
 
 <script>
-// Mostrar botón cerrar del sidebar filter en mobile
 if (window.matchMedia('(max-width: 899px)').matches) {
     document.getElementById('mpFiltersClose').style.display = 'inline-block';
 }

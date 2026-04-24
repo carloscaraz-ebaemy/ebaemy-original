@@ -1376,3 +1376,352 @@ button { font-family: inherit; cursor: pointer; }
         transition-duration: 0.01ms !important;
     }
 }
+
+/* ==========================================================================
+   ITERACIÓN 2 — Componentes comerciales (2026)
+   Hero reforzado, trust sticky, section-headers, badges premium,
+   tiendas destacadas, microinteracciones.
+   ========================================================================== */
+
+/* ─ HERO v2 ─ */
+.mp-hero-urgency {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 12px 5px 10px;
+    background: var(--mp-accent);
+    color: #fff;
+    border-radius: 999px;
+    font-size: 11.5px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin-bottom: 12px;
+    box-shadow: 0 4px 12px rgba(245, 158, 11, 0.35);
+    position: relative;
+    z-index: 1;
+}
+.mp-hero-urgency::before {
+    content: '';
+    width: 8px; height: 8px;
+    background: #fff;
+    border-radius: 50%;
+    box-shadow: 0 0 0 0 rgba(255,255,255,0.7);
+    animation: mpPulse 2s infinite;
+}
+@keyframes mpPulse {
+    0%   { box-shadow: 0 0 0 0 rgba(255,255,255,0.7); }
+    70%  { box-shadow: 0 0 0 10px rgba(255,255,255,0); }
+    100% { box-shadow: 0 0 0 0 rgba(255,255,255,0); }
+}
+
+/* Mini cards flotantes del hero — más ricas */
+.mp-hero-float {
+    position: absolute;
+    background: rgba(255,255,255,0.96);
+    backdrop-filter: blur(14px);
+    border: 1px solid rgba(255,255,255,0.6);
+    border-radius: 14px;
+    padding: 12px 14px;
+    color: var(--mp-ink);
+    box-shadow: 0 20px 40px -10px rgba(15,23,42,0.35);
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    min-width: 160px;
+    transition: transform .3s var(--mp-ease);
+}
+.mp-hero-float:hover { transform: translateY(-3px) rotate(0deg) !important; }
+.mp-hero-float-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 34px; height: 34px;
+    border-radius: 10px;
+    flex-shrink: 0;
+}
+.mp-hero-float-icon.offer    { background: #fff7ed; color: var(--mp-accent-dark); }
+.mp-hero-float-icon.popular  { background: var(--mp-primary-soft); color: var(--mp-primary-dark); }
+.mp-hero-float-icon.free     { background: #ecfdf5; color: var(--mp-success); }
+.mp-hero-float-label { font-size: 11px; color: var(--mp-muted); font-weight: 500; text-transform: uppercase; letter-spacing: 0.06em; }
+.mp-hero-float-value { font-size: 16px; font-weight: 800; color: var(--mp-ink); line-height: 1.1; margin-top: 2px; letter-spacing: -0.02em; }
+
+/* Hero v2: ajuste visual para contener los floats */
+.mp-hero-float--1 { top: 10px;   right: 10px;  transform: rotate(3deg); }
+.mp-hero-float--2 { top: 120px;  left: -10px;  transform: rotate(-3deg); }
+.mp-hero-float--3 { bottom: 10px; right: 40px; transform: rotate(2deg); }
+
+/* ─ TRUST BAR STICKY ─ */
+.mp-trust-sticky {
+    position: sticky;
+    top: 100px;
+    z-index: 30;
+    background: #fff;
+    border-bottom: 1px solid var(--mp-line-soft);
+    box-shadow: 0 2px 8px rgba(15,23,42,0.04);
+    margin: -4px 0 22px;
+    border-radius: 0;
+}
+@media (max-width: 899px) {
+    .mp-trust-sticky {
+        position: static;
+        margin: 0 0 14px;
+        border-radius: var(--mp-radius);
+        border: 1px solid var(--mp-line-soft);
+    }
+}
+.mp-trust-sticky-inner {
+    max-width: var(--mp-container-w);
+    margin: 0 auto;
+    padding: 10px clamp(12px, 3vw, 24px);
+    display: flex;
+    gap: 10px;
+    overflow-x: auto;
+    scrollbar-width: none;
+    align-items: center;
+    justify-content: flex-start;
+}
+.mp-trust-sticky-inner::-webkit-scrollbar { display: none; }
+.mp-trust-sticky-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 10px;
+    border-radius: 8px;
+    font-size: 12.5px;
+    font-weight: 500;
+    color: var(--mp-ink-soft);
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+.mp-trust-sticky-item svg { color: var(--mp-primary); flex-shrink: 0; }
+.mp-trust-sticky-item strong { color: var(--mp-ink); font-weight: 700; }
+@media (min-width: 900px) {
+    .mp-trust-sticky-inner { justify-content: space-between; gap: 18px; flex-wrap: wrap; }
+}
+
+/* ─ SECTION HEADERS (productos destacados, tiendas, etc.) ─ */
+.mp-section {
+    margin: 36px 0;
+}
+.mp-section-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+}
+.mp-section-title {
+    font-size: clamp(20px, 2.4vw, 26px);
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    color: var(--mp-ink);
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+.mp-section-title-emoji {
+    font-size: 22px;
+}
+.mp-section-subtitle {
+    font-size: 13.5px;
+    color: var(--mp-ink-soft);
+    margin: 4px 0 0;
+}
+.mp-section-link {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--mp-primary-dark);
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    white-space: nowrap;
+}
+.mp-section-link:hover { color: var(--mp-primary); }
+
+/* ─ BADGES premium (top, más vendido, recomendado, oferta) ─ */
+.mp-badge--top {
+    background: linear-gradient(135deg, #fbbf24, var(--mp-accent-dark));
+    color: #fff;
+}
+.mp-badge--best {
+    background: linear-gradient(135deg, #f87171, #dc2626);
+    color: #fff;
+}
+.mp-badge--recommended {
+    background: linear-gradient(135deg, var(--mp-primary-light), var(--mp-primary-dark));
+    color: #fff;
+}
+
+/* ─ CARD: botón hover "Ver producto" ─ */
+.mp-card-hover-btn {
+    position: absolute;
+    left: 14px; right: 14px; bottom: 14px;
+    padding: 9px 14px;
+    background: var(--mp-ink);
+    color: #fff;
+    border-radius: 10px;
+    font-size: 12.5px;
+    font-weight: 600;
+    text-align: center;
+    opacity: 0;
+    transform: translateY(8px);
+    transition: opacity .2s var(--mp-ease), transform .2s var(--mp-ease);
+    pointer-events: none;
+}
+.mp-card:hover .mp-card-hover-btn { opacity: 1; transform: translateY(0); }
+@media (max-width: 899px) {
+    .mp-card-hover-btn { display: none; }
+}
+
+/* Card imagen: overlay gradient on hover para contraste del botón */
+.mp-card-img::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(180deg, transparent 55%, rgba(0,0,0,0.22) 100%);
+    opacity: 0;
+    transition: opacity .2s var(--mp-ease);
+    pointer-events: none;
+    z-index: 1;
+}
+.mp-card:hover .mp-card-img::after { opacity: 1; }
+
+/* ─ TIENDAS DESTACADAS ─ */
+.mp-shops-row {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+}
+@media (min-width: 640px) { .mp-shops-row { grid-template-columns: repeat(3, 1fr); } }
+@media (min-width: 900px) { .mp-shops-row { grid-template-columns: repeat(4, 1fr); } }
+@media (min-width: 1200px){ .mp-shops-row { grid-template-columns: repeat(6, 1fr); } }
+
+.mp-shop-card {
+    background: #fff;
+    border: 1px solid var(--mp-line-soft);
+    border-radius: var(--mp-radius);
+    padding: 20px 16px;
+    text-align: center;
+    transition: transform .2s var(--mp-ease), border-color .2s, box-shadow .2s;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    color: inherit;
+}
+.mp-shop-card:hover {
+    transform: translateY(-3px);
+    border-color: var(--mp-primary);
+    box-shadow: var(--mp-shadow-md);
+}
+.mp-shop-card-logo {
+    width: 56px; height: 56px;
+    border-radius: 12px;
+    background: linear-gradient(135deg, var(--mp-primary-soft), #fff);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    border: 1px solid var(--mp-line-soft);
+}
+.mp-shop-card-logo img { width: 100%; height: 100%; object-fit: contain; padding: 6px; }
+.mp-shop-card-logo-fallback {
+    font-size: 22px;
+    font-weight: 800;
+    color: var(--mp-primary-dark);
+    letter-spacing: -0.03em;
+}
+.mp-shop-card-name {
+    font-size: 13.5px;
+    font-weight: 700;
+    color: var(--mp-ink);
+    line-height: 1.25;
+    margin: 0;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    max-width: 100%;
+}
+.mp-shop-card-meta {
+    font-size: 11.5px;
+    color: var(--mp-muted);
+    display: inline-flex;
+    gap: 4px;
+    align-items: center;
+}
+.mp-shop-card-cta {
+    margin-top: 2px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--mp-primary-dark);
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+}
+
+/* ─ SKELETON loaders (cuando algún render esté cargando; uso decorativo) ─ */
+.mp-skeleton {
+    background: linear-gradient(90deg, #f1f5f9 0%, #e2e8f0 50%, #f1f5f9 100%);
+    background-size: 200% 100%;
+    animation: mpShimmer 1.4s infinite;
+    border-radius: 8px;
+}
+@keyframes mpShimmer {
+    0%   { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+}
+
+/* ─ Botón "Comprar" tipo ripple + refined ─ */
+.mp-btn-buy {
+    position: relative;
+    overflow: hidden;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 10px 14px;
+    border-radius: 10px;
+    background: linear-gradient(135deg, var(--mp-primary-light), var(--mp-primary-dark));
+    color: #fff !important;
+    font-size: 12.5px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    transition: transform .15s var(--mp-ease), box-shadow .15s var(--mp-ease), filter .15s;
+    box-shadow: 0 4px 12px rgba(15,138,130,0.28);
+}
+.mp-btn-buy:hover { transform: translateY(-1px); box-shadow: 0 8px 20px rgba(15,138,130,0.38); filter: brightness(1.06); }
+.mp-btn-buy::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(circle at center, rgba(255,255,255,0.35) 0%, transparent 60%);
+    transform: scale(0);
+    transition: transform .4s ease;
+    pointer-events: none;
+}
+.mp-btn-buy:active::after { transform: scale(1.5); }
+
+/* ─ Focus ring mejorado para mobile touch ─ */
+@media (max-width: 640px) {
+    .mp-card-body { padding: 10px 12px 14px; gap: 5px; }
+    .mp-card-title { font-size: 13px; min-height: 2.55em; }
+    .mp-card-price { font-size: 17px; }
+    .mp-nav-main { padding: 10px 12px; gap: 10px; grid-template-columns: auto 1fr; }
+    .mp-nav-actions { display: none; }
+    .mp-search-btn { width: 48px; }
+    .mp-search-input { padding: 12px 14px; font-size: 14px; }
+}
+
+/* ─ Section separator sutil ─ */
+.mp-section--alt {
+    background: linear-gradient(180deg, #fff 0%, #f8fafc 100%);
+    padding: 28px clamp(16px, 3vw, 32px);
+    border-radius: var(--mp-radius-lg);
+    border: 1px solid var(--mp-line-soft);
+}
+
