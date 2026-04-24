@@ -2568,3 +2568,319 @@ img.ec-img-lazy[src*="placeholder"] {
 .ec-home-section:first-of-type {
     margin-top: var(--ec-space-5);
 }
+
+/* ══════════════════════════════════════════════════════════════════════════
+ *  FASE 9 — PDP (Product Detail Page) — Optimización de conversión
+ *  Gatillos + botones "Comprar ahora" + confianza + urgencia + sticky mobile
+ * ══════════════════════════════════════════════════════════════════════════ */
+
+/* ── Gatillos psicológicos (chips sobre los CTAs) ── */
+.ec-triggers {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin: var(--ec-space-3) 0;
+}
+
+.ec-trigger {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 5px 11px;
+    border-radius: var(--ec-radius-pill);
+    font-size: 11px;
+    font-weight: 600;
+    border: 1px solid var(--ec-line);
+    background: #fff;
+    color: var(--ec-ink-soft);
+    line-height: 1.3;
+}
+
+.ec-trigger--hot {
+    background: linear-gradient(135deg, #fee2e2, #fecaca);
+    border-color: #fca5a5;
+    color: #991b1b;
+    animation: ec-pulse-soft 2s ease-in-out infinite;
+}
+
+.ec-trigger--viewers {
+    background: #fff7ed;
+    border-color: #fed7aa;
+    color: #9a3412;
+}
+
+.ec-trigger--fast {
+    background: var(--ec-primary-50);
+    border-color: var(--ec-primary-100);
+    color: var(--ec-primary-700);
+}
+
+@keyframes ec-pulse-soft {
+    0%, 100% { transform: scale(1); }
+    50%      { transform: scale(1.03); }
+}
+
+/* ── Botones del PDP: jerarquía clara ── */
+.product-single-details .product-action {
+    flex-direction: column;
+    gap: 10px;
+    align-items: stretch;
+}
+
+/* Botón PRIMARIO: Comprar ahora (gradiente agresivo) */
+.product-single-details .ec-btn-buy-now {
+    display: inline-flex !important;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 15px 20px !important;
+    width: 100%;
+    border-radius: var(--ec-radius-sm) !important;
+    background: linear-gradient(135deg, var(--ec-primary-600), var(--ec-primary-700)) !important;
+    color: #fff !important;
+    font-weight: 800 !important;
+    font-size: 15px !important;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+    text-decoration: none !important;
+    border: none !important;
+    cursor: pointer;
+    box-shadow: var(--ec-primary-glow) !important;
+    transition: all var(--ec-duration) var(--ec-ease);
+    position: relative;
+    overflow: hidden;
+}
+
+.product-single-details .ec-btn-buy-now:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 16px 32px -8px hsla(var(--primary-h), var(--primary-s), 40%, .5) !important;
+    color: #fff !important;
+}
+
+.product-single-details .ec-btn-buy-now:active {
+    transform: translateY(0);
+}
+
+.product-single-details .ec-btn-buy-now::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -75%;
+    width: 50%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, .35), transparent);
+    transform: skewX(-20deg);
+    transition: left 700ms var(--ec-ease);
+}
+
+.product-single-details .ec-btn-buy-now:hover::before {
+    left: 125%;
+}
+
+/* El "Agregar al Carrito" queda como SECUNDARIO (outline) */
+.product-single-details .paction.add-cart {
+    background: #fff !important;
+    color: var(--ec-primary-700) !important;
+    border: 2px solid var(--ec-primary) !important;
+    box-shadow: none !important;
+    text-transform: none !important;
+    font-size: 14px !important;
+    font-weight: 700 !important;
+}
+
+.product-single-details .paction.add-cart:hover {
+    background: var(--ec-primary-50) !important;
+    color: var(--ec-primary-700) !important;
+    transform: translateY(-1px);
+}
+
+/* WhatsApp queda como TERCIARIO (ghost verde) */
+.product-single-details .btn-whatsapp {
+    display: inline-flex !important;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 11px 16px !important;
+    width: 100%;
+    border-radius: var(--ec-radius-sm);
+    background: #fff !important;
+    color: #0f766e !important;
+    border: 1.5px solid #10b981 !important;
+    font-weight: 600 !important;
+    font-size: 13px !important;
+    text-decoration: none !important;
+    transition: all var(--ec-duration) var(--ec-ease);
+}
+
+.product-single-details .btn-whatsapp:hover {
+    background: #ecfdf5 !important;
+    color: #065f46 !important;
+    border-color: #059669 !important;
+    transform: translateY(-1px);
+}
+
+/* ── Bloque de confianza (tras los CTAs) ── */
+.ec-trust-block {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+    margin: var(--ec-space-4) 0;
+    padding: var(--ec-space-3);
+    background: var(--ec-bg-soft);
+    border: 1px solid var(--ec-line);
+    border-radius: var(--ec-radius-md);
+}
+
+.ec-trust-block__item {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 6px 4px;
+}
+
+.ec-trust-block__item svg {
+    color: var(--ec-primary);
+    flex-shrink: 0;
+    margin-top: 2px;
+}
+
+.ec-trust-block__item strong {
+    display: block;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--ec-ink);
+    line-height: 1.25;
+}
+
+.ec-trust-block__item span {
+    display: block;
+    font-size: 11px;
+    color: var(--ec-ink-muted);
+    line-height: 1.3;
+    margin-top: 1px;
+}
+
+/* ── Urgencia agresiva en el countdown ── */
+.ec-urgency-countdown {
+    position: relative;
+    background: linear-gradient(135deg, #fef3c7, #fed7aa) !important;
+    border: 1px solid #f59e0b !important;
+    box-shadow: 0 4px 12px -3px rgba(239, 68, 68, .2);
+    animation: ec-urgency-glow 2.5s ease-in-out infinite;
+}
+
+@keyframes ec-urgency-glow {
+    0%, 100% { box-shadow: 0 4px 12px -3px rgba(239, 68, 68, .2); }
+    50%      { box-shadow: 0 6px 20px -3px rgba(239, 68, 68, .45); }
+}
+
+.ec-urgency-countdown::after {
+    content: 'Oferta termina pronto';
+    position: absolute;
+    top: -10px;
+    right: 12px;
+    padding: 3px 9px;
+    background: #ef4444;
+    color: #fff;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    border-radius: var(--ec-radius-pill);
+    box-shadow: 0 3px 8px rgba(239, 68, 68, .4);
+}
+
+.ec-urgency-countdown span[id^="ec-cd-"] {
+    animation: ec-digit-pulse 1s ease-in-out infinite;
+}
+
+@keyframes ec-digit-pulse {
+    0%, 100% { transform: scale(1); }
+    50%      { transform: scale(1.06); }
+}
+
+/* ── Mobile sticky bottom bar (refinada) ── */
+.ec-mobile-action-bar {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 9998;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 12px;
+    background: #fff;
+    border-top: 1px solid var(--ec-line);
+    box-shadow: 0 -8px 24px -6px rgba(15, 23, 42, .12);
+    backdrop-filter: saturate(180%);
+}
+
+.ec-mob-price {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    min-width: 0;
+    flex-shrink: 0;
+    padding-right: 8px;
+}
+
+.ec-mob-price__label {
+    font-size: 10px;
+    color: var(--ec-ink-muted);
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    font-weight: 600;
+    line-height: 1;
+}
+
+.ec-mob-price__value {
+    font-size: 17px;
+    font-weight: 800;
+    color: var(--ec-ink);
+    line-height: 1.1;
+    margin-top: 2px;
+}
+
+.ec-mob-wa-btn {
+    flex-shrink: 0;
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    background: #25d366;
+    color: #fff;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    text-decoration: none;
+}
+
+.ec-mob-cart-btn {
+    flex: 1;
+    display: inline-flex !important;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    height: 44px;
+    padding: 0 14px;
+    border-radius: var(--ec-radius-sm);
+    background: var(--ec-primary) !important;
+    color: #fff !important;
+    font-weight: 700 !important;
+    font-size: 14px !important;
+    text-decoration: none !important;
+    box-shadow: var(--ec-primary-glow-sm) !important;
+}
+
+.ec-mob-cart-btn:active {
+    transform: scale(.98);
+}
+
+/* Agregar padding-bottom al body para que la sticky bar no tape contenido */
+@media (max-width: 767px) {
+    body:has(.ec-mobile-action-bar) .main {
+        padding-bottom: 80px;
+    }
+    /* Fallback sin :has */
+    .ec-mobile-action-bar ~ * { padding-bottom: 80px; }
+}

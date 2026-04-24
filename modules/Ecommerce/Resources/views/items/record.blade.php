@@ -284,7 +284,7 @@
 
                 {{-- Countdown Flash Sale --}}
                 @if($record->flash_ends_at)
-                <div id="ec-bl-countdown" data-ends="{{ $record->flash_ends_at->timestamp * 1000 }}"
+                <div id="ec-bl-countdown" class="ec-urgency-countdown" data-ends="{{ $record->flash_ends_at->timestamp * 1000 }}"
                      style="margin:12px 0;padding:10px 16px;background:linear-gradient(135deg,#fff7ed,#ffedd5);border:1px solid #fed7aa;border-radius:10px;display:inline-flex;align-items:center;gap:10px">
                     <div style="background:#ea580c;color:#fff;width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0">
                         <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"
@@ -717,8 +717,50 @@
                     $waLink       = $showWhatsapp ? "https://wa.me/{$waPhone}?text={$waText}" : '#';
                 @endphp
 
+                {{-- ─── Gatillos psicológicos (conversión) ─────────────────────── --}}
+                @if($isAvailable)
+                <div class="ec-triggers">
+                    @php
+                        // "X personas viendo" — número determinista por producto (no cambia al refrescar).
+                        // Rango 4-27 basado en id + hora actual (varía cada hora). Solo UX, no BD.
+                        $viewingNow = 4 + (($record->id * 7 + (int)date('H')) % 24);
+                        $isBestseller = ($record->view_count ?? 0) > 50 || ($record->lead_count ?? 0) > 5;
+                    @endphp
+                    @if($isBestseller)
+                        <span class="ec-trigger ec-trigger--hot">🔥 Más vendido</span>
+                    @endif
+                    <span class="ec-trigger ec-trigger--viewers">👀 {{ $viewingNow }} personas viendo ahora</span>
+                    <span class="ec-trigger ec-trigger--fast">⚡ Listo para enviar</span>
+                </div>
+                @endif
+
                 <div class="product-action product-all-icons d-none d-md-block" id="product-actions">
                     @if($isAvailable)
+                    {{-- Comprar ahora: agrega al carrito y redirige al checkout (solo frontend) --}}
+                    <a href="#" class="paction ec-btn-buy-now"
+                       id="btn-buy-now"
+                       data-ec-cart="{{ json_encode($record) }}"
+                       title="Comprar ahora — pasar directo al carrito">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+                        <span>Comprar ahora</span>
+                    </a>
+                    <script>
+                    (function(){
+                        var btnBuyNow = document.getElementById('btn-buy-now');
+                        var btnAddCart = document.getElementById('btn-add-to-cart');
+                        if (btnBuyNow && btnAddCart) {
+                            btnBuyNow.addEventListener('click', function(e){
+                                e.preventDefault();
+                                // Dispara el flujo normal de add-to-cart y luego redirige al carrito.
+                                btnAddCart.click();
+                                setTimeout(function(){
+                                    window.location.href = '/ecommerce/cart';
+                                }, 450);
+                            });
+                        }
+                    })();
+                    </script>
+
                     <a href="#" class="paction add-cart"
                        id="btn-add-to-cart"
                        data-product="{{ json_encode($record) }}"
@@ -786,6 +828,38 @@
                         <span>Consultar por WhatsApp</span>
                     </a>
                     @endif
+                </div>
+
+                {{-- ─── Bloque de confianza (tras los CTAs) ────────────────────── --}}
+                <div class="ec-trust-block">
+                    <div class="ec-trust-block__item">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/></svg>
+                        <div>
+                            <strong>Empresa verificada</strong>
+                            <span>Tenant activo en ebaemy</span>
+                        </div>
+                    </div>
+                    <div class="ec-trust-block__item">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="17" x2="15" y2="17"/></svg>
+                        <div>
+                            <strong>Factura electrónica</strong>
+                            <span>Boleta o factura SUNAT</span>
+                        </div>
+                    </div>
+                    <div class="ec-trust-block__item">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M2 10h20"/></svg>
+                        <div>
+                            <strong>Pago seguro</strong>
+                            <span>Tarjeta o contra entrega</span>
+                        </div>
+                    </div>
+                    <div class="ec-trust-block__item">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                        <div>
+                            <strong>Atención rápida</strong>
+                            <span>WhatsApp y correo</span>
+                        </div>
+                    </div>
                 </div>
 
                 {{-- Código de producto (estilo Falabella) --}}
@@ -953,10 +1027,14 @@
             @if($isAvailable)
             <div class="ec-mobile-action-bar d-md-none">
                 <style>@media(max-width:767px){a.ws-flotante{display:none!important}}</style>
+                <div class="ec-mob-price">
+                    <small class="ec-mob-price__label">Precio</small>
+                    <strong class="ec-mob-price__value">{{ $record->currency_type['symbol'] }} {{ number_format($record->sale_unit_price, 2) }}</strong>
+                </div>
                 @if($showWhatsapp)
                 <a href="{{ $waLink }}" class="btn-whatsapp ec-mob-wa-btn" target="_blank" rel="noopener noreferrer"
                    title="Consultar por WhatsApp" aria-label="WhatsApp">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24"
                          fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
                         <path d="M3 21l1.65-3.8a9 9 0 1 1 3.4 2.9L3 21"/>
                         <path d="M9 10a.5.5 0 0 0 1 0v-1a.5.5 0 0 0-1 0v1a5 5 0 0 0 5 5h1a.5.5 0 0 0 0-1h-1a.5.5 0 0 0 0 1"/>
@@ -965,14 +1043,13 @@
                 @endif
                 <a href="#" class="ec-mob-cart-btn"
                    data-product="{{ json_encode($record) }}"
-                   data-ec-cart="{{ json_encode($record) }}"
-                   style="background:hsl(var(--primary-h),var(--primary-s),var(--primary-l)) !important;color:#fff !important;text-decoration:none !important">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24"
-                         fill="none" stroke="#fff" stroke-width="2.5" aria-hidden="true">
+                   data-ec-cart="{{ json_encode($record) }}">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="17" height="17" viewBox="0 0 24 24"
+                         fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true">
                         <circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/>
                         <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/>
                     </svg>
-                    Agregar al Carrito
+                    <span>Comprar</span>
                 </a>
             </div>
             @endif
