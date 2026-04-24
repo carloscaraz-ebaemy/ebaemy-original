@@ -256,6 +256,7 @@ class SellerApplicationService
                     // centinela único para no romper la columna unique.
                     'requested_subdomain'           => 'activation-' . $client->id,
                     'store_description'             => $input['activation_reason'] ?? null,
+                    'logo_path'                     => $input['logo_path'] ?? null,
                     // No pedimos contraseña — el tenant ya la tiene. Guardamos
                     // un hash vacío marker porque la columna es NOT NULL.
                     'password_hash'                 => '__activation_request__',
@@ -378,6 +379,12 @@ class SellerApplicationService
             if (!$client) {
                 return ['success' => false, 'message' => 'TenantCreationService no retornó el client creado'];
             }
+
+            // Si el seller subió logo en el form, copiarlo al storage del
+            // tenant + actualizar companies.logo para que aparezca en su
+            // panel desde el día uno. Best-effort — si falla no revierte
+            // la creación del tenant (el seller puede subirlo luego).
+            $this->copyLogoToTenantIfPresent($application, $client);
 
             // Marcar cliente como seller aprobado + actualizar aplicación + log
             DB::connection('system')->transaction(function () use ($application, $client, $reviewerId) {
@@ -503,6 +510,11 @@ class SellerApplicationService
             // transacción system — es otra conexión).
             $this->ensureEcommerceModuleForTenantUser($client);
 
+            // Si el seller envió un logo con la solicitud de activación,
+            // copiarlo al tenant. Respetamos el logo actual si el tenant
+            // ya tenía uno (no sobreescribir sin pedir).
+            $this->copyLogoToTenantIfPresent($application, $client, false);
+
             // Mail específico de activación (distinto del approved normal:
             // no entrega credenciales, confirma que ya puede usar su tienda).
             $this->safeSendMail(
@@ -526,6 +538,95 @@ class SellerApplicationService
                 'success' => false,
                 'message' => 'Error al activar: ' . $e->getMessage(),
             ];
+        }
+    }
+
+    /**
+     * Copia el archivo de logo subido por el seller (storage/app/public/
+     * seller-logos/*) al directorio de logos del tenant (storage/app/
+     * public/uploads/logos/logo_{ruc}.{ext}) y actualiza companies.logo.
+     *
+     * Best-effort: si falla (archivo no existe, error de disco, etc.) se
+     * loguea warning y continúa — el seller puede subir el logo después
+     * desde su panel.
+     *
+     * @param bool $overwriteIfExists  Si false y el tenant ya tiene logo,
+     *                                 respeta el existente. Default true
+     *                                 (onboarding nuevo no tiene nada).
+     */
+    private function copyLogoToTenantIfPresent(
+        SellerApplication $application,
+        Client $client,
+        bool $overwriteIfExists = true
+    ): void {
+        try {
+            $logoPath = $application->logo_path;
+            if (empty($logoPath)) {
+                return;
+            }
+
+            // Ruta absoluta del archivo subido por el seller
+            $sourceAbs = storage_path('app/public/' . $logoPath);
+            if (!is_file($sourceAbs)) {
+                Log::warning('copyLogoToTenant: archivo fuente no encontrado', [
+                    'logo_path' => $logoPath,
+                    'abs'       => $sourceAbs,
+                ]);
+                return;
+            }
+
+            // Contexto del tenant para leer/escribir companies + su disco
+            $tenancy = app(\Hyn\Tenancy\Environment::class);
+            $website = $client->hostname?->website ?? optional($client->hostname()->first())->website;
+            if (!$website) {
+                Log::warning('copyLogoToTenant: sin website', ['client_id' => $client->id]);
+                return;
+            }
+            $tenancy->tenant($website);
+
+            // Respetar logo existente si el caller lo pidió
+            if (!$overwriteIfExists) {
+                $current = DB::connection('tenant')->table('companies')->value('logo');
+                if (!empty($current)) {
+                    Log::info('copyLogoToTenant: tenant ya tiene logo, respetando', [
+                        'client_id' => $client->id,
+                        'current'   => $current,
+                    ]);
+                    return;
+                }
+            }
+
+            $ext = strtolower(pathinfo($sourceAbs, PATHINFO_EXTENSION) ?: 'png');
+            $newName = 'logo_' . $application->ruc . '.' . $ext;
+            $destRel = 'public/uploads/logos/' . $newName;
+            $destAbs = storage_path('app/' . $destRel);
+
+            // Asegurar directorio destino (multi-tenant comparte el disco
+            // public de Hyn — mismo disco físico para todos los tenants)
+            if (!is_dir(dirname($destAbs))) {
+                mkdir(dirname($destAbs), 0755, true);
+            }
+
+            if (!copy($sourceAbs, $destAbs)) {
+                Log::warning('copyLogoToTenant: copy() falló', [
+                    'src' => $sourceAbs,
+                    'dst' => $destAbs,
+                ]);
+                return;
+            }
+
+            DB::connection('tenant')->table('companies')->update(['logo' => $newName]);
+
+            Log::info('copyLogoToTenant: logo copiado y companies.logo actualizado', [
+                'client_id' => $client->id,
+                'ruc'       => $application->ruc,
+                'logo'      => $newName,
+            ]);
+        } catch (Exception $e) {
+            Log::warning('copyLogoToTenant: excepción', [
+                'application_id' => $application->id,
+                'error'          => $e->getMessage(),
+            ]);
         }
     }
 

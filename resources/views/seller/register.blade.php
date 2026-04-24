@@ -228,6 +228,24 @@
         .sr-loading { display: inline-block; width: 14px; height: 14px; border: 2px solid rgba(255,255,255,0.4); border-top-color: #fff; border-radius: 50%; animation: srSpin .7s linear infinite; }
         @keyframes srSpin { to { transform: rotate(360deg); } }
 
+        /* ── LOGO UPLOADER ─────────────────────────────────── */
+        .sr-logo-uploader { display: grid; grid-template-columns: 80px 1fr; gap: 14px; align-items: center; }
+        .sr-logo-preview {
+            width: 80px; height: 80px; border-radius: 14px;
+            border: 1.5px dashed var(--eb-line, #e2e8f0);
+            background: #fafbfc;
+            display: flex; align-items: center; justify-content: center;
+            overflow: hidden; position: relative;
+        }
+        .sr-logo-preview img { width: 100%; height: 100%; object-fit: contain; padding: 6px; }
+        .sr-logo-empty {
+            display: flex; flex-direction: column; align-items: center; gap: 4px;
+            color: var(--eb-muted, #94a3b8); font-size: 11px; font-weight: 500;
+        }
+        .sr-logo-actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+        .sr-logo-btn { padding: 8px 14px !important; font-size: 13px !important; }
+        .sr-logo-uploader .sr-hint { grid-column: 1 / -1; margin-top: 0; }
+
         /* ── STRENGTH METER ────────────────────────────────── */
         .sr-strength { margin-top: 6px; }
         .sr-strength-bar {
@@ -388,6 +406,27 @@
                     <div class="sr-field">
                         <label>Descripción <span class="sr-optional">(opcional)</span></label>
                         <input type="text" name="store_description" maxlength="2000">
+                    </div>
+                </div>
+
+                <div class="sr-row full">
+                    <div class="sr-field">
+                        <label>Logo de tu empresa <span class="sr-optional">(opcional)</span></label>
+                        <div class="sr-logo-uploader" id="srLogoUploader">
+                            <input type="file" id="srLogoInput" accept="image/png,image/jpeg,image/svg+xml,image/webp" style="display:none;">
+                            <input type="hidden" name="logo_path" id="srLogoPath" value="">
+                            <div class="sr-logo-preview" id="srLogoPreview">
+                                <div class="sr-logo-empty">
+                                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>
+                                    <span>Sin logo</span>
+                                </div>
+                            </div>
+                            <div class="sr-logo-actions">
+                                <button type="button" class="sr-btn sr-btn-ghost sr-logo-btn" onclick="document.getElementById('srLogoInput').click()">Seleccionar imagen</button>
+                                <button type="button" class="sr-btn sr-btn-ghost sr-logo-btn sr-logo-remove" id="srLogoRemove" style="display:none;">Quitar</button>
+                            </div>
+                            <div class="sr-hint" id="srLogoHint">PNG, JPG, SVG o WEBP. Máx. 2MB.</div>
+                        </div>
                     </div>
                 </div>
 
@@ -924,6 +963,66 @@ function srUpdateMatch() {
 
 document.getElementById('srPassword').addEventListener('input', srUpdateStrength);
 document.getElementById('srPasswordConfirm').addEventListener('input', srUpdateMatch);
+
+// ────────────────────────────────────────────────────────
+//  Logo uploader
+// ────────────────────────────────────────────────────────
+document.getElementById('srLogoInput').addEventListener('change', async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 2 * 1024 * 1024) {
+        document.getElementById('srLogoHint').className = 'sr-hint err';
+        document.getElementById('srLogoHint').textContent = 'Archivo demasiado grande. Máx. 2MB.';
+        e.target.value = '';
+        return;
+    }
+    const hint = document.getElementById('srLogoHint');
+    hint.className = 'sr-hint';
+    hint.textContent = 'Subiendo…';
+
+    const fd = new FormData();
+    fd.append('logo', file);
+
+    try {
+        const res = await fetch('/seller/upload-logo', {
+            method: 'POST',
+            headers: { 'Accept': 'application/json', 'X-CSRF-TOKEN': SR_CSRF },
+            body: fd,
+        });
+        const data = await res.json();
+        if (!res.ok || !data.success) {
+            hint.className = 'sr-hint err';
+            hint.textContent = data.message || 'No se pudo subir el logo.';
+            e.target.value = '';
+            return;
+        }
+        document.getElementById('srLogoPath').value = data.path;
+        const preview = document.getElementById('srLogoPreview');
+        preview.innerHTML = `<img src="${data.url}" alt="Logo">`;
+        document.getElementById('srLogoRemove').style.display = '';
+        hint.className = 'sr-hint ok';
+        hint.textContent = '✓ Logo cargado.';
+    } catch (err) {
+        hint.className = 'sr-hint err';
+        hint.textContent = 'Error al subir: ' + err.message;
+        e.target.value = '';
+    }
+});
+
+document.getElementById('srLogoRemove').addEventListener('click', () => {
+    document.getElementById('srLogoPath').value = '';
+    document.getElementById('srLogoInput').value = '';
+    document.getElementById('srLogoPreview').innerHTML = `
+        <div class="sr-logo-empty">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>
+            <span>Sin logo</span>
+        </div>
+    `;
+    document.getElementById('srLogoRemove').style.display = 'none';
+    const hint = document.getElementById('srLogoHint');
+    hint.className = 'sr-hint';
+    hint.textContent = 'PNG, JPG, SVG o WEBP. Máx. 2MB.';
+});
 </script>
 </body>
 </html>

@@ -40,6 +40,10 @@ class SellerActivationRequest extends FormRequest
             // Motivo (opcional, para ayudar al SuperAdmin a priorizar)
             'activation_reason' => 'nullable|string|max:2000',
 
+            // Path relativo al logo previamente subido por /seller/upload-logo.
+            // Opcional — si se omite, el tenant mantiene su logo actual.
+            'logo_path' => 'nullable|string|max:500',
+
             // Términos
             'terms_accepted' => 'accepted',
         ];

@@ -1159,6 +1159,9 @@ if ($hostname) {
         Route::get('seller/register/check-subdomain', 'SellerRegistrationController@checkSubdomain')
              ->middleware('throttle:30,1')
              ->name('seller.register.check_subdomain');
+        Route::post('seller/upload-logo', 'SellerRegistrationController@uploadLogo')
+             ->middleware('throttle:6,60')
+             ->name('seller.upload_logo');
         Route::get('seller/application/{token}', 'SellerApplicationStatusController@show')
              ->where('token', '[A-Za-z0-9]+')
              ->name('seller.application.status');

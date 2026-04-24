@@ -253,9 +253,14 @@ function saDetailHtml(data) {
         </div>
     ` : `<div class="alert alert-secondary">Esta solicitud ya no es revisable (estado: <strong>${app.status}</strong>).</div>`;
 
+    const logoPreview = app.logo_path
+        ? `<div class="text-center mb-3"><img src="/storage/${saEscape(app.logo_path)}" style="max-height:80px; max-width:180px; object-fit:contain;" alt="Logo"></div>`
+        : '';
+
     return `
     <div class="row g-3">
         <div class="col-md-7">
+            ${logoPreview}
             <div class="card mb-3">
                 <div class="card-header bg-light"><strong>Empresa</strong> ${saBadge(app.status)} ${saRucBadge(app)}</div>
                 <div class="card-body">

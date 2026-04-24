@@ -125,6 +125,21 @@
         }
         .loading { display:inline-block; width:14px; height:14px; border:2px solid rgba(255,255,255,0.4); border-top-color:#fff; border-radius:50%; animation: spin .7s linear infinite; }
         @keyframes spin { to { transform: rotate(360deg); } }
+
+        .ra-logo-uploader { display: grid; grid-template-columns: 70px 1fr; gap: 12px; align-items: center; }
+        .ra-logo-preview {
+            width: 70px; height: 70px; border-radius: 12px;
+            border: 1.5px dashed var(--eb-line); background: #fafbfc;
+            display: flex; align-items: center; justify-content: center;
+            overflow: hidden;
+        }
+        .ra-logo-preview img { width: 100%; height: 100%; object-fit: contain; padding: 5px; }
+        .ra-logo-empty { display: flex; flex-direction: column; align-items: center; gap: 3px; color: var(--eb-muted); font-size: 10px; font-weight: 500; }
+        .ra-logo-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+        .ra-logo-btn { padding: 8px 14px !important; font-size: 13px !important; }
+        .ra-logo-uploader .hint { grid-column: 1 / -1; }
+        .hint.ok  { color: #059669; }
+        .hint.err { color: #dc2626; }
     </style>
 </head>
 <body>
@@ -196,6 +211,27 @@
                 </div>
             </div>
 
+            <div class="ra-row full">
+                <div class="ra-field">
+                    <label>Logo de tu empresa <span class="opt">(opcional — úsalo solo si quieres reemplazar el logo actual)</span></label>
+                    <div class="ra-logo-uploader">
+                        <input type="file" id="raLogoInput" accept="image/png,image/jpeg,image/svg+xml,image/webp" style="display:none;">
+                        <input type="hidden" name="logo_path" id="raLogoPath" value="">
+                        <div class="ra-logo-preview" id="raLogoPreview">
+                            <div class="ra-logo-empty">
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>
+                                <span>Sin logo</span>
+                            </div>
+                        </div>
+                        <div class="ra-logo-actions">
+                            <button type="button" class="ra-btn ra-btn-ghost ra-logo-btn" onclick="document.getElementById('raLogoInput').click()">Seleccionar imagen</button>
+                            <button type="button" class="ra-btn ra-btn-ghost ra-logo-btn" id="raLogoRemove" style="display:none;">Quitar</button>
+                        </div>
+                        <div class="hint" id="raLogoHint">PNG, JPG, SVG o WEBP. Máx. 2MB.</div>
+                    </div>
+                </div>
+            </div>
+
             <div class="ra-checkbox">
                 <input type="checkbox" name="terms_accepted" id="raTerms" value="1">
                 <label for="raTerms">
@@ -237,6 +273,63 @@ function raShowError(msg) {
     document.getElementById('raErrorBox').innerHTML = `<div class="ra-alert err">${msg.replace(/[<>]/g, c => ({'<':'&lt;','>':'&gt;'}[c]))}</div>`;
 }
 function raClearError() { document.getElementById('raErrorBox').innerHTML = ''; }
+
+// Logo uploader
+document.getElementById('raLogoInput').addEventListener('change', async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 2 * 1024 * 1024) {
+        document.getElementById('raLogoHint').className = 'hint err';
+        document.getElementById('raLogoHint').textContent = 'Archivo demasiado grande. Máx. 2MB.';
+        e.target.value = '';
+        return;
+    }
+    const hint = document.getElementById('raLogoHint');
+    hint.className = 'hint';
+    hint.textContent = 'Subiendo…';
+
+    const fd = new FormData();
+    fd.append('logo', file);
+
+    try {
+        const res = await fetch('/seller/upload-logo', {
+            method: 'POST',
+            headers: { 'Accept': 'application/json', 'X-CSRF-TOKEN': RA_CSRF },
+            body: fd,
+        });
+        const data = await res.json();
+        if (!res.ok || !data.success) {
+            hint.className = 'hint err';
+            hint.textContent = data.message || 'No se pudo subir el logo.';
+            e.target.value = '';
+            return;
+        }
+        document.getElementById('raLogoPath').value = data.path;
+        document.getElementById('raLogoPreview').innerHTML = `<img src="${data.url}" alt="Logo">`;
+        document.getElementById('raLogoRemove').style.display = '';
+        hint.className = 'hint ok';
+        hint.textContent = '✓ Logo cargado.';
+    } catch (err) {
+        hint.className = 'hint err';
+        hint.textContent = 'Error al subir: ' + err.message;
+        e.target.value = '';
+    }
+});
+
+document.getElementById('raLogoRemove').addEventListener('click', () => {
+    document.getElementById('raLogoPath').value = '';
+    document.getElementById('raLogoInput').value = '';
+    document.getElementById('raLogoPreview').innerHTML = `
+        <div class="ra-logo-empty">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>
+            <span>Sin logo</span>
+        </div>
+    `;
+    document.getElementById('raLogoRemove').style.display = 'none';
+    const hint = document.getElementById('raLogoHint');
+    hint.className = 'hint';
+    hint.textContent = 'PNG, JPG, SVG o WEBP. Máx. 2MB.';
+});
 
 document.getElementById('raBtnSubmit').addEventListener('click', async () => {
     raClearError();

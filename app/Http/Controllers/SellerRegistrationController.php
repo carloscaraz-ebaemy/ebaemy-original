@@ -7,9 +7,12 @@ use App\Http\Requests\Public\SellerRegistrationRequest;
 use App\Models\System\SellerApplication;
 use App\Services\System\RucValidationService;
 use App\Services\System\SellerApplicationService;
+use Exception;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 
 /**
  * Formulario público de pre-registro de sellers (/seller/register).
@@ -61,6 +64,43 @@ class SellerRegistrationController extends Controller
                 ? url('/seller/application/' . $application->tracking_token)
                 : null,
         ]);
+    }
+
+    /**
+     * Recibe el archivo de logo del seller (PNG/JPG/SVG hasta 2MB) y lo
+     * guarda en storage/app/public/seller-logos/. Devuelve el path relativo
+     * que luego el form envía como `logo_path` en el submit final.
+     *
+     * Endpoint separado del submit para permitir preview inmediato y evitar
+     * cargar binarios dentro del JSON principal. Con rate limit estricto
+     * (3 uploads/hora por IP) para prevenir abuso.
+     */
+    public function uploadLogo(Request $request): JsonResponse
+    {
+        try {
+            $request->validate([
+                'logo' => 'required|file|mimes:jpeg,png,jpg,svg,webp|max:2048',
+            ]);
+
+            $file = $request->file('logo');
+            $ext  = strtolower($file->getClientOriginalExtension());
+            $name = 'seller-' . Str::random(24) . '-' . time() . '.' . $ext;
+
+            $file->storeAs('public/seller-logos', $name);
+
+            $relativePath = 'seller-logos/' . $name;
+
+            return response()->json([
+                'success' => true,
+                'path'    => $relativePath,
+                'url'     => asset('storage/' . $relativePath),
+            ]);
+        } catch (Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage(),
+            ], 422);
+        }
     }
 
     /**
