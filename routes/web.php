@@ -1159,6 +1159,18 @@ if ($hostname) {
             Route::get('logs', '\Rap2hpoutre\LaravelLogViewer\LogViewerController@index');
             Route::get('dashboard', 'System\HomeController@index')->name('system.dashboard');
 
+            // ── Solicitudes de sellers (onboarding con aprobación manual) ────
+            Route::prefix('admin/seller-applications')->name('system.seller_applications.')->group(function () {
+                Route::get('/',                       'System\SellerApplicationController@index')->name('index');
+                Route::get('records',                 'System\SellerApplicationController@records')->name('records');
+                Route::get('{id}',                    'System\SellerApplicationController@show')->name('show')->whereNumber('id');
+                Route::post('{id}/under-review',      'System\SellerApplicationController@markUnderReview')->name('under_review')->whereNumber('id');
+                Route::post('{id}/approve',           'System\SellerApplicationController@approve')->name('approve')->whereNumber('id');
+                Route::post('{id}/reject',            'System\SellerApplicationController@reject')->name('reject')->whereNumber('id');
+                Route::post('{id}/request-documents', 'System\SellerApplicationController@requestDocuments')->name('request_documents')->whereNumber('id');
+                Route::post('{id}/notes',             'System\SellerApplicationController@addNote')->name('add_note')->whereNumber('id');
+            });
+
             // ── Moderación marketplace central ──────────────────────────────
             Route::prefix('admin/marketplace')->name('system.marketplace.')->group(function () {
                 Route::get('/',                       'System\MarketplaceAdminController@dashboard')->name('dashboard');
