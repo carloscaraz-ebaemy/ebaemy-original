@@ -643,9 +643,8 @@ button { font-family: inherit; cursor: pointer; }
     grid-template-columns: repeat(2, 1fr);   /* mobile */
     gap: var(--mp-gap);
 }
-@media (min-width: 640px)  { .mp-grid { grid-template-columns: repeat(3, 1fr); } }   /* tablet */
-@media (min-width: 900px)  { .mp-grid { grid-template-columns: repeat(4, 1fr); } }   /* laptop/PC */
-@media (min-width: 1400px) { .mp-grid { grid-template-columns: repeat(5, 1fr); } }   /* pantallas grandes */
+@media (min-width: 640px) { .mp-grid { grid-template-columns: repeat(3, 1fr); } }   /* tablet */
+@media (min-width: 900px) { .mp-grid { grid-template-columns: repeat(4, 1fr); } }   /* laptop/PC/grandes — tope 4 */
 
 .mp-card {
     position: relative;
