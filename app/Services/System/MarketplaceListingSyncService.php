@@ -131,7 +131,8 @@ class MarketplaceListingSyncService
             'marketplace_category_id' => $item->marketplace_category_id ?? null,
             'brand_name'        => $brandName,
             'price'             => (float) ($item->sale_unit_price ?? 0),
-            'mp_price'          => isset($item->mp_price) && $item->mp_price !== null ? (float) $item->mp_price : null,
+            // Guardamos null cuando el tenant dejó el override vacío (0 lo tratamos como no-override).
+            'mp_price'          => (isset($item->mp_price) && (float) $item->mp_price > 0) ? (float) $item->mp_price : null,
             'stock'             => max(0, (int) $stock),
             'status'            => $item->mp_status ?? 'active',
             'is_active'         => true,

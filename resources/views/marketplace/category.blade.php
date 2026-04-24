@@ -154,7 +154,7 @@
                                 </div>
                             @endif
                             <div class="mp-card-price-row">
-                                <span class="mp-card-price">S/ {{ number_format($listing->display_price, 2) }}</span>
+                                <span class="mp-card-price">@if($listing->display_price > 0)S/ {{ number_format($listing->display_price, 2) }}@else<span style="color:#6b7280;font-size:13px;font-weight:500">Consultar precio</span>@endif</span>
                             </div>
                             <div class="mp-card-shop">
                                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9h18"/><path d="m3 9 1.5-6h15L21 9"/><path d="M3 9v10a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V9"/></svg>

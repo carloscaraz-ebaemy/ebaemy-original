@@ -372,7 +372,7 @@
                             @endif
 
                             <div class="mp-card-price-row">
-                                <span class="mp-card-price">S/ {{ number_format($listing->display_price, 2) }}</span>
+                                <span class="mp-card-price">@if($listing->display_price > 0)S/ {{ number_format($listing->display_price, 2) }}@else<span style="color:#6b7280;font-size:13px;font-weight:500">Consultar precio</span>@endif</span>
                             </div>
 
                             <div class="mp-card-shop">

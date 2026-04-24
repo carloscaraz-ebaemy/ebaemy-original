@@ -134,11 +134,18 @@ class MarketplaceListing extends Model
     // ── Accessors ─────────────────────────────────────────────────────────────
 
     /**
-     * Precio visible en el marketplace: mp_price si existe, si no price base.
+     * Precio visible en el marketplace: mp_price si es > 0, si no price base.
+     *
+     * Tratamos mp_price=0 como "no hay override" (equivalente a null) — el
+     * form del tenant muestra el input como "vacío = usar precio normal",
+     * pero Element UI a veces deja 0 en vez de null al limpiar. Sin esta
+     * guarda, ese 0 ganaba sobre el precio real y productos válidos
+     * aparecían como S/0 en el marketplace.
      */
     public function getDisplayPriceAttribute(): float
     {
-        return (float) ($this->mp_price ?? $this->price);
+        $mp = $this->mp_price !== null ? (float) $this->mp_price : null;
+        return $mp !== null && $mp > 0 ? $mp : (float) $this->price;
     }
 
     /**
