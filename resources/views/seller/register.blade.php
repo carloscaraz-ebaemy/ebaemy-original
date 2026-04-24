@@ -225,6 +225,26 @@
 
         .sr-loading { display: inline-block; width: 14px; height: 14px; border: 2px solid rgba(255,255,255,0.4); border-top-color: #fff; border-radius: 50%; animation: srSpin .7s linear infinite; }
         @keyframes srSpin { to { transform: rotate(360deg); } }
+
+        /* ── STRENGTH METER ────────────────────────────────── */
+        .sr-strength { margin-top: 6px; }
+        .sr-strength-bar {
+            height: 4px; border-radius: 4px;
+            background: #e2e8f0; overflow: hidden;
+            margin-bottom: 4px;
+        }
+        .sr-strength-fill {
+            height: 100%; width: 0%;
+            transition: width .25s var(--eb-ease), background-color .25s var(--eb-ease);
+            background: #e2e8f0;
+        }
+        .sr-strength-fill.weak   { background: #dc2626; width: 30%; }
+        .sr-strength-fill.medium { background: #f59e0b; width: 65%; }
+        .sr-strength-fill.strong { background: #059669; width: 100%; }
+        .sr-strength-label { font-size: 12px; color: var(--eb-muted, #94a3b8); font-weight: 500; }
+        .sr-strength-label.weak   { color: #dc2626; }
+        .sr-strength-label.medium { color: #d97706; }
+        .sr-strength-label.strong { color: #059669; }
     </style>
 </head>
 <body>
@@ -372,12 +392,17 @@
                 <div class="sr-row">
                     <div class="sr-field">
                         <label>Contraseña <span style="color:#dc2626">*</span></label>
-                        <input type="password" name="password" autocomplete="new-password" minlength="8">
-                        <div class="sr-hint">Mínimo 8 caracteres.</div>
+                        <input type="password" name="password" id="srPassword" autocomplete="new-password" minlength="8">
+                        <div class="sr-strength" id="srStrengthWrap" aria-hidden="true">
+                            <div class="sr-strength-bar"><div class="sr-strength-fill" id="srStrengthFill"></div></div>
+                            <div class="sr-strength-label" id="srStrengthLabel">—</div>
+                        </div>
+                        <div class="sr-hint">Mínimo 8 caracteres, con mayúscula, minúscula y número.</div>
                     </div>
                     <div class="sr-field">
                         <label>Confirmar contraseña <span style="color:#dc2626">*</span></label>
-                        <input type="password" name="password_confirmation" autocomplete="new-password" minlength="8">
+                        <input type="password" name="password_confirmation" id="srPasswordConfirm" autocomplete="new-password" minlength="8">
+                        <div class="sr-hint" id="srMatchHint">—</div>
                     </div>
                 </div>
 
@@ -533,6 +558,10 @@ function srValidateStep(n) {
         if (pwd && pwd.length < 8) {
             form.querySelector('[name="password"]').classList.add('is-invalid');
             srShowError('La contraseña debe tener al menos 8 caracteres.');
+            valid = false;
+        } else if (pwd && !/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).+$/.test(pwd)) {
+            form.querySelector('[name="password"]').classList.add('is-invalid');
+            srShowError('La contraseña debe incluir al menos una minúscula, una mayúscula y un número.');
             valid = false;
         }
         if (pwd !== pwd2) {
@@ -752,6 +781,52 @@ document.querySelectorAll('#srStepper .sr-step').forEach(el => {
         if (target < srStep) srShowStep(target);
     });
 });
+
+// ────────────────────────────────────────────────────────
+//  Password strength meter + match indicator
+// ────────────────────────────────────────────────────────
+function srScorePassword(pwd) {
+    if (!pwd) return { score: 0, label: '—', cls: '' };
+    let score = 0;
+    if (pwd.length >= 8)    score++;
+    if (/[a-z]/.test(pwd))  score++;
+    if (/[A-Z]/.test(pwd))  score++;
+    if (/\d/.test(pwd))     score++;
+    if (/[^A-Za-z0-9]/.test(pwd) || pwd.length >= 12) score++;
+
+    if (score <= 2) return { score, label: 'Débil',   cls: 'weak'   };
+    if (score <= 3) return { score, label: 'Media',   cls: 'medium' };
+    return                 { score, label: 'Fuerte',  cls: 'strong' };
+}
+
+function srUpdateStrength() {
+    const pwd = document.getElementById('srPassword').value;
+    const info = srScorePassword(pwd);
+    const fill  = document.getElementById('srStrengthFill');
+    const label = document.getElementById('srStrengthLabel');
+    fill.className  = 'sr-strength-fill '  + info.cls;
+    label.className = 'sr-strength-label ' + info.cls;
+    label.textContent = pwd ? info.label : '—';
+    srUpdateMatch();
+}
+
+function srUpdateMatch() {
+    const pwd  = document.getElementById('srPassword').value;
+    const pwd2 = document.getElementById('srPasswordConfirm').value;
+    const hint = document.getElementById('srMatchHint');
+    if (!pwd2) {
+        hint.className = 'sr-hint'; hint.textContent = '—';
+        return;
+    }
+    if (pwd === pwd2) {
+        hint.className = 'sr-hint ok'; hint.textContent = '✓ Las contraseñas coinciden.';
+    } else {
+        hint.className = 'sr-hint err'; hint.textContent = 'Las contraseñas no coinciden.';
+    }
+}
+
+document.getElementById('srPassword').addEventListener('input', srUpdateStrength);
+document.getElementById('srPasswordConfirm').addEventListener('input', srUpdateMatch);
 </script>
 </body>
 </html>

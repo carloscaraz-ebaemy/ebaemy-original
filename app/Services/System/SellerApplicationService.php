@@ -175,7 +175,10 @@ class SellerApplicationService
      * @param SellerApplication $application
      * @param int               $reviewerId  ID del SuperAdmin que aprueba
      * @param int               $planId      plan asignado (admin puede escoger)
-     * @param array             $options     modules/levels/type opcionales
+     * @param array             $options     keys opcionales:
+     *                                       - modules, levels, type
+     *                                       - email_override    (string) corrige email del seller
+     *                                       - password_override (string plain) reemplaza el hash guardado
      *
      * @return array{success: bool, message: string, tenant?: \App\Models\System\Client}
      */
@@ -187,6 +190,12 @@ class SellerApplicationService
                 'message' => "La solicitud no está en un estado revisable (actual: {$application->status})",
             ];
         }
+
+        // Aplicar overrides del SuperAdmin ANTES del check de duplicados
+        // (si el admin cambió el email, los duplicados se chequean contra
+        // el nuevo). Persiste en la propia SellerApplication para que el
+        // historial refleje lo que realmente se usó.
+        $this->applyApproverOverrides($application, $options, $reviewerId);
 
         // Validar que no exista otro tenant con el mismo RUC/subdominio/email
         $dupeError = $this->checkDuplicatesAtApproval($application);
@@ -207,8 +216,8 @@ class SellerApplicationService
 
             // Reutilizar la contraseña que el seller eligió al registrarse
             // (su password_hash está guardado en seller_applications).
-            // Así el seller entra al tenant con la MISMA contraseña que
-            // definió en el form — no con una temporal generada.
+            // Si el SuperAdmin ingresó password_override, applyApproverOverrides
+            // ya reemplazó ese hash arriba.
             $payload = $this->buildTenantPayload(
                 $application,
                 $planId,
@@ -452,6 +461,48 @@ class SellerApplicationService
     // ─────────────────────────────────────────────────────────
     //  Helpers privados
     // ─────────────────────────────────────────────────────────
+
+    /**
+     * Aplica overrides de email/password del SuperAdmin al SellerApplication.
+     * Persiste los cambios en BD antes de crear el tenant, de modo que el
+     * tenant se crea con los datos nuevos y el historial queda consistente.
+     *
+     * Solo escribe cambios si realmente hay algo distinto que guardar —
+     * si el SuperAdmin no envió overrides, no toca la aplicación.
+     */
+    private function applyApproverOverrides(SellerApplication $application, array $options, int $reviewerId): void
+    {
+        $changes = [];
+        $logMessages = [];
+
+        $emailOverride = isset($options['email_override']) ? trim($options['email_override']) : null;
+        if (!empty($emailOverride) && strtolower($emailOverride) !== strtolower((string) $application->email)) {
+            $changes['email'] = strtolower($emailOverride);
+            $logMessages[] = "Email corregido por SuperAdmin: {$application->email} → {$emailOverride}";
+        }
+
+        $passwordOverride = $options['password_override'] ?? null;
+        if (!empty($passwordOverride)) {
+            $changes['password_hash'] = Hash::make($passwordOverride);
+            $logMessages[] = 'Contraseña reemplazada por SuperAdmin antes de aprobar.';
+        }
+
+        if (empty($changes)) {
+            return;
+        }
+
+        $application->update($changes);
+
+        // Registrar la acción en el historial con motivo (sin exponer la
+        // contraseña nueva por razones obvias).
+        SellerApplicationLog::create([
+            'seller_application_id' => $application->id,
+            'action'                => SellerApplicationLog::ACTION_NOTE_ADDED,
+            'notes'                 => implode("\n", $logMessages),
+            'user_id'               => $reviewerId,
+            'created_at'            => now(),
+        ]);
+    }
 
     /**
      * Revisa si ya existe un tenant con el mismo RUC, email o subdominio

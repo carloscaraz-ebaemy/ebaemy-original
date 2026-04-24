@@ -202,12 +202,20 @@ function saDetailHtml(data) {
                 </div>
                 <hr>
                 <div class="mb-2">
-                    <label class="form-label small"><strong>Aprobar</strong></label>
-                    <div class="input-group input-group-sm">
-                        <select id="saApprovePlan_${app.id}" class="form-select">${planOptions}</select>
-                        <button class="btn btn-success" onclick="saApprove(${app.id})">✓ Aprobar y crear tenant</button>
+                    <label class="form-label small mb-1"><strong>Aprobar y crear tenant</strong></label>
+                    <div class="mb-2">
+                        <select id="saApprovePlan_${app.id}" class="form-select form-select-sm">${planOptions}</select>
                     </div>
-                    <div class="form-text">Se creará el tenant, se enviará correo al seller con credenciales.</div>
+                    <details class="mb-2">
+                        <summary class="small text-muted" style="cursor:pointer;">⚙ Corregir email o contraseña (opcional)</summary>
+                        <div class="mt-2">
+                            <input id="saOverrideEmail_${app.id}" type="email" class="form-control form-control-sm mb-1" placeholder="Nuevo email (dejar vacío para usar: ${saEscape(app.email)})">
+                            <input id="saOverridePassword_${app.id}" type="text" class="form-control form-control-sm" placeholder="Nueva contraseña (dejar vacío para usar la del seller)">
+                            <div class="form-text small">Solo llena estos campos si quieres reemplazar lo que el seller registró.</div>
+                        </div>
+                    </details>
+                    <button class="btn btn-success btn-sm w-100" onclick="saApprove(${app.id})">✓ Aprobar y crear tenant</button>
+                    <div class="form-text">Se creará el tenant, se enviará correo al seller.</div>
                 </div>
                 <hr>
                 <div>
@@ -296,8 +304,27 @@ function saAction(id, path) {
 async function saApprove(id) {
     const planId = document.getElementById(`saApprovePlan_${id}`).value;
     if (!planId) return alert('Selecciona un plan.');
-    if (!confirm('¿Aprobar esta solicitud? Se creará el tenant y se enviará correo al seller.')) return;
-    await saPost(id, 'approve', { plan_id: parseInt(planId, 10), type: 'admin' });
+
+    const emailOverride = (document.getElementById(`saOverrideEmail_${id}`)?.value || '').trim();
+    const passwordOverride = (document.getElementById(`saOverridePassword_${id}`)?.value || '').trim();
+
+    if (passwordOverride && passwordOverride.length < 8) {
+        return alert('La contraseña de override debe tener al menos 8 caracteres.');
+    }
+    if (passwordOverride && !/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).+$/.test(passwordOverride)) {
+        return alert('La contraseña de override debe incluir mayúscula, minúscula y número.');
+    }
+
+    const msg = (emailOverride || passwordOverride)
+        ? '¿Aprobar con los overrides ingresados? Se reemplazarán los datos del seller.'
+        : '¿Aprobar esta solicitud? Se creará el tenant y se enviará correo al seller.';
+    if (!confirm(msg)) return;
+
+    const body = { plan_id: parseInt(planId, 10), type: 'admin' };
+    if (emailOverride)    body.email_override    = emailOverride;
+    if (passwordOverride) body.password_override = passwordOverride;
+
+    await saPost(id, 'approve', body);
 }
 
 async function saPromptReject(id) {

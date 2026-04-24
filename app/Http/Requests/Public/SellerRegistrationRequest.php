@@ -50,7 +50,13 @@ class SellerRegistrationRequest extends FormRequest
             ],
             'store_name'        => 'nullable|string|max:180',
             'store_description' => 'nullable|string|max:2000',
-            'password'          => 'required|string|min:8|confirmed',
+            'password'          => [
+                'required', 'string', 'min:8', 'confirmed',
+                // Fortaleza: al menos una minúscula, una mayúscula y un número.
+                // No forzamos símbolo para no bloquear sellers con teclados latam
+                // que tienen fricción con caracteres especiales.
+                'regex:/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).+$/',
+            ],
 
             // ── Opcionales ──────────────────────────────────────
             'facebook_url'  => 'nullable|url|max:500',
@@ -74,6 +80,7 @@ class SellerRegistrationRequest extends FormRequest
             'legal_representative_dni.digits'  => 'El DNI debe tener exactamente 8 dígitos.',
             'password.confirmed'               => 'La confirmación de contraseña no coincide.',
             'password.min'                     => 'La contraseña debe tener al menos 8 caracteres.',
+            'password.regex'                   => 'La contraseña debe incluir al menos una minúscula, una mayúscula y un número.',
             'terms_accepted.accepted'          => 'Debes aceptar los términos para continuar.',
         ];
     }

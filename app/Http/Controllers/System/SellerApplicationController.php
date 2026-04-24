@@ -99,9 +99,11 @@ class SellerApplicationController extends Controller
             auth('admin')->id(),
             (int) $request->input('plan_id'),
             [
-                'type'    => $request->input('type', 'admin'),
-                'modules' => $request->input('modules', []),
-                'levels'  => $request->input('levels', []),
+                'type'              => $request->input('type', 'admin'),
+                'modules'           => $request->input('modules', []),
+                'levels'            => $request->input('levels', []),
+                'email_override'    => $request->input('email_override'),
+                'password_override' => $request->input('password_override'),
             ]
         );
 
