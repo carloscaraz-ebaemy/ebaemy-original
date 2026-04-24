@@ -218,6 +218,49 @@
     </div>
 
     <!-- ═══════════════════════════════════════════════════════
+         CANALES DE VENTA (catálogo en cada canal)
+    ════════════════════════════════════════════════════════ -->
+    <div v-if="channelStats && channelStats.total > 0" class="dv2-card" style="margin-bottom:16px">
+      <div class="dv2-card__head">
+        <div>
+          <span class="dv2-card__title">Catálogo por canal</span>
+          <span class="dv2-card__sub" style="margin-left:8px">Productos publicados en cada canal</span>
+        </div>
+        <a href="/items" class="dv2-btn-tab" style="text-decoration:none">Ir al catálogo →</a>
+      </div>
+      <div style="display:flex;flex-wrap:wrap;gap:10px;padding:4px 0 2px">
+        <a href="/items" class="dv2-chs-card" title="Total en catálogo">
+          <span class="dv2-chs-icon">📦</span>
+          <div><div class="dv2-chs-num">{{ channelStats.total }}</div><div class="dv2-chs-label">En catálogo</div></div>
+        </a>
+        <a href="/items?channel=in_store" class="dv2-chs-card dv2-chs-card--green" title="Publicados en tu tienda online">
+          <span class="dv2-chs-icon">🛍️</span>
+          <div><div class="dv2-chs-num">{{ channelStats.in_store }}</div><div class="dv2-chs-label">En tienda</div></div>
+        </a>
+        <a href="/items?channel=in_marketplace" class="dv2-chs-card dv2-chs-card--purple" title="Publicados en Marketplace ebaemy">
+          <span class="dv2-chs-icon">🌐</span>
+          <div><div class="dv2-chs-num">{{ channelStats.in_marketplace }}</div><div class="dv2-chs-label">En marketplace</div></div>
+        </a>
+        <a v-if="channelStats.pending_mp > 0" href="/items?channel=pending_mp"
+           class="dv2-chs-card dv2-chs-card--amber" title="Esperando revisión en Marketplace">
+          <span class="dv2-chs-icon">⏳</span>
+          <div><div class="dv2-chs-num">{{ channelStats.pending_mp }}</div><div class="dv2-chs-label">Pendientes MP</div></div>
+        </a>
+        <a v-if="channelStats.rejected_mp > 0" href="/items?channel=rejected_mp"
+           class="dv2-chs-card dv2-chs-card--red" title="Rechazados por el equipo de Marketplace">
+          <span class="dv2-chs-icon">❌</span>
+          <div><div class="dv2-chs-num">{{ channelStats.rejected_mp }}</div><div class="dv2-chs-label">Rechazados</div></div>
+        </a>
+        <a v-if="channelStats.unpublished > 0" href="/items?channel=unpublished"
+           class="dv2-chs-card dv2-chs-card--muted"
+           title="Productos del catálogo que aún no publicas en ningún canal">
+          <span class="dv2-chs-icon">💤</span>
+          <div><div class="dv2-chs-num">{{ channelStats.unpublished }}</div><div class="dv2-chs-label">Sin publicar</div></div>
+        </a>
+      </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════
          EVOLUCIÓN DE VENTAS
     ════════════════════════════════════════════════════════ -->
     <div class="dv2-card dv2-card--chart">
@@ -870,6 +913,7 @@ export default {
       sellers:     [],
       topProducts: [],
       stockAlerts: [],
+      channelStats: { total: 0, in_store: 0, in_marketplace: 0, pending_mp: 0, paused_mp: 0, rejected_mp: 0, unpublished: 0 },
       purchases:   { month_total: 0, month_count: 0, recent: [], top_suppliers: [] },
       alerts:      [],
 
@@ -958,6 +1002,15 @@ export default {
       this.loadSalesByHour();
       this.loadQuotations();
       this.loadSalesByCity();
+      this.loadChannelStats();
+    },
+
+    loadChannelStats() {
+      // Reutiliza el endpoint del módulo de items (Opción A de unificación UX).
+      // No depende de filters.dateRange — es un snapshot del catálogo actual.
+      this.$http.get('/items/channel-stats')
+        .then(({ data }) => { this.channelStats = data; })
+        .catch(() => {});
     },
 
     loadSummary() {
@@ -1404,6 +1457,28 @@ export default {
 .dv2-header__right { display:flex;align-items:center;gap:8px;flex-wrap:wrap; }
 .dv2-title { margin:0;font-size:16px;font-weight:800;letter-spacing:-.025em; }
 .dv2-period-label { font-size:12px;color:#94a3b8;font-weight:500; }
+
+/* ── Catálogo por canal (mini cards clickeables) ──── */
+.dv2-chs-card {
+  display:flex;align-items:center;gap:10px;
+  padding:12px 14px;background:#f9fafb;border:1px solid #e5e7eb;
+  border-radius:10px;text-decoration:none;color:#111827;
+  transition:all .15s;min-width:140px;flex:1 1 140px;
+}
+.dv2-chs-card:hover { background:#fff;border-color:#d1d5db;transform:translateY(-1px);box-shadow:0 4px 10px -6px rgba(0,0,0,.1);text-decoration:none;color:#111827; }
+.dv2-chs-icon { font-size:22px;line-height:1; }
+.dv2-chs-num   { font-size:22px;font-weight:800;line-height:1.1;color:#111827; }
+.dv2-chs-label { font-size:11px;color:#6b7280;margin-top:2px; }
+.dv2-chs-card--green  { background:#ecfdf5;border-color:#a7f3d0; }
+.dv2-chs-card--green .dv2-chs-num  { color:#065f46; }
+.dv2-chs-card--purple { background:#faf5ff;border-color:#e9d5ff; }
+.dv2-chs-card--purple .dv2-chs-num { color:#6b21a8; }
+.dv2-chs-card--amber  { background:#fffbeb;border-color:#fcd34d; }
+.dv2-chs-card--amber .dv2-chs-num  { color:#92400e; }
+.dv2-chs-card--red    { background:#fef2f2;border-color:#fca5a5; }
+.dv2-chs-card--red .dv2-chs-num    { color:#991b1b; }
+.dv2-chs-card--muted  { background:#f3f4f6;border-color:#d1d5db; }
+.dv2-chs-card--muted .dv2-chs-num  { color:#4b5563; }
 
 /* ── KPI grid ────────────────────────────────────── */
 .dv2-kpis { display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:12px; }

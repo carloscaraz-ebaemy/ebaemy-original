@@ -900,9 +900,15 @@ export default {
         this.loadChannelStats();
 
         try {
-            const storedChannel = localStorage.getItem(`datatable_channel_filter:${this.resource}`)
             const allowed = ['all', 'in_store', 'in_marketplace', 'pending_mp', 'paused_mp', 'rejected_mp', 'unpublished']
-            if (allowed.includes(storedChannel)) this.activeChannel = storedChannel
+            const qs = new URLSearchParams(window.location.search)
+            const qsChannel = qs.get('channel')
+            if (qsChannel && allowed.includes(qsChannel)) {
+                this.activeChannel = qsChannel
+            } else {
+                const storedChannel = localStorage.getItem(`datatable_channel_filter:${this.resource}`)
+                if (allowed.includes(storedChannel)) this.activeChannel = storedChannel
+            }
         } catch (e) {}
 
         this.$eventHub.$on('reloadData', () => this.loadChannelStats());

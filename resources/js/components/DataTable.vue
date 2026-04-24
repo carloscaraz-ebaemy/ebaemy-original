@@ -379,12 +379,19 @@ export default {
         }
 
         if (this.showChannelFilter) {
+            const allowed = ['all', 'in_store', 'in_marketplace', 'pending_mp', 'paused_mp', 'rejected_mp', 'unpublished'];
+            // Prioridad 1: querystring ?channel=X (deep-link desde dashboard / email / etc.)
             try {
-                const storedChannel = localStorage.getItem(this.getChannelFilterStorageKey());
-                const allowed = ['all', 'in_store', 'in_marketplace', 'pending_mp', 'paused_mp', 'rejected_mp', 'unpublished'];
-                if (allowed.includes(storedChannel)) {
-                    this.search.channel_filter = storedChannel;
-                    // Sin emitir aún — el padre hará el sync en su propio mounted
+                const qs = new URLSearchParams(window.location.search);
+                const qsChannel = qs.get('channel');
+                if (qsChannel && allowed.includes(qsChannel)) {
+                    this.search.channel_filter = qsChannel;
+                    try { localStorage.setItem(this.getChannelFilterStorageKey(), qsChannel); } catch (e) {}
+                } else {
+                    const storedChannel = localStorage.getItem(this.getChannelFilterStorageKey());
+                    if (allowed.includes(storedChannel)) {
+                        this.search.channel_filter = storedChannel;
+                    }
                 }
             } catch (e) {}
         }
