@@ -16,6 +16,27 @@
         nuevo marketplace.
     </div>
 
+    <!-- Progreso migración Fase A→D→E -->
+    <div id="migrationPanel" class="card mb-3" style="border:1px solid #e5e7eb">
+        <div class="card-body py-2 px-3">
+            <div class="d-flex align-items-center gap-3 flex-wrap">
+                <div>
+                    <div class="small text-muted">Progreso migración (FK oficial)</div>
+                    <div style="font-size:20px;font-weight:700" id="migrationPct">—</div>
+                </div>
+                <div class="flex-grow-1" style="min-width:200px">
+                    <div class="progress" style="height:10px">
+                        <div id="migrationBar" class="progress-bar bg-success" role="progressbar" style="width:0%"></div>
+                    </div>
+                    <div class="small text-muted mt-1" id="migrationDetail">Cargando…</div>
+                </div>
+                <div id="phaseEBadge" style="display:none">
+                    <span class="badge bg-success" style="font-size:12px">✓ Listo para Fase E (≥95%)</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <div class="row g-2 mb-3">
         <div class="col-md-5">
             <input type="text" id="bulkSearch" class="form-control form-control-sm" placeholder="Buscar por título o categoría legacy…">
@@ -110,9 +131,21 @@ async function bulkLoad(page = 1) {
             <button class="btn btn-outline-secondary btn-sm" ${json.current_page>=json.last_page?'disabled':''} onclick="bulkLoad(${json.current_page+1})">→</button>
         `;
         bulkUpdateSelectedCount();
+
+        if (json.migration) renderMigration(json.migration);
     } catch (e) {
         tbody.innerHTML = `<tr><td colspan="5" class="text-center text-danger py-4">Error: ${e.message}</td></tr>`;
     }
+}
+
+function renderMigration(m) {
+    const pct = m.fk_progress_pct || 0;
+    document.getElementById('migrationPct').textContent = pct + '%';
+    document.getElementById('migrationBar').style.width = pct + '%';
+    document.getElementById('migrationBar').className = 'progress-bar ' + (pct >= 95 ? 'bg-success' : pct >= 50 ? 'bg-info' : 'bg-warning');
+    document.getElementById('migrationDetail').textContent =
+        `${m.with_fk} con FK · ${m.legacy_only} solo legacy · ${m.without_category} sin categoría · ${m.total} total`;
+    document.getElementById('phaseEBadge').style.display = m.ready_for_phase_e ? 'block' : 'none';
 }
 
 function bulkRowHtml(row) {

@@ -257,12 +257,55 @@ class MarketplaceCategoryController extends Controller
         $perPage = max(10, min((int) $request->input('per_page', 30), 100));
         $page = $q->paginate($perPage);
 
+        // Incluimos progreso de migración FK para que el panel muestre cuánto
+        // falta — útil para decidir cuándo ejecutar la Fase E (dropear category_name).
+        $migration = $this->migrationStats();
+
         return response()->json([
             'data'         => $page->items(),
             'current_page' => $page->currentPage(),
             'last_page'    => $page->lastPage(),
             'total'        => $page->total(),
+            'migration'    => $migration,
         ]);
+    }
+
+    /**
+     * Endpoint dedicado para obtener el progreso de migración (sin paginación).
+     * Lo usa el dashboard del marketplace central.
+     */
+    public function categoryMigrationStats(): JsonResponse
+    {
+        return response()->json($this->migrationStats());
+    }
+
+    /**
+     * Calcula el estado de la migración Fase A-D → E:
+     *   cuántos listings tienen la FK vs cuántos usan solo category_name legacy.
+     */
+    private function migrationStats(): array
+    {
+        $row = \DB::connection('system')->table('marketplace_listings')
+            ->selectRaw("
+                COUNT(*) AS total,
+                SUM(CASE WHEN marketplace_category_id IS NOT NULL THEN 1 ELSE 0 END) AS with_fk,
+                SUM(CASE WHEN marketplace_category_id IS NULL AND category_name IS NOT NULL THEN 1 ELSE 0 END) AS legacy_only,
+                SUM(CASE WHEN marketplace_category_id IS NULL AND category_name IS NULL THEN 1 ELSE 0 END) AS without_category
+            ")
+            ->first();
+
+        $total = (int) ($row->total ?? 0);
+        $withFk = (int) ($row->with_fk ?? 0);
+        $pct = $total > 0 ? round(($withFk / $total) * 100, 1) : 0;
+
+        return [
+            'total'             => $total,
+            'with_fk'           => $withFk,
+            'legacy_only'       => (int) ($row->legacy_only ?? 0),
+            'without_category'  => (int) ($row->without_category ?? 0),
+            'fk_progress_pct'   => $pct,
+            'ready_for_phase_e' => $pct >= 95.0 && $total > 0,
+        ];
     }
 
     // ─────────────────────────────────────────────────────────

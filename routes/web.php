@@ -1207,6 +1207,7 @@ if ($hostname) {
                 Route::get('tree',            'System\MarketplaceCategoryController@tree')->name('tree');
                 Route::get('records',         'System\MarketplaceCategoryController@records')->name('records');
                 Route::get('unclassified',    'System\MarketplaceCategoryController@unclassifiedListings')->name('unclassified');
+                Route::get('migration-stats', 'System\MarketplaceCategoryController@categoryMigrationStats')->name('migration_stats');
                 Route::get('bulk-assign',     function() { return view('system.marketplace_categories.bulk-assign'); })->name('bulk_assign');
                 Route::post('/',              'System\MarketplaceCategoryController@store')->name('store');
                 Route::put('{id}',            'System\MarketplaceCategoryController@update')->name('update')->whereNumber('id');
