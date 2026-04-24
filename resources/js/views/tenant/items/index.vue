@@ -260,7 +260,7 @@
                 </el-dropdown>
             </div>
             <div class="card-body">
-                <data-table ref="DataTable" :productType="type" :resource="resource" :sort-field="sortField" :sort-direction="sortDirection" :showProductFilter="type !== 'ZZ'" :showChannelFilter="true" @sort-change="handleSortChange" @records-changed="handleRecordsChanged">
+                <data-table ref="DataTable" :productType="type" :resource="resource" :sort-field="sortField" :sort-direction="sortDirection" :showProductFilter="type !== 'ZZ'" :showChannelFilter="true" @sort-change="handleSortChange" @records-changed="handleRecordsChanged" @channel-filter-change="onChannelFilterChange">
                     <tr slot="heading" width="100%" slot-scope="{ sort }">
                         <th class="text-center" style="width: 34px;">
                             <el-checkbox
@@ -899,6 +899,12 @@ export default {
         this.getItems();
         this.loadChannelStats();
 
+        try {
+            const storedChannel = localStorage.getItem(`datatable_channel_filter:${this.resource}`)
+            const allowed = ['all', 'in_store', 'in_marketplace', 'pending_mp', 'paused_mp', 'rejected_mp', 'unpublished']
+            if (allowed.includes(storedChannel)) this.activeChannel = storedChannel
+        } catch (e) {}
+
         this.$eventHub.$on('reloadData', () => this.loadChannelStats());
 
         this.filterDisabled = localStorage.getItem('filterDisabled') || 'all'
@@ -1171,11 +1177,13 @@ export default {
         applyChannelFilter(value) {
             this.activeChannel = value
             const dt = this.$refs.DataTable
-            if (dt && dt.search) {
-                dt.search.channel_filter = value
-                if (dt.pagination) dt.pagination.current_page = 1
-                if (typeof dt.getRecords === 'function') dt.getRecords()
+            if (dt && typeof dt.setChannelFilter === 'function') {
+                dt.setChannelFilter(value)
             }
+        },
+        onChannelFilterChange(value) {
+            // Evento del DataTable (selector toolbar o localStorage restore).
+            this.activeChannel = value || 'all'
         },
         openInStore(row) {
             if (row && row.slug) window.open('/item/' + row.slug, '_blank', 'noopener')

@@ -378,6 +378,17 @@ export default {
             this.search.list_value = storedListValue;
         }
 
+        if (this.showChannelFilter) {
+            try {
+                const storedChannel = localStorage.getItem(this.getChannelFilterStorageKey());
+                const allowed = ['all', 'in_store', 'in_marketplace', 'pending_mp', 'paused_mp', 'rejected_mp', 'unpublished'];
+                if (allowed.includes(storedChannel)) {
+                    this.search.channel_filter = storedChannel;
+                    // Sin emitir aún — el padre hará el sync en su propio mounted
+                }
+            } catch (e) {}
+        }
+
         this.$eventHub.$on("reloadData", () => {
             this.getRecords();
         });
@@ -414,7 +425,19 @@ export default {
                 },
         handleChannelFilterChange() {
             this.pagination.current_page = 1;
+            this.$emit('channel-filter-change', this.search.channel_filter);
+            try {
+                localStorage.setItem(this.getChannelFilterStorageKey(), this.search.channel_filter || 'all');
+            } catch (e) {}
             this.getRecords();
+        },
+        getChannelFilterStorageKey() {
+            return `datatable_channel_filter:${this.resource || 'items'}`;
+        },
+        setChannelFilter(value) {
+            // Llamado externamente desde el widget de chips para sincronizar.
+            this.search.channel_filter = value || 'all';
+            this.handleChannelFilterChange();
         },
         handleShowDisabledChange() {
           localStorage.setItem(this.getShowDisabledStorageKey(), this.showDisabledValue);
