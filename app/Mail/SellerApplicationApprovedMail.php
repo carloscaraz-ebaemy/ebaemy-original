@@ -8,21 +8,23 @@ use Illuminate\Mail\Mailable;
 use Illuminate\Queue\SerializesModels;
 
 /**
- * Notifica al seller que su solicitud fue aprobada + credenciales temporales.
- * El seller deberá cambiar la contraseña al primer login.
+ * Notifica al seller que su solicitud fue aprobada.
+ *
+ * NO incluye la contraseña en el mail: el seller la eligió durante el
+ * registro y ya la conoce. El mail solo confirma la URL de la tienda
+ * y el email con el que debe ingresar, sin exponer credenciales
+ * sensibles en bandeja de entrada.
  */
 class SellerApplicationApprovedMail extends Mailable
 {
     use Queueable, SerializesModels;
 
     public SellerApplication $application;
-    public string $temporaryPassword;
     public string $tenantUrl;
 
-    public function __construct(SellerApplication $application, string $temporaryPassword)
+    public function __construct(SellerApplication $application)
     {
-        $this->application       = $application;
-        $this->temporaryPassword = $temporaryPassword;
+        $this->application = $application;
 
         $scheme = config('tenant.force_https') === true ? 'https://' : 'http://';
         $this->tenantUrl = $scheme

@@ -12,18 +12,19 @@
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#ecfdf5;border:1px solid #a7f3d0;border-radius:12px;margin:20px 0;">
         <tr>
             <td style="padding:18px 20px;">
-                <div style="font-size:12px;font-weight:700;color:#065f46;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:10px;">Tus credenciales de acceso</div>
+                <div style="font-size:12px;font-weight:700;color:#065f46;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:10px;">Acceso a tu tienda</div>
                 <table role="presentation" width="100%" cellpadding="4" cellspacing="0" style="font-size:14px;color:#0f172a;">
-                    <tr><td style="width:140px;color:#64748b;">Tu tienda:</td><td><strong>{{ $tenantUrl }}</strong></td></tr>
+                    <tr><td style="width:140px;color:#64748b;">URL de tu tienda:</td><td><strong>{{ $tenantUrl }}</strong></td></tr>
                     <tr><td style="color:#64748b;">Usuario (email):</td><td><strong>{{ $application->email }}</strong></td></tr>
-                    <tr><td style="color:#64748b;">Contraseña temporal:</td><td style="font-family:'Courier New',monospace;background:#fff;padding:6px 10px;border-radius:6px;border:1px solid #d1fae5;"><strong>{{ $temporaryPassword }}</strong></td></tr>
+                    <tr><td style="color:#64748b;">Contraseña:</td><td>La que elegiste al registrarte.</td></tr>
                 </table>
             </td>
         </tr>
     </table>
 
-    <p style="margin:0 0 16px;font-size:14px;color:#b45309;background:#fef3c7;padding:12px 16px;border-radius:10px;border-left:4px solid #f59e0b;">
-        <strong>Importante:</strong> Cambia tu contraseña al primer inicio de sesión desde el panel de tu tienda.
+    <p style="margin:0 0 16px;font-size:13.5px;color:#64748b;">
+        Si olvidaste tu contraseña, puedes restablecerla desde la pantalla de login con la opción
+        <em>"¿Olvidaste tu contraseña?"</em>.
     </p>
 
     <p style="margin:24px 0;text-align:center;">

@@ -200,20 +200,17 @@ class SellerApplicationService
         }
 
         try {
-            // Invocar TenantCreationService con los datos de la solicitud.
-            // La contraseña del admin tenant se toma del hash de la solicitud:
-            // para no reabrir el hash original ponemos una contraseña temporal
-            // y se envía por mail al seller (que podrá cambiarla al primer login).
-            $temporaryPassword = $this->generateTemporaryPassword();
-
             // Resolver qué módulos recibirá el usuario admin del tenant.
             // Si el SuperAdmin no mandó listas explícitas, aplicamos el
             // paquete "solo tienda virtual" (sin facturación).
             $resolvedPermissions = $this->resolveSellerPermissions($options);
 
+            // Reutilizar la contraseña que el seller eligió al registrarse
+            // (su password_hash está guardado en seller_applications).
+            // Así el seller entra al tenant con la MISMA contraseña que
+            // definió en el form — no con una temporal generada.
             $payload = $this->buildTenantPayload(
                 $application,
-                $temporaryPassword,
                 $planId,
                 array_merge($options, [
                     'modules' => $resolvedPermissions['modules'],
@@ -266,10 +263,12 @@ class SellerApplicationService
                 ]);
             });
 
-            // Mail al seller con credenciales temporales
+            // Mail al seller confirmando aprobación.
+            // NO enviamos contraseña: el seller la eligió al registrarse y
+            // ya la conoce. El mail solo muestra la URL de su tienda.
             $this->safeSendMail(
                 $application->email,
-                new SellerApplicationApprovedMail($application, $temporaryPassword),
+                new SellerApplicationApprovedMail($application),
                 'approved',
                 $application->id
             );
@@ -548,7 +547,6 @@ class SellerApplicationService
 
     private function buildTenantPayload(
         SellerApplication $application,
-        string $temporaryPassword,
         int $planId,
         array $options
     ): array {
@@ -577,18 +575,15 @@ class SellerApplicationService
             'soap_password'       => null,
             'soap_url'            => null,
             'config_system_env'   => null,
-            'password'            => $temporaryPassword,
+            // Reusar el hash que el seller generó al registrarse —
+            // TenantCreationService detecta password_hash y lo inserta
+            // directo sin re-hashear (ver doc del service).
+            'password_hash'       => $application->password_hash,
             'type'                => $options['type'] ?? 'admin',
             'modules'             => $options['modules'] ?? [],
             'levels'              => $options['levels'] ?? [],
             'from_guest_register' => false,
         ];
-    }
-
-    private function generateTemporaryPassword(): string
-    {
-        // 12 chars, mezcla alfanumérica + 2 símbolos
-        return \Illuminate\Support\Str::random(10) . rand(10, 99);
     }
 
     private function safeSendMail(string $to, $mailable, string $context, int $applicationId): void

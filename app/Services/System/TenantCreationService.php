@@ -61,8 +61,16 @@ class TenantCreationService
      *   locked_emission, enable_list_product, price, plan_period_id,
      *   client_name, phone_ws, contact_email, certificate_name,
      *   soap_type_id, soap_send_id, soap_username, soap_password,
-     *   soap_url, config_system_env, password, type, modules, levels,
+     *   soap_url, config_system_env, type, modules, levels,
      *   from_guest_register
+     *
+     * Autenticación del usuario admin — dos modalidades mutuamente
+     * excluyentes (se prefiere password_hash si ambas vienen):
+     *   - password       (string plano) → se hashea con bcrypt()
+     *   - password_hash  (string ya bcrypteado) → se inserta directo
+     * Esta dualidad permite a SellerApplicationService::approve reutilizar
+     * el hash ya almacenado en seller_applications.password_hash, sin
+     * generar una contraseña nueva que el seller ignoraría.
      *
      * @return array{success: bool, message: string, client?: Client}
      */
@@ -260,10 +268,19 @@ class TenantCreationService
         Log::info('Series insertadas');
 
         Log::info('Insertando usuario...');
+        // Si el caller proporciona password_hash (ej. SellerApplicationService
+        // reutilizando el hash guardado del seller), lo usamos directo. Si no,
+        // hasheamos el plain 'password'. Al menos uno DEBE venir.
+        if (!empty($payload['password_hash'])) {
+            $passwordColumn = $payload['password_hash'];
+        } else {
+            $passwordColumn = bcrypt($payload['password'] ?? '');
+        }
+
         $userId = DB::connection('tenant')->table('users')->insertGetId([
             'name'                 => 'Administrador',
             'email'                => $payload['email'],
-            'password'             => bcrypt($payload['password']),
+            'password'             => $passwordColumn,
             'api_token'            => $payload['token'],
             'establishment_id'     => $establishmentId,
             'type'                 => $payload['type'] ?? 'admin',
