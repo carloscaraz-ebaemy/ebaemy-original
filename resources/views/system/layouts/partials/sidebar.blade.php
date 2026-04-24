@@ -122,6 +122,20 @@
                         </a>
                     </li>
 
+                    <li class="{{ (isset($path[1]) && $path[1] === 'admin' && isset($path[2]) && $path[2] === 'marketplace' && isset($path[3]) && $path[3] === 'categories')?'nav-active':'' }}">
+                        <a class="nav-link" href="{{ route('system.marketplace_categories.index') }}">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+                            <span>Categorías oficiales</span>
+                        </a>
+                    </li>
+
+                    <li class="{{ (isset($path[1]) && $path[1] === 'admin' && isset($path[2]) && $path[2] === 'marketplace' && isset($path[3]) && $path[3] === 'category-requests')?'nav-active':'' }}">
+                        <a class="nav-link" href="{{ route('system.marketplace_category_requests.index') }}">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 9l-5 5l-3 -3"/><path d="M21 12a9 9 0 1 1 -18 0a9 9 0 0 1 18 0z"/></svg>
+                            <span>Solicitudes de categorías</span>
+                        </a>
+                    </li>
+
                     {{-- ── SISTEMA ──────────────────────────────────────── --}}
                     <li class="nav-separator">Sistema</li>
 

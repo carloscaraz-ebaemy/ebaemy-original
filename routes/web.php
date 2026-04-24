@@ -1189,6 +1189,29 @@ if ($hostname) {
             Route::get('logs', '\Rap2hpoutre\LaravelLogViewer\LogViewerController@index');
             Route::get('dashboard', 'System\HomeController@index')->name('system.dashboard');
 
+            // ── Categorías oficiales del marketplace (árbol global) ──────────
+            Route::prefix('admin/marketplace/categories')->name('system.marketplace_categories.')->group(function () {
+                Route::get('/',               'System\MarketplaceCategoryController@index')->name('index');
+                Route::get('tree',            'System\MarketplaceCategoryController@tree')->name('tree');
+                Route::get('records',         'System\MarketplaceCategoryController@records')->name('records');
+                Route::get('unclassified',    'System\MarketplaceCategoryController@unclassifiedListings')->name('unclassified');
+                Route::get('bulk-assign',     function() { return view('system.marketplace_categories.bulk-assign'); })->name('bulk_assign');
+                Route::post('/',              'System\MarketplaceCategoryController@store')->name('store');
+                Route::put('{id}',            'System\MarketplaceCategoryController@update')->name('update')->whereNumber('id');
+                Route::post('{id}/toggle',    'System\MarketplaceCategoryController@toggle')->name('toggle')->whereNumber('id');
+                Route::delete('{id}',         'System\MarketplaceCategoryController@destroy')->name('destroy')->whereNumber('id');
+                Route::post('assign-bulk',    'System\MarketplaceCategoryController@assignBulk')->name('assign_bulk');
+            });
+
+            // ── Solicitudes de nuevas categorías (sellers piden) ─────────────
+            Route::prefix('admin/marketplace/category-requests')->name('system.marketplace_category_requests.')->group(function () {
+                Route::get('/',              'System\MarketplaceCategoryRequestController@index')->name('index');
+                Route::get('records',        'System\MarketplaceCategoryRequestController@records')->name('records');
+                Route::get('{id}',           'System\MarketplaceCategoryRequestController@show')->name('show')->whereNumber('id');
+                Route::post('{id}/approve',  'System\MarketplaceCategoryRequestController@approve')->name('approve')->whereNumber('id');
+                Route::post('{id}/reject',   'System\MarketplaceCategoryRequestController@reject')->name('reject')->whereNumber('id');
+            });
+
             // ── Solicitudes de sellers (onboarding con aprobación manual) ────
             Route::prefix('admin/seller-applications')->name('system.seller_applications.')->group(function () {
                 Route::get('/',                       'System\SellerApplicationController@index')->name('index');
