@@ -17,8 +17,12 @@ class ApproveSellerApplicationRequest extends FormRequest
 
     public function rules(): array
     {
+        // plan_id es obligatorio SOLO para onboarding nuevo (crear tenant).
+        // Para solicitudes de activación (tenant existente) no aplica — el
+        // service las detecta por is_activation_request y se desvía antes
+        // de necesitarlo.
         return [
-            'plan_id'    => 'required|integer|exists:plans,id',
+            'plan_id'    => 'nullable|integer|exists:plans,id',
             'type'       => 'nullable|string|in:admin,integrator',
             'modules'    => 'nullable|array',
             'modules.*'  => 'integer',

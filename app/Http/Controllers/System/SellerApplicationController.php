@@ -94,10 +94,14 @@ class SellerApplicationController extends Controller
     {
         $application = SellerApplication::query()->findOrFail($id);
 
+        // Activación no requiere plan; onboarding sí. Si onboarding llegara
+        // sin plan, el service retorna error claro.
+        $planId = (int) ($request->input('plan_id') ?: 0);
+
         $result = $this->service->approve(
             $application,
             auth('admin')->id(),
-            (int) $request->input('plan_id'),
+            $planId,
             [
                 'type'              => $request->input('type', 'admin'),
                 'modules'           => $request->input('modules', []),

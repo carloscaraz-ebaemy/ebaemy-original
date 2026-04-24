@@ -87,6 +87,7 @@ class SellerApplication extends Model
         'reviewed_at',
         'approved_at',
         'tenant_id',
+        'is_activation_request',
         'tracking_token',
         'source_ip',
         'source_ua',
@@ -94,8 +95,9 @@ class SellerApplication extends Model
 
     protected $casts = [
         'ruc_validation_response' => 'array',
-        'reviewed_at' => 'datetime',
-        'approved_at' => 'datetime',
+        'reviewed_at'             => 'datetime',
+        'approved_at'             => 'datetime',
+        'is_activation_request'   => 'boolean',
     ];
 
     protected $hidden = [
@@ -141,6 +143,11 @@ class SellerApplication extends Model
             self::STATUS_REQUIRES_DOCUMENTS,
             self::STATUS_REQUIRES_REVIEW,
         ], true);
+    }
+
+    public function isActivationRequest(): bool
+    {
+        return (bool) $this->is_activation_request;
     }
 
     // ── Scopes ────────────────────────────────────────────────

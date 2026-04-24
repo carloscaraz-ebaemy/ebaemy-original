@@ -131,14 +131,23 @@ async function saLoad(page = 1) {
 
 function saRowHtml(row) {
     const fecha = new Date(row.created_at).toLocaleDateString('es-PE', { day:'2-digit', month:'2-digit', year:'2-digit' });
+    const typeBadge = row.is_activation_request
+        ? '<span class="badge bg-info text-white" title="Activación de tienda virtual para tenant existente">🛍️ Activación</span>'
+        : '<span class="badge bg-light text-dark" title="Onboarding nuevo (crea tenant)">🆕 Nuevo</span>';
+    // En solicitudes de activación el requested_subdomain es un centinela;
+    // mostramos "(existente)" para no confundir al revisor.
+    const subCell = row.is_activation_request
+        ? '<small class="text-muted">(tenant existente)</small>'
+        : `<code>${saEscape(row.requested_subdomain)}</code>`;
     return `
     <tr>
         <td><small>${fecha}</small></td>
         <td>
             <strong>${row.ruc}</strong><br>
             <small class="text-muted">${saEscape(row.business_name)}</small>
+            <br>${typeBadge}
         </td>
-        <td><code>${saEscape(row.requested_subdomain)}</code></td>
+        <td>${subCell}</td>
         <td>
             ${saEscape(row.legal_representative_name)}<br>
             <small class="text-muted">DNI ${saEscape(row.legal_representative_dni)}</small>
@@ -188,6 +197,36 @@ function saDetailHtml(data) {
         </div>
     `).join('') || '<div class="text-muted">Sin actividad registrada.</div>';
 
+    const isActivation = !!app.is_activation_request;
+    const approveBlock = isActivation ? `
+        <div class="mb-2">
+            <div class="alert alert-info py-2 mb-2 small">
+                <strong>🛍️ Solicitud de activación</strong><br>
+                Esta empresa ya es cliente. Al aprobar solo se activará la tienda virtual
+                (marketplace_enabled=true) en el tenant existente y se agregará el módulo
+                ecommerce al usuario admin. <strong>No se creará un tenant nuevo.</strong>
+            </div>
+            <button class="btn btn-success btn-sm w-100" onclick="saApproveActivation(${app.id})">🛍️ Aprobar activación</button>
+        </div>
+    ` : `
+        <div class="mb-2">
+            <label class="form-label small mb-1"><strong>Aprobar y crear tenant</strong></label>
+            <div class="mb-2">
+                <select id="saApprovePlan_${app.id}" class="form-select form-select-sm">${planOptions}</select>
+            </div>
+            <details class="mb-2">
+                <summary class="small text-muted" style="cursor:pointer;">⚙ Corregir email o contraseña (opcional)</summary>
+                <div class="mt-2">
+                    <input id="saOverrideEmail_${app.id}" type="email" class="form-control form-control-sm mb-1" placeholder="Nuevo email (dejar vacío para usar: ${saEscape(app.email)})">
+                    <input id="saOverridePassword_${app.id}" type="text" class="form-control form-control-sm" placeholder="Nueva contraseña (dejar vacío para usar la del seller)">
+                    <div class="form-text small">Solo llena estos campos si quieres reemplazar lo que el seller registró.</div>
+                </div>
+            </details>
+            <button class="btn btn-success btn-sm w-100" onclick="saApprove(${app.id})">✓ Aprobar y crear tenant</button>
+            <div class="form-text">Se creará el tenant, se enviará correo al seller.</div>
+        </div>
+    `;
+
     const actions = reviewable ? `
         <div class="card mb-3">
             <div class="card-header bg-light"><strong>Acciones</strong></div>
@@ -201,22 +240,7 @@ function saDetailHtml(data) {
                     </div>
                 </div>
                 <hr>
-                <div class="mb-2">
-                    <label class="form-label small mb-1"><strong>Aprobar y crear tenant</strong></label>
-                    <div class="mb-2">
-                        <select id="saApprovePlan_${app.id}" class="form-select form-select-sm">${planOptions}</select>
-                    </div>
-                    <details class="mb-2">
-                        <summary class="small text-muted" style="cursor:pointer;">⚙ Corregir email o contraseña (opcional)</summary>
-                        <div class="mt-2">
-                            <input id="saOverrideEmail_${app.id}" type="email" class="form-control form-control-sm mb-1" placeholder="Nuevo email (dejar vacío para usar: ${saEscape(app.email)})">
-                            <input id="saOverridePassword_${app.id}" type="text" class="form-control form-control-sm" placeholder="Nueva contraseña (dejar vacío para usar la del seller)">
-                            <div class="form-text small">Solo llena estos campos si quieres reemplazar lo que el seller registró.</div>
-                        </div>
-                    </details>
-                    <button class="btn btn-success btn-sm w-100" onclick="saApprove(${app.id})">✓ Aprobar y crear tenant</button>
-                    <div class="form-text">Se creará el tenant, se enviará correo al seller.</div>
-                </div>
+                ${approveBlock}
                 <hr>
                 <div>
                     <button class="btn btn-danger btn-sm w-100" onclick="saPromptReject(${app.id})">✗ Rechazar solicitud</button>
@@ -325,6 +349,13 @@ async function saApprove(id) {
     if (passwordOverride) body.password_override = passwordOverride;
 
     await saPost(id, 'approve', body);
+}
+
+async function saApproveActivation(id) {
+    if (!confirm('¿Aprobar esta solicitud de activación? Se habilitará la tienda virtual del tenant existente.')) return;
+    // El endpoint es el mismo /approve; el service detecta is_activation_request
+    // internamente y se desvía a approveActivation — no requiere plan ni overrides.
+    await saPost(id, 'approve', {});
 }
 
 async function saPromptReject(id) {

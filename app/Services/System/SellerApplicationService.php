@@ -2,15 +2,18 @@
 
 namespace App\Services\System;
 
+use App\Mail\SellerActivationApprovedMail;
 use App\Mail\SellerApplicationApprovedMail;
 use App\Mail\SellerApplicationDocumentsRequestedMail;
 use App\Mail\SellerApplicationReceivedMail;
 use App\Mail\SellerApplicationRejectedMail;
+use App\Models\System\Client;
 use App\Models\System\Module;
 use App\Models\System\ModuleLevel;
 use App\Models\System\Plan;
 use App\Models\System\SellerApplication;
 use App\Models\System\SellerApplicationLog;
+use Hyn\Tenancy\Environment;
 use Exception;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -182,6 +185,122 @@ class SellerApplicationService
     }
 
     /**
+     * Crea una solicitud de ACTIVACIÓN de tienda virtual para un tenant
+     * que ya es cliente (usa facturación/POS) pero sin marketplace_enabled.
+     *
+     * A diferencia de createApplication, este flujo:
+     *   - NO crea tenant nuevo al aprobarse (sería duplicar)
+     *   - NO pide subdominio ni contraseña (ya existen)
+     *   - Al aprobar, solo activa flags del client existente + agrega módulo
+     *     ecommerce al usuario admin del tenant
+     *
+     * Se valida que el RUC corresponda efectivamente a un client existente
+     * SIN marketplace activo. Si no es el caso, se rechaza.
+     */
+    public function createActivationRequest(array $input): array
+    {
+        try {
+            $ruc = trim((string) ($input['ruc'] ?? ''));
+
+            if (!preg_match('/^(10|15|17|20)\d{9}$/', $ruc)) {
+                return [
+                    'success' => false,
+                    'message' => 'RUC inválido.',
+                ];
+            }
+
+            // Verificar que el RUC corresponda a un cliente SIN marketplace.
+            $client = DB::connection('system')->table('clients')
+                ->where('number', $ruc)
+                ->select(['id', 'name', 'email', 'marketplace_enabled', 'seller_status'])
+                ->first();
+
+            if (!$client) {
+                return [
+                    'success' => false,
+                    'message' => 'El RUC no corresponde a un cliente existente. Si quieres crear una tienda nueva, usa el formulario de registro de vendedor.',
+                ];
+            }
+
+            $alreadyActive = (bool) $client->marketplace_enabled
+                          || $client->seller_status === 'active';
+            if ($alreadyActive) {
+                return [
+                    'success' => false,
+                    'message' => 'Tu tienda virtual ya está activa. Inicia sesión desde el subdominio de tu empresa.',
+                ];
+            }
+
+            // Evitar solicitudes duplicadas de activación
+            $duplicate = SellerApplication::query()
+                ->active()
+                ->where('ruc', $ruc)
+                ->exists();
+            if ($duplicate) {
+                return [
+                    'success' => false,
+                    'message' => 'Ya tienes una solicitud de activación en revisión. Te notificaremos por correo cuando haya novedades.',
+                ];
+            }
+
+            $application = DB::connection('system')->transaction(function () use ($input, $client, $ruc) {
+                $app = SellerApplication::create([
+                    'ruc'                           => $ruc,
+                    'business_name'                 => $client->name,
+                    'legal_representative_name'     => $input['legal_representative_name'] ?? '',
+                    'legal_representative_dni'      => $input['legal_representative_dni'] ?? '',
+                    'legal_representative_position' => $input['legal_representative_position'] ?? null,
+                    'email'                         => strtolower($input['email'] ?? ''),
+                    'phone'                         => $input['phone'] ?? '',
+                    // Activación: NO hay subdominio nuevo. Usamos un valor
+                    // centinela único para no romper la columna unique.
+                    'requested_subdomain'           => 'activation-' . $client->id,
+                    'store_description'             => $input['activation_reason'] ?? null,
+                    // No pedimos contraseña — el tenant ya la tiene. Guardamos
+                    // un hash vacío marker porque la columna es NOT NULL.
+                    'password_hash'                 => '__activation_request__',
+                    'is_activation_request'         => true,
+                    'status'                        => SellerApplication::STATUS_PENDING,
+                    'tracking_token'                => SellerApplication::generateTrackingToken(),
+                    'tenant_id'                     => $client->id, // ya lo conocemos
+                    'source_ip'                     => $input['source_ip'] ?? null,
+                    'source_ua'                     => $input['source_ua'] ?? null,
+                ]);
+
+                SellerApplicationLog::create([
+                    'seller_application_id' => $app->id,
+                    'action'                => SellerApplicationLog::ACTION_CREATED,
+                    'new_status'            => SellerApplication::STATUS_PENDING,
+                    'notes'                 => "Solicitud de activación de tienda virtual para client #{$client->id}",
+                    'user_id'               => null,
+                    'created_at'            => now(),
+                ]);
+
+                return $app;
+            });
+
+            $this->safeSendMail(
+                $application->email,
+                new SellerApplicationReceivedMail($application),
+                'activation_received',
+                $application->id
+            );
+
+            return [
+                'success'     => true,
+                'message'     => 'Solicitud de activación registrada correctamente',
+                'application' => $application,
+            ];
+        } catch (Exception $e) {
+            Log::error('SellerApplicationService::createActivationRequest error', ['error' => $e->getMessage()]);
+            return [
+                'success' => false,
+                'message' => $e->getMessage(),
+            ];
+        }
+    }
+
+    /**
      * Aprueba una solicitud: materializa el tenant vía TenantCreationService,
      * vincula tenant_id, actualiza estado + log + mail al seller.
      *
@@ -202,6 +321,12 @@ class SellerApplicationService
                 'success' => false,
                 'message' => "La solicitud no está en un estado revisable (actual: {$application->status})",
             ];
+        }
+
+        // Si es solicitud de activación, no creamos tenant nuevo —
+        // solo habilitamos marketplace en el client existente.
+        if ($application->isActivationRequest()) {
+            return $this->approveActivation($application, $reviewerId);
         }
 
         // Aplicar overrides del SuperAdmin ANTES del check de duplicados
@@ -309,6 +434,189 @@ class SellerApplicationService
                 'success' => false,
                 'message' => 'Error al aprobar: ' . $e->getMessage(),
             ];
+        }
+    }
+
+    /**
+     * Aprueba una solicitud de ACTIVACIÓN: habilita marketplace en un
+     * tenant que ya existe (no crea tenant nuevo).
+     *
+     * Pasos:
+     *   1. Resolver el Client por RUC o por tenant_id ya vinculado
+     *   2. Verificar que no está activo ya (race-safe)
+     *   3. Setear flags marketplace_enabled/seller_status
+     *   4. Agregar módulo ecommerce al usuario admin del tenant
+     *   5. Actualizar SellerApplication + log + mail al seller
+     */
+    private function approveActivation(SellerApplication $application, int $reviewerId): array
+    {
+        try {
+            $client = $application->tenant_id
+                ? Client::query()->find($application->tenant_id)
+                : Client::query()->where('number', $application->ruc)->first();
+
+            if (!$client) {
+                return [
+                    'success' => false,
+                    'message' => 'El cliente al que intentas activarle la tienda ya no existe en el sistema.',
+                ];
+            }
+
+            if ($client->marketplace_enabled || $client->seller_status === 'active') {
+                return [
+                    'success' => false,
+                    'message' => 'La tienda virtual de este cliente ya está activa.',
+                ];
+            }
+
+            DB::connection('system')->transaction(function () use ($application, $client, $reviewerId) {
+                $client->update([
+                    'is_verified'             => true,
+                    'verified_at'             => $client->verified_at ?: now(),
+                    'marketplace_enabled'     => true,
+                    'seller_status'           => 'active',
+                    'marketplace_approved_at' => now(),
+                    'marketplace_approved_by' => $reviewerId,
+                ]);
+
+                $previousStatus = $application->status;
+                $application->update([
+                    'status'      => SellerApplication::STATUS_APPROVED,
+                    'reviewed_by' => $reviewerId,
+                    'reviewed_at' => now(),
+                    'approved_at' => now(),
+                    'tenant_id'   => $client->id,
+                ]);
+
+                SellerApplicationLog::create([
+                    'seller_application_id' => $application->id,
+                    'action'                => SellerApplicationLog::ACTION_APPROVED,
+                    'old_status'            => $previousStatus,
+                    'new_status'            => SellerApplication::STATUS_APPROVED,
+                    'notes'                 => "Activación de tienda virtual para client #{$client->id} ({$client->name}).",
+                    'user_id'               => $reviewerId,
+                    'created_at'            => now(),
+                ]);
+            });
+
+            // Activar módulo ecommerce en la BD del tenant (fuera de la
+            // transacción system — es otra conexión).
+            $this->ensureEcommerceModuleForTenantUser($client);
+
+            // Mail específico de activación (distinto del approved normal:
+            // no entrega credenciales, confirma que ya puede usar su tienda).
+            $this->safeSendMail(
+                $application->email,
+                new SellerActivationApprovedMail($application, $client),
+                'activation_approved',
+                $application->id
+            );
+
+            return [
+                'success' => true,
+                'message' => 'Tienda virtual activada correctamente para el tenant existente.',
+                'tenant'  => $client,
+            ];
+        } catch (Exception $e) {
+            Log::error('SellerApplicationService::approveActivation error', [
+                'application_id' => $application->id,
+                'error'          => $e->getMessage(),
+            ]);
+            return [
+                'success' => false,
+                'message' => 'Error al activar: ' . $e->getMessage(),
+            ];
+        }
+    }
+
+    /**
+     * Se asegura de que el usuario admin del tenant tenga el módulo
+     * `ecommerce` activo (y sus levels). Si ya lo tiene, no duplica.
+     *
+     * Se ejecuta en la conexión tenant del client — usa Hyn\Environment
+     * para cambiar contexto igual que TenantCreationService.
+     */
+    private function ensureEcommerceModuleForTenantUser(Client $client): void
+    {
+        try {
+            $ecommerceModule = Module::query()->where('value', 'ecommerce')->first();
+            if (!$ecommerceModule) {
+                Log::warning('ensureEcommerceModuleForTenantUser: módulo ecommerce no encontrado en system');
+                return;
+            }
+
+            $ecommerceLevelIds = ModuleLevel::query()
+                ->where('module_id', $ecommerceModule->id)
+                ->pluck('id')
+                ->toArray();
+
+            $tenancy = app(Environment::class);
+            $website = $client->hostname?->website ?? optional($client->hostname()->first())->website;
+            if (!$website) {
+                Log::warning('ensureEcommerceModuleForTenantUser: sin website asociado', ['client_id' => $client->id]);
+                return;
+            }
+            $tenancy->tenant($website);
+
+            // Usuario admin del tenant (primer usuario creado con type=admin).
+            $adminUser = DB::connection('tenant')->table('users')
+                ->where('type', 'admin')
+                ->orderBy('id', 'asc')
+                ->select(['id'])
+                ->first();
+            if (!$adminUser) {
+                Log::warning('ensureEcommerceModuleForTenantUser: sin usuario admin en tenant', ['client_id' => $client->id]);
+                return;
+            }
+
+            $userId = $adminUser->id;
+
+            // Insertar módulo (si no existe ya)
+            $hasModule = DB::connection('tenant')->table('module_user')
+                ->where('module_id', $ecommerceModule->id)
+                ->where('user_id', $userId)
+                ->exists();
+            if (!$hasModule) {
+                DB::connection('tenant')->table('module_user')->insert([
+                    'module_id' => $ecommerceModule->id,
+                    'user_id'   => $userId,
+                ]);
+            }
+
+            // Insertar levels faltantes
+            if (!empty($ecommerceLevelIds)) {
+                $existingLevels = DB::connection('tenant')->table('module_level_user')
+                    ->where('user_id', $userId)
+                    ->whereIn('module_level_id', $ecommerceLevelIds)
+                    ->pluck('module_level_id')
+                    ->toArray();
+
+                $missingLevels = array_diff($ecommerceLevelIds, $existingLevels);
+                if (!empty($missingLevels)) {
+                    $rows = [];
+                    foreach ($missingLevels as $levelId) {
+                        $rows[] = [
+                            'module_level_id' => $levelId,
+                            'user_id'         => $userId,
+                        ];
+                    }
+                    DB::connection('tenant')->table('module_level_user')->insert($rows);
+                }
+            }
+
+            Log::info('ensureEcommerceModuleForTenantUser: módulo ecommerce asegurado', [
+                'client_id'  => $client->id,
+                'tenant_uuid'=> $website->uuid,
+                'user_id'    => $userId,
+            ]);
+        } catch (Exception $e) {
+            // No lanzamos — la aprobación en system ya sucedió. El SuperAdmin
+            // puede activar el módulo manualmente desde el panel del tenant
+            // si este paso fallara.
+            Log::error('ensureEcommerceModuleForTenantUser failed', [
+                'client_id' => $client->id,
+                'error'     => $e->getMessage(),
+            ]);
         }
     }
 

@@ -1163,6 +1163,14 @@ if ($hostname) {
              ->where('token', '[A-Za-z0-9]+')
              ->name('seller.application.status');
 
+        // Solicitud de ACTIVACIÓN de tienda virtual para tenants existentes
+        // (clientes de facturación/POS que aún no tienen marketplace_enabled).
+        Route::get('seller/request-activation', 'SellerRegistrationController@createActivation')
+             ->name('seller.request_activation');
+        Route::post('seller/request-activation', 'SellerRegistrationController@storeActivation')
+             ->middleware('throttle:5,60')
+             ->name('seller.request_activation.store');
+
         // Root del central: visitantes caen al marketplace; admins logueados
         // ven su dashboard (HomeController lo maneja internamente vía auth).
         Route::get('/', function () {

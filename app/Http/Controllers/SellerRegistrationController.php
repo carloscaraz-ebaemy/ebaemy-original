@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\Public\SellerActivationRequest;
 use App\Http\Requests\Public\SellerRegistrationRequest;
 use App\Models\System\SellerApplication;
 use App\Services\System\RucValidationService;
@@ -96,6 +97,62 @@ class SellerRegistrationController extends Controller
                 'subtype' => $existing['subtype'] ?? null,
                 'message' => $existing['message'],
             ] : null,
+        ]);
+    }
+
+    /**
+     * Form de solicitud de activación de tienda virtual para tenants
+     * existentes (cliente sin marketplace). Se llega desde el CTA del
+     * form de registro cuando detecta tenant needs_activation.
+     */
+    public function createActivation(Request $request)
+    {
+        $ruc = trim((string) $request->query('ruc', ''));
+
+        // Datos precargados para la vista si el RUC es válido y corresponde
+        // a un client sin marketplace.
+        $prefill = null;
+        if (preg_match('/^\d{11}$/', $ruc)) {
+            $client = DB::connection('system')->table('clients')
+                ->where('number', $ruc)
+                ->select(['id', 'name', 'email', 'marketplace_enabled', 'seller_status'])
+                ->first();
+            if ($client && !$client->marketplace_enabled && $client->seller_status !== 'active') {
+                $prefill = [
+                    'ruc'           => $ruc,
+                    'business_name' => $client->name,
+                    'email_hint'    => $client->email,
+                ];
+            }
+        }
+
+        return view('seller.request-activation', compact('prefill'));
+    }
+
+    public function storeActivation(SellerActivationRequest $request): JsonResponse
+    {
+        $data = $request->validated();
+        $data['source_ip'] = $request->ip();
+        $data['source_ua'] = substr((string) $request->userAgent(), 0, 500);
+
+        $result = $this->service->createActivationRequest($data);
+
+        if (!$result['success']) {
+            return response()->json([
+                'success' => false,
+                'message' => $result['message'],
+            ], 422);
+        }
+
+        /** @var SellerApplication $application */
+        $application = $result['application'];
+
+        return response()->json([
+            'success'      => true,
+            'message'      => $result['message'],
+            'tracking_url' => $application->tracking_token
+                ? url('/seller/application/' . $application->tracking_token)
+                : null,
         ]);
     }
 

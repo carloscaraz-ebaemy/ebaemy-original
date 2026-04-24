@@ -699,25 +699,11 @@ function srAlreadyRegisteredConfig(info) {
     const subtype = info.subtype || info.type;
 
     // Tenant que es cliente pero NO tiene marketplace activo:
-    // ofrecemos contacto con soporte para activar la tienda virtual.
+    // llevamos al form dedicado /seller/request-activation con RUC precargado.
     if (info.type === 'tenant' && info.subtype === 'needs_activation') {
         const ruc = document.getElementById('srRuc')?.value || '';
-        const subject = encodeURIComponent(`Solicitud de activación de tienda virtual — RUC ${ruc}`);
-        const body = encodeURIComponent(
-            `Hola,\n\nSoy cliente de {{ config('app.name', 'ebaemy') }} y quiero activar mi tienda virtual para vender en el marketplace.\n\n`
-            + `RUC: ${ruc}\n`
-            + `Empresa: (completar)\n`
-            + `Responsable: (completar)\n`
-            + `Teléfono: (completar)\n\n`
-            + `Gracias.`
-        );
-        const email = SR_SUPPORT_EMAIL || 'soporte@ebaemy.com';
-        let ctaHtml = `<a href="mailto:${email}?subject=${subject}&body=${body}" class="sr-btn sr-btn-primary" style="padding:10px 18px; font-size:13px; display:inline-flex; text-decoration:none;">✉️ Solicitar activación por correo</a>`;
-
-        if (SR_SUPPORT_WHATSAPP) {
-            const wa = encodeURIComponent(`Hola, soy cliente de ebaemy y quiero activar mi tienda virtual. RUC: ${ruc}`);
-            ctaHtml += ` <a href="https://wa.me/${SR_SUPPORT_WHATSAPP}?text=${wa}" target="_blank" class="sr-btn sr-btn-ghost" style="padding:10px 18px; font-size:13px; display:inline-flex; text-decoration:none;">💬 WhatsApp</a>`;
-        }
+        const activationUrl = `/seller/request-activation?ruc=${encodeURIComponent(ruc)}`;
+        let ctaHtml = `<a href="${activationUrl}" class="sr-btn sr-btn-primary" style="padding:10px 18px; font-size:13px; display:inline-flex; text-decoration:none;">🛍️ Solicitar activación de tienda</a>`;
 
         return {
             icon:  '🛍️',
