@@ -82,7 +82,7 @@
         <h3 class="my-0">Listado de productos Tienda Virtual</h3>
       </div> -->
             <div class="card-body">
-                <data-table :resource="resource" :ecommerce="ecommerce" :sort-field="sortField" :sort-direction="sortDirection" @sort-change="handleSortChange">
+                <data-table :resource="resource" :ecommerce="ecommerce" :sort-field="sortField" :sort-direction="sortDirection" :showChannelFilter="true" @sort-change="handleSortChange">
                     <tr slot="heading" width="100%" slot-scope="{ sort }">
                         <!-- <th>#</th> -->
                         <th>Cód. Interno</th>

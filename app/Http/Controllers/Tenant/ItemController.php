@@ -250,6 +250,39 @@ class ItemController extends Controller
             }
         }
 
+        // Filtro por canal de venta (Fase 5 unificación UX).
+        // No depende de isEcommerce/isRestaurant — funciona en ambos listados.
+        if ($request->filled('channel_filter')) {
+            switch ($request->input('channel_filter')) {
+                case 'in_store':
+                    $records->where('apply_store', 1);
+                    break;
+                case 'in_marketplace':
+                    $records->where('marketplace_publishable', 1)
+                            ->where('mp_status', 'active');
+                    break;
+                case 'pending_mp':
+                    $records->where('marketplace_publishable', 1)
+                            ->where(function ($q) {
+                                $q->whereNull('mp_status')->orWhere('mp_status', 'pending');
+                            });
+                    break;
+                case 'paused_mp':
+                    $records->where('marketplace_publishable', 1)
+                            ->where('mp_status', 'paused');
+                    break;
+                case 'rejected_mp':
+                    $records->where('mp_status', 'rejected');
+                    break;
+                case 'unpublished':
+                    $records->where(function ($q) {
+                        $q->where('apply_store', 0)->orWhereNull('apply_store');
+                    })->where(function ($q) {
+                        $q->where('marketplace_publishable', 0)->orWhereNull('marketplace_publishable');
+                    });
+                    break;
+            }
+        }
 
         return $records->orderBy($sortField, $sortDirection);
 

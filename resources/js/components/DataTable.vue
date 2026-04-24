@@ -93,6 +93,28 @@
                             </el-select>
                         </div>
                     </div>
+                    <div
+                        v-if="showChannelFilter"
+                        class="col-lg-3 col-md-4 col-sm-12 pb-2 d-flex align-items-center"
+                    >
+                        <div class="datatable-product-filter">
+                            <span class="datatable-filter-label">Canal</span>
+                            <el-select
+                                class="datatable-filter-select"
+                                v-model="search.channel_filter"
+                                size="small"
+                                @change="handleChannelFilterChange"
+                            >
+                                <el-option label="Todos" value="all"></el-option>
+                                <el-option label="🛍️ En tienda online" value="in_store"></el-option>
+                                <el-option label="🌐 Publicado en Marketplace" value="in_marketplace"></el-option>
+                                <el-option label="⏳ Pendiente en Marketplace" value="pending_mp"></el-option>
+                                <el-option label="⏸️ Pausado en Marketplace" value="paused_mp"></el-option>
+                                <el-option label="❌ Rechazado en Marketplace" value="rejected_mp"></el-option>
+                                <el-option label="Sin publicar (ningún canal)" value="unpublished"></el-option>
+                            </el-select>
+                        </div>
+                    </div>
                     <div v-if="showWarehouseFilter" class="col-lg-3 col-md-3 col-sm-12 pb-2 d-flex ms-auto">
                         <div class="d-flex align-items-center me-2 text-nowrap">
                             Almacén:
@@ -283,7 +305,12 @@ export default {
             type: Object,
             required: false,
             default: null
-        }
+        },
+        showChannelFilter: {
+            type: Boolean,
+            default: false,
+            required: false
+        },
     },
     data() {
         return {
@@ -291,6 +318,7 @@ export default {
                 column: null,
                 value: null,
                 list_value: 'all',
+                channel_filter: 'all',
             },
             columns: [],
             records: [],
@@ -384,6 +412,10 @@ export default {
                         localStorage.setItem(this.getListValueStorageKey(), this.search.list_value);
                         this.getRecords();
                 },
+        handleChannelFilterChange() {
+            this.pagination.current_page = 1;
+            this.getRecords();
+        },
         handleShowDisabledChange() {
           localStorage.setItem(this.getShowDisabledStorageKey(), this.showDisabledValue);
           this.getRecords();
