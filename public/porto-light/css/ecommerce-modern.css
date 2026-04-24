@@ -184,12 +184,11 @@ html {
     gap: clamp(8px, 2vw, 24px);
 }
 
-/* Sticky más elegante al hacer scroll */
+/* Sticky más elegante al hacer scroll — sólido, sin backdrop-filter que causa artifactos */
 #ec-main-header.ec-header--scrolled {
     box-shadow: var(--ec-shadow-md);
-    border-bottom-color: transparent;
-    backdrop-filter: saturate(180%) blur(8px);
-    background: rgba(255, 255, 255, .92);
+    border-bottom-color: var(--ec-line);
+    background: #fff;
 }
 
 /* Logo más contenido */
@@ -424,14 +423,20 @@ html {
 .header-contact a:hover { text-decoration: none; }
 .header-contact strong { font-weight: 600; color: #065f46; }
 
-/* Header-bottom: más compacto */
+/* Header-bottom: si está vacío (nav sin items), colapsar para no dejar franja blanca */
 .header .header-bottom {
     padding: 0;
-    border-top: 1px solid var(--ec-line);
 }
-.header .header-bottom .container {
-    min-height: 46px;
-    align-items: center;
+.header .header-bottom:has(.main-nav:empty) {
+    display: none;
+}
+/* Fallback para navegadores sin :has() (iOS <15.4) */
+.header .header-bottom .main-nav:empty {
+    padding: 0;
+    min-height: 0;
+}
+.header .header-bottom .main-nav:empty ~ * {
+    display: none;
 }
 
 /* Mobile overlay search refinado */
@@ -2084,6 +2089,109 @@ img.ec-img-lazy[src*="placeholder"] {
         animation-iteration-count: 1 !important;
         transition-duration: .01ms !important;
         scroll-behavior: auto !important;
+    }
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+ *  PAGINACIÓN (ec-pagination) — asegurar clickable + estilo moderno
+ * ══════════════════════════════════════════════════════════════════════════ */
+
+#ec-pagination {
+    margin-top: var(--ec-space-5);
+    padding-block: var(--ec-space-3);
+}
+
+#ec-pagination .pagination {
+    display: inline-flex;
+    gap: 4px;
+    flex-wrap: wrap;
+    padding: 0;
+    margin: 0;
+    list-style: none;
+    /* Asegura que los clicks lleguen */
+    pointer-events: auto;
+    position: relative;
+    z-index: 2;
+}
+
+#ec-pagination .page-item {
+    list-style: none;
+}
+
+#ec-pagination .page-link {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 38px;
+    height: 38px;
+    padding: 0 12px;
+    border-radius: var(--ec-radius-sm);
+    background: #fff;
+    color: var(--ec-ink-soft);
+    border: 1px solid var(--ec-line);
+    font-size: 13px;
+    font-weight: 600;
+    text-decoration: none;
+    cursor: pointer;
+    transition: all var(--ec-duration) var(--ec-ease);
+    /* pointer-events default es auto — reafirmar para evitar overrides */
+    pointer-events: auto;
+    user-select: none;
+}
+
+#ec-pagination .page-link:hover {
+    background: var(--ec-bg-soft);
+    border-color: var(--ec-primary);
+    color: var(--ec-primary-dark);
+    text-decoration: none;
+    transform: translateY(-1px);
+    box-shadow: var(--ec-shadow-sm);
+}
+
+#ec-pagination .page-item.active .page-link {
+    background: var(--ec-primary);
+    color: var(--ec-primary-ink);
+    border-color: var(--ec-primary);
+}
+
+#ec-pagination .page-item.active .page-link:hover {
+    background: var(--ec-primary-dark);
+    color: var(--ec-primary-ink);
+    transform: none;
+}
+
+#ec-pagination .page-item.disabled .page-link {
+    background: var(--ec-bg-muted);
+    color: var(--ec-ink-faint);
+    border-color: var(--ec-line-soft);
+    cursor: not-allowed;
+    opacity: .6;
+}
+
+#ec-pagination .page-item.disabled .page-link:hover {
+    transform: none;
+    box-shadow: none;
+}
+
+/* Chevrons prev/next más grandes */
+#ec-pagination .page-link[aria-label*="previous"],
+#ec-pagination .page-link[aria-label*="next"],
+#ec-pagination .page-link[rel="prev"],
+#ec-pagination .page-link[rel="next"] {
+    font-size: 18px;
+    font-weight: 700;
+}
+
+/* En mobile: paginación centrada y compacta */
+@media (max-width: 767px) {
+    #ec-pagination .col-md-12 {
+        justify-content: center !important;
+    }
+    #ec-pagination .page-link {
+        min-width: 34px;
+        height: 34px;
+        font-size: 12px;
+        padding: 0 8px;
     }
 }
 
