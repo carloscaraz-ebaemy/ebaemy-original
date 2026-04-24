@@ -762,13 +762,38 @@ function srAlreadyRegisteredConfig(info) {
         };
     }
 
-    // Application activa en pipeline
+    // Application activa en pipeline: ofrecer reenviar tracking URL por
+    // si el seller perdió el correo original.
+    const ruc = document.getElementById('srRuc')?.value || '';
+    const resendBtn = `<button type="button" class="sr-btn sr-btn-ghost sr-logo-btn" onclick="srPromptResend('${ruc}')">✉️ Reenviar correo de seguimiento</button>`;
     return {
         icon:  '⏳',
         title: 'Ya tienes una solicitud en proceso',
         cls:   'warn',
-        cta:   null,
+        cta:   resendBtn,
     };
+}
+
+// Pide al seller su email y reenvía el tracking URL si RUC+email coinciden
+// con una solicitud activa. Respuesta genérica para no filtrar info.
+async function srPromptResend(ruc) {
+    const email = prompt('Indica el correo con el que te registraste:');
+    if (!email || !email.trim()) return;
+    try {
+        const res = await fetch('/seller/application/resend', {
+            method: 'POST',
+            headers: {
+                'Accept': 'application/json',
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': SR_CSRF,
+            },
+            body: JSON.stringify({ ruc, email: email.trim() }),
+        });
+        const data = await res.json();
+        alert(data.message || 'Si el RUC y correo coinciden con una solicitud, te enviamos el link.');
+    } catch (e) {
+        alert('No se pudo procesar la solicitud. Intenta más tarde.');
+    }
 }
 
 // ────────────────────────────────────────────────────────

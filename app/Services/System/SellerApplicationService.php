@@ -885,6 +885,66 @@ class SellerApplicationService
     // ─────────────────────────────────────────────────────────
 
     /**
+     * Reenvía el link de seguimiento al correo registrado de una solicitud
+     * activa. El seller puede usar esto desde /seller/register cuando se
+     * le detecta una solicitud existente y no encuentra el correo original.
+     *
+     * Seguridad:
+     *   - Requiere RUC + email que coincidan EXACTAMENTE con la solicitud
+     *     (un atacante no puede sondear RUCs públicos enviando cualquier email)
+     *   - Mensaje de respuesta es genérico — mismo texto aunque no coincida,
+     *     para no revelar si un RUC tiene solicitud o no (privacy-safe)
+     *   - Rate limit estricto en la ruta (throttle:3,60)
+     *
+     * @return array{success: bool, message: string}
+     */
+    public function resendTrackingLink(string $ruc, string $email): array
+    {
+        // Mensaje neutro que aplica a ambos casos (coincide o no).
+        $genericMessage = 'Si el RUC y correo coinciden con una solicitud activa, te enviamos el link de seguimiento a tu correo.';
+
+        $ruc   = trim($ruc);
+        $email = strtolower(trim($email));
+
+        if (!preg_match('/^\d{11}$/', $ruc) || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            return ['success' => true, 'message' => $genericMessage];
+        }
+
+        try {
+            $application = SellerApplication::query()
+                ->active()
+                ->where('ruc', $ruc)
+                ->whereRaw('LOWER(email) = ?', [$email])
+                ->first();
+
+            if ($application && $application->tracking_token) {
+                $this->safeSendMail(
+                    $application->email,
+                    new SellerApplicationReceivedMail($application),
+                    'resend_tracking',
+                    $application->id
+                );
+
+                SellerApplicationLog::create([
+                    'seller_application_id' => $application->id,
+                    'action'                => SellerApplicationLog::ACTION_NOTE_ADDED,
+                    'notes'                 => 'Link de seguimiento reenviado al correo del seller por su propia solicitud.',
+                    'user_id'               => null,
+                    'created_at'            => now(),
+                ]);
+            }
+        } catch (Exception $e) {
+            Log::warning('SellerApplicationService::resendTrackingLink falló', [
+                'ruc'   => $ruc,
+                'email' => $email,
+                'error' => $e->getMessage(),
+            ]);
+        }
+
+        return ['success' => true, 'message' => $genericMessage];
+    }
+
+    /**
      * Busca si un RUC, email o subdominio ya están registrados en el sistema
      * — sea como tenant activo o como solicitud de seller en pipeline.
      *

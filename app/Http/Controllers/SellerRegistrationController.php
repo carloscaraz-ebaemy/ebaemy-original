@@ -67,6 +67,31 @@ class SellerRegistrationController extends Controller
     }
 
     /**
+     * Reenvía al correo del seller el link de seguimiento de su solicitud
+     * activa. El frontend llama a este endpoint cuando se detecta que el
+     * RUC del usuario ya tiene una SellerApplication en pipeline y el
+     * seller dice "no recibí el correo".
+     *
+     * Seguridad: el service valida que RUC + email coincidan exactamente.
+     * La respuesta es genérica sin importar si la combinación existe o no,
+     * para evitar que alguien sondee qué RUCs tienen solicitudes pendientes.
+     */
+    public function resendTracking(Request $request): JsonResponse
+    {
+        $request->validate([
+            'ruc'   => 'required|digits:11',
+            'email' => 'required|email|max:180',
+        ]);
+
+        $result = $this->service->resendTrackingLink(
+            (string) $request->input('ruc'),
+            (string) $request->input('email')
+        );
+
+        return response()->json($result);
+    }
+
+    /**
      * Recibe el archivo de logo del seller (PNG/JPG/SVG hasta 2MB) y lo
      * guarda en storage/app/public/seller-logos/. Devuelve el path relativo
      * que luego el form envía como `logo_path` en el submit final.

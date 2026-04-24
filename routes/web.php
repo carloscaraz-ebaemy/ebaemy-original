@@ -1165,6 +1165,9 @@ if ($hostname) {
         Route::get('seller/application/{token}', 'SellerApplicationStatusController@show')
              ->where('token', '[A-Za-z0-9]+')
              ->name('seller.application.status');
+        Route::post('seller/application/resend', 'SellerRegistrationController@resendTracking')
+             ->middleware('throttle:3,60')
+             ->name('seller.application.resend');
 
         // Solicitud de ACTIVACIÓN de tienda virtual para tenants existentes
         // (clientes de facturación/POS que aún no tienen marketplace_enabled).
