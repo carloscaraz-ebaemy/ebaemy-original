@@ -177,19 +177,32 @@
                   <el-dropdown-menu slot="dropdown">
                     <el-dropdown-item @click.native="clickDeleteSelected">Eliminar</el-dropdown-item>
                     <el-dropdown-item @click.native="duplicateSelected">Duplicar</el-dropdown-item>
-                
+
                     <!-- Solo si TODOS los seleccionados están habilitados -->
                     <el-dropdown-item
                       v-if="showDisable"
                       @click.native="clickDisableSelected">
                       Inhabilitar
                     </el-dropdown-item>
-                
+
                     <!-- Solo si TODOS los seleccionados están inhabilitados -->
                     <el-dropdown-item
                       v-if="showEnable"
                       @click.native="clickEnableSelected">
                       Habilitar
+                    </el-dropdown-item>
+
+                    <el-dropdown-item divided @click.native="bulkChannel('store', true)">
+                      🛍️ Publicar en tienda online
+                    </el-dropdown-item>
+                    <el-dropdown-item @click.native="bulkChannel('store', false)">
+                      Retirar de tienda online
+                    </el-dropdown-item>
+                    <el-dropdown-item divided @click.native="bulkChannel('marketplace', true)">
+                      🌐 Publicar en Marketplace ebaemy
+                    </el-dropdown-item>
+                    <el-dropdown-item @click.native="bulkChannel('marketplace', false)">
+                      Retirar de Marketplace
                     </el-dropdown-item>
                   </el-dropdown-menu>
                 </el-dropdown>
@@ -1092,6 +1105,36 @@ export default {
         openInMarketplace(row) {
             const q = encodeURIComponent(row.description || row.name || '')
             window.open('https://ebaemy.com/marketplace?q=' + q, '_blank', 'noopener')
+        },
+        bulkChannel(channel, enabled) {
+            if (!this.selected.length) return
+            const labels = {
+                store: enabled ? 'publicar en tienda online' : 'retirar de tienda online',
+                marketplace: enabled ? 'publicar en Marketplace ebaemy' : 'retirar de Marketplace',
+            }
+            const label = labels[channel]
+            this.$confirm(`¿${labels[channel]} ${this.selected.length} producto(s)?`, 'Confirmar', {
+                confirmButtonText: 'Sí, continuar',
+                cancelButtonText: 'Cancelar',
+                type: 'warning',
+            }).then(() => {
+                this.$http.post(`${this.resource}/bulk-channel`, {
+                    ids: this.selected,
+                    channel: channel,
+                    enabled: enabled,
+                }).then(res => {
+                    if (res.data.success) {
+                        this.$message.success(res.data.message)
+                        this.selected = []
+                        this.$eventHub.$emit('reloadData')
+                    } else {
+                        this.$message.error(res.data.message || 'Error')
+                    }
+                }).catch(err => {
+                    const msg = (err.response && err.response.data && err.response.data.message) || 'Error en la operación masiva'
+                    this.$message.error(msg)
+                })
+            }).catch(() => {})
         },
         clickCreate(recordId = null) {
             this.recordId = recordId;

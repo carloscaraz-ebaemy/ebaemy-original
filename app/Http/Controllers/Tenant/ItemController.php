@@ -1208,6 +1208,103 @@ class ItemController extends Controller
     }
 
     /**
+     * Activa o desactiva un canal (tienda / marketplace) sobre varios items
+     * en una sola operación. Llamado desde el dropdown "Acciones masivas"
+     * de los listados de productos.
+     *
+     * Body:
+     *   ids:     int[]                           — productos seleccionados
+     *   channel: 'store' | 'marketplace'         — canal a modificar
+     *   enabled: bool                            — true activa, false retira
+     *
+     * Reglas:
+     *   - marketplace requiere internal_id en cada item (mismo check que toggle individual)
+     *   - marketplace dispara sync inmediato uno por uno (no bloqueante: si falla
+     *     un item sigue con los demás, reportamos el conteo).
+     *   - tienda simplemente setea apply_store; no hay sync.
+     */
+    public function bulkChannel(Request $request)
+    {
+        $data = $request->validate([
+            'ids'     => 'required|array|min:1|max:500',
+            'ids.*'   => 'integer',
+            'channel' => 'required|in:store,marketplace',
+            'enabled' => 'required|boolean',
+        ]);
+
+        $ids     = $data['ids'];
+        $channel = $data['channel'];
+        $enabled = (bool) $data['enabled'];
+
+        $items = Item::whereIn('id', $ids)->get();
+        $updated = 0;
+        $skipped = [];
+        $syncedOk = 0;
+        $syncFailed = 0;
+
+        if ($channel === 'store') {
+            foreach ($items as $it) {
+                $it->apply_store = $enabled ? 1 : 0;
+                $it->save();
+                $updated++;
+            }
+            return [
+                'success' => true,
+                'message' => $enabled
+                    ? "Publicados en tienda online: {$updated}"
+                    : "Retirados de tienda online: {$updated}",
+                'updated' => $updated,
+            ];
+        }
+
+        // channel === 'marketplace'
+        $hostname = app(\Hyn\Tenancy\Contracts\CurrentHostname::class);
+        $syncService = app(\App\Services\System\MarketplaceListingSyncService::class);
+
+        foreach ($items as $it) {
+            if ($enabled && !$it->internal_id) {
+                $skipped[] = $it->id;
+                continue;
+            }
+            $it->marketplace_publishable = $enabled;
+            $it->mp_status = $enabled ? 'active' : 'paused';
+            $it->mp_synced_at = now();
+            $it->save();
+            $updated++;
+
+            try {
+                if ($hostname) {
+                    $syncService->syncItem($hostname->id, (int) $it->id);
+                    $syncedOk++;
+                }
+            } catch (\Throwable $e) {
+                $syncFailed++;
+                \Log::warning('bulkChannel marketplace sync falló', [
+                    'item_id' => $it->id, 'error' => $e->getMessage(),
+                ]);
+            }
+        }
+
+        $parts = [];
+        if ($enabled) {
+            $parts[] = "Publicados en Marketplace: {$updated}";
+            if ($syncFailed > 0) $parts[] = "({$syncFailed} con sync pendiente)";
+            if (!empty($skipped))  $parts[] = "Saltados (sin código interno): " . count($skipped);
+        } else {
+            $parts[] = "Retirados de Marketplace: {$updated}";
+        }
+
+        return [
+            'success'    => true,
+            'message'    => implode(' · ', $parts),
+            'updated'    => $updated,
+            'skipped'    => $skipped,
+            'synced_ok'  => $syncedOk,
+            'sync_failed' => $syncFailed,
+        ];
+    }
+
+    /**
      * KPIs agregados de los listings del tenant en ebaemy.com/marketplace.
      * Consulta la BD central (MarketplaceListing usa UsesSystemConnection) filtrada
      * por hostname_id del tenant activo. Si no hay listings, devuelve ceros.
