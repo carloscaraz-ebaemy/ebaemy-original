@@ -332,6 +332,25 @@
                                     style="margin-left:5px;vertical-align:middle;font-size:10px;">
                                 Variantes
                             </el-tag>
+                            <div style="margin-top:3px;display:flex;flex-wrap:wrap;gap:3px">
+                                <el-tooltip v-if="row.apply_store" content="Publicado en tu tienda online" placement="top">
+                                    <span style="display:inline-flex;align-items:center;gap:3px;font-size:10px;padding:2px 6px;background:#ecfdf5;color:#065f46;border-radius:4px;font-weight:500">🛍️ Tienda</span>
+                                </el-tooltip>
+                                <template v-if="row.marketplace_publishable">
+                                    <el-tooltip v-if="row.mp_status === 'active'" content="Publicado en Marketplace ebaemy" placement="top">
+                                        <span style="display:inline-flex;align-items:center;gap:3px;font-size:10px;padding:2px 6px;background:#ede9fe;color:#5b21b6;border-radius:4px;font-weight:500">🌐 Marketplace</span>
+                                    </el-tooltip>
+                                    <el-tooltip v-else-if="row.mp_status === 'pending' || !row.mp_status" content="Pendiente de aprobación en Marketplace" placement="top">
+                                        <span style="display:inline-flex;align-items:center;gap:3px;font-size:10px;padding:2px 6px;background:#fef3c7;color:#92400e;border-radius:4px;font-weight:500">⏳ Pendiente MP</span>
+                                    </el-tooltip>
+                                    <el-tooltip v-else-if="row.mp_status === 'paused'" content="Pausado en Marketplace" placement="top">
+                                        <span style="display:inline-flex;align-items:center;gap:3px;font-size:10px;padding:2px 6px;background:#f3f4f6;color:#374151;border-radius:4px;font-weight:500">⏸️ MP pausado</span>
+                                    </el-tooltip>
+                                    <el-tooltip v-else-if="row.mp_status === 'rejected'" :content="'Rechazado: ' + (row.rejection_reason || 'sin motivo')" placement="top">
+                                        <span style="display:inline-flex;align-items:center;gap:3px;font-size:10px;padding:2px 6px;background:#fee2e2;color:#991b1b;border-radius:4px;font-weight:500">❌ MP rechazado</span>
+                                    </el-tooltip>
+                                </template>
+                            </div>
                         </td>
                         <td v-if="columns.description.visible">
                             {{ row.name }}

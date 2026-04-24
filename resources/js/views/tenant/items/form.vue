@@ -595,6 +595,107 @@
                     </div>
                 </el-tab-pane>
 
+                <el-tab-pane name="channels">
+                    <span slot="label">🛒 Canales de venta</span>
+                    <div class="row">
+                        <div class="col-md-12" style="margin-bottom:12px">
+                            <div class="alert alert-info py-2 mb-2" style="font-size:13px">
+                                <strong>Este es tu producto maestro.</strong> Desde aquí decides en qué canales se publica.
+                                No se duplica: es el mismo producto en tu catálogo, tu tienda online y el marketplace.
+                            </div>
+                        </div>
+
+                        <!-- Canal 1: Venta interna -->
+                        <div class="col-md-12" style="margin-bottom:16px;padding:14px 16px;background:#f9fafb;border:1px solid #e5e7eb;border-radius:10px">
+                            <div style="display:flex;align-items:flex-start;gap:10px">
+                                <div style="font-size:22px;line-height:1">🏢</div>
+                                <div style="flex:1">
+                                    <div style="font-weight:600;font-size:14px;color:#111827">Venta interna / POS</div>
+                                    <div style="font-size:12px;color:#6b7280;margin-top:2px">Siempre disponible para facturación, boletas y notas de venta desde el punto de venta.</div>
+                                </div>
+                                <span class="badge" style="background:#10b981;color:#fff;padding:4px 10px;border-radius:6px;font-size:11px;font-weight:600">Activo</span>
+                            </div>
+                        </div>
+
+                        <!-- Canal 2: Tienda virtual -->
+                        <div class="col-md-12" style="margin-bottom:16px;padding:14px 16px;background:#fff;border:1px solid #e5e7eb;border-radius:10px">
+                            <div style="display:flex;align-items:flex-start;gap:10px">
+                                <div style="font-size:22px;line-height:1">🛍️</div>
+                                <div style="flex:1">
+                                    <div style="display:flex;align-items:center;gap:8px">
+                                        <el-switch v-model="form.apply_store" active-color="#0f8a82"></el-switch>
+                                        <span style="font-weight:600;font-size:14px;color:#111827">Publicar en mi tienda online</span>
+                                    </div>
+                                    <div style="font-size:12px;color:#6b7280;margin-top:2px">Muestra el producto en la ruta <code>/ecommerce</code> de tu tienda virtual privada. El precio y stock salen de este mismo producto.</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Canal 3: Marketplace ebaemy -->
+                        <div class="col-md-12" style="margin-bottom:16px;padding:14px 16px;background:#fff;border:1px solid #e5e7eb;border-radius:10px">
+                            <div style="display:flex;align-items:flex-start;gap:10px">
+                                <div style="font-size:22px;line-height:1">🌐</div>
+                                <div style="flex:1">
+                                    <div style="display:flex;align-items:center;gap:8px">
+                                        <el-switch v-model="form.marketplace_publishable" active-color="#7c3aed"></el-switch>
+                                        <span style="font-weight:600;font-size:14px;color:#111827">Publicar en Marketplace ebaemy</span>
+                                        <el-tooltip content="Aparecerá en ebaemy.com/marketplace. Miles de compradores de todo Perú podrán descubrirlo." placement="top">
+                                            <i class="el-icon-info text-info" style="font-size:15px;cursor:help"></i>
+                                        </el-tooltip>
+                                    </div>
+                                    <div style="font-size:12px;color:#6b7280;margin-top:2px">Llega a compradores de todo Perú vía <strong>ebaemy.com</strong>. Las ventas entran como pedidos a tu tenant.</div>
+
+                                    <div v-if="form.marketplace_publishable" style="margin-top:12px;padding:12px;background:#faf5ff;border:1px solid #e9d5ff;border-radius:8px">
+                                        <label style="display:block;font-size:12px;color:#6b21a8;margin-bottom:4px;font-weight:500">Categoría oficial del marketplace *</label>
+                                        <el-cascader
+                                            v-model="form.marketplace_category_path"
+                                            :options="mp_category_tree"
+                                            :props="{ value: 'id', label: 'name', children: 'children', checkStrictly: false, emitPath: true }"
+                                            :show-all-levels="true"
+                                            placeholder="Selecciona una categoría…"
+                                            filterable clearable size="mini" style="width:100%"
+                                            @change="onMpCategoryChange">
+                                        </el-cascader>
+                                        <div style="display:flex;justify-content:space-between;align-items:center;margin-top:4px">
+                                            <small style="color:#7c3aed;font-size:11px">El producto aparecerá bajo esta categoría en el marketplace.</small>
+                                            <a href="#" @click.prevent="openMpCategoryRequest" style="font-size:11px;color:#7c3aed;text-decoration:underline">
+                                                ¿No encuentras categoría?
+                                            </a>
+                                        </div>
+
+                                        <div class="row" style="margin-top:10px">
+                                            <div class="col-md-6">
+                                                <label style="display:block;font-size:12px;color:#6b21a8;margin-bottom:4px;font-weight:500">Precio en marketplace (opcional)</label>
+                                                <el-input-number v-model="form.mp_price" :min="0" :precision="2" :step="1"
+                                                    placeholder="Usar precio normal" controls-position="right" size="mini"
+                                                    style="width:100%"></el-input-number>
+                                                <small style="color:#7c3aed;font-size:11px">Vacío = usar precio de venta.</small>
+                                            </div>
+                                            <div class="col-md-6">
+                                                <label style="display:block;font-size:12px;color:#6b21a8;margin-bottom:4px;font-weight:500">Estado marketplace</label>
+                                                <div style="padding:6px 10px;background:#fff;border:1px solid #e9d5ff;border-radius:6px;font-size:12px;color:#6b21a8">
+                                                    <span v-if="!form.mp_status || form.mp_status==='pending'">⏳ Pendiente de revisión</span>
+                                                    <span v-else-if="form.mp_status==='active'">✅ Publicado</span>
+                                                    <span v-else-if="form.mp_status==='paused'">⏸️ Pausado</span>
+                                                    <span v-else-if="form.mp_status==='rejected'">❌ Rechazado</span>
+                                                    <span v-else>{{ form.mp_status }}</span>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <div style="margin-top:10px">
+                                            <label style="display:block;font-size:12px;color:#6b21a8;margin-bottom:4px;font-weight:500">Notas / descripción marketplace (opcional)</label>
+                                            <el-input v-model="form.mp_notes" type="textarea" :rows="2" size="mini"
+                                                placeholder="Descripción extendida que verán los compradores en ebaemy.com…"></el-input>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                    </div>
+                </el-tab-pane>
+
                 <el-tab-pane class
                              v-if="!isService"
                              name="second">
@@ -1294,6 +1395,36 @@
             @addRowLot="addRowLot">
         </lots-form>
 
+        <el-dialog title="Solicitar nueva categoría" :visible.sync="mp_category_request_dialog" width="500px" append-to-body>
+            <div style="font-size:13px;color:#555;margin-bottom:12px">
+                Si no encuentras una categoría adecuada, envíala al equipo de ebaemy. Te avisaremos cuando sea aprobada.
+            </div>
+            <el-form label-position="top" size="small">
+                <el-form-item label="Nombre sugerido *">
+                    <el-input v-model="mp_category_request_form.suggested_name" placeholder="Ej: Accesorios para gatos"></el-input>
+                </el-form-item>
+                <el-form-item label="Categoría padre sugerida (opcional)">
+                    <el-cascader
+                        v-model="mp_category_request_form._parent_path"
+                        :options="mp_category_tree"
+                        :props="{ value: 'id', label: 'name', children: 'children', checkStrictly: true, emitPath: true }"
+                        :show-all-levels="true"
+                        placeholder="Sin padre (categoría raíz)"
+                        filterable clearable style="width:100%"
+                        @change="onMpRequestParentChange">
+                    </el-cascader>
+                </el-form-item>
+                <el-form-item label="Descripción / motivo (opcional)">
+                    <el-input v-model="mp_category_request_form.description" type="textarea" :rows="3"
+                        placeholder="¿Qué tipo de productos publicarías aquí?"></el-input>
+                </el-form-item>
+            </el-form>
+            <span slot="footer">
+                <el-button size="small" @click="mp_category_request_dialog = false">Cancelar</el-button>
+                <el-button size="small" type="primary" :loading="mp_category_request_sending" @click="submitMpCategoryRequest">Enviar solicitud</el-button>
+            </span>
+        </el-dialog>
+
     </el-dialog>
 </template>
 
@@ -1446,7 +1577,17 @@ export default {
             attribute_types: [],
             activeName: 'first',
             fromPharmacy: false,
-            inventory_configuration: null
+            inventory_configuration: null,
+            mp_category_tree: [],
+            mp_category_loading: false,
+            mp_category_request_dialog: false,
+            mp_category_request_form: {
+                suggested_name: '',
+                suggested_parent_id: null,
+                description: '',
+                _parent_path: [],
+            },
+            mp_category_request_sending: false,
         }
     },
     async created() {
@@ -1516,7 +1657,7 @@ export default {
             if (!this.config.enable_list_product && this.form.item_unit_types.length > 0) {
                 const selectedUnit = this.unit_types.find(u => u.id === newValue);
                 const unitDescription = selectedUnit ? selectedUnit.description : '';
-                
+
                 this.form.item_unit_types.forEach(item => {
                     if (!item.id) {
                         item.unit_type_id = newValue;
@@ -1525,7 +1666,10 @@ export default {
                     }
                 });
             }
-        }
+        },
+        'form.marketplace_publishable'(val) {
+            if (val) this.loadMarketplaceCategoryTree()
+        },
     },
 
     methods: {
@@ -1735,6 +1879,14 @@ export default {
                 restrict_sale_cpe: false,
                 warehouse_id: null,
 
+                // Canales de venta (Opción A de unificación UX)
+                apply_store: false,
+                marketplace_publishable: false,
+                mp_price: null,
+                mp_notes: null,
+                mp_status: null,
+                marketplace_category_id: null,
+                marketplace_category_path: [],
             }
 
             this.show_has_igv = true
@@ -1914,11 +2066,63 @@ this.activeName =  'first'
                 this.$http.get(`/${this.resource}/record/${this.recordId}`)
                     .then(response => {
                         this.form = response.data.data
-                        console.error(this.form.is_for_production)
+                        if (!Array.isArray(this.form.marketplace_category_path)) {
+                            this.form.marketplace_category_path = []
+                        }
                         this.changeAffectationIgvType()
                         this.changePurchaseAffectationIgvType()
                     })
             }
+        },
+        loadMarketplaceCategoryTree() {
+            if (this.mp_category_tree.length || this.mp_category_loading) return
+            this.mp_category_loading = true
+            this.$http.get('/marketplace-categories/tree')
+                .then(res => { this.mp_category_tree = res.data.tree || [] })
+                .catch(() => { this.mp_category_tree = [] })
+                .then(() => { this.mp_category_loading = false })
+        },
+        onMpCategoryChange(path) {
+            const lastId = Array.isArray(path) && path.length ? path[path.length - 1] : null
+            this.form.marketplace_category_id = lastId
+        },
+        openMpCategoryRequest() {
+            this.mp_category_request_form = {
+                suggested_name: '',
+                suggested_parent_id: null,
+                description: '',
+                _parent_path: [],
+            }
+            this.mp_category_request_dialog = true
+        },
+        onMpRequestParentChange(path) {
+            const lastId = Array.isArray(path) && path.length ? path[path.length - 1] : null
+            this.mp_category_request_form.suggested_parent_id = lastId
+        },
+        submitMpCategoryRequest() {
+            if (!this.mp_category_request_form.suggested_name || !this.mp_category_request_form.suggested_name.trim()) {
+                return this.$message.error('Ingresa el nombre sugerido de la categoría.')
+            }
+            this.mp_category_request_sending = true
+            this.$http.post('/marketplace-categories/request-new', {
+                suggested_name: this.mp_category_request_form.suggested_name.trim(),
+                suggested_parent_id: this.mp_category_request_form.suggested_parent_id,
+                description: this.mp_category_request_form.description,
+                product_id: this.form.id,
+            })
+                .then(res => {
+                    if (res.data.success) {
+                        this.$message.success(res.data.message || 'Solicitud enviada.')
+                        this.mp_category_request_dialog = false
+                    } else {
+                        this.$message.error(res.data.message || 'No se pudo enviar la solicitud.')
+                    }
+                })
+                .catch(err => {
+                    const msg = (err.response && err.response.data && err.response.data.message) || 'Error al enviar la solicitud.'
+                    this.$message.error(msg)
+                })
+                .then(() => { this.mp_category_request_sending = false })
         },
         calculatePercentageOfProfitBySale() {
             let difference = parseFloat(this.form.sale_unit_price) - parseFloat(this.form.purchase_unit_price);
@@ -1980,6 +2184,10 @@ this.activeName =  'first'
                 }
             }
             if (this.form.has_perception && !this.form.percentage_perception) return this.$message.error('Ingrese un porcentaje');
+
+            if (this.form.marketplace_publishable && !this.form.marketplace_category_id) {
+                return this.$message.error('Selecciona una categoría oficial en "Canales de venta" antes de publicar en marketplace.')
+            }
 
             if (this.form.lots_enabled && stock > 0) {
 

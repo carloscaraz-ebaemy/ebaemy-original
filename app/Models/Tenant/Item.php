@@ -1543,6 +1543,7 @@ class Item extends ModelTenant
             'marketplace_publishable' => (bool) ($this->marketplace_publishable ?? false),
             'mp_price'   => $this->mp_price,
             'mp_status'  => $this->mp_status,
+            'mp_notes'   => $this->mp_notes,
             'marketplace_category_id'   => $this->marketplace_category_id,
             'marketplace_category_path' => $this->resolveMarketplaceCategoryPath(),
 
