@@ -2,6 +2,7 @@
 
 namespace App\Services\System;
 
+use App\CoreFacturalo\Services\Ruc\Sunat as SunatScraper;
 use Exception;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -18,7 +19,12 @@ use Illuminate\Support\Facades\Log;
  *   - decolecta.com       → https://api.decolecta.com/v1/sunat/ruc
  *   - factiliza           → https://api.factiliza.com/pe/v1/ruc/info
  *
- * Si la API falla o no está configurada, el service NO bloquea la solicitud:
+ * Orden de consulta:
+ *   1. API externa (si RUC_VALIDATION_API_URL está configurada)  — rápida, estable
+ *   2. Scraper oficial SUNAT (App\CoreFacturalo\Services\Ruc\Sunat) — gratis, sin token
+ *   3. Manual review — si ambos fallan, el SuperAdmin valida a ojo
+ *
+ * Si ambos providers fallan, el service NO bloquea la solicitud:
  * devuelve 'requires_manual_review' = true para que el SuperAdmin lo revise
  * manualmente desde el panel. Esto evita que la disponibilidad de un provider
  * externo bloquee el onboarding.
@@ -69,24 +75,94 @@ class RucValidationService
             return $this->invalidFormat("RUC con prefijo inválido ({$prefix}). Debe empezar con 10, 15, 17 o 20.");
         }
 
-        // 3. Intentar validación con API externa si está configurada
+        // 3a. Intentar validación con API externa si está configurada
         $url = config('services.ruc_validation.url');
-        if (!$url) {
-            Log::info('RucValidationService: sin API configurada, requiere revisión manual', ['ruc' => $ruc]);
-            return $this->manualReview('API de validación RUC no configurada');
+        if ($url) {
+            try {
+                $response = $this->callExternalApi($url, $ruc);
+                return $this->normalizeResponse($response);
+            } catch (Exception $e) {
+                Log::warning('RucValidationService: API externa falló, intentando scraper SUNAT', [
+                    'ruc'   => $ruc,
+                    'url'   => $url,
+                    'error' => $e->getMessage(),
+                ]);
+                // Cae al fallback del scraper
+            }
         }
 
+        // 3b. Fallback: scraper oficial SUNAT (App\CoreFacturalo\Services\Ruc\Sunat)
+        // Es gratis, sin token, pero frágil (depende del HTML del portal SUNAT).
         try {
-            $response = $this->callExternalApi($url, $ruc);
-            return $this->normalizeResponse($response);
+            $sunatResult = $this->callSunatScraper($ruc);
+            if ($sunatResult !== null) {
+                return $sunatResult;
+            }
         } catch (Exception $e) {
-            Log::warning('RucValidationService: llamada a API falló', [
+            Log::warning('RucValidationService: scraper SUNAT falló', [
                 'ruc'   => $ruc,
-                'url'   => $url,
                 'error' => $e->getMessage(),
             ]);
-            return $this->manualReview($e->getMessage());
         }
+
+        // 3c. Ambos fallaron → manual review
+        Log::info('RucValidationService: ningún provider disponible, requiere revisión manual', ['ruc' => $ruc]);
+        return $this->manualReview('No pudimos consultar SUNAT en este momento');
+    }
+
+    /**
+     * Fallback gratuito: consulta el portal público de SUNAT usando el
+     * scraper ya implementado en App\CoreFacturalo\Services\Ruc\Sunat.
+     *
+     * Retorna null si el scraper no encuentra datos. Lanza Exception si
+     * el portal cambia de estructura o falla la conexión.
+     */
+    private function callSunatScraper(string $ruc): ?array
+    {
+        $scraper = new SunatScraper();
+        $company = $scraper->get($ruc);
+
+        if ($company === false) {
+            // RUC no encontrado o error parseo
+            $error = $scraper->getError();
+            if ($error && stripos($error, 'no se encontro') !== false) {
+                return [
+                    'valid'                  => false,
+                    'status'                 => self::STATUS_UNKNOWN,
+                    'condition'              => null,
+                    'business_name'          => null,
+                    'fiscal_address'         => null,
+                    'department'             => null,
+                    'province'               => null,
+                    'district'               => null,
+                    'raw'                    => null,
+                    'error'                  => 'RUC no encontrado en SUNAT',
+                    'requires_manual_review' => false,
+                ];
+            }
+            return null; // error técnico → caller cae a manual review
+        }
+
+        // Normalizar respuesta del scraper al formato estándar del service
+        return [
+            'valid'                  => true,
+            'status'                 => $this->mapStatus($company->estado    ?? null),
+            'condition'              => $this->mapCondition($company->condicion ?? null),
+            'business_name'          => $company->razonSocial ?? null,
+            'fiscal_address'         => isset($company->direccion) ? trim((string) $company->direccion) : null,
+            'department'             => $company->departamento ?? null,
+            'province'               => $company->provincia   ?? null,
+            'district'               => $company->distrito    ?? null,
+            'raw'                    => [
+                'provider'        => 'sunat_scraper',
+                'tipo'            => $company->tipo ?? null,
+                'nombre_comercial'=> $company->nombreComercial ?? null,
+                'fecha_inscripcion' => $company->fechaInscripcion ?? null,
+            ],
+            'error'                  => null,
+            'requires_manual_review' => $this->mapStatus($company->estado ?? null) !== self::STATUS_ACTIVO
+                                     || $this->mapCondition($company->condicion ?? null) !== self::CONDITION_HABIDO,
+        ];
     }
 
     /**
