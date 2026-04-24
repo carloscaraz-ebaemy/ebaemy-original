@@ -10,9 +10,18 @@ class TrustProxies extends Middleware
     /**
      * The trusted proxies for this application.
      *
-     * @var array
+     * En producción corremos detrás de OpenResty que termina TLS y reenvía
+     * a PHP-FPM vía HTTP con el header `X-Forwarded-Proto: https`. Si dejamos
+     * $proxies en null, Laravel ignora ese header y genera URLs con http://,
+     * rompiendo paginación AJAX (CSP connect-src violation + pushState
+     * SecurityError por cross-origin).
+     *
+     * '*' confía en cualquier proxy en la cadena — seguro porque PHP-FPM
+     * solo escucha en socket unix local (no expuesto a internet).
+     *
+     * @var array|string|null
      */
-    protected $proxies;
+    protected $proxies = '*';
 
     /**
      * The headers that should be used to detect proxies.

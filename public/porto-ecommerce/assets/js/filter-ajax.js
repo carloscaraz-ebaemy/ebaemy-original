@@ -104,6 +104,14 @@
         // Only intercept pagination links (they contain page=)
         if (!href || href.indexOf('page=') === -1) return;
 
+        // Si la página actual está en HTTPS pero el link generado por el
+        // servidor es HTTP (caso típico detrás de proxy reverso sin
+        // X-Forwarded-Proto configurado), normalizar para evitar CSP
+        // connect-src violation y SecurityError en pushState.
+        if (window.location.protocol === 'https:' && /^http:\/\//i.test(href)) {
+            href = href.replace(/^http:\/\//i, 'https://');
+        }
+
         e.preventDefault();
         fetchResults(href, true); // true = update URL
     });
@@ -239,7 +247,18 @@
         // Update URL without reload
         if (updateHistory && window.history && window.history.pushState) {
             var displayUrl = explicitUrl || buildUrl(window.location.pathname);
-            window.history.pushState({ ec_filter: true }, '', displayUrl);
+            // Protege contra SecurityError si el explicitUrl viene con http
+            // mientras la página está en https (cross-origin para el browser).
+            if (window.location.protocol === 'https:' && /^http:\/\//i.test(displayUrl)) {
+                displayUrl = displayUrl.replace(/^http:\/\//i, 'https://');
+            }
+            try {
+                window.history.pushState({ ec_filter: true }, '', displayUrl);
+            } catch (err) {
+                // Silencioso: si aún falla, no importa — el contenido ya se
+                // actualizó via AJAX; solo la barra URL queda como estaba.
+                console.warn('filter-ajax: pushState skipped', err.message);
+            }
         }
     }
 
