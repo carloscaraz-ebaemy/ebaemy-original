@@ -232,7 +232,7 @@
         <a href="#como-funciona">Cómo funciona</a>
         <a href="{{ url('/marketplace') }}">Ir al marketplace</a>
     </div>
-    <a href="#cta" class="sl-nav-cta">Empezar ahora</a>
+    <a href="{{ route('seller.register') }}" class="sl-nav-cta">Empezar ahora</a>
 </nav>
 
 <section class="sl-hero">
@@ -241,7 +241,7 @@
             <h1>Vende en <span class="gradient">ebaemy</span><br>y haz crecer tu negocio.</h1>
             <p>Publica tus productos en nuestro marketplace, ten tu propia tienda virtual, controla stock e inventario, y emite comprobantes electrónicos — todo desde un solo panel.</p>
             <div class="sl-hero-actions">
-                <a href="#cta" class="sl-btn sl-btn-primary">
+                <a href="{{ route('seller.register') }}" class="sl-btn sl-btn-primary">
                     Crear solicitud de vendedor
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
                 </a>
@@ -357,13 +357,10 @@
 <section class="sl-cta" id="cta">
     <h2>¿Listo para vender en ebaemy?</h2>
     <p>Crea tu solicitud de vendedor en minutos. Nuestro equipo revisará tus datos y activaremos tu tienda.</p>
-    <a href="{{ url('/guest-register') }}" class="sl-btn sl-btn-primary">
+    <a href="{{ route('seller.register') }}" class="sl-btn sl-btn-primary">
         Crear solicitud de vendedor
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
     </a>
-    <div class="sl-phase-note">
-        El formulario dedicado de pre-registro con validación RUC, aprobación manual y portal de seguimiento estará disponible próximamente. Mientras tanto puedes crear tu cuenta mediante el registro actual.
-    </div>
 </section>
 
 <footer class="sl-footer">

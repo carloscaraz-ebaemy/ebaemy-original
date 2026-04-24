@@ -1140,11 +1140,28 @@ if ($hostname) {
         Route::get('robots.txt',                  'MarketplaceController@robots')->name('marketplace.robots');
 
         // ─── Onboarding de sellers (captación pública) ───────────────────────
-        // Landing para vendedores — reemplaza el botón "Vender en ebaemy" del
-        // marketplace que antes apuntaba erróneamente al login del SuperAdmin.
-        // Formulario de pre-registro y portal de seguimiento se agregan en
-        // fases posteriores (ver plan de onboarding de sellers).
+        // Flujo completo:
+        //   /seller                          → landing informativa
+        //   /seller/register                 → form multi-paso de pre-registro
+        //   /seller/register/validate-ruc    → AJAX: autocomplete desde SUNAT
+        //   /seller/register/check-subdomain → AJAX: disponibilidad
+        //   /seller/application/{token}      → portal de seguimiento
+        // La aprobación manual la hace el SuperAdmin desde
+        // /admin/seller-applications (definido arriba, bajo auth:admin).
         Route::get('seller', 'SellerLandingController@show')->name('seller.landing');
+        Route::get('seller/register', 'SellerRegistrationController@create')->name('seller.register');
+        Route::post('seller/register', 'SellerRegistrationController@store')
+             ->middleware('throttle:5,60')
+             ->name('seller.register.store');
+        Route::get('seller/register/validate-ruc', 'SellerRegistrationController@validateRuc')
+             ->middleware('throttle:30,1')
+             ->name('seller.register.validate_ruc');
+        Route::get('seller/register/check-subdomain', 'SellerRegistrationController@checkSubdomain')
+             ->middleware('throttle:30,1')
+             ->name('seller.register.check_subdomain');
+        Route::get('seller/application/{token}', 'SellerApplicationStatusController@show')
+             ->where('token', '[A-Za-z0-9]+')
+             ->name('seller.application.status');
 
         // Root del central: visitantes caen al marketplace; admins logueados
         // ven su dashboard (HomeController lo maneja internamente vía auth).
