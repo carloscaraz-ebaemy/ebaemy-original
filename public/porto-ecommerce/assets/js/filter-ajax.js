@@ -8,6 +8,23 @@
     var resultsWrap = document.getElementById('ec-filter-results');
     if (!form || !resultsWrap) return;
 
+    // Si el usuario llegó a la página con ?_ajax=1 pegado en la barra
+    // (residuo de navegaciones viejas o de un redirect), limpiar la URL
+    // visible sin recargar. El parámetro solo tiene sentido para XHR interno.
+    (function cleanAjaxMarker() {
+        if (!window.history || !window.history.replaceState) return;
+        var currentSearch = window.location.search;
+        if (currentSearch.indexOf('_ajax=1') === -1) return;
+        var cleanSearch = currentSearch
+            .replace(/([?&])_ajax=1(&|$)/, function (_m, pre, post) {
+                return post === '&' ? pre : '';
+            })
+            .replace(/^&/, '?')
+            .replace(/\?$/, '');
+        var cleanUrl = window.location.pathname + cleanSearch + window.location.hash;
+        try { window.history.replaceState(null, '', cleanUrl); } catch (e) {}
+    })();
+
     var ajaxUrl     = form.getAttribute('data-ajax-url') || window.location.pathname;
     var debounceTimer = null;
     var currentXhr    = null;
@@ -111,6 +128,12 @@
         if (window.location.protocol === 'https:' && /^http:\/\//i.test(href)) {
             href = href.replace(/^http:\/\//i, 'https://');
         }
+
+        // Limpiar `_ajax=1` si el servidor lo dejó en el link (no debería,
+        // pero Laravel preserva algunos querystrings en appends del paginator).
+        href = href.replace(/([?&])_ajax=1(&|$)/, function (_m, pre, post) {
+            return post === '&' ? pre : '';
+        }).replace(/\?$/, '');
 
         e.preventDefault();
         fetchResults(href, true); // true = update URL
