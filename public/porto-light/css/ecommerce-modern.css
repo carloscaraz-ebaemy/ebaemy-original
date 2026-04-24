@@ -2213,3 +2213,358 @@ img.ec-img-lazy[src*="placeholder"] {
 [data-theme="dark"] #ec-main-header.ec-header--scrolled {
     background: rgba(30, 41, 59, .92);
 }
+
+/* ══════════════════════════════════════════════════════════════════════════
+ *  FASE 8 — CONVERSION POLISH
+ *  Unificar paleta + cards que venden + hero con urgencia + botones fuertes
+ *  Todo deriva del --primary-h/s/l del tenant para respetar su branding.
+ * ══════════════════════════════════════════════════════════════════════════ */
+
+:root {
+    /* Paleta unificada derivada del primary del tenant.
+       Antes había mezcla de naranjas/morados/verdes hardcoded — ahora todo
+       sale del HSL del tenant por consistencia visual. */
+    --ec-primary-50:  hsl(var(--primary-h), var(--primary-s), 96%);
+    --ec-primary-100: hsl(var(--primary-h), var(--primary-s), 90%);
+    --ec-primary-200: hsl(var(--primary-h), var(--primary-s), 80%);
+    --ec-primary-400: hsl(var(--primary-h), var(--primary-s), 55%);
+    --ec-primary-600: hsl(var(--primary-h), var(--primary-s), calc(var(--primary-l) - 8%));
+    --ec-primary-700: hsl(var(--primary-h), var(--primary-s), calc(var(--primary-l) - 16%));
+
+    /* Acento cálido para urgencia/descuentos — rotación +30° del primary
+       para un secondary armónico. Si el primary es morado, sale naranja.
+       Si es naranja, sale rojo. Siempre complementa, no compite. */
+    --ec-accent: hsl(calc(var(--primary-h) + 30), var(--primary-s), 52%);
+    --ec-accent-soft: hsl(calc(var(--primary-h) + 30), var(--primary-s), 94%);
+
+    /* Shadows con tinte del primary para sensación de marca */
+    --ec-primary-glow: 0 10px 24px -6px hsla(var(--primary-h), var(--primary-s), 40%, .35);
+    --ec-primary-glow-sm: 0 4px 12px -3px hsla(var(--primary-h), var(--primary-s), 40%, .28);
+}
+
+/* ── CARDS v2 — diseño que convierte ──────────────────────────────────── */
+
+/* Hover más dramático (3D + sombra coloreada sutil) */
+.pcard:hover {
+    transform: translateY(-4px) scale(1.01);
+    box-shadow: 0 20px 40px -12px rgba(15, 23, 42, .18),
+                0 8px 16px -4px hsla(var(--primary-h), var(--primary-s), 40%, .08);
+}
+
+/* Badges v2 — más presentes */
+.pbadge {
+    padding: 5px 10px !important;
+    font-size: 10px !important;
+    font-weight: 800 !important;
+    letter-spacing: .04em;
+    box-shadow: 0 4px 10px -2px rgba(15, 23, 42, .2) !important;
+}
+
+.pbadge--new {
+    background: var(--ec-primary) !important;
+    color: #fff !important;
+}
+
+.pbadge--hot {
+    /* Rojo urgencia — es universal para "últimas unidades" */
+    background: linear-gradient(135deg, #ef4444, #dc2626) !important;
+    color: #fff !important;
+}
+
+.pbadge--oos {
+    background: rgba(55, 65, 81, .95) !important;
+    color: #fff !important;
+}
+
+.pbadge--variants {
+    background: rgba(255, 255, 255, .96) !important;
+    color: var(--ec-ink) !important;
+    border: 1px solid var(--ec-line-soft) !important;
+    box-shadow: var(--ec-shadow-sm) !important;
+}
+
+/* Precio más presente en la card (grande, bold, con "antes" encima) */
+.pcard__price {
+    gap: 8px;
+    padding-top: 4px;
+    flex-direction: column;
+    align-items: flex-start !important;
+    gap: 0;
+}
+
+.pcard__price-current {
+    font-size: 20px !important;
+    font-weight: 800 !important;
+    color: var(--ec-ink) !important;
+    line-height: 1.15 !important;
+}
+
+/* Cuando hay descuento (precio anterior + actual), apilar */
+.pcard__price > span[style*="line-through"] {
+    font-size: 12px !important;
+    margin: 0 !important;
+    display: block;
+    order: -1;
+    color: var(--ec-ink-muted) !important;
+}
+
+/* CTA más fuerte en la card — este es el "Agregar al carrito" */
+.pcard__cta {
+    padding: 11px 14px !important;
+    font-size: 13px !important;
+    font-weight: 700 !important;
+    letter-spacing: .01em;
+    box-shadow: var(--ec-primary-glow-sm) !important;
+    margin-top: 12px !important;
+}
+
+.pcard__cta:hover {
+    box-shadow: var(--ec-primary-glow) !important;
+    transform: translateY(-2px) scale(1.02);
+}
+
+.pcard__cta:active {
+    transform: translateY(0) scale(.99);
+}
+
+/* Stock pill más visible cuando es bajo (comunica urgencia) */
+.pcard__low-stock {
+    background: #fff1f2;
+    border: 1px solid #fecaca;
+    padding: 6px 10px;
+    border-radius: var(--ec-radius-sm);
+    margin-top: 6px !important;
+}
+
+.pcard__low-stock span {
+    color: #dc2626 !important;
+    font-size: 11px !important;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    margin-bottom: 4px !important;
+}
+
+.pcard__low-stock span::before {
+    content: '🔥';
+    font-size: 11px;
+}
+
+/* Stock normal (en stock sin alerta) */
+.pcard__stock-pill {
+    font-size: 11px !important;
+    font-weight: 600 !important;
+}
+
+/* Ring animado alrededor del dot verde para llamar atención */
+.pcard__stock-dot {
+    position: relative;
+}
+.pcard__stock-dot::after {
+    content: '';
+    position: absolute;
+    inset: -3px;
+    border-radius: 50%;
+    border: 2px solid rgba(16, 185, 129, .3);
+    animation: ec-pulse-ring 2s ease-out infinite;
+}
+@keyframes ec-pulse-ring {
+    0%   { opacity: 1; transform: scale(.5); }
+    100% { opacity: 0; transform: scale(1.5); }
+}
+
+/* ── HERO v2 — urgencia + CTA overlay ─────────────────────────────────── */
+
+/* Badge flotante de "oferta tiempo limitado" sobre el banner */
+.banner-slider-wrapper::before {
+    content: '🔥 Ofertas por tiempo limitado';
+    position: absolute;
+    top: 14px;
+    left: 14px;
+    z-index: 4;
+    padding: 7px 14px;
+    border-radius: var(--ec-radius-pill);
+    background: rgba(239, 68, 68, .95);
+    color: #fff;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+    box-shadow: 0 6px 16px -3px rgba(239, 68, 68, .5);
+    pointer-events: none;
+    animation: ec-badge-in 600ms var(--ec-ease-bounce) 300ms both;
+}
+
+@keyframes ec-badge-in {
+    from { opacity: 0; transform: translateY(-8px) scale(.9); }
+    to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@media (max-width: 575px) {
+    .banner-slider-wrapper::before {
+        font-size: 10px;
+        padding: 5px 10px;
+        top: 10px;
+        left: 10px;
+    }
+}
+
+/* ── Trust strip alineado (confianza/conversión) ──────────────────────── */
+.ec-trust-badges {
+    background: linear-gradient(180deg, var(--ec-bg-soft), #fff);
+    border-radius: var(--ec-radius-xl);
+}
+
+/* Los iconos del trust strip ganan un fondo suave para separación */
+.ec-trust-item svg {
+    background: var(--ec-primary-50);
+    padding: 8px;
+    border-radius: var(--ec-radius-md);
+    box-sizing: content-box;
+}
+
+/* ── BOTONES v2 — todos consistentes con glow del primary ────────────── */
+
+/* El CTA del detalle (Agregar al Carrito grande) */
+.product-single-details .paction.add-cart {
+    font-size: 15px !important;
+    letter-spacing: .02em;
+    text-transform: uppercase;
+    box-shadow: var(--ec-primary-glow) !important;
+    position: relative;
+    overflow: hidden;
+}
+
+/* Shimmer sutil al hover */
+.product-single-details .paction.add-cart::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -75%;
+    width: 50%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, .3), transparent);
+    transform: skewX(-20deg);
+    transition: left 600ms var(--ec-ease);
+}
+
+.product-single-details .paction.add-cart:hover::before {
+    left: 125%;
+}
+
+/* ec-btn-primary (carrito) con glow consistente */
+.ec-btn-primary {
+    box-shadow: var(--ec-primary-glow-sm) !important;
+}
+
+.ec-btn-primary:hover {
+    box-shadow: var(--ec-primary-glow) !important;
+}
+
+/* Primary en cart items + botones cart — usar el primary del tenant
+   (antes violeta hardcoded) */
+.ec-cart-item__subtotal {
+    color: var(--ec-primary-700) !important;
+}
+
+.ec-cart-badge {
+    background: var(--ec-accent) !important;
+}
+
+/* Progress bar del checkout (era violeta) ahora usa primary */
+.ec-progress-step--active .ec-progress-num {
+    background: var(--ec-primary) !important;
+    color: var(--ec-primary-ink) !important;
+    box-shadow: 0 0 0 4px hsla(var(--primary-h), var(--primary-s), 65%, .22);
+}
+
+/* Stepper del cart — mismo tratamiento */
+.ec-step--active .ec-step__num {
+    box-shadow: 0 0 0 4px hsla(var(--primary-h), var(--primary-s), 65%, .22);
+}
+
+/* Coupon box con tint del primary (era amarillo/neutro) */
+.ec-coupon-box,
+.ec-points-box {
+    background: var(--ec-primary-50);
+    border: 1px dashed var(--ec-primary-200);
+}
+
+/* Hero bar del checkout — gradient sutil del primary */
+.ec-hero-bar {
+    background: linear-gradient(135deg, var(--ec-primary-50), #fff);
+    border-color: var(--ec-primary-100);
+}
+
+/* ── Section titles con underline colored ─────────────────────────────── */
+.ec-section-title {
+    position: relative;
+    padding-bottom: 8px;
+}
+
+.ec-section-title::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    bottom: 0;
+    width: 40px;
+    height: 3px;
+    border-radius: 3px;
+    background: var(--ec-primary);
+}
+
+/* ── Newsletter bar: refinamiento ─────────────────────────────────────── */
+.ec-newsletter-bar {
+    background: linear-gradient(135deg, var(--ec-primary) 0%, var(--ec-primary-700) 100%);
+    position: relative;
+    overflow: hidden;
+}
+
+/* Patrón decorativo sutil en el newsletter bar */
+.ec-newsletter-bar::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image:
+        radial-gradient(circle at 20% 30%, rgba(255, 255, 255, .1) 0, transparent 50%),
+        radial-gradient(circle at 80% 70%, rgba(255, 255, 255, .08) 0, transparent 50%);
+    pointer-events: none;
+}
+
+.ec-newsletter-bar__inner { position: relative; z-index: 1; }
+
+/* ── Microinteracciones: ripple en botones ────────────────────────────── */
+.ec-btn-primary,
+.pcard__cta,
+.paction.add-cart {
+    position: relative;
+    overflow: hidden;
+}
+
+/* Focus ring más visible y branded */
+.ec-modern button:focus-visible,
+.ec-modern a:focus-visible {
+    outline: 3px solid var(--ec-primary-400);
+    outline-offset: 2px;
+}
+
+/* ── Mobile refinado (cards táctiles) ────────────────────────────────── */
+@media (max-width: 575px) {
+    .pcard:hover {
+        /* En mobile no hay hover real; mantener translate mínimo al tap */
+        transform: none;
+    }
+    .pcard__cta {
+        padding: 12px 14px !important;
+        font-size: 13px !important;
+    }
+    .pcard__price-current {
+        font-size: 18px !important;
+    }
+    .pbadge { font-size: 9px !important; padding: 4px 8px !important; }
+}
+
+/* Espaciado para evitar que el badge flotante del hero choque con cards */
+.ec-home-section:first-of-type {
+    margin-top: var(--ec-space-5);
+}
