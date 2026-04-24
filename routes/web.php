@@ -1177,12 +1177,11 @@ if ($hostname) {
              ->middleware('throttle:5,60')
              ->name('seller.request_activation.store');
 
-        // Root del central: visitantes caen al marketplace; admins logueados
-        // ven su dashboard (HomeController lo maneja internamente vía auth).
+        // Root del central: SIEMPRE redirige al marketplace público.
+        // El SuperAdmin puede acceder a su dashboard manualmente vía
+        // /dashboard o /login — no tiene sentido que al visitar
+        // ebaemy.com vea el panel administrativo.
         Route::get('/', function () {
-            if (auth('admin')->check()) {
-                return redirect()->route('system.dashboard');
-            }
             return redirect()->route('marketplace.index');
         });
 
