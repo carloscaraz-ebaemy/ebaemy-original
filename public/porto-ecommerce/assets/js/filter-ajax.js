@@ -211,11 +211,26 @@
                 // Scroll to results
                 var top = resultsWrap.getBoundingClientRect().top + window.pageYOffset - 80;
                 window.scrollTo({ top: Math.max(0, top), behavior: 'smooth' });
+            } else if (explicitUrl) {
+                // Fallback: si la respuesta AJAX falló (500, 404, etc.) y
+                // teníamos una URL explícita (ej. paginación), navega nativo.
+                // Sin esto el paginador quedaba "sin responder".
+                console.warn('filter-ajax: AJAX falló (' + xhr.status + '), navegando directo');
+                window.location.href = explicitUrl;
+                return;
             }
             setLoading(false);
             currentXhr = null;
         };
-        xhr.onerror = xhr.onabort = function () {
+        xhr.onerror = function () {
+            setLoading(false);
+            currentXhr = null;
+            if (explicitUrl) {
+                console.warn('filter-ajax: network error, navegando directo');
+                window.location.href = explicitUrl;
+            }
+        };
+        xhr.onabort = function () {
             setLoading(false);
             currentXhr = null;
         };
