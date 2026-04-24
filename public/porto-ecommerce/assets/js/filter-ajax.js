@@ -4,13 +4,9 @@
 (function () {
     'use strict';
 
-    var form        = document.getElementById('ec-filter-form');
-    var resultsWrap = document.getElementById('ec-filter-results');
-    if (!form || !resultsWrap) return;
-
-    // Si el usuario llegó a la página con ?_ajax=1 pegado en la barra
-    // (residuo de navegaciones viejas o de un redirect), limpiar la URL
-    // visible sin recargar. El parámetro solo tiene sentido para XHR interno.
+    // Limpiar ?_ajax=1 de la barra URL ANTES de verificar si filter-form existe.
+    // Debe correr en cualquier página del ecommerce (home, detalle, cart) donde
+    // el browser haya llegado con ese marker por error. El parámetro es interno.
     (function cleanAjaxMarker() {
         if (!window.history || !window.history.replaceState) return;
         var currentSearch = window.location.search;
@@ -24,6 +20,10 @@
         var cleanUrl = window.location.pathname + cleanSearch + window.location.hash;
         try { window.history.replaceState(null, '', cleanUrl); } catch (e) {}
     })();
+
+    var form        = document.getElementById('ec-filter-form');
+    var resultsWrap = document.getElementById('ec-filter-results');
+    if (!form || !resultsWrap) return;
 
     var ajaxUrl     = form.getAttribute('data-ajax-url') || window.location.pathname;
     var debounceTimer = null;
