@@ -6,6 +6,8 @@ use App\Mail\SellerApplicationApprovedMail;
 use App\Mail\SellerApplicationDocumentsRequestedMail;
 use App\Mail\SellerApplicationReceivedMail;
 use App\Mail\SellerApplicationRejectedMail;
+use App\Models\System\Module;
+use App\Models\System\ModuleLevel;
 use App\Models\System\Plan;
 use App\Models\System\SellerApplication;
 use App\Models\System\SellerApplicationLog;
@@ -32,6 +34,36 @@ use Illuminate\Support\Facades\Mail;
  */
 class SellerApplicationService
 {
+    /**
+     * Paquete de módulos "solo tienda virtual" — lo que un seller aprobado
+     * necesita para operar su ecommerce sin facturación electrónica.
+     *
+     * Se referencian por `value` (no por ID numérico) porque los IDs de
+     * `modules` pueden variar entre entornos y migraciones.
+     *
+     * Incluye:
+     *   - dashboard       → Home del panel
+     *   - persons         → Clientes (auto-creados por órdenes del marketplace)
+     *   - items           → Productos
+     *   - configuration   → Configuración básica (incluye Ecommerce > ajustes)
+     *   - ecommerce       → Tienda virtual (módulo core del seller)
+     *
+     * EXCLUYE por defecto:
+     *   - documents, pos, purchases, advanced     → facturación
+     *   - accounting, finance, reports            → gestión financiera
+     *   - preventa, guia, comprobante             → operaciones adicionales
+     *
+     * Si el seller solicita facturación, el SuperAdmin activa esos módulos
+     * manualmente desde el panel de Clientes (/clients/{id}/domains-panel).
+     */
+    public const SELLER_DEFAULT_MODULES = [
+        'dashboard',
+        'persons',
+        'items',
+        'configuration',
+        'ecommerce',
+    ];
+
     public function __construct(
         private RucValidationService $rucValidator,
     ) {}
@@ -174,7 +206,20 @@ class SellerApplicationService
             // y se envía por mail al seller (que podrá cambiarla al primer login).
             $temporaryPassword = $this->generateTemporaryPassword();
 
-            $payload = $this->buildTenantPayload($application, $temporaryPassword, $planId, $options);
+            // Resolver qué módulos recibirá el usuario admin del tenant.
+            // Si el SuperAdmin no mandó listas explícitas, aplicamos el
+            // paquete "solo tienda virtual" (sin facturación).
+            $resolvedPermissions = $this->resolveSellerPermissions($options);
+
+            $payload = $this->buildTenantPayload(
+                $application,
+                $temporaryPassword,
+                $planId,
+                array_merge($options, [
+                    'modules' => $resolvedPermissions['modules'],
+                    'levels'  => $resolvedPermissions['levels'],
+                ])
+            );
 
             $result = app(TenantCreationService::class)->create($payload);
 
@@ -445,6 +490,60 @@ class SellerApplicationService
         }
 
         return null;
+    }
+
+    /**
+     * Decide qué módulos + levels se asignan al usuario admin del tenant
+     * cuando se aprueba una solicitud.
+     *
+     * Política por defecto: "solo tienda virtual" — ver constante
+     * SELLER_DEFAULT_MODULES arriba.
+     *
+     * Si el SuperAdmin envía `modules` o `levels` explícitamente desde
+     * el panel (ApproveSellerApplicationRequest), respetamos su elección
+     * — útil si quiere otorgar facturación directo en la aprobación.
+     *
+     * @return array{modules: int[], levels: int[]}
+     */
+    private function resolveSellerPermissions(array $options): array
+    {
+        $hasExplicitModules = !empty($options['modules']);
+        $hasExplicitLevels  = !empty($options['levels']);
+
+        if ($hasExplicitModules || $hasExplicitLevels) {
+            return [
+                'modules' => $options['modules'] ?? [],
+                'levels'  => $options['levels']  ?? [],
+            ];
+        }
+
+        $moduleIds = Module::query()
+            ->whereIn('value', self::SELLER_DEFAULT_MODULES)
+            ->pluck('id')
+            ->map(fn ($id) => (int) $id)
+            ->toArray();
+
+        if (empty($moduleIds)) {
+            // Fallback defensivo: si la tabla modules no tuviera los values
+            // esperados (entorno atípico), no bloqueamos el approve.
+            // El SuperAdmin puede activar módulos manualmente luego desde
+            // /clients/{id}/domains-panel.
+            Log::warning('resolveSellerPermissions: no se encontraron módulos seller default', [
+                'expected_values' => self::SELLER_DEFAULT_MODULES,
+            ]);
+            return ['modules' => [], 'levels' => []];
+        }
+
+        $levelIds = ModuleLevel::query()
+            ->whereIn('module_id', $moduleIds)
+            ->pluck('id')
+            ->map(fn ($id) => (int) $id)
+            ->toArray();
+
+        return [
+            'modules' => $moduleIds,
+            'levels'  => $levelIds,
+        ];
     }
 
     private function buildTenantPayload(
