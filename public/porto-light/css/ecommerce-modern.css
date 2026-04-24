@@ -2651,6 +2651,23 @@ img.ec-img-lazy[src*="placeholder"] {
     overflow: hidden;
 }
 
+/* Porto oculta .add-cart span con display:none. Para .ec-btn-buy-now, el
+   span es parte del label: forzarlo visible por si alguna regla legacy lo
+   afecta por herencia al tener clase .paction. */
+.product-single-details .ec-btn-buy-now span,
+.ec-btn-buy-now span {
+    display: inline-block !important;
+    color: #fff !important;
+    font-size: 15px !important;
+    font-weight: 800 !important;
+    line-height: 1.2 !important;
+    visibility: visible !important;
+    text-indent: 0 !important;
+    width: auto !important;
+    height: auto !important;
+    overflow: visible !important;
+}
+
 .product-single-details .ec-btn-buy-now:hover {
     transform: translateY(-2px);
     box-shadow: 0 16px 32px -8px hsla(var(--primary-h), var(--primary-s), 40%, .5) !important;
