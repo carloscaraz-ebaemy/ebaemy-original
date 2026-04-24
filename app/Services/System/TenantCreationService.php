@@ -276,6 +276,41 @@ class TenantCreationService
 
         Log::info('Configurando módulos y permisos...');
         $this->assignUserModules($userId, $payload);
+
+        Log::info('Actualizando configuration_ecommerce con datos del seller...');
+        $this->updateEcommerceConfig($payload);
+    }
+
+    /**
+     * Sobreescribe los datos genéricos del seed (`Admin / admin@mail.com /
+     * 01 505-5555`) por los datos reales del seller, de modo que al entrar
+     * a su panel la tienda virtual ya tenga nombre, email y teléfono de
+     * contacto precargados.
+     *
+     * La tabla `configuration_ecommerce` es creada + seedeada por la
+     * migración tenant `2019_11_18_154307_...` que corre automáticamente
+     * (Hyn\MigratesTenants listener) al crear el Website. Si por alguna
+     * razón no existe (setup atípico), el try/catch evita romper el
+     * bootstrap completo.
+     */
+    private function updateEcommerceConfig(array $payload): void
+    {
+        try {
+            DB::connection('tenant')->table('configuration_ecommerce')
+                ->where('id', 1)
+                ->update([
+                    'information_contact_name'  => $payload['name'],
+                    'information_contact_email' => $payload['email'],
+                    'information_contact_phone' => $payload['phone_ws'] ?? '-',
+                    'updated_at'                => now(),
+                ]);
+        } catch (Exception $e) {
+            // No es crítico — el tenant puede configurar estos datos
+            // manualmente desde Configuración > Ecommerce.
+            Log::warning('updateEcommerceConfig: no se pudo actualizar configuration_ecommerce', [
+                'error' => $e->getMessage(),
+            ]);
+        }
     }
 
     private function assignUserModules(int $userId, array $payload): void
