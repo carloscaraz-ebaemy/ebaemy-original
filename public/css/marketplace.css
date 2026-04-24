@@ -640,13 +640,11 @@ button { font-family: inherit; cursor: pointer; }
 
 .mp-grid {
     display: grid;
-    grid-template-columns: repeat(2, 1fr);
+    grid-template-columns: repeat(2, 1fr);   /* mobile */
     gap: var(--mp-gap);
 }
-@media (min-width: 640px)  { .mp-grid { grid-template-columns: repeat(3, 1fr); } }
-@media (min-width: 900px)  { .mp-grid { grid-template-columns: repeat(3, 1fr); } }
-@media (min-width: 1100px) { .mp-grid { grid-template-columns: repeat(4, 1fr); } }
-@media (min-width: 1400px) { .mp-grid { grid-template-columns: repeat(5, 1fr); } }
+@media (min-width: 640px) { .mp-grid { grid-template-columns: repeat(3, 1fr); } }   /* tablet */
+@media (min-width: 900px) { .mp-grid { grid-template-columns: repeat(4, 1fr); } }   /* laptop/PC — tope 4 */
 
 .mp-card {
     position: relative;
