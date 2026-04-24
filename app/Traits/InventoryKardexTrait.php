@@ -56,10 +56,15 @@ trait InventoryKardexTrait
 
     public function saveItemWarehouse($item_id, $establishment_id, $stock, $warehouse_id = null){
 
+        // Mantenemos `stock` (legacy) y `stock_physical` (nuevo sistema) sincronizados
+        // al crear el registro inicial. Sin esto el ecommerce veía stock=0 aunque el
+        // admin hubiera configurado inventario inicial.
         $item_warehouse = ItemWarehouse::create([
             'item_id' => $item_id,
             'warehouse_id' => ($warehouse_id) ? $warehouse_id : $this->getWarehouseId($establishment_id),
-            'stock' => $stock
+            'stock' => $stock,
+            'stock_physical' => $stock,
+            'stock_committed' => 0,
             ]);
 
     }

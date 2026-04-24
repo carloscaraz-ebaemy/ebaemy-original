@@ -115,13 +115,16 @@ class ItemWarehouse extends ModelTenant
     }
 
     /**
-     * Suma una cantidad $qty al stock. Si la cantidad es negativa lo restará
+     * Suma una cantidad $qty al stock. Si la cantidad es negativa lo restará.
+     * Mantiene `stock` y `stock_physical` sincronizados para no desalinear
+     * el sistema legacy (facturación/reportes) con el nuevo (ecommerce/despacho).
      *
      * @param float|int $qty
      * @return $this
      */
     public function addStock (float $qty =0 ){
-        $this->stock += $qty;
+        $this->stock = max(0, (float) $this->stock + $qty);
+        $this->stock_physical = max(0, (float) ($this->stock_physical ?? $this->stock) + $qty);
         return $this;
     }
 }
