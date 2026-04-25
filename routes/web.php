@@ -1139,6 +1139,9 @@ if ($hostname) {
              ->where('fullSlug', '[a-z0-9\-/]+')
              ->name('marketplace.category_official');
         Route::get('marketplace/categoria/{categorySlug}', 'MarketplaceController@category')->name('marketplace.category');
+        Route::get('marketplace/tienda/{subdomain}',    'MarketplaceController@tenantPage')
+             ->where('subdomain', '[a-z0-9][a-z0-9\-]{1,62}')
+             ->name('marketplace.tenant');
         Route::get('marketplace/item/{slug}',           'MarketplaceController@show')->name('marketplace.item');
         Route::get('marketplace/go/{slug}',       'MarketplaceController@go')->name('marketplace.go');
         Route::post('marketplace/item/{slug}/solicitar', 'MarketplaceController@lead')
@@ -1150,6 +1153,26 @@ if ($hostname) {
         Route::get('marketplace/gracias/{slug}',  'MarketplaceController@thanks')->name('marketplace.thanks');
         Route::get('sitemap-marketplace.xml',     'MarketplaceController@sitemap')->name('marketplace.sitemap');
         Route::get('robots.txt',                  'MarketplaceController@robots')->name('marketplace.robots');
+        Route::get('feeds/meta-catalog.xml',      'MarketplaceController@metaCatalog')->name('marketplace.feed.meta');
+        Route::get('feeds/google-merchant.xml',   'MarketplaceController@metaCatalog')->name('marketplace.feed.google');
+
+        // ─── Carrito multi-tienda (marketplace central) ──────────────────────
+        Route::get('marketplace/cart',             'MarketplaceCartController@show')->name('marketplace.cart');
+        Route::get('marketplace/cart/json',        'MarketplaceCartController@summary')->name('marketplace.cart.json');
+        Route::post('marketplace/cart',            'MarketplaceCartController@add')
+             ->middleware('throttle:60,1')->name('marketplace.cart.add');
+        Route::patch('marketplace/cart/{listing}', 'MarketplaceCartController@update')
+             ->whereNumber('listing')->name('marketplace.cart.update');
+        Route::delete('marketplace/cart/{listing}','MarketplaceCartController@destroy')
+             ->whereNumber('listing')->name('marketplace.cart.destroy');
+        Route::delete('marketplace/cart',          'MarketplaceCartController@clear')->name('marketplace.cart.clear');
+
+        // ─── Checkout multi-tienda ───────────────────────────────────────────
+        Route::get('marketplace/checkout',         'MarketplaceCheckoutController@show')->name('marketplace.checkout');
+        Route::post('marketplace/checkout',        'MarketplaceCheckoutController@store')
+             ->middleware('throttle:6,1')->name('marketplace.checkout.store');
+        Route::get('marketplace/order/{number}',   'MarketplaceCheckoutController@confirmation')
+             ->where('number', 'MP-[A-Z0-9\-]+')->name('marketplace.order.confirmation');
 
         // ─── Onboarding de sellers (captación pública) ───────────────────────
         // Flujo completo:
@@ -1189,6 +1212,34 @@ if ($hostname) {
              ->middleware('throttle:5,60')
              ->name('seller.request_activation.store');
 
+        // Aliases SEO/marketing — todas redirigen 301 a /seller para no
+        // dispersar autoridad de página. Los CTAs en redes sociales y ads
+        // pueden apuntar a la URL más natural según la campaña.
+        foreach (['vender', 'vende-en-ebaemy', 'vende', 'crear-tienda', 'crear-tienda-gratis'] as $alias) {
+            Route::get($alias, function () {
+                return redirect()->route('seller.landing', [], 301);
+            });
+        }
+
+        // Página pública de planes y precios
+        Route::get('precios', 'PricingController@show')->name('pricing');
+        Route::get('planes', function () { return redirect()->route('pricing', [], 301); });
+
+        // ─── Opt-out público (cancelar suscripción marketing) ────────────────
+        // El token va incrustado en cada mensaje, no requiere login.
+        Route::get('unsubscribe/{token}',  'MarketingOptOutController@show')
+             ->where('token', '[A-Za-z0-9]+')->name('marketing.optout.show');
+        Route::post('unsubscribe/{token}', 'MarketingOptOutController@confirm')
+             ->where('token', '[A-Za-z0-9]+')->name('marketing.optout.confirm');
+
+        // ─── Webhook inbound marketing (Meta Cloud / QR API) ─────────────────
+        // El handshake de verificación es GET (Meta lo invoca al configurar el
+        // webhook). Los mensajes inbound entran por POST. STOP automático.
+        Route::get('webhooks/marketing/inbound',  'MarketingInboundController@verify')
+             ->name('marketing.webhook.verify');
+        Route::post('webhooks/marketing/inbound', 'MarketingInboundController@inbound')
+             ->name('marketing.webhook.inbound');
+
         // Root del central: SIEMPRE redirige al marketplace público.
         // El SuperAdmin puede acceder a su dashboard manualmente vía
         // /dashboard o /login — no tiene sentido que al visitar
@@ -1225,6 +1276,28 @@ if ($hostname) {
                 Route::post('{id}/reject',   'System\MarketplaceCategoryRequestController@reject')->name('reject')->whereNumber('id');
             });
 
+            // ── Pedidos multi-tienda creados desde el marketplace central ────
+            Route::prefix('admin/marketplace/orders')->name('system.marketplace_orders.')->group(function () {
+                Route::get('/',              'System\MarketplaceOrderController@index')->name('index');
+                Route::get('records',        'System\MarketplaceOrderController@records')->name('records');
+                Route::get('{id}',           'System\MarketplaceOrderController@show')->name('show')->whereNumber('id');
+                Route::post('{id}/retry',    'System\MarketplaceOrderController@retry')->name('retry')->whereNumber('id');
+                Route::post('{id}/cancel',   'System\MarketplaceOrderController@cancel')->name('cancel')->whereNumber('id');
+                Route::post('{id}/sub/{subId}/retry', 'System\MarketplaceOrderController@retrySubOrder')
+                     ->name('sub_retry')->whereNumber('id')->whereNumber('subId');
+            });
+
+            // ── Marketing centralizado (campañas multicanal con opt-out) ────
+            Route::prefix('admin/marketing/campaigns')->name('system.marketing.campaigns.')->group(function () {
+                Route::get('/',               'System\MarketingCampaignController@index')->name('index');
+                Route::get('create',          'System\MarketingCampaignController@create')->name('create');
+                Route::post('/',              'System\MarketingCampaignController@store')->name('store');
+                Route::get('{id}',            'System\MarketingCampaignController@show')->name('show')->whereNumber('id');
+                Route::post('{id}/build',     'System\MarketingCampaignController@buildTargets')->name('build')->whereNumber('id');
+                Route::post('{id}/dispatch',  'System\MarketingCampaignController@sendBatch')->name('dispatch')->whereNumber('id');
+                Route::post('{id}/dispatch-async', 'System\MarketingCampaignController@sendAsync')->name('dispatch_async')->whereNumber('id');
+            });
+
             // ── Solicitudes de sellers (onboarding con aprobación manual) ────
             Route::prefix('admin/seller-applications')->name('system.seller_applications.')->group(function () {
                 Route::get('/',                       'System\SellerApplicationController@index')->name('index');
@@ -1242,6 +1315,7 @@ if ($hostname) {
                 Route::get('/',                       'System\MarketplaceAdminController@dashboard')->name('dashboard');
                 Route::get('listings',                'System\MarketplaceAdminController@listings')->name('listings');
                 Route::post('listings/{id}/status',   'System\MarketplaceAdminController@updateListingStatus')->name('listings.status');
+                Route::post('listings/{id}/featured', 'System\MarketplaceAdminController@toggleListingFeatured')->name('listings.featured');
                 Route::post('tenant/{clientId}/verify', 'System\MarketplaceAdminController@toggleTenantVerified')->name('tenant.verify');
                 Route::get('reviews',                   'System\MarketplaceAdminController@reviews')->name('reviews');
                 Route::post('reviews/{id}/approve',     'System\MarketplaceAdminController@approveReview')->name('reviews.approve');
@@ -1363,6 +1437,8 @@ if ($hostname) {
             Route::post('configurations/bg', 'System\ConfigurationController@storeBgLogin');
             Route::post('configurations/other-configuration', 'System\ConfigurationController@storeOtherConfiguration');
             Route::get('configurations/get-other-configuration', 'System\ConfigurationController@getOtherConfiguration');
+            Route::get('configurations/seller-onboarding', 'System\ConfigurationController@getSellerOnboarding');
+            Route::post('configurations/seller-onboarding', 'System\ConfigurationController@storeSellerOnboarding');
             Route::post('configurations/upload-tenant-ads', 'System\ConfigurationController@uploadTenantAds');
 
             Route::get('companies/record', 'System\CompanyController@record');

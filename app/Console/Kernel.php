@@ -102,6 +102,13 @@ class Kernel extends ConsoleKernel
                  ->withoutOverlapping()
                  ->appendOutputTo(storage_path('logs/marketplace_retry_leads.log'));
 
+        // Reintenta subpedidos multi-tienda que quedaron failed (Fase 2).
+        // Mismo principio que retry-failed-leads pero para tenant_marketplace_orders.
+        $schedule->command('marketplace:retry-failed-orders')
+                 ->everyFifteenMinutes()
+                 ->withoutOverlapping()
+                 ->appendOutputTo(storage_path('logs/marketplace_retry_orders.log'));
+
         $schedule->command('marketplace:sync orders')
                  ->everyFifteenMinutes()
                  ->withoutOverlapping()

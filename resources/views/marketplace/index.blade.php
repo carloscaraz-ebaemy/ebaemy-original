@@ -338,7 +338,9 @@
                             @endif
 
                             <div class="mp-card-badges">
-                                @if($showTopBadge)
+                                @if(!empty($listing->is_featured) && (empty($listing->featured_until) || \Carbon\Carbon::parse($listing->featured_until)->isFuture()))
+                                    <span class="mp-badge mp-badge--top" title="Producto destacado" style="background:linear-gradient(135deg,#fbbf24,#f59e0b);color:#fff">⭐ Destacado</span>
+                                @elseif($showTopBadge)
                                     <span class="mp-badge mp-badge--top" title="Destacado">⭐ Top</span>
                                 @elseif($showBestBadge)
                                     <span class="mp-badge mp-badge--best" title="Más vendido">🔥 Más vendido</span>

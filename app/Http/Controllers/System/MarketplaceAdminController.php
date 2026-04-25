@@ -112,6 +112,48 @@ class MarketplaceAdminController extends Controller
     }
 
     /**
+     * Activa o desactiva el flag de "destacado" para un listing. Permite
+     * configurar duración (en días) y score de orden entre destacados.
+     *
+     * Sin pasarela de pago todavía: el SuperAdmin decide a qué listings dar
+     * realce. Cuando exista billing, esto será un upgrade pagado por el seller.
+     */
+    public function toggleListingFeatured(Request $request, $id)
+    {
+        $request->validate([
+            'is_featured'   => 'required|boolean',
+            'duration_days' => 'nullable|integer|min:1|max:365',
+            'score'         => 'nullable|integer|min:0|max:1000',
+        ]);
+
+        $listing = MarketplaceListing::findOrFail($id);
+
+        if ($request->boolean('is_featured')) {
+            $listing->is_featured     = true;
+            $listing->featured_score  = (int) ($request->input('score') ?? 100);
+            $listing->featured_until  = $request->filled('duration_days')
+                ? now()->addDays((int) $request->input('duration_days'))
+                : null;
+        } else {
+            $listing->is_featured     = false;
+            $listing->featured_until  = null;
+            $listing->featured_score  = 0;
+        }
+
+        $listing->save();
+
+        return [
+            'success'        => true,
+            'message'        => $request->boolean('is_featured')
+                ? 'Listing destacado en el marketplace.'
+                : 'Listing retirado de destacados.',
+            'is_featured'    => $listing->is_featured,
+            'featured_until' => $listing->featured_until?->toIso8601String(),
+            'featured_score' => $listing->featured_score,
+        ];
+    }
+
+    /**
      * Toggle de tenant verificado — muestra badge "Tienda verificada" en la
      * vitrina pública del marketplace central. Actualiza el cache denormalizado
      * en todos los listings del cliente afectado.

@@ -108,6 +108,13 @@
                         </a>
                     </li>
 
+                    <li class="{{ (isset($path[1]) && $path[1] === 'admin' && isset($path[2]) && $path[2] === 'marketplace' && isset($path[3]) && $path[3] === 'orders')?'nav-active':'' }}">
+                        <a class="nav-link" href="{{ route('system.marketplace_orders.index') }}">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3l8 -8"/><path d="M20 12v6a2 2 0 0 1 -2 2h-12a2 2 0 0 1 -2 -2v-12a2 2 0 0 1 2 -2h9"/></svg>
+                            <span>Pedidos multi-tienda</span>
+                        </a>
+                    </li>
+
                     <li class="{{ (isset($path[1]) && $path[1] === 'marketplace' && $path[2] === 'reviews')?'nav-active':'' }}">
                         <a class="nav-link" href="{{ route('system.marketplace.reviews') }}">
                             <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
@@ -133,6 +140,13 @@
                         <a class="nav-link" href="{{ route('system.marketplace_category_requests.index') }}">
                             <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 9l-5 5l-3 -3"/><path d="M21 12a9 9 0 1 1 -18 0a9 9 0 0 1 18 0z"/></svg>
                             <span>Solicitudes de categorías</span>
+                        </a>
+                    </li>
+
+                    <li class="{{ (isset($path[1]) && $path[1] === 'admin' && isset($path[2]) && $path[2] === 'marketing')?'nav-active':'' }}">
+                        <a class="nav-link" href="{{ route('system.marketing.campaigns.index') }}">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l18 -5v12l-18 -5v-2z"/><path d="M11.6 16.8a3 3 0 1 1 -5.8 -1.6"/></svg>
+                            <span>Marketing / Campañas</span>
                         </a>
                     </li>
 
