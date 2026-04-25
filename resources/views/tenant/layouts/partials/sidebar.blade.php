@@ -1975,3 +1975,37 @@ $inventory_configuration = InventoryConfiguration::getSidebarPermissions();
         font-size: 12px !important;
     }
 </style>
+
+<script>
+(function () {
+    // Auto-marca nav-active + nav-expanded en cualquier <li class="nav-parent">
+    // que contenga descendientes con clase nav-active. Resuelve los items
+    // donde la condición manual del parent no incluye la ruta del hijo
+    // (ej: Reglas de Descuento dentro de Tienda Virtual no estaba listado).
+    document.addEventListener('DOMContentLoaded', function () {
+        var sidebar = document.getElementById('sidebar-left');
+        if (!sidebar) return;
+
+        // Buscar todos los <li> hijos con nav-active dentro del sidebar
+        sidebar.querySelectorAll('ul.nav-children li.nav-active, ul.nav-children li.nav-active.nav-item-with-action').forEach(function (activeLi) {
+            // Subir hasta el primer <li class="nav-parent"> ancestro
+            var parent = activeLi.closest('li.nav-parent');
+            while (parent) {
+                if (!parent.classList.contains('nav-active')) {
+                    parent.classList.add('nav-active');
+                }
+                if (!parent.classList.contains('nav-expanded')) {
+                    parent.classList.add('nav-expanded');
+                }
+                // Mostrar el ul.nav-children inmediato del parent
+                var ul = parent.querySelector(':scope > ul.nav-children');
+                if (ul) ul.style.display = 'block';
+
+                // Subir un nivel más por si hay parents anidados
+                parent = parent.parentElement && parent.parentElement.closest('li.nav-parent');
+            }
+        });
+    });
+})();
+</script>
+
