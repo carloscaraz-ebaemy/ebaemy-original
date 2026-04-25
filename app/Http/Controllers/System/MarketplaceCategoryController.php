@@ -399,7 +399,9 @@ class MarketplaceCategoryController extends Controller
     private function serializeTree($collection): array
     {
         return $collection->map(function ($node) {
-            return [
+            $children = $this->serializeTree($node->children ?? collect());
+
+            $base = [
                 'id'                        => $node->id,
                 'parent_id'                 => $node->parent_id,
                 'name'                      => $node->name,
@@ -413,8 +415,17 @@ class MarketplaceCategoryController extends Controller
                 'allow_seller_publish'      => (bool) $node->allow_seller_publish,
                 'sort_order'                => (int) $node->sort_order,
                 'listings_count_cache'      => (int) $node->listings_count_cache,
-                'children'                  => $this->serializeTree($node->children ?? collect()),
             ];
+
+            // Element UI el-cascader con checkStrictly:false trata cualquier
+            // nodo con propiedad `children` (aunque sea []) como rama no
+            // seleccionable. Solo agregamos children si hay al menos uno
+            // para que las hojas terminales sean seleccionables.
+            if (!empty($children)) {
+                $base['children'] = $children;
+            }
+
+            return $base;
         })->values()->all();
     }
 }
