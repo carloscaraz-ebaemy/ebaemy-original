@@ -192,12 +192,22 @@
                 display: flex;
                 align-items: center;
                 justify-content: space-between;
-                padding-right: 14px;
+                padding: 10px 14px 10px 12px;
+                margin-top: 4px;
                 transition: background-color .15s;
+                font-size: 14px;
+                font-weight: 700;
+                letter-spacing: 0.02em;
+                color: #475569;
+                text-transform: none;
+                border-radius: 6px;
             }
-            #sidebar-left .nav-separator:hover { background-color: rgba(99,102,241,.06); }
+            #sidebar-left .nav-separator:hover {
+                background-color: rgba(99,102,241,.08);
+                color: #1e293b;
+            }
             #sidebar-left .nav-separator .nav-group-toggle {
-                font-size: 9px;
+                font-size: 11px;
                 color: #94a3b8;
                 transition: transform .2s ease;
                 display: inline-block;
@@ -219,11 +229,13 @@
                     }
                 }
 
-                // ── Sidebar colapsable por sección ──────────────────────────
-                // Cada nav-separator agrupa los <li> hermanos hasta el próximo
-                // separator. Click toggle, estado en localStorage, auto-expand
-                // si algún hijo está nav-active.
+                // ── Sidebar acordeón exclusivo (solo UN grupo abierto a la vez) ──
+                // Al entrar a la página: se abre SOLO la sección que contiene el
+                // item activo. Si ninguno está activo, se abre la primera (Principal).
+                // Click en un separator: cierra los demás y abre ese.
                 var separators = document.querySelectorAll('#sidebar-left .nav-separator');
+                var groups = [];
+
                 separators.forEach(function (sep) {
                     var items = [];
                     var next = sep.nextElementSibling;
@@ -231,33 +243,42 @@
                         items.push(next);
                         next = next.nextElementSibling;
                     }
-                    if (!items.length) return;
-
-                    var key = 'mp-sidebar-' + sep.textContent.trim().toLowerCase().replace(/\s+/g, '-');
-                    var hasActive = items.some(function (li) { return li.classList.contains('nav-active'); });
-                    var saved = localStorage.getItem(key);
-                    var open = hasActive ? true : (saved === null ? true : saved === 'open');
 
                     var toggle = document.createElement('span');
                     toggle.className = 'nav-group-toggle';
                     toggle.textContent = '▼';
                     sep.appendChild(toggle);
 
-                    function apply(o) {
-                        sep.setAttribute('data-open', o ? 'true' : 'false');
-                        items.forEach(function (li) {
-                            li.classList.toggle('nav-group-item-hidden', !o);
-                        });
-                    }
-                    apply(open);
+                    var hasActive = items.some(function (li) { return li.classList.contains('nav-active'); });
+                    groups.push({ sep: sep, items: items, hasActive: hasActive });
+                });
 
-                    sep.addEventListener('click', function (e) {
-                        // Evitar conflictos si el click vino de un link interno (no debería pasar
-                        // porque los <li> hijos no son descendientes del separator)
+                function setOpen(target) {
+                    groups.forEach(function (g) {
+                        var open = (g.sep === target);
+                        g.sep.setAttribute('data-open', open ? 'true' : 'false');
+                        g.items.forEach(function (li) {
+                            li.classList.toggle('nav-group-item-hidden', !open);
+                        });
+                    });
+                }
+
+                // Estado inicial: grupo con item activo, o el primero si ninguno
+                var activeGroup = groups.find(function (g) { return g.hasActive; });
+                setOpen(activeGroup ? activeGroup.sep : (groups[0] && groups[0].sep));
+
+                // Click toggle exclusivo
+                groups.forEach(function (g) {
+                    g.sep.addEventListener('click', function (e) {
                         if (e.target.closest('a')) return;
-                        var newOpen = sep.getAttribute('data-open') !== 'true';
-                        apply(newOpen);
-                        localStorage.setItem(key, newOpen ? 'open' : 'closed');
+                        var isOpen = g.sep.getAttribute('data-open') === 'true';
+                        // Si está abierto y lo clickeamos, lo cerramos (sin abrir otro)
+                        if (isOpen) {
+                            g.sep.setAttribute('data-open', 'false');
+                            g.items.forEach(function (li) { li.classList.add('nav-group-item-hidden'); });
+                        } else {
+                            setOpen(g.sep);
+                        }
                     });
                 });
             })();
