@@ -486,6 +486,16 @@
                         manualmente y que <strong>la tienda se creará solo después de la aprobación</strong>.
                     </label>
                 </div>
+
+                <div class="sr-checkbox">
+                    <input type="checkbox" name="accepts_marketing" id="srMarketing" value="1">
+                    <label for="srMarketing">
+                        Acepto recibir novedades, tips para vendedores y promociones de ebaemy por email/WhatsApp.
+                        <small style="display:block;color:var(--eb-muted,#6b7280);font-size:12px;margin-top:4px">
+                            Podrás cancelar la suscripción en cualquier momento desde el link incluido en cada mensaje.
+                        </small>
+                    </label>
+                </div>
             </div>
 
             <div class="sr-actions">

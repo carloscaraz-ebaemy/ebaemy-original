@@ -67,6 +67,9 @@ class SellerRegistrationRequest extends FormRequest
 
             // ── Términos ────────────────────────────────────────
             'terms_accepted' => 'accepted',
+
+            // ── Opt-in marketing (opcional) ─────────────────────
+            'accepts_marketing' => 'nullable|boolean',
         ];
     }
 
