@@ -9276,11 +9276,13 @@ li.open > .ec-mmenu__sub { display: block; }
     overflow: hidden;
 }
 
-/* Imagen principal: cubre todo el contenedor (puede recortar bordes) */
+/* Imagen principal: ocupa todo el contenedor sin distorsión ni recorte.
+   Se ve completa al máximo tamaño posible; bandas blancas si la imagen
+   no es cuadrada (background del .product-item es #fff). */
 .product-single-carousel .product-single-image {
     width: 100% !important;
     height: 100% !important;
-    object-fit: cover;
+    object-fit: contain;
     display: block;
 }
 

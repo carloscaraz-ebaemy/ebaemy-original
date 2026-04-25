@@ -895,10 +895,13 @@ button { font-family: inherit; cursor: pointer; }
     background: var(--mp-line-soft);
     border: 1px solid var(--mp-line-soft);
 }
+.mp-gallery-main {
+    background: #fff;
+}
 .mp-gallery-main img {
     width: 100%;
     height: 100%;
-    object-fit: cover;
+    object-fit: contain;
     transition: transform .35s var(--mp-ease);
 }
 .mp-gallery-main:hover img { transform: scale(1.04); }
