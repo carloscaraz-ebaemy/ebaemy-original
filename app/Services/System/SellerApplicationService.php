@@ -8,6 +8,8 @@ use App\Mail\SellerApplicationDocumentsRequestedMail;
 use App\Mail\SellerApplicationReceivedMail;
 use App\Mail\SellerApplicationRejectedMail;
 use App\Models\System\Client;
+use App\Models\System\Configuration as SystemConfiguration;
+use App\Models\System\MarketingContact;
 use App\Models\System\Module;
 use App\Models\System\ModuleLevel;
 use App\Models\System\Plan;
@@ -170,10 +172,27 @@ class SellerApplicationService
                 $application->id
             );
 
+            // 4b. Capturar opt-in marketing si el seller marcó la casilla.
+            //     Idempotente, respeta opt-outs previos. Best-effort.
+            if (!empty($input['accepts_marketing'])) {
+                $this->safeCaptureMarketingContact($application);
+            }
+
+            // 5. Autoaprobación: si el SuperAdmin habilitó `auto_approve_sellers`
+            //    y el RUC validó ACTIVO+HABIDO, materializamos el tenant aquí
+            //    mismo. El mail de aprobación se envía dentro de approve().
+            //    Si la aprobación falla, la solicitud queda en su estado
+            //    inicial para que el SuperAdmin la atienda manualmente.
+            $autoApproveResult = $this->maybeAutoApprove($application, $rucResult);
+
             return [
-                'success'     => true,
-                'message'     => 'Solicitud registrada correctamente',
-                'application' => $application,
+                'success'      => true,
+                'message'      => $autoApproveResult['approved']
+                    ? 'Solicitud aprobada automáticamente'
+                    : 'Solicitud registrada correctamente',
+                'application'  => $application->fresh(),
+                'auto_approved' => $autoApproveResult['approved'],
+                'tenant'        => $autoApproveResult['tenant'] ?? null,
             ];
         } catch (Exception $e) {
             Log::error('SellerApplicationService::createApplication error', ['error' => $e->getMessage()]);
@@ -181,6 +200,116 @@ class SellerApplicationService
                 'success' => false,
                 'message' => $e->getMessage(),
             ];
+        }
+    }
+
+    /**
+     * Inserta o actualiza un MarketingContact con consent=true para el seller.
+     * Respeta opt-outs previos (no reactiva un contacto que canceló).
+     * Best-effort: si falla, solo loggea sin romper el registro.
+     */
+    private function safeCaptureMarketingContact(SellerApplication $app): void
+    {
+        try {
+            $existing = MarketingContact::query()
+                ->when($app->phone, fn ($q) => $q->orWhere('phone', $app->phone))
+                ->when($app->email, fn ($q) => $q->orWhere('email', $app->email))
+                ->first();
+
+            if ($existing) {
+                if ($existing->opted_out) {
+                    return; // respetar decisión previa
+                }
+                $existing->update([
+                    'name'              => $existing->name ?: ($app->business_name ?: $app->legal_representative_name),
+                    'phone'             => $app->phone ?: $existing->phone,
+                    'email'             => $app->email ?: $existing->email,
+                    'consent_marketing' => true,
+                    'consent_at'        => $existing->consent_at ?: now(),
+                    'consent_source'    => $existing->consent_source ?: 'signup_seller',
+                    'tags'              => array_unique(array_merge($existing->tags ?? [], ['seller'])),
+                ]);
+                return;
+            }
+
+            MarketingContact::create([
+                'name'              => $app->business_name ?: $app->legal_representative_name,
+                'phone'             => $app->phone,
+                'email'             => $app->email,
+                'consent_marketing' => true,
+                'consent_source'    => 'signup_seller',
+                'source'            => 'seller_registration',
+                'tags'              => ['seller'],
+            ]);
+        } catch (\Throwable $e) {
+            Log::warning('safeCaptureMarketingContact failed', [
+                'app_id' => $app->id,
+                'error'  => $e->getMessage(),
+            ]);
+        }
+    }
+
+    /**
+     * Aplica la autoaprobación si la configuración del sistema lo permite y
+     * el RUC pasó la validación SUNAT con ACTIVO+HABIDO.
+     *
+     * Reglas:
+     *   - configurations.auto_approve_sellers = true
+     *   - configurations.seller_default_plan_id apunta a un Plan existente
+     *   - Si seller_requires_active_ruc = true → exige ACTIVO+HABIDO real
+     *     (descarta requires_manual_review aunque venga del scraper)
+     *   - El SuperAdmin no participa: reviewer_id = 0 (sentinela "system")
+     *
+     * Falla silenciosa: si algo no cuadra, deja la solicitud en su estado
+     * inicial y registra un log para el SuperAdmin.
+     *
+     * @return array{approved: bool, tenant?: \App\Models\System\Client}
+     */
+    private function maybeAutoApprove(SellerApplication $application, array $rucResult): array
+    {
+        try {
+            $config = SystemConfiguration::firstCached();
+            if (!$config || !$config->auto_approve_sellers) {
+                return ['approved' => false];
+            }
+
+            $planId = (int) ($config->seller_default_plan_id ?? 0);
+            if ($planId <= 0 || !Plan::query()->whereKey($planId)->exists()) {
+                Log::warning('Autoaprobación seller saltada: seller_default_plan_id inválido', [
+                    'plan_id'        => $planId,
+                    'application_id' => $application->id,
+                ]);
+                return ['approved' => false];
+            }
+
+            $requiresActiveRuc = (bool) ($config->seller_requires_active_ruc ?? true);
+            if ($requiresActiveRuc && !$this->rucValidator->canAutoAdvance($rucResult)) {
+                return ['approved' => false];
+            }
+
+            // Sentinela 0 = "sistema" (no es un usuario real). Los logs lo
+            // distinguen del SuperAdmin manual y la columna reviewed_by
+            // permite NULL para no romper FK si llegara a definirse.
+            $result = $this->approve($application, null, $planId);
+
+            if (!($result['success'] ?? false)) {
+                Log::warning('Autoaprobación seller falló', [
+                    'application_id' => $application->id,
+                    'error'          => $result['message'] ?? null,
+                ]);
+                return ['approved' => false];
+            }
+
+            return [
+                'approved' => true,
+                'tenant'   => $result['tenant'] ?? null,
+            ];
+        } catch (\Throwable $e) {
+            Log::error('Autoaprobación seller excepción no controlada', [
+                'application_id' => $application->id,
+                'error'          => $e->getMessage(),
+            ]);
+            return ['approved' => false];
         }
     }
 
@@ -306,7 +435,7 @@ class SellerApplicationService
      * vincula tenant_id, actualiza estado + log + mail al seller.
      *
      * @param SellerApplication $application
-     * @param int               $reviewerId  ID del SuperAdmin que aprueba
+     * @param int|null          $reviewerId  ID del SuperAdmin que aprueba; null = autoaprobación del sistema
      * @param int               $planId      plan asignado (admin puede escoger)
      * @param array             $options     keys opcionales:
      *                                       - modules, levels, type
@@ -315,7 +444,7 @@ class SellerApplicationService
      *
      * @return array{success: bool, message: string, tenant?: \App\Models\System\Client}
      */
-    public function approve(SellerApplication $application, int $reviewerId, int $planId, array $options = []): array
+    public function approve(SellerApplication $application, ?int $reviewerId, int $planId, array $options = []): array
     {
         if (!$application->isReviewable()) {
             return [
@@ -1098,7 +1227,7 @@ class SellerApplicationService
      * Solo escribe cambios si realmente hay algo distinto que guardar —
      * si el SuperAdmin no envió overrides, no toca la aplicación.
      */
-    private function applyApproverOverrides(SellerApplication $application, array $options, int $reviewerId): void
+    private function applyApproverOverrides(SellerApplication $application, array $options, ?int $reviewerId): void
     {
         $changes = [];
         $logMessages = [];

@@ -19,6 +19,7 @@
             <system-login-settings :configuration='@json($configuration)'></system-login-settings>
 
             <system-login-other-configuration></system-login-other-configuration>
+            <system-seller-onboarding-configuration></system-seller-onboarding-configuration>
             <system-qrapi-configuration :configuration='@json($configuration)'></system-qrapi-configuration>
             <system-cron-order-configuration :configuration='@json($configuration)'></system-cron-order-configuration>
         </div>

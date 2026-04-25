@@ -42,14 +42,20 @@ class Configuration extends Model
         'hour_generate_payment_order',
         'day_before_due',
         'send_notification_cron',
+        'auto_approve_sellers',
+        'seller_default_plan_id',
+        'seller_requires_active_ruc',
     ];
 
-    
+
     protected $casts = [
         'regex_password_client' => 'boolean',
         'tenant_show_ads' => 'boolean',
         'enable_guest_register' => 'boolean', // Añadir aquí
         'active_cron' => 'boolean',
+        'auto_approve_sellers' => 'boolean',
+        'seller_default_plan_id' => 'integer',
+        'seller_requires_active_ruc' => 'boolean',
     ];
 
 

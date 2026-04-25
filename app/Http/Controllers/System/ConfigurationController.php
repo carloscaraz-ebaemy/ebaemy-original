@@ -292,6 +292,77 @@ class ConfigurationController extends Controller
                             ->firstOrFail();
     }
 
+    /**
+     * Devuelve la configuración de onboarding de sellers + lista de planes
+     * disponibles para el select de "plan por defecto".
+     */
+    public function getSellerOnboarding()
+    {
+        $config = Configuration::firstOrFail();
+
+        $plans = \App\Models\System\Plan::query()
+            ->orderBy('pricing')
+            ->get(['id', 'name', 'pricing'])
+            ->map(fn ($p) => [
+                'id'    => $p->id,
+                'name'  => $p->name,
+                'label' => $p->name . ' (S/ ' . number_format((float) $p->pricing, 2) . ')',
+            ]);
+
+        return [
+            'config' => [
+                'auto_approve_sellers'        => (bool) $config->auto_approve_sellers,
+                'seller_default_plan_id'      => $config->seller_default_plan_id,
+                'seller_requires_active_ruc'  => (bool) ($config->seller_requires_active_ruc ?? true),
+            ],
+            'plans' => $plans,
+        ];
+    }
+
+    /**
+     * Persiste la configuración de onboarding de sellers. Valida que el
+     * plan default exista antes de guardarlo. Si auto_approve_sellers se
+     * activa sin un plan válido, devuelve error.
+     */
+    public function storeSellerOnboarding(Request $request)
+    {
+        $data = $request->validate([
+            'auto_approve_sellers'       => 'required|boolean',
+            'seller_default_plan_id'     => 'nullable|integer',
+            'seller_requires_active_ruc' => 'required|boolean',
+        ]);
+
+        if (!empty($data['seller_default_plan_id'])) {
+            $exists = \App\Models\System\Plan::query()
+                ->whereKey($data['seller_default_plan_id'])
+                ->exists();
+            if (!$exists) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'El plan seleccionado no existe.',
+                ], 422);
+            }
+        }
+
+        if ($data['auto_approve_sellers'] && empty($data['seller_default_plan_id'])) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Para activar la autoaprobación debes elegir un plan por defecto.',
+            ], 422);
+        }
+
+        $config = Configuration::firstOrFail();
+        $config->auto_approve_sellers       = $data['auto_approve_sellers'];
+        $config->seller_default_plan_id     = $data['seller_default_plan_id'] ?: null;
+        $config->seller_requires_active_ruc = $data['seller_requires_active_ruc'];
+        $config->save();
+
+        return [
+            'success' => true,
+            'message' => 'Configuración de sellers actualizada.',
+        ];
+    }
+
 
     /**
      *

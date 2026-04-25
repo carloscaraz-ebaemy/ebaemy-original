@@ -45,6 +45,7 @@ Vue.component('system-php-configuration', () => import('./views/system/configura
 Vue.component('system-server-status', () => import('./views/system/configuration/server_status.vue'));
 Vue.component('system-login-settings', () => import('./views/system/configuration/login.vue'));
 Vue.component('system-login-other-configuration', () => import('./views/system/configuration/other_configuration.vue'));
+Vue.component('system-seller-onboarding-configuration', () => import('./views/system/configuration/seller_onboarding.vue'));
 Vue.component('system-email-configuration', () => import('./views/system/configuration/emailConfiguration.vue'));
 Vue.component('system-cron-order-configuration', () => import('./views/system/configuration/cronOrderPayments.vue'));
 

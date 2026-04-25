@@ -444,6 +444,26 @@ class ItemController extends Controller
             $item->mp_status = 'active';
         }
 
+        // Gate de cuota: si está activando marketplace en este save y no estaba
+        // antes, validar contra el límite del plan. Excluye el propio item del
+        // conteo para evitar bloquearse a sí mismo en re-saves.
+        $mpEnablingNow = $item->marketplace_publishable
+            && $item->mp_status === 'active'
+            && !$mpPublishableBefore;
+        if ($mpEnablingNow) {
+            $quota = app(\App\Services\Tenant\MarketplaceQuotaService::class)
+                ->canPublish(1, $item->exists ? (int) $item->id : null);
+
+            if (!$quota['allowed']) {
+                return [
+                    'success'       => false,
+                    'message'       => $quota['reason'],
+                    'limit_reached' => true,
+                    'quota'         => $quota,
+                ];
+            }
+        }
+
         $temp_path = $request->input('temp_path');
         if ($temp_path) {
             // Mantener imagen anterior mientras el job procesa en segundo plano.
@@ -1175,6 +1195,23 @@ class ItemController extends Controller
             ];
         }
 
+        if ($enable) {
+            $alreadyActive = $item->marketplace_publishable && $item->mp_status === 'active';
+            if (!$alreadyActive) {
+                $quota = app(\App\Services\Tenant\MarketplaceQuotaService::class)
+                    ->canPublish(1, (int) $item->id);
+
+                if (!$quota['allowed']) {
+                    return [
+                        'success'       => false,
+                        'message'       => $quota['reason'],
+                        'limit_reached' => true,
+                        'quota'         => $quota,
+                    ];
+                }
+            }
+        }
+
         $item->marketplace_publishable = $enable;
         $item->mp_status = $enable ? 'active' : 'paused';
         $item->mp_synced_at = now();
@@ -1260,6 +1297,34 @@ class ItemController extends Controller
         // channel === 'marketplace'
         $hostname = app(\Hyn\Tenancy\Contracts\CurrentHostname::class);
         $syncService = app(\App\Services\System\MarketplaceListingSyncService::class);
+        $quotaService = app(\App\Services\Tenant\MarketplaceQuotaService::class);
+
+        // Si vamos a publicar, validar la cuota global ANTES del bucle —
+        // contamos cuántos vendrían a sumarse (los que aún no están activos)
+        // y rechazamos toda la operación si supera el límite del plan.
+        $quotaSkipped = [];
+        $quotaLimitMessage = null;
+        if ($enabled) {
+            $itemsToActivate = $items->filter(function ($it) {
+                if (!$it->internal_id) {
+                    return false;
+                }
+                return !($it->marketplace_publishable && $it->mp_status === 'active');
+            });
+
+            $extra = $itemsToActivate->count();
+            if ($extra > 0) {
+                $quota = $quotaService->canPublish($extra);
+                if (!$quota['allowed']) {
+                    return [
+                        'success'       => false,
+                        'message'       => $quota['reason'],
+                        'limit_reached' => true,
+                        'quota'         => $quota,
+                    ];
+                }
+            }
+        }
 
         foreach ($items as $it) {
             if ($enabled && !$it->internal_id) {
