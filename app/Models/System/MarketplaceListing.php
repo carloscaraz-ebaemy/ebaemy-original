@@ -44,11 +44,15 @@ class MarketplaceListing extends Model
         'lead_count',
         'click_count',
         'synced_at',
+        'is_featured',
+        'featured_until',
+        'featured_score',
     ];
 
     protected $casts = [
         'is_active'       => 'boolean',
         'tenant_verified' => 'boolean',
+        'is_featured'     => 'boolean',
         'price'           => 'float',
         'mp_price'        => 'float',
         'stock'           => 'integer',
@@ -56,9 +60,11 @@ class MarketplaceListing extends Model
         'lead_count'      => 'integer',
         'click_count'     => 'integer',
         'sort_score'      => 'integer',
+        'featured_score'  => 'integer',
         'avg_rating'      => 'float',
         'rating_count'    => 'integer',
         'synced_at'       => 'datetime',
+        'featured_until'  => 'datetime',
     ];
 
     public function hostname()
@@ -88,6 +94,20 @@ class MarketplaceListing extends Model
         return $query->where('is_active', true)
                      ->where('status', 'active')
                      ->where('stock', '>', 0);
+    }
+
+    /**
+     * Listings destacados activos: marcados como featured y con expiración
+     * en el futuro (o sin expiración). Sin restringir publicado — el caller
+     * suele encadenar published()->featured() para el listing comercial.
+     */
+    public function scopeFeatured($query)
+    {
+        return $query->where('is_featured', true)
+                     ->where(function ($q) {
+                         $q->whereNull('featured_until')
+                           ->orWhere('featured_until', '>', now());
+                     });
     }
 
     public function scopeSearch($query, ?string $q)
@@ -199,5 +219,27 @@ class MarketplaceListing extends Model
     public function getSellerDisplayAttribute(): string
     {
         return $this->tenant_name ?: $this->tenant_fqdn;
+    }
+
+    /**
+     * Subdominio del tenant (primera parte del FQDN). Usado para construir
+     * la URL de la página pública por tienda en el marketplace.
+     */
+    public function getSubdomainAttribute(): ?string
+    {
+        if (empty($this->tenant_fqdn)) {
+            return null;
+        }
+        return strtolower(strtok($this->tenant_fqdn, '.')) ?: null;
+    }
+
+    /**
+     * URL pública de la tienda dentro del marketplace central:
+     *   ebaemy.com/marketplace/tienda/{subdomain}
+     */
+    public function getStoreUrlAttribute(): ?string
+    {
+        $sub = $this->subdomain;
+        return $sub ? url('/marketplace/tienda/' . $sub) : null;
     }
 }

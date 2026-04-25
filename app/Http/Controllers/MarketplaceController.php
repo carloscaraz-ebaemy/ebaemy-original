@@ -52,7 +52,11 @@ class MarketplaceController extends Controller
                 $query->orderByDesc('created_at');
                 break;
             default:
-                $query->orderByDesc('sort_score')->orderByDesc('view_count');
+                // Relevance: featured (no expirados) primero, luego score, luego views
+                $query->orderByRaw('CASE WHEN is_featured = 1 AND (featured_until IS NULL OR featured_until > NOW()) THEN 1 ELSE 0 END DESC')
+                      ->orderByDesc('featured_score')
+                      ->orderByDesc('sort_score')
+                      ->orderByDesc('view_count');
         }
 
         $listings   = $query->paginate(24)->withQueryString();
@@ -248,6 +252,91 @@ class MarketplaceController extends Controller
     }
 
     /**
+     * Página pública de una tienda dentro del marketplace central.
+     * URL: /marketplace/tienda/{subdomain}
+     *
+     * Resuelve el tenant por la primera parte del FQDN (subdominio). Solo
+     * muestra tiendas con marketplace_enabled=true. Los productos provienen
+     * del índice central — no se conecta a la BD del tenant.
+     */
+    public function tenantPage(Request $request, string $subdomain)
+    {
+        $subdomain = strtolower(trim($subdomain));
+        if (!preg_match('/^[a-z0-9][a-z0-9\-]{1,62}$/', $subdomain)) {
+            abort(404);
+        }
+
+        // Resolver el hostname por subdominio. El FQDN del tenant siempre
+        // empieza con "{subdomain}." — usamos LIKE para no acoplarnos al
+        // dominio raíz (ebaemy.com vs cualquier otro).
+        $hostname = \Hyn\Tenancy\Models\Hostname::query()
+            ->where('fqdn', 'like', $subdomain . '.%')
+            ->first();
+
+        if (!$hostname) {
+            abort(404);
+        }
+
+        $client = \App\Models\System\Client::query()
+            ->where('hostname_id', $hostname->id)
+            ->first();
+
+        if (!$client || !$client->marketplace_enabled) {
+            abort(404);
+        }
+
+        $sort     = $request->input('sort', 'relevance');
+        $priceMin = $request->filled('price_min') ? max(0, (float) $request->input('price_min')) : null;
+        $priceMax = $request->filled('price_max') ? max(0, (float) $request->input('price_max')) : null;
+        $q        = $request->input('q');
+
+        $query = MarketplaceListing::published()
+            ->where('hostname_id', $hostname->id)
+            ->search($q);
+
+        if ($priceMin !== null) {
+            $query->whereRaw('COALESCE(mp_price, price) >= ?', [$priceMin]);
+        }
+        if ($priceMax !== null) {
+            $query->whereRaw('COALESCE(mp_price, price) <= ?', [$priceMax]);
+        }
+
+        switch ($sort) {
+            case 'price_asc':  $query->orderByRaw('COALESCE(mp_price, price) ASC');  break;
+            case 'price_desc': $query->orderByRaw('COALESCE(mp_price, price) DESC'); break;
+            case 'newest':     $query->orderByDesc('created_at');                    break;
+            default:           $query->orderByDesc('sort_score')->orderByDesc('view_count');
+        }
+
+        $listings = $query->paginate(24)->withQueryString();
+        $total    = MarketplaceListing::published()
+                        ->where('hostname_id', $hostname->id)
+                        ->count();
+
+        // Metadata visible: priorizar la del listing más reciente que ya
+        // tiene tenant_name/logo/verified denormalizados. Si no hay listings,
+        // caer al Client.
+        $sample = MarketplaceListing::query()
+            ->where('hostname_id', $hostname->id)
+            ->orderByDesc('synced_at')
+            ->first(['tenant_name', 'tenant_logo_url', 'tenant_verified', 'tenant_fqdn']);
+
+        $store = (object) [
+            'subdomain'  => $subdomain,
+            'name'       => $sample->tenant_name ?? $client->name ?? $hostname->fqdn,
+            'logo_url'   => $sample->tenant_logo_url ?? null,
+            'verified'   => (bool) ($sample->tenant_verified ?? $client->is_verified ?? false),
+            'fqdn'       => $sample->tenant_fqdn ?? $hostname->fqdn,
+            'ruc'        => $client->number ?? null,
+            'site_url'   => 'https://' . ($sample->tenant_fqdn ?? $hostname->fqdn),
+        ];
+
+        return view('marketplace.tenant', compact(
+            'store', 'listings', 'total', 'sort', 'priceMin', 'priceMax', 'q'
+        ));
+    }
+
+    /**
      * Recibe el formulario "Solicitar/Comprar" y crea un lead. El
      * MarketplaceOrderDispatcher lo convierte en Order dentro del tenant.
      */
@@ -432,6 +521,29 @@ class MarketplaceController extends Controller
             );
         }
 
+        // Páginas públicas por tienda — una entrada por seller activo.
+        // Tomamos el subdominio del FQDN denormalizado en marketplace_listings
+        // para no consultar BDs de tenants.
+        $stores = MarketplaceListing::query()
+            ->where('is_active', true)
+            ->where('status', 'active')
+            ->whereNotNull('tenant_fqdn')
+            ->select('tenant_fqdn', \DB::raw('MAX(updated_at) as updated_at'))
+            ->groupBy('tenant_fqdn')
+            ->get();
+        foreach ($stores as $store) {
+            $sub = strtolower(strtok((string) $store->tenant_fqdn, '.')) ?: null;
+            if (!$sub) {
+                continue;
+            }
+            $xml .= $this->sitemapUrl(
+                url('/marketplace/tienda/' . $sub),
+                $store->updated_at ?: now(),
+                '0.7',
+                'weekly'
+            );
+        }
+
         foreach ($listings as $l) {
             $loc     = url('/marketplace/item/' . $l->slug);
             $lastmod = optional($l->updated_at)->toIso8601String() ?: now()->toIso8601String();
@@ -468,6 +580,71 @@ class MarketplaceController extends Controller
             'Sitemap: ' . url('/sitemap-marketplace.xml'),
         ];
         return response(implode("\n", $lines), 200, ['Content-Type' => 'text/plain']);
+    }
+
+    /**
+     * Feed RSS-XML compatible con Meta Catalog y Google Merchant Center.
+     * Lista todos los marketplace_listings publicados con stock > 0.
+     *
+     * URL: /feeds/meta-catalog.xml
+     *
+     * Compatible con:
+     *   - Meta Commerce Manager → Catálogos → Subir producto via URL feed
+     *   - Google Merchant Center → fuente de datos → URL programada
+     *
+     * Cada item incluye <g:id> = mp_{listing_id} para evitar colisiones con
+     * IDs internos de tenants. <g:link> apunta a la ficha pública del marketplace.
+     */
+    public function metaCatalog()
+    {
+        $listings = MarketplaceListing::published()
+            ->orderByDesc('updated_at')
+            ->limit(20000) // Meta Commerce permite hasta 20k items por feed
+            ->get();
+
+        $xml  = '<?xml version="1.0" encoding="UTF-8"?>' . "\n";
+        $xml .= '<rss version="2.0" xmlns:g="http://base.google.com/ns/1.0">' . "\n";
+        $xml .= '<channel>' . "\n";
+        $xml .= '  <title>ebaemy Marketplace</title>' . "\n";
+        $xml .= '  <link>' . url('/marketplace') . '</link>' . "\n";
+        $xml .= '  <description>Productos de tiendas verificadas en ebaemy.com</description>' . "\n";
+
+        foreach ($listings as $l) {
+            $price = number_format($l->display_price, 2, '.', '') . ' PEN';
+            $availability = $l->stock > 0 ? 'in stock' : 'out of stock';
+            $description = strip_tags($l->description ?? $l->title);
+            $description = mb_substr(trim($description), 0, 5000);
+
+            $xml .= "  <item>\n";
+            $xml .= '    <g:id>mp_' . $l->id . "</g:id>\n";
+            $xml .= '    <g:title>' . htmlspecialchars(mb_substr($l->title, 0, 150), ENT_XML1) . "</g:title>\n";
+            $xml .= '    <g:description>' . htmlspecialchars($description ?: $l->title, ENT_XML1) . "</g:description>\n";
+            $xml .= '    <g:link>' . htmlspecialchars($l->public_url, ENT_XML1) . "</g:link>\n";
+            if ($l->image_url) {
+                $xml .= '    <g:image_link>' . htmlspecialchars($l->image_url, ENT_XML1) . "</g:image_link>\n";
+            }
+            $xml .= '    <g:availability>' . $availability . "</g:availability>\n";
+            $xml .= '    <g:price>' . $price . "</g:price>\n";
+            $xml .= '    <g:condition>new</g:condition>' . "\n";
+            $xml .= '    <g:identifier_exists>no</g:identifier_exists>' . "\n";
+            if ($l->brand_name) {
+                $xml .= '    <g:brand>' . htmlspecialchars(mb_substr($l->brand_name, 0, 70), ENT_XML1) . "</g:brand>\n";
+            }
+            if ($l->category_name) {
+                $xml .= '    <g:product_type>' . htmlspecialchars(mb_substr($l->category_name, 0, 250), ENT_XML1) . "</g:product_type>\n";
+            }
+            // Tienda dueña — Meta lo usa para mostrar atribución
+            $xml .= '    <g:custom_label_0>' . htmlspecialchars(mb_substr($l->seller_display, 0, 100), ENT_XML1) . "</g:custom_label_0>\n";
+            $xml .= "  </item>\n";
+        }
+
+        $xml .= '</channel>' . "\n";
+        $xml .= '</rss>';
+
+        return response($xml, 200, [
+            'Content-Type'  => 'application/xml; charset=utf-8',
+            'Cache-Control' => 'public, max-age=3600',
+        ]);
     }
 
     private function sitemapUrl(string $loc, $lastmod, string $priority, string $changefreq): string

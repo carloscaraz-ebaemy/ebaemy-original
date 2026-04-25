@@ -135,7 +135,8 @@
     {{-- ═══════════════════════ INFO + COMPRA ═══════════════════════ --}}
     <div class="mp-detail-info">
 
-        <a class="mp-shop-link" href="https://{{ $listing->tenant_fqdn }}" target="_blank" rel="noopener">
+        @php $sellerStorePageUrl = $listing->store_url ?: ('https://' . $listing->tenant_fqdn); @endphp
+        <a class="mp-shop-link" href="{{ $sellerStorePageUrl }}">
             @if($listing->tenant_logo_url)
                 <img src="{{ $listing->tenant_logo_url }}" alt="{{ $listing->seller_display }}">
             @else
@@ -214,14 +215,59 @@
             </div>
         @endif
 
-        {{-- CTA principal: ir al storefront del tenant --}}
+        {{-- CTA principal: añadir al carrito multi-tienda --}}
         @if($listing->stock > 0)
-            <a href="{{ route('marketplace.go', $listing->slug) }}" rel="nofollow sponsored" class="mp-cta-primary">
+            <button type="button" class="mp-cta-primary" id="mpAddToCartBtn"
+                    data-slug="{{ $listing->slug }}"
+                    style="width:100%;cursor:pointer;border:none">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
-                Comprar en {{ $listing->seller_display }}
+                Añadir al carrito
+            </button>
+            <a href="{{ route('marketplace.go', $listing->slug) }}" rel="nofollow sponsored"
+               class="mp-cta-primary"
+               style="background:#fff;color:var(--mp-primary-dark,#0c6b65);border:1.5px solid var(--mp-primary,#0f8a82);margin-top:8px">
+                Comprar directo en {{ $listing->seller_display }}
             </a>
-            <div class="mp-cta-divider"><span>o solicita información / envío</span></div>
+            <div class="mp-cta-divider"><span>o solicita información / envío al vendedor</span></div>
         @endif
+
+        <script>
+        (function(){
+            const btn = document.getElementById('mpAddToCartBtn');
+            if (!btn) return;
+            btn.addEventListener('click', function () {
+                const slug = btn.dataset.slug;
+                btn.disabled = true;
+                const original = btn.innerHTML;
+                btn.innerHTML = 'Añadiendo…';
+                fetch(@json(route('marketplace.cart.add')), {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': @json(csrf_token()),
+                        'Accept': 'application/json',
+                    },
+                    body: JSON.stringify({ slug, quantity: 1 })
+                })
+                .then(r => r.json())
+                .then(function (data) {
+                    if (!data.success) {
+                        btn.innerHTML = original; btn.disabled = false;
+                        alert(data.message || 'No se pudo añadir el producto');
+                        return;
+                    }
+                    btn.innerHTML = '✓ Añadido — ir al carrito';
+                    btn.onclick = function () { window.location = @json(route('marketplace.cart')); };
+                    btn.disabled = false;
+                    if (window.mpCartBadgeUpdate) window.mpCartBadgeUpdate(data.summary);
+                })
+                .catch(function () {
+                    btn.innerHTML = original; btn.disabled = false;
+                    alert('Error de red');
+                });
+            });
+        })();
+        </script>
 
         {{-- Form de lead (datos del formulario intactos) --}}
         <form method="POST" action="{{ route('marketplace.lead', $listing->slug) }}" class="mp-lead-form">

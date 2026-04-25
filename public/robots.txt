@@ -1,0 +1,33 @@
+User-agent: *
+Allow: /
+Allow: /marketplace
+Allow: /marketplace/c/
+Allow: /marketplace/categoria/
+Allow: /marketplace/item/
+Allow: /seller
+Disallow: /admin
+Disallow: /admin/
+Disallow: /login
+Disallow: /dashboard
+Disallow: /system
+Disallow: /api/
+Disallow: /tenancy/
+Disallow: /storage/uploads/
+Disallow: /seller/application/
+Disallow: /marketplace/gracias/
+
+User-agent: GPTBot
+Disallow: /
+
+User-agent: ClaudeBot
+Allow: /marketplace
+Disallow: /admin
+Disallow: /login
+
+Crawl-delay: 1
+
+Sitemap: https://ebaemy.com/sitemap-marketplace.xml
+
+# Feeds para integración con plataformas externas
+# Meta Commerce Manager (Catálogo): https://ebaemy.com/feeds/meta-catalog.xml
+# Google Merchant Center:           https://ebaemy.com/feeds/google-merchant.xml

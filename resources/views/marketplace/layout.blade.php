@@ -46,6 +46,7 @@
             <span>⭐ {{ \App\Models\System\Client::query()->where('is_verified', true)->count() }}+ tiendas verificadas</span>
         </div>
         <div class="mp-topbar-right">
+            <a href="{{ route('pricing') }}">Planes y precios</a>
             <a href="{{ route('seller.landing') }}">¿Quieres vender?</a>
             <a href="mailto:soporte@ebaemy.com">Ayuda</a>
         </div>
@@ -84,6 +85,13 @@
         </form>
 
         <div class="mp-nav-actions">
+            <a href="{{ route('marketplace.cart') }}" class="mp-nav-link" id="mpCartNavLink"
+               title="Mi carrito" style="position:relative">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
+                <span class="mp-nav-link-text">Carrito</span>
+                <span id="mpCartBadge"
+                      style="display:none;position:absolute;top:-2px;right:-6px;background:#dc2626;color:#fff;font-size:10px;font-weight:700;border-radius:999px;min-width:18px;height:18px;padding:0 5px;line-height:18px;text-align:center"></span>
+            </a>
             <a href="{{ route('seller.landing') }}" class="mp-nav-link" title="Ingresar a mi tienda">
                 <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
                 <span class="mp-nav-link-text">Mi tienda</span>
@@ -176,6 +184,25 @@
         <div>Hecho en 🇵🇪 con Laravel + ebaemy SaaS</div>
     </div>
 </footer>
+
+<script>
+(function(){
+    const badge = document.getElementById('mpCartBadge');
+    if (!badge) return;
+    function paint(summary) {
+        const count = (summary && summary.count) || 0;
+        if (count > 0) {
+            badge.textContent = count > 99 ? '99+' : String(count);
+            badge.style.display = 'inline-block';
+        } else {
+            badge.style.display = 'none';
+        }
+    }
+    window.mpCartBadgeUpdate = paint;
+    fetch(@json(route('marketplace.cart.json')), { headers: { 'Accept': 'application/json' }, credentials: 'same-origin' })
+        .then(r => r.json()).then(paint).catch(function(){ /* silent */ });
+})();
+</script>
 
 </body>
 </html>
