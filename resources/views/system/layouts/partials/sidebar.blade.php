@@ -185,14 +185,82 @@
             </nav>
         </div>
 
-        <script>
-            if (typeof localStorage !== 'undefined') {
-                if (localStorage.getItem('sidebar-left-position') !== null) {
-                    var initialPosition = localStorage.getItem('sidebar-left-position'),
-                        sidebarLeft = document.querySelector('#sidebar-left .nano-content');
-                    sidebarLeft.scrollTop = initialPosition;
-                }
+        <style>
+            #sidebar-left .nav-separator {
+                cursor: pointer;
+                user-select: none;
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                padding-right: 14px;
+                transition: background-color .15s;
             }
+            #sidebar-left .nav-separator:hover { background-color: rgba(99,102,241,.06); }
+            #sidebar-left .nav-separator .nav-group-toggle {
+                font-size: 9px;
+                color: #94a3b8;
+                transition: transform .2s ease;
+                display: inline-block;
+                margin-left: 8px;
+                line-height: 1;
+            }
+            #sidebar-left .nav-separator[data-open="false"] .nav-group-toggle {
+                transform: rotate(-90deg);
+            }
+            #sidebar-left li.nav-group-item-hidden { display: none !important; }
+        </style>
+        <script>
+            (function () {
+                if (typeof localStorage !== 'undefined') {
+                    if (localStorage.getItem('sidebar-left-position') !== null) {
+                        var initialPosition = localStorage.getItem('sidebar-left-position'),
+                            sidebarLeft = document.querySelector('#sidebar-left .nano-content');
+                        if (sidebarLeft) sidebarLeft.scrollTop = initialPosition;
+                    }
+                }
+
+                // ── Sidebar colapsable por sección ──────────────────────────
+                // Cada nav-separator agrupa los <li> hermanos hasta el próximo
+                // separator. Click toggle, estado en localStorage, auto-expand
+                // si algún hijo está nav-active.
+                var separators = document.querySelectorAll('#sidebar-left .nav-separator');
+                separators.forEach(function (sep) {
+                    var items = [];
+                    var next = sep.nextElementSibling;
+                    while (next && !next.classList.contains('nav-separator')) {
+                        items.push(next);
+                        next = next.nextElementSibling;
+                    }
+                    if (!items.length) return;
+
+                    var key = 'mp-sidebar-' + sep.textContent.trim().toLowerCase().replace(/\s+/g, '-');
+                    var hasActive = items.some(function (li) { return li.classList.contains('nav-active'); });
+                    var saved = localStorage.getItem(key);
+                    var open = hasActive ? true : (saved === null ? true : saved === 'open');
+
+                    var toggle = document.createElement('span');
+                    toggle.className = 'nav-group-toggle';
+                    toggle.textContent = '▼';
+                    sep.appendChild(toggle);
+
+                    function apply(o) {
+                        sep.setAttribute('data-open', o ? 'true' : 'false');
+                        items.forEach(function (li) {
+                            li.classList.toggle('nav-group-item-hidden', !o);
+                        });
+                    }
+                    apply(open);
+
+                    sep.addEventListener('click', function (e) {
+                        // Evitar conflictos si el click vino de un link interno (no debería pasar
+                        // porque los <li> hijos no son descendientes del separator)
+                        if (e.target.closest('a')) return;
+                        var newOpen = sep.getAttribute('data-open') !== 'true';
+                        apply(newOpen);
+                        localStorage.setItem(key, newOpen ? 'open' : 'closed');
+                    });
+                });
+            })();
         </script>
     </div>
 
