@@ -1184,6 +1184,9 @@ if ($hostname) {
         // La aprobación manual la hace el SuperAdmin desde
         // /admin/seller-applications (definido arriba, bajo auth:admin).
         Route::get('seller', 'SellerLandingController@show')->name('seller.landing');
+        Route::get('seller/access',  'SellerLandingController@access')->name('seller.access');
+        Route::post('seller/access', 'SellerLandingController@accessGo')
+             ->middleware('throttle:20,1')->name('seller.access.go');
         Route::get('seller/register', 'SellerRegistrationController@create')->name('seller.register');
         Route::post('seller/register', 'SellerRegistrationController@store')
              ->middleware('throttle:5,60')

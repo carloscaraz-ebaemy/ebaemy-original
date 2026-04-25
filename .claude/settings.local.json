@@ -12,7 +12,12 @@
       "Bash(php /c/laragon/www/ebaemy-original/artisan view:clear)",
       "Bash(grep -v \"^$\")",
       "Bash(php /c/laragon/www/ebaemy-original/artisan tinker --execute=\":*)",
-      "Bash(mysql --host=127.0.0.1 -uroot -e \"SHOW TABLES FROM ebaemyoriginal_demo LIKE ''business_turns'';\")"
+      "Bash(mysql --host=127.0.0.1 -uroot -e \"SHOW TABLES FROM ebaemyoriginal_demo LIKE ''business_turns'';\")",
+      "Bash(php -r ' *)",
+      "Bash(php -l app/Http/Controllers/MarketingInboundController.php)",
+      "Bash(php -l app/Mail/MarketplaceOrderConfirmationMail.php)",
+      "Bash(php -l app/Services/System/MarketplaceCheckoutService.php)",
+      "Bash(php -l app/Http/Requests/Public/SellerRegistrationRequest.php)"
     ]
   }
 }

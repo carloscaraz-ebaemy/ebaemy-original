@@ -151,7 +151,42 @@
             @endif
         </a>
 
-        <h1>{{ $listing->title }}</h1>
+        <div style="display:flex;align-items:flex-start;gap:12px;margin-bottom:8px">
+            <h1 style="flex:1;margin:0">{{ $listing->title }}</h1>
+            <button type="button" id="mpDetailFavBtn" data-listing="{{ $listing->id }}"
+                    style="flex-shrink:0;width:42px;height:42px;border-radius:50%;border:1.5px solid #e5e7eb;background:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;color:#6b7280;transition:all .15s"
+                    title="Guardar en favoritos"
+                    aria-label="Favoritos">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+            </button>
+        </div>
+        <script>
+        (function(){
+            var btn = document.getElementById('mpDetailFavBtn');
+            if (!btn) return;
+            var lid = btn.dataset.listing;
+            function readFavs(){
+                try { return JSON.parse(localStorage.getItem('mp_favs') || '[]'); } catch(e){ return []; }
+            }
+            function paint(isFav){
+                if (isFav) {
+                    btn.style.background = '#fee2e2'; btn.style.borderColor = '#ef4444'; btn.style.color = '#ef4444';
+                    btn.querySelector('svg').setAttribute('fill', 'currentColor');
+                } else {
+                    btn.style.background = '#fff'; btn.style.borderColor = '#e5e7eb'; btn.style.color = '#6b7280';
+                    btn.querySelector('svg').setAttribute('fill', 'none');
+                }
+            }
+            paint(readFavs().includes(lid));
+            btn.addEventListener('click', function(){
+                var favs = readFavs();
+                var idx = favs.indexOf(lid);
+                if (idx >= 0) favs.splice(idx, 1); else favs.push(lid);
+                localStorage.setItem('mp_favs', JSON.stringify(favs));
+                paint(idx < 0);
+            });
+        })();
+        </script>
 
         @if($listing->rating_count > 0)
             <div class="mp-rating-summary">
