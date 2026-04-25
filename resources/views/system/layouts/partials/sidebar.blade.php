@@ -108,7 +108,7 @@
                         </a>
                     </li>
 
-                    <li class="{{ (isset($path[1]) && $path[1] === 'admin' && isset($path[2]) && $path[2] === 'marketplace' && isset($path[3]) && $path[3] === 'orders')?'nav-active':'' }}">
+                    <li class="{{ (isset($path[1]) && $path[1] === 'marketplace' && isset($path[2]) && $path[2] === 'orders')?'nav-active':'' }}">
                         <a class="nav-link" href="{{ route('system.marketplace_orders.index') }}">
                             <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3l8 -8"/><path d="M20 12v6a2 2 0 0 1 -2 2h-12a2 2 0 0 1 -2 -2v-12a2 2 0 0 1 2 -2h9"/></svg>
                             <span>Pedidos multi-tienda</span>
@@ -122,28 +122,28 @@
                         </a>
                     </li>
 
-                    <li class="{{ (isset($path[1]) && $path[1] === 'admin' && isset($path[2]) && $path[2] === 'seller-applications')?'nav-active':'' }}">
+                    <li class="{{ (isset($path[1]) && $path[1] === 'seller-applications')?'nav-active':'' }}">
                         <a class="nav-link" href="{{ route('system.seller_applications.index') }}">
                             <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0 -4 -4h-5a4 4 0 0 0 -4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 11l-3 3l-2 -2"/></svg>
                             <span>Solicitudes de vendedores</span>
                         </a>
                     </li>
 
-                    <li class="{{ (isset($path[1]) && $path[1] === 'admin' && isset($path[2]) && $path[2] === 'marketplace' && isset($path[3]) && $path[3] === 'categories')?'nav-active':'' }}">
+                    <li class="{{ (isset($path[1]) && $path[1] === 'marketplace' && isset($path[2]) && $path[2] === 'categories')?'nav-active':'' }}">
                         <a class="nav-link" href="{{ route('system.marketplace_categories.index') }}">
                             <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
                             <span>Categorías oficiales</span>
                         </a>
                     </li>
 
-                    <li class="{{ (isset($path[1]) && $path[1] === 'admin' && isset($path[2]) && $path[2] === 'marketplace' && isset($path[3]) && $path[3] === 'category-requests')?'nav-active':'' }}">
+                    <li class="{{ (isset($path[1]) && $path[1] === 'marketplace' && isset($path[2]) && $path[2] === 'category-requests')?'nav-active':'' }}">
                         <a class="nav-link" href="{{ route('system.marketplace_category_requests.index') }}">
                             <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 9l-5 5l-3 -3"/><path d="M21 12a9 9 0 1 1 -18 0a9 9 0 0 1 18 0z"/></svg>
                             <span>Solicitudes de categorías</span>
                         </a>
                     </li>
 
-                    <li class="{{ (isset($path[1]) && $path[1] === 'admin' && isset($path[2]) && $path[2] === 'marketing')?'nav-active':'' }}">
+                    <li class="{{ (isset($path[1]) && $path[1] === 'marketing')?'nav-active':'' }}">
                         <a class="nav-link" href="{{ route('system.marketing.campaigns.index') }}">
                             <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l18 -5v12l-18 -5v-2z"/><path d="M11.6 16.8a3 3 0 1 1 -5.8 -1.6"/></svg>
                             <span>Marketing / Campañas</span>
