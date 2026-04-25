@@ -28,8 +28,8 @@ use Illuminate\Support\Facades\Log;
  */
 class MarketplaceCategoryController extends Controller
 {
-    private const CACHE_KEY_TREE  = 'marketplace_categories_tree_v1';
-    private const CACHE_KEY_FLAT  = 'marketplace_categories_flat_v1';
+    private const CACHE_KEY_TREE  = 'marketplace_categories_tree_v2';
+    private const CACHE_KEY_FLAT  = 'marketplace_categories_flat_v2';
     private const CACHE_TTL_SECS  = 1800; // 30 min
 
     /**
@@ -51,7 +51,8 @@ class MarketplaceCategoryController extends Controller
 
             $build = function ($parentId = null) use (&$build, $byParent) {
                 return $byParent->get($parentId, collect())->map(function ($node) use ($build) {
-                    return [
+                    $children = $build($node->id);
+                    $base = [
                         'id'                   => $node->id,
                         'name'                 => $node->name,
                         'slug'                 => $node->slug,
@@ -60,8 +61,13 @@ class MarketplaceCategoryController extends Controller
                         'icon'                 => $node->icon,
                         'is_leaf'              => (bool) $node->is_leaf,
                         'allow_seller_publish' => (bool) $node->allow_seller_publish,
-                        'children'             => $build($node->id),
                     ];
+                    // Element UI el-cascader trata cualquier nodo con
+                    // 'children' (incluso []) como rama no seleccionable.
+                    if (!empty($children)) {
+                        $base['children'] = $children;
+                    }
+                    return $base;
                 })->values()->all();
             };
 
@@ -69,6 +75,52 @@ class MarketplaceCategoryController extends Controller
         });
 
         return response()->json(['tree' => $tree]);
+    }
+
+    /**
+     * Sugiere hasta 3 categorías oficiales (hojas publicables) que coincidan
+     * con el texto. Usado al activar "Publicar en marketplace" para
+     * autocompletar partiendo del nombre de la categoría interna del tenant.
+     *
+     * GET /marketplace-categories/suggest?q={texto}
+     */
+    public function suggest(Request $request): JsonResponse
+    {
+        $q = trim((string) $request->input('q', ''));
+
+        if (mb_strlen($q) < 2) {
+            return response()->json(['suggestions' => []]);
+        }
+
+        $rows = MarketplaceCategory::query()
+            ->active()
+            ->visible()
+            ->leaves()
+            ->publishable()
+            ->where('name', 'like', "%{$q}%")
+            ->orderByRaw("CASE WHEN name LIKE ? THEN 0 ELSE 1 END", ["{$q}%"])
+            ->orderBy('name')
+            ->limit(3)
+            ->get(['id', 'name', 'parent_id', 'full_slug']);
+
+        $suggestions = $rows->map(function ($cat) {
+            $path = [];
+            $cur = $cat;
+            while ($cur) {
+                array_unshift($path, ['id' => $cur->id, 'name' => $cur->name]);
+                $cur = $cur->parent_id
+                    ? MarketplaceCategory::query()->find($cur->parent_id)
+                    : null;
+            }
+            return [
+                'id'         => $cat->id,
+                'name'       => $cat->name,
+                'breadcrumb' => collect($path)->pluck('name')->implode(' › '),
+                'path_ids'   => collect($path)->pluck('id')->all(),
+            ];
+        })->all();
+
+        return response()->json(['suggestions' => $suggestions]);
     }
 
     /**

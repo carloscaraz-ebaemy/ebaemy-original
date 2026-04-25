@@ -52,6 +52,57 @@ class MarketplaceCategoryController extends Controller
     }
 
     /**
+     * Sugiere hasta 3 categorías oficiales del marketplace que coincidan
+     * (case-insensitive) con el texto proporcionado. Solo devuelve hojas
+     * publicables. Útil para autocompletar/sugerir cuando el seller activa
+     * "Publicar en marketplace" — partimos del nombre de su categoría
+     * interna y buscamos un match en el árbol oficial.
+     *
+     * GET /marketplace-categories/suggest?q={texto}
+     */
+    public function suggest(Request $request): JsonResponse
+    {
+        $q = trim((string) $request->input('q', ''));
+
+        if (mb_strlen($q) < 2) {
+            return response()->json(['suggestions' => []]);
+        }
+
+        // Match en cualquier parte del nombre, priorizando los que empiezan
+        // con el término. Solo hojas activas y permitidas para sellers.
+        $rows = MarketplaceCategory::query()
+            ->where('is_active', true)
+            ->where('is_leaf', true)
+            ->where('allow_seller_publish', true)
+            ->where('name', 'like', "%{$q}%")
+            ->orderByRaw("CASE WHEN name LIKE ? THEN 0 ELSE 1 END", ["{$q}%"])
+            ->orderBy('name')
+            ->limit(3)
+            ->get(['id', 'name', 'full_slug', 'parent_id']);
+
+        $suggestions = $rows->map(function ($cat) {
+            $path = [];
+            $cur = $cat;
+            while ($cur) {
+                array_unshift($path, ['id' => $cur->id, 'name' => $cur->name]);
+                $cur = $cur->parent_id
+                    ? MarketplaceCategory::query()->find($cur->parent_id)
+                    : null;
+            }
+
+            return [
+                'id'        => $cat->id,
+                'name'      => $cat->name,
+                'full_slug' => $cat->full_slug,
+                'breadcrumb' => collect($path)->pluck('name')->implode(' › '),
+                'path_ids'  => collect($path)->pluck('id')->all(),
+            ];
+        });
+
+        return response()->json(['suggestions' => $suggestions]);
+    }
+
+    /**
      * Listado plano con búsqueda + filtros — para tabla del panel.
      */
     public function records(Request $request): JsonResponse

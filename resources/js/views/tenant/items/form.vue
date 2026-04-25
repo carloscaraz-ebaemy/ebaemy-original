@@ -647,6 +647,14 @@
 
                                     <div v-if="form.marketplace_publishable" style="margin-top:12px;padding:12px;background:#faf5ff;border:1px solid #e9d5ff;border-radius:8px">
                                         <label style="display:block;font-size:12px;color:#6b21a8;margin-bottom:4px;font-weight:500">Categoría oficial del marketplace *</label>
+                                        <div v-if="mp_category_suggestions.length && !form.marketplace_category_id" style="margin:0 0 8px;padding:8px 10px;background:#ecfdf5;border:1px solid #a7f3d0;border-radius:8px">
+                                            <div style="font-size:11px;color:#047857;margin-bottom:4px;font-weight:500">💡 Sugerencias basadas en tu categoría interna:</div>
+                                            <div style="display:flex;flex-wrap:wrap;gap:6px">
+                                                <button v-for="s in mp_category_suggestions" :key="s.id" type="button" @click="applyMpSuggestion(s)" style="background:#fff;border:1px solid #10b981;color:#065f46;padding:4px 10px;border-radius:6px;font-size:12px;cursor:pointer">
+                                                    {{ s.breadcrumb }} ✓
+                                                </button>
+                                            </div>
+                                        </div>
                                         <el-cascader
                                             v-model="form.marketplace_category_path"
                                             :options="mp_category_tree"
@@ -1588,6 +1596,7 @@ export default {
                 _parent_path: [],
             },
             mp_category_request_sending: false,
+            mp_category_suggestions: [],
         }
     },
     async created() {
@@ -1668,7 +1677,17 @@ export default {
             }
         },
         'form.marketplace_publishable'(val) {
-            if (val) this.loadMarketplaceCategoryTree()
+            if (val) {
+                this.loadMarketplaceCategoryTree()
+                this.suggestMpCategoryFromTenant()
+            } else {
+                this.mp_category_suggestions = []
+            }
+        },
+        'form.category_id'() {
+            if (this.form.marketplace_publishable && !this.form.marketplace_category_id) {
+                this.suggestMpCategoryFromTenant()
+            }
         },
     },
 
@@ -2090,6 +2109,24 @@ this.activeName =  'first'
         onMpCategoryChange(path) {
             const lastId = Array.isArray(path) && path.length ? path[path.length - 1] : null
             this.form.marketplace_category_id = lastId
+            if (lastId) this.mp_category_suggestions = []
+        },
+        suggestMpCategoryFromTenant() {
+            if (this.form.marketplace_category_id) return
+            const cat = (this.categories || []).find(c => c.id === this.form.category_id)
+            const name = cat ? (cat.name || '') : ''
+            if (!name || name.trim().length < 2) {
+                this.mp_category_suggestions = []
+                return
+            }
+            this.$http.get('/marketplace-categories/suggest', { params: { q: name.trim() } })
+                .then(res => { this.mp_category_suggestions = res.data.suggestions || [] })
+                .catch(() => { this.mp_category_suggestions = [] })
+        },
+        applyMpSuggestion(suggestion) {
+            this.form.marketplace_category_path = suggestion.path_ids
+            this.form.marketplace_category_id   = suggestion.id
+            this.mp_category_suggestions = []
         },
         openMpCategoryRequest() {
             this.mp_category_request_form = {

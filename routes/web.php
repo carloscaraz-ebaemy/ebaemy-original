@@ -455,6 +455,7 @@ if ($hostname) {
             // Categorías oficiales del marketplace (árbol desde system DB)
             Route::get('marketplace-categories/tree',         'Tenant\MarketplaceCategoryController@tree');
             Route::get('marketplace-categories/flat',         'Tenant\MarketplaceCategoryController@flat');
+            Route::get('marketplace-categories/suggest',      'Tenant\MarketplaceCategoryController@suggest');
             Route::post('marketplace-categories/request-new', 'Tenant\MarketplaceCategoryController@requestNew');
 
             Route::post('items/duplicate', 'Tenant\ItemController@duplicate');
