@@ -15,6 +15,7 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Modules\MobileApp\Models\System\AppModule;
 use App\Models\System\Plan;
+use App\Services\Tenant\CourierCompanyCatalog;
 
 /**
  * Service encargado de crear un tenant completo (Hyn infra + Client +
@@ -296,6 +297,17 @@ class TenantCreationService
 
         Log::info('Actualizando configuration_ecommerce con datos del seller...');
         $this->updateEcommerceConfig($payload);
+
+        Log::info('Sembrando catálogo extendido de couriers...');
+        try {
+            $inserted = CourierCompanyCatalog::apply('tenant');
+            Log::info("Couriers insertados: {$inserted}");
+        } catch (Exception $e) {
+            // No es crítico — la migración base ya dejó los 9 couriers iniciales.
+            Log::warning('No se pudo aplicar catálogo extendido de couriers', [
+                'error' => $e->getMessage(),
+            ]);
+        }
     }
 
     /**
