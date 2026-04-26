@@ -92,10 +92,6 @@
                 <span id="mpCartBadge"
                       style="display:none;position:absolute;top:-2px;right:-6px;background:#dc2626;color:#fff;font-size:10px;font-weight:700;border-radius:999px;min-width:18px;height:18px;padding:0 5px;line-height:18px;text-align:center"></span>
             </a>
-            <a href="{{ route('seller.access') }}" class="mp-nav-link" title="Acceder a mi tienda">
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-                <span class="mp-nav-link-text">Mi tienda</span>
-            </a>
             <a href="{{ route('seller.landing') }}" class="mp-btn-sell">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13l-1.4 7h12.8"/><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/></svg>
                 <span class="mp-btn-sell-text">Vender en ebaemy</span>

@@ -1713,10 +1713,26 @@ button { font-family: inherit; cursor: pointer; }
     .mp-card-body { padding: 10px 12px 14px; gap: 5px; }
     .mp-card-title { font-size: 13px; min-height: 2.55em; }
     .mp-card-price { font-size: 17px; }
-    .mp-nav-main { padding: 10px 12px; gap: 10px; grid-template-columns: auto 1fr; }
-    .mp-nav-actions { display: none; }
+
+    /* Header: 2 filas — (logo + acciones) arriba, buscador abajo */
+    .mp-nav-main {
+        padding: 10px 12px;
+        gap: 8px 10px;
+        grid-template-columns: auto 1fr auto;
+        grid-template-areas:
+            "logo . actions"
+            "search search search";
+    }
+    .mp-logo { grid-area: logo; font-size: 18px; gap: 8px; }
+    .mp-logo-mark { width: 32px; height: 32px; font-size: 15px; }
+    .mp-logo-badge { display: none; }
+    .mp-search { grid-area: search; }
+    .mp-nav-actions { grid-area: actions; gap: 4px; }
+    .mp-nav-link { padding: 8px 10px; }
+    .mp-btn-sell { padding: 9px 11px; box-shadow: 0 2px 8px rgba(15,138,130,0.28); }
     .mp-search-btn { width: 48px; }
     .mp-search-input { padding: 12px 14px; font-size: 14px; }
+    .mp-search-category { display: none; }
 }
 
 /* ─ Section separator sutil ─ */
