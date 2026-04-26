@@ -178,6 +178,77 @@
         .sl-step h4 { font-size: 16px; font-weight: 700; margin: 12px 0 8px; color: var(--eb-ink, #0f172a); }
         .sl-step p { font-size: 13.5px; color: var(--eb-ink-soft, #475569); margin: 0; line-height: 1.55; }
 
+        /* ── LOGÍSTICA DESTACADA ───────────────────────────── */
+        .sl-logistic { background: #fafbfc; }
+        .sl-logistic-grid {
+            display: grid; grid-template-columns: 1fr 1fr;
+            gap: clamp(28px, 4vw, 56px); align-items: center;
+        }
+        .sl-logistic-list { list-style: none; padding: 0; margin: 24px 0 0; display: grid; gap: 14px; }
+        .sl-logistic-list li {
+            display: flex; align-items: flex-start; gap: 12px;
+            font-size: 14.5px; color: var(--eb-ink-soft, #475569);
+        }
+        .sl-logistic-list .check {
+            flex-shrink: 0; width: 22px; height: 22px; border-radius: 50%;
+            background: var(--eb-brand-soft, #e8f6f5); color: var(--eb-brand-dark, #0a6f68);
+            display: inline-flex; align-items: center; justify-content: center;
+            margin-top: 1px;
+        }
+        .sl-logistic-visual {
+            background: #fff; border: 1px solid var(--eb-line, #e2e8f0);
+            border-radius: 18px; padding: 22px;
+            box-shadow: 0 12px 30px -10px rgba(15,23,42,0.10);
+        }
+        .sl-kanban { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+        .sl-kanban-col {
+            background: #f8fafc; border-radius: 12px; padding: 12px 10px; min-height: 180px;
+        }
+        .sl-kanban-col h5 {
+            font-size: 11px; font-weight: 700; text-transform: uppercase;
+            letter-spacing: 0.06em; margin: 0 0 10px; color: var(--eb-ink-soft, #475569);
+        }
+        .sl-kanban-card {
+            background: #fff; border: 1px solid var(--eb-line, #e2e8f0);
+            border-radius: 8px; padding: 9px 10px; margin-bottom: 7px;
+            font-size: 12px; color: var(--eb-ink, #0f172a);
+        }
+        .sl-kanban-card .num { font-weight: 700; color: var(--eb-brand-dark, #0a6f68); font-size: 11px; }
+        .sl-kanban-card .meta { color: var(--eb-muted, #94a3b8); font-size: 11px; margin-top: 3px; }
+        .sl-kanban-pill {
+            display: inline-block; padding: 2px 8px; border-radius: 99px;
+            background: var(--eb-brand-soft, #e8f6f5); color: var(--eb-brand-dark, #0a6f68);
+            font-size: 10px; font-weight: 700; margin-top: 4px;
+        }
+
+        /* ── COMPARATIVA ───────────────────────────────────── */
+        .sl-compare-table {
+            background: #fff; border: 1px solid var(--eb-line, #e2e8f0);
+            border-radius: 18px; overflow: hidden;
+            box-shadow: 0 12px 30px -10px rgba(15,23,42,0.08);
+        }
+        .sl-compare-row {
+            display: grid; grid-template-columns: 1.3fr 1fr 1fr;
+            border-bottom: 1px solid var(--eb-line-soft, #f1f5f9);
+        }
+        .sl-compare-row:last-child { border-bottom: 0; }
+        .sl-compare-row > div { padding: 16px 18px; font-size: 14px; }
+        .sl-compare-row.head > div {
+            background: var(--eb-brand-soft, #e8f6f5);
+            font-weight: 700; color: var(--eb-brand-dark, #0a6f68);
+            font-size: 13px; letter-spacing: 0.02em;
+        }
+        .sl-compare-row > div:first-child { font-weight: 600; color: var(--eb-ink, #0f172a); }
+        .sl-compare-row .yes { color: #059669; font-weight: 600; }
+        .sl-compare-row .no { color: #94a3b8; }
+        .sl-compare-row .ebaemy { background: rgba(31,177,166,0.06); }
+
+        @media (max-width: 760px) {
+            .sl-logistic-grid { grid-template-columns: 1fr; }
+            .sl-compare-row { grid-template-columns: 1.5fr 1fr 1fr; }
+            .sl-compare-row > div { padding: 12px 10px; font-size: 12.5px; }
+        }
+
         /* ── CTA FINAL ────────────────────────────────────── */
         .sl-cta {
             background: linear-gradient(135deg, #0a6f68 0%, #0f8a82 50%, #1fb1a6 100%);
@@ -229,7 +300,8 @@
     </a>
     <div class="sl-nav-links">
         <a href="#beneficios">Beneficios</a>
-        <a href="#como-funciona">Cómo funciona</a>
+        <a href="#logistica">Logística</a>
+        <a href="#comparativa">Comparativa</a>
         <a href="{{ url('/marketplace') }}">Ir al marketplace</a>
     </div>
     <a href="{{ route('seller.register') }}" class="sl-nav-cta">Empezar ahora</a>
@@ -281,42 +353,84 @@
                     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
                 </div>
                 <h3>Marketplace central</h3>
-                <p>Tus productos visibles en ebaemy.com/marketplace junto a otras tiendas verificadas.</p>
+                <p>Tus productos visibles en ebaemy.com/marketplace junto a otras tiendas verificadas con RUC validado.</p>
             </div>
             <div class="sl-benefit">
                 <div class="sl-benefit-icon">
                     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9h18"/><path d="M9 21V9"/><rect x="3" y="3" width="18" height="18" rx="2"/></svg>
                 </div>
-                <h3>Tu tienda virtual</h3>
-                <p>Subdominio propio (tuempresa.ebaemy.com) con tu logo, colores y productos.</p>
+                <h3>Tu tienda virtual propia</h3>
+                <p>Subdominio (tuempresa.ebaemy.com) con tu logo, colores, banners y productos. Tema responsive listo para móvil.</p>
             </div>
             <div class="sl-benefit">
                 <div class="sl-benefit-icon">
-                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 7 9 18l-5-5"/></svg>
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M16 13H8"/><path d="M16 17H8"/><path d="M10 9H8"/></svg>
                 </div>
                 <h3>Facturación SUNAT</h3>
-                <p>Emite boletas, facturas y notas de crédito sin instalar nada — listo para OSE/PSE.</p>
+                <p>Boletas, facturas, notas de crédito/débito y guías de remisión electrónicas. Compatible con OSE/PSE.</p>
             </div>
             <div class="sl-benefit">
                 <div class="sl-benefit-icon">
                     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/></svg>
                 </div>
-                <h3>Stock multi-almacén</h3>
-                <p>Control de inventario físico, comprometido y disponible en tiempo real.</p>
+                <h3>Smart Stock multi-almacén</h3>
+                <p>Stock físico, comprometido y disponible en tiempo real. Sin sobreventa: las reservas se liberan automáticamente.</p>
             </div>
             <div class="sl-benefit">
                 <div class="sl-benefit-icon">
-                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 16v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2"/><path d="M5 10V7a7 7 0 0 1 14 0v3"/><circle cx="12" cy="15" r="3"/></svg>
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
                 </div>
-                <h3>Pedidos centralizados</h3>
-                <p>Gestiona tus órdenes del marketplace y de tu tienda desde un mismo panel.</p>
+                <h3>POS punto de venta</h3>
+                <p>Vende en tu local físico con la misma cuenta. Un solo stock entre POS, marketplace y tienda virtual.</p>
             </div>
             <div class="sl-benefit">
                 <div class="sl-benefit-icon">
-                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v4"/><path d="M12 18v4"/><path d="m4.93 4.93 2.83 2.83"/><path d="m16.24 16.24 2.83 2.83"/><path d="M2 12h4"/><path d="M18 12h4"/><path d="m4.93 19.07 2.83-2.83"/><path d="m16.24 7.76 2.83-2.83"/></svg>
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="3"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
                 </div>
-                <h3>Más visibilidad</h3>
-                <p>Aparece en búsquedas, categorías y recomendaciones del marketplace ebaemy.</p>
+                <h3>Cobros online con Culqi</h3>
+                <p>Acepta tarjetas Visa, Mastercard y Yape. Pre-autorización + captura async para no perder ventas por timeouts.</p>
+            </div>
+            <div class="sl-benefit">
+                <div class="sl-benefit-icon">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m13 2-2 2.5h3L12 7"/><path d="M19 9A7 7 0 1 1 5 9c0-2 1-3.9 3-5.4l3 4"/><path d="M11 12 9 22l4-3 4 3-2-10"/></svg>
+                </div>
+                <h3>Promos & Flash Sales</h3>
+                <p>Cupones (% / monto / envío gratis), ofertas relámpago con countdown y precios distintos para marketplace y tienda.</p>
+            </div>
+            <div class="sl-benefit">
+                <div class="sl-benefit-icon">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
+                </div>
+                <h3>WhatsApp automático</h3>
+                <p>Notifica al cliente cuando su pedido se confirma, prepara, despacha o entrega — sin escribir nada manual.</p>
+            </div>
+            <div class="sl-benefit">
+                <div class="sl-benefit-icon">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 3h5v5"/><path d="M8 3H3v5"/><path d="M3 16v5h5"/><path d="M16 21h5v-5"/></svg>
+                </div>
+                <h3>Logística provincia</h3>
+                <p>Cola de almacén kanban, guías de remisión SUNAT, integración con Chazki / 99Minutos y tracking público para tu cliente.</p>
+            </div>
+            <div class="sl-benefit">
+                <div class="sl-benefit-icon">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
+                </div>
+                <h3>Recupera ventas perdidas</h3>
+                <p>Carritos abandonados, alertas de stock para clientes esperando reposición, wishlist y comparador de productos.</p>
+            </div>
+            <div class="sl-benefit">
+                <div class="sl-benefit-icon">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                </div>
+                <h3>Multi-usuario con roles</h3>
+                <p>Crea usuarios para vendedores, almaceneros (acceso solo al kanban) y administradores. Cada uno con su almacén.</p>
+            </div>
+            <div class="sl-benefit">
+                <div class="sl-benefit-icon">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="m7 14 4-4 4 4 6-6"/></svg>
+                </div>
+                <h3>Reportes & Customer 360°</h3>
+                <p>Dashboard de ventas, kardex de inventario, historial completo del cliente (compras, reclamos, contactos).</p>
             </div>
         </div>
     </div>
@@ -349,6 +463,130 @@
                 <div class="sl-step-num">4</div>
                 <h4>Empiezas a vender</h4>
                 <p>Configuras productos, almacén y stock — y publicas en el marketplace.</p>
+            </div>
+        </div>
+    </div>
+</section>
+
+<section class="sl-section sl-logistic" id="logistica">
+    <div class="sl-section-container">
+        <div class="sl-logistic-grid">
+            <div>
+                <span class="sl-eyebrow">Despacho a todo el Perú</span>
+                <h2>Logística que se mueve sola</h2>
+                <p class="sl-lead" style="margin-top:14px">Tu equipo de almacén ve los pedidos en un kanban en tiempo real. Las guías de remisión SUNAT se generan solas. El courier las recoge. El cliente recibe tracking automático.</p>
+                <ul class="sl-logistic-list">
+                    <li>
+                        <span class="check"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span>
+                        <span><strong>Kanban de almacén</strong> — pedidos pasan de pendiente → preparando → listo → despachado en tiempo real.</span>
+                    </li>
+                    <li>
+                        <span class="check"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span>
+                        <span><strong>Guía de remisión electrónica</strong> SUNAT generada automáticamente al despachar.</span>
+                    </li>
+                    <li>
+                        <span class="check"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span>
+                        <span><strong>Integración con couriers</strong> — Chazki, 99Minutos y agencias manuales (Olva, Shalom, Marvisur).</span>
+                    </li>
+                    <li>
+                        <span class="check"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span>
+                        <span><strong>Tracking público</strong> — tu cliente sigue su pedido sin llamarte.</span>
+                    </li>
+                    <li>
+                        <span class="check"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span>
+                        <span><strong>Devoluciones controladas</strong> — el stock vuelve al almacén correcto sin desfases.</span>
+                    </li>
+                </ul>
+            </div>
+            <div class="sl-logistic-visual" aria-hidden="true">
+                <div class="sl-kanban">
+                    <div class="sl-kanban-col">
+                        <h5>Pendientes</h5>
+                        <div class="sl-kanban-card">
+                            <span class="num">NV-1042</span>
+                            <div class="meta">Lima · Olva</div>
+                            <span class="sl-kanban-pill">3 ítems</span>
+                        </div>
+                        <div class="sl-kanban-card">
+                            <span class="num">NV-1043</span>
+                            <div class="meta">Trujillo · Chazki</div>
+                            <span class="sl-kanban-pill">1 ítem</span>
+                        </div>
+                    </div>
+                    <div class="sl-kanban-col">
+                        <h5>Preparando</h5>
+                        <div class="sl-kanban-card">
+                            <span class="num">NV-1041</span>
+                            <div class="meta">Cuzco · Shalom</div>
+                            <span class="sl-kanban-pill">5 ítems</span>
+                        </div>
+                    </div>
+                    <div class="sl-kanban-col">
+                        <h5>Despachado</h5>
+                        <div class="sl-kanban-card">
+                            <span class="num">NV-1038</span>
+                            <div class="meta">Arequipa</div>
+                            <span class="sl-kanban-pill" style="background:#dcfce7;color:#16a34a">✓ Entregado</span>
+                        </div>
+                        <div class="sl-kanban-card">
+                            <span class="num">NV-1039</span>
+                            <div class="meta">Piura</div>
+                            <span class="sl-kanban-pill" style="background:#dcfce7;color:#16a34a">✓ Entregado</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<section class="sl-section" id="comparativa">
+    <div class="sl-section-container">
+        <div class="sl-section-header">
+            <span class="sl-eyebrow">Por qué ebaemy y no otra</span>
+            <h2>Comparativa rápida</h2>
+            <p class="sl-lead">Lo que sí incluye ebaemy y lo que tendrías que pagar aparte en otras plataformas.</p>
+        </div>
+        <div class="sl-compare-table">
+            <div class="sl-compare-row head">
+                <div>Característica</div>
+                <div class="ebaemy">ebaemy</div>
+                <div>Otras plataformas</div>
+            </div>
+            <div class="sl-compare-row">
+                <div>Facturación SUNAT (boletas / facturas / NC)</div>
+                <div class="ebaemy yes">✓ Incluido</div>
+                <div class="no">App externa de pago</div>
+            </div>
+            <div class="sl-compare-row">
+                <div>Comisión por venta del marketplace</div>
+                <div class="ebaemy yes">0%</div>
+                <div class="no">5% – 15%</div>
+            </div>
+            <div class="sl-compare-row">
+                <div>Subdominio propio + tienda virtual</div>
+                <div class="ebaemy yes">✓ Incluido</div>
+                <div class="no">Plan superior</div>
+            </div>
+            <div class="sl-compare-row">
+                <div>Stock multi-almacén con reserva real</div>
+                <div class="ebaemy yes">✓ Incluido</div>
+                <div class="no">App externa</div>
+            </div>
+            <div class="sl-compare-row">
+                <div>Logística provincia + guías SUNAT</div>
+                <div class="ebaemy yes">✓ Incluido</div>
+                <div class="no">No disponible</div>
+            </div>
+            <div class="sl-compare-row">
+                <div>WhatsApp automático al cliente</div>
+                <div class="ebaemy yes">✓ Incluido</div>
+                <div class="no">Plug-in pagado</div>
+            </div>
+            <div class="sl-compare-row">
+                <div>POS para tienda física</div>
+                <div class="ebaemy yes">✓ Incluido</div>
+                <div class="no">Producto separado</div>
             </div>
         </div>
     </div>
