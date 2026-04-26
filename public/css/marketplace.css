@@ -1729,7 +1729,7 @@ button { font-family: inherit; cursor: pointer; }
     .mp-search { grid-area: search; }
     .mp-nav-actions { grid-area: actions; gap: 4px; }
     .mp-nav-link { padding: 8px 10px; }
-    .mp-btn-sell { padding: 9px 11px; box-shadow: 0 2px 8px rgba(15,138,130,0.28); }
+    .mp-btn-sell { display: none; }
     .mp-search-btn { width: 48px; }
     .mp-search-input { padding: 12px 14px; font-size: 14px; }
     .mp-search-category { display: none; }
