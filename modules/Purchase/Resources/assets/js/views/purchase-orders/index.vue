@@ -63,6 +63,17 @@
                 <span class="badge bg-secondary text-white" :class="{'bg-danger': (row.state_type_id === '11'), 'bg-warning': (row.state_type_id === '13'), 'bg-secondary': (row.state_type_id === '01')}">
                     {{ row.state_type_description }}
                 </span>
+                <br>
+                <span v-if="row.reception_status" class="badge mt-1"
+                      :class="{
+                        'bg-success text-white': row.reception_status === 'received',
+                        'bg-warning text-dark': row.reception_status === 'partial',
+                        'bg-light text-dark border': row.reception_status === 'pending'
+                      }">
+                    <span v-if="row.reception_status === 'received'">✓ Recibida</span>
+                    <span v-else-if="row.reception_status === 'partial'">⏳ Recepción parcial</span>
+                    <span v-else>📦 Por recibir</span>
+                </span>
             </td>
 
             <td>{{row.sale_opportunity_number_full}}</td>
@@ -105,6 +116,13 @@
 
               <a :href="`/purchases/create/${row.id}`" class="btn waves-effect waves-light btn-xs btn-success m-1__2 me-1"
                       v-if="row.show_actions_row">Generar compra</a>
+
+              <button type="button"
+                      v-if="row.state_type_id !== '11' && row.reception_status !== 'received'"
+                      class="btn waves-effect waves-light btn-xs btn-warning m-1__2 me-1"
+                      @click.prevent="clickReceive(row.id)">
+                  Recibir mercancía
+              </button>
 
               <button type="button" v-if="row.show_actions_row" class="btn waves-effect waves-light btn-xs btn-danger m-1__2 me-1"
                       @click.prevent="clickAnulate(row.id)">Anular</button>
@@ -186,6 +204,30 @@ export default {
             this.anular(`/${this.resource}/anular/${id}`).then(() =>
               this.$eventHub.$emit("reloadData")
             );
+          },
+          clickReceive(id) {
+            this.$confirm(
+              'Se marcarán todos los items de la OC como recibidos completos y se sumarán al stock del almacén del establecimiento. ¿Continuar?',
+              'Recibir mercancía',
+              {
+                confirmButtonText: 'Sí, recibir',
+                cancelButtonText: 'Cancelar',
+                type: 'warning',
+              }
+            ).then(() => {
+              this.$http.post(`/${this.resource}/${id}/receive`)
+                .then(({ data }) => {
+                  if (data.success) {
+                    this.$message.success(data.message);
+                    this.$eventHub.$emit('reloadData');
+                  } else {
+                    this.$message.error(data.message || 'No se pudo registrar la recepción');
+                  }
+                })
+                .catch((err) => {
+                  this.$message.error(err.response?.data?.message || 'Error de servidor al recibir mercancía');
+                });
+            }).catch(() => {});
           },
           clickOptions(recordId = null) {
               this.recordId = recordId

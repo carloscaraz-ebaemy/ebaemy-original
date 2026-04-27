@@ -51,12 +51,17 @@ class PurchaseOrder extends ModelTenant
         'purchase_quotation_id',
         'payment_method_type_id',
         'sale_opportunity_id',
+        'reception_status',
+        'received_at',
+        'received_by',
+        'reception_notes',
 
     ];
 
     protected $casts = [
         'date_of_issue' => 'date',
         'date_of_due' => 'date',
+        'received_at' => 'datetime',
     ];
 
 

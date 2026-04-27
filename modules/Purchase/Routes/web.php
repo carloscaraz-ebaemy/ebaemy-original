@@ -71,6 +71,7 @@ if($current_hostname) {
                 Route::get('print/{external_id}/{format?}', 'PurchaseOrderController@toPrint');
                 Route::post('upload', 'PurchaseOrderController@uploadAttached');
                 Route::get('anular/{id}', 'PurchaseOrderController@anular');
+                Route::post('{id}/receive', 'PurchaseOrderController@receive')->name('tenant.purchase-orders.receive');
 
                 Route::get('download-attached/{external_id}', 'PurchaseOrderController@downloadAttached');
                 Route::get('sale-opportunity/{id}', 'PurchaseOrderController@generateFromSaleOpportunity');

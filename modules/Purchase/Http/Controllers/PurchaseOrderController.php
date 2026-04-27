@@ -511,12 +511,110 @@ class PurchaseOrderController extends Controller
     public function anular($id)
     {
         $obj =  PurchaseOrder::find($id);
+
+        // Defensa: no permitir anular OC que ya tiene mercancía recibida
+        // (parcial o total). Hay que primero reversar la recepción
+        // (futuro) o anularla con flag de override que requeriría auditor.
+        if (in_array($obj->reception_status, ['partial', 'received'], true)) {
+            return [
+                'success' => false,
+                'message' => 'No se puede anular una OC con recepción registrada. Estado: ' . $obj->reception_status
+            ];
+        }
+
         $obj->state_type_id = 11;
         $obj->save();
         return [
             'success' => true,
             'message' => 'Orden de compra anulada con éxito'
         ];
+    }
+
+    /**
+     * Recibir mercancía de una OC — recepción COMPLETA en 1 click.
+     *
+     * Marca todos los items con quantity_received = quantity, dispara
+     * movimiento de stock por warehouse principal del establecimiento,
+     * y deja la OC en estado 'received'.
+     *
+     * Si la OC ya estaba 'received', es idempotente (no aplica stock 2x).
+     * Si estaba 'partial', completa la diferencia faltante.
+     * Si está anulada (state_type_id=11), bloquea.
+     *
+     * Recepción parcial por ítem queda para sprint con UI dedicada.
+     */
+    public function receive(Request $request, $id)
+    {
+        try {
+            return DB::connection('tenant')->transaction(function () use ($request, $id) {
+                $po = PurchaseOrder::with('items')->find($id);
+                if (!$po) {
+                    return ['success' => false, 'message' => 'OC no encontrada'];
+                }
+                if ((int) $po->state_type_id === 11) {
+                    return ['success' => false, 'message' => 'La OC está anulada — no se puede recibir.'];
+                }
+                if ($po->reception_status === 'received') {
+                    return ['success' => false, 'message' => 'Esta OC ya está marcada como recibida.'];
+                }
+
+                // Resolver warehouse de destino: el del establecimiento.
+                $establishment = Establishment::find($po->establishment_id);
+                $warehouseId = optional($establishment)->warehouse_id
+                    ?? \Modules\Inventory\Models\Warehouse::where('establishment_id', $po->establishment_id)->value('id');
+
+                if (!$warehouseId) {
+                    return ['success' => false, 'message' => 'No se encontró almacén para el establecimiento de la OC.'];
+                }
+
+                $now = now();
+                $totalDelta = 0;
+
+                foreach ($po->items as $poItem) {
+                    $alreadyReceived = (float) ($poItem->quantity_received ?? 0);
+                    $expected        = (float) $poItem->quantity;
+                    $delta           = $expected - $alreadyReceived;
+
+                    if ($delta <= 0) continue; // ya estaba recibido completo
+
+                    // Sumar al stock por warehouse — usando el patrón legacy
+                    // (KardexTrait->restoreStockInWarehpuse). Compatible con
+                    // el smart stock al actualizar item_warehouse.stock.
+                    $iw = \Modules\Inventory\Models\ItemWarehouse::firstOrNew([
+                        'item_id'      => $poItem->item_id,
+                        'warehouse_id' => $warehouseId,
+                    ]);
+                    $iw->stock = ($iw->stock ?? 0) + $delta;
+                    $iw->save();
+
+                    // Actualizar tracking en el item
+                    $poItem->quantity_received = $expected;
+                    $poItem->save();
+
+                    $totalDelta += $delta;
+                }
+
+                $po->reception_status = 'received';
+                $po->received_at      = $now;
+                $po->received_by      = auth()->id();
+                if ($request->filled('reception_notes')) {
+                    $po->reception_notes = mb_substr((string) $request->reception_notes, 0, 500);
+                }
+                $po->save();
+
+                return [
+                    'success' => true,
+                    'message' => "Mercancía recibida correctamente. {$totalDelta} unidades ingresadas al almacén.",
+                    'reception_status' => 'received',
+                ];
+            });
+        } catch (\Throwable $e) {
+            \Log::error('[PurchaseOrderController] receive failed', [
+                'po_id' => $id,
+                'error' => $e->getMessage(),
+            ]);
+            return ['success' => false, 'message' => 'Error al recibir: ' . $e->getMessage()];
+        }
     }
 
 

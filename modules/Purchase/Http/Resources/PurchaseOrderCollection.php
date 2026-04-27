@@ -38,6 +38,8 @@ class PurchaseOrderCollection extends ResourceCollection
                 'total' => number_format($row->total, 2),
                 'state_type_id' => $row->state_type_id,
                 'state_type_description' => $row->state_type->description,
+                'reception_status' => $row->reception_status ?? 'pending',
+                'received_at' => $row->received_at ? $row->received_at->format('Y-m-d H:i') : null,
                 // 'payment_method_type_description' => isset($row->purchase_payments['payment_method_type']['description'])?$row->purchase_payments['payment_method_type']['description']:'-',
                 'created_at' => $row->created_at->format('Y-m-d H:i:s'),
                 'updated_at' => $row->updated_at->format('Y-m-d H:i:s'),
