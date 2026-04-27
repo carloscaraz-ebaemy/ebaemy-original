@@ -402,6 +402,115 @@ class QuotationController extends Controller
         ];
     }
 
+    /**
+     * Convierte una cotización en Nota de Venta. Copia cabecera + items
+     * preservando totales/IGV calculados de la cotización (no recalcula
+     * para evitar desfases de céntimos).
+     *
+     * Idempotente: si la cotización ya tiene una NV vinculada, retorna
+     * error 422 — no se permite doble conversión. La cotización queda
+     * marcada con state_type_id='05' (Aceptada) tras la conversión.
+     */
+    public function generateSaleNote($id)
+    {
+        try {
+            return DB::connection('tenant')->transaction(function () use ($id) {
+                $quotation = Quotation::with('items')->find($id);
+
+                if (!$quotation) {
+                    return ['success' => false, 'message' => 'Cotización no encontrada'];
+                }
+                if ((string) $quotation->state_type_id === '11') {
+                    return ['success' => false, 'message' => 'La cotización está anulada — no se puede convertir.'];
+                }
+
+                $existing = \App\Models\Tenant\SaleNote::where('quotation_id', $quotation->id)->first();
+                if ($existing) {
+                    return [
+                        'success' => false,
+                        'message' => "Esta cotización ya generó la NV {$existing->series}-" .
+                                     str_pad((string)$existing->number, 8, '0', STR_PAD_LEFT)
+                    ];
+                }
+
+                $series = Series::where('document_type_id', '80')
+                    ->where('establishment_id', $quotation->establishment_id)
+                    ->first();
+                if (!$series) {
+                    return ['success' => false, 'message' => 'No hay serie de Nota de Venta configurada para este establecimiento.'];
+                }
+
+                $lastNumber  = (int) (\App\Models\Tenant\SaleNote::where('series', $series->number)
+                    ->lockForUpdate()
+                    ->max('number') ?? 0);
+                $establishment = Establishment::find($quotation->establishment_id);
+
+                $saleNote = new \App\Models\Tenant\SaleNote();
+                $saleNote->user_id            = auth()->id() ?? 1;
+                $saleNote->establishment_id   = $establishment->id;
+                $saleNote->establishment      = $establishment->toArray();
+                $saleNote->soap_type_id       = $establishment->company->soap_type_id ?? '01';
+                $saleNote->series             = $series->number;
+                $saleNote->number             = $lastNumber + 1;
+                $saleNote->date_of_issue      = now()->format('Y-m-d');
+                $saleNote->time_of_issue      = now()->format('H:i:s');
+                $saleNote->customer_id        = $quotation->customer_id;
+                $saleNote->customer           = $quotation->customer ?? [];
+                $saleNote->currency_type_id   = $quotation->currency_type_id;
+                $saleNote->exchange_rate_sale = $quotation->exchange_rate_sale ?? 1;
+                $saleNote->total              = $quotation->total;
+                $saleNote->total_taxed        = $quotation->total_taxed;
+                $saleNote->total_igv          = $quotation->total_igv;
+                $saleNote->total_value        = $quotation->total_value;
+                $saleNote->total_unaffected   = $quotation->total_unaffected ?? 0;
+                $saleNote->total_exonerated   = $quotation->total_exonerated ?? 0;
+                $saleNote->total_free         = $quotation->total_free ?? 0;
+                $saleNote->total_taxes        = $quotation->total_taxes ?? $quotation->total_igv;
+                $saleNote->state_type_id      = '01';
+                $saleNote->paid               = false;
+                $saleNote->total_canceled     = false;
+                $saleNote->quotation_id       = $quotation->id;
+                $saleNote->save();
+
+                foreach ($quotation->items as $qItem) {
+                    $saleNoteItem = new \App\Models\Tenant\SaleNoteItem();
+                    $saleNoteItem->sale_note_id           = $saleNote->id;
+                    $saleNoteItem->item_id                = $qItem->item_id;
+                    $saleNoteItem->item                   = $qItem->item;
+                    $saleNoteItem->quantity               = $qItem->quantity;
+                    $saleNoteItem->unit_value             = $qItem->unit_value;
+                    $saleNoteItem->unit_price             = $qItem->unit_price;
+                    $saleNoteItem->total_value            = $qItem->total_value;
+                    $saleNoteItem->total                  = $qItem->total;
+                    $saleNoteItem->total_igv              = $qItem->total_igv;
+                    $saleNoteItem->total_base_igv         = $qItem->total_base_igv ?? $qItem->total_value;
+                    $saleNoteItem->percentage_igv         = $qItem->percentage_igv ?? 18;
+                    $saleNoteItem->total_taxes            = $qItem->total_taxes ?? $qItem->total_igv;
+                    $saleNoteItem->affectation_igv_type_id = $qItem->affectation_igv_type_id ?? '10';
+                    $saleNoteItem->price_type_id          = $qItem->price_type_id ?? '01';
+                    $saleNoteItem->save();
+                }
+
+                // Marcar cotización como Aceptada (05)
+                $quotation->state_type_id = '05';
+                $quotation->save();
+
+                $fullNumber = $saleNote->series . '-' . str_pad((string)$saleNote->number, 8, '0', STR_PAD_LEFT);
+                return [
+                    'success' => true,
+                    'message' => "NV {$fullNumber} generada correctamente.",
+                    'sale_note_id' => $saleNote->id,
+                ];
+            });
+        } catch (\Throwable $e) {
+            \Log::error('[QuotationController] generateSaleNote failed', [
+                'quotation_id' => $id,
+                'error'        => $e->getMessage(),
+            ]);
+            return ['success' => false, 'message' => 'Error al generar NV: ' . $e->getMessage()];
+        }
+    }
+
     public function mergeData($inputs)
     {
 

@@ -436,6 +436,14 @@
                                       Duplicar
                                     </el-dropdown-item>
 
+                                    <el-dropdown-item
+                                      v-if="row.state_type_id != '11' && row.state_type_id != '05'"
+                                      @click.native="clickConvertToSaleNote(row.id)"
+                                    >
+                                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon icon-tabler icons-tabler-outline icon-tabler-receipt me-2"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M5 21v-16a2 2 0 0 1 2 -2h7l5 5v13l-3 -2l-2 2l-2 -2l-2 2l-2 -2l-3 2"/><path d="M14 3v4a1 1 0 0 0 1 1h4"/><path d="M9 17h6"/><path d="M9 13h6"/></svg>
+                                      Convertir a NV
+                                    </el-dropdown-item>
+
                                     <el-dropdown-item divided />
 
                                     <el-dropdown-item
@@ -634,6 +642,34 @@ export default {
             this.anular(`/${this.resource}/anular/${id}`).then(() =>
                 this.$eventHub.$emit("reloadData")
             );
+        },
+        clickConvertToSaleNote(id) {
+            this.$confirm(
+                'Se generará una Nota de Venta con los datos de esta cotización. La cotización quedará marcada como Aceptada. ¿Continuar?',
+                'Convertir a Nota de Venta',
+                {
+                    confirmButtonText: 'Sí, generar NV',
+                    cancelButtonText: 'Cancelar',
+                    type: 'warning',
+                }
+            ).then(() => {
+                this.$http.post(`/${this.resource}/${id}/generate-sale-note`)
+                    .then(({ data }) => {
+                        if (data.success) {
+                            this.$message.success(data.message);
+                            this.$eventHub.$emit("reloadData");
+                            // Abrir la NV generada en una nueva pestaña para que el operador la complete
+                            if (data.sale_note_id) {
+                                window.open(`/sale-notes/edit/${data.sale_note_id}`, '_blank');
+                            }
+                        } else {
+                            this.$message.error(data.message || 'No se pudo generar la NV');
+                        }
+                    })
+                    .catch((err) => {
+                        this.$message.error(err.response?.data?.message || 'Error de servidor al generar NV');
+                    });
+            }).catch(() => {});
         },
         makeOrder(quotation) {
             let tos = parseInt(quotation);

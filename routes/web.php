@@ -849,6 +849,7 @@ if ($hostname) {
             Route::post('quotations/update', 'Tenant\QuotationController@update');
             Route::get('quotations/record/{quotation}', 'Tenant\QuotationController@record');
             Route::get('quotations/anular/{id}', 'Tenant\QuotationController@anular');
+            Route::post('quotations/{id}/generate-sale-note', 'Tenant\QuotationController@generateSaleNote')->name('tenant.quotations.generateSaleNote');
             Route::get('quotations/item/tables', 'Tenant\QuotationController@item_tables');
             Route::get('quotations/option/tables', 'Tenant\QuotationController@option_tables');
             Route::get('quotations/search/customers', 'Tenant\QuotationController@searchCustomers');
