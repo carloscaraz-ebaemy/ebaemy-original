@@ -163,12 +163,16 @@
      *
      * Match por nombre de plan en lowercase.
      */
+    /**
+     * Fallbacks por nombre de plan cuando la BD no tiene features
+     * asignados. Solo se usa si $plan->features está vacío.
+     */
     $defaultFeatures = [
         'caserito' => [
             ['label' => '🧾 Facturación electrónica SUNAT'],
             ['label' => '🛒 POS punto de venta'],
+            ['label' => '📋 Boletas, facturas y notas de crédito'],
             ['label' => '📦 1 establecimiento'],
-            ['label' => '🏬 Tienda virtual con subdominio'],
         ],
     ];
 @endphp
@@ -313,9 +317,17 @@
                         <tr>
                             <td>{{ $row['label'] }}</td>
                             @foreach($plans as $plan)
-                                @php $val = $planFeatureMap[$plan->id][$row['key']] ?? '__missing__'; @endphp
+                                @php
+                                    // array_key_exists distingue 'no asignado' de 'asignado con null':
+                                    //   missing  → feature NO incluida en este plan       → —
+                                    //   null     → incluida sin límite                    → ✓
+                                    //   int > 0  → incluida con cuota                     → hasta N
+                                    $set     = $planFeatureMap[$plan->id] ?? [];
+                                    $hasKey  = array_key_exists($row['key'], $set);
+                                    $val     = $hasKey ? $set[$row['key']] : null;
+                                @endphp
                                 <td>
-                                    @if($val === '__missing__' || $val === 0)
+                                    @if(!$hasKey)
                                         <span class="no">—</span>
                                     @elseif($val === null)
                                         <span class="yes">✓</span>

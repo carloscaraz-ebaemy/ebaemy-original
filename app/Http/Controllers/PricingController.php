@@ -38,23 +38,35 @@ class PricingController extends Controller
             'read_replica'               => '⚙️ Réplica de lectura (escalado)',
         ];
 
+        // Features de cuota: limit=0 significa "no incluida" (no tiene sentido
+        // 'hasta 0'). Para los demás (booleanos), limit=0 ó null = "incluida".
+        $quotaFeatures = ['marketplace_products_limit'];
+
         $plans = Plan::query()
             ->with(['features' => fn ($q) => $q->where('is_active', true)])
             ->orderBy('pricing')
             ->get()
-            ->map(function (Plan $plan) use ($labels) {
+            ->map(function (Plan $plan) use ($labels, $quotaFeatures) {
                 $features = $plan->features
-                    ->filter(fn (Feature $f) => $f->pivot->limit !== 0) // limit=0 => feature NO incluida
-                    ->map(function (Feature $f) use ($labels) {
-                        $limit = $f->pivot->limit;
-                        $label = $labels[$f->key] ?? $f->name;
-                        if ($limit !== null && $limit > 0) {
+                    ->filter(function (Feature $f) use ($quotaFeatures) {
+                        // Solo descartamos features de cuota con limit=0.
+                        return !(in_array($f->key, $quotaFeatures, true) && $f->pivot->limit === 0);
+                    })
+                    ->map(function (Feature $f) use ($labels, $quotaFeatures) {
+                        $limit  = $f->pivot->limit;
+                        $label  = $labels[$f->key] ?? $f->name;
+                        $isQuota = in_array($f->key, $quotaFeatures, true);
+
+                        // Sufijo 'hasta N' solo aplica a cuotas con valor > 0.
+                        if ($isQuota && $limit !== null && $limit > 0) {
                             $label .= " (hasta {$limit})";
                         }
                         return [
                             'key'   => $f->key,
                             'label' => $label,
-                            'limit' => $limit,
+                            // Normalizamos: si no es cuota, tratamos limit como null
+                            // (features booleanos no necesitan número).
+                            'limit' => $isQuota ? $limit : null,
                         ];
                     })->values();
 
