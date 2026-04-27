@@ -395,7 +395,64 @@ class WarehouseDispatchController extends Controller
         $carrierType = $request->shipping_carrier_type ?? 'propio';
         $carrierCost = $carrierType === 'tercero' ? max(0, (float) $request->shipping_carrier_cost) : 0;
 
-        DB::connection('tenant')->transaction(function () use ($request, $saleNote, $carrierType, $carrierCost) {
+        // ── L3: Pre-validar carrier API ANTES de marcar DESPACHADO ────────────
+        // Si el courier tiene integración API y la llamada falla con un error
+        // de configuración (auth, account inactiva, malformación), abortamos
+        // el despacho. NO marcamos como DESPACHADO una NV cuyo shipment real
+        // no se creó — el cliente recibiría tracking falso.
+        // Si falla por timeout/red (transitorio), permitimos despacho manual
+        // con tracking ingresado por el operador.
+        $carrierTrackingFromApi = null;
+        $carrierLabelUrl        = null;
+        $carrierApiMessage      = null;
+        $carrierService         = null;
+
+        try {
+            $carrierService = CarrierServiceFactory::makeByName($request->courier_name);
+
+            if ($carrierService->hasApiIntegration()) {
+                $shipmentReq = ShipmentRequest::fromSaleNote($saleNote);
+                $result      = $carrierService->createShipment($shipmentReq);
+
+                $carrierTrackingFromApi = $result->trackingCode ?? null;
+                $carrierLabelUrl        = $result->labelUrl ?? null;
+                $carrierApiMessage      = "Envío creado en {$request->courier_name}. Tracking: {$carrierTrackingFromApi}";
+
+                Log::info('[WarehouseDispatch] Shipment created via carrier API (pre-dispatch).', [
+                    'sale_note_id' => $saleNote->id,
+                    'carrier'      => $carrierService->getDriver(),
+                    'tracking'     => $carrierTrackingFromApi,
+                    'label_url'    => $carrierLabelUrl,
+                ]);
+            }
+        } catch (\App\Services\Tenant\Carrier\CarrierApiException $e) {
+            // Errores explícitos del carrier (auth, validation, account suspended).
+            // Estos NO son recuperables — abortamos despacho.
+            Log::error('[WarehouseDispatch] Carrier API config error — abortando despacho.', [
+                'sale_note_id' => $saleNote->id,
+                'courier'      => $request->courier_name,
+                'error'        => $e->getMessage(),
+            ]);
+            return back()->withErrors([
+                'courier_name' => "No se puede despachar con {$request->courier_name}: {$e->getMessage()}. " .
+                                  "Verifica la configuración del carrier o cambia a despacho manual."
+            ]);
+        } catch (\Throwable $e) {
+            // Error genérico (timeout, red, DNS). Permitimos despacho manual
+            // pero registramos el incidente y avisamos al operador.
+            Log::warning('[WarehouseDispatch] Carrier API unreachable — despacho manual.', [
+                'sale_note_id' => $saleNote->id,
+                'courier'      => $request->courier_name,
+                'error'        => $e->getMessage(),
+            ]);
+            $carrierApiMessage = "Despacho registrado en modo manual. " .
+                                  "(API carrier temporalmente no disponible — el tracking se ingresó manual)";
+        }
+
+        // Resolver tracking final: priorizar el devuelto por la API si existe
+        $finalTracking = $carrierTrackingFromApi ?: $request->tracking_number;
+
+        DB::connection('tenant')->transaction(function () use ($request, $saleNote, $carrierType, $carrierCost, $finalTracking) {
 
             $this->applyWarehouseOverrides($request, $saleNote);
             $this->applyMainWarehouseDispatch($request, $saleNote, LogisticStatusEnum::DESPACHADO);
@@ -403,7 +460,7 @@ class WarehouseDispatchController extends Controller
             $saleNote->update([
                 'logistic_status'       => LogisticStatusEnum::DESPACHADO->value,
                 'courier_name'          => $request->courier_name,
-                'tracking_number'       => $request->tracking_number,
+                'tracking_number'       => $finalTracking,
                 'dispatch_date'         => $request->dispatch_date,
                 'warehouse_user_id'     => auth()->id(),
                 'warehouse_notes'       => $request->warehouse_notes,
@@ -418,41 +475,6 @@ class WarehouseDispatchController extends Controller
         // Generar Guía de Remisión PDF
         $freshSaleNote = $saleNote->fresh();
         $guide = $this->generateGuideForSaleNote($freshSaleNote);
-
-        // ── L3: Enviar al carrier API si está integrado ────────────────────────
-        $carrierApiMessage = null;
-        try {
-            $carrierService = CarrierServiceFactory::makeByName($request->courier_name);
-
-            if ($carrierService->hasApiIntegration()) {
-                $shipmentReq = ShipmentRequest::fromSaleNote($freshSaleNote);
-                $result      = $carrierService->createShipment($shipmentReq);
-
-                // Si el carrier devuelve tracking, actualizar en BD
-                if (!empty($result->trackingCode)) {
-                    $freshSaleNote->tracking_number = $result->trackingCode;
-                    $freshSaleNote->save();
-                }
-
-                $carrierApiMessage = "Envío creado en {$request->courier_name}. Tracking: {$result->trackingCode}";
-
-                Log::info('[WarehouseDispatch] Shipment created via carrier API.', [
-                    'sale_note_id' => $freshSaleNote->id,
-                    'carrier'      => $carrierService->getDriver(),
-                    'tracking'     => $result->trackingCode,
-                    'label_url'    => $result->labelUrl,
-                ]);
-            }
-        } catch (\Throwable $e) {
-            // No bloquear el despacho si la API del carrier falla —
-            // el operador puede ingresar el tracking manualmente.
-            Log::error('[WarehouseDispatch] Carrier API failed.', [
-                'sale_note_id' => $freshSaleNote->id,
-                'courier'      => $request->courier_name,
-                'error'        => $e->getMessage(),
-            ]);
-            $carrierApiMessage = "Despacho registrado. (API carrier no disponible: {$e->getMessage()})";
-        }
 
         // Notificar al vendedor que creó la NV
         if ($saleNote->user_id && $saleNote->user_id !== auth()->id()) {

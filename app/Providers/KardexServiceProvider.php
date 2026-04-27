@@ -27,6 +27,7 @@ class KardexServiceProvider extends ServiceProvider
         $this->purchase();
         $this->purchase_settlement();
         $this->sale_note();
+        $this->note_credit();
 
     }
 
@@ -95,6 +96,49 @@ class KardexServiceProvider extends ServiceProvider
 
             $this->updateStock($sale_note_item->item_id, $kardex->quantity, true);
 
+        });
+    }
+
+    /**
+     * Cuando se emite una Nota de Crédito que devuelve mercancía,
+     * incrementar el stock del item (revertir el descuento de la venta).
+     *
+     * Solo se revierte stock para tipos de NC SUNAT que implican movimiento
+     * físico de mercancía (anulación o devolución):
+     *   - 01: Anulación de la operación
+     *   - 06: Devolución total
+     *   - 07: Devolución por ítem
+     *
+     * Las NC de tipos 02-05, 08-13 (correcciones de datos, descuentos,
+     * bonificaciones, ajustes de monto) NO afectan inventario y NO se
+     * revierten — solo cambian datos contables.
+     */
+    private function note_credit()
+    {
+        DocumentItem::created(function (DocumentItem $document_item) {
+            $document = Document::with('note')
+                ->where('document_type_id', '07')
+                ->find($document_item->document_id);
+
+            if (!$document || !$document->note) return;
+            if ($document->state_type_id == 11) return; // anulada — no aplicar
+
+            $stockReversingTypes = ['01', '06', '07'];
+            $ncType = $document->note->note_credit_type_id;
+            if (!in_array($ncType, $stockReversingTypes, true)) {
+                return; // ajustes de precio/datos NO tocan stock
+            }
+
+            $kardex = $this->saveKardex(
+                'note_credit',
+                $document_item->item_id,
+                $document_item->document_id,
+                $document_item->quantity,
+                'document'
+            );
+
+            // is_sale=false → SUMA stock (revierte la venta original)
+            $this->updateStock($document_item->item_id, $kardex->quantity, false);
         });
     }
 

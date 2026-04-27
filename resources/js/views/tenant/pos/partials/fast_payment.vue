@@ -170,9 +170,10 @@
                     </div>
                     <div class="row m-0 p-0 h-25 d-flex align-items-center bg-white">
                         <div class="col-lg-6">
-                            <button :disabled="button_payment"
+                            <button :disabled="button_payment || loading_submit"
                                     class="btn btn-block btn-primary"
-                                    @click="clickPayment">PAGAR
+                                    @click="clickPayment">
+                                <i v-if="loading_submit" class="fas fa-spinner fa-spin mr-1"></i>{{ loading_submit ? 'PROCESANDO...' : 'PAGAR' }}
                             </button>
                         </div>
                         <div class="col-lg-6">
@@ -752,6 +753,11 @@ export default {
             }
         },
         async clickPayment() {
+            // Guard contra doble click rápido — evita doble cobro
+            // (el :disabled del botón es defensa visual; este guard asegura
+            //  que aunque el evento dispare, no procese 2 veces).
+            if (this.loading_submit || this.button_payment) return;
+
             // if(this.has_card && !this.form_payment.card_brand_id) return this.$message.error('Seleccione una tarjeta');
 
             if(this.businessTurns.active) {

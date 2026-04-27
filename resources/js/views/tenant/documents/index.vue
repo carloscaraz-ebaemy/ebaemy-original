@@ -649,7 +649,7 @@
                                   <el-dropdown-item v-if="row.btn_note">
                                     <a :href="`/${resource}/note/${row.id}`" style="text-decoration: none; color: inherit;">
                                       <svg xmlns="http://www.w3.org/2000/svg" class="me-2" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"></path><path d="M5 4v17l2 -2l2 2l2 -2l2 2l2 -2l2 2l2 -2v-17z"></path><path d="M14 8h-4"></path><path d="M14 12h-4"></path><path d="M14 16h-4"></path></svg>
-                                      Nota
+                                      Nota crédito / débito
                                     </a>
                                   </el-dropdown-item>
                               
