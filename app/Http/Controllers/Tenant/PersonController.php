@@ -446,7 +446,7 @@ class PersonController extends Controller
         $person = Person::findOrFail($id);
 
         $documents = $person->documents_where_customer()
-            ->select('id','series','number','date_of_issue','total','state_type_id','document_type_id','currency_type_id')
+            ->select('id','series','number','date_of_issue','date_of_due','total','state_type_id','document_type_id','currency_type_id')
             ->latest('date_of_issue')
             ->limit(30)
             ->get()
@@ -454,6 +454,7 @@ class PersonController extends Controller
                 'id'           => $d->id,
                 'label'        => "{$d->series}-{$d->number}",
                 'date'         => $d->date_of_issue,
+                'date_of_due'  => $d->date_of_due,
                 'total'        => $d->total,
                 'state'        => $d->state_type_id,
                 'type'         => $d->document_type_id,
@@ -474,6 +475,56 @@ class PersonController extends Controller
                 'currency' => $sn->currency_type_id,
             ]);
 
+        // Pedidos ecommerce / marketplace (Order tiene person_id directo)
+        $orders = \App\Models\Tenant\Order::where('person_id', $person->id)
+            ->latest('date_of_issue')
+            ->limit(30)
+            ->get(['id','number','date_of_issue','total','status_order_id','channel_id','currency_type_id'])
+            ->map(fn($o) => [
+                'id'         => $o->id,
+                'number'     => $o->number,
+                'date'       => $o->date_of_issue,
+                'total'      => $o->total,
+                'status_id'  => $o->status_order_id,
+                'channel_id' => $o->channel_id,
+                'currency'   => $o->currency_type_id,
+            ]);
+
+        // Devoluciones logísticas — vinculadas al cliente vía SaleNote
+        $returns = \App\Models\Tenant\LogisticReturn::whereHas('saleNote',
+                fn($q) => $q->where('customer_id', $person->id)
+            )
+            ->latest('created_at')
+            ->limit(30)
+            ->get(['id','sale_note_id','status','reason','created_at'])
+            ->map(fn($r) => [
+                'id'           => $r->id,
+                'sale_note_id' => $r->sale_note_id,
+                'status'       => $r->status,
+                'status_label' => $r->statusLabel(),
+                'reason'       => $r->reasonLabel(),
+                'date'         => optional($r->created_at)->format('Y-m-d'),
+            ]);
+
+        // Mora — documentos con date_of_due vencido y no anulados.
+        // El balance real (total - pagos) requeriría join con document_payments;
+        // para el card del header usamos el monto comprometido (simplificación
+        // intencional — la tabla detalle muestra cada documento para drill-down).
+        $today = now()->toDateString();
+        $overdueDocs = $person->documents_where_customer()
+            ->where('date_of_due', '<', $today)
+            ->where('state_type_id', '!=', '11')
+            ->select('id','series','number','date_of_due','total','currency_type_id')
+            ->get()
+            ->map(fn($d) => [
+                'id'          => $d->id,
+                'label'       => "{$d->series}-{$d->number}",
+                'date_of_due' => $d->date_of_due,
+                'total'       => $d->total,
+                'currency'    => $d->currency_type_id,
+                'days_late'   => optional($d->date_of_due)->diffInDays(now()),
+            ]);
+
         $docTotal   = $person->documents_where_customer()->sum('total');
         $snTotal    = $person->sale_notes_where_customer()->sum('total');
         $docCount   = $person->documents_where_customer()->count();
@@ -492,15 +543,22 @@ class PersonController extends Controller
                 'address'      => $person->address,
             ],
             'summary' => [
-                'total_lifetime'   => round($docTotal + $snTotal, 2),
-                'total_documents'  => round($docTotal, 2),
-                'total_sale_notes' => round($snTotal, 2),
-                'doc_count'        => $docCount,
-                'sn_count'         => $snCount,
-                'last_purchase'    => $lastPurchase,
+                'total_lifetime'    => round($docTotal + $snTotal, 2),
+                'total_documents'   => round($docTotal, 2),
+                'total_sale_notes'  => round($snTotal, 2),
+                'doc_count'         => $docCount,
+                'sn_count'          => $snCount,
+                'last_purchase'     => $lastPurchase,
+                'orders_count'      => $orders->count(),
+                'returns_count'     => $returns->count(),
+                'overdue_count'     => $overdueDocs->count(),
+                'overdue_amount'    => round($overdueDocs->sum('total'), 2),
             ],
-            'documents'  => $documents,
-            'sale_notes' => $saleNotes,
+            'documents'    => $documents,
+            'sale_notes'   => $saleNotes,
+            'orders'       => $orders,
+            'returns'      => $returns,
+            'overdue_docs' => $overdueDocs,
         ]);
     }
 

@@ -33,7 +33,7 @@
                         <div class="kpi-label">Total histórico</div>
                     </div>
                     <div class="kpi-card kpi-green">
-                        <div class="kpi-value">{{ data.summary.doc_count + data.summary.sn_count }}</div>
+                        <div class="kpi-value">{{ data.summary.doc_count + data.summary.sn_count + (data.summary.orders_count || 0) }}</div>
                         <div class="kpi-label">Operaciones</div>
                     </div>
                     <div class="kpi-card kpi-purple">
@@ -43,6 +43,14 @@
                     <div class="kpi-card kpi-amber">
                         <div class="kpi-value">{{ data.summary.sn_count }}</div>
                         <div class="kpi-label">Notas de venta</div>
+                    </div>
+                    <div class="kpi-card kpi-cyan" v-if="data.summary.orders_count">
+                        <div class="kpi-value">{{ data.summary.orders_count }}</div>
+                        <div class="kpi-label">Pedidos online</div>
+                    </div>
+                    <div class="kpi-card kpi-red" v-if="data.summary.overdue_count > 0">
+                        <div class="kpi-value">S/ {{ formatAmount(data.summary.overdue_amount) }}</div>
+                        <div class="kpi-label">Mora ({{ data.summary.overdue_count }} doc)</div>
                     </div>
                     <div class="kpi-card kpi-gray" v-if="data.summary.last_purchase">
                         <div class="kpi-value kpi-value--sm">{{ data.summary.last_purchase }}</div>
@@ -89,6 +97,52 @@
                             </el-table-column>
                         </el-table>
                         <div v-if="data.sale_notes.length === 0" class="text-center text-muted py-3">Sin notas de venta registradas.</div>
+                    </el-tab-pane>
+
+                    <el-tab-pane :label="`Pedidos online (${(data.orders || []).length})`" name="orders" v-if="(data.orders || []).length > 0">
+                        <el-table :data="data.orders" size="mini" stripe style="width:100%">
+                            <el-table-column prop="number"   label="N°"      width="120" />
+                            <el-table-column prop="date"     label="Fecha"   width="100" />
+                            <el-table-column prop="currency" label="Mon."    width="55"  />
+                            <el-table-column prop="total"    label="Total"   width="100" align="right">
+                                <template slot-scope="s">
+                                    <strong>{{ formatAmount(s.row.total) }}</strong>
+                                </template>
+                            </el-table-column>
+                            <el-table-column prop="status_id" label="Estado" width="80" align="center">
+                                <template slot-scope="s">
+                                    <el-tag size="mini">{{ s.row.status_id }}</el-tag>
+                                </template>
+                            </el-table-column>
+                        </el-table>
+                    </el-tab-pane>
+
+                    <el-tab-pane :label="`Mora (${(data.overdue_docs || []).length})`" name="overdue" v-if="(data.overdue_docs || []).length > 0">
+                        <el-table :data="data.overdue_docs" size="mini" stripe style="width:100%">
+                            <el-table-column prop="label"       label="Comprobante" width="120" />
+                            <el-table-column prop="date_of_due" label="Vence"       width="110" />
+                            <el-table-column prop="days_late"   label="Días" width="70" align="center">
+                                <template slot-scope="s">
+                                    <el-tag type="danger" size="mini">{{ Math.abs(s.row.days_late) }}d</el-tag>
+                                </template>
+                            </el-table-column>
+                            <el-table-column prop="currency"    label="Mon."        width="55"  />
+                            <el-table-column prop="total"       label="Importe"     width="110" align="right">
+                                <template slot-scope="s">
+                                    <strong class="text-danger">{{ formatAmount(s.row.total) }}</strong>
+                                </template>
+                            </el-table-column>
+                        </el-table>
+                    </el-tab-pane>
+
+                    <el-tab-pane :label="`Devoluciones (${(data.returns || []).length})`" name="returns" v-if="(data.returns || []).length > 0">
+                        <el-table :data="data.returns" size="mini" stripe style="width:100%">
+                            <el-table-column prop="id"            label="ID"     width="60"  />
+                            <el-table-column prop="sale_note_id"  label="NV"     width="80"  />
+                            <el-table-column prop="status_label"  label="Estado" width="120" />
+                            <el-table-column prop="reason"        label="Motivo" />
+                            <el-table-column prop="date"          label="Fecha"  width="100" />
+                        </el-table>
                     </el-tab-pane>
                 </el-tabs>
             </template>
@@ -186,5 +240,7 @@ export default {
 .kpi-green  { background:#f0fdf4; border-color:#bbf7d0; color:#15803d; }
 .kpi-purple { background:#faf5ff; border-color:#e9d5ff; color:#7e22ce; }
 .kpi-amber  { background:#fffbeb; border-color:#fde68a; color:#92400e; }
+.kpi-cyan   { background:#ecfeff; border-color:#a5f3fc; color:#0e7490; }
+.kpi-red    { background:#fef2f2; border-color:#fecaca; color:#b91c1c; }
 .kpi-gray   { background:#f8fafc; border-color:#e2e8f0; color:#475569; }
 </style>
