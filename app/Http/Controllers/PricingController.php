@@ -43,18 +43,20 @@ class PricingController extends Controller
             ->orderBy('pricing')
             ->get()
             ->map(function (Plan $plan) use ($labels) {
-                $features = $plan->features->map(function (Feature $f) use ($labels) {
-                    $limit = $f->pivot->limit;
-                    $label = $labels[$f->key] ?? $f->name;
-                    if ($limit !== null) {
-                        $label .= " (hasta {$limit})";
-                    }
-                    return [
-                        'key'   => $f->key,
-                        'label' => $label,
-                        'limit' => $limit,
-                    ];
-                })->values();
+                $features = $plan->features
+                    ->filter(fn (Feature $f) => $f->pivot->limit !== 0) // limit=0 => feature NO incluida
+                    ->map(function (Feature $f) use ($labels) {
+                        $limit = $f->pivot->limit;
+                        $label = $labels[$f->key] ?? $f->name;
+                        if ($limit !== null && $limit > 0) {
+                            $label .= " (hasta {$limit})";
+                        }
+                        return [
+                            'key'   => $f->key,
+                            'label' => $label,
+                            'limit' => $limit,
+                        ];
+                    })->values();
 
                 return (object) [
                     'id'            => $plan->id,
