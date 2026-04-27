@@ -82,6 +82,13 @@ class MarketplaceCheckoutController extends Controller
                 ->withErrors($result['errors'] ?? ['Error procesando el pedido.']);
         }
 
+        // Persistimos los order_numbers que esta sesión pagó para que sólo
+        // el comprador vea su propia confirmación (mitiga IDOR — los números
+        // MP-* son secuenciales y enumerables).
+        $placed = collect(session('mp_orders_placed', []));
+        $placed = $placed->push($result['order']->order_number)->take(-50)->values()->all();
+        session(['mp_orders_placed' => $placed]);
+
         return redirect()->route('marketplace.order.confirmation', [
             'number' => $result['order']->order_number,
         ]);
@@ -137,8 +144,21 @@ class MarketplaceCheckoutController extends Controller
         }
     }
 
-    public function confirmation(string $number)
+    public function confirmation(string $number, Request $request)
     {
+        // Mitigación IDOR: sólo deja ver la confirmación a:
+        //   1) la sesión que generó el pedido (vía store() arriba), o
+        //   2) un usuario autenticado del sistema (admin/SuperAdmin) — para soporte.
+        // Los order_numbers MP-* son secuenciales y enumerables; sin esta guarda,
+        // cualquiera con un número válido vería los datos personales del comprador.
+        $allowedNumbers = collect(session('mp_orders_placed', []));
+        $isOwner        = $allowedNumbers->contains($number);
+        $isStaff        = $request->user() !== null;
+
+        if (!$isOwner && !$isStaff) {
+            abort(403);
+        }
+
         $order = MarketplaceOrder::query()
             ->with(['items', 'tenantOrders'])
             ->where('order_number', $number)

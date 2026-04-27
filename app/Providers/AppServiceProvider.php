@@ -24,6 +24,13 @@ class AppServiceProvider extends ServiceProvider
 			SessionLifetimeHelper::setTenantSessionLifetime();
 		}
 
+		// Guard runtime: si APP_DEBUG=true en producción, log CRITICAL.
+		// Stack traces + queries SQL + paths internos se exponen en errores HTTP.
+		// Defensa en profundidad — el ops debe ver esto y corregir .env inmediatamente.
+		if (config('app.debug') === true && app()->environment('production')) {
+			\Log::critical('APP_DEBUG=true en producción — riesgo de exposición de info sensible. Cambiar a false en .env');
+		}
+
 		if (config('tenant.force_https')) {
 			URL::forceScheme('https');
 		}

@@ -49,19 +49,22 @@ class PaymentOrderCommand extends Command
                     ->get();
         $config = Configuration::first();
 
-        if ($config->active_cron) {
-            $now = now();
-            foreach ($clients as $client) {
-                $this->createOrderPayment($client, $config);
-            }
-
-            $midnight = $now->format('H:i');
-            if ($midnight === '00:00') {
-                $this->verifiedOrder($client);
-            }
-
+        if (!$config || !$config->active_cron) {
+            return;
         }
 
+        $now = now();
+        foreach ($clients as $client) {
+            $this->createOrderPayment($client, $config);
+        }
+
+        // verifiedOrder() audita TODOS los order_payments del mes,
+        // no requiere un Client específico — antes recibía $client del
+        // último iter del foreach, generando 'Undefined variable $client'
+        // si la lista venía vacía.
+        if ($now->format('H:i') === '00:00') {
+            $this->verifiedOrder();
+        }
     }
 
     private function createOrderPayment(Client $client, Configuration $config)
