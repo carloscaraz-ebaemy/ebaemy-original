@@ -130,7 +130,9 @@ class MarketplaceController extends Controller
         $priceMin = $request->filled('price_min') ? max(0, (float) $request->input('price_min')) : null;
         $priceMax = $request->filled('price_max') ? max(0, (float) $request->input('price_max')) : null;
 
-        $query = MarketplaceListing::published()->where('category_name', $category);
+        $query = MarketplaceListing::published()
+            ->with(['hostname:id,fqdn']) // eager load — evita N+1 al renderizar links de tienda
+            ->where('category_name', $category);
 
         if ($priceMin !== null) $query->whereRaw('COALESCE(mp_price, price) >= ?', [$priceMin]);
         if ($priceMax !== null) $query->whereRaw('COALESCE(mp_price, price) <= ?', [$priceMax]);

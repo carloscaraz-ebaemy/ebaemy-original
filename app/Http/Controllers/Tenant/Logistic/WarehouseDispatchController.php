@@ -775,17 +775,34 @@ class WarehouseDispatchController extends Controller
             $saleNote->load(['items.relation_item', 'person']);
             $company = \App\Models\Tenant\Company::first();
 
-            $guide = LogisticShippingGuide::create([
-                'sale_note_id'        => $saleNote->id,
-                'carrier_name'        => $saleNote->courier_name,
-                'tracking_code'       => $saleNote->tracking_number,
-                'origin_address'      => optional($saleNote->establishment)->address ?? '',
-                'destination_address' => $saleNote->shipping_address ?? '',
-                'destination_ubigeo'  => $saleNote->shipping_district_id ?? '',
-                'dispatch_date'       => $saleNote->dispatch_date ?? now(),
-                'issued_by'           => auth()->id(),
-                'status'              => 'generated',
-            ]);
+            // Genera serie + número interno para la guía de remisión.
+            // 'GR' = Guía Remisión interna (no es la serie SUNAT formal — esa
+            // se emite vía Facturalo en document_type_id='09'). Esto es para
+            // trazabilidad y auditoría del flujo logístico interno.
+            $series = 'GR';
+            $guide = DB::connection('tenant')->transaction(function () use ($saleNote, $series) {
+                // lockForUpdate en la fila MAX para evitar race conditions
+                // entre despachos concurrentes que pedirían el mismo número.
+                $lastNumber = (int) (LogisticShippingGuide::where('series', $series)
+                    ->lockForUpdate()
+                    ->max('number') ?? 0);
+
+                $nextNumber = str_pad((string)($lastNumber + 1), 8, '0', STR_PAD_LEFT);
+
+                return LogisticShippingGuide::create([
+                    'sale_note_id'        => $saleNote->id,
+                    'series'              => $series,
+                    'number'              => $nextNumber,
+                    'carrier_name'        => $saleNote->courier_name,
+                    'tracking_code'       => $saleNote->tracking_number,
+                    'origin_address'      => optional($saleNote->establishment)->address ?? '',
+                    'destination_address' => $saleNote->shipping_address ?? '',
+                    'destination_ubigeo'  => $saleNote->shipping_district_id ?? '',
+                    'dispatch_date'       => $saleNote->dispatch_date ?? now(),
+                    'issued_by'           => auth()->id(),
+                    'status'              => 'generated',
+                ]);
+            });
 
             // $company ya fue cargado arriba
 

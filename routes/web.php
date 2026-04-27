@@ -1169,10 +1169,12 @@ if ($hostname) {
         Route::delete('marketplace/cart',          'MarketplaceCartController@clear')->name('marketplace.cart.clear');
 
         // ─── Checkout multi-tienda ───────────────────────────────────────────
-        Route::get('marketplace/checkout',         'MarketplaceCheckoutController@show')->name('marketplace.checkout');
+        Route::get('marketplace/checkout',         'MarketplaceCheckoutController@show')
+             ->middleware('throttle:30,1')->name('marketplace.checkout');
         Route::post('marketplace/checkout',        'MarketplaceCheckoutController@store')
              ->middleware('throttle:6,1')->name('marketplace.checkout.store');
         Route::get('marketplace/order/{number}',   'MarketplaceCheckoutController@confirmation')
+             ->middleware('throttle:30,1')
              ->where('number', 'MP-[A-Z0-9\-]+')->name('marketplace.order.confirmation');
 
         // ─── Onboarding de sellers (captación pública) ───────────────────────

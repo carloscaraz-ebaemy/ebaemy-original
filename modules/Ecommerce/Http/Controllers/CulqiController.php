@@ -92,11 +92,17 @@ class CulqiController extends Controller
         $verifiedItems   = [];
         $verifiedTotal   = 0;
 
+        // Batch lookup — evita N+1 (antes: 1 query Item::find + 1 ItemVariant::find por item del carrito).
+        $itemIds = collect($culqiItems)->pluck('id')->filter()->unique()->values()->all();
+        $variantIds = collect($culqiItems)->pluck('variant_id')->filter()->unique()->values()->all();
+        $dbItemsMap    = $itemIds    ? Item::whereIn('id', $itemIds)->get()->keyBy('id')          : collect();
+        $dbVariantsMap = $variantIds ? ItemVariant::whereIn('id', $variantIds)->get()->keyBy('id') : collect();
+
         foreach ($culqiItems as $clientItem) {
             $itemId = $clientItem['id'] ?? null;
             if (!$itemId) continue;
 
-            $dbItem = Item::find($itemId);
+            $dbItem = $dbItemsMap->get($itemId);
             if (!$dbItem || !$dbItem->apply_store) {
                 return response()->json([
                     'success' => false,
@@ -108,7 +114,7 @@ class CulqiController extends Controller
             $variantId = $clientItem['variant_id'] ?? null;
 
             if ($variantId) {
-                $variant = ItemVariant::find($variantId);
+                $variant = $dbVariantsMap->get($variantId);
                 if (!$variant || !$variant->is_active) {
                     return response()->json(['success' => false, 'message' => 'La variante seleccionada no está disponible.'], 422);
                 }
