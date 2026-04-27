@@ -67,6 +67,16 @@
     padding: 4px 14px; border-radius: 999px;
     font-size: 11px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase;
 }
+.pp-card--standalone {
+    border-color: #f59e0b;
+}
+.pp-card--standalone::before {
+    content: 'Solo POS local';
+    position: absolute; top: -10px; left: 50%; transform: translateX(-50%);
+    background: #f59e0b; color: #fff;
+    padding: 4px 14px; border-radius: 999px;
+    font-size: 11px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase;
+}
 .pp-card h3 { margin: 0 0 6px; font-size: 20px; color: var(--mp-ink, #111827); }
 .pp-price-row { display: flex; align-items: baseline; gap: 6px; margin: 12px 0 4px; }
 .pp-price { font-size: 36px; font-weight: 800; color: var(--mp-ink, #111827); }
@@ -196,10 +206,12 @@
 <div class="pp-grid">
     @foreach($plans as $plan)
         @php
-            $isFeatured = strtolower($plan->name) === 'pro';
-            $defaults   = $defaultFeatures[strtolower($plan->name)] ?? [];
+            $planSlug    = strtolower($plan->name);
+            $isFeatured  = $planSlug === 'pro';
+            $isStandalone = $planSlug === 'caserito'; // rama paralela: solo POS+facturación, sin ecommerce
+            $defaults    = $defaultFeatures[$planSlug] ?? [];
         @endphp
-        <article class="pp-card {{ $isFeatured ? 'pp-card--featured' : '' }}">
+        <article class="pp-card {{ $isFeatured ? 'pp-card--featured' : '' }} {{ $isStandalone ? 'pp-card--standalone' : '' }}">
             <h3>{{ $plan->name }}</h3>
             <p class="pp-tagline">
                 @switch(strtolower($plan->name))
@@ -281,6 +293,9 @@
                         ['label' => 'Tienda virtual con subdominio',         'key' => 'ecommerce'],
                         ['label' => 'Productos en marketplace',              'key' => 'marketplace_products_limit'],
                         ['label' => 'Variantes (talla, color, etc.)',        'key' => 'variants'],
+                        ['__section__' => 'Facturación & ventas'],
+                        ['label' => 'Facturación electrónica SUNAT',         'key' => 'electronic_invoicing'],
+                        ['label' => 'POS punto de venta',                    'key' => 'pos'],
                         ['__section__' => 'Promociones'],
                         ['label' => 'Cupones y promociones',                 'key' => 'promotions'],
                         ['label' => 'Flash sales',                           'key' => 'flash_sales'],

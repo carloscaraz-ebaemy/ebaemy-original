@@ -24,6 +24,8 @@ class PricingController extends Controller
         $labels = [
             'ecommerce'                  => '🏬 Tienda virtual con subdominio',
             'marketplace_products_limit' => '🛒 Publicar productos en marketplace',
+            'electronic_invoicing'       => '🧾 Facturación electrónica SUNAT',
+            'pos'                        => '🛍️ POS punto de venta',
             'promotions'                 => '🎟️ Cupones y promociones',
             'variants'                   => '🎨 Variantes (talla, color, etc.)',
             'flash_sales'                => '⚡ Flash sales',
@@ -40,7 +42,7 @@ class PricingController extends Controller
 
         // Features de cuota: limit=0 significa "no incluida" (no tiene sentido
         // 'hasta 0'). Para los demás (booleanos), limit=0 ó null = "incluida".
-        $quotaFeatures = ['marketplace_products_limit'];
+        $quotaFeatures = ['marketplace_products_limit', 'multi_establishment'];
 
         $plans = Plan::query()
             ->with(['features' => fn ($q) => $q->where('is_active', true)])
