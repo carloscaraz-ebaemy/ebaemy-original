@@ -41,6 +41,12 @@ Vue.prototype.$eventHub = new Vue()
 // inputservice (sync - small shared component)
 Vue.component('x-input-service', InputService);
 
+// SuperAdmin: tabla de pedidos multi-tienda del marketplace.
+// Componente registrado para evitar conflicto con el Vue padre montado
+// en #main-wrapper que procesaba las interpolaciones {{ x }} con su
+// propio scope, dejando texto literal en el DOM.
+Vue.component('system-marketplace-orders', () => import('./views/system/marketplace_orders/index.vue'));
+
 // ─── LAZY-LOADED: Page-level system components ──────────────────────────────
 
 // System configurations
