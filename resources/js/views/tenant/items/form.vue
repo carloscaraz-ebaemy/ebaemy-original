@@ -921,7 +921,11 @@
                                     <div :class="{'has-danger': errors.category_id}"
                                          class="form-group">
                                         <label class="control-label">
-                                            Categoría
+                                            Categoría interna
+                                            <el-tooltip class="item" effect="dark" placement="top"
+                                                content="Uso interno (reportes, POS, contabilidad). Los compradores en marketplace verán la 'Categoría oficial del marketplace' que eliges en la pestaña Canales de venta.">
+                                                <i class="fa fa-info-circle text-info" style="font-size:12px"></i>
+                                            </el-tooltip>
                                             <!-- <a v-if="form_category.add == false"
                                                 class="control-label font-weight-bold text-info"
                                                 href="#"
@@ -1036,6 +1040,29 @@
                                         <small v-if="errors.brand_id"
                                                class="form-control-feedback"
                                                v-text="errors.brand_id[0]"></small>
+                                    </div>
+                                </div>
+                                <div class="col-md-12">
+                                    <div :class="{'has-danger': errors.tags_id}" class="form-group">
+                                        <label class="control-label">
+                                            Tags / Atributos
+                                            <el-tooltip class="item" effect="dark" placement="top"
+                                                content="Características transversales del producto (ecológico, hecho a mano, talla M, color rojo, edición limitada). Sirven como filtros sin duplicar la categoría.">
+                                                <i class="fa fa-info-circle text-info" style="font-size:12px"></i>
+                                            </el-tooltip>
+                                        </label>
+                                        <el-select v-model="form.tags_id"
+                                                   filterable multiple clearable
+                                                   placeholder="Selecciona uno o varios tags"
+                                                   style="width:100%">
+                                            <el-option v-for="option in tags"
+                                                       :key="option.id"
+                                                       :label="option.name"
+                                                       :value="option.id"></el-option>
+                                        </el-select>
+                                        <small v-if="errors.tags_id"
+                                               class="form-control-feedback"
+                                               v-text="errors.tags_id[0]"></small>
                                     </div>
                                 </div>
                             </div>
@@ -1568,6 +1595,7 @@ export default {
             affectation_igv_types: [],
             categories: [],
             brands: [],
+            tags: [],
             accounts: [],
             show_has_igv: true,
             purchase_show_has_igv: true,
@@ -1617,6 +1645,7 @@ export default {
                 this.warehouses = data.warehouses
                 this.categories = data.categories
                 this.brands = data.brands
+                this.tags = data.tags || []
                 this.attribute_types = data.attribute_types
                 // this.config = data.configuration
                 if (this.canShowExtraData) {
@@ -1874,6 +1903,7 @@ export default {
                 account_id: null,
                 category_id: null,
                 brand_id: null,
+                tags_id: [],
                 date_of_due: null,
                 lot_code: null,
                 line: null,
@@ -2087,6 +2117,9 @@ this.activeName =  'first'
                         this.form = response.data.data
                         if (!Array.isArray(this.form.marketplace_category_path)) {
                             this.form.marketplace_category_path = []
+                        }
+                        if (!Array.isArray(this.form.tags_id)) {
+                            this.form.tags_id = this.form.tags_id ? Array.from(this.form.tags_id) : []
                         }
                         this.changeAffectationIgvType()
                         this.changePurchaseAffectationIgvType()

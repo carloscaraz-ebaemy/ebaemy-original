@@ -64,12 +64,31 @@
             </span>
         </a>
 
-        <form action="{{ route('marketplace.index') }}" method="GET" class="mp-search" role="search">
-            <select name="category" class="mp-search-category" aria-label="Categoría">
+        <form id="mpSearchForm" action="{{ route('marketplace.index') }}" method="GET" class="mp-search" role="search">
+            <select id="mpNavCategory" class="mp-search-category" aria-label="Categoría"
+                    data-base-url="{{ url('/marketplace/c') }}">
                 <option value="">Todas las categorías</option>
-                @isset($categories)
-                    @foreach($categories as $cat)
-                        <option value="{{ $cat }}" @if(($category ?? null) === $cat) selected @endif>{{ $cat }}</option>
+                @isset($marketplaceNavCategories)
+                    @foreach($marketplaceNavCategories as $root)
+                        @php
+                            $hasChildren = $root->children && $root->children->count() > 0;
+                            $rootSelected = ($activeCategoryFullSlug ?? null) === $root->full_slug;
+                        @endphp
+                        @if($hasChildren)
+                            <optgroup label="{{ $root->name }}">
+                                <option value="{{ $root->full_slug }}" @if($rootSelected) selected @endif>
+                                    Toda {{ $root->name }}
+                                </option>
+                                @foreach($root->children as $child)
+                                    <option value="{{ $child->full_slug }}"
+                                        @if(($activeCategoryFullSlug ?? null) === $child->full_slug) selected @endif>
+                                        {{ $child->name }}
+                                    </option>
+                                @endforeach
+                            </optgroup>
+                        @else
+                            <option value="{{ $root->full_slug }}" @if($rootSelected) selected @endif>{{ $root->name }}</option>
+                        @endif
                     @endforeach
                 @endisset
             </select>
@@ -83,6 +102,22 @@
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
             </button>
         </form>
+        <script>
+            (function () {
+                var sel  = document.getElementById('mpNavCategory');
+                var form = document.getElementById('mpSearchForm');
+                if (!sel || !form) return;
+                form.addEventListener('submit', function (e) {
+                    var slug = sel.value;
+                    if (!slug) return;
+                    e.preventDefault();
+                    var qInput = form.querySelector('input[name="q"]');
+                    var q = qInput ? qInput.value.trim() : '';
+                    var base = sel.getAttribute('data-base-url') + '/' + slug;
+                    window.location.href = q ? base + '?q=' + encodeURIComponent(q) : base;
+                });
+            })();
+        </script>
 
         <div class="mp-nav-actions">
             <a href="{{ route('marketplace.cart') }}" class="mp-nav-link" id="mpCartNavLink"
@@ -99,18 +134,18 @@
         </div>
     </div>
 
-    @isset($categories)
-        @if(!empty($categories) && count($categories) > 0)
+    @isset($marketplaceNavCategories)
+        @if($marketplaceNavCategories->count() > 0)
             <nav class="mp-cats-bar" aria-label="Categorías">
                 <div class="mp-cats-inner">
                     <a href="{{ route('marketplace.index') }}"
-                       class="mp-cat-chip {{ empty($category) ? 'is-active' : '' }}">
+                       class="mp-cat-chip {{ empty($activeCategoryFullSlug ?? null) ? 'is-active' : '' }}">
                         📦 Todas
                     </a>
-                    @foreach($categories as $cat)
-                        <a href="{{ route('marketplace.index', ['category' => $cat]) }}"
-                           class="mp-cat-chip {{ ($category ?? null) === $cat ? 'is-active' : '' }}">
-                            {{ $cat }}
+                    @foreach($marketplaceNavCategories as $root)
+                        <a href="{{ route('marketplace.category_official', ['fullSlug' => $root->full_slug]) }}"
+                           class="mp-cat-chip {{ ($activeCategoryFullSlug ?? null) === $root->full_slug ? 'is-active' : '' }}">
+                            @if($root->icon){{ $root->icon }} @endif{{ $root->name }}
                         </a>
                     @endforeach
                 </div>

@@ -35,9 +35,10 @@
         'price_min' => $priceMin,
         'price_max' => $priceMax,
         'q'         => $q,
+        'category'  => $activeCategoryFullSlug ?? null,
     ], fn($v) => $v !== null && $v !== '');
 
-    $hasFilters = $priceMin !== null || $priceMax !== null;
+    $hasFilters = $priceMin !== null || $priceMax !== null || !empty($activeCategoryFullSlug ?? null);
     $description = 'Catálogo oficial de ' . $store->name . ' en el marketplace de ebaemy. ' . $total . ' producto' . ($total === 1 ? '' : 's') . ' disponibles.';
 @endphp
 
@@ -186,12 +187,43 @@
             <div class="mp-filter-label">🔎 Buscar</div>
             <form method="GET" action="{{ $tenantUrl }}">
                 @if($sort && $sort !== 'relevance') <input type="hidden" name="sort" value="{{ $sort }}"> @endif
+                @if(!empty($activeCategoryFullSlug)) <input type="hidden" name="category" value="{{ $activeCategoryFullSlug }}"> @endif
                 <input type="text" name="q" placeholder="Buscar en {{ \Illuminate\Support\Str::limit($store->name, 18) }}…"
                        value="{{ $q }}"
                        style="width:100%;padding:8px 10px;border:1px solid var(--mp-border,#e5e7eb);border-radius:8px">
                 <button type="submit" class="mp-filter-apply">Aplicar</button>
             </form>
         </div>
+
+        @if(isset($tenantCategories) && $tenantCategories->count() > 0)
+            <div class="mp-filter-group">
+                <div class="mp-filter-label">📂 Categorías</div>
+                <ul style="list-style:none;padding:0;margin:0">
+                    @php
+                        $catBaseQs = array_filter([
+                            'sort'      => $sort && $sort !== 'relevance' ? $sort : null,
+                            'price_min' => $priceMin,
+                            'price_max' => $priceMax,
+                            'q'         => $q,
+                        ], fn($v) => $v !== null && $v !== '');
+                    @endphp
+                    <li style="margin-bottom:4px">
+                        <a href="{{ $tenantUrl . (empty($catBaseQs) ? '' : '?' . http_build_query($catBaseQs)) }}"
+                           class="mp-filter-item {{ empty($activeCategoryFullSlug) ? 'is-active' : '' }}">
+                            Todas
+                        </a>
+                    </li>
+                    @foreach($tenantCategories as $cat)
+                        <li style="margin-bottom:4px">
+                            <a href="{{ $tenantUrl . '?' . http_build_query(array_merge($catBaseQs, ['category' => $cat->full_slug])) }}"
+                               class="mp-filter-item {{ ($activeCategoryFullSlug ?? null) === $cat->full_slug ? 'is-active' : '' }}">
+                                @if($cat->icon){{ $cat->icon }} @endif{{ $cat->name }}
+                            </a>
+                        </li>
+                    @endforeach
+                </ul>
+            </div>
+        @endif
 
         <div class="mp-filter-group">
             <div class="mp-filter-label">
@@ -201,6 +233,7 @@
             <form method="GET" action="{{ $tenantUrl }}">
                 @if($sort && $sort !== 'relevance') <input type="hidden" name="sort" value="{{ $sort }}"> @endif
                 @if($q) <input type="hidden" name="q" value="{{ $q }}"> @endif
+                @if(!empty($activeCategoryFullSlug)) <input type="hidden" name="category" value="{{ $activeCategoryFullSlug }}"> @endif
                 <div class="mp-price-range">
                     <input type="number" name="price_min" min="0" step="0.01" placeholder="Desde" value="{{ $priceMin !== null ? $priceMin : '' }}">
                     <span class="mp-price-range-sep">—</span>

@@ -204,9 +204,12 @@ class MarketplaceController extends Controller
             ->orderBy('sort_order')
             ->get(['id', 'name', 'full_slug', 'icon', 'listings_count_cache']);
 
+        $activeCategoryFullSlug = $category->full_slug;
+
         return view('marketplace.category_official', compact(
             'listings', 'category', 'breadcrumb', 'subcategories',
-            'sort', 'priceMin', 'priceMax', 'total'
+            'sort', 'priceMin', 'priceMax', 'total',
+            'activeCategoryFullSlug'
         ));
     }
 
@@ -291,10 +294,27 @@ class MarketplaceController extends Controller
         $priceMin = $request->filled('price_min') ? max(0, (float) $request->input('price_min')) : null;
         $priceMax = $request->filled('price_max') ? max(0, (float) $request->input('price_max')) : null;
         $q        = $request->input('q');
+        $catSlug  = $request->input('category');
+
+        // Resolver categoría oficial seleccionada (filtro por full_slug). Acepta
+        // tanto nodo padre como hoja: en padres se incluyen descendientes vía
+        // el scope inOfficialCategory.
+        $selectedCategory = null;
+        if ($catSlug) {
+            $selectedCategory = MarketplaceCategory::query()
+                ->where('full_slug', trim($catSlug, '/'))
+                ->active()
+                ->visible()
+                ->first();
+        }
 
         $query = MarketplaceListing::published()
             ->where('hostname_id', $hostname->id)
             ->search($q);
+
+        if ($selectedCategory) {
+            $query->inOfficialCategory($selectedCategory->id);
+        }
 
         if ($priceMin !== null) {
             $query->whereRaw('COALESCE(mp_price, price) >= ?', [$priceMin]);
@@ -315,6 +335,25 @@ class MarketplaceController extends Controller
                         ->where('hostname_id', $hostname->id)
                         ->count();
 
+        // Categorías oficiales con productos en esta tienda — para el filtro
+        // lateral. Solo nodos hoja distintos para no duplicar al subir el árbol.
+        $tenantCategoryIds = MarketplaceListing::published()
+            ->where('hostname_id', $hostname->id)
+            ->whereNotNull('marketplace_category_id')
+            ->distinct()
+            ->pluck('marketplace_category_id');
+
+        $tenantCategories = $tenantCategoryIds->isEmpty()
+            ? collect()
+            : MarketplaceCategory::query()
+                ->whereIn('id', $tenantCategoryIds)
+                ->active()
+                ->visible()
+                ->orderBy('name')
+                ->get(['id', 'name', 'full_slug', 'icon']);
+
+        $activeCategoryFullSlug = $selectedCategory ? $selectedCategory->full_slug : null;
+
         // Metadata visible: priorizar la del listing más reciente que ya
         // tiene tenant_name/logo/verified denormalizados. Si no hay listings,
         // caer al Client.
@@ -334,7 +373,8 @@ class MarketplaceController extends Controller
         ];
 
         return view('marketplace.tenant', compact(
-            'store', 'listings', 'total', 'sort', 'priceMin', 'priceMax', 'q'
+            'store', 'listings', 'total', 'sort', 'priceMin', 'priceMax', 'q',
+            'tenantCategories', 'activeCategoryFullSlug'
         ));
     }
 

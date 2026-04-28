@@ -14,6 +14,11 @@ class ViewServiceProvider extends ServiceProvider
     public function boot()
     {
         view()->composer(
+            'marketplace.layout',
+            'App\Http\ViewComposers\MarketplaceLayoutComposer'
+        );
+
+        view()->composer(
             'tenant.reports.list',
             'Modules\BusinessTurn\Http\ViewComposers\BusinessTurnViewComposer'
         );
