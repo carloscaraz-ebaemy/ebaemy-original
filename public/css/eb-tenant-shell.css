@@ -1,0 +1,333 @@
+/* ============================================================
+   ebaemy Tenant Shell — Theme Overlay v1 (2026-04-28)
+
+   Aplica los tokens --eb-* sobre las clases legacy del sidebar y
+   header del panel tenant SIN modificar el HTML/Blade ni el JS de
+   navegación. Activación opt-in:
+
+       <body data-eb-shell="on">
+
+   Sin el atributo, este archivo NO afecta absolutamente nada.
+
+   Requiere cargar ANTES:
+     1. design-tokens.css   (variables --eb-*)
+     2. eb-components.css   (clases .eb-*)
+     3. porto-light/css/theme.css + custom.css (legacy base)
+
+   y este archivo DESPUÉS de Porto para ganar specificity por orden.
+   ============================================================ */
+
+/* =========================================================
+   BODY + TIPOGRAFÍA
+   ========================================================= */
+body[data-eb-shell="on"] {
+  font-family: var(--eb-font);
+  font-size: var(--eb-text-base);
+  color: var(--eb-ink);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background: var(--eb-surface-soft);
+}
+
+body[data-eb-shell="on"] h1,
+body[data-eb-shell="on"] h2,
+body[data-eb-shell="on"] h3,
+body[data-eb-shell="on"] h4,
+body[data-eb-shell="on"] h5,
+body[data-eb-shell="on"] h6 {
+  font-family: var(--eb-font-heading);
+  font-weight: var(--eb-weight-semibold);
+  letter-spacing: -0.01em;
+  color: var(--eb-ink);
+}
+
+/* =========================================================
+   SIDEBAR — refresh visual sobre clases Porto legacy
+   ========================================================= */
+body[data-eb-shell="on"] .sidebar-left {
+  background: var(--eb-surface);
+  border-right: 1px solid var(--eb-line-soft);
+  box-shadow: var(--eb-shadow-sm);
+}
+
+body[data-eb-shell="on"] .sidebar-left .sidebar-header {
+  background: var(--eb-surface);
+  border-bottom: 1px solid var(--eb-line-soft);
+  padding: var(--eb-space-3) var(--eb-space-4);
+}
+
+body[data-eb-shell="on"] .sidebar-left .logo-container-sidebar img {
+  max-height: 40px;
+  width: auto;
+  object-fit: contain;
+}
+
+body[data-eb-shell="on"] .sidebar-left .sidebar-toggle {
+  color: var(--eb-ink-soft);
+  border-radius: var(--eb-radius-sm);
+  padding: 6px;
+  transition: background var(--eb-duration-fast) var(--eb-ease),
+              color var(--eb-duration-fast) var(--eb-ease);
+}
+body[data-eb-shell="on"] .sidebar-left .sidebar-toggle:hover {
+  background: var(--eb-brand-soft);
+  color: var(--eb-brand);
+}
+
+/* Items del menú principal */
+body[data-eb-shell="on"] .sidebar-left .nav-main > li > a.nav-link,
+body[data-eb-shell="on"] .sidebar-left .nav-main .nav-parent > a.nav-link {
+  display: flex;
+  align-items: center;
+  gap: var(--eb-space-3);
+  padding: 10px 16px;
+  margin: 2px 8px;
+  font-size: var(--eb-text-sm);
+  font-weight: var(--eb-weight-medium);
+  color: var(--eb-ink-soft);
+  border-radius: var(--eb-radius-sm);
+  transition: background var(--eb-duration-fast) var(--eb-ease),
+              color var(--eb-duration-fast) var(--eb-ease);
+}
+
+body[data-eb-shell="on"] .sidebar-left .nav-main > li > a.nav-link span {
+  font-weight: var(--eb-weight-medium);
+  letter-spacing: 0.01em;
+}
+
+body[data-eb-shell="on"] .sidebar-left .nav-main .nav-link svg.icon-tabler {
+  width: 20px;
+  height: 20px;
+  stroke-width: 1.75;
+  flex-shrink: 0;
+}
+
+body[data-eb-shell="on"] .sidebar-left .nav-main > li > a.nav-link:hover,
+body[data-eb-shell="on"] .sidebar-left .nav-main .nav-parent > a.nav-link:hover {
+  background: var(--eb-brand-soft);
+  color: var(--eb-brand-dark);
+  text-decoration: none;
+}
+
+/* Item activo (nav-active) */
+body[data-eb-shell="on"] .sidebar-left .nav-main > li.nav-active > a.nav-link,
+body[data-eb-shell="on"] .sidebar-left .nav-main > li.nav-active.nav-parent > a.nav-link {
+  background: var(--eb-brand-soft);
+  color: var(--eb-brand);
+  font-weight: var(--eb-weight-semibold);
+  position: relative;
+}
+body[data-eb-shell="on"] .sidebar-left .nav-main > li.nav-active > a.nav-link::before,
+body[data-eb-shell="on"] .sidebar-left .nav-main > li.nav-active.nav-parent > a.nav-link::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 3px;
+  height: 24px;
+  background: var(--eb-brand);
+  border-radius: 0 3px 3px 0;
+}
+
+/* Submenús (nav-children) */
+body[data-eb-shell="on"] .sidebar-left .nav-main .nav-children {
+  background: transparent;
+  padding-left: var(--eb-space-2);
+}
+body[data-eb-shell="on"] .sidebar-left .nav-main .nav-children > li > a {
+  padding: 8px 16px 8px 36px;
+  margin: 2px 8px;
+  font-size: var(--eb-text-sm);
+  color: var(--eb-ink-soft);
+  border-radius: var(--eb-radius-sm);
+  transition: background var(--eb-duration-fast) var(--eb-ease),
+              color var(--eb-duration-fast) var(--eb-ease);
+}
+body[data-eb-shell="on"] .sidebar-left .nav-main .nav-children > li > a:hover {
+  background: var(--eb-surface-muted);
+  color: var(--eb-brand-dark);
+  text-decoration: none;
+}
+body[data-eb-shell="on"] .sidebar-left .nav-main .nav-children > li.nav-active > a {
+  background: var(--eb-surface-muted);
+  color: var(--eb-brand);
+  font-weight: var(--eb-weight-semibold);
+}
+
+/* Botón "Crear" inline (.nav-action) */
+body[data-eb-shell="on"] .sidebar-left .nav-action {
+  background: var(--eb-brand) !important;
+  color: #fff !important;
+  border: none !important;
+  border-radius: var(--eb-radius-sm) !important;
+  font-size: 11px !important;
+  font-weight: var(--eb-weight-semibold) !important;
+  padding: 4px 10px !important;
+  box-shadow: var(--eb-shadow-sm) !important;
+  transition: background var(--eb-duration-fast) var(--eb-ease),
+              transform var(--eb-duration-fast) var(--eb-ease) !important;
+}
+body[data-eb-shell="on"] .sidebar-left .nav-action:hover {
+  background: var(--eb-brand-dark) !important;
+  transform: translateY(-1px);
+}
+
+/* Scrollbar custom del sidebar (nano) */
+body[data-eb-shell="on"] .sidebar-left .nano-pane {
+  background: transparent;
+  width: 4px;
+}
+body[data-eb-shell="on"] .sidebar-left .nano-slider {
+  background: var(--eb-line);
+  border-radius: var(--eb-radius-full);
+}
+body[data-eb-shell="on"] .sidebar-left .nano-slider:hover {
+  background: var(--eb-brand-light);
+}
+
+/* =========================================================
+   HEADER (topbar)
+   ========================================================= */
+body[data-eb-shell="on"] .header {
+  background: var(--eb-surface);
+  border-bottom: 1px solid var(--eb-line);
+  box-shadow: var(--eb-shadow-sm);
+  padding: var(--eb-space-3) var(--eb-space-5);
+  min-height: 64px;
+}
+
+body[data-eb-shell="on"] .header .logo-container h2 {
+  font-size: var(--eb-text-base);
+  font-weight: var(--eb-weight-semibold);
+  color: var(--eb-ink);
+  margin: 0;
+  letter-spacing: -0.005em;
+}
+
+body[data-eb-shell="on"] .header .toggle-sidebar-left {
+  cursor: pointer;
+  border-radius: var(--eb-radius-sm);
+  padding: 6px 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--eb-ink-soft);
+  transition: background var(--eb-duration-fast) var(--eb-ease),
+              color var(--eb-duration-fast) var(--eb-ease);
+}
+body[data-eb-shell="on"] .header .toggle-sidebar-left:hover {
+  background: var(--eb-brand-soft);
+  color: var(--eb-brand);
+}
+
+body[data-eb-shell="on"] .header .header-right {
+  gap: var(--eb-space-3);
+}
+
+body[data-eb-shell="on"] .header .profile-info .name {
+  font-weight: var(--eb-weight-semibold);
+  color: var(--eb-ink);
+  font-size: var(--eb-text-sm);
+}
+body[data-eb-shell="on"] .header .profile-info .role {
+  color: var(--eb-muted);
+  font-size: var(--eb-text-xs);
+}
+body[data-eb-shell="on"] .header .profile-picture {
+  border-radius: var(--eb-radius-full);
+  border: 2px solid var(--eb-line) !important;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--eb-surface-muted);
+  color: var(--eb-ink-soft);
+}
+body[data-eb-shell="on"] .header .profile-picture:hover {
+  border-color: var(--eb-brand) !important;
+  color: var(--eb-brand);
+}
+
+/* Badge de notificaciones (logística + warehouse) */
+body[data-eb-shell="on"] .header .badge,
+body[data-eb-shell="on"] .header .notification-badge {
+  background: var(--eb-danger);
+  color: #fff;
+  border-radius: var(--eb-radius-full);
+  font-size: 10px;
+  font-weight: var(--eb-weight-bold);
+  padding: 2px 6px;
+  min-width: 18px;
+  height: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* =========================================================
+   INNER-WRAPPER (área de contenido)
+   ========================================================= */
+body[data-eb-shell="on"] .inner-wrapper {
+  background: var(--eb-surface-soft);
+}
+
+body[data-eb-shell="on"] .inner-toolbar {
+  background: var(--eb-surface);
+  border-bottom: 1px solid var(--eb-line-soft);
+  padding: var(--eb-space-3) var(--eb-space-5);
+}
+
+body[data-eb-shell="on"] .page-header h1,
+body[data-eb-shell="on"] .page-header h2 {
+  font-weight: var(--eb-weight-semibold);
+  color: var(--eb-ink);
+}
+
+/* =========================================================
+   SCROLLBAR GLOBAL (sutil mejora)
+   ========================================================= */
+body[data-eb-shell="on"] *::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+body[data-eb-shell="on"] *::-webkit-scrollbar-track {
+  background: transparent;
+}
+body[data-eb-shell="on"] *::-webkit-scrollbar-thumb {
+  background: var(--eb-line);
+  border-radius: var(--eb-radius-full);
+}
+body[data-eb-shell="on"] *::-webkit-scrollbar-thumb:hover {
+  background: var(--eb-muted);
+}
+
+/* =========================================================
+   COLAPSADO — sidebar-left-collapsed (modo icon-only)
+   ========================================================= */
+html.sidebar-left-collapsed body[data-eb-shell="on"] .sidebar-left .nav-main > li > a.nav-link {
+  justify-content: center;
+  padding: 10px;
+  margin: 2px 4px;
+}
+
+html.sidebar-left-collapsed body[data-eb-shell="on"] .sidebar-left .nav-main > li.nav-active > a.nav-link::before {
+  display: none;
+}
+
+html.sidebar-left-collapsed body[data-eb-shell="on"] .sidebar-left .nav-action {
+  display: none;
+}
+
+/* =========================================================
+   RESPONSIVE — mobile sidebar
+   ========================================================= */
+@media (max-width: 991px) {
+  body[data-eb-shell="on"] .sidebar-left {
+    box-shadow: var(--eb-shadow-lg);
+  }
+  body[data-eb-shell="on"] .header {
+    padding: var(--eb-space-3);
+  }
+}

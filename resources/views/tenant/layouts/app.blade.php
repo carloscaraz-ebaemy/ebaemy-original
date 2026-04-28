@@ -129,6 +129,15 @@
 
     {{-- Sidebar styles now handled entirely by erp-redesign.scss via Vite --}}
 
+    {{-- ebaemy Design System v1 — opt-in via EB_SHELL_ENABLED env --}}
+    @if(env('EB_SHELL_ENABLED', false))
+        <link rel="preconnect" href="https://fonts.gstatic.com">
+        <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+        <link rel="stylesheet" href="{{ asset('css/design-tokens.css') }}">
+        <link rel="stylesheet" href="{{ asset('css/eb-components.css') }}">
+        <link rel="stylesheet" href="{{ asset('css/eb-tenant-shell.css') }}">
+    @endif
+
     @stack('styles')
 
 
@@ -191,6 +200,7 @@
 
 <body class="pr-0"
     data-tenant="true"
+    data-eb-shell="{{ env('EB_SHELL_ENABLED', false) ? 'on' : 'off' }}"
     data-company-title="{{ $vc_company->title_web }}">
     <section class="body">
         <!-- start: header -->
