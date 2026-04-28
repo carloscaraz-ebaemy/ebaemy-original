@@ -35,6 +35,21 @@ class SendWhatsAppMessage extends TenantAwareJob
         return new self('vendor_order', compact('customerName', 'orderNumber', 'total', 'items'));
     }
 
+    public static function clientDispatched(string $phone, string $customerName, string $orderNumber, ?string $tracking = null): self
+    {
+        return new self('client_dispatched', compact('phone', 'customerName', 'orderNumber', 'tracking'));
+    }
+
+    public static function clientDelivered(string $phone, string $customerName, string $orderNumber): self
+    {
+        return new self('client_delivered', compact('phone', 'customerName', 'orderNumber'));
+    }
+
+    public static function adminMarketplaceOrder(string $customerName, string $orderNumber, float $total, string $productTitle, int $quantity, ?string $customerPhone = null): self
+    {
+        return new self('admin_marketplace', compact('customerName', 'orderNumber', 'total', 'productTitle', 'quantity', 'customerPhone'));
+    }
+
     // ─────────────────────────────────────────────────────────────────────────
 
     public function __construct(string $type, array $payload)
@@ -68,6 +83,25 @@ class SendWhatsAppMessage extends TenantAwareJob
                 $this->payload['orderNumber'],
                 $this->payload['total'],
                 $this->payload['items']
+            ),
+            'client_dispatched' => $wa->notifyClientOrderDispatched(
+                $this->payload['phone'],
+                $this->payload['customerName'],
+                $this->payload['orderNumber'],
+                $this->payload['tracking'] ?? null
+            ),
+            'client_delivered' => $wa->notifyClientOrderDelivered(
+                $this->payload['phone'],
+                $this->payload['customerName'],
+                $this->payload['orderNumber']
+            ),
+            'admin_marketplace' => $wa->notifyAdminMarketplaceOrder(
+                $this->payload['customerName'],
+                $this->payload['orderNumber'],
+                $this->payload['total'],
+                $this->payload['productTitle'],
+                $this->payload['quantity'],
+                $this->payload['customerPhone'] ?? null
             ),
             default => Log::warning("SendWhatsAppMessage: unknown type [{$this->type}]"),
         };

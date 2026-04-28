@@ -100,25 +100,17 @@ class MarketplaceOrderDispatcher
                 'order_id' => $orderId,
             ]);
 
-            // Notificación WhatsApp al dueño de la tienda — SE HACE AQUÍ (con
-            // conexión tenant activa) para que WhatsAppService lea el driver
-            // configurado por el tenant y el vendorPhone de configuration_ecommerce.
-            // Usamos `new` en lugar de app() para forzar una instancia fresca
-            // en cada iteración del command retry-failed-leads (el container
-            // puede cachear instancias entre llamadas dentro del mismo proceso).
-            // Non-blocking: si falla, la Order ya está creada.
             try {
-                (new \App\Services\Tenant\WhatsAppService())
-                    ->notifyAdminMarketplaceOrder(
-                        $lead->customer_name,
-                        (string) $orderId,
-                        (float) $total,
-                        (string) $listing->title,
-                        (int) $qty,
-                        $lead->customer_phone
-                    );
+                dispatch(\App\Jobs\SendWhatsAppMessage::adminMarketplaceOrder(
+                    $lead->customer_name,
+                    (string) $orderId,
+                    (float) $total,
+                    (string) $listing->title,
+                    (int) $qty,
+                    $lead->customer_phone
+                ));
             } catch (\Throwable $e) {
-                Log::warning('marketplace WhatsApp notification failed', [
+                Log::warning('marketplace WhatsApp dispatch failed', [
                     'lead_id' => $lead->id,
                     'error'   => $e->getMessage(),
                 ]);

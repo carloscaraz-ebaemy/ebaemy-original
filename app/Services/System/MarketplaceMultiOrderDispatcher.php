@@ -193,22 +193,20 @@ class MarketplaceMultiOrderDispatcher
                 'updated_at'        => now(),
             ]);
 
-            // Notificación WhatsApp al admin del tenant — non-blocking
             try {
                 $titleSummary = $items->count() === 1
                     ? $items->first()->title
                     : $items->count() . ' productos';
-                (new \App\Services\Tenant\WhatsAppService())
-                    ->notifyAdminMarketplaceOrder(
-                        $order->customer_name,
-                        (string) $orderId,
-                        (float) $orderSubtotal,
-                        $titleSummary,
-                        $items->sum('quantity'),
-                        $order->customer_phone
-                    );
+                dispatch(\App\Jobs\SendWhatsAppMessage::adminMarketplaceOrder(
+                    $order->customer_name,
+                    (string) $orderId,
+                    (float) $orderSubtotal,
+                    $titleSummary,
+                    (int) $items->sum('quantity'),
+                    $order->customer_phone
+                ));
             } catch (\Throwable $e) {
-                Log::warning('marketplace multi WhatsApp failed', [
+                Log::warning('marketplace multi WhatsApp dispatch failed', [
                     'order' => $order->order_number,
                     'error' => $e->getMessage(),
                 ]);
