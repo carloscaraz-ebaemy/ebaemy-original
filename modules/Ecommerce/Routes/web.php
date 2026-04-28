@@ -169,6 +169,7 @@ Route::middleware(['check.permission', 'locked.tenant', 'check.email.verified', 
         Route::get('configuration', 'ConfigurationController@index')->name('tenant_ecommerce_configuration');
         Route::post('configuration', 'ConfigurationController@store_configuration');
         Route::post('configuration_culqui', 'ConfigurationController@store_configuration_culqui');
+        Route::post('configuration_mercadopago', 'ConfigurationController@store_configuration_mercadopago');
         Route::post('configuration_paypal', 'ConfigurationController@store_configuration_paypal');
         Route::post('configuration_social', 'ConfigurationController@store_configuration_social');
         Route::post('configuration_tags', 'ConfigurationController@store_configuration_tag');

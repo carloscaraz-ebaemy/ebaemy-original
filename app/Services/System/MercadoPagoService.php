@@ -4,6 +4,11 @@ namespace App\Services\System;
 
 use App\Models\System\MarketplaceOrder;
 use App\Models\System\MarketplaceOrderItem;
+use App\Models\System\TenantMarketplaceOrder;
+use Hyn\Tenancy\Environment;
+use Hyn\Tenancy\Models\Hostname;
+use Illuminate\Support\Facades\Crypt;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use MercadoPago\SDK as MPSDK;
 use MercadoPago\Preference;
@@ -32,15 +37,83 @@ use MercadoPago\Payment as MPPayment;
 class MercadoPagoService
 {
     /**
-     * Inicializa el SDK con el access token configurado.
-     * Lanza excepción si no hay token (deja explícito que MP no está activo).
+     * Constructor — NO inicializa SDK. La inicialización se hace por orden,
+     * porque distintas órdenes pueden cobrarse con distintos access_token
+     * (uno por tenant, o el system para órdenes multi-tienda).
      */
     public function __construct()
     {
-        $token = config('services.mercadopago.access_token');
+        // El access_token se resuelve por orden — ver resolveAccessToken().
+    }
+
+    /**
+     * Resuelve qué access_token usar para una orden:
+     *  - Si la orden tiene UN solo tenant (TenantMarketplaceOrder único) Y
+     *    ese tenant tiene mp_enabled=true + mp_access_token, usamos el suyo.
+     *    El pago va DIRECTO a la cuenta del seller.
+     *  - En cualquier otro caso (multi-tienda, tenant sin MP, MP deshabilitado),
+     *    cae al token system. Ebaemy recibe y luego transfiere manualmente.
+     *
+     * Devuelve [token, isFromTenant, tenantHostnameId|null].
+     */
+    private function resolveAccessToken(MarketplaceOrder $order): array
+    {
+        $tenantOrders = TenantMarketplaceOrder::where('marketplace_order_id', $order->id)->get();
+
+        // Multi-tienda → cuenta system (no es posible split en MP estándar)
+        if ($tenantOrders->count() !== 1) {
+            return [config('services.mercadopago.access_token'), false, null];
+        }
+
+        $sub = $tenantOrders->first();
+        $hostnameId = $sub->hostname_id;
+
+        // Hyn — entrar al tenant del seller para leer su configuration_ecommerce
+        try {
+            $hostname = Hostname::find($hostnameId);
+            if (!$hostname || !$hostname->website) {
+                return [config('services.mercadopago.access_token'), false, null];
+            }
+
+            app(Environment::class)->tenant($hostname->website);
+
+            $row = DB::connection('tenant')->table('configuration_ecommerce')
+                ->select('mp_enabled', 'mp_access_token')
+                ->first();
+
+            if (!$row || !$row->mp_enabled || empty($row->mp_access_token)) {
+                return [config('services.mercadopago.access_token'), false, null];
+            }
+
+            // Decrypt si el valor está cifrado (best-effort — si no es Crypt
+            // payload válido, asumimos plain text legacy).
+            $token = $row->mp_access_token;
+            try {
+                $decrypted = Crypt::decryptString($token);
+                $token = $decrypted;
+            } catch (\Throwable $e) {
+                // Token no cifrado — usarlo como vino
+            }
+
+            return [$token, true, $hostnameId];
+        } catch (\Throwable $e) {
+            Log::warning('[MercadoPago] resolveAccessToken fallback to system', [
+                'order' => $order->order_number,
+                'error' => $e->getMessage(),
+            ]);
+            return [config('services.mercadopago.access_token'), false, null];
+        }
+    }
+
+    /**
+     * Verifica que haya un token disponible (sea tenant o system).
+     */
+    private function ensureToken(string $token): void
+    {
         if (empty($token)) {
             throw new \RuntimeException(
-                'MercadoPago no configurado. Define MP_ACCESS_TOKEN en .env'
+                'MercadoPago no configurado. Define MP_ACCESS_TOKEN en .env o ' .
+                'configura mp_access_token en el tenant.'
             );
         }
         MPSDK::setAccessToken($token);
@@ -57,6 +130,15 @@ class MercadoPagoService
         $items = MarketplaceOrderItem::where('marketplace_order_id', $order->id)->get();
         if ($items->isEmpty()) {
             return ['success' => false, 'error' => 'La orden no tiene items.'];
+        }
+
+        // Resolver credenciales: del tenant si carrito 1-tienda + MP activo,
+        // o del system si carrito multi-tienda o tenant sin MP.
+        [$token, $fromTenant, $tenantHostnameId] = $this->resolveAccessToken($order);
+        try {
+            $this->ensureToken($token);
+        } catch (\Throwable $e) {
+            return ['success' => false, 'error' => $e->getMessage()];
         }
 
         try {
@@ -138,6 +220,7 @@ class MercadoPagoService
             Log::info('[MercadoPago] Preferencia creada', [
                 'order'         => $order->order_number,
                 'preference_id' => $preference->id,
+                'token_source'  => $fromTenant ? "tenant:{$tenantHostnameId}" : 'system',
             ]);
 
             return [
@@ -167,7 +250,29 @@ class MercadoPagoService
     public function handleWebhook(string $paymentId): array
     {
         try {
+            // Webhook llega sin contexto de qué token usar. Estrategia:
+            //   1) Intentar lookup con system token (cubre orders multi-tienda
+            //      y orders de tenants sin MP propio)
+            //   2) Si MP devuelve 404, probar con tokens de cada tenant
+            //      activo hasta encontrar el pago.
+            //
+            // En la práctica, MP devuelve 404 si el token NO corresponde a la
+            // cuenta que recibió el pago — eso identifica al dueño del pago.
+            $systemToken = config('services.mercadopago.access_token');
+            if (empty($systemToken)) {
+                return ['success' => false, 'message' => 'MP_ACCESS_TOKEN no configurado en system.'];
+            }
+            MPSDK::setAccessToken($systemToken);
+
             $payment = MPPayment::find_by_id($paymentId);
+
+            // Si no encontró el pago con system token, puede pertenecer a
+            // un tenant. Por ahora dejamos esa búsqueda como mejora Fase 2B.
+            // En la práctica, los pagos a tenants se reciben en la cuenta
+            // del tenant y MP envía webhook a la URL configurada por el tenant.
+            // Si el tenant configuró el webhook URL apuntando a ebaemy, hay
+            // que iterar tokens — pero la config recomendada es webhook por
+            // tenant en su propio panel MP.
             if (!$payment || empty($payment->id)) {
                 return ['success' => false, 'message' => 'Payment no encontrado en MP'];
             }

@@ -32,6 +32,10 @@ class ConfigurationEcommerce extends ModelTenant
         'script_paypal',
         'token_private_culqui',
         'token_public_culqui',
+        'mp_access_token',
+        'mp_public_key',
+        'mp_sandbox',
+        'mp_enabled',
 
         // REDES
         'link_youtube',
@@ -126,6 +130,8 @@ class ConfigurationEcommerce extends ModelTenant
         'indexable'   => 'boolean',
         'marketplace_config' => 'encrypted:array',
         'whatsapp_notifications_enabled' => 'array',
+        'mp_sandbox'  => 'boolean',
+        'mp_enabled'  => 'boolean',
     ];
 
     // ── Cache helpers ─────────────────────────────────────────────────────────

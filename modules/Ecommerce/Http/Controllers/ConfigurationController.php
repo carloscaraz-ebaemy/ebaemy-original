@@ -240,6 +240,44 @@ class ConfigurationController extends Controller
         ];
     }
 
+    /**
+     * Guarda las credenciales MercadoPago del tenant. Cuando mp_enabled=true
+     * y mp_access_token está poblado, los pagos del marketplace de UN solo
+     * producto de este tenant van DIRECTO a su cuenta MP. Si el carrito
+     * tiene productos de varias tiendas, MP estándar no soporta split y
+     * el pago va a la cuenta system de ebaemy (luego transferencia manual).
+     *
+     * El access_token se cifra con Crypt — solo se actualiza si el valor
+     * recibido NO es el mock '__SECRET__' que devolvemos al frontend para
+     * indicar "ya hay un secreto guardado". Mismo patrón que Culqi.
+     */
+    public function store_configuration_mercadopago(Request $request)
+    {
+        $configuration = ConfigurationEcommerce::firstCached();
+        if (!$configuration) return ['success' => false, 'message' => 'No existe configuracion'];
+
+        $request->validate([
+            'mp_public_key'   => 'nullable|string|max:200',
+            'mp_access_token' => 'nullable|string|max:500',
+            'mp_sandbox'      => 'nullable|boolean',
+            'mp_enabled'      => 'nullable|boolean',
+        ]);
+
+        $configuration->mp_public_key = $request->input('mp_public_key');
+        $accessToken = $request->input('mp_access_token');
+        if ($this->canUpdateSecret($accessToken)) {
+            $configuration->mp_access_token = \Illuminate\Support\Facades\Crypt::encryptString(trim((string) $accessToken));
+        }
+        $configuration->mp_sandbox = (bool) $request->input('mp_sandbox', false);
+        $configuration->mp_enabled = (bool) $request->input('mp_enabled', false);
+        $configuration->save();
+
+        return [
+            'success' => true,
+            'message' => 'Configuración MercadoPago actualizada',
+        ];
+    }
+
     public function store_configuration_paypal(Request $request)
     {
         $configuration = ConfigurationEcommerce::firstCached();
