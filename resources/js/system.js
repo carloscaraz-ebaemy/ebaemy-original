@@ -7,6 +7,14 @@ import Vue from 'vue'
 import store from './store'
 import ElementUI from 'element-ui'
 
+// Exponer Vue como global — necesario para vistas blade que usan
+// `<script>new Vue({...})</script>` inline. Con Vite (bundling ES
+// modules) Vue NO queda en window por defecto. Sin esto, vistas
+// como /admin/marketplace/orders fallaban con "Vue is not defined".
+if (typeof window !== 'undefined') {
+    window.Vue = Vue;
+}
+
 import lang from 'element-ui/lib/locale/lang/es'
 import locale from 'element-ui/lib/locale'
 

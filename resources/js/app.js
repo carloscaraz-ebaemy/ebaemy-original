@@ -4,6 +4,12 @@ import Vue from 'vue'
 import store from './store'
 import ElementUI from 'element-ui'
 
+// Exponer Vue al window para vistas blade que usan `<script>new Vue({...})</script>`
+// inline. Con Vite (ES modules) Vue ya no es global por defecto.
+if (typeof window !== 'undefined') {
+    window.Vue = Vue;
+}
+
 import lang from 'element-ui/lib/locale/lang/es'
 import locale from 'element-ui/lib/locale'
 
