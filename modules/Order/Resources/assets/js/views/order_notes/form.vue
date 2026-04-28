@@ -34,13 +34,10 @@
                                 <div v-if="config.establishment.address != '-'">
                                     {{ config.establishment.address }},
                                 </div>
-                                {{ config.establishment.district.description }},
-                                {{ config.establishment.province.description }},
-                                {{
-                                    config.establishment.department.description
-                                }}
-                                -
-                                {{ config.establishment.country.description }}
+                                <span v-if="config.establishment.district">{{ config.establishment.district.description }},</span>
+                                <span v-if="config.establishment.province">{{ config.establishment.province.description }},</span>
+                                <span v-if="config.establishment.department">{{ config.establishment.department.description }}</span>
+                                <span v-if="config.establishment.country"> - {{ config.establishment.country.description }}</span>
                                 <br />
                                 {{ config.establishment.email }} -
                                 <span
