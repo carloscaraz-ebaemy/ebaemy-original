@@ -143,12 +143,19 @@
                         </a>
                     </li>
 
+                    {{-- Marketing / Campañas — OCULTO temporalmente.
+                         El backend (consent capture en checkout, opt-out tokens,
+                         marketing_contacts) sigue activo, solo se oculta la UI
+                         del SuperAdmin hasta que el módulo se profesionalice
+                         o se integre con servicio externo (Brevo/Resend).
+                         Ver memoria: project_marketing_roadmap.md
                     <li class="{{ (isset($path[1]) && $path[1] === 'marketing')?'nav-active':'' }}">
                         <a class="nav-link" href="{{ route('system.marketing.campaigns.index') }}">
                             <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l18 -5v12l-18 -5v-2z"/><path d="M11.6 16.8a3 3 0 1 1 -5.8 -1.6"/></svg>
                             <span>Marketing / Campañas</span>
                         </a>
                     </li>
+                    --}}
 
                     {{-- ── SISTEMA ──────────────────────────────────────── --}}
                     <li class="nav-separator">Sistema</li>
