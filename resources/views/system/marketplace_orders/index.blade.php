@@ -76,20 +76,20 @@
                     <tr v-if="loading"><td colspan="9" class="text-center py-4 text-muted">Cargando…</td></tr>
                     <tr v-else-if="!rows.length"><td colspan="9" class="text-center py-4 text-muted">Sin pedidos para los filtros seleccionados.</td></tr>
                     <tr v-for="row in rows" :key="row.id">
-                        <td><small>@{{ formatDate(row.created_at) }}</small></td>
-                        <td><code>@{{ row.order_number }}</code></td>
+                        <td><small>[[ formatDate(row.created_at) ]]</small></td>
+                        <td><code>[[ row.order_number ]]</code></td>
                         <td>
-                            <div>@{{ row.customer_name }}</div>
-                            <small class="text-muted">@{{ row.customer_phone }}</small>
+                            <div>[[ row.customer_name ]]</div>
+                            <small class="text-muted">[[ row.customer_phone ]]</small>
                         </td>
-                        <td class="text-center">@{{ row.stores_count }}</td>
-                        <td class="text-center">@{{ row.items_count }}</td>
-                        <td class="text-end">S/ @{{ Number(row.total).toFixed(2) }}</td>
+                        <td class="text-center">[[ row.stores_count ]]</td>
+                        <td class="text-center">[[ row.items_count ]]</td>
+                        <td class="text-end">S/ [[ Number(row.total).toFixed(2) ]]</td>
                         <td class="text-center">
-                            <span class="badge" :class="statusBadge(row.status)">@{{ statusLabel(row.status) }}</span>
+                            <span class="badge" :class="statusBadge(row.status)">[[ statusLabel(row.status) ]]</span>
                         </td>
                         <td class="text-center">
-                            <span v-if="row.failed_count > 0" class="badge bg-danger">@{{ row.failed_count }}</span>
+                            <span v-if="row.failed_count > 0" class="badge bg-danger">[[ row.failed_count ]]</span>
                             <span v-else>—</span>
                         </td>
                         <td class="text-end">
@@ -102,7 +102,7 @@
         </div>
 
         <div class="card-footer d-flex justify-content-between align-items-center bg-white">
-            <small class="text-muted">@{{ pageInfo }}</small>
+            <small class="text-muted">[[ pageInfo ]]</small>
             <div>
                 <button class="btn btn-sm btn-outline-secondary me-1" :disabled="filters.page <= 1 || loading" @click="load(filters.page - 1)">← Anterior</button>
                 <button class="btn btn-sm btn-outline-secondary"     :disabled="filters.page >= lastPage || loading" @click="load(filters.page + 1)">Siguiente →</button>
@@ -121,6 +121,11 @@
     }
     new window.Vue({
     el: '#mpOrdersApp',
+    // Delimiters distintos para evitar que el Vue padre (montado sobre
+    // #main-wrapper en system.js) procese estas interpolaciones con su
+    // propio scope. Con [[ ]] el padre no las reconoce y las deja para
+    // que las procese ESTE Vue child cuando se monta sobre #mpOrdersApp.
+    delimiters: ['[[', ']]'],
     data: {
         loading: false,
         rows: [],
