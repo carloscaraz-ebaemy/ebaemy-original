@@ -271,6 +271,7 @@ Vue.component('tenant-item-editor-tag', () => import('../../modules/Item/Resourc
 // Ecommerce configurations
 Vue.component('tenant-ecommerce-configuration-info', () => import('../../modules/Ecommerce/Resources/assets/js/views/configuration/index.vue'))
 Vue.component('tenant-ecommerce-configuration-culqi', () => import('../../modules/Ecommerce/Resources/assets/js/views/configuration_culqi/index.vue'))
+Vue.component('tenant-ecommerce-configuration-mercadopago', () => import('../../modules/Ecommerce/Resources/assets/js/views/configuration_mercadopago/index.vue'))
 Vue.component('tenant-ecommerce-configuration-paypal', () => import('../../modules/Ecommerce/Resources/assets/js/views/configuration_paypal/index.vue'))
 Vue.component('tenant-ecommerce-configuration-logo', () => import('../../modules/Ecommerce/Resources/assets/js/views/configuration_logo/index.vue'))
 Vue.component('tenant-ecommerce-configuration-social', () => import('../../modules/Ecommerce/Resources/assets/js/views/configuration_social/index.vue'))

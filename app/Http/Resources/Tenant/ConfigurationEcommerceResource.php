@@ -28,6 +28,11 @@ class ConfigurationEcommerceResource extends JsonResource
             'token_private_culqui' => $this->maskedSecret($this->token_private_culqui),
             'token_private_culqui_configured' => filled($this->token_private_culqui),
             'token_public_culqui' => $this->token_public_culqui,
+            'mp_enabled'    => (bool) $this->mp_enabled,
+            'mp_sandbox'    => (bool) $this->mp_sandbox,
+            'mp_public_key' => $this->mp_public_key,
+            'mp_access_token' => $this->maskedSecret($this->mp_access_token),
+            'mp_access_token_configured' => filled($this->mp_access_token),
 
             // LOGO
             'logo' => $this->logo,

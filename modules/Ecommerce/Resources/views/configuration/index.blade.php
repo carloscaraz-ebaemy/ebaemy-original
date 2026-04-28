@@ -15,8 +15,9 @@
     <tenant-ecommerce-configuration-logo></tenant-ecommerce-configuration-logo>
     <tenant-ecommerce-configuration-color></tenant-ecommerce-configuration-color>
 
-    {{-- 💳 PAGOS (Culqi + PayPal) --}}
+    {{-- 💳 PAGOS (Culqi + MercadoPago + PayPal) --}}
     <tenant-ecommerce-configuration-culqi></tenant-ecommerce-configuration-culqi>
+    <tenant-ecommerce-configuration-mercadopago></tenant-ecommerce-configuration-mercadopago>
     <tenant-ecommerce-configuration-paypal></tenant-ecommerce-configuration-paypal>
 
     {{-- 🏬 MARKETPLACES --}}
