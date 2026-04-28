@@ -861,6 +861,9 @@ class DashboardV2
             $estId = $this->establishmentId;
 
             // Valor total del stock
+            // Nota: la columna `sale_unit_price_default` (JSON) NO existe en
+            // items — solo `sale_unit_price` (decimal). El intento de leerla
+            // con JSON_EXTRACT generaba "Unknown column" → 500 en el endpoint.
             $valueRow = ItemWarehouse::query()->toBase()
                 ->join('items as i', 'i.id', '=', 'item_warehouse.item_id')
                 ->where('i.active', 1)
@@ -869,10 +872,7 @@ class DashboardV2
                     ->where('w.establishment_id', $estId))
                 ->selectRaw("
                     SUM(item_warehouse.stock_physical *
-                        COALESCE(
-                            CAST(JSON_UNQUOTE(JSON_EXTRACT(i.sale_unit_price_default,'$')) AS DECIMAL(15,4)),
-                            i.sale_unit_price, 0
-                        )
+                        COALESCE(i.sale_unit_price, 0)
                     ) as value,
                     SUM(item_warehouse.stock_physical) as total_units,
                     COUNT(DISTINCT i.id) as product_count
