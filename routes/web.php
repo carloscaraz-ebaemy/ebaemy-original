@@ -1178,6 +1178,20 @@ if ($hostname) {
              ->middleware('throttle:30,1')
              ->where('number', 'MP-[A-Z0-9\-]+')->name('marketplace.order.confirmation');
 
+        // ─── MercadoPago: return + webhook + retry ───────────────────────────
+        // Return: MP redirige aquí tras pago (success/failure/pending).
+        Route::get('marketplace/payment/return',   'MarketplaceCheckoutController@paymentReturn')
+             ->middleware('throttle:30,1')->name('marketplace.payment.return');
+        // Webhook: MP envía notificación POST cuando el estado del pago cambia.
+        // Sin throttle agresivo — MP reenvía si falla; pero limitamos para
+        // evitar spam si alguien descubre la URL.
+        Route::post('marketplace/payment/webhook', 'MarketplaceCheckoutController@paymentWebhook')
+             ->middleware('throttle:60,1')->name('marketplace.payment.webhook');
+        // Retry: el cliente puede reintentar pago si cerró la pestaña.
+        Route::get('marketplace/payment/{number}/retry', 'MarketplaceCheckoutController@paymentRetry')
+             ->middleware('throttle:10,1')
+             ->where('number', 'MP-[A-Z0-9\-]+')->name('marketplace.payment.retry');
+
         // ─── Onboarding de sellers (captación pública) ───────────────────────
         // Flujo completo:
         //   /seller                          → landing informativa

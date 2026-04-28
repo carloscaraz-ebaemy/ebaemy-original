@@ -40,13 +40,22 @@ class MarketplaceOrder extends Model
         'session_token',
         'source_ip',
         'source_ua',
+        'payment_provider',
+        'mp_preference_id',
+        'mp_payment_id',
+        'mp_init_point',
+        'mp_payment_status',
+        'payment_attempted_at',
+        'payment_paid_at',
     ];
 
     protected $casts = [
-        'subtotal'     => 'float',
-        'total'        => 'float',
-        'items_count'  => 'integer',
-        'stores_count' => 'integer',
+        'subtotal'             => 'float',
+        'total'                => 'float',
+        'items_count'          => 'integer',
+        'stores_count'         => 'integer',
+        'payment_attempted_at' => 'datetime',
+        'payment_paid_at'      => 'datetime',
     ];
 
     public const STATUS_PENDING               = 'pending';

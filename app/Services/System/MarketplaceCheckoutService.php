@@ -36,6 +36,16 @@ class MarketplaceCheckoutService
     ) {}
 
     /**
+     * ¿MercadoPago está activo? Si MP_ACCESS_TOKEN está vacío, caemos al
+     * flujo legacy (dispatch inmediato sin pasarela). Esto evita romper
+     * tenants que aún no configuraron credenciales MP.
+     */
+    private function mercadopagoEnabled(): bool
+    {
+        return !empty(config('services.mercadopago.access_token'));
+    }
+
+    /**
      * Crea el pedido + subpedidos + dispara dispatch.
      *
      * @param array $customer  keys: name, doc_type, doc_number, phone, email,
@@ -131,9 +141,40 @@ class MarketplaceCheckoutService
                 return $order;
             });
 
-            // Dispatch FUERA de la transacción del padre. Si un tenant falla,
-            // el padre queda persistido y se puede reintentar luego.
-            $dispatchResult = $this->dispatcher->dispatchOrder($order);
+            // ── Pasarela MercadoPago ──────────────────────────────────────
+            // Si MP está activo, creamos la preferencia y devolvemos el
+            // init_point para que el comprador sea redirigido al checkout MP.
+            // El dispatch a tenants queda diferido hasta que el webhook
+            // confirme el pago (MercadoPagoService::handleWebhook).
+            //
+            // Si MP NO está configurado (legacy), dispatchamos inmediato
+            // como antes — preserva compatibilidad con instalaciones que
+            // aún cobran fuera del sistema (transferencia, contraentrega).
+            $mpResult = null;
+            if ($this->mercadopagoEnabled()) {
+                try {
+                    $mp = app(MercadoPagoService::class);
+                    $mpResult = $mp->createPreferenceForOrder($order);
+                    if (!($mpResult['success'] ?? false)) {
+                        Log::warning('Marketplace checkout: MP failed, falling back to manual', [
+                            'order' => $order->order_number,
+                            'error' => $mpResult['error'] ?? 'unknown',
+                        ]);
+                    }
+                } catch (\Throwable $e) {
+                    Log::error('MercadoPago init fail, falling back to manual', [
+                        'order' => $order->order_number,
+                        'error' => $e->getMessage(),
+                    ]);
+                }
+            }
+
+            // Si MP NO disponible o falló, dispatch inmediato (modo legacy).
+            // Si MP exitoso, NO dispatchamos aún — espera el webhook.
+            $dispatchResult = null;
+            if (!$mpResult || !($mpResult['success'] ?? false)) {
+                $dispatchResult = $this->dispatcher->dispatchOrder($order);
+            }
 
             // Limpiar carrito SIEMPRE (el pedido ya quedó persistido —
             // si algún subpedido falló, el SuperAdmin/tenant puede atenderlo).
@@ -142,13 +183,15 @@ class MarketplaceCheckoutService
             $order->refresh();
 
             // Email de confirmación al comprador. Best-effort — el pedido
-            // ya está persistido y dispatchado, fallar el mail no es crítico.
+            // ya está persistido (y dispatchado o pendiente de pago).
             $this->safeNotifyCustomer($order);
 
             return [
-                'success'  => true,
-                'order'    => $order,
-                'dispatch' => $dispatchResult,
+                'success'    => true,
+                'order'      => $order,
+                'dispatch'   => $dispatchResult,
+                'mp'         => $mpResult,
+                'init_point' => $mpResult['init_point'] ?? null,
             ];
         } catch (\Throwable $e) {
             Log::error('MarketplaceCheckoutService::process failed', [

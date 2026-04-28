@@ -58,4 +58,15 @@ return [
         'help_url'    => env('SUPPORT_HELP_URL'),      // Opcional: https://ebaemy.com/ayuda
     ],
 
+    // MercadoPago — pasarela del checkout marketplace (multi-vendor).
+    // En sandbox: usar credenciales TEST-* del panel MP del vendedor.
+    // En producción: credenciales APP_USR-* (live).
+    // El webhook_secret se valida contra el header x-signature.
+    'mercadopago' => [
+        'access_token'    => env('MP_ACCESS_TOKEN'),
+        'public_key'      => env('MP_PUBLIC_KEY'),
+        'webhook_secret'  => env('MP_WEBHOOK_SECRET'),
+        'sandbox'         => (bool) env('MP_SANDBOX', false),
+    ],
+
 ];
