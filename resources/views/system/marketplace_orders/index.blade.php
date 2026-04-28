@@ -112,7 +112,14 @@
 </div>
 
 <script>
-new Vue({
+// system.js (Vite, type=module) carga deferido. El <script> inline
+// se ejecuta antes y window.Vue aún no existe.
+// Polling: esperar a que Vue esté disponible y luego montar.
+(function waitForVue() {
+    if (typeof window.Vue === 'undefined') {
+        return setTimeout(waitForVue, 30);
+    }
+    new window.Vue({
     el: '#mpOrdersApp',
     data: {
         loading: false,
@@ -179,5 +186,6 @@ new Vue({
         }
     }
 });
+})();
 </script>
 @endsection
