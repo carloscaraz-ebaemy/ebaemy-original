@@ -109,16 +109,28 @@ body[data-eb-shell="on"] .sidebar-left .nav-main .nav-parent > a.nav-link:hover 
   text-decoration: none;
 }
 
-/* Item activo (nav-active) */
+/* Item activo (nav-active / nav-expanded) — !important para pisar skins custom */
 body[data-eb-shell="on"] .sidebar-left .nav-main > li.nav-active > a.nav-link,
-body[data-eb-shell="on"] .sidebar-left .nav-main > li.nav-active.nav-parent > a.nav-link {
-  background: var(--eb-brand-soft);
-  color: var(--eb-brand);
-  font-weight: var(--eb-weight-semibold);
+body[data-eb-shell="on"] .sidebar-left .nav-main > li.nav-expanded > a.nav-link,
+body[data-eb-shell="on"] .sidebar-left .nav-main > li.nav-active.nav-parent > a.nav-link,
+body[data-eb-shell="on"] .sidebar-left .nav-main > li.nav-active.nav-expanded > a.nav-link,
+body[data-eb-shell="on"] .sidebar-left .nav-main > li.nav-parent.nav-expanded > a.nav-link {
+  background: var(--eb-brand-soft) !important;
+  color: var(--eb-brand) !important;
+  font-weight: var(--eb-weight-semibold) !important;
   position: relative;
 }
+body[data-eb-shell="on"] .sidebar-left .nav-main > li.nav-active > a.nav-link svg,
+body[data-eb-shell="on"] .sidebar-left .nav-main > li.nav-expanded > a.nav-link svg,
+body[data-eb-shell="on"] .sidebar-left .nav-main > li.nav-active.nav-parent > a.nav-link svg,
+body[data-eb-shell="on"] .sidebar-left .nav-main > li.nav-parent.nav-expanded > a.nav-link svg {
+  color: var(--eb-brand) !important;
+  stroke: var(--eb-brand) !important;
+}
 body[data-eb-shell="on"] .sidebar-left .nav-main > li.nav-active > a.nav-link::before,
-body[data-eb-shell="on"] .sidebar-left .nav-main > li.nav-active.nav-parent > a.nav-link::before {
+body[data-eb-shell="on"] .sidebar-left .nav-main > li.nav-expanded > a.nav-link::before,
+body[data-eb-shell="on"] .sidebar-left .nav-main > li.nav-active.nav-parent > a.nav-link::before,
+body[data-eb-shell="on"] .sidebar-left .nav-main > li.nav-parent.nav-expanded > a.nav-link::before {
   content: "";
   position: absolute;
   left: 0;
