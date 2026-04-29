@@ -38,9 +38,10 @@ class WhatsAppSystemController extends Controller
         return response()->json([
             'configured' => $this->service->isConfigured(),
             'config' => [
-                'qr_api_url'   => $config->qr_api_url ?? null,
-                'has_token'    => !empty($config->qr_api_token),
-                'qr_api_msg'   => $config->qr_api_msg ?? null,
+                'qr_api_url'      => $config->qr_api_url ?? null,
+                'qr_api_instance' => $config->qr_api_instance ?? null,
+                'has_token'       => !empty($config->qr_api_token),
+                'qr_api_msg'      => $config->qr_api_msg ?? null,
             ],
             'stats' => [
                 'today_sent'   => SystemWhatsAppLog::whereDate('created_at', today())->where('status', 'sent')->count(),
@@ -53,9 +54,10 @@ class WhatsAppSystemController extends Controller
     public function update(Request $request): JsonResponse
     {
         $validated = $request->validate([
-            'qr_api_url'   => 'nullable|url|max:255',
-            'qr_api_token' => 'nullable|string|max:500',
-            'qr_api_msg'   => 'nullable|string|max:1000',
+            'qr_api_url'      => 'nullable|url|max:255',
+            'qr_api_token'    => 'nullable|string|max:500',
+            'qr_api_instance' => 'nullable|string|max:100',
+            'qr_api_msg'      => 'nullable|string|max:1000',
         ]);
 
         $config = SystemConfiguration::first();
@@ -69,6 +71,9 @@ class WhatsAppSystemController extends Controller
         // Solo actualiza el token si vino un valor no vacío (permite conservar el actual)
         if (!empty($validated['qr_api_token'])) {
             $config->qr_api_token = $validated['qr_api_token'];
+        }
+        if (array_key_exists('qr_api_instance', $validated)) {
+            $config->qr_api_instance = $validated['qr_api_instance'];
         }
         if (array_key_exists('qr_api_msg', $validated)) {
             $config->qr_api_msg = $validated['qr_api_msg'];

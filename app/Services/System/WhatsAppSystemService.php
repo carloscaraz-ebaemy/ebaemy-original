@@ -10,12 +10,17 @@ use Illuminate\Support\Facades\Log;
 
 /**
  * Service para envío de WhatsApp desde el SuperAdmin (ebaemy.com) hacia
- * los tenants y/o números arbitrarios. Usa la configuración SYSTEM:
- *   - system.configurations.qr_api_url
- *   - system.configurations.qr_api_token
+ * los tenants y/o números arbitrarios.
  *
- * No depende del WhatsAppService de tenant (que resuelve driver según
- * hostname activo, lo cual NO aplica en contexto system).
+ * Soporta DOS contratos de gateway según si hay qr_api_instance configurado:
+ *   - Si qr_api_instance está SET → Evolution API v2:
+ *       POST {url}/message/sendText/{instance}
+ *       Header: apikey: <token>
+ *       Body: {"number": "...", "text": "..."}
+ *   - Si qr_api_instance es NULL → gateway legacy (devaemy.com tipo):
+ *       POST {url}/api/message/send-text
+ *       Header: Authorization: Bearer <token>
+ *       Body: {"number": "...", "message": "..."}
  *
  * Cada envío queda auditado en system_whatsapp_logs.
  */
@@ -51,15 +56,29 @@ class WhatsAppSystemService
         }
 
         $url = rtrim($config->qr_api_url, '/');
+        $instance = trim((string) ($config->qr_api_instance ?? ''));
+        $useEvolution = $instance !== '';
 
         try {
-            $response = Http::withToken($config->qr_api_token)
-                ->withOptions(['verify' => false])
-                ->timeout(15)
-                ->post($url . '/api/message/send-text', [
-                    'number'  => $phone,
-                    'message' => $message,
-                ]);
+            if ($useEvolution) {
+                // Evolution API v2
+                $response = Http::withHeaders(['apikey' => $config->qr_api_token])
+                    ->withOptions(['verify' => false])
+                    ->timeout(15)
+                    ->post($url . '/message/sendText/' . $instance, [
+                        'number' => $phone,
+                        'text'   => $message,
+                    ]);
+            } else {
+                // Gateway legacy estilo devaemy.com
+                $response = Http::withToken($config->qr_api_token)
+                    ->withOptions(['verify' => false])
+                    ->timeout(15)
+                    ->post($url . '/api/message/send-text', [
+                        'number'  => $phone,
+                        'message' => $message,
+                    ]);
+            }
 
             if ($response->successful()) {
                 $log->update([
@@ -67,9 +86,11 @@ class WhatsAppSystemService
                     'sent_at' => now(),
                 ]);
                 Log::channel('payments')->info('System WhatsApp sent', [
-                    'phone'  => $phone,
-                    'tenant' => $tenantHostnameId,
-                    'source' => $source,
+                    'phone'    => $phone,
+                    'tenant'   => $tenantHostnameId,
+                    'source'   => $source,
+                    'gateway'  => $useEvolution ? 'evolution' : 'legacy',
+                    'instance' => $instance ?: null,
                 ]);
                 return true;
             }

@@ -37,6 +37,7 @@ class Configuration extends Model
         'mail_encryption',
         'qr_api_url',
         'qr_api_token',
+        'qr_api_instance',
         'qr_api_msg',
         'active_cron',
         'hour_generate_payment_order',

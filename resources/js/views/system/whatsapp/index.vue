@@ -65,21 +65,36 @@
             type="text"
             class="form-control"
             v-model="config.qr_api_url"
-            placeholder="https://wa.ebaemy.com" />
+            placeholder="https://ebaemy.com/wa" />
           <small class="text-muted">
-            Endpoint base del gateway. Se invoca <code>{url}/api/message/send-text</code>.
+            Endpoint base del gateway Evolution API (ej. <code>https://ebaemy.com/wa</code>)
+            o gateway legacy (<code>{url}/api/message/send-text</code>).
           </small>
         </div>
 
         <div class="mb-3">
-          <label class="form-label fw-bold">Token (Bearer)</label>
+          <label class="form-label fw-bold">Token (apikey)</label>
           <input
             type="password"
             class="form-control"
             v-model="config.qr_api_token"
             :placeholder="config.has_token ? '•••••••••• (guardado)' : 'Pega aquí el token'" />
           <small class="text-muted">
-            Déjalo vacío para conservar el token actual.
+            Déjalo vacío para conservar el token actual. Para Evolution se manda como header <code>apikey</code>;
+            para gateway legacy como <code>Bearer</code>.
+          </small>
+        </div>
+
+        <div class="mb-3">
+          <label class="form-label fw-bold">Instancia (Evolution API)</label>
+          <input
+            type="text"
+            class="form-control"
+            v-model="config.qr_api_instance"
+            placeholder="ebaemy-admin" />
+          <small class="text-muted">
+            Nombre de la instancia creada en Evolution Manager.
+            <strong>Déjalo vacío si usas un gateway legacy</strong> (devaemy.com tipo).
           </small>
         </div>
 
@@ -198,6 +213,7 @@ export default {
       config: {
         qr_api_url: '',
         qr_api_token: '',
+        qr_api_instance: '',
         qr_api_msg: '',
         has_token: false,
       },
@@ -247,6 +263,7 @@ export default {
       try {
         const payload = {
           qr_api_url: this.config.qr_api_url,
+          qr_api_instance: this.config.qr_api_instance || null,
           qr_api_msg: this.config.qr_api_msg,
         };
         if (this.config.qr_api_token) {
