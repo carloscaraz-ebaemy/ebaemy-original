@@ -1308,6 +1308,17 @@ if ($hostname) {
                      ->name('sub_retry')->whereNumber('id')->whereNumber('subId');
             });
 
+            // ── WhatsApp SuperAdmin (notificaciones SaaS → tenants) ─────────
+            Route::prefix('admin/whatsapp')->name('system.whatsapp.')->group(function () {
+                Route::get('/',               'System\WhatsAppSystemController@index')->name('index');
+                Route::get('data',            'System\WhatsAppSystemController@data')->name('data');
+                Route::put('settings',        'System\WhatsAppSystemController@update')->name('settings.update');
+                Route::post('test',           'System\WhatsAppSystemController@test')->name('test');
+                Route::get('tenants',         'System\WhatsAppSystemController@tenants')->name('tenants');
+                Route::post('notify-tenant',  'System\WhatsAppSystemController@notifyTenant')->name('notify_tenant');
+                Route::get('logs',            'System\WhatsAppSystemController@logs')->name('logs');
+            });
+
             // ── Marketing centralizado (campañas multicanal con opt-out) ────
             Route::prefix('admin/marketing/campaigns')->name('system.marketing.campaigns.')->group(function () {
                 Route::get('/',               'System\MarketingCampaignController@index')->name('index');

@@ -52,6 +52,7 @@ Vue.component('system-marketplace-orders', () => import('./views/system/marketpl
 // System configurations
 Vue.component('system-support-configuration', () => import('./views/system/configuration/supportConfiguration.vue'));
 Vue.component('system-qrapi-configuration', () => import('./views/system/configuration/qrApiConfiguration.vue'));
+Vue.component('system-whatsapp-index', () => import('./views/system/whatsapp/index.vue'));
 Vue.component('system-configuration-culqi', () => import('./views/system/configuration/culqi.vue'));
 Vue.component('system-configuration-apk-url', () => import('./views/system/configuration/apk-url.vue'));
 Vue.component('system-configuration-token', () => import('./views/system/configuration/token_ruc_dni.vue'));
