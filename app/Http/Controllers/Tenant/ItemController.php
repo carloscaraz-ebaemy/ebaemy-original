@@ -1370,6 +1370,98 @@ class ItemController extends Controller
     }
 
     /**
+     * Atajo para publicar TODOS los productos visibles en la tienda online
+     * (apply_store=1) en el marketplace central con un solo click.
+     *
+     * Reglas:
+     *   - Considera candidatos: apply_store=1 con internal_id válido.
+     *   - Saltea los que ya estén marketplace_publishable=1 y mp_status='active'.
+     *   - Valida la cuota global ANTES de iterar; si excede, rechaza todo.
+     *   - Sincroniza cada item al índice central (no bloqueante por item).
+     */
+    public function publishAllStoreToMarketplace()
+    {
+        $candidates = Item::where('apply_store', 1)
+            ->whereNotNull('internal_id')
+            ->where('internal_id', '!=', '')
+            ->get();
+
+        $skippedNoInternal = Item::where('apply_store', 1)
+            ->where(function ($q) {
+                $q->whereNull('internal_id')->orWhere('internal_id', '');
+            })
+            ->count();
+
+        $toPublish = $candidates->filter(function ($it) {
+            return !($it->marketplace_publishable && $it->mp_status === 'active');
+        });
+
+        $extra = $toPublish->count();
+
+        if ($extra === 0) {
+            return [
+                'success' => true,
+                'message' => $candidates->isEmpty()
+                    ? 'No tienes productos en tu tienda online para publicar'
+                    : 'Todos tus productos de tienda online ya están publicados en marketplace',
+                'updated' => 0,
+                'skipped_no_internal' => $skippedNoInternal,
+            ];
+        }
+
+        $quotaService = app(\App\Services\Tenant\MarketplaceQuotaService::class);
+        $quota = $quotaService->canPublish($extra);
+        if (!$quota['allowed']) {
+            return [
+                'success'       => false,
+                'message'       => $quota['reason'],
+                'limit_reached' => true,
+                'quota'         => $quota,
+                'would_publish' => $extra,
+            ];
+        }
+
+        $hostname = app(\Hyn\Tenancy\Contracts\CurrentHostname::class);
+        $syncService = app(\App\Services\System\MarketplaceListingSyncService::class);
+        $updated = 0;
+        $syncedOk = 0;
+        $syncFailed = 0;
+
+        foreach ($toPublish as $it) {
+            $it->marketplace_publishable = true;
+            $it->mp_status = 'active';
+            $it->mp_synced_at = now();
+            $it->save();
+            $updated++;
+
+            try {
+                if ($hostname) {
+                    $syncService->syncItem($hostname->id, (int) $it->id);
+                    $syncedOk++;
+                }
+            } catch (\Throwable $e) {
+                $syncFailed++;
+                \Log::warning('publishAllStoreToMarketplace: sync inmediato falló', [
+                    'item_id' => $it->id, 'error' => $e->getMessage(),
+                ]);
+            }
+        }
+
+        $parts = ["Publicados en Marketplace: {$updated}"];
+        if ($syncFailed > 0)         $parts[] = "({$syncFailed} con sync pendiente)";
+        if ($skippedNoInternal > 0)  $parts[] = "Saltados (sin código interno): {$skippedNoInternal}";
+
+        return [
+            'success'             => true,
+            'message'             => implode(' · ', $parts),
+            'updated'             => $updated,
+            'skipped_no_internal' => $skippedNoInternal,
+            'synced_ok'           => $syncedOk,
+            'sync_failed'         => $syncFailed,
+        ];
+    }
+
+    /**
      * Contadores rápidos del catálogo por canal. Lo consume el listado ERP
      * como un widget de chips clickeables — cada número setea el filtro
      * channel_filter correspondiente.

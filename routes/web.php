@@ -441,6 +441,7 @@ if ($hostname) {
             Route::post('items/marketplace-toggle', 'Tenant\ItemController@marketplaceToggle');
             Route::get('items/marketplace-stats',    'Tenant\ItemController@marketplaceStats');
             Route::post('items/bulk-channel',        'Tenant\ItemController@bulkChannel');
+            Route::post('items/marketplace-publish-all-store', 'Tenant\ItemController@publishAllStoreToMarketplace');
             Route::get('items/channel-stats',        'Tenant\ItemController@channelStats');
 
             // Shipping zones (configuración del tenant)

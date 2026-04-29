@@ -33,6 +33,21 @@
                 <template>
                     <!-- v-if="typeUser === 'admin'" -->
                     <!-- <button type="button" class="btn btn-custom btn-sm  mt-2 me-2" @click.prevent="clickImport()"><i class="fa fa-upload"></i> Importar</button>-->
+                    <el-tooltip
+                        content="Publica todos los productos de tu tienda online en ebaemy.com/marketplace"
+                        placement="top"
+                    >
+                        <button
+                            type="button"
+                            class="btn btn-sm mt-2 me-2"
+                            style="background:#8b5cf6;border:1px solid #7c3aed;color:#fff"
+                            :disabled="publishingAll"
+                            @click.prevent="publishAllToMarketplace()"
+                        >
+                            <i class="fa" :class="publishingAll ? 'fa-spinner fa-spin' : 'fa-globe'"></i>
+                            {{ publishingAll ? 'Publicando…' : 'Publicar todos en Marketplace' }}
+                        </button>
+                    </el-tooltip>
                     <button
                         type="button"
                         class="btn btn-custom btn-sm mt-2 me-2"
@@ -343,7 +358,8 @@ export default {
             ecommerce: true,
             sortField: localStorage.getItem('itemSortField') || 'id',
             sortDirection: localStorage.getItem('itemSortDirection') || 'desc',
-            mpStats: { published: 0, views: 0, clicks: 0, leads_total: 0, leads_30d: 0, top: [] }
+            mpStats: { published: 0, views: 0, clicks: 0, leads_total: 0, leads_30d: 0, top: [] },
+            publishingAll: false
         };
     },
     created() {
@@ -410,6 +426,46 @@ export default {
                 .get(`/items/marketplace-stats`)
                 .then(r => { if (r.data) this.mpStats = r.data; })
                 .catch(() => { /* stats opcionales; si fallan, el card queda oculto */ });
+        },
+        publishAllToMarketplace() {
+            this.$confirm(
+                'Se publicarán en ebaemy.com/marketplace todos los productos de tu tienda online que aún no estén publicados. ¿Continuar?',
+                'Publicar todos en Marketplace',
+                {
+                    confirmButtonText: 'Sí, publicar todos',
+                    cancelButtonText: 'Cancelar',
+                    type: 'info'
+                }
+            ).then(() => {
+                this.publishingAll = true;
+                this.$http
+                    .post('/items/marketplace-publish-all-store')
+                    .then(response => {
+                        const data = response.data || {};
+                        if (data.success) {
+                            if ((data.updated || 0) > 0) {
+                                this.$message.success(data.message);
+                            } else {
+                                this.$message.info(data.message);
+                            }
+                            this.loadMarketplaceStats();
+                            this.$eventHub.$emit('reloadData');
+                        } else if (data.limit_reached) {
+                            this.$alert(data.message, 'Límite de plan alcanzado', {
+                                confirmButtonText: 'Entendido',
+                                type: 'warning'
+                            });
+                        } else {
+                            this.$message.error(data.message || 'No se pudo publicar');
+                        }
+                    })
+                    .catch(() => {
+                        this.$message.error('Error al publicar al marketplace');
+                    })
+                    .then(() => {
+                        this.publishingAll = false;
+                    });
+            }).catch(() => { /* cancelado */ });
         },
         clickWarehouseDetail(warehouses) {
             this.warehousesDetail = warehouses;
