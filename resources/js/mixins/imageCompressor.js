@@ -15,9 +15,12 @@ export const imageCompressor = {
                     return resolve(file);
                 }
 
-                const maxWidth = 1200;
-                const maxHeight = 1200;
-                const quality = 0.82;
+                // Compresión adaptiva: en móvil reducimos resolución y calidad
+                // para acelerar la subida sobre redes celulares.
+                const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+                const maxWidth = isMobile ? 1024 : 1200;
+                const maxHeight = isMobile ? 1024 : 1200;
+                const quality = isMobile ? 0.72 : 0.82;
 
                 // Solo saltar SVG (no se puede comprimir con canvas)
                 if (file.type === 'image/svg+xml') {

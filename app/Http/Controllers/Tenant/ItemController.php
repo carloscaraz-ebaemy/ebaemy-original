@@ -1085,8 +1085,9 @@ class ItemController extends Controller
         if ($request->hasFile('file')) {
             try {
                 return $this->upload_image([
-                    'file' => $request->file('file'),
-                    'type' => $request->input('type', 'items'),
+                    'file'         => $request->file('file'),
+                    'type'         => $request->input('type', 'items'),
+                    'skip_preview' => filter_var($request->input('skip_preview', false), FILTER_VALIDATE_BOOLEAN),
                 ]);
             } catch (\Throwable $e) {
                 Log::error('[ItemController::upload] Error: ' . $e->getMessage() . ' en ' . $e->getFile() . ':' . $e->getLine());
@@ -1099,7 +1100,8 @@ class ItemController extends Controller
 
     function upload_image($request)
     {
-        $file = $request['file'];
+        $file        = $request['file'];
+        $skipPreview = !empty($request['skip_preview']);
 
         // Copiar al temp propio (el PHP upload temp puede limpiarse antes del store())
         $temp = tempnam(sys_get_temp_dir(), 'img_');
@@ -1112,19 +1114,26 @@ class ItemController extends Controller
             return ['success' => false, 'message' => $validation['message']];
         }
 
-        $mime = mime_content_type($temp);
-        $data = file_get_contents($temp);
-
         // Nombre original sanitizado (sin extensión — se añade .webp al guardar)
         $safeName = ImageProcessingService::sanitizeFilename($file->getClientOriginalName());
 
+        $data = [
+            'filename'  => $safeName,
+            'temp_path' => $temp,
+        ];
+
+        // Si el cliente puede mostrar el preview localmente (URL.createObjectURL),
+        // saltar la codificación base64 — ahorra ~1.3x el peso del archivo en el
+        // response, crucial sobre redes celulares.
+        if (!$skipPreview) {
+            $mime = mime_content_type($temp);
+            $bin  = file_get_contents($temp);
+            $data['temp_image'] = 'data:' . $mime . ';base64,' . base64_encode($bin);
+        }
+
         return [
             'success' => true,
-            'data'    => [
-                'filename'   => $safeName,             // nombre seguro, sin extensión
-                'temp_path'  => $temp,
-                'temp_image' => 'data:' . $mime . ';base64,' . base64_encode($data),
-            ],
+            'data'    => $data,
         ];
     }
 

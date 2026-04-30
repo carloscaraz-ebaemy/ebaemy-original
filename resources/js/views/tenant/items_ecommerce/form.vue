@@ -493,11 +493,12 @@
                                     <div class="form-group">
                                         <label class="control-label">Imágen <span class="text-danger"></span></label>
                                         <el-upload :action="`/${resource}/upload`"
-                                                :data="{'type': 'items'}"
+                                                :data="{'type': 'items', 'skip_preview': 1}"
                                                 :headers="headers"
                                                 :on-success="onSuccess"
                                                 :on-error="onUploadError"
                                                 :before-upload="beforeUpload"
+                                                :on-change="onFileChange"
                                                 :show-file-list="false"
                                                 accept="image/jpeg,image/jpg,image/png,image/gif,image/webp,image/bmp"
                                                 class="avatar-uploader">
@@ -1120,11 +1121,24 @@ export default {
         onSuccess(response, file, fileList) {
             if (response.success) {
                 this.form.image = response.data.filename
-                this.form.image_url = response.data.temp_image
                 this.form.temp_path = response.data.temp_path
+                // Si el server no devolvió temp_image (skip_preview), el preview ya
+                // se mostró desde onFileChange con un blob URL local.
+                if (response.data.temp_image) {
+                    this.form.image_url = response.data.temp_image
+                }
             } else {
                 this.$message.error(response.message || 'Error al subir la imagen.')
             }
+        },
+        // Preview local instantáneo: muestra la foto en cuanto se selecciona,
+        // sin esperar a que termine la subida ni el response del servidor.
+        onFileChange(file) {
+            if (!file || !file.raw || !file.raw.type || !file.raw.type.startsWith('image/')) return
+            if (this.form.image_url && typeof this.form.image_url === 'string' && this.form.image_url.startsWith('blob:')) {
+                URL.revokeObjectURL(this.form.image_url)
+            }
+            this.form.image_url = URL.createObjectURL(file.raw)
         },
         onUploadError(err, file) {
             console.error('[items_ecommerce] upload error:', err)
