@@ -1416,9 +1416,10 @@
                 </template>
                 <template v-else>
                     <el-button class="second-buton me-2" @click.prevent="close()">Cancelar</el-button>
-                    <el-button :loading="loading_submit"
+                    <el-button :loading="loading_submit || uploadingImage"
+                            :disabled="uploadingImage"
                             native-type="submit"
-                            type="primary">Guardar
+                            type="primary">{{ uploadingImage ? 'Subiendo imagen…' : 'Guardar' }}
                     </el-button>
                 </template>
             </div>
@@ -1573,6 +1574,7 @@ export default {
             warehouses: [],
             items: [],
             loading_submit: false,
+            uploadingImage: false,
             categorySearchQuery: '',
             filteredCategories: [],
             brandSearchQuery: '',
@@ -1966,6 +1968,7 @@ export default {
         },
 
         onSuccess(response, file, fileList) {
+            this.uploadingImage = false
             if (response.success) {
                 this.form.image = response.data.filename
                 this.form.temp_path = response.data.temp_path
@@ -1978,14 +1981,23 @@ export default {
                 this.$message.error(response.message)
             }
         },
-        // Preview local instantáneo: muestra la foto en cuanto se selecciona,
-        // sin esperar a que termine la subida ni el response del servidor.
+        // Maneja preview local instantáneo + estado de subida.
+        // El preview se pinta en cuanto se selecciona el archivo (sin esperar al server),
+        // pero `uploadingImage=true` bloquea el botón Guardar hasta que el server confirme
+        // el temp_path — sin ese path el backend no procesa la nueva imagen.
         onFileChange(file) {
-            if (!file || !file.raw || !file.raw.type || !file.raw.type.startsWith('image/')) return
-            if (this.form.image_url && typeof this.form.image_url === 'string' && this.form.image_url.startsWith('blob:')) {
-                URL.revokeObjectURL(this.form.image_url)
+            if (!file || !file.raw) return
+            if (file.raw.type && file.raw.type.startsWith('image/')) {
+                if (this.form.image_url && typeof this.form.image_url === 'string' && this.form.image_url.startsWith('blob:')) {
+                    URL.revokeObjectURL(this.form.image_url)
+                }
+                this.form.image_url = URL.createObjectURL(file.raw)
             }
-            this.form.image_url = URL.createObjectURL(file.raw)
+            if (file.status === 'ready' || file.status === 'uploading') {
+                this.uploadingImage = true
+            } else if (file.status === 'success' || file.status === 'fail') {
+                this.uploadingImage = false
+            }
         },
         changeAffectationIgvType() {
             
@@ -2257,6 +2269,9 @@ this.activeName =  'first'
 
         },
         async submit() {
+            if (this.uploadingImage) {
+                return this.$message.warning('Espera a que termine de subir la imagen.')
+            }
 
             const stock = parseInt(this.form.stock);
             if(isNaN(stock)){
