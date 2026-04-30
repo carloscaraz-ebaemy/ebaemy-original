@@ -750,6 +750,7 @@
                                     <div class="form-group">
                                         <label class="control-label">Imágen <span class="text-danger"></span></label>
                                         <el-upload :action="`/${resource}/upload`"
+                                                accept="image/jpeg,image/jpg,image/png,image/gif,image/webp,image/bmp"
                                                 :data="{'type': 'items'}"
                                                 :headers="headers"
                                                 :on-success="onSuccess"

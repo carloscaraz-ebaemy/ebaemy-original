@@ -1318,7 +1318,7 @@
                                         </el-tooltip>
                                     </label>
                                     <el-input v-model="form.header_image" :readonly="true">
-                                        <el-upload slot="append" :headers="headers" :on-success="successUpload"
+                                        <el-upload slot="append" accept="image/jpeg,image/jpg,image/png,image/gif,image/webp,image/bmp" :headers="headers" :on-success="successUpload"
                                             :on-error="errorUpload" :show-file-list="false"
                                             action="/configurations/uploads">
                                             <el-button icon="el-icon-upload" type="primary"></el-button>

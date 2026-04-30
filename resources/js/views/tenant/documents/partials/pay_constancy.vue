@@ -2,7 +2,7 @@
     <el-dialog :title="title" class="text-left" :visible="showDialog" @close="close"   @open="create">
         <!-- <p class="text-center">* Se recomienda resoluciones 700x300.</p> -->
         <div class="text-center">
-            <el-upload class="uploader" ref="upload" slot="append" :auto-upload="false" :headers="headers"  action="/documents/pay-constancy/upload" :show-file-list="false" :before-upload="beforeUpload" :on-success="successUpload" :on-change="preview">
+            <el-upload class="uploader" ref="upload" slot="append" accept="image/jpeg,image/jpg,image/png,image/gif,image/webp,image/bmp" :auto-upload="false" :headers="headers"  action="/documents/pay-constancy/upload" :show-file-list="false" :before-upload="beforeUpload" :on-success="successUpload" :on-change="preview">
                 <img v-if="form.imageUrl" width="100%" :src="form.imageUrl" alt="">
                 <i v-else class="el-icon-plus uploader-icon"></i>
             </el-upload>

@@ -15,6 +15,7 @@
                   <el-input v-model="form.logo_store" :readonly="true">
                     <el-upload
                       slot="append"
+                      accept="image/jpeg,image/jpg,image/png,image/gif,image/webp,image/bmp"
                       :headers="headers"
                       :data="{'type': 'logo_store'}"
                       action="/ecommerce/uploads"

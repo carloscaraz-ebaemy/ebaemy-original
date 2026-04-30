@@ -229,6 +229,7 @@
                     <el-input v-model="fileName" :readonly="true" placeholder="Ninguna imagen subida">
                         <el-upload
                             slot="append"
+                            accept="image/jpeg,image/jpg,image/png,image/gif,image/webp,image/bmp"
                             :on-success="successUploadDefaultImage"
                             :on-error="errorUpload"
                             :show-file-list="false"

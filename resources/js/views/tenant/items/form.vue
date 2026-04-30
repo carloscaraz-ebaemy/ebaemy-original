@@ -906,6 +906,7 @@
                                            :on-success="onSuccess"
                                            :before-upload="beforeImageUpload"
                                            :show-file-list="false"
+                                           accept="image/jpeg,image/jpg,image/png,image/gif,image/webp,image/bmp"
                                            class="avatar-uploader">
                                     <img v-if="form.image_url"
                                          :src="form.image_url"

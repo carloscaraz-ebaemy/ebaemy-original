@@ -2578,6 +2578,7 @@
                                                                                 >
                                                                                     <!-- <el-tooltip class="item" content="Cargar voucher" effect="dark" placement="top-start"> -->
                                                                                     <el-upload
+                                                                                        accept="image/jpeg,image/jpg,image/png,image/gif,image/webp,image/bmp"
                                                                                         :data="{
                                                                                             index: index
                                                                                         }"
@@ -3364,6 +3365,7 @@
                                                                 >
                                                                     <!-- <el-tooltip class="item" content="Cargar voucher" effect="dark" placement="top-start"> -->
                                                                     <el-upload
+                                                                        accept="image/jpeg,image/jpg,image/png,image/gif,image/webp,image/bmp"
                                                                         :data="{
                                                                             index: index
                                                                         }"

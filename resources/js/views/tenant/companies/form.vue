@@ -252,6 +252,7 @@
                                     <label class="control-label">Logo Tienda Virtual</label>
                                     <el-input v-model="form.logo_store" :readonly="true">
                                         <el-upload slot="append"
+                                                   accept="image/jpeg,image/jpg,image/png,image/gif,image/webp,image/bmp"
                                                    :headers="headers"
                                                    :data="{'type': 'logo_store'}"
                                                    action="/companies/uploads"
@@ -315,6 +316,7 @@
                                     <el-input v-model="form.img_firm"
                                               :readonly="true">
                                         <el-upload slot="append"
+                                                   accept="image/jpeg,image/jpg,image/png,image/gif,image/webp,image/bmp"
                                                    :data="{'type': 'img_firm'}"
                                                    :headers="headers"
                                                    :on-success="successUpload"

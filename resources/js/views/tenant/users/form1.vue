@@ -471,6 +471,7 @@
                                 <div class="form-group" >
                                     <label class="control-label">Foto</label>
                                     <el-upload class="avatar-uploader"
+                                            accept="image/jpeg,image/jpg,image/png,image/gif,image/webp,image/bmp"
                                             :headers="headers"
                                             :action="`/general-upload-temp-image`"
                                             :show-file-list="false"

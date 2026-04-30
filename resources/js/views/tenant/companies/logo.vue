@@ -7,7 +7,7 @@
             <el-dialog title="Logo" class="text-left" :visible.sync="dialogVisible">
                 <p class="text-center">* Se recomienda resoluciones 700x300.</p>
                 <div class="text-center">
-                    <el-upload class="uploader" ref="upload" slot="append" :auto-upload="false" :headers="headers"
+                    <el-upload class="uploader" ref="upload" slot="append" accept="image/jpeg,image/jpg,image/png,image/gif,image/webp,image/bmp" :auto-upload="false" :headers="headers"
                                :data="{'type': 'logo'}" action="/companies/uploads" :show-file-list="false"
                                :before-upload="beforeUpload" :on-success="successUpload" :on-error="errorUpload" :on-change="preview">
                         <img v-if="imageUrl" width="100%" :src="imageUrl" alt="">

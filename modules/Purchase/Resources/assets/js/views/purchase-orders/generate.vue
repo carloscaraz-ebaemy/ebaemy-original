@@ -113,6 +113,7 @@
                             <div class="col-lg-3" style="margin-top:29px;">
                                 <div class="form-group" :class="{'has-danger': errors.file}">
                                     <el-upload
+                                        accept="image/jpeg,image/jpg,image/png,image/gif,image/webp,image/bmp"
                                         :data="{'type': 'purchase-order-attached'}"
                                         :headers="headers"
                                         :multiple="false"

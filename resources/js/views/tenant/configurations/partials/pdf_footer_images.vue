@@ -7,6 +7,7 @@
                         <el-upload
                             ref="upload_images"
                             list-type="picture-card"
+                            accept="image/jpeg,image/jpg,image/png,image/gif,image/webp,image/bmp"
                             :file-list="file_list"
                             :headers="headers"
                             :action="`/general-upload-temp-image`"

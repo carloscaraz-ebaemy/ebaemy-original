@@ -61,7 +61,7 @@
                 <div class="col-md-12 form-group">
                   <label class="font-weight-bold d-block">Imagen de Compartición (1200x630)</label>
                   <el-input v-model="form.og_image" :readonly="true">
-                    <el-upload slot="append" :headers="headers" :data="{ 'type': 'og_image' }"
+                    <el-upload slot="append" accept="image/jpeg,image/jpg,image/png,image/gif,image/webp,image/bmp" :headers="headers" :data="{ 'type': 'og_image' }"
                       action="/ecommerce/uploads" :show-file-list="false" :on-success="successUpload"
                       :on-error="errorUpload">
                       <el-button type="primary" icon="el-icon-upload"></el-button>
@@ -106,7 +106,7 @@
                 <div class="col-md-12 form-group">
                   <label class="font-weight-bold d-block">Imagen Twitter</label>
                   <el-input v-model="form.twitter_image" :readonly="true">
-                    <el-upload slot="append" :headers="headers" :data="{ 'type': 'twitter_image' }"
+                    <el-upload slot="append" accept="image/jpeg,image/jpg,image/png,image/gif,image/webp,image/bmp" :headers="headers" :data="{ 'type': 'twitter_image' }"
                       action="/ecommerce/uploads" :show-file-list="false" :on-success="successUpload"
                       :on-error="errorUpload">
                       <el-button type="primary" icon="el-icon-upload"></el-button>

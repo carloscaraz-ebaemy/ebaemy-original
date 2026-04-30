@@ -50,6 +50,7 @@
                             <div>{{ form.voucher_filename }}</div>
                         </template>
                         <el-upload
+                            accept="image/jpeg,image/jpg,image/png,image/gif,image/webp,image/bmp"
                             :data="{}"
                             :headers="headers"
                             :multiple="false"

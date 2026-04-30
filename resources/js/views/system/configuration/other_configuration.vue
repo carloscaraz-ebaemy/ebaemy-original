@@ -57,6 +57,7 @@
                         <el-input v-model="form.tenant_image_ads" :readonly="true">
                             <el-upload
                                 slot="append"
+                                accept="image/jpeg,image/jpg,image/png,image/gif,image/webp,image/bmp"
                                 :headers="headers"
                                 :on-success="successUpload"
                                 :on-error="errorUpload"

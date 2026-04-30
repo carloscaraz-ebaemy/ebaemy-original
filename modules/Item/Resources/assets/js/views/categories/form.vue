@@ -23,6 +23,7 @@
                         </label>
                         <el-upload
                             class="avatar-uploader w-100"
+                            accept="image/jpeg,image/jpg,image/png,image/gif,image/webp,image/bmp"
                             :data="{'type': 'categories'}"
                             :headers="headers"
                             :action="`/${resource}/upload`"

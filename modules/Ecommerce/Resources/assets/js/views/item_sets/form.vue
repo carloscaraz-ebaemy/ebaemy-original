@@ -153,6 +153,7 @@
                         <div class="col-md-3">
                             <label class="bundle-label">Imagen del Pack</label>
                             <el-upload class="avatar-uploader"
+                                    accept="image/jpeg,image/jpg,image/png,image/gif,image/webp,image/bmp"
                                     :data="{'type': 'items'}"
                                     :headers="headers"
                                     :action="`/${resource}/upload`"

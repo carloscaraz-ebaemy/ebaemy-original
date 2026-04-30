@@ -35,6 +35,7 @@
               </label>
               <el-upload
                 class="avatar-uploader"
+                accept="image/jpeg,image/jpg,image/png,image/gif,image/webp,image/bmp"
                 :data="{'type': 'promotions'}"
                 :headers="headers"
                 :action="`/promotions/upload`"

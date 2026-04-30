@@ -1268,7 +1268,7 @@
                                                                     showLoadVoucher
                                                                 ">
                                                                     <td class="" style="width: 50px">
-                                                                        <el-upload :data="{
+                                                                        <el-upload accept="image/jpeg,image/jpg,image/png,image/gif,image/webp,image/bmp" :data="{
                                                                             index: index
                                                                         }" :headers="headers_token
                                                                                             " :multiple="false

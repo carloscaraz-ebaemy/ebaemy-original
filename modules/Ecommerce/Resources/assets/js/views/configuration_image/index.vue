@@ -15,6 +15,7 @@
                   <el-input v-model="form.producto_store" :readonly="true">
                     <el-upload
                       slot="append"
+                      accept="image/jpeg,image/jpg,image/png,image/gif,image/webp,image/bmp"
                       :headers="headers"
                       :data="{'type': 'producto_store'}"
                       action="/ecommerce/uploads"

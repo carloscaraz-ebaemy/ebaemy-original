@@ -67,6 +67,7 @@
                                     <!-- <el-button type="primary">Adjuntar pago</el-button> -->
 
                                     <el-upload
+                                            accept="image/jpeg,image/jpg,image/png,image/gif,image/webp,image/bmp"
                                             :data="{'id': form.id}"
                                             :headers="headers"
                                             :multiple="false"

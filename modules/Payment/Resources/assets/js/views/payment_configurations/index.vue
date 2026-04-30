@@ -51,6 +51,7 @@
                                     <label style="width: 210px;" class="control-label">Adjuntar código QR (Imágen) <span class="text-danger">*</span></label>
                                     
                                     <el-upload class="uploader"
+                                            accept="image/jpeg,image/jpg,image/png,image/gif,image/webp,image/bmp"
                                             :headers="headers"
                                             :action="`/${resource}/upload-qrcode-yape`"
                                             :show-file-list="false"

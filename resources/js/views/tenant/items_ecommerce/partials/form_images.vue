@@ -13,6 +13,7 @@
                             :on-success="onSuccessF"
                             :on-error="onErrorF"
                             :on-remove="handleRemove"
+                            accept="image/jpeg,image/jpg,image/png,image/gif,image/webp,image/bmp"
                             :before-upload="beforeUpload" >
                             <i class="el-icon-plus"></i>
                         </el-upload>

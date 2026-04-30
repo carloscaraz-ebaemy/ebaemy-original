@@ -24,9 +24,10 @@
                             <div class="form-group" >
                                 <label class="control-label">Imágen constancia</label>
                                 <el-upload class="uploader"
+                                        accept="image/jpeg,image/jpg,image/png,image/gif,image/webp,image/bmp"
                                         :headers="headers"
                                         :action="`/documents/pay-constancy/upload`"
-                                        :show-file-list="false" 
+                                        :show-file-list="false"
                                         :on-success="onSuccess">
                                     <img v-if="form.imageUrl" :src="form.imageUrl" width="100%" class="avatar">
                                     <i v-else class="el-icon-plus uploader-icon"></i>

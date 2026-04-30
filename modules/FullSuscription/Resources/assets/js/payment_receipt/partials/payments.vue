@@ -108,6 +108,7 @@
                                         <div class="form-group mb-0">
 
                                             <el-upload
+                                                accept="image/jpeg,image/jpg,image/png,image/gif,image/webp,image/bmp"
                                                 :action="`/finances/payment-file/upload`"
                                                 :data="{'index': index}"
                                                 :file-list="fileList"

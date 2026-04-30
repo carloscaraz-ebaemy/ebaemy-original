@@ -140,6 +140,7 @@
                                                 </div>
                                                 <div class="col-md-9">
                                                     <el-upload
+                                                        accept="image/jpeg,image/jpg,image/png,image/gif,image/webp,image/bmp"
                                                         :data="{'index': index}"
                                                         :headers="headers"
                                                         :multiple="false"
