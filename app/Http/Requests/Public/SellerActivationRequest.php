@@ -28,7 +28,7 @@ class SellerActivationRequest extends FormRequest
             // marketplace_enabled. La validación de existencia la hace el
             // service (findExistingRegistration) porque requiere conexión
             // system, no es viable en reglas declarativas.
-            'ruc' => 'required|digits:11|regex:/^(10|15|17|20)\d{9}$/',
+            'ruc' => ['required', 'digits:11', 'regex:/^(10|15|17|20)\d{9}$/'],
 
             // Responsable legal
             'legal_representative_name'     => 'required|string|max:180',

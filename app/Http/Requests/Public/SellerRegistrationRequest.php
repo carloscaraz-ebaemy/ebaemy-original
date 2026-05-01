@@ -26,7 +26,10 @@ class SellerRegistrationRequest extends FormRequest
 
         return [
             // ── Empresa ─────────────────────────────────────────
-            'ruc'                           => 'required|digits:11|regex:/^(10|15|17|20)\d{9}$/',
+            // Regla en array (no string pipe-separado): la regex contiene `|`
+            // dentro de `(10|15|17|20)`, y Laravel rompería el string al hacer
+            // explode('|', ...) → preg_match cae con "No ending delimiter".
+            'ruc'                           => ['required', 'digits:11', 'regex:/^(10|15|17|20)\d{9}$/'],
             'business_name'                 => 'required|string|max:255',
             'trade_name'                    => 'nullable|string|max:255',
             'category_id'                   => 'nullable|integer',
