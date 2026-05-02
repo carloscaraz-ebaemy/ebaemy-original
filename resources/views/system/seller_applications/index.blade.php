@@ -172,7 +172,7 @@ function saEscape(v) {
 async function saShowDetail(id) {
     const body = document.getElementById('saDetailBody');
     body.innerHTML = '<div class="text-center text-muted py-5">Cargando…</div>';
-    new bootstrap.Modal(document.getElementById('saDetailModal')).show();
+    $('#saDetailModal').modal('show');
 
     try {
         const res = await fetch(`${SA_ROUTE}/${id}`, { headers: { 'Accept': 'application/json' } });
@@ -316,7 +316,7 @@ async function saPost(id, path, body = {}) {
             return false;
         }
         alert(json.message);
-        bootstrap.Modal.getInstance(document.getElementById('saDetailModal'))?.hide();
+        $('#saDetailModal').modal('hide');
         saLoad(saCurrentPage);
         return true;
     } catch (e) {
