@@ -78,7 +78,7 @@ class SellerApplicationController extends Controller
         return response()->json([
             'application' => $application,
             'logs'        => $application->logs,
-            'plans'       => Plan::query()->get(['id', 'name', 'price', 'limit_documents', 'limit_users']),
+            'plans'       => Plan::query()->get(['id', 'name', 'pricing', 'limit_documents', 'limit_users']),
         ]);
     }
 
