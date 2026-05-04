@@ -34,37 +34,49 @@ class CreateShippingZonesAndOrderFields extends Migration
                 $table->timestamps();
             });
 
-            // Seed mínimo — el admin puede ajustar costos después
+            // Seed mínimo — el admin puede ajustar costos después.
+            // Las 3 filas TIENEN QUE traer las mismas claves; en batch insert,
+            // Laravel arma el SQL con las keys del primer row y MySQL falla
+            // con "Column count doesn't match value count" si las siguientes
+            // filas no las repiten todas.
+            $now = now();
             DB::table('shipping_zones')->insert([
                 [
-                    'name' => 'Recojo en tienda',
-                    'cost' => 0,
+                    'name'           => 'Recojo en tienda',
+                    'cost'           => 0,
                     'estimated_days' => 0,
-                    'district_ids' => null,
-                    'is_pickup' => true,
-                    'is_active' => true,
-                    'sort_order' => 0,
-                    'created_at' => now(), 'updated_at' => now(),
+                    'district_ids'   => null,
+                    'is_default'     => false,
+                    'is_pickup'      => true,
+                    'is_active'      => true,
+                    'sort_order'     => 0,
+                    'created_at'     => $now,
+                    'updated_at'     => $now,
                 ],
                 [
-                    'name' => 'Lima Metropolitana',
-                    'cost' => 10.00,
+                    'name'           => 'Lima Metropolitana',
+                    'cost'           => 10.00,
                     'estimated_days' => 1,
                     // Se poblará desde el panel admin con district_ids específicos
-                    'district_ids' => null,
-                    'is_active' => true,
-                    'sort_order' => 1,
-                    'created_at' => now(), 'updated_at' => now(),
+                    'district_ids'   => null,
+                    'is_default'     => false,
+                    'is_pickup'      => false,
+                    'is_active'      => true,
+                    'sort_order'     => 1,
+                    'created_at'     => $now,
+                    'updated_at'     => $now,
                 ],
                 [
-                    'name' => 'Provincias',
-                    'cost' => 25.00,
+                    'name'           => 'Provincias',
+                    'cost'           => 25.00,
                     'estimated_days' => 5,
-                    'district_ids' => null,
-                    'is_default' => true,  // fallback
-                    'is_active' => true,
-                    'sort_order' => 2,
-                    'created_at' => now(), 'updated_at' => now(),
+                    'district_ids'   => null,
+                    'is_default'     => true,  // fallback cuando el distrito no matchea
+                    'is_pickup'      => false,
+                    'is_active'      => true,
+                    'sort_order'     => 2,
+                    'created_at'     => $now,
+                    'updated_at'     => $now,
                 ],
             ]);
         }
