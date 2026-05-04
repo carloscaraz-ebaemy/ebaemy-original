@@ -84,6 +84,12 @@ class TenantCreationService
         try {
             $this->validateUniqueSubdomain($payload['uuid']);
 
+            // Limpiar huérfanos de intentos previos (BD MySQL y usuarios sin
+            // website asociado). Hyn no rollbackea DDL al fallar create(), por
+            // lo que un intento fallido deja BD+user con una password que el
+            // siguiente intento no puede reutilizar → "Access denied".
+            $this->preCleanupOrphans($payload['uuid']);
+
             Log::info('Creando website...');
             $website->uuid = $payload['uuid'];
             $this->websiteRepo->create($website);
@@ -398,6 +404,10 @@ class TenantCreationService
      */
     private function cleanup(?Client $client, Hostname $hostname, Website $website): void
     {
+        // Snapshot del uuid antes del delete — necesario para limpiar BD/user
+        // MySQL después (si el website se borra primero, perdemos el uuid).
+        $uuid = $website->exists ? (string) $website->uuid : null;
+
         if ($client && $client->exists) {
             try {
                 $client->delete();
@@ -418,6 +428,82 @@ class TenantCreationService
             } catch (Exception $e) {
                 Log::warning('Cleanup website failed', ['e' => $e->getMessage()]);
             }
+        }
+
+        // Borrar BD y users MySQL si quedaron — el delete($hard=true) de hyn
+        // los borra en condiciones normales, pero si el flujo falló antes de
+        // llegar al bootstrap o el delete falla parcialmente, garantizamos
+        // que no quede DDL huérfano que bloquee el siguiente intento.
+        if ($uuid !== null) {
+            $this->dropTenantDatabaseAndUsers($uuid);
+        }
+    }
+
+    /**
+     * Limpia huérfanos previos antes de crear: si la BD MySQL `<uuid>` existe
+     * pero no hay website en hyn con ese uuid, asume que es residuo de un
+     * intento anterior fallido y dropea BD + users MySQL con ese nombre.
+     *
+     * Sin este pre-cleanup, hyn intenta crear un user MySQL nuevo con una
+     * password recién generada, pero MySQL ya tiene un user con ese nombre
+     * y la password vieja → "Access denied for user '<uuid>'@'localhost'".
+     */
+    private function preCleanupOrphans(string $uuid): void
+    {
+        $exists = !empty(DB::connection('system')->select('SHOW DATABASES LIKE ?', [$uuid]));
+        if (!$exists) {
+            return;
+        }
+
+        // Si hay un website hyn con ese uuid, NO es huérfano — validateUniqueSubdomain
+        // ya habría lanzado excepción antes de llegar aquí. Doble-check.
+        if (Website::query()->where('uuid', $uuid)->exists()) {
+            return;
+        }
+
+        Log::warning('TenantCreationService: BD huérfana detectada — limpiando antes de crear', [
+            'database' => $uuid,
+        ]);
+
+        $this->dropTenantDatabaseAndUsers($uuid);
+    }
+
+    /**
+     * DROP DATABASE + DROP USER (en TODOS los hosts conocidos) para el uuid.
+     * Idempotente — usa IF EXISTS para no tirar error si ya está limpio.
+     */
+    private function dropTenantDatabaseAndUsers(string $uuid): void
+    {
+        try {
+            // Sanitizar para evitar SQL injection (aunque el uuid ya viene
+            // validado por hyn como [a-z0-9_]).
+            $safe = preg_replace('/[^a-zA-Z0-9_]/', '', $uuid);
+            if ($safe === '' || $safe !== $uuid) {
+                Log::warning('dropTenantDatabaseAndUsers: uuid sospechoso, skip', ['uuid' => $uuid]);
+                return;
+            }
+
+            DB::connection('system')->statement("DROP DATABASE IF EXISTS `{$safe}`");
+
+            $users = DB::connection('system')->select(
+                'SELECT user, host FROM mysql.user WHERE user = ?',
+                [$safe]
+            );
+            foreach ($users as $u) {
+                DB::connection('system')->statement(
+                    "DROP USER IF EXISTS '" . $safe . "'@'" . addslashes($u->host) . "'"
+                );
+            }
+
+            Log::info('dropTenantDatabaseAndUsers OK', [
+                'uuid' => $safe,
+                'users_dropped' => count($users),
+            ]);
+        } catch (Exception $e) {
+            Log::warning('dropTenantDatabaseAndUsers failed', [
+                'uuid'  => $uuid,
+                'error' => $e->getMessage(),
+            ]);
         }
     }
 }
