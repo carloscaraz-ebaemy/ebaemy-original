@@ -450,7 +450,12 @@ class TenantCreationService
      */
     private function preCleanupOrphans(string $uuid): void
     {
-        $exists = !empty(DB::connection('system')->select('SHOW DATABASES LIKE ?', [$uuid]));
+        // OJO: `SHOW DATABASES LIKE ?` no acepta placeholders en MySQL.
+        // Usamos information_schema.SCHEMATA que sí soporta bindings.
+        $exists = DB::connection('system')
+            ->table('information_schema.SCHEMATA')
+            ->where('SCHEMA_NAME', $uuid)
+            ->exists();
         if (!$exists) {
             return;
         }
