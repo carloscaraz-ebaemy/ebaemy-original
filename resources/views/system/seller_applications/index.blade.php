@@ -215,8 +215,9 @@ function saDetailHtml(data) {
                 <select id="saApprovePlan_${app.id}" class="form-select form-select-sm">${planOptions}</select>
             </div>
             <details class="mb-2">
-                <summary class="small text-muted" style="cursor:pointer;">⚙ Corregir email o contraseña (opcional)</summary>
+                <summary class="small text-muted" style="cursor:pointer;">⚙ Corregir subdominio, email o contraseña (opcional)</summary>
                 <div class="mt-2">
+                    <input id="saOverrideSubdomain_${app.id}" type="text" class="form-control form-control-sm mb-1" placeholder="Nuevo subdominio (dejar vacío para usar: ${saEscape(app.requested_subdomain)})">
                     <input id="saOverrideEmail_${app.id}" type="email" class="form-control form-control-sm mb-1" placeholder="Nuevo email (dejar vacío para usar: ${saEscape(app.email)})">
                     <input id="saOverridePassword_${app.id}" type="text" class="form-control form-control-sm" placeholder="Nueva contraseña (dejar vacío para usar la del seller)">
                     <div class="form-text small">Solo llena estos campos si quieres reemplazar lo que el seller registró.</div>
@@ -334,9 +335,13 @@ async function saApprove(id) {
     const planId = document.getElementById(`saApprovePlan_${id}`).value;
     if (!planId) return alert('Selecciona un plan.');
 
+    const subdomainOverride = (document.getElementById(`saOverrideSubdomain_${id}`)?.value || '').trim().toLowerCase();
     const emailOverride = (document.getElementById(`saOverrideEmail_${id}`)?.value || '').trim();
     const passwordOverride = (document.getElementById(`saOverridePassword_${id}`)?.value || '').trim();
 
+    if (subdomainOverride && !/^[a-z0-9](?:[a-z0-9-]{1,58}[a-z0-9])?$/.test(subdomainOverride)) {
+        return alert('Subdominio inválido. Solo minúsculas, números y guiones (no al inicio ni al final).');
+    }
     if (passwordOverride && passwordOverride.length < 8) {
         return alert('La contraseña de override debe tener al menos 8 caracteres.');
     }
@@ -344,14 +349,15 @@ async function saApprove(id) {
         return alert('La contraseña de override debe incluir mayúscula, minúscula y número.');
     }
 
-    const msg = (emailOverride || passwordOverride)
+    const msg = (subdomainOverride || emailOverride || passwordOverride)
         ? '¿Aprobar con los overrides ingresados? Se reemplazarán los datos del seller.'
         : '¿Aprobar esta solicitud? Se creará el tenant y se enviará correo al seller.';
     if (!confirm(msg)) return;
 
     const body = { plan_id: parseInt(planId, 10), type: 'admin' };
-    if (emailOverride)    body.email_override    = emailOverride;
-    if (passwordOverride) body.password_override = passwordOverride;
+    if (subdomainOverride) body.subdomain_override = subdomainOverride;
+    if (emailOverride)     body.email_override     = emailOverride;
+    if (passwordOverride)  body.password_override  = passwordOverride;
 
     await saPost(id, 'approve', body);
 }

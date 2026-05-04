@@ -561,10 +561,11 @@ class SellerApplicationService
                 'message' => 'Solicitud aprobada y tenant creado.',
                 'tenant'  => $client,
             ];
-        } catch (Exception $e) {
+        } catch (\Throwable $e) {
             Log::error('SellerApplicationService::approve error', [
                 'application_id' => $application->id,
                 'error'          => $e->getMessage(),
+                'trace'          => $e->getTraceAsString(),
             ]);
             return [
                 'success' => false,
@@ -1231,6 +1232,12 @@ class SellerApplicationService
     {
         $changes = [];
         $logMessages = [];
+
+        $subdomainOverride = isset($options['subdomain_override']) ? strtolower(trim($options['subdomain_override'])) : null;
+        if (!empty($subdomainOverride) && $subdomainOverride !== strtolower((string) $application->requested_subdomain)) {
+            $changes['requested_subdomain'] = $subdomainOverride;
+            $logMessages[] = "Subdominio corregido por SuperAdmin: {$application->requested_subdomain} → {$subdomainOverride}";
+        }
 
         $emailOverride = isset($options['email_override']) ? trim($options['email_override']) : null;
         if (!empty($emailOverride) && strtolower($emailOverride) !== strtolower((string) $application->email)) {

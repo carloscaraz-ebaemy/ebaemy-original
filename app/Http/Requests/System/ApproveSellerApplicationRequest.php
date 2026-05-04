@@ -37,14 +37,23 @@ class ApproveSellerApplicationRequest extends FormRequest
                 'nullable', 'string', 'min:8',
                 'regex:/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).+$/',
             ],
+            // Permite al SuperAdmin cambiar el subdominio antes de crear el
+            // tenant. Útil cuando el subdominio original quedó "en uso" por
+            // un intento previo que falló a medio camino y dejó un website
+            // huérfano, o cuando el seller eligió un subdominio inadecuado.
+            'subdomain_override' => [
+                'nullable', 'string', 'min:3', 'max:60',
+                'regex:/^[a-z0-9](?:[a-z0-9-]{1,58}[a-z0-9])?$/',
+            ],
         ];
     }
 
     public function messages(): array
     {
         return [
-            'password_override.min'   => 'La contraseña debe tener al menos 8 caracteres.',
-            'password_override.regex' => 'La contraseña debe incluir mayúscula, minúscula y número.',
+            'password_override.min'    => 'La contraseña debe tener al menos 8 caracteres.',
+            'password_override.regex'  => 'La contraseña debe incluir mayúscula, minúscula y número.',
+            'subdomain_override.regex' => 'Subdominio inválido. Solo minúsculas, números y guiones (no al inicio ni al final).',
         ];
     }
 }
