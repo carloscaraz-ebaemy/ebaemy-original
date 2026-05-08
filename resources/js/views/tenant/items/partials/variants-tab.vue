@@ -117,6 +117,7 @@
                         <tr>
                             <th>Variante</th>
                             <th style="width:60px">Imagen</th>
+                            <th style="width:60px" title="Variante destacada — su imagen aparece primero en el marketplace">⭐ Principal</th>
                             <th style="width:120px">Precio venta</th>
                             <th style="width:90px">SKU</th>
                             <th style="width:80px">Stock</th>
@@ -156,6 +157,16 @@
                                         📷+
                                     </div>
                                 </el-upload>
+                            </td>
+                            <td class="text-center">
+                                <!-- Radio exclusivo: solo UNA variante puede ser la
+                                     principal. La imagen de esta es la que aparece
+                                     en la card del marketplace cuando aún no se
+                                     pasa el cursor por ningún dot. -->
+                                <el-radio :value="primaryVariantId" :label="v.id"
+                                          @change="setPrimary(v)">
+                                    <span class="sr-only">Marcar como principal</span>
+                                </el-radio>
                             </td>
                             <td>
                                 <!-- Precio: si está vacío usa el del producto padre.
@@ -269,6 +280,12 @@ export default {
         // genérico, así no pone "0" engañoso.
         parentPriceLabel() {
             return this.parentPrice > 0 ? this.formatMoney(this.parentPrice) : 'Precio'
+        },
+        // ID de la variante marcada como principal — usado por el radio
+        // group para que solo una esté seleccionada a la vez.
+        primaryVariantId() {
+            const found = (this.variants || []).find(v => v.is_primary)
+            return found ? found.id : null
         },
     },
 
@@ -515,6 +532,21 @@ export default {
         formatMoney(n) {
             const num = Number(n) || 0
             return num.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',')
+        },
+
+        // ── Variante principal ───────────────────────────────────────────
+        // El backend hace exclusivo en transacción: marca esta como is_primary
+        // y todas las demás del item como false. Refrescamos la lista local
+        // con el flag actualizado para que el radio resalte la nueva.
+        setPrimary(variant) {
+            this.$http.post(`/items/${this.itemId}/variants/${variant.id}/primary`)
+                .then(() => {
+                    this.variants.forEach(v => {
+                        v.is_primary = (v.id === variant.id)
+                    })
+                    this.$message.success(`"${variant.display_name}" es ahora la variante principal del marketplace.`)
+                })
+                .catch(() => this.$message.error('No se pudo marcar como principal.'))
         },
 
         deleteVariant(variant) {

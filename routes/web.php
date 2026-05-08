@@ -495,6 +495,7 @@ if ($hostname) {
                 Route::post('/{variant}/stock',    [\App\Http\Controllers\Tenant\ItemVariantController::class, 'updateStock']);
                 Route::post('/{variant}/image',    [\App\Http\Controllers\Tenant\ItemVariantController::class, 'uploadImage']);
                 Route::delete('/{variant}/image',  [\App\Http\Controllers\Tenant\ItemVariantController::class, 'deleteImage']);
+                Route::post('/{variant}/primary',  [\App\Http\Controllers\Tenant\ItemVariantController::class, 'setPrimary']);
             });
 
             //Persons

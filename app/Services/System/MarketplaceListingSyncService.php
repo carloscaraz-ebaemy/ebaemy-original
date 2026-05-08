@@ -431,6 +431,10 @@ class MarketplaceListingSyncService
                 'offer_ends_at'     => $offer['offer_ends_at'],
                 'stock'             => max(0, $stock),
                 'is_active'         => true,
+                // Espejo de la marca tenant: la variante "principal" decide
+                // qué imagen usa la card del listing y qué dot está activo
+                // por defecto. Solo una por listing — el tenant lo garantiza.
+                'is_primary'        => (bool) ($v->is_primary ?? false),
             ];
         }
 

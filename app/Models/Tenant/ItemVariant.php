@@ -41,6 +41,7 @@ class ItemVariant extends ModelTenant
         'variant_hash',
         'display_name',
         'is_active',
+        'is_primary',
         'stock',
     ];
 
@@ -49,6 +50,7 @@ class ItemVariant extends ModelTenant
         'purchase_unit_price' => 'float',
         'stock'               => 'float',
         'is_active'           => 'boolean',
+        'is_primary'          => 'boolean',
     ];
 
     // ── Relaciones ─────────────────────────────────────────────────────────

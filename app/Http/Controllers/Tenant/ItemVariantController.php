@@ -329,6 +329,32 @@ class ItemVariantController extends Controller
     }
 
     // ────────────────────────────────────────────────────────────────────────
+    // POST /items/{item}/variants/{variant}/primary
+    // Marca esta variante como la "principal" — la imagen que se ve en la
+    // card del marketplace por defecto. Es exclusiva por item: al marcar
+    // una, las demás del mismo item quedan en false.
+    // ────────────────────────────────────────────────────────────────────────
+
+    public function setPrimary(Item $item, ItemVariant $variant): JsonResponse
+    {
+        abort_if($variant->item_id !== $item->id, 404);
+
+        DB::connection('tenant')->transaction(function () use ($item, $variant) {
+            ItemVariant::where('item_id', $item->id)->update(['is_primary' => false]);
+            $variant->update(['is_primary' => true]);
+        });
+
+        // Propagar al system inmediatamente (sin esperar al cron) para que
+        // /marketplace refleje el cambio al recargar.
+        $this->triggerMarketplaceSync($item);
+
+        return response()->json([
+            'success' => true,
+            'variant' => $this->formatVariant($variant->fresh(['optionValues', 'warehouseStocks'])),
+        ]);
+    }
+
+    // ────────────────────────────────────────────────────────────────────────
     // POST /items/{item}/variants/{variant}/stock
     // Ajuste manual de stock físico por almacén.
     // ────────────────────────────────────────────────────────────────────────
@@ -366,6 +392,7 @@ class ItemVariantController extends Controller
             'sale_unit_price'     => $variant->sale_unit_price,
             'purchase_unit_price' => $variant->purchase_unit_price,
             'is_active'           => $variant->is_active,
+            'is_primary'          => (bool) $variant->is_primary,
             'stock'               => $variant->stock,
             'variant_hash'        => $variant->variant_hash,
             'image'               => $variant->image,

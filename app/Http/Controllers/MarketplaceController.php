@@ -126,9 +126,46 @@ class MarketplaceController extends Controller
                 ->get()
                 ->groupBy('listing_id');
 
+            // Variante "principal" (is_primary=1) por listing — define cuál
+            // imagen va en la card y qué color queda como "activo" en los
+            // dots por defecto (estilo Falabella). Si no hay primary, hacemos
+            // fallback a la primera variante con stock>0+image_url para que
+            // la card no quede con la imagen del padre cuando la primera
+            // variante con foto es de otro color.
+            $primaryByListing = \DB::connection('system')->table('marketplace_listing_variants as lv')
+                ->whereIn('lv.listing_id', $listingIds)
+                ->where('lv.is_active', true)
+                ->whereNotNull('lv.image_url')
+                ->leftJoin('marketplace_listing_variant_values as vv', 'vv.listing_variant_id', '=', 'lv.id')
+                ->leftJoin('marketplace_listing_option_values as ov', 'ov.id', '=', 'vv.option_value_id')
+                ->leftJoin('marketplace_listing_options as o', 'o.id', '=', 'ov.option_id')
+                ->select(
+                    'lv.listing_id',
+                    'lv.id as variant_id',
+                    'lv.image_url',
+                    'lv.is_primary',
+                    'lv.stock',
+                    \DB::raw("MAX(CASE WHEN LOWER(o.name) LIKE '%color%' THEN ov.color_hex END) AS active_color_hex"),
+                    \DB::raw("MAX(CASE WHEN LOWER(o.name) LIKE '%color%' THEN ov.value     END) AS active_color_value")
+                )
+                ->groupBy('lv.listing_id', 'lv.id', 'lv.image_url', 'lv.is_primary', 'lv.stock')
+                // is_primary primero, después stock>0, después id ascendente:
+                // si nadie está marcado, agarra la primera con stock>0.
+                ->orderByDesc('lv.is_primary')
+                ->orderByRaw('lv.stock > 0 DESC')
+                ->orderBy('lv.id')
+                ->get()
+                ->groupBy('listing_id')
+                ->map(fn($rows) => $rows->first()); // primero por listing
+
             foreach ($listings as $l) {
                 $l->variant_thumbs = $variantImages->get($l->id, collect())->take(4);
                 $l->color_dots     = $colorValuesByListing->get($l->id, collect())->take(5);
+
+                $primary = $primaryByListing->get($l->id);
+                $l->primary_image_url   = $primary->image_url   ?? null;
+                $l->active_color_hex    = $primary->active_color_hex ?? null;
+                $l->active_color_value  = $primary->active_color_value ?? null;
             }
         }
 

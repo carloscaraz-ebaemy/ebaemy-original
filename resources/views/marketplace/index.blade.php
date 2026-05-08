@@ -334,9 +334,17 @@
                                          && \Carbon\Carbon::parse($listing->created_at)->gt(now()->subDays(14));
                     @endphp
                     <a href="{{ route('marketplace.item', $listing->slug) }}" class="mp-card">
+                        @php
+                            // Imagen principal de la card: si hay variante "principal"
+                            // (is_primary=true) o un fallback (primera con stock>0+imagen),
+                            // la usamos en lugar de la imagen del producto padre. Estilo
+                            // Falabella: la card del listado se alinea con UN color
+                            // específico, no muestra una mezcla padre↔dots.
+                            $cardPrimaryImg = $listing->primary_image_url ?? $listing->image_url;
+                        @endphp
                         <div class="mp-card-img" data-has-secondary="{{ $listing->secondary_image_url ? '1' : '0' }}">
-                            @if($listing->image_url)
-                                <img class="mp-card-img-primary" src="{{ $listing->image_url }}" alt="{{ $listing->title }}" loading="lazy">
+                            @if($cardPrimaryImg)
+                                <img class="mp-card-img-primary" src="{{ $cardPrimaryImg }}" alt="{{ $listing->title }}" loading="lazy">
                                 @if($listing->secondary_image_url)
                                     <img class="mp-card-img-secondary" src="{{ $listing->secondary_image_url }}" alt="" loading="lazy" aria-hidden="true">
                                 @endif
@@ -405,7 +413,14 @@
                             @if(!empty($listing->color_dots) && $listing->color_dots->count())
                                 <div class="mp-card-colors" aria-label="Colores disponibles">
                                     @foreach($listing->color_dots as $cd)
-                                        <span class="mp-card-color-dot mp-card-color-dot--hex"
+                                        @php
+                                            // El dot está "activo" si su color_hex coincide con el
+                                            // de la variante principal del listing. Sirve solo de
+                                            // estado inicial; el JS lo mueve al dot bajo el cursor.
+                                            $isActiveDot = !empty($listing->active_color_hex)
+                                                && strcasecmp($cd->color_hex, $listing->active_color_hex) === 0;
+                                        @endphp
+                                        <span class="mp-card-color-dot mp-card-color-dot--hex {{ $isActiveDot ? 'is-active' : '' }}"
                                               @if(!empty($cd->image_url)) data-img="{{ $cd->image_url }}" @endif
                                               title="{{ $cd->value }}"
                                               style="background:{{ $cd->color_hex }}"></span>
@@ -595,6 +610,13 @@
         transform: scale(1.18);
         box-shadow: 0 2px 6px -2px rgba(0,0,0,.18);
     }
+    /* Dot "activo" — anillo verde indicando cuál es la variante cuya
+       imagen se muestra en la card. JS lo mueve al hover. */
+    .mp-card-color-dot.is-active {
+        border-color: #10b981;
+        box-shadow: 0 0 0 2px rgba(16,185,129,.32);
+        transform: scale(1.12);
+    }
     .mp-card-color-dot--img img {
         width: 100%; height: 100%;
         object-fit: cover;
@@ -763,28 +785,30 @@ if (window.matchMedia('(max-width: 899px)').matches) {
 }
 
 // Hover sobre dots (color o variante) → cambia la imagen principal de la
-// card. Solo los dots que tienen data-img cargan algo (los color hex sin
-// imagen no hacen nada al hover). Al salir del card, restaura la original.
+// card y mueve el "is-active" al dot bajo el cursor. Sticky: al salir del
+// card, la imagen y el dot activo quedan donde estaban — estilo Falabella,
+// donde el seller ve cuál color "es" la imagen actual.
 document.querySelectorAll('.mp-card').forEach(function (card) {
     var dots = card.querySelectorAll('.mp-card-variant-dot, .mp-card-color-dot[data-img]');
     if (!dots.length) return;
     var primary = card.querySelector('.mp-card-img-primary');
     if (!primary) return;
-    var origSrc = primary.getAttribute('src');
+    var allDots = card.querySelectorAll('.mp-card-color-dot');
     dots.forEach(function (dot) {
-        dot.addEventListener('mouseenter', function (e) {
-            e.preventDefault();
+        dot.addEventListener('mouseenter', function () {
             var url = dot.getAttribute('data-img');
             if (url) primary.src = url;
+            // Mover is-active al dot bajo el cursor (solo dots de color).
+            if (dot.classList.contains('mp-card-color-dot')) {
+                allDots.forEach(function (d) { d.classList.remove('is-active'); });
+                dot.classList.add('is-active');
+            }
         });
         // Evita que al click en el dot navegue al detalle (es solo hover preview)
         dot.addEventListener('click', function (e) {
             e.preventDefault();
             e.stopPropagation();
         });
-    });
-    card.addEventListener('mouseleave', function () {
-        primary.src = origSrc;
     });
 });
 
