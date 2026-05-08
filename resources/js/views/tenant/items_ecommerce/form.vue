@@ -1181,8 +1181,20 @@ export default {
                 this.$http.get(`/${this.resource}/record/${this.recordId}`)
                     .then(response => {
                         this.form = response.data.data
+                        // El cascader del marketplace requiere array; si el backend
+                        // devuelve null/undefined el v-model rompe el control.
+                        if (!Array.isArray(this.form.marketplace_category_path)) {
+                            this.form.marketplace_category_path = []
+                        }
                         this.has_percentage_perception = (this.form.percentage_perception) ? true : false
                         this.changeAffectationIgvType()
+                        // Si el item ya está marcado para marketplace, precargamos el
+                        // árbol oficial. Sin esta llamada explícita el watcher de
+                        // marketplace_publishable no dispara (no hay "cambio" — el
+                        // valor ya viene true del backend) y el cascader queda vacío.
+                        if (this.form.marketplace_publishable) {
+                            this.loadMarketplaceCategoryTree()
+                        }
                     })
             }
         },

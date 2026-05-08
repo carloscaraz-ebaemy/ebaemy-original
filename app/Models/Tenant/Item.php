@@ -1562,7 +1562,11 @@ class Item extends ModelTenant
         try {
             $cat = \App\Models\System\MarketplaceCategory::query()->find($this->marketplace_category_id);
             if (!$cat) return [];
-            return $cat->ancestorIds();
+            // ancestorIds() solo trae los IDs ancestros (sin self). El cascader
+            // de Element UI requiere el path completo padre→hijo→...→leaf para
+            // hidratar la selección al editar — sin el id del leaf, el control
+            // queda en placeholder aunque el ID esté guardado en BD.
+            return array_merge($cat->ancestorIds(), [(int) $cat->id]);
         } catch (\Throwable $e) {
             return [];
         }

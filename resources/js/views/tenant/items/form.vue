@@ -2062,9 +2062,24 @@ this.activeName =  'first'
                 await this.$http.get(`/${this.resource}/record/${this.recordId}`)
                     .then(response => {
                         this.form = response.data.data
+                        // Hidratar campos array que pueden venir null/undefined
+                        // del backend (rompe v-model del cascader y multiselect).
+                        if (!Array.isArray(this.form.marketplace_category_path)) {
+                            this.form.marketplace_category_path = []
+                        }
+                        if (!Array.isArray(this.form.tags_id)) {
+                            this.form.tags_id = this.form.tags_id ? Array.from(this.form.tags_id) : []
+                        }
                         this.has_percentage_perception = (this.form.percentage_perception) ? true : false
                         this.changeAffectationIgvType()
                         this.changePurchaseAffectationIgvType()
+                        // Precargar árbol oficial si el item ya está en marketplace.
+                        // El watcher de marketplace_publishable no dispara al hidratar
+                        // (no hay "cambio") y sin árbol el cascader no muestra la
+                        // categoría guardada.
+                        if (this.form.marketplace_publishable) {
+                            this.loadMarketplaceCategoryTree()
+                        }
                         // let warehousePrices = response.data.data.warehouse_prices;
                         // console.error(warehousePrices);
                         // if (warehousePrices.length > 0) {
