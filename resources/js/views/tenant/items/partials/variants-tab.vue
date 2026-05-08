@@ -8,18 +8,26 @@
 
         <template v-else>
             <!-- ── Cabecera ─────────────────────────────────────────────── -->
-            <div class="d-flex align-items-center justify-content-between mb-3">
+            <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
                 <div>
                     <strong>Variantes del producto</strong>
                     <span class="text-muted ms-2 small">
                         ({{ variants.length }} combinaciones)
                     </span>
                 </div>
-                <el-button size="small" type="primary" plain
-                           icon="el-icon-plus"
-                           @click="showOptionsEditor = true">
-                    Gestionar opciones
-                </el-button>
+                <div class="d-flex gap-2 flex-wrap">
+                    <el-button v-if="variants.length > 0" size="small" plain
+                               icon="el-icon-magic-stick"
+                               @click="generateSkus"
+                               title="Genera SKUs automáticos basados en el código del producto y los valores de cada variante">
+                        Generar SKUs
+                    </el-button>
+                    <el-button size="small" type="primary" plain
+                               icon="el-icon-plus"
+                               @click="showOptionsEditor = true">
+                        Gestionar opciones
+                    </el-button>
+                </div>
             </div>
 
             <!-- ── Editor de opciones (modal inline) ──────────────────── -->
@@ -150,22 +158,41 @@
                                 </el-upload>
                             </td>
                             <td>
+                                <!-- Precio: si está vacío usa el del producto padre.
+                                     Mostramos el placeholder con el valor heredado para
+                                     que el seller no tenga que llenar el mismo precio
+                                     en cada variante (caso típico: solo cambia el color). -->
                                 <el-input-number v-model="v.sale_unit_price"
-                                                 :min="0" :precision="4"
+                                                 :min="0" :precision="4" :controls="false"
                                                  size="mini" style="width:110px"
-                                                 :placeholder="String(parentPrice)"
+                                                 :placeholder="parentPriceLabel"
                                                  @change="patchVariant(v)" />
+                                <div v-if="!v.sale_unit_price && parentPrice > 0"
+                                     class="vt-inherit-hint">
+                                    hereda S/ {{ formatMoney(parentPrice) }}
+                                </div>
                             </td>
                             <td>
                                 <el-input v-model="v.sku" size="mini" style="width:80px"
+                                          placeholder="Auto"
                                           @change="patchVariant(v)" />
                             </td>
                             <td class="text-center">
                                 <el-tooltip :content="stockTooltip(v)" placement="top">
-                                    <span>{{ v.stock }}</span>
+                                    <span :class="{ 'vt-stock-zero': v.stock <= 0 }">
+                                        {{ v.stock }}
+                                    </span>
                                 </el-tooltip>
                                 <el-button size="mini" type="text" icon="el-icon-edit"
                                            @click="openStockDialog(v)" />
+                                <!-- Aviso visible solo cuando la variante NO se mostrará
+                                     en marketplace por stock=0 (cards filtran stock>0).
+                                     Solo aparece si el producto tiene marketplace activo. -->
+                                <div v-if="isMarketplacePublishable && v.stock <= 0 && v.is_active"
+                                     class="vt-stock-warn"
+                                     title="Esta variante no se mostrará en el marketplace mientras tenga stock 0">
+                                    ⚠ oculta en marketplace
+                                </div>
                             </td>
                             <td class="text-center">
                                 <el-switch v-model="v.is_active" size="mini"
@@ -226,8 +253,23 @@ export default {
     name: 'VariantsTab',
 
     props: {
-        itemId:     { type: Number, default: null },
-        parentPrice:{ type: Number, default: 0 },
+        itemId:                   { type: Number,  default: null },
+        parentPrice:              { type: Number,  default: 0 },
+        // Código del producto padre (internal_id o item_code) — base para el
+        // generador de SKUs automáticos. Si no llega, el botón avisa al seller.
+        itemCode:                 { type: String,  default: '' },
+        // Si el producto está publicado en marketplace, mostramos un aviso por
+        // variante cuando su stock=0 (porque el card del marketplace la oculta).
+        isMarketplacePublishable: { type: Boolean, default: false },
+    },
+
+    computed: {
+        // Texto del placeholder del input de precio. Si el padre no tiene
+        // precio (común en producto recién creado) dejamos el placeholder
+        // genérico, así no pone "0" engañoso.
+        parentPriceLabel() {
+            return this.parentPrice > 0 ? this.formatMoney(this.parentPrice) : 'Precio'
+        },
     },
 
     data() {
@@ -290,7 +332,16 @@ export default {
         loadVariants() {
             this.$http.get(`/items/${this.itemId}/variants`)
                 .then(({ data }) => {
-                    this.variants    = data.variants || []
+                    // Normalizar precio: backend envía 0 cuando la variante no
+                    // tiene override; convertimos a null para que el input
+                    // muestre el placeholder con el precio heredado del padre
+                    // en vez de "0.0000" (que confunde al seller).
+                    this.variants = (data.variants || []).map(v => ({
+                        ...v,
+                        sale_unit_price: Number(v.sale_unit_price) > 0
+                            ? Number(v.sale_unit_price)
+                            : null,
+                    }))
                     this.editOptions = this.cloneOptions(data.options || [])
                 })
                 .catch(() => this.$message.error('Error al cargar variantes'))
@@ -393,16 +444,77 @@ export default {
         // ── Edición de variante individual ───────────────────────────────
 
         patchVariant(variant) {
+            // Mandamos null si el seller no puso precio — el backend lo
+            // persiste como NULL y la variante hereda el precio del padre
+            // automáticamente. Mandar 0 quedaría como "regalado" (S/ 0.00).
+            const price = Number(variant.sale_unit_price) > 0
+                ? Number(variant.sale_unit_price)
+                : null
             this.$http.patch(`/items/${this.itemId}/variants/${variant.id}`, {
-                sale_unit_price:    variant.sale_unit_price,
-                sku:                variant.sku,
-                is_active:          variant.is_active,
+                sale_unit_price: price,
+                sku:             variant.sku || null,
+                is_active:       variant.is_active,
             })
                 .then(({ data }) => {
                     const idx = this.variants.findIndex(v => v.id === variant.id)
-                    if (idx !== -1) this.$set(this.variants, idx, data.variant)
+                    if (idx !== -1) {
+                        // Re-aplicar la misma normalización del load para no
+                        // pintar "0.0000" tras un patch sin precio.
+                        this.$set(this.variants, idx, {
+                            ...data.variant,
+                            sale_unit_price: Number(data.variant.sale_unit_price) > 0
+                                ? Number(data.variant.sale_unit_price)
+                                : null,
+                        })
+                    }
                 })
                 .catch(() => this.$message.error('Error al actualizar variante'))
+        },
+
+        // ── Generador de SKUs ────────────────────────────────────────────
+        // Toma el código del producto padre + slug 3-char por cada valor de
+        // opción. Solo rellena variantes que NO tengan SKU (no sobrescribe).
+        // Ej: producto "00012", variante (Color: Rojo, Talla: M) → "00012-ROJ-M"
+        generateSkus() {
+            if (!this.itemCode) {
+                this.$message.warning('El producto no tiene código interno. Configúralo en la pestaña General antes de generar SKUs.')
+                return
+            }
+            let count = 0
+            this.variants.forEach(v => {
+                if (v.sku) return
+                const valSlug = (v.option_values || [])
+                    .map(ov => this.skuSlug(ov.value))
+                    .filter(s => s)
+                    .join('-')
+                if (!valSlug) return
+                v.sku = `${this.itemCode}-${valSlug}`
+                this.patchVariant(v)
+                count++
+            })
+            if (count > 0) {
+                this.$message.success(`SKUs generados para ${count} variantes.`)
+            } else {
+                this.$message.info('Todas las variantes ya tienen SKU.')
+            }
+        },
+
+        // Slug de 3 chars sin acentos en mayúsculas. "Rojo"→"ROJ", "M"→"M",
+        // "38"→"38". Si el valor está vacío, retorna ''.
+        skuSlug(value) {
+            // ̀-ͯ = combining diacritical marks (acentos en NFD).
+            // Quita acentos y caracteres no alfanuméricos, retorna 3 chars max.
+            return String(value || '')
+                .normalize('NFD')
+                .replace(/[̀-ͯ]/g, '')
+                .toUpperCase()
+                .replace(/[^A-Z0-9]/g, '')
+                .substring(0, 3)
+        },
+
+        formatMoney(n) {
+            const num = Number(n) || 0
+            return num.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',')
         },
 
         deleteVariant(variant) {
@@ -598,5 +710,32 @@ export default {
     border-radius: 999px;
     border: 1px solid rgba(0,0,0,.08);
     flex-shrink: 0;
+}
+
+/* ─────── Hint de precio heredado ─────── */
+.vt-inherit-hint {
+    font-size: 10px;
+    color: #9ca3af;
+    margin-top: 2px;
+    line-height: 1.2;
+    font-style: italic;
+}
+
+/* ─────── Stock=0 en rojo + warning marketplace ─────── */
+.vt-stock-zero {
+    color: #dc2626;
+    font-weight: 700;
+}
+.vt-stock-warn {
+    font-size: 10px;
+    color: #b45309;
+    background: #fef3c7;
+    border: 1px solid #fde68a;
+    border-radius: 6px;
+    padding: 1px 5px;
+    margin-top: 3px;
+    display: inline-block;
+    line-height: 1.3;
+    cursor: help;
 }
 </style>

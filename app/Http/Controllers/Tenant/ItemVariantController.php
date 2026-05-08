@@ -150,7 +150,20 @@ class ItemVariantController extends Controller
             'is_active'          => 'boolean',
         ]);
 
-        $variant->update(array_filter($data, fn($v) => !is_null($v)));
+        // Solo persistimos los campos efectivamente enviados — distinguimos
+        // "no enviado" (no tocar) de "enviado como null" (limpiar). El frontend
+        // manda sale_unit_price=null cuando el seller no puso precio para que
+        // la variante herede el del producto padre; el array_filter anterior
+        // descartaba el null y dejaba el precio viejo, anulando esa lógica.
+        $update = [];
+        foreach (['sku', 'barcode', 'sale_unit_price', 'purchase_unit_price', 'display_name', 'is_active'] as $field) {
+            if ($request->has($field)) {
+                $update[$field] = $data[$field] ?? null;
+            }
+        }
+        if (!empty($update)) {
+            $variant->update($update);
+        }
 
         return response()->json([
             'success' => true,

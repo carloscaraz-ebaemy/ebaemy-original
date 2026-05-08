@@ -726,7 +726,12 @@
                     <div style="font-size:13px">Guarda el producto primero para configurar sus variantes.</div>
                     <div style="font-size:12px;color:#9ca3af;margin-top:6px">Usa esta sección si tu producto tiene combinaciones (ej. "Camiseta Roja Talla M").</div>
                 </div>
-                <variants-tab v-else :itemId="form.id"></variants-tab>
+                <variants-tab v-else
+                              :item-id="form.id"
+                              :parent-price="parseFloat(form.sale_unit_price) || 0"
+                              :item-code="form.internal_id || form.item_code || ''"
+                              :is-marketplace-publishable="!!form.marketplace_publishable"
+                              ></variants-tab>
             </el-tab-pane>
         </el-tabs>
         <!-- <percentage-perception
