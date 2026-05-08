@@ -2154,29 +2154,38 @@ this.activeName =  'first'
         },
         loadRecord() {
             if (this.recordId) {
-                this.$http.get(`/${this.resource}/record/${this.recordId}`)
-                    .then(response => {
-                        this.form = response.data.data
-                        if (!Array.isArray(this.form.marketplace_category_path)) {
-                            this.form.marketplace_category_path = []
-                        }
-                        if (!Array.isArray(this.form.tags_id)) {
-                            this.form.tags_id = this.form.tags_id ? Array.from(this.form.tags_id) : []
-                        }
-                        this.changeAffectationIgvType()
-                        this.changePurchaseAffectationIgvType()
-                        // Si el item ya viene con marketplace activado, precarga el árbol
-                        // (el watcher no dispara porque no hay "cambio" de valor).
-                        if (this.form.marketplace_publishable) {
-                            this.loadMarketplaceCategoryTree()
-                        }
-                    })
+                // Cargar tree + record en paralelo (mismo patrón que
+                // items_ecommerce/form.vue): el cascader necesita ver las
+                // options ANTES de recibir el path por v-model.
+                Promise.all([
+                    this.loadMarketplaceCategoryTree(),
+                    this.$http.get(`/${this.resource}/record/${this.recordId}`),
+                ]).then((results) => {
+                    const response = results[1]
+                    this.form = response.data.data
+                    if (!Array.isArray(this.form.marketplace_category_path)) {
+                        this.form.marketplace_category_path = []
+                    }
+                    if (!Array.isArray(this.form.tags_id)) {
+                        this.form.tags_id = this.form.tags_id ? Array.from(this.form.tags_id) : []
+                    }
+                    this.changeAffectationIgvType()
+                    this.changePurchaseAffectationIgvType()
+                })
             }
         },
         loadMarketplaceCategoryTree() {
-            if (this.mp_category_tree.length || this.mp_category_loading) return
+            if (this.mp_category_tree.length) return Promise.resolve()
+            if (this.mp_category_loading) {
+                return new Promise((resolve) => {
+                    const wait = () => this.mp_category_loading
+                        ? setTimeout(wait, 15)
+                        : resolve()
+                    wait()
+                })
+            }
             this.mp_category_loading = true
-            this.$http.get('/marketplace-categories/tree')
+            return this.$http.get('/marketplace-categories/tree')
                 .then(res => { this.mp_category_tree = res.data.tree || [] })
                 .catch(() => { this.mp_category_tree = [] })
                 .then(() => { this.mp_category_loading = false })

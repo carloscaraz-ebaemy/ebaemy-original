@@ -1195,42 +1195,62 @@ export default {
         },
         create() {
             this.titleDialog = (this.recordId) ? 'Editar Producto' : 'Nuevo Producto'
-            // El cascader de "Categoría" ahora es SIEMPRE visible (Opción C),
-            // así que el árbol oficial debe estar disponible aunque el item no
-            // esté publicado en marketplace ni siquiera para "Nuevo Producto".
-            this.loadMarketplaceCategoryTree()
             if (this.recordId) {
-                this.$http.get(`/${this.resource}/record/${this.recordId}`)
-                    .then(response => {
-                        this.form = response.data.data
-                        // El cascader del marketplace requiere array; si el backend
-                        // devuelve null/undefined el v-model rompe el control.
-                        if (!Array.isArray(this.form.marketplace_category_path)) {
-                            this.form.marketplace_category_path = []
-                        }
-                        this.has_percentage_perception = (this.form.percentage_perception) ? true : false
-                        this.changeAffectationIgvType()
-                    })
+                // Cargar tree + record en PARALELO. Esperamos ambos antes de
+                // asignar this.form para que el cascader vea las options ya
+                // disponibles cuando v-model recibe marketplace_category_path
+                // (sin esperar, el cascader se queda con placeholder porque
+                // el path llegó pero el árbol estaba vacío y no re-renderiza).
+                Promise.all([
+                    this.loadMarketplaceCategoryTree(),
+                    this.$http.get(`/${this.resource}/record/${this.recordId}`),
+                ]).then((results) => {
+                    const response = results[1]
+                    this.form = response.data.data
+                    if (!Array.isArray(this.form.marketplace_category_path)) {
+                        this.form.marketplace_category_path = []
+                    }
+                    this.has_percentage_perception = (this.form.percentage_perception) ? true : false
+                    this.changeAffectationIgvType()
+                })
+            } else {
+                // Producto nuevo: solo necesitamos el tree disponible.
+                this.loadMarketplaceCategoryTree()
             }
         },
         loadRecord() {
-            // Mismo principio: cargar el árbol oficial siempre.
-            this.loadMarketplaceCategoryTree()
             if (this.recordId) {
-                this.$http.get(`/${this.resource}/record/${this.recordId}`)
-                    .then(response => {
-                        this.form = response.data.data
-                        if (!Array.isArray(this.form.marketplace_category_path)) {
-                            this.form.marketplace_category_path = []
-                        }
-                        this.changeAffectationIgvType()
-                    })
+                Promise.all([
+                    this.loadMarketplaceCategoryTree(),
+                    this.$http.get(`/${this.resource}/record/${this.recordId}`),
+                ]).then((results) => {
+                    const response = results[1]
+                    this.form = response.data.data
+                    if (!Array.isArray(this.form.marketplace_category_path)) {
+                        this.form.marketplace_category_path = []
+                    }
+                    this.changeAffectationIgvType()
+                })
+            } else {
+                this.loadMarketplaceCategoryTree()
             }
         },
+        // Retorna una promesa que resuelve cuando el árbol está cargado
+        // (o ya estaba). Permite encadenar con Promise.all en create/load.
         loadMarketplaceCategoryTree() {
-            if (this.mp_category_tree.length || this.mp_category_loading) return
+            if (this.mp_category_tree.length) return Promise.resolve()
+            if (this.mp_category_loading) {
+                // Ya hay request en vuelo; esperar a que termine vía polling
+                // mínimo (15ms) — alternativa a guardar el promise en data.
+                return new Promise((resolve) => {
+                    const wait = () => this.mp_category_loading
+                        ? setTimeout(wait, 15)
+                        : resolve()
+                    wait()
+                })
+            }
             this.mp_category_loading = true
-            this.$http.get('/marketplace-categories/tree')
+            return this.$http.get('/marketplace-categories/tree')
                 .then(res => { this.mp_category_tree = res.data.tree || [] })
                 .catch(() => { this.mp_category_tree = [] })
                 .then(() => { this.mp_category_loading = false })
