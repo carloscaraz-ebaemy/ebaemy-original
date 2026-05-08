@@ -295,11 +295,14 @@
                                 </div>
                             </div>
 
-                            <!-- Descripción del producto: editor con formato rico
-                                 (negrita, cursiva, listas, enlaces). Aparece tal cual
-                                 en la página del marketplace y mejora el SEO. -->
+                            <!-- Descripción del producto en el marketplace.
+                                 IMPORTANTE: usa form.mp_notes (no form.description),
+                                 porque en este proyecto items.description guarda el
+                                 NOMBRE del producto (convención legacy SUNAT). El
+                                 sync mapea items.mp_notes → marketplace_listings.description
+                                 que es lo que renderiza show.blade.php. -->
                             <div class="col-md-12">
-                                <div :class="{'has-danger': errors.description}" class="form-group">
+                                <div :class="{'has-danger': errors.mp_notes}" class="form-group">
                                     <label class="control-label">
                                         Descripción
                                         <span style="font-size:11px;color:#9ca3af;font-weight:400">
@@ -307,12 +310,12 @@
                                         </span>
                                     </label>
                                     <vue-ckeditor
-                                        v-model="form.description"
+                                        v-model="form.mp_notes"
                                         :editors="editors"
                                         type="classic"></vue-ckeditor>
-                                    <small v-if="errors.description"
+                                    <small v-if="errors.mp_notes"
                                            class="form-control-feedback"
-                                           v-text="errors.description[0]"></small>
+                                           v-text="errors.mp_notes[0]"></small>
                                 </div>
                             </div>
 
