@@ -295,6 +295,29 @@
                                 </div>
                             </div>
 
+                            <!-- Descripción del producto: SEO marketplace + página
+                                 de detalle. Liviano (textarea), si el seller quiere
+                                 formato rico tiene "Abrir ficha completa" arriba. -->
+                            <div class="col-md-12">
+                                <div :class="{'has-danger': errors.description}" class="form-group">
+                                    <label class="control-label">
+                                        Descripción
+                                        <span style="font-size:11px;color:#9ca3af;font-weight:400">
+                                            (visible en la página del producto en el marketplace)
+                                        </span>
+                                    </label>
+                                    <el-input v-model="form.description"
+                                              type="textarea"
+                                              :rows="4"
+                                              maxlength="2000"
+                                              show-word-limit
+                                              placeholder="Describe materiales, medidas, instrucciones de cuidado, garantía, etc."></el-input>
+                                    <small v-if="errors.description"
+                                           class="form-control-feedback"
+                                           v-text="errors.description[0]"></small>
+                                </div>
+                            </div>
+
                             <!-- <div class="col-md-3 center-el-checkbox">
                                 <div class="form-group">
                                     <el-checkbox v-model="has_percentage_perception"
