@@ -219,6 +219,12 @@ class ItemVariantController extends Controller
 
             $variant->update(['image' => $result['main']]);
 
+            // Si el item está publicado en marketplace, propagar la nueva
+            // imagen al índice central inmediatamente (sin esperar al cron de
+            // 30 min). Sin este trigger, el seller subiría la imagen y no la
+            // vería en ebaemy.com/marketplace por hasta media hora.
+            $this->triggerMarketplaceSync($item);
+
             return response()->json([
                 'success' => true,
                 'image'   => $variant->image,
@@ -247,10 +253,37 @@ class ItemVariantController extends Controller
         $this->deleteVariantImageFile($variant->image);
         $variant->update(['image' => null]);
 
+        // Si está en marketplace, propagar el cambio inmediato (sin esperar cron).
+        $this->triggerMarketplaceSync($item);
+
         return response()->json([
             'success' => true,
             'variant' => $this->formatVariant($variant->fresh(['optionValues', 'warehouseStocks'])),
         ]);
+    }
+
+    /**
+     * Dispara sync inmediato del item al marketplace central, solo si está
+     * publicado (marketplace_publishable=true) y activo. Best-effort: errores
+     * se loguean sin propagar — el cron de 30 min eventualmente resuelve.
+     */
+    private function triggerMarketplaceSync(Item $item): void
+    {
+        try {
+            if (!$item->marketplace_publishable || ($item->mp_status ?? '') === 'rejected') {
+                return;
+            }
+            $hostname = app(\Hyn\Tenancy\Contracts\CurrentHostname::class);
+            if (!$hostname) return;
+
+            app(\App\Services\System\MarketplaceListingSyncService::class)
+                ->syncItem($hostname->id, (int) $item->id);
+        } catch (\Throwable $e) {
+            \Log::warning('[ItemVariantController] triggerMarketplaceSync failed', [
+                'item_id' => $item->id,
+                'error'   => $e->getMessage(),
+            ]);
+        }
     }
 
     /**
