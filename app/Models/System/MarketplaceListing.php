@@ -55,6 +55,13 @@ class MarketplaceListing extends Model
         'original_price',
         'offer_ends_at',
         'discount_pct',
+        // Fase 0 — variantes (preparación). has_variants + min/max price
+        // permite a la UI mostrar "Desde S/X" sin tener que joinar con
+        // item_variants en cada render. La estructura completa de variantes
+        // (selector + dispatch) llega en Fase 0.B con marketplace_listing_variants.
+        'has_variants',
+        'min_price',
+        'max_price',
     ];
 
     protected $casts = [
@@ -62,9 +69,12 @@ class MarketplaceListing extends Model
         'tenant_verified' => 'boolean',
         'is_featured'     => 'boolean',
         'is_on_offer'     => 'boolean',
+        'has_variants'    => 'boolean',
         'price'           => 'float',
         'mp_price'        => 'float',
         'original_price'  => 'float',
+        'min_price'       => 'float',
+        'max_price'       => 'float',
         'stock'           => 'integer',
         'view_count'      => 'integer',
         'lead_count'      => 'integer',
