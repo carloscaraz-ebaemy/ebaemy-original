@@ -547,6 +547,7 @@
                                                     </div>
                                                 </div>
                                                 <el-cascader
+                                                    :key="'cas-' + cascaderKey"
                                                     v-model="form.marketplace_category_path"
                                                     :options="mp_category_tree"
                                                     :props="{ value: 'id', label: 'name', children: 'children', checkStrictly: false, emitPath: true }"
@@ -889,6 +890,11 @@ export default {
             attribute_types: [],
             mp_category_tree: [],
             mp_category_loading: false,
+            // Bump para forzar re-mount del el-cascader cuando llegan tree+
+            // record en momentos distintos. Element UI cascader 2.x tiene
+            // un bug donde no re-renderiza si v-model y :options cambian
+            // muy cercanos en el tiempo. Re-mount fuerza la hidratación.
+            cascaderKey: 0,
             mp_category_request_dialog: false,
             mp_category_request_form: {
                 suggested_name: '',
@@ -1212,6 +1218,9 @@ export default {
                     }
                     this.has_percentage_perception = (this.form.percentage_perception) ? true : false
                     this.changeAffectationIgvType()
+                    // Re-mount del cascader para forzar hidratación con
+                    // tree + path nuevos (workaround del bug ElementUI).
+                    this.$nextTick(() => { this.cascaderKey++ })
                 })
             } else {
                 // Producto nuevo: solo necesitamos el tree disponible.
@@ -1230,6 +1239,7 @@ export default {
                         this.form.marketplace_category_path = []
                     }
                     this.changeAffectationIgvType()
+                    this.$nextTick(() => { this.cascaderKey++ })
                 })
             } else {
                 this.loadMarketplaceCategoryTree()
