@@ -177,54 +177,41 @@
                             ></el-switch>
                         </td>
                         <td class="text-end">
-                            <template>
-                                <!-- v-if="typeUser === 'admin'" -->
-                                <el-tooltip content="Edición rápida (datos web)" placement="top">
-                                    <button
-                                        type="button"
-                                        class="btn waves-effect waves-light btn-xs btn-info"
-                                        @click.prevent="clickCreate(row.id)"
-                                    >
-                                        Editar
-                                    </button>
-                                </el-tooltip>
-                                <el-tooltip content="Abrir ficha completa del catálogo (stock, compras, lotes, atributos)" placement="top">
-                                    <a
-                                        :href="'/items#edit-' + row.id"
-                                        class="btn waves-effect waves-light btn-xs btn-default ms-1"
-                                        style="background:#f3f4f6;border:1px solid #d1d5db;color:#374151"
-                                    >
-                                        Ficha ERP
-                                    </a>
-                                </el-tooltip>
-                                <el-tooltip v-if="row.apply_store && row.slug" content="Abrir en tu tienda online (pública)" placement="top">
-                                    <a
-                                        :href="'/item/' + row.slug"
-                                        target="_blank" rel="noopener"
-                                        class="btn waves-effect waves-light btn-xs ms-1"
-                                        style="background:#ecfdf5;border:1px solid #10b981;color:#065f46"
-                                    >
-                                        🛍️
-                                    </a>
-                                </el-tooltip>
-                                <el-tooltip v-if="row.marketplace_publishable && row.mp_status === 'active'" content="Ver en ebaemy.com/marketplace" placement="top">
-                                    <a
-                                        :href="'https://ebaemy.com/marketplace?q=' + encodeURIComponent(row.description || row.name || '')"
-                                        target="_blank" rel="noopener"
-                                        class="btn waves-effect waves-light btn-xs ms-1"
-                                        style="background:#faf5ff;border:1px solid #a78bfa;color:#5b21b6"
-                                    >
-                                        🌐
-                                    </a>
-                                </el-tooltip>
+                            <div class="d-inline-flex align-items-center" style="gap:6px">
+                                <!-- Acción principal: Editar -->
                                 <button
                                     type="button"
-                                    class="btn waves-effect waves-light btn-xs btn-danger ms-1"
-                                    @click.prevent="clickDelete(row.id)"
+                                    class="btn waves-effect waves-light btn-xs btn-info"
+                                    @click.prevent="clickCreate(row.id)"
                                 >
-                                    Eliminar
+                                    Editar
                                 </button>
-                            </template>
+
+                                <!-- Acciones secundarias en menú "⋮" -->
+                                <el-dropdown trigger="click" @command="onRowActionCommand($event, row)">
+                                    <button
+                                        type="button"
+                                        class="btn waves-effect waves-light btn-xs"
+                                        style="background:#f3f4f6;border:1px solid #d1d5db;color:#374151;padding:0 8px;line-height:1"
+                                    >
+                                        <i class="el-icon-more" style="font-size:16px;font-weight:700"></i>
+                                    </button>
+                                    <el-dropdown-menu slot="dropdown">
+                                        <el-dropdown-item command="erp">
+                                            <i class="el-icon-document"></i> Ficha ERP completa
+                                        </el-dropdown-item>
+                                        <el-dropdown-item v-if="row.apply_store && row.slug" command="store">
+                                            🛍️ Ver en mi tienda
+                                        </el-dropdown-item>
+                                        <el-dropdown-item v-if="row.marketplace_publishable && row.mp_status === 'active'" command="marketplace">
+                                            🌐 Ver en ebaemy.com/marketplace
+                                        </el-dropdown-item>
+                                        <el-dropdown-item divided command="delete">
+                                            <span style="color:#dc2626"><i class="el-icon-delete"></i> Eliminar</span>
+                                        </el-dropdown-item>
+                                    </el-dropdown-menu>
+                                </el-dropdown>
+                            </div>
                         </td>
                     </tr>
                 </data-table>
@@ -482,6 +469,26 @@ export default {
             this.destroy(`/${this.resource}/${id}`).then(() =>
                 this.$eventHub.$emit("reloadData")
             );
+        },
+        // Despacha la opción elegida del dropdown "⋮" de cada fila.
+        onRowActionCommand(command, row) {
+            switch (command) {
+                case 'erp':
+                    window.location.href = '/items#edit-' + row.id;
+                    break;
+                case 'store':
+                    if (row.slug) window.open('/item/' + row.slug, '_blank', 'noopener');
+                    break;
+                case 'marketplace':
+                    window.open(
+                        'https://ebaemy.com/marketplace?q=' + encodeURIComponent(row.description || row.name || ''),
+                        '_blank', 'noopener'
+                    );
+                    break;
+                case 'delete':
+                    this.clickDelete(row.id);
+                    break;
+            }
         },
         stock(items) {
             let stock = 0;
