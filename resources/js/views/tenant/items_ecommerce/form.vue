@@ -295,9 +295,9 @@
                                 </div>
                             </div>
 
-                            <!-- Descripción del producto: SEO marketplace + página
-                                 de detalle. Liviano (textarea), si el seller quiere
-                                 formato rico tiene "Abrir ficha completa" arriba. -->
+                            <!-- Descripción del producto: editor con formato rico
+                                 (negrita, cursiva, listas, enlaces). Aparece tal cual
+                                 en la página del marketplace y mejora el SEO. -->
                             <div class="col-md-12">
                                 <div :class="{'has-danger': errors.description}" class="form-group">
                                     <label class="control-label">
@@ -306,12 +306,10 @@
                                             (visible en la página del producto en el marketplace)
                                         </span>
                                     </label>
-                                    <el-input v-model="form.description"
-                                              type="textarea"
-                                              :rows="4"
-                                              maxlength="2000"
-                                              show-word-limit
-                                              placeholder="Describe materiales, medidas, instrucciones de cuidado, garantía, etc."></el-input>
+                                    <vue-ckeditor
+                                        v-model="form.description"
+                                        :editors="editors"
+                                        type="classic"></vue-ckeditor>
                                     <small v-if="errors.description"
                                            class="form-control-feedback"
                                            v-text="errors.description[0]"></small>

@@ -680,9 +680,25 @@
         </div>
 
         @if($listing->description)
+            @php
+                // Sanitización mínima: permite tags de formato (negrita, listas,
+                // enlaces, etc.) que produce el editor del form, y descarta
+                // todo lo demás. Después limpia event handlers y javascript:
+                // urls para mitigar XSS si el seller pega HTML manipulado.
+                $allowedTags = '<p><br><strong><em><b><i><u><ul><ol><li><a><h2><h3><h4><blockquote><span>';
+                $cleanDesc = strip_tags($listing->description, $allowedTags);
+                $cleanDesc = preg_replace('/\sjavascript\s*:/i', ':', $cleanDesc);
+                $cleanDesc = preg_replace('/\son[a-z]+\s*=\s*"[^"]*"/i', '', $cleanDesc);
+                $cleanDesc = preg_replace("/\son[a-z]+\s*=\s*'[^']*'/i", '', $cleanDesc);
+                // Si el contenido NO trae ningún tag (texto plano con saltos
+                // de línea), aplicamos nl2br + escape para preservar el
+                // comportamiento legacy de descripciones viejas.
+                $hasHtml = $cleanDesc !== strip_tags($cleanDesc);
+                $renderDesc = $hasHtml ? $cleanDesc : nl2br(e($cleanDesc));
+            @endphp
             <div class="mp-description">
                 <h3 style="font-size:15px;font-weight:700;color:var(--mp-ink);margin:0 0 10px;letter-spacing:-0.01em">Descripción del producto</h3>
-                {!! nl2br(e($listing->description)) !!}
+                {!! $renderDesc !!}
             </div>
         @endif
     </div>
