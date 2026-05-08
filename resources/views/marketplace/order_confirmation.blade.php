@@ -60,13 +60,44 @@
 
 @section('content')
 
-<div class="mp-conf-success">
-    <div class="icon">✓</div>
-    <h1>¡Tu pedido fue recibido!</h1>
+@php
+    $isPaid    = $order->payment_status === 'paid';
+    $isUnpaid  = $order->payment_status === 'unpaid';
+    $usingMP   = $order->payment_provider === 'mercadopago';
+@endphp
+
+<div class="mp-conf-success" style="{{ $isUnpaid && $usingMP ? 'background:#fff7ed;border:1px solid #fed7aa' : '' }}">
+    @if($isPaid)
+        <div class="icon">✓</div>
+        <h1>¡Pago confirmado!</h1>
+    @elseif($isUnpaid && $usingMP)
+        <div class="icon" style="background:#f59e0b">⏳</div>
+        <h1>Tu pedido está pendiente de pago</h1>
+    @else
+        <div class="icon">✓</div>
+        <h1>¡Tu pedido fue recibido!</h1>
+    @endif
     <div class="num">{{ $order->order_number }}</div>
-    <p style="color:#475569; margin: 14px auto 0; max-width: 520px">
-        Cada tienda recibió tu pedido por WhatsApp/email. Te contactarán para confirmar disponibilidad, coordinar el envío y el comprobante.
-    </p>
+
+    @if($isPaid)
+        <p style="color:#475569; margin: 14px auto 0; max-width: 520px">
+            Recibimos tu pago vía MercadoPago. Cada tienda fue notificada y te contactarán para coordinar entrega y comprobante.
+        </p>
+    @elseif($isUnpaid && $usingMP)
+        <p style="color:#92400e; margin: 14px auto 0; max-width: 520px; font-weight: 500">
+            Aún no completaste el pago. Si cerraste la pestaña antes de tiempo, puedes retomar el pago abajo. Las tiendas serán notificadas cuando MercadoPago confirme la transacción.
+        </p>
+        <div style="margin-top: 18px">
+            <a href="{{ route('marketplace.payment.retry', ['number' => $order->order_number]) }}"
+               style="display:inline-block;background:#0ea5e9;color:#fff;font-weight:600;padding:12px 24px;border-radius:10px;text-decoration:none;font-size:15px">
+                💳 Pagar ahora con MercadoPago
+            </a>
+        </div>
+    @else
+        <p style="color:#475569; margin: 14px auto 0; max-width: 520px">
+            Cada tienda recibió tu pedido por WhatsApp/email. Te contactarán para confirmar disponibilidad, coordinar el envío y el comprobante.
+        </p>
+    @endif
 </div>
 
 <div class="mp-conf-card">

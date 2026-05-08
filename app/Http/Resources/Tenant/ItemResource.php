@@ -125,6 +125,12 @@
                 'mp_price'     => $this->mp_price,
                 'mp_status'    => $this->mp_status,
                 'mp_notes'     => $this->mp_notes,
+                // Categoría oficial del marketplace — sin estos dos campos el
+                // cascader del form de edición no se hidrata: form.vue hace
+                // `this.form = response.data.data` y si el endpoint no los trae
+                // el v-model queda undefined y el cascader muestra placeholder.
+                'marketplace_category_id'   => $this->marketplace_category_id,
+                'marketplace_category_path' => $this->resolveMarketplaceCategoryPath(),
                 'has_plastic_bag_taxes' => (bool)$this->has_plastic_bag_taxes,
                 'tags' => $this->tags,
                 'tags_id' => $this->tags->pluck('tag_id'),
