@@ -111,33 +111,123 @@
     </div>
 </section>
 
-{{-- ═══════════════════════ CATEGORÍAS OFICIALES (Fase D) ═══════════════════════ --}}
+{{-- ═══════════════════════ CATEGORÍAS + SUBCATEGORÍAS (Fase D v2) ═══════════════════════ --}}
 @if(!empty($officialRoots) && $officialRoots->count())
-    <section class="mp-section">
+    <section class="mp-section mp-cats-block">
         <div class="mp-section-head">
             <div>
                 <h2 class="mp-section-title">
                     <span class="mp-section-title-emoji">🗂️</span>
-                    Explora por categoría
+                    Categorías
                 </h2>
-                <p class="mp-section-subtitle">Navega el catálogo oficial del marketplace.</p>
+                <p class="mp-section-subtitle">Encuentra lo que buscas en segundos.</p>
             </div>
         </div>
-        <div style="display:grid;grid-template-columns:repeat(auto-fill, minmax(140px, 1fr));gap:12px">
+
+        <div class="mp-cats-grid">
             @foreach($officialRoots as $root)
-                <a href="{{ url('/marketplace/c/' . $root->full_slug) }}"
-                   style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:16px 10px;background:#fff;border:1px solid #e5e7eb;border-radius:12px;text-decoration:none;color:#111827;transition:all .15s;min-height:110px;text-align:center"
-                   onmouseover="this.style.borderColor='var(--mp-primary, #0f8a82)';this.style.transform='translateY(-2px)';this.style.boxShadow='0 6px 16px -8px rgba(15,138,130,.25)'"
-                   onmouseout="this.style.borderColor='#e5e7eb';this.style.transform='';this.style.boxShadow=''">
-                    <div style="font-size:32px;line-height:1;margin-bottom:6px">{{ $root->icon ?: '📦' }}</div>
-                    <div style="font-size:13px;font-weight:600">{{ $root->name }}</div>
-                    @if($root->listings_count_cache)
-                        <div style="font-size:11px;color:#9ca3af;margin-top:2px">{{ $root->listings_count_cache }} prod.</div>
-                    @endif
-                </a>
+                @php $rootHref = url('/marketplace/c/' . $root->full_slug); @endphp
+                <details class="mp-cat-card" {{ $loop->first ? 'open' : '' }}>
+                    <summary class="mp-cat-card__head">
+                        <span class="mp-cat-card__icon">{{ $root->icon ?: '📦' }}</span>
+                        <span class="mp-cat-card__name">{{ $root->name }}</span>
+                        @if($root->listings_count_cache)
+                            <span class="mp-cat-card__count">{{ $root->listings_count_cache }}</span>
+                        @endif
+                        <svg class="mp-cat-card__chev" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
+                    </summary>
+
+                    <div class="mp-cat-card__body">
+                        @if($root->children && $root->children->count())
+                            <ul class="mp-subcat-list">
+                                @foreach($root->children->take(10) as $child)
+                                    <li>
+                                        <a href="{{ url('/marketplace/c/' . $child->full_slug) }}" class="mp-subcat-link">
+                                            @if($child->icon)<span class="mp-subcat-icon">{{ $child->icon }}</span>@endif
+                                            <span class="mp-subcat-name">{{ $child->name }}</span>
+                                            @if($child->listings_count_cache)
+                                                <span class="mp-subcat-count">{{ $child->listings_count_cache }}</span>
+                                            @endif
+                                        </a>
+                                    </li>
+                                @endforeach
+                            </ul>
+                            @if($root->children->count() > 10)
+                                <a href="{{ $rootHref }}" class="mp-subcat-more">Ver todas las subcategorías ({{ $root->children->count() }}) →</a>
+                            @else
+                                <a href="{{ $rootHref }}" class="mp-subcat-more">Ver todo en {{ $root->name }} →</a>
+                            @endif
+                        @else
+                            <a href="{{ $rootHref }}" class="mp-subcat-more">Ver productos en {{ $root->name }} →</a>
+                        @endif
+                    </div>
+                </details>
             @endforeach
         </div>
     </section>
+
+    <style>
+        .mp-cats-block { padding-bottom: 8px; }
+        .mp-cats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 14px;
+        }
+        .mp-cat-card {
+            background: #fff;
+            border: 1px solid #e5e7eb;
+            border-radius: 14px;
+            overflow: hidden;
+            transition: border-color .15s, box-shadow .15s;
+        }
+        .mp-cat-card[open] { border-color: var(--mp-primary, #0f8a82); box-shadow: 0 6px 18px -10px rgba(15,138,130,.25); }
+        .mp-cat-card__head {
+            display: flex; align-items: center; gap: 10px;
+            padding: 14px 16px;
+            cursor: pointer;
+            user-select: none;
+            list-style: none;
+        }
+        .mp-cat-card__head::-webkit-details-marker { display: none; }
+        .mp-cat-card__icon { font-size: 22px; line-height: 1; }
+        .mp-cat-card__name { font-size: 15px; font-weight: 700; color: #111827; flex: 1; }
+        .mp-cat-card__count {
+            background: #f3f4f6; color: #6b7280;
+            font-size: 11px; font-weight: 600;
+            padding: 2px 8px; border-radius: 999px;
+        }
+        .mp-cat-card[open] .mp-cat-card__count { background: rgba(15,138,130,.1); color: var(--mp-primary, #0f8a82); }
+        .mp-cat-card__chev { color: #9ca3af; transition: transform .2s; flex-shrink: 0; }
+        .mp-cat-card[open] .mp-cat-card__chev { transform: rotate(180deg); color: var(--mp-primary, #0f8a82); }
+        .mp-cat-card__body { padding: 4px 12px 14px; border-top: 1px dashed #f1f5f9; }
+        .mp-subcat-list { list-style: none; margin: 0; padding: 6px 0 0; display: flex; flex-direction: column; gap: 2px; }
+        .mp-subcat-link {
+            display: flex; align-items: center; gap: 8px;
+            padding: 8px 8px;
+            border-radius: 8px;
+            text-decoration: none;
+            color: #374151;
+            font-size: 13.5px;
+            transition: background .12s, color .12s;
+        }
+        .mp-subcat-link:hover { background: #f0fdfa; color: var(--mp-primary, #0f8a82); }
+        .mp-subcat-icon { font-size: 14px; }
+        .mp-subcat-name { flex: 1; }
+        .mp-subcat-count { font-size: 11px; color: #9ca3af; }
+        .mp-subcat-more {
+            display: inline-block; margin: 8px 8px 0;
+            font-size: 12.5px; font-weight: 600;
+            color: var(--mp-primary, #0f8a82); text-decoration: none;
+        }
+        .mp-subcat-more:hover { text-decoration: underline; }
+
+        @media (max-width: 640px) {
+            .mp-cats-grid { grid-template-columns: 1fr; gap: 10px; }
+            .mp-cat-card__head { padding: 12px 14px; }
+            .mp-cat-card__name { font-size: 14.5px; }
+            .mp-subcat-link { padding: 10px 8px; font-size: 14px; } /* tap targets más grandes */
+        }
+    </style>
 @endif
 
 {{-- ═══════════════════════ TIENDAS DESTACADAS (solo home) ═══════════════════════ --}}
