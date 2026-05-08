@@ -77,19 +77,32 @@ class MarketplaceController extends Controller
                 ->groupBy('listing_id');
 
             // Color values: dots circulares en cards (estilo Falabella).
-            // Solo opciones tipo "color" con color_hex o image_url. La query
-            // hace el join porque los values viven en otra tabla.
+            // Reglas estrictas:
+            //  1. La opción debe llamarse "color" (case-insensitive).
+            //  2. El value DEBE tener color_hex — los que solo tienen
+            //     image_url se descartan (lo pidió el usuario, los dots
+            //     son únicamente círculos de color, no thumbnails-foto).
+            //  3. Al menos UNA variante activa con stock > 0 debe usar
+            //     ese value — los colores agotados no se muestran.
+            //
+            // EXISTS subquery con join al pivote variant_value y al
+            // listing_variant para filtrar variantes vivas con inventario.
             $colorValuesByListing = \DB::connection('system')->table('marketplace_listing_option_values as v')
                 ->join('marketplace_listing_options as o', 'o.id', '=', 'v.option_id')
                 ->whereIn('o.listing_id', $listingIds)
                 ->whereRaw('LOWER(o.name) LIKE ?', ['%color%'])
-                ->where(function ($q) {
-                    $q->whereNotNull('v.color_hex')
-                      ->orWhereNotNull('v.image_url');
+                ->whereNotNull('v.color_hex')
+                ->whereExists(function ($q) {
+                    $q->select(\DB::raw(1))
+                        ->from('marketplace_listing_variant_values as vv')
+                        ->join('marketplace_listing_variants as lv', 'lv.id', '=', 'vv.listing_variant_id')
+                        ->whereColumn('vv.option_value_id', 'v.id')
+                        ->where('lv.is_active', true)
+                        ->where('lv.stock', '>', 0);
                 })
                 ->orderBy('o.listing_id')
                 ->orderBy('v.position')
-                ->select('o.listing_id', 'v.value', 'v.color_hex', 'v.image_url')
+                ->select('o.listing_id', 'v.value', 'v.color_hex')
                 ->get()
                 ->groupBy('listing_id');
 

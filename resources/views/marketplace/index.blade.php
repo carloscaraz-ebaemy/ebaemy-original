@@ -399,22 +399,15 @@
                                 <span class="mp-card-shop-name" title="Vendido por {{ $listing->seller_display }}">{{ $listing->seller_display }}</span>
                             </div>
 
-                            {{-- Dots de color disponibles (estilo Falabella). Si el value
-                                 tiene image_url renderiza thumb mini, si no, círculo del color_hex. --}}
+                            {{-- Dots de color disponibles. Solo se muestran los valores
+                                 que tienen color_hex Y al menos una variante con stock > 0
+                                 (filtrado en el controller). --}}
                             @if(!empty($listing->color_dots) && $listing->color_dots->count())
                                 <div class="mp-card-colors" aria-label="Colores disponibles">
                                     @foreach($listing->color_dots as $cd)
-                                        @if($cd->image_url)
-                                            <span class="mp-card-color-dot mp-card-color-dot--img"
-                                                  title="{{ $cd->value }}"
-                                                  data-img="{{ $cd->image_url }}">
-                                                <img src="{{ $cd->image_url }}" alt="{{ $cd->value }}" loading="lazy">
-                                            </span>
-                                        @elseif($cd->color_hex)
-                                            <span class="mp-card-color-dot mp-card-color-dot--hex"
-                                                  title="{{ $cd->value }}"
-                                                  style="background:{{ $cd->color_hex }}"></span>
-                                        @endif
+                                        <span class="mp-card-color-dot mp-card-color-dot--hex"
+                                              title="{{ $cd->value }}"
+                                              style="background:{{ $cd->color_hex }}"></span>
                                     @endforeach
                                 </div>
                             @endif
