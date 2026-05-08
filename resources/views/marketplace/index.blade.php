@@ -31,132 +31,12 @@
 {{-- Hero removido: el cliente ve trust bar + categorías + productos sin
      interferencia. Cero scroll antes del primer producto en móvil. --}}
 
-{{-- ═══════════════════════ TRUST BAR STICKY ═══════════════════════ --}}
-<section class="mp-trust-sticky">
-    <div class="mp-trust-sticky-inner">
-        <span class="mp-trust-sticky-item">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg>
-            <span><strong>Compra segura</strong></span>
-        </span>
-        <span class="mp-trust-sticky-item">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="13" height="10" rx="2"/><path d="M15 9h5l2 4v4h-7V9z"/><circle cx="7" cy="17" r="2"/><circle cx="17" cy="17" r="2"/></svg>
-            <span>Envío <strong>a todo Perú</strong></span>
-        </span>
-        <span class="mp-trust-sticky-item">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l2.39 5.42L20 8.27l-4 4.15.94 5.58L12 15.77l-4.94 2.23L8 12.42 4 8.27l5.61-.85L12 2z"/></svg>
-            <span>Tiendas <strong>verificadas</strong></span>
-        </span>
-        <span class="mp-trust-sticky-item">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
-            <span>Pago <strong>contra entrega</strong></span>
-        </span>
-        <span class="mp-trust-sticky-item">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>
-            <span><strong>Factura</strong> electrónica</span>
-        </span>
-        <span class="mp-trust-sticky-item">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
-            <span>Soporte <strong>directo</strong></span>
-        </span>
-    </div>
-</section>
+{{-- Trust bar movida al footer (layout.blade.php) — antes ocupaba espacio
+     arriba del fold sin necesidad. Ahora aparece como reaseguro al pie. --}}
 
-{{-- ═══════════════════════ CATEGORÍAS — CARRUSEL HORIZONTAL ═══════════════════════ --}}
-@if(!empty($officialRoots) && $officialRoots->count())
-    <section class="mp-section mp-cats-rail-section" aria-label="Explorar por categoría">
-        <div class="mp-cats-rail-head">
-            <h2 class="mp-cats-rail-title">Categorías</h2>
-            <a href="#productos" class="mp-cats-rail-cta">Ver productos →</a>
-        </div>
-        <div class="mp-cats-rail-wrap">
-            <button type="button" class="mp-cats-rail-arrow mp-cats-rail-arrow--prev" aria-label="Anterior" data-rail-dir="-1">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
-            </button>
-            <div class="mp-cats-rail" id="mpCatsRail">
-                @foreach($officialRoots as $root)
-                    <a href="{{ url('/marketplace/c/' . $root->full_slug) }}" class="mp-cat-pill">
-                        <span class="mp-cat-pill__icon">{{ $root->icon ?: '📦' }}</span>
-                        <span class="mp-cat-pill__name">{{ $root->name }}</span>
-                        @if($root->listings_count_cache)
-                            <span class="mp-cat-pill__count">{{ $root->listings_count_cache }}</span>
-                        @endif
-                    </a>
-                @endforeach
-            </div>
-            <button type="button" class="mp-cats-rail-arrow mp-cats-rail-arrow--next" aria-label="Siguiente" data-rail-dir="1">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
-            </button>
-        </div>
-    </section>
-
-    <style>
-        .mp-cats-rail-section { padding: 4px 0 18px; }
-        .mp-cats-rail-head {
-            display: flex; align-items: baseline; justify-content: space-between;
-            margin-bottom: 10px;
-        }
-        .mp-cats-rail-title { font-size: 16px; font-weight: 700; color: #111827; margin: 0; }
-        .mp-cats-rail-cta { font-size: 12.5px; font-weight: 600; color: var(--mp-primary, #0f8a82); text-decoration: none; }
-        .mp-cats-rail-cta:hover { text-decoration: underline; }
-        .mp-cats-rail-wrap { position: relative; }
-        .mp-cats-rail {
-            display: flex; gap: 10px;
-            overflow-x: auto;
-            scroll-snap-type: x mandatory;
-            scroll-behavior: smooth;
-            padding: 4px 2px 12px;
-            scrollbar-width: thin;
-        }
-        .mp-cats-rail::-webkit-scrollbar { height: 6px; }
-        .mp-cats-rail::-webkit-scrollbar-thumb { background: rgba(0,0,0,.1); border-radius: 999px; }
-        .mp-cat-pill {
-            flex: 0 0 auto;
-            scroll-snap-align: start;
-            display: inline-flex; align-items: center; gap: 8px;
-            padding: 10px 16px;
-            background: #fff;
-            border: 1px solid #e5e7eb;
-            border-radius: 999px;
-            text-decoration: none; color: #1f2937;
-            font-size: 13.5px; font-weight: 600;
-            white-space: nowrap;
-            transition: border-color .15s, transform .15s, box-shadow .15s, background .15s;
-        }
-        .mp-cat-pill:hover {
-            border-color: var(--mp-primary, #0f8a82);
-            color: var(--mp-primary-dark, #0a6f68);
-            background: #f0fdfa;
-            transform: translateY(-1px);
-            box-shadow: 0 4px 10px -6px rgba(15,138,130,.35);
-        }
-        .mp-cat-pill__icon { font-size: 16px; line-height: 1; }
-        .mp-cat-pill__count {
-            background: #f3f4f6; color: #6b7280;
-            font-size: 11px; font-weight: 700;
-            padding: 1px 7px; border-radius: 999px;
-        }
-        .mp-cat-pill:hover .mp-cat-pill__count {
-            background: rgba(15,138,130,.12); color: var(--mp-primary-dark, #0a6f68);
-        }
-        .mp-cats-rail-arrow {
-            position: absolute; top: 50%; transform: translateY(-50%);
-            z-index: 2;
-            width: 36px; height: 36px;
-            background: #fff; border: 1px solid #e5e7eb; border-radius: 999px;
-            display: flex; align-items: center; justify-content: center;
-            cursor: pointer; color: #6b7280;
-            box-shadow: 0 4px 12px -4px rgba(0,0,0,.08);
-            transition: color .15s, border-color .15s;
-        }
-        .mp-cats-rail-arrow:hover { color: var(--mp-primary, #0f8a82); border-color: var(--mp-primary, #0f8a82); }
-        .mp-cats-rail-arrow--prev { left: -8px; }
-        .mp-cats-rail-arrow--next { right: -8px; }
-        @media (max-width: 768px) {
-            .mp-cats-rail-arrow { display: none; } /* en móvil basta el swipe */
-            .mp-cat-pill { padding: 9px 14px; font-size: 13px; }
-        }
-    </style>
-@endif
+{{-- Carrusel de categorías removido del home: la navegación de categorías
+     vive en el mega menú del header (botón "Categorías" de la search bar)
+     y en la barra de chips superior. Evita duplicación visual. --}}
 
 {{-- Tiendas destacadas se muestran DESPUÉS del listado de productos para no
      desplazar la fila de productos por debajo del fold (UX 2026: productos primero). --}}
@@ -410,6 +290,62 @@
 @endif
 
 <style>
+    /* ───────────── Paginador profesional (override de bootstrap-4 view) ───────────── */
+    .mp-pag {
+        display: flex; justify-content: center;
+        margin: 24px 0 16px;
+    }
+    .mp-pag nav { width: 100%; }
+    .mp-pag .pagination {
+        display: flex; flex-wrap: wrap; justify-content: center;
+        gap: 6px;
+        list-style: none;
+        margin: 0; padding: 0;
+    }
+    .mp-pag .page-item { margin: 0; }
+    .mp-pag .page-item .page-link,
+    .mp-pag .page-item span.page-link {
+        display: inline-flex; align-items: center; justify-content: center;
+        min-width: 36px; height: 36px;
+        padding: 0 12px;
+        font-size: 13.5px; font-weight: 600;
+        color: #374151;
+        background: #fff;
+        border: 1px solid #e5e7eb;
+        border-radius: 10px;
+        text-decoration: none;
+        transition: background .15s, color .15s, border-color .15s, transform .15s;
+    }
+    .mp-pag .page-item .page-link:hover {
+        background: #f0fdfa;
+        border-color: var(--mp-primary, #0f8a82);
+        color: var(--mp-primary-dark, #0a6f68);
+        transform: translateY(-1px);
+    }
+    .mp-pag .page-item.active .page-link,
+    .mp-pag .page-item.active span.page-link {
+        background: linear-gradient(135deg, #0f8a82, #0a6f68);
+        border-color: transparent;
+        color: #fff;
+        box-shadow: 0 4px 10px -4px rgba(15,138,130,.45);
+    }
+    .mp-pag .page-item.disabled .page-link,
+    .mp-pag .page-item.disabled span.page-link {
+        background: #f9fafb;
+        color: #cbd5e1;
+        border-color: #f1f5f9;
+        cursor: not-allowed;
+    }
+    /* SVGs internos que vienen del view bootstrap-4 (chevrons) */
+    .mp-pag .page-link svg { width: 14px; height: 14px; }
+    /* Oculta texto "Showing X to Y of Z results" generado arriba del nav (es feo) */
+    .mp-pag p { display: none; }
+
+    @media (max-width: 480px) {
+        .mp-pag .pagination { gap: 4px; }
+        .mp-pag .page-item .page-link { min-width: 32px; height: 32px; padding: 0 9px; font-size: 12.5px; }
+    }
+
     /* ───────────── Cards de producto modernas (SaaS 2026) ───────────── */
     .mp-card {
         position: relative;
@@ -545,18 +481,6 @@ if (window.matchMedia('(max-width: 899px)').matches) {
     var btn = document.getElementById('mpFiltersClose');
     if (btn) btn.style.display = 'inline-block';
 }
-
-// Flechas del carrusel de categorías → scroll horizontal por ~70% del ancho visible
-(function () {
-    var rail = document.getElementById('mpCatsRail');
-    if (!rail) return;
-    document.querySelectorAll('[data-rail-dir]').forEach(function (b) {
-        b.addEventListener('click', function () {
-            var dir = parseInt(b.getAttribute('data-rail-dir'), 10) || 1;
-            rail.scrollBy({ left: dir * Math.max(280, rail.clientWidth * 0.7), behavior: 'smooth' });
-        });
-    });
-})();
 
 // Inyectar CTA "Comprar" en cada card de producto sin duplicar markup en el blade
 document.querySelectorAll('.mp-card .mp-card-img').forEach(function (img) {

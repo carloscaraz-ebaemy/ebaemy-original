@@ -65,33 +65,16 @@
         </a>
 
         <form id="mpSearchForm" action="{{ route('marketplace.index') }}" method="GET" class="mp-search" role="search">
-            <select id="mpNavCategory" class="mp-search-category" aria-label="Categoría"
-                    data-base-url="{{ url('/marketplace/c') }}">
-                <option value="">Todas las categorías</option>
-                @isset($marketplaceNavCategories)
-                    @foreach($marketplaceNavCategories as $root)
-                        @php
-                            $hasChildren = $root->children && $root->children->count() > 0;
-                            $rootSelected = ($activeCategoryFullSlug ?? null) === $root->full_slug;
-                        @endphp
-                        @if($hasChildren)
-                            <optgroup label="{{ $root->name }}">
-                                <option value="{{ $root->full_slug }}" @if($rootSelected) selected @endif>
-                                    Toda {{ $root->name }}
-                                </option>
-                                @foreach($root->children as $child)
-                                    <option value="{{ $child->full_slug }}"
-                                        @if(($activeCategoryFullSlug ?? null) === $child->full_slug) selected @endif>
-                                        {{ $child->name }}
-                                    </option>
-                                @endforeach
-                            </optgroup>
-                        @else
-                            <option value="{{ $root->full_slug }}" @if($rootSelected) selected @endif>{{ $root->name }}</option>
-                        @endif
-                    @endforeach
-                @endisset
-            </select>
+            <button type="button"
+                    id="mpMegaToggle"
+                    class="mp-search-category mp-mega-toggle"
+                    aria-haspopup="true"
+                    aria-expanded="false"
+                    aria-controls="mpMegaPanel">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+                <span class="mp-mega-toggle__label">Categorías</span>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" class="mp-mega-toggle__chev"><polyline points="6 9 12 15 18 9"/></svg>
+            </button>
             <input type="search"
                    name="q"
                    value="{{ $q ?? '' }}"
@@ -102,20 +85,241 @@
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
             </button>
         </form>
+
+        {{-- ═══════════════════════ MEGA MENÚ DE CATEGORÍAS ═══════════════════════ --}}
+        @isset($marketplaceNavCategories)
+            <div id="mpMegaPanel" class="mp-mega-panel" role="dialog" aria-label="Categorías" aria-hidden="true">
+                <div class="mp-mega-panel__head">
+                    <h3>Categorías</h3>
+                    <button type="button" class="mp-mega-panel__close" aria-label="Cerrar" data-mega-close>
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                    </button>
+                </div>
+                <div class="mp-mega-panel__grid">
+                    @foreach($marketplaceNavCategories as $root)
+                        @php $rootHref = route('marketplace.category_official', ['fullSlug' => $root->full_slug]); @endphp
+                        <details class="mp-mega-col" {{ $loop->first ? 'open' : '' }}>
+                            <summary class="mp-mega-col__head">
+                                <span class="mp-mega-col__icon">{{ $root->icon ?: '📦' }}</span>
+                                <span class="mp-mega-col__name">{{ $root->name }}</span>
+                                @if(!empty($root->listings_count_cache))
+                                    <span class="mp-mega-col__count">{{ $root->listings_count_cache }}</span>
+                                @endif
+                                <svg class="mp-mega-col__chev" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
+                            </summary>
+                            <div class="mp-mega-col__body">
+                                @if($root->children && $root->children->count())
+                                    <ul class="mp-mega-sublist">
+                                        @foreach($root->children->take(8) as $child)
+                                            <li>
+                                                <a href="{{ route('marketplace.category_official', ['fullSlug' => $child->full_slug]) }}" class="mp-mega-sublink">
+                                                    @if($child->icon)<span class="mp-mega-sublink__icon">{{ $child->icon }}</span>@endif
+                                                    <span class="mp-mega-sublink__name">{{ $child->name }}</span>
+                                                </a>
+                                            </li>
+                                        @endforeach
+                                    </ul>
+                                    @if($root->children->count() > 8)
+                                        <a href="{{ $rootHref }}" class="mp-mega-seeall">Ver todas ({{ $root->children->count() }}) →</a>
+                                    @else
+                                        <a href="{{ $rootHref }}" class="mp-mega-seeall">Ver todo en {{ $root->name }} →</a>
+                                    @endif
+                                @else
+                                    <a href="{{ $rootHref }}" class="mp-mega-seeall">Ver productos →</a>
+                                @endif
+                            </div>
+                        </details>
+                    @endforeach
+                </div>
+            </div>
+            <div id="mpMegaBackdrop" class="mp-mega-backdrop" aria-hidden="true" data-mega-close></div>
+        @endisset
+
+        <style>
+            /* ───────────── Botón trigger del mega menú ───────────── */
+            .mp-mega-toggle {
+                display: inline-flex; align-items: center; gap: 6px;
+                cursor: pointer; user-select: none;
+                white-space: nowrap;
+            }
+            .mp-mega-toggle__chev { transition: transform .2s; flex-shrink: 0; }
+            .mp-mega-toggle[aria-expanded="true"] .mp-mega-toggle__chev { transform: rotate(180deg); }
+
+            /* ───────────── Panel desktop (mega menú) ───────────── */
+            .mp-mega-panel {
+                position: absolute;
+                top: calc(100% + 6px);
+                left: 0; right: 0;
+                max-width: 1180px;
+                margin: 0 auto;
+                background: #fff;
+                border: 1px solid #e5e7eb;
+                border-radius: 16px;
+                box-shadow: 0 18px 40px -16px rgba(15,23,42,.18), 0 6px 16px -8px rgba(0,0,0,.08);
+                padding: 18px 22px 20px;
+                z-index: 50;
+                opacity: 0;
+                transform: translateY(-8px);
+                pointer-events: none;
+                transition: opacity .18s ease, transform .18s ease;
+            }
+            .mp-mega-panel.is-open { opacity: 1; transform: translateY(0); pointer-events: auto; }
+            .mp-mega-panel__head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+            .mp-mega-panel__head h3 { margin: 0; font-size: 16px; font-weight: 700; color: #111827; }
+            .mp-mega-panel__close {
+                display: none; /* solo móvil */
+                background: transparent; border: 0; cursor: pointer;
+                width: 36px; height: 36px; border-radius: 999px; color: #6b7280;
+            }
+            .mp-mega-panel__close:hover { background: #f3f4f6; color: #111827; }
+            .mp-mega-panel__grid {
+                display: grid;
+                grid-template-columns: repeat(4, 1fr);
+                gap: 18px 26px;
+            }
+            .mp-mega-col { border: 0; }
+            .mp-mega-col__head {
+                display: flex; align-items: center; gap: 8px;
+                padding: 6px 0 8px;
+                cursor: pointer;
+                list-style: none;
+                border-bottom: 1px solid #f1f5f9;
+            }
+            .mp-mega-col__head::-webkit-details-marker { display: none; }
+            .mp-mega-col__icon { font-size: 16px; line-height: 1; }
+            .mp-mega-col__name { font-size: 14px; font-weight: 700; color: #0f172a; flex: 1; }
+            .mp-mega-col__count {
+                font-size: 11px; font-weight: 700;
+                background: #f3f4f6; color: #6b7280;
+                padding: 1px 7px; border-radius: 999px;
+            }
+            .mp-mega-col__chev { color: #94a3b8; transition: transform .2s; display: none; /* solo móvil */ }
+            .mp-mega-col__body { padding-top: 6px; }
+            .mp-mega-sublist {
+                list-style: none; margin: 0; padding: 0;
+                display: flex; flex-direction: column; gap: 1px;
+            }
+            .mp-mega-sublink {
+                display: flex; align-items: center; gap: 8px;
+                padding: 6px 6px;
+                font-size: 13px; color: #374151;
+                text-decoration: none;
+                border-radius: 6px;
+                transition: background .12s, color .12s;
+            }
+            .mp-mega-sublink:hover { background: #f0fdfa; color: var(--mp-primary, #0f8a82); }
+            .mp-mega-sublink__icon { font-size: 13px; }
+            .mp-mega-seeall {
+                display: inline-block;
+                margin-top: 6px; padding: 4px 6px;
+                font-size: 12px; font-weight: 600;
+                color: var(--mp-primary, #0f8a82);
+                text-decoration: none;
+            }
+            .mp-mega-seeall:hover { text-decoration: underline; }
+
+            /* ───────────── Backdrop ───────────── */
+            .mp-mega-backdrop {
+                display: none;
+                position: fixed; inset: 0;
+                background: rgba(15, 23, 42, .35);
+                z-index: 49;
+                opacity: 0;
+                transition: opacity .18s ease;
+            }
+            .mp-mega-backdrop.is-open { display: block; opacity: 1; }
+
+            /* ───────────── Mobile: drawer slide desde la izquierda ───────────── */
+            @media (max-width: 900px) {
+                .mp-mega-toggle__label { display: none; } /* solo icon en móvil */
+                .mp-mega-panel {
+                    position: fixed;
+                    top: 0; left: 0; right: auto; bottom: 0;
+                    width: min(86vw, 360px);
+                    max-width: 360px;
+                    margin: 0;
+                    border-radius: 0 18px 18px 0;
+                    transform: translateX(-100%);
+                    transition: transform .25s ease, opacity .2s ease;
+                    overflow-y: auto;
+                    padding: 16px 14px calc(20px + env(safe-area-inset-bottom));
+                    opacity: 1;
+                }
+                .mp-mega-panel.is-open { transform: translateX(0); }
+                .mp-mega-panel__close { display: inline-flex; align-items: center; justify-content: center; }
+                .mp-mega-panel__grid { grid-template-columns: 1fr; gap: 4px; }
+                .mp-mega-col__head { padding: 12px 4px; border-bottom: 1px solid #f1f5f9; }
+                .mp-mega-col__chev { display: inline-block; }
+                .mp-mega-col[open] .mp-mega-col__chev { transform: rotate(180deg); color: var(--mp-primary, #0f8a82); }
+                .mp-mega-sublink { padding: 10px 8px; font-size: 14px; } /* tap targets más grandes */
+                .mp-mega-col__body { padding-left: 8px; }
+            }
+            @media (min-width: 901px) {
+                /* En desktop todas las columnas siempre abiertas, no acordeón */
+                .mp-mega-col { /* details actúa como div en desktop */ }
+                .mp-mega-col__head { cursor: default; }
+            }
+            @media (max-width: 600px) {
+                .mp-mega-panel__grid { grid-template-columns: 1fr; }
+            }
+            @media (min-width: 901px) and (max-width: 1100px) {
+                .mp-mega-panel__grid { grid-template-columns: repeat(3, 1fr); }
+            }
+        </style>
+
         <script>
             (function () {
-                var sel  = document.getElementById('mpNavCategory');
-                var form = document.getElementById('mpSearchForm');
-                if (!sel || !form) return;
-                form.addEventListener('submit', function (e) {
-                    var slug = sel.value;
-                    if (!slug) return;
+                var btn = document.getElementById('mpMegaToggle');
+                var panel = document.getElementById('mpMegaPanel');
+                var backdrop = document.getElementById('mpMegaBackdrop');
+                if (!btn || !panel) return;
+
+                function open() {
+                    panel.classList.add('is-open');
+                    panel.setAttribute('aria-hidden', 'false');
+                    btn.setAttribute('aria-expanded', 'true');
+                    if (backdrop) backdrop.classList.add('is-open');
+                    if (window.matchMedia('(max-width: 900px)').matches) {
+                        document.body.style.overflow = 'hidden';
+                    }
+                }
+                function close() {
+                    panel.classList.remove('is-open');
+                    panel.setAttribute('aria-hidden', 'true');
+                    btn.setAttribute('aria-expanded', 'false');
+                    if (backdrop) backdrop.classList.remove('is-open');
+                    document.body.style.overflow = '';
+                }
+                function toggle() {
+                    if (panel.classList.contains('is-open')) close(); else open();
+                }
+
+                btn.addEventListener('click', function (e) {
                     e.preventDefault();
-                    var qInput = form.querySelector('input[name="q"]');
-                    var q = qInput ? qInput.value.trim() : '';
-                    var base = sel.getAttribute('data-base-url') + '/' + slug;
-                    window.location.href = q ? base + '?q=' + encodeURIComponent(q) : base;
+                    toggle();
                 });
+
+                // Cerrar al clickear fuera (desktop) o en backdrop (mobile)
+                document.addEventListener('click', function (e) {
+                    if (!panel.classList.contains('is-open')) return;
+                    if (e.target.closest('[data-mega-close]')) { close(); return; }
+                    if (panel.contains(e.target) || btn.contains(e.target)) return;
+                    close();
+                });
+
+                // Escape cierra
+                document.addEventListener('keydown', function (e) {
+                    if (e.key === 'Escape' && panel.classList.contains('is-open')) close();
+                });
+
+                // En desktop, todas las columnas siempre abiertas (overrideamos el details)
+                if (window.matchMedia('(min-width: 901px)').matches) {
+                    panel.querySelectorAll('details.mp-mega-col').forEach(function (d) {
+                        d.setAttribute('open', '');
+                        // Bloquear toggle al click en summary en desktop
+                        d.querySelector('summary').addEventListener('click', function (e) { e.preventDefault(); });
+                    });
+                }
             })();
         </script>
 
@@ -158,6 +362,54 @@
 <main class="mp-container">
     @yield('content')
 </main>
+
+{{-- ═══════════════════════ TRUST BAR (movida al footer) ═══════════════════════ --}}
+<section class="mp-trust-sticky mp-trust-sticky--footer">
+    <div class="mp-trust-sticky-inner">
+        <span class="mp-trust-sticky-item">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg>
+            <span><strong>Compra segura</strong></span>
+        </span>
+        <span class="mp-trust-sticky-item">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="13" height="10" rx="2"/><path d="M15 9h5l2 4v4h-7V9z"/><circle cx="7" cy="17" r="2"/><circle cx="17" cy="17" r="2"/></svg>
+            <span>Envío <strong>a todo Perú</strong></span>
+        </span>
+        <span class="mp-trust-sticky-item">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l2.39 5.42L20 8.27l-4 4.15.94 5.58L12 15.77l-4.94 2.23L8 12.42 4 8.27l5.61-.85L12 2z"/></svg>
+            <span>Tiendas <strong>verificadas</strong></span>
+        </span>
+        <span class="mp-trust-sticky-item">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
+            <span>Pago <strong>contra entrega</strong></span>
+        </span>
+        <span class="mp-trust-sticky-item">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>
+            <span><strong>Factura</strong> electrónica</span>
+        </span>
+        <span class="mp-trust-sticky-item">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
+            <span>Soporte <strong>directo</strong></span>
+        </span>
+    </div>
+</section>
+<style>
+    .mp-trust-sticky--footer {
+        position: static !important;
+        background: #f9fafb;
+        border-top: 1px solid #e5e7eb;
+        border-bottom: 0;
+        padding: 18px 16px;
+    }
+    .mp-trust-sticky--footer .mp-trust-sticky-inner {
+        max-width: 1180px; margin: 0 auto;
+        display: flex; flex-wrap: wrap; justify-content: center;
+        gap: 18px 28px;
+    }
+    @media (max-width: 768px) {
+        .mp-trust-sticky--footer { padding: 14px 12px; }
+        .mp-trust-sticky--footer .mp-trust-sticky-inner { gap: 10px 18px; font-size: 12.5px; }
+    }
+</style>
 
 {{-- ═══════════════════════ FOOTER ═══════════════════════ --}}
 <footer class="mp-footer">
