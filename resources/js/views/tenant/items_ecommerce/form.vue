@@ -25,6 +25,11 @@
                 <form autocomplete="off"
                     @submit.prevent="submit">
                     <div class="form-body">
+                        <!-- ━━━━━━━━━━ SECCIÓN: INFORMACIÓN BÁSICA ━━━━━━━━━━ -->
+                        <div class="mp-form-section">
+                            <div class="mp-form-section__head">📦 Información básica</div>
+                            <div class="mp-form-section__hint">Datos esenciales del producto: nombre, precios, stock e imagen.</div>
+                        </div>
                         <div class="row">
 
                             <div v-if="fromRestaurant && !form.has_sets" class="col-md-3 center-el-checkbox">
@@ -485,8 +490,12 @@
                             </div> -->
 
 
+                            <!-- ━━━━━━━━━━ SECCIÓN: IMAGEN + CATEGORIZACIÓN ━━━━━━━━━━ -->
                             <div class="col-md-12">
-                                <h5 class="separator-title">Campos adicionales</h5>
+                                <div class="mp-form-section mp-form-section--alt">
+                                    <div class="mp-form-section__head">🏷️ Imagen y categorización</div>
+                                    <div class="mp-form-section__hint">Imagen, categoría interna, marca, etiquetas y datos de compra.</div>
+                                </div>
                             </div>
                             <div class="row col-md-12">
                                 <div class="col-md-3">
@@ -619,6 +628,7 @@
                                         </div> -->
                                         <div class="col-md-4 center-el-checkbox">
                                             <div class="form-group">
+                                                <div class="mp-form-subhead">🛒 Canales de venta</div>
                                                 <el-checkbox v-model="form.apply_store">Aplica en Tienda</el-checkbox>
                                                 <br>
                                                 <el-checkbox v-model="form.marketplace_publishable" style="margin-top:4px">
@@ -747,6 +757,20 @@
             <el-tab-pane :disabled="!fromRestaurant" label="Modificadores" name="modifiers">
                 <modifiers-tab :itemId="recordId"></modifiers-tab>
             </el-tab-pane>
+
+            <!-- ════════════ VARIANTES (talla, color, etc.) ════════════ -->
+            <el-tab-pane name="variants">
+                <template #label>
+                    <span>🎨 Variantes</span>
+                </template>
+                <div v-if="!form.id" class="text-center py-4" style="color:#6b7280">
+                    <div style="font-size:36px;line-height:1;margin-bottom:8px">🎨</div>
+                    <div style="font-weight:600;margin-bottom:4px">Variantes (talla, color, etc.)</div>
+                    <div style="font-size:13px">Guarda el producto primero para configurar sus variantes.</div>
+                    <div style="font-size:12px;color:#9ca3af;margin-top:6px">Usa esta sección si tu producto tiene combinaciones (ej. "Camiseta Roja Talla M").</div>
+                </div>
+                <variants-tab v-else :itemId="form.id"></variants-tab>
+            </el-tab-pane>
         </el-tabs>
         <!-- <percentage-perception
                 :showDialog.sync="showPercentagePerception"
@@ -804,6 +828,42 @@
     background-color: transparent !important;
     cursor: not-allowed !important;
 }
+
+/* ───────── Separadores de sección (Información básica / Imagen / etc.) ───────── */
+.mp-form-section {
+    margin: 18px 0 12px;
+    padding: 12px 16px;
+    background: linear-gradient(135deg, #ecfdf5, #f0fdfa);
+    border-left: 4px solid #10b981;
+    border-radius: 8px;
+}
+.mp-form-section--alt {
+    background: linear-gradient(135deg, #eff6ff, #f0f9ff);
+    border-left-color: #3b82f6;
+}
+.mp-form-section__head {
+    font-size: 14px;
+    font-weight: 700;
+    color: #065f46;
+    line-height: 1.3;
+}
+.mp-form-section--alt .mp-form-section__head { color: #1e40af; }
+.mp-form-section__hint {
+    font-size: 12px;
+    color: #047857;
+    margin-top: 2px;
+}
+.mp-form-section--alt .mp-form-section__hint { color: #1d4ed8; }
+.mp-form-subhead {
+    font-size: 12px;
+    font-weight: 700;
+    color: #64748b;
+    text-transform: uppercase;
+    letter-spacing: .4px;
+    margin-bottom: 6px;
+    padding-bottom: 4px;
+    border-bottom: 1px dashed #e2e8f0;
+}
 </style>
 
 <script>
@@ -811,6 +871,7 @@
 import FormImages from "./partials/form_images.vue";
 import SuppliesTab from "../../../../../modules/Restaurant/Resources/assets/js/views/items/supplies-tab.vue";
 import ModifiersTab from "../../../../../modules/Restaurant/Resources/assets/js/views/items/modifiers-tab.vue";
+import VariantsTab from "../items/partials/variants-tab.vue";
 import ClassicEditor from '@ckeditor/ckeditor5-build-classic';
 import VueCkeditor from 'vue-ckeditor5';
 import { imageCompressor } from '../../../mixins/imageCompressor';
@@ -822,6 +883,7 @@ export default {
         FormImages,
         SuppliesTab,
         ModifiersTab,
+        VariantsTab,
         'vue-ckeditor': VueCkeditor.component
     },
 
