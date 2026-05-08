@@ -41,6 +41,148 @@
 {{-- Tiendas destacadas se muestran DESPUÉS del listado de productos para no
      desplazar la fila de productos por debajo del fold (UX 2026: productos primero). --}}
 
+{{-- ═══════════════════════ OFERTAS DEL DÍA (solo home, ≥4 ofertas) ═══════════════════════ --}}
+@if(isset($dailyOffers) && $dailyOffers->count() >= 4)
+    <section class="mp-section mp-offers-block" aria-label="Ofertas del día">
+        <div class="mp-offers-head">
+            <div>
+                <h2 class="mp-offers-title">🔥 Ofertas del día</h2>
+                <p class="mp-offers-sub">Descuentos vigentes de tiendas verificadas. Aprovecha mientras duren.</p>
+            </div>
+            <a href="{{ route('marketplace.index', ['sort' => 'price_asc']) }}" class="mp-offers-cta">Ver todas →</a>
+        </div>
+        <div class="mp-offers-rail" id="mpOffersRail">
+            @foreach($dailyOffers as $offer)
+                <a href="{{ route('marketplace.item', $offer->slug) }}" class="mp-offer-card">
+                    <div class="mp-offer-card__img">
+                        @if($offer->image_url)
+                            <img src="{{ $offer->image_url }}" alt="{{ $offer->title }}" loading="lazy">
+                        @else
+                            <div class="mp-offer-card__noimg">Sin imagen</div>
+                        @endif
+                        @if(!empty($offer->discount_pct))
+                            <span class="mp-offer-card__pct">-{{ $offer->discount_pct }}%</span>
+                        @endif
+                        @if(!empty($offer->offer_ends_at))
+                            <span class="mp-offer-card__timer" data-ends-at="{{ \Carbon\Carbon::parse($offer->offer_ends_at)->toIso8601String() }}">
+                                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="margin-right:3px"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                                <span class="mp-offer-card__timer-txt">…</span>
+                            </span>
+                        @endif
+                    </div>
+                    <div class="mp-offer-card__body">
+                        <h3 class="mp-offer-card__title">{{ $offer->title }}</h3>
+                        <div class="mp-offer-card__price-row">
+                            <span class="mp-offer-card__price">S/ {{ number_format($offer->display_price, 2) }}</span>
+                            @if(!empty($offer->original_price) && $offer->original_price > $offer->display_price)
+                                <span class="mp-offer-card__old">S/ {{ number_format($offer->original_price, 2) }}</span>
+                            @endif
+                        </div>
+                        <div class="mp-offer-card__shop">{{ $offer->seller_display }}</div>
+                    </div>
+                </a>
+            @endforeach
+        </div>
+    </section>
+
+    <style>
+        .mp-offers-block { padding: 16px 0 8px; }
+        .mp-offers-head { display:flex; align-items:flex-end; justify-content:space-between; gap:12px; margin-bottom:12px; }
+        .mp-offers-title { margin:0; font-size:18px; font-weight:800; color:#0a0e1a; }
+        .mp-offers-sub { margin:2px 0 0; font-size:12.5px; color:#6b7280; }
+        .mp-offers-cta { font-size:13px; font-weight:700; color:#dc2626; text-decoration:none; white-space:nowrap; }
+        .mp-offers-cta:hover { text-decoration:underline; }
+        .mp-offers-rail {
+            display:flex; gap:14px;
+            overflow-x:auto; scroll-snap-type:x mandatory; scroll-behavior:smooth;
+            padding:4px 2px 14px;
+            scrollbar-width:thin;
+        }
+        .mp-offers-rail::-webkit-scrollbar { height:6px; }
+        .mp-offers-rail::-webkit-scrollbar-thumb { background:rgba(0,0,0,.1); border-radius:999px; }
+        .mp-offer-card {
+            flex:0 0 auto; scroll-snap-align:start;
+            width:200px;
+            background:#fff; border:1px solid #f1f5f9; border-radius:14px;
+            text-decoration:none; color:inherit;
+            overflow:hidden;
+            transition: transform .18s, box-shadow .18s, border-color .18s;
+        }
+        .mp-offer-card:hover {
+            transform: translateY(-3px);
+            border-color: rgba(220,38,38,.35);
+            box-shadow: 0 10px 22px -12px rgba(220,38,38,.22);
+        }
+        .mp-offer-card__img { position:relative; aspect-ratio:1/1; background:#f7f9fb; overflow:hidden; }
+        .mp-offer-card__img img { width:100%; height:100%; object-fit:cover; transition:transform .35s; }
+        .mp-offer-card:hover .mp-offer-card__img img { transform:scale(1.04); }
+        .mp-offer-card__noimg { display:flex; align-items:center; justify-content:center; height:100%; color:#9ca3af; font-size:12px; }
+        .mp-offer-card__pct {
+            position:absolute; top:8px; left:8px;
+            background:linear-gradient(135deg,#ef4444,#dc2626); color:#fff;
+            font-size:12px; font-weight:800; letter-spacing:.3px;
+            padding:3px 8px; border-radius:999px;
+            box-shadow: 0 4px 8px -4px rgba(220,38,38,.45);
+        }
+        .mp-offer-card__timer {
+            position:absolute; bottom:8px; right:8px;
+            display:inline-flex; align-items:center;
+            background:rgba(15,23,42,.85); color:#fff;
+            font-size:11px; font-weight:600;
+            padding:3px 8px; border-radius:999px;
+            backdrop-filter: blur(4px);
+        }
+        .mp-offer-card__body { padding:10px 12px 12px; }
+        .mp-offer-card__title {
+            margin:0 0 6px; font-size:13px; font-weight:600; color:#1f2937;
+            line-height:1.3;
+            display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical;
+            overflow:hidden;
+            min-height: 34px;
+        }
+        .mp-offer-card__price-row { display:flex; align-items:baseline; gap:8px; flex-wrap:wrap; }
+        .mp-offer-card__price { font-size:16px; font-weight:800; color:#dc2626; }
+        .mp-offer-card__old { font-size:12px; color:#9ca3af; text-decoration:line-through; }
+        .mp-offer-card__shop { margin-top:4px; font-size:11.5px; color:#6b7280; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+        @media (max-width: 640px) {
+            .mp-offer-card { width: 160px; }
+            .mp-offers-title { font-size:16px; }
+            .mp-offers-sub { font-size:12px; }
+        }
+    </style>
+
+    <script>
+    // Countdown ligero para los timers de "Termina en". Update cada minuto;
+    // si la oferta expira mientras el cliente está en la página, el timer
+    // muestra "Expirada" sin recargar. Sin overhead notable: una sola
+    // pasada por todos los timers cada 60s.
+    (function () {
+        var timers = document.querySelectorAll('.mp-offer-card__timer[data-ends-at]');
+        if (!timers.length) return;
+        function fmt(ms) {
+            if (ms <= 0) return 'Expirada';
+            var h = Math.floor(ms / 3600000);
+            var m = Math.floor((ms % 3600000) / 60000);
+            if (h >= 24) {
+                var d = Math.floor(h / 24);
+                return d + 'd ' + (h % 24) + 'h';
+            }
+            return h + 'h ' + m + 'm';
+        }
+        function tick() {
+            var now = Date.now();
+            timers.forEach(function (t) {
+                var ends = new Date(t.getAttribute('data-ends-at')).getTime();
+                var span = t.querySelector('.mp-offer-card__timer-txt');
+                if (span) span.textContent = fmt(ends - now);
+            });
+        }
+        tick();
+        setInterval(tick, 60000);
+    })();
+    </script>
+@endif
+
 {{-- ═══════════════════════ BREADCRUMB (resultados filtrados) ═══════════════════════ --}}
 @if($q || $category)
     <nav class="mp-breadcrumb">

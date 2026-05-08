@@ -71,8 +71,26 @@ class MarketplaceController extends Controller
         // Árbol oficial (sólo raíces visibles) — cacheado 30min.
         $officialRoots = $this->getOfficialRootsCached();
 
+        // Ofertas del día — solo en home (sin filtros). Cache 30min para no
+        // pegarle a la BD en cada visita. Limite 12 productos: suficiente para
+        // un carrusel destacado sin saturar visualmente. Solo se muestra si
+        // hay 4+ ofertas; abajo de eso queda mejor ocultar la sección.
+        $isHome = empty($q) && empty($category) && !$officialCatId
+                  && $priceMin === null && $priceMax === null;
+        $dailyOffers = collect();
+        if ($isHome) {
+            $dailyOffers = Cache::remember('mp_daily_offers_v1', 1800, function () {
+                return MarketplaceListing::published()
+                    ->onOffer()
+                    ->orderByDesc('discount_pct')
+                    ->orderByDesc('view_count')
+                    ->limit(12)
+                    ->get();
+            });
+        }
+
         return view('marketplace.index', compact(
-            'listings', 'categories', 'officialRoots',
+            'listings', 'categories', 'officialRoots', 'dailyOffers',
             'q', 'category', 'officialCatId',
             'sort', 'priceMin', 'priceMax'
         ));
