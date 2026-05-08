@@ -127,7 +127,7 @@
         <div class="mp-cats-grid">
             @foreach($officialRoots as $root)
                 @php $rootHref = url('/marketplace/c/' . $root->full_slug); @endphp
-                <details class="mp-cat-card" {{ $loop->first ? 'open' : '' }}>
+                <details class="mp-cat-card" open>
                     <summary class="mp-cat-card__head">
                         <span class="mp-cat-card__icon">{{ $root->icon ?: '📦' }}</span>
                         <span class="mp-cat-card__name">{{ $root->name }}</span>
@@ -481,6 +481,15 @@
 <script>
 if (window.matchMedia('(max-width: 899px)').matches) {
     document.getElementById('mpFiltersClose').style.display = 'inline-block';
+}
+
+// Categorías home: en desktop quedan todas abiertas (renderizado con `open`).
+// En móvil colapsamos todas menos la primera para que el cliente vea de un
+// vistazo qué categorías hay y abra la que le interese sin scroll infinito.
+if (window.matchMedia('(max-width: 640px)').matches) {
+    document.querySelectorAll('.mp-cats-grid > details.mp-cat-card').forEach((d, i) => {
+        if (i > 0) d.removeAttribute('open');
+    });
 }
 </script>
 @endsection
