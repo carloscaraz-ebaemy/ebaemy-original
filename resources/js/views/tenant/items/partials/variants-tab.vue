@@ -68,6 +68,7 @@
                     <thead class="table-light">
                         <tr>
                             <th>Variante</th>
+                            <th style="width:60px">Imagen</th>
                             <th style="width:120px">Precio venta</th>
                             <th style="width:90px">SKU</th>
                             <th style="width:80px">Stock</th>
@@ -86,6 +87,27 @@
                                         {{ ov.value }}
                                     </el-tag>
                                 </div>
+                            </td>
+                            <td class="text-center">
+                                <el-upload :action="`/items/${itemId}/variants/${v.id}/image`"
+                                           :headers="headers"
+                                           :show-file-list="false"
+                                           :on-success="(r) => onVariantImageSuccess(v, r)"
+                                           :on-error="onVariantImageError"
+                                           :before-upload="beforeVariantImage"
+                                           accept="image/jpeg,image/jpg,image/png,image/webp,image/bmp"
+                                           name="file"
+                                           class="vt-img-uploader">
+                                    <div v-if="v.image_url" class="vt-img-thumb"
+                                         :style="`background-image:url('${v.image_url}')`">
+                                        <button type="button" class="vt-img-del"
+                                                @click.stop.prevent="deleteVariantImage(v)"
+                                                title="Quitar imagen">×</button>
+                                    </div>
+                                    <div v-else class="vt-img-empty" title="Subir imagen para esta variante">
+                                        📷+
+                                    </div>
+                                </el-upload>
                             </td>
                             <td>
                                 <el-input-number v-model="v.sale_unit_price"
@@ -180,6 +202,10 @@ export default {
             saving:            false,
             savingStock:       false,
             selectedVariant:   null,
+
+            // Headers para uploads autenticados (Sanctum/CSRF) — la global
+            // headers_token la setea el layout principal del tenant.
+            headers: typeof headers_token !== 'undefined' ? headers_token : {},
         }
     },
 
@@ -290,6 +316,48 @@ export default {
                 .catch(() => this.$message.error('Error al eliminar variante'))
         },
 
+        // ── Imagen por variante ──────────────────────────────────────────
+        beforeVariantImage(file) {
+            const ALLOWED = ['image/jpeg', 'image/png', 'image/jpg', 'image/webp', 'image/bmp']
+            if (!ALLOWED.includes(file.type)) {
+                this.$message.error('Formato no soportado. Usa JPG, PNG o WEBP.')
+                return false
+            }
+            const sizeMB = file.size / 1024 / 1024
+            if (sizeMB > 15) {
+                this.$message.error(`La imagen es demasiado grande (${sizeMB.toFixed(1)} MB). Máximo 15 MB.`)
+                return false
+            }
+            return true
+        },
+
+        onVariantImageSuccess(variant, response) {
+            if (!response || !response.success) {
+                this.$message.error(response && response.message ? response.message : 'Error al subir')
+                return
+            }
+            // Refrescar la variante en la lista con la nueva info (image + image_url)
+            const idx = this.variants.findIndex(v => v.id === variant.id)
+            if (idx !== -1) this.$set(this.variants, idx, response.variant)
+            this.$message.success('Imagen actualizada')
+        },
+
+        onVariantImageError(err) {
+            console.error('[variants-tab] upload error:', err)
+            this.$message.error('No se pudo subir la imagen. Intenta de nuevo.')
+        },
+
+        deleteVariantImage(variant) {
+            this.$http.delete(`/items/${this.itemId}/variants/${variant.id}/image`)
+                .then(({ data }) => {
+                    if (!data.success) return this.$message.error('No se pudo quitar la imagen')
+                    const idx = this.variants.findIndex(v => v.id === variant.id)
+                    if (idx !== -1) this.$set(this.variants, idx, data.variant)
+                    this.$message.success('Imagen quitada')
+                })
+                .catch(() => this.$message.error('Error al quitar imagen'))
+        },
+
         // ── Stock ─────────────────────────────────────────────────────────
 
         openStockDialog(variant) {
@@ -342,4 +410,52 @@ export default {
 .variants-tab .gap-2 { gap: 8px; }
 .variants-tab table th,
 .variants-tab table td { vertical-align: middle; }
+
+/* ─────── Thumbnail de imagen por variante ─────── */
+.vt-img-uploader { display: inline-block; }
+.vt-img-thumb {
+    position: relative;
+    width: 44px; height: 44px;
+    border-radius: 8px;
+    background-size: cover;
+    background-position: center;
+    border: 2px solid #e5e7eb;
+    cursor: pointer;
+    transition: border-color .15s, transform .12s;
+}
+.vt-img-thumb:hover {
+    border-color: #10b981;
+    transform: scale(1.06);
+}
+.vt-img-del {
+    position: absolute;
+    top: -6px; right: -6px;
+    width: 18px; height: 18px;
+    border-radius: 999px;
+    background: #ef4444;
+    color: #fff;
+    border: 2px solid #fff;
+    cursor: pointer;
+    font-size: 11px; font-weight: 700;
+    line-height: 1;
+    display: none;
+    box-shadow: 0 1px 4px rgba(0,0,0,.25);
+}
+.vt-img-thumb:hover .vt-img-del { display: block; }
+.vt-img-empty {
+    width: 44px; height: 44px;
+    border-radius: 8px;
+    border: 2px dashed #d1d5db;
+    background: #f9fafb;
+    color: #6b7280;
+    font-size: 16px;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer;
+    transition: border-color .15s, color .15s, background .15s;
+}
+.vt-img-empty:hover {
+    border-color: #10b981;
+    color: #065f46;
+    background: #ecfdf5;
+}
 </style>

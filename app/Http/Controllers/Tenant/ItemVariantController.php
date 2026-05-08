@@ -9,9 +9,12 @@ use App\Models\Tenant\ItemOptionValue;
 use App\Models\Tenant\ItemVariant;
 use App\Models\Tenant\ItemVariantWarehouse;
 use App\Services\Tenant\ItemVariantService;
+use App\Services\Tenant\ImageProcessingService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 
 /**
@@ -163,9 +166,120 @@ class ItemVariantController extends Controller
     {
         abort_if($variant->item_id !== $item->id, 404);
 
+        // Limpieza best-effort de la imagen de la variante. Si falla no rompe
+        // el delete (la fila se borra igual y el archivo huérfano se puede
+        // limpiar luego con un comando manual).
+        $this->deleteVariantImageFile($variant->image);
+
         $result = $this->service->deleteVariant($variant);
 
         return response()->json(['success' => true, 'result' => $result]);
+    }
+
+    // ────────────────────────────────────────────────────────────────────────
+    // POST /items/{item}/variants/{variant}/image
+    // Sube imagen para una variante (talla/color/etc). Reusa el mismo flujo
+    // que la imagen del item padre vía ImageProcessingService — convierte
+    // a webp y genera 3 tamaños (main/medium/small). Solo guardamos el
+    // filename del tamaño main; los otros se sirven con sufijo desde la UI.
+    // ────────────────────────────────────────────────────────────────────────
+
+    public function uploadImage(Request $request, Item $item, ItemVariant $variant): JsonResponse
+    {
+        abort_if($variant->item_id !== $item->id, 404);
+
+        $request->validate([
+            'file' => 'required|file|mimes:jpeg,png,jpg,webp,bmp|max:15360',
+        ]);
+
+        try {
+            $file = $request->file('file');
+
+            // Copiar al temp propio (el PHP upload temp puede limpiarse antes)
+            $temp = tempnam(sys_get_temp_dir(), 'vimg_');
+            file_put_contents($temp, file_get_contents($file->getPathname()));
+
+            $validation = ImageProcessingService::validate($temp);
+            if (!$validation['success']) {
+                @unlink($temp);
+                return response()->json(['success' => false, 'message' => $validation['message']], 422);
+            }
+
+            // Nombre con prefijo de variante para distinguir de imágenes del padre
+            $rawName = $file->getClientOriginalName();
+            $prefix  = 'v' . $variant->id . '-' . ($variant->sku ?: 'var');
+            $base    = ImageProcessingService::sanitizeFilename($rawName ?: 'variant', $prefix);
+
+            $result = ImageProcessingService::processAndStore($temp, $base);
+
+            // Borrar imagen anterior si la había (best-effort)
+            if (!empty($variant->image)) {
+                $this->deleteVariantImageFile($variant->image);
+            }
+
+            $variant->update(['image' => $result['main']]);
+
+            return response()->json([
+                'success' => true,
+                'image'   => $variant->image,
+                'image_url' => $this->variantImageUrl($variant->image),
+                'variant' => $this->formatVariant($variant->fresh(['optionValues', 'warehouseStocks'])),
+            ]);
+        } catch (\Throwable $e) {
+            Log::error('[ItemVariantController::uploadImage] ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Error al procesar la imagen: ' . $e->getMessage(),
+            ], 422);
+        }
+    }
+
+    // ────────────────────────────────────────────────────────────────────────
+    // DELETE /items/{item}/variants/{variant}/image
+    // Quita la imagen específica de la variante (la variante cae al fallback
+    // de la imagen del item padre en la UI). El archivo se borra del disco.
+    // ────────────────────────────────────────────────────────────────────────
+
+    public function deleteImage(Item $item, ItemVariant $variant): JsonResponse
+    {
+        abort_if($variant->item_id !== $item->id, 404);
+
+        $this->deleteVariantImageFile($variant->image);
+        $variant->update(['image' => null]);
+
+        return response()->json([
+            'success' => true,
+            'variant' => $this->formatVariant($variant->fresh(['optionValues', 'warehouseStocks'])),
+        ]);
+    }
+
+    /**
+     * Borra los 3 archivos (main + medium + small) generados por
+     * ImageProcessingService a partir del filename `main` guardado.
+     * Best-effort: errores se loguean pero no se propagan.
+     */
+    private function deleteVariantImageFile(?string $main): void
+    {
+        if (empty($main)) return;
+
+        $base = preg_replace('/\.[^.]+$/', '', $main); // sin extensión
+        $disk = ImageProcessingService::disk();
+
+        foreach ([$main, $base . '_medium.webp', $base . '_small.webp', $base . '_medium.jpg', $base . '_small.jpg'] as $f) {
+            try {
+                $path = ImageProcessingService::BASE_DIR . '/' . $f;
+                if (Storage::disk($disk)->exists($path)) {
+                    Storage::disk($disk)->delete($path);
+                }
+            } catch (\Throwable $e) {
+                Log::warning('[ItemVariantController] cleanup file failed', ['file' => $f, 'error' => $e->getMessage()]);
+            }
+        }
+    }
+
+    private function variantImageUrl(?string $filename): ?string
+    {
+        return ImageProcessingService::getUrl($filename);
     }
 
     // ────────────────────────────────────────────────────────────────────────
@@ -208,6 +322,10 @@ class ItemVariantController extends Controller
             'is_active'           => $variant->is_active,
             'stock'               => $variant->stock,
             'variant_hash'        => $variant->variant_hash,
+            'image'               => $variant->image,
+            'image_url'           => $variant->image
+                ? ImageProcessingService::getUrl($variant->image)
+                : null,
             'option_values'       => $variant->relationLoaded('optionValues')
                 ? $variant->optionValues->map(fn($v) => [
                     'id'            => $v->id,

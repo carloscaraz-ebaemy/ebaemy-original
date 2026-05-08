@@ -493,6 +493,8 @@ if ($hostname) {
                 Route::patch('/{variant}',         [\App\Http\Controllers\Tenant\ItemVariantController::class, 'update']);
                 Route::delete('/{variant}',        [\App\Http\Controllers\Tenant\ItemVariantController::class, 'destroy']);
                 Route::post('/{variant}/stock',    [\App\Http\Controllers\Tenant\ItemVariantController::class, 'updateStock']);
+                Route::post('/{variant}/image',    [\App\Http\Controllers\Tenant\ItemVariantController::class, 'uploadImage']);
+                Route::delete('/{variant}/image',  [\App\Http\Controllers\Tenant\ItemVariantController::class, 'deleteImage']);
             });
 
             //Persons
