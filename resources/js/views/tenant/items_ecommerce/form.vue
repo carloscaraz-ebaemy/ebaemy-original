@@ -1216,6 +1216,12 @@ export default {
                     if (!Array.isArray(this.form.marketplace_category_path)) {
                         this.form.marketplace_category_path = []
                     }
+                    // Si el backend no resolvió el path correcto pero sí
+                    // devolvió el ID, lo calculamos en el frontend buscando
+                    // en el árbol que ya está cargado. Esto cubre items
+                    // creados antes de tener resolveMarketplaceCategoryPath
+                    // y casos donde la columna depth_path está vacía.
+                    this.hydrateMpCategoryPath()
                     this.has_percentage_perception = (this.form.percentage_perception) ? true : false
                     this.changeAffectationIgvType()
                     // Re-mount del cascader para forzar hidratación con
@@ -1238,12 +1244,42 @@ export default {
                     if (!Array.isArray(this.form.marketplace_category_path)) {
                         this.form.marketplace_category_path = []
                     }
+                    this.hydrateMpCategoryPath()
                     this.changeAffectationIgvType()
                     this.$nextTick(() => { this.cascaderKey++ })
                 })
             } else {
                 this.loadMarketplaceCategoryTree()
             }
+        },
+
+        // Si el ID está pero el path no, busca el path en el árbol cargado.
+        // Recursión simple sobre node.children (el tree puede tener cualquier
+        // profundidad). Falla silencioso: si no encuentra el ID, deja el
+        // path como estaba (al menos vacío para no romper el cascader).
+        hydrateMpCategoryPath() {
+            const id = this.form.marketplace_category_id
+            const currentPath = this.form.marketplace_category_path
+            if (!id) return
+            // Si el path ya está bien (incluye el id final), no tocamos
+            if (Array.isArray(currentPath) && currentPath.length
+                && Number(currentPath[currentPath.length - 1]) === Number(id)) {
+                return
+            }
+            const tree = this.mp_category_tree || []
+            const find = (nodes, target, acc) => {
+                for (const n of nodes) {
+                    const next = acc.concat([n.id])
+                    if (Number(n.id) === Number(target)) return next
+                    if (n.children && n.children.length) {
+                        const found = find(n.children, target, next)
+                        if (found) return found
+                    }
+                }
+                return null
+            }
+            const path = find(tree, id, [])
+            if (path) this.form.marketplace_category_path = path
         },
         // Retorna una promesa que resuelve cuando el árbol está cargado
         // (o ya estaba). Permite encadenar con Promise.all en create/load.

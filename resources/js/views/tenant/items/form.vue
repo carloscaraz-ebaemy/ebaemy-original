@@ -2169,10 +2169,38 @@ this.activeName =  'first'
                     if (!Array.isArray(this.form.tags_id)) {
                         this.form.tags_id = this.form.tags_id ? Array.from(this.form.tags_id) : []
                     }
+                    this.hydrateMpCategoryPath()
                     this.changeAffectationIgvType()
                     this.changePurchaseAffectationIgvType()
                 })
             }
+        },
+
+        // Cubre casos donde el backend devolvió marketplace_category_id pero
+        // marketplace_category_path quedó vacío. Busca el path en el tree
+        // cargado y lo asigna.
+        hydrateMpCategoryPath() {
+            const id = this.form.marketplace_category_id
+            const currentPath = this.form.marketplace_category_path
+            if (!id) return
+            if (Array.isArray(currentPath) && currentPath.length
+                && Number(currentPath[currentPath.length - 1]) === Number(id)) {
+                return
+            }
+            const tree = this.mp_category_tree || []
+            const find = (nodes, target, acc) => {
+                for (const n of nodes) {
+                    const next = acc.concat([n.id])
+                    if (Number(n.id) === Number(target)) return next
+                    if (n.children && n.children.length) {
+                        const found = find(n.children, target, next)
+                        if (found) return found
+                    }
+                }
+                return null
+            }
+            const path = find(tree, id, [])
+            if (path) this.form.marketplace_category_path = path
         },
         loadMarketplaceCategoryTree() {
             if (this.mp_category_tree.length) return Promise.resolve()
