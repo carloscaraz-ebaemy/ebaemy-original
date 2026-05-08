@@ -32,6 +32,8 @@
                     <div class="d-flex align-items-center gap-2 mb-2">
                         <el-input v-model="opt.name" placeholder="Ej: Color" size="small"
                                   style="width:160px" />
+                        <span v-if="isColorOption(opt.name)" class="badge bg-info text-white small"
+                              style="font-size:10px;font-weight:600">🎨 con color</span>
                         <span class="text-muted small ms-1">Valores:</span>
                         <el-button size="mini" type="success" plain icon="el-icon-plus"
                                    @click="addValue(oi)" />
@@ -42,10 +44,14 @@
                          class="d-flex align-items-center gap-2 mb-1 ms-2">
                         <el-input v-model="val.value" placeholder="Ej: Rojo" size="mini"
                                   style="width:130px" />
-                        <el-color-picker v-model="val.color_hex" size="mini"
-                                         title="Color (solo si es opción de color)" />
+                        <el-color-picker v-if="isColorOption(opt.name)"
+                                         v-model="val.color_hex" size="mini"
+                                         title="Define el color para que aparezca como punto en las cards del marketplace" />
                         <el-button size="mini" plain icon="el-icon-close"
                                    @click="removeValue(oi, vi)" />
+                    </div>
+                    <div v-if="isColorOption(opt.name)" class="ms-2 mt-1" style="font-size:11px;color:#6b7280">
+                        💡 Define el color de cada valor. Aparecerá como punto/círculo en el listado del marketplace.
                     </div>
                 </div>
 
@@ -245,6 +251,16 @@ export default {
             this.editOptions[oi].values.push({
                 value: '', color_hex: null, position: this.editOptions[oi].values.length
             })
+        },
+
+        // Heurística por nombre: si la opción se llama "color" (en cualquier
+        // mayúscula/minúscula, con o sin acentos), activamos el color picker
+        // y los hints de UI específicos para colores.
+        isColorOption(name) {
+            if (!name) return false
+            const n = String(name).toLowerCase().trim()
+            return n === 'color' || n === 'colores' || n === 'colour'
+                || n.includes('color') || n.includes('colour')
         },
 
         removeValue(oi, vi) {

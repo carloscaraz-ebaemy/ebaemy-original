@@ -399,13 +399,33 @@
                                 <span class="mp-card-shop-name" title="Vendido por {{ $listing->seller_display }}">{{ $listing->seller_display }}</span>
                             </div>
 
-                            {{-- Thumbs de variantes con imagen propia. Hover sobre cada
-                                 thumb cambia la imagen principal de la card. --}}
-                            @if(!empty($listing->variant_thumbs) && $listing->variant_thumbs->count())
+                            {{-- Dots de color disponibles (estilo Falabella). Si el value
+                                 tiene image_url renderiza thumb mini, si no, círculo del color_hex. --}}
+                            @if(!empty($listing->color_dots) && $listing->color_dots->count())
+                                <div class="mp-card-colors" aria-label="Colores disponibles">
+                                    @foreach($listing->color_dots as $cd)
+                                        @if($cd->image_url)
+                                            <span class="mp-card-color-dot mp-card-color-dot--img"
+                                                  title="{{ $cd->value }}"
+                                                  data-img="{{ $cd->image_url }}">
+                                                <img src="{{ $cd->image_url }}" alt="{{ $cd->value }}" loading="lazy">
+                                            </span>
+                                        @elseif($cd->color_hex)
+                                            <span class="mp-card-color-dot mp-card-color-dot--hex"
+                                                  title="{{ $cd->value }}"
+                                                  style="background:{{ $cd->color_hex }}"></span>
+                                        @endif
+                                    @endforeach
+                                </div>
+                            @endif
+
+                            {{-- Thumbs de variantes con imagen propia (legacy: sigue activo
+                                 para items que NO tienen opción tipo "color" pero sí imágenes
+                                 por variante). Hover cambia la imagen principal de la card. --}}
+                            @if(empty($listing->color_dots) && !empty($listing->variant_thumbs) && $listing->variant_thumbs->count())
                                 <div class="mp-card-variants" aria-label="Variantes disponibles">
                                     @foreach($listing->variant_thumbs as $vt)
                                         <span class="mp-card-variant-dot"
-                                              :title="''"
                                               data-img="{{ $vt->image_url }}"
                                               title="{{ $vt->display_name }}">
                                             <img src="{{ $vt->image_url }}" alt="{{ $vt->display_name }}" loading="lazy">
@@ -558,7 +578,40 @@
     .mp-card-img[data-has-secondary="1"]:hover .mp-card-img-primary { opacity: 0; }
     .mp-card-img[data-has-secondary="1"]:hover .mp-card-img-secondary { opacity: 1; }
 
-    /* ───────── Variant dots/thumbs en cards ───────── */
+    /* ───────── Color dots en cards (estilo Falabella) ───────── */
+    .mp-card-colors {
+        display: flex; gap: 5px;
+        margin-top: 6px;
+        flex-wrap: wrap;
+        align-items: center;
+    }
+    .mp-card-color-dot {
+        width: 16px; height: 16px;
+        border-radius: 999px;
+        border: 1.5px solid #e5e7eb;
+        cursor: pointer;
+        transition: transform .12s, border-color .15s, box-shadow .15s;
+        flex-shrink: 0;
+        display: inline-block;
+        position: relative;
+        overflow: hidden;
+    }
+    .mp-card-color-dot:hover {
+        border-color: #0a0e1a;
+        transform: scale(1.18);
+        box-shadow: 0 2px 6px -2px rgba(0,0,0,.18);
+    }
+    .mp-card-color-dot--img img {
+        width: 100%; height: 100%;
+        object-fit: cover;
+        display: block;
+        border-radius: 999px;
+    }
+    @media (max-width: 480px) {
+        .mp-card-color-dot { width: 14px; height: 14px; }
+    }
+
+    /* ───────── Variant dots/thumbs en cards (legacy fallback) ───────── */
     .mp-card-variants {
         display: flex; gap: 4px;
         margin-top: 6px;
@@ -715,11 +768,11 @@ if (window.matchMedia('(max-width: 899px)').matches) {
     if (btn) btn.style.display = 'inline-block';
 }
 
-// Hover sobre dots de variante → cambia la imagen principal de la card.
-// Al salir del card, restaura la imagen original. data-img guarda la URL
-// de cada variante; el primary img guarda la URL original en data-orig.
+// Hover sobre dots (color o variante) → cambia la imagen principal de la
+// card. Solo los dots que tienen data-img cargan algo (los color hex sin
+// imagen no hacen nada al hover). Al salir del card, restaura la original.
 document.querySelectorAll('.mp-card').forEach(function (card) {
-    var dots = card.querySelectorAll('.mp-card-variant-dot');
+    var dots = card.querySelectorAll('.mp-card-variant-dot, .mp-card-color-dot[data-img]');
     if (!dots.length) return;
     var primary = card.querySelector('.mp-card-img-primary');
     if (!primary) return;

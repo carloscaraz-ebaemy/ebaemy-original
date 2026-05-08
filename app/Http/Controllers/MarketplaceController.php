@@ -76,8 +76,26 @@ class MarketplaceController extends Controller
                 ->get(['id', 'listing_id', 'tenant_variant_id', 'display_name', 'image_url'])
                 ->groupBy('listing_id');
 
+            // Color values: dots circulares en cards (estilo Falabella).
+            // Solo opciones tipo "color" con color_hex o image_url. La query
+            // hace el join porque los values viven en otra tabla.
+            $colorValuesByListing = \DB::connection('system')->table('marketplace_listing_option_values as v')
+                ->join('marketplace_listing_options as o', 'o.id', '=', 'v.option_id')
+                ->whereIn('o.listing_id', $listingIds)
+                ->whereRaw('LOWER(o.name) LIKE ?', ['%color%'])
+                ->where(function ($q) {
+                    $q->whereNotNull('v.color_hex')
+                      ->orWhereNotNull('v.image_url');
+                })
+                ->orderBy('o.listing_id')
+                ->orderBy('v.position')
+                ->select('o.listing_id', 'v.value', 'v.color_hex', 'v.image_url')
+                ->get()
+                ->groupBy('listing_id');
+
             foreach ($listings as $l) {
                 $l->variant_thumbs = $variantImages->get($l->id, collect())->take(4);
+                $l->color_dots     = $colorValuesByListing->get($l->id, collect())->take(5);
             }
         }
 
