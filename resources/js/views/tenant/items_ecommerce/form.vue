@@ -1195,6 +1195,10 @@ export default {
         },
         create() {
             this.titleDialog = (this.recordId) ? 'Editar Producto' : 'Nuevo Producto'
+            // El cascader de "Categoría" ahora es SIEMPRE visible (Opción C),
+            // así que el árbol oficial debe estar disponible aunque el item no
+            // esté publicado en marketplace ni siquiera para "Nuevo Producto".
+            this.loadMarketplaceCategoryTree()
             if (this.recordId) {
                 this.$http.get(`/${this.resource}/record/${this.recordId}`)
                     .then(response => {
@@ -1206,17 +1210,12 @@ export default {
                         }
                         this.has_percentage_perception = (this.form.percentage_perception) ? true : false
                         this.changeAffectationIgvType()
-                        // Si el item ya está marcado para marketplace, precargamos el
-                        // árbol oficial. Sin esta llamada explícita el watcher de
-                        // marketplace_publishable no dispara (no hay "cambio" — el
-                        // valor ya viene true del backend) y el cascader queda vacío.
-                        if (this.form.marketplace_publishable) {
-                            this.loadMarketplaceCategoryTree()
-                        }
                     })
             }
         },
         loadRecord() {
+            // Mismo principio: cargar el árbol oficial siempre.
+            this.loadMarketplaceCategoryTree()
             if (this.recordId) {
                 this.$http.get(`/${this.resource}/record/${this.recordId}`)
                     .then(response => {
@@ -1225,11 +1224,6 @@ export default {
                             this.form.marketplace_category_path = []
                         }
                         this.changeAffectationIgvType()
-                        // Si el item ya viene con marketplace activado, precarga el árbol
-                        // (el watcher no dispara porque el valor no "cambió" respecto al default).
-                        if (this.form.marketplace_publishable) {
-                            this.loadMarketplaceCategoryTree()
-                        }
                     })
             }
         },
