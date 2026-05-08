@@ -60,6 +60,27 @@ class MarketplaceController extends Controller
         }
 
         $listings   = $query->paginate(24)->withQueryString();
+
+        // Eager-load de variantes con imagen — solo las que tienen image_url
+        // para no traer ruido. La UI las renderiza como dots/thumbs en la card
+        // y permite cambiar la imagen al hover. Limitamos a 4 por listing
+        // para no inflar el HTML cuando hay muchas combinaciones.
+        $listingIds = $listings->pluck('id');
+        if ($listingIds->isNotEmpty()) {
+            $variantImages = \App\Models\System\MarketplaceListingVariant::query()
+                ->whereIn('listing_id', $listingIds)
+                ->where('is_active', true)
+                ->whereNotNull('image_url')
+                ->orderBy('listing_id')
+                ->orderBy('id')
+                ->get(['id', 'listing_id', 'tenant_variant_id', 'display_name', 'image_url'])
+                ->groupBy('listing_id');
+
+            foreach ($listings as $l) {
+                $l->variant_thumbs = $variantImages->get($l->id, collect())->take(4);
+            }
+        }
+
         $categories = MarketplaceListing::published()
             ->whereNotNull('category_name')
             ->select('category_name')

@@ -114,6 +114,21 @@ class MarketplaceListingSyncService
             ? 'https://' . $fqdn . '/storage/uploads/items/' . $item->image
             : null;
 
+        // Segunda imagen para efecto hover en cards del marketplace.
+        // Tomamos la primera fila de item_images (galería del producto)
+        // distinta de la principal del item. Si no hay galería, queda NULL
+        // y la UI cae al efecto hover normal sin cambio de imagen.
+        $secondImageFile = DB::connection('tenant')->table('item_images')
+            ->where('item_id', $item->id)
+            ->whereNotNull('image')
+            ->where('image', '!=', '')
+            ->when(!empty($item->image), fn($q) => $q->where('image', '!=', $item->image))
+            ->orderBy('id')
+            ->value('image');
+        $secondaryImageUrl = $secondImageFile
+            ? 'https://' . $fqdn . '/storage/uploads/items/' . $secondImageFile
+            : null;
+
         $categoryName = null;
         if (!empty($item->category_id)) {
             $categoryName = DB::connection('tenant')->table('categories')
@@ -154,6 +169,7 @@ class MarketplaceListingSyncService
             'short_description' => null,
             'description'       => $item->mp_notes ?? null,
             'image_url'         => $imageUrl,
+            'secondary_image_url' => $secondaryImageUrl,
             'category_name'     => $categoryName,
             'marketplace_category_id' => $item->marketplace_category_id ?? null,
             'brand_name'        => $brandName,

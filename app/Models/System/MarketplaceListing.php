@@ -30,6 +30,7 @@ class MarketplaceListing extends Model
         'short_description',
         'description',
         'image_url',
+        'secondary_image_url',
         'category_name',
         'marketplace_category_id',
         'brand_name',

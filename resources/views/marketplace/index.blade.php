@@ -334,9 +334,12 @@
                                          && \Carbon\Carbon::parse($listing->created_at)->gt(now()->subDays(14));
                     @endphp
                     <a href="{{ route('marketplace.item', $listing->slug) }}" class="mp-card">
-                        <div class="mp-card-img">
+                        <div class="mp-card-img" data-has-secondary="{{ $listing->secondary_image_url ? '1' : '0' }}">
                             @if($listing->image_url)
-                                <img src="{{ $listing->image_url }}" alt="{{ $listing->title }}" loading="lazy">
+                                <img class="mp-card-img-primary" src="{{ $listing->image_url }}" alt="{{ $listing->title }}" loading="lazy">
+                                @if($listing->secondary_image_url)
+                                    <img class="mp-card-img-secondary" src="{{ $listing->secondary_image_url }}" alt="" loading="lazy" aria-hidden="true">
+                                @endif
                             @else
                                 <div class="mp-card-img-empty">Sin imagen</div>
                             @endif
@@ -395,6 +398,21 @@
                                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9h18"/><path d="m3 9 1.5-6h15L21 9"/><path d="M3 9v10a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V9"/></svg>
                                 <span class="mp-card-shop-name" title="Vendido por {{ $listing->seller_display }}">{{ $listing->seller_display }}</span>
                             </div>
+
+                            {{-- Thumbs de variantes con imagen propia. Hover sobre cada
+                                 thumb cambia la imagen principal de la card. --}}
+                            @if(!empty($listing->variant_thumbs) && $listing->variant_thumbs->count())
+                                <div class="mp-card-variants" aria-label="Variantes disponibles">
+                                    @foreach($listing->variant_thumbs as $vt)
+                                        <span class="mp-card-variant-dot"
+                                              :title="''"
+                                              data-img="{{ $vt->image_url }}"
+                                              title="{{ $vt->display_name }}">
+                                            <img src="{{ $vt->image_url }}" alt="{{ $vt->display_name }}" loading="lazy">
+                                        </span>
+                                    @endforeach
+                                </div>
+                            @endif
                         </div>
                     </a>
                 @endforeach
@@ -528,6 +546,48 @@
     .mp-card-img img { transition: transform .35s ease; }
     .mp-card:hover .mp-card-img img { transform: scale(1.04); }
 
+    /* ───────── Hover-image: muestra la 2da foto al pasar el cursor ───────── */
+    .mp-card-img-primary,
+    .mp-card-img-secondary {
+        position: absolute; top: 0; left: 0;
+        width: 100%; height: 100%;
+        object-fit: cover;
+        transition: opacity .25s ease, transform .35s ease;
+    }
+    .mp-card-img-secondary { opacity: 0; }
+    .mp-card-img[data-has-secondary="1"]:hover .mp-card-img-primary { opacity: 0; }
+    .mp-card-img[data-has-secondary="1"]:hover .mp-card-img-secondary { opacity: 1; }
+
+    /* ───────── Variant dots/thumbs en cards ───────── */
+    .mp-card-variants {
+        display: flex; gap: 4px;
+        margin-top: 6px;
+        flex-wrap: wrap;
+    }
+    .mp-card-variant-dot {
+        width: 22px; height: 22px;
+        border-radius: 6px;
+        overflow: hidden;
+        border: 1.5px solid #e5e7eb;
+        background: #f9fafb;
+        cursor: pointer;
+        transition: border-color .15s, transform .12s;
+        flex-shrink: 0;
+    }
+    .mp-card-variant-dot img {
+        width: 100%; height: 100%;
+        object-fit: cover;
+        display: block;
+        transition: transform .15s;
+    }
+    .mp-card-variant-dot:hover {
+        border-color: var(--mp-primary, #0f8a82);
+        transform: scale(1.12);
+    }
+    @media (max-width: 640px) {
+        .mp-card-variant-dot { width: 20px; height: 20px; }
+    }
+
     /* CTA "Comprar" overlay que aparece al hover (desktop). En móvil queda fijo abajo */
     .mp-card-cta {
         position: absolute;
@@ -654,6 +714,32 @@ if (window.matchMedia('(max-width: 899px)').matches) {
     var btn = document.getElementById('mpFiltersClose');
     if (btn) btn.style.display = 'inline-block';
 }
+
+// Hover sobre dots de variante → cambia la imagen principal de la card.
+// Al salir del card, restaura la imagen original. data-img guarda la URL
+// de cada variante; el primary img guarda la URL original en data-orig.
+document.querySelectorAll('.mp-card').forEach(function (card) {
+    var dots = card.querySelectorAll('.mp-card-variant-dot');
+    if (!dots.length) return;
+    var primary = card.querySelector('.mp-card-img-primary');
+    if (!primary) return;
+    var origSrc = primary.getAttribute('src');
+    dots.forEach(function (dot) {
+        dot.addEventListener('mouseenter', function (e) {
+            e.preventDefault();
+            var url = dot.getAttribute('data-img');
+            if (url) primary.src = url;
+        });
+        // Evita que al click en el dot navegue al detalle (es solo hover preview)
+        dot.addEventListener('click', function (e) {
+            e.preventDefault();
+            e.stopPropagation();
+        });
+    });
+    card.addEventListener('mouseleave', function () {
+        primary.src = origSrc;
+    });
+});
 
 // Inyectar CTA "Comprar" en cada card de producto sin duplicar markup en el blade
 document.querySelectorAll('.mp-card .mp-card-img').forEach(function (img) {
