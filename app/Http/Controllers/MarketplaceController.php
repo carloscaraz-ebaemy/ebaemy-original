@@ -102,7 +102,27 @@ class MarketplaceController extends Controller
                 })
                 ->orderBy('o.listing_id')
                 ->orderBy('v.position')
-                ->select('o.listing_id', 'v.value', 'v.color_hex')
+                ->select(
+                    'o.listing_id',
+                    'v.value',
+                    'v.color_hex',
+                    // Imagen de la primera variante activa con stock>0 que use
+                    // este color. Permite que el dot dispare hover-image en la
+                    // card (antes solo lo hacían los variant_thumbs y por eso
+                    // los productos con color_dots no cambiaban de imagen).
+                    \DB::connection('system')->raw('(
+                        SELECT lv.image_url
+                        FROM marketplace_listing_variant_values vv
+                        INNER JOIN marketplace_listing_variants lv
+                            ON lv.id = vv.listing_variant_id
+                        WHERE vv.option_value_id = v.id
+                          AND lv.is_active = 1
+                          AND lv.stock > 0
+                          AND lv.image_url IS NOT NULL
+                        ORDER BY lv.id ASC
+                        LIMIT 1
+                    ) AS image_url')
+                )
                 ->get()
                 ->groupBy('listing_id');
 

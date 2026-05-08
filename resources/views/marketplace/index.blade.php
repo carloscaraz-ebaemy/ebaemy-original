@@ -406,6 +406,7 @@
                                 <div class="mp-card-colors" aria-label="Colores disponibles">
                                     @foreach($listing->color_dots as $cd)
                                         <span class="mp-card-color-dot mp-card-color-dot--hex"
+                                              @if(!empty($cd->image_url)) data-img="{{ $cd->image_url }}" @endif
                                               title="{{ $cd->value }}"
                                               style="background:{{ $cd->color_hex }}"></span>
                                     @endforeach
