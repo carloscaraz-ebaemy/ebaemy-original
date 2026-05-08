@@ -215,6 +215,9 @@
                                         Verificado
                                     </span>
                                 @endif
+                                @if(!empty($listing->is_on_offer) && !empty($listing->discount_pct))
+                                    <span class="mp-badge mp-badge--offer" title="En oferta">-{{ $listing->discount_pct }}%</span>
+                                @endif
                             </div>
 
                         </div>
@@ -231,7 +234,19 @@
                             @endif
 
                             <div class="mp-card-price-row">
-                                <span class="mp-card-price">@if($listing->display_price > 0)S/ {{ number_format($listing->display_price, 2) }}@else<span style="color:#6b7280;font-size:13px;font-weight:500">Consultar precio</span>@endif</span>
+                                @if($listing->display_price > 0)
+                                    @if(!empty($listing->has_variants))
+                                        <span class="mp-card-price-prefix">Desde</span>
+                                        <span class="mp-card-price">S/ {{ number_format($listing->min_price ?? $listing->display_price, 2) }}</span>
+                                    @else
+                                        <span class="mp-card-price">S/ {{ number_format($listing->display_price, 2) }}</span>
+                                        @if(!empty($listing->is_on_offer) && !empty($listing->original_price) && $listing->original_price > $listing->display_price)
+                                            <span class="mp-card-price-old">S/ {{ number_format($listing->original_price, 2) }}</span>
+                                        @endif
+                                    @endif
+                                @else
+                                    <span style="color:#6b7280;font-size:13px;font-weight:500">Consultar precio</span>
+                                @endif
                             </div>
 
                             <div class="mp-card-shop">
@@ -393,6 +408,22 @@
     }
     .mp-card-body { padding: 12px 12px 14px; }
     .mp-card-price { font-size: 17px; font-weight: 800; color: #0a0e1a; }
+    .mp-card-price-prefix {
+        font-size: 11px; font-weight: 600;
+        color: #6b7280; text-transform: uppercase;
+        letter-spacing: .3px; margin-right: 4px;
+    }
+    .mp-card-price-old {
+        font-size: 12.5px; font-weight: 500;
+        color: #9ca3af; text-decoration: line-through;
+        margin-left: 6px;
+    }
+    .mp-badge--offer {
+        background: linear-gradient(135deg, #ef4444, #dc2626);
+        color: #fff;
+        font-weight: 800;
+        letter-spacing: .3px;
+    }
 
     /* ───────────── Grid 2 cols en móvil, 4-5 cols en desktop ───────────── */
     .mp-grid {

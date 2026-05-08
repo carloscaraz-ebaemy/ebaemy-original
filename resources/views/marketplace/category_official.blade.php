@@ -168,6 +168,9 @@
                                         Verificado
                                     </span>
                                 @endif
+                                @if(!empty($listing->is_on_offer) && !empty($listing->discount_pct))
+                                    <span class="mp-badge mp-badge--offer" style="background:linear-gradient(135deg,#ef4444,#dc2626);color:#fff;font-weight:800">-{{ $listing->discount_pct }}%</span>
+                                @endif
                             </div>
                         </div>
                         <div class="mp-card-body">
@@ -181,7 +184,19 @@
                                 </div>
                             @endif
                             <div class="mp-card-price-row">
-                                <span class="mp-card-price">@if($listing->display_price > 0)S/ {{ number_format($listing->display_price, 2) }}@else<span style="color:#6b7280;font-size:13px;font-weight:500">Consultar precio</span>@endif</span>
+                                @if($listing->display_price > 0)
+                                    @if(!empty($listing->has_variants))
+                                        <span style="font-size:11px;font-weight:600;color:#6b7280;text-transform:uppercase;margin-right:4px">Desde</span>
+                                        <span class="mp-card-price">S/ {{ number_format($listing->min_price ?? $listing->display_price, 2) }}</span>
+                                    @else
+                                        <span class="mp-card-price">S/ {{ number_format($listing->display_price, 2) }}</span>
+                                        @if(!empty($listing->is_on_offer) && !empty($listing->original_price) && $listing->original_price > $listing->display_price)
+                                            <span style="font-size:12.5px;color:#9ca3af;text-decoration:line-through;margin-left:6px">S/ {{ number_format($listing->original_price, 2) }}</span>
+                                        @endif
+                                    @endif
+                                @else
+                                    <span style="color:#6b7280;font-size:13px;font-weight:500">Consultar precio</span>
+                                @endif
                             </div>
                             <div class="mp-card-shop">
                                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9h18"/><path d="m3 9 1.5-6h15L21 9"/><path d="M3 9v10a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V9"/></svg>
