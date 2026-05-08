@@ -53,6 +53,40 @@
                     <div v-if="isColorOption(opt.name)" class="ms-2 mt-1" style="font-size:11px;color:#6b7280">
                         💡 Define el color de cada valor. Aparecerá como punto/círculo en el listado del marketplace.
                     </div>
+
+                    <!-- Chips predefinidos: el seller agrega valores comunes con un click -->
+                    <template v-if="isColorOption(opt.name)">
+                        <div class="vt-pre-label">⚡ Agregar rápido (click para añadir):</div>
+                        <div class="vt-pre-chips">
+                            <button v-for="pc in preColors" :key="pc.value"
+                                    type="button"
+                                    class="vt-chip vt-chip--color"
+                                    :title="pc.value"
+                                    @click="addPredefined(oi, pc)">
+                                <span class="vt-chip__swatch" :style="{ background: pc.color_hex }"></span>
+                                {{ pc.value }}
+                            </button>
+                        </div>
+                    </template>
+
+                    <template v-if="isSizeOption(opt.name)">
+                        <div class="vt-pre-label">⚡ Agregar rápido — Tallas de ropa:</div>
+                        <div class="vt-pre-chips">
+                            <button v-for="s in preSizesClothing" :key="'c'+s"
+                                    type="button" class="vt-chip"
+                                    @click="addPredefined(oi, { value: s, color_hex: null })">
+                                {{ s }}
+                            </button>
+                        </div>
+                        <div class="vt-pre-label">⚡ Calzado:</div>
+                        <div class="vt-pre-chips">
+                            <button v-for="s in preSizesShoes" :key="'sh'+s"
+                                    type="button" class="vt-chip"
+                                    @click="addPredefined(oi, { value: s, color_hex: null })">
+                                {{ s }}
+                            </button>
+                        </div>
+                    </template>
                 </div>
 
                 <el-button size="small" plain icon="el-icon-plus" @click="addOption">
@@ -212,6 +246,31 @@ export default {
             // Headers para uploads autenticados (Sanctum/CSRF) — la global
             // headers_token la setea el layout principal del tenant.
             headers: typeof headers_token !== 'undefined' ? headers_token : {},
+
+            // Paletas predefinidas para que el seller agregue valores con
+            // un click en lugar de teclear nombre + abrir color picker.
+            // Cubren los casos típicos de ropa/calzado/accesorios.
+            preColors: [
+                { value: 'Rojo',     color_hex: '#dc2626' },
+                { value: 'Negro',    color_hex: '#0a0a0a' },
+                { value: 'Blanco',   color_hex: '#ffffff' },
+                { value: 'Gris',     color_hex: '#6b7280' },
+                { value: 'Azul',     color_hex: '#2563eb' },
+                { value: 'Celeste',  color_hex: '#0ea5e9' },
+                { value: 'Verde',    color_hex: '#16a34a' },
+                { value: 'Amarillo', color_hex: '#eab308' },
+                { value: 'Naranja',  color_hex: '#ea580c' },
+                { value: 'Rosa',     color_hex: '#ec4899' },
+                { value: 'Morado',   color_hex: '#9333ea' },
+                { value: 'Marrón',   color_hex: '#78350f' },
+                { value: 'Beige',    color_hex: '#d6b88a' },
+                { value: 'Mostaza',  color_hex: '#ca8a04' },
+                { value: 'Vino',     color_hex: '#7f1d1d' },
+                { value: 'Plomo',    color_hex: '#9ca3af' },
+            ],
+            preSizesClothing: ['XS', 'S', 'M', 'L', 'XL', '2XL', '3XL', 'ÚNICA'],
+            preSizesShoes:    ['35', '36', '37', '38', '39', '40', '41', '42', '43', '44'],
+            preSizesNumeric:  ['1', '2', '3', '4', '5', '6'],
         }
     },
 
@@ -261,6 +320,36 @@ export default {
             const n = String(name).toLowerCase().trim()
             return n === 'color' || n === 'colores' || n === 'colour'
                 || n.includes('color') || n.includes('colour')
+        },
+
+        // Detecta si la opción es de "talla" para mostrar chips XS/S/M/L/etc.
+        isSizeOption(name) {
+            if (!name) return false
+            const n = String(name).toLowerCase().trim()
+            return n === 'talla' || n === 'tallas' || n === 'size' || n === 'sizes'
+                || n.includes('talla') || n.includes('size')
+        },
+
+        // Agrega un valor predefinido al final del listado de la opción `oi`.
+        // De-duplica por value (case-insensitive) para no insertar el mismo
+        // 2 veces si el seller hace click 2 veces en el mismo chip.
+        addPredefined(oi, predefined) {
+            const opt = this.editOptions[oi]
+            if (!opt) return
+            const newVal  = String(predefined.value || '').trim()
+            if (!newVal) return
+            const exists = opt.values.some(v =>
+                String(v.value || '').toLowerCase().trim() === newVal.toLowerCase()
+            )
+            if (exists) {
+                this.$message.info(`"${newVal}" ya está en la lista.`)
+                return
+            }
+            opt.values.push({
+                value:     newVal,
+                color_hex: predefined.color_hex || null,
+                position:  opt.values.length,
+            })
         },
 
         removeValue(oi, vi) {
@@ -473,5 +562,41 @@ export default {
     border-color: #10b981;
     color: #065f46;
     background: #ecfdf5;
+}
+
+/* ─────── Chips de valores predefinidos (colores/tallas) ─────── */
+.vt-pre-label {
+    font-size: 11px; font-weight: 600;
+    color: #475569; text-transform: uppercase;
+    letter-spacing: .3px;
+    margin: 8px 0 4px 8px;
+}
+.vt-pre-chips {
+    display: flex; flex-wrap: wrap; gap: 4px;
+    margin: 0 8px 6px;
+}
+.vt-chip {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 3px 9px;
+    font-size: 11.5px; font-weight: 600;
+    color: #1f2937;
+    background: #fff;
+    border: 1px solid #d1d5db;
+    border-radius: 999px;
+    cursor: pointer;
+    transition: border-color .12s, background .12s, transform .1s;
+}
+.vt-chip:hover {
+    border-color: #10b981;
+    background: #ecfdf5;
+    color: #065f46;
+    transform: translateY(-1px);
+}
+.vt-chip__swatch {
+    display: inline-block;
+    width: 12px; height: 12px;
+    border-radius: 999px;
+    border: 1px solid rgba(0,0,0,.08);
+    flex-shrink: 0;
 }
 </style>
