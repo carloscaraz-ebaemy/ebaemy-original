@@ -47,24 +47,36 @@ class MarketplaceListing extends Model
         'is_featured',
         'featured_until',
         'featured_score',
+        // Fase 0 — sync de descuentos del tenant al marketplace.
+        // is_on_offer/original_price/offer_ends_at/discount_pct se calculan
+        // en MarketplaceListingSyncService::buildPayload aplicando el
+        // PromotionEngine del tenant con canal 'marketplace'.
+        'is_on_offer',
+        'original_price',
+        'offer_ends_at',
+        'discount_pct',
     ];
 
     protected $casts = [
         'is_active'       => 'boolean',
         'tenant_verified' => 'boolean',
         'is_featured'     => 'boolean',
+        'is_on_offer'     => 'boolean',
         'price'           => 'float',
         'mp_price'        => 'float',
+        'original_price'  => 'float',
         'stock'           => 'integer',
         'view_count'      => 'integer',
         'lead_count'      => 'integer',
         'click_count'     => 'integer',
         'sort_score'      => 'integer',
         'featured_score'  => 'integer',
+        'discount_pct'    => 'integer',
         'avg_rating'      => 'float',
         'rating_count'    => 'integer',
         'synced_at'       => 'datetime',
         'featured_until'  => 'datetime',
+        'offer_ends_at'   => 'datetime',
     ];
 
     public function hostname()
@@ -107,6 +119,19 @@ class MarketplaceListing extends Model
                      ->where(function ($q) {
                          $q->whereNull('featured_until')
                            ->orWhere('featured_until', '>', now());
+                     });
+    }
+
+    /**
+     * Listings con oferta vigente: flag is_on_offer=true Y la promo no
+     * expiró (offer_ends_at NULL o futuro). Encadenar con published().
+     */
+    public function scopeOnOffer($query)
+    {
+        return $query->where('is_on_offer', true)
+                     ->where(function ($q) {
+                         $q->whereNull('offer_ends_at')
+                           ->orWhere('offer_ends_at', '>', now());
                      });
     }
 
