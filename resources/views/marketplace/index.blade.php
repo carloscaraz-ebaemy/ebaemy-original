@@ -28,57 +28,39 @@
     }
 @endphp
 
-{{-- ═══════════════════════ HERO COMERCIAL ═══════════════════════ --}}
+{{-- ═══════════════════════ HERO COMPACTO (SaaS 2026 marketplace UX) ═══════════════════════ --}}
 @if($isHome)
-    <section class="mp-hero">
-        <div>
-            <span class="mp-hero-urgency">🔥 Ofertas por tiempo limitado</span>
-            <h1>Descubre miles de productos<br>de tiendas verificadas 🇵🇪</h1>
-            <p>Compra con confianza, paga seguro y recibe en todo el Perú. Empresas reales con RUC validado.</p>
+    <section class="mp-hero mp-hero--compact">
+        <div class="mp-hero-compact-inner">
+            <span class="mp-hero-urgency">🔥 Ofertas activas hoy</span>
+            <h1>Miles de productos<br class="mp-hero-br-mobile"> de tiendas verificadas 🇵🇪</h1>
             <div class="mp-hero-actions">
                 <a href="#productos" class="mp-btn mp-btn-primary">
                     Comprar ahora
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
                 </a>
-                <a href="{{ route('marketplace.index', ['sort' => 'price_asc']) }}" class="mp-btn mp-btn-outline">
-                    Ver ofertas
-                </a>
-            </div>
-        </div>
-
-        {{-- Cards decorativas flotantes comerciales --}}
-        <div class="mp-hero-visual" aria-hidden="true">
-            <div class="mp-hero-card-stack" style="position:relative;height:280px">
-                <div class="mp-hero-float mp-hero-float--1">
-                    <div class="mp-hero-float-icon offer">
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12V2H4v10l8 10 8-10z"/></svg>
-                    </div>
-                    <div>
-                        <div class="mp-hero-float-label">Descuentos</div>
-                        <div class="mp-hero-float-value">Hasta -40%</div>
-                    </div>
-                </div>
-                <div class="mp-hero-float mp-hero-float--2">
-                    <div class="mp-hero-float-icon popular">
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3v18"/><path d="M6 9l6 6 6-6"/></svg>
-                    </div>
-                    <div>
-                        <div class="mp-hero-float-label">Más populares</div>
-                        <div class="mp-hero-float-value">Top ventas</div>
-                    </div>
-                </div>
-                <div class="mp-hero-float mp-hero-float--3">
-                    <div class="mp-hero-float-icon free">
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="13" height="10" rx="2"/><path d="M15 9h5l2 4v4h-7V9z"/><circle cx="7" cy="17" r="2"/><circle cx="17" cy="17" r="2"/></svg>
-                    </div>
-                    <div>
-                        <div class="mp-hero-float-label">Envío</div>
-                        <div class="mp-hero-float-value">A todo Perú</div>
-                    </div>
-                </div>
+                <a href="{{ route('marketplace.index', ['sort' => 'price_asc']) }}" class="mp-btn mp-btn-outline mp-hero-btn-secondary">Ver ofertas</a>
             </div>
         </div>
     </section>
+
+    <style>
+        .mp-hero--compact { padding: 28px 0 18px; min-height: auto !important; }
+        .mp-hero-compact-inner {
+            max-width: 720px; margin: 0 auto; text-align: center;
+            display: flex; flex-direction: column; align-items: center; gap: 14px;
+        }
+        .mp-hero--compact h1 { font-size: clamp(22px, 4vw, 34px); line-height: 1.2; margin: 0; }
+        .mp-hero--compact .mp-hero-actions { margin: 4px 0 0; gap: 10px; }
+        .mp-hero-br-mobile { display: none; }
+        @media (max-width: 640px) {
+            .mp-hero--compact { padding: 18px 0 12px; }
+            .mp-hero-br-mobile { display: inline; }
+            .mp-hero-btn-secondary { display: none; } /* en móvil sólo CTA primario */
+            .mp-hero--compact h1 { font-size: 20px; }
+            .mp-hero-urgency { font-size: 11.5px; }
+        }
+    </style>
 @endif
 
 {{-- ═══════════════════════ TRUST BAR STICKY ═══════════════════════ --}}
@@ -111,163 +93,105 @@
     </div>
 </section>
 
-{{-- ═══════════════════════ CATEGORÍAS + SUBCATEGORÍAS (Fase D v2) ═══════════════════════ --}}
+{{-- ═══════════════════════ CATEGORÍAS — CARRUSEL HORIZONTAL ═══════════════════════ --}}
 @if(!empty($officialRoots) && $officialRoots->count())
-    <section class="mp-section mp-cats-block">
-        <div class="mp-section-head">
-            <div>
-                <h2 class="mp-section-title">
-                    <span class="mp-section-title-emoji">🗂️</span>
-                    Categorías
-                </h2>
-                <p class="mp-section-subtitle">Encuentra lo que buscas en segundos.</p>
-            </div>
+    <section class="mp-section mp-cats-rail-section" aria-label="Explorar por categoría">
+        <div class="mp-cats-rail-head">
+            <h2 class="mp-cats-rail-title">Categorías</h2>
+            <a href="#productos" class="mp-cats-rail-cta">Ver productos →</a>
         </div>
-
-        <div class="mp-cats-grid">
-            @foreach($officialRoots as $root)
-                @php $rootHref = url('/marketplace/c/' . $root->full_slug); @endphp
-                <details class="mp-cat-card" open>
-                    <summary class="mp-cat-card__head">
-                        <span class="mp-cat-card__icon">{{ $root->icon ?: '📦' }}</span>
-                        <span class="mp-cat-card__name">{{ $root->name }}</span>
+        <div class="mp-cats-rail-wrap">
+            <button type="button" class="mp-cats-rail-arrow mp-cats-rail-arrow--prev" aria-label="Anterior" data-rail-dir="-1">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+            </button>
+            <div class="mp-cats-rail" id="mpCatsRail">
+                @foreach($officialRoots as $root)
+                    <a href="{{ url('/marketplace/c/' . $root->full_slug) }}" class="mp-cat-pill">
+                        <span class="mp-cat-pill__icon">{{ $root->icon ?: '📦' }}</span>
+                        <span class="mp-cat-pill__name">{{ $root->name }}</span>
                         @if($root->listings_count_cache)
-                            <span class="mp-cat-card__count">{{ $root->listings_count_cache }}</span>
+                            <span class="mp-cat-pill__count">{{ $root->listings_count_cache }}</span>
                         @endif
-                        <svg class="mp-cat-card__chev" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
-                    </summary>
-
-                    <div class="mp-cat-card__body">
-                        @if($root->children && $root->children->count())
-                            <ul class="mp-subcat-list">
-                                @foreach($root->children->take(10) as $child)
-                                    <li>
-                                        <a href="{{ url('/marketplace/c/' . $child->full_slug) }}" class="mp-subcat-link">
-                                            @if($child->icon)<span class="mp-subcat-icon">{{ $child->icon }}</span>@endif
-                                            <span class="mp-subcat-name">{{ $child->name }}</span>
-                                            @if($child->listings_count_cache)
-                                                <span class="mp-subcat-count">{{ $child->listings_count_cache }}</span>
-                                            @endif
-                                        </a>
-                                    </li>
-                                @endforeach
-                            </ul>
-                            @if($root->children->count() > 10)
-                                <a href="{{ $rootHref }}" class="mp-subcat-more">Ver todas las subcategorías ({{ $root->children->count() }}) →</a>
-                            @else
-                                <a href="{{ $rootHref }}" class="mp-subcat-more">Ver todo en {{ $root->name }} →</a>
-                            @endif
-                        @else
-                            <a href="{{ $rootHref }}" class="mp-subcat-more">Ver productos en {{ $root->name }} →</a>
-                        @endif
-                    </div>
-                </details>
-            @endforeach
+                    </a>
+                @endforeach
+            </div>
+            <button type="button" class="mp-cats-rail-arrow mp-cats-rail-arrow--next" aria-label="Siguiente" data-rail-dir="1">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+            </button>
         </div>
     </section>
 
     <style>
-        .mp-cats-block { padding-bottom: 8px; }
-        .mp-cats-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-            gap: 14px;
+        .mp-cats-rail-section { padding: 4px 0 18px; }
+        .mp-cats-rail-head {
+            display: flex; align-items: baseline; justify-content: space-between;
+            margin-bottom: 10px;
         }
-        .mp-cat-card {
+        .mp-cats-rail-title { font-size: 16px; font-weight: 700; color: #111827; margin: 0; }
+        .mp-cats-rail-cta { font-size: 12.5px; font-weight: 600; color: var(--mp-primary, #0f8a82); text-decoration: none; }
+        .mp-cats-rail-cta:hover { text-decoration: underline; }
+        .mp-cats-rail-wrap { position: relative; }
+        .mp-cats-rail {
+            display: flex; gap: 10px;
+            overflow-x: auto;
+            scroll-snap-type: x mandatory;
+            scroll-behavior: smooth;
+            padding: 4px 2px 12px;
+            scrollbar-width: thin;
+        }
+        .mp-cats-rail::-webkit-scrollbar { height: 6px; }
+        .mp-cats-rail::-webkit-scrollbar-thumb { background: rgba(0,0,0,.1); border-radius: 999px; }
+        .mp-cat-pill {
+            flex: 0 0 auto;
+            scroll-snap-align: start;
+            display: inline-flex; align-items: center; gap: 8px;
+            padding: 10px 16px;
             background: #fff;
             border: 1px solid #e5e7eb;
-            border-radius: 14px;
-            overflow: hidden;
-            transition: border-color .15s, box-shadow .15s;
+            border-radius: 999px;
+            text-decoration: none; color: #1f2937;
+            font-size: 13.5px; font-weight: 600;
+            white-space: nowrap;
+            transition: border-color .15s, transform .15s, box-shadow .15s, background .15s;
         }
-        .mp-cat-card[open] { border-color: var(--mp-primary, #0f8a82); box-shadow: 0 6px 18px -10px rgba(15,138,130,.25); }
-        .mp-cat-card__head {
-            display: flex; align-items: center; gap: 10px;
-            padding: 14px 16px;
-            cursor: pointer;
-            user-select: none;
-            list-style: none;
+        .mp-cat-pill:hover {
+            border-color: var(--mp-primary, #0f8a82);
+            color: var(--mp-primary-dark, #0a6f68);
+            background: #f0fdfa;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 10px -6px rgba(15,138,130,.35);
         }
-        .mp-cat-card__head::-webkit-details-marker { display: none; }
-        .mp-cat-card__icon { font-size: 22px; line-height: 1; }
-        .mp-cat-card__name { font-size: 15px; font-weight: 700; color: #111827; flex: 1; }
-        .mp-cat-card__count {
+        .mp-cat-pill__icon { font-size: 16px; line-height: 1; }
+        .mp-cat-pill__count {
             background: #f3f4f6; color: #6b7280;
-            font-size: 11px; font-weight: 600;
-            padding: 2px 8px; border-radius: 999px;
+            font-size: 11px; font-weight: 700;
+            padding: 1px 7px; border-radius: 999px;
         }
-        .mp-cat-card[open] .mp-cat-card__count { background: rgba(15,138,130,.1); color: var(--mp-primary, #0f8a82); }
-        .mp-cat-card__chev { color: #9ca3af; transition: transform .2s; flex-shrink: 0; }
-        .mp-cat-card[open] .mp-cat-card__chev { transform: rotate(180deg); color: var(--mp-primary, #0f8a82); }
-        .mp-cat-card__body { padding: 4px 12px 14px; border-top: 1px dashed #f1f5f9; }
-        .mp-subcat-list { list-style: none; margin: 0; padding: 6px 0 0; display: flex; flex-direction: column; gap: 2px; }
-        .mp-subcat-link {
-            display: flex; align-items: center; gap: 8px;
-            padding: 8px 8px;
-            border-radius: 8px;
-            text-decoration: none;
-            color: #374151;
-            font-size: 13.5px;
-            transition: background .12s, color .12s;
+        .mp-cat-pill:hover .mp-cat-pill__count {
+            background: rgba(15,138,130,.12); color: var(--mp-primary-dark, #0a6f68);
         }
-        .mp-subcat-link:hover { background: #f0fdfa; color: var(--mp-primary, #0f8a82); }
-        .mp-subcat-icon { font-size: 14px; }
-        .mp-subcat-name { flex: 1; }
-        .mp-subcat-count { font-size: 11px; color: #9ca3af; }
-        .mp-subcat-more {
-            display: inline-block; margin: 8px 8px 0;
-            font-size: 12.5px; font-weight: 600;
-            color: var(--mp-primary, #0f8a82); text-decoration: none;
+        .mp-cats-rail-arrow {
+            position: absolute; top: 50%; transform: translateY(-50%);
+            z-index: 2;
+            width: 36px; height: 36px;
+            background: #fff; border: 1px solid #e5e7eb; border-radius: 999px;
+            display: flex; align-items: center; justify-content: center;
+            cursor: pointer; color: #6b7280;
+            box-shadow: 0 4px 12px -4px rgba(0,0,0,.08);
+            transition: color .15s, border-color .15s;
         }
-        .mp-subcat-more:hover { text-decoration: underline; }
-
-        @media (max-width: 640px) {
-            .mp-cats-grid { grid-template-columns: 1fr; gap: 10px; }
-            .mp-cat-card__head { padding: 12px 14px; }
-            .mp-cat-card__name { font-size: 14.5px; }
-            .mp-subcat-link { padding: 10px 8px; font-size: 14px; } /* tap targets más grandes */
+        .mp-cats-rail-arrow:hover { color: var(--mp-primary, #0f8a82); border-color: var(--mp-primary, #0f8a82); }
+        .mp-cats-rail-arrow--prev { left: -8px; }
+        .mp-cats-rail-arrow--next { right: -8px; }
+        @media (max-width: 768px) {
+            .mp-cats-rail-arrow { display: none; } /* en móvil basta el swipe */
+            .mp-cat-pill { padding: 9px 14px; font-size: 13px; }
         }
     </style>
 @endif
 
-{{-- ═══════════════════════ TIENDAS DESTACADAS (solo home) ═══════════════════════ --}}
-@if($featuredShops->count() >= 3)
-    <section class="mp-section">
-        <div class="mp-section-head">
-            <div>
-                <h2 class="mp-section-title">
-                    <span class="mp-section-title-emoji">🏪</span>
-                    Tiendas destacadas
-                </h2>
-                <p class="mp-section-subtitle">Empresas peruanas reales con RUC verificado vendiendo en ebaemy.</p>
-            </div>
-        </div>
-        <div class="mp-shops-row">
-            @foreach($featuredShops as $shop)
-                <a href="https://{{ $shop->tenant_fqdn }}" target="_blank" rel="noopener" class="mp-shop-card">
-                    <div class="mp-shop-card-logo">
-                        @if(!empty($shop->tenant_logo_url))
-                            <img src="{{ $shop->tenant_logo_url }}" alt="{{ $shop->seller_display }}">
-                        @else
-                            <span class="mp-shop-card-logo-fallback">{{ mb_strtoupper(mb_substr($shop->seller_display, 0, 2)) }}</span>
-                        @endif
-                    </div>
-                    <h3 class="mp-shop-card-name">{{ \Illuminate\Support\Str::limit($shop->seller_display, 34) }}</h3>
-                    @if(!empty($shop->tenant_verified))
-                        <span class="mp-shop-card-meta">
-                            <svg width="10" height="10" viewBox="0 0 24 24" fill="#2563eb"><path d="M12 2l2.39 5.42L20 8.27l-4 4.15.94 5.58L12 15.77l-4.94 2.23L8 12.42 4 8.27l5.61-.85L12 2z"/></svg>
-                            Verificada
-                        </span>
-                    @endif
-                    <span class="mp-shop-card-cta">
-                        Ver tienda
-                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
-                    </span>
-                </a>
-            @endforeach
-        </div>
-    </section>
-@endif
+{{-- Tiendas destacadas se muestran DESPUÉS del listado de productos para no
+     desplazar la fila de productos por debajo del fold (UX 2026: productos primero). --}}
 
 {{-- ═══════════════════════ BREADCRUMB (resultados filtrados) ═══════════════════════ --}}
 @if($q || $category)
@@ -478,18 +402,201 @@
     </div>
 </div>
 
+{{-- ═══════════════════════ TIENDAS DESTACADAS (después de productos) ═══════════════════════ --}}
+@if($featuredShops->count() >= 3)
+    <section class="mp-section">
+        <div class="mp-section-head">
+            <div>
+                <h2 class="mp-section-title">
+                    <span class="mp-section-title-emoji">🏪</span>
+                    Tiendas destacadas
+                </h2>
+                <p class="mp-section-subtitle">Empresas peruanas reales con RUC verificado vendiendo en ebaemy.</p>
+            </div>
+        </div>
+        <div class="mp-shops-row">
+            @foreach($featuredShops as $shop)
+                <a href="https://{{ $shop->tenant_fqdn }}" target="_blank" rel="noopener" class="mp-shop-card">
+                    <div class="mp-shop-card-logo">
+                        @if(!empty($shop->tenant_logo_url))
+                            <img src="{{ $shop->tenant_logo_url }}" alt="{{ $shop->seller_display }}" loading="lazy">
+                        @else
+                            <span class="mp-shop-card-logo-fallback">{{ mb_strtoupper(mb_substr($shop->seller_display, 0, 2)) }}</span>
+                        @endif
+                    </div>
+                    <h3 class="mp-shop-card-name">{{ \Illuminate\Support\Str::limit($shop->seller_display, 34) }}</h3>
+                    @if(!empty($shop->tenant_verified))
+                        <span class="mp-shop-card-meta">
+                            <svg width="10" height="10" viewBox="0 0 24 24" fill="#2563eb"><path d="M12 2l2.39 5.42L20 8.27l-4 4.15.94 5.58L12 15.77l-4.94 2.23L8 12.42 4 8.27l5.61-.85L12 2z"/></svg>
+                            Verificada
+                        </span>
+                    @endif
+                    <span class="mp-shop-card-cta">
+                        Ver tienda
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+                    </span>
+                </a>
+            @endforeach
+        </div>
+    </section>
+@endif
+
+<style>
+    /* ───────────── Cards de producto modernas (SaaS 2026) ───────────── */
+    .mp-card {
+        position: relative;
+        background: #fff;
+        border: 1px solid #eef0f3;
+        border-radius: 14px;
+        overflow: hidden;
+        text-decoration: none;
+        display: flex; flex-direction: column;
+        transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease;
+    }
+    .mp-card:hover {
+        transform: translateY(-3px);
+        border-color: rgba(15,138,130,.35);
+        box-shadow: 0 10px 24px -12px rgba(15,138,130,.22), 0 4px 10px -6px rgba(0,0,0,.06);
+    }
+    .mp-card-img {
+        position: relative;
+        aspect-ratio: 1 / 1;
+        background: #f7f9fb;
+        overflow: hidden;
+    }
+    .mp-card-img img { transition: transform .35s ease; }
+    .mp-card:hover .mp-card-img img { transform: scale(1.04); }
+
+    /* CTA "Comprar" overlay que aparece al hover (desktop). En móvil queda fijo abajo */
+    .mp-card-cta {
+        position: absolute;
+        left: 50%; bottom: 10px;
+        transform: translateX(-50%) translateY(8px);
+        opacity: 0;
+        background: #0f8a82;
+        color: #fff;
+        font-size: 12.5px; font-weight: 700;
+        padding: 8px 14px;
+        border-radius: 999px;
+        display: inline-flex; align-items: center; gap: 6px;
+        box-shadow: 0 8px 20px -8px rgba(15,138,130,.55);
+        transition: opacity .18s ease, transform .18s ease;
+        pointer-events: none;
+    }
+    .mp-card:hover .mp-card-cta {
+        opacity: 1;
+        transform: translateX(-50%) translateY(0);
+    }
+    .mp-card-body { padding: 12px 12px 14px; }
+    .mp-card-price { font-size: 17px; font-weight: 800; color: #0a0e1a; }
+
+    /* ───────────── Grid 2 cols en móvil, 4-5 cols en desktop ───────────── */
+    .mp-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+        gap: 16px;
+    }
+    @media (max-width: 640px) {
+        .mp-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+        .mp-card-body { padding: 10px 10px 12px; }
+        .mp-card-title { font-size: 13px; }
+        .mp-card-price { font-size: 15px; }
+        .mp-card-cta {
+            position: static; opacity: 1; pointer-events: auto;
+            transform: none;
+            display: flex; justify-content: center;
+            margin: 8px 10px 10px;
+            box-shadow: none;
+            font-size: 12px;
+            padding: 9px 0;
+        }
+    }
+
+    /* ───────────── Sticky bottom bar móvil con carrito + filtros ───────────── */
+    .mp-mobile-actionbar {
+        display: none;
+        position: fixed; left: 0; right: 0; bottom: 0;
+        z-index: 60;
+        background: rgba(255,255,255,.97);
+        backdrop-filter: blur(8px);
+        border-top: 1px solid #e5e7eb;
+        padding: 8px 12px calc(8px + env(safe-area-inset-bottom));
+        gap: 8px;
+        box-shadow: 0 -6px 20px -10px rgba(0,0,0,.12);
+    }
+    .mp-mobile-actionbar .mp-mab-btn {
+        flex: 1;
+        display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+        padding: 11px 12px;
+        border-radius: 999px;
+        font-size: 13px; font-weight: 700;
+        text-decoration: none;
+        border: 1px solid #e5e7eb;
+        background: #fff; color: #1f2937;
+    }
+    .mp-mobile-actionbar .mp-mab-btn--primary {
+        background: linear-gradient(135deg, #0f8a82, #0a6f68);
+        color: #fff; border-color: transparent;
+    }
+    @media (max-width: 768px) {
+        .mp-mobile-actionbar { display: flex; }
+        body { padding-bottom: 64px; } /* deja espacio para que el bar no tape contenido */
+    }
+
+    /* ───────────── Filtros como modal en móvil (overlay) ───────────── */
+    @media (max-width: 768px) {
+        .mp-filters-card.is-open {
+            position: fixed !important;
+            inset: 0;
+            z-index: 70;
+            background: #fff;
+            overflow-y: auto;
+            border-radius: 0;
+            padding: 16px;
+            margin: 0;
+        }
+        .mp-filters-card { display: none; }
+        .mp-filters-card.is-open { display: block; }
+    }
+</style>
+
+<div class="mp-mobile-actionbar" aria-hidden="false">
+    <button type="button" class="mp-mab-btn"
+            onclick="document.getElementById('mpFilters').classList.add('is-open');document.body.style.overflow='hidden';">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></svg>
+        Filtrar
+    </button>
+    <a href="{{ route('marketplace.cart') }}" class="mp-mab-btn mp-mab-btn--primary">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
+        Carrito
+    </a>
+</div>
+
 <script>
 if (window.matchMedia('(max-width: 899px)').matches) {
-    document.getElementById('mpFiltersClose').style.display = 'inline-block';
+    var btn = document.getElementById('mpFiltersClose');
+    if (btn) btn.style.display = 'inline-block';
 }
 
-// Categorías home: en desktop quedan todas abiertas (renderizado con `open`).
-// En móvil colapsamos todas menos la primera para que el cliente vea de un
-// vistazo qué categorías hay y abra la que le interese sin scroll infinito.
-if (window.matchMedia('(max-width: 640px)').matches) {
-    document.querySelectorAll('.mp-cats-grid > details.mp-cat-card').forEach((d, i) => {
-        if (i > 0) d.removeAttribute('open');
+// Flechas del carrusel de categorías → scroll horizontal por ~70% del ancho visible
+(function () {
+    var rail = document.getElementById('mpCatsRail');
+    if (!rail) return;
+    document.querySelectorAll('[data-rail-dir]').forEach(function (b) {
+        b.addEventListener('click', function () {
+            var dir = parseInt(b.getAttribute('data-rail-dir'), 10) || 1;
+            rail.scrollBy({ left: dir * Math.max(280, rail.clientWidth * 0.7), behavior: 'smooth' });
+        });
     });
-}
+})();
+
+// Inyectar CTA "Comprar" en cada card de producto sin duplicar markup en el blade
+document.querySelectorAll('.mp-card .mp-card-img').forEach(function (img) {
+    if (img.querySelector('.mp-card-cta')) return;
+    var cta = document.createElement('span');
+    cta.className = 'mp-card-cta';
+    cta.innerHTML = 'Comprar <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>';
+    img.appendChild(cta);
+});
 </script>
 @endsection
