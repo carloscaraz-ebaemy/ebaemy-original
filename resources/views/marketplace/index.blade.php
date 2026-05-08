@@ -28,40 +28,8 @@
     }
 @endphp
 
-{{-- ═══════════════════════ HERO COMPACTO (SaaS 2026 marketplace UX) ═══════════════════════ --}}
-@if($isHome)
-    <section class="mp-hero mp-hero--compact">
-        <div class="mp-hero-compact-inner">
-            <span class="mp-hero-urgency">🔥 Ofertas activas hoy</span>
-            <h1>Miles de productos<br class="mp-hero-br-mobile"> de tiendas verificadas 🇵🇪</h1>
-            <div class="mp-hero-actions">
-                <a href="#productos" class="mp-btn mp-btn-primary">
-                    Comprar ahora
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
-                </a>
-                <a href="{{ route('marketplace.index', ['sort' => 'price_asc']) }}" class="mp-btn mp-btn-outline mp-hero-btn-secondary">Ver ofertas</a>
-            </div>
-        </div>
-    </section>
-
-    <style>
-        .mp-hero--compact { padding: 28px 0 18px; min-height: auto !important; }
-        .mp-hero-compact-inner {
-            max-width: 720px; margin: 0 auto; text-align: center;
-            display: flex; flex-direction: column; align-items: center; gap: 14px;
-        }
-        .mp-hero--compact h1 { font-size: clamp(22px, 4vw, 34px); line-height: 1.2; margin: 0; }
-        .mp-hero--compact .mp-hero-actions { margin: 4px 0 0; gap: 10px; }
-        .mp-hero-br-mobile { display: none; }
-        @media (max-width: 640px) {
-            .mp-hero--compact { padding: 18px 0 12px; }
-            .mp-hero-br-mobile { display: inline; }
-            .mp-hero-btn-secondary { display: none; } /* en móvil sólo CTA primario */
-            .mp-hero--compact h1 { font-size: 20px; }
-            .mp-hero-urgency { font-size: 11.5px; }
-        }
-    </style>
-@endif
+{{-- Hero removido: el cliente ve trust bar + categorías + productos sin
+     interferencia. Cero scroll antes del primer producto en móvil. --}}
 
 {{-- ═══════════════════════ TRUST BAR STICKY ═══════════════════════ --}}
 <section class="mp-trust-sticky">
