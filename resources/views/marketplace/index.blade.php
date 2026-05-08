@@ -472,7 +472,7 @@
             </div>
 
             <div class="mp-pag">
-                {{ $listings->links() }}
+                {{ $listings->links('pagination::bootstrap-4') }}
             </div>
         @endif
     </div>

@@ -84,16 +84,18 @@ class MarketplaceController extends Controller
      */
     private function getOfficialRootsCached()
     {
-        // v2: incluye `children` (subcategorías directas) eager-loaded para
-        // poder renderizar el bloque cat→subcat sin N+1.
-        return Cache::remember('marketplace_public_roots_v2', 1800, function () {
+        // v3: solo `active()` para children — `visible()` (is_visible_in_marketplace)
+        // está marcado en muchas roots pero NO en sus subcategorías, así que filtrar
+        // por visible aquí dejaba la mayoría de roots con children vacíos. La root
+        // ya pasó por visible() arriba; los hijos solo necesitan estar activos.
+        return Cache::remember('marketplace_public_roots_v3', 1800, function () {
             return MarketplaceCategory::query()
                 ->active()
                 ->visible()
                 ->roots()
                 ->orderBy('sort_order')
                 ->with(['children' => function ($q) {
-                    $q->active()->visible()->orderBy('sort_order')
+                    $q->active()->orderBy('sort_order')
                       ->select(['id', 'parent_id', 'name', 'slug', 'full_slug', 'icon', 'listings_count_cache']);
                 }])
                 ->get(['id', 'name', 'slug', 'full_slug', 'icon', 'image', 'listings_count_cache']);
