@@ -73,17 +73,31 @@ class SyncMarketplaceListings extends Command
                     $payload = $service->buildPayload($it, $client, $hostname->id);
 
                     if ($dry) {
-                        $this->line("  · [dry] {$payload['title']}  S/ {$payload['price']}  stock={$payload['stock']}");
+                        $this->line("  · [dry] {$payload['title']}  S/ {$payload['price']}  stock={$payload['stock']}" . (!empty($payload['has_variants']) ? '  [variantes]' : ''));
                         continue;
                     }
 
                     // Cambiar de conexión al central explícitamente para el upsert
                     $tenancy->tenant(null);
 
-                    MarketplaceListing::updateOrCreate(
+                    $listing = MarketplaceListing::updateOrCreate(
                         ['hostname_id' => $hostname->id, 'remote_item_id' => $it->id],
                         $payload
                     );
+
+                    // Si tiene variantes, espejarlas (delegamos al service que ya
+                    // maneja switch de conexiones). syncVariantsForListing es público
+                    // específicamente para este uso desde el cron masivo.
+                    if (!empty($payload['has_variants'])) {
+                        $tenancy->tenant($hostname->website);
+                        $service->syncVariantsForListing($listing, $it);
+                        $tenancy->tenant(null);
+                    } else {
+                        // Si dejó de tener variantes, marcar las espejadas inactivas.
+                        \App\Models\System\MarketplaceListingVariant::where('listing_id', $listing->id)
+                            ->where('is_active', true)
+                            ->update(['is_active' => false]);
+                    }
 
                     // Volver al tenant para la siguiente iteración
                     $tenancy->tenant($hostname->website);

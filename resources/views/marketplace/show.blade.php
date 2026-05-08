@@ -218,31 +218,112 @@
 
         <div class="mp-price-box">
             <div class="mp-price-box-label">Precio en {{ $listing->seller_display }}</div>
-            <div class="mp-price">
+            <div class="mp-price" id="mpDisplayPrice">
                 @if($listing->display_price > 0)
-                    S/ {{ number_format($listing->display_price, 2) }}
+                    S/ {{ number_format(($variants->isNotEmpty() ? $variants->first()->price : $listing->display_price), 2) }}
                 @else
                     <span style="font-size:18px;color:#6b7280">Precio a consultar</span>
                 @endif
             </div>
-
-            @if($listing->stock <= 0)
-                <div class="mp-stock mp-stock--none">
-                    <span class="mp-stock-dot"></span>
-                    Sin stock disponible
-                </div>
-            @elseif($listing->stock < 5)
-                <div class="mp-stock mp-stock--low">
-                    <span class="mp-stock-dot"></span>
-                    ¡Últimas {{ $listing->stock }} unidades!
-                </div>
-            @else
-                <div class="mp-stock">
-                    <span class="mp-stock-dot"></span>
-                    En stock ({{ $listing->stock }} disponibles)
+            @if(($variants->isNotEmpty() && $variants->first()->is_on_offer) || (!$variants->isNotEmpty() && $listing->is_on_offer))
+                <div class="mp-price-old" id="mpOldPrice">
+                    <span style="text-decoration:line-through;color:#9ca3af;font-size:14px">
+                        S/ {{ number_format(($variants->isNotEmpty() ? ($variants->first()->original_price ?? 0) : ($listing->original_price ?? 0)), 2) }}
+                    </span>
                 </div>
             @endif
+
+            @php
+                $initialStock = $variants->isNotEmpty() ? $variants->first()->stock : $listing->stock;
+            @endphp
+            <div id="mpStockBox">
+                @if($initialStock <= 0)
+                    <div class="mp-stock mp-stock--none">
+                        <span class="mp-stock-dot"></span>
+                        Sin stock disponible
+                    </div>
+                @elseif($initialStock < 5)
+                    <div class="mp-stock mp-stock--low">
+                        <span class="mp-stock-dot"></span>
+                        ¡Últimas {{ $initialStock }} unidades!
+                    </div>
+                @else
+                    <div class="mp-stock">
+                        <span class="mp-stock-dot"></span>
+                        En stock ({{ $initialStock }} disponibles)
+                    </div>
+                @endif
+            </div>
         </div>
+
+        {{-- ═══════════ SELECTOR DE VARIANTES (Fase 0.B) ═══════════ --}}
+        @if($variants->isNotEmpty())
+            <div class="mp-variants" id="mpVariants" data-listing-id="{{ $listing->id }}">
+                <div class="mp-variants__label">Elige tu variante</div>
+                <div class="mp-variants__list">
+                    @foreach($variants as $idx => $v)
+                        <label class="mp-variant-pill {{ $v->stock <= 0 ? 'is-out' : '' }}">
+                            <input type="radio" name="variant_id" value="{{ $v->tenant_variant_id }}"
+                                {{ $idx === 0 ? 'checked' : '' }}
+                                data-price="{{ $v->price }}"
+                                data-original="{{ $v->original_price ?? '' }}"
+                                data-discount="{{ $v->discount_pct ?? '' }}"
+                                data-on-offer="{{ $v->is_on_offer ? 1 : 0 }}"
+                                data-stock="{{ $v->stock }}"
+                                data-image="{{ $v->image_url ?? '' }}">
+                            <span class="mp-variant-pill__name">{{ $v->display_name }}</span>
+                            @if($v->is_on_offer && $v->discount_pct)
+                                <span class="mp-variant-pill__badge">-{{ $v->discount_pct }}%</span>
+                            @endif
+                            @if($v->stock <= 0)
+                                <span class="mp-variant-pill__out">Agotada</span>
+                            @endif
+                        </label>
+                    @endforeach
+                </div>
+            </div>
+            <style>
+                .mp-variants { margin: 12px 0 4px; }
+                .mp-variants__label {
+                    font-size: 12.5px; font-weight: 700; color: #475569;
+                    text-transform: uppercase; letter-spacing: .3px;
+                    margin-bottom: 8px;
+                }
+                .mp-variants__list { display: flex; flex-wrap: wrap; gap: 8px; }
+                .mp-variant-pill {
+                    display: inline-flex; align-items: center; gap: 6px;
+                    padding: 8px 14px;
+                    background: #fff;
+                    border: 1.5px solid #e5e7eb;
+                    border-radius: 999px;
+                    cursor: pointer;
+                    font-size: 13px; font-weight: 600; color: #374151;
+                    transition: border-color .15s, background .15s, transform .12s;
+                    user-select: none;
+                }
+                .mp-variant-pill input { display: none; }
+                .mp-variant-pill:hover { border-color: var(--mp-primary, #0f8a82); }
+                .mp-variant-pill:has(input:checked) {
+                    background: var(--mp-primary, #0f8a82);
+                    border-color: var(--mp-primary-dark, #0a6f68);
+                    color: #fff;
+                    transform: translateY(-1px);
+                }
+                .mp-variant-pill.is-out { opacity: .55; }
+                .mp-variant-pill.is-out .mp-variant-pill__name { text-decoration: line-through; }
+                .mp-variant-pill__badge {
+                    background: #ef4444; color: #fff;
+                    font-size: 10.5px; font-weight: 800;
+                    padding: 1px 6px; border-radius: 999px;
+                }
+                .mp-variant-pill:has(input:checked) .mp-variant-pill__badge {
+                    background: #fff; color: #ef4444;
+                }
+                .mp-variant-pill__out {
+                    font-size: 10.5px; color: #9ca3af; font-weight: 500;
+                }
+            </style>
+        @endif
 
         @if($errors->any())
             <div class="mp-errors">
@@ -268,13 +349,91 @@
 
         <script>
         (function(){
+            // ── Selector de variantes (Fase 0.B) ──
+            // Cuando el usuario cambia de variante: actualiza precio,
+            // precio tachado, stock y la imagen principal si la variante
+            // tiene una propia. El variant_id seleccionado se envía al
+            // carrito desde el botón de abajo.
+            const variantsBox = document.getElementById('mpVariants');
+            const priceEl     = document.getElementById('mpDisplayPrice');
+            const oldPriceEl  = document.getElementById('mpOldPrice');
+            const stockBox    = document.getElementById('mpStockBox');
+
+            function selectedVariantInput() {
+                if (!variantsBox) return null;
+                return variantsBox.querySelector('input[name="variant_id"]:checked');
+            }
+
+            function fmt(n) {
+                return 'S/ ' + Number(n).toFixed(2);
+            }
+
+            function updateFromVariant() {
+                const r = selectedVariantInput();
+                if (!r) return;
+                const price    = parseFloat(r.dataset.price || 0);
+                const original = r.dataset.original ? parseFloat(r.dataset.original) : null;
+                const stock    = parseInt(r.dataset.stock || 0, 10);
+                const onOffer  = r.dataset.onOffer === '1';
+                const image    = r.dataset.image || '';
+
+                if (priceEl)   priceEl.textContent = price > 0 ? fmt(price) : 'Precio a consultar';
+                if (oldPriceEl) {
+                    if (onOffer && original && original > price) {
+                        oldPriceEl.innerHTML = '<span style="text-decoration:line-through;color:#9ca3af;font-size:14px">' + fmt(original) + '</span>';
+                        oldPriceEl.style.display = '';
+                    } else {
+                        oldPriceEl.style.display = 'none';
+                    }
+                }
+
+                if (stockBox) {
+                    if (stock <= 0) {
+                        stockBox.innerHTML = '<div class="mp-stock mp-stock--none"><span class="mp-stock-dot"></span>Sin stock disponible</div>';
+                    } else if (stock < 5) {
+                        stockBox.innerHTML = '<div class="mp-stock mp-stock--low"><span class="mp-stock-dot"></span>¡Últimas ' + stock + ' unidades!</div>';
+                    } else {
+                        stockBox.innerHTML = '<div class="mp-stock"><span class="mp-stock-dot"></span>En stock (' + stock + ' disponibles)</div>';
+                    }
+                }
+
+                // Cambia la imagen principal solo si la variante tiene una propia.
+                if (image) {
+                    const mainImg = document.querySelector('.mp-gallery img, #mpMainImage');
+                    if (mainImg) mainImg.src = image;
+                }
+
+                // Habilita / deshabilita el botón Add to cart por stock
+                const cartBtn = document.getElementById('mpAddToCartBtn');
+                if (cartBtn) {
+                    cartBtn.disabled = stock <= 0;
+                    cartBtn.style.opacity = stock <= 0 ? '0.55' : '';
+                    cartBtn.style.cursor  = stock <= 0 ? 'not-allowed' : 'pointer';
+                }
+            }
+
+            if (variantsBox) {
+                variantsBox.addEventListener('change', updateFromVariant);
+                // Sincronizar estado inicial (la variante checked por default)
+                updateFromVariant();
+            }
+
+            // ── Add to cart (con soporte de variant_id) ──
             const btn = document.getElementById('mpAddToCartBtn');
             if (!btn) return;
             btn.addEventListener('click', function () {
                 const slug = btn.dataset.slug;
+                if (btn.disabled) return;
                 btn.disabled = true;
                 const original = btn.innerHTML;
                 btn.innerHTML = 'Añadiendo…';
+
+                const body = { slug, quantity: 1 };
+                const variantInput = selectedVariantInput();
+                if (variantInput) {
+                    body.variant_id = parseInt(variantInput.value, 10);
+                }
+
                 fetch(@json(route('marketplace.cart.add')), {
                     method: 'POST',
                     headers: {
@@ -282,7 +441,7 @@
                         'X-CSRF-TOKEN': @json(csrf_token()),
                         'Accept': 'application/json',
                     },
-                    body: JSON.stringify({ slug, quantity: 1 })
+                    body: JSON.stringify(body)
                 })
                 .then(r => r.json())
                 .then(function (data) {

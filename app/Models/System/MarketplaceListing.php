@@ -109,6 +109,15 @@ class MarketplaceListing extends Model
         return $this->hasMany(MarketplaceReview::class, 'listing_id');
     }
 
+    /**
+     * Variantes espejo del item_variants del tenant. Solo aplica cuando
+     * has_variants=true. Llenado por MarketplaceListingSyncService::syncVariants.
+     */
+    public function variants()
+    {
+        return $this->hasMany(MarketplaceListingVariant::class, 'listing_id');
+    }
+
     // ── Scopes ────────────────────────────────────────────────────────────────
 
     public function scopePublished($query)

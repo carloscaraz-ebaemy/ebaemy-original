@@ -4,6 +4,7 @@ namespace App\Services\System;
 
 use App\Models\System\Client;
 use App\Models\System\MarketplaceListing;
+use App\Models\System\MarketplaceListingVariant;
 use App\Services\Tenant\PromotionEngine;
 use Hyn\Tenancy\Environment;
 use Illuminate\Support\Facades\DB;
@@ -65,10 +66,26 @@ class MarketplaceListingSyncService
                 return $listing;
             }
 
-            return MarketplaceListing::updateOrCreate(
+            $listing = MarketplaceListing::updateOrCreate(
                 ['hostname_id' => $hostnameId, 'remote_item_id' => $remoteItemId],
                 $payload
             );
+
+            // Si el item tiene variantes, espejarlas en marketplace_listing_variants.
+            // Cambiamos a tenant para leer item_variants y volvemos a system para
+            // upsertar — el helper se encarga de las conexiones internamente.
+            if ($listing && !empty($payload['has_variants'])) {
+                $tenancy->tenant($client->hostname->website);
+                $this->syncVariants($listing, $row);
+                $tenancy->tenant(null);
+            } elseif ($listing) {
+                // Si dejó de tener variantes (las desactivó todas en el tenant),
+                // marcamos las espejadas como inactivas.
+                MarketplaceListingVariant::where('listing_id', $listing->id)
+                    ->update(['is_active' => false]);
+            }
+
+            return $listing;
         } catch (\Throwable $e) {
             Log::error('MarketplaceListingSyncService::syncItem failed', [
                 'hostname_id'  => $hostnameId,
@@ -309,6 +326,186 @@ class MarketplaceListingSyncService
     private function emptyOfferInfo(): array
     {
         return [
+            'is_on_offer'    => false,
+            'original_price' => null,
+            'offer_ends_at'  => null,
+            'discount_pct'   => null,
+        ];
+    }
+
+    /**
+     * Wrapper público para que el comando de sync masivo (que itera ya
+     * dentro del contexto tenant) pueda invocar syncVariants sin tener
+     * que conocer el método privado. El caller es responsable de estar
+     * en contexto tenant antes de llamar.
+     */
+    public function syncVariantsForListing(MarketplaceListing $listing, object $item): void
+    {
+        $this->syncVariants($listing, $item);
+    }
+
+    /**
+     * Espeja item_variants del tenant en marketplace_listing_variants.
+     * Requiere estar conectado al tenant al entrar; cambia explícitamente
+     * a system para los upserts y vuelve a tenant antes de salir (el caller
+     * gestiona el ciclo del Environment).
+     *
+     * Estrategia:
+     *   1. Lee variantes activas del tenant + sus precios efectivos
+     *      (PromotionEngine canal 'marketplace' por cada una).
+     *   2. Upsert en system por (listing_id, tenant_variant_id).
+     *   3. Marca como is_active=false las variantes espejadas que ya no
+     *      vinieron en este sync (variant desactivada en tenant) — sin
+     *      borrar para preservar referencias en pedidos pasados.
+     */
+    private function syncVariants(MarketplaceListing $listing, object $item): void
+    {
+        $parentPrice = (float) ($item->sale_unit_price ?? 0);
+        $fqdn = $listing->tenant_fqdn;
+
+        $variants = DB::connection('tenant')->table('item_variants')
+            ->where('item_id', $item->id)
+            ->where('is_active', true)
+            ->get();
+
+        // Stock por variante desde item_variant_warehouse (si aplica el modelo)
+        $variantIds = $variants->pluck('id')->all();
+        $stockByVariant = [];
+        if (!empty($variantIds)) {
+            $rows = DB::connection('tenant')->table('item_variant_warehouse')
+                ->whereIn('item_variant_id', $variantIds)
+                ->select('item_variant_id', DB::raw('SUM(stock) AS total_stock'))
+                ->groupBy('item_variant_id')
+                ->get();
+            foreach ($rows as $r) {
+                $stockByVariant[$r->item_variant_id] = (int) $r->total_stock;
+            }
+        }
+
+        // Calcular oferta por variante usando PromotionEngine (mismo canal)
+        $channel = DB::connection('tenant')->table('sales_channels')
+            ->where('type', 'marketplace')
+            ->where('is_active', true)
+            ->first();
+
+        $payloads = [];
+        foreach ($variants as $v) {
+            $price = $v->sale_unit_price !== null ? (float) $v->sale_unit_price : $parentPrice;
+            $offer = $this->resolveVariantOffer($item, $v, $price, $channel);
+
+            $imageUrl = !empty($v->image)
+                ? 'https://' . $fqdn . '/storage/uploads/items/' . $v->image
+                : null; // si no tiene imagen propia, la UI cae al image_url del listing
+
+            // Stock: tabla item_variant_warehouse → fallback al stock global de variant
+            $stock = $stockByVariant[$v->id] ?? (int) ($v->stock ?? 0);
+
+            $payloads[] = [
+                'listing_id'        => $listing->id,
+                'tenant_variant_id' => (int) $v->id,
+                'sku'               => $v->sku ?? null,
+                'display_name'      => (string) ($v->display_name ?: 'Variante ' . $v->id),
+                'image_url'         => $imageUrl,
+                'price'             => $offer['price'],
+                'original_price'    => $offer['original_price'],
+                'is_on_offer'       => $offer['is_on_offer'],
+                'discount_pct'      => $offer['discount_pct'],
+                'offer_ends_at'     => $offer['offer_ends_at'],
+                'stock'             => max(0, $stock),
+                'is_active'         => true,
+            ];
+        }
+
+        // Upsert en system
+        $tenancy = app(Environment::class);
+        $tenancy->tenant(null);
+
+        $seenIds = [];
+        foreach ($payloads as $p) {
+            $row = MarketplaceListingVariant::updateOrCreate(
+                ['listing_id' => $p['listing_id'], 'tenant_variant_id' => $p['tenant_variant_id']],
+                $p
+            );
+            $seenIds[] = $row->id;
+        }
+
+        // Desactivar variantes espejadas que ya no aparecen en el tenant
+        MarketplaceListingVariant::where('listing_id', $listing->id)
+            ->whereNotIn('id', $seenIds ?: [0])
+            ->where('is_active', true)
+            ->update(['is_active' => false]);
+    }
+
+    /**
+     * Mismo patrón que resolveOfferInfo() pero por variante. PromotionEngine
+     * recibe un cart simulado de 1 unidad de la variante con su sale_unit_price.
+     */
+    private function resolveVariantOffer(object $item, object $variant, float $price, ?object $channel): array
+    {
+        if ($price <= 0 || !$channel) {
+            return [
+                'price'          => $price,
+                'is_on_offer'    => false,
+                'original_price' => null,
+                'offer_ends_at'  => null,
+                'discount_pct'   => null,
+            ];
+        }
+
+        try {
+            $cart = [[
+                'id'              => $item->id,
+                'item_id'         => $item->id,
+                'item_variant_id' => $variant->id,
+                'sale_unit_price' => $price,
+                'quantity'        => 1,
+                'subtotal'        => $price,
+            ]];
+
+            $promo = PromotionEngine::make($cart, $price)
+                ->withChannel($channel->id, 'marketplace')
+                ->calculate(false);
+
+            $ruleDiscount = (float) ($promo['rule_discount'] ?? 0);
+            if ($ruleDiscount > 0) {
+                $effective = max(0, $price - $ruleDiscount);
+
+                $earliestEnd = DB::connection('tenant')->table('discount_rules')
+                    ->where('is_active', true)
+                    ->whereNotNull('ends_at')
+                    ->where('ends_at', '>', now())
+                    ->where(function ($q) use ($channel) {
+                        $q->whereNull('channel_id')->orWhere('channel_id', $channel->id);
+                    })
+                    ->where(function ($q) use ($item) {
+                        $q->whereNull('apply_item_id')
+                          ->orWhere('apply_item_id', $item->id)
+                          ->orWhere(function ($q2) use ($item) {
+                              if (!empty($item->category_id)) {
+                                  $q2->where('apply_category_id', $item->category_id);
+                              }
+                          });
+                    })
+                    ->min('ends_at');
+
+                return [
+                    'price'          => $effective,
+                    'is_on_offer'    => true,
+                    'original_price' => $price,
+                    'offer_ends_at'  => $earliestEnd,
+                    'discount_pct'   => (int) round(($ruleDiscount / $price) * 100),
+                ];
+            }
+        } catch (\Throwable $e) {
+            Log::warning('MarketplaceListingSyncService::resolveVariantOffer fallback', [
+                'item_id'    => $item->id,
+                'variant_id' => $variant->id,
+                'error'      => $e->getMessage(),
+            ]);
+        }
+
+        return [
+            'price'          => $price,
             'is_on_offer'    => false,
             'original_price' => null,
             'offer_ends_at'  => null,

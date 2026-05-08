@@ -250,6 +250,17 @@ class MarketplaceController extends Controller
         // Pageview — se incrementa asíncronamente para no ralentizar render
         MarketplaceListing::where('id', $listing->id)->increment('view_count');
 
+        // Variantes (solo si el listing las tiene). Se cargan ordenadas por
+        // precio asc para que el selector default sea el más barato — coincide
+        // con el "Desde S/X" que vio el cliente en el listado.
+        $variants = collect();
+        if ($listing->has_variants) {
+            $variants = $listing->variants()
+                ->where('is_active', true)
+                ->orderBy('price')
+                ->get();
+        }
+
         // Relacionados: prefiere FK oficial si está disponible, sino fallback
         // a category_name legacy para listings que todavía no migraron.
         $relatedQ = MarketplaceListing::published()->where('id', '!=', $listing->id);
@@ -278,7 +289,7 @@ class MarketplaceController extends Controller
         }
 
         return view('marketplace.show', compact(
-            'listing', 'related', 'reviews', 'officialBreadcrumb', 'officialCategoryUrl'
+            'listing', 'related', 'reviews', 'officialBreadcrumb', 'officialCategoryUrl', 'variants'
         ));
     }
 
