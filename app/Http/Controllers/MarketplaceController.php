@@ -274,12 +274,56 @@ class MarketplaceController extends Controller
         // Variantes (solo si el listing las tiene). Se cargan ordenadas por
         // precio asc para que el selector default sea el más barato — coincide
         // con el "Desde S/X" que vio el cliente en el listado.
-        $variants = collect();
+        $variants    = collect();
+        $options     = collect();
+        $variantMap  = []; // [option_value_id, option_value_id] join → variant_id
         if ($listing->has_variants) {
             $variants = $listing->variants()
                 ->where('is_active', true)
                 ->orderBy('price')
                 ->get();
+
+            // Opciones agrupadas (Color/Talla) con sus valores, listas para
+            // renderizar como thumbs-imagen o pills según corresponda.
+            $options = \App\Models\System\MarketplaceListingOption::query()
+                ->where('listing_id', $listing->id)
+                ->with(['values' => fn($q) => $q->orderBy('position')])
+                ->orderBy('position')
+                ->get();
+
+            // Mapa "combo de valores → variant data" para que el JS resuelva
+            // qué variante se elige al combinar Color + Talla. La key es el
+            // array de option_value_ids ordenado ASC (formato: "12-34").
+            if ($options->isNotEmpty()) {
+                $pivots = \DB::connection('system')->table('marketplace_listing_variant_values')
+                    ->join('marketplace_listing_variants', 'marketplace_listing_variants.id', '=', 'marketplace_listing_variant_values.listing_variant_id')
+                    ->where('marketplace_listing_variants.listing_id', $listing->id)
+                    ->select(
+                        'marketplace_listing_variant_values.listing_variant_id',
+                        'marketplace_listing_variant_values.option_value_id',
+                    )
+                    ->get()
+                    ->groupBy('listing_variant_id');
+
+                $variantsById = $variants->keyBy('id');
+                foreach ($pivots as $variantId => $rows) {
+                    $v = $variantsById->get($variantId);
+                    if (!$v) continue;
+                    $valueIds = $rows->pluck('option_value_id')->map(fn($i) => (int) $i)->sort()->values()->all();
+                    $key = implode('-', $valueIds);
+                    $variantMap[$key] = [
+                        'id'             => (int) $v->id,
+                        'tenant_variant_id' => (int) $v->tenant_variant_id,
+                        'price'          => (float) $v->price,
+                        'original_price' => $v->original_price ? (float) $v->original_price : null,
+                        'is_on_offer'    => (bool) $v->is_on_offer,
+                        'discount_pct'   => $v->discount_pct ? (int) $v->discount_pct : null,
+                        'stock'          => (int) $v->stock,
+                        'image_url'      => $v->image_url,
+                        'display_name'   => $v->display_name,
+                    ];
+                }
+            }
         }
 
         // Relacionados: prefiere FK oficial si está disponible, sino fallback
@@ -310,7 +354,8 @@ class MarketplaceController extends Controller
         }
 
         return view('marketplace.show', compact(
-            'listing', 'related', 'reviews', 'officialBreadcrumb', 'officialCategoryUrl', 'variants'
+            'listing', 'related', 'reviews', 'officialBreadcrumb', 'officialCategoryUrl',
+            'variants', 'options', 'variantMap'
         ));
     }
 

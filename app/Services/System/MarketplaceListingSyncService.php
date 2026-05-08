@@ -4,6 +4,8 @@ namespace App\Services\System;
 
 use App\Models\System\Client;
 use App\Models\System\MarketplaceListing;
+use App\Models\System\MarketplaceListingOption;
+use App\Models\System\MarketplaceListingOptionValue;
 use App\Models\System\MarketplaceListingVariant;
 use App\Services\Tenant\PromotionEngine;
 use Hyn\Tenancy\Environment;
@@ -450,6 +452,162 @@ class MarketplaceListingSyncService
             ->whereNotIn('id', $seenIds ?: [0])
             ->where('is_active', true)
             ->update(['is_active' => false]);
+
+        // Sincronizar opciones (Color/Talla) y sus valores. Esto se hace
+        // DESPUÉS del sync de variantes para poder mapear cada valor a la
+        // imagen de la variante representativa con ese valor (ej. el thumb
+        // del color "Rojo" sale de la primera variante "Rojo + cualquier talla").
+        $tenancy->tenant($listing->hostname->website ?? null);
+        $this->syncOptionsAndValues($listing, $item);
+        $tenancy->tenant(null);
+    }
+
+    /**
+     * Espeja item_options + item_option_values + item_variant_value_map del
+     * tenant en las 3 tablas system equivalentes. Permite que el detalle
+     * del marketplace renderice variantes agrupadas por tipo (Color como
+     * thumbnails-imagen, Talla como pills) estilo Falabella/MercadoLibre.
+     *
+     * Requiere estar conectado al tenant al entrar.
+     */
+    private function syncOptionsAndValues(MarketplaceListing $listing, object $item): void
+    {
+        // Si el item no tiene opciones, limpiar las espejadas y salir
+        $tenantOptions = DB::connection('tenant')->table('item_options')
+            ->where('item_id', $item->id)
+            ->orderBy('position')
+            ->get();
+
+        if ($tenantOptions->isEmpty()) {
+            $tenancy = app(Environment::class);
+            $tenancy->tenant(null);
+            MarketplaceListingOption::where('listing_id', $listing->id)->delete();
+            $tenancy->tenant($listing->hostname->website ?? null);
+            return;
+        }
+
+        // Cargar todos los values del tenant
+        $tenantValues = DB::connection('tenant')->table('item_option_values')
+            ->whereIn('item_option_id', $tenantOptions->pluck('id'))
+            ->orderBy('position')
+            ->get();
+
+        // Cargar el map variant→value del tenant
+        $tenantMap = DB::connection('tenant')->table('item_variant_value_map')
+            ->whereIn('item_option_value_id', $tenantValues->pluck('id'))
+            ->get();
+
+        // Resolver imagen representativa por value: tomar la 1ra variante
+        // activa con stock>0 que use ese value y tenga image. Fallback a la
+        // imagen del item padre si ninguna variante con ese value tiene
+        // imagen propia.
+        $variants = DB::connection('tenant')->table('item_variants')
+            ->where('item_id', $item->id)
+            ->where('is_active', true)
+            ->get()
+            ->keyBy('id');
+
+        $valueToImage = []; // tenant_value_id => image_filename
+        foreach ($tenantMap as $m) {
+            $v = $variants->get($m->item_variant_id);
+            if (!$v || empty($v->image)) continue;
+            // Solo guardamos la primera imagen encontrada por value
+            if (!isset($valueToImage[$m->item_option_value_id])) {
+                $valueToImage[$m->item_option_value_id] = $v->image;
+            }
+        }
+
+        $fqdn = $listing->tenant_fqdn;
+
+        // Cambiar a system para los upserts
+        $tenancy = app(Environment::class);
+        $tenancy->tenant(null);
+
+        // Upsert options (y trackear los seen para limpiar los obsoletos)
+        $seenOptionIds = [];
+        $optionLocalByTenantId = []; // tenant_option_id => local id
+        foreach ($tenantOptions as $opt) {
+            $local = MarketplaceListingOption::updateOrCreate(
+                ['listing_id' => $listing->id, 'tenant_option_id' => (int) $opt->id],
+                [
+                    'name'     => (string) ($opt->name ?? 'Opción'),
+                    'position' => (int) ($opt->position ?? 0),
+                ]
+            );
+            $seenOptionIds[] = $local->id;
+            $optionLocalByTenantId[$opt->id] = $local->id;
+        }
+
+        // Upsert values
+        $seenValueIds = [];
+        $valueLocalByTenantId = []; // tenant_value_id => local id
+        foreach ($tenantValues as $val) {
+            $localOptionId = $optionLocalByTenantId[$val->item_option_id] ?? null;
+            if (!$localOptionId) continue;
+
+            $imgFile = $valueToImage[$val->id] ?? null;
+            $imgUrl  = $imgFile ? 'https://' . $fqdn . '/storage/uploads/items/' . $imgFile : null;
+
+            $local = MarketplaceListingOptionValue::updateOrCreate(
+                ['option_id' => $localOptionId, 'tenant_value_id' => (int) $val->id],
+                [
+                    'value'     => (string) ($val->value ?? ''),
+                    'color_hex' => $val->color_hex ?? null,
+                    'image_url' => $imgUrl,
+                    'position'  => (int) ($val->position ?? 0),
+                ]
+            );
+            $seenValueIds[] = $local->id;
+            $valueLocalByTenantId[$val->id] = $local->id;
+        }
+
+        // Limpiar options/values obsoletos (cascade borra los values y los
+        // variant_values asociados)
+        MarketplaceListingOption::where('listing_id', $listing->id)
+            ->whereNotIn('id', $seenOptionIds ?: [0])
+            ->delete();
+        MarketplaceListingOptionValue::whereHas('option', fn($q) => $q->where('listing_id', $listing->id))
+            ->whereNotIn('id', $seenValueIds ?: [0])
+            ->delete();
+
+        // Re-poblar el pivote variant→value
+        // Estrategia simple: borrar todos los pivotes de las variantes de
+        // este listing y re-insertar. Es seguro porque el sync ya corrió
+        // y dejó los listing_variants actualizados.
+        $listingVariantIds = MarketplaceListingVariant::where('listing_id', $listing->id)
+            ->pluck('id', 'tenant_variant_id');
+
+        if ($listingVariantIds->isNotEmpty()) {
+            DB::connection('system')->table('marketplace_listing_variant_values')
+                ->whereIn('listing_variant_id', $listingVariantIds->values())
+                ->delete();
+
+            $now = now();
+            $rows = [];
+            foreach ($tenantMap as $m) {
+                $localVariantId = $listingVariantIds->get($m->item_variant_id);
+                $localValueId   = $valueLocalByTenantId[$m->item_option_value_id] ?? null;
+                if (!$localVariantId || !$localValueId) continue;
+
+                $rows[] = [
+                    'listing_variant_id' => $localVariantId,
+                    'option_value_id'    => $localValueId,
+                    'created_at'         => $now,
+                    'updated_at'         => $now,
+                ];
+            }
+
+            if (!empty($rows)) {
+                // chunk para no saturar inserts grandes
+                foreach (array_chunk($rows, 100) as $chunk) {
+                    DB::connection('system')->table('marketplace_listing_variant_values')
+                        ->insert($chunk);
+                }
+            }
+        }
+
+        // Volver al tenant para que el caller (sync masivo) siga la iteración
+        $tenancy->tenant($listing->hostname->website ?? null);
     }
 
     /**
