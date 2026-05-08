@@ -444,6 +444,41 @@ class ItemController extends Controller
             $item->mp_status = 'active';
         }
 
+        // Auto-mapping de categoría: el form rápido (items_ecommerce) ya no
+        // muestra el campo `category_id` (interna del tenant) — solo el cascader
+        // de la categoría oficial del marketplace. Si llega `marketplace_category_id`
+        // y `category_id` está vacío, buscamos/creamos una `Category` con el
+        // nombre del leaf de la categoría oficial. Los reportes y filtros
+        // internos siguen funcionando porque `category_id` queda poblado.
+        if (empty($item->category_id) && !empty($item->marketplace_category_id)) {
+            try {
+                $mpCat = \App\Models\System\MarketplaceCategory::query()
+                    ->find($item->marketplace_category_id);
+                if ($mpCat) {
+                    $leafName = (string) $mpCat->name;
+                    if ($leafName !== '') {
+                        $cat = \App\Models\Tenant\Category::query()
+                            ->whereRaw('LOWER(name) = ?', [mb_strtolower($leafName)])
+                            ->first();
+                        if (!$cat) {
+                            $cat = \App\Models\Tenant\Category::query()->create([
+                                'name' => $leafName,
+                            ]);
+                        }
+                        $item->category_id = $cat->id;
+                    }
+                }
+            } catch (\Throwable $e) {
+                \Log::warning('[ItemController::store] auto-map categoría falló', [
+                    'mp_category_id' => $item->marketplace_category_id,
+                    'error'          => $e->getMessage(),
+                ]);
+                // No abortamos el save — la categoría interna queda en NULL
+                // y el item se guarda igual. Los reportes simplemente no
+                // tendrán categoría hasta que el admin la asigne manualmente.
+            }
+        }
+
         // Gate de cuota: si está activando marketplace en este save y no estaba
         // antes, validar contra el límite del plan. Excluye el propio item del
         // conteo para evitar bloquearse a sí mismo en re-saves.

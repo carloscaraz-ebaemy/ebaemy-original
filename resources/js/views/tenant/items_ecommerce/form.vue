@@ -528,66 +528,40 @@
 
                                 <div class="col-md-9">
                                     <div class="row">
-                                        <div class="short-div col-md-4">
-                                            <div :class="{'has-danger': errors.category_id}"
-                                                class="form-group">
-                                                <label class="control-label">Categoría
-                                                    <!-- <a v-if="form_category.add == false"
-                                                        class="control-label font-weight-bold text-info"
-                                                        href="#"
-                                                        @click="form_category.add = true"> [ + Nuevo]</a>
-                                                    <a v-if="form_category.add == true"
-                                                        class="control-label font-weight-bold text-info"
-                                                        href="#"
-                                                        @click="saveCategory()"> [ + Guardar]</a>
-                                                    <a v-if="form_category.add == true"
-                                                        class="control-label font-weight-bold text-danger"
-                                                        href="#"
-                                                        @click="form_category.add = false"> [ Cancelar]</a> -->
+                                        <!-- ═════════ CATEGORÍA UNIFICADA (oficial del marketplace) ═════════ -->
+                                        <!-- La categoría interna del tenant (form.category_id) se auto-asigna en
+                                             ItemController::store a partir del leaf de la categoría oficial.
+                                             Solo mostramos el cascader oficial — un único control para el seller. -->
+                                        <div class="col-md-12">
+                                            <div class="form-group">
+                                                <label class="control-label">
+                                                    Categoría <span class="text-danger">*</span>
+                                                    <small style="font-weight:normal;color:#6b7280;margin-left:4px">(taxonomía oficial de ebaemy)</small>
                                                 </label>
-                                                <el-input v-if="form_category.add == true"
-                                                        v-model="form_category.name"
-                                                        dusk="item_code"
-                                                        style="margin-bottom:1.5%;"></el-input>
-                                                <el-select v-if="form_category.add == false"
-                                                        v-model="form.category_id"
-                                                            clearable
-                                                            filterable
-                                                            :filter-method="filterCategories"
-                                                            @visible-change="onCategoryDropdownChange"
-                                                            @keydown.enter.native.prevent="createCategoryFromSearch">
-                                                    <el-option v-for="category in filteredCategories"
-                                                        :key="category.id"
-                                                        :label="category.name"
-                                                        :value="category.id"></el-option>
-                                                    <template slot="empty">
-                                                        <p v-if="loading_search" class="el-select-dropdown__empty">
-                                                            Cargando...
-                                                        </p>
-                                                        <p v-else-if="categorySearchQuery" class="el-select-dropdown__empty">
-                                                            No se encontraron resultados
-                                                        </p>
-                                                    
-                                                        <p v-else class="el-select-dropdown__empty">
-                                                            No hay categorías. <br> Escriba el nombre y presione Enter para crear
-                                                        </p>
-                                                    
-                                                        <div
-                                                            v-if="!loading_search && categorySearchQuery"
-                                                            class="el-select-dropdown__item new-option"
-                                                            @click.stop="createCategoryFromSearch"
-                                                        >
-                                                            <span>Crear categoría "{{ categorySearchQuery }}"</span>
-                                                        </div>
-                                                    </template>
-                                                </el-select>
-                                                <small v-if=" errors.category_id"
-                                                    class="form-control-feedback"
-                                                    v-text="errors.category_id[0]"></small>
+                                                <div v-if="mp_category_suggestions.length && !form.marketplace_category_id" style="margin:0 0 8px;padding:8px 10px;background:#ecfdf5;border:1px solid #a7f3d0;border-radius:8px">
+                                                    <div style="font-size:11px;color:#047857;margin-bottom:4px;font-weight:500">💡 Sugerencias basadas en el nombre del producto:</div>
+                                                    <div style="display:flex;flex-wrap:wrap;gap:6px">
+                                                        <button v-for="s in mp_category_suggestions" :key="s.id" type="button" @click="applyMpSuggestion(s)" style="background:#fff;border:1px solid #10b981;color:#065f46;padding:4px 10px;border-radius:6px;font-size:12px;cursor:pointer">
+                                                            {{ s.breadcrumb }} ✓
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                                <el-cascader
+                                                    v-model="form.marketplace_category_path"
+                                                    :options="mp_category_tree"
+                                                    :props="{ value: 'id', label: 'name', children: 'children', checkStrictly: false, emitPath: true }"
+                                                    placeholder="Selecciona una categoría…"
+                                                    filterable
+                                                    clearable
+                                                    style="width:100%"
+                                                    @change="onMpCategoryChange"
+                                                    @click.native="loadMarketplaceCategoryTree"
+                                                />
+                                                <small style="font-size:11px;color:#9ca3af">Se usa para el filtro del marketplace y para tu catálogo interno automáticamente.</small>
                                             </div>
                                         </div>
 
-                                        <div class="short-div col-md-8">
+                                        <div class="short-div col-md-12">
                                             <div :class="{'has-danger': errors.purchase_affectation_igv_type_id}"
                                                 class="form-group">
                                                 <label class="control-label">Tipo de afectación (Compra)</label>
@@ -637,35 +611,17 @@
                                                 <el-tooltip content="Si se activa, el producto aparecerá en ebaemy.com/marketplace. Las solicitudes llegan como pedidos en el canal 'Marketplace ebaemy'." placement="top">
                                                     <i class="el-icon-info text-info" style="margin-left:4px;cursor:help"></i>
                                                 </el-tooltip>
+                                                <!-- Solo precio especial + link de "no encuentro categoría". El
+                                                     cascader de categoría se gestiona arriba en el campo unificado.
+                                                     Al activar marketplace solo pedimos lo extra: precio diferenciado. -->
                                                 <div v-if="form.marketplace_publishable" style="margin-top:8px;padding:10px 12px;background:#faf5ff;border:1px solid #e9d5ff;border-radius:8px">
-                                                    <label style="display:block;font-size:12px;color:#6b21a8;margin-bottom:4px;font-weight:500">Categoría oficial del marketplace *</label>
-                                                    <div v-if="mp_category_suggestions.length && !form.marketplace_category_id" style="margin:0 0 8px;padding:8px 10px;background:#ecfdf5;border:1px solid #a7f3d0;border-radius:8px">
-                                                        <div style="font-size:11px;color:#047857;margin-bottom:4px;font-weight:500">💡 Sugerencias basadas en tu categoría interna:</div>
-                                                        <div style="display:flex;flex-wrap:wrap;gap:6px">
-                                                            <button v-for="s in mp_category_suggestions" :key="s.id" type="button" @click="applyMpSuggestion(s)" style="background:#fff;border:1px solid #10b981;color:#065f46;padding:4px 10px;border-radius:6px;font-size:12px;cursor:pointer">
-                                                                {{ s.breadcrumb }} ✓
-                                                            </button>
-                                                        </div>
+                                                    <div v-if="!form.marketplace_category_id" style="font-size:12px;color:#dc2626;font-weight:600;margin-bottom:6px">
+                                                        ⚠️ Selecciona una categoría arriba para poder publicar.
                                                     </div>
-                                                    <el-cascader
-                                                        v-model="form.marketplace_category_path"
-                                                        :options="mp_category_tree"
-                                                        :props="{ value: 'id', label: 'name', children: 'children', checkStrictly: false, emitPath: true }"
-                                                        :show-all-levels="true"
-                                                        placeholder="Selecciona una categoría…"
-                                                        filterable
-                                                        clearable
-                                                        size="mini"
-                                                        style="width:100%"
-                                                        @change="onMpCategoryChange">
-                                                    </el-cascader>
-                                                    <div style="display:flex;justify-content:space-between;align-items:center;margin-top:4px">
-                                                        <small style="color:#7c3aed;font-size:11px">El producto aparecerá bajo esta categoría en ebaemy.com/marketplace.</small>
-                                                        <a href="#" @click.prevent="openMpCategoryRequest" style="font-size:11px;color:#7c3aed;text-decoration:underline">
-                                                            ¿No encuentras una categoría adecuada?
-                                                        </a>
-                                                    </div>
-                                                    <label style="display:block;font-size:12px;color:#6b21a8;margin:8px 0 4px;font-weight:500">Precio en marketplace (opcional)</label>
+                                                    <a href="#" @click.prevent="openMpCategoryRequest" style="font-size:11px;color:#7c3aed;text-decoration:underline;display:inline-block;margin-bottom:6px">
+                                                        ¿No encuentras una categoría adecuada?
+                                                    </a>
+                                                    <label style="display:block;font-size:12px;color:#6b21a8;margin:4px 0 4px;font-weight:500">Precio en marketplace (opcional)</label>
                                                     <el-input-number v-model="form.mp_price" :min="0" :precision="2" :step="1"
                                                         placeholder="Usar precio normal" controls-position="right" size="mini"
                                                         style="width:100%"></el-input-number>
