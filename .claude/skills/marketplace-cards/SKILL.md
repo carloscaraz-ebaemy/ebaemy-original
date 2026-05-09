@@ -22,8 +22,9 @@ Hay **4 vistas** que muestran grids de productos, y todas usan el MISMO partial:
 resources/views/marketplace/
 ├── partials/
 │   ├── listing-card.blade.php          ← markup de la card (única fuente)
+│   ├── listing-card-styles.blade.php   ← CSS de card/grid/paginador
 │   └── listing-card-script.blade.php   ← JS (hover dots + shop link click)
-├── layout.blade.php                    ← incluye listing-card-script al final
+├── layout.blade.php                    ← incluye styles en <head> + script al final
 ├── index.blade.php                     ← @include('marketplace.partials.listing-card', [...])
 ├── category.blade.php                  ← idem
 ├── category_official.blade.php         ← idem
@@ -38,6 +39,8 @@ app/Http/Controllers/MarketplaceController.php
 ❌ **NUNCA** edites el bloque `<a class="mp-card">` inline de un blade — siempre va vía `@include('marketplace.partials.listing-card', ['listing' => $listing])`. Si lo encuentras inline en algún blade, refactorízalo al partial.
 
 ❌ **NUNCA** dupliques el JS de hover de dots o shop-link en una vista — vive en `listing-card-script` y el layout lo carga.
+
+❌ **NUNCA** pongas CSS de `.mp-card`, `.mp-grid`, `.mp-card-*` o `.mp-pag` inline en una vista — todo eso vive en `listing-card-styles` cargado por el layout. Si lo pones inline, las otras vistas se quedan sin estilo y la card sale rota (imagen mal escalada, dots invisibles, etc.).
 
 ❌ **NUNCA** crees una acción nueva que paginate listings sin invocar `decorateListingsWithVariantData($listings)`. Si no, las cards salen sin color dots, sin imagen primaria heredada, sin variant thumbs — el bug "este producto se ve diferente aquí".
 
