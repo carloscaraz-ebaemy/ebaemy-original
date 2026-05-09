@@ -246,9 +246,13 @@
                     Tiendas
                 </div>
                 @php
-                    // Quita 'shop' del query string para el link "Todas"; los demás
-                    // links lo agregan/sobrescriben con el subdomain elegido.
-                    $shopBaseQs = array_diff_key($baseQs, ['shop' => null]);
+                    // Para los links del sidebar "Tiendas" descartamos el query
+                    // de búsqueda (q): el seller suele teclear el nombre de la
+                    // tienda en el buscador y luego filtrar — si preservamos q
+                    // queda doble filtro y muestra 0 resultados aunque la tienda
+                    // tenga productos. También quitamos 'shop' para que los
+                    // links nuevos sobrescriban el actual sin acumular.
+                    $shopBaseQs = array_diff_key($baseQs, ['shop' => null, 'q' => null]);
                 @endphp
                 <ul class="mp-filter-list">
                     <li>
