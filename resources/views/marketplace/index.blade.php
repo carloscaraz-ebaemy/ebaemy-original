@@ -218,26 +218,10 @@
                     style="display:none" id="mpFiltersClose">×</button>
         </div>
 
-        @if(!empty($categories) && count($categories) > 0)
-            <div class="mp-filter-group">
-                <div class="mp-filter-label">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
-                    Categorías
-                </div>
-                <ul class="mp-filter-list">
-                    <li>
-                        <a href="{{ route('marketplace.index', $baseQs) }}"
-                           class="mp-filter-item {{ empty($category) ? 'is-active' : '' }}">Todas</a>
-                    </li>
-                    @foreach($categories as $cat)
-                        <li>
-                            <a href="{{ route('marketplace.index', array_merge($baseQs, ['category' => $cat])) }}"
-                               class="mp-filter-item {{ $category === $cat ? 'is-active' : '' }}">{{ $cat }}</a>
-                        </li>
-                    @endforeach
-                </ul>
-            </div>
-        @endif
+        {{-- Bloque "Categorías" del sidebar removido: mostraba las categorías
+             internas del tenant (Macetas, OFERTA/SALE, etc.) que se mezclaban
+             con la taxonomía oficial del marketplace de los chips de arriba.
+             La taxonomía oficial sigue activa vía /marketplace/c/{slug}. --}}
 
         @if(!empty($shops) && $shops->count() > 0)
             <div class="mp-filter-group">
