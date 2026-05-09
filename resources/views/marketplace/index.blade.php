@@ -344,134 +344,19 @@
             <div class="mp-grid">
                 @foreach($listings as $idx => $listing)
                     @php
-                        // Badges derivados del loop: primer producto de cada página
-                        // recibe "Top", segundo "Más vendido" cuando está en home.
+                        // Badges del loop — solo en home en la primera página.
                         $showTopBadge  = $isHome && $idx === 0 && $listings->currentPage() === 1;
                         $showBestBadge = $isHome && $idx === 1 && $listings->currentPage() === 1;
                         $showNewBadge  = !$showTopBadge && !$showBestBadge
                                          && isset($listing->created_at)
                                          && \Carbon\Carbon::parse($listing->created_at)->gt(now()->subDays(14));
                     @endphp
-                    <a href="{{ route('marketplace.item', $listing->slug) }}" class="mp-card">
-                        @php
-                            // Imagen principal de la card: si hay variante "principal"
-                            // (is_primary=true) o un fallback (primera con stock>0+imagen),
-                            // la usamos en lugar de la imagen del producto padre. Estilo
-                            // Falabella: la card del listado se alinea con UN color
-                            // específico, no muestra una mezcla padre↔dots.
-                            $cardPrimaryImg = $listing->primary_image_url ?? $listing->image_url;
-                        @endphp
-                        <div class="mp-card-img" data-has-secondary="{{ $listing->secondary_image_url ? '1' : '0' }}">
-                            @if($cardPrimaryImg)
-                                <img class="mp-card-img-primary" src="{{ $cardPrimaryImg }}" alt="{{ $listing->title }}" loading="lazy">
-                                @if($listing->secondary_image_url)
-                                    <img class="mp-card-img-secondary" src="{{ $listing->secondary_image_url }}" alt="" loading="lazy" aria-hidden="true">
-                                @endif
-                            @else
-                                <div class="mp-card-img-empty">Sin imagen</div>
-                            @endif
-
-                            <div class="mp-card-badges">
-                                @if(!empty($listing->is_featured) && (empty($listing->featured_until) || \Carbon\Carbon::parse($listing->featured_until)->isFuture()))
-                                    <span class="mp-badge mp-badge--top" title="Producto destacado" style="background:linear-gradient(135deg,#fbbf24,#f59e0b);color:#fff">⭐ Destacado</span>
-                                @elseif($showTopBadge)
-                                    <span class="mp-badge mp-badge--top" title="Destacado">⭐ Top</span>
-                                @elseif($showBestBadge)
-                                    <span class="mp-badge mp-badge--best" title="Más vendido">🔥 Más vendido</span>
-                                @elseif($showNewBadge)
-                                    <span class="mp-badge mp-badge--new" title="Nuevo">NUEVO</span>
-                                @endif
-                                @if($listing->tenant_verified)
-                                    <span class="mp-badge mp-badge--verified" title="Tienda verificada">
-                                        <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l2.39 5.42L20 8.27l-4 4.15.94 5.58L12 15.77l-4.94 2.23L8 12.42 4 8.27l5.61-.85L12 2z"/></svg>
-                                        Verificado
-                                    </span>
-                                @endif
-                                @if(!empty($listing->is_on_offer) && !empty($listing->discount_pct))
-                                    <span class="mp-badge mp-badge--offer" title="En oferta">-{{ $listing->discount_pct }}%</span>
-                                @endif
-                            </div>
-
-                        </div>
-                        <div class="mp-card-body">
-                            <h3 class="mp-card-title">{{ $listing->title }}</h3>
-
-                            @if($listing->rating_count > 0)
-                                <div class="mp-card-rating">
-                                    <span class="mp-card-rating-stars">
-                                        @for($i=1;$i<=5;$i++){{ $i <= round($listing->avg_rating) ? '★' : '☆' }}@endfor
-                                    </span>
-                                    <span class="mp-card-rating-count">({{ $listing->rating_count }})</span>
-                                </div>
-                            @endif
-
-                            <div class="mp-card-price-row">
-                                @if($listing->display_price > 0)
-                                    @if(!empty($listing->has_variants))
-                                        <span class="mp-card-price-prefix">Desde</span>
-                                        <span class="mp-card-price">S/ {{ number_format($listing->min_price ?? $listing->display_price, 2) }}</span>
-                                    @else
-                                        <span class="mp-card-price">S/ {{ number_format($listing->display_price, 2) }}</span>
-                                        @if(!empty($listing->is_on_offer) && !empty($listing->original_price) && $listing->original_price > $listing->display_price)
-                                            <span class="mp-card-price-old">S/ {{ number_format($listing->original_price, 2) }}</span>
-                                        @endif
-                                    @endif
-                                @else
-                                    <span style="color:#6b7280;font-size:13px;font-weight:500">Consultar precio</span>
-                                @endif
-                            </div>
-
-                            <div class="mp-card-shop">
-                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9h18"/><path d="m3 9 1.5-6h15L21 9"/><path d="M3 9v10a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V9"/></svg>
-                                @if($listing->subdomain)
-                                    {{-- Click navega a la página de la tienda. No
-                                         podemos anidar <a> dentro del <a> del card,
-                                         así que usamos span + JS con stopPropagation. --}}
-                                    <span class="mp-card-shop-name mp-card-shop-link js-shop-link"
-                                          data-href="{{ route('marketplace.tenant', ['subdomain' => $listing->subdomain]) }}"
-                                          title="Ver tienda {{ $listing->seller_display }}">{{ $listing->seller_display }}</span>
-                                @else
-                                    <span class="mp-card-shop-name" title="Vendido por {{ $listing->seller_display }}">{{ $listing->seller_display }}</span>
-                                @endif
-                            </div>
-
-                            {{-- Dots de color disponibles. Solo se muestran los valores
-                                 que tienen color_hex Y al menos una variante con stock > 0
-                                 (filtrado en el controller). --}}
-                            @if(!empty($listing->color_dots) && $listing->color_dots->count())
-                                <div class="mp-card-colors" aria-label="Colores disponibles">
-                                    @foreach($listing->color_dots as $cd)
-                                        @php
-                                            // El dot está "activo" si su color_hex coincide con el
-                                            // de la variante principal del listing. Sirve solo de
-                                            // estado inicial; el JS lo mueve al dot bajo el cursor.
-                                            $isActiveDot = !empty($listing->active_color_hex)
-                                                && strcasecmp($cd->color_hex, $listing->active_color_hex) === 0;
-                                        @endphp
-                                        <span class="mp-card-color-dot mp-card-color-dot--hex {{ $isActiveDot ? 'is-active' : '' }}"
-                                              @if(!empty($cd->image_url)) data-img="{{ $cd->image_url }}" @endif
-                                              title="{{ $cd->value }}"
-                                              style="background:{{ $cd->color_hex }}"></span>
-                                    @endforeach
-                                </div>
-                            @endif
-
-                            {{-- Thumbs de variantes con imagen propia (legacy: sigue activo
-                                 para items que NO tienen opción tipo "color" pero sí imágenes
-                                 por variante). Hover cambia la imagen principal de la card. --}}
-                            @if(empty($listing->color_dots) && !empty($listing->variant_thumbs) && $listing->variant_thumbs->count())
-                                <div class="mp-card-variants" aria-label="Variantes disponibles">
-                                    @foreach($listing->variant_thumbs as $vt)
-                                        <span class="mp-card-variant-dot"
-                                              data-img="{{ $vt->image_url }}"
-                                              title="{{ $vt->display_name }}">
-                                            <img src="{{ $vt->image_url }}" alt="{{ $vt->display_name }}" loading="lazy">
-                                        </span>
-                                    @endforeach
-                                </div>
-                            @endif
-                        </div>
-                    </a>
+                    @include('marketplace.partials.listing-card', [
+                        'listing'       => $listing,
+                        'showTopBadge'  => $showTopBadge,
+                        'showBestBadge' => $showBestBadge,
+                        'showNewBadge'  => $showNewBadge,
+                    ])
                 @endforeach
             </div>
 
@@ -809,45 +694,8 @@ if (window.matchMedia('(max-width: 899px)').matches) {
     if (btn) btn.style.display = 'inline-block';
 }
 
-// Hover sobre dots (color o variante) → cambia la imagen principal de la
-// card y mueve el "is-active" al dot bajo el cursor. Sticky: al salir del
-// card, la imagen y el dot activo quedan donde estaban — estilo Falabella,
-// donde el seller ve cuál color "es" la imagen actual.
-document.querySelectorAll('.mp-card').forEach(function (card) {
-    var dots = card.querySelectorAll('.mp-card-variant-dot, .mp-card-color-dot[data-img]');
-    if (!dots.length) return;
-    var primary = card.querySelector('.mp-card-img-primary');
-    if (!primary) return;
-    var allDots = card.querySelectorAll('.mp-card-color-dot');
-    dots.forEach(function (dot) {
-        dot.addEventListener('mouseenter', function () {
-            var url = dot.getAttribute('data-img');
-            if (url) primary.src = url;
-            // Mover is-active al dot bajo el cursor (solo dots de color).
-            if (dot.classList.contains('mp-card-color-dot')) {
-                allDots.forEach(function (d) { d.classList.remove('is-active'); });
-                dot.classList.add('is-active');
-            }
-        });
-        // Evita que al click en el dot navegue al detalle (es solo hover preview)
-        dot.addEventListener('click', function (e) {
-            e.preventDefault();
-            e.stopPropagation();
-        });
-    });
-});
-
-// Click sobre el nombre de la tienda dentro de la card → navega a la página
-// pública de esa tienda. Como la card entera es un <a>, no podemos anidar
-// otro <a>; usamos span con data-href y stopPropagation.
-document.querySelectorAll('.js-shop-link').forEach(function (el) {
-    el.addEventListener('click', function (e) {
-        e.preventDefault();
-        e.stopPropagation();
-        var href = el.getAttribute('data-href');
-        if (href) window.location.href = href;
-    });
-});
-
+{{-- El JS de hover de dots y click en shop-link ahora vive en
+     marketplace.partials.listing-card-script (incluido por layout.blade.php),
+     compartido con todas las vistas que renderizan cards. --}}
 </script>
 @endsection

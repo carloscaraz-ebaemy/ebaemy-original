@@ -127,41 +127,7 @@
         @else
             <div class="mp-grid">
                 @foreach($listings as $listing)
-                    <a href="{{ route('marketplace.item', $listing->slug) }}" class="mp-card">
-                        <div class="mp-card-img">
-                            @if($listing->image_url)
-                                <img src="{{ $listing->image_url }}" alt="{{ $listing->title }}" loading="lazy">
-                            @else
-                                <div class="mp-card-img-empty">Sin imagen</div>
-                            @endif
-                            <div class="mp-card-badges">
-                                @if(!empty($listing->tenant_verified))
-                                    <span class="mp-badge mp-badge--verified">
-                                        <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l2.39 5.42L20 8.27l-4 4.15.94 5.58L12 15.77l-4.94 2.23L8 12.42 4 8.27l5.61-.85L12 2z"/></svg>
-                                        Verificado
-                                    </span>
-                                @endif
-                            </div>
-                        </div>
-                        <div class="mp-card-body">
-                            <h3 class="mp-card-title">{{ $listing->title }}</h3>
-                            @if(!empty($listing->rating_count) && $listing->rating_count > 0)
-                                <div class="mp-card-rating">
-                                    <span class="mp-card-rating-stars">
-                                        @for($i=1;$i<=5;$i++){{ $i <= round($listing->avg_rating) ? '★' : '☆' }}@endfor
-                                    </span>
-                                    <span class="mp-card-rating-count">({{ $listing->rating_count }})</span>
-                                </div>
-                            @endif
-                            <div class="mp-card-price-row">
-                                <span class="mp-card-price">@if($listing->display_price > 0)S/ {{ number_format($listing->display_price, 2) }}@else<span style="color:#6b7280;font-size:13px;font-weight:500">Consultar precio</span>@endif</span>
-                            </div>
-                            <div class="mp-card-shop">
-                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9h18"/><path d="m3 9 1.5-6h15L21 9"/><path d="M3 9v10a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V9"/></svg>
-                                <span class="mp-card-shop-name">{{ \Illuminate\Support\Str::limit($listing->seller_display, 24) }}</span>
-                            </div>
-                        </div>
-                    </a>
+                    @include('marketplace.partials.listing-card', ['listing' => $listing])
                 @endforeach
             </div>
 

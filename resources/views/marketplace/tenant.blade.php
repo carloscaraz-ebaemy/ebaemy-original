@@ -279,29 +279,7 @@
         @else
             <div class="mp-grid">
                 @foreach($listings as $listing)
-                    <a href="{{ route('marketplace.item', $listing->slug) }}" class="mp-card">
-                        <div class="mp-card-img">
-                            @if($listing->image_url)
-                                <img src="{{ $listing->image_url }}" alt="{{ $listing->title }}" loading="lazy">
-                            @else
-                                <div class="mp-card-img-empty">Sin imagen</div>
-                            @endif
-                        </div>
-                        <div class="mp-card-body">
-                            <h3 class="mp-card-title">{{ $listing->title }}</h3>
-                            @if(!empty($listing->rating_count) && $listing->rating_count > 0)
-                                <div class="mp-card-rating">
-                                    <span class="mp-card-rating-stars">
-                                        @for($i=1;$i<=5;$i++){{ $i <= round($listing->avg_rating) ? '★' : '☆' }}@endfor
-                                    </span>
-                                    <span class="mp-card-rating-count">({{ $listing->rating_count }})</span>
-                                </div>
-                            @endif
-                            <div class="mp-card-price-row">
-                                <span class="mp-card-price">@if($listing->display_price > 0)S/ {{ number_format($listing->display_price, 2) }}@else<span style="color:#6b7280;font-size:13px;font-weight:500">Consultar precio</span>@endif</span>
-                            </div>
-                        </div>
-                    </a>
+                    @include('marketplace.partials.listing-card', ['listing' => $listing])
                 @endforeach
             </div>
 

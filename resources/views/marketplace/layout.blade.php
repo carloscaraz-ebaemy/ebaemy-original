@@ -487,5 +487,9 @@
 })();
 </script>
 
+{{-- JS común a todas las vistas que renderizan cards de listings:
+     hover en color dots + click en nombre de tienda. --}}
+@include('marketplace.partials.listing-card-script')
+
 </body>
 </html>

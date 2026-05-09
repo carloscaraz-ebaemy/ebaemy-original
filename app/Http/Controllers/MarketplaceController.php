@@ -74,113 +74,11 @@ class MarketplaceController extends Controller
 
         $listings   = $query->paginate(24)->withQueryString();
 
-        // Eager-load de variantes con imagen — solo las que tienen image_url
-        // para no traer ruido. La UI las renderiza como dots/thumbs en la card
-        // y permite cambiar la imagen al hover. Limitamos a 4 por listing
-        // para no inflar el HTML cuando hay muchas combinaciones.
-        $listingIds = $listings->pluck('id');
-        if ($listingIds->isNotEmpty()) {
-            $variantImages = \App\Models\System\MarketplaceListingVariant::query()
-                ->whereIn('listing_id', $listingIds)
-                ->where('is_active', true)
-                ->whereNotNull('image_url')
-                ->orderBy('listing_id')
-                ->orderBy('id')
-                ->get(['id', 'listing_id', 'tenant_variant_id', 'display_name', 'image_url'])
-                ->groupBy('listing_id');
-
-            // Color values: dots circulares en cards (estilo Falabella).
-            // Reglas estrictas:
-            //  1. La opción debe llamarse "color" (case-insensitive).
-            //  2. El value DEBE tener color_hex — los que solo tienen
-            //     image_url se descartan (lo pidió el usuario, los dots
-            //     son únicamente círculos de color, no thumbnails-foto).
-            //  3. Al menos UNA variante activa con stock > 0 debe usar
-            //     ese value — los colores agotados no se muestran.
-            //
-            // EXISTS subquery con join al pivote variant_value y al
-            // listing_variant para filtrar variantes vivas con inventario.
-            $colorValuesByListing = \DB::connection('system')->table('marketplace_listing_option_values as v')
-                ->join('marketplace_listing_options as o', 'o.id', '=', 'v.option_id')
-                ->whereIn('o.listing_id', $listingIds)
-                ->whereRaw('LOWER(o.name) LIKE ?', ['%color%'])
-                ->whereNotNull('v.color_hex')
-                ->whereExists(function ($q) {
-                    $q->select(\DB::raw(1))
-                        ->from('marketplace_listing_variant_values as vv')
-                        ->join('marketplace_listing_variants as lv', 'lv.id', '=', 'vv.listing_variant_id')
-                        ->whereColumn('vv.option_value_id', 'v.id')
-                        ->where('lv.is_active', true)
-                        ->where('lv.stock', '>', 0);
-                })
-                ->orderBy('o.listing_id')
-                ->orderBy('v.position')
-                ->select(
-                    'o.listing_id',
-                    'v.value',
-                    'v.color_hex',
-                    // Imagen de la primera variante activa con stock>0 que use
-                    // este color. Permite que el dot dispare hover-image en la
-                    // card (antes solo lo hacían los variant_thumbs y por eso
-                    // los productos con color_dots no cambiaban de imagen).
-                    \DB::connection('system')->raw('(
-                        SELECT lv.image_url
-                        FROM marketplace_listing_variant_values vv
-                        INNER JOIN marketplace_listing_variants lv
-                            ON lv.id = vv.listing_variant_id
-                        WHERE vv.option_value_id = v.id
-                          AND lv.is_active = 1
-                          AND lv.stock > 0
-                          AND lv.image_url IS NOT NULL
-                        ORDER BY lv.id ASC
-                        LIMIT 1
-                    ) AS image_url')
-                )
-                ->get()
-                ->groupBy('listing_id');
-
-            // Variante "principal" (is_primary=1) por listing — define cuál
-            // imagen va en la card y qué color queda como "activo" en los
-            // dots por defecto (estilo Falabella). Si no hay primary, hacemos
-            // fallback a la primera variante con stock>0+image_url para que
-            // la card no quede con la imagen del padre cuando la primera
-            // variante con foto es de otro color.
-            $primaryByListing = \DB::connection('system')->table('marketplace_listing_variants as lv')
-                ->whereIn('lv.listing_id', $listingIds)
-                ->where('lv.is_active', true)
-                ->whereNotNull('lv.image_url')
-                ->leftJoin('marketplace_listing_variant_values as vv', 'vv.listing_variant_id', '=', 'lv.id')
-                ->leftJoin('marketplace_listing_option_values as ov', 'ov.id', '=', 'vv.option_value_id')
-                ->leftJoin('marketplace_listing_options as o', 'o.id', '=', 'ov.option_id')
-                ->select(
-                    'lv.listing_id',
-                    'lv.id as variant_id',
-                    'lv.image_url',
-                    'lv.is_primary',
-                    'lv.stock',
-                    \DB::raw("MAX(CASE WHEN LOWER(o.name) LIKE '%color%' THEN ov.color_hex END) AS active_color_hex"),
-                    \DB::raw("MAX(CASE WHEN LOWER(o.name) LIKE '%color%' THEN ov.value     END) AS active_color_value")
-                )
-                ->groupBy('lv.listing_id', 'lv.id', 'lv.image_url', 'lv.is_primary', 'lv.stock')
-                // is_primary primero, después stock>0, después id ascendente:
-                // si nadie está marcado, agarra la primera con stock>0.
-                ->orderByDesc('lv.is_primary')
-                ->orderByRaw('lv.stock > 0 DESC')
-                ->orderBy('lv.id')
-                ->get()
-                ->groupBy('listing_id')
-                ->map(fn($rows) => $rows->first()); // primero por listing
-
-            foreach ($listings as $l) {
-                $l->variant_thumbs = $variantImages->get($l->id, collect())->take(4);
-                $l->color_dots     = $colorValuesByListing->get($l->id, collect())->take(5);
-
-                $primary = $primaryByListing->get($l->id);
-                $l->primary_image_url   = $primary->image_url   ?? null;
-                $l->active_color_hex    = $primary->active_color_hex ?? null;
-                $l->active_color_value  = $primary->active_color_value ?? null;
-            }
-        }
+        // Decora cada listing con los datos que la card necesita: dots de
+        // color, thumbs de variantes con imagen, imagen primaria heredada
+        // de la variante is_primary, y color activo. Reusable por todas
+        // las acciones que renderizan grids de cards.
+        $this->decorateListingsWithVariantData($listings);
 
         $categories = MarketplaceListing::published()
             ->whereNotNull('category_name')
@@ -244,6 +142,106 @@ class MarketplaceController extends Controller
             'sort', 'priceMin', 'priceMax',
             'shops', 'shopSubdomain'
         ));
+    }
+
+    /**
+     * Decora un paginator/colección de listings con los datos que usa la card
+     * del marketplace: dots de color con su imagen, thumbs de variantes con
+     * imagen propia, y la "variante principal" que define la imagen y el
+     * color activo por defecto. Lo invocan todas las acciones que renderizan
+     * grids de cards (index, category, categoryOfficial, tenantPage) para
+     * que las cards se vean igual en todas las vistas.
+     *
+     * Side effect: setea $listing->variant_thumbs, $listing->color_dots,
+     * $listing->primary_image_url, $listing->active_color_hex/value.
+     */
+    private function decorateListingsWithVariantData($listings): void
+    {
+        $listingIds = collect($listings->items() ?? $listings)->pluck('id');
+        if ($listingIds->isEmpty()) return;
+
+        $variantImages = \App\Models\System\MarketplaceListingVariant::query()
+            ->whereIn('listing_id', $listingIds)
+            ->where('is_active', true)
+            ->whereNotNull('image_url')
+            ->orderBy('listing_id')
+            ->orderBy('id')
+            ->get(['id', 'listing_id', 'tenant_variant_id', 'display_name', 'image_url'])
+            ->groupBy('listing_id');
+
+        // Color values: dots circulares en cards. Reglas:
+        //  1. La opción debe llamarse "color" (case-insensitive).
+        //  2. value.color_hex no nulo (los que solo tienen imagen se descartan).
+        //  3. Al menos una variante activa con stock > 0 usa ese value.
+        $colorValuesByListing = \DB::connection('system')->table('marketplace_listing_option_values as v')
+            ->join('marketplace_listing_options as o', 'o.id', '=', 'v.option_id')
+            ->whereIn('o.listing_id', $listingIds)
+            ->whereRaw('LOWER(o.name) LIKE ?', ['%color%'])
+            ->whereNotNull('v.color_hex')
+            ->whereExists(function ($q) {
+                $q->select(\DB::raw(1))
+                    ->from('marketplace_listing_variant_values as vv')
+                    ->join('marketplace_listing_variants as lv', 'lv.id', '=', 'vv.listing_variant_id')
+                    ->whereColumn('vv.option_value_id', 'v.id')
+                    ->where('lv.is_active', true)
+                    ->where('lv.stock', '>', 0);
+            })
+            ->orderBy('o.listing_id')
+            ->orderBy('v.position')
+            ->select(
+                'o.listing_id',
+                'v.value',
+                'v.color_hex',
+                \DB::connection('system')->raw('(
+                    SELECT lv.image_url
+                    FROM marketplace_listing_variant_values vv
+                    INNER JOIN marketplace_listing_variants lv
+                        ON lv.id = vv.listing_variant_id
+                    WHERE vv.option_value_id = v.id
+                      AND lv.is_active = 1
+                      AND lv.stock > 0
+                      AND lv.image_url IS NOT NULL
+                    ORDER BY lv.id ASC
+                    LIMIT 1
+                ) AS image_url')
+            )
+            ->get()
+            ->groupBy('listing_id');
+
+        // Variante "principal" — define imagen + color activo por defecto.
+        $primaryByListing = \DB::connection('system')->table('marketplace_listing_variants as lv')
+            ->whereIn('lv.listing_id', $listingIds)
+            ->where('lv.is_active', true)
+            ->whereNotNull('lv.image_url')
+            ->leftJoin('marketplace_listing_variant_values as vv', 'vv.listing_variant_id', '=', 'lv.id')
+            ->leftJoin('marketplace_listing_option_values as ov', 'ov.id', '=', 'vv.option_value_id')
+            ->leftJoin('marketplace_listing_options as o', 'o.id', '=', 'ov.option_id')
+            ->select(
+                'lv.listing_id',
+                'lv.id as variant_id',
+                'lv.image_url',
+                'lv.is_primary',
+                'lv.stock',
+                \DB::raw("MAX(CASE WHEN LOWER(o.name) LIKE '%color%' THEN ov.color_hex END) AS active_color_hex"),
+                \DB::raw("MAX(CASE WHEN LOWER(o.name) LIKE '%color%' THEN ov.value     END) AS active_color_value")
+            )
+            ->groupBy('lv.listing_id', 'lv.id', 'lv.image_url', 'lv.is_primary', 'lv.stock')
+            ->orderByDesc('lv.is_primary')
+            ->orderByRaw('lv.stock > 0 DESC')
+            ->orderBy('lv.id')
+            ->get()
+            ->groupBy('listing_id')
+            ->map(fn($rows) => $rows->first());
+
+        foreach ($listings as $l) {
+            $l->variant_thumbs = $variantImages->get($l->id, collect())->take(4);
+            $l->color_dots     = $colorValuesByListing->get($l->id, collect())->take(5);
+
+            $primary = $primaryByListing->get($l->id);
+            $l->primary_image_url   = $primary->image_url   ?? null;
+            $l->active_color_hex    = $primary->active_color_hex ?? null;
+            $l->active_color_value  = $primary->active_color_value ?? null;
+        }
     }
 
     /**
@@ -321,6 +319,7 @@ class MarketplaceController extends Controller
         }
 
         $listings = $query->paginate(24)->withQueryString();
+        $this->decorateListingsWithVariantData($listings);
         $total    = MarketplaceListing::published()->where('category_name', $category)->count();
 
         return view('marketplace.category', compact('listings', 'category', 'categorySlug', 'sort', 'priceMin', 'priceMax', 'total'));
@@ -367,6 +366,7 @@ class MarketplaceController extends Controller
         }
 
         $listings = $query->paginate(24)->withQueryString();
+        $this->decorateListingsWithVariantData($listings);
         $total    = MarketplaceListing::published()->inOfficialCategory($category->id)->count();
 
         // Breadcrumb oficial: ancestros + self
@@ -563,6 +563,7 @@ class MarketplaceController extends Controller
         }
 
         $listings = $query->paginate(24)->withQueryString();
+        $this->decorateListingsWithVariantData($listings);
         $total    = MarketplaceListing::published()
                         ->where('hostname_id', $hostname->id)
                         ->count();
