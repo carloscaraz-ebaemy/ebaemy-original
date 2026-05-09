@@ -711,26 +711,6 @@
         .mp-card-variant-dot { width: 20px; height: 20px; }
     }
 
-    /* CTA "Comprar" overlay que aparece al hover (desktop). En móvil queda fijo abajo */
-    .mp-card-cta {
-        position: absolute;
-        left: 50%; bottom: 10px;
-        transform: translateX(-50%) translateY(8px);
-        opacity: 0;
-        background: #0f8a82;
-        color: #fff;
-        font-size: 12.5px; font-weight: 700;
-        padding: 8px 14px;
-        border-radius: 999px;
-        display: inline-flex; align-items: center; gap: 6px;
-        box-shadow: 0 8px 20px -8px rgba(15,138,130,.55);
-        transition: opacity .18s ease, transform .18s ease;
-        pointer-events: none;
-    }
-    .mp-card:hover .mp-card-cta {
-        opacity: 1;
-        transform: translateX(-50%) translateY(0);
-    }
     .mp-card-body { padding: 12px 12px 14px; }
     .mp-card-price { font-size: 17px; font-weight: 800; color: #0a0e1a; }
     .mp-card-price-prefix {
@@ -761,15 +741,6 @@
         .mp-card-body { padding: 10px 10px 12px; }
         .mp-card-title { font-size: 13px; }
         .mp-card-price { font-size: 15px; }
-        .mp-card-cta {
-            position: static; opacity: 1; pointer-events: auto;
-            transform: none;
-            display: flex; justify-content: center;
-            margin: 8px 10px 10px;
-            box-shadow: none;
-            font-size: 12px;
-            padding: 9px 0;
-        }
     }
 
     /* ───────────── Sticky bottom bar móvil con carrito + filtros ───────────── */
@@ -878,13 +849,5 @@ document.querySelectorAll('.js-shop-link').forEach(function (el) {
     });
 });
 
-// Inyectar CTA "Comprar" en cada card de producto sin duplicar markup en el blade
-document.querySelectorAll('.mp-card .mp-card-img').forEach(function (img) {
-    if (img.querySelector('.mp-card-cta')) return;
-    var cta = document.createElement('span');
-    cta.className = 'mp-card-cta';
-    cta.innerHTML = 'Comprar <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>';
-    img.appendChild(cta);
-});
 </script>
 @endsection
