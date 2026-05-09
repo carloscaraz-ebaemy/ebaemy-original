@@ -27,11 +27,24 @@ class MarketplaceController extends Controller
         // Filtros de precio — usa el campo efectivo (mp_price ?? price).
         $priceMin = $request->filled('price_min') ? max(0, (float) $request->input('price_min')) : null;
         $priceMax = $request->filled('price_max') ? max(0, (float) $request->input('price_max')) : null;
+        // Filtro por tienda — el sidebar lo expone como ?shop=<subdomain>.
+        // Resolvemos contra hostnames.fqdn (subdomain.ebaemy.com).
+        $shopSubdomain = $request->input('shop');
+        $shopHostnameId = null;
+        if ($shopSubdomain) {
+            $shopHostnameId = \DB::connection('system')->table('hostnames')
+                ->where('fqdn', 'like', strtolower($shopSubdomain) . '.%')
+                ->value('id');
+        }
 
         $query = MarketplaceListing::published()
             ->search($q)
             ->category($category)
             ->inOfficialCategory($officialCatId);
+
+        if ($shopHostnameId) {
+            $query->where('hostname_id', $shopHostnameId);
+        }
 
         // COALESCE(mp_price, price) → precio efectivo mostrado al usuario
         if ($priceMin !== null) {
@@ -198,10 +211,38 @@ class MarketplaceController extends Controller
             });
         }
 
+        // Top tiendas con productos publicados — sidebar de filtro por tienda.
+        // Cache 30 min porque el ranking cambia lento. 12 max para no inflar
+        // visualmente; las tiendas restantes quedan accesibles vía buscador.
+        $shops = Cache::remember('mp_shops_top_v1', 1800, function () {
+            return MarketplaceListing::published()
+                ->whereNotNull('tenant_fqdn')
+                ->select(
+                    'tenant_fqdn',
+                    'tenant_name',
+                    \DB::raw('COUNT(*) as products_count')
+                )
+                ->groupBy('tenant_fqdn', 'tenant_name')
+                ->orderByDesc('products_count')
+                ->limit(12)
+                ->get()
+                ->map(function ($s) {
+                    $sub = strtolower(strtok((string) $s->tenant_fqdn, '.')) ?: null;
+                    return (object) [
+                        'subdomain'      => $sub,
+                        'name'           => $s->tenant_name ?: $sub,
+                        'products_count' => (int) $s->products_count,
+                    ];
+                })
+                ->filter(fn($s) => $s->subdomain)
+                ->values();
+        });
+
         return view('marketplace.index', compact(
             'listings', 'categories', 'officialRoots', 'dailyOffers',
             'q', 'category', 'officialCatId',
-            'sort', 'priceMin', 'priceMax'
+            'sort', 'priceMin', 'priceMax',
+            'shops', 'shopSubdomain'
         ));
     }
 

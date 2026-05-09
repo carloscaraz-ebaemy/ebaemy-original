@@ -10,10 +10,11 @@
         'sort'      => $sort,
         'price_min' => $priceMin,
         'price_max' => $priceMax,
+        'shop'      => $shopSubdomain ?? null,
     ], fn($v) => $v !== null && $v !== '');
 
-    $hasFilters = !empty($q) || !empty($category) || $priceMin !== null || $priceMax !== null;
-    $isHome = empty($q) && empty($category) && $priceMin === null && $priceMax === null;
+    $hasFilters = !empty($q) || !empty($category) || $priceMin !== null || $priceMax !== null || !empty($shopSubdomain);
+    $isHome = empty($q) && empty($category) && $priceMin === null && $priceMax === null && empty($shopSubdomain);
 
     // Tiendas únicas derivadas del listado actual (para la sección "Tiendas destacadas").
     // Usamos la data que el listing ya carga — cero cambios al controller.
@@ -238,15 +239,45 @@
             </div>
         @endif
 
+        @if(!empty($shops) && $shops->count() > 0)
+            <div class="mp-filter-group">
+                <div class="mp-filter-label">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9h18"/><path d="m3 9 1.5-6h15L21 9"/><path d="M3 9v10a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V9"/></svg>
+                    Tiendas
+                </div>
+                @php
+                    // Quita 'shop' del query string para el link "Todas"; los demás
+                    // links lo agregan/sobrescriben con el subdomain elegido.
+                    $shopBaseQs = array_diff_key($baseQs, ['shop' => null]);
+                @endphp
+                <ul class="mp-filter-list">
+                    <li>
+                        <a href="{{ route('marketplace.index', $shopBaseQs) }}"
+                           class="mp-filter-item {{ empty($shopSubdomain) ? 'is-active' : '' }}">Todas</a>
+                    </li>
+                    @foreach($shops as $shop)
+                        <li>
+                            <a href="{{ route('marketplace.index', array_merge($shopBaseQs, ['shop' => $shop->subdomain])) }}"
+                               class="mp-filter-item {{ $shopSubdomain === $shop->subdomain ? 'is-active' : '' }}">
+                                {{ $shop->name }}
+                                <span class="mp-filter-count">{{ $shop->products_count }}</span>
+                            </a>
+                        </li>
+                    @endforeach
+                </ul>
+            </div>
+        @endif
+
         <div class="mp-filter-group">
             <div class="mp-filter-label">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
                 Precio (S/)
             </div>
             <form method="GET" action="{{ route('marketplace.index') }}">
-                @if($q)        <input type="hidden" name="q"        value="{{ $q }}">        @endif
-                @if($category) <input type="hidden" name="category" value="{{ $category }}"> @endif
+                @if($q)             <input type="hidden" name="q"        value="{{ $q }}">             @endif
+                @if($category)      <input type="hidden" name="category" value="{{ $category }}">      @endif
                 @if($sort && $sort !== 'relevance') <input type="hidden" name="sort" value="{{ $sort }}"> @endif
+                @if($shopSubdomain) <input type="hidden" name="shop"     value="{{ $shopSubdomain }}"> @endif
                 <div class="mp-price-range">
                     <input type="number" name="price_min" min="0" step="0.01" placeholder="Desde" value="{{ $priceMin !== null ? $priceMin : '' }}">
                     <span class="mp-price-range-sep">—</span>
@@ -404,7 +435,16 @@
 
                             <div class="mp-card-shop">
                                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9h18"/><path d="m3 9 1.5-6h15L21 9"/><path d="M3 9v10a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V9"/></svg>
-                                <span class="mp-card-shop-name" title="Vendido por {{ $listing->seller_display }}">{{ $listing->seller_display }}</span>
+                                @if($listing->subdomain)
+                                    {{-- Click navega a la página de la tienda. No
+                                         podemos anidar <a> dentro del <a> del card,
+                                         así que usamos span + JS con stopPropagation. --}}
+                                    <span class="mp-card-shop-name mp-card-shop-link js-shop-link"
+                                          data-href="{{ route('marketplace.tenant', ['subdomain' => $listing->subdomain]) }}"
+                                          title="Ver tienda {{ $listing->seller_display }}">{{ $listing->seller_display }}</span>
+                                @else
+                                    <span class="mp-card-shop-name" title="Vendido por {{ $listing->seller_display }}">{{ $listing->seller_display }}</span>
+                                @endif
                             </div>
 
                             {{-- Dots de color disponibles. Solo se muestran los valores
@@ -586,6 +626,32 @@
     .mp-card-img-secondary { opacity: 0; }
     .mp-card-img[data-has-secondary="1"]:hover .mp-card-img-primary { opacity: 0; }
     .mp-card-img[data-has-secondary="1"]:hover .mp-card-img-secondary { opacity: 1; }
+
+    /* ───────── Shop name clickable ───────── */
+    .mp-card-shop-link {
+        cursor: pointer;
+        text-decoration: none;
+        transition: color .12s;
+    }
+    .mp-card-shop-link:hover {
+        color: var(--mp-primary, #10b981);
+        text-decoration: underline;
+    }
+
+    /* ───────── Sidebar: contador junto al nombre de la tienda ───────── */
+    .mp-filter-item .mp-filter-count {
+        float: right;
+        font-size: 11px;
+        color: var(--mp-muted, #9ca3af);
+        background: rgba(0,0,0,.04);
+        padding: 1px 7px;
+        border-radius: 999px;
+        line-height: 1.4;
+    }
+    .mp-filter-item.is-active .mp-filter-count {
+        background: rgba(255,255,255,.25);
+        color: #fff;
+    }
 
     /* ───────── Color dots en cards (estilo Falabella) ───────── */
     .mp-card-colors {
@@ -809,6 +875,18 @@ document.querySelectorAll('.mp-card').forEach(function (card) {
             e.preventDefault();
             e.stopPropagation();
         });
+    });
+});
+
+// Click sobre el nombre de la tienda dentro de la card → navega a la página
+// pública de esa tienda. Como la card entera es un <a>, no podemos anidar
+// otro <a>; usamos span con data-href y stopPropagation.
+document.querySelectorAll('.js-shop-link').forEach(function (el) {
+    el.addEventListener('click', function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+        var href = el.getAttribute('data-href');
+        if (href) window.location.href = href;
     });
 });
 
