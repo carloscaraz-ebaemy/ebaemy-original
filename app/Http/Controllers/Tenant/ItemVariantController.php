@@ -202,7 +202,9 @@ class ItemVariantController extends Controller
         abort_if($variant->item_id !== $item->id, 404);
 
         $request->validate([
-            'file' => 'required|file|mimes:jpeg,png,jpg,webp,bmp|max:15360',
+            // HEIC/HEIF aceptados como red de seguridad cuando el iPhone no
+            // convirtió a JPG en el `accept`. El service lo convierte después.
+            'file' => 'required|file|mimes:jpeg,png,jpg,webp,bmp,heic,heif|max:15360',
         ]);
 
         try {

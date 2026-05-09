@@ -45,6 +45,9 @@ class ImageProcessingService
     }
 
     // ── MIME types permitidos ─────────────────────────────────────────────────
+    // HEIC/HEIF: el iPhone normalmente convierte a JPG al subir gracias al
+    // `accept` específico del <el-upload>, pero si pasa de largo (Safari viejo,
+    // share-sheet, etc.) lo aceptamos y convertimos en el servicio.
     const ALLOWED_MIMES = [
         'image/jpeg',
         'image/jpg',
@@ -52,10 +55,22 @@ class ImageProcessingService
         'image/gif',
         'image/webp',
         'image/bmp',
+        'image/heic',
+        'image/heif',
+        'image/heic-sequence',
+        'image/heif-sequence',
     ];
 
-    // ── Extensiones permitidas (para validación de extensión de archivo) ───────
-    const ALLOWED_EXTENSIONS = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp'];
+    const ALLOWED_EXTENSIONS = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'heic', 'heif'];
+
+    // MIMEs que requieren conversión previa antes de pasar al pipeline normal
+    // (Intervention/Image GD no los maneja).
+    const HEIC_MIMES = [
+        'image/heic',
+        'image/heif',
+        'image/heic-sequence',
+        'image/heif-sequence',
+    ];
 
     // =========================================================================
     // SANITIZACIÓN DE NOMBRES
@@ -137,6 +152,10 @@ class ImageProcessingService
             'image/gif'  => 'gif',
             'image/webp' => 'webp',
             'image/bmp'  => 'bmp',
+            'image/heic' => 'heic',
+            'image/heif' => 'heif',
+            'image/heic-sequence' => 'heic',
+            'image/heif-sequence' => 'heif',
         ];
 
         return $map[$mime] ?? null;
@@ -185,6 +204,18 @@ class ImageProcessingService
             return ['success' => false, 'message' => 'Los archivos SVG/XML no están permitidos.'];
         }
 
+        // HEIC/HEIF: validamos solo que Imagick pueda manejarlo. La conversión
+        // real ocurre en processAndStore antes de pasar el archivo a Intervention.
+        if (in_array($mime, self::HEIC_MIMES)) {
+            if (!self::supportsHeic()) {
+                return [
+                    'success' => false,
+                    'message' => 'No se pudo abrir la imagen HEIC. Intenta convertirla a JPG en tu celular antes de subirla.',
+                ];
+            }
+            return ['success' => true];
+        }
+
         // Intentar cargar la imagen con Intervention (detecta archivos corruptos)
         try {
             $test = Image::make($tempPath);
@@ -196,6 +227,69 @@ class ImageProcessingService
         }
 
         return ['success' => true];
+    }
+
+    /**
+     * Detecta si Imagick puede leer HEIC. Cubre el flujo backend cuando el
+     * iPhone no convirtió a JPG en el `accept`. Si Imagick no está o no fue
+     * compilado con libheif, retorna false y el frontend recibe un mensaje.
+     */
+    public static function supportsHeic(): bool
+    {
+        static $cached = null;
+        if ($cached !== null) return $cached;
+
+        if (!extension_loaded('imagick')) return $cached = false;
+        try {
+            $formats = \Imagick::queryFormats('HEIC');
+            return $cached = !empty($formats);
+        } catch (\Throwable $e) {
+            return $cached = false;
+        }
+    }
+
+    /**
+     * Convierte un HEIC a un JPG temporal y devuelve la nueva ruta.
+     * Best-effort: si falla, devuelve null (el caller decide qué hacer).
+     */
+    public static function convertHeicToJpeg(string $tempPath): ?string
+    {
+        if (!self::supportsHeic()) return null;
+
+        try {
+            $imagick = new \Imagick($tempPath);
+            $imagick->setImageFormat('jpeg');
+            $imagick->setImageCompressionQuality(92);
+
+            // Aplica la rotación EXIF antes de descartar el metadata.
+            // Sin esto, las fotos de iPhone salen rotadas 90° en la web.
+            $orientation = $imagick->getImageOrientation();
+            switch ($orientation) {
+                case \Imagick::ORIENTATION_BOTTOMRIGHT:
+                    $imagick->rotateImage('#000', 180);
+                    break;
+                case \Imagick::ORIENTATION_RIGHTTOP:
+                    $imagick->rotateImage('#000', 90);
+                    break;
+                case \Imagick::ORIENTATION_LEFTBOTTOM:
+                    $imagick->rotateImage('#000', -90);
+                    break;
+            }
+            $imagick->setImageOrientation(\Imagick::ORIENTATION_TOPLEFT);
+            $imagick->stripImage(); // descarta resto de EXIF para reducir peso
+
+            $newPath = tempnam(sys_get_temp_dir(), 'heic2jpg_') . '.jpg';
+            $imagick->writeImage($newPath);
+            $imagick->clear();
+            $imagick->destroy();
+
+            return file_exists($newPath) ? $newPath : null;
+        } catch (\Throwable $e) {
+            Log::warning('[ImageProcessingService] convertHeicToJpeg falló', [
+                'temp' => $tempPath, 'error' => $e->getMessage(),
+            ]);
+            return null;
+        }
     }
 
     // =========================================================================
@@ -223,6 +317,21 @@ class ImageProcessingService
             throw new \RuntimeException($validation['message']);
         }
 
+        // HEIC: convertir a JPG temporal antes de pasarle el archivo a Intervention
+        // (GD no abre HEIC). El temporal nuevo se limpia al final junto con el original.
+        $heicTemp = null;
+        $sourcePath = $tempPath;
+        if (self::isHeicFile($tempPath)) {
+            $converted = self::convertHeicToJpeg($tempPath);
+            if (!$converted) {
+                throw new \RuntimeException(
+                    'No se pudo abrir el archivo HEIC. Intenta convertirlo a JPG antes de subirlo.'
+                );
+            }
+            $heicTemp = $converted;
+            $sourcePath = $converted;
+        }
+
         $results = [
             'main'   => null,
             'medium' => null,
@@ -233,7 +342,11 @@ class ImageProcessingService
 
         foreach (self::SIZES as $key => $config) {
             try {
-                $img = Image::make($tempPath);
+                $img = Image::make($sourcePath);
+
+                // Corrige rotación EXIF (fotos de celular guardan la rotación
+                // como metadata, no en píxels — sin esto salen volteadas).
+                try { $img->orientate(); } catch (\Throwable $_) { /* sin EXIF */ }
 
                 // Redimensionar manteniendo aspect ratio, sin agrandar imágenes pequeñas
                 $img->resize($config['width'], $config['height'], function ($constraint) {
@@ -274,14 +387,35 @@ class ImageProcessingService
             }
         }
 
-        // Limpiar temporal
+        // Limpiar temporales (original + el JPG convertido si fue HEIC)
         @unlink($tempPath);
+        if ($heicTemp && $heicTemp !== $tempPath) {
+            @unlink($heicTemp);
+        }
 
         if ($results['main'] === null) {
             throw new \RuntimeException('No se pudo procesar ningún tamaño de la imagen.');
         }
 
         return $results;
+    }
+
+    /**
+     * Detecta si el archivo en disco es HEIC/HEIF basado en su MIME real.
+     * Más seguro que mirar la extensión (los .heic muchas veces vienen sin
+     * extensión correcta cuando el browser/share-sheet los entrega).
+     */
+    public static function isHeicFile(string $path): bool
+    {
+        if (!file_exists($path)) return false;
+        if (function_exists('finfo_open')) {
+            $finfo = finfo_open(FILEINFO_MIME_TYPE);
+            $mime  = finfo_file($finfo, $path);
+            finfo_close($finfo);
+        } else {
+            $mime = function_exists('mime_content_type') ? mime_content_type($path) : null;
+        }
+        return $mime !== false && in_array($mime, self::HEIC_MIMES);
     }
 
     /**
