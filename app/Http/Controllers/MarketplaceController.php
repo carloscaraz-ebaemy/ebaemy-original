@@ -400,17 +400,31 @@ class MarketplaceController extends Controller
         // Pageview — se incrementa asíncronamente para no ralentizar render
         MarketplaceListing::where('id', $listing->id)->increment('view_count');
 
-        // Variantes (solo si el listing las tiene). Se cargan ordenadas por
-        // precio asc para que el selector default sea el más barato — coincide
-        // con el "Desde S/X" que vio el cliente en el listado.
+        // Variantes (solo si el listing las tiene). Orden: la marcada como
+        // is_primary primero (define qué imagen y combo aparece al cargar),
+        // después por precio asc. Si nadie está marcado, fallback al precio.
         $variants    = collect();
         $options     = collect();
         $variantMap  = []; // [option_value_id, option_value_id] join → variant_id
+        $primaryValueIds = []; // option_value_ids de la variante is_primary
         if ($listing->has_variants) {
             $variants = $listing->variants()
                 ->where('is_active', true)
+                ->orderByDesc('is_primary')
                 ->orderBy('price')
                 ->get();
+
+            // Resolver qué values del selector deben marcarse como is-selected
+            // al cargar la página: los de la variante is_primary. Si nadie
+            // está marcado, el blade cae al fallback "primer value de cada opción".
+            $primaryVariant = $variants->firstWhere('is_primary', true);
+            if ($primaryVariant) {
+                $primaryValueIds = \DB::connection('system')->table('marketplace_listing_variant_values')
+                    ->where('listing_variant_id', $primaryVariant->id)
+                    ->pluck('option_value_id')
+                    ->map(fn($i) => (int) $i)
+                    ->all();
+            }
 
             // Opciones agrupadas (Color/Talla) con sus valores, listas para
             // renderizar como thumbs-imagen o pills según corresponda.
@@ -484,7 +498,7 @@ class MarketplaceController extends Controller
 
         return view('marketplace.show', compact(
             'listing', 'related', 'reviews', 'officialBreadcrumb', 'officialCategoryUrl',
-            'variants', 'options', 'variantMap'
+            'variants', 'options', 'variantMap', 'primaryValueIds'
         ));
     }
 

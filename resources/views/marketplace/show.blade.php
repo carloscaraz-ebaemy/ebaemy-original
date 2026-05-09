@@ -266,18 +266,28 @@
             @endphp
             <div class="mp-options" id="mpOptions" data-listing-id="{{ $listing->id }}">
                 @foreach($options as $opt)
-                    @php $colorMode = $isColorOpt($opt->name); @endphp
+                    @php
+                        $colorMode = $isColorOpt($opt->name);
+                        // Value inicial seleccionado: el del primary (si lo hay)
+                        // o fallback al primero. Determina qué está activo al
+                        // cargar la página y qué texto sale en "Color: X".
+                        $initialValue = !empty($primaryValueIds)
+                            ? $opt->values->first(fn($v) => in_array($v->id, $primaryValueIds))
+                            : null;
+                        if (!$initialValue) $initialValue = $opt->values->first();
+                        $initialId = $initialValue ? $initialValue->id : null;
+                    @endphp
                     <div class="mp-option-group" data-option-id="{{ $opt->id }}">
                         <div class="mp-option-group__head">
                             <span class="mp-option-group__name">{{ $opt->name }}:</span>
                             <span class="mp-option-group__current" data-current-for="{{ $opt->id }}">
-                                {{ $opt->values->first()->value ?? '—' }}
+                                {{ $initialValue->value ?? '—' }}
                             </span>
                         </div>
                         <div class="mp-option-group__values {{ $colorMode ? 'is-color' : 'is-pill' }}">
                             @foreach($opt->values as $vIdx => $val)
                                 <button type="button"
-                                    class="mp-opt-value {{ $vIdx === 0 ? 'is-selected' : '' }} {{ $colorMode ? 'mp-opt-value--color' : 'mp-opt-value--pill' }}"
+                                    class="mp-opt-value {{ $val->id === $initialId ? 'is-selected' : '' }} {{ $colorMode ? 'mp-opt-value--color' : 'mp-opt-value--pill' }}"
                                     data-option-id="{{ $opt->id }}"
                                     data-value-id="{{ $val->id }}"
                                     data-value-label="{{ $val->value }}"
