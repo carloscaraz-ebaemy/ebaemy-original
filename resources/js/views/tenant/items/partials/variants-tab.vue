@@ -126,17 +126,31 @@
                         </tr>
                     </thead>
                     <tbody>
-                        <tr v-for="v in variants" :key="v.id"
-                            :class="{ 'table-secondary text-muted': !v.is_active }">
-                            <td>
-                                <span class="fw-semibold">{{ v.display_name }}</span>
-                                <div class="d-flex flex-wrap gap-1 mt-1">
-                                    <el-tag v-for="ov in v.option_values" :key="ov.id"
-                                            size="mini" type="info">
-                                        {{ ov.value }}
-                                    </el-tag>
-                                </div>
-                            </td>
+                        <template v-for="group in groupedVariants">
+                            <!-- Header del grupo: solo cuando hay 2+ opciones (ej. Color × Talla).
+                                 Reduce el ruido visual al no repetir el color en cada fila. -->
+                            <tr v-if="hasMultipleOptions" :key="`hdr-${group.key}`" class="vt-group-header">
+                                <td colspan="8">
+                                    <span v-if="group.color_hex"
+                                          class="vt-group-swatch"
+                                          :style="`background:${group.color_hex}`"></span>
+                                    <strong>{{ group.label }}</strong>
+                                    <span class="text-muted small ms-2">
+                                        ({{ group.variants.length }} {{ group.variants.length === 1 ? 'variante' : 'variantes' }})
+                                    </span>
+                                </td>
+                            </tr>
+                            <tr v-for="v in group.variants" :key="v.id"
+                                :class="{ 'table-secondary text-muted': !v.is_active }">
+                                <td>
+                                    <span class="fw-semibold">{{ variantSubLabel(v) }}</span>
+                                    <div v-if="!hasMultipleOptions" class="d-flex flex-wrap gap-1 mt-1">
+                                        <el-tag v-for="ov in v.option_values" :key="ov.id"
+                                                size="mini" type="info">
+                                            {{ ov.value }}
+                                        </el-tag>
+                                    </div>
+                                </td>
                             <td class="text-center">
                                 <el-upload :action="`/items/${itemId}/variants/${v.id}/image`"
                                            :headers="headers"
@@ -217,6 +231,7 @@
                                 </el-popconfirm>
                             </td>
                         </tr>
+                        </template>
                     </tbody>
                 </table>
             </div>
@@ -286,6 +301,49 @@ export default {
         primaryVariantId() {
             const found = (this.variants || []).find(v => v.is_primary)
             return found ? found.id : null
+        },
+
+        // Hay 2+ opciones definidas (ej. Color × Talla). Solo cuando es true
+        // mostramos los headers de grupo y filtramos los chips secundarios.
+        hasMultipleOptions() {
+            return (this.editOptions || []).length > 1
+        },
+
+        // ID de la opción "principal" — la que tiene menor position.
+        // Es la que usamos para agrupar las filas (Blanco / Rosa / etc).
+        primaryOptionId() {
+            if (!this.editOptions || !this.editOptions.length) return null
+            const sorted = [...this.editOptions].sort(
+                (a, b) => (a.position || 0) - (b.position || 0)
+            )
+            return sorted[0].id
+        },
+
+        // Agrupa las variantes por el valor de la opción principal.
+        // Si hay solo 1 opción, devuelve un único grupo con todas (el render
+        // omite el header y muestra los chips completos como antes).
+        groupedVariants() {
+            if (!this.hasMultipleOptions) {
+                return [{ key: '_all', label: null, color_hex: null, variants: this.variants }]
+            }
+            const primaryId = this.primaryOptionId
+            const groups = new Map()
+            for (const v of this.variants) {
+                const primaryVal = (v.option_values || []).find(ov =>
+                    Number(ov.item_option_id) === Number(primaryId)
+                )
+                const key = primaryVal ? primaryVal.value : '__sin'
+                if (!groups.has(key)) {
+                    groups.set(key, {
+                        key,
+                        label: primaryVal ? primaryVal.value : 'Sin opción',
+                        color_hex: (primaryVal && primaryVal.color_hex) || null,
+                        variants: [],
+                    })
+                }
+                groups.get(key).variants.push(v)
+            }
+            return Array.from(groups.values())
         },
     },
 
@@ -534,6 +592,19 @@ export default {
             return num.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',')
         },
 
+        // Label de la fila cuando se renderiza dentro de un grupo: muestra
+        // SOLO los valores secundarios (ya que el primario está en el header).
+        // Cuando hay 1 sola opción usa el display_name completo.
+        variantSubLabel(v) {
+            if (!this.hasMultipleOptions) return v.display_name
+            const primaryId = this.primaryOptionId
+            const secondary = (v.option_values || [])
+                .filter(ov => Number(ov.item_option_id) !== Number(primaryId))
+                .map(ov => ov.value)
+                .join(' · ')
+            return secondary || v.display_name
+        },
+
         // ── Variante principal ───────────────────────────────────────────
         // El backend hace exclusivo en transacción: marca esta como is_primary
         // y todas las demás del item como false. Refrescamos la lista local
@@ -751,6 +822,21 @@ export default {
     margin-top: 2px;
     line-height: 1.2;
     font-style: italic;
+}
+
+/* ─────── Header de grupo (Color principal en variantes Color × Talla) ─────── */
+.vt-group-header td {
+    background: #f3f4f6 !important;
+    border-top: 2px solid #d1d5db !important;
+    padding: 6px 10px !important;
+}
+.vt-group-swatch {
+    display: inline-block;
+    width: 12px; height: 12px;
+    border-radius: 999px;
+    border: 1.5px solid #9ca3af;
+    margin-right: 6px;
+    vertical-align: middle;
 }
 
 /* ─────── Stock=0 en rojo + warning marketplace ─────── */
