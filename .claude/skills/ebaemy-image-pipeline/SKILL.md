@@ -12,10 +12,10 @@ description: Pipeline de procesamiento de imágenes en EBAEMY (HEIC + EXIF + que
 | **F1** | ✅ Listo | HEIC client (heic2any) + Imagick backend + corrección EXIF orientation |
 | **F2** | ✅ Backend listo, frontend POC en galería | Queue + polling + UI progreso ("Subiendo / Procesando / Listo") |
 | F3 | Pendiente | Tabla `item_image_versions` para versiones por canal |
-| F4 | Pendiente | Remove-bg (Remove.bg API o rembg self-hosted) |
-| F5 | Pendiente | UI moderna: dropzone + selector de fondo |
-| F6 | Pendiente | Versiones por canal (ecom 800, mp 1080, social, mobile) |
-| F7 | Pendiente | Storage S3/R2 con prefix por tenant |
+| F4 | ⛔ **Postergado** (decisión 2026-05-09) | Remove-bg requiere presupuesto ($99+/mes API o $150+/mes GPU). Retomar cuando se valide adopción del seller con UI sin remoción. |
+| F5 | En espera de F4 | UI moderna: dropzone + selector de fondo. Sin F4 solo aporta colores planos, no remoción real. |
+| F6 | Pendiente (no requiere F4) | Versiones por canal (ecom 800, mp 1080, social, mobile) |
+| F7 | Pendiente (no requiere F4) | Storage S3/R2 con prefix por tenant |
 
 ## Archivos clave
 
