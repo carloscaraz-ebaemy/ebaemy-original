@@ -33,6 +33,13 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{{ asset('css/design-tokens.css') }}">
     <link rel="stylesheet" href="{{ asset('css/marketplace.css') }}">
+
+    {{-- Estilos de cards/grid/paginador compartidos por las 4 vistas que
+         renderizan listings (home, categoría oficial, categoría legacy,
+         tienda). Antes vivían inline solo en index.blade.php y las otras
+         mostraban cards sin estilo. --}}
+    @include('marketplace.partials.listing-card-styles')
+
     @stack('styles')
 </head>
 <body>
