@@ -8,13 +8,10 @@
  *   <el-upload :before-upload="beforeUpload" ...>
  *
  * Soporte HEIC/HEIF:
- * - Si el browser entrega un archivo HEIC (iPhone share-sheet, Safari sin
- *   conversión), lo detectamos por mime o extensión, lo convertimos a JPEG
- *   en cliente con heic2any (libheif WASM) y luego seguimos el pipeline
- *   normal (resize + compress en canvas). Sin esto el <img> HTML no puede
- *   renderizar HEIC y el archivo se sube crudo sin comprimir.
+ * - heic2any se carga via dynamic import SOLO cuando llega un HEIC. Así el
+ *   bundle principal no incluye libheif WASM (~140KB) y la lib no rompe la
+ *   inicialización en pages que nunca subirán imágenes.
  */
-import heic2any from 'heic2any'
 
 const HEIC_MIME_RE = /image\/(heic|heif)/i
 const HEIC_EXT_RE  = /\.(heic|heif)$/i
@@ -23,27 +20,23 @@ function isHeic(file) {
     if (!file) return false
     if (HEIC_MIME_RE.test(file.type || '')) return true
     if (HEIC_EXT_RE.test(file.name || '')) return true
-    // Algunos browsers entregan type vacío para HEIC — chequeo de magic bytes
-    // queda fuera por costo (heic2any falla rápido si no es HEIC, así que
-    // basta con la extensión + mime para 99% de casos).
     return false
 }
 
 async function convertHeicToJpegFile(file) {
     try {
+        // Lazy load — heic2any solo entra al bundle cuando hay un HEIC real
+        const mod = await import('heic2any')
+        const heic2any = mod.default || mod
         const blob = await heic2any({
             blob: file,
             toType: 'image/jpeg',
             quality: 0.9,
         })
-        // heic2any devuelve Blob o Blob[] (cuando es secuencia HEIC) — agarramos el primero.
         const out = Array.isArray(blob) ? blob[0] : blob
         const newName = (file.name || 'foto').replace(/\.(heic|heif)$/i, '.jpg')
         return new File([out], newName, { type: 'image/jpeg', lastModified: Date.now() })
     } catch (err) {
-        // heic2any falló — devolvemos el archivo original y dejamos que el
-        // backend intente convertir con Imagick (red de seguridad).
-        // eslint-disable-next-line no-console
         console.warn('[imageCompressor] heic2any falló, se sube HEIC raw:', err)
         return file
     }
