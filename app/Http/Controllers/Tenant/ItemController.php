@@ -508,10 +508,17 @@ class ItemController extends Controller
             }
         }
 
-        $temp_path = $request->input('temp_path');
-        if ($temp_path) {
-            // Mantener imagen anterior mientras el job procesa en segundo plano.
-            // Si no hay imagen previa, asignar placeholder temporal.
+        $temp_path           = $request->input('temp_path');
+        $processed_filename  = $request->input('processed_filename');
+        if ($processed_filename) {
+            // Flujo async (F2): el job ya procesó la imagen y nos llega el
+            // filename final. No reprocesamos — solo asignamos al item.
+            $item->image        = $processed_filename;
+            $item->image_medium = $request->input('processed_filename_medium') ?: $processed_filename;
+            $item->image_small  = $request->input('processed_filename_small')  ?: $processed_filename;
+        } elseif ($temp_path) {
+            // Flujo síncrono legacy: mantener imagen anterior mientras el bloque
+            // post-save procesa con ImageProcessingService.
             $item->image        = $existingImage       ?: 'imagen-no-disponible.jpg';
             $item->image_medium = $existingImageMedium ?: 'imagen-no-disponible.jpg';
             $item->image_small  = $existingImageSmall  ?: 'imagen-no-disponible.jpg';
@@ -782,9 +789,21 @@ class ItemController extends Controller
 
         foreach ($multi_images as $im) {
             try {
-                $result = ImageProcessingService::processAndStore($im['temp_path'], $im['filename']);
-                if ($result['main']) {
-                    \App\Models\Tenant\ItemImage::create(['item_id' => $item->id, 'image' => $result['main']]);
+                // F2 async: si la imagen ya fue procesada por el job, usamos
+                // ese filename directamente. Sin reprocesar.
+                if (!empty($im['processed_filename'])) {
+                    \App\Models\Tenant\ItemImage::create([
+                        'item_id' => $item->id,
+                        'image'   => $im['processed_filename'],
+                    ]);
+                    continue;
+                }
+                // Flujo síncrono legacy
+                if (!empty($im['temp_path']) && !empty($im['filename'])) {
+                    $result = ImageProcessingService::processAndStore($im['temp_path'], $im['filename']);
+                    if ($result['main']) {
+                        \App\Models\Tenant\ItemImage::create(['item_id' => $item->id, 'image' => $result['main']]);
+                    }
                 }
             } catch (\Throwable $e) {
                 \Log::error('[ItemController] Error procesando imagen galería: ' . $e->getMessage());
@@ -1155,6 +1174,102 @@ class ItemController extends Controller
         }
 
         return ['success' => false, 'message' => __('app.actions.upload.error')];
+    }
+
+    /**
+     * Endpoint asíncrono: guarda el archivo en temp, crea ImageProcessingJob
+     * con status=pending y dispatcha ProcessUploadedImageJob. Retorna el UUID
+     * inmediatamente para que el frontend haga polling.
+     *
+     * Frontend recibe `{success, job_uuid, status: 'pending'}` y consulta
+     * /items/upload-jobs/{uuid} hasta status=completed (con `filename`) o
+     * status=failed (con `error_message`).
+     *
+     * Diferencia con upload(): aquel hace TODO el procesamiento durante el
+     * request HTTP (5-15s con HEIC + Imagick); este libera el PHP-FPM worker
+     * en <500ms.
+     */
+    public function uploadAsync(Request $request)
+    {
+        $validate = UploadFileHelper::validateUploadFile(
+            $request, 'file', 'jpg,jpeg,png,gif,webp,bmp,heic,heif'
+        );
+        if (!$validate['success']) return $validate;
+
+        if (!$request->hasFile('file')) {
+            return ['success' => false, 'message' => __('app.actions.upload.error')];
+        }
+
+        try {
+            $file = $request->file('file');
+
+            // Copiar al temp propio (PHP limpia su upload temp al terminar el request)
+            $temp = tempnam(sys_get_temp_dir(), 'imgq_');
+            file_put_contents($temp, file_get_contents($file->getPathname()));
+
+            // Validación rápida (sin pipeline)
+            $validation = ImageProcessingService::validate($temp);
+            if (!$validation['success']) {
+                @unlink($temp);
+                return ['success' => false, 'message' => $validation['message']];
+            }
+
+            $rawName  = $file->getClientOriginalName();
+            $baseName = ImageProcessingService::sanitizeFilename($rawName);
+
+            $job = \App\Models\Tenant\ImageProcessingJob::create([
+                'user_id'       => optional($request->user())->id,
+                'original_path' => $temp,
+                'original_name' => $rawName,
+                'base_name'     => $baseName,
+                'status'        => 'pending',
+            ]);
+
+            // Dispatch al queue 'images'. Si no hay worker, queue=sync ejecuta
+            // inline (config/queue.php) — el endpoint sigue funcionando.
+            \App\Jobs\Tenant\ProcessUploadedImageJob::dispatch($job->uuid)
+                ->onQueue('images');
+
+            return [
+                'success'  => true,
+                'job_uuid' => $job->uuid,
+                'status'   => 'pending',
+            ];
+        } catch (\Throwable $e) {
+            Log::error('[ItemController::uploadAsync] ' . $e->getMessage());
+            return ['success' => false, 'message' => 'Error al iniciar la subida: ' . $e->getMessage()];
+        }
+    }
+
+    /**
+     * Polling: el frontend consulta este endpoint cada 1-2s para saber el
+     * estado del procesamiento. Retorna status + filename + image_url cuando
+     * está listo, o error_message cuando falla.
+     */
+    public function uploadJobStatus(string $uuid)
+    {
+        $job = \App\Models\Tenant\ImageProcessingJob::where('uuid', $uuid)->first();
+        if (!$job) {
+            return response()->json(['success' => false, 'message' => 'Job no encontrado'], 404);
+        }
+
+        $payload = [
+            'success'    => true,
+            'status'     => $job->status,
+            'attempts'   => (int) $job->attempts,
+            'started_at' => optional($job->started_at)->toIso8601String(),
+        ];
+
+        if ($job->status === 'completed') {
+            $payload['filename']        = $job->filename;
+            $payload['filename_medium'] = $job->filename_medium;
+            $payload['filename_small']  = $job->filename_small;
+            $payload['image_url']       = ImageProcessingService::getUrl($job->filename);
+        } elseif ($job->status === 'failed') {
+            $payload['error_message'] = $job->error_message;
+        }
+
+        return response()->json($payload);
     }
 
     function upload_image($request)

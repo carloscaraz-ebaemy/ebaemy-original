@@ -42,6 +42,10 @@ async function convertHeicToJpegFile(file) {
     }
 }
 
+// Helpers internos para el flujo async (no reactivos, evita Vue reactivity)
+const ASYNC_TIMEOUT_MS  = 90000   // 90s — HEIC + Imagick + remove-bg futuro
+const ASYNC_INTERVAL_MS = 1500    // polling cada 1.5s
+
 export const imageCompressor = {
     methods: {
         async beforeUpload(file) {
@@ -104,6 +108,94 @@ export const imageCompressor = {
                 }
                 reader.onerror = () => resolve(file)
                 reader.readAsDataURL(file)
+            })
+        },
+
+        // ── Upload asíncrono con queue + polling ─────────────────────────
+        // Reemplaza el upload por defecto de <el-upload> via :http-request.
+        // El backend encola el procesamiento y devuelve un UUID; aquí
+        // hacemos polling y solo llamamos onSuccess cuando el job termina.
+        // Asume que el componente padre ya pasó el file por beforeUpload
+        // (compresión + heic→jpg). Element UI llama esto con un objeto:
+        //   { file, onSuccess, onError, onProgress, action, ... }
+        // Donde 'action' es la URL configurada en el <el-upload>; aquí lo
+        // ignoramos y siempre vamos a /items/upload-async.
+        async asyncUpload(req) {
+            const { file, onSuccess, onError, onProgress } = req
+            try {
+                onProgress && onProgress({ percent: 5 })
+                const fd = new FormData()
+                fd.append('file', file)
+
+                const upResp = await this.$http.post('/items/upload-async', fd, {
+                    onUploadProgress: (e) => {
+                        if (e && e.total && onProgress) {
+                            const pct = Math.min(50, Math.round((e.loaded / e.total) * 50))
+                            onProgress({ percent: pct })
+                        }
+                    },
+                })
+
+                if (!upResp.data || !upResp.data.success) {
+                    onError && onError(new Error(upResp.data?.message || 'Error al subir'))
+                    return
+                }
+
+                const uuid = upResp.data.job_uuid
+                onProgress && onProgress({ percent: 50 })
+
+                // Polling hasta completed o failed
+                const result = await this._pollImageJob(uuid, onProgress)
+
+                if (result.status === 'completed') {
+                    onProgress && onProgress({ percent: 100 })
+                    // Mantenemos forma del response equivalente al endpoint
+                    // sync (data.filename) + agregamos processed_filename
+                    // para que el ItemController::store lo asigne directo.
+                    onSuccess && onSuccess({
+                        success: true,
+                        data: {
+                            filename:       result.filename,
+                            image_url:      result.image_url,
+                            processed_filename:        result.filename,
+                            processed_filename_medium: result.filename_medium,
+                            processed_filename_small:  result.filename_small,
+                        },
+                    }, file)
+                } else {
+                    const msg = result.error_message || 'Error procesando la imagen.'
+                    onError && onError(new Error(msg))
+                }
+            } catch (err) {
+                onError && onError(err)
+            }
+        },
+
+        _pollImageJob(uuid, onProgress) {
+            return new Promise((resolve, reject) => {
+                const start = Date.now()
+                let pct = 50
+
+                const tick = () => {
+                    this.$http.get(`/items/upload-jobs/${uuid}`)
+                        .then(({ data }) => {
+                            if (!data || !data.success) {
+                                return reject(new Error(data?.message || 'Job desconocido'))
+                            }
+                            if (data.status === 'completed' || data.status === 'failed') {
+                                return resolve(data)
+                            }
+                            pct = Math.min(90, pct + 5)
+                            onProgress && onProgress({ percent: pct })
+
+                            if (Date.now() - start > ASYNC_TIMEOUT_MS) {
+                                return reject(new Error('Tiempo de espera agotado.'))
+                            }
+                            setTimeout(tick, ASYNC_INTERVAL_MS)
+                        })
+                        .catch(reject)
+                }
+                setTimeout(tick, ASYNC_INTERVAL_MS)
             })
         },
     },

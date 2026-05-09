@@ -8,15 +8,19 @@
                             ref="upload_images"
                             list-type="picture-card"
                             :file-list="fileList"
-                            :headers="headers"
-                            :action="`/${resource}/upload`"
+                            :http-request="asyncUpload"
                             :on-success="onSuccessF"
                             :on-error="onErrorF"
+                            :on-progress="onProgressF"
                             :on-remove="handleRemove"
-                            accept="image/jpeg,image/jpg,image/png,image/gif,image/webp,image/bmp"
+                            accept="image/jpeg,image/jpg,image/png,image/gif,image/webp,image/bmp,image/heic,image/heif"
                             :before-upload="beforeUpload" >
                             <i class="el-icon-plus"></i>
                         </el-upload>
+                        <div v-if="processingMsg" class="vt-async-status">
+                            <i class="el-icon-loading" style="margin-right:6px"></i>
+                            {{ processingMsg }}
+                        </div>
                     </div>
                 </div>
             </div>
@@ -42,7 +46,9 @@
                 fileList: [],
                 headers: headers_token,
                 resource: 'items',
-                source_images: []
+                source_images: [],
+                // F2: estado del upload async para mostrar al seller
+                processingMsg: '',
             }
         },
         created() {
@@ -67,6 +73,7 @@
             },
             onSuccessF(response)
             {
+                this.processingMsg = ''
                 if(response.success)
                 {
                     this.source_images.push(response.data)
@@ -76,8 +83,16 @@
             },
             onErrorF(err, file)
             {
+                this.processingMsg = ''
                 console.error('[form_images] upload error:', err)
-                this.$message.error('No se pudo subir la imagen "' + file.name + '". Intenta de nuevo.')
+                this.$message.error('No se pudo subir la imagen "' + (file && file.name) + '". ' + (err && err.message ? err.message : 'Intenta de nuevo.'))
+            },
+            onProgressF(event)
+            {
+                const pct = event && event.percent ? Math.round(event.percent) : 0
+                if (pct < 50)        this.processingMsg = `Subiendo… ${pct}%`
+                else if (pct < 100)  this.processingMsg = `Procesando…`
+                else                  this.processingMsg = `Listo`
             },
             cleanFileList(){
                 // this.fileList = []
@@ -112,3 +127,17 @@
         }
     }
 </script>
+
+<style scoped>
+.vt-async-status {
+    margin-top: 8px;
+    font-size: 12px;
+    color: #6b7280;
+    background: #f9fafb;
+    border: 1px solid #e5e7eb;
+    border-radius: 6px;
+    padding: 6px 10px;
+    display: inline-flex;
+    align-items: center;
+}
+</style>
