@@ -436,7 +436,16 @@ class ItemController extends Controller
         // disparamos sync al central para reflejarlo en marketplace_listings.
         $mpPublishableBefore = (bool) $item->marketplace_publishable;
 
-        $item->fill($request->all());
+        // Si el item tiene variantes, items.stock es DERIVADO (suma de variantes
+        // vía ItemVariantService::propagateStock). Excluimos 'stock' del fill
+        // para que el form del padre no sobrescriba el cálculo. Si el seller
+        // quiere ajustar stock, debe hacerlo desde el dialog de variantes.
+        // Ver skill ebaemy-stock-flow.
+        if ($item->exists && (bool) $item->has_variants) {
+            $item->fill($request->except(['stock']));
+        } else {
+            $item->fill($request->all());
+        }
 
         // Si el usuario activó marketplace_publishable pero no seteó mp_status,
         // default a 'active' para que el sync no lo trate como rejected.
@@ -520,6 +529,21 @@ class ItemController extends Controller
         }
 
         $item->save();
+
+        // Red de seguridad: si el item tiene variantes, recalcular stock derivado
+        // desde item_variant_warehouse para que items.stock e item_warehouse.stock
+        // queden alineados aunque algún campo del request los hubiera tocado.
+        // Ver skill ebaemy-stock-flow.
+        if ($item->has_variants) {
+            try {
+                app(\App\Services\Tenant\ItemVariantService::class)
+                    ->propagateStock($item->fresh());
+            } catch (\Throwable $e) {
+                \Log::warning('[ItemController::store] propagateStock falló', [
+                    'item_id' => $item->id, 'error' => $e->getMessage(),
+                ]);
+            }
+        }
 
         // Procesar imagen principal de forma síncrona
         if ($temp_path) {

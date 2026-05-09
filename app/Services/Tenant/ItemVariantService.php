@@ -259,8 +259,13 @@ class ItemVariantService
     /**
      * Propaga el stock de item_variant_warehouse → item_warehouse → items.
      * Mantiene retrocompatibilidad con todo el código que lee item_warehouse.stock.
+     *
+     * Pública porque ItemController::store() la invoca como red de seguridad
+     * cuando el seller guarda el form del producto padre y este tiene variantes
+     * — para garantizar que items.stock siempre queda derivado y no sobrescrito
+     * por el form. Ver skill ebaemy-stock-flow.
      */
-    private function propagateStock(Item $item): void
+    public function propagateStock(Item $item): void
     {
         try {
             // Por almacén: SUM(ivw.stock_physical) agrupado por warehouse_id
