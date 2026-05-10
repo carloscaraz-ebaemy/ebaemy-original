@@ -7,6 +7,18 @@
                   type="info" show-icon :closable="false" class="mb-3" />
 
         <template v-else>
+            <!-- ── Toggle: usar imagen principal del producto en todas las variantes ── -->
+            <div class="vt-parent-image-toggle mb-3">
+                <el-switch v-model="useParentImage"
+                           active-text="Usar imagen del producto en todas las variantes"
+                           @change="toggleUseParentImage" />
+                <div class="text-muted small mt-1" style="font-size:11px">
+                    Útil cuando no tienes una foto distinta por color/talla.
+                    Al activarlo, el marketplace ignora las imágenes individuales
+                    de cada variante y usa la imagen principal del producto.
+                </div>
+            </div>
+
             <!-- ── Cabecera ─────────────────────────────────────────────── -->
             <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
                 <div>
@@ -343,6 +355,10 @@ export default {
         // Si el producto está publicado en marketplace, mostramos un aviso por
         // variante cuando su stock=0 (porque el card del marketplace la oculta).
         isMarketplacePublishable: { type: Boolean, default: false },
+        // Flag actual del producto (items.use_parent_image_for_variants).
+        // El form padre lo carga en el record y nos lo pasa; cambios se
+        // persisten vía endpoint POST /items/{id}/use-parent-image.
+        useParentImageInitial:    { type: Boolean, default: false },
     },
 
     computed: {
@@ -478,10 +494,18 @@ export default {
             // primera opción en filas y segunda en columnas, celdas=stock).
             // Solo aplica cuando hay 2 opciones (ej. Color × Talla).
             viewMode: 'list',
+
+            // Toggle "usar imagen del padre" — copia desde el prop al mount,
+            // luego se mantiene local y se persiste con cada cambio.
+            useParentImage: false,
         }
     },
 
     watch: {
+        useParentImageInitial: {
+            immediate: true,
+            handler(v) { this.useParentImage = !!v },
+        },
         itemId(newId) {
             if (newId) this.loadVariants()
         },
@@ -728,6 +752,26 @@ export default {
             return secondary || v.display_name
         },
 
+        // ── Toggle: usar imagen del producto padre ────────────────────────
+        // Persiste el flag en items.use_parent_image_for_variants y dispara
+        // resync al marketplace para que los listings reflejen el cambio.
+        toggleUseParentImage(value) {
+            this.$http.post(`/items/${this.itemId}/use-parent-image`, {
+                use_parent_image_for_variants: !!value,
+            })
+                .then(({ data }) => {
+                    this.$message.success(value
+                        ? 'Ahora se usará la imagen del producto en todas las variantes.'
+                        : 'Cada variante volverá a usar su propia imagen.')
+                    this.$emit('use-parent-image-changed', !!value)
+                })
+                .catch(() => {
+                    // Revertir el switch si falló
+                    this.useParentImage = !value
+                    this.$message.error('No se pudo guardar el cambio.')
+                })
+        },
+
         // ── Variante principal ───────────────────────────────────────────
         // El backend hace exclusivo en transacción: marca esta como is_primary
         // y todas las demás del item como false. Refrescamos la lista local
@@ -945,6 +989,18 @@ export default {
     margin-top: 2px;
     line-height: 1.2;
     font-style: italic;
+}
+
+/* ─────── Toggle "usar imagen padre" ─────── */
+.vt-parent-image-toggle {
+    background: #fff7ed;
+    border: 1px solid #fed7aa;
+    border-radius: 8px;
+    padding: 10px 14px;
+}
+.vt-parent-image-toggle .el-switch__label {
+    color: #1f2937;
+    font-weight: 600;
 }
 
 /* ─────── Vista matriz (Color × Talla en grilla) ─────── */

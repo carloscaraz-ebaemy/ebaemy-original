@@ -411,14 +411,18 @@ class MarketplaceListingSyncService
             ->where('is_active', true)
             ->first();
 
+        // Si el seller activó "usar imagen del producto padre", ignoramos las
+        // imágenes individuales de las variantes — todas heredan la del padre.
+        $useParentImage = (bool) ($item->use_parent_image_for_variants ?? false);
+
         $payloads = [];
         foreach ($variants as $v) {
             $price = $v->sale_unit_price !== null ? (float) $v->sale_unit_price : $parentPrice;
             $offer = $this->resolveVariantOffer($item, $v, $price, $channel);
 
-            $imageUrl = !empty($v->image)
+            $imageUrl = (!$useParentImage && !empty($v->image))
                 ? 'https://' . $fqdn . '/storage/uploads/items/' . $v->image
-                : null; // si no tiene imagen propia, la UI cae al image_url del listing
+                : null; // si toggle activo o sin imagen propia, la UI cae al image_url del listing
 
             // Stock: tabla item_variant_warehouse → fallback al stock global de variant
             $stock = $stockByVariant[$v->id] ?? (int) ($v->stock ?? 0);

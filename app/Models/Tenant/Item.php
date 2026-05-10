@@ -203,6 +203,7 @@ class Item extends ModelTenant
         'preparation_area_id',
         'slug',
         'has_variants',
+        'use_parent_image_for_variants',
 
         // 'warehouse_id'
     ];
@@ -221,6 +222,7 @@ class Item extends ModelTenant
         'quantity_of_points' => 'float',
         'restrict_sale_cpe' => 'boolean',
         'has_variants'      => 'boolean',
+        'use_parent_image_for_variants' => 'boolean',
         // Marketplace central — sin cast bool, MySQL TINYINT(1) llegaba como
         // int al JSON y el-switch (strict ===) lo renderizaba OFF.
         'apply_store'             => 'boolean',

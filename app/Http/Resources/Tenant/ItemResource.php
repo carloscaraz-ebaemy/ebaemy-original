@@ -196,6 +196,7 @@
                 'has_supplies' => (bool)$this->restaurantSupplies()->exists(),
                 'has_sets' => (bool)$this->sets()->exists(),
                 'is_dish' => (bool)$this->is_dish,
+                'use_parent_image_for_variants' => (bool) $this->use_parent_image_for_variants,
 
                 'purchase_has_isc' => $this->purchase_has_isc,
                 'purchase_system_isc_type_id' => $this->purchase_system_isc_type_id,

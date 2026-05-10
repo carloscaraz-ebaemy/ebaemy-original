@@ -755,6 +755,8 @@
                               :parent-price="parseFloat(form.sale_unit_price) || 0"
                               :item-code="form.internal_id || form.item_code || ''"
                               :is-marketplace-publishable="!!form.marketplace_publishable"
+                              :use-parent-image-initial="!!form.use_parent_image_for_variants"
+                              @use-parent-image-changed="form.use_parent_image_for_variants = $event"
                               ></variants-tab>
             </el-tab-pane>
         </el-tabs>

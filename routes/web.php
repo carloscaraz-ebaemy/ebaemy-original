@@ -488,6 +488,10 @@ if ($hostname) {
             Route::get('items/export/barcode/last', 'Tenant\ItemController@itemLast')->name('tenant.items.last');
             Route::post('get-items', 'Tenant\ItemController@getAllItems');
 
+            // Toggle: usar imagen del producto padre para todas las variantes
+            Route::post('items/{item}/use-parent-image',
+                [\App\Http\Controllers\Tenant\ItemVariantController::class, 'setUseParentImage']);
+
             // Item Variants
             Route::prefix('items/{item}/variants')->group(function () {
                 Route::get('/',                   [\App\Http\Controllers\Tenant\ItemVariantController::class, 'index']);

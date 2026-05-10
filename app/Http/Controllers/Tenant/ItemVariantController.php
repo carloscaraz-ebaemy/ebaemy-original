@@ -331,6 +331,31 @@ class ItemVariantController extends Controller
     }
 
     // ────────────────────────────────────────────────────────────────────────
+    // POST /items/{item}/use-parent-image
+    // Flag por producto: cuando está activo, el marketplace ignora las
+    // imágenes individuales de las variantes y usa siempre la imagen del
+    // producto padre. Útil cuando el seller no tiene fotos por color.
+    // ────────────────────────────────────────────────────────────────────────
+
+    public function setUseParentImage(Request $request, Item $item): JsonResponse
+    {
+        $data = $request->validate([
+            'use_parent_image_for_variants' => 'required|boolean',
+        ]);
+
+        $item->update([
+            'use_parent_image_for_variants' => (bool) $data['use_parent_image_for_variants'],
+        ]);
+
+        $this->triggerMarketplaceSync($item);
+
+        return response()->json([
+            'success' => true,
+            'use_parent_image_for_variants' => (bool) $item->use_parent_image_for_variants,
+        ]);
+    }
+
+    // ────────────────────────────────────────────────────────────────────────
     // POST /items/{item}/variants/{variant}/primary
     // Marca esta variante como la "principal" — la imagen que se ve en la
     // card del marketplace por defecto. Es exclusiva por item: al marcar
