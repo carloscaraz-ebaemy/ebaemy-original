@@ -53,7 +53,22 @@
                 </div><!-- End .price-box -->
 
                 <div class="product-desc">
-                    <p>{{ $record->name }}</p>
+                    {{-- Descripción enriquecida (items.mp_notes). Sanitizada
+                         con el mismo allowlist que /marketplace/p/{slug}. --}}
+                    @if(!empty($record->mp_notes))
+                        @php
+                            $allowedTags = '<p><br><strong><em><b><i><u><ul><ol><li><a><h2><h3><h4><blockquote><span>';
+                            $cleanDesc = strip_tags($record->mp_notes, $allowedTags);
+                            $cleanDesc = preg_replace('/\sjavascript\s*:/i', ':', $cleanDesc);
+                            $cleanDesc = preg_replace('/\son[a-z]+\s*=\s*"[^"]*"/i', '', $cleanDesc);
+                            $cleanDesc = preg_replace("/\son[a-z]+\s*=\s*'[^']*'/i", '', $cleanDesc);
+                            $hasHtml = $cleanDesc !== strip_tags($cleanDesc);
+                            $renderDesc = $hasHtml ? $cleanDesc : nl2br(e($cleanDesc));
+                        @endphp
+                        {!! $renderDesc !!}
+                    @else
+                        <p>{{ $record->name }}</p>
+                    @endif
                 </div><!-- End .product-desc -->
 
 

@@ -100,18 +100,25 @@
         <div class="tab-pane fade show active" id="product-desc-content" role="tabpanel"
             aria-labelledby="product-tab-desc">
             <div class="product-desc-content">
-                <p> {{ $record->name}} </p>
-                <p> {{ $record->description}} </p>
-                {{-- <ul>
-                    <li><i class="icon-ok"></i>Any Product types that You want - Simple,
-                        Configurable</li>
-                    <li><i class="icon-ok"></i>Downloadable/Digital Products, Virtual Products
-                    </li>
-                    <li><i class="icon-ok"></i>Inventory Management with Backordered items</li>
-                </ul>
-                <p>Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad
-                    minim veniam, <br>quis nostrud exercitation ullamco laboris nisi ut aliquip
-                    ex ea commodo consequat. </p> --}}
+                {{-- Descripción enriquecida del producto. items.mp_notes guarda el HTML
+                     del CKEditor (mismo campo que se sincroniza al marketplace). Si
+                     está vacío, mostramos el nombre + description corto. Sanitización
+                     idéntica a marketplace/show.blade.php. --}}
+                @if(!empty($record->mp_notes))
+                    @php
+                        $allowedTags = '<p><br><strong><em><b><i><u><ul><ol><li><a><h2><h3><h4><blockquote><span>';
+                        $cleanDesc = strip_tags($record->mp_notes, $allowedTags);
+                        $cleanDesc = preg_replace('/\sjavascript\s*:/i', ':', $cleanDesc);
+                        $cleanDesc = preg_replace('/\son[a-z]+\s*=\s*"[^"]*"/i', '', $cleanDesc);
+                        $cleanDesc = preg_replace("/\son[a-z]+\s*=\s*'[^']*'/i", '', $cleanDesc);
+                        $hasHtml = $cleanDesc !== strip_tags($cleanDesc);
+                        $renderDesc = $hasHtml ? $cleanDesc : nl2br(e($cleanDesc));
+                    @endphp
+                    {!! $renderDesc !!}
+                @else
+                    <p>{{ $record->name }}</p>
+                    <p>{{ $record->description }}</p>
+                @endif
             </div><!-- End .product-desc-content -->
         </div><!-- End .tab-pane -->
 

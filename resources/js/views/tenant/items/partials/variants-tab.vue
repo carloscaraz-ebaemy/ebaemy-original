@@ -15,7 +15,14 @@
                         ({{ variants.length }} combinaciones)
                     </span>
                 </div>
-                <div class="d-flex gap-2 flex-wrap">
+                <div class="d-flex gap-2 flex-wrap align-items-center">
+                    <!-- Toggle vista matriz: solo cuando hay EXACTAMENTE 2 opciones
+                         (típicamente Color × Talla). Útil para ver/editar stock
+                         de muchas combinaciones de un vistazo, estilo Excel. -->
+                    <el-radio-group v-if="canShowMatrix" v-model="viewMode" size="small">
+                        <el-radio-button label="list">Lista</el-radio-button>
+                        <el-radio-button label="matrix">Matriz</el-radio-button>
+                    </el-radio-group>
                     <el-button v-if="variants.length > 0" size="small" plain
                                icon="el-icon-magic-stick"
                                @click="generateSkus"
@@ -111,7 +118,7 @@
             </el-dialog>
 
             <!-- ── Tabla de variantes ──────────────────────────────────── -->
-            <div v-if="variants.length > 0" class="table-responsive">
+            <div v-if="variants.length > 0 && viewMode === 'list'" class="table-responsive">
                 <table class="table table-sm table-bordered mb-0">
                     <thead class="table-light">
                         <tr>
@@ -236,7 +243,56 @@
                 </table>
             </div>
 
-            <el-empty v-else description="Sin variantes. Define las opciones y genera las combinaciones." />
+            <!-- ── Vista matriz (solo con 2 opciones) ───────────────────── -->
+            <div v-if="variants.length > 0 && viewMode === 'matrix'" class="vt-matrix-wrap">
+                <div class="vt-matrix-hint">
+                    <i class="el-icon-info"></i>
+                    Edita el stock de cada combinación directamente. Click en la celda
+                    para abrir más opciones (precio, SKU, imagen).
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-sm table-bordered mb-0 vt-matrix">
+                        <thead class="table-light">
+                            <tr>
+                                <th class="vt-matrix-corner">
+                                    {{ matrixOptions.rowName }} ↓ / {{ matrixOptions.colName }} →
+                                </th>
+                                <th v-for="col in matrixOptions.cols" :key="`c-${col.id}`"
+                                    class="text-center">
+                                    {{ col.value }}
+                                </th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr v-for="row in matrixOptions.rows" :key="`r-${row.id}`">
+                                <th class="vt-matrix-rowhead">
+                                    <span v-if="row.color_hex"
+                                          class="vt-group-swatch"
+                                          :style="`background:${row.color_hex}`"></span>
+                                    {{ row.value }}
+                                </th>
+                                <td v-for="col in matrixOptions.cols" :key="`cell-${row.id}-${col.id}`"
+                                    class="vt-matrix-cell"
+                                    :class="{ 'vt-matrix-cell--missing': !findVariantByValues(row.id, col.id) }">
+                                    <template v-if="findVariantByValues(row.id, col.id)">
+                                        <el-input-number :value="findVariantByValues(row.id, col.id).stock"
+                                                         :min="0" :precision="0" :controls="false"
+                                                         size="mini" style="width:60px"
+                                                         @change="onMatrixStockChange(findVariantByValues(row.id, col.id), $event)" />
+                                        <button type="button"
+                                                class="vt-matrix-edit"
+                                                @click="openStockDialog(findVariantByValues(row.id, col.id))"
+                                                title="Más opciones">⋯</button>
+                                    </template>
+                                    <span v-else class="text-muted small">—</span>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <el-empty v-if="variants.length === 0" description="Sin variantes. Define las opciones y genera las combinaciones." />
 
             <!-- ── Dialog de ajuste de stock ──────────────────────────── -->
             <el-dialog title="Ajustar stock de variante"
@@ -319,6 +375,34 @@ export default {
             return sorted[0].id
         },
 
+        // Vista matriz solo disponible cuando hay EXACTAMENTE 2 opciones.
+        // Con 1 opción la lista basta; con 3+ no cabe en una tabla 2D.
+        canShowMatrix() {
+            return (this.editOptions || []).length === 2 && this.variants.length > 0
+        },
+
+        // Configuración de la matriz: ordenamos las opciones por position
+        // — la primera (ej. Color) va en filas, la segunda (ej. Talla)
+        // en columnas. Esto coincide con la convención de los thumbs en
+        // Falabella/Saga donde el color es el primer selector visual.
+        matrixOptions() {
+            if (!this.canShowMatrix) return null
+            const sorted = [...this.editOptions].sort(
+                (a, b) => (a.position || 0) - (b.position || 0)
+            )
+            const [rowOpt, colOpt] = sorted
+            return {
+                rowName: rowOpt.name,
+                colName: colOpt.name,
+                rows: (rowOpt.values || []).map(v => ({
+                    id: v.id, value: v.value, color_hex: v.color_hex,
+                })),
+                cols: (colOpt.values || []).map(v => ({
+                    id: v.id, value: v.value,
+                })),
+            }
+        },
+
         // Agrupa las variantes por el valor de la opción principal.
         // Si hay solo 1 opción, devuelve un único grupo con todas (el render
         // omite el header y muestra los chips completos como antes).
@@ -388,6 +472,12 @@ export default {
             preSizesClothing: ['XS', 'S', 'M', 'L', 'XL', '2XL', '3XL', 'ÚNICA'],
             preSizesShoes:    ['35', '36', '37', '38', '39', '40', '41', '42', '43', '44'],
             preSizesNumeric:  ['1', '2', '3', '4', '5', '6'],
+
+            // Modo de visualización de variantes: 'list' (default, una fila
+            // por combinación con todos los campos) o 'matrix' (Excel con
+            // primera opción en filas y segunda en columnas, celdas=stock).
+            // Solo aplica cuando hay 2 opciones (ej. Color × Talla).
+            viewMode: 'list',
         }
     },
 
@@ -590,6 +680,39 @@ export default {
         formatMoney(n) {
             const num = Number(n) || 0
             return num.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',')
+        },
+
+        // Busca la variante que combina rowValueId × colValueId. Devuelve
+        // null si esa combinación no fue generada (ej. seller la borró).
+        findVariantByValues(rowValueId, colValueId) {
+            return this.variants.find(v => {
+                const ids = (v.option_values || []).map(ov => Number(ov.id))
+                return ids.includes(Number(rowValueId)) && ids.includes(Number(colValueId))
+            }) || null
+        },
+
+        // Stock rápido desde la matriz: se aplica al PRIMER almacén de la
+        // variante (típicamente "Oficina Principal"). Si la variante tiene
+        // múltiples almacenes y el seller necesita ajuste fino, click en
+        // "⋯" abre el dialog completo. Mantiene la matriz simple sin perder
+        // capacidad.
+        onMatrixStockChange(variant, newStock) {
+            const stocks = variant.warehouse_stocks || []
+            if (stocks.length === 0) {
+                this.$message.warning('Esta variante no tiene almacenes configurados. Abre el dialog para asignar uno.')
+                this.openStockDialog(variant)
+                return
+            }
+            const wh = stocks[0]
+            this.$http.post(`/items/${this.itemId}/variants/${variant.id}/stock`, {
+                warehouse_id: wh.warehouse_id,
+                stock:        Number(newStock) || 0,
+            })
+                .then(({ data }) => {
+                    const idx = this.variants.findIndex(v => v.id === variant.id)
+                    if (idx !== -1) this.$set(this.variants, idx, data.variant)
+                })
+                .catch(() => this.$message.error('No se pudo actualizar el stock.'))
         },
 
         // Label de la fila cuando se renderiza dentro de un grupo: muestra
@@ -823,6 +946,59 @@ export default {
     line-height: 1.2;
     font-style: italic;
 }
+
+/* ─────── Vista matriz (Color × Talla en grilla) ─────── */
+.vt-matrix-wrap { margin-top: 4px; }
+.vt-matrix-hint {
+    font-size: 11.5px;
+    color: #475569;
+    background: #eff6ff;
+    border: 1px solid #bfdbfe;
+    border-radius: 6px;
+    padding: 6px 10px;
+    margin-bottom: 8px;
+}
+.vt-matrix-hint i { margin-right: 4px; color: #2563eb; }
+.vt-matrix th, .vt-matrix td {
+    vertical-align: middle;
+    text-align: center;
+}
+.vt-matrix-corner {
+    background: #f1f5f9 !important;
+    font-size: 10.5px;
+    color: #64748b;
+    text-transform: uppercase;
+    letter-spacing: .3px;
+    text-align: left !important;
+}
+.vt-matrix-rowhead {
+    background: #f3f4f6 !important;
+    text-align: left !important;
+    padding-left: 10px !important;
+    font-weight: 600;
+    color: #1f2937;
+    white-space: nowrap;
+}
+.vt-matrix-cell {
+    padding: 4px !important;
+    position: relative;
+    min-width: 76px;
+}
+.vt-matrix-cell--missing {
+    background: #f9fafb;
+}
+.vt-matrix-edit {
+    position: absolute;
+    top: 2px; right: 3px;
+    background: transparent;
+    border: 0;
+    color: #9ca3af;
+    font-size: 14px;
+    line-height: 1;
+    cursor: pointer;
+    padding: 0 4px;
+}
+.vt-matrix-edit:hover { color: #1f2937; }
 
 /* ─────── Header de grupo (Color principal en variantes Color × Talla) ─────── */
 .vt-group-header td {
