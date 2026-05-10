@@ -136,7 +136,7 @@
                         <tr>
                             <th>Variante</th>
                             <th style="width:60px">Imagen</th>
-                            <th style="width:60px" title="Variante destacada — su imagen aparece primero en el marketplace">⭐ Principal</th>
+                            <th style="width:80px" title="La variante con esta estrella es la que aparece primero en el marketplace (imagen, color seleccionado por default y precio inicial). Solo una por producto.">⭐ Mostrar primero</th>
                             <th style="width:120px">Precio venta</th>
                             <th style="width:90px">SKU</th>
                             <th style="width:80px">Stock</th>
