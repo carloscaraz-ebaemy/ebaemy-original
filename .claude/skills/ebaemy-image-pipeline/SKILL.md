@@ -14,7 +14,7 @@ description: Pipeline de procesamiento de imágenes en EBAEMY (HEIC + EXIF + que
 | F3 | Pendiente | Tabla `item_image_versions` para versiones por canal |
 | F4 | ⛔ **Postergado** (decisión 2026-05-09) | Remove-bg requiere presupuesto ($99+/mes API o $150+/mes GPU). Retomar cuando se valide adopción del seller con UI sin remoción. |
 | F5 | En espera de F4 | UI moderna: dropzone + selector de fondo. Sin F4 solo aporta colores planos, no remoción real. |
-| F6 | Pendiente (no requiere F4) | Versiones por canal (ecom 800, mp 1080, social, mobile) |
+| F6 | 🟡 Parcial | Versiones `_mp` (1080 cuadrado) y `_mobile` (640) se generan en cada upload nuevo. Comando `images:backfill-variants` regenera items viejos. Falta cambiar el sync para usar `_mp` (decidir después del backfill). |
 | F7 | Pendiente (no requiere F4) | Storage S3/R2 con prefix por tenant |
 
 ## Archivos clave
@@ -148,6 +148,30 @@ php -r 'print_r(Imagick::queryFormats("HEIC"));'
 ```
 
 Si `queryFormats("HEIC")` retorna array vacío aún teniendo libheif: la extensión `php-imagick` fue compilada contra una ImageMagick antigua sin HEIC. Tocaría recompilar — usualmente NO vale la pena, `heic2any` cliente cubre 99%.
+
+## F6 — Backfill de variantes en producción
+
+Después del deploy de F6, los **uploads nuevos** generan `_mp` y `_mobile`
+automáticamente. Para los items que ya existían, correr el comando:
+
+```bash
+# Dry-run primero — solo muestra qué haría
+php artisan images:backfill-variants --dry-run
+
+# Ejecutar para todos los tenants
+php artisan images:backfill-variants
+
+# O para uno específico
+php artisan images:backfill-variants --tenant={uuid-del-website}
+```
+
+El comando es idempotente: salta los items que ya tienen las variantes.
+
+**Activar el uso de la versión _mp en el marketplace**: una vez que el
+backfill termine, cambiar la URL en `MarketplaceListingSyncService::buildPayload`
+de `$item->image` a `ImageProcessingService::injectSuffix($item->image, '_mp')`
+(o usar `getUrl($item->image, 'marketplace')` desde el system con acceso
+a storage). Mientras tanto, la URL sigue siendo el main por seguridad.
 
 ## Limpieza periódica
 

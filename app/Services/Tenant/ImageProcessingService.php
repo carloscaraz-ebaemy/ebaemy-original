@@ -22,10 +22,22 @@ use Intervention\Image\ImageManagerStatic as Image;
 class ImageProcessingService
 {
     // ── Configuración de tamaños ──────────────────────────────────────────────
+    // height=null mantiene aspect ratio (no recorta). Para tamaños cuadrados
+    // (marketplace, social) usamos fit_square=true que centra + recorta.
     const SIZES = [
+        // Base — usadas por todos los canales (catalogación general)
         'main'   => ['width' => 1200, 'height' => null, 'quality' => 80, 'suffix' => ''],
         'medium' => ['width' => 512,  'height' => null, 'quality' => 75, 'suffix' => '_medium'],
         'small'  => ['width' => 256,  'height' => null, 'quality' => 70, 'suffix' => '_small'],
+
+        // Marketplace EBAEMY — cuadrado 1080x1080 estilo Falabella/Mercado Libre.
+        // fit() recorta para alcanzar dimensiones exactas; productos centrados
+        // se ven óptimos. Si el producto está descentrado, queda visible pero
+        // recortado en los bordes.
+        'marketplace' => ['width' => 1080, 'height' => 1080, 'quality' => 82, 'suffix' => '_mp',     'fit_square' => true],
+
+        // Mobile optimizada — Lighthouse-friendly, carga rápida en 4G.
+        'mobile'      => ['width' => 640,  'height' => null, 'quality' => 72, 'suffix' => '_mobile'],
     ];
 
     // ── Límites ───────────────────────────────────────────────────────────────
@@ -348,11 +360,18 @@ class ImageProcessingService
                 // como metadata, no en píxels — sin esto salen volteadas).
                 try { $img->orientate(); } catch (\Throwable $_) { /* sin EXIF */ }
 
-                // Redimensionar manteniendo aspect ratio, sin agrandar imágenes pequeñas
-                $img->resize($config['width'], $config['height'], function ($constraint) {
-                    $constraint->aspectRatio();
-                    $constraint->upsize();
-                });
+                if (!empty($config['fit_square'])) {
+                    // Cuadrado exacto (marketplace 1080x1080): fit() recorta los
+                    // bordes para alcanzar las dimensiones. Productos centrados
+                    // quedan óptimos. La regla es el estándar de Falabella/MeLi.
+                    $img->fit($config['width'], $config['height'] ?? $config['width']);
+                } else {
+                    // Aspect ratio normal — no agranda imágenes pequeñas
+                    $img->resize($config['width'], $config['height'], function ($constraint) {
+                        $constraint->aspectRatio();
+                        $constraint->upsize();
+                    });
+                }
 
                 $filename = self::BASE_DIR . '/' . $baseName . $config['suffix'];
 
@@ -468,14 +487,44 @@ class ImageProcessingService
     /**
      * Retorna la URL pública de una imagen de producto.
      * Compatible con imágenes legacy (.jpg) y nuevas (.webp).
+     *
+     * $variant permite obtener una versión específica (marketplace, mobile,
+     * social, medium, small). Si la versión no existe físicamente, cae al
+     * filename main para no romper el render. Llamadas comunes:
+     *
+     *   getUrl($item->image)                  → main (lo que se ve siempre)
+     *   getUrl($item->image, 'marketplace')   → 1080x1080 cuadrado
+     *   getUrl($item->image, 'mobile')        → 640px optimizado
      */
-    public static function getUrl(?string $filename): string
+    public static function getUrl(?string $filename, ?string $variant = null): string
     {
         if (empty($filename) || $filename === 'imagen-no-disponible.jpg') {
             return asset('/logo/imagen-no-disponible.jpg');
         }
 
+        // Si pidieron variante, construir el filename con sufijo
+        if ($variant && isset(self::SIZES[$variant])) {
+            $suffix = self::SIZES[$variant]['suffix'] ?? '';
+            if ($suffix !== '') {
+                $variantFile = self::injectSuffix($filename, $suffix);
+                // Si la variante NO existe en disco, fallback al main
+                if (Storage::disk(self::disk())->exists(self::BASE_DIR . '/' . $variantFile)) {
+                    return Storage::disk(self::disk())->url(self::BASE_DIR . '/' . $variantFile);
+                }
+            }
+        }
+
         return Storage::disk(self::disk())->url(self::BASE_DIR . '/' . $filename);
+    }
+
+    /**
+     * Inserta un sufijo antes de la extensión: "foo-abc.webp" + "_mp" → "foo-abc_mp.webp"
+     */
+    private static function injectSuffix(string $filename, string $suffix): string
+    {
+        $ext  = pathinfo($filename, PATHINFO_EXTENSION);
+        $base = pathinfo($filename, PATHINFO_FILENAME);
+        return $ext ? "{$base}{$suffix}.{$ext}" : "{$base}{$suffix}";
     }
 
     // =========================================================================
