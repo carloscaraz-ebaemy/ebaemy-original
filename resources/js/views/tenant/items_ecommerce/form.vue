@@ -300,23 +300,32 @@
                                  porque en este proyecto items.description guarda el
                                  NOMBRE del producto (convención legacy SUNAT). El
                                  sync mapea items.mp_notes → marketplace_listings.description
-                                 que es lo que renderiza show.blade.php. -->
+                                 que es lo que renderiza show.blade.php.
+
+                                 Desplegable: el CKEditor ocupa mucho espacio vertical y
+                                 muchas veces el seller ya completó la descripción. Se
+                                 abre solo si está vacía (sin mp_notes) o si el seller
+                                 lo expande manualmente. -->
                             <div class="col-md-12">
-                                <div :class="{'has-danger': errors.mp_notes}" class="form-group">
-                                    <label class="control-label">
-                                        Descripción
-                                        <span style="font-size:11px;color:#9ca3af;font-weight:400">
+                                <details class="ie-collapse" :open="!form.mp_notes">
+                                    <summary class="ie-collapse__summary">
+                                        <span class="ie-collapse__chev">▸</span>
+                                        <strong>Descripción</strong>
+                                        <span class="ie-collapse__hint">
                                             (visible en la página del producto en el marketplace)
                                         </span>
-                                    </label>
-                                    <vue-ckeditor
-                                        v-model="form.mp_notes"
-                                        :editors="editors"
-                                        type="classic"></vue-ckeditor>
-                                    <small v-if="errors.mp_notes"
-                                           class="form-control-feedback"
-                                           v-text="errors.mp_notes[0]"></small>
-                                </div>
+                                        <span v-if="form.mp_notes" class="ie-collapse__badge">✓ con texto</span>
+                                    </summary>
+                                    <div :class="{'has-danger': errors.mp_notes}" class="form-group mt-2">
+                                        <vue-ckeditor
+                                            v-model="form.mp_notes"
+                                            :editors="editors"
+                                            type="classic"></vue-ckeditor>
+                                        <small v-if="errors.mp_notes"
+                                               class="form-control-feedback"
+                                               v-text="errors.mp_notes[0]"></small>
+                                    </div>
+                                </details>
                             </div>
 
                             <!-- <div class="col-md-3 center-el-checkbox">
@@ -845,6 +854,52 @@
 }
 .mp-form-section--variants .mp-form-section__head { color: #6b21a8; }
 .mp-form-section--variants .mp-form-section__hint { color: #7e22ce; }
+
+/* ─────── Desplegable con <details> (descripción rica) ─────── */
+.ie-collapse {
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    background: #fff;
+    overflow: hidden;
+    margin-bottom: 12px;
+}
+.ie-collapse__summary {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 14px;
+    cursor: pointer;
+    user-select: none;
+    background: #f9fafb;
+    list-style: none;          /* quita el triángulo nativo del browser */
+    transition: background .12s;
+}
+.ie-collapse__summary::-webkit-details-marker { display: none; }
+.ie-collapse__summary:hover { background: #f3f4f6; }
+.ie-collapse__chev {
+    color: #6b7280;
+    transition: transform .15s;
+    font-size: 12px;
+}
+.ie-collapse[open] .ie-collapse__chev { transform: rotate(90deg); }
+.ie-collapse__hint {
+    font-size: 11.5px;
+    color: #9ca3af;
+    font-weight: 400;
+    margin-left: 4px;
+}
+.ie-collapse__badge {
+    margin-left: auto;
+    font-size: 11px;
+    font-weight: 600;
+    color: #047857;
+    background: #d1fae5;
+    padding: 2px 8px;
+    border-radius: 999px;
+}
+.ie-collapse > *:not(summary) {
+    padding: 12px 14px;
+}
 .mp-form-section__head {
     font-size: 14px;
     font-weight: 700;
