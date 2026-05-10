@@ -8,11 +8,26 @@
                @close="close"
                @open="create">
 
-        <!-- Banner: edición rápida sobre el catálogo maestro -->
-        <div style="margin:-8px 0 12px;padding:10px 14px;background:#ecfdf5;border:1px solid #a7f3d0;border-radius:8px;display:flex;align-items:center;gap:10px;font-size:13px">
+        <!-- Banner: edición rápida sobre el catálogo maestro + estado de canales -->
+        <div style="margin:-8px 0 12px;padding:10px 14px;background:#ecfdf5;border:1px solid #a7f3d0;border-radius:8px;display:flex;align-items:center;gap:10px;font-size:13px;flex-wrap:wrap">
             <span style="font-size:18px;line-height:1">📚</span>
-            <div style="flex:1;color:#065f46">
+            <div style="flex:1;min-width:240px;color:#065f46">
                 <strong>Edición rápida del catálogo.</strong> Cambios aquí afectan el producto maestro (inventario, facturación, tienda, marketplace).
+            </div>
+            <!-- Badges de estado: muestran de un vistazo dónde se está vendiendo
+                 el producto. Se sincronizan automáticamente con los checkboxes
+                 de "Canales de venta" del form. -->
+            <div v-if="form.id" class="ie-status-badges">
+                <span class="ie-status-badge"
+                      :class="form.apply_store ? 'ie-status-badge--on' : 'ie-status-badge--off'"
+                      :title="form.apply_store ? 'Visible en tu tienda virtual' : 'No publicado en tu tienda'">
+                    🏪 Tienda
+                </span>
+                <span class="ie-status-badge"
+                      :class="form.marketplace_publishable ? 'ie-status-badge--mp' : 'ie-status-badge--off'"
+                      :title="form.marketplace_publishable ? 'Publicado en ebaemy.com/marketplace' : 'No publicado en marketplace'">
+                    🌐 Marketplace
+                </span>
             </div>
             <a v-if="form.id" :href="'/items#edit-' + form.id" style="color:#065f46;font-size:12px;font-weight:500;text-decoration:underline">
                 Abrir ficha completa →
@@ -523,14 +538,25 @@
                             </div> -->
 
 
-                            <!-- ━━━━━━━━━━ SECCIÓN: IMAGEN + CATEGORIZACIÓN ━━━━━━━━━━ -->
+                            <!-- ━━━━━━━━━━ SECCIÓN: IMAGEN + CATEGORIZACIÓN (colapsable) ━━━━━━━━━━ -->
                             <div class="col-md-12">
-                                <div class="mp-form-section mp-form-section--alt">
-                                    <div class="mp-form-section__head">🏷️ Imagen y categorización</div>
-                                    <div class="mp-form-section__hint">Imagen, categoría interna, marca, etiquetas y datos de compra.</div>
+                                <div class="mp-form-section mp-form-section--alt mp-form-section--collapsible"
+                                     :class="{ 'is-collapsed': !imageSectionOpen }"
+                                     @click="imageSectionOpen = !imageSectionOpen"
+                                     role="button">
+                                    <div class="mp-form-section__head">
+                                        <span class="mp-collapse-chev" :class="{ 'is-open': imageSectionOpen }">▸</span>
+                                        🏷️ Imagen y categorización
+                                        <span v-if="!imageSectionOpen && form.image_url && form.marketplace_category_id"
+                                              class="ie-collapse__badge"
+                                              style="margin-left:auto">✓ completo</span>
+                                    </div>
+                                    <div v-show="imageSectionOpen" class="mp-form-section__hint">
+                                        Imagen, categoría interna, marca, etiquetas y datos de compra.
+                                    </div>
                                 </div>
                             </div>
-                            <div class="row col-md-12">
+                            <div v-show="imageSectionOpen" class="row col-md-12">
                                 <div class="col-md-3">
                                     <div class="form-group">
                                         <label class="control-label">Imágen <span class="text-danger"></span></label>
@@ -747,7 +773,10 @@
                                       ></variants-tab>
                     </div>
 
-                    <div class="form-actions text-end pt-2">
+                    <!-- Sticky bottom bar: el botón Guardar/Cancelar sigue al scroll
+                         para que el seller no tenga que bajar hasta el final del form.
+                         Position sticky + backdrop blur sobre el contenido detrás. -->
+                    <div class="form-actions ie-sticky-actions text-end">
                         <el-button class="second-buton me-2" @click.prevent="close()">Cancelar</el-button>
                         <el-button :loading="loading_submit || uploadingImage"
                                 :disabled="uploadingImage"
@@ -900,6 +929,60 @@
 .ie-collapse > *:not(summary) {
     padding: 12px 14px;
 }
+
+/* ─────── Badges de estado (header banner) ─────── */
+.ie-status-badges {
+    display: inline-flex;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+.ie-status-badge {
+    font-size: 11.5px;
+    font-weight: 600;
+    padding: 3px 9px;
+    border-radius: 999px;
+    border: 1px solid;
+    line-height: 1.4;
+    white-space: nowrap;
+}
+.ie-status-badge--on  { background:#dcfce7; color:#15803d; border-color:#86efac; }
+.ie-status-badge--mp  { background:#dbeafe; color:#1d4ed8; border-color:#93c5fd; }
+.ie-status-badge--off { background:#f3f4f6; color:#9ca3af; border-color:#e5e7eb; }
+
+/* ─────── Sección colapsable (Imagen y categorización) ─────── */
+.mp-form-section--collapsible {
+    cursor: pointer;
+    user-select: none;
+    transition: background .12s;
+}
+.mp-form-section--collapsible:hover { filter: brightness(0.97); }
+.mp-form-section--collapsible .mp-form-section__head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.mp-form-section--collapsible.is-collapsed { margin-bottom: 6px; }
+.mp-collapse-chev {
+    color: #6b7280;
+    font-size: 11px;
+    transition: transform .15s;
+    display: inline-block;
+}
+.mp-collapse-chev.is-open { transform: rotate(90deg); }
+
+/* ─────── Sticky action bar al fondo del dialog ─────── */
+.ie-sticky-actions {
+    position: sticky;
+    bottom: 0;
+    margin: 18px -20px -20px;        /* compensa el padding del el-dialog__body */
+    padding: 12px 20px;
+    background: rgba(255,255,255,.96);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    border-top: 1px solid #e5e7eb;
+    z-index: 5;
+    box-shadow: 0 -4px 12px -8px rgba(0,0,0,.08);
+}
 .mp-form-section__head {
     font-size: 14px;
     font-weight: 700;
@@ -949,6 +1032,10 @@ export default {
     data() {
         return {
             activeTab: 'general',
+            // Toggle del bloque "Imagen y categorización" — abierto por
+            // default; se cierra automáticamente al editar un producto que
+            // ya tiene imagen + categoría (loadRecord ajusta este flag).
+            imageSectionOpen: true,
             loading_search: false,
             tags: [],
             categories: [],
@@ -1348,6 +1435,12 @@ export default {
                     }
                     this.hydrateMpCategoryPath()
                     this.changeAffectationIgvType()
+                    // Si el producto YA tiene imagen y categoría oficial,
+                    // colapsamos la sección por default — el seller raramente
+                    // necesita verla al editar. Se abre con un click si quiere.
+                    if (this.form.image_url && this.form.marketplace_category_id) {
+                        this.imageSectionOpen = false
+                    }
                     this.$nextTick(() => { this.cascaderKey++ })
                 })
             } else {
