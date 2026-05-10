@@ -587,10 +587,9 @@
 
                                 <div class="col-md-9">
                                     <div class="row">
-                                        <!-- ═════════ CATEGORÍA UNIFICADA (oficial del marketplace) ═════════ -->
-                                        <!-- La categoría interna del tenant (form.category_id) se auto-asigna en
-                                             ItemController::store a partir del leaf de la categoría oficial.
-                                             Solo mostramos el cascader oficial — un único control para el seller. -->
+                                        <!-- ═════════ 1) CATEGORÍA OFICIAL ═════════
+                                             Lo primero que el seller debería ver. Si no la
+                                             elige, no puede publicar en marketplace. -->
                                         <div class="col-md-12">
                                             <div class="form-group">
                                                 <label class="control-label">
@@ -621,108 +620,121 @@
                                             </div>
                                         </div>
 
-                                        <div class="short-div col-md-12">
-                                            <div :class="{'has-danger': errors.purchase_affectation_igv_type_id}"
-                                                class="form-group">
-                                                <label class="control-label">Tipo de afectación (Compra)</label>
-                                                <el-select v-model="form.purchase_affectation_igv_type_id">
-                                                    <el-option v-for="option in affectation_igv_types"
-                                                            :key="option.id"
-                                                            :label="option.description"
-                                                            :value="option.id"></el-option>
-                                                </el-select>
-                                                <small v-if="errors.purchase_affectation_igv_type_id"
-                                                    class="form-control-feedback"
-                                                    v-text="errors.purchase_affectation_igv_type_id[0]"></small>
-                                            </div>
-                                        </div>
+                                        <!-- ═════════ 2) CANALES DE VENTA (destacado) ═════════
+                                             Subido al tope para que sea evidente dónde se vende
+                                             el producto. Antes estaba escondido entre datos de
+                                             compra y tags. -->
+                                        <div class="col-md-12">
+                                            <div class="ie-channels-card">
+                                                <div class="ie-channels-card__head">🛒 Canales de venta</div>
+                                                <div class="ie-channels-card__body">
+                                                    <label class="ie-channel">
+                                                        <el-checkbox v-model="form.apply_store">
+                                                            <span class="ie-channel__title">🏪 Tu tienda virtual</span>
+                                                        </el-checkbox>
+                                                        <div class="ie-channel__hint">
+                                                            Visible en <strong>{{ tenant_subdomain || 'tu tienda' }}.ebaemy.com</strong>
+                                                        </div>
+                                                    </label>
+                                                    <label class="ie-channel">
+                                                        <el-checkbox v-model="form.marketplace_publishable">
+                                                            <span class="ie-channel__title">🌐 Marketplace ebaemy</span>
+                                                        </el-checkbox>
+                                                        <div class="ie-channel__hint">
+                                                            Aparece en <strong>ebaemy.com/marketplace</strong> para todos
+                                                            <el-tooltip content="Las solicitudes llegan como pedidos en el canal 'Marketplace ebaemy'." placement="top">
+                                                                <i class="el-icon-info text-info" style="margin-left:4px;cursor:help"></i>
+                                                            </el-tooltip>
+                                                        </div>
+                                                    </label>
+                                                </div>
 
-                                        <div class="short-div col-md-4">
-                                            <div :class="{'has-danger': errors.purchase_unit_price}"
-                                                class="form-group">
-                                                <label class="control-label">Precio Unitario (Compra)</label>
-                                                <el-input v-model="form.purchase_unit_price"
-                                                        dusk="purchase_unit_price"
-                                                        @input="calculatePercentageOfProfitByPurchase"></el-input>
-                                                <small v-if="errors.purchase_unit_price"
-                                                    class="form-control-feedback"
-                                                    v-text="errors.purchase_unit_price[0]"></small>
-                                            </div>
-                                        </div>
-                                        <!-- <div class="short-div col-md-4">
-                                            <div :class="{'has-danger': errors.percentage_of_profit}"
-                                                class="form-group">
-                                                <label class="control-label">Porcentaje de ganancia (%)</label>
-                                                <el-input v-model="form.percentage_of_profit"
-                                                        @input="calculatePercentageOfProfitByPercentage"></el-input>
-                                                <small v-if="errors.percentage_of_profit"
-                                                    class="form-control-feedback"
-                                                    v-text="errors.percentage_of_profit[0]"></small>
-                                            </div>
-                                        </div> -->
-                                        <div class="col-md-4 center-el-checkbox">
-                                            <div class="form-group">
-                                                <div class="mp-form-subhead">🛒 Canales de venta</div>
-                                                <el-checkbox v-model="form.apply_store">Aplica en Tienda</el-checkbox>
-                                                <br>
-                                                <el-checkbox v-model="form.marketplace_publishable" style="margin-top:4px">
-                                                    🌐 Publicar en Marketplace ebaemy
-                                                </el-checkbox>
-                                                <el-tooltip content="Si se activa, el producto aparecerá en ebaemy.com/marketplace. Las solicitudes llegan como pedidos en el canal 'Marketplace ebaemy'." placement="top">
-                                                    <i class="el-icon-info text-info" style="margin-left:4px;cursor:help"></i>
-                                                </el-tooltip>
-                                                <!-- Solo precio especial + link de "no encuentro categoría". El
-                                                     cascader de categoría se gestiona arriba en el campo unificado.
-                                                     Al activar marketplace solo pedimos lo extra: precio diferenciado. -->
-                                                <div v-if="form.marketplace_publishable" style="margin-top:8px;padding:10px 12px;background:#faf5ff;border:1px solid #e9d5ff;border-radius:8px">
+                                                <!-- Panel extra solo si publica en marketplace -->
+                                                <div v-if="form.marketplace_publishable" class="ie-channels-card__extra">
                                                     <div v-if="!form.marketplace_category_id" style="font-size:12px;color:#dc2626;font-weight:600;margin-bottom:6px">
                                                         ⚠️ Selecciona una categoría arriba para poder publicar.
                                                     </div>
-                                                    <a href="#" @click.prevent="openMpCategoryRequest" style="font-size:11px;color:#7c3aed;text-decoration:underline;display:inline-block;margin-bottom:6px">
-                                                        ¿No encuentras una categoría adecuada?
-                                                    </a>
-                                                    <label style="display:block;font-size:12px;color:#6b21a8;margin:4px 0 4px;font-weight:500">Precio en marketplace (opcional)</label>
-                                                    <el-input-number v-model="form.mp_price" :min="0" :precision="2" :step="1"
-                                                        placeholder="Usar precio normal" controls-position="right" size="mini"
-                                                        style="width:100%"></el-input-number>
-                                                    <small style="color:#7c3aed;font-size:11px">Deja vacío para usar el precio de venta normal.</small>
+                                                    <div class="ie-mp-extra-row">
+                                                        <div>
+                                                            <label class="ie-mp-extra-label">Precio en marketplace</label>
+                                                            <el-input-number v-model="form.mp_price" :min="0" :precision="2" :step="1"
+                                                                placeholder="Igual al precio normal" controls-position="right" size="small"
+                                                                style="width:100%"></el-input-number>
+                                                            <small style="color:#7c3aed;font-size:11px">Vacío = precio de venta normal.</small>
+                                                        </div>
+                                                        <a href="#" @click.prevent="openMpCategoryRequest" class="ie-mp-extra-link">
+                                                            ¿No encuentras una categoría adecuada?
+                                                        </a>
+                                                    </div>
                                                 </div>
                                             </div>
                                         </div>
-                                        <div class="col-md-5">
-                                            <div :class="{'has-danger': errors.warehouse_id}"
-                                                class="form-group">
-                                                <label class="control-label">Tags</label>
-                                                <el-select v-model="form.tags_id"
-                                                        filterable
-                                                        multiple>
-                                                    <el-option v-for="option in tags"
-                                                            :key="option.id"
-                                                            :label="option.name"
-                                                            :value="option.id"></el-option>
-                                                </el-select>
-                                                <small v-if="errors.warehouse_id"
-                                                    class="form-control-feedback"
-                                                    v-text="errors.warehouse_id[0]"></small>
-                                            </div>
-                                        </div>
 
-                                        <div class="short-div col-md-5">
-                                            <div :class="{'has-danger': errors.preparation_area_id}"
-                                                class="form-group">
-                                                <label class="control-label">Área de Preparación</label>
-                                                <el-select v-model="form.preparation_area_id" clearable placeholder="Seleccione">
-                                                    <el-option v-for="area in preparation_areas"
-                                                            :key="area.id"
-                                                            :label="area.name"
-                                                            :value="area.id"></el-option>
-                                                </el-select>
-                                                <small v-if="errors.preparation_area_id"
-                                                    class="form-control-feedback"
-                                                    v-text="errors.preparation_area_id[0]"></small>
-                                            </div>
+                                        <!-- ═════════ 3) DATOS DE COMPRA Y ETIQUETADO (colapsable) ═════════
+                                             Datos secundarios: el seller común no los toca al editar
+                                             un producto. Por default cerrados; chevron + abrir manual. -->
+                                        <div class="col-md-12">
+                                            <details class="ie-collapse mt-2" :open="!form.id">
+                                                <summary class="ie-collapse__summary">
+                                                    <span class="ie-collapse__chev">▸</span>
+                                                    <strong>Datos contables y etiquetas</strong>
+                                                    <span class="ie-collapse__hint">(compra, tags, área de preparación)</span>
+                                                </summary>
+                                                <div class="row mt-2">
+                                                    <div class="col-md-6">
+                                                        <div :class="{'has-danger': errors.purchase_affectation_igv_type_id}" class="form-group">
+                                                            <label class="control-label">Tipo de afectación (Compra)</label>
+                                                            <el-select v-model="form.purchase_affectation_igv_type_id">
+                                                                <el-option v-for="option in affectation_igv_types"
+                                                                        :key="option.id"
+                                                                        :label="option.description"
+                                                                        :value="option.id"></el-option>
+                                                            </el-select>
+                                                            <small v-if="errors.purchase_affectation_igv_type_id"
+                                                                class="form-control-feedback"
+                                                                v-text="errors.purchase_affectation_igv_type_id[0]"></small>
+                                                        </div>
+                                                    </div>
+                                                    <div class="col-md-6">
+                                                        <div :class="{'has-danger': errors.purchase_unit_price}" class="form-group">
+                                                            <label class="control-label">Precio Unitario (Compra)</label>
+                                                            <el-input v-model="form.purchase_unit_price"
+                                                                    dusk="purchase_unit_price"
+                                                                    @input="calculatePercentageOfProfitByPurchase"></el-input>
+                                                            <small v-if="errors.purchase_unit_price"
+                                                                class="form-control-feedback"
+                                                                v-text="errors.purchase_unit_price[0]"></small>
+                                                        </div>
+                                                    </div>
+                                                    <div class="col-md-6">
+                                                        <div class="form-group">
+                                                            <label class="control-label">Tags</label>
+                                                            <el-select v-model="form.tags_id" filterable multiple
+                                                                       placeholder="Selecciona o crea etiquetas">
+                                                                <el-option v-for="option in tags"
+                                                                        :key="option.id"
+                                                                        :label="option.name"
+                                                                        :value="option.id"></el-option>
+                                                            </el-select>
+                                                        </div>
+                                                    </div>
+                                                    <div class="col-md-6">
+                                                        <div :class="{'has-danger': errors.preparation_area_id}" class="form-group">
+                                                            <label class="control-label">Área de Preparación</label>
+                                                            <el-select v-model="form.preparation_area_id" clearable placeholder="Seleccione">
+                                                                <el-option v-for="area in preparation_areas"
+                                                                        :key="area.id"
+                                                                        :label="area.name"
+                                                                        :value="area.id"></el-option>
+                                                            </el-select>
+                                                            <small v-if="errors.preparation_area_id"
+                                                                class="form-control-feedback"
+                                                                v-text="errors.preparation_area_id[0]"></small>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </details>
                                         </div>
-
                                     </div>
                                 </div>
                             </div>
@@ -747,30 +759,39 @@
                         </div>
                     </div>
 
-                    <!-- ════════════ VARIANTES (talla, color, etc.) ════════════
-                         Movido fuera del tab para que todo el flujo del producto
-                         viva en una sola vista. El componente VariantsTab maneja
-                         internamente el caso "producto sin guardar todavía". -->
-                    <div class="mp-form-section mp-form-section--variants mt-3">
-                        <div class="mp-form-section__head">🎨 Variantes del producto</div>
-                        <div class="mp-form-section__hint">
-                            Opcional — talla, color, medida. Si tu producto se vende en distintas combinaciones, configúralas aquí.
-                        </div>
-                    </div>
-                    <div class="col-md-12 mb-3">
-                        <div v-if="!form.id" style="color:#6b7280;text-align:center;padding:24px 12px;background:#f9fafb;border:1px dashed #d1d5db;border-radius:10px">
-                            <div style="font-size:32px;line-height:1;margin-bottom:8px">🎨</div>
-                            <div style="font-weight:600;margin-bottom:4px">Guarda el producto primero</div>
-                            <div style="font-size:12.5px">Luego podrás agregar combinaciones de color, talla, etc.</div>
-                        </div>
-                        <variants-tab v-else
-                                      :item-id="form.id"
-                                      :parent-price="parseFloat(form.sale_unit_price) || 0"
-                                      :item-code="form.internal_id || form.item_code || ''"
-                                      :is-marketplace-publishable="!!form.marketplace_publishable"
-                                      :use-parent-image-initial="!!form.use_parent_image_for_variants"
-                                      @use-parent-image-changed="form.use_parent_image_for_variants = $event"
-                                      ></variants-tab>
+                    <!-- ════════════ VARIANTES (talla, color, etc.) — Colapsable ════════════
+                         El componente VariantsTab puede ser grande (tablas con
+                         varias filas + matriz). Lo envolvemos en <details> con
+                         el mismo patrón visual que descripción y datos contables.
+                         Abierto por default si el producto ya tiene variantes. -->
+                    <div class="col-md-12 mt-3">
+                        <details class="ie-collapse ie-collapse--variants" :open="hasVariantsOpen">
+                            <summary class="ie-collapse__summary">
+                                <span class="ie-collapse__chev">▸</span>
+                                <strong>🎨 Variantes del producto</strong>
+                                <span class="ie-collapse__hint">
+                                    (talla, color, etc. — opcional)
+                                </span>
+                                <span v-if="form.has_variants" class="ie-collapse__badge" style="background:#fae8ff;color:#86198f;border:1px solid #f5d0fe">
+                                    ✓ activas
+                                </span>
+                            </summary>
+                            <div class="ie-collapse__content">
+                                <div v-if="!form.id" style="color:#6b7280;text-align:center;padding:24px 12px;background:#f9fafb;border:1px dashed #d1d5db;border-radius:10px">
+                                    <div style="font-size:32px;line-height:1;margin-bottom:8px">🎨</div>
+                                    <div style="font-weight:600;margin-bottom:4px">Guarda el producto primero</div>
+                                    <div style="font-size:12.5px">Luego podrás agregar combinaciones de color, talla, etc.</div>
+                                </div>
+                                <variants-tab v-else
+                                              :item-id="form.id"
+                                              :parent-price="parseFloat(form.sale_unit_price) || 0"
+                                              :item-code="form.internal_id || form.item_code || ''"
+                                              :is-marketplace-publishable="!!form.marketplace_publishable"
+                                              :use-parent-image-initial="!!form.use_parent_image_for_variants"
+                                              @use-parent-image-changed="form.use_parent_image_for_variants = $event"
+                                              ></variants-tab>
+                            </div>
+                        </details>
                     </div>
 
                     <!-- Sticky bottom bar: el botón Guardar/Cancelar sigue al scroll
@@ -970,6 +991,74 @@
 }
 .mp-collapse-chev.is-open { transform: rotate(90deg); }
 
+/* ─────── Card destacado de canales de venta ─────── */
+.ie-channels-card {
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+    background: #f9fafb;
+    padding: 12px 14px;
+    margin-bottom: 12px;
+}
+.ie-channels-card__head {
+    font-size: 12.5px;
+    font-weight: 700;
+    color: #1f2937;
+    margin-bottom: 8px;
+    letter-spacing: .2px;
+}
+.ie-channels-card__body {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+}
+@media (max-width: 720px) {
+    .ie-channels-card__body { grid-template-columns: 1fr; }
+}
+.ie-channel {
+    display: block;
+    padding: 10px;
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: border-color .12s, box-shadow .12s;
+    margin: 0;
+}
+.ie-channel:hover { border-color: #10b981; box-shadow: 0 1px 6px -2px rgba(16,185,129,.18); }
+.ie-channel__title { font-weight: 600; color: #111827; font-size: 13px; }
+.ie-channel__hint  { font-size: 11.5px; color: #6b7280; margin-top: 2px; }
+.ie-channels-card__extra {
+    margin-top: 10px;
+    padding: 10px 12px;
+    background: #faf5ff;
+    border: 1px solid #e9d5ff;
+    border-radius: 8px;
+}
+.ie-mp-extra-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    align-items: flex-end;
+    justify-content: space-between;
+}
+.ie-mp-extra-row > div { flex: 1; min-width: 180px; }
+.ie-mp-extra-label {
+    display: block;
+    font-size: 12px;
+    color: #6b21a8;
+    font-weight: 500;
+    margin-bottom: 2px;
+}
+.ie-mp-extra-link {
+    font-size: 11px;
+    color: #7c3aed;
+    text-decoration: underline;
+    white-space: nowrap;
+}
+
+/* ─────── Colapsable variantes — más espacioso ─────── */
+.ie-collapse--variants .ie-collapse__content { padding: 14px; }
+
 /* ─────── Sticky action bar al fondo del dialog ─────── */
 .ie-sticky-actions {
     position: sticky;
@@ -1036,6 +1125,11 @@ export default {
             // default; se cierra automáticamente al editar un producto que
             // ya tiene imagen + categoría (loadRecord ajusta este flag).
             imageSectionOpen: true,
+            // Subdomain del tenant para el texto "tu_subdomain.ebaemy.com"
+            // en el card de canales. Se lee de window si está disponible.
+            tenant_subdomain: (typeof window !== 'undefined' && window.location)
+                ? (window.location.hostname.split('.')[0] || '')
+                : '',
             loading_search: false,
             tags: [],
             categories: [],
@@ -1093,6 +1187,14 @@ export default {
             mp_category_request_sending: false,
             mp_category_suggestions: [],
         }
+    },
+    computed: {
+        // Si el producto NO tiene variantes aún, dejamos cerrado por default
+        // (probablemente no las necesita). Si ya tiene, abrimos para que el
+        // seller vea el listado al editar.
+        hasVariantsOpen() {
+            return !!(this.form && this.form.has_variants)
+        },
     },
     watch: {
         'form.marketplace_publishable'(val) {
