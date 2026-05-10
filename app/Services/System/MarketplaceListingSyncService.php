@@ -112,8 +112,13 @@ class MarketplaceListingSyncService
 
         $fqdn = $client->hostname->fqdn;
 
+        // F6: usar la variante _mp (1080x1080 cuadrado) para cards del marketplace.
+        // Generada por ImageProcessingService o por el comando backfill-variants.
+        // Si el archivo _mp no existe (item muy viejo nunca regenerado), el front
+        // cae al main en el render — pero el sync no puede verificar el archivo
+        // cross-server, así que confiamos en que el backfill ya pasó.
         $imageUrl = $item->image
-            ? 'https://' . $fqdn . '/storage/uploads/items/' . $item->image
+            ? 'https://' . $fqdn . '/storage/uploads/items/' . \App\Services\Tenant\ImageProcessingService::variantFilename($item->image, '_mp')
             : null;
 
         // Segunda imagen para efecto hover en cards del marketplace.

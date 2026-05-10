@@ -519,12 +519,20 @@ class ImageProcessingService
 
     /**
      * Inserta un sufijo antes de la extensión: "foo-abc.webp" + "_mp" → "foo-abc_mp.webp"
+     * Pública porque el sync al system (MarketplaceListingSyncService) la usa
+     * para armar URLs de la variante marketplace sin tener acceso al storage
+     * del tenant.
      */
-    private static function injectSuffix(string $filename, string $suffix): string
+    public static function variantFilename(string $filename, string $suffix): string
     {
         $ext  = pathinfo($filename, PATHINFO_EXTENSION);
         $base = pathinfo($filename, PATHINFO_FILENAME);
         return $ext ? "{$base}{$suffix}.{$ext}" : "{$base}{$suffix}";
+    }
+
+    private static function injectSuffix(string $filename, string $suffix): string
+    {
+        return self::variantFilename($filename, $suffix);
     }
 
     // =========================================================================
