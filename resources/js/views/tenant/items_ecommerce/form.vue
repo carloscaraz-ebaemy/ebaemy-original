@@ -711,6 +711,33 @@
                             </div>-->
                         </div>
                     </div>
+
+                    <!-- ════════════ VARIANTES (talla, color, etc.) ════════════
+                         Movido fuera del tab para que todo el flujo del producto
+                         viva en una sola vista. El componente VariantsTab maneja
+                         internamente el caso "producto sin guardar todavía". -->
+                    <div class="mp-form-section mp-form-section--variants mt-3">
+                        <div class="mp-form-section__head">🎨 Variantes del producto</div>
+                        <div class="mp-form-section__hint">
+                            Opcional — talla, color, medida. Si tu producto se vende en distintas combinaciones, configúralas aquí.
+                        </div>
+                    </div>
+                    <div class="col-md-12 mb-3">
+                        <div v-if="!form.id" style="color:#6b7280;text-align:center;padding:24px 12px;background:#f9fafb;border:1px dashed #d1d5db;border-radius:10px">
+                            <div style="font-size:32px;line-height:1;margin-bottom:8px">🎨</div>
+                            <div style="font-weight:600;margin-bottom:4px">Guarda el producto primero</div>
+                            <div style="font-size:12.5px">Luego podrás agregar combinaciones de color, talla, etc.</div>
+                        </div>
+                        <variants-tab v-else
+                                      :item-id="form.id"
+                                      :parent-price="parseFloat(form.sale_unit_price) || 0"
+                                      :item-code="form.internal_id || form.item_code || ''"
+                                      :is-marketplace-publishable="!!form.marketplace_publishable"
+                                      :use-parent-image-initial="!!form.use_parent_image_for_variants"
+                                      @use-parent-image-changed="form.use_parent_image_for_variants = $event"
+                                      ></variants-tab>
+                    </div>
+
                     <div class="form-actions text-end pt-2">
                         <el-button class="second-buton me-2" @click.prevent="close()">Cancelar</el-button>
                         <el-button :loading="loading_submit || uploadingImage"
@@ -739,26 +766,9 @@
                 <modifiers-tab :itemId="recordId"></modifiers-tab>
             </el-tab-pane>
 
-            <!-- ════════════ VARIANTES (talla, color, etc.) ════════════ -->
-            <el-tab-pane name="variants">
-                <template #label>
-                    <span>🎨 Variantes</span>
-                </template>
-                <div v-if="!form.id" class="text-center py-4" style="color:#6b7280">
-                    <div style="font-size:36px;line-height:1;margin-bottom:8px">🎨</div>
-                    <div style="font-weight:600;margin-bottom:4px">Variantes (talla, color, etc.)</div>
-                    <div style="font-size:13px">Guarda el producto primero para configurar sus variantes.</div>
-                    <div style="font-size:12px;color:#9ca3af;margin-top:6px">Usa esta sección si tu producto tiene combinaciones (ej. "Camiseta Roja Talla M").</div>
-                </div>
-                <variants-tab v-else
-                              :item-id="form.id"
-                              :parent-price="parseFloat(form.sale_unit_price) || 0"
-                              :item-code="form.internal_id || form.item_code || ''"
-                              :is-marketplace-publishable="!!form.marketplace_publishable"
-                              :use-parent-image-initial="!!form.use_parent_image_for_variants"
-                              @use-parent-image-changed="form.use_parent_image_for_variants = $event"
-                              ></variants-tab>
-            </el-tab-pane>
+            <!-- Tab "Variantes" eliminado: ahora vive inline al final del
+                 tab General para que toda la edición rápida quede en una
+                 sola vista. -->
         </el-tabs>
         <!-- <percentage-perception
                 :showDialog.sync="showPercentagePerception"
@@ -829,6 +839,12 @@
     background: linear-gradient(135deg, #eff6ff, #f0f9ff);
     border-left-color: #3b82f6;
 }
+.mp-form-section--variants {
+    background: linear-gradient(135deg, #fdf4ff, #faf5ff);
+    border-left-color: #a855f7;
+}
+.mp-form-section--variants .mp-form-section__head { color: #6b21a8; }
+.mp-form-section--variants .mp-form-section__hint { color: #7e22ce; }
 .mp-form-section__head {
     font-size: 14px;
     font-weight: 700;
