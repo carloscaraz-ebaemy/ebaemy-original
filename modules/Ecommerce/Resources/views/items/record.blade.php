@@ -425,6 +425,8 @@
                     var options   = @json($record->item_options);
                     var basePrice = {{ $record->sale_unit_price }};
                     var symbol    = '{{ $record->currency_type_symbol }}';
+                    var useParentImage = {{ !empty($record->use_parent_image_for_variants) ? 'true' : 'false' }};
+                    var primaryValueIds = @json($record->primary_value_ids ?? []);
                     var selected  = {}; // optionId -> valueId
 
                     // ── Matriz de disponibilidad ─────────────────────────────────────
@@ -500,7 +502,9 @@
                             updateStockUI(found.stock);
                             if(resEl){ resEl.style.display='block'; resEl.textContent='✓ '+found.display_name; }
                             if(reqEl) reqEl.style.display='none';
-                            if(found.image) swapMainImage('/storage/uploads/items/'+found.image);
+                            // Cambiar imagen solo si la variante tiene foto propia
+                            // Y el seller NO marcó "usar imagen del producto en todas las variantes".
+                            if(found.image && !useParentImage) swapMainImage('/storage/uploads/items/'+found.image);
                         } else {
                             window._ecSelectedVariant = null;
                             if(resEl) resEl.style.display='none';
@@ -578,19 +582,29 @@
                         if(thumb) thumb.src = url;
                     }
 
-                    // ── NO auto-seleccionar (estilo Shopify) ──────────────────────
-                    // El usuario debe elegir. Mostramos stock total y deshabilitamos
-                    // opciones sin stock desde el inicio.
                     refreshAvailability();
 
-                    // Estado inicial: ocultar qty selector y mostrar hint
-                    var qtyWrapInit = document.getElementById('ec-qty-selector');
-                    if(qtyWrapInit && qtyWrapInit.closest('.mb-3')) qtyWrapInit.closest('.mb-3').style.display = 'none';
-                    var addBtnInit = document.getElementById('btn-add-to-cart');
-                    if(addBtnInit) addBtnInit.style.display = 'none';
-                    // Mostrar mensaje de selección requerida
-                    var reqInit = document.getElementById('ec-variant-required');
-                    if(reqInit){ reqInit.style.display = 'block'; reqInit.textContent = 'Selecciona talla y color para agregar al carrito'; reqInit.style.color = '#6b7280'; }
+                    // Si el seller marcó una variante como "Mostrar primero" (is_primary),
+                    // la auto-seleccionamos para que el comprador llegue con todo listo
+                    // (precio, stock, imagen) y solo tenga que dar click en "Agregar".
+                    // Sin primary: comportamiento Shopify, el usuario elige todo.
+                    if (Array.isArray(primaryValueIds) && primaryValueIds.length) {
+                        primaryValueIds.forEach(function (valId) {
+                            var btn = document.querySelector('.ec-rv-opt[data-value-id="' + valId + '"]:not([disabled])');
+                            if (btn) btn.click();
+                        });
+                    }
+
+                    // Estado inicial — solo si NO se autoseleccionó (window._ecSelectedVariant
+                    // se setea en resolveVariant tras el click programático arriba).
+                    if (!window._ecSelectedVariant) {
+                        var qtyWrapInit = document.getElementById('ec-qty-selector');
+                        if(qtyWrapInit && qtyWrapInit.closest('.mb-3')) qtyWrapInit.closest('.mb-3').style.display = 'none';
+                        var addBtnInit = document.getElementById('btn-add-to-cart');
+                        if(addBtnInit) addBtnInit.style.display = 'none';
+                        var reqInit = document.getElementById('ec-variant-required');
+                        if(reqInit){ reqInit.style.display = 'block'; reqInit.textContent = 'Selecciona talla y color para agregar al carrito'; reqInit.style.color = '#6b7280'; }
+                    }
                 })();
                 </script>
 

@@ -364,21 +364,61 @@ class EcommerceController extends Controller
                     ])->toArray(),
                 ];
             })->toArray();
-            $itemVariants = $row->variants->map(function($v) {
+            $itemVariants = $row->variants->map(function($v) use ($row) {
                 // Stock disponible = físico - comprometido (no mostrar reservado como disponible)
                 $available = $v->warehouseStocks->sum(function($ws) {
                     return max(0, $ws->stock_physical - $ws->stock_committed);
                 });
+                $price = $v->sale_unit_price !== null && $v->sale_unit_price > 0
+                    ? (float) $v->sale_unit_price
+                    : (float) $row->sale_unit_price;
+                // Si el toggle "usar imagen padre" está activo, ignoramos image
+                // de variante y el frontend usa la imagen principal del producto.
+                $useParentImage = (bool) ($row->use_parent_image_for_variants ?? false);
+                $imageUrl = (!$useParentImage && !empty($v->image))
+                    ? \App\Services\Tenant\ImageProcessingService::getUrl($v->image)
+                    : null;
                 return [
                     'id'               => $v->id,
                     'display_name'     => $v->display_name,
-                    'sale_unit_price'  => $v->sale_unit_price,
+                    'sale_unit_price'  => $price,
                     'stock'            => $available,
                     'is_active'        => (bool) $v->is_active,
+                    'is_primary'       => (bool) $v->is_primary,
                     'image'            => $v->image,
-                    'option_value_ids' => $v->optionValues->pluck('id')->toArray(),
+                    'image_url'        => $imageUrl,
+                    'option_value_ids' => $v->optionValues->pluck('id')->map(fn($i) => (int) $i)->toArray(),
                 ];
             })->toArray();
+
+            // Mapa "combo de option_value_ids → datos de variante" para que el
+            // JS del blade resuelva qué variante se elige al combinar color+talla.
+            // Mismo formato que MarketplaceController::show — la key es el array
+            // de ids ordenado ASC en string ("12-34") para hash consistente.
+            foreach ($itemVariants as $v) {
+                if (empty($v['option_value_ids'])) continue;
+                $ids = $v['option_value_ids'];
+                sort($ids);
+                $variantMap[implode('-', $ids)] = [
+                    'id'              => $v['id'],
+                    'price'           => $v['sale_unit_price'],
+                    'stock'           => $v['stock'],
+                    'image_url'       => $v['image_url'],
+                    'is_active'       => $v['is_active'],
+                    'display_name'    => $v['display_name'],
+                ];
+            }
+        }
+        $variantMap = $variantMap ?? [];
+
+        // Value IDs de la variante is_primary (para preseleccionar el selector
+        // estilo Falabella al cargar la página).
+        $primaryValueIds = [];
+        if (!empty($itemVariants)) {
+            $primaryVariant = collect($itemVariants)->firstWhere('is_primary', true);
+            if ($primaryVariant) {
+                $primaryValueIds = $primaryVariant['option_value_ids'];
+            }
         }
 
         // Flash sale activa para este producto
@@ -452,6 +492,9 @@ class EcommerceController extends Controller
             'has_variants'                => (bool) $row->has_variants,
             'item_options'                => $itemOptions,
             'item_variants'               => $itemVariants,
+            'variant_map'                 => $variantMap,
+            'primary_value_ids'           => $primaryValueIds,
+            'use_parent_image_for_variants' => (bool) ($row->use_parent_image_for_variants ?? false),
         ];
 
         // Productos relacionados: misma categoría, excluir el actual, máx 8
