@@ -309,7 +309,19 @@ async function mcSubmit() {
         });
         const data = await res.json();
         if (!res.ok || !data.success) {
-            return mcShowEditError(data.message || 'Error al guardar.');
+            // Laravel 422 puede traer errors:{ campo:[mensaje] } y message string.
+            // Concatenamos los detalles para que el usuario sepa exactamente qué corregir.
+            let msg = typeof data.message === 'string' ? data.message : 'Error al guardar.';
+            if (data.errors && typeof data.errors === 'object') {
+                const details = [];
+                for (const k in data.errors) {
+                    const arr = data.errors[k];
+                    if (Array.isArray(arr)) details.push(...arr);
+                    else if (typeof arr === 'string') details.push(arr);
+                }
+                if (details.length) msg = details.join(' · ');
+            }
+            return mcShowEditError(msg);
         }
         mcHideModal('mcEditModal');
         mcLoadTree();
@@ -353,5 +365,31 @@ async function mcDelete(id) {
 document.addEventListener('DOMContentLoaded', mcLoadTree);
 document.getElementById('mcSearch').addEventListener('input', mcRenderTree);
 document.getElementById('mcStatusFilter').addEventListener('change', mcRenderTree);
+
+// Auto-slugify: mientras el usuario escribe el nombre, sincronizamos el slug
+// (sólo si el slug no fue editado manualmente). El backend igual genera el
+// slug si llega vacío, pero mostrarlo en vivo evita que el usuario lo guarde
+// con espacios o caracteres inválidos.
+function mcSlugify(s) {
+    return (s || '').toString()
+        .normalize('NFD').replace(/[̀-ͯ]/g, '')   // quita tildes
+        .toLowerCase()
+        .replace(/[^a-z0-9\s-]/g, '')                       // sólo letras/núms/guiones
+        .trim()
+        .replace(/\s+/g, '-')
+        .replace(/-+/g, '-');
+}
+const mcEditNameEl = document.getElementById('mcEditName');
+const mcEditSlugEl = document.getElementById('mcEditSlug');
+let mcSlugManuallyEdited = false;
+mcEditSlugEl.addEventListener('input', () => { mcSlugManuallyEdited = !!mcEditSlugEl.value; });
+mcEditNameEl.addEventListener('input', () => {
+    if (!mcSlugManuallyEdited) mcEditSlugEl.value = mcSlugify(mcEditNameEl.value);
+});
+// Reset el flag cada vez que abrimos el modal
+const _origOpenCreate = mcOpenCreate;
+mcOpenCreate = function(...args){ mcSlugManuallyEdited = false; return _origOpenCreate.apply(this, args); };
+const _origOpenEdit = mcOpenEdit;
+mcOpenEdit = function(...args){ mcSlugManuallyEdited = true; return _origOpenEdit.apply(this, args); };
 </script>
 @endsection
