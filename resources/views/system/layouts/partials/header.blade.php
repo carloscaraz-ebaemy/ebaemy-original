@@ -597,9 +597,22 @@
 
         function refresh() {
             fetch(feedUrl, { headers: { 'Accept': 'application/json' }, credentials: 'same-origin' })
-                .then(function (r) { return r.json(); })
+                .then(function (r) {
+                    if (!r.ok) {
+                        // 401/403/500 → mostramos el código en la lista para diagnosticar
+                        return r.text().then(function (t) {
+                            list.innerHTML = '<div class="admin-notif-empty">HTTP ' + r.status + '<br><small style="font-size:10px">'
+                                + (t.substring(0, 200) || 'sin body') + '</small></div>';
+                            throw new Error('HTTP ' + r.status);
+                        });
+                    }
+                    return r.json();
+                })
                 .then(function (data) {
-                    if (!data || !data.success) return;
+                    if (!data || !data.success) {
+                        list.innerHTML = '<div class="admin-notif-empty">Sin success en respuesta</div>';
+                        return;
+                    }
                     if (data.unread_count > 0) {
                         badge.style.display = '';
                         badge.textContent = data.unread_count > 99 ? '99+' : data.unread_count;
@@ -633,7 +646,11 @@
                         });
                     });
                 })
-                .catch(function () { /* silent */ });
+                .catch(function (err) {
+                    if (list.querySelector('.admin-notif-empty') === null) {
+                        list.innerHTML = '<div class="admin-notif-empty">Error: ' + err.message + '</div>';
+                    }
+                });
         }
 
         function escapeHtml(s) {
