@@ -180,6 +180,22 @@ class MarketplaceListingSyncService
         // Tienda vendedora: trade_name comercial y logo desde Company del tenant
         [$tenantName, $tenantLogoUrl] = $this->resolveTenantBranding($fqdn, $client);
 
+        // WhatsApp del vendedor — para botón "Contactar al vendedor" en
+        // marketplace/show. Viene de configuration_ecommerce.whatsapp_vendor_number
+        // del tenant. Si está vacío, el botón se oculta en el blade.
+        $sellerWhatsapp = null;
+        try {
+            $sellerWhatsapp = DB::connection('tenant')->table('configuration_ecommerce')
+                ->value('whatsapp_vendor_number');
+            // Normalizamos: solo dígitos (wa.me lo requiere sin +, espacios o guiones)
+            if ($sellerWhatsapp) {
+                $sellerWhatsapp = preg_replace('/\D+/', '', (string) $sellerWhatsapp);
+                if (strlen($sellerWhatsapp) < 9) $sellerWhatsapp = null;
+            }
+        } catch (\Throwable $e) {
+            $sellerWhatsapp = null;
+        }
+
         // Variantes y promo: calculamos en helpers separados para mantener
         // este método legible. El orden importa — si has_variants=true,
         // saltamos PromotionEngine (las promos por variante quedan para
@@ -195,6 +211,7 @@ class MarketplaceListingSyncService
             'tenant_name'       => $tenantName,
             'tenant_logo_url'   => $tenantLogoUrl,
             'tenant_verified'   => (bool) ($client->is_verified ?? false),
+            'seller_whatsapp'   => $sellerWhatsapp,
             'client_id'         => $client->id,
             'remote_item_id'    => $item->id,
             'title'             => Str::limit((string) ($item->description ?: $item->name ?: 'Producto'), 250, ''),

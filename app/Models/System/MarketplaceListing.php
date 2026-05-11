@@ -32,6 +32,7 @@ class MarketplaceListing extends Model
         'image_url',
         'secondary_image_url',
         'gallery_image_urls',
+        'seller_whatsapp',
         'category_name',
         'marketplace_category_id',
         'brand_name',
