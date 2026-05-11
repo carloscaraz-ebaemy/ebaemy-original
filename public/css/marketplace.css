@@ -563,10 +563,19 @@ button { font-family: inherit; cursor: pointer; }
     display: flex;
     align-items: center;
     gap: 8px;
-    padding: 5px 0;
+    padding: 5px 8px;
     font-size: 13px;
     color: var(--mp-ink-soft);
     cursor: pointer;
+    border-radius: 6px;
+    text-decoration: none;
+    transition: background .12s;
+}
+.mp-filter-checkbox:hover { background: rgba(15,138,130,.06); }
+.mp-filter-checkbox.is-active {
+    background: rgba(15,138,130,.10);
+    color: var(--mp-primary-dark);
+    font-weight: 600;
 }
 .mp-filter-checkbox input { accent-color: var(--mp-primary); }
 

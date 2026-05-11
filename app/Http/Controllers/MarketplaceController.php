@@ -37,6 +37,14 @@ class MarketplaceController extends Controller
                 ->value('id');
         }
 
+        // Filtros booleanos del sidebar — todos opcionales, se activan solo
+        // si vienen en query string. Validamos con boolean() para aceptar
+        // ?on_offer=1 y ?on_offer=true igual.
+        $onOfferOnly  = $request->boolean('on_offer');
+        $verifiedOnly = $request->boolean('verified');
+        $inStockOnly  = $request->boolean('in_stock');
+        $packsOnly    = $request->boolean('packs');
+
         $query = MarketplaceListing::published()
             ->search($q)
             ->category($category)
@@ -53,6 +61,11 @@ class MarketplaceController extends Controller
         if ($priceMax !== null) {
             $query->whereRaw('COALESCE(mp_price, price) <= ?', [$priceMax]);
         }
+
+        if ($onOfferOnly)  $query->where('is_on_offer', true);
+        if ($verifiedOnly) $query->where('tenant_verified', true);
+        if ($inStockOnly)  $query->where('stock', '>', 0);
+        if ($packsOnly)    $query->where('is_pack', true);
 
         switch ($sort) {
             case 'price_asc':
@@ -140,7 +153,8 @@ class MarketplaceController extends Controller
             'listings', 'categories', 'officialRoots', 'dailyOffers',
             'q', 'category', 'officialCatId',
             'sort', 'priceMin', 'priceMax',
-            'shops', 'shopSubdomain'
+            'shops', 'shopSubdomain',
+            'onOfferOnly', 'verifiedOnly', 'inStockOnly', 'packsOnly'
         ));
     }
 

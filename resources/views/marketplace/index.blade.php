@@ -11,10 +11,24 @@
         'price_min' => $priceMin,
         'price_max' => $priceMax,
         'shop'      => $shopSubdomain ?? null,
+        'on_offer'  => !empty($onOfferOnly) ? 1 : null,
+        'verified'  => !empty($verifiedOnly) ? 1 : null,
+        'in_stock'  => !empty($inStockOnly) ? 1 : null,
+        'packs'     => !empty($packsOnly) ? 1 : null,
     ], fn($v) => $v !== null && $v !== '');
 
-    $hasFilters = !empty($q) || !empty($category) || $priceMin !== null || $priceMax !== null || !empty($shopSubdomain);
-    $isHome = empty($q) && empty($category) && $priceMin === null && $priceMax === null && empty($shopSubdomain);
+    $hasBooleanFilter = !empty($onOfferOnly) || !empty($verifiedOnly) || !empty($inStockOnly) || !empty($packsOnly);
+    $hasFilters = !empty($q) || !empty($category) || $priceMin !== null || $priceMax !== null || !empty($shopSubdomain) || $hasBooleanFilter;
+    $isHome = empty($q) && empty($category) && $priceMin === null && $priceMax === null && empty($shopSubdomain) && !$hasBooleanFilter;
+
+    // Helper para alternar un filtro booleano en el query string actual.
+    // Si el filtro está activo lo quita, si no lo agrega.
+    $toggleQs = function(string $key) use ($baseQs) {
+        $qs = $baseQs;
+        if (isset($qs[$key])) unset($qs[$key]);
+        else $qs[$key] = 1;
+        return $qs;
+    };
 
     // Tiendas únicas derivadas del listado actual (para la sección "Tiendas destacadas").
     // Usamos la data que el listing ya carga — cero cambios al controller.
@@ -266,6 +280,11 @@
                 @if($category)      <input type="hidden" name="category" value="{{ $category }}">      @endif
                 @if($sort && $sort !== 'relevance') <input type="hidden" name="sort" value="{{ $sort }}"> @endif
                 @if($shopSubdomain) <input type="hidden" name="shop"     value="{{ $shopSubdomain }}"> @endif
+                {{-- Preservar filtros booleanos al aplicar precio --}}
+                @if(!empty($onOfferOnly))  <input type="hidden" name="on_offer" value="1"> @endif
+                @if(!empty($verifiedOnly)) <input type="hidden" name="verified" value="1"> @endif
+                @if(!empty($inStockOnly))  <input type="hidden" name="in_stock" value="1"> @endif
+                @if(!empty($packsOnly))    <input type="hidden" name="packs"    value="1"> @endif
                 <div class="mp-price-range">
                     <input type="number" name="price_min" min="0" step="0.01" placeholder="Desde" value="{{ $priceMin !== null ? $priceMin : '' }}">
                     <span class="mp-price-range-sep">—</span>
@@ -280,11 +299,17 @@
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M20 12V2H4v10l8 10 8-10z"/></svg>
                 Ofertas
             </div>
-            <label class="mp-filter-checkbox">
-                <input type="checkbox" disabled> Con descuento
-                <span style="font-size:10px;color:var(--mp-muted);margin-left:auto">Próx.</span>
-            </label>
-            <label class="mp-filter-checkbox">
+            <a href="{{ route('marketplace.index', $toggleQs('on_offer')) }}"
+               class="mp-filter-checkbox {{ !empty($onOfferOnly) ? 'is-active' : '' }}">
+                <input type="checkbox" {{ !empty($onOfferOnly) ? 'checked' : '' }} onclick="return false">
+                Con descuento
+            </a>
+            <a href="{{ route('marketplace.index', $toggleQs('packs')) }}"
+               class="mp-filter-checkbox {{ !empty($packsOnly) ? 'is-active' : '' }}">
+                <input type="checkbox" {{ !empty($packsOnly) ? 'checked' : '' }} onclick="return false">
+                📦 Solo packs / combos
+            </a>
+            <label class="mp-filter-checkbox" style="opacity:.5;cursor:default">
                 <input type="checkbox" disabled> Envío gratis
                 <span style="font-size:10px;color:var(--mp-muted);margin-left:auto">Próx.</span>
             </label>
@@ -295,14 +320,16 @@
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 2l2.39 5.42L20 8.27l-4 4.15.94 5.58L12 15.77l-4.94 2.23L8 12.42 4 8.27l5.61-.85L12 2z"/></svg>
                 Confianza
             </div>
-            <label class="mp-filter-checkbox">
-                <input type="checkbox" disabled> Solo tiendas verificadas
-                <span style="font-size:10px;color:var(--mp-muted);margin-left:auto">Próx.</span>
-            </label>
-            <label class="mp-filter-checkbox">
-                <input type="checkbox" disabled> Con stock disponible
-                <span style="font-size:10px;color:var(--mp-muted);margin-left:auto">Próx.</span>
-            </label>
+            <a href="{{ route('marketplace.index', $toggleQs('verified')) }}"
+               class="mp-filter-checkbox {{ !empty($verifiedOnly) ? 'is-active' : '' }}">
+                <input type="checkbox" {{ !empty($verifiedOnly) ? 'checked' : '' }} onclick="return false">
+                Solo tiendas verificadas
+            </a>
+            <a href="{{ route('marketplace.index', $toggleQs('in_stock')) }}"
+               class="mp-filter-checkbox {{ !empty($inStockOnly) ? 'is-active' : '' }}">
+                <input type="checkbox" {{ !empty($inStockOnly) ? 'checked' : '' }} onclick="return false">
+                Con stock disponible
+            </a>
         </div>
     </aside>
 
@@ -323,6 +350,11 @@
                 @if($category) <input type="hidden" name="category" value="{{ $category }}"> @endif
                 @if($priceMin !== null) <input type="hidden" name="price_min" value="{{ $priceMin }}"> @endif
                 @if($priceMax !== null) <input type="hidden" name="price_max" value="{{ $priceMax }}"> @endif
+                @if($shopSubdomain)        <input type="hidden" name="shop"     value="{{ $shopSubdomain }}"> @endif
+                @if(!empty($onOfferOnly))  <input type="hidden" name="on_offer" value="1"> @endif
+                @if(!empty($verifiedOnly)) <input type="hidden" name="verified" value="1"> @endif
+                @if(!empty($inStockOnly))  <input type="hidden" name="in_stock" value="1"> @endif
+                @if(!empty($packsOnly))    <input type="hidden" name="packs"    value="1"> @endif
                 <select name="sort" class="mp-sort-dropdown" onchange="this.form.submit()" aria-label="Ordenar">
                     <option value="relevance" {{ $sort === 'relevance'  ? 'selected' : '' }}>Relevancia</option>
                     <option value="price_asc" {{ $sort === 'price_asc'  ? 'selected' : '' }}>Precio: menor a mayor</option>
