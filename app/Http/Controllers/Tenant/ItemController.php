@@ -1721,6 +1721,148 @@ class ItemController extends Controller
         ];
     }
 
+    /**
+     * Vista del dashboard marketplace para el seller (página completa).
+     * El JS Vue del lado tenant pega a marketplaceDashboardData() para los
+     * KPIs y los charts.
+     */
+    public function marketplaceDashboardView()
+    {
+        return view('tenant.marketplace_dashboard.index');
+    }
+
+    /**
+     * Datos JSON para el dashboard. Devuelve:
+     *   - kpi:    contadores agregados con delta vs período previo
+     *   - top:    arrays top-N por views / clicks / leads / orders
+     *   - daily:  serie temporal últimos 30d para chart de tendencia
+     *   - orders: total de pedidos marketplace (tenant_marketplace_orders) + revenue
+     *   - funnel: views → clicks → leads → orders (conversion rates)
+     */
+    public function marketplaceDashboardData()
+    {
+        $hostname = app(\Hyn\Tenancy\Contracts\CurrentHostname::class);
+        if (!$hostname) {
+            return response()->json(['error' => 'no_tenant'], 404);
+        }
+        $hostnameId = $hostname->id;
+
+        // ── KPI agregados con delta vs período previo ─────────────────────
+        $now      = now();
+        $start30  = $now->copy()->subDays(30);
+        $prevStart= $now->copy()->subDays(60);
+
+        $kpis = \App\Models\System\MarketplaceListing::where('hostname_id', $hostnameId)
+            ->selectRaw('
+                SUM(CASE WHEN is_active=1 AND status=\'active\' THEN 1 ELSE 0 END) as published,
+                COALESCE(SUM(view_count), 0)  as views_total,
+                COALESCE(SUM(click_count), 0) as clicks_total,
+                COALESCE(SUM(lead_count), 0)  as leads_total,
+                AVG(NULLIF(avg_rating, 0))    as avg_rating,
+                COALESCE(SUM(rating_count), 0) as reviews_total
+            ')
+            ->first();
+
+        $leads30  = \App\Models\System\MarketplaceLead::where('hostname_id', $hostnameId)
+            ->where('created_at', '>=', $start30)->count();
+        $leadsPrev= \App\Models\System\MarketplaceLead::where('hostname_id', $hostnameId)
+            ->whereBetween('created_at', [$prevStart, $start30])->count();
+
+        // ── Pedidos marketplace (tenant_marketplace_orders) ───────────────
+        $ordersAgg = \DB::connection('system')->table('tenant_marketplace_orders')
+            ->where('hostname_id', $hostnameId)
+            ->where('created_at', '>=', $start30)
+            ->selectRaw('COUNT(*) as cnt, COALESCE(SUM(subtotal),0) as gross, COALESCE(SUM(discount_amount),0) as disc')
+            ->first();
+        $ordersPrevAgg = \DB::connection('system')->table('tenant_marketplace_orders')
+            ->where('hostname_id', $hostnameId)
+            ->whereBetween('created_at', [$prevStart, $start30])
+            ->selectRaw('COUNT(*) as cnt, COALESCE(SUM(subtotal),0) as gross')
+            ->first();
+
+        $deltaPct = function ($curr, $prev) {
+            if ($prev <= 0) return $curr > 0 ? 100 : 0;
+            return (int) round((($curr - $prev) / $prev) * 100);
+        };
+
+        $kpi = [
+            'published'      => (int) ($kpis->published ?? 0),
+            'views_total'    => (int) ($kpis->views_total ?? 0),
+            'clicks_total'   => (int) ($kpis->clicks_total ?? 0),
+            'leads_total'    => (int) ($kpis->leads_total ?? 0),
+            'leads_30d'      => (int) $leads30,
+            'leads_delta_pct'=> $deltaPct($leads30, $leadsPrev),
+            'reviews_total'  => (int) ($kpis->reviews_total ?? 0),
+            'avg_rating'     => round((float) ($kpis->avg_rating ?? 0), 2),
+            'orders_30d'     => (int) ($ordersAgg->cnt ?? 0),
+            'orders_delta_pct'=> $deltaPct((int) ($ordersAgg->cnt ?? 0), (int) ($ordersPrevAgg->cnt ?? 0)),
+            'revenue_30d'    => round((float) (($ordersAgg->gross ?? 0) - ($ordersAgg->disc ?? 0)), 2),
+            'revenue_delta_pct' => $deltaPct((float) ($ordersAgg->gross ?? 0), (float) ($ordersPrevAgg->gross ?? 0)),
+        ];
+
+        // ── Funnel: views → clicks → leads → orders ───────────────────────
+        $totalViews  = $kpi['views_total'];
+        $totalClicks = $kpi['clicks_total'];
+        $totalLeads  = $kpi['leads_total'];
+        $totalOrders = (int) \DB::connection('system')->table('tenant_marketplace_orders')
+            ->where('hostname_id', $hostnameId)->count();
+
+        $rate = fn($a, $b) => $b > 0 ? round(($a / $b) * 100, 2) : 0;
+        $funnel = [
+            ['stage' => 'Vistas',  'value' => $totalViews,  'rate' => 100],
+            ['stage' => 'Clicks',  'value' => $totalClicks, 'rate' => $rate($totalClicks, max($totalViews, 1))],
+            ['stage' => 'Leads',   'value' => $totalLeads,  'rate' => $rate($totalLeads, max($totalViews, 1))],
+            ['stage' => 'Pedidos', 'value' => $totalOrders, 'rate' => $rate($totalOrders, max($totalViews, 1))],
+        ];
+
+        // ── Top productos por dimensión ───────────────────────────────────
+        $topByMetric = function (string $metric) use ($hostnameId) {
+            return \App\Models\System\MarketplaceListing::where('hostname_id', $hostnameId)
+                ->where('is_active', true)
+                ->where($metric, '>', 0)
+                ->orderByDesc($metric)
+                ->limit(5)
+                ->get(['id','slug','title','image_url','view_count','click_count','lead_count','price','mp_price','stock','is_on_offer','discount_pct']);
+        };
+        $top = [
+            'views'  => $topByMetric('view_count'),
+            'clicks' => $topByMetric('click_count'),
+            'leads'  => $topByMetric('lead_count'),
+        ];
+
+        // ── Serie temporal (chart): leads + pedidos por día últimos 30d ──
+        $daily = collect();
+        for ($i = 29; $i >= 0; $i--) {
+            $daily->push([
+                'date'    => $now->copy()->subDays($i)->toDateString(),
+                'leads'   => 0,
+                'orders'  => 0,
+            ]);
+        }
+        $leadsDaily = \DB::connection('system')->table('marketplace_leads')
+            ->where('hostname_id', $hostnameId)
+            ->where('created_at', '>=', $start30)
+            ->selectRaw('DATE(created_at) as d, COUNT(*) as c')
+            ->groupBy('d')->pluck('c', 'd');
+        $ordersDaily = \DB::connection('system')->table('tenant_marketplace_orders')
+            ->where('hostname_id', $hostnameId)
+            ->where('created_at', '>=', $start30)
+            ->selectRaw('DATE(created_at) as d, COUNT(*) as c')
+            ->groupBy('d')->pluck('c', 'd');
+        $daily = $daily->map(function ($row) use ($leadsDaily, $ordersDaily) {
+            $row['leads']  = (int) ($leadsDaily[$row['date']] ?? 0);
+            $row['orders'] = (int) ($ordersDaily[$row['date']] ?? 0);
+            return $row;
+        })->values();
+
+        return response()->json([
+            'kpi'    => $kpi,
+            'funnel' => $funnel,
+            'top'    => $top,
+            'daily'  => $daily,
+        ]);
+    }
+
     public function duplicate(Request $request)
     {
         // return $request->id;

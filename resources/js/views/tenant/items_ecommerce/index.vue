@@ -35,6 +35,14 @@
                  seller una sola decisión clara. -->
             <div class="right-wrapper pull-right" v-if="itemsCount !== 0">
                 <template>
+                    <!-- Acceso rápido al dashboard analítico del marketplace.
+                         Solo se muestra cuando hay productos (sino no hay nada
+                         que medir). Iconos lucide-like estilo light. -->
+                    <a href="/marketplace-dashboard"
+                       class="btn btn-sm btn-outline-info mt-2 me-2"
+                       title="Ver métricas del marketplace">
+                        <i class="fa fa-chart-line"></i> Dashboard marketplace
+                    </a>
                     <el-tooltip
                         content="Publica todos los productos de tu tienda online en ebaemy.com/marketplace"
                         placement="top"

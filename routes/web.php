@@ -443,6 +443,11 @@ if ($hostname) {
             Route::post('items/visible_store', 'Tenant\ItemController@visibleStore');
             Route::post('items/marketplace-toggle', 'Tenant\ItemController@marketplaceToggle');
             Route::get('items/marketplace-stats',    'Tenant\ItemController@marketplaceStats');
+            // Dashboard analytics del marketplace (vista completa con charts +
+            // KPIs + top productos). El endpoint marketplace-stats sigue
+            // existiendo para los widgets compactos del listado de productos.
+            Route::get('marketplace-dashboard',                  'Tenant\ItemController@marketplaceDashboardView')->name('tenant.marketplace.dashboard');
+            Route::get('items/marketplace-dashboard-data',       'Tenant\ItemController@marketplaceDashboardData');
             Route::post('items/bulk-channel',        'Tenant\ItemController@bulkChannel');
             Route::post('items/marketplace-publish-all-store', 'Tenant\ItemController@publishAllStoreToMarketplace');
             Route::get('items/channel-stats',        'Tenant\ItemController@channelStats');
