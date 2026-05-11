@@ -129,7 +129,19 @@
                 </div>
             @endforeach
             <div class="mp-conf-totals">
-                <div class="row total"><span>Subtotal tienda</span><span>S/ {{ number_format($subtotal, 2) }}</span></div>
+                @php
+                    $storeDiscount = (float) ($sub?->discount_amount ?? 0);
+                @endphp
+                <div class="row"><span>Subtotal tienda</span><span>S/ {{ number_format($subtotal, 2) }}</span></div>
+                @if($storeDiscount > 0 && !empty($sub?->coupon_code))
+                    <div class="row" style="color:#16a34a">
+                        <span>Cupón {{ $sub->coupon_code }}</span>
+                        <span>-S/ {{ number_format($storeDiscount, 2) }}</span>
+                    </div>
+                    <div class="row total"><span>Total tienda</span><span>S/ {{ number_format(max(0, $subtotal - $storeDiscount), 2) }}</span></div>
+                @else
+                    <div class="row total"><span>Total tienda</span><span>S/ {{ number_format($subtotal, 2) }}</span></div>
+                @endif
             </div>
         </div>
     @endforeach
@@ -137,6 +149,13 @@
     <div class="mp-conf-totals">
         <div class="row"><span>Productos</span><span>{{ $order->items_count }}</span></div>
         <div class="row"><span>Tiendas</span><span>{{ $order->stores_count }}</span></div>
+        @if(($order->discount_total ?? 0) > 0)
+            <div class="row"><span>Subtotal</span><span>S/ {{ number_format($order->subtotal, 2) }}</span></div>
+            <div class="row" style="color:#16a34a">
+                <span>Descuento total cupones</span>
+                <span>-S/ {{ number_format($order->discount_total, 2) }}</span>
+            </div>
+        @endif
         <div class="row total"><span>Total general</span><span>S/ {{ number_format($order->total, 2) }}</span></div>
     </div>
 

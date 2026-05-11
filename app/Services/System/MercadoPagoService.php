@@ -196,6 +196,15 @@ class MercadoPagoService
             // Statement descriptor que aparece en el voucher del banco
             $preference->statement_descriptor = 'EBAEMY';
 
+            // Descuento agregado: el cliente aplicó cupones en checkout.
+            // MP cobra (sum items) - coupon_amount. Sin esto, MP cobraría el
+            // subtotal completo y el cliente sentiría que su cupón no aplicó.
+            // discount_total se calcula en MarketplaceCheckoutService al crear
+            // la orden, sumando descuentos validados por cada tienda.
+            if (($order->discount_total ?? 0) > 0) {
+                $preference->coupon_amount = (float) round($order->discount_total, 2);
+            }
+
             // Saved + atomic — o falla, o se persiste con preference_id
             $preference->save();
 

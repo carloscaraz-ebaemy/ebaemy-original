@@ -179,9 +179,13 @@ class MarketplaceMultiOrderDispatcher
                 ]),
                 'shipping_address'  => $deliveryAddr ?: 'Por definir',
                 'items'             => json_encode($jsonItems),
-                'total'             => $orderSubtotal,
+                // Si el cliente aplicó cupón en checkout del marketplace, el
+                // descuento ya se calculó en TenantMarketplaceOrder.discount_amount.
+                // Aquí lo propagamos al Order del tenant para que su contabilidad,
+                // métricas y comprobante reflejen el descuento real.
+                'total'             => round(max(0, $orderSubtotal - (float) ($sub->discount_amount ?? 0)), 2),
                 'subtotal'          => $orderSubtotal,
-                'total_discount'    => 0,
+                'total_discount'    => round((float) ($sub->discount_amount ?? 0), 2),
                 'reference_payment' => 'marketplace',
                 'status_order_id'   => 1, // Pendiente
                 'channel_id'        => $channel->id,
@@ -192,6 +196,24 @@ class MarketplaceMultiOrderDispatcher
                 'created_at'        => now(),
                 'updated_at'        => now(),
             ]);
+
+            // Si se usó cupón, incrementar used_count en el tenant. PromotionEngine
+            // en preview no toca contadores; lo hacemos aquí cuando el subpedido se
+            // confirma. Best-effort: si el cupón se borró entre checkout y dispatch,
+            // no hay nada que incrementar y seguimos sin romper el flujo.
+            if (!empty($sub->coupon_code)) {
+                try {
+                    DB::connection('tenant')->table('coupons')
+                        ->where('code', $sub->coupon_code)
+                        ->increment('used_count');
+                } catch (\Throwable $e) {
+                    Log::warning('marketplace coupon used_count increment failed', [
+                        'tenant' => $client->hostname->fqdn,
+                        'code'   => $sub->coupon_code,
+                        'error'  => $e->getMessage(),
+                    ]);
+                }
+            }
 
             try {
                 $titleSummary = $items->count() === 1
