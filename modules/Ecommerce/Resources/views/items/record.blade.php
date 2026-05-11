@@ -567,8 +567,28 @@
                     }
 
                     // ── Swap imagen principal ────────────────────────────────────────
+                    // Soporta varios themes ecommerce — probamos los selectores
+                    // de más específico a más genérico hasta encontrar la imagen
+                    // principal del producto en el DOM activo.
+                    function findMainImage() {
+                        var selectors = [
+                            '.product-single-carousel .product-single-image',
+                            '.product-single-gallery img',
+                            '[data-product-main-image]',
+                            '.product-image img',
+                            '.ec-product-gallery img',
+                            '.product-single-image',
+                            '.product-image-main img',
+                            '.swiper-slide-active img',
+                        ];
+                        for (var i = 0; i < selectors.length; i++) {
+                            var el = document.querySelector(selectors[i]);
+                            if (el) return el;
+                        }
+                        return null;
+                    }
                     function swapMainImage(url){
-                        var img = document.querySelector('.product-single-carousel .product-single-image');
+                        var img = findMainImage();
                         if(!img || img.src.endsWith(url)) return;
                         img.style.transition = 'opacity .15s ease';
                         img.style.opacity = '0';
@@ -577,7 +597,7 @@
                             if(img.dataset.zoomImage !== undefined) img.dataset.zoomImage = url;
                             img.style.opacity = '1';
                         }, 150);
-                        // Actualizar thumbnail activo
+                        // Actualizar thumbnail activo si existe (Owl o custom)
                         var thumb = document.querySelector('#carousel-custom-dots .owl-dot.active img');
                         if(thumb) thumb.src = url;
                     }
@@ -605,8 +625,66 @@
                         var reqInit = document.getElementById('ec-variant-required');
                         if(reqInit){ reqInit.style.display = 'block'; reqInit.textContent = 'Selecciona talla y color para agregar al carrito'; reqInit.style.color = '#6b7280'; }
                     }
+
+                    // ── Zoom hover + thumbs clickeables ──────────────────────────────
+                    // Estilo Amazon/Falabella: al pasar el cursor sobre la imagen
+                    // principal, se acerca siguiendo la posición del mouse. Las
+                    // thumbs (galería de fotos) al hacer click cambian la principal.
+                    setTimeout(function () {
+                        var mainImg = findMainImage();
+                        if (!mainImg) return;
+
+                        // Hover-zoom (transform-origin sigue al cursor)
+                        var container = mainImg.parentElement;
+                        if (container && !container.classList.contains('ec-zoom-wrap')) {
+                            container.classList.add('ec-zoom-wrap');
+                            container.addEventListener('mousemove', function (e) {
+                                var rect = container.getBoundingClientRect()
+                                var x = ((e.clientX - rect.left) / rect.width) * 100
+                                var y = ((e.clientY - rect.top) / rect.height) * 100
+                                mainImg.style.transformOrigin = x + '% ' + y + '%'
+                            })
+                            container.addEventListener('mouseenter', function () {
+                                mainImg.style.transition = 'transform .2s ease'
+                                mainImg.style.transform = 'scale(1.8)'
+                                mainImg.style.cursor = 'zoom-in'
+                            })
+                            container.addEventListener('mouseleave', function () {
+                                mainImg.style.transform = 'scale(1)'
+                            })
+                            container.style.overflow = 'hidden'
+                        }
+
+                        // Thumbs clickeables: <img> dentro de cualquier galería
+                        // de thumbnails típicos. Heurística: img pequeñas (≤120px)
+                        // dentro de un contenedor con "thumb", "gallery" o
+                        // "carousel-custom-dots" en su clase. Excluye la principal.
+                        var thumbCandidates = document.querySelectorAll(
+                            '[class*="thumb"] img, [class*="gallery"] img, ' +
+                            '#carousel-custom-dots img, .owl-dot img'
+                        );
+                        thumbCandidates.forEach(function (t) {
+                            if (t === mainImg || t.dataset.ecZoomBound) return
+                            t.dataset.ecZoomBound = '1'
+                            t.style.cursor = 'pointer'
+                            t.addEventListener('click', function (e) {
+                                e.preventDefault()
+                                var newSrc = t.dataset.fullImage || t.src
+                                swapMainImage(newSrc)
+                            })
+                        })
+                    }, 200)
                 })();
                 </script>
+
+                <style>
+                /* Hover-zoom container — el JS inicia el efecto */
+                .ec-zoom-wrap { position: relative; }
+                .ec-zoom-wrap img.product-single-image,
+                .ec-zoom-wrap > img:first-child {
+                    will-change: transform;
+                }
+                </style>
 
                 {{-- Atributos del producto — selector interactivo --}}
                 @elseif($record->attributes && count($record->attributes))
