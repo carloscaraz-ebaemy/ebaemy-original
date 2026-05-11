@@ -39,6 +39,46 @@
             <el-tab-pane label="General" name="general">
                 <form autocomplete="off"
                     @submit.prevent="submit">
+
+                    <!-- ━━━━━━━━━━ BANNER DE PROGRESO ━━━━━━━━━━
+                         Guía visual para que el seller sepa qué falta. Sticky top
+                         dentro del tab para que siempre quede a la vista mientras
+                         scrollea el form. Click en cualquier ítem faltante hace
+                         scroll al campo correspondiente. -->
+                    <div class="ie-progress-banner"
+                         :class="{ 'is-complete': completionPercent === 100,
+                                   'is-ready-mp': completionPercent >= 60 && completionPercent < 100 }">
+                        <div class="ie-progress-banner__head">
+                            <div class="ie-progress-banner__title">
+                                <span v-if="completionPercent === 100">
+                                    🎉 Producto listo para publicar
+                                </span>
+                                <span v-else>
+                                    ✨ Tu producto: <strong>{{ completionPercent }}%</strong> listo
+                                </span>
+                            </div>
+                            <div class="ie-progress-banner__bar">
+                                <div class="ie-progress-banner__bar-fill"
+                                     :style="{ width: completionPercent + '%' }"></div>
+                            </div>
+                        </div>
+                        <div class="ie-progress-banner__items">
+                            <button v-for="item in completionItems" :key="item.key"
+                                    type="button"
+                                    class="ie-progress-banner__chip"
+                                    :class="['is-' + item.status, item.required ? 'is-required' : 'is-optional']"
+                                    @click="scrollToField(item.target)"
+                                    :title="item.hint">
+                                <span class="ie-progress-banner__chip-icon">
+                                    <span v-if="item.status === 'done'">✓</span>
+                                    <span v-else-if="item.required">!</span>
+                                    <span v-else>○</span>
+                                </span>
+                                {{ item.label }}
+                            </button>
+                        </div>
+                    </div>
+
                     <div class="form-body">
                         <!-- ━━━━━━━━━━ SECCIÓN: INFORMACIÓN BÁSICA ━━━━━━━━━━ -->
                         <div class="mp-form-section">
@@ -1028,6 +1068,137 @@
 .ie-status-badge--mp  { background:#dbeafe; color:#1d4ed8; border-color:#93c5fd; }
 .ie-status-badge--off { background:#f3f4f6; color:#9ca3af; border-color:#e5e7eb; }
 
+/* ─────── Banner de progreso (sticky top) ─────── */
+.ie-progress-banner {
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    background: linear-gradient(135deg, #eff6ff 0%, #f5f3ff 100%);
+    border: 1px solid #bfdbfe;
+    border-radius: 10px;
+    padding: 12px 14px;
+    margin-bottom: 16px;
+    box-shadow: 0 2px 8px rgba(59, 130, 246, .08);
+}
+.ie-progress-banner.is-ready-mp {
+    background: linear-gradient(135deg, #fefce8 0%, #fff7ed 100%);
+    border-color: #fcd34d;
+}
+.ie-progress-banner.is-complete {
+    background: linear-gradient(135deg, #ecfdf5 0%, #f0fdf4 100%);
+    border-color: #86efac;
+}
+.ie-progress-banner__head {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 10px;
+}
+.ie-progress-banner__title {
+    font-size: 13.5px;
+    font-weight: 600;
+    color: #1e3a8a;
+    white-space: nowrap;
+}
+.is-ready-mp .ie-progress-banner__title { color: #92400e; }
+.is-complete .ie-progress-banner__title { color: #166534; }
+.ie-progress-banner__title strong { font-weight: 800; }
+.ie-progress-banner__bar {
+    flex: 1;
+    height: 8px;
+    background: rgba(255, 255, 255, .6);
+    border-radius: 999px;
+    overflow: hidden;
+    box-shadow: inset 0 1px 2px rgba(0, 0, 0, .05);
+}
+.ie-progress-banner__bar-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #3b82f6 0%, #8b5cf6 100%);
+    border-radius: 999px;
+    transition: width .35s ease;
+}
+.is-ready-mp .ie-progress-banner__bar-fill {
+    background: linear-gradient(90deg, #f59e0b 0%, #f97316 100%);
+}
+.is-complete .ie-progress-banner__bar-fill {
+    background: linear-gradient(90deg, #10b981 0%, #22c55e 100%);
+}
+.ie-progress-banner__items {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+.ie-progress-banner__chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 11.5px;
+    font-weight: 500;
+    padding: 4px 10px;
+    border-radius: 999px;
+    cursor: pointer;
+    border: 1px solid;
+    background: #fff;
+    transition: transform .08s, box-shadow .12s;
+}
+.ie-progress-banner__chip:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 2px 6px rgba(0, 0, 0, .08);
+}
+.ie-progress-banner__chip.is-done {
+    color: #166534;
+    border-color: #86efac;
+    background: #dcfce7;
+}
+.ie-progress-banner__chip.is-pending.is-required {
+    color: #b91c1c;
+    border-color: #fca5a5;
+    background: #fee2e2;
+}
+.ie-progress-banner__chip.is-pending.is-optional {
+    color: #6b7280;
+    border-color: #d1d5db;
+    background: #f9fafb;
+    border-style: dashed;
+}
+.ie-progress-banner__chip-icon {
+    width: 14px;
+    height: 14px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 999px;
+    font-size: 10px;
+    font-weight: 700;
+    line-height: 1;
+}
+.ie-progress-banner__chip.is-done .ie-progress-banner__chip-icon {
+    background: #16a34a;
+    color: #fff;
+}
+.ie-progress-banner__chip.is-pending.is-required .ie-progress-banner__chip-icon {
+    background: #dc2626;
+    color: #fff;
+}
+.ie-progress-banner__chip.is-pending.is-optional .ie-progress-banner__chip-icon {
+    background: #fff;
+    color: #9ca3af;
+    border: 1px solid #d1d5db;
+}
+/* Flash visual cuando se hace scroll a un campo */
+@keyframes ie-flash-pulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0); }
+    50%      { box-shadow: 0 0 0 6px rgba(59, 130, 246, .25); }
+}
+.ie-flash {
+    animation: ie-flash-pulse 1.4s ease;
+    border-radius: 8px;
+}
+@media (max-width: 767px) {
+    .ie-progress-banner__head { flex-direction: column; align-items: stretch; gap: 8px; }
+    .ie-progress-banner__title { white-space: normal; }
+}
+
 /* ─────── Card "Imagen principal + Galería adicional" ─────── */
 .ie-image-card {
     display: flex;
@@ -1492,6 +1663,74 @@ export default {
         },
         pendingImagesCount() {
             return (this.form.multi_images || []).length
+        },
+        // Items que componen el checklist del banner de progreso. Cada uno tiene:
+        //   key      identificador estable para v-for
+        //   label    texto del chip
+        //   status   'done' | 'pending'
+        //   required true = obligatorio para guardar/publicar; false = recomendado
+        //   target   selector CSS o data-key para hacer scroll al campo
+        //   hint     tooltip explicativo
+        completionItems() {
+            const f = this.form || {}
+            const has = v => !!v && (typeof v !== 'string' || v.trim() !== '')
+            const items = [
+                {
+                    key: 'name',
+                    label: 'Nombre',
+                    required: true,
+                    status: has(f.name) ? 'done' : 'pending',
+                    target: '[dusk="description"]',
+                    hint: 'El nombre del producto es obligatorio',
+                },
+                {
+                    key: 'price',
+                    label: 'Precio',
+                    required: true,
+                    status: parseFloat(f.sale_unit_price) > 0 ? 'done' : 'pending',
+                    target: '[dusk="sale_unit_price"]',
+                    hint: 'El precio de venta debe ser mayor a 0',
+                },
+                {
+                    key: 'image',
+                    label: 'Imagen principal',
+                    required: true,
+                    status: has(f.image_url) ? 'done' : 'pending',
+                    target: '.ie-primary-upload',
+                    hint: 'Sube al menos 1 foto para que el cliente vea el producto',
+                },
+                {
+                    key: 'mp_category',
+                    label: 'Categoría',
+                    required: !!f.marketplace_publishable,
+                    status: f.marketplace_category_id ? 'done' : 'pending',
+                    target: '.el-cascader',
+                    hint: 'Obligatoria si publicas en marketplace',
+                },
+                {
+                    key: 'description',
+                    label: 'Descripción',
+                    required: false,
+                    status: has(f.mp_notes) ? 'done' : 'pending',
+                    target: '.ie-collapse',
+                    hint: 'Recomendado: productos con descripción venden 3x más',
+                },
+                {
+                    key: 'gallery',
+                    label: 'Más fotos (2+)',
+                    required: false,
+                    status: this.allGalleryImages.length >= 2 ? 'done' : 'pending',
+                    target: '.ie-image-card',
+                    hint: 'Recomendado: 2+ fotos mejoran la conversión hasta 40%',
+                },
+            ]
+            return items
+        },
+        completionPercent() {
+            const items = this.completionItems
+            if (!items.length) return 0
+            const done = items.filter(i => i.status === 'done').length
+            return Math.round((done / items.length) * 100)
         },
     },
     watch: {
@@ -2080,6 +2319,26 @@ export default {
             this.$http.get(`/${this.resource}/images/${this.recordId}`)
                 .then(response => { this.galleryImages = response.data.data || [] })
                 .catch(()  => { this.galleryImages = [] })
+        },
+        // Click en chip del banner de progreso: scroll al campo + flash visual
+        // breve para que el seller vea exactamente dónde escribir.
+        scrollToField(selector) {
+            if (!selector) return
+            const el = this.$el.querySelector(selector)
+            if (!el) return
+            el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+            // Pequeño "flash" para resaltar el campo destino. Funciona porque
+            // agregamos la clase, esperamos 1.5s, la quitamos. Si el elemento
+            // ya tiene una clase animada Element UI igual ignora la nuestra.
+            el.classList.add('ie-flash')
+            setTimeout(() => el.classList.remove('ie-flash'), 1500)
+            // Intentar enfocar si es input
+            if (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA') {
+                el.focus()
+            } else {
+                const input = el.querySelector('input, textarea')
+                if (input) input.focus()
+            }
         },
         changeAttributeType(index) {
             let attribute_type_id = this.form.attributes[index].attribute_type_id
