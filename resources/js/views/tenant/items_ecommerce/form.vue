@@ -323,9 +323,9 @@
                                  abre solo si está vacía (sin mp_notes) o si el seller
                                  lo expande manualmente. -->
                             <div class="col-md-12">
-                                <details class="ie-collapse" :open="!form.mp_notes">
+                                <details class="ie-collapse" :open="mpDescOpen" @toggle="mpDescOpen = $event.target.open">
                                     <summary class="ie-collapse__summary">
-                                        <span class="ie-collapse__chev">▸</span>
+                                        <span class="ie-collapse__chev">▼</span>
                                         <strong>Descripción</strong>
                                         <span class="ie-collapse__hint">
                                             (visible en la página del producto en el marketplace)
@@ -675,9 +675,9 @@
                                              Datos secundarios: el seller común no los toca al editar
                                              un producto. Por default cerrados; chevron + abrir manual. -->
                                         <div class="col-md-12">
-                                            <details class="ie-collapse mt-2" :open="!form.id">
+                                            <details class="ie-collapse mt-2" :open="contableOpen" @toggle="contableOpen = $event.target.open">
                                                 <summary class="ie-collapse__summary">
-                                                    <span class="ie-collapse__chev">▸</span>
+                                                    <span class="ie-collapse__chev">▼</span>
                                                     <strong>Datos contables y etiquetas</strong>
                                                     <span class="ie-collapse__hint">(compra, tags, área de preparación)</span>
                                                 </summary>
@@ -769,7 +769,7 @@
                     <div class="col-md-12 mt-3">
                         <details class="ie-collapse ie-collapse--variants" :open="hasVariantsOpen">
                             <summary class="ie-collapse__summary">
-                                <span class="ie-collapse__chev">▸</span>
+                                <span class="ie-collapse__chev">▼</span>
                                 <strong>🎨 Variantes del producto</strong>
                                 <span class="ie-collapse__hint">
                                     (talla, color, etc. — opcional)
@@ -933,7 +933,7 @@
     transition: transform .15s;
     font-size: 12px;
 }
-.ie-collapse[open] .ie-collapse__chev { transform: rotate(90deg); }
+.ie-collapse[open] .ie-collapse__chev { transform: rotate(180deg); }
 .ie-collapse__hint {
     font-size: 11.5px;
     color: #9ca3af;
@@ -1127,6 +1127,13 @@ export default {
             // default; se cierra automáticamente al editar un producto que
             // ya tiene imagen + categoría (loadRecord ajusta este flag).
             imageSectionOpen: true,
+            // Toggle manual del bloque Descripción (CKEditor). Antes estaba
+            // bindeado a `!form.mp_notes` que reaccionaba con cada keystroke
+            // cerrando el editor al primer carácter. Ahora el usuario lo
+            // controla y loadRecord lo ajusta una sola vez al inicio.
+            mpDescOpen: true,
+            // Toggle del bloque "Datos contables y etiquetas".
+            contableOpen: false,
             // Subdomain del tenant para el texto "tu_subdomain.ebaemy.com"
             // en el card de canales. Se lee de window si está disponible.
             tenant_subdomain: (typeof window !== 'undefined' && window.location)
@@ -1545,6 +1552,10 @@ export default {
                     if (this.form.image_url && this.form.marketplace_category_id) {
                         this.imageSectionOpen = false
                     }
+                    // Si ya hay descripción, arrancar colapsado para no comer
+                    // espacio vertical — el usuario expande con el chevron
+                    // si quiere editarla.
+                    this.mpDescOpen = !this.form.mp_notes
                     this.$nextTick(() => { this.cascaderKey++ })
                 })
             } else {
