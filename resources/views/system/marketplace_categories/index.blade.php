@@ -295,6 +295,9 @@ async function mcSubmit() {
         allow_seller_publish:        document.getElementById('mcEditAllowPublish').checked,
     };
     if (!body.name) return mcShowEditError('El nombre es obligatorio.');
+    // Sanear slug: el backend exige /^[a-z0-9](?:[a-z0-9-]{0,78}[a-z0-9])?$/.
+    // Si el usuario dejó espacios o mayúsculas, los normalizamos.
+    if (body.slug) body.slug = mcSlugify(body.slug);
     if (body.slug === '') delete body.slug;
     if (body.icon === '') body.icon = null;
     if (body.description === '') body.description = null;
@@ -383,6 +386,12 @@ const mcEditNameEl = document.getElementById('mcEditName');
 const mcEditSlugEl = document.getElementById('mcEditSlug');
 let mcSlugManuallyEdited = false;
 mcEditSlugEl.addEventListener('input', () => { mcSlugManuallyEdited = !!mcEditSlugEl.value; });
+// Al perder el foco del slug, normalizamos lo que el usuario escribió:
+// espacios → guiones, mayúsculas → minúsculas, etc. Así no llega al backend
+// con formato inválido aunque el usuario haya tipeado a mano.
+mcEditSlugEl.addEventListener('blur', () => {
+    if (mcEditSlugEl.value) mcEditSlugEl.value = mcSlugify(mcEditSlugEl.value);
+});
 mcEditNameEl.addEventListener('input', () => {
     if (!mcSlugManuallyEdited) mcEditSlugEl.value = mcSlugify(mcEditNameEl.value);
 });
