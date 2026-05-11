@@ -200,14 +200,17 @@
                                 </div>
                             </td>
                             <td class="text-center">
-                                <!-- Radio exclusivo: solo UNA variante puede ser la
-                                     principal. La imagen de esta es la que aparece
-                                     en la card del marketplace cuando aún no se
-                                     pasa el cursor por ningún dot. -->
-                                <el-radio :value="primaryVariantId" :label="v.id"
-                                          @change="setPrimary(v)">
-                                    <span class="sr-only">Marcar como principal</span>
-                                </el-radio>
+                                <!-- Estrella exclusiva: solo UNA variante puede ser la
+                                     "Mostrar primero" (imagen y color por default en
+                                     la card del marketplace). Click cambia a estrella
+                                     llena dorada; las demás quedan vacías. -->
+                                <button type="button"
+                                        class="vt-star-btn"
+                                        :class="{ 'is-on': v.is_primary }"
+                                        :title="v.is_primary ? 'Esta variante aparece primero en el marketplace' : 'Marcar para que aparezca primero'"
+                                        @click="setPrimary(v)">
+                                    {{ v.is_primary ? '⭐' : '☆' }}
+                                </button>
                             </td>
                             <td>
                                 <!-- Precio: si está vacío usa el del producto padre.
@@ -1009,6 +1012,35 @@ export default {
 .vt-parent-image-toggle .el-switch__label {
     color: #1f2937;
     font-weight: 600;
+}
+
+/* Estrella "Mostrar primero" — más visible que un radio invisible */
+.vt-star-btn {
+    background: transparent;
+    border: 1.5px solid #e5e7eb;
+    border-radius: 999px;
+    width: 36px; height: 36px;
+    cursor: pointer;
+    font-size: 18px;
+    color: #d1d5db;
+    line-height: 1;
+    padding: 0;
+    transition: transform .12s, border-color .12s, color .12s, background .12s;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+.vt-star-btn:hover {
+    border-color: #f59e0b;
+    color: #f59e0b;
+    transform: scale(1.08);
+}
+.vt-star-btn.is-on {
+    background: #fef3c7;
+    border-color: #f59e0b;
+    color: #f59e0b;
+    box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.18);
+    font-size: 20px;
 }
 
 /* Cuando el toggle está ON: imágenes de variante atenuadas + texto bajo. */
