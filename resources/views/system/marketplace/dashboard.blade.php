@@ -200,101 +200,123 @@
 @endpush
 
 @push('scripts')
-<script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"
+        onerror="(function(){var s=document.createElement('script');s.src='https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js';document.head.appendChild(s);})();"></script>
 <script>
 (function(){
-    function init() {
-        // ── Funnel (rendered como HTML stacked bars) ──────────────────────
-        const funnelEl = document.getElementById('mpFunnel');
-        if (funnelEl) {
-            const funnelData = @json($funnel);
-            const maxValue = Math.max(1, ...funnelData.map(s => s.value));
-            const funnelHtml = '<div class="mp-funnel-row">' + funnelData.map(s => {
-                const widthPct = Math.max(2, (s.value / maxValue) * 100);
-                return `
-                    <div class="mp-funnel-step">
-                        <span class="mp-funnel-label">${s.stage}</span>
-                        <div class="mp-funnel-bar">
-                            <div class="mp-funnel-fill" style="width:${widthPct}%">${(s.value || 0).toLocaleString('es-PE')}</div>
-                        </div>
-                        <span class="mp-funnel-rate">${s.rate}%</span>
-                    </div>`;
-            }).join('') + '</div>';
-            funnelEl.innerHTML = funnelHtml;
-        }
+    // Datos del backend — los capturamos arriba para que esten disponibles
+    // en cualquier momento sin depender del DOM ni Chart.js.
+    const FUNNEL_DATA   = @json($funnel ?? []);
+    const STATUS_DATA   = @json($listingsByStatus ?? []);
+    const REVENUE_DATA  = @json($revenueByTenant ?? []);
+    const CATEGORY_DATA = @json($topCategories ?? []);
 
-        if (typeof Chart === 'undefined') return; // CDN no cargó (sin red, blocker, etc.)
+    function renderFunnel() {
+        const funnelEl = document.getElementById('mpFunnel');
+        if (!funnelEl || !Array.isArray(FUNNEL_DATA) || FUNNEL_DATA.length === 0) return;
+        const maxValue = Math.max(1, ...FUNNEL_DATA.map(s => s.value || 0));
+        const html = '<div class="mp-funnel-row">' + FUNNEL_DATA.map(s => {
+            const widthPct = Math.max(2, ((s.value || 0) / maxValue) * 100);
+            return `
+                <div class="mp-funnel-step">
+                    <span class="mp-funnel-label">${s.stage}</span>
+                    <div class="mp-funnel-bar">
+                        <div class="mp-funnel-fill" style="width:${widthPct}%">${(s.value || 0).toLocaleString('es-PE')}</div>
+                    </div>
+                    <span class="mp-funnel-rate">${s.rate}%</span>
+                </div>`;
+        }).join('') + '</div>';
+        funnelEl.innerHTML = html;
+    }
+
+    function initCharts() {
+        if (typeof Chart === 'undefined') return false;
 
         // ── Status doughnut ────────────────────────────────────────────────
-        const statusData = @json($listingsByStatus);
         const statusEl = document.getElementById('mpStatusChart');
-        if (statusEl && statusData.length > 0) {
-            new Chart(statusEl.getContext('2d'), {
-                type: 'doughnut',
-                data: {
-                    labels: statusData.map(s => s.status),
-                    datasets: [{
-                        data: statusData.map(s => s.cnt),
-                        backgroundColor: ['#10b981','#f59e0b','#ef4444','#6b7280','#3b82f6','#8b5cf6'],
-                        borderWidth: 0,
-                    }],
-                },
-                options: { plugins: { legend: { position: 'bottom' } }, responsive: true, maintainAspectRatio: false },
-            });
+        if (statusEl && Array.isArray(STATUS_DATA) && STATUS_DATA.length > 0) {
+            try {
+                new Chart(statusEl.getContext('2d'), {
+                    type: 'doughnut',
+                    data: {
+                        labels: STATUS_DATA.map(s => s.status),
+                        datasets: [{
+                            data: STATUS_DATA.map(s => s.cnt),
+                            backgroundColor: ['#10b981','#f59e0b','#ef4444','#6b7280','#3b82f6','#8b5cf6'],
+                            borderWidth: 0,
+                        }],
+                    },
+                    options: { plugins: { legend: { position: 'bottom' } }, responsive: true, maintainAspectRatio: false },
+                });
+            } catch(e) { console.warn('[mp-dashboard] status chart error', e); }
         }
 
         // ── Revenue por tenant doughnut ───────────────────────────────────
-        const revData = @json($revenueByTenant);
         const revEl = document.getElementById('mpRevenueChart');
-        if (revEl && revData.length > 0 && revData.some(r => Number(r.revenue) > 0)) {
-            new Chart(revEl.getContext('2d'), {
-                type: 'doughnut',
-                data: {
-                    labels: revData.map(r => r.tenant_fqdn || '—'),
-                    datasets: [{
-                        data: revData.map(r => Number(r.revenue)),
-                        backgroundColor: ['#10b981','#3b82f6','#f59e0b','#8b5cf6','#ec4899'],
-                        borderWidth: 0,
-                    }],
-                },
-                options: {
-                    plugins: {
-                        legend: { position: 'bottom' },
-                        tooltip: { callbacks: { label: ctx => ctx.label + ': S/ ' + Number(ctx.parsed).toLocaleString('es-PE', {minimumFractionDigits:2, maximumFractionDigits:2}) } },
+        if (revEl && Array.isArray(REVENUE_DATA) && REVENUE_DATA.length > 0 && REVENUE_DATA.some(r => Number(r.revenue) > 0)) {
+            try {
+                new Chart(revEl.getContext('2d'), {
+                    type: 'doughnut',
+                    data: {
+                        labels: REVENUE_DATA.map(r => r.tenant_fqdn || '—'),
+                        datasets: [{
+                            data: REVENUE_DATA.map(r => Number(r.revenue)),
+                            backgroundColor: ['#10b981','#3b82f6','#f59e0b','#8b5cf6','#ec4899'],
+                            borderWidth: 0,
+                        }],
                     },
-                    responsive: true, maintainAspectRatio: false,
-                },
-            });
+                    options: {
+                        plugins: {
+                            legend: { position: 'bottom' },
+                            tooltip: { callbacks: { label: ctx => ctx.label + ': S/ ' + Number(ctx.parsed).toLocaleString('es-PE', {minimumFractionDigits:2, maximumFractionDigits:2}) } },
+                        },
+                        responsive: true, maintainAspectRatio: false,
+                    },
+                });
+            } catch(e) { console.warn('[mp-dashboard] revenue chart error', e); }
         }
 
         // ── Top categorías (horizontal bars) ───────────────────────────────
-        const catData = @json($topCategories);
         const catEl = document.getElementById('mpCategoriesChart');
-        if (catEl && catData.length > 0) {
-            new Chart(catEl.getContext('2d'), {
-                type: 'bar',
-                data: {
-                    labels: catData.map(c => c.name),
-                    datasets: [{
-                        label: 'Listings', data: catData.map(c => Number(c.cnt)),
-                        backgroundColor: '#3b82f6', borderRadius: 4,
-                    }],
-                },
-                options: {
-                    indexAxis: 'y',
-                    plugins: { legend: { display: false } },
-                    scales: { x: { beginAtZero: true, ticks: { precision: 0 } } },
-                    responsive: true, maintainAspectRatio: false,
-                },
-            });
+        if (catEl && Array.isArray(CATEGORY_DATA) && CATEGORY_DATA.length > 0) {
+            try {
+                new Chart(catEl.getContext('2d'), {
+                    type: 'bar',
+                    data: {
+                        labels: CATEGORY_DATA.map(c => c.name),
+                        datasets: [{
+                            label: 'Listings', data: CATEGORY_DATA.map(c => Number(c.cnt)),
+                            backgroundColor: '#3b82f6', borderRadius: 4,
+                        }],
+                    },
+                    options: {
+                        indexAxis: 'y',
+                        plugins: { legend: { display: false } },
+                        scales: { x: { beginAtZero: true, ticks: { precision: 0 } } },
+                        responsive: true, maintainAspectRatio: false,
+                    },
+                });
+            } catch(e) { console.warn('[mp-dashboard] categories chart error', e); }
         }
+
+        return true;
     }
 
-    // Si Chart.js viene del CDN (async), esperamos a que cargue
+    function start() {
+        renderFunnel();   // El funnel no requiere Chart.js, siempre se pinta
+        if (initCharts()) return;
+        // Chart.js todavia no cargo del CDN — polling hasta 5s.
+        let tries = 0;
+        const t = setInterval(() => {
+            tries++;
+            if (initCharts() || tries > 25) clearInterval(t);
+        }, 200);
+    }
+
     if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', init);
+        document.addEventListener('DOMContentLoaded', start);
     } else {
-        init();
+        start();
     }
 })();
 </script>
