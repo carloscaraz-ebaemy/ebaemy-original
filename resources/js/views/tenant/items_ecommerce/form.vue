@@ -559,58 +559,81 @@
                             </div>
                             <div v-show="imageSectionOpen" class="row col-md-12">
                                 <div class="col-md-3">
-                                    <div class="form-group">
-                                        <label class="control-label">Imagen principal <span class="text-danger"></span></label>
-                                        <el-upload :action="`/${resource}/upload`"
-                                                :data="{'type': 'items', 'skip_preview': 1}"
-                                                :headers="headers"
-                                                :on-success="onSuccess"
-                                                :on-error="onUploadError"
-                                                :before-upload="beforeUpload"
-                                                :on-change="onFileChange"
-                                                :show-file-list="false"
-                                                accept="image/jpeg,image/jpg,image/png,image/gif,image/webp,image/bmp"
-                                                class="avatar-uploader">
-                                            <img v-if="form.image_url"
-                                                :src="form.image_url"
-                                                class="avatar">
-                                            <i v-else
-                                            class="el-icon-plus avatar-uploader-icon"></i>
-                                        </el-upload>
-                                        <div class="sub-title text-muted">
-                                            <small>Recomendado: 1024×720 (Full HD)</small>
+                                    <div class="ie-image-card">
+
+                                        <!-- ═══════ Imagen principal ═══════ -->
+                                        <div class="ie-image-card__section">
+                                            <div class="ie-image-card__label">
+                                                <span>📷 Imagen principal</span>
+                                                <span v-if="form.image_url" class="ie-image-card__ok-pill">✓</span>
+                                            </div>
+                                            <el-upload :action="`/${resource}/upload`"
+                                                    :data="{'type': 'items', 'skip_preview': 1}"
+                                                    :headers="headers"
+                                                    :on-success="onSuccess"
+                                                    :on-error="onUploadError"
+                                                    :before-upload="beforeUpload"
+                                                    :on-change="onFileChange"
+                                                    :show-file-list="false"
+                                                    accept="image/jpeg,image/jpg,image/png,image/gif,image/webp,image/bmp"
+                                                    class="ie-primary-upload">
+                                                <img v-if="form.image_url"
+                                                    :src="form.image_url"
+                                                    class="ie-primary-upload__img">
+                                                <div v-else class="ie-primary-upload__empty">
+                                                    <i class="el-icon-plus"></i>
+                                                    <span>Subir foto</span>
+                                                </div>
+                                            </el-upload>
+                                            <div class="ie-image-card__hint">
+                                                Recomendado: <strong>1024×720</strong> · Full HD
+                                            </div>
                                         </div>
 
-                                        <!-- Galería inline: thumbnails de las fotos adicionales ya subidas
-                                             + tile "+" para agregar. Antes solo había un botón "Agregar más
-                                             fotos" que abría el dialog; el seller no sabía cuántas fotos
-                                             tenía guardadas sin abrir el dialog. -->
-                                        <div class="ie-gallery-block mt-3">
-                                            <div class="ie-gallery-block__head">
-                                                <strong>Galería adicional</strong>
-                                                <span class="ie-gallery-block__count" v-if="galleryImages.length">
+                                        <!-- ═══════ Galería adicional ═══════ -->
+                                        <div class="ie-image-card__section">
+                                            <div class="ie-image-card__label">
+                                                <span>🖼️ Galería adicional</span>
+                                                <span v-if="galleryImages.length"
+                                                      class="ie-image-card__count-pill">
                                                     {{ galleryImages.length }} foto<span v-if="galleryImages.length > 1">s</span>
                                                 </span>
-                                                <span class="ie-gallery-block__count ie-gallery-block__count--empty" v-else>
-                                                    sin fotos
+                                                <span v-else
+                                                      class="ie-image-card__count-pill ie-image-card__count-pill--empty">
+                                                    0
                                                 </span>
                                             </div>
-                                            <div class="ie-gallery-block__grid">
-                                                <div v-for="(img, i) in galleryImages" :key="img.id || i"
-                                                     class="ie-gallery-block__thumb"
-                                                     @click="openImages"
-                                                     :title="'Foto ' + (i + 1) + ' — click para gestionar'">
-                                                    <img :src="img.url" :alt="'Foto ' + (i + 1)">
-                                                </div>
-                                                <div class="ie-gallery-block__add" @click="openImages"
-                                                     :title="galleryImages.length ? 'Agregar más fotos' : 'Agregar fotos adicionales'">
-                                                    <i class="el-icon-plus"></i>
-                                                    <span>{{ galleryImages.length ? 'Más' : 'Agregar' }}</span>
+
+                                            <!-- Locked state: el producto aún no existe → no podemos crear ItemImages
+                                                 sin un item_id. Mostramos un card explicativo en lugar de un botón
+                                                 que daría error. -->
+                                            <div v-if="!recordId" class="ie-image-card__locked">
+                                                <div class="ie-image-card__locked-icon">🔒</div>
+                                                <div class="ie-image-card__locked-text">
+                                                    <strong>Guarda el producto primero</strong>
+                                                    <small>Luego podrás subir más fotos para la galería</small>
                                                 </div>
                                             </div>
-                                            <small class="text-muted" v-if="!galleryImages.length && !recordId">
-                                                Guarda el producto primero para subir más fotos.
-                                            </small>
+
+                                            <!-- Grid normal cuando el producto ya existe -->
+                                            <template v-else>
+                                                <div class="ie-image-card__grid">
+                                                    <div v-for="(img, i) in galleryImages" :key="img.id || i"
+                                                         class="ie-image-card__thumb"
+                                                         @click="openImages"
+                                                         :title="'Foto ' + (i + 1) + ' · click para gestionar'">
+                                                        <img :src="img.url" :alt="'Foto ' + (i + 1)">
+                                                    </div>
+                                                    <div class="ie-image-card__add" @click="openImages"
+                                                         :title="galleryImages.length ? 'Agregar más fotos' : 'Agregar fotos'">
+                                                        <i class="el-icon-plus"></i>
+                                                        <span>{{ galleryImages.length ? 'Más' : 'Agregar' }}</span>
+                                                    </div>
+                                                </div>
+                                                <small v-if="!galleryImages.length" class="ie-image-card__hint mt-1">
+                                                    Click "+ Agregar" para subir fotos adicionales.
+                                                </small>
+                                            </template>
                                         </div>
 
                                     </div>
@@ -1002,37 +1025,101 @@
 .ie-status-badge--mp  { background:#dbeafe; color:#1d4ed8; border-color:#93c5fd; }
 .ie-status-badge--off { background:#f3f4f6; color:#9ca3af; border-color:#e5e7eb; }
 
-/* ─────── Galería inline (debajo de la imagen principal) ─────── */
-.ie-gallery-block { display: flex; flex-direction: column; gap: 6px; }
-.ie-gallery-block__head {
+/* ─────── Card "Imagen principal + Galería adicional" ─────── */
+.ie-image-card {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+    padding: 14px;
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+    box-shadow: 0 1px 2px rgba(0,0,0,.03);
+}
+.ie-image-card__section { display: flex; flex-direction: column; gap: 8px; }
+.ie-image-card__label {
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 8px;
-    font-size: 12.5px;
-    color: #374151;
-}
-.ie-gallery-block__count {
-    font-size: 11px;
+    font-size: 13px;
     font-weight: 600;
-    padding: 2px 8px;
+    color: #1f2937;
+}
+.ie-image-card__hint {
+    font-size: 11.5px;
+    color: #6b7280;
+    line-height: 1.4;
+}
+.ie-image-card__hint strong { color: #374151; }
+.ie-image-card__ok-pill {
+    font-size: 10px;
+    font-weight: 700;
+    padding: 2px 6px;
     border-radius: 999px;
     background: #dcfce7;
     color: #166534;
     border: 1px solid #86efac;
 }
-.ie-gallery-block__count--empty {
+.ie-image-card__count-pill {
+    font-size: 11px;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 999px;
+    background: #dbeafe;
+    color: #1d4ed8;
+    border: 1px solid #93c5fd;
+}
+.ie-image-card__count-pill--empty {
     background: #f3f4f6;
     color: #9ca3af;
     border-color: #e5e7eb;
 }
-.ie-gallery-block__grid {
+
+/* Imagen principal: avatar uploader grande, cuadrado, prominente */
+.ie-primary-upload .el-upload {
+    width: 100%;
+    aspect-ratio: 1 / 1;
+    border: 2px dashed #cbd5e1;
+    border-radius: 8px;
+    background: #fafbfc;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: border-color .12s, background .12s;
+    overflow: hidden;
+}
+.ie-primary-upload .el-upload:hover {
+    border-color: #3b82f6;
+    background: #f0f9ff;
+}
+.ie-primary-upload__img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+.ie-primary-upload__empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    color: #94a3b8;
+    font-size: 12.5px;
+    font-weight: 500;
+}
+.ie-primary-upload__empty i {
+    font-size: 28px;
+    color: #3b82f6;
+}
+
+/* Galería: grid 3-cols */
+.ie-image-card__grid {
     display: grid;
-    grid-template-columns: repeat(4, 1fr);
+    grid-template-columns: repeat(3, 1fr);
     gap: 6px;
 }
-.ie-gallery-block__thumb,
-.ie-gallery-block__add {
+.ie-image-card__thumb,
+.ie-image-card__add {
     aspect-ratio: 1 / 1;
     border-radius: 6px;
     overflow: hidden;
@@ -1044,26 +1131,49 @@
     justify-content: center;
     transition: border-color .12s, transform .08s;
 }
-.ie-gallery-block__thumb:hover,
-.ie-gallery-block__add:hover {
+.ie-image-card__thumb:hover,
+.ie-image-card__add:hover {
     border-color: #3b82f6;
     transform: translateY(-1px);
 }
-.ie-gallery-block__thumb img {
+.ie-image-card__thumb img {
     width: 100%;
     height: 100%;
     object-fit: cover;
 }
-.ie-gallery-block__add {
+.ie-image-card__add {
     flex-direction: column;
     gap: 2px;
     color: #6b7280;
     background: #fff;
     border: 1px dashed #cbd5e1;
-    font-size: 11px;
-    font-weight: 500;
+    font-size: 10.5px;
+    font-weight: 600;
 }
-.ie-gallery-block__add i { font-size: 16px; color: #3b82f6; }
+.ie-image-card__add i { font-size: 16px; color: #3b82f6; }
+
+/* Locked state: producto sin guardar */
+.ie-image-card__locked {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px;
+    background: linear-gradient(135deg, #fef3c7 0%, #fffbeb 100%);
+    border: 1px dashed #fcd34d;
+    border-radius: 8px;
+}
+.ie-image-card__locked-icon { font-size: 22px; line-height: 1; }
+.ie-image-card__locked-text { display: flex; flex-direction: column; gap: 2px; }
+.ie-image-card__locked-text strong {
+    font-size: 12px;
+    color: #78350f;
+    font-weight: 700;
+}
+.ie-image-card__locked-text small {
+    font-size: 10.5px;
+    color: #92400e;
+    line-height: 1.3;
+}
 
 /* ─────── Sección colapsable (Imagen y categorización) ─────── */
 .mp-form-section--collapsible {
