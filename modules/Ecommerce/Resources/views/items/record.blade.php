@@ -627,38 +627,55 @@
                     }
 
                     // ── Zoom hover + thumbs clickeables ──────────────────────────────
-                    // Estilo Amazon/Falabella: al pasar el cursor sobre la imagen
-                    // principal, se acerca siguiendo la posición del mouse. Las
-                    // thumbs (galería de fotos) al hacer click cambian la principal.
+                    // Hover-zoom estilo Amazon: solo se aplica si el theme NO tiene
+                    // su propio zoom (Alasitas y similares ya traen uno integrado).
+                    // Detección: presencia de elementos típicos de zoom widget.
                     setTimeout(function () {
                         var mainImg = findMainImage();
                         if (!mainImg) return;
 
-                        // Hover-zoom (transform-origin sigue al cursor)
-                        var container = mainImg.parentElement;
-                        if (container && !container.classList.contains('ec-zoom-wrap')) {
-                            container.classList.add('ec-zoom-wrap');
-                            container.addEventListener('mousemove', function (e) {
-                                var rect = container.getBoundingClientRect()
-                                var x = ((e.clientX - rect.left) / rect.width) * 100
-                                var y = ((e.clientY - rect.top) / rect.height) * 100
-                                mainImg.style.transformOrigin = x + '% ' + y + '%'
-                            })
-                            container.addEventListener('mouseenter', function () {
-                                mainImg.style.transition = 'transform .2s ease'
-                                mainImg.style.transform = 'scale(1.8)'
-                                mainImg.style.cursor = 'zoom-in'
-                            })
-                            container.addEventListener('mouseleave', function () {
-                                mainImg.style.transform = 'scale(1)'
-                            })
-                            container.style.overflow = 'hidden'
+                        // Detectar zoom nativo del theme (Alasitas, etc.) para no
+                        // duplicar el efecto y evitar que la imagen ampliada se
+                        // superponga al panel de información.
+                        var hasNativeZoom = !!document.querySelector(
+                            '[data-zoom], [data-zoom-image], ' +
+                            '.zoom-container, .ec-product-zoom, ' +
+                            '.image-zoom, .product-zoom, ' +
+                            '.cloud-zoom, .magic-zoom, ' +
+                            '.ampliar-imagen, .ampliar-zoom'
+                        );
+                        // También chequear texto "Ampliar imagen" o "Pasa el mouse"
+                        // como heurística adicional cuando no hay clase específica.
+                        if (!hasNativeZoom) {
+                            var bodyText = document.body.innerText || '';
+                            if (/pasa el mouse para hacer zoom|ampliar imagen/i.test(bodyText)) {
+                                hasNativeZoom = true;
+                            }
                         }
 
-                        // Thumbs clickeables: <img> dentro de cualquier galería
-                        // de thumbnails típicos. Heurística: img pequeñas (≤120px)
-                        // dentro de un contenedor con "thumb", "gallery" o
-                        // "carousel-custom-dots" en su clase. Excluye la principal.
+                        if (!hasNativeZoom) {
+                            var container = mainImg.parentElement;
+                            if (container && !container.classList.contains('ec-zoom-wrap')) {
+                                container.classList.add('ec-zoom-wrap');
+                                container.style.overflow = 'hidden';
+                                container.addEventListener('mousemove', function (e) {
+                                    var rect = container.getBoundingClientRect()
+                                    var x = ((e.clientX - rect.left) / rect.width) * 100
+                                    var y = ((e.clientY - rect.top) / rect.height) * 100
+                                    mainImg.style.transformOrigin = x + '% ' + y + '%'
+                                })
+                                container.addEventListener('mouseenter', function () {
+                                    mainImg.style.transition = 'transform .2s ease'
+                                    mainImg.style.transform = 'scale(1.8)'
+                                    mainImg.style.cursor = 'zoom-in'
+                                })
+                                container.addEventListener('mouseleave', function () {
+                                    mainImg.style.transform = 'scale(1)'
+                                })
+                            }
+                        }
+
+                        // Thumbs clickeables (siempre, sin importar el zoom)
                         var thumbCandidates = document.querySelectorAll(
                             '[class*="thumb"] img, [class*="gallery"] img, ' +
                             '#carousel-custom-dots img, .owl-dot img'
