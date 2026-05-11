@@ -164,12 +164,18 @@ class MarketplaceCategory extends Model
      * Construye el árbol completo a partir de la raíz, eager-loaded.
      * Útil para selectores jerárquicos en formularios.
      *
+     * @param  bool  $includeInactive  Si true, incluye también las is_active=false
+     *                                 (necesario para el panel SuperAdmin donde se
+     *                                 reactivan categorías).
      * @return Collection<MarketplaceCategory>  raíces con children pre-cargados
      */
-    public static function tree(): Collection
+    public static function tree(bool $includeInactive = false): Collection
     {
-        // Cargar TODAS las activas en una sola query y armar el árbol en PHP
-        $all = static::query()->active()->orderBy('sort_order')->get();
+        $query = static::query()->orderBy('sort_order');
+        if (!$includeInactive) {
+            $query->active();
+        }
+        $all = $query->get();
 
         $byParent = $all->groupBy('parent_id');
 

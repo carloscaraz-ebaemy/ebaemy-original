@@ -45,7 +45,8 @@ class MarketplaceCategoryController extends Controller
      */
     public function tree(): JsonResponse
     {
-        $tree = MarketplaceCategory::tree();
+        // Panel SuperAdmin: incluir inactivas para que se puedan reactivar
+        $tree = MarketplaceCategory::tree(includeInactive: true);
         return response()->json([
             'tree' => $this->serializeTree($tree),
         ]);

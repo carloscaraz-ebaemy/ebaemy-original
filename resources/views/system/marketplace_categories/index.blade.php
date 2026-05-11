@@ -54,7 +54,7 @@
         <div class="modal-content">
             <div class="modal-header">
                 <h5 class="modal-title" id="mcEditTitle">Categoría</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                <button type="button" class="btn-close" onclick="mcHideModal('mcEditModal')" aria-label="Close">&times;</button>
             </div>
             <div class="modal-body">
                 <div id="mcEditError"></div>
@@ -105,7 +105,7 @@
                 <div id="mcEditParentInfo" class="mt-3 small text-muted"></div>
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-outline-secondary" onclick="mcHideModal('mcEditModal')">Cancelar</button>
                 <button type="button" class="btn btn-success" onclick="mcSubmit()">Guardar</button>
             </div>
         </div>
@@ -116,6 +116,37 @@
 const MC_CSRF  = document.querySelector('meta[name="csrf-token"]')?.content || '';
 const MC_BASE  = @json(url('/admin/marketplace/categories'));
 let mcTree = [];
+
+// Helpers de modal vanilla — el layout no carga bootstrap.js, así que no
+// podemos usar `new bootstrap.Modal()`. Manipulamos clases directamente.
+function mcShowModal(id) {
+    const m = document.getElementById(id);
+    if (!m) return;
+    m.style.display = 'block';
+    m.classList.add('show');
+    m.removeAttribute('aria-hidden');
+    m.setAttribute('aria-modal', 'true');
+    document.body.classList.add('modal-open');
+    let bd = document.getElementById(id + '_backdrop');
+    if (!bd) {
+        bd = document.createElement('div');
+        bd.id = id + '_backdrop';
+        bd.className = 'modal-backdrop fade show';
+        bd.style.zIndex = '1040';
+        document.body.appendChild(bd);
+    }
+}
+function mcHideModal(id) {
+    const m = document.getElementById(id);
+    if (!m) return;
+    m.style.display = 'none';
+    m.classList.remove('show');
+    m.setAttribute('aria-hidden', 'true');
+    m.removeAttribute('aria-modal');
+    document.body.classList.remove('modal-open');
+    const bd = document.getElementById(id + '_backdrop');
+    if (bd) bd.remove();
+}
 
 async function mcLoadTree() {
     const cont = document.getElementById('mcTree');
@@ -225,7 +256,7 @@ function mcOpenCreate(parentId) {
     }
     document.getElementById('mcEditParentInfo').innerHTML = info;
 
-    new bootstrap.Modal(document.getElementById('mcEditModal')).show();
+    mcShowModal('mcEditModal');
 }
 
 function mcOpenEdit(id) {
@@ -246,7 +277,7 @@ function mcOpenEdit(id) {
     document.getElementById('mcEditError').innerHTML = '';
     document.getElementById('mcEditParentInfo').innerHTML = `<code>${mcEsc(node.full_slug)}</code>`;
 
-    new bootstrap.Modal(document.getElementById('mcEditModal')).show();
+    mcShowModal('mcEditModal');
 }
 
 async function mcSubmit() {
@@ -280,7 +311,7 @@ async function mcSubmit() {
         if (!res.ok || !data.success) {
             return mcShowEditError(data.message || 'Error al guardar.');
         }
-        bootstrap.Modal.getInstance(document.getElementById('mcEditModal')).hide();
+        mcHideModal('mcEditModal');
         mcLoadTree();
     } catch (e) {
         mcShowEditError('Error: ' + e.message);
