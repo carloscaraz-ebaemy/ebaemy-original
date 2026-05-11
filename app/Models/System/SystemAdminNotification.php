@@ -2,7 +2,7 @@
 
 namespace App\Models\System;
 
-use App\Traits\UsesSystemConnection;
+use Hyn\Tenancy\Traits\UsesSystemConnection;
 use Illuminate\Database\Eloquent\Model;
 
 /**
