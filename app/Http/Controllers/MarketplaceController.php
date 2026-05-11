@@ -917,32 +917,7 @@ class MarketplaceController extends Controller
         $xml .= '  <description>Productos de tiendas verificadas en ebaemy.com</description>' . "\n";
 
         foreach ($listings as $l) {
-            $price = number_format($l->display_price, 2, '.', '') . ' PEN';
-            $availability = $l->stock > 0 ? 'in stock' : 'out of stock';
-            $description = strip_tags($l->description ?? $l->title);
-            $description = mb_substr(trim($description), 0, 5000);
-
-            $xml .= "  <item>\n";
-            $xml .= '    <g:id>mp_' . $l->id . "</g:id>\n";
-            $xml .= '    <g:title>' . htmlspecialchars(mb_substr($l->title, 0, 150), ENT_XML1) . "</g:title>\n";
-            $xml .= '    <g:description>' . htmlspecialchars($description ?: $l->title, ENT_XML1) . "</g:description>\n";
-            $xml .= '    <g:link>' . htmlspecialchars($l->public_url, ENT_XML1) . "</g:link>\n";
-            if ($l->image_url) {
-                $xml .= '    <g:image_link>' . htmlspecialchars($l->image_url, ENT_XML1) . "</g:image_link>\n";
-            }
-            $xml .= '    <g:availability>' . $availability . "</g:availability>\n";
-            $xml .= '    <g:price>' . $price . "</g:price>\n";
-            $xml .= '    <g:condition>new</g:condition>' . "\n";
-            $xml .= '    <g:identifier_exists>no</g:identifier_exists>' . "\n";
-            if ($l->brand_name) {
-                $xml .= '    <g:brand>' . htmlspecialchars(mb_substr($l->brand_name, 0, 70), ENT_XML1) . "</g:brand>\n";
-            }
-            if ($l->category_name) {
-                $xml .= '    <g:product_type>' . htmlspecialchars(mb_substr($l->category_name, 0, 250), ENT_XML1) . "</g:product_type>\n";
-            }
-            // Tienda dueña — Meta lo usa para mostrar atribución
-            $xml .= '    <g:custom_label_0>' . htmlspecialchars(mb_substr($l->seller_display, 0, 100), ENT_XML1) . "</g:custom_label_0>\n";
-            $xml .= "  </item>\n";
+            $xml .= $this->productFeedItemXml($l);
         }
 
         $xml .= '</channel>' . "\n";
@@ -952,6 +927,102 @@ class MarketplaceController extends Controller
             'Content-Type'  => 'application/xml; charset=utf-8',
             'Cache-Control' => 'public, max-age=3600',
         ]);
+    }
+
+    /**
+     * Emite un <item> XML compatible con Google Shopping y Meta Commerce.
+     * Usa el namespace g: (Google Merchant) que ambas plataformas aceptan.
+     *
+     * Campos enriquecidos vs versión legacy:
+     *   - g:sale_price cuando hay oferta (original_price > display_price)
+     *   - g:additional_image_link de la galería (hasta 10)
+     *   - g:item_group_id para variantes (mismo group_id = variantes del mismo
+     *     padre, Google las agrupa en el listing del shopping)
+     *   - g:product_highlight si es pack (lista de componentes)
+     *   - g:custom_label_1 con el discount_source para segmentar campañas
+     */
+    private function productFeedItemXml(MarketplaceListing $l): string
+    {
+        $esc = fn($s) => htmlspecialchars((string) $s, ENT_XML1);
+
+        $availability = $l->stock > 0 ? 'in stock' : 'out of stock';
+        $description  = mb_substr(trim(strip_tags($l->description ?? $l->title)), 0, 5000);
+
+        // Precio principal: el del listing (display_price ya respeta mp_price si lo hay).
+        // sale_price aparece SOLO si hay oferta vigente — Google muestra precio
+        // tachado + nuevo, mejora CTR del anuncio.
+        $price = number_format((float) $l->display_price, 2, '.', '') . ' PEN';
+        $hasSale = !empty($l->is_on_offer)
+            && !empty($l->original_price)
+            && $l->original_price > $l->display_price;
+        $regularPrice = $hasSale
+            ? number_format((float) $l->original_price, 2, '.', '') . ' PEN'
+            : null;
+
+        $xml  = "  <item>\n";
+        $xml .= '    <g:id>mp_' . $l->id . "</g:id>\n";
+        $xml .= '    <g:title>' . $esc(mb_substr($l->title, 0, 150)) . "</g:title>\n";
+        $xml .= '    <g:description>' . $esc($description ?: $l->title) . "</g:description>\n";
+        $xml .= '    <g:link>' . $esc($l->public_url) . "</g:link>\n";
+        if ($l->image_url) {
+            $xml .= '    <g:image_link>' . $esc($l->image_url) . "</g:image_link>\n";
+        }
+        // Galería: Google permite hasta 10 additional_image_link por item.
+        if (is_array($l->gallery_image_urls) && count($l->gallery_image_urls)) {
+            $extras = array_slice(
+                array_filter($l->gallery_image_urls, fn($u) => $u && $u !== $l->image_url),
+                0,
+                10
+            );
+            foreach ($extras as $imgUrl) {
+                $xml .= '    <g:additional_image_link>' . $esc($imgUrl) . "</g:additional_image_link>\n";
+            }
+        }
+        $xml .= '    <g:availability>' . $availability . "</g:availability>\n";
+        $xml .= '    <g:price>' . ($hasSale ? $regularPrice : $price) . "</g:price>\n";
+        if ($hasSale) {
+            $xml .= '    <g:sale_price>' . $price . "</g:sale_price>\n";
+            if ($l->offer_ends_at) {
+                $end = $l->offer_ends_at instanceof \DateTimeInterface
+                    ? $l->offer_ends_at->format('c')
+                    : (string) $l->offer_ends_at;
+                $xml .= '    <g:sale_price_effective_date>' . $esc(now()->subMonth()->format('c') . '/' . $end) . "</g:sale_price_effective_date>\n";
+            }
+        }
+        $xml .= '    <g:condition>new</g:condition>' . "\n";
+        $xml .= '    <g:identifier_exists>no</g:identifier_exists>' . "\n";
+        if ($l->brand_name) {
+            $xml .= '    <g:brand>' . $esc(mb_substr($l->brand_name, 0, 70)) . "</g:brand>\n";
+        }
+        if ($l->category_name) {
+            $xml .= '    <g:product_type>' . $esc(mb_substr($l->category_name, 0, 250)) . "</g:product_type>\n";
+        }
+        // Variantes: mismo item_group_id agrupa variantes del mismo padre en
+        // el listing de Google Shopping (selector talla/color en el ad).
+        if (!empty($l->has_variants) && !empty($l->remote_item_id) && !empty($l->hostname_id)) {
+            $xml .= '    <g:item_group_id>' . $esc('t' . $l->hostname_id . '_' . $l->remote_item_id) . "</g:item_group_id>\n";
+        }
+        // Packs: highlights con componentes (máx 4 × 100 chars per Google spec)
+        if (!empty($l->is_pack) && is_array($l->pack_contents)) {
+            $highlights = array_slice($l->pack_contents, 0, 4);
+            foreach ($highlights as $comp) {
+                $hl = ($comp['quantity'] ?? 1) . '× ' . ($comp['name'] ?? '');
+                $hl = mb_substr(trim($hl), 0, 100);
+                if ($hl !== '') {
+                    $xml .= '    <g:product_highlight>' . $esc($hl) . "</g:product_highlight>\n";
+                }
+            }
+        }
+        // Tienda dueña — Meta lo usa para mostrar atribución
+        $xml .= '    <g:custom_label_0>' . $esc(mb_substr($l->seller_display, 0, 100)) . "</g:custom_label_0>\n";
+        // Tipo de descuento (cuando hay oferta) — útil para segmentar campañas
+        // (ej. ads solo de flash sales con bid distinto al de descuentos regulares).
+        if (!empty($l->is_on_offer) && !empty($l->discount_source)) {
+            $xml .= '    <g:custom_label_1>discount_' . $esc($l->discount_source) . "</g:custom_label_1>\n";
+        }
+        $xml .= "  </item>\n";
+
+        return $xml;
     }
 
     private function sitemapUrl(string $loc, $lastmod, string $priority, string $changefreq): string
