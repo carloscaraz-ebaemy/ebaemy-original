@@ -311,7 +311,17 @@ async function saPost(id, path, body = {}) {
             },
             body: JSON.stringify(body),
         });
-        const json = await res.json();
+        // Si el backend devuelve HTML (error 500/419), intentamos extraer el
+        // mensaje útil antes de fallar con "Unexpected token '<'".
+        const txt = await res.text();
+        let json;
+        try { json = JSON.parse(txt); }
+        catch (e) {
+            const match = txt.match(/<title>(.*?)<\/title>/i);
+            const reason = match ? match[1] : `HTTP ${res.status}`;
+            alert('Error del servidor: ' + reason + '\n\nVerifica logs de Laravel (storage/logs/laravel.log).');
+            return false;
+        }
         if (!json.success) {
             alert('Error: ' + (json.message || 'desconocido'));
             return false;
