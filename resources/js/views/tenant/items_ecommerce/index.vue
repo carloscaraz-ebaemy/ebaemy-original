@@ -34,19 +34,23 @@
                     <!-- v-if="typeUser === 'admin'" -->
                     <!-- <button type="button" class="btn btn-custom btn-sm  mt-2 me-2" @click.prevent="clickImport()"><i class="fa fa-upload"></i> Importar</button>-->
                     <el-tooltip
-                        content="Publica todos los productos de tu tienda online en ebaemy.com/marketplace"
+                        :content="itemsCount === 0
+                            ? 'Crea al menos un producto antes de publicar en marketplace'
+                            : 'Publica todos los productos de tu tienda online en ebaemy.com/marketplace'"
                         placement="top"
                     >
-                        <button
-                            type="button"
-                            class="btn btn-sm mt-2 me-2"
-                            style="background:#8b5cf6;border:1px solid #7c3aed;color:#fff"
-                            :disabled="publishingAll"
-                            @click.prevent="publishAllToMarketplace()"
-                        >
-                            <i class="fa" :class="publishingAll ? 'fa-spinner fa-spin' : 'fa-globe'"></i>
-                            {{ publishingAll ? 'Publicando…' : 'Publicar todos en Marketplace' }}
-                        </button>
+                        <span>
+                            <button
+                                type="button"
+                                class="btn btn-sm mt-2 me-2"
+                                style="background:#8b5cf6;border:1px solid #7c3aed;color:#fff"
+                                :disabled="publishingAll || itemsCount === 0"
+                                @click.prevent="publishAllToMarketplace()"
+                            >
+                                <i class="fa" :class="publishingAll ? 'fa-spinner fa-spin' : 'fa-globe'"></i>
+                                {{ publishingAll ? 'Publicando…' : 'Publicar todos en Marketplace' }}
+                            </button>
+                        </span>
                     </el-tooltip>
                     <button
                         type="button"
@@ -59,17 +63,46 @@
             </div>
         </div>
         <!-- ── Banner unificación catálogo (Opción A) ── -->
-        <div style="margin-bottom:12px;padding:12px 16px;background:#ecfdf5;border:1px solid #a7f3d0;border-radius:10px;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
-            <div style="font-size:22px;line-height:1">📚</div>
-            <div style="flex:1;min-width:240px">
-                <div style="font-weight:600;font-size:14px;color:#065f46">Estos son productos de tu catálogo publicados en la tienda online</div>
-                <div style="font-size:12px;color:#047857;margin-top:2px">
-                    No se duplican: es el mismo producto de "Productos y Servicios". El precio, stock y datos de facturación viven en el catálogo maestro.
+        <div class="ie-info-banner">
+            <div class="ie-info-banner__icon">📚</div>
+            <div class="ie-info-banner__text">
+                <div class="ie-info-banner__title">Productos de tu catálogo publicados en la tienda</div>
+                <div class="ie-info-banner__hint">
+                    No se duplican: viven en el catálogo maestro. Precio, stock y datos de facturación se sincronizan automáticamente.
                 </div>
             </div>
-            <a href="/items" class="btn btn-sm btn-outline-success" style="border-color:#10b981;color:#065f46">
+            <a href="/items" class="btn btn-sm btn-outline-success ie-info-banner__cta">
                 Ver catálogo completo →
             </a>
+        </div>
+
+        <!-- ── Welcome / Empty state: solo cuando no hay productos ── -->
+        <div v-if="itemsCount === 0" class="ie-welcome-card">
+            <div class="ie-welcome-card__icon">🛍️</div>
+            <h3 class="ie-welcome-card__title">¡Empieza a vender!</h3>
+            <p class="ie-welcome-card__lead">
+                Aún no tienes productos en tu tienda. Crea el primero y aparecerá en
+                <strong>{{ tenantSubdomain }}.ebaemy.com</strong> en segundos.
+            </p>
+            <div class="ie-welcome-card__cta">
+                <button type="button" class="btn btn-primary btn-lg" @click="clickCreate()">
+                    <i class="fa fa-plus-circle"></i> Crear mi primer producto
+                </button>
+            </div>
+            <div class="ie-welcome-card__tips">
+                <div class="ie-welcome-card__tip">
+                    <span class="ie-welcome-card__tip-icon">📷</span>
+                    <span><strong>Fotos claras</strong> aumentan la conversión 3×</span>
+                </div>
+                <div class="ie-welcome-card__tip">
+                    <span class="ie-welcome-card__tip-icon">🏷️</span>
+                    <span><strong>Categoría correcta</strong> para que aparezca en marketplace</span>
+                </div>
+                <div class="ie-welcome-card__tip">
+                    <span class="ie-welcome-card__tip-icon">💰</span>
+                    <span><strong>Precio realista</strong> + describe los detalles</span>
+                </div>
+            </div>
         </div>
 
         <!-- ── Marketplace stats (solo si tenant tiene listings publicados) ── -->
@@ -346,11 +379,20 @@ export default {
             sortField: localStorage.getItem('itemSortField') || 'id',
             sortDirection: localStorage.getItem('itemSortDirection') || 'desc',
             mpStats: { published: 0, views: 0, clicks: 0, leads_total: 0, leads_30d: 0, top: [] },
-            publishingAll: false
+            publishingAll: false,
+            // null = cargando · 0 = vacío (mostrar welcome card) · >0 = hay items
+            // Sólo se usa para decidir si mostrar el welcome card; el data-table
+            // sigue siendo el dueño del listado real y paginación.
+            itemsCount: null,
+            // Subdomain del tenant para mostrar "X.ebaemy.com" en el welcome
+            tenantSubdomain: (typeof window !== 'undefined' && window.location)
+                ? (window.location.hostname.split('.')[0] || 'tu-tienda')
+                : 'tu-tienda',
         };
     },
     created() {
         this.loadMarketplaceStats();
+        this.loadItemsCount();
     },
     methods: {
         handleSortChange(sort) {
@@ -413,6 +455,17 @@ export default {
                 .get(`/items/marketplace-stats`)
                 .then(r => { if (r.data) this.mpStats = r.data; })
                 .catch(() => { /* stats opcionales; si fallan, el card queda oculto */ });
+        },
+        // Solo necesitamos saber si hay 0 productos para decidir si renderizar
+        // el welcome card. Limit 1 para mantener la query barata; total viene
+        // en el meta de la paginación estándar de Laravel.
+        loadItemsCount() {
+            this.$http.get(`/items/records?limit=1&page=1`)
+                .then(r => {
+                    const total = (r.data && r.data.meta && r.data.meta.total) || (r.data && r.data.total) || 0
+                    this.itemsCount = total
+                })
+                .catch(() => { this.itemsCount = null })
         },
         publishAllToMarketplace() {
             this.$confirm(
@@ -500,3 +553,155 @@ export default {
     }
 };
 </script>
+
+<style scoped>
+/* ── Banner informativo unificado ── */
+.ie-info-banner {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 14px;
+    padding: 12px 16px;
+    background: #ecfdf5;
+    border: 1px solid #a7f3d0;
+    border-radius: 10px;
+    flex-wrap: wrap;
+}
+.ie-info-banner__icon { font-size: 22px; line-height: 1; flex-shrink: 0; }
+.ie-info-banner__text { flex: 1; min-width: 240px; }
+.ie-info-banner__title {
+    font-weight: 600;
+    font-size: 14px;
+    color: #065f46;
+}
+.ie-info-banner__hint {
+    font-size: 12px;
+    color: #047857;
+    margin-top: 2px;
+}
+.ie-info-banner__cta {
+    border-color: #10b981;
+    color: #065f46;
+    flex-shrink: 0;
+}
+
+/* ── Welcome card (estado vacío) ── */
+.ie-welcome-card {
+    background: linear-gradient(135deg, #fafbff 0%, #fef3ff 100%);
+    border: 1px solid #e0e7ff;
+    border-radius: 14px;
+    padding: 36px 28px;
+    margin-bottom: 18px;
+    text-align: center;
+    box-shadow: 0 4px 20px -8px rgba(99, 102, 241, .12);
+}
+.ie-welcome-card__icon {
+    font-size: 48px;
+    line-height: 1;
+    margin-bottom: 12px;
+}
+.ie-welcome-card__title {
+    font-size: 22px;
+    font-weight: 700;
+    color: #1e293b;
+    margin: 0 0 8px;
+}
+.ie-welcome-card__lead {
+    font-size: 14px;
+    color: #475569;
+    max-width: 560px;
+    margin: 0 auto 22px;
+    line-height: 1.5;
+}
+.ie-welcome-card__lead strong {
+    color: #4338ca;
+    font-weight: 600;
+}
+.ie-welcome-card__cta { margin-bottom: 28px; }
+.ie-welcome-card__cta .btn-lg {
+    background: #4f46e5;
+    border-color: #4338ca;
+    color: #fff;
+    font-weight: 600;
+    padding: 12px 28px;
+    font-size: 15px;
+    border-radius: 10px;
+    transition: transform .12s, box-shadow .12s;
+}
+.ie-welcome-card__cta .btn-lg:hover {
+    background: #4338ca;
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px -6px rgba(79, 70, 229, .4);
+}
+.ie-welcome-card__tips {
+    display: flex;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 16px 24px;
+    max-width: 760px;
+    margin: 0 auto;
+    padding-top: 18px;
+    border-top: 1px dashed #c7d2fe;
+}
+.ie-welcome-card__tip {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12.5px;
+    color: #475569;
+}
+.ie-welcome-card__tip-icon {
+    font-size: 18px;
+    line-height: 1;
+}
+.ie-welcome-card__tip strong { color: #1e293b; }
+
+/* ── Header del page (h2 + breadcrumb + buttons) ── */
+.items_ecommerce .page-header .right-wrapper { display: flex; flex-wrap: wrap; gap: 4px; }
+
+/* ── Responsive ── */
+@media (max-width: 767px) {
+    .ie-info-banner {
+        padding: 10px 12px;
+        gap: 8px;
+        margin-bottom: 10px;
+    }
+    .ie-info-banner__icon { font-size: 18px; }
+    .ie-info-banner__title { font-size: 13px; }
+    .ie-info-banner__hint { font-size: 11px; }
+    .ie-info-banner__cta {
+        width: 100%;
+        text-align: center;
+    }
+    .ie-welcome-card {
+        padding: 24px 16px;
+        margin-bottom: 12px;
+        border-radius: 10px;
+    }
+    .ie-welcome-card__icon { font-size: 38px; }
+    .ie-welcome-card__title { font-size: 18px; }
+    .ie-welcome-card__lead { font-size: 13px; margin-bottom: 16px; }
+    .ie-welcome-card__cta .btn-lg {
+        width: 100%;
+        padding: 12px;
+        font-size: 14px;
+    }
+    .ie-welcome-card__tips {
+        gap: 10px;
+        padding-top: 14px;
+        flex-direction: column;
+        align-items: flex-start;
+        text-align: left;
+    }
+    /* Header buttons stack vertical en mobile */
+    .items_ecommerce .page-header { display: flex; flex-direction: column; align-items: stretch; gap: 8px; }
+    .items_ecommerce .page-header .right-wrapper {
+        width: 100%;
+        flex-direction: column;
+        gap: 6px;
+    }
+    .items_ecommerce .page-header .right-wrapper > * { width: 100%; }
+    .items_ecommerce .page-header .right-wrapper .btn { width: 100%; margin: 0 !important; }
+    .items_ecommerce .page-header .right-wrapper span { width: 100%; display: block; }
+}
+</style>
