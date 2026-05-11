@@ -3,8 +3,9 @@
                :title="titleDialog"
                :visible="showDialog"
                append-to-body
-               top="7vh"
-               width="65%"
+               :top="dialogTop"
+               :width="dialogWidth"
+               custom-class="ie-items-dialog"
                @close="close"
                @open="create">
 
@@ -1195,8 +1196,55 @@
     border-radius: 8px;
 }
 @media (max-width: 767px) {
-    .ie-progress-banner__head { flex-direction: column; align-items: stretch; gap: 8px; }
-    .ie-progress-banner__title { white-space: normal; }
+    .ie-progress-banner { padding: 10px 12px; margin-bottom: 12px; border-radius: 8px; }
+    .ie-progress-banner__head { flex-direction: column; align-items: stretch; gap: 8px; margin-bottom: 8px; }
+    .ie-progress-banner__title { white-space: normal; font-size: 12.5px; }
+    .ie-progress-banner__items { gap: 4px; }
+    .ie-progress-banner__chip { font-size: 11px; padding: 3px 8px; }
+    .ie-progress-banner__chip-icon { width: 12px; height: 12px; font-size: 9px; }
+}
+
+/* ─────── Responsive global del form ─────── */
+.ie-items-dialog .el-dialog__body { padding: 14px 18px; }
+@media (max-width: 767px) {
+    /* En mobile: dialog full-screen sin radios ni shadows raros */
+    .ie-items-dialog {
+        margin: 0 !important;
+        max-width: 100% !important;
+        height: 100vh;
+        max-height: 100vh;
+        border-radius: 0 !important;
+        display: flex !important;
+        flex-direction: column;
+    }
+    .ie-items-dialog .el-dialog__header { padding: 12px 14px; flex-shrink: 0; }
+    .ie-items-dialog .el-dialog__body {
+        padding: 10px 14px 14px;
+        overflow-y: auto;
+        flex: 1;
+    }
+    /* Header sections con menos padding */
+    .mp-form-section { padding: 10px 12px !important; margin-bottom: 10px !important; }
+    .mp-form-section__head h5 { font-size: 14px !important; }
+    .mp-form-section__hint { font-size: 11.5px !important; }
+    /* Element UI inputs/selects más compactos */
+    .el-input__inner, .el-select .el-input__inner, .el-cascader .el-input__inner {
+        height: 36px !important;
+        line-height: 36px !important;
+        font-size: 14px;
+    }
+    .control-label { font-size: 12.5px; margin-bottom: 4px; }
+    /* CKEditor no se desborda */
+    .ck-editor__main { max-width: 100%; overflow-x: auto; }
+    /* Botones sticky del fondo */
+    .ie-sticky-actions { padding: 8px 10px !important; }
+    .ie-sticky-actions .el-button { padding: 8px 12px; font-size: 13px; }
+}
+@media (max-width: 480px) {
+    /* Smartphone pequeño: tipografía más chica + secciones más estrechas */
+    .ie-items-dialog .el-dialog__body { padding: 8px 10px 12px; }
+    .mp-form-section { padding: 8px 10px !important; }
+    .form-group { margin-bottom: 10px; }
 }
 
 /* ─────── Card "Imagen principal + Galería adicional" ─────── */
@@ -1571,6 +1619,10 @@ export default {
             // loadRecord vía GET /items/images/{id} y se refresca cuando
             // el dialog cierra (saveImages).
             galleryImages: [],
+            // Ancho del viewport — alimenta los computed dialogWidth/dialogTop
+            // para que el modal se ajuste a celular/tablet/desktop. Se actualiza
+            // en el resize handler (mounted/beforeDestroy).
+            viewportWidth: (typeof window !== 'undefined' ? window.innerWidth : 1200),
             // Subdomain del tenant para el texto "tu_subdomain.ebaemy.com"
             // en el card de canales. Se lee de window si está disponible.
             tenant_subdomain: (typeof window !== 'undefined' && window.location)
@@ -1640,6 +1692,20 @@ export default {
         // seller vea el listado al editar.
         hasVariantsOpen() {
             return !!(this.form && this.form.has_variants)
+        },
+        // El el-dialog no se adapta solo: en mobile (<768px) el 65% deja
+        // mucho espacio en blanco a los lados. Calculamos según el ancho
+        // del viewport. Refresca via this.viewportWidth en mounted/resize.
+        dialogWidth() {
+            const w = this.viewportWidth || (typeof window !== 'undefined' ? window.innerWidth : 1200)
+            if (w < 576) return '100%'        // celular: full screen
+            if (w < 768) return '95%'         // tablet vertical
+            if (w < 1200) return '80%'        // tablet horizontal
+            return '65%'                       // desktop
+        },
+        dialogTop() {
+            const w = this.viewportWidth || (typeof window !== 'undefined' ? window.innerWidth : 1200)
+            return w < 768 ? '0' : '7vh'      // mobile: pegado arriba
         },
         // Galería unificada: fotos persistidas en DB (galleryImages, de
         // /items/images/{id}) + fotos recién subidas via upload-async
@@ -1749,6 +1815,15 @@ export default {
                 this.suggestMpCategoryFromTenant()
             }
         },
+    },
+    mounted() {
+        // Listener para que el modal se reajuste si el seller rota el
+        // celular (portrait <-> landscape) o redimensiona la ventana.
+        this._onResize = () => { this.viewportWidth = window.innerWidth }
+        window.addEventListener('resize', this._onResize)
+    },
+    beforeDestroy() {
+        if (this._onResize) window.removeEventListener('resize', this._onResize)
     },
     created() {
         this.initForm()
