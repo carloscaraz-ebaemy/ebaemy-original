@@ -311,8 +311,6 @@ async function saPost(id, path, body = {}) {
             },
             body: JSON.stringify(body),
         });
-        // Si el backend devuelve HTML (error 500/419), intentamos extraer el
-        // mensaje útil antes de fallar con "Unexpected token '<'".
         const txt = await res.text();
         let json;
         try { json = JSON.parse(txt); }
@@ -326,6 +324,15 @@ async function saPost(id, path, body = {}) {
             alert('Error: ' + (json.message || 'desconocido'));
             return false;
         }
+
+        // Flujo especial: aprobación async. El backend marcó status='approving'
+        // y disparó el job. NO cerramos el modal — mostramos overlay con
+        // spinner y polling hasta que el job termine.
+        if (json.status === 'approving' && path === 'approve') {
+            saWatchApproving(id);
+            return true;
+        }
+
         alert(json.message);
         $('#saDetailModal').modal('hide');
         saLoad(saCurrentPage);
@@ -334,6 +341,82 @@ async function saPost(id, path, body = {}) {
         alert('Error: ' + e.message);
         return false;
     }
+}
+
+/**
+ * Polling del status mientras se crea el tenant en background.
+ * Cada 4s consulta GET /admin/seller-applications/{id} y revisa el status.
+ * Cuando ya no es 'approving', cierra overlay y refresca la lista.
+ */
+function saWatchApproving(id) {
+    // Inyectar overlay sobre el modal
+    let overlay = document.getElementById('saApprovingOverlay');
+    if (!overlay) {
+        overlay = document.createElement('div');
+        overlay.id = 'saApprovingOverlay';
+        overlay.style.cssText = 'position:fixed;inset:0;background:rgba(15,23,42,.45);z-index:1100;display:flex;align-items:center;justify-content:center';
+        overlay.innerHTML = `
+            <div style="background:#fff;border-radius:12px;padding:28px 32px;max-width:420px;text-align:center;box-shadow:0 20px 50px -10px rgba(0,0,0,.3)">
+                <div style="font-size:42px;margin-bottom:10px">🏗️</div>
+                <h5 style="margin:0 0 8px;color:#0f172a">Creando tenant…</h5>
+                <p style="color:#6b7280;font-size:13.5px;margin-bottom:14px">
+                    Esto puede tomar <strong>1 a 2 minutos</strong>.<br>
+                    Estamos preparando la base de datos del seller, instalando módulos
+                    y enviando el correo de bienvenida.
+                </p>
+                <div style="height:6px;border-radius:99px;background:#e5e7eb;overflow:hidden">
+                    <div id="saApprovingBar" style="height:100%;background:linear-gradient(90deg,#3b82f6,#10b981);width:5%;transition:width 1s linear"></div>
+                </div>
+                <p id="saApprovingHint" style="font-size:11px;color:#9ca3af;margin-top:10px">No cierres esta ventana…</p>
+            </div>
+        `;
+        document.body.appendChild(overlay);
+    } else {
+        overlay.style.display = 'flex';
+    }
+
+    let elapsed = 0;
+    const tick = async () => {
+        elapsed += 4;
+        const bar = document.getElementById('saApprovingBar');
+        if (bar) bar.style.width = Math.min(95, 5 + elapsed * 1.5) + '%';
+        const hint = document.getElementById('saApprovingHint');
+        if (hint) hint.textContent = `Tiempo transcurrido: ${elapsed}s · Reintentamos cada 4s`;
+
+        try {
+            const res = await fetch(`${SA_ROUTE}/${id}`, {
+                headers: { 'Accept': 'application/json', 'X-CSRF-TOKEN': SA_CSRF },
+                credentials: 'same-origin',
+            });
+            const data = await res.json();
+            const status = data?.application?.status;
+            if (status && status !== 'approving') {
+                if (bar) bar.style.width = '100%';
+                clearInterval(timer);
+                setTimeout(() => {
+                    overlay.style.display = 'none';
+                    if (status === 'approved') {
+                        alert('✅ Tenant creado correctamente. El seller recibió el correo de bienvenida.');
+                    } else {
+                        alert('❌ El proceso terminó con estado: ' + status + '. Revisa la campanita de notificaciones para ver el motivo.');
+                    }
+                    $('#saDetailModal').modal('hide');
+                    saLoad(saCurrentPage);
+                }, 600);
+            }
+        } catch (e) { /* network blip, reintentamos en el próximo tick */ }
+
+        // Safety: si pasaron 5 min, cortamos el polling (algo falló en el job)
+        if (elapsed >= 300) {
+            clearInterval(timer);
+            overlay.style.display = 'none';
+            alert('⏱️ El proceso está tardando más de lo esperado. Recarga la página para ver el estado actual.');
+            $('#saDetailModal').modal('hide');
+            saLoad(saCurrentPage);
+        }
+    };
+    const timer = setInterval(tick, 4000);
+    tick();
 }
 
 function saAction(id, path) {

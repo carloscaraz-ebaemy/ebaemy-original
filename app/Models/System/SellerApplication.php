@@ -145,6 +145,10 @@ class SellerApplication extends Model
             self::STATUS_UNDER_REVIEW,
             self::STATUS_REQUIRES_DOCUMENTS,
             self::STATUS_REQUIRES_REVIEW,
+            // 'approving' es intermedio: el controller marca este estado
+            // antes de dispatchar el job; el job (que ya pasó el precheck)
+            // debe poder llamar approve() sin que isReviewable lo rechace.
+            self::STATUS_APPROVING,
         ], true);
     }
 
