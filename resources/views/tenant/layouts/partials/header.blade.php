@@ -32,13 +32,15 @@
             <tenant-multi-users-change-client></tenant-multi-users-change-client>
         @endif -->
 
+        {{-- Solo renderizar el contenedor del logo cuando el tenant tiene logo
+             subido. Sin esto se mostraba un placeholder /logo/tulogo.png de
+             170×54 px que se sobreponía al <h2>Modulos</h2> en mobile. --}}
+        @if($vc_company->logo || $vc_company->logo_dark)
         <div class="logo-container-mobile">
             <a href="{{route('tenant.dashboard.index')}}" class="logo pt-2 pt-md-0">
                 @if($vc_company->logo)
                     <img src="{{ asset('storage/uploads/logos/' . $vc_company->logo) }}" alt="Logo" class="logo-light"
                         style="{{ $vc_company->logo_dark ? '' : '--show-light-logo: block;' }}" />
-                @else
-                    <img src="{{ asset('logo/tulogo.png') }}" alt="Logo" />
                 @endif
 
                 @if($vc_company->logo_dark)
@@ -46,6 +48,7 @@
                 @endif
             </a>
         </div>
+        @endif
 
         <div class="options-user-mobile">
             <i class="fas fa-bars"></i>
