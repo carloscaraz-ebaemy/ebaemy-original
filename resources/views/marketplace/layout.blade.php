@@ -1,32 +1,44 @@
+@php
+    // Config administrable desde /admin/marketplace/seo. Cacheado 10min.
+    // Fallbacks profesionales por si los campos están vacíos.
+    $mpCfg = \App\Models\System\Configuration::firstCached();
+    $mpOgTitle = $mpCfg->marketplace_og_title
+                ?? 'Marketplace ebaemy — Compra de tiendas verificadas';
+    $mpOgDesc  = $mpCfg->marketplace_og_description
+                ?? 'Descubre productos de tiendas peruanas verificadas en un solo lugar. Envío a todo Perú, contacto directo con el vendedor.';
+    $mpOgImage = $mpCfg ? $mpCfg->marketplace_og_image_url : asset('logo/logo.jpg');
+    $mpKeywords= $mpCfg->marketplace_meta_keywords
+                ?? 'marketplace peru, ebaemy, tiendas online verificadas, compra segura, productos peruanos';
+@endphp
 <!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>@yield('title', 'Marketplace ebaemy — productos de todas nuestras tiendas')</title>
-    <meta name="description" content="@yield('description', 'Descubre productos publicados por miles de tiendas que usan ebaemy. Un solo lugar para comprar, contactar o solicitar envío.')">
-    <meta name="keywords"    content="@yield('keywords', 'marketplace peru, ebaemy, tiendas online, compra, productos, catalogo')">
+    <title>@yield('title', $mpOgTitle)</title>
+    <meta name="description" content="@yield('description', $mpOgDesc)">
+    <meta name="keywords"    content="@yield('keywords', $mpKeywords)">
     <meta name="robots"      content="index, follow">
     <meta name="theme-color" content="#0f8a82">
 
     <link rel="canonical" href="@yield('canonical', url()->current())">
 
-    {{-- Open Graph --}}
+    {{-- Open Graph (administrable desde /admin/marketplace/seo) --}}
     <meta property="og:site_name"   content="ebaemy Marketplace">
     <meta property="og:locale"      content="es_PE">
     <meta property="og:type"        content="@yield('og_type', 'website')">
-    <meta property="og:title"       content="@yield('og_title', 'Marketplace ebaemy')">
-    <meta property="og:description" content="@yield('og_description', 'Productos de todas las tiendas ebaemy en un solo lugar.')">
-    <meta property="og:image"       content="@yield('og_image', asset('logo/logo.png'))">
-    <meta property="og:image:secure_url" content="@yield('og_image', asset('logo/logo.png'))">
+    <meta property="og:title"       content="@yield('og_title', $mpOgTitle)">
+    <meta property="og:description" content="@yield('og_description', $mpOgDesc)">
+    <meta property="og:image"       content="@yield('og_image', $mpOgImage)">
+    <meta property="og:image:secure_url" content="@yield('og_image', $mpOgImage)">
     <meta property="og:image:width"  content="1200">
     <meta property="og:image:height" content="630">
     <meta property="og:url"         content="@yield('canonical', url()->current())">
 
     <meta name="twitter:card"        content="summary_large_image">
-    <meta name="twitter:title"       content="@yield('og_title', 'Marketplace ebaemy')">
-    <meta name="twitter:description" content="@yield('og_description', 'Productos de todas las tiendas ebaemy en un solo lugar.')">
-    <meta name="twitter:image"       content="@yield('og_image', asset('logo/logo.png'))">
+    <meta name="twitter:title"       content="@yield('og_title', $mpOgTitle)">
+    <meta name="twitter:description" content="@yield('og_description', $mpOgDesc)">
+    <meta name="twitter:image"       content="@yield('og_image', $mpOgImage)">
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>

@@ -1390,6 +1390,8 @@ if ($hostname) {
                 Route::get('reviews',                   'System\MarketplaceAdminController@reviews')->name('reviews');
                 Route::post('reviews/{id}/approve',     'System\MarketplaceAdminController@approveReview')->name('reviews.approve');
                 Route::post('reviews/{id}/reject',      'System\MarketplaceAdminController@rejectReview')->name('reviews.reject');
+                Route::get('seo',                     'System\MarketplaceAdminController@seo')->name('seo');
+                Route::post('seo',                    'System\MarketplaceAdminController@seoUpdate')->name('seo.update');
                 Route::get('leads',                   'System\MarketplaceAdminController@leads')->name('leads');
                 Route::get('leads/export',            'System\MarketplaceAdminController@exportLeads')->name('leads.export');
                 Route::post('leads/{id}/retry',       'System\MarketplaceAdminController@retryLead')->name('leads.retry');

@@ -5,6 +5,7 @@
     <div class="d-flex justify-content-between align-items-center mb-3">
         <h3 class="mb-0">📊 Marketplace — Dashboard</h3>
         <div>
+            <a href="{{ route('system.marketplace.seo') }}" class="btn btn-outline-info btn-sm">🔗 SEO / Compartir</a>
             <a href="{{ route('system.marketplace.listings') }}" class="btn btn-outline-secondary btn-sm">Listings</a>
             <a href="{{ route('system.marketplace.leads') }}" class="btn btn-outline-primary btn-sm">Leads</a>
         </div>

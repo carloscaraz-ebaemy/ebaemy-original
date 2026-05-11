@@ -46,6 +46,12 @@ class Configuration extends Model
         'auto_approve_sellers',
         'seller_default_plan_id',
         'seller_requires_active_ruc',
+        // Open Graph / SEO del marketplace público (ebaemy.com/marketplace).
+        // Editables desde /admin/marketplace/seo. Fallbacks razonables si NULL.
+        'marketplace_og_title',
+        'marketplace_og_description',
+        'marketplace_og_image',
+        'marketplace_meta_keywords',
     ];
 
 
@@ -109,7 +115,7 @@ class Configuration extends Model
 
     
     /**
-     * 
+     *
      * Url de imagen para publicidad en clientes (header)
      *
      * @return string
@@ -123,6 +129,18 @@ class Configuration extends Model
         }
 
         return null;
+    }
+
+    /**
+     * URL absoluta del og:image del marketplace. Si NULL, devolvemos el logo
+     * por default. WhatsApp/Facebook necesitan URL HTTPS absoluta.
+     */
+    public function getMarketplaceOgImageUrlAttribute(): string
+    {
+        if ($this->marketplace_og_image) {
+            return asset('storage/uploads/system/' . $this->marketplace_og_image);
+        }
+        return asset('logo/logo.jpg');
     }
 
     public function validationConfigNotify()

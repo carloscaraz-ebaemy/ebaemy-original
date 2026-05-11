@@ -133,6 +133,50 @@ class MarketplaceAdminController extends Controller
         ));
     }
 
+    // ── SEO / Open Graph del marketplace ──────────────────────────────────────
+    //
+    // Permite al SuperAdmin editar el título, descripción e imagen que aparece
+    // cuando alguien comparte ebaemy.com/marketplace por WhatsApp, Facebook,
+    // Twitter, etc. La imagen debe ser 1200×630 para ratio óptimo.
+
+    public function seo()
+    {
+        $config = \App\Models\System\Configuration::firstCached();
+        return view('system.marketplace.seo', compact('config'));
+    }
+
+    public function seoUpdate(Request $request)
+    {
+        $request->validate([
+            'marketplace_og_title'       => 'nullable|string|max:120',
+            'marketplace_og_description' => 'nullable|string|max:250',
+            'marketplace_meta_keywords'  => 'nullable|string|max:500',
+            'og_image'                   => 'nullable|image|mimes:jpg,jpeg,png,webp|max:2048|dimensions:min_width=600,min_height=300',
+        ]);
+
+        $config = \App\Models\System\Configuration::firstOrCreate(['id' => 1]);
+        $config->marketplace_og_title       = $request->input('marketplace_og_title');
+        $config->marketplace_og_description = $request->input('marketplace_og_description');
+        $config->marketplace_meta_keywords  = $request->input('marketplace_meta_keywords');
+
+        if ($request->hasFile('og_image')) {
+            $file = $request->file('og_image');
+            $filename = 'mp-og-' . time() . '.' . $file->getClientOriginalExtension();
+            $file->storeAs('public/uploads/system', $filename);
+            // Borramos el anterior para no dejar basura
+            if ($config->marketplace_og_image) {
+                @\Storage::delete('public/uploads/system/' . $config->marketplace_og_image);
+            }
+            $config->marketplace_og_image = $filename;
+        }
+        $config->save();
+
+        \Cache::forget('system_config');
+
+        return redirect()->route('system.marketplace.seo')
+            ->with('mp_seo_message', 'Configuración SEO actualizada. La nueva preview puede tardar minutos en propagarse a WhatsApp/Facebook (limpian su caché).');
+    }
+
     // ── Listings ──────────────────────────────────────────────────────────────
 
     public function listings(Request $request)
