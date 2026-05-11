@@ -34,6 +34,7 @@ class MarketplaceListingVariant extends Model
         'offer_ends_at',
         'stock',
         'is_active',
+        'is_primary',
     ];
 
     protected $casts = [
@@ -44,6 +45,7 @@ class MarketplaceListingVariant extends Model
         'offer_ends_at'  => 'datetime',
         'stock'          => 'integer',
         'is_active'      => 'boolean',
+        'is_primary'     => 'boolean',
     ];
 
     public function listing(): BelongsTo
