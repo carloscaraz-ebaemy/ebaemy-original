@@ -29,28 +29,26 @@
                     <span>Productos en tu tienda online</span>
                 </li>
             </ol>
-            <div class="right-wrapper pull-right">
+            <!-- Cuando itemsCount===0 mostramos el welcome card abajo con su
+                 propio CTA grande "Crear mi primer producto". Ocultamos estos
+                 botones del header para no duplicar acciones y dejarle al
+                 seller una sola decisión clara. -->
+            <div class="right-wrapper pull-right" v-if="itemsCount !== 0">
                 <template>
-                    <!-- v-if="typeUser === 'admin'" -->
-                    <!-- <button type="button" class="btn btn-custom btn-sm  mt-2 me-2" @click.prevent="clickImport()"><i class="fa fa-upload"></i> Importar</button>-->
                     <el-tooltip
-                        :content="itemsCount === 0
-                            ? 'Crea al menos un producto antes de publicar en marketplace'
-                            : 'Publica todos los productos de tu tienda online en ebaemy.com/marketplace'"
+                        content="Publica todos los productos de tu tienda online en ebaemy.com/marketplace"
                         placement="top"
                     >
-                        <span>
-                            <button
-                                type="button"
-                                class="btn btn-sm mt-2 me-2"
-                                style="background:#8b5cf6;border:1px solid #7c3aed;color:#fff"
-                                :disabled="publishingAll || itemsCount === 0"
-                                @click.prevent="publishAllToMarketplace()"
-                            >
-                                <i class="fa" :class="publishingAll ? 'fa-spinner fa-spin' : 'fa-globe'"></i>
-                                {{ publishingAll ? 'Publicando…' : 'Publicar todos en Marketplace' }}
-                            </button>
-                        </span>
+                        <button
+                            type="button"
+                            class="btn btn-sm mt-2 me-2"
+                            style="background:#8b5cf6;border:1px solid #7c3aed;color:#fff"
+                            :disabled="publishingAll"
+                            @click.prevent="publishAllToMarketplace()"
+                        >
+                            <i class="fa" :class="publishingAll ? 'fa-spinner fa-spin' : 'fa-globe'"></i>
+                            {{ publishingAll ? 'Publicando…' : 'Publicar todos en Marketplace' }}
+                        </button>
                     </el-tooltip>
                     <button
                         type="button"
@@ -62,8 +60,11 @@
                 </template>
             </div>
         </div>
-        <!-- ── Banner unificación catálogo (Opción A) ── -->
-        <div class="ie-info-banner">
+        <!-- ── Banner unificación catálogo (Opción A) ──
+             Solo cuando ya hay productos. Sin productos, el welcome card de
+             abajo es suficiente y este banner sería confuso ("publicados"
+             cuando aún no hay nada). -->
+        <div class="ie-info-banner" v-if="itemsCount !== 0">
             <div class="ie-info-banner__icon">📚</div>
             <div class="ie-info-banner__text">
                 <div class="ie-info-banner__title">Productos de tu catálogo publicados en la tienda</div>
@@ -125,7 +126,10 @@
             </div>
         </div>
 
-        <div class="card tab-content-default row-new mb-0">
+        <!-- Tabla principal: oculta cuando itemsCount===0 (mostramos el
+             welcome card en su lugar). Apenas haya >=1 producto, esto
+             aparece y el welcome card desaparece. -->
+        <div class="card tab-content-default row-new mb-0" v-show="itemsCount !== 0">
             <!-- <div class="card-header bg-info">
         <h3 class="my-0">Listado de productos Tienda Virtual</h3>
       </div> -->
