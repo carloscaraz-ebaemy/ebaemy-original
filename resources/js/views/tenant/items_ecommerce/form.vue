@@ -558,13 +558,16 @@
                                 </div>
                             </div>
                             <div v-show="imageSectionOpen" class="row col-md-12">
-                                <div class="col-md-3">
-                                    <div class="ie-image-card">
+                                <!-- Strip horizontal full-width: imagen principal a la izquierda,
+                                     galería desplegándose en fila hacia la derecha. Antes estaba
+                                     todo apilado en col-md-3 (vertical), comía mucho espacio. -->
+                                <div class="col-md-12">
+                                    <div class="ie-image-card ie-image-card--row">
 
-                                        <!-- ═══════ Imagen principal ═══════ -->
-                                        <div class="ie-image-card__section">
+                                        <!-- ═══════ Imagen principal (izquierda) ═══════ -->
+                                        <div class="ie-image-card__primary-wrap">
                                             <div class="ie-image-card__label">
-                                                <span>📷 Imagen principal</span>
+                                                <span>📷 Principal</span>
                                                 <span v-if="form.image_url" class="ie-image-card__ok-pill">✓</span>
                                             </div>
                                             <el-upload :action="`/${resource}/upload`"
@@ -582,35 +585,37 @@
                                                     class="ie-primary-upload__img">
                                                 <div v-else class="ie-primary-upload__empty">
                                                     <i class="el-icon-plus"></i>
-                                                    <span>Subir foto</span>
+                                                    <span>Subir</span>
                                                 </div>
                                             </el-upload>
                                             <div class="ie-image-card__hint">
-                                                Recomendado: <strong>1024×720</strong> · Full HD
+                                                <strong>1024×720</strong> Full HD
                                             </div>
                                         </div>
 
-                                        <!-- ═══════ Galería adicional ═══════ -->
-                                        <div class="ie-image-card__section">
+                                        <!-- ═══════ Galería adicional (derecha) ═══════ -->
+                                        <div class="ie-image-card__gallery-wrap">
                                             <div class="ie-image-card__label">
                                                 <span>🖼️ Galería adicional</span>
-                                                <span v-if="galleryImages.length"
+                                                <span v-if="allGalleryImages.length"
                                                       class="ie-image-card__count-pill">
-                                                    {{ galleryImages.length }} foto<span v-if="galleryImages.length > 1">s</span>
+                                                    {{ allGalleryImages.length }} foto<span v-if="allGalleryImages.length > 1">s</span>
                                                 </span>
                                                 <span v-else
                                                       class="ie-image-card__count-pill ie-image-card__count-pill--empty">
-                                                    0
+                                                    sin fotos
                                                 </span>
+                                                <small v-if="hasPendingImages"
+                                                       class="ie-image-card__hint-pending"
+                                                       style="margin-left:8px">
+                                                    ⏳ {{ pendingImagesCount }} sin guardar
+                                                </small>
                                             </div>
 
-                                            <!-- Grid unificado: muestra tanto las fotos ya guardadas en DB
-                                                 (galleryImages) como las que el seller acaba de subir antes
-                                                 de guardar el producto (form.multi_images vía form_images
-                                                 dialog). Los uploads en multi_images van a /items/upload-async
-                                                 y NO requieren item_id — se procesan en el create() del
-                                                 backend. Así el seller no espera "guarda primero". -->
-                                            <div class="ie-image-card__grid">
+                                            <!-- Strip horizontal de thumbnails. Combina galleryImages (DB)
+                                                 + form.multi_images (pendientes). Pendientes con borde ámbar
+                                                 + ⏳. Click en cualquier thumb o en "+" abre el dialog. -->
+                                            <div class="ie-image-card__strip">
                                                 <div v-for="(img, i) in allGalleryImages" :key="img._key || i"
                                                      class="ie-image-card__thumb"
                                                      :class="{ 'is-pending': img._pending }"
@@ -624,18 +629,15 @@
                                                     <span>{{ allGalleryImages.length ? 'Más' : 'Agregar' }}</span>
                                                 </div>
                                             </div>
-                                            <small v-if="!allGalleryImages.length" class="ie-image-card__hint mt-1">
+                                            <small v-if="!allGalleryImages.length" class="ie-image-card__hint">
                                                 Click "+ Agregar" para subir fotos adicionales.
-                                            </small>
-                                            <small v-else-if="hasPendingImages" class="ie-image-card__hint-pending mt-1">
-                                                ⏳ <strong>{{ pendingImagesCount }}</strong> foto<span v-if="pendingImagesCount > 1">s</span> pendiente<span v-if="pendingImagesCount > 1">s</span> de guardar
                                             </small>
                                         </div>
 
                                     </div>
                                 </div>
 
-                                <div class="col-md-9">
+                                <div class="col-md-12">
                                     <div class="row">
                                         <!-- ═════════ 1) CATEGORÍA OFICIAL ═════════
                                              Lo primero que el seller debería ver. Si no la
@@ -1038,6 +1040,57 @@
     box-shadow: 0 1px 2px rgba(0,0,0,.03);
 }
 .ie-image-card__section { display: flex; flex-direction: column; gap: 8px; }
+
+/* Modo horizontal: imagen principal a la izquierda (fija) + galería en fila a la derecha */
+.ie-image-card--row {
+    flex-direction: row;
+    align-items: stretch;
+    gap: 18px;
+}
+.ie-image-card__primary-wrap {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    width: 140px;
+    flex-shrink: 0;
+}
+.ie-image-card__gallery-wrap {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    flex: 1;
+    min-width: 0;
+    border-left: 1px solid #e5e7eb;
+    padding-left: 18px;
+}
+/* Strip horizontal de thumbs — scroll si hay muchos */
+.ie-image-card__strip {
+    display: flex;
+    flex-direction: row;
+    gap: 8px;
+    overflow-x: auto;
+    padding-bottom: 4px;
+    scrollbar-width: thin;
+}
+.ie-image-card__strip::-webkit-scrollbar { height: 6px; }
+.ie-image-card__strip::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 3px; }
+.ie-image-card__strip .ie-image-card__thumb,
+.ie-image-card__strip .ie-image-card__add {
+    width: 90px;
+    height: 90px;
+    aspect-ratio: unset;
+    flex-shrink: 0;
+}
+@media (max-width: 767px) {
+    .ie-image-card--row { flex-direction: column; }
+    .ie-image-card__primary-wrap { width: 100%; }
+    .ie-image-card__gallery-wrap {
+        border-left: none;
+        border-top: 1px solid #e5e7eb;
+        padding-left: 0;
+        padding-top: 14px;
+    }
+}
 .ie-image-card__label {
     display: flex;
     align-items: center;
