@@ -20,15 +20,19 @@ class MarketplaceAdminController extends Controller
 
     public function dashboard()
     {
+        // Fix: distinct('col') + count('col') no funcionaba — Laravel ignora
+        // el argumento de distinct. Forma correcta: distinct()->count('col')
+        // que emite COUNT(DISTINCT col).
         $stats = [
             'listings_total'   => MarketplaceListing::count(),
             'listings_active'  => MarketplaceListing::where('status', 'active')->count(),
             'listings_paused'  => MarketplaceListing::where('status', 'paused')->count(),
             'listings_rejected' => MarketplaceListing::where('status', 'rejected')->count(),
-            'tenants_active'   => MarketplaceListing::distinct('hostname_id')
-                                    ->where('is_active', true)->count('hostname_id'),
-            'views_total'      => MarketplaceListing::sum('view_count'),
-            'clicks_total'     => MarketplaceListing::sum('click_count'),
+            'tenants_active'   => MarketplaceListing::where('is_active', true)
+                                    ->distinct()
+                                    ->count('hostname_id'),
+            'views_total'      => (int) MarketplaceListing::sum('view_count'),
+            'clicks_total'     => (int) MarketplaceListing::sum('click_count'),
             'leads_total'      => MarketplaceLead::count(),
             'leads_converted'  => MarketplaceLead::where('status', 'converted')->count(),
             'leads_failed'     => MarketplaceLead::where('status', 'failed')->count(),
@@ -39,6 +43,24 @@ class MarketplaceAdminController extends Controller
         $stats['conversion_rate'] = $stats['clicks_total'] > 0
             ? round(($stats['leads_total'] / $stats['clicks_total']) * 100, 2)
             : 0;
+
+        // Pedidos marketplace (tenant_marketplace_orders) — multi-tienda real.
+        // Estos son los pedidos del checkout central, distintos de los leads
+        // (que pueden o no convertirse).
+        $ordersAgg = \DB::connection('system')->table('tenant_marketplace_orders')
+            ->selectRaw('
+                COUNT(*) as total,
+                SUM(CASE WHEN created_at >= ? THEN 1 ELSE 0 END) as last_30d,
+                COALESCE(SUM(subtotal), 0) as gross,
+                COALESCE(SUM(discount_amount), 0) as discount,
+                COALESCE(SUM(CASE WHEN created_at >= ? THEN subtotal - discount_amount ELSE 0 END), 0) as revenue_30d
+            ', [now()->subDays(30), now()->subDays(30)])
+            ->first();
+
+        $stats['orders_total']    = (int) ($ordersAgg->total ?? 0);
+        $stats['orders_30d']      = (int) ($ordersAgg->last_30d ?? 0);
+        $stats['revenue_total']   = round((float) (($ordersAgg->gross ?? 0) - ($ordersAgg->discount ?? 0)), 2);
+        $stats['revenue_30d']     = round((float) ($ordersAgg->revenue_30d ?? 0), 2);
 
         // Top 10 tiendas por leads
         $topTenants = MarketplaceListing::selectRaw('tenant_fqdn, SUM(view_count) as v, SUM(click_count) as c, SUM(lead_count) as l, COUNT(*) as listings')
@@ -52,14 +74,29 @@ class MarketplaceAdminController extends Controller
             ->limit(10)
             ->get();
 
-        // Leads por día últimos 30
-        $leadsByDay = MarketplaceLead::selectRaw('DATE(created_at) as day, COUNT(*) as count')
+        // Serie diaria 30d: leads + orders (combinada para chart)
+        $leadsByDay  = MarketplaceLead::selectRaw('DATE(created_at) as day, COUNT(*) as count')
             ->where('created_at', '>=', now()->subDays(30))
-            ->groupBy('day')
-            ->orderBy('day')
-            ->get();
+            ->groupBy('day')->orderBy('day')->pluck('count', 'day');
+        $ordersByDay = \DB::connection('system')->table('tenant_marketplace_orders')
+            ->selectRaw('DATE(created_at) as day, COUNT(*) as count')
+            ->where('created_at', '>=', now()->subDays(30))
+            ->groupBy('day')->orderBy('day')->pluck('count', 'day');
 
-        return view('system.marketplace.dashboard', compact('stats', 'topTenants', 'topListings', 'leadsByDay'));
+        // Serie continua para que el chart no tenga huecos
+        $dailySeries = collect();
+        for ($i = 29; $i >= 0; $i--) {
+            $d = now()->subDays($i)->toDateString();
+            $dailySeries->push((object) [
+                'day'    => $d,
+                'leads'  => (int) ($leadsByDay[$d] ?? 0),
+                'orders' => (int) ($ordersByDay[$d] ?? 0),
+            ]);
+        }
+
+        return view('system.marketplace.dashboard', compact(
+            'stats', 'topTenants', 'topListings', 'leadsByDay', 'dailySeries'
+        ));
     }
 
     // ── Listings ──────────────────────────────────────────────────────────────
