@@ -467,10 +467,28 @@
                             stockBox.innerHTML = '<div class="mp-stock"><span class="mp-stock-dot"></span>En stock (' + s + ' disponibles)</div>';
                         }
                     }
-                    // Imagen principal (si la variante tiene propia)
+                    // Imagen principal: cambia TODAS las imágenes grandes del
+                    // producto en la página (Falabella-style — varias copias
+                    // sincronizadas pueden existir). Mismo enfoque que el
+                    // ecommerce tenant.
                     if (v.image_url) {
-                        var mainImg = document.querySelector('#mpGalleryMain, .mp-gallery img');
-                        if (mainImg) mainImg.src = v.image_url;
+                        var imgs = Array.from(document.querySelectorAll('img')).filter(function (i) {
+                            return i.src && i.src.indexOf('/uploads/items/') !== -1
+                                && i.offsetWidth >= 200;
+                        });
+                        if (!imgs.length) {
+                            var fallback = document.querySelector('#mpGalleryMain, .mp-gallery img');
+                            if (fallback) imgs = [fallback];
+                        }
+                        imgs.forEach(function (img) {
+                            img.style.transition = 'opacity .15s ease';
+                            img.style.opacity = '0';
+                            setTimeout(function () {
+                                img.src = v.image_url;
+                                if (img.dataset.zoomImage !== undefined) img.dataset.zoomImage = v.image_url;
+                                img.style.opacity = '1';
+                            }, 120);
+                        });
                     }
                     // Botón Comprar — habilitar/deshabilitar por stock
                     var cartBtn = document.getElementById('mpAddToCartBtn');
@@ -506,6 +524,58 @@
                 refreshAvailability();
                 var initial = findCurrentVariant();
                 applyVariant(initial);
+
+                // ── Thumbs clickeables ──────────────────────────────────────
+                // Cualquier <img> dentro de .mp-gallery-thumb se vuelve clickeable
+                // y al click cambia la imagen principal. Útil cuando el producto
+                // tiene galería múltiple (item_images).
+                document.querySelectorAll('.mp-gallery-thumb img, [class*="thumb"] img').forEach(function (t) {
+                    if (t.id === 'mpGalleryMain' || t.dataset.mpBound) return;
+                    t.dataset.mpBound = '1';
+                    t.style.cursor = 'pointer';
+                    t.addEventListener('click', function (e) {
+                        e.preventDefault();
+                        var url = t.dataset.fullImage || t.src;
+                        var imgs = Array.from(document.querySelectorAll('img')).filter(function (i) {
+                            return i.src && i.src.indexOf('/uploads/items/') !== -1 && i.offsetWidth >= 200;
+                        });
+                        imgs.forEach(function (img) { img.src = url; });
+                        // Marcar thumb activa
+                        document.querySelectorAll('.mp-gallery-thumb').forEach(function (b) {
+                            b.classList.remove('is-active');
+                        });
+                        var btn = t.closest('.mp-gallery-thumb');
+                        if (btn) btn.classList.add('is-active');
+                    });
+                });
+
+                // ── Zoom hover sobre imagen principal ───────────────────────
+                // Solo aplica si NO hay zoom nativo (heurística por texto).
+                var bodyText = (document.body.innerText || '').toLowerCase();
+                var hasNativeZoom = bodyText.indexOf('pasa el mouse para hacer zoom') !== -1
+                    || bodyText.indexOf('ampliar imagen') !== -1;
+                if (!hasNativeZoom) {
+                    var mainImg = document.getElementById('mpGalleryMain');
+                    var container = mainImg && mainImg.parentElement;
+                    if (mainImg && container && !container.classList.contains('mp-zoom-wrap')) {
+                        container.classList.add('mp-zoom-wrap');
+                        container.style.overflow = 'hidden';
+                        container.addEventListener('mousemove', function (e) {
+                            var rect = container.getBoundingClientRect();
+                            var x = ((e.clientX - rect.left) / rect.width) * 100;
+                            var y = ((e.clientY - rect.top) / rect.height) * 100;
+                            mainImg.style.transformOrigin = x + '% ' + y + '%';
+                        });
+                        container.addEventListener('mouseenter', function () {
+                            mainImg.style.transition = 'transform .2s ease';
+                            mainImg.style.transform = 'scale(1.8)';
+                            mainImg.style.cursor = 'zoom-in';
+                        });
+                        container.addEventListener('mouseleave', function () {
+                            mainImg.style.transform = 'scale(1)';
+                        });
+                    }
+                }
 
                 // Exponer al script existente del botón Comprar (que ya leía
                 // `variant_id` desde un input radio). Mantenemos compatibilidad:
