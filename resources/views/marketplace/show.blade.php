@@ -50,6 +50,28 @@
             'worstRating' => '1',
         ];
     }
+    // Emit individual Review items (hasta 10) — Google los usa para enriquecer
+    // el snippet con citas textuales y estrellas individuales en SERP.
+    if (isset($reviews) && $reviews->isNotEmpty()) {
+        $product['review'] = $reviews->take(10)->map(function ($r) use ($listing) {
+            $rev = [
+                '@type'         => 'Review',
+                'reviewRating'  => [
+                    '@type'       => 'Rating',
+                    'ratingValue' => (string) $r->rating,
+                    'bestRating'  => '5',
+                    'worstRating' => '1',
+                ],
+                'author'        => [
+                    '@type' => 'Person',
+                    'name'  => $r->customer_name ?: 'Cliente verificado',
+                ],
+                'datePublished' => optional($r->created_at)->toIso8601String(),
+            ];
+            if ($r->comment) $rev['reviewBody'] = mb_substr(strip_tags($r->comment), 0, 500);
+            return $rev;
+        })->values()->all();
+    }
 
     $breadcrumbItems = [
         ['@type' => 'ListItem', 'position' => 1, 'name' => 'Marketplace', 'item' => $bcIndexUrl],
@@ -872,6 +894,11 @@
                     <div class="mp-review-head">
                         <div>
                             <strong>{{ $review->customer_name }}</strong>
+                            @if(!empty($review->is_verified_buyer))
+                                <span class="mp-review-verified" title="El autor de esta review compró este producto a través de ebaemy.com">
+                                    ✓ Compra verificada
+                                </span>
+                            @endif
                             <small style="color:var(--mp-muted);margin-left:8px">{{ $review->created_at->diffForHumans() }}</small>
                         </div>
                         <span class="mp-stars mp-stars--sm">

@@ -485,6 +485,29 @@ class MarketplaceController extends Controller
             ->limit(20)
             ->get();
 
+        // Verificar compras: marcar cada review con is_verified_buyer si el
+        // email del autor aparece en una orden marketplace de este listing.
+        // Optimización: una sola query con los emails únicos del batch.
+        if ($reviews->isNotEmpty()) {
+            $emails = $reviews->pluck('customer_email')->filter()->unique()->values()->all();
+            $verifiedEmails = collect();
+            if (!empty($emails)) {
+                $verifiedEmails = \DB::connection('system')
+                    ->table('marketplace_order_items as moi')
+                    ->join('marketplace_orders as mo', 'mo.id', '=', 'moi.marketplace_order_id')
+                    ->where('moi.listing_id', $listing->id)
+                    ->whereIn('mo.customer_email', $emails)
+                    ->whereIn('mo.payment_status', ['paid', 'unpaid']) // unpaid permite pre-MP / legacy
+                    ->pluck('mo.customer_email')
+                    ->map(fn($e) => mb_strtolower(trim((string) $e)))
+                    ->unique();
+            }
+            foreach ($reviews as $r) {
+                $emailLower = $r->customer_email ? mb_strtolower(trim($r->customer_email)) : null;
+                $r->is_verified_buyer = $emailLower && $verifiedEmails->contains($emailLower);
+            }
+        }
+
         // Breadcrumb oficial si el listing tiene FK
         $officialBreadcrumb = null;
         $officialCategoryUrl = null;
