@@ -1185,6 +1185,13 @@ if ($hostname) {
              ->middleware('throttle:30,1')->name('marketplace.checkout');
         Route::post('marketplace/checkout',        'MarketplaceCheckoutController@store')
              ->middleware('throttle:6,1')->name('marketplace.checkout.store');
+        // Validación AJAX de cupones por tienda — el cliente ingresa código,
+        // el endpoint switchea al tenant correspondiente y corre PromotionEngine
+        // en preview (commit=false) para retornar el descuento aplicable sin
+        // alterar los contadores. Throttle agresivo para evitar fuerza bruta
+        // de códigos.
+        Route::post('marketplace/checkout/coupon', 'MarketplaceCheckoutController@validateCoupon')
+             ->middleware('throttle:20,1')->name('marketplace.checkout.coupon');
         Route::get('marketplace/order/{number}',   'MarketplaceCheckoutController@confirmation')
              ->middleware('throttle:30,1')
              ->where('number', 'MP-[A-Z0-9\-]+')->name('marketplace.order.confirmation');

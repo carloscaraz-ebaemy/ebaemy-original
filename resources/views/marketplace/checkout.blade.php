@@ -178,7 +178,7 @@
             <h3>📋 Resumen del pedido</h3>
 
             @foreach($stores as $store)
-                <div class="mp-co-store-block">
+                <div class="mp-co-store-block" data-store-block data-hostname-id="{{ $store['hostname_id'] }}" data-subtotal="{{ $store['subtotal'] }}">
                     <div class="name">{{ $store['tenant_name'] }}</div>
                     <div class="meta">{{ $store['item_count'] }} {{ $store['item_count'] === 1 ? 'unidad' : 'unidades' }} · S/ {{ number_format($store['subtotal'], 2) }}</div>
                     @foreach($store['items'] as $line)
@@ -187,14 +187,38 @@
                             <span class="price">S/ {{ number_format($line['price'] * $line['quantity'], 2) }}</span>
                         </div>
                     @endforeach
+
+                    {{-- Cupón por tienda: cada seller administra sus propios cupones
+                         en el panel del tenant. AJAX valida el código contra ese
+                         tenant específico vía /marketplace/checkout/coupon. --}}
+                    <div class="mp-co-coupon">
+                        <div class="mp-co-coupon__input-row">
+                            <input type="text"
+                                   class="mp-co-coupon__input"
+                                   placeholder="Cupón de descuento"
+                                   maxlength="60"
+                                   data-coupon-input
+                                   autocomplete="off">
+                            <button type="button" class="mp-co-coupon__btn" data-coupon-btn>
+                                Aplicar
+                            </button>
+                        </div>
+                        <div class="mp-co-coupon__msg" data-coupon-msg></div>
+                        <input type="hidden" name="coupons[{{ $store['hostname_id'] }}]" data-coupon-hidden value="">
+                    </div>
                 </div>
             @endforeach
 
             <div class="mp-co-totals">
                 <div class="mp-co-line"><span>Productos</span><span>{{ $summary['count'] }}</span></div>
                 <div class="mp-co-line"><span>Tiendas</span><span>{{ $stores->count() }}</span></div>
+                <div class="mp-co-line"><span>Subtotal</span><span data-summary-subtotal>S/ {{ number_format($summary['total'], 2) }}</span></div>
+                <div class="mp-co-line mp-co-line--discount" data-summary-discount-row style="display:none">
+                    <span>Descuento (cupones)</span>
+                    <span data-summary-discount style="color:#16a34a;font-weight:700">-S/ 0.00</span>
+                </div>
                 <div class="mp-co-line"><span>Envío</span><span style="color:#6b7280">A coordinar con cada tienda</span></div>
-                <div class="total"><span><strong>Total</strong></span><span class="v">S/ {{ number_format($summary['total'], 2) }}</span></div>
+                <div class="total"><span><strong>Total</strong></span><span class="v" data-summary-total>S/ {{ number_format($summary['total'], 2) }}</span></div>
             </div>
 
             <button type="submit" class="mp-co-submit">Confirmar pedido →</button>
@@ -205,5 +229,139 @@
         </aside>
     </div>
 </form>
+
+@push('styles')
+<style>
+.mp-co-coupon { margin-top: 10px; padding-top: 10px; border-top: 1px dashed #e5e7eb; }
+.mp-co-coupon__input-row { display: flex; gap: 6px; }
+.mp-co-coupon__input {
+    flex: 1;
+    min-width: 0;
+    padding: 7px 10px;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    font-size: 13px;
+    text-transform: uppercase;
+}
+.mp-co-coupon__input:focus { border-color: #3b82f6; outline: 0; }
+.mp-co-coupon__btn {
+    padding: 7px 14px;
+    background: #1f2937;
+    color: #fff;
+    border: 0;
+    border-radius: 6px;
+    font-size: 12.5px;
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background .12s;
+}
+.mp-co-coupon__btn:hover { background: #111827; }
+.mp-co-coupon__btn:disabled { background: #9ca3af; cursor: not-allowed; }
+.mp-co-coupon__btn.is-applied { background: #16a34a; }
+.mp-co-coupon__msg {
+    font-size: 11.5px;
+    margin-top: 5px;
+    min-height: 14px;
+}
+.mp-co-coupon__msg.is-ok    { color: #16a34a; font-weight: 600; }
+.mp-co-coupon__msg.is-error { color: #b91c1c; font-weight: 500; }
+.mp-co-line--discount { color: #166534; }
+</style>
+@endpush
+
+@push('scripts')
+<script>
+(function(){
+    const VALIDATE_URL = @json(route('marketplace.checkout.coupon'));
+    const CSRF = document.querySelector('meta[name="csrf-token"]')?.content || '';
+
+    // Trackea descuento por tienda para recalcular total: { hostnameId: discount }
+    const appliedDiscounts = {};
+
+    function recalcSummary() {
+        const subtotalEl = document.querySelector('[data-summary-subtotal]');
+        const totalEl    = document.querySelector('[data-summary-total]');
+        const discRow    = document.querySelector('[data-summary-discount-row]');
+        const discEl     = document.querySelector('[data-summary-discount]');
+        if (!subtotalEl || !totalEl) return;
+
+        let subtotal = 0;
+        document.querySelectorAll('[data-store-block]').forEach(el => {
+            subtotal += parseFloat(el.dataset.subtotal || 0);
+        });
+        const discount = Object.values(appliedDiscounts).reduce((a, b) => a + b, 0);
+        const total = Math.max(0, subtotal - discount);
+
+        const fmt = n => 'S/ ' + n.toFixed(2);
+        subtotalEl.textContent = fmt(subtotal);
+        if (discount > 0) {
+            discRow.style.display = '';
+            discEl.textContent = '-' + fmt(discount);
+        } else {
+            discRow.style.display = 'none';
+        }
+        totalEl.textContent = fmt(total);
+    }
+
+    document.querySelectorAll('[data-store-block]').forEach(block => {
+        const hostnameId = block.dataset.hostnameId;
+        const input  = block.querySelector('[data-coupon-input]');
+        const btn    = block.querySelector('[data-coupon-btn]');
+        const msg    = block.querySelector('[data-coupon-msg]');
+        const hidden = block.querySelector('[data-coupon-hidden]');
+
+        async function apply() {
+            const code = (input.value || '').trim().toUpperCase();
+            if (!code) {
+                msg.textContent = 'Ingresa un código.';
+                msg.className = 'mp-co-coupon__msg is-error';
+                return;
+            }
+            btn.disabled = true;
+            btn.textContent = 'Validando…';
+            msg.textContent = '';
+            try {
+                const res = await fetch(VALIDATE_URL, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json',
+                        'X-CSRF-TOKEN': CSRF,
+                    },
+                    body: JSON.stringify({ hostname_id: hostnameId, code }),
+                });
+                const data = await res.json();
+                if (res.ok && data.success) {
+                    msg.textContent = '✓ ' + data.message;
+                    msg.className = 'mp-co-coupon__msg is-ok';
+                    btn.textContent = 'Aplicado ✓';
+                    btn.classList.add('is-applied');
+                    input.readOnly = true;
+                    hidden.value = data.code;
+                    appliedDiscounts[hostnameId] = parseFloat(data.discount || 0);
+                    recalcSummary();
+                } else {
+                    msg.textContent = data.message || 'No se pudo validar el cupón.';
+                    msg.className = 'mp-co-coupon__msg is-error';
+                    btn.textContent = 'Aplicar';
+                    btn.disabled = false;
+                }
+            } catch (e) {
+                msg.textContent = 'Error de red. Intenta de nuevo.';
+                msg.className = 'mp-co-coupon__msg is-error';
+                btn.textContent = 'Aplicar';
+                btn.disabled = false;
+            }
+        }
+
+        btn.addEventListener('click', apply);
+        input.addEventListener('keydown', e => {
+            if (e.key === 'Enter') { e.preventDefault(); apply(); }
+        });
+    });
+})();
+</script>
+@endpush
 
 @endsection

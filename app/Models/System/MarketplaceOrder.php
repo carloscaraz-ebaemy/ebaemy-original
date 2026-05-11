@@ -31,6 +31,7 @@ class MarketplaceOrder extends Model
         'delivery_district',
         'delivery_notes',
         'subtotal',
+        'discount_total',
         'total',
         'items_count',
         'stores_count',
@@ -51,6 +52,7 @@ class MarketplaceOrder extends Model
 
     protected $casts = [
         'subtotal'             => 'float',
+        'discount_total'       => 'float',
         'total'                => 'float',
         'items_count'          => 'integer',
         'stores_count'         => 'integer',

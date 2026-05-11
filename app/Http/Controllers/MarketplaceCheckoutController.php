@@ -35,6 +35,117 @@ class MarketplaceCheckoutController extends Controller
         return view('marketplace.checkout', compact('stores', 'summary'));
     }
 
+    /**
+     * Validar un cupón contra una tienda específica del cart.
+     * El cliente envía { hostname_id, code }. Hacemos switch al tenant,
+     * construimos el cart de esa tienda y corremos PromotionEngine en
+     * preview (sin alterar contadores). Si el cupón es válido devolvemos
+     * el descuento aplicable; si no, mensaje de error.
+     *
+     * Throttle: 20/min vía ruta (evita brute force de códigos).
+     */
+    public function validateCoupon(Request $request)
+    {
+        $data = $request->validate([
+            'hostname_id' => 'required|integer',
+            'code'        => 'required|string|max:60',
+        ]);
+
+        $code = strtoupper(trim($data['code']));
+        $hostnameId = (int) $data['hostname_id'];
+
+        // Buscar la tienda del cart
+        $this->cart->refresh();
+        $store = $this->cart->groupedByStore()->firstWhere('hostname_id', $hostnameId);
+        if (!$store) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Esta tienda ya no está en tu carrito.',
+            ], 422);
+        }
+
+        // Resolver el tenant Website desde hostname_id
+        $hostname = \Hyn\Tenancy\Models\Hostname::find($hostnameId);
+        if (!$hostname || !$hostname->website) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Tienda no encontrada.',
+            ], 404);
+        }
+
+        // Cart preview: armar el array de items para PromotionEngine en el
+        // formato que espera (item_id, sale_unit_price, quantity, is_set,
+        // etc.). El subtotal es la suma simple del store en sesión.
+        $cartLines = collect($store['items'])->map(function ($line) {
+            return [
+                'item_id'         => (int) ($line['remote_item_id'] ?? 0),
+                'sale_unit_price' => (float) $line['price'],
+                'quantity'        => (int) $line['quantity'],
+                'is_set'          => false,
+            ];
+        })->all();
+        $subtotal = (float) $store['subtotal'];
+
+        $tenancy = app(\Hyn\Tenancy\Environment::class);
+        $originalTenant = $tenancy->tenant();
+
+        try {
+            $tenancy->tenant($hostname->website);
+
+            // Verificar que el cupón exista en el tenant (mensaje más útil
+            // que el genérico de PromotionEngine cuando el código no existe)
+            $coupon = \App\Models\Tenant\Coupon::query()
+                ->where('code', $code)
+                ->where('active', true)
+                ->first();
+            if (!$coupon) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Cupón no válido para esta tienda.',
+                ], 422);
+            }
+
+            $result = \App\Services\Tenant\PromotionEngine::make($cartLines, $subtotal)
+                ->withCoupon($code)
+                ->withChannel(null, 'marketplace')
+                ->calculate(false);
+
+            $discount = (float) ($result['total_discount'] ?? 0);
+            if ($discount <= 0) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'El cupón no aplica para los productos en tu carrito.',
+                ], 422);
+            }
+
+            return response()->json([
+                'success'        => true,
+                'code'           => $code,
+                'discount'       => round($discount, 2),
+                'final_total'    => round(max(0, $subtotal - $discount), 2),
+                'original_total' => round($subtotal, 2),
+                'message'        => 'Cupón aplicado: -S/ ' . number_format($discount, 2),
+            ]);
+        } catch (\InvalidArgumentException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage(),
+            ], 422);
+        } catch (\Throwable $e) {
+            \Log::warning('[MarketplaceCheckout::validateCoupon] failed', [
+                'hostname_id' => $hostnameId,
+                'code'        => $code,
+                'error'       => $e->getMessage(),
+            ]);
+            return response()->json([
+                'success' => false,
+                'message' => 'No se pudo validar el cupón. Intenta de nuevo.',
+            ], 500);
+        } finally {
+            $tenancy->tenant($originalTenant ?: null);
+        }
+    }
+
     public function store(Request $request)
     {
         // Honeypot: si rellenan `website` es bot.
@@ -55,6 +166,10 @@ class MarketplaceCheckoutController extends Controller
             'delivery_notes'       => 'nullable|string|max:1000',
             'accepts_marketing'    => 'nullable|boolean',
             'website'              => 'nullable|string',
+            // Cupones por tienda: { hostname_id => code }. La key es el id
+            // numérico del hostname, value el código (el server lo revalida).
+            'coupons'              => 'nullable|array',
+            'coupons.*'            => 'nullable|string|max:60',
         ]);
 
         // Captura opt-in marketing — sólo si el comprador marcó el checkbox.

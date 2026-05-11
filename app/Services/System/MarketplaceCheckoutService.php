@@ -46,6 +46,67 @@ class MarketplaceCheckoutService
     }
 
     /**
+     * Para cada tienda del cart, valida el cupón provisto (si hay) contra
+     * el tenant correspondiente vía PromotionEngine en modo preview (sin
+     * incrementar contadores). Devuelve un array {hostname_id => {code,
+     * discount}} con los cupones aplicables.
+     *
+     * Re-valida server-side aunque el AJAX ya haya devuelto OK — el cliente
+     * puede manipular el form, así que no podemos confiar.
+     */
+    private function resolveCouponsForStores($stores, array $couponsInput): array
+    {
+        $resolved = [];
+        if (empty($couponsInput)) return $resolved;
+
+        $tenancy = app(\Hyn\Tenancy\Environment::class);
+        $originalTenant = $tenancy->tenant();
+
+        foreach ($stores as $store) {
+            $hostId = $store['hostname_id'];
+            $code = trim((string) ($couponsInput[$hostId] ?? ''));
+            if ($code === '') continue;
+            $code = strtoupper($code);
+
+            $hostname = \Hyn\Tenancy\Models\Hostname::find($hostId);
+            if (!$hostname || !$hostname->website) continue;
+
+            try {
+                $tenancy->tenant($hostname->website);
+
+                $cartLines = collect($store['items'])->map(function ($line) {
+                    return [
+                        'item_id'         => (int) ($line['remote_item_id'] ?? 0),
+                        'sale_unit_price' => (float) $line['price'],
+                        'quantity'        => (int) $line['quantity'],
+                        'is_set'          => false,
+                    ];
+                })->all();
+
+                $result = \App\Services\Tenant\PromotionEngine::make($cartLines, (float) $store['subtotal'])
+                    ->withCoupon($code)
+                    ->withChannel(null, 'marketplace')
+                    ->calculate(false);
+
+                $discount = (float) ($result['total_discount'] ?? 0);
+                if ($discount > 0) {
+                    $resolved[$hostId] = ['code' => $code, 'discount' => $discount];
+                }
+            } catch (\Throwable $e) {
+                Log::warning('[MarketplaceCheckout] coupon validation failed', [
+                    'hostname_id' => $hostId,
+                    'code' => $code,
+                    'error' => $e->getMessage(),
+                ]);
+                // Silenciamos: si falla la validación, el cupón simplemente no aplica
+            }
+        }
+
+        $tenancy->tenant($originalTenant ?: null);
+        return $resolved;
+    }
+
+    /**
      * Crea el pedido + subpedidos + dispara dispatch.
      *
      * @param array $customer  keys: name, doc_type, doc_number, phone, email,
@@ -64,10 +125,17 @@ class MarketplaceCheckoutService
             return ['success' => false, 'errors' => ['Tu carrito está vacío.']];
         }
 
+        // Cupones enviados en el form: { hostname_id => code }. Los re-validamos
+        // server-side antes de guardar (no confiar en lo que mostró el AJAX).
+        // Resultado por tienda: { hostname_id => ['code', 'discount'] }.
+        $couponsInput = (array) ($request?->input('coupons') ?? []);
+        $couponsResolved = $this->resolveCouponsForStores($stores, $couponsInput);
+
         try {
-            $order = DB::connection('system')->transaction(function () use ($customer, $stores, $request) {
-                $totalAll = 0.0;
-                $itemsAll = 0;
+            $order = DB::connection('system')->transaction(function () use ($customer, $stores, $request, $couponsResolved) {
+                $totalAll      = 0.0;
+                $itemsAll      = 0;
+                $discountTotal = 0.0;
 
                 $order = MarketplaceOrder::create([
                     'order_number'         => MarketplaceOrder::generateOrderNumber(),
@@ -121,11 +189,19 @@ class MarketplaceCheckoutService
                         ]);
                     }
 
+                    // Aplicar cupón si aplica a esta tienda
+                    $couponData = $couponsResolved[$store['hostname_id']] ?? null;
+                    $storeDiscount = (float) ($couponData['discount'] ?? 0);
+                    if ($storeDiscount > $storeSubtotal) $storeDiscount = $storeSubtotal;
+                    $discountTotal += $storeDiscount;
+
                     TenantMarketplaceOrder::create([
                         'marketplace_order_id' => $order->id,
                         'hostname_id'          => $store['hostname_id'],
                         'tenant_fqdn'          => $store['tenant_fqdn'],
                         'subtotal'             => round($storeSubtotal, 2),
+                        'coupon_code'          => $couponData['code'] ?? null,
+                        'discount_amount'      => round($storeDiscount, 2),
                         'item_count'           => $storeCount,
                         'status'               => TenantMarketplaceOrder::STATUS_PENDING,
                         'retry_count'          => 0,
@@ -133,9 +209,10 @@ class MarketplaceCheckoutService
                 }
 
                 $order->update([
-                    'subtotal'    => round($totalAll, 2),
-                    'total'       => round($totalAll, 2),
-                    'items_count' => $itemsAll,
+                    'subtotal'       => round($totalAll, 2),
+                    'discount_total' => round($discountTotal, 2),
+                    'total'          => round(max(0, $totalAll - $discountTotal), 2),
+                    'items_count'    => $itemsAll,
                 ]);
 
                 return $order;
