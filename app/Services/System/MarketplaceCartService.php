@@ -255,8 +255,19 @@ class MarketplaceCartService
                 $errors[] = "El producto '{$line['title']}' ya no está disponible.";
                 continue;
             }
-            if ((int) $listing->stock < (int) $line['quantity']) {
-                $errors[] = "Stock insuficiente para '{$line['title']}': quedan {$listing->stock}.";
+            // Packs: el stock real es min(componente.stock / qty_en_pack), que
+            // ya está precomputado en pack_stock por MarketplaceListingSyncService.
+            // listing.stock para packs equivale a pack_stock — el chequeo abajo
+            // basta, pero el mensaje queda más claro si distinguimos.
+            $available = (int) $listing->stock;
+            if ($available < (int) $line['quantity']) {
+                if (!empty($listing->is_pack)) {
+                    $errors[] = $available === 0
+                        ? "El pack '{$line['title']}' no se puede armar ahora: falta stock de algún componente."
+                        : "Solo se pueden armar {$available} pack(s) de '{$line['title']}' con el stock actual de los componentes.";
+                } else {
+                    $errors[] = "Stock insuficiente para '{$line['title']}': quedan {$available}.";
+                }
             }
         }
 
