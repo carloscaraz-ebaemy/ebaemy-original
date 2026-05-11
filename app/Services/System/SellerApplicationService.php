@@ -1405,11 +1405,11 @@ class SellerApplicationService
             'contact_email'       => $application->email,
             'certificate_name'    => null,   // el seller sube certificado luego
             'soap_type_id'        => '01',   // default: sistema (sin PSE todavía)
-            'soap_send_id'        => null,
+            'soap_send_id'        => '01',   // companies.soap_send_id es NOT NULL en tenant
             'soap_username'       => null,
             'soap_password'       => null,
             'soap_url'            => null,
-            'config_system_env'   => null,
+            'config_system_env'   => true,   // mismo default que GuestRegisterTrait
             // Reusar el hash que el seller generó al registrarse —
             // TenantCreationService detecta password_hash y lo inserta
             // directo sin re-hashear (ver doc del service).
