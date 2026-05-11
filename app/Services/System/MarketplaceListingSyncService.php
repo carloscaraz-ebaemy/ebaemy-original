@@ -136,6 +136,33 @@ class MarketplaceListingSyncService
             ? 'https://' . $fqdn . '/storage/uploads/items/' . $secondImageFile
             : null;
 
+        // Galería completa (hasta 5 fotos) para slideshow al hover en cards.
+        // Tomamos TODAS las item_images, las prefijamos con el FQDN del tenant.
+        $galleryFiles = DB::connection('tenant')->table('item_images')
+            ->where('item_id', $item->id)
+            ->whereNotNull('image')
+            ->where('image', '!=', '')
+            ->orderBy('id')
+            ->limit(5)
+            ->pluck('image');
+
+        $galleryImageUrls = $galleryFiles
+            ->map(fn($f) => 'https://' . $fqdn . '/storage/uploads/items/' . $f)
+            ->values()
+            ->all();
+        // Incluimos también la principal al inicio para que el slideshow
+        // empiece desde ella y rote hacia las extras.
+        if ($item->image) {
+            array_unshift(
+                $galleryImageUrls,
+                'https://' . $fqdn . '/storage/uploads/items/' . \App\Services\Tenant\ImageProcessingService::variantFilename($item->image, '_mp')
+            );
+        }
+        // Deduplica preservando orden + descarta nulls/vacíos
+        $galleryImageUrls = array_values(array_unique(array_filter($galleryImageUrls)));
+        // Solo guardamos si hay 2+ imágenes (sin galería no tiene sentido el slideshow)
+        $galleryImageUrls = count($galleryImageUrls) >= 2 ? $galleryImageUrls : null;
+
         $categoryName = null;
         if (!empty($item->category_id)) {
             $categoryName = DB::connection('tenant')->table('categories')
@@ -177,6 +204,7 @@ class MarketplaceListingSyncService
             'description'       => $item->mp_notes ?? null,
             'image_url'         => $imageUrl,
             'secondary_image_url' => $secondaryImageUrl,
+            'gallery_image_urls'  => $galleryImageUrls,
             'category_name'     => $categoryName,
             'marketplace_category_id' => $item->marketplace_category_id ?? null,
             'brand_name'        => $brandName,

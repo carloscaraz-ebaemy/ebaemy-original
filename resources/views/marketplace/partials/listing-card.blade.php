@@ -23,7 +23,10 @@
     // Imagen principal: variante is_primary si existe, fallback a la del padre.
     $cardPrimaryImg = $listing->primary_image_url ?? $listing->image_url;
 @endphp
-<a href="{{ route('marketplace.item', $listing->slug) }}" class="mp-card">
+<a href="{{ route('marketplace.item', $listing->slug) }}" class="mp-card"
+   @if(!empty($listing->gallery_image_urls) && count($listing->gallery_image_urls) >= 2)
+       data-gallery="{{ json_encode($listing->gallery_image_urls) }}"
+   @endif>
     <div class="mp-card-img" data-has-secondary="{{ $listing->secondary_image_url ? '1' : '0' }}">
         @if($cardPrimaryImg)
             <img class="mp-card-img-primary" src="{{ $cardPrimaryImg }}" alt="{{ $listing->title }}" loading="lazy">

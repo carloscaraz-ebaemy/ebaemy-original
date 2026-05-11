@@ -31,6 +31,7 @@ class MarketplaceListing extends Model
         'description',
         'image_url',
         'secondary_image_url',
+        'gallery_image_urls',
         'category_name',
         'marketplace_category_id',
         'brand_name',
@@ -66,11 +67,12 @@ class MarketplaceListing extends Model
     ];
 
     protected $casts = [
-        'is_active'       => 'boolean',
-        'tenant_verified' => 'boolean',
-        'is_featured'     => 'boolean',
-        'is_on_offer'     => 'boolean',
-        'has_variants'    => 'boolean',
+        'is_active'         => 'boolean',
+        'tenant_verified'   => 'boolean',
+        'is_featured'       => 'boolean',
+        'is_on_offer'       => 'boolean',
+        'has_variants'      => 'boolean',
+        'gallery_image_urls'=> 'array',
         'price'           => 'float',
         'mp_price'        => 'float',
         'original_price'  => 'float',
