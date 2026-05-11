@@ -94,8 +94,42 @@ class MarketplaceAdminController extends Controller
             ]);
         }
 
+        // Revenue por tenant (top 5) — para doughnut chart
+        $revenueByTenant = \DB::connection('system')->table('tenant_marketplace_orders as tmo')
+            ->join('hostnames as h', 'h.id', '=', 'tmo.hostname_id')
+            ->selectRaw('h.fqdn as tenant_fqdn, COALESCE(SUM(tmo.subtotal - tmo.discount_amount), 0) as revenue')
+            ->groupBy('h.fqdn')
+            ->orderByDesc('revenue')
+            ->limit(5)
+            ->get();
+
+        // Distribución de listings por estado
+        $listingsByStatus = MarketplaceListing::selectRaw('status, COUNT(*) as cnt')
+            ->groupBy('status')
+            ->orderByDesc('cnt')
+            ->get();
+
+        // Top categorías oficiales — qué taxonomía tiene más productos
+        $topCategories = \DB::connection('system')->table('marketplace_listings as ml')
+            ->join('marketplace_categories as mc', 'mc.id', '=', 'ml.marketplace_category_id')
+            ->where('ml.is_active', true)
+            ->selectRaw('mc.name, COUNT(*) as cnt, SUM(ml.view_count) as views, SUM(ml.click_count) as clicks')
+            ->groupBy('mc.id', 'mc.name')
+            ->orderByDesc('cnt')
+            ->limit(8)
+            ->get();
+
+        // Funnel global de conversión
+        $funnel = [
+            ['stage' => 'Vistas',  'value' => $stats['views_total'],  'rate' => 100],
+            ['stage' => 'Clicks',  'value' => $stats['clicks_total'], 'rate' => $stats['views_total']  > 0 ? round($stats['clicks_total'] / $stats['views_total'] * 100, 2) : 0],
+            ['stage' => 'Leads',   'value' => $stats['leads_total'],  'rate' => $stats['views_total']  > 0 ? round($stats['leads_total']  / $stats['views_total'] * 100, 2) : 0],
+            ['stage' => 'Pedidos', 'value' => $stats['orders_total'], 'rate' => $stats['views_total']  > 0 ? round($stats['orders_total'] / $stats['views_total'] * 100, 2) : 0],
+        ];
+
         return view('system.marketplace.dashboard', compact(
-            'stats', 'topTenants', 'topListings', 'leadsByDay', 'dailySeries'
+            'stats', 'topTenants', 'topListings', 'leadsByDay', 'dailySeries',
+            'revenueByTenant', 'listingsByStatus', 'topCategories', 'funnel'
         ));
     }
 
