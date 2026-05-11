@@ -205,6 +205,11 @@ class MarketplaceListingSyncService
             ? $this->emptyOfferInfo()
             : $this->resolveOfferInfo($item, (float) ($item->sale_unit_price ?? 0));
 
+        // Packs/conjuntos: si item.is_set=true, listamos componentes con
+        // cantidades. El stock real del pack es min(comp.stock / qty_in_pack)
+        // así no oversold cuando un componente se queda corto.
+        $packInfo = $this->resolvePackInfo($item, $fqdn);
+
         return [
             'hostname_id'       => $hostnameId,
             'tenant_fqdn'       => $fqdn,
@@ -246,7 +251,17 @@ class MarketplaceListingSyncService
             'min_price'         => $variantInfo['min_price'],
             'max_price'         => $variantInfo['max_price'],
 
-            'stock'             => max(0, (int) ($variantInfo['has_variants'] ? $variantInfo['stock'] : $stock)),
+            // ── Bloque PACKS ──
+            'is_pack'           => $packInfo['is_pack'],
+            'pack_contents'     => $packInfo['contents'],
+            'pack_stock'        => $packInfo['stock'],
+
+            // Stock final: packs usan su stock armable (limitado por componente),
+            // variantes la suma de variants, items normales el stock del warehouse.
+            'stock'             => max(0, (int) (
+                $packInfo['is_pack'] ? ($packInfo['stock'] ?? 0)
+                : ($variantInfo['has_variants'] ? $variantInfo['stock'] : $stock)
+            )),
             'status'            => $item->mp_status ?? 'active',
             'is_active'         => true,
             'synced_at'         => now(),
@@ -399,6 +414,73 @@ class MarketplaceListingSyncService
             'offer_ends_at'  => null,
             'discount_pct'   => null,
         ];
+    }
+
+    /**
+     * Si el item es un bundle (item.is_set=true), arma el detalle de
+     * componentes para el marketplace. Devuelve:
+     *   - is_pack: bool
+     *   - contents: array<{item_id, name, quantity, image_url}> o null
+     *   - stock: int max armable (limitado por componente) o null
+     *
+     * Si no es pack, devuelve flags vacíos. Idempotente y seguro: cualquier
+     * error queda silenciado y el item se sincroniza como no-pack.
+     */
+    private function resolvePackInfo(object $item, string $fqdn): array
+    {
+        $empty = ['is_pack' => false, 'contents' => null, 'stock' => null];
+
+        if (empty($item->is_set)) return $empty;
+
+        try {
+            // Join item_sets -> items (componentes) + item_warehouse (stock total)
+            $rows = DB::connection('tenant')->table('item_sets')
+                ->join('items', 'items.id', '=', 'item_sets.individual_item_id')
+                ->leftJoin('item_warehouse', 'item_warehouse.item_id', '=', 'items.id')
+                ->where('item_sets.item_id', $item->id)
+                ->selectRaw('
+                    items.id        AS comp_id,
+                    items.description AS comp_name,
+                    items.image     AS comp_image,
+                    item_sets.quantity AS qty_in_pack,
+                    COALESCE(SUM(item_warehouse.stock), 0) AS comp_stock
+                ')
+                ->groupBy('items.id', 'items.description', 'items.image', 'item_sets.quantity')
+                ->get();
+
+            if ($rows->isEmpty()) {
+                // is_set=true pero sin componentes: lo marcamos pack con stock=0
+                return ['is_pack' => true, 'contents' => [], 'stock' => 0];
+            }
+
+            $contents = [];
+            $minArmable = PHP_INT_MAX;
+
+            foreach ($rows as $r) {
+                $qty = max(1, (int) $r->qty_in_pack);
+                $compStock = max(0, (int) $r->comp_stock);
+                $armable = intdiv($compStock, $qty);
+                $minArmable = min($minArmable, $armable);
+
+                $contents[] = [
+                    'item_id'   => (int) $r->comp_id,
+                    'name'      => (string) $r->comp_name,
+                    'quantity'  => $qty,
+                    'image_url' => $r->comp_image
+                        ? 'https://' . $fqdn . '/storage/uploads/items/' . $r->comp_image
+                        : null,
+                ];
+            }
+
+            return [
+                'is_pack'  => true,
+                'contents' => $contents,
+                'stock'    => $minArmable === PHP_INT_MAX ? 0 : $minArmable,
+            ];
+        } catch (\Throwable $e) {
+            // Si algo falla (e.g. tabla item_sets no existe), no rompemos el sync
+            return $empty;
+        }
     }
 
     /**

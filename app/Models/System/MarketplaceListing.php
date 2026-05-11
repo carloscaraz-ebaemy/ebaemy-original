@@ -65,6 +65,13 @@ class MarketplaceListing extends Model
         'has_variants',
         'min_price',
         'max_price',
+        // Packs / conjuntos (bundles del tenant publicados como combos).
+        // is_pack=true cuando item.is_set=true en el tenant. pack_contents
+        // tiene el detalle desnormalizado para no tener que ir al tenant DB
+        // en cada render. pack_stock es el max armable = min(comp.stock/qty).
+        'is_pack',
+        'pack_contents',
+        'pack_stock',
     ];
 
     protected $casts = [
@@ -73,6 +80,9 @@ class MarketplaceListing extends Model
         'is_featured'       => 'boolean',
         'is_on_offer'       => 'boolean',
         'has_variants'      => 'boolean',
+        'is_pack'           => 'boolean',
+        'pack_contents'     => 'array',
+        'pack_stock'        => 'integer',
         'gallery_image_urls'=> 'array',
         'price'           => 'float',
         'mp_price'        => 'float',

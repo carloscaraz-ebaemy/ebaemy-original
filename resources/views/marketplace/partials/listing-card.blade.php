@@ -56,6 +56,16 @@
             @if(!empty($listing->is_on_offer) && !empty($listing->discount_pct))
                 <span class="mp-badge mp-badge--offer" title="En oferta">-{{ $listing->discount_pct }}%</span>
             @endif
+            @if(!empty($listing->is_pack))
+                @php
+                    $packCount = is_array($listing->pack_contents) ? count($listing->pack_contents) : 0;
+                @endphp
+                <span class="mp-badge mp-badge--pack"
+                      title="Combo de {{ $packCount }} producto{{ $packCount === 1 ? '' : 's' }}"
+                      style="background:#ede9fe;color:#5b21b6;border:1px solid #c4b5fd">
+                    📦 Pack{{ $packCount > 0 ? ' ×' . $packCount : '' }}
+                </span>
+            @endif
         </div>
     </div>
 

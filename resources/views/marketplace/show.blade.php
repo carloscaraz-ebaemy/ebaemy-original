@@ -779,6 +779,40 @@
             </div>
         </div>
 
+        {{-- Bloque "Qué incluye este pack" — solo cuando es bundle.
+             Renderiza la lista de componentes desde pack_contents JSON. --}}
+        @if(!empty($listing->is_pack) && is_array($listing->pack_contents) && count($listing->pack_contents))
+            <div class="mp-pack-block">
+                <div class="mp-pack-block__head">
+                    <span class="mp-pack-block__icon">📦</span>
+                    <div>
+                        <h3 class="mp-pack-block__title">¿Qué incluye este pack?</h3>
+                        <p class="mp-pack-block__hint">{{ count($listing->pack_contents) }} producto{{ count($listing->pack_contents) === 1 ? '' : 's' }} en este combo</p>
+                    </div>
+                </div>
+                <ul class="mp-pack-list">
+                    @foreach($listing->pack_contents as $comp)
+                        <li class="mp-pack-list__item">
+                            @if(!empty($comp['image_url']))
+                                <img class="mp-pack-list__thumb" src="{{ $comp['image_url'] }}" alt="{{ $comp['name'] ?? '' }}" loading="lazy">
+                            @else
+                                <div class="mp-pack-list__thumb mp-pack-list__thumb--empty">📦</div>
+                            @endif
+                            <div class="mp-pack-list__info">
+                                <span class="mp-pack-list__name">{{ $comp['name'] ?? '—' }}</span>
+                                <span class="mp-pack-list__qty">×{{ $comp['quantity'] ?? 1 }}</span>
+                            </div>
+                        </li>
+                    @endforeach
+                </ul>
+                @if(($listing->pack_stock ?? null) !== null && $listing->pack_stock <= 5 && $listing->pack_stock > 0)
+                    <div class="mp-pack-block__alert">
+                        ⚠️ Solo quedan <strong>{{ $listing->pack_stock }}</strong> pack{{ $listing->pack_stock === 1 ? '' : 's' }} disponibles.
+                    </div>
+                @endif
+            </div>
+        @endif
+
         @if($listing->description)
             @php
                 // Sanitización mínima: permite tags de formato (negrita, listas,
