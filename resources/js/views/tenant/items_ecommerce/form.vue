@@ -604,36 +604,32 @@
                                                 </span>
                                             </div>
 
-                                            <!-- Locked state: el producto aún no existe → no podemos crear ItemImages
-                                                 sin un item_id. Mostramos un card explicativo en lugar de un botón
-                                                 que daría error. -->
-                                            <div v-if="!recordId" class="ie-image-card__locked">
-                                                <div class="ie-image-card__locked-icon">🔒</div>
-                                                <div class="ie-image-card__locked-text">
-                                                    <strong>Guarda el producto primero</strong>
-                                                    <small>Luego podrás subir más fotos para la galería</small>
+                                            <!-- Grid unificado: muestra tanto las fotos ya guardadas en DB
+                                                 (galleryImages) como las que el seller acaba de subir antes
+                                                 de guardar el producto (form.multi_images vía form_images
+                                                 dialog). Los uploads en multi_images van a /items/upload-async
+                                                 y NO requieren item_id — se procesan en el create() del
+                                                 backend. Así el seller no espera "guarda primero". -->
+                                            <div class="ie-image-card__grid">
+                                                <div v-for="(img, i) in allGalleryImages" :key="img._key || i"
+                                                     class="ie-image-card__thumb"
+                                                     :class="{ 'is-pending': img._pending }"
+                                                     @click="openImages"
+                                                     :title="(img._pending ? 'Pendiente de guardar · ' : '') + 'Click para gestionar'">
+                                                    <img :src="img.url" :alt="'Foto ' + (i + 1)">
+                                                </div>
+                                                <div class="ie-image-card__add" @click="openImages"
+                                                     :title="allGalleryImages.length ? 'Agregar más fotos' : 'Agregar fotos'">
+                                                    <i class="el-icon-plus"></i>
+                                                    <span>{{ allGalleryImages.length ? 'Más' : 'Agregar' }}</span>
                                                 </div>
                                             </div>
-
-                                            <!-- Grid normal cuando el producto ya existe -->
-                                            <template v-else>
-                                                <div class="ie-image-card__grid">
-                                                    <div v-for="(img, i) in galleryImages" :key="img.id || i"
-                                                         class="ie-image-card__thumb"
-                                                         @click="openImages"
-                                                         :title="'Foto ' + (i + 1) + ' · click para gestionar'">
-                                                        <img :src="img.url" :alt="'Foto ' + (i + 1)">
-                                                    </div>
-                                                    <div class="ie-image-card__add" @click="openImages"
-                                                         :title="galleryImages.length ? 'Agregar más fotos' : 'Agregar fotos'">
-                                                        <i class="el-icon-plus"></i>
-                                                        <span>{{ galleryImages.length ? 'Más' : 'Agregar' }}</span>
-                                                    </div>
-                                                </div>
-                                                <small v-if="!galleryImages.length" class="ie-image-card__hint mt-1">
-                                                    Click "+ Agregar" para subir fotos adicionales.
-                                                </small>
-                                            </template>
+                                            <small v-if="!allGalleryImages.length" class="ie-image-card__hint mt-1">
+                                                Click "+ Agregar" para subir fotos adicionales.
+                                            </small>
+                                            <small v-else-if="hasPendingImages" class="ie-image-card__hint-pending mt-1">
+                                                ⏳ <strong>{{ pendingImagesCount }}</strong> foto<span v-if="pendingImagesCount > 1">s</span> pendiente<span v-if="pendingImagesCount > 1">s</span> de guardar
+                                            </small>
                                         </div>
 
                                     </div>
@@ -832,10 +828,15 @@
                                 </span>
                             </summary>
                             <div class="ie-collapse__content">
-                                <div v-if="!form.id" style="color:#6b7280;text-align:center;padding:24px 12px;background:#f9fafb;border:1px dashed #d1d5db;border-radius:10px">
+                                <div v-if="!form.id" style="color:#6b7280;text-align:center;padding:20px 12px;background:#f9fafb;border:1px dashed #d1d5db;border-radius:10px">
                                     <div style="font-size:32px;line-height:1;margin-bottom:8px">🎨</div>
-                                    <div style="font-weight:600;margin-bottom:4px">Guarda el producto primero</div>
-                                    <div style="font-size:12.5px">Luego podrás agregar combinaciones de color, talla, etc.</div>
+                                    <div style="font-weight:600;margin-bottom:4px;color:#374151">Las variantes necesitan el producto creado</div>
+                                    <div style="font-size:12.5px;margin-bottom:12px">Guardamos el producto ahora y desbloqueamos las variantes en este mismo formulario.</div>
+                                    <el-button type="primary" size="small" :loading="loading_submit"
+                                               @click="submit({ keepOpen: true })"
+                                               icon="el-icon-check">
+                                        Guardar y continuar con variantes
+                                    </el-button>
                                 </div>
                                 <variants-tab v-else
                                               :item-id="form.id"
@@ -1152,28 +1153,33 @@
 }
 .ie-image-card__add i { font-size: 16px; color: #3b82f6; }
 
-/* Locked state: producto sin guardar */
-.ie-image-card__locked {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 12px;
-    background: linear-gradient(135deg, #fef3c7 0%, #fffbeb 100%);
-    border: 1px dashed #fcd34d;
-    border-radius: 8px;
+/* Thumb pendiente de guardar (subido via upload-async pero el item aún no se guardó) */
+.ie-image-card__thumb.is-pending {
+    border: 2px dashed #f59e0b;
+    background: #fffbeb;
+    position: relative;
 }
-.ie-image-card__locked-icon { font-size: 22px; line-height: 1; }
-.ie-image-card__locked-text { display: flex; flex-direction: column; gap: 2px; }
-.ie-image-card__locked-text strong {
-    font-size: 12px;
-    color: #78350f;
-    font-weight: 700;
+.ie-image-card__thumb.is-pending::after {
+    content: '⏳';
+    position: absolute;
+    top: 2px;
+    right: 2px;
+    font-size: 11px;
+    background: rgba(255,255,255,.9);
+    border-radius: 999px;
+    padding: 1px 4px;
+    line-height: 1;
 }
-.ie-image-card__locked-text small {
-    font-size: 10.5px;
+.ie-image-card__hint-pending {
+    font-size: 11px;
     color: #92400e;
-    line-height: 1.3;
+    background: #fffbeb;
+    border: 1px solid #fcd34d;
+    border-radius: 6px;
+    padding: 4px 8px;
+    display: inline-block;
 }
+.ie-image-card__hint-pending strong { color: #78350f; }
 
 /* ─────── Sección colapsable (Imagen y categorización) ─────── */
 .mp-form-section--collapsible {
@@ -1410,6 +1416,29 @@ export default {
         // seller vea el listado al editar.
         hasVariantsOpen() {
             return !!(this.form && this.form.has_variants)
+        },
+        // Galería unificada: fotos persistidas en DB (galleryImages, de
+        // /items/images/{id}) + fotos recién subidas via upload-async
+        // (form.multi_images) que todavía no se guardaron. Los pending
+        // se marcan con _pending para mostrar el badge ⏳.
+        allGalleryImages() {
+            const persisted = (this.galleryImages || []).map((img, i) => ({
+                url: img.url,
+                _key: 'p_' + (img.id || i),
+                _pending: false,
+            }))
+            const pending = (this.form.multi_images || []).map((img, i) => ({
+                url: img.image_url || img.url,
+                _key: 'n_' + (img.filename || i),
+                _pending: true,
+            }))
+            return [...persisted, ...pending]
+        },
+        hasPendingImages() {
+            return (this.form.multi_images || []).length > 0
+        },
+        pendingImagesCount() {
+            return (this.form.multi_images || []).length
         },
     },
     watch: {
@@ -1902,7 +1931,13 @@ export default {
             }
             this.form.sale_unit_price = (this.form.purchase_unit_price * (100 + parseFloat(this.form.percentage_of_profit))) / 100
         },
-        submit() {
+        // `options.keepOpen=true` — guarda pero NO cierra el formulario:
+        // útil para el botón "Guardar y continuar con variantes" del empty
+        // state. Después del save reseteamos el recordId con el id devuelto
+        // y disparamos loadRecord() para entrar en modo edición sin que el
+        // seller tenga que volver a abrir el form.
+        submit(options) {
+            const keepOpen = !!(options && options.keepOpen)
             if (this.uploadingImage) {
                 return this.$message.warning('Espera a que termine de subir la imagen.')
             }
@@ -1925,7 +1960,24 @@ export default {
                         } else {
                             this.$eventHub.$emit('reloadData')
                         }
-                        this.close()
+                        if (keepOpen && response.data.id) {
+                            // Re-abrir como edición: setear recordId y recargar
+                            // el form con los datos persistidos para que las
+                            // secciones bloqueadas (variantes) se desbloqueen.
+                            this.recordId = response.data.id
+                            this.form.id = response.data.id
+                            this.loadRecord()
+                            // Y dejar abierta la sección de variantes
+                            this.$nextTick(() => {
+                                const variantsSection = this.$el.querySelector('.ie-collapse--variants')
+                                if (variantsSection) {
+                                    variantsSection.setAttribute('open', '')
+                                    variantsSection.scrollIntoView({ behavior: 'smooth', block: 'start' })
+                                }
+                            })
+                        } else {
+                            this.close()
+                        }
                     } else {
                         this.$message.error(response.data.message)
                     }
