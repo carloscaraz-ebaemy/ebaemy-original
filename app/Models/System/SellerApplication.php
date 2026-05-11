@@ -30,6 +30,7 @@ class SellerApplication extends Model
     public const STATUS_UNDER_REVIEW       = 'under_review';
     public const STATUS_REQUIRES_DOCUMENTS = 'requires_documents';
     public const STATUS_REQUIRES_REVIEW    = 'requires_review';
+    public const STATUS_APPROVING          = 'approving';   // intermedio: tenant en proceso de creación
     public const STATUS_APPROVED           = 'approved';
     public const STATUS_REJECTED           = 'rejected';
     public const STATUS_CANCELLED          = 'cancelled';
@@ -39,6 +40,7 @@ class SellerApplication extends Model
         self::STATUS_UNDER_REVIEW,
         self::STATUS_REQUIRES_DOCUMENTS,
         self::STATUS_REQUIRES_REVIEW,
+        self::STATUS_APPROVING,
         self::STATUS_APPROVED,
         self::STATUS_REJECTED,
         self::STATUS_CANCELLED,
@@ -51,6 +53,7 @@ class SellerApplication extends Model
         self::STATUS_UNDER_REVIEW,
         self::STATUS_REQUIRES_DOCUMENTS,
         self::STATUS_REQUIRES_REVIEW,
+        self::STATUS_APPROVING,
         self::STATUS_APPROVED,
     ];
 

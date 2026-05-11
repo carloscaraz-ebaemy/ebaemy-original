@@ -94,32 +94,53 @@ class SellerApplicationController extends Controller
     {
         $application = SellerApplication::query()->findOrFail($id);
 
-        // Activación no requiere plan; onboarding sí. Si onboarding llegara
-        // sin plan, el service retorna error claro.
-        $planId = (int) ($request->input('plan_id') ?: 0);
-
-        $result = $this->service->approve(
-            $application,
-            auth('admin')->id(),
-            $planId,
-            [
-                'type'               => $request->input('type', 'admin'),
-                'modules'            => $request->input('modules', []),
-                'levels'             => $request->input('levels', []),
-                'email_override'     => $request->input('email_override'),
-                'password_override'  => $request->input('password_override'),
-                'subdomain_override' => $request->input('subdomain_override'),
-            ]
-        );
-
-        // Limpiamos la key 'tenant' del response para no exponer atributos
-        // internos del Client al frontend del panel.
-        if (isset($result['tenant'])) {
-            $result['tenant_id'] = $result['tenant']->id;
-            unset($result['tenant']);
+        if (!$application->isReviewable()) {
+            return response()->json([
+                'success' => false,
+                'message' => "La solicitud no está en un estado revisable (actual: {$application->status})",
+            ], 422);
         }
 
-        return response()->json($result, $result['success'] ? 200 : 422);
+        $planId = (int) ($request->input('plan_id') ?: 0);
+        $options = [
+            'type'               => $request->input('type', 'admin'),
+            'modules'            => $request->input('modules', []),
+            'levels'             => $request->input('levels', []),
+            'email_override'     => $request->input('email_override'),
+            'password_override'  => $request->input('password_override'),
+            'subdomain_override' => $request->input('subdomain_override'),
+        ];
+
+        // Pre-check de duplicados ANTES de marcar approving — si hay RUC/email/
+        // subdomain repetido, fallar rápido con 422 y mensaje claro.
+        $precheck = $this->service->precheckApproval($application, $options);
+        if ($precheck !== null) {
+            return response()->json(['success' => false, 'message' => $precheck], 422);
+        }
+
+        // Marcar como "approving" para que la UI muestre el estado intermedio
+        // mientras el job hace el migrate (que tarda 30-90s).
+        $application->update([
+            'status' => 'approving',
+            'reviewed_by' => auth('admin')->id(),
+        ]);
+
+        // Dispatch AFTER RESPONSE: la HTTP response se cierra primero (evita
+        // timeout de nginx en 30s), el job corre en el mismo proceso PHP-FPM
+        // pero sin cliente esperando. Para queue real (background worker),
+        // cambiar a dispatch() con QUEUE_CONNECTION=database/redis + supervisor.
+        \App\Jobs\System\ProcessSellerApprovalJob::dispatchAfterResponse(
+            $application->id,
+            auth('admin')->id(),
+            $planId,
+            $options
+        );
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Creando tenant en segundo plano. Recarga la lista en 1-2 minutos para ver el resultado.',
+            'status'  => 'approving',
+        ]);
     }
 
     public function reject(RejectSellerApplicationRequest $request, $id): JsonResponse

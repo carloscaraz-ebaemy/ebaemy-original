@@ -1275,6 +1275,26 @@ class SellerApplicationService
      *
      * @return string|null  mensaje de error o null si todo OK
      */
+    /**
+     * Pre-check público: el controller lo llama ANTES de marcar approving
+     * para fallar rápido con 422 si hay duplicados (RUC, email, subdomain).
+     * No aplica los overrides — solo verifica el estado actual de la
+     * application + system. Si hay override de subdomain válido, se valida
+     * contra ese también.
+     */
+    public function precheckApproval(SellerApplication $application, array $options = []): ?string
+    {
+        // Si hay override de subdomain, simularlo temporalmente para el check
+        $subdomainOverride = $options['subdomain_override'] ?? null;
+        $originalSubdomain = $application->requested_subdomain;
+        if (!empty($subdomainOverride)) {
+            $application->requested_subdomain = strtolower(trim((string) $subdomainOverride));
+        }
+        $err = $this->checkDuplicatesAtApproval($application);
+        $application->requested_subdomain = $originalSubdomain;
+        return $err;
+    }
+
     private function checkDuplicatesAtApproval(SellerApplication $application): ?string
     {
         $uuid = config('tenant.prefix_database') . '_' . $application->requested_subdomain;
