@@ -481,8 +481,15 @@
                             if (fallback) imgs = [fallback];
                         }
                         imgs.forEach(function (img) {
-                            img.style.transition = 'opacity .15s ease';
+                            img.style.transition = 'opacity .15s ease, transform .15s ease';
                             img.style.opacity = '0';
+                            // Reset del zoom hover (si el cursor sigue sobre la imagen
+                            // al cambiar variante, mouseleave no se dispara — la
+                            // imagen nueva quedaría con scale 1.8). Volvemos a scale 1
+                            // y origin centro para que la imagen entre completa en
+                            // su contenedor.
+                            img.style.transform = 'scale(1)';
+                            img.style.transformOrigin = 'center center';
                             setTimeout(function () {
                                 img.src = v.image_url;
                                 if (img.dataset.zoomImage !== undefined) img.dataset.zoomImage = v.image_url;

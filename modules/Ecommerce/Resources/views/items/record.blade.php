@@ -608,8 +608,12 @@
                                     && i.offsetWidth >= 200;
                             });
                         imgs.forEach(function (i) {
-                            i.style.transition = 'opacity .15s ease';
+                            i.style.transition = 'opacity .15s ease, transform .15s ease';
                             i.style.opacity = '0';
+                            // Reset del zoom hover (el cursor puede seguir sobre
+                            // la imagen al cambiar variante y mouseleave no dispara).
+                            i.style.transform = 'scale(1)';
+                            i.style.transformOrigin = 'center center';
                             setTimeout(function () {
                                 i.src = url;
                                 if (i.dataset.zoomImage !== undefined) i.dataset.zoomImage = url;
