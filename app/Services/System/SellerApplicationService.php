@@ -1399,7 +1399,7 @@ class SellerApplicationService
             'locked_emission'     => false,
             'enable_list_product' => true,
             'price'               => null,
-            'plan_period_id'      => null,
+            'plan_period_id'      => 1, // Mensual por defecto (ver plan_periods seed)
             'client_name'         => $application->trade_name ?: $application->business_name,
             'phone_ws'            => $application->phone,
             'contact_email'       => $application->email,
