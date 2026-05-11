@@ -1045,6 +1045,33 @@ button { font-family: inherit; cursor: pointer; }
     filter: brightness(1.06);
 }
 
+/* Variante secundaria: blanca con borde verde — para CTAs alternativos
+   ("Comprar directo en tienda", etc.). NO usar mp-cta-primary porque
+   tiene color: #fff !important que vuelve invisible el texto. */
+.mp-cta-secondary {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    background: #fff;
+    color: var(--mp-primary-dark, #0c6b65);
+    padding: 14px 22px;
+    border-radius: var(--mp-radius);
+    font-weight: 700;
+    font-size: 14px;
+    text-decoration: none;
+    margin-bottom: 12px;
+    border: 1.5px solid var(--mp-primary, #0f8a82);
+    transition: background .15s var(--mp-ease), color .15s var(--mp-ease);
+    width: 100%;
+    cursor: pointer;
+}
+.mp-cta-secondary:hover {
+    background: var(--mp-primary, #0f8a82);
+    color: #fff;
+    text-decoration: none;
+}
+
 .mp-cta-divider {
     display: flex;
     align-items: center;

@@ -620,8 +620,8 @@
                 Añadir al carrito
             </button>
             <a href="{{ route('marketplace.go', $listing->slug) }}" rel="nofollow sponsored"
-               class="mp-cta-primary"
-               style="background:#fff;color:var(--mp-primary-dark,#0c6b65);border:1.5px solid var(--mp-primary,#0f8a82);margin-top:8px">
+               class="mp-cta-secondary"
+               style="margin-top:8px">
                 Comprar directo en {{ $listing->seller_display }}
             </a>
             <div class="mp-cta-divider"><span>o solicita información / envío al vendedor</span></div>
