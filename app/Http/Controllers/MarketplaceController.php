@@ -672,6 +672,24 @@ class MarketplaceController extends Controller
         // para que un job o admin lo reintente más tarde).
         $dispatcher->dispatchLead($lead);
 
+        // Notificar al SuperAdmin (campanita). Best-effort: si falla no
+        // bloquea el lead, solo se loguea.
+        try {
+            \App\Models\System\SystemAdminNotification::notify(
+                'marketplace_lead',
+                'Nuevo pedido: ' . $listing->title,
+                $data['customer_name'] . ' solicitó información'
+                    . ($data['customer_phone'] ?? '' ? ' (' . $data['customer_phone'] . ')' : '')
+                    . ' — vendedor: ' . ($listing->seller_display ?: $listing->tenant_fqdn),
+                '/admin/marketplace/leads',
+                '🛒',
+                'marketplace_lead',
+                $lead->id
+            );
+        } catch (\Throwable $e) {
+            \Log::warning('[MarketplaceController::lead] notify admin failed: ' . $e->getMessage());
+        }
+
         return redirect()
             ->route('marketplace.thanks', ['slug' => $slug])
             ->with('lead_id', $lead->id)

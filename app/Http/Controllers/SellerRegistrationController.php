@@ -56,6 +56,23 @@ class SellerRegistrationController extends Controller
         /** @var SellerApplication $application */
         $application = $result['application'];
 
+        // Notificar al SuperAdmin (campanita). Best-effort.
+        try {
+            \App\Models\System\SystemAdminNotification::notify(
+                'seller_registered',
+                'Nuevo seller: ' . ($application->business_name ?: $application->trade_name ?: 'Sin nombre'),
+                'RUC ' . ($application->ruc ?: '—')
+                    . ' · ' . ($application->contact_email ?: 'sin email')
+                    . ' · estado: ' . $application->status,
+                '/admin/sellers/applications/' . $application->id,
+                '🏪',
+                'seller_application',
+                $application->id
+            );
+        } catch (\Throwable $e) {
+            \Log::warning('[SellerRegistrationController::store] notify admin failed: ' . $e->getMessage());
+        }
+
         return response()->json([
             'success'      => true,
             'message'      => $result['message'],

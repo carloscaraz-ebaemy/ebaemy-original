@@ -1319,6 +1319,14 @@ if ($hostname) {
                      ->name('sub_retry')->whereNumber('id')->whereNumber('subId');
             });
 
+            // ── Campanita de notificaciones del SuperAdmin ─────────────────
+            Route::prefix('admin/notifications')->name('system.admin_notifications.')->group(function () {
+                Route::get('feed',          'System\AdminNotificationController@feed')->name('feed');
+                Route::get('/',             'System\AdminNotificationController@index')->name('index');
+                Route::post('{id}/read',    'System\AdminNotificationController@markRead')->name('read')->whereNumber('id');
+                Route::post('read-all',     'System\AdminNotificationController@markAllRead')->name('read_all');
+            });
+
             // ── WhatsApp SuperAdmin (notificaciones SaaS → tenants) ─────────
             Route::prefix('admin/whatsapp')->name('system.whatsapp.')->group(function () {
                 Route::get('/',               'System\WhatsAppSystemController@index')->name('index');
