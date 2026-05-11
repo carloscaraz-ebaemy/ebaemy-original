@@ -139,6 +139,7 @@
                                  class="form-group">
                                 <label class="control-label">Precio Unitario <span class="text-danger">*</span></label>
                                 <el-input v-model="form.sale_unit_price"
+                                          type="number" min="0" step="0.0001"
                                           dusk="sale_unit_price"
                                           @input="calculatePercentageOfProfitBySale"></el-input>
                                 <small v-if="errors.sale_unit_price"
@@ -199,7 +200,7 @@
                             <div :class="{'has-danger': errors.stock}"
                                  class="form-group">
                                 <label class="control-label">Stock Inicial</label>
-                                <el-input v-model="form.stock"></el-input>
+                                <el-input v-model="form.stock" type="number" min="0" step="1"></el-input>
                                 <small v-if="errors.stock"
                                        class="form-control-feedback"
                                        v-text="errors.stock[0]"></small>
@@ -210,7 +211,7 @@
                             <div :class="{'has-danger': errors.stock_min}"
                                  class="form-group">
                                 <label class="control-label">Stock Mínimo</label>
-                                <el-input v-model="form.stock_min"></el-input>
+                                <el-input v-model="form.stock_min" type="number" min="0" step="1"></el-input>
                                 <small v-if="errors.stock_min"
                                        class="form-control-feedback"
                                        v-text="errors.stock_min[0]"></small>
@@ -1148,6 +1149,7 @@
                                  class="form-group">
                                 <label class="control-label">Precio Unitario</label>
                                 <el-input v-model="form.purchase_unit_price"
+                                          type="number" min="0" step="0.0001"
                                           dusk="purchase_unit_price"
                                           @input="calculatePercentageOfProfitByPurchase"></el-input>
                                 <small v-if="errors.purchase_unit_price"
