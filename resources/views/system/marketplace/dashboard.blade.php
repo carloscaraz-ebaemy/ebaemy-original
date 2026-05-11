@@ -154,7 +154,41 @@
         <div class="col-md-6">
             <div class="card p-3">
                 <h5 class="mb-3">📊 Estado de listings</h5>
-                <canvas id="mpStatusChart" height="180"></canvas>
+                @if($listingsByStatus->isEmpty())
+                    <div class="text-center text-muted py-4">Sin listings aún</div>
+                @else
+                    @php
+                        $statusTotal = $listingsByStatus->sum('cnt') ?: 1;
+                        $statusColors = [
+                            'active'         => '#10b981',
+                            'paused'         => '#f59e0b',
+                            'rejected'       => '#ef4444',
+                            'pending_review' => '#3b82f6',
+                        ];
+                        $statusLabels = [
+                            'active'         => 'Activos',
+                            'paused'         => 'Pausados',
+                            'rejected'       => 'Rechazados',
+                            'pending_review' => 'En revisión',
+                        ];
+                    @endphp
+                    <div class="mp-status-bars">
+                        @foreach($listingsByStatus as $s)
+                            @php
+                                $color = $statusColors[$s->status] ?? '#6b7280';
+                                $label = $statusLabels[$s->status] ?? $s->status;
+                                $pct = round(($s->cnt / $statusTotal) * 100, 1);
+                            @endphp
+                            <div class="mp-status-row">
+                                <div class="mp-status-row__head">
+                                    <span><span class="mp-status-dot" style="background:{{ $color }}"></span> {{ $label }}</span>
+                                    <span class="text-muted small">{{ $s->cnt }} · {{ $pct }}%</span>
+                                </div>
+                                <div class="mp-status-bar"><div class="mp-status-fill" style="width:{{ $pct }}%;background:{{ $color }}"></div></div>
+                            </div>
+                        @endforeach
+                    </div>
+                @endif
             </div>
         </div>
     </div>
@@ -166,7 +200,19 @@
                 @if($revenueByTenant->isEmpty() || $revenueByTenant->sum('revenue') == 0)
                     <div class="text-center text-muted py-4">Sin pedidos aún</div>
                 @else
-                    <canvas id="mpRevenueChart" height="180"></canvas>
+                    @php $revMax = $revenueByTenant->max('revenue') ?: 1; @endphp
+                    <div class="mp-status-bars">
+                        @foreach($revenueByTenant as $r)
+                            @php $pct = max(2, round(($r->revenue / $revMax) * 100, 1)); @endphp
+                            <div class="mp-status-row">
+                                <div class="mp-status-row__head">
+                                    <span>{{ $r->tenant_fqdn }}</span>
+                                    <span class="text-muted small">S/ {{ number_format($r->revenue, 2) }}</span>
+                                </div>
+                                <div class="mp-status-bar"><div class="mp-status-fill" style="width:{{ $pct }}%;background:linear-gradient(90deg,#10b981,#0ea5e9)"></div></div>
+                            </div>
+                        @endforeach
+                    </div>
                 @endif
             </div>
         </div>
@@ -176,7 +222,19 @@
                 @if($topCategories->isEmpty())
                     <div class="text-center text-muted py-4">Sin categorías oficiales asignadas aún</div>
                 @else
-                    <canvas id="mpCategoriesChart" height="220"></canvas>
+                    @php $catMax = $topCategories->max('cnt') ?: 1; @endphp
+                    <div class="mp-status-bars">
+                        @foreach($topCategories as $c)
+                            @php $pct = max(2, round(($c->cnt / $catMax) * 100, 1)); @endphp
+                            <div class="mp-status-row">
+                                <div class="mp-status-row__head">
+                                    <span>{{ $c->name }}</span>
+                                    <span class="text-muted small">{{ $c->cnt }} listings · {{ number_format($c->views ?? 0) }} vistas</span>
+                                </div>
+                                <div class="mp-status-bar"><div class="mp-status-fill" style="width:{{ $pct }}%;background:#3b82f6"></div></div>
+                            </div>
+                        @endforeach
+                    </div>
                 @endif
             </div>
         </div>
@@ -196,20 +254,24 @@
 .mp-funnel-fill { position: absolute; left: 0; top: 0; bottom: 0; background: linear-gradient(90deg, #3b82f6, #8b5cf6); display: flex !important; align-items: center; padding: 0 12px; color: #fff; font-size: 13px; font-weight: 700; border-radius: 6px; transition: width .6s ease; }
 .mp-funnel-label { width: 80px; font-size: 13px; font-weight: 600; color: #374151; flex-shrink: 0; }
 .mp-funnel-rate { width: 60px; font-size: 12px; color: #6b7280; text-align: right; font-weight: 600; flex-shrink: 0; }
+
+/* Barras horizontales para distribución de status / revenue / categorías */
+.mp-status-bars { display: flex; flex-direction: column; gap: 10px; }
+.mp-status-row { display: flex; flex-direction: column; gap: 4px; }
+.mp-status-row__head { display: flex; justify-content: space-between; align-items: center; font-size: 13px; color: #374151; font-weight: 500; }
+.mp-status-dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; vertical-align: middle; margin-right: 6px; }
+.mp-status-bar { height: 18px; background: #f3f4f6; border-radius: 4px; overflow: hidden; }
+.mp-status-fill { height: 100%; border-radius: 4px; transition: width .6s ease; }
 </style>
 @endpush
 
 @push('scripts')
-<script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"
-        onerror="(function(){var s=document.createElement('script');s.src='https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js';document.head.appendChild(s);})();"></script>
 <script>
 (function(){
-    // Datos del backend — los capturamos arriba para que esten disponibles
-    // en cualquier momento sin depender del DOM ni Chart.js.
-    const FUNNEL_DATA   = @json($funnel ?? []);
-    const STATUS_DATA   = @json($listingsByStatus ?? []);
-    const REVENUE_DATA  = @json($revenueByTenant ?? []);
-    const CATEGORY_DATA = @json($topCategories ?? []);
+    // Solo el funnel necesita JS — el resto (status, revenue, categorias)
+    // se renderiza server-side con barras CSS. Sin Chart.js, sin CDN, sin
+    // dependencias externas.
+    const FUNNEL_DATA = @json($funnel ?? []);
 
     function renderFunnel() {
         const funnelEl = document.getElementById('mpFunnel');
@@ -229,94 +291,10 @@
         funnelEl.innerHTML = html;
     }
 
-    function initCharts() {
-        if (typeof Chart === 'undefined') return false;
-
-        // ── Status doughnut ────────────────────────────────────────────────
-        const statusEl = document.getElementById('mpStatusChart');
-        if (statusEl && Array.isArray(STATUS_DATA) && STATUS_DATA.length > 0) {
-            try {
-                new Chart(statusEl.getContext('2d'), {
-                    type: 'doughnut',
-                    data: {
-                        labels: STATUS_DATA.map(s => s.status),
-                        datasets: [{
-                            data: STATUS_DATA.map(s => s.cnt),
-                            backgroundColor: ['#10b981','#f59e0b','#ef4444','#6b7280','#3b82f6','#8b5cf6'],
-                            borderWidth: 0,
-                        }],
-                    },
-                    options: { plugins: { legend: { position: 'bottom' } }, responsive: true, maintainAspectRatio: false },
-                });
-            } catch(e) { console.warn('[mp-dashboard] status chart error', e); }
-        }
-
-        // ── Revenue por tenant doughnut ───────────────────────────────────
-        const revEl = document.getElementById('mpRevenueChart');
-        if (revEl && Array.isArray(REVENUE_DATA) && REVENUE_DATA.length > 0 && REVENUE_DATA.some(r => Number(r.revenue) > 0)) {
-            try {
-                new Chart(revEl.getContext('2d'), {
-                    type: 'doughnut',
-                    data: {
-                        labels: REVENUE_DATA.map(r => r.tenant_fqdn || '—'),
-                        datasets: [{
-                            data: REVENUE_DATA.map(r => Number(r.revenue)),
-                            backgroundColor: ['#10b981','#3b82f6','#f59e0b','#8b5cf6','#ec4899'],
-                            borderWidth: 0,
-                        }],
-                    },
-                    options: {
-                        plugins: {
-                            legend: { position: 'bottom' },
-                            tooltip: { callbacks: { label: ctx => ctx.label + ': S/ ' + Number(ctx.parsed).toLocaleString('es-PE', {minimumFractionDigits:2, maximumFractionDigits:2}) } },
-                        },
-                        responsive: true, maintainAspectRatio: false,
-                    },
-                });
-            } catch(e) { console.warn('[mp-dashboard] revenue chart error', e); }
-        }
-
-        // ── Top categorías (horizontal bars) ───────────────────────────────
-        const catEl = document.getElementById('mpCategoriesChart');
-        if (catEl && Array.isArray(CATEGORY_DATA) && CATEGORY_DATA.length > 0) {
-            try {
-                new Chart(catEl.getContext('2d'), {
-                    type: 'bar',
-                    data: {
-                        labels: CATEGORY_DATA.map(c => c.name),
-                        datasets: [{
-                            label: 'Listings', data: CATEGORY_DATA.map(c => Number(c.cnt)),
-                            backgroundColor: '#3b82f6', borderRadius: 4,
-                        }],
-                    },
-                    options: {
-                        indexAxis: 'y',
-                        plugins: { legend: { display: false } },
-                        scales: { x: { beginAtZero: true, ticks: { precision: 0 } } },
-                        responsive: true, maintainAspectRatio: false,
-                    },
-                });
-            } catch(e) { console.warn('[mp-dashboard] categories chart error', e); }
-        }
-
-        return true;
-    }
-
-    function start() {
-        renderFunnel();   // El funnel no requiere Chart.js, siempre se pinta
-        if (initCharts()) return;
-        // Chart.js todavia no cargo del CDN — polling hasta 5s.
-        let tries = 0;
-        const t = setInterval(() => {
-            tries++;
-            if (initCharts() || tries > 25) clearInterval(t);
-        }, 200);
-    }
-
     if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', start);
+        document.addEventListener('DOMContentLoaded', renderFunnel);
     } else {
-        start();
+        renderFunnel();
     }
 })();
 </script>
