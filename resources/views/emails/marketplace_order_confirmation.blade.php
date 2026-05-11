@@ -72,10 +72,26 @@
                                         <td align="right" style="padding:4px 0;color:#111827;font-weight:500">S/ {{ number_format($item->total, 2) }}</td>
                                     </tr></table>
                                 @endforeach
-                                <table width="100%" style="margin-top:8px;padding-top:8px;border-top:1px dashed #e5e7eb;font-size:13px"><tr>
-                                    <td style="font-weight:600">Subtotal tienda</td>
-                                    <td align="right" style="font-weight:700;color:#0c6b65">S/ {{ number_format($subtotal, 2) }}</td>
-                                </tr></table>
+                                @php
+                                    $storeDiscount = (float) ($sub->discount_amount ?? 0);
+                                    $hasCoupon    = $storeDiscount > 0 && !empty($sub->coupon_code);
+                                @endphp
+                                <table width="100%" style="margin-top:8px;padding-top:8px;border-top:1px dashed #e5e7eb;font-size:13px">
+                                    <tr>
+                                        <td style="padding:2px 0">Subtotal tienda</td>
+                                        <td align="right">S/ {{ number_format($subtotal, 2) }}</td>
+                                    </tr>
+                                    @if($hasCoupon)
+                                        <tr>
+                                            <td style="padding:2px 0;color:#16a34a;font-weight:600">Cupón {{ $sub->coupon_code }}</td>
+                                            <td align="right" style="color:#16a34a;font-weight:600">-S/ {{ number_format($storeDiscount, 2) }}</td>
+                                        </tr>
+                                    @endif
+                                    <tr>
+                                        <td style="padding:6px 0 0;font-weight:700">Total tienda</td>
+                                        <td align="right" style="padding:6px 0 0;font-weight:700;color:#0c6b65">S/ {{ number_format(max(0, $subtotal - $storeDiscount), 2) }}</td>
+                                    </tr>
+                                </table>
                             </td></tr>
                         </table>
                     @endforeach
@@ -86,6 +102,13 @@
                     <table width="100%" style="border-top:2px solid #e5e7eb;padding-top:14px;font-size:14px">
                         <tr><td style="padding:4px 0">Productos</td><td align="right">{{ $order->items_count }}</td></tr>
                         <tr><td style="padding:4px 0">Tiendas</td><td align="right">{{ $order->stores_count }}</td></tr>
+                        @if(($order->discount_total ?? 0) > 0)
+                            <tr><td style="padding:4px 0">Subtotal</td><td align="right">S/ {{ number_format($order->subtotal, 2) }}</td></tr>
+                            <tr>
+                                <td style="padding:4px 0;color:#16a34a;font-weight:600">Descuento cupones</td>
+                                <td align="right" style="color:#16a34a;font-weight:600">-S/ {{ number_format($order->discount_total, 2) }}</td>
+                            </tr>
+                        @endif
                         <tr><td style="padding:10px 0;font-weight:700;font-size:18px">Total</td>
                             <td align="right" style="padding:10px 0;font-weight:800;font-size:22px;color:#0c6b65">S/ {{ number_format($order->total, 2) }}</td>
                         </tr>

@@ -202,6 +202,17 @@
         font-weight: 800;
         letter-spacing: .3px;
     }
+    .mp-badge--flash {
+        background: linear-gradient(135deg, #f97316, #ea580c);
+        color: #fff;
+        font-weight: 800;
+        letter-spacing: .3px;
+        animation: mp-flash-pulse 1.6s ease-in-out infinite;
+    }
+    @keyframes mp-flash-pulse {
+        0%, 100% { box-shadow: 0 0 0 0 rgba(249, 115, 22, .55); }
+        50%      { box-shadow: 0 0 0 5px rgba(249, 115, 22, 0); }
+    }
 
     /* Grid 2 cols en móvil, 4-5 cols en desktop */
     .mp-grid {

@@ -54,7 +54,11 @@
                 </span>
             @endif
             @if(!empty($listing->is_on_offer) && !empty($listing->discount_pct))
-                <span class="mp-badge mp-badge--offer" title="En oferta">-{{ $listing->discount_pct }}%</span>
+                @if(($listing->discount_source ?? null) === 'flash_sale')
+                    <span class="mp-badge mp-badge--flash" title="Oferta por tiempo limitado">⚡ Flash -{{ $listing->discount_pct }}%</span>
+                @else
+                    <span class="mp-badge mp-badge--offer" title="En oferta">-{{ $listing->discount_pct }}%</span>
+                @endif
             @endif
             @if(!empty($listing->is_pack))
                 @php

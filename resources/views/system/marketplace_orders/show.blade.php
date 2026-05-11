@@ -83,9 +83,19 @@
                             </tbody>
                             <tfoot>
                                 <tr class="table-light">
-                                    <td colspan="3" class="text-end fw-bold">Subtotal tienda</td>
-                                    <td class="text-end fw-bold">S/ {{ number_format($sub->subtotal, 2) }}</td>
+                                    <td colspan="3" class="text-end">Subtotal tienda</td>
+                                    <td class="text-end">S/ {{ number_format($sub->subtotal, 2) }}</td>
                                 </tr>
+                                @if(($sub->discount_amount ?? 0) > 0)
+                                    <tr class="table-light" style="color:#15803d">
+                                        <td colspan="3" class="text-end">Cupón <code>{{ $sub->coupon_code ?? '—' }}</code></td>
+                                        <td class="text-end">-S/ {{ number_format($sub->discount_amount, 2) }}</td>
+                                    </tr>
+                                    <tr class="table-light">
+                                        <td colspan="3" class="text-end fw-bold">Total tienda</td>
+                                        <td class="text-end fw-bold">S/ {{ number_format(max(0, $sub->subtotal - $sub->discount_amount), 2) }}</td>
+                                    </tr>
+                                @endif
                             </tfoot>
                         </table>
 
@@ -165,6 +175,13 @@
                 <div class="card-body">
                     <div class="d-flex justify-content-between"><span>Productos</span><span>{{ $order->items_count }}</span></div>
                     <div class="d-flex justify-content-between"><span>Tiendas</span><span>{{ $order->stores_count }}</span></div>
+                    @if(($order->discount_total ?? 0) > 0)
+                        <div class="d-flex justify-content-between mt-2"><span>Subtotal</span><span>S/ {{ number_format($order->subtotal, 2) }}</span></div>
+                        <div class="d-flex justify-content-between" style="color:#15803d">
+                            <span>Descuento cupones</span>
+                            <span>-S/ {{ number_format($order->discount_total, 2) }}</span>
+                        </div>
+                    @endif
                     <hr>
                     <div class="d-flex justify-content-between fw-bold fs-5">
                         <span>Total</span><span>S/ {{ number_format($order->total, 2) }}</span>

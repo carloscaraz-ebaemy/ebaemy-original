@@ -245,6 +245,7 @@ class MarketplaceListingSyncService
             'original_price'    => $offerInfo['original_price'],
             'offer_ends_at'     => $offerInfo['offer_ends_at'],
             'discount_pct'      => $offerInfo['discount_pct'],
+            'discount_source'   => $offerInfo['discount_source'] ?? null,
 
             // ── Bloque VARIANTES ──
             'has_variants'      => $variantInfo['has_variants'],
@@ -339,6 +340,7 @@ class MarketplaceListingSyncService
                 'original_price' => $salePrice,
                 'offer_ends_at'  => null,
                 'discount_pct'   => (int) round((1 - $mpPrice / $salePrice) * 100),
+                'discount_source'=> 'manual',
             ];
         }
 
@@ -386,11 +388,34 @@ class MarketplaceListingSyncService
                             })
                             ->min('ends_at');
 
+                        // Detectar si alguna de las reglas activas es flash_sale
+                        // para que la UI muestre badge de urgencia ("flash") en
+                        // lugar del genérico de oferta.
+                        $hasFlash = DB::connection('tenant')->table('discount_rules')
+                            ->where('is_active', true)
+                            ->where('type', 'flash_sale')
+                            ->whereNotNull('ends_at')
+                            ->where('ends_at', '>', now())
+                            ->where(function ($q) use ($channel) {
+                                $q->whereNull('channel_id')->orWhere('channel_id', $channel->id);
+                            })
+                            ->where(function ($q) use ($item) {
+                                $q->whereNull('apply_item_id')
+                                  ->orWhere('apply_item_id', $item->id)
+                                  ->orWhere(function ($q2) use ($item) {
+                                      if (!empty($item->category_id)) {
+                                          $q2->where('apply_category_id', $item->category_id);
+                                      }
+                                  });
+                            })
+                            ->exists();
+
                         return [
                             'is_on_offer'    => true,
                             'original_price' => $salePrice,
                             'offer_ends_at'  => $earliestEnd,
                             'discount_pct'   => (int) round(($ruleDiscount / $salePrice) * 100),
+                            'discount_source'=> $hasFlash ? 'flash_sale' : 'rule',
                         ];
                     }
                 }
@@ -413,6 +438,7 @@ class MarketplaceListingSyncService
             'original_price' => null,
             'offer_ends_at'  => null,
             'discount_pct'   => null,
+            'discount_source'=> null,
         ];
     }
 

@@ -58,6 +58,7 @@ class MarketplaceListing extends Model
         'original_price',
         'offer_ends_at',
         'discount_pct',
+        'discount_source',
         // Fase 0 — variantes (preparación). has_variants + min/max price
         // permite a la UI mostrar "Desde S/X" sin tener que joinar con
         // item_variants en cada render. La estructura completa de variantes
