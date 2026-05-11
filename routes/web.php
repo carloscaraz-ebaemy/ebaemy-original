@@ -1147,6 +1147,11 @@ if ($hostname) {
         // Vitrina agregadora: productos de tenants opt-in. Redirige la compra
         // a un lead que se convierte en Order dentro del tenant.
         Route::get('marketplace',                       'MarketplaceController@index')->name('marketplace.index');
+        // Autocomplete del search bar — devuelve JSON con top 8 listings que
+        // matchean el query (título / category_name / tenant_name). Throttle
+        // alto porque el front-end dispara con cada keystroke (300ms debounce).
+        Route::get('marketplace/api/search-suggest',    'MarketplaceController@searchSuggest')
+             ->middleware('throttle:120,1')->name('marketplace.search.suggest');
         // URL canónica de categoría oficial (Fase D). fullSlug puede contener slashes (p.ej. hogar/muebles/sillas).
         Route::get('marketplace/c/{fullSlug}',          'MarketplaceController@categoryOfficial')
              ->where('fullSlug', '[a-z0-9\-/]+')

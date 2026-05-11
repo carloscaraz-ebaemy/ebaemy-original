@@ -159,6 +159,86 @@ class MarketplaceController extends Controller
     }
 
     /**
+     * Autocomplete del buscador del marketplace. Devuelve hasta 8 productos
+     * matcheando título, internal_id, brand_name, category_name o tenant_name
+     * por LIKE. JSON liviano (no decoración de variantes) para que el
+     * dropdown responda fluido (~80ms target).
+     *
+     * Cache en memoria por query corto: si 100 usuarios buscan "polo" en 1min,
+     * pegamos a DB una vez. TTL 60s.
+     */
+    public function searchSuggest(Request $request)
+    {
+        $q = trim((string) $request->input('q', ''));
+        if (mb_strlen($q) < 2) {
+            return response()->json(['suggestions' => [], 'shops' => []]);
+        }
+
+        // Cache por query lowercase para hits repetidos (ej. autocomplete de
+        // shoppers buscando el mismo producto). TTL corto porque inventory
+        // puede cambiar; 60s es buen tradeoff.
+        $cacheKey = 'mp_suggest_' . md5(mb_strtolower($q));
+        $data = \Cache::remember($cacheKey, 60, function () use ($q) {
+            $like = '%' . $q . '%';
+
+            $listings = MarketplaceListing::published()
+                ->where(function ($w) use ($like) {
+                    $w->where('title', 'like', $like)
+                      ->orWhere('internal_id', 'like', $like)
+                      ->orWhere('brand_name', 'like', $like)
+                      ->orWhere('category_name', 'like', $like);
+                })
+                // Prioriza featured, luego score, luego views
+                ->orderByRaw('CASE WHEN is_featured = 1 AND (featured_until IS NULL OR featured_until > NOW()) THEN 1 ELSE 0 END DESC')
+                ->orderByDesc('view_count')
+                ->limit(8)
+                ->get([
+                    'id', 'slug', 'title', 'image_url', 'price', 'mp_price',
+                    'tenant_name', 'tenant_fqdn', 'is_on_offer', 'discount_pct',
+                    'is_pack', 'stock',
+                ])
+                ->map(function ($l) {
+                    return [
+                        'slug'         => $l->slug,
+                        'title'        => $l->title,
+                        'image_url'    => $l->image_url,
+                        'price'        => (float) ($l->mp_price ?: $l->price),
+                        'tenant_name'  => $l->tenant_name,
+                        'is_on_offer'  => (bool) $l->is_on_offer,
+                        'discount_pct' => (int) $l->discount_pct,
+                        'is_pack'      => (bool) $l->is_pack,
+                        'out_of_stock' => (int) $l->stock <= 0,
+                    ];
+                })
+                ->values();
+
+            // También sugerimos tiendas que matchean (top 3) — el shopper a
+            // veces escribe el nombre de la tienda en lugar del producto.
+            $shops = MarketplaceListing::published()
+                ->where('tenant_name', 'like', $like)
+                ->select('tenant_name', 'tenant_fqdn',
+                    \DB::raw('COUNT(*) as products_count'))
+                ->groupBy('tenant_name', 'tenant_fqdn')
+                ->orderByDesc('products_count')
+                ->limit(3)
+                ->get()
+                ->map(function ($s) {
+                    $sub = strtolower(strtok((string) $s->tenant_fqdn, '.')) ?: null;
+                    return [
+                        'name'           => $s->tenant_name,
+                        'subdomain'      => $sub,
+                        'products_count' => (int) $s->products_count,
+                    ];
+                })
+                ->values();
+
+            return ['suggestions' => $listings, 'shops' => $shops];
+        });
+
+        return response()->json($data);
+    }
+
+    /**
      * Decora un paginator/colección de listings con los datos que usa la card
      * del marketplace: dots de color con su imagen, thumbs de variantes con
      * imagen propia, y la "variante principal" que define la imagen y el

@@ -82,12 +82,19 @@
                 <span class="mp-mega-toggle__label">Categorías</span>
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" class="mp-mega-toggle__chev"><polyline points="6 9 12 15 18 9"/></svg>
             </button>
-            <input type="search"
-                   name="q"
-                   value="{{ $q ?? '' }}"
-                   class="mp-search-input"
-                   placeholder="Busca productos, tiendas o categorías…"
-                   aria-label="Buscar">
+            <div class="mp-search-input-wrap" style="position:relative;flex:1;display:flex">
+                <input type="search"
+                       name="q"
+                       id="mpSearchInput"
+                       value="{{ $q ?? '' }}"
+                       class="mp-search-input"
+                       placeholder="Busca productos, tiendas o categorías…"
+                       autocomplete="off"
+                       aria-label="Buscar"
+                       aria-autocomplete="list"
+                       aria-controls="mpSearchSuggest">
+                <div id="mpSearchSuggest" class="mp-search-suggest" role="listbox" aria-hidden="true"></div>
+            </div>
             <button type="submit" class="mp-search-btn" aria-label="Buscar">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
             </button>
@@ -497,6 +504,148 @@
 {{-- JS común a todas las vistas que renderizan cards de listings:
      hover en color dots + click en nombre de tienda. --}}
 @include('marketplace.partials.listing-card-script')
+
+{{-- ═══════════════════════ SEARCH AUTOCOMPLETE ═══════════════════════
+     Debounce 250ms; pega al endpoint searchSuggest (cache 60s server-side).
+     ↑/↓ navegan, Enter abre la suggestion activa o submitea el form. --}}
+<script>
+(function(){
+    const input   = document.getElementById('mpSearchInput');
+    const dropdown= document.getElementById('mpSearchSuggest');
+    const form    = document.getElementById('mpSearchForm');
+    if (!input || !dropdown || !form) return;
+
+    const SUGGEST_URL = @json(route('marketplace.search.suggest'));
+    const SEARCH_BASE = @json(route('marketplace.index'));
+    let timer = null;
+    let lastQ = '';
+    let activeIdx = -1;
+    let items = [];
+
+    const esc = s => String(s).replace(/[&<>"']/g, c => ({
+        '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+    }[c]));
+
+    function close() {
+        dropdown.classList.remove('is-open');
+        dropdown.setAttribute('aria-hidden','true');
+        activeIdx = -1;
+    }
+    function open() {
+        dropdown.classList.add('is-open');
+        dropdown.setAttribute('aria-hidden','false');
+    }
+
+    function render(data, q) {
+        const sug = data.suggestions || [];
+        const shops = data.shops || [];
+        if (!sug.length && !shops.length) {
+            dropdown.innerHTML = `<div class="mp-search-suggest__empty">Sin resultados para "${esc(q)}"</div>`;
+            open();
+            return;
+        }
+        let html = '';
+        if (sug.length) {
+            html += '<div class="mp-search-suggest__section">';
+            html += '<div class="mp-search-suggest__header">Productos</div>';
+            sug.forEach((s, i) => {
+                const url = SEARCH_BASE.replace(/\/$/,'') + '/item/' + s.slug;
+                const badges = [];
+                if (s.is_pack) badges.push('<span class="mp-search-suggest__badge mp-search-suggest__badge--pack">📦 Pack</span>');
+                if (s.is_on_offer && s.discount_pct) badges.push(`<span class="mp-search-suggest__badge mp-search-suggest__badge--offer">-${s.discount_pct}%</span>`);
+                if (s.out_of_stock) badges.push('<span class="mp-search-suggest__badge mp-search-suggest__badge--out">Agotado</span>');
+                html += `
+                    <a class="mp-search-suggest__item" data-idx="${i}" href="${url}">
+                        ${s.image_url ? `<img class="mp-search-suggest__thumb" src="${esc(s.image_url)}" alt="" loading="lazy">` : '<div class="mp-search-suggest__thumb"></div>'}
+                        <div class="mp-search-suggest__info">
+                            <span class="mp-search-suggest__title">${esc(s.title)}</span>
+                            <span class="mp-search-suggest__meta">
+                                ${badges.join('')}
+                                ${s.tenant_name ? '<span>· ' + esc(s.tenant_name) + '</span>' : ''}
+                            </span>
+                        </div>
+                        <span class="mp-search-suggest__price">S/ ${(s.price || 0).toFixed(2)}</span>
+                    </a>`;
+            });
+            html += '</div>';
+        }
+        if (shops.length) {
+            html += '<div class="mp-search-suggest__section">';
+            html += '<div class="mp-search-suggest__header">Tiendas</div>';
+            shops.forEach(sh => {
+                const url = SEARCH_BASE + '?shop=' + encodeURIComponent(sh.subdomain || '');
+                html += `
+                    <a class="mp-search-suggest__item" href="${url}">
+                        <div class="mp-search-suggest__thumb" style="display:flex;align-items:center;justify-content:center;font-size:18px">🏪</div>
+                        <div class="mp-search-suggest__info">
+                            <span class="mp-search-suggest__title">${esc(sh.name)}</span>
+                            <span class="mp-search-suggest__meta">${sh.products_count} productos</span>
+                        </div>
+                    </a>`;
+            });
+            html += '</div>';
+        }
+        html += `<a class="mp-search-suggest__seemore" href="${SEARCH_BASE}?q=${encodeURIComponent(q)}">Ver todos los resultados →</a>`;
+
+        dropdown.innerHTML = html;
+        items = Array.from(dropdown.querySelectorAll('.mp-search-suggest__item'));
+        activeIdx = -1;
+        open();
+    }
+
+    async function fetchSuggest(q) {
+        try {
+            const res = await fetch(`${SUGGEST_URL}?q=${encodeURIComponent(q)}`, {
+                headers: { 'Accept': 'application/json' },
+                credentials: 'same-origin'
+            });
+            const data = await res.json();
+            if (q !== lastQ) return; // descartar respuestas viejas
+            render(data, q);
+        } catch (e) { /* silencio: red caída no debe romper UI */ }
+    }
+
+    input.addEventListener('input', () => {
+        const q = input.value.trim();
+        lastQ = q;
+        clearTimeout(timer);
+        if (q.length < 2) { close(); return; }
+        timer = setTimeout(() => fetchSuggest(q), 250);
+    });
+
+    input.addEventListener('keydown', (e) => {
+        if (!dropdown.classList.contains('is-open')) return;
+        if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            if (items.length === 0) return;
+            activeIdx = (activeIdx + 1) % items.length;
+            items.forEach((el, i) => el.classList.toggle('is-active', i === activeIdx));
+            items[activeIdx]?.scrollIntoView({ block: 'nearest' });
+        } else if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            if (items.length === 0) return;
+            activeIdx = activeIdx <= 0 ? items.length - 1 : activeIdx - 1;
+            items.forEach((el, i) => el.classList.toggle('is-active', i === activeIdx));
+            items[activeIdx]?.scrollIntoView({ block: 'nearest' });
+        } else if (e.key === 'Enter') {
+            if (activeIdx >= 0 && items[activeIdx]) {
+                e.preventDefault();
+                window.location.href = items[activeIdx].href;
+            }
+        } else if (e.key === 'Escape') {
+            close();
+        }
+    });
+
+    // Cerrar al click fuera
+    document.addEventListener('click', (e) => {
+        if (!form.contains(e.target)) close();
+    });
+    input.addEventListener('focus', () => {
+        if (input.value.trim().length >= 2 && dropdown.innerHTML) open();
+    });
+})();
+</script>
 
 @stack('scripts')
 
