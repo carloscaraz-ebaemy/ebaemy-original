@@ -585,18 +585,44 @@
                             var el = document.querySelector(selectors[i]);
                             if (el) return el;
                         }
-                        return null;
+                        // Último fallback: la imagen MÁS GRANDE de la página que
+                        // venga de /storage/uploads/items/ (la principal del
+                        // producto). Funciona en themes custom que no usan
+                        // ninguna de las clases convencionales.
+                        var imgs = Array.from(document.querySelectorAll('img'))
+                            .filter(function (i) {
+                                return i.src && i.src.indexOf('/uploads/items/') !== -1
+                                    && i.naturalWidth >= 300
+                                    && i.offsetWidth >= 200;
+                            })
+                            .sort(function (a, b) { return b.offsetWidth - a.offsetWidth; });
+                        return imgs[0] || null;
+                    }
+                    function swapAllMainImages(url) {
+                        // En themes con thumbs estilo Falabella/Alasitas, hay varias
+                        // imágenes "principales" sincronizadas (la grande + tu carousel).
+                        // Cambiamos TODAS las que vienen de /uploads/items/ y sean grandes.
+                        var imgs = Array.from(document.querySelectorAll('img'))
+                            .filter(function (i) {
+                                return i.src && i.src.indexOf('/uploads/items/') !== -1
+                                    && i.offsetWidth >= 200;
+                            });
+                        imgs.forEach(function (i) {
+                            i.style.transition = 'opacity .15s ease';
+                            i.style.opacity = '0';
+                            setTimeout(function () {
+                                i.src = url;
+                                if (i.dataset.zoomImage !== undefined) i.dataset.zoomImage = url;
+                                i.style.opacity = '1';
+                            }, 120);
+                        });
                     }
                     function swapMainImage(url){
-                        var img = findMainImage();
-                        if(!img || img.src.endsWith(url)) return;
-                        img.style.transition = 'opacity .15s ease';
-                        img.style.opacity = '0';
-                        setTimeout(function(){
-                            img.src = url;
-                            if(img.dataset.zoomImage !== undefined) img.dataset.zoomImage = url;
-                            img.style.opacity = '1';
-                        }, 150);
+                        // Usamos el helper que cambia TODAS las imágenes grandes
+                        // del producto al mismo tiempo, para que el theme custom
+                        // (Alasitas, etc.) refleje el cambio en la vista principal
+                        // y en cualquier carrusel/galería sincronizada.
+                        swapAllMainImages(url);
                         // Actualizar thumbnail activo si existe (Owl o custom)
                         var thumb = document.querySelector('#carousel-custom-dots .owl-dot.active img');
                         if(thumb) thumb.src = url;
