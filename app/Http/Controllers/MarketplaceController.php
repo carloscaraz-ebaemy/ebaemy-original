@@ -563,15 +563,66 @@ class MarketplaceController extends Controller
             }
         }
 
-        // Relacionados: prefiere FK oficial si está disponible, sino fallback
-        // a category_name legacy para listings que todavía no migraron.
-        $relatedQ = MarketplaceListing::published()->where('id', '!=', $listing->id);
-        if ($listing->marketplace_category_id) {
-            $relatedQ->inOfficialCategory($listing->marketplace_category_id);
-        } elseif ($listing->category_name) {
-            $relatedQ->where('category_name', $listing->category_name);
+        // Relacionados: scoring ponderado para mostrar productos realmente
+        // parecidos en lugar de items random de la misma categoría.
+        //
+        // Scoring:
+        //   +10  same brand_name
+        //   +6   same marketplace_category_id (FK oficial)
+        //   +3   same category_name (legacy fallback)
+        //   +4   same hostname_id (misma tienda — cross-sell directo)
+        //   +3   misma franja de precio (50%-150% del precio actual)
+        //   +2   is_on_offer (capta atención)
+        //   +stock>0 obligatorio
+        //
+        // El SUM se evalúa en SQL para que MySQL ordene server-side.
+        $basePrice = (float) $listing->display_price;
+        $minPriceRange = $basePrice > 0 ? round($basePrice * 0.5, 2) : null;
+        $maxPriceRange = $basePrice > 0 ? round($basePrice * 1.5, 2) : null;
+
+        $relatedQ = MarketplaceListing::published()
+            ->where('id', '!=', $listing->id)
+            ->where('stock', '>', 0); // Sin out-of-stock en relacionados
+
+        $scoringParts = [];
+        $bindings = [];
+
+        if ($listing->brand_name) {
+            $scoringParts[] = '(CASE WHEN brand_name = ? THEN 10 ELSE 0 END)';
+            $bindings[]     = $listing->brand_name;
         }
-        $related = $relatedQ->limit(6)->get();
+        if ($listing->marketplace_category_id) {
+            $scoringParts[] = '(CASE WHEN marketplace_category_id = ? THEN 6 ELSE 0 END)';
+            $bindings[]     = $listing->marketplace_category_id;
+        }
+        if ($listing->category_name) {
+            $scoringParts[] = '(CASE WHEN category_name = ? THEN 3 ELSE 0 END)';
+            $bindings[]     = $listing->category_name;
+        }
+        if ($listing->hostname_id) {
+            $scoringParts[] = '(CASE WHEN hostname_id = ? THEN 4 ELSE 0 END)';
+            $bindings[]     = $listing->hostname_id;
+        }
+        if ($minPriceRange !== null) {
+            $scoringParts[] = '(CASE WHEN COALESCE(mp_price, price) BETWEEN ? AND ? THEN 3 ELSE 0 END)';
+            $bindings[]     = $minPriceRange;
+            $bindings[]     = $maxPriceRange;
+        }
+        $scoringParts[] = '(CASE WHEN is_on_offer = 1 THEN 2 ELSE 0 END)';
+
+        // Score mínimo 1 — descarta items con score 0 (sin nada en común).
+        // Si no se pudo armar scoring, fallback al algoritmo viejo.
+        if (count($scoringParts) > 0) {
+            $scoreExpr = implode(' + ', $scoringParts);
+            $relatedQ->selectRaw("marketplace_listings.*, ($scoreExpr) as related_score", $bindings)
+                     ->havingRaw('related_score > 0')
+                     ->orderByDesc('related_score')
+                     ->orderByDesc('view_count');
+        } else {
+            $relatedQ->orderByDesc('view_count');
+        }
+
+        $related = $relatedQ->limit(8)->get();
 
         $reviews = MarketplaceReview::where('listing_id', $listing->id)
             ->approved()
