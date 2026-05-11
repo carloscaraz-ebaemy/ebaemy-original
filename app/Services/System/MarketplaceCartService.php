@@ -85,6 +85,11 @@ class MarketplaceCartService
                 'remote_item_id' => (int) $listing->remote_item_id,
                 'tenant_subdomain' => $listing->subdomain,
                 'tenant_logo_url'  => $listing->tenant_logo_url,
+                // Marca pack para mostrar badge "📦 Pack ×N" en el cart y
+                // recordarle al cliente que está comprando un combo.
+                'is_pack'        => (bool) ($listing->is_pack ?? false),
+                'pack_count'     => is_array($listing->pack_contents ?? null)
+                                        ? count($listing->pack_contents) : 0,
             ];
         }
 

@@ -6,15 +6,77 @@
     $categoryName    = $hasCategoryFilter ? $currentCategory->name : null;
     $categoryUrl     = $hasCategoryFilter ? route('tenant.ecommerce.category', ['category' => $currentCategory->id]) : null;
     $homeUrl         = route('tenant.ecommerce.index');
+
+    // og:image dinámica por categoría: usamos la imagen del primer producto
+    // visible. Fallback al $share_image global del layout si no hay productos
+    // o no tienen imagen.
+    $categoryOgImage = null;
+    if ($hasCategoryFilter && isset($dataPaginate) && $dataPaginate->isNotEmpty()) {
+        foreach ($dataPaginate as $_first) {
+            if (!empty($_first->image)) {
+                $categoryOgImage = asset('storage/uploads/items/' . $_first->image);
+                break;
+            }
+        }
+    }
+
+    // rel prev/next: el layout master expone @yield('prev_page')/'next_page'
+    // y el SEO de paginación se activa con @hasSection. Sólo seteamos cuando
+    // hay página previa/siguiente real.
+    $prevPageUrl = (isset($dataPaginate) && method_exists($dataPaginate, 'previousPageUrl'))
+        ? $dataPaginate->previousPageUrl() : null;
+    $nextPageUrl = (isset($dataPaginate) && method_exists($dataPaginate, 'nextPageUrl'))
+        ? $dataPaginate->nextPageUrl() : null;
 @endphp
 
 {{-- ── SEO: título y meta para páginas de categoría ─────────────── --}}
 @if($hasCategoryFilter)
     @section('page_title', $categoryName . ' — Tienda Online')
     @section('meta_description', 'Explora todos los productos de ' . $categoryName . ' en nuestra tienda.')
+    @section('meta_keywords', $categoryName . ', tienda online, comprar ' . $categoryName . ', ' . ($company->name ?? ''))
     @section('canonical_url', $categoryUrl)
+    @if($categoryOgImage)
+        @section('og_image', $categoryOgImage)
+    @endif
 @else
     @section('canonical_url', $homeUrl)
+@endif
+
+{{-- ── SEO: rel prev/next para paginación ──────────────────────── --}}
+@if($prevPageUrl)
+    @section('prev_page', $prevPageUrl)
+@endif
+@if($nextPageUrl)
+    @section('next_page', $nextPageUrl)
+@endif
+
+{{-- ── Schema.org CollectionPage para listados de categoría ────── --}}
+@if($hasCategoryFilter && isset($dataPaginate) && $dataPaginate->isNotEmpty())
+@push('head_extra')
+<script type="application/ld+json">
+{
+    "@context": "https://schema.org",
+    "@type": "CollectionPage",
+    "name": "{{ $categoryName }}",
+    "url": "{{ $categoryUrl }}",
+    "isPartOf": { "@type": "WebSite", "url": "{{ $homeUrl }}" },
+    "mainEntity": {
+        "@type": "ItemList",
+        "numberOfItems": {{ $dataPaginate->total() }},
+        "itemListElement": [
+            @foreach($dataPaginate->take(20) as $i => $_p)
+            {
+                "@type": "ListItem",
+                "position": {{ $i + 1 }},
+                "url": "{{ route('tenant.ecommerce.item', ['slug' => $_p->slug ?? $_p->id]) }}",
+                "name": @json($_p->description ?? $_p->name ?? '')
+            }@if(!$loop->last),@endif
+            @endforeach
+        ]
+    }
+}
+</script>
+@endpush
 @endif
 
 {{-- ── Schema.org BreadcrumbList ────────────────────────────────── --}}

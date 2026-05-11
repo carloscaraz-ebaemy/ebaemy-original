@@ -154,6 +154,11 @@
                             <div class="mp-cart-line-body">
                                 <a href="{{ route('marketplace.item', $line['slug']) }}" class="mp-cart-line-title">
                                     {{ $line['title'] }}
+                                    @if(!empty($line['is_pack']))
+                                        <span style="display:inline-block;margin-left:6px;background:#ede9fe;color:#5b21b6;border:1px solid #c4b5fd;font-size:10.5px;font-weight:700;padding:1px 7px;border-radius:999px;vertical-align:middle">
+                                            📦 Pack{{ !empty($line['pack_count']) ? ' ×' . $line['pack_count'] : '' }}
+                                        </span>
+                                    @endif
                                 </a>
                                 <div class="mp-cart-line-controls">
                                     <div class="mp-cart-qty">

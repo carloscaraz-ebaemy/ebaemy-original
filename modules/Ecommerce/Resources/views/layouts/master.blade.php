@@ -152,6 +152,9 @@
         @yield('breadcrumb_json')
     @endif
 
+    {{-- SEO: schemas adicionales (CollectionPage de categoría, FAQPage, etc.) --}}
+    @stack('head_extra')
+
     {{-- Scripts personalizados (head) --}}
     @foreach($social_scripts->where('position', 'head') as $item)
         {!! $item->script !!}
