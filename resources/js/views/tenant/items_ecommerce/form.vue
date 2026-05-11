@@ -560,7 +560,7 @@
                             <div v-show="imageSectionOpen" class="row col-md-12">
                                 <div class="col-md-3">
                                     <div class="form-group">
-                                        <label class="control-label">Imágen <span class="text-danger"></span></label>
+                                        <label class="control-label">Imagen principal <span class="text-danger"></span></label>
                                         <el-upload :action="`/${resource}/upload`"
                                                 :data="{'type': 'items', 'skip_preview': 1}"
                                                 :headers="headers"
@@ -577,11 +577,41 @@
                                             <i v-else
                                             class="el-icon-plus avatar-uploader-icon"></i>
                                         </el-upload>
-                                        <div class="sub-title text-danger"><small>Se recomienda resoluciones Full Hd
-                                                                                1024x720</small></div>
-                                        <el-button type="primary"
-                                                @click="openImages">Agregar más fotos
-                                        </el-button>
+                                        <div class="sub-title text-muted">
+                                            <small>Recomendado: 1024×720 (Full HD)</small>
+                                        </div>
+
+                                        <!-- Galería inline: thumbnails de las fotos adicionales ya subidas
+                                             + tile "+" para agregar. Antes solo había un botón "Agregar más
+                                             fotos" que abría el dialog; el seller no sabía cuántas fotos
+                                             tenía guardadas sin abrir el dialog. -->
+                                        <div class="ie-gallery-block mt-3">
+                                            <div class="ie-gallery-block__head">
+                                                <strong>Galería adicional</strong>
+                                                <span class="ie-gallery-block__count" v-if="galleryImages.length">
+                                                    {{ galleryImages.length }} foto<span v-if="galleryImages.length > 1">s</span>
+                                                </span>
+                                                <span class="ie-gallery-block__count ie-gallery-block__count--empty" v-else>
+                                                    sin fotos
+                                                </span>
+                                            </div>
+                                            <div class="ie-gallery-block__grid">
+                                                <div v-for="(img, i) in galleryImages" :key="img.id || i"
+                                                     class="ie-gallery-block__thumb"
+                                                     @click="openImages"
+                                                     :title="'Foto ' + (i + 1) + ' — click para gestionar'">
+                                                    <img :src="img.url" :alt="'Foto ' + (i + 1)">
+                                                </div>
+                                                <div class="ie-gallery-block__add" @click="openImages"
+                                                     :title="galleryImages.length ? 'Agregar más fotos' : 'Agregar fotos adicionales'">
+                                                    <i class="el-icon-plus"></i>
+                                                    <span>{{ galleryImages.length ? 'Más' : 'Agregar' }}</span>
+                                                </div>
+                                            </div>
+                                            <small class="text-muted" v-if="!galleryImages.length && !recordId">
+                                                Guarda el producto primero para subir más fotos.
+                                            </small>
+                                        </div>
 
                                     </div>
                                 </div>
@@ -972,6 +1002,69 @@
 .ie-status-badge--mp  { background:#dbeafe; color:#1d4ed8; border-color:#93c5fd; }
 .ie-status-badge--off { background:#f3f4f6; color:#9ca3af; border-color:#e5e7eb; }
 
+/* ─────── Galería inline (debajo de la imagen principal) ─────── */
+.ie-gallery-block { display: flex; flex-direction: column; gap: 6px; }
+.ie-gallery-block__head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    font-size: 12.5px;
+    color: #374151;
+}
+.ie-gallery-block__count {
+    font-size: 11px;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 999px;
+    background: #dcfce7;
+    color: #166534;
+    border: 1px solid #86efac;
+}
+.ie-gallery-block__count--empty {
+    background: #f3f4f6;
+    color: #9ca3af;
+    border-color: #e5e7eb;
+}
+.ie-gallery-block__grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 6px;
+}
+.ie-gallery-block__thumb,
+.ie-gallery-block__add {
+    aspect-ratio: 1 / 1;
+    border-radius: 6px;
+    overflow: hidden;
+    border: 1px solid #e5e7eb;
+    background: #f9fafb;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: border-color .12s, transform .08s;
+}
+.ie-gallery-block__thumb:hover,
+.ie-gallery-block__add:hover {
+    border-color: #3b82f6;
+    transform: translateY(-1px);
+}
+.ie-gallery-block__thumb img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+.ie-gallery-block__add {
+    flex-direction: column;
+    gap: 2px;
+    color: #6b7280;
+    background: #fff;
+    border: 1px dashed #cbd5e1;
+    font-size: 11px;
+    font-weight: 500;
+}
+.ie-gallery-block__add i { font-size: 16px; color: #3b82f6; }
+
 /* ─────── Sección colapsable (Imagen y categorización) ─────── */
 .mp-form-section--collapsible {
     cursor: pointer;
@@ -1134,6 +1227,10 @@ export default {
             mpDescOpen: true,
             // Toggle del bloque "Datos contables y etiquetas".
             contableOpen: false,
+            // Galería de fotos adicionales (item_images). Se carga en
+            // loadRecord vía GET /items/images/{id} y se refresca cuando
+            // el dialog cierra (saveImages).
+            galleryImages: [],
             // Subdomain del tenant para el texto "tu_subdomain.ebaemy.com"
             // en el card de canales. Se lee de window si está disponible.
             tenant_subdomain: (typeof window !== 'undefined' && window.location)
@@ -1556,6 +1653,7 @@ export default {
                     // espacio vertical — el usuario expande con el chevron
                     // si quiere editarla.
                     this.mpDescOpen = !this.form.mp_notes
+                    this.loadGalleryImages()
                     this.$nextTick(() => { this.cascaderKey++ })
                 })
             } else {
@@ -1754,8 +1852,19 @@ export default {
             this.showDialogImages = true
         },
         saveImages(source) {
-
             this.form.multi_images = source
+            // Refrescar la galería inline para que el seller vea las
+            // fotos recién subidas sin tener que recargar el form.
+            this.loadGalleryImages()
+        },
+        loadGalleryImages() {
+            if (!this.recordId) {
+                this.galleryImages = []
+                return
+            }
+            this.$http.get(`/${this.resource}/images/${this.recordId}`)
+                .then(response => { this.galleryImages = response.data.data || [] })
+                .catch(()  => { this.galleryImages = [] })
         },
         changeAttributeType(index) {
             let attribute_type_id = this.form.attributes[index].attribute_type_id
