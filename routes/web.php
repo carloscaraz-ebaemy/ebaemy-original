@@ -1192,6 +1192,8 @@ if ($hostname) {
         // de códigos.
         Route::post('marketplace/checkout/coupon', 'MarketplaceCheckoutController@validateCoupon')
              ->middleware('throttle:20,1')->name('marketplace.checkout.coupon');
+        Route::delete('marketplace/checkout/coupon/{hostnameId}', 'MarketplaceCheckoutController@removeCoupon')
+             ->middleware('throttle:30,1')->whereNumber('hostnameId')->name('marketplace.checkout.coupon.remove');
         Route::get('marketplace/order/{number}',   'MarketplaceCheckoutController@confirmation')
              ->middleware('throttle:30,1')
              ->where('number', 'MP-[A-Z0-9\-]+')->name('marketplace.order.confirmation');

@@ -122,6 +122,9 @@ class MarketplaceCartService
         $cart['updated_at'] = time();
         Session::put(self::SESSION_KEY, $cart);
 
+        // Si removimos el último item de una tienda, su cupón ya no aplica.
+        $this->pruneOrphanCoupons();
+
         return true;
     }
 
@@ -231,6 +234,72 @@ class MarketplaceCartService
             'subtotal' => round($total, 2),
             'total'    => round($total, 2),
         ];
+    }
+
+    // ──────────────────────────────────────────────────────────────────────
+    //  Cupones aplicados por tienda — persistencia en sesión
+    // ──────────────────────────────────────────────────────────────────────
+
+    /**
+     * Devuelve los cupones aplicados, mapeados por hostname_id.
+     * Estructura: { 123 => ['code' => 'EBA10', 'discount' => 12.5], ... }
+     */
+    public function getCoupons(): array
+    {
+        $cart = $this->get();
+        return is_array($cart['coupons'] ?? null) ? $cart['coupons'] : [];
+    }
+
+    /**
+     * Persistir un cupón aplicado a una tienda. El descuento se guarda como
+     * snapshot — al pagar se re-valida server-side por MarketplaceCheckoutService.
+     */
+    public function applyCoupon(int $hostnameId, string $code, float $discount): void
+    {
+        $cart = $this->get();
+        $coupons = is_array($cart['coupons'] ?? null) ? $cart['coupons'] : [];
+        $coupons[$hostnameId] = [
+            'code'     => strtoupper($code),
+            'discount' => round($discount, 2),
+            'applied_at' => time(),
+        ];
+        $cart['coupons'] = $coupons;
+        $cart['updated_at'] = time();
+        Session::put(self::SESSION_KEY, $cart);
+    }
+
+    /**
+     * Quitar un cupón de una tienda (cliente clickeó "Cambiar" o se removió
+     * todos los items de esa tienda y ya no aplica).
+     */
+    public function removeCoupon(int $hostnameId): void
+    {
+        $cart = $this->get();
+        if (isset($cart['coupons'][$hostnameId])) {
+            unset($cart['coupons'][$hostnameId]);
+            Session::put(self::SESSION_KEY, $cart);
+        }
+    }
+
+    /**
+     * Limpia cupones de tiendas que ya no están en el cart (el cliente quitó
+     * todos sus items). Llamar después de remove/clear/update para no quedar
+     * con cupones huérfanos en sesión.
+     */
+    public function pruneOrphanCoupons(): void
+    {
+        $cart = $this->get();
+        if (empty($cart['coupons'])) return;
+
+        $activeHostnameIds = collect($cart['items'])->pluck('hostname_id')->unique()->all();
+        $coupons = [];
+        foreach (($cart['coupons'] ?? []) as $hostId => $data) {
+            if (in_array((int) $hostId, array_map('intval', $activeHostnameIds), true)) {
+                $coupons[$hostId] = $data;
+            }
+        }
+        $cart['coupons'] = $coupons;
+        Session::put(self::SESSION_KEY, $cart);
     }
 
     /**

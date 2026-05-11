@@ -189,22 +189,41 @@
                     @endforeach
 
                     {{-- Cupón por tienda: cada seller administra sus propios cupones
-                         en el panel del tenant. AJAX valida el código contra ese
-                         tenant específico vía /marketplace/checkout/coupon. --}}
-                    <div class="mp-co-coupon">
+                         en el panel del tenant. AJAX valida y persiste en sesión
+                         para sobrevivir navegación/recarga. --}}
+                    @php
+                        $appliedCoupon = $appliedCoupons[$store['hostname_id']] ?? null;
+                    @endphp
+                    <div class="mp-co-coupon" data-applied="{{ $appliedCoupon ? '1' : '0' }}">
                         <div class="mp-co-coupon__input-row">
                             <input type="text"
                                    class="mp-co-coupon__input"
                                    placeholder="Cupón de descuento"
                                    maxlength="60"
                                    data-coupon-input
+                                   value="{{ $appliedCoupon['code'] ?? '' }}"
+                                   {{ $appliedCoupon ? 'readonly' : '' }}
                                    autocomplete="off">
-                            <button type="button" class="mp-co-coupon__btn" data-coupon-btn>
-                                Aplicar
-                            </button>
+                            @if($appliedCoupon)
+                                <button type="button" class="mp-co-coupon__btn is-applied" data-coupon-btn data-applied="1">
+                                    Aplicado ✓
+                                </button>
+                                <button type="button" class="mp-co-coupon__remove" data-coupon-remove title="Quitar cupón">
+                                    ✕
+                                </button>
+                            @else
+                                <button type="button" class="mp-co-coupon__btn" data-coupon-btn>
+                                    Aplicar
+                                </button>
+                            @endif
                         </div>
-                        <div class="mp-co-coupon__msg" data-coupon-msg></div>
-                        <input type="hidden" name="coupons[{{ $store['hostname_id'] }}]" data-coupon-hidden value="">
+                        <div class="mp-co-coupon__msg {{ $appliedCoupon ? 'is-ok' : '' }}" data-coupon-msg>
+                            @if($appliedCoupon)
+                                ✓ Cupón aplicado: -S/ {{ number_format($appliedCoupon['discount'], 2) }}
+                            @endif
+                        </div>
+                        <input type="hidden" name="coupons[{{ $store['hostname_id'] }}]" data-coupon-hidden value="{{ $appliedCoupon['code'] ?? '' }}">
+                        <input type="hidden" data-applied-discount value="{{ $appliedCoupon['discount'] ?? 0 }}">
                     </div>
                 </div>
             @endforeach
@@ -258,7 +277,18 @@
 }
 .mp-co-coupon__btn:hover { background: #111827; }
 .mp-co-coupon__btn:disabled { background: #9ca3af; cursor: not-allowed; }
-.mp-co-coupon__btn.is-applied { background: #16a34a; }
+.mp-co-coupon__btn.is-applied { background: #16a34a; cursor: default; }
+.mp-co-coupon__remove {
+    width: 32px;
+    background: #fee2e2;
+    color: #b91c1c;
+    border: 1px solid #fca5a5;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 700;
+    flex-shrink: 0;
+}
+.mp-co-coupon__remove:hover { background: #fecaca; }
 .mp-co-coupon__msg {
     font-size: 11.5px;
     margin-top: 5px;
@@ -274,9 +304,11 @@
 <script>
 (function(){
     const VALIDATE_URL = @json(route('marketplace.checkout.coupon'));
+    const REMOVE_URL_BASE = @json(url('/marketplace/checkout/coupon'));
     const CSRF = document.querySelector('meta[name="csrf-token"]')?.content || '';
 
-    // Trackea descuento por tienda para recalcular total: { hostnameId: discount }
+    // Trackea descuento por tienda. Se hidrata desde data-applied-discount al
+    // cargar para que el resumen ya refleje los cupones persistidos.
     const appliedDiscounts = {};
 
     function recalcSummary() {
@@ -310,6 +342,15 @@
         const btn    = block.querySelector('[data-coupon-btn]');
         const msg    = block.querySelector('[data-coupon-msg]');
         const hidden = block.querySelector('[data-coupon-hidden]');
+        const couponBox = block.querySelector('.mp-co-coupon');
+        const removeBtn = block.querySelector('[data-coupon-remove]');
+        const appliedDiscountEl = block.querySelector('[data-applied-discount]');
+
+        // Hidratar descuento ya aplicado (cupón sobrevivió a recarga)
+        const initialDiscount = parseFloat(appliedDiscountEl?.value || 0);
+        if (initialDiscount > 0) {
+            appliedDiscounts[hostnameId] = initialDiscount;
+        }
 
         async function apply() {
             const code = (input.value || '').trim().toUpperCase();
@@ -333,14 +374,11 @@
                 });
                 const data = await res.json();
                 if (res.ok && data.success) {
-                    msg.textContent = '✓ ' + data.message;
-                    msg.className = 'mp-co-coupon__msg is-ok';
-                    btn.textContent = 'Aplicado ✓';
-                    btn.classList.add('is-applied');
-                    input.readOnly = true;
-                    hidden.value = data.code;
-                    appliedDiscounts[hostnameId] = parseFloat(data.discount || 0);
-                    recalcSummary();
+                    // Recargamos para que el server-rendered state refleje
+                    // todo (boton "Aplicado", X de remover, descuento). Es
+                    // más simple que mutar el DOM y mantiene server como
+                    // fuente de verdad.
+                    window.location.reload();
                 } else {
                     msg.textContent = data.message || 'No se pudo validar el cupón.';
                     msg.className = 'mp-co-coupon__msg is-error';
@@ -355,11 +393,33 @@
             }
         }
 
-        btn.addEventListener('click', apply);
-        input.addEventListener('keydown', e => {
-            if (e.key === 'Enter') { e.preventDefault(); apply(); }
-        });
+        async function remove() {
+            if (!confirm('¿Quitar el cupón aplicado en esta tienda?')) return;
+            try {
+                const res = await fetch(REMOVE_URL_BASE + '/' + hostnameId, {
+                    method: 'DELETE',
+                    headers: { 'Accept':'application/json', 'X-CSRF-TOKEN': CSRF },
+                });
+                if (res.ok) window.location.reload();
+                else alert('No se pudo quitar el cupón.');
+            } catch (e) {
+                alert('Error de red. Intenta de nuevo.');
+            }
+        }
+
+        // Si ya está aplicado, el boton Aplicar no debería re-validar — el
+        // usuario quita primero, luego aplica otro.
+        if (couponBox?.dataset.applied !== '1') {
+            btn.addEventListener('click', apply);
+            input.addEventListener('keydown', e => {
+                if (e.key === 'Enter') { e.preventDefault(); apply(); }
+            });
+        }
+        if (removeBtn) removeBtn.addEventListener('click', remove);
     });
+
+    // Render inicial del resumen reflejando cupones persistidos
+    recalcSummary();
 })();
 </script>
 @endpush

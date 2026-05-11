@@ -24,6 +24,8 @@ class MarketplaceCheckoutController extends Controller
     public function show()
     {
         $this->cart->refresh();
+        // Limpiar cupones huérfanos (tiendas cuyos items fueron removidos)
+        $this->cart->pruneOrphanCoupons();
         $stores  = $this->cart->groupedByStore();
         $summary = $this->cart->summary();
 
@@ -32,7 +34,12 @@ class MarketplaceCheckoutController extends Controller
                 ->with('mp_message', 'Tu carrito está vacío.');
         }
 
-        return view('marketplace.checkout', compact('stores', 'summary'));
+        // Cupones ya aplicados (sobreviven entre cargas). El blade pre-llena
+        // el input y marca como "aplicado" para que el cliente no tenga que
+        // re-ingresar el código si navegó y volvió.
+        $appliedCoupons = $this->cart->getCoupons();
+
+        return view('marketplace.checkout', compact('stores', 'summary', 'appliedCoupons'));
     }
 
     /**
@@ -118,6 +125,10 @@ class MarketplaceCheckoutController extends Controller
                 ], 422);
             }
 
+            // Persistir en sesión para que sobreviva navegación/recarga.
+            // Re-validamos server-side igual al confirmar el pedido.
+            $this->cart->applyCoupon($hostnameId, $code, $discount);
+
             return response()->json([
                 'success'        => true,
                 'code'           => $code,
@@ -144,6 +155,16 @@ class MarketplaceCheckoutController extends Controller
         } finally {
             $tenancy->tenant($originalTenant ?: null);
         }
+    }
+
+    /**
+     * Quitar un cupón aplicado a una tienda. El cliente cambia de opinión o
+     * cambió los items y ya no quiere ese código.
+     */
+    public function removeCoupon(int $hostnameId)
+    {
+        $this->cart->removeCoupon($hostnameId);
+        return response()->json(['success' => true]);
     }
 
     public function store(Request $request)
