@@ -170,7 +170,7 @@
                                         </el-tag>
                                     </div>
                                 </td>
-                            <td class="text-center">
+                            <td class="text-center" :class="{ 'vt-img-cell--muted': useParentImage }">
                                 <el-upload :action="`/items/${itemId}/variants/${v.id}/image`"
                                            :headers="headers"
                                            :show-file-list="false"
@@ -190,6 +190,14 @@
                                         📷+
                                     </div>
                                 </el-upload>
+                                <!-- Cuando el toggle "usar imagen del padre" está
+                                     activo, las imágenes de variante son ignoradas
+                                     por el marketplace — lo decimos visualmente con
+                                     un texto debajo. La imagen sigue guardada por
+                                     si el seller decide desactivar el toggle. -->
+                                <div v-if="useParentImage" class="vt-img-overridden">
+                                    ⓘ se usará la del producto
+                                </div>
                             </td>
                             <td class="text-center">
                                 <!-- Radio exclusivo: solo UNA variante puede ser la
@@ -1001,6 +1009,38 @@ export default {
 .vt-parent-image-toggle .el-switch__label {
     color: #1f2937;
     font-weight: 600;
+}
+
+/* Cuando el toggle está ON: imágenes de variante atenuadas + texto bajo. */
+.vt-img-cell--muted .vt-img-thumb,
+.vt-img-cell--muted .vt-img-empty {
+    opacity: 0.38;
+    filter: grayscale(0.6);
+    transition: opacity .15s, filter .15s;
+}
+.vt-img-cell--muted .vt-img-thumb::after {
+    content: '✕';
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #f97316;
+    font-weight: 800;
+    font-size: 22px;
+    pointer-events: none;
+    text-shadow: 0 1px 2px rgba(255,255,255,.8);
+}
+.vt-img-overridden {
+    font-size: 10px;
+    color: #9a3412;
+    background: #fff7ed;
+    border: 1px solid #fed7aa;
+    border-radius: 4px;
+    padding: 1px 4px;
+    margin-top: 3px;
+    line-height: 1.2;
+    display: inline-block;
 }
 
 /* ─────── Vista matriz (Color × Talla en grilla) ─────── */
