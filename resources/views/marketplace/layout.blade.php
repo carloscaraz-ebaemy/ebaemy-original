@@ -439,6 +439,89 @@
 
 {{-- ═══════════════════════ FOOTER ═══════════════════════ --}}
 <footer class="mp-footer">
+
+    {{-- ── Newsletter signup (captura leads opt-in) ── --}}
+    <div class="mp-footer-newsletter">
+        <div class="mp-footer-newsletter__inner">
+            <div class="mp-footer-newsletter__head">
+                <span class="mp-footer-newsletter__icon">📩</span>
+                <div>
+                    <strong>Recibe ofertas y nuevas tiendas en tu email</strong>
+                    <small>Te avisamos máximo una vez por semana · cancela cuando quieras</small>
+                </div>
+            </div>
+            <form id="mpNewsletterForm" class="mp-footer-newsletter__form">
+                <input type="email" name="email" required maxlength="180"
+                       placeholder="tu@email.com" autocomplete="email">
+                <button type="submit">Suscribirme</button>
+            </form>
+            <div id="mpNewsletterMsg" class="mp-footer-newsletter__msg"></div>
+        </div>
+    </div>
+
+    {{-- ── Métodos de pago + sellos de confianza ── --}}
+    <div class="mp-footer-trust">
+        <div class="mp-footer-trust__inner">
+            <div class="mp-footer-trust__block">
+                <div class="mp-footer-trust__label">💳 Métodos de pago</div>
+                <div class="mp-footer-trust__items">
+                    <span class="mp-footer-trust__pay" title="MercadoPago">
+                        <svg width="40" height="20" viewBox="0 0 100 50" fill="none">
+                            <rect width="100" height="50" rx="6" fill="#009ee3"/>
+                            <text x="50" y="32" text-anchor="middle" fill="#fff" font-family="Arial" font-weight="bold" font-size="14">MP</text>
+                        </svg>
+                    </span>
+                    <span class="mp-footer-trust__pay" title="Yape">
+                        <svg width="36" height="20" viewBox="0 0 100 50" fill="none">
+                            <rect width="100" height="50" rx="6" fill="#7c3aed"/>
+                            <text x="50" y="32" text-anchor="middle" fill="#fff" font-family="Arial" font-weight="bold" font-size="13">Yape</text>
+                        </svg>
+                    </span>
+                    <span class="mp-footer-trust__pay" title="Plin">
+                        <svg width="36" height="20" viewBox="0 0 100 50" fill="none">
+                            <rect width="100" height="50" rx="6" fill="#0ea5e9"/>
+                            <text x="50" y="32" text-anchor="middle" fill="#fff" font-family="Arial" font-weight="bold" font-size="13">Plin</text>
+                        </svg>
+                    </span>
+                    <span class="mp-footer-trust__pay" title="Visa">
+                        <svg width="36" height="20" viewBox="0 0 100 50" fill="none">
+                            <rect width="100" height="50" rx="6" fill="#1a1f71"/>
+                            <text x="50" y="32" text-anchor="middle" fill="#fff" font-family="Arial" font-weight="bold" font-size="14">VISA</text>
+                        </svg>
+                    </span>
+                    <span class="mp-footer-trust__pay" title="Mastercard">
+                        <svg width="36" height="20" viewBox="0 0 100 50" fill="none">
+                            <rect width="100" height="50" rx="6" fill="#ffffff" stroke="#ddd"/>
+                            <circle cx="42" cy="25" r="13" fill="#eb001b"/>
+                            <circle cx="58" cy="25" r="13" fill="#f79e1b" fill-opacity=".9"/>
+                        </svg>
+                    </span>
+                    <span class="mp-footer-trust__pay" title="Transferencia bancaria">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#475569" stroke-width="2" stroke-linecap="round"><rect x="2" y="6" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
+                    </span>
+                </div>
+            </div>
+
+            <div class="mp-footer-trust__block">
+                <div class="mp-footer-trust__label">🛡️ Garantía y seguridad</div>
+                <div class="mp-footer-trust__items">
+                    <span class="mp-footer-trust__badge">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#16a34a" stroke-width="2.5" stroke-linecap="round"><path d="M12 2l9 4v6c0 5-3.5 9-9 10-5.5-1-9-5-9-10V6l9-4z"/><path d="m9 12 2 2 4-4"/></svg>
+                        <span><strong>RUC validado</strong> · SUNAT</span>
+                    </span>
+                    <span class="mp-footer-trust__badge">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#16a34a" stroke-width="2.5" stroke-linecap="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                        <span><strong>Compra protegida</strong> · SSL</span>
+                    </span>
+                    <span class="mp-footer-trust__badge">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#16a34a" stroke-width="2.5" stroke-linecap="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>
+                        <span><strong>Factura</strong> electrónica</span>
+                    </span>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <div class="mp-footer-grid">
         <div class="mp-footer-brand">
             <h3>
@@ -446,6 +529,9 @@
                 ebaemy
             </h3>
             <p>El marketplace peruano que conecta compradores con tiendas verificadas. Todas las empresas tienen RUC validado y facturación electrónica.</p>
+            <div style="font-size:12.5px;color:#9ca3af;margin-top:10px">
+                ✉️ <a href="mailto:soporte@ebaemy.com" style="color:#bbb;text-decoration:underline">soporte@ebaemy.com</a>
+            </div>
             <div class="mp-footer-socials">
                 <a href="#" class="mp-footer-social" aria-label="Facebook">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
@@ -490,9 +576,129 @@
 
     <div class="mp-footer-bottom">
         <div>© {{ date('Y') }} ebaemy — Todas las tiendas del Perú, un solo lugar.</div>
-        <div>Hecho en 🇵🇪 con Laravel + ebaemy SaaS</div>
+        <div>🇵🇪 Hecho en Perú · <a href="mailto:soporte@ebaemy.com" style="color:#9ca3af">Atención: soporte@ebaemy.com</a></div>
     </div>
 </footer>
+
+{{-- Estilos del newsletter + trust footer --}}
+<style>
+.mp-footer-newsletter {
+    background: linear-gradient(135deg, #0a6f68 0%, #1fb1a6 100%);
+    padding: 22px 16px;
+}
+.mp-footer-newsletter__inner {
+    max-width: 1180px; margin: 0 auto;
+    display: flex; flex-wrap: wrap; gap: 16px;
+    align-items: center; justify-content: space-between;
+}
+.mp-footer-newsletter__head {
+    display: flex; align-items: center; gap: 12px;
+    color: #fff; flex: 1; min-width: 260px;
+}
+.mp-footer-newsletter__icon { font-size: 28px; line-height: 1; }
+.mp-footer-newsletter__head strong { display:block; font-size: 15px; font-weight: 700; }
+.mp-footer-newsletter__head small { display:block; font-size: 12px; opacity: .85; margin-top: 2px; }
+.mp-footer-newsletter__form { display: flex; gap: 6px; flex: 1; min-width: 280px; max-width: 450px; }
+.mp-footer-newsletter__form input {
+    flex: 1; padding: 10px 14px;
+    border: 0; border-radius: 8px 0 0 8px;
+    font-size: 14px; outline: 0;
+    background: #fff;
+}
+.mp-footer-newsletter__form button {
+    padding: 10px 20px;
+    background: #fbbf24; color: #1f2937;
+    border: 0; border-radius: 0 8px 8px 0;
+    font-weight: 700; font-size: 13.5px;
+    cursor: pointer; transition: background .12s;
+}
+.mp-footer-newsletter__form button:hover { background: #f59e0b; }
+.mp-footer-newsletter__msg {
+    flex-basis: 100%; font-size: 13px; color: #fff;
+    min-height: 18px; margin-top: 2px;
+}
+.mp-footer-newsletter__msg.is-ok    { color: #d1fae5; font-weight: 600; }
+.mp-footer-newsletter__msg.is-error { color: #fee2e2; font-weight: 600; }
+
+.mp-footer-trust { background: #1f2937; padding: 18px 16px; border-top: 1px solid #374151; }
+.mp-footer-trust__inner {
+    max-width: 1180px; margin: 0 auto;
+    display: flex; flex-wrap: wrap; gap: 30px;
+    align-items: center; justify-content: space-between;
+}
+.mp-footer-trust__label {
+    font-size: 11px; font-weight: 700;
+    color: #9ca3af; text-transform: uppercase;
+    letter-spacing: .5px; margin-bottom: 6px;
+}
+.mp-footer-trust__items { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.mp-footer-trust__pay {
+    display: inline-flex; align-items: center; justify-content: center;
+    height: 28px; padding: 0 4px;
+    background: #fff; border-radius: 5px;
+}
+.mp-footer-trust__badge {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 5px 10px;
+    background: #064e3b; color: #d1fae5;
+    border: 1px solid #047857; border-radius: 6px;
+    font-size: 11.5px;
+}
+.mp-footer-trust__badge strong { color: #fff; font-weight: 700; }
+@media (max-width: 720px) {
+    .mp-footer-newsletter__inner { flex-direction: column; }
+    .mp-footer-trust__inner { flex-direction: column; gap: 14px; align-items: flex-start; }
+}
+</style>
+
+<script>
+(function(){
+    const form = document.getElementById('mpNewsletterForm');
+    const msg  = document.getElementById('mpNewsletterMsg');
+    if (!form || !msg) return;
+    form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const input = form.querySelector('input[name=email]');
+        const btn   = form.querySelector('button');
+        const email = (input.value || '').trim();
+        if (!email) {
+            msg.textContent = 'Ingresa un email válido.';
+            msg.className = 'mp-footer-newsletter__msg is-error';
+            return;
+        }
+        btn.disabled = true;
+        const originalBtn = btn.textContent;
+        btn.textContent = '…';
+        msg.textContent = '';
+        try {
+            const res = await fetch(@json(route('marketplace.newsletter')), {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || '',
+                },
+                body: JSON.stringify({ email }),
+            });
+            const data = await res.json();
+            msg.textContent = data.message || (res.ok ? '✓ Listo' : '✕ Error');
+            msg.className = 'mp-footer-newsletter__msg ' + (res.ok && data.success ? 'is-ok' : 'is-error');
+            if (res.ok && data.success) {
+                input.value = '';
+                btn.textContent = '✓';
+            } else {
+                btn.disabled = false;
+                btn.textContent = originalBtn;
+            }
+        } catch (err) {
+            msg.textContent = 'No se pudo conectar. Intenta de nuevo.';
+            msg.className = 'mp-footer-newsletter__msg is-error';
+            btn.disabled = false;
+            btn.textContent = originalBtn;
+        }
+    });
+})();
+</script>
 
 <script>
 (function(){

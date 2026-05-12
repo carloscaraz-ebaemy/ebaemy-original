@@ -1195,6 +1195,12 @@ if ($hostname) {
              ->middleware('throttle:30,1')->name('marketplace.checkout');
         Route::post('marketplace/checkout',        'MarketplaceCheckoutController@store')
              ->middleware('throttle:6,1')->name('marketplace.checkout.store');
+        // Newsletter público del marketplace — captura de leads opt-in.
+        // Crea/actualiza una MarketingContact con consent_marketing=true.
+        // Throttle 10/min por IP para evitar abuso.
+        Route::post('marketplace/newsletter',     'MarketplaceController@newsletterSubscribe')
+             ->middleware('throttle:10,1')->name('marketplace.newsletter');
+
         // Validación AJAX de cupones por tienda — el cliente ingresa código,
         // el endpoint switchea al tenant correspondiente y corre PromotionEngine
         // en preview (commit=false) para retornar el descuento aplicable sin

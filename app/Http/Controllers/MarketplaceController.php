@@ -167,6 +167,63 @@ class MarketplaceController extends Controller
      * Cache en memoria por query corto: si 100 usuarios buscan "polo" en 1min,
      * pegamos a DB una vez. TTL 60s.
      */
+    /**
+     * Newsletter del marketplace — opt-in público desde el footer. Crea o
+     * actualiza una MarketingContact con consent_marketing=true. Respeta
+     * decisiones previas de opt-out (no reactiva contactos que se dieron de
+     * baja). Throttle por IP a nivel de ruta.
+     */
+    public function newsletterSubscribe(Request $request)
+    {
+        $data = $request->validate([
+            'email' => 'required|email|max:180',
+        ]);
+
+        $email = mb_strtolower(trim($data['email']));
+
+        try {
+            $existing = \App\Models\System\MarketingContact::query()
+                ->where('email', $email)
+                ->first();
+
+            if ($existing && $existing->opted_out) {
+                // Respetamos la decisión previa — no reactivamos silenciosamente
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Este email se dio de baja previamente. Para reactivar tu suscripción, escríbenos a soporte@ebaemy.com.',
+                ], 422);
+            }
+
+            if ($existing) {
+                $existing->update([
+                    'consent_marketing' => true,
+                    'consent_at'        => $existing->consent_at ?: now(),
+                    'consent_source'    => $existing->consent_source ?: 'footer_newsletter',
+                ]);
+            } else {
+                \App\Models\System\MarketingContact::create([
+                    'email'             => $email,
+                    'consent_marketing' => true,
+                    'consent_source'    => 'footer_newsletter',
+                    'source'            => 'marketplace_footer',
+                    'source_ip'         => $request->ip(),
+                    'source_ua'         => \Illuminate\Support\Str::limit((string) $request->userAgent(), 250, ''),
+                ]);
+            }
+
+            return response()->json([
+                'success' => true,
+                'message' => '¡Gracias! Te avisaremos de ofertas y nuevas tiendas.',
+            ]);
+        } catch (\Throwable $e) {
+            \Log::warning('[Newsletter] subscribe failed', ['error' => $e->getMessage(), 'email' => $email]);
+            return response()->json([
+                'success' => false,
+                'message' => 'No se pudo procesar tu suscripción. Intenta de nuevo en un momento.',
+            ], 500);
+        }
+    }
+
     public function searchSuggest(Request $request)
     {
         $q = trim((string) $request->input('q', ''));
