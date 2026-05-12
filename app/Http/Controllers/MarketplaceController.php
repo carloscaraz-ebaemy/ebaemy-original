@@ -125,23 +125,33 @@ class MarketplaceController extends Controller
         // Top tiendas con productos publicados — sidebar de filtro por tienda.
         // Cache 30 min porque el ranking cambia lento. 12 max para no inflar
         // visualmente; las tiendas restantes quedan accesibles vía buscador.
-        $shops = Cache::remember('mp_shops_top_v1', 1800, function () {
+        // v2: incluye logo y verified — útil para el sidebar del marketplace.
+        // Limit subido de 12 → 20 para que se vean más tiendas (con buscador
+        // inline + scroll vertical en el sidebar el shopper puede llegar a
+        // cualquiera). MAX(tenant_verified) porque la query es agrupada y
+        // el flag está repetido en todos los listings de la misma tienda.
+        $shops = Cache::remember('mp_shops_top_v2', 1800, function () {
             return MarketplaceListing::published()
                 ->whereNotNull('tenant_fqdn')
                 ->select(
                     'tenant_fqdn',
                     'tenant_name',
+                    \DB::raw('MAX(tenant_logo_url) as tenant_logo_url'),
+                    \DB::raw('MAX(tenant_verified) as tenant_verified'),
                     \DB::raw('COUNT(*) as products_count')
                 )
                 ->groupBy('tenant_fqdn', 'tenant_name')
+                ->orderByDesc(\DB::raw('MAX(tenant_verified)'))  // verificadas primero
                 ->orderByDesc('products_count')
-                ->limit(12)
+                ->limit(20)
                 ->get()
                 ->map(function ($s) {
                     $sub = strtolower(strtok((string) $s->tenant_fqdn, '.')) ?: null;
                     return (object) [
                         'subdomain'      => $sub,
                         'name'           => $s->tenant_name ?: $sub,
+                        'logo_url'       => $s->tenant_logo_url,
+                        'verified'       => (bool) $s->tenant_verified,
                         'products_count' => (int) $s->products_count,
                     ];
                 })

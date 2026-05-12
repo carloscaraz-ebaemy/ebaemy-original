@@ -239,9 +239,11 @@
 
         @if(!empty($shops) && $shops->count() > 0)
             <div class="mp-filter-group">
-                <div class="mp-filter-label">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9h18"/><path d="m3 9 1.5-6h15L21 9"/><path d="M3 9v10a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V9"/></svg>
-                    Tiendas
+                <div class="mp-filter-label mp-filter-label--with-action">
+                    <span class="d-flex align-items-center gap-1">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9h18"/><path d="m3 9 1.5-6h15L21 9"/><path d="M3 9v10a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V9"/></svg>
+                        Tiendas <small class="text-muted">({{ $shops->count() }})</small>
+                    </span>
                 </div>
                 @php
                     // Para los links del sidebar "Tiendas" descartamos el query
@@ -252,21 +254,49 @@
                     // links nuevos sobrescriban el actual sin acumular.
                     $shopBaseQs = array_diff_key($baseQs, ['shop' => null, 'q' => null]);
                 @endphp
-                <ul class="mp-filter-list">
+
+                {{-- Buscador inline (filtra client-side las tiendas visibles).
+                     Solo aparece si hay >5 tiendas para no saturar. --}}
+                @if($shops->count() > 5)
+                    <input type="search"
+                           id="mpShopFilterInput"
+                           class="mp-shop-search"
+                           placeholder="🔍 Buscar tienda…"
+                           autocomplete="off">
+                @endif
+
+                <ul class="mp-filter-list mp-shop-list">
                     <li>
                         <a href="{{ route('marketplace.index', $shopBaseQs) }}"
-                           class="mp-filter-item {{ empty($shopSubdomain) ? 'is-active' : '' }}">Todas</a>
+                           class="mp-filter-item mp-shop-item {{ empty($shopSubdomain) ? 'is-active' : '' }}">
+                            <span class="mp-shop-logo mp-shop-logo--all">🏬</span>
+                            <span class="mp-shop-name">Todas las tiendas</span>
+                            <span class="mp-filter-count">{{ $shops->sum('products_count') }}</span>
+                        </a>
                     </li>
                     @foreach($shops as $shop)
-                        <li>
+                        <li data-shop-name="{{ mb_strtolower($shop->name) }}">
                             <a href="{{ route('marketplace.index', array_merge($shopBaseQs, ['shop' => $shop->subdomain])) }}"
-                               class="mp-filter-item {{ $shopSubdomain === $shop->subdomain ? 'is-active' : '' }}">
-                                {{ $shop->name }}
+                               class="mp-filter-item mp-shop-item {{ $shopSubdomain === $shop->subdomain ? 'is-active' : '' }}"
+                               title="Ver productos de {{ $shop->name }}">
+                                @if($shop->logo_url)
+                                    <img class="mp-shop-logo" src="{{ $shop->logo_url }}" alt="" loading="lazy">
+                                @else
+                                    <span class="mp-shop-logo mp-shop-logo--initial">{{ mb_strtoupper(mb_substr($shop->name, 0, 1)) }}</span>
+                                @endif
+                                <span class="mp-shop-name">
+                                    {{ $shop->name }}
+                                    @if($shop->verified)
+                                        <span class="mp-shop-verified" title="Tienda verificada por ebaemy">✓</span>
+                                    @endif
+                                </span>
                                 <span class="mp-filter-count">{{ $shop->products_count }}</span>
                             </a>
                         </li>
                     @endforeach
                 </ul>
+                <a href="{{ route('marketplace.index', array_merge($shopBaseQs, ['view' => 'shops'])) }}"
+                   class="mp-shop-see-all">Ver todas las tiendas →</a>
             </div>
         @endif
 
@@ -514,4 +544,108 @@ if (window.matchMedia('(max-width: 899px)').matches) {
      marketplace.partials.listing-card-script (incluido por layout.blade.php),
      compartido con todas las vistas que renderizan cards. --}}
 </script>
+@push('styles')
+<style>
+/* ── Filtro Tiendas mejorado (sidebar marketplace) ── */
+.mp-filter-label--with-action { display:flex; justify-content:space-between; align-items:center; }
+.mp-shop-search {
+    width: 100%;
+    padding: 6px 10px;
+    border: 1px solid var(--mp-line);
+    border-radius: 6px;
+    font-size: 12.5px;
+    margin-bottom: 8px;
+    outline: 0;
+}
+.mp-shop-search:focus { border-color: var(--mp-primary); }
+.mp-shop-list { max-height: 320px; overflow-y: auto; }
+.mp-shop-list::-webkit-scrollbar { width: 4px; }
+.mp-shop-list::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 2px; }
+.mp-shop-item {
+    display: flex !important;
+    align-items: center;
+    gap: 8px;
+    padding: 5px 6px !important;
+    border-radius: 6px;
+    transition: background .12s;
+}
+.mp-shop-item:hover { background: rgba(15,138,130,.05); }
+.mp-shop-item.is-active { background: rgba(15,138,130,.10); font-weight: 600; }
+.mp-shop-logo {
+    width: 24px; height: 24px; border-radius: 50%;
+    object-fit: cover; flex-shrink: 0;
+    background: #f3f4f6;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 13px; font-weight: 700;
+    color: var(--mp-muted);
+    overflow: hidden;
+}
+.mp-shop-logo--all { background: linear-gradient(135deg, #0f8a82, #0a6f68); color: #fff; font-size: 12px; }
+.mp-shop-logo--initial { background: linear-gradient(135deg, #6366f1, #8b5cf6); color: #fff; }
+.mp-shop-name {
+    flex: 1; font-size: 12.5px;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.mp-shop-verified {
+    display: inline-block;
+    margin-left: 4px;
+    width: 14px; height: 14px;
+    background: #16a34a;
+    color: #fff;
+    border-radius: 50%;
+    font-size: 9px; font-weight: 700;
+    text-align: center; line-height: 14px;
+    vertical-align: middle;
+}
+.mp-shop-see-all {
+    display: block;
+    margin-top: 6px;
+    padding: 6px;
+    text-align: center;
+    font-size: 11.5px;
+    color: var(--mp-primary-dark);
+    font-weight: 600;
+    text-decoration: none;
+    border-top: 1px dashed var(--mp-line-soft);
+}
+.mp-shop-see-all:hover { background: rgba(15,138,130,.04); }
+.mp-shop-empty { padding: 8px; font-size: 11.5px; color: var(--mp-muted); text-align: center; }
+</style>
+@endpush
+
+@push('scripts')
+<script>
+(function(){
+    const input = document.getElementById('mpShopFilterInput');
+    if (!input) return;
+    const list = input.parentElement.querySelector('.mp-shop-list');
+    if (!list) return;
+    const items = list.querySelectorAll('li[data-shop-name]');
+
+    input.addEventListener('input', () => {
+        const q = (input.value || '').trim().toLowerCase();
+        let visible = 0;
+        items.forEach(li => {
+            const name = li.dataset.shopName || '';
+            const match = !q || name.includes(q);
+            li.style.display = match ? '' : 'none';
+            if (match) visible++;
+        });
+        // Mensaje "sin resultados" si no quedó ninguno (solo "Todas" no cuenta)
+        const empty = list.querySelector('.mp-shop-empty');
+        if (visible === 0 && q) {
+            if (!empty) {
+                const el = document.createElement('li');
+                el.className = 'mp-shop-empty';
+                el.textContent = 'Sin coincidencias';
+                list.appendChild(el);
+            }
+        } else if (empty) {
+            empty.remove();
+        }
+    });
+})();
+</script>
+@endpush
+
 @endsection
