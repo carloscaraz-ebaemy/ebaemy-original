@@ -777,7 +777,20 @@ class MarketplaceController extends Controller
             ->where('hostname_id', $hostname->id)
             ->first();
 
-        if (!$client || !$client->marketplace_enabled) {
+        if (!$client) {
+            abort(404);
+        }
+
+        // El criterio de "tienda visible" es el MISMO que usa el listing global
+        // /marketplace?shop=X: existen listings publicados para este hostname.
+        // Evitamos 404 cuando el seller tiene productos vivos pero su flag
+        // marketplace_enabled quedó en false por data inconsistente (sellers
+        // antiguos a la migración de ese flag).
+        $hasPublishedListings = MarketplaceListing::published()
+            ->where('hostname_id', $hostname->id)
+            ->exists();
+
+        if (!$client->marketplace_enabled && !$hasPublishedListings) {
             abort(404);
         }
 
