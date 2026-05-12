@@ -134,13 +134,18 @@ class Configuration extends Model
     /**
      * URL absoluta del og:image del marketplace. Si NULL, devolvemos el logo
      * por default. WhatsApp/Facebook necesitan URL HTTPS absoluta.
+     *
+     * Append ?v={timestamp} de updated_at para forzar a las redes sociales
+     * a reescrapeear cuando el SuperAdmin actualiza la imagen. Sin esto el
+     * og:image queda cacheado en WhatsApp/FB hasta 24h y no se ve el cambio.
      */
     public function getMarketplaceOgImageUrlAttribute(): string
     {
+        $v = $this->updated_at ? $this->updated_at->timestamp : time();
         if ($this->marketplace_og_image) {
-            return asset('storage/uploads/system/' . $this->marketplace_og_image);
+            return asset('storage/uploads/system/' . $this->marketplace_og_image) . '?v=' . $v;
         }
-        return asset('logo/logo.jpg');
+        return asset('logo/logo.jpg') . '?v=' . $v;
     }
 
     public function validationConfigNotify()

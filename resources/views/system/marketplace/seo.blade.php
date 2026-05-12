@@ -68,12 +68,33 @@
                 </div>
             </div>
 
-            <div class="alert alert-warning py-2 mt-3 small">
-                ⚠️ <strong>Cuidado con el caché de WhatsApp/Facebook</strong>: después de guardar puede tardar
-                hasta 24h en actualizar. Para forzar refresh, usa el
-                <a href="https://developers.facebook.com/tools/debug/?q={{ urlencode(url('/marketplace')) }}" target="_blank">debugger de Facebook</a>
-                (scrape again) o el
-                <a href="https://www.linkedin.com/post-inspector/" target="_blank">post inspector de LinkedIn</a>.
+            <div class="alert alert-warning mt-3">
+                <h6 class="mb-2">⚠️ Importante: caché de WhatsApp/Facebook</h6>
+                <p class="small mb-2">
+                    WhatsApp y Facebook <strong>cachean la preview hasta 24h</strong>. Después de guardar acá,
+                    el link compartido puede seguir mostrando la versión vieja un buen rato.
+                </p>
+                <p class="small mb-2"><strong>Para forzar refresh AHORA</strong>:</p>
+                <ol class="small mb-2">
+                    <li>Click en <strong>"Forzar refresh en Facebook"</strong> abajo</li>
+                    <li>En la página de FB, click <strong>"Scrape Again"</strong> (botón gris)</li>
+                    <li>Verifica que abajo aparezca la imagen/título/descripción nuevos</li>
+                    <li>WhatsApp usa la misma caché que FB — al refrescar uno, refrescan los dos</li>
+                </ol>
+                <div class="d-flex gap-2 mt-2">
+                    <a href="https://developers.facebook.com/tools/debug/?q={{ urlencode(url('/marketplace')) }}"
+                       target="_blank" rel="noopener" class="btn btn-primary btn-sm">
+                        🔄 Forzar refresh en Facebook (y WhatsApp)
+                    </a>
+                    <a href="https://www.linkedin.com/post-inspector/inspect/{{ urlencode(url('/marketplace')) }}"
+                       target="_blank" rel="noopener" class="btn btn-outline-secondary btn-sm">
+                        🔄 Forzar refresh en LinkedIn
+                    </a>
+                </div>
+                <p class="small text-muted mt-2 mb-0">
+                    💡 <strong>Tip extra para WhatsApp PC</strong>: Eliminá el chat donde compartiste el link viejo,
+                    o compartilo en un grupo nuevo. WhatsApp Desktop a veces guarda la preview localmente.
+                </p>
             </div>
         </div>
 
