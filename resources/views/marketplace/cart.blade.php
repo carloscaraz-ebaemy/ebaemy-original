@@ -138,14 +138,16 @@
                                 {{ $store['tenant_name'] }}
                             @endif
                             <div style="font-weight:400;font-size:12px;color:#6b7280;margin-top:2px">
-                                {{ $store['item_count'] }} {{ $store['item_count'] === 1 ? 'unidad' : 'unidades' }} · esta tienda gestiona su entrega
+                                <span data-store-count>{{ $store['item_count'] }}</span> <span data-store-count-word>{{ $store['item_count'] === 1 ? 'unidad' : 'unidades' }}</span> · esta tienda gestiona su entrega
                             </div>
                         </div>
-                        <div class="mp-cart-store-subtotal">S/ {{ number_format($store['subtotal'], 2) }}</div>
+                        <div class="mp-cart-store-subtotal" data-store-subtotal>S/ {{ number_format($store['subtotal'], 2) }}</div>
                     </div>
 
                     @foreach($store['items'] as $line)
-                        <div class="mp-cart-line" data-listing="{{ $line['listing_id'] }}">
+                        <div class="mp-cart-line"
+                             data-listing="{{ $line['listing_id'] }}"
+                             data-unit-price="{{ $line['price'] }}">
                             <a href="{{ route('marketplace.item', $line['slug']) }}" class="mp-cart-line-img">
                                 @if($line['image_url'])
                                     <img src="{{ $line['image_url'] }}" alt="{{ $line['title'] }}" loading="lazy">
@@ -178,13 +180,13 @@
 
         <aside class="mp-cart-summary">
             <h3>Resumen</h3>
-            <div class="mp-cart-summary-row"><span>Productos</span><span>{{ $summary['count'] }}</span></div>
+            <div class="mp-cart-summary-row"><span>Productos</span><span data-summary-count>{{ $summary['count'] }}</span></div>
             <div class="mp-cart-summary-row"><span>Tiendas</span><span>{{ $stores->count() }}</span></div>
-            <div class="mp-cart-summary-row"><span>Subtotal</span><span>S/ {{ number_format($summary['subtotal'], 2) }}</span></div>
+            <div class="mp-cart-summary-row"><span>Subtotal</span><span data-summary-subtotal>S/ {{ number_format($summary['subtotal'], 2) }}</span></div>
             <div class="mp-cart-summary-row" style="color:#6b7280"><span>Envío</span><span>Lo coordina cada tienda</span></div>
             <div class="mp-cart-summary-total" style="display:flex;justify-content:space-between;align-items:center">
                 <span class="label">Total</span>
-                <span class="value">S/ {{ number_format($summary['total'], 2) }}</span>
+                <span class="value" data-summary-total>S/ {{ number_format($summary['total'], 2) }}</span>
             </div>
 
             <a href="{{ route('marketplace.checkout') }}" class="mp-cart-checkout-btn">
@@ -226,6 +228,47 @@
         }).then(r => r.json());
     }
 
+    // Formato monetario consistente
+    const fmtMoney = n => 'S/ ' + (Number(n) || 0).toFixed(2);
+
+    // Recalcular totales en el DOM sin recargar la página. Se llama después
+    // de cada PATCH/DELETE exitoso.
+    function recalcTotals() {
+        let grandSubtotal = 0;
+        let grandCount = 0;
+
+        document.querySelectorAll('.mp-cart-store').forEach(store => {
+            let storeSubtotal = 0;
+            let storeCount = 0;
+            store.querySelectorAll('.mp-cart-line').forEach(line => {
+                const qty = parseInt(line.querySelector('.mp-cart-qty-input')?.value, 10) || 0;
+                const unit = parseFloat(line.dataset.unitPrice) || 0;
+                const lineTotal = qty * unit;
+                storeSubtotal += lineTotal;
+                storeCount += qty;
+                const priceEl = line.querySelector('.mp-cart-line-price');
+                if (priceEl) priceEl.textContent = fmtMoney(lineTotal);
+            });
+            grandSubtotal += storeSubtotal;
+            grandCount += storeCount;
+            const sub = store.querySelector('[data-store-subtotal]');
+            if (sub) sub.textContent = fmtMoney(storeSubtotal);
+            const c1 = store.querySelector('[data-store-count]');
+            const c2 = store.querySelector('[data-store-count-word]');
+            if (c1) c1.textContent = storeCount;
+            if (c2) c2.textContent = storeCount === 1 ? 'unidad' : 'unidades';
+        });
+
+        document.querySelectorAll('[data-summary-count]').forEach(el => el.textContent = grandCount);
+        document.querySelectorAll('[data-summary-subtotal]').forEach(el => el.textContent = fmtMoney(grandSubtotal));
+        document.querySelectorAll('[data-summary-total]').forEach(el => el.textContent = fmtMoney(grandSubtotal));
+
+        // Si el cart quedó vacío, recargamos para que el server muestre el
+        // empty state ("Tu carrito está vacío") — sería raro mantener el
+        // sidebar visible con 0 items.
+        if (grandCount === 0) window.location.reload();
+    }
+
     document.querySelectorAll('.mp-cart-line').forEach(function (line) {
         const listingId = line.dataset.listing;
         const input = line.querySelector('.mp-cart-qty-input');
@@ -234,8 +277,27 @@
         const rm  = line.querySelector('.mp-cart-line-remove');
 
         function commit(newQty) {
-            patchLine(listingId, Math.max(1, Math.min(99, newQty))).then(function (resp) {
-                if (resp.success) window.location.reload();
+            const safe = Math.max(1, Math.min(99, newQty));
+            // Optimistic UI: actualizamos el input ya, luego sincronizamos
+            // con el server. Si el server falla, hacemos rollback al value
+            // anterior.
+            const previous = parseInt(input.value, 10) || 1;
+            input.value = safe;
+            recalcTotals();
+
+            // Solo dispara el PATCH si el valor cambió
+            if (safe === previous) return;
+
+            patchLine(listingId, safe).then(function (resp) {
+                if (!resp || !resp.success) {
+                    // Rollback
+                    input.value = previous;
+                    recalcTotals();
+                    alert(resp?.message || 'No se pudo actualizar la cantidad.');
+                }
+            }).catch(() => {
+                input.value = previous;
+                recalcTotals();
             });
         }
 
@@ -244,9 +306,22 @@
         input?.addEventListener('change', () => commit(parseInt(input.value, 10) || 1));
         rm?.addEventListener('click', function () {
             if (!confirm('¿Quitar este producto del carrito?')) return;
+            // Quitamos el line visual antes del PATCH para feedback inmediato
+            const lineEl = line;
+            lineEl.style.opacity = '0.4';
             deleteLine(listingId).then(function (resp) {
-                if (resp.success) window.location.reload();
-            });
+                if (resp && resp.success) {
+                    lineEl.remove();
+                    // Si la tienda se quedó sin lines, también la quitamos
+                    document.querySelectorAll('.mp-cart-store').forEach(store => {
+                        if (!store.querySelector('.mp-cart-line')) store.remove();
+                    });
+                    recalcTotals();
+                } else {
+                    lineEl.style.opacity = '1';
+                    alert('No se pudo eliminar el producto.');
+                }
+            }).catch(() => { lineEl.style.opacity = '1'; });
         });
     });
 })();

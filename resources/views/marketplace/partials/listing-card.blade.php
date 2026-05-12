@@ -101,16 +101,22 @@
             @endif
         </div>
 
-        <div class="mp-card-shop">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9h18"/><path d="m3 9 1.5-6h15L21 9"/><path d="M3 9v10a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V9"/></svg>
-            @if($listing->subdomain)
-                <span class="mp-card-shop-name mp-card-shop-link js-shop-link"
-                      data-href="{{ route('marketplace.tenant', ['subdomain' => $listing->subdomain]) }}"
-                      title="Ver tienda {{ $listing->seller_display }}">{{ $listing->seller_display }}</span>
-            @else
-                <span class="mp-card-shop-name" title="Vendido por {{ $listing->seller_display }}">{{ $listing->seller_display }}</span>
-            @endif
-        </div>
+        {{-- Nombre de la tienda removido del card de listado (saturaba el grid).
+             Sigue visible en la página de detalle del producto y en el cart.
+             Si lo quieres reactivar para alguna vista puntual, pasa
+             $showShopName=true al render del partial. --}}
+        @if(!empty($showShopName))
+            <div class="mp-card-shop">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9h18"/><path d="m3 9 1.5-6h15L21 9"/><path d="M3 9v10a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V9"/></svg>
+                @if($listing->subdomain)
+                    <span class="mp-card-shop-name mp-card-shop-link js-shop-link"
+                          data-href="{{ route('marketplace.tenant', ['subdomain' => $listing->subdomain]) }}"
+                          title="Ver tienda {{ $listing->seller_display }}">{{ $listing->seller_display }}</span>
+                @else
+                    <span class="mp-card-shop-name" title="Vendido por {{ $listing->seller_display }}">{{ $listing->seller_display }}</span>
+                @endif
+            </div>
+        @endif
 
         {{-- Dots de color: solo cuando el value tiene color_hex Y al menos una
              variante con stock > 0 lo usa (filtrado en el controller). --}}
