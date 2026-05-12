@@ -173,8 +173,52 @@ class MarketplaceAdminController extends Controller
 
         \Cache::forget('system_config');
 
-        return redirect()->route('system.marketplace.seo')
-            ->with('mp_seo_message', 'Configuración SEO actualizada. La nueva preview puede tardar minutos en propagarse a WhatsApp/Facebook (limpian su caché).');
+        // ── Invalidar caché de redes sociales automáticamente ─────────────
+        // FB Graph: scrape=true fuerza a Facebook a re-fetchear la URL y
+        // recachear los meta tags. WhatsApp usa la misma infra, así que
+        // refresca también. Sin esto el SuperAdmin tendría que ir al
+        // debugger de FB manualmente — feedback del usuario fue claro:
+        // "no quiero hacer el procedimiento de ir a facebook".
+        $invalidated = $this->invalidateSocialCache(url('/marketplace'));
+
+        $msg = '✓ Configuración SEO actualizada.';
+        if ($invalidated) {
+            $msg .= ' Caché de WhatsApp/Facebook refrescado automáticamente. Probá compartir el link ahora.';
+        } else {
+            $msg .= ' (No pudimos refrescar el caché de FB automáticamente — usa el botón de abajo si la preview sigue saliendo vieja.)';
+        }
+
+        return redirect()->route('system.marketplace.seo')->with('mp_seo_message', $msg);
+    }
+
+    /**
+     * Llama al Graph API de Facebook con scrape=true para forzar re-cacheo
+     * del og:image y meta tags. No requiere autenticación (endpoint público).
+     * WhatsApp usa la misma infraestructura — al refrescar FB se refresca
+     * la preview de WhatsApp también.
+     *
+     * Si falla (timeout, network, FB cambió el endpoint), devolvemos false
+     * para que el caller muestre el fallback manual. No tiramos exception.
+     */
+    private function invalidateSocialCache(string $url): bool
+    {
+        try {
+            $token = config('services.facebook.app_token') ?: '';
+            $endpoint = 'https://graph.facebook.com/';
+            $params = ['id' => $url, 'scrape' => 'true'];
+            if ($token) $params['access_token'] = $token;
+
+            $response = \Illuminate\Support\Facades\Http::timeout(8)
+                ->asForm()
+                ->post($endpoint, $params);
+
+            return $response->successful();
+        } catch (\Throwable $e) {
+            \Log::warning('[MarketplaceAdmin] FB scrape failed', [
+                'url' => $url, 'error' => $e->getMessage(),
+            ]);
+            return false;
+        }
     }
 
     // ── Listings ──────────────────────────────────────────────────────────────
