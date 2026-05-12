@@ -247,6 +247,7 @@ class MarketplaceMultiOrderDispatcher
             ]);
 
             $this->notifyTenant($client, $order, $sub, $items, $orderSubtotal);
+            $this->notifyTenantWhatsApp($client, $order, $items, $orderSubtotal);
 
             return [
                 'success'        => true,
@@ -273,9 +274,68 @@ class MarketplaceMultiOrderDispatcher
     }
 
     /**
-     * Email al dueño del tenant con resumen del subpedido. Non-blocking.
+     * Notifica al seller por WhatsApp del nuevo pedido marketplace usando el
+     * número de WhatsApp registrado en clients.phone_ws (system DB). Se
+     * envía DESDE el WhatsApp del system (ebaemy.com), no del tenant —
+     * así funciona incluso si el seller aún no configuró su propio QR API
+     * o Meta Cloud en su panel.
+     *
+     * Internamente ya se manda otra notif via WhatsAppService del tenant
+     * (línea 222, notifyAdminMarketplaceOrder) si el tenant lo configuró.
+     * Si ambos están configurados el seller recibe 2 mensajes — preferible
+     * a no recibir ninguno.
      */
-    protected function notifyTenant(
+    private function notifyTenantWhatsApp(
+        Client $client,
+        MarketplaceOrder $order,
+        Collection $items,
+        float $subtotal
+    ): void {
+        $phone = preg_replace('/\D+/', '', (string) ($client->phone_ws ?? ''));
+        if (empty($phone) || mb_strlen($phone) < 9) {
+            Log::info('marketplace WA: tenant sin phone_ws, skip', [
+                'order' => $order->order_number,
+                'client_id' => $client->id,
+            ]);
+            return;
+        }
+
+        try {
+            $tenantFqdn = $client->hostname->fqdn ?? '';
+            $itemsCount = $items->count();
+            $titleSummary = $itemsCount === 1
+                ? mb_substr((string) $items->first()->title, 0, 60)
+                : $itemsCount . ' productos';
+
+            $msg  = "🛍️ *Nuevo pedido marketplace* {$order->order_number}\n\n";
+            $msg .= "🏪 Tienda: {$tenantFqdn}\n";
+            $msg .= "🛒 {$titleSummary}\n";
+            $msg .= "💰 Total: *S/ " . number_format($subtotal, 2) . "*\n\n";
+            $msg .= "👤 Cliente: *{$order->customer_name}*\n";
+            $msg .= "📱 " . $order->customer_phone . "\n";
+            if ($order->customer_email) $msg .= "✉️ {$order->customer_email}\n";
+            if ($order->delivery_address) {
+                $addr = $order->delivery_address;
+                if ($order->delivery_district) $addr .= ' — ' . $order->delivery_district;
+                $msg .= "📍 " . mb_substr($addr, 0, 120) . "\n";
+            }
+            $msg .= "\nRevisa tu panel: https://{$tenantFqdn}/orders";
+
+            dispatch(\App\Jobs\SendWhatsAppMessage::text($phone, $msg));
+
+            Log::info('marketplace WA tenant notif dispatched', [
+                'order' => $order->order_number,
+                'to'    => $phone,
+            ]);
+        } catch (\Throwable $e) {
+            Log::warning('marketplace WA tenant notification failed', [
+                'order' => $order->order_number,
+                'error' => $e->getMessage(),
+            ]);
+        }
+    }
+
+    private function notifyTenant(
         Client $client,
         MarketplaceOrder $order,
         TenantMarketplaceOrder $sub,
