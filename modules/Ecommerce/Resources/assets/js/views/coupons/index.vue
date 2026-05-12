@@ -28,10 +28,25 @@
                     </template>
                 </el-table-column>
 
-                <el-table-column label="Usos" width="100" align="center">
+                <el-table-column label="Usos" width="120" align="center">
                     <template slot-scope="s">
                         <span>{{ s.row.used_count }}</span>
                         <span v-if="s.row.max_uses" class="text-muted"> / {{ s.row.max_uses }}</span>
+                    </template>
+                </el-table-column>
+
+                <!-- Métrica de uso vía marketplace ebaemy.com (separada del POS / tienda tenant).
+                     Pega al system DB en CouponController@records para contar tenant_marketplace_orders
+                     con coupon_code = este. Si nunca se usó, queda en blanco. -->
+                <el-table-column label="Marketplace" width="160" align="center">
+                    <template slot-scope="s">
+                        <span v-if="s.row.marketplace_uses > 0" style="color:#16a34a;font-weight:600">
+                            🛒 {{ s.row.marketplace_uses }}
+                            <small class="text-muted" style="font-weight:400">
+                                · S/ {{ (s.row.marketplace_discount_sum || 0).toFixed(2) }}
+                            </small>
+                        </span>
+                        <span v-else class="text-muted">—</span>
                     </template>
                 </el-table-column>
 
