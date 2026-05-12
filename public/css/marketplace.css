@@ -232,10 +232,18 @@ button { font-family: inherit; cursor: pointer; }
 .mp-cats-bar {
     background: var(--mp-surface);
     border-top: 1px solid var(--mp-line-soft);
+    /* Mobile/tablet: scroll horizontal con barra delgada visible + fade
+       en el borde derecho que sugiere que hay más categorías ocultas. */
     overflow-x: auto;
-    scrollbar-width: none;
+    scrollbar-width: thin;
+    position: relative;
+    /* Fade gradient en el lado derecho: el contenido se desvanece para
+       comunicar visualmente que hay más al hacer scroll. */
+    -webkit-mask-image: linear-gradient(to right, #000 92%, transparent);
+            mask-image: linear-gradient(to right, #000 92%, transparent);
 }
-.mp-cats-bar::-webkit-scrollbar { display: none; }
+.mp-cats-bar::-webkit-scrollbar { height: 4px; }
+.mp-cats-bar::-webkit-scrollbar-thumb { background: var(--mp-line); border-radius: 999px; }
 .mp-cats-inner {
     max-width: var(--mp-container-w);
     margin: 0 auto;
@@ -243,6 +251,24 @@ button { font-family: inherit; cursor: pointer; }
     display: flex;
     gap: 6px;
     align-items: center;
+}
+/* Desktop: que envuelva a 2 filas en vez de cortar — con 15+ categorías
+   root la barra horizontal escondía las últimas tras el scroll oculto. */
+@media (min-width: 900px) {
+    .mp-cats-bar {
+        overflow-x: visible;
+        -webkit-mask-image: none;
+                mask-image: none;
+    }
+    .mp-cats-inner { flex-wrap: wrap; row-gap: 8px; }
+}
+/* Mobile: chips un poco más compactos para que entren más en pantalla. */
+@media (max-width: 600px) {
+    .mp-cat-chip {
+        padding: 6px 11px;
+        font-size: 12.5px;
+    }
+    .mp-cats-inner { padding: 8px 12px; gap: 5px; }
 }
 .mp-cat-chip {
     padding: 8px 14px;
