@@ -15,6 +15,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    {{-- CSRF para fetch() del newsletter, cart, coupon, etc. Sin este meta
+         las llamadas POST/PATCH/DELETE devuelven 419 'CSRF token mismatch'. --}}
+    <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>@yield('title', $mpOgTitle)</title>
     <meta name="description" content="@yield('description', $mpOgDesc)">
     <meta name="keywords"    content="@yield('keywords', $mpKeywords)">
