@@ -859,7 +859,9 @@
                          el mismo patrón visual que descripción y datos contables.
                          Abierto por default si el producto ya tiene variantes. -->
                     <div class="col-md-12 mt-3">
-                        <details class="ie-collapse ie-collapse--variants" :open="hasVariantsOpen">
+                        <details class="ie-collapse ie-collapse--variants"
+                                 :open="variantsSectionOpen"
+                                 @toggle="variantsSectionOpen = $event.target.open">
                             <summary class="ie-collapse__summary">
                                 <span class="ie-collapse__chev">▼</span>
                                 <strong>🎨 Variantes del producto</strong>
@@ -871,15 +873,18 @@
                                 </span>
                             </summary>
                             <div class="ie-collapse__content">
-                                <div v-if="!form.id" style="color:#6b7280;text-align:center;padding:20px 12px;background:#f9fafb;border:1px dashed #d1d5db;border-radius:10px">
+                                <!-- Estado bloqueado: el producto aún no existe. NO mostramos botón
+                                     "Guardar y continuar" acá porque genera duplicidad con el botón
+                                     "Guardar" del bottom bar. En su lugar, el botón del bottom detecta
+                                     que esta sección está expandida y cambia su label automáticamente a
+                                     "Guardar y agregar variantes" + lleva al seller acá tras crear. -->
+                                <div v-if="!form.id" style="color:#6b7280;text-align:center;padding:24px 12px;background:#f9fafb;border:1px dashed #d1d5db;border-radius:10px">
                                     <div style="font-size:32px;line-height:1;margin-bottom:8px">🎨</div>
-                                    <div style="font-weight:600;margin-bottom:4px;color:#374151">Las variantes necesitan el producto creado</div>
-                                    <div style="font-size:12.5px;margin-bottom:12px">Guardamos el producto ahora y desbloqueamos las variantes en este mismo formulario.</div>
-                                    <el-button type="primary" size="small" :loading="loading_submit"
-                                               @click="submit({ keepOpen: true })"
-                                               icon="el-icon-check">
-                                        Guardar y continuar con variantes
-                                    </el-button>
+                                    <div style="font-weight:600;margin-bottom:4px;color:#374151">Primero guarda el producto</div>
+                                    <div style="font-size:12.5px">
+                                        Click el botón <strong>"Guardar y agregar variantes"</strong> abajo
+                                        — vuelves a este formulario y desbloqueamos las variantes.
+                                    </div>
                                 </div>
                                 <variants-tab v-else
                                               :item-id="form.id"
@@ -895,13 +900,19 @@
 
                     <!-- Sticky bottom bar: el botón Guardar/Cancelar sigue al scroll
                          para que el seller no tenga que bajar hasta el final del form.
-                         Position sticky + backdrop blur sobre el contenido detrás. -->
+                         Position sticky + backdrop blur sobre el contenido detrás.
+
+                         El label del botón Guardar cambia dinámicamente:
+                         - "Guardar y agregar variantes" si el seller está creando un
+                           producto nuevo Y abrió la sección de variantes
+                         - "Guardar" en cualquier otro caso. -->
                     <div class="form-actions ie-sticky-actions text-end">
                         <el-button class="second-buton me-2" @click.prevent="close()">Cancelar</el-button>
                         <el-button :loading="loading_submit || uploadingImage"
                                 :disabled="uploadingImage"
-                                native-type="submit"
-                                type="primary">{{ uploadingImage ? 'Subiendo imagen…' : 'Guardar' }}
+                                type="primary"
+                                @click.prevent="submitFromBottomBar()">
+                            {{ uploadingImage ? 'Subiendo imagen…' : saveButtonLabel }}
                         </el-button>
                     </div>
                 </form>
@@ -1615,6 +1626,12 @@ export default {
             mpDescOpen: true,
             // Toggle del bloque "Datos contables y etiquetas".
             contableOpen: false,
+            // Toggle del bloque Variantes — controlado por el usuario via
+            // click en el chevron. Se inicializa desde hasVariantsOpen
+            // en loadRecord. Sirve para que el botón Guardar del bottom
+            // bar cambie a "Guardar y agregar variantes" cuando el usuario
+            // expandió esta sección estando en producto nuevo.
+            variantsSectionOpen: false,
             // Galería de fotos adicionales (item_images). Se carga en
             // loadRecord vía GET /items/images/{id} y se refresca cuando
             // el dialog cierra (saveImages).
@@ -1730,6 +1747,22 @@ export default {
         pendingImagesCount() {
             return (this.form.multi_images || []).length
         },
+        // Label dinámico del botón Guardar del bottom bar. Si el seller está
+        // creando producto nuevo AND tiene expandida la sección Variantes,
+        // asumimos que quiere ir a variantes después → cambia el texto +
+        // dispara submit con keepOpen=true.
+        saveButtonLabel() {
+            if (!this.form.id && this.wantsVariantsAfterSave) {
+                return 'Guardar y agregar variantes'
+            }
+            return 'Guardar'
+        },
+        wantsVariantsAfterSave() {
+            // Solo cuando estamos creando nuevo Y el usuario expandió la
+            // sección de variantes manualmente. Esto refleja intención de
+            // ir a configurar variantes después del save.
+            return !this.form.id && this.variantsSectionOpen
+        },
         // Items que componen el checklist del banner de progreso. Cada uno tiene:
         //   key      identificador estable para v-for
         //   label    texto del chip
@@ -1745,7 +1778,11 @@ export default {
                     key: 'name',
                     label: 'Nombre',
                     required: true,
-                    status: has(f.name) ? 'done' : 'pending',
+                    // En este proyecto el campo "Nombre" del UI se guarda en
+                    // items.description (convencion legacy SUNAT). El input
+                    // tiene v-model="form.description" — chequeamos ambos
+                    // para no romper si algun caller usa el campo 'name'.
+                    status: (has(f.description) || has(f.name)) ? 'done' : 'pending',
                     target: '[dusk="description"]',
                     hint: 'El nombre del producto es obligatorio',
                 },
@@ -2159,6 +2196,8 @@ export default {
                     // espacio vertical — el usuario expande con el chevron
                     // si quiere editarla.
                     this.mpDescOpen = !this.form.mp_notes
+                    // Variantes: abrir si el producto ya tiene variantes
+                    this.variantsSectionOpen = !!this.form.has_variants
                     this.loadGalleryImages()
                     this.$nextTick(() => { this.cascaderKey++ })
                 })
@@ -2297,6 +2336,14 @@ export default {
                 this.form.percentage_of_profit = 0;
             }
             this.form.sale_unit_price = (this.form.purchase_unit_price * (100 + parseFloat(this.form.percentage_of_profit))) / 100
+        },
+        // Llamada desde el botón único del bottom bar. Detecta si el seller
+        // expandió variantes (intención de ir a configurarlas) y dispara
+        // submit con keepOpen=true para no cerrar el form. Si no, submit
+        // normal que cierra al guardar.
+        submitFromBottomBar() {
+            const opts = this.wantsVariantsAfterSave ? { keepOpen: true } : undefined
+            this.submit(opts)
         },
         // `options.keepOpen=true` — guarda pero NO cierra el formulario:
         // útil para el botón "Guardar y continuar con variantes" del empty
