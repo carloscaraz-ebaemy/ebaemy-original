@@ -78,10 +78,17 @@ class ConfigurationController extends Controller
 
     public function record()
     {
-        // $configuration = ConfigurationEcommerce::firstCached();
-        // $record = new ConfigurationEcommerceResource($configuration);
-        // return $record;
-        $configuration = ConfigurationEcommerce::firstCached() ?? new ConfigurationEcommerceResource();
+        // Si el tenant no tiene fila de configuración, la creamos vacía.
+        // Antes hacía `?? new ConfigurationEcommerceResource()` lo cual era
+        // doble wrapping confuso y dejaba el id como null en el frontend,
+        // rompiendo el save (find(null) → 500 en store_configuration).
+        $configuration = ConfigurationEcommerce::firstCached();
+        if (!$configuration) {
+            $configuration = ConfigurationEcommerce::create([
+                'information_contact_name' => '',
+            ]);
+            ConfigurationEcommerce::flushCache();
+        }
         return new ConfigurationEcommerceResource($configuration);
     }
 
@@ -109,17 +116,58 @@ class ConfigurationController extends Controller
 
 
 
+    /**
+     * Resuelve la fila ConfigurationEcommerce del tenant actual:
+     * busca por id si vino, si no toma la primera, y si no existe la crea.
+     * Centraliza el patrón find()→null→500 que tenían todos los
+     * store_configuration_* methods.
+     */
+    private function resolveConfig($id = null): ConfigurationEcommerce
+    {
+        $configuration = $id
+            ? ConfigurationEcommerce::find($id)
+            : ConfigurationEcommerce::first();
+
+        if (!$configuration) {
+            $configuration = new ConfigurationEcommerce();
+        }
+        return $configuration;
+    }
+
     public function store_configuration(ConfigurationEcommerceRequest $request)
     {
-        $id = $request->input('id');
-        $configuration = ConfigurationEcommerce::find($id);
-        $configuration->fill($request->all());
-        $configuration->save();
+        try {
+            $configuration = $this->resolveConfig($request->input('id'));
 
-        return [
-            'success' => true,
-            'message' => 'Configuración actualizada'
-        ];
+            // Solo llenamos los campos que el form realmente envía — evita
+            // que cualquier campo masked del Resource (token_private_culqui
+            // = '********') sobrescriba el real con el placeholder.
+            $payload = $request->only([
+                'information_contact_name',
+                'information_contact_email',
+                'information_contact_phone',
+                'information_contact_address',
+                'phone_whatsapp',
+            ]);
+
+            $configuration->fill($payload);
+            $configuration->save();
+
+            return [
+                'success' => true,
+                'message' => 'Configuración actualizada',
+            ];
+        } catch (\Throwable $e) {
+            \Log::error('[ConfigurationController@store_configuration] failed', [
+                'error' => $e->getMessage(),
+                'file'  => $e->getFile() . ':' . $e->getLine(),
+                'input' => $request->except(['token_private_culqui', 'mp_access_token']),
+            ]);
+            return response()->json([
+                'success' => false,
+                'message' => 'No se pudo guardar: ' . $e->getMessage(),
+            ], 500);
+        }
     }
 
     public function getSocialScripts()
@@ -404,24 +452,24 @@ public function uploadFile(Request $request)
 
     public function store_configuration_links(Request $request)
     {
-        $id = $request->input('id');
-        $configuration = ConfigurationEcommerce::find($id);
-        $configuration->fill($request->all());
-        $configuration->save();
-
-        return [
-            'success' => true,
-            'message' => 'Configuración de links personalizados actualizado'
-        ];
+        try {
+            $configuration = $this->resolveConfig($request->input('id'));
+            $configuration->fill($request->only([
+                'title_one_customised_link', 'title_two_customised_link', 'title_three_customised_link',
+                'customised_link_one', 'customised_link_two', 'customised_link_three',
+            ]));
+            $configuration->save();
+            return ['success' => true, 'message' => 'Configuración de links personalizados actualizado'];
+        } catch (\Throwable $e) {
+            \Log::error('[ConfigurationController@store_configuration_links] failed', ['error' => $e->getMessage()]);
+            return response()->json(['success' => false, 'message' => 'No se pudo guardar: ' . $e->getMessage()], 500);
+        }
     }
 
     public function store_configuration_color(Request $request)
     {
-
-        $id = $request->input('id');
-        $color = $request->input('color_ecommerce');
-        $configuration = ConfigurationEcommerce::find($id);
-        $configuration->color_ecommerce = $color;
+        $configuration = $this->resolveConfig($request->input('id'));
+        $configuration->color_ecommerce = $request->input('color_ecommerce');
 
         // Guardar preferencias (el cast a array maneja automáticamente el json_encode)
         $configuration->preferences = [
