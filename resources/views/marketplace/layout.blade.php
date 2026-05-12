@@ -794,7 +794,9 @@
             html += '<div class="mp-search-suggest__section">';
             html += '<div class="mp-search-suggest__header">Tiendas</div>';
             shops.forEach(sh => {
-                const url = SEARCH_BASE + '?shop=' + encodeURIComponent(sh.subdomain || '');
+                // Página dedicada de tienda — tiene OG con logo del seller
+                // (preview correcto al compartir en WhatsApp / FB).
+                const url = SEARCH_BASE + '/tienda/' + encodeURIComponent(sh.subdomain || '');
                 html += `
                     <a class="mp-search-suggest__item" href="${url}">
                         <div class="mp-search-suggest__thumb" style="display:flex;align-items:center;justify-content:center;font-size:18px">🏪</div>

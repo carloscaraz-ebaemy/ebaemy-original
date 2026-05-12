@@ -20,6 +20,16 @@ class MarketplaceController extends Controller
 {
     public function index(Request $request)
     {
+        // Canonicalización: si solo viene ?shop=X (sin otros filtros) redirigimos
+        // 301 a /marketplace/tienda/X. SEO sin contenido duplicado y OG correcto
+        // (preview con logo de la tienda al compartir en WhatsApp/FB).
+        if ($request->filled('shop') && $this->isPlainShopFilter($request)) {
+            $sub = strtolower(trim((string) $request->input('shop')));
+            if ($sub !== '') {
+                return redirect()->route('marketplace.tenant', ['subdomain' => $sub], 301);
+            }
+        }
+
         $q              = $request->input('q');
         $category       = $request->input('category');
         $officialCatId  = $request->filled('official_category_id') ? (int) $request->input('official_category_id') : null;
@@ -1269,5 +1279,21 @@ class MarketplaceController extends Controller
              . "  <changefreq>{$changefreq}</changefreq>\n"
              . "  <priority>{$priority}</priority>\n"
              . "</url>\n";
+    }
+
+    /**
+     * True cuando ?shop=X viene SIN otros filtros (incluye ?sort=relevance
+     * que es el default y no cuenta). Sirve para decidir si el listing es
+     * realmente una "página de tienda" y conviene redirigir 301.
+     */
+    private function isPlainShopFilter(Request $r): bool
+    {
+        $blockers = ['q','category','official_category_id','price_min','price_max',
+                     'on_offer','verified','in_stock','packs','view','page'];
+        foreach ($blockers as $p) {
+            if ($r->filled($p)) return false;
+        }
+        if ($r->filled('sort') && $r->input('sort') !== 'relevance') return false;
+        return true;
     }
 }
