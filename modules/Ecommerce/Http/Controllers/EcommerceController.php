@@ -77,6 +77,11 @@ class EcommerceController extends Controller
         $onlyAvail   = request('available', 0);
         $categoryId  = request('category_id');   // filtro por categoría via AJAX
         $searchQ     = request('q');              // búsqueda por nombre
+        // Filtro por categoría oficial del marketplace (Hogar > Decoración > etc.)
+        // Es independiente de la categoría interna del tenant — un item puede
+        // tener ambas. El filtro acepta el ID y filtra incluyendo descendientes
+        // (si selecciona "Hogar" muestra todo bajo Hogar > *).
+        $mpCategoryId = request('mp_category');
 
         // Si hay category_id en query param, úsarlo (AJAX); si no, el $category del slug
         if ($categoryId && !$category) {
@@ -134,6 +139,23 @@ class EcommerceController extends Controller
             $query->where('sale_unit_price', '<=', (float)$maxPrice);
         }
 
+        // Filtro por categoría oficial marketplace (cross-DB).
+        // Resolvemos descendientes en system DB para que "Hogar" matchee
+        // también productos en "Hogar > Decoración > Plantas", etc.
+        $currentMpCategory = null;
+        if (is_numeric($mpCategoryId) && (int) $mpCategoryId > 0) {
+            try {
+                $mpCat = \App\Models\System\MarketplaceCategory::find((int) $mpCategoryId);
+                if ($mpCat) {
+                    $currentMpCategory = $mpCat;
+                    $descendantIds = $mpCat->descendantAndSelfIds();
+                    $query->whereIn('marketplace_category_id', $descendantIds);
+                }
+            } catch (\Throwable $_) {
+                // Si la conexión system falla, ignoramos el filtro (degrada gracefully)
+            }
+        }
+
         // Ordenación
         $sortMap = [
             'price_asc'  => ['sale_unit_price', 'ASC'],
@@ -155,6 +177,51 @@ class EcommerceController extends Controller
             return Category::whereHas('items', function ($q) {
                 $q->where('apply_store', 1)->whereNotNull('internal_id');
             })->get();
+        });
+
+        // Categorías marketplace que tienen items publicados en este tenant.
+        // Agrupamos por las RAÍCES (level 0) para no saturar la UI con 225
+        // chips — el shopper puede filtrar por la macro-categoría (Hogar,
+        // Mascotas, etc.) y ver todos sus descendientes. La query usa
+        // depth_path para identificar raíz aún cuando el item está en una
+        // sub-sub-categoría.
+        $marketplaceCategories = Cache::remember($cachePrefix . 'mp_cats_with_items_v2', 1800, function () {
+            // 1. IDs de marketplace_category_id usados por items del tenant
+            $usedIds = Item::where('apply_store', 1)
+                ->whereNotNull('marketplace_category_id')
+                ->whereNotNull('internal_id')
+                ->distinct()
+                ->pluck('marketplace_category_id')
+                ->all();
+            if (empty($usedIds)) return collect();
+
+            try {
+                // 2. Resolver el path completo de cada uno y agrupar por raíz
+                $cats = \App\Models\System\MarketplaceCategory::whereIn('id', $usedIds)
+                    ->get(['id', 'name', 'full_slug', 'icon', 'depth_path']);
+                $rootIds = [];
+                foreach ($cats as $c) {
+                    // depth_path es "/3/15/" — la primera parte es la raíz
+                    if (!empty($c->depth_path)) {
+                        $parts = array_values(array_filter(explode('/', $c->depth_path)));
+                        if (!empty($parts)) {
+                            $rootIds[(int) $parts[0]] = true;
+                        } else {
+                            $rootIds[$c->id] = true; // ya es raíz
+                        }
+                    } else {
+                        $rootIds[$c->id] = true;
+                    }
+                }
+                if (empty($rootIds)) return collect();
+                return \App\Models\System\MarketplaceCategory::whereIn('id', array_keys($rootIds))
+                    ->where('is_active', true)
+                    ->where('is_visible_in_marketplace', true)
+                    ->orderBy('sort_order')
+                    ->get(['id', 'name', 'icon', 'full_slug']);
+            } catch (\Throwable $_) {
+                return collect();
+            }
         });
 
         $spots = Cache::remember($cachePrefix . 'spots', 1800, function () {
@@ -201,6 +268,8 @@ class EcommerceController extends Controller
             'currentCategory' => $category,
             'categories'      => $categories,
             'flashSale'       => $flashSale,
+            'marketplaceCategories' => $marketplaceCategories,
+            'currentMpCategory'     => $currentMpCategory,
         ];
 
         // AJAX: devolver solo el grid parcial

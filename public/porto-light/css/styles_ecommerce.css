@@ -4984,6 +4984,40 @@ input,select,textarea,.form-control {
 }
 [data-theme='dark'] .ec-cat-pill { background: var(--dm-surface); border-color: var(--dm-border); color: var(--dm-muted); }
 
+/* Marketplace category pills (raíces oficiales con items en este tenant) */
+.ec-mp-category-pills {
+    display: flex; flex-wrap: wrap; gap: 6px;
+    margin-bottom: 16px;
+    padding: 8px 12px;
+    background: linear-gradient(135deg, #ecfdf5 0%, #eff6ff 100%);
+    border: 1px solid #a7f3d0;
+    border-radius: 10px;
+    align-items: center;
+}
+.ec-mp-category-pills__label {
+    font-size: 1.2rem;
+    font-weight: 700;
+    color: #047857;
+    margin-right: 4px;
+    flex-shrink: 0;
+}
+.ec-mp-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    text-decoration: none;
+    border-width: 1.5px;
+}
+.ec-mp-pill:hover {
+    text-decoration: none;
+    transform: translateY(-1px);
+}
+[data-theme='dark'] .ec-mp-category-pills {
+    background: linear-gradient(135deg, #064e3b 0%, #1e3a8a 100%);
+    border-color: #047857;
+}
+[data-theme='dark'] .ec-mp-category-pills__label { color: #6ee7b7; }
+
 /* Price range slider */
 .ec-range-slider {
     position: relative; height: 36px;

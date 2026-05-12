@@ -186,7 +186,7 @@
                     {{-- Filtros y ordenación --}}
                     @include('ecommerce::layouts.partials_ecommerce.filters')
 
-                    {{-- Category pills --}}
+                    {{-- Category pills (internas del tenant) --}}
                     @if(!$hasCategoryFilter && isset($categories) && $categories->count())
                     <div class="ec-category-pills" id="ec-category-pills">
                         <button class="ec-cat-pill ec-cat-pill--active" data-category-id="">Todos</button>
@@ -196,6 +196,39 @@
                         </button>
                         @endforeach
                     </div>
+                    @endif
+
+                    {{-- Pills de categorías oficiales del marketplace (Hogar, Moda,
+                         Mascotas, etc.). Solo aparecen las raíces con items en
+                         este tenant. Filtran via ?mp_category={id} y matchean
+                         también descendientes en el controller. --}}
+                    @if(isset($marketplaceCategories) && $marketplaceCategories->count())
+                        @php
+                            $currentMpId = $currentMpCategory ? $currentMpCategory->id : null;
+                            // Mantener filtros actuales al cambiar mp_category
+                            $baseQs = array_filter([
+                                'q'          => request('q'),
+                                'sort'       => request('sort'),
+                                'min_price'  => request('min_price'),
+                                'max_price'  => request('max_price'),
+                                'available'  => request('available'),
+                                'category_id' => request('category_id'),
+                            ], fn($v) => $v !== null && $v !== '');
+                        @endphp
+                        <div class="ec-mp-category-pills">
+                            <div class="ec-mp-category-pills__label">🛒 Tipo de producto:</div>
+                            <a href="{{ url('/ecommerce?' . http_build_query($baseQs)) }}"
+                               class="ec-cat-pill ec-mp-pill {{ !$currentMpId ? 'ec-cat-pill--active' : '' }}">
+                                Todos
+                            </a>
+                            @foreach($marketplaceCategories as $mpCat)
+                                <a href="{{ url('/ecommerce?' . http_build_query(array_merge($baseQs, ['mp_category' => $mpCat->id]))) }}"
+                                   class="ec-cat-pill ec-mp-pill {{ $currentMpId == $mpCat->id ? 'ec-cat-pill--active' : '' }}"
+                                   title="Filtrar por categoría oficial: {{ $mpCat->name }}">
+                                    @if($mpCat->icon){{ $mpCat->icon }} @endif{{ $mpCat->name }}
+                                </a>
+                            @endforeach
+                        </div>
                     @endif
                 </div>{{-- /ec-filter-sticky-zone --}}
 
