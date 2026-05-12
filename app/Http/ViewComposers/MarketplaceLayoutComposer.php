@@ -9,6 +9,13 @@ class MarketplaceLayoutComposer
 {
     public function compose($view)
     {
+        // Si el controller ya proveyó un nav scoped (p.ej. la página de
+        // tienda con sus propias categorías), respetarlo y no sobreescribir.
+        $data = $view->getData();
+        if (array_key_exists('marketplaceNavCategories', $data)) {
+            return;
+        }
+
         $view->marketplaceNavCategories = Cache::remember(
             'marketplace_nav_roots_with_children_v1',
             1800,

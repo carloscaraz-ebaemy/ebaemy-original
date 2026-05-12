@@ -859,6 +859,41 @@ class MarketplaceController extends Controller
 
         $activeCategoryFullSlug = $selectedCategory ? $selectedCategory->full_slug : null;
 
+        // Megamenú scoped a la tienda: agrupamos las categorías oficiales
+        // donde esta tienda tiene productos, bajo su root (depth 1). El layout
+        // detecta $navScopedToSubdomain y arma los links como
+        // /marketplace/tienda/{sub}?category=... (en vez de los globales).
+        $marketplaceNavCategories = collect();
+        if ($tenantCategoryIds->isNotEmpty()) {
+            $tenantCatsAll = MarketplaceCategory::whereIn('id', $tenantCategoryIds)
+                ->active()->visible()
+                ->orderBy('name')
+                ->get(['id', 'parent_id', 'name', 'full_slug', 'icon', 'depth_path']);
+
+            $byRoot = [];
+            foreach ($tenantCatsAll as $cat) {
+                // depth_path tiene formato "/1/4/15/" — quitamos slashes laterales
+                // antes de explotar para obtener el root real (primer ID).
+                $parts = array_filter(explode('/', trim((string) $cat->depth_path, '/')));
+                $rootId = (int) (reset($parts) ?: 0);
+                // Si la categoría YA es root (no tiene ancestros), usar su propio id.
+                if ($rootId === 0) $rootId = (int) $cat->id;
+                if ($rootId > 0) $byRoot[$rootId][] = $cat;
+            }
+
+            if (!empty($byRoot)) {
+                $marketplaceNavCategories = MarketplaceCategory::query()
+                    ->whereIn('id', array_keys($byRoot))
+                    ->active()->visible()
+                    ->orderBy('sort_order')
+                    ->get(['id', 'name', 'slug', 'full_slug', 'icon']);
+                $marketplaceNavCategories->each(function ($r) use ($byRoot) {
+                    $r->setRelation('children', collect($byRoot[$r->id] ?? []));
+                });
+            }
+        }
+        $navScopedToSubdomain = $subdomain;
+
         // Metadata visible: priorizar la del listing más reciente que ya
         // tiene tenant_name/logo/verified denormalizados. Si no hay listings,
         // caer al Client.
@@ -879,7 +914,8 @@ class MarketplaceController extends Controller
 
         return view('marketplace.tenant', compact(
             'store', 'listings', 'total', 'sort', 'priceMin', 'priceMax', 'q',
-            'tenantCategories', 'activeCategoryFullSlug'
+            'tenantCategories', 'activeCategoryFullSlug',
+            'marketplaceNavCategories', 'navScopedToSubdomain'
         ));
     }
 

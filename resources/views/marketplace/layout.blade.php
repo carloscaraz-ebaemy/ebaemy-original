@@ -87,6 +87,7 @@
         </a>
 
         <form id="mpSearchForm" action="{{ route('marketplace.index') }}" method="GET" class="mp-search" role="search">
+            @if(isset($marketplaceNavCategories) && $marketplaceNavCategories->count() > 0)
             <button type="button"
                     id="mpMegaToggle"
                     class="mp-search-category mp-mega-toggle"
@@ -94,9 +95,10 @@
                     aria-expanded="false"
                     aria-controls="mpMegaPanel">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
-                <span class="mp-mega-toggle__label">Categorías</span>
+                <span class="mp-mega-toggle__label">{{ !empty($navScopedToSubdomain ?? null) ? 'Categorías de la tienda' : 'Categorías' }}</span>
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" class="mp-mega-toggle__chev"><polyline points="6 9 12 15 18 9"/></svg>
             </button>
+            @endif
             <div class="mp-search-input-wrap" style="position:relative;flex:1;display:flex">
                 <input type="search"
                        name="q"
@@ -116,7 +118,7 @@
         </form>
 
         {{-- ═══════════════════════ MEGA MENÚ DE CATEGORÍAS ═══════════════════════ --}}
-        @isset($marketplaceNavCategories)
+        @if(isset($marketplaceNavCategories) && $marketplaceNavCategories->count() > 0)
             <div id="mpMegaPanel" class="mp-mega-panel" role="dialog" aria-label="Categorías" aria-hidden="true">
                 <div class="mp-mega-panel__head">
                     <h3>Categorías</h3>
@@ -124,14 +126,24 @@
                         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
                     </button>
                 </div>
+                @php
+                    // Cuando estamos en /marketplace/tienda/{X} las URLs del megamenú
+                    // deben quedarse dentro de esa tienda — usamos ?category=full_slug.
+                    $isScoped = !empty($navScopedToSubdomain ?? null);
+                    $scopedBase = $isScoped ? route('marketplace.tenant', ['subdomain' => $navScopedToSubdomain]) : null;
+                @endphp
                 <div class="mp-mega-panel__grid">
                     @foreach($marketplaceNavCategories as $root)
-                        @php $rootHref = route('marketplace.category_official', ['fullSlug' => $root->full_slug]); @endphp
+                        @php
+                            $rootHref = $isScoped
+                                ? $scopedBase . '?category=' . urlencode($root->full_slug)
+                                : route('marketplace.category_official', ['fullSlug' => $root->full_slug]);
+                        @endphp
                         <details class="mp-mega-col" {{ $loop->first ? 'open' : '' }}>
                             <summary class="mp-mega-col__head">
                                 <span class="mp-mega-col__icon">{{ $root->icon ?: '📦' }}</span>
                                 <span class="mp-mega-col__name">{{ $root->name }}</span>
-                                @if(!empty($root->listings_count_cache))
+                                @if(!empty($root->listings_count_cache) && !$isScoped)
                                     <span class="mp-mega-col__count">{{ $root->listings_count_cache }}</span>
                                 @endif
                                 <svg class="mp-mega-col__chev" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
@@ -140,8 +152,13 @@
                                 @if($root->children && $root->children->count())
                                     <ul class="mp-mega-sublist">
                                         @foreach($root->children->take(8) as $child)
+                                            @php
+                                                $childHref = $isScoped
+                                                    ? $scopedBase . '?category=' . urlencode($child->full_slug)
+                                                    : route('marketplace.category_official', ['fullSlug' => $child->full_slug]);
+                                            @endphp
                                             <li>
-                                                <a href="{{ route('marketplace.category_official', ['fullSlug' => $child->full_slug]) }}" class="mp-mega-sublink">
+                                                <a href="{{ $childHref }}" class="mp-mega-sublink">
                                                     @if($child->icon)<span class="mp-mega-sublink__icon">{{ $child->icon }}</span>@endif
                                                     <span class="mp-mega-sublink__name">{{ $child->name }}</span>
                                                 </a>
@@ -162,7 +179,7 @@
                 </div>
             </div>
             <div id="mpMegaBackdrop" class="mp-mega-backdrop" aria-hidden="true" data-mega-close></div>
-        @endisset
+        @endif
 
         <style>
             /* ───────────── Botón trigger del mega menú ───────────── */
@@ -369,14 +386,25 @@
 
     @isset($marketplaceNavCategories)
         @if($marketplaceNavCategories->count() > 0)
+            @php
+                $catsBarScoped = !empty($navScopedToSubdomain ?? null);
+                $catsBarHome   = $catsBarScoped
+                    ? route('marketplace.tenant', ['subdomain' => $navScopedToSubdomain])
+                    : route('marketplace.index');
+            @endphp
             <nav class="mp-cats-bar" aria-label="Categorías">
                 <div class="mp-cats-inner">
-                    <a href="{{ route('marketplace.index') }}"
+                    <a href="{{ $catsBarHome }}"
                        class="mp-cat-chip {{ empty($activeCategoryFullSlug ?? null) ? 'is-active' : '' }}">
                         📦 Todas
                     </a>
                     @foreach($marketplaceNavCategories as $root)
-                        <a href="{{ route('marketplace.category_official', ['fullSlug' => $root->full_slug]) }}"
+                        @php
+                            $chipHref = $catsBarScoped
+                                ? $catsBarHome . '?category=' . urlencode($root->full_slug)
+                                : route('marketplace.category_official', ['fullSlug' => $root->full_slug]);
+                        @endphp
+                        <a href="{{ $chipHref }}"
                            class="mp-cat-chip {{ ($activeCategoryFullSlug ?? null) === $root->full_slug ? 'is-active' : '' }}">
                             @if($root->icon){{ $root->icon }} @endif{{ $root->name }}
                         </a>
