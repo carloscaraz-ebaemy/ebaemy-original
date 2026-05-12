@@ -1174,6 +1174,11 @@ if ($hostname) {
              ->middleware('throttle:5,1')
              ->name('marketplace.review');
         Route::get('marketplace/gracias/{slug}',  'MarketplaceController@thanks')->name('marketplace.thanks');
+        // ─── Páginas legales / informativas del marketplace ──────────────────
+        Route::get('marketplace/faq',             'MarketplaceController@faq')->name('marketplace.faq');
+        Route::get('marketplace/terminos',        'MarketplaceController@terms')->name('marketplace.terms');
+        Route::get('marketplace/privacidad',      'MarketplaceController@privacy')->name('marketplace.privacy');
+
         Route::get('sitemap-marketplace.xml',     'MarketplaceController@sitemap')->name('marketplace.sitemap');
         Route::get('robots.txt',                  'MarketplaceController@robots')->name('marketplace.robots');
         Route::get('feeds/meta-catalog.xml',      'MarketplaceController@metaCatalog')->name('marketplace.feed.meta');

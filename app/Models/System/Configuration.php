@@ -52,6 +52,12 @@ class Configuration extends Model
         'marketplace_og_description',
         'marketplace_og_image',
         'marketplace_meta_keywords',
+        // Redes sociales del marketplace (footer + página tienda). Si NULL,
+        // el icono respectivo no se renderiza.
+        'marketplace_facebook_url',
+        'marketplace_instagram_url',
+        'marketplace_whatsapp_url',
+        'marketplace_tiktok_url',
     ];
 
 

@@ -64,6 +64,42 @@
                                placeholder="marketplace peru, ebaemy, tiendas online, compra segura">
                     </div>
 
+                    <hr class="my-4">
+                    <h6 class="text-muted mb-3">📱 Redes sociales del footer</h6>
+                    <small class="text-muted d-block mb-3">
+                        Los iconos solo aparecen en el footer si tienen URL configurada.
+                        Para WhatsApp usa el formato <code>https://wa.me/51XXXXXXXXX</code>.
+                    </small>
+
+                    <div class="mb-3">
+                        <label class="form-label">Facebook URL</label>
+                        <input type="url" name="marketplace_facebook_url"
+                               class="form-control"
+                               value="{{ old('marketplace_facebook_url', $config->marketplace_facebook_url ?? '') }}"
+                               placeholder="https://www.facebook.com/ebaemy">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Instagram URL</label>
+                        <input type="url" name="marketplace_instagram_url"
+                               class="form-control"
+                               value="{{ old('marketplace_instagram_url', $config->marketplace_instagram_url ?? '') }}"
+                               placeholder="https://www.instagram.com/ebaemy">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">WhatsApp URL <small class="text-muted">(wa.me/51XXXXXXXXX)</small></label>
+                        <input type="url" name="marketplace_whatsapp_url"
+                               class="form-control"
+                               value="{{ old('marketplace_whatsapp_url', $config->marketplace_whatsapp_url ?? '') }}"
+                               placeholder="https://wa.me/51999999999">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">TikTok URL</label>
+                        <input type="url" name="marketplace_tiktok_url"
+                               class="form-control"
+                               value="{{ old('marketplace_tiktok_url', $config->marketplace_tiktok_url ?? '') }}"
+                               placeholder="https://www.tiktok.com/@ebaemy">
+                    </div>
+
                     <button type="submit" class="btn btn-primary">💾 Guardar</button>
                 </div>
             </div>

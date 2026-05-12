@@ -1331,6 +1331,15 @@ class MarketplaceController extends Controller
     }
 
     /**
+     * Páginas legales/informativas del marketplace. Contenido estático
+     * (Blade) — si más adelante se necesita editar desde admin, migrar
+     * a Configuration con campos longText.
+     */
+    public function faq()     { return view('marketplace.legal.faq'); }
+    public function terms()   { return view('marketplace.legal.terms'); }
+    public function privacy() { return view('marketplace.legal.privacy'); }
+
+    /**
      * True cuando ?shop=X viene SIN otros filtros (incluye ?sort=relevance
      * que es el default y no cuenta). Sirve para decidir si el listing es
      * realmente una "página de tienda" y conviene redirigir 301.

@@ -152,12 +152,20 @@ class MarketplaceAdminController extends Controller
             'marketplace_og_description' => 'nullable|string|max:250',
             'marketplace_meta_keywords'  => 'nullable|string|max:500',
             'og_image'                   => 'nullable|image|mimes:jpg,jpeg,png,webp|max:2048|dimensions:min_width=600,min_height=300',
+            'marketplace_facebook_url'   => 'nullable|url|max:500',
+            'marketplace_instagram_url'  => 'nullable|url|max:500',
+            'marketplace_whatsapp_url'   => 'nullable|url|max:500',
+            'marketplace_tiktok_url'     => 'nullable|url|max:500',
         ]);
 
         $config = \App\Models\System\Configuration::firstOrCreate(['id' => 1]);
         $config->marketplace_og_title       = $request->input('marketplace_og_title');
         $config->marketplace_og_description = $request->input('marketplace_og_description');
         $config->marketplace_meta_keywords  = $request->input('marketplace_meta_keywords');
+        $config->marketplace_facebook_url   = $request->input('marketplace_facebook_url');
+        $config->marketplace_instagram_url  = $request->input('marketplace_instagram_url');
+        $config->marketplace_whatsapp_url   = $request->input('marketplace_whatsapp_url');
+        $config->marketplace_tiktok_url     = $request->input('marketplace_tiktok_url');
 
         if ($request->hasFile('og_image')) {
             $file = $request->file('og_image');
