@@ -689,27 +689,60 @@
                                                     Categoría <span class="text-danger">*</span>
                                                     <small style="font-weight:normal;color:#6b7280;margin-left:4px">(taxonomía oficial de ebaemy)</small>
                                                 </label>
-                                                <div v-if="mp_category_suggestions.length && !form.marketplace_category_id" style="margin:0 0 8px;padding:8px 10px;background:#ecfdf5;border:1px solid #a7f3d0;border-radius:8px">
-                                                    <div style="font-size:11px;color:#047857;margin-bottom:4px;font-weight:500">💡 Sugerencias basadas en el nombre del producto:</div>
-                                                    <div style="display:flex;flex-wrap:wrap;gap:6px">
-                                                        <button v-for="s in mp_category_suggestions" :key="s.id" type="button" @click="applyMpSuggestion(s)" style="background:#fff;border:1px solid #10b981;color:#065f46;padding:4px 10px;border-radius:6px;font-size:12px;cursor:pointer">
-                                                            {{ s.breadcrumb }} ✓
+
+                                                <!-- Sugerencias automaticas basadas en el nombre del producto.
+                                                     Son el camino mas rapido — un solo click y queda elegida. -->
+                                                <div v-if="mp_category_suggestions.length && !form.marketplace_category_id"
+                                                     class="ie-mp-cat-suggestions">
+                                                    <div class="ie-mp-cat-suggestions__head">
+                                                        💡 <strong>Sugerencias para tu producto:</strong>
+                                                        <small>(click para aplicar)</small>
+                                                    </div>
+                                                    <div class="ie-mp-cat-suggestions__chips">
+                                                        <button v-for="s in mp_category_suggestions" :key="s.id"
+                                                                type="button"
+                                                                @click="applyMpSuggestion(s)"
+                                                                class="ie-mp-cat-chip">
+                                                            ✓ {{ s.breadcrumb }}
                                                         </button>
                                                     </div>
                                                 </div>
+
+                                                <!-- Cascader filterable. Tip prominent encima para que el
+                                                     seller sepa que puede escribir directamente. -->
+                                                <div v-if="!mp_category_suggestions.length || form.marketplace_category_id"
+                                                     class="ie-mp-cat-tip">
+                                                    🔍 <strong>Escribe el tipo de producto</strong>
+                                                    (ej. <em>plantas, polo, audífonos</em>)
+                                                    o navega con la flecha ↓
+                                                </div>
+
                                                 <el-cascader
                                                     :key="'cas-' + cascaderKey"
                                                     v-model="form.marketplace_category_path"
                                                     :options="mp_category_tree"
                                                     :props="{ value: 'id', label: 'name', children: 'children', checkStrictly: false, emitPath: true }"
-                                                    placeholder="Selecciona una categoría…"
+                                                    :show-all-levels="true"
+                                                    placeholder="🔍 Escribe (ej. plantas, polo) o despliega →"
                                                     filterable
                                                     clearable
+                                                    size="medium"
                                                     style="width:100%"
                                                     @change="onMpCategoryChange"
                                                     @click.native="loadMarketplaceCategoryTree"
                                                 />
-                                                <small style="font-size:11px;color:#9ca3af">Se usa para el filtro del marketplace y para tu catálogo interno automáticamente.</small>
+
+                                                <!-- Confirmación visible cuando hay categoria elegida —
+                                                     muestra el path completo asi el seller esta seguro. -->
+                                                <div v-if="form.marketplace_category_id && mp_category_breadcrumb_text"
+                                                     class="ie-mp-cat-selected">
+                                                    <span>✓ Categoría asignada:</span>
+                                                    <strong>{{ mp_category_breadcrumb_text }}</strong>
+                                                </div>
+
+                                                <small v-else style="font-size:11px;color:#9ca3af">
+                                                    Necesaria para que tu producto aparezca en marketplace · usada también para tu catálogo interno.
+                                                </small>
                                             </div>
                                         </div>
 
@@ -1486,6 +1519,64 @@
 .mp-collapse-chev.is-open { transform: rotate(90deg); }
 
 /* ─────── Card destacado de canales de venta ─────── */
+/* ── Selector de categoría oficial marketplace — más intuitivo ── */
+.ie-mp-cat-suggestions {
+    margin: 0 0 10px;
+    padding: 10px 12px;
+    background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%);
+    border: 1px solid #6ee7b7;
+    border-radius: 10px;
+}
+.ie-mp-cat-suggestions__head {
+    font-size: 12px;
+    color: #047857;
+    margin-bottom: 6px;
+}
+.ie-mp-cat-suggestions__head small { color: #059669; margin-left: 4px; font-weight: 400; }
+.ie-mp-cat-suggestions__chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+.ie-mp-cat-chip {
+    background: #fff;
+    border: 1.5px solid #10b981;
+    color: #065f46;
+    padding: 5px 12px;
+    border-radius: 999px;
+    font-size: 12.5px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all .12s;
+}
+.ie-mp-cat-chip:hover {
+    background: #10b981;
+    color: #fff;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px -4px rgba(16,185,129,.4);
+}
+.ie-mp-cat-tip {
+    margin: 0 0 8px;
+    padding: 8px 12px;
+    background: #eff6ff;
+    border: 1px dashed #93c5fd;
+    border-radius: 6px;
+    font-size: 12px;
+    color: #1e40af;
+}
+.ie-mp-cat-tip em { color: #3b82f6; font-style: normal; font-weight: 600; }
+.ie-mp-cat-selected {
+    margin-top: 6px;
+    padding: 6px 10px;
+    background: #ecfdf5;
+    border: 1px solid #6ee7b7;
+    border-radius: 6px;
+    font-size: 12.5px;
+    color: #065f46;
+}
+.ie-mp-cat-selected span { color: #059669; margin-right: 4px; font-weight: 600; }
+.ie-mp-cat-selected strong { font-weight: 700; }
+
 .ie-channels-card {
     border: 1px solid #e5e7eb;
     border-radius: 10px;
@@ -1762,6 +1853,23 @@ export default {
             // sección de variantes manualmente. Esto refleja intención de
             // ir a configurar variantes después del save.
             return !this.form.id && this.variantsSectionOpen
+        },
+        // Resuelve el breadcrumb textual de la categoría seleccionada
+        // navegando el árbol con marketplace_category_path. Ej:
+        // "Hogar › Decoración › Plantas artificiales"
+        mp_category_breadcrumb_text() {
+            const path = this.form.marketplace_category_path
+            const tree = this.mp_category_tree || []
+            if (!Array.isArray(path) || !path.length || !tree.length) return ''
+            const names = []
+            let nodes = tree
+            for (const id of path) {
+                const node = nodes.find(n => Number(n.id) === Number(id))
+                if (!node) return ''
+                names.push(node.name)
+                nodes = node.children || []
+            }
+            return names.join(' › ')
         },
         // Items que componen el checklist del banner de progreso. Cada uno tiene:
         //   key      identificador estable para v-for
