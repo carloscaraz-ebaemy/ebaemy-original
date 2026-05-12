@@ -723,6 +723,7 @@
                                                     :options="mp_category_tree"
                                                     :props="{ value: 'id', label: 'name', children: 'children', checkStrictly: false, emitPath: true }"
                                                     :show-all-levels="true"
+                                                    :filter-method="filterMpCategory"
                                                     placeholder="🔍 Escribe (ej. plantas, polo) o despliega →"
                                                     filterable
                                                     clearable
@@ -730,7 +731,16 @@
                                                     style="width:100%"
                                                     @change="onMpCategoryChange"
                                                     @click.native="loadMarketplaceCategoryTree"
+                                                    @focus.native="loadMarketplaceCategoryTree"
                                                 />
+                                                <!-- Fallback: si no encuentra la categoría que necesita, puede
+                                                     solicitar una nueva al SuperAdmin. Siempre visible cuando no
+                                                     hay categoría elegida. -->
+                                                <div v-if="!form.marketplace_category_id"
+                                                     style="font-size:11.5px;color:#6b7280;margin-top:6px">
+                                                    ¿No encuentras tu categoría?
+                                                    <a href="#" @click.prevent="openMpCategoryRequest" style="color:#4f46e5;font-weight:600;text-decoration:underline">Solicitar nueva categoría →</a>
+                                                </div>
 
                                                 <!-- Confirmación visible cuando hay categoria elegida —
                                                      muestra el path completo asi el seller esta seguro. -->
@@ -2344,6 +2354,27 @@ export default {
         },
         // Retorna una promesa que resuelve cuando el árbol está cargado
         // (o ya estaba). Permite encadenar con Promise.all en create/load.
+        // Filter custom del cascader marketplace_category — accent-insensitive
+        // y por substring en cualquier parte del path completo. Antes el filter
+        // default de Element UI no encontraba 'polos' aunque existe 'Polos y
+        // blusas'. Este normaliza ambos lados (input + paths) sacando tildes y
+        // pasando a lowercase.
+        filterMpCategory(node, keyword) {
+            if (!keyword) return true
+            const norm = s => (s || '')
+                .toString()
+                .normalize('NFD')
+                .replace(/[̀-ͯ]/g, '')
+                .toLowerCase()
+                .trim()
+            const q = norm(keyword)
+            if (!q) return true
+            // node.pathLabels es array con el path completo: ['Hogar', 'Decoración', 'Plantas']
+            // node.text es el path concatenado: 'Hogar / Decoración / Plantas'
+            const haystack = norm((node.pathLabels || []).join(' ') + ' ' + (node.text || '') + ' ' + (node.label || ''))
+            // Soportar múltiples palabras: 'planta verde' busca cada una y todas deben matchear
+            return q.split(/\s+/).every(part => haystack.includes(part))
+        },
         loadMarketplaceCategoryTree() {
             if (this.mp_category_tree.length) return Promise.resolve()
             if (this.mp_category_loading) {
