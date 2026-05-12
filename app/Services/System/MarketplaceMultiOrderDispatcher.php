@@ -282,7 +282,18 @@ class MarketplaceMultiOrderDispatcher
         Collection $items,
         float $subtotal
     ): void {
-        if (empty($client->email)) {
+        // Algunos tenants (especialmente los creados antes de 2026-04) tienen
+        // contact_email lleno pero clients.email con un valor placeholder
+        // (admin@subdomain.com). Probamos primero contact_email, fallback a
+        // email para mantener compatibilidad. Asi llega al buzón real del
+        // seller, no al alias técnico.
+        $toEmail = !empty($client->contact_email) ? $client->contact_email : $client->email;
+        if (empty($toEmail)) {
+            Log::warning('marketplace multi-order tenant: sin email destinatario', [
+                'order' => $order->order_number,
+                'tenant_fqdn' => $client->hostname->fqdn ?? '?',
+                'client_id' => $client->id,
+            ]);
             return;
         }
 
@@ -331,12 +342,23 @@ class MarketplaceMultiOrderDispatcher
             $subject = '🛍️ Pedido marketplace ' . $order->order_number . ' (' . $items->count() . ' productos)';
             $safeSubject = mb_substr(trim(preg_replace('/\s+/', ' ', str_replace(["\r", "\n"], ' ', $subject))), 0, 100);
 
-            Mail::send([], [], function ($message) use ($client, $safeSubject, $html) {
-                $message->to($client->email)->subject($safeSubject)->html($html);
+            // Aseguramos config SMTP del sistema (Configuration::setConfigSmtpMail)
+            // por si el .env no tiene credenciales pero la BD sí.
+            try { \App\Models\System\Configuration::setConfigSmtpMail(); } catch (\Throwable $_) {}
+
+            Mail::send([], [], function ($message) use ($toEmail, $safeSubject, $html) {
+                $message->to($toEmail)->subject($safeSubject)->html($html);
             });
+
+            Log::info('marketplace multi-order tenant notif enviada', [
+                'order' => $order->order_number,
+                'to'    => $toEmail,
+                'tenant' => $client->hostname->fqdn ?? null,
+            ]);
         } catch (\Throwable $e) {
             Log::warning('marketplace multi-order tenant notification failed', [
                 'order' => $order->order_number,
+                'to'    => $toEmail ?? null,
                 'error' => $e->getMessage(),
             ]);
         }
