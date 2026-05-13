@@ -373,6 +373,45 @@
                 </div>
             </el-dialog>
 
+            <!-- ── Dialog: aplicar precio a todas las variantes ─────────────
+                 Util cuando todas las variantes (modelos/hojas/colores)
+                 comparten el mismo precio y el seller no quiere teclearlo
+                 una por una. -->
+            <el-dialog title="Aplicar precio a todas las variantes"
+                       :visible.sync="showBulkPriceDialog"
+                       append-to-body width="420px">
+                <p class="mb-2 small text-muted">
+                    Esto reemplazará el precio de las
+                    <strong>{{ variants.length }}</strong> variantes con el
+                    valor que ingreses. Las que tenían un precio distinto
+                    también se sobrescriben.
+                </p>
+                <div class="d-flex align-items-center gap-2">
+                    <span class="small">Precio:</span>
+                    <span class="small text-muted">S/</span>
+                    <el-input-number v-model="bulkPriceValue"
+                                     :min="0" :precision="4" :controls="false"
+                                     size="small" style="width:140px"
+                                     placeholder="0.00" />
+                </div>
+                <div v-if="parentPrice > 0" class="mt-2 small text-muted">
+                    💡 Si dejas el campo vacío en cada variante, todas heredan
+                    automáticamente el precio del producto padre
+                    (<strong>S/ {{ formatMoney(parentPrice) }}</strong>) — esa
+                    es la forma más simple. Esta opción solo es útil si quieres
+                    forzar un precio distinto al del padre en todas a la vez.
+                </div>
+                <div slot="footer">
+                    <el-button @click="showBulkPriceDialog = false">Cancelar</el-button>
+                    <el-button type="primary"
+                               :loading="applyingBulkPrice"
+                               :disabled="bulkPriceValue === null || bulkPriceValue < 0"
+                               @click="applyBulkPrice">
+                        Aplicar a todas
+                    </el-button>
+                </div>
+            </el-dialog>
+
         </template>
     </div>
 </template>
@@ -928,6 +967,48 @@ export default {
                     this.$message.success('Imagen quitada')
                 })
                 .catch(() => this.$message.error('Error al quitar imagen'))
+        },
+
+        // ── Aplicar precio a todas las variantes ─────────────────────────
+        // Caso típico: producto con varias hojas/modelos/colores que comparten
+        // el mismo precio. En lugar de teclearlo N veces, abre un dialog con
+        // un input y al confirmar lo aplica a todas via patchVariant().
+
+        openBulkPriceDialog() {
+            if (this.variants.length === 0) {
+                this.$message.warning('Genera variantes primero.')
+                return
+            }
+            // Sugerir el precio actual más frecuente (o el del padre si no hay).
+            const prices = this.variants
+                .map(v => Number(v.sale_unit_price) || 0)
+                .filter(p => p > 0)
+            this.bulkPriceValue = prices.length > 0
+                ? prices[0]                       // primer precio existente
+                : (Number(this.parentPrice) || null)
+            this.showBulkPriceDialog = true
+        },
+
+        applyBulkPrice() {
+            const price = Number(this.bulkPriceValue)
+            if (isNaN(price) || price < 0) return
+
+            this.applyingBulkPrice = true
+            let count = 0
+            // Mutamos cada variante y disparamos su PATCH individual. Reutilizamos
+            // patchVariant que ya conoce la lógica de NULL para herencia del padre
+            // y el reemplazo en this.variants tras la respuesta del backend.
+            for (const v of this.variants) {
+                v.sale_unit_price = price > 0 ? price : null
+                this.patchVariant(v)
+                count++
+            }
+
+            this.$message.success(
+                `Precio S/ ${price.toFixed(2)} aplicado a ${count} ${count === 1 ? 'variante' : 'variantes'}.`
+            )
+            this.showBulkPriceDialog = false
+            this.applyingBulkPrice = false
         },
 
         // ── Stock ─────────────────────────────────────────────────────────
