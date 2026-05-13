@@ -154,7 +154,14 @@
                             <th>Variante</th>
                             <th style="width:60px">Imagen</th>
                             <th style="width:80px" title="La variante con esta estrella es la que aparece primero en el marketplace (imagen, color seleccionado por default y precio inicial). Solo una por producto.">⭐ Mostrar primero</th>
-                            <th style="width:120px">Precio venta</th>
+                            <th style="width:140px">
+                                Precio venta
+                                <el-tooltip content="Aplicar el mismo precio a TODAS las variantes (útil cuando solo cambia el color o hojas pero el precio es igual)" placement="top">
+                                    <el-button size="mini" type="text" icon="el-icon-copy-document"
+                                               style="padding:2px 4px;font-size:14px;color:#16a34a"
+                                               @click="openBulkPriceDialog" />
+                                </el-tooltip>
+                            </th>
                             <th style="width:90px">SKU</th>
                             <th style="width:80px">Stock</th>
                             <th style="width:70px">Activo</th>
@@ -487,6 +494,12 @@ export default {
             saving:            false,
             savingStock:       false,
             selectedVariant:   null,
+
+            // Bulk-apply de precio a todas las variantes (caso 'plantas
+            // colgantes con distintas hojas pero mismo precio').
+            showBulkPriceDialog: false,
+            bulkPriceValue:      null,
+            applyingBulkPrice:   false,
 
             // Headers para uploads autenticados (Sanctum/CSRF) — la global
             // headers_token la setea el layout principal del tenant.
@@ -1220,5 +1233,133 @@ export default {
     display: inline-block;
     line-height: 1.3;
     cursor: help;
+}
+
+/* ═══════════════════════ Mobile-first responsive ═══════════════════════
+   < 768px: el dialog "Opciones y valores" sale del viewport con su width
+   fijo 540px; las filas option/value se atropellan y la tabla de variantes
+   con 8 columnas es ilegible. Estos overrides convierten todo a layout
+   apilado tipo card sin tocar el markup. */
+@media (max-width: 768px) {
+
+    /* Dialog: ancho casi total + margen pequeño */
+    .variants-tab :deep(.el-dialog),
+    :deep(.el-dialog__wrapper .el-dialog) {
+        width: 94% !important;
+        max-width: 94vw !important;
+        margin: 6vh auto !important;
+    }
+    .variants-tab :deep(.el-dialog__body) {
+        padding: 14px 16px !important;
+        max-height: 70vh;
+        overflow-y: auto;
+    }
+
+    /* Editor de opciones: stack del row "Color [valores +] [del]" */
+    .variants-tab :deep(.el-dialog .d-flex.align-items-center) {
+        flex-wrap: wrap;
+        gap: 6px !important;
+    }
+    .variants-tab :deep(.el-dialog .el-input),
+    .variants-tab :deep(.el-dialog .el-select) {
+        width: 100% !important;
+        max-width: 100% !important;
+    }
+    .variants-tab :deep(.el-dialog .el-input__inner),
+    .variants-tab :deep(.el-dialog .el-select .el-input__inner) {
+        /* iOS no hace zoom solo si font-size >= 16px */
+        font-size: 16px !important;
+    }
+    .variants-tab :deep(.el-dialog .el-color-picker) {
+        flex-shrink: 0;
+    }
+
+    /* Tabla de variantes: cada <tr> se convierte en card y los <td>
+       se apilan con su label arriba (header oculto). */
+    .variants-tab .table-responsive {
+        overflow-x: visible;
+    }
+    .variants-tab .table {
+        border: 0 !important;
+    }
+    .variants-tab .table thead { display: none; }
+    .variants-tab .table tbody,
+    .variants-tab .table tr,
+    .variants-tab .table td {
+        display: block;
+        width: 100%;
+    }
+    .variants-tab .table tr.vt-group-header {
+        background: #f3f4f6;
+        padding: 8px 12px;
+        margin-top: 12px;
+        margin-bottom: 6px;
+        border-radius: 8px 8px 0 0;
+        font-size: 13px;
+    }
+    .variants-tab .table tr.vt-group-header td {
+        padding: 0;
+        border: 0;
+    }
+    .variants-tab .table tbody tr:not(.vt-group-header) {
+        background: #fff;
+        border: 1px solid #e5e7eb;
+        border-radius: 10px;
+        padding: 10px;
+        margin-bottom: 10px;
+        box-shadow: 0 1px 2px rgba(15,23,42,.04);
+    }
+    .variants-tab .table td {
+        padding: 6px 0 !important;
+        border: 0 !important;
+        text-align: left !important;
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 8px;
+    }
+    /* Primera columna (nombre variante): destacarla como título de la card */
+    .variants-tab .table td:first-child {
+        font-size: 15px;
+        font-weight: 700;
+        padding-bottom: 8px !important;
+        border-bottom: 1px dashed #e5e7eb !important;
+        margin-bottom: 6px;
+    }
+    /* Inputs y números: ancho automático full */
+    .variants-tab .table td .el-input,
+    .variants-tab .table td .el-input-number {
+        flex: 1;
+        min-width: 0;
+    }
+    .variants-tab .table td .el-input__inner {
+        font-size: 16px !important;
+        width: 100% !important;
+    }
+    /* Botones de acción: agrupar en una fila final */
+    .variants-tab .table td:last-child {
+        justify-content: flex-end;
+        padding-top: 6px !important;
+        border-top: 1px dashed #e5e7eb !important;
+        margin-top: 6px;
+    }
+
+    /* Chips predefinidos: scroll horizontal en lugar de wrap-vertical
+       (ocupaba demasiado alto en móvil con 16 colores). */
+    .vt-pre-chips {
+        flex-wrap: nowrap !important;
+        overflow-x: auto;
+        scrollbar-width: thin;
+        padding-bottom: 4px;
+    }
+    .vt-pre-chips .vt-chip {
+        flex-shrink: 0;
+    }
+
+    /* Toggle "usar imagen del producto" y cabecera de variantes: stack */
+    .variants-tab .vt-parent-image-toggle .el-switch__label {
+        max-width: 80vw;
+        white-space: normal;
+    }
 }
 </style>
