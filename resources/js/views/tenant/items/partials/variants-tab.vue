@@ -69,8 +69,25 @@
                     </div>
                     <div v-for="(val, vi) in opt.values" :key="vi"
                          class="d-flex align-items-center gap-2 mb-1 ms-2">
-                        <el-input v-model="val.value" placeholder="Ej: Rojo" size="mini"
-                                  style="width:130px" />
+                        <!-- Combobox: type-ahead con sugerencias contextuales
+                             (preColors / preSizes según el nombre de la opción).
+                             allow-create + filterable permite escribir libre
+                             cualquier valor nuevo, o elegir uno común con click. -->
+
+                        <el-select v-model="val.value"
+                                   filterable allow-create default-first-option
+                                   :placeholder="optionValuePlaceholder(opt.name)"
+                                   size="mini"
+                                   style="width:150px"
+                                   @change="onOptionValueChange(oi, vi, $event)">
+                            <el-option v-for="sg in optionValueSuggestions(opt.name)"
+                                       :key="sg.value"
+                                       :label="sg.value"
+                                       :value="sg.value">
+                                <span v-if="sg.color_hex" :style="{display:'inline-block',width:'10px',height:'10px',borderRadius:'50%',background:sg.color_hex,marginRight:'6px',verticalAlign:'middle'}"></span>
+                                {{ sg.value }}
+                            </el-option>
+                        </el-select>
                         <el-color-picker v-if="isColorOption(opt.name)"
                                          v-model="val.color_hex" size="mini"
                                          title="Define el color para que aparezca como punto en las cards del marketplace" />
@@ -579,6 +596,50 @@ export default {
             const n = String(name).toLowerCase().trim()
             return n === 'talla' || n === 'tallas' || n === 'size' || n === 'sizes'
                 || n.includes('talla') || n.includes('size')
+        },
+
+        // Devuelve la lista de sugerencias para el combobox del valor,
+        // según el nombre de la opción. Si no es color/talla, devuelve
+        // array vacío (el combobox sigue funcionando con allow-create —
+        // el seller puede escribir lo que quiera).
+        optionValueSuggestions(name) {
+            if (this.isColorOption(name)) return this.preColors
+            if (this.isSizeOption(name)) {
+                // Unimos tallas de ropa + calzado + numéricas. El filterable
+                // del el-select se encarga del filtrado por substring.
+                return [
+                    ...this.preSizesClothing.map(v => ({ value: v })),
+                    ...this.preSizesShoes.map(v => ({ value: v })),
+                    ...this.preSizesNumeric.map(v => ({ value: v })),
+                ]
+            }
+            return []
+        },
+
+        optionValuePlaceholder(name) {
+            if (this.isColorOption(name)) return 'Ej: Rojo'
+            if (this.isSizeOption(name)) return 'Ej: M'
+            return 'Escribe o elige'
+        },
+
+        // Cuando el seller cambia el valor (escribiendo o eligiendo del
+        // dropdown). Si eligió un color de la lista preColors, auto-rellena
+        // el color_hex para que el dot del marketplace salga correcto sin
+        // tener que abrir el color picker.
+        onOptionValueChange(oi, vi, newValue) {
+            const opt = this.editOptions[oi]
+            if (!opt) return
+            const val = opt.values[vi]
+            if (!val) return
+
+            if (this.isColorOption(opt.name)) {
+                const match = this.preColors.find(
+                    pc => String(pc.value).toLowerCase() === String(newValue || '').toLowerCase()
+                )
+                if (match && match.color_hex) {
+                    val.color_hex = match.color_hex
+                }
+            }
         },
 
         // Agrega un valor predefinido al final del listado de la opción `oi`.
