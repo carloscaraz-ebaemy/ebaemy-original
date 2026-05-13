@@ -361,7 +361,10 @@
                          class="mb-3">
                         <div class="d-flex align-items-center gap-2 mb-1">
                             <span style="width:160px" class="small font-weight-bold">{{ ws.warehouse_name || 'Almacén #' + ws.warehouse_id }}</span>
-                            <el-input-number v-model="ws.stock_physical" :min="0" :precision="4"
+                            <!-- Sin precision forzado: el stock muestra su valor
+                                 natural (100 → '100'; 1.5 → '1.5'). Si necesitas
+                                 fraccionar (kg/lt/m) tipea el decimal directamente. -->
+                            <el-input-number v-model="ws.stock_physical" :min="0" :step="1"
                                              size="small" style="width:130px" />
                         </div>
                         <div v-if="ws.stock_committed > 0" class="small text-warning ml-1">
