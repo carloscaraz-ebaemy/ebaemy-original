@@ -69,25 +69,33 @@
                     </div>
                     <div v-for="(val, vi) in opt.values" :key="vi"
                          class="d-flex align-items-center gap-2 mb-1 ms-2">
-                        <!-- Combobox: type-ahead con sugerencias contextuales
-                             (preColors / preSizes según el nombre de la opción).
-                             allow-create + filterable permite escribir libre
-                             cualquier valor nuevo, o elegir uno común con click. -->
-
-                        <el-select v-model="val.value"
-                                   filterable allow-create default-first-option
-                                   :placeholder="optionValuePlaceholder(opt.name)"
-                                   size="mini"
-                                   style="width:150px"
-                                   @change="onOptionValueChange(oi, vi, $event)">
-                            <el-option v-for="sg in optionValueSuggestions(opt.name)"
-                                       :key="sg.value"
-                                       :label="sg.value"
-                                       :value="sg.value">
-                                <span v-if="sg.color_hex" :style="{display:'inline-block',width:'10px',height:'10px',borderRadius:'50%',background:sg.color_hex,marginRight:'6px',verticalAlign:'middle'}"></span>
-                                {{ sg.value }}
-                            </el-option>
-                        </el-select>
+                        <!-- Combobox SOLO cuando hay sugerencias contextuales
+                             (color o talla). Para opciones libres tipo
+                             "modelo/material/sabor" usamos el-input puro porque
+                             el-select+allow-create con array vacio tiene un bug
+                             que committea el index en vez del texto tipeado. -->
+                        <template v-if="hasOptionValueSuggestions(opt.name)">
+                            <el-select v-model="val.value"
+                                       filterable allow-create
+                                       :placeholder="optionValuePlaceholder(opt.name)"
+                                       size="mini"
+                                       style="width:150px"
+                                       @change="onOptionValueChange(oi, vi, $event)">
+                                <el-option v-for="sg in optionValueSuggestions(opt.name)"
+                                           :key="sg.value"
+                                           :label="sg.value"
+                                           :value="sg.value">
+                                    <span v-if="sg.color_hex" :style="{display:'inline-block',width:'10px',height:'10px',borderRadius:'50%',background:sg.color_hex,marginRight:'6px',verticalAlign:'middle'}"></span>
+                                    {{ sg.value }}
+                                </el-option>
+                            </el-select>
+                        </template>
+                        <template v-else>
+                            <el-input v-model="val.value"
+                                      :placeholder="optionValuePlaceholder(opt.name)"
+                                      size="mini"
+                                      style="width:150px" />
+                        </template>
                         <el-color-picker v-if="isColorOption(opt.name)"
                                          v-model="val.color_hex" size="mini"
                                          title="Define el color para que aparezca como punto en las cards del marketplace" />
@@ -671,7 +679,14 @@ export default {
         optionValuePlaceholder(name) {
             if (this.isColorOption(name)) return 'Ej: Rojo'
             if (this.isSizeOption(name)) return 'Ej: M'
-            return 'Escribe o elige'
+            return 'Ej: Rojo, M, Boa'
+        },
+
+        // True solo si la opcion tiene sugerencias (color o talla). Para otras
+        // (modelo, material, sabor...) renderizamos el-input puro en el template
+        // porque el-select+allow-create con options vacio tiene bug de commit.
+        hasOptionValueSuggestions(name) {
+            return this.isColorOption(name) || this.isSizeOption(name)
         },
 
         // Cuando el seller cambia el valor (escribiendo o eligiendo del
