@@ -114,6 +114,13 @@ class Kernel extends ConsoleKernel
                  ->withoutOverlapping()
                  ->appendOutputTo(storage_path('logs/marketplace_orders.log'));
 
+        // Recordatorios por email para pedidos marketplace abandonados
+        // (status=pending + unpaid >2h). Máximo 2 envíos por pedido.
+        $schedule->command('marketplace:remind-abandoned-orders')
+                 ->hourly()
+                 ->withoutOverlapping()
+                 ->appendOutputTo(storage_path('logs/marketplace_abandoned.log'));
+
         // Marketplace: regenerar feed Meta cada 6 horas
         $schedule->command('marketplace:sync feed --platform=meta')
                  ->everySixHours()

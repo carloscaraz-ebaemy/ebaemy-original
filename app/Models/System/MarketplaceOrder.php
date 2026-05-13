@@ -48,6 +48,8 @@ class MarketplaceOrder extends Model
         'mp_payment_status',
         'payment_attempted_at',
         'payment_paid_at',
+        'reminder_sent_at',
+        'reminder_count',
     ];
 
     protected $casts = [
@@ -58,6 +60,8 @@ class MarketplaceOrder extends Model
         'stores_count'         => 'integer',
         'payment_attempted_at' => 'datetime',
         'payment_paid_at'      => 'datetime',
+        'reminder_sent_at'     => 'datetime',
+        'reminder_count'       => 'integer',
     ];
 
     public const STATUS_PENDING               = 'pending';
