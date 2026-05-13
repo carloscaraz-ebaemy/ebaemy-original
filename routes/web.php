@@ -12,6 +12,16 @@ if ($hostname) {
             'verify'   => false
         ]);
 
+        // CSRF refresh: devuelve el token actual de la sesión activa. Lo
+        // usa el JS (bootstrap.js) para refrescar el meta tag al volver
+        // del background (visibilitychange) y por heartbeat cada 60s.
+        // Fix iPhone Safari: el-upload envía token capturado al cargar,
+        // y al abrir camara/galeria Safari pausa la pestaña → el token
+        // queda obsoleto si la sesión rotó mientras tanto → 419.
+        Route::get('csrf-refresh', function () {
+            return response()->json(['token' => csrf_token(), 'ok' => true]);
+        })->name('csrf.refresh');
+
         // ── Búsqueda de documentos — requiere autenticación ─────────────
         Route::middleware('auth')->group(function () {
             Route::get('search', 'Tenant\SearchController@index')->name('search.index');
