@@ -73,4 +73,66 @@ document.querySelectorAll('.js-shop-link').forEach(function (el) {
         if (href) window.location.href = href;
     });
 });
+
+// Botón quick-add del card: añade 1 unidad al carrito sin entrar al
+// detalle. Si el listing tiene variantes/sin precio, navega al detalle
+// (donde el comprador elige opciones).
+(function () {
+    var addUrl  = @json(route('marketplace.cart.add'));
+    var csrf    = @json(csrf_token());
+    var detailBase = @json(route('marketplace.index')) + '/item/'; // marketplace.item route
+
+    document.querySelectorAll('.mp-card-quickadd').forEach(function (btn) {
+        btn.addEventListener('click', function (e) {
+            e.preventDefault();
+            e.stopPropagation();
+
+            // Si no se puede quick-add (variantes/sin stock) → ir a detalle.
+            if (btn.classList.contains('is-detail')) {
+                var slug = btn.getAttribute('data-listing-slug');
+                if (slug) window.location.href = detailBase + slug;
+                return;
+            }
+
+            if (btn.classList.contains('is-loading') || btn.classList.contains('is-added')) return;
+
+            var listingId = parseInt(btn.getAttribute('data-listing-id'), 10);
+            if (!listingId) return;
+
+            btn.classList.add('is-loading');
+
+            fetch(addUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': csrf,
+                    'Accept': 'application/json',
+                },
+                credentials: 'same-origin',
+                body: JSON.stringify({ listing_id: listingId, quantity: 1 })
+            })
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
+                btn.classList.remove('is-loading');
+                if (!data.success) {
+                    // Si falla (p.ej. stock cambió), llevamos al detalle para
+                    // que el usuario vea el motivo y reintente con contexto.
+                    var slug = btn.getAttribute('data-listing-slug');
+                    if (slug) window.location.href = detailBase + slug;
+                    return;
+                }
+                btn.classList.add('is-added');
+                btn.innerHTML = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
+                if (window.mpCartBadgeUpdate) window.mpCartBadgeUpdate(data.summary);
+                setTimeout(function () {
+                    btn.classList.remove('is-added');
+                    btn.innerHTML = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>';
+                }, 1500);
+            })
+            .catch(function () {
+                btn.classList.remove('is-loading');
+            });
+        });
+    });
+})();
 </script>

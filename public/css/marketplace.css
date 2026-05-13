@@ -711,6 +711,68 @@ button { font-family: inherit; cursor: pointer; }
     transition: transform .35s var(--mp-ease);
 }
 .mp-card:hover .mp-card-img img { transform: scale(1.06); }
+
+/* Botón quick-add: cart icon flotante bottom-right de la imagen.
+   - Desktop: aparece al hover de la card (no satura el grid)
+   - Mobile: siempre visible (no hay hover) y tap-target ≥ 44px
+   - Estado .is-loading mientras dispara el fetch
+   - Estado .is-added pinta verde y muestra ✓ por 1.5s */
+.mp-card-quickadd {
+    position: absolute;
+    bottom: 10px;
+    right: 10px;
+    width: 40px;
+    height: 40px;
+    border-radius: 999px;
+    border: 0;
+    background: var(--mp-primary, #0f8a82);
+    color: #fff;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    box-shadow: 0 4px 12px rgba(15,23,42,.18);
+    opacity: 0;
+    transform: translateY(6px);
+    transition: opacity .18s, transform .18s, background-color .15s;
+    z-index: 3;
+}
+.mp-card:hover .mp-card-quickadd,
+.mp-card-quickadd:focus-visible {
+    opacity: 1;
+    transform: translateY(0);
+}
+.mp-card-quickadd:hover { background: var(--mp-primary-dark, #0c6b65); }
+.mp-card-quickadd.is-loading {
+    opacity: 1;
+    transform: translateY(0);
+    pointer-events: none;
+}
+.mp-card-quickadd.is-loading svg {
+    animation: mpCardQuickaddSpin 0.7s linear infinite;
+}
+@keyframes mpCardQuickaddSpin { to { transform: rotate(360deg); } }
+.mp-card-quickadd.is-added {
+    background: #16a34a;
+    opacity: 1;
+    transform: translateY(0);
+}
+.mp-card-quickadd.is-detail {
+    /* Si no hay quick-add posible (variantes/sin stock), el icono navega
+       al detalle. Se ve igual pero usa color secundario para diferenciar. */
+    background: #1f2937;
+}
+.mp-card-quickadd.is-detail:hover { background: #111827; }
+@media (max-width: 900px) {
+    /* Mobile: siempre visible, sin animación hover. */
+    .mp-card-quickadd {
+        opacity: 1;
+        transform: translateY(0);
+        width: 44px; height: 44px;
+        bottom: 8px; right: 8px;
+    }
+}
+
 .mp-card-img-empty {
     position: absolute;
     inset: 0;

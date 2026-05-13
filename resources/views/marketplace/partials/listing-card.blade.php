@@ -71,6 +71,29 @@
                 </span>
             @endif
         </div>
+
+        {{-- Botón quick-add: añade al carrito sin entrar al detalle.
+             Si tiene variantes o sin precio, navega al detalle (necesita
+             que el comprador elija opciones). JS en listing-card-script.  --}}
+        @php
+            $cardHasVariants = !empty($listing->has_variants);
+            $cardCanQuickAdd = !$cardHasVariants
+                            && empty($listing->is_pack)
+                            && ($listing->display_price ?? 0) > 0
+                            && ($listing->stock ?? 0) > 0;
+        @endphp
+        <button type="button"
+                class="mp-card-quickadd {{ $cardCanQuickAdd ? 'is-quickadd' : 'is-detail' }}"
+                data-listing-id="{{ $listing->id }}"
+                data-listing-slug="{{ $listing->slug }}"
+                data-has-variants="{{ $cardHasVariants ? '1' : '0' }}"
+                aria-label="{{ $cardCanQuickAdd ? 'Añadir al carrito' : 'Ver detalles para comprar' }}">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <circle cx="9" cy="21" r="1"/>
+                <circle cx="20" cy="21" r="1"/>
+                <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/>
+            </svg>
+        </button>
     </div>
 
     <div class="mp-card-body">
