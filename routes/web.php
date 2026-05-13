@@ -1179,6 +1179,12 @@ if ($hostname) {
         Route::get('marketplace/terminos',        'MarketplaceController@terms')->name('marketplace.terms');
         Route::get('marketplace/privacidad',      'MarketplaceController@privacy')->name('marketplace.privacy');
 
+        // ─── Favoritos / wishlist (session-based, sin login obligatorio) ─────
+        Route::get('marketplace/favoritos',       'MarketplaceController@favorites')->name('marketplace.favorites');
+        Route::get('marketplace/favorites/json',  'MarketplaceController@favoritesJson')->name('marketplace.favorites.json');
+        Route::post('marketplace/favorites/toggle','MarketplaceController@favoritesToggle')
+             ->middleware('throttle:60,1')->name('marketplace.favorites.toggle');
+
         Route::get('sitemap-marketplace.xml',     'MarketplaceController@sitemap')->name('marketplace.sitemap');
         Route::get('robots.txt',                  'MarketplaceController@robots')->name('marketplace.robots');
         Route::get('feeds/meta-catalog.xml',      'MarketplaceController@metaCatalog')->name('marketplace.feed.meta');

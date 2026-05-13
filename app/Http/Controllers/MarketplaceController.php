@@ -1340,6 +1340,134 @@ class MarketplaceController extends Controller
     public function privacy() { return view('marketplace.legal.privacy'); }
 
     /**
+     * Toggle favorito: si el listing ya está marcado, lo borra; si no,
+     * lo agrega. Session-based (cookie Laravel). En el futuro, si el
+     * comprador inicia sesión, podemos hacer merge session → user_id.
+     */
+    public function favoritesToggle(Request $request)
+    {
+        $listingId = (int) $request->input('listing_id');
+        if ($listingId <= 0) {
+            return response()->json(['success' => false, 'message' => 'listing_id requerido'], 422);
+        }
+
+        $exists = MarketplaceListing::query()->whereKey($listingId)->exists();
+        if (!$exists) {
+            return response()->json(['success' => false, 'message' => 'Producto no encontrado'], 404);
+        }
+
+        $sessionId = $request->session()->getId();
+        $userId = auth()->id() ?: null;
+
+        $query = \DB::connection('system')->table('marketplace_favorites')
+            ->where('listing_id', $listingId);
+        if ($userId) {
+            $query->where('user_id', $userId);
+        } else {
+            $query->where('session_id', $sessionId);
+        }
+
+        $existing = $query->first();
+
+        if ($existing) {
+            \DB::connection('system')->table('marketplace_favorites')
+                ->where('id', $existing->id)->delete();
+            $isFavorited = false;
+        } else {
+            try {
+                \DB::connection('system')->table('marketplace_favorites')->insert([
+                    'session_id' => $sessionId,
+                    'user_id'    => $userId,
+                    'listing_id' => $listingId,
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]);
+                $isFavorited = true;
+            } catch (\Throwable $e) {
+                // Race condition: alguien lo insertó entre el SELECT y el
+                // INSERT. Tratamos como exitoso (idempotente).
+                $isFavorited = true;
+            }
+        }
+
+        return response()->json([
+            'success'      => true,
+            'is_favorited' => $isFavorited,
+            'count'        => $this->favoritesCountForCurrent(),
+        ]);
+    }
+
+    /**
+     * Devuelve los IDs de listings favoritos del visitante actual.
+     * Se usa para pintar el corazón "lleno" en las cards al cargar
+     * cualquier vista que las renderice.
+     */
+    public function favoritesJson(Request $request)
+    {
+        $sessionId = $request->session()->getId();
+        $userId = auth()->id() ?: null;
+
+        $query = \DB::connection('system')->table('marketplace_favorites');
+        if ($userId) {
+            $query->where('user_id', $userId);
+        } else {
+            $query->where('session_id', $sessionId);
+        }
+
+        $ids = $query->pluck('listing_id')->map(fn ($id) => (int) $id)->all();
+
+        return response()->json([
+            'ids'   => $ids,
+            'count' => count($ids),
+        ]);
+    }
+
+    /**
+     * Página /marketplace/favoritos: grid con los productos que el
+     * visitante guardó. Si está vacío muestra un empty state.
+     */
+    public function favorites(Request $request)
+    {
+        $sessionId = $request->session()->getId();
+        $userId = auth()->id() ?: null;
+
+        $favIdsQ = \DB::connection('system')->table('marketplace_favorites');
+        if ($userId) {
+            $favIdsQ->where('user_id', $userId);
+        } else {
+            $favIdsQ->where('session_id', $sessionId);
+        }
+        $favIds = $favIdsQ->orderByDesc('created_at')->pluck('listing_id');
+
+        $listings = collect();
+        if ($favIds->isNotEmpty()) {
+            $listings = MarketplaceListing::published()
+                ->whereIn('id', $favIds)
+                ->get();
+            // Reordenar para respetar el orden 'recién marcado' del favIds.
+            $listings = $listings->sortBy(fn ($l) => $favIds->search($l->id))->values();
+            $this->decorateListingsWithVariantData($listings);
+        }
+
+        return view('marketplace.favorites', compact('listings'));
+    }
+
+    /**
+     * Helper interno: conteo de favoritos del visitante actual.
+     */
+    private function favoritesCountForCurrent(): int
+    {
+        $userId = auth()->id() ?: null;
+        $query = \DB::connection('system')->table('marketplace_favorites');
+        if ($userId) {
+            $query->where('user_id', $userId);
+        } else {
+            $query->where('session_id', session()->getId());
+        }
+        return (int) $query->count();
+    }
+
+    /**
      * True cuando ?shop=X viene SIN otros filtros (incluye ?sort=relevance
      * que es el default y no cuenta). Sirve para decidir si el listing es
      * realmente una "página de tienda" y conviene redirigir 301.

@@ -712,6 +712,53 @@ button { font-family: inherit; cursor: pointer; }
 }
 .mp-card:hover .mp-card-img img { transform: scale(1.06); }
 
+/* Corazón de favoritos: top-right de la imagen. Siempre visible (mobile-first)
+   para que el "guardar para después" sea descubrible sin hover. */
+.mp-card-fav {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    width: 36px;
+    height: 36px;
+    border-radius: 999px;
+    border: 0;
+    background: rgba(255, 255, 255, 0.92);
+    backdrop-filter: blur(4px);
+    color: #6b7280;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    box-shadow: 0 2px 6px rgba(15, 23, 42, .12);
+    transition: color .15s, background .15s, transform .12s;
+    z-index: 3;
+    -webkit-tap-highlight-color: transparent;
+}
+.mp-card-fav:hover {
+    color: #dc2626;
+    background: #fff;
+    transform: scale(1.06);
+}
+.mp-card-fav[aria-pressed="true"] {
+    color: #dc2626;
+}
+.mp-card-fav[aria-pressed="true"] .mp-card-fav-icon {
+    fill: currentColor;
+    stroke-width: 0;
+}
+.mp-card-fav.is-pulsing {
+    animation: mpFavPulse .35s ease;
+}
+@keyframes mpFavPulse {
+    0%   { transform: scale(1); }
+    50%  { transform: scale(1.28); }
+    100% { transform: scale(1); }
+}
+@media (max-width: 900px) {
+    /* Tap target ≥ 44px en mobile */
+    .mp-card-fav { width: 40px; height: 40px; top: 6px; right: 6px; }
+}
+
 /* Botón quick-add: cart icon flotante bottom-right de la imagen.
    - Desktop: aparece al hover de la card (no satura el grid)
    - Mobile: siempre visible (no hay hover) y tap-target ≥ 44px

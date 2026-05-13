@@ -74,6 +74,61 @@ document.querySelectorAll('.js-shop-link').forEach(function (el) {
     });
 });
 
+// Wishlist: hidratar cards con estado de favoritos del visitante y
+// manejar el toggle del corazón. Session-based; no requiere login.
+(function () {
+    var toggleUrl = @json(route('marketplace.favorites.toggle'));
+    var jsonUrl   = @json(route('marketplace.favorites.json'));
+    var csrf      = @json(csrf_token());
+
+    // 1) Sync inicial: pedir los IDs ya guardados y marcar las cards.
+    var favSet = new Set();
+    fetch(jsonUrl, { headers: { 'Accept': 'application/json' }, credentials: 'same-origin' })
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+            (data.ids || []).forEach(function (id) { favSet.add(id); });
+            document.querySelectorAll('.mp-card-fav').forEach(function (btn) {
+                var id = parseInt(btn.getAttribute('data-listing-id'), 10);
+                if (favSet.has(id)) btn.setAttribute('aria-pressed', 'true');
+            });
+            if (window.mpFavBadgeUpdate) window.mpFavBadgeUpdate(data.count || 0);
+        })
+        .catch(function () { /* silent */ });
+
+    // 2) Click handler: toggle vía POST. Si la card está dentro de un <a>,
+    //    detenemos propagación para no navegar al detalle.
+    document.querySelectorAll('.mp-card-fav').forEach(function (btn) {
+        btn.addEventListener('click', function (e) {
+            e.preventDefault();
+            e.stopPropagation();
+
+            var id = parseInt(btn.getAttribute('data-listing-id'), 10);
+            if (!id) return;
+
+            btn.classList.add('is-pulsing');
+            setTimeout(function () { btn.classList.remove('is-pulsing'); }, 350);
+
+            fetch(toggleUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': csrf,
+                    'Accept': 'application/json',
+                },
+                credentials: 'same-origin',
+                body: JSON.stringify({ listing_id: id })
+            })
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
+                if (!data.success) return;
+                btn.setAttribute('aria-pressed', data.is_favorited ? 'true' : 'false');
+                if (window.mpFavBadgeUpdate) window.mpFavBadgeUpdate(data.count || 0);
+            })
+            .catch(function () { /* silent */ });
+        });
+    });
+})();
+
 // Botón quick-add del card: añade 1 unidad al carrito sin entrar al
 // detalle. Si el listing tiene variantes/sin precio, navega al detalle
 // (donde el comprador elige opciones).

@@ -370,6 +370,13 @@
         </script>
 
         <div class="mp-nav-actions">
+            <a href="{{ route('marketplace.favorites') }}" class="mp-nav-link" id="mpFavNavLink"
+               title="Mis favoritos" style="position:relative">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+                <span class="mp-nav-link-text">Favoritos</span>
+                <span id="mpFavBadge"
+                      style="display:none;position:absolute;top:-2px;right:-6px;background:#dc2626;color:#fff;font-size:10px;font-weight:700;border-radius:999px;min-width:18px;height:18px;padding:0 5px;line-height:18px;text-align:center"></span>
+            </a>
             <a href="{{ route('marketplace.cart') }}" class="mp-nav-link" id="mpCartNavLink"
                title="Mi carrito" style="position:relative">
                 <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
@@ -769,6 +776,22 @@
     window.mpCartBadgeUpdate = paint;
     fetch(@json(route('marketplace.cart.json')), { headers: { 'Accept': 'application/json' }, credentials: 'same-origin' })
         .then(r => r.json()).then(paint).catch(function(){ /* silent */ });
+})();
+
+// Badge del navbar para favoritos. El conteo inicial lo carga el script
+// de listing-card; aquí solo exponemos la función paint.
+(function(){
+    const fbadge = document.getElementById('mpFavBadge');
+    if (!fbadge) return;
+    window.mpFavBadgeUpdate = function (count) {
+        const n = parseInt(count, 10) || 0;
+        if (n > 0) {
+            fbadge.textContent = n > 99 ? '99+' : String(n);
+            fbadge.style.display = 'inline-block';
+        } else {
+            fbadge.style.display = 'none';
+        }
+    };
 })();
 </script>
 

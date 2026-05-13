@@ -37,6 +37,19 @@
             <div class="mp-card-img-empty">Sin imagen</div>
         @endif
 
+        {{-- Corazón de favoritos: top-right de la imagen. El JS de
+             listing-card-script lo hidrata con el estado actual al cargar
+             la vista y maneja el toggle vía POST /marketplace/favorites/toggle. --}}
+        <button type="button"
+                class="mp-card-fav"
+                data-listing-id="{{ $listing->id }}"
+                aria-label="Guardar en favoritos"
+                aria-pressed="false">
+            <svg class="mp-card-fav-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+            </svg>
+        </button>
+
         <div class="mp-card-badges">
             @if(!empty($listing->is_featured) && (empty($listing->featured_until) || \Carbon\Carbon::parse($listing->featured_until)->isFuture()))
                 <span class="mp-badge mp-badge--top" title="Producto destacado" style="background:linear-gradient(135deg,#fbbf24,#f59e0b);color:#fff">⭐ Destacado</span>
