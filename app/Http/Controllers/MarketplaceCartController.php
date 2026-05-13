@@ -22,7 +22,16 @@ class MarketplaceCartController extends Controller
         $stores  = $this->cart->groupedByStore();
         $summary = $this->cart->summary();
 
-        return view('marketplace.cart', compact('stores', 'summary'));
+        // Si el carrito está vacío, mostramos "Vistos recientemente" como
+        // path de recovery: el comprador que abandonó algo en una sesión
+        // anterior puede retomarlo desde aquí.
+        $recentlyViewed = collect();
+        if ($stores->isEmpty()) {
+            $recentlyViewed = app(\App\Services\Marketplace\RecentlyViewedService::class)
+                ->listings(null, 8);
+        }
+
+        return view('marketplace.cart', compact('stores', 'summary', 'recentlyViewed'));
     }
 
     /**

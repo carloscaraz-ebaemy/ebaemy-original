@@ -169,12 +169,29 @@ class MarketplaceController extends Controller
                 ->values();
         });
 
+        // "Vistos recientemente" — solo si la home está sin filtros (es la
+        // home propiamente dicha). Con filtros activos el usuario está
+        // buscando algo específico y no quiere distracciones.
+        $recentlyViewed = collect();
+        $isCleanHome = !$q && !$category && !$officialCatId
+                      && !$priceMin && !$priceMax
+                      && !$onOfferOnly && !$verifiedOnly && !$inStockOnly && !$packsOnly
+                      && !$shopSubdomain;
+        if ($isCleanHome) {
+            $recentlyViewed = app(\App\Services\Marketplace\RecentlyViewedService::class)
+                ->listings(null, 8);
+            if ($recentlyViewed->isNotEmpty()) {
+                $this->decorateListingsWithVariantData($recentlyViewed);
+            }
+        }
+
         return view('marketplace.index', compact(
             'listings', 'categories', 'officialRoots', 'dailyOffers',
             'q', 'category', 'officialCatId',
             'sort', 'priceMin', 'priceMax',
             'shops', 'shopSubdomain',
-            'onOfferOnly', 'verifiedOnly', 'inStockOnly', 'packsOnly'
+            'onOfferOnly', 'verifiedOnly', 'inStockOnly', 'packsOnly',
+            'recentlyViewed'
         ));
     }
 
@@ -571,6 +588,9 @@ class MarketplaceController extends Controller
         // Pageview — se incrementa asíncronamente para no ralentizar render
         MarketplaceListing::where('id', $listing->id)->increment('view_count');
 
+        // Tracking de "vistos recientemente" en session (LRU, max 12 IDs).
+        app(\App\Services\Marketplace\RecentlyViewedService::class)->push($listing->id);
+
         // Variantes (solo si el listing las tiene). Orden: la marcada como
         // is_primary primero (define qué imagen y combo aparece al cargar),
         // después por precio asc. Si nadie está marcado, fallback al precio.
@@ -741,9 +761,17 @@ class MarketplaceController extends Controller
             }
         }
 
+        // "Vistos recientemente" del visitante, excluyendo el actual.
+        $recentlyViewed = app(\App\Services\Marketplace\RecentlyViewedService::class)
+            ->listings($listing->id, 8);
+        if ($recentlyViewed->isNotEmpty()) {
+            $this->decorateListingsWithVariantData($recentlyViewed);
+        }
+
         return view('marketplace.show', compact(
             'listing', 'related', 'reviews', 'officialBreadcrumb', 'officialCategoryUrl',
-            'variants', 'options', 'variantMap', 'primaryValueIds'
+            'variants', 'options', 'variantMap', 'primaryValueIds',
+            'recentlyViewed'
         ));
     }
 

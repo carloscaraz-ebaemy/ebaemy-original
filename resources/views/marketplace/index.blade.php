@@ -648,4 +648,6 @@ if (window.matchMedia('(max-width: 899px)').matches) {
 </script>
 @endpush
 
+@include('marketplace.partials.recently-viewed', ['recentlyViewed' => $recentlyViewed ?? collect()])
+
 @endsection

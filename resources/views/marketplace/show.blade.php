@@ -977,4 +977,6 @@
     </section>
 @endif
 
+@include('marketplace.partials.recently-viewed', ['recentlyViewed' => $recentlyViewed ?? collect()])
+
 @endsection

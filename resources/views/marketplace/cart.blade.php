@@ -120,6 +120,7 @@
         <p style="color: #6b7280">Explora el marketplace y añade productos de cualquiera de nuestras tiendas verificadas.</p>
         <a href="{{ route('marketplace.index') }}" class="btn-cta">Explorar marketplace →</a>
     </div>
+    @include('marketplace.partials.recently-viewed', ['recentlyViewed' => $recentlyViewed ?? collect()])
 @else
     <div class="mp-cart-wrapper">
         <div>
