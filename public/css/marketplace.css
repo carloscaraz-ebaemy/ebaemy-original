@@ -1216,6 +1216,76 @@ button { font-family: inherit; cursor: pointer; }
     text-decoration: none;
 }
 
+/* Sticky bottom CTA — solo mobile. Aparece cuando el botón principal de
+   "Añadir al carrito" sale del viewport durante el scroll. Mejora la
+   conversión móvil drásticamente. */
+.mp-mobile-sticky-cta {
+    display: none;
+    position: fixed;
+    left: 0; right: 0; bottom: 0;
+    background: #fff;
+    border-top: 1px solid var(--mp-line, #e5e7eb);
+    padding: 10px 14px calc(10px + env(safe-area-inset-bottom));
+    box-shadow: 0 -6px 16px rgba(15, 23, 42, .08);
+    z-index: 100;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    transform: translateY(110%);
+    transition: transform .25s ease;
+}
+.mp-mobile-sticky-cta.is-visible {
+    display: flex;
+    transform: translateY(0);
+}
+.mp-mobile-sticky-cta__info {
+    display: flex;
+    flex-direction: column;
+    flex: 1; min-width: 0;
+}
+.mp-mobile-sticky-cta__prefix {
+    font-size: 11px; color: #6b7280; line-height: 1;
+}
+.mp-mobile-sticky-cta__price {
+    font-size: 19px;
+    font-weight: 800;
+    color: var(--mp-ink, #111827);
+    line-height: 1.1;
+}
+.mp-mobile-sticky-cta__old {
+    font-size: 12.5px;
+    color: #9ca3af;
+    text-decoration: line-through;
+    margin-top: 1px;
+}
+.mp-mobile-sticky-cta__btn {
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 12px 22px;
+    background: var(--mp-primary, #0f8a82);
+    color: #fff;
+    border: 0;
+    border-radius: 10px;
+    font-weight: 700;
+    font-size: 15px;
+    cursor: pointer;
+    min-height: 44px;
+    min-width: 110px;
+    transition: background .15s, transform .12s;
+}
+.mp-mobile-sticky-cta__btn:hover { background: var(--mp-primary-dark, #0c6b65); }
+.mp-mobile-sticky-cta__btn:active { transform: scale(.96); }
+.mp-mobile-sticky-cta__btn.is-loading svg { animation: mpMobileStickySpin .7s linear infinite; }
+@keyframes mpMobileStickySpin { to { transform: rotate(360deg); } }
+
+@media (min-width: 768px) {
+    /* En desktop nunca se muestra — el CTA inline es suficiente. */
+    .mp-mobile-sticky-cta { display: none !important; }
+}
+
 .mp-cta-divider {
     display: flex;
     align-items: center;

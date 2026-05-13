@@ -526,6 +526,23 @@
                         cartBtn.dataset.variantId = v.tenant_variant_id;
                         cartBtn.style.opacity = v.stock <= 0 ? '.55' : '';
                     }
+                    // Mobile sticky CTA: sincronizar precio + estado al cambiar variante.
+                    var stickyPriceEl = document.getElementById('mpStickyPrice');
+                    if (stickyPriceEl) stickyPriceEl.textContent = 'S/ ' + Number(v.price).toFixed(2);
+                    var stickyOldEl = document.getElementById('mpStickyOld');
+                    if (stickyOldEl) {
+                        if (v.is_on_offer && v.original_price && v.original_price > v.price) {
+                            stickyOldEl.textContent = 'S/ ' + Number(v.original_price).toFixed(2);
+                            stickyOldEl.style.display = '';
+                        } else {
+                            stickyOldEl.style.display = 'none';
+                        }
+                    }
+                    var stickyBtn = document.getElementById('mpMobileStickyBtn');
+                    if (stickyBtn) {
+                        stickyBtn.disabled = v.stock <= 0;
+                        stickyBtn.style.opacity = v.stock <= 0 ? '.55' : '';
+                    }
                 }
 
                 optsBox.addEventListener('click', function (e) {
@@ -660,6 +677,31 @@
                 </a>
             @endif
             <div class="mp-cta-divider"><span>o solicita información / envío al vendedor</span></div>
+
+            {{-- Sticky bottom bar mobile: aparece cuando el CTA principal sale
+                 del viewport (IntersectionObserver). Solo visible <768px.
+                 Click → dispara el mismo flujo que el botón de arriba. --}}
+            <div class="mp-mobile-sticky-cta" id="mpMobileStickyCta" aria-hidden="true">
+                <div class="mp-mobile-sticky-cta__info">
+                    @php
+                        $stickyPrice = $listing->display_price ?? 0;
+                        if (!empty($listing->has_variants)) {
+                            $stickyPrice = $listing->min_price ?? $listing->display_price ?? 0;
+                        }
+                    @endphp
+                    @if(!empty($listing->has_variants))
+                        <span class="mp-mobile-sticky-cta__prefix">Desde</span>
+                    @endif
+                    <span class="mp-mobile-sticky-cta__price" id="mpStickyPrice">S/ {{ number_format($stickyPrice, 2) }}</span>
+                    @if(!empty($listing->is_on_offer) && !empty($listing->original_price) && $listing->original_price > $listing->display_price)
+                        <span class="mp-mobile-sticky-cta__old" id="mpStickyOld">S/ {{ number_format($listing->original_price, 2) }}</span>
+                    @endif
+                </div>
+                <button type="button" class="mp-mobile-sticky-cta__btn" id="mpMobileStickyBtn" aria-label="Añadir al carrito">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
+                    Añadir
+                </button>
+            </div>
         @endif
 
         <script>
@@ -720,6 +762,32 @@
                     alert('Error de red');
                 });
             });
+
+            // ── Sticky CTA mobile ──
+            // Aparece cuando el CTA principal sale del viewport. Click → proxy
+            // al botón principal (reusa todo el flujo de cart.add + estado).
+            var stickyBar = document.getElementById('mpMobileStickyCta');
+            var stickyBtnEl = document.getElementById('mpMobileStickyBtn');
+            if (stickyBar && stickyBtnEl && 'IntersectionObserver' in window) {
+                var observer = new IntersectionObserver(function (entries) {
+                    var e = entries[0];
+                    // Mostrar la barra cuando el botón principal NO está visible.
+                    stickyBar.classList.toggle('is-visible', !e.isIntersecting);
+                    stickyBar.setAttribute('aria-hidden', e.isIntersecting ? 'true' : 'false');
+                }, { rootMargin: '0px 0px -40px 0px', threshold: 0.01 });
+                observer.observe(btn);
+
+                stickyBtnEl.addEventListener('click', function () {
+                    // Si el botón principal está deshabilitado (sin stock o ya
+                    // añadido), reflejamos el estado y no hacemos nada.
+                    if (btn.disabled) return;
+                    // Scroll suave al botón principal para que el usuario vea
+                    // el cambio de estado ('✓ Añadido — ir al carrito'), y
+                    // dispara el flow completo del botón principal.
+                    btn.click();
+                    btn.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                });
+            }
         })();
         </script>
 
