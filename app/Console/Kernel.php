@@ -121,6 +121,13 @@ class Kernel extends ConsoleKernel
                  ->withoutOverlapping()
                  ->appendOutputTo(storage_path('logs/marketplace_abandoned.log'));
 
+        // Recordatorios al TENANT cuando un subpedido sigue 'pending'
+        // pasadas 2h. Email + WhatsApp, max 3 envios, cooldown 12h.
+        $schedule->command('marketplace:remind-pending-tenant-orders')
+                 ->hourly()
+                 ->withoutOverlapping()
+                 ->appendOutputTo(storage_path('logs/marketplace_tenant_reminders.log'));
+
         // Marketplace: regenerar feed Meta cada 6 horas
         $schedule->command('marketplace:sync feed --platform=meta')
                  ->everySixHours()

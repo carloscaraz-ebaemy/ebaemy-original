@@ -26,25 +26,33 @@ class MarketplaceTenantOrderMail extends Mailable
         public TenantMarketplaceOrder $sub,
         public Collection $items,
         public float $subtotal,
-        public string $tenantFqdn
+        public string $tenantFqdn,
+        public bool $isReminder = false,
+        public int $reminderNumber = 0
     ) {}
 
     public function build()
     {
-        $subject = '🛍️ Pedido marketplace ' . $this->order->order_number
-                 . ' (' . $this->items->count() . ' producto' . ($this->items->count() === 1 ? '' : 's') . ')';
+        if ($this->isReminder) {
+            $subject = '⏰ RECORDATORIO: pedido marketplace ' . $this->order->order_number . ' sigue pendiente';
+        } else {
+            $subject = '🛍️ Pedido marketplace ' . $this->order->order_number
+                     . ' (' . $this->items->count() . ' producto' . ($this->items->count() === 1 ? '' : 's') . ')';
+        }
         // Sanitizar: SMTP rechaza newlines + control chars en headers.
         $safeSubject = mb_substr(trim(preg_replace('/\s+/', ' ', str_replace(["\r", "\n"], ' ', $subject))), 0, 100);
 
         return $this
             ->subject($safeSubject)
             ->view('emails.marketplace_tenant_order', [
-                'order'       => $this->order,
-                'sub'         => $this->sub,
-                'items'       => $this->items,
-                'subtotal'    => $this->subtotal,
-                'tenantFqdn'  => $this->tenantFqdn,
-                'panelUrl'    => 'https://' . $this->tenantFqdn . '/orders',
+                'order'          => $this->order,
+                'sub'            => $this->sub,
+                'items'          => $this->items,
+                'subtotal'       => $this->subtotal,
+                'tenantFqdn'     => $this->tenantFqdn,
+                'panelUrl'       => 'https://' . $this->tenantFqdn . '/orders',
+                'isReminder'     => $this->isReminder,
+                'reminderNumber' => $this->reminderNumber,
             ]);
     }
 }

@@ -12,9 +12,17 @@
             <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="600" style="max-width:600px;background:#fff;border-radius:14px;overflow:hidden;box-shadow:0 4px 12px rgba(0,0,0,.04)">
 
                 {{-- Header --}}
-                <tr><td style="background:linear-gradient(135deg,#0f8a82,#0a6f68);color:#fff;padding:24px;text-align:center">
+                @php
+                    $headerBg = !empty($isReminder)
+                        ? 'linear-gradient(135deg,#f59e0b,#dc2626)'
+                        : 'linear-gradient(135deg,#0f8a82,#0a6f68)';
+                    $headerLabel = !empty($isReminder)
+                        ? '⏰ RECORDATORIO · PEDIDO PENDIENTE'
+                        : '🛍️ Nuevo pedido en tu tienda';
+                @endphp
+                <tr><td style="background:{{ $headerBg }};color:#fff;padding:24px;text-align:center">
                     <div style="font-size:13px;letter-spacing:.05em;opacity:.9">EBAEMY MARKETPLACE</div>
-                    <h1 style="margin:8px 0 0;font-size:21px">🛍️ Nuevo pedido en tu tienda</h1>
+                    <h1 style="margin:8px 0 0;font-size:21px">{{ $headerLabel }}</h1>
                     <div style="margin-top:8px;font-size:14px;font-family:ui-monospace,monospace;background:rgba(255,255,255,.15);display:inline-block;padding:4px 12px;border-radius:6px">
                         {{ $order->order_number }}
                     </div>
@@ -22,9 +30,22 @@
 
                 {{-- Intro --}}
                 <tr><td style="padding:24px 28px 8px">
+                    @if(!empty($isReminder))
+                        <div style="background:#fef2f2;border-left:4px solid #dc2626;padding:14px 16px;border-radius:8px;margin-bottom:14px">
+                            <strong style="color:#991b1b;font-size:14px">⚠ Este pedido sigue pendiente de atención.</strong>
+                            <p style="margin:6px 0 0;font-size:13px;color:#7f1d1d;line-height:1.5">
+                                Es el recordatorio número <strong>{{ $reminderNumber ?? 1 }}</strong>.
+                                Contacta al comprador para no perder la venta — si pasan más recordatorios sin acción,
+                                el pedido podría cancelarse automáticamente.
+                            </p>
+                        </div>
+                    @endif
                     <p style="margin:0 0 12px;font-size:15px;line-height:1.5">
-                        Llegó un pedido a <strong>{{ $tenantFqdn }}</strong> desde el marketplace central
-                        <strong>ebaemy.com/marketplace</strong>.
+                        @if(!empty($isReminder))
+                            Hace unas horas llegó este pedido a <strong>{{ $tenantFqdn }}</strong> desde el marketplace y aún no lo has atendido.
+                        @else
+                            Llegó un pedido a <strong>{{ $tenantFqdn }}</strong> desde el marketplace central <strong>ebaemy.com/marketplace</strong>.
+                        @endif
                     </p>
                     <p style="margin:0;font-size:13px;color:#6b7280">
                         Contáctalo cuanto antes para coordinar el pago y la entrega.

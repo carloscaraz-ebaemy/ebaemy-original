@@ -31,14 +31,18 @@ class TenantMarketplaceOrder extends Model
         'sync_error',
         'retry_count',
         'dispatched_at',
+        'reminder_sent_at',
+        'reminder_count',
     ];
 
     protected $casts = [
-        'subtotal'        => 'float',
-        'discount_amount' => 'float',
-        'item_count'      => 'integer',
-        'retry_count'     => 'integer',
-        'dispatched_at'   => 'datetime',
+        'subtotal'         => 'float',
+        'discount_amount'  => 'float',
+        'item_count'       => 'integer',
+        'retry_count'      => 'integer',
+        'dispatched_at'    => 'datetime',
+        'reminder_sent_at' => 'datetime',
+        'reminder_count'   => 'integer',
     ];
 
     public const STATUS_PENDING    = 'pending';
