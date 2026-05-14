@@ -23,10 +23,27 @@ class MarketplaceSync extends Command
 
         $this->info("Marketplace sync: {$action} [{$platform}]");
 
-        $channels = MarketplaceChannel::active()
-            ->when($platform !== 'all', fn($q) => $q->where('platform', $platform))
-            ->when($this->option('channel'), fn($q) => $q->where('id', $this->option('channel')))
-            ->get();
+        // Este comando SOLO sirve para integraciones externas (Falabella, Meta).
+        // MarketplaceChannel es modelo de tenant — requiere contexto activo.
+        // Si nos llaman sin tenant (ej. cron system) damos hint claro en vez
+        // del confuso 'Database connection [tenant] not configured'.
+        try {
+            $channels = MarketplaceChannel::active()
+                ->when($platform !== 'all', fn($q) => $q->where('platform', $platform))
+                ->when($this->option('channel'), fn($q) => $q->where('id', $this->option('channel')))
+                ->get();
+        } catch (\Throwable $e) {
+            if (str_contains($e->getMessage(), "Database connection [tenant] not configured")) {
+                $this->warn('Este comando (marketplace:sync) es para integraciones externas');
+                $this->warn('(Falabella, Meta) y debe correrse desde un contexto tenant.');
+                $this->newLine();
+                $this->info('Para sincronizar el marketplace INTERNO de ebaemy.com usa:');
+                $this->info('  php artisan ebaemy-marketplace:sync                   # todos los tenants');
+                $this->info('  php artisan ebaemy-marketplace:sync --client=1        # un tenant especifico');
+                return;
+            }
+            throw $e;
+        }
 
         if ($channels->isEmpty()) {
             $this->warn('No active marketplace channels found.');
