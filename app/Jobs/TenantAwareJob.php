@@ -43,8 +43,13 @@ abstract class TenantAwareJob implements ShouldQueue
     /**
      * UUID del website/tenant en cuyo contexto se debe ejecutar el job.
      * Se captura automáticamente al momento del dispatch.
+     *
+     * NO usar `readonly`: al deserializar el job en el queue worker,
+     * SerializesModels intenta re-asignar el valor y readonly properties
+     * solo pueden setearse una vez → 'Cannot initialize readonly property
+     * TenantAwareJob::$websiteUuid' (log confirmado).
      */
-    public readonly string $websiteUuid;
+    public string $websiteUuid;
 
     public function __construct()
     {

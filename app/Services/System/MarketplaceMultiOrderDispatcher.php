@@ -458,24 +458,25 @@ class MarketplaceMultiOrderDispatcher
     private function resolveTenantAdminContact(): array
     {
         try {
-            $admin = DB::connection('tenant')->table('users')
-                ->where('type', 'admin')
-                ->where('active', true)
-                ->orderBy('id')
-                ->first(['email', 'telephone', 'phone']);
+            // Datos REALES de contacto del seller — el tenant los configura
+            // en /ecommerce/configuration → 'Informacion de Contacto'. Estos
+            // SI son confiables (los pone el seller, no son alias genericos).
+            // Tabla tenant.configurations, campos:
+            //   - information_contact_email  (email del seller)
+            //   - phone_whatsapp             (WhatsApp del seller)
+            // Fallback secundario: information_contact_phone (telefono fijo).
+            $cfg = DB::connection('tenant')->table('configurations')
+                ->where('id', 1)
+                ->first(['information_contact_email', 'phone_whatsapp', 'information_contact_phone']);
 
-            if (!$admin) {
+            if (!$cfg) {
                 return ['email' => null, 'phone' => null];
             }
 
-            // Algunos sellers ponen el WhatsApp en `phone` (formal),
-            // otros en `telephone` (campo legacy). Probamos primero
-            // telephone (mas comun en este sistema), fallback a phone.
-            $phone = $admin->telephone ?: ($admin->phone ?: null);
-
             return [
-                'email' => $admin->email ?: null,
-                'phone' => $phone,
+                'email' => $cfg->information_contact_email ?: null,
+                'phone' => $cfg->phone_whatsapp
+                        ?: ($cfg->information_contact_phone ?: null),
             ];
         } catch (\Throwable $e) {
             Log::info('resolveTenantAdminContact failed', ['error' => $e->getMessage()]);
