@@ -237,8 +237,13 @@ class MarketplaceListingSyncService
                 ? (float) ($variantInfo['min_price'] ?? $item->sale_unit_price ?? 0)
                 : (float) ($item->sale_unit_price ?? 0),
 
-            // Override manual del tenant. NULL si no es válido (>0).
-            'mp_price'          => (isset($item->mp_price) && (float) $item->mp_price > 0) ? (float) $item->mp_price : null,
+            // Override manual del tenant (items.mp_price) o flash_sale.
+            // Si el resolveOfferInfo detecto un flash_sale activo, su
+            // flash_price toma precedencia para que el marketplace muestre
+            // el precio rebajado de la promo, no el sale_unit_price normal.
+            'mp_price'          => isset($offerInfo['_flash_price'])
+                ? (float) $offerInfo['_flash_price']
+                : ((isset($item->mp_price) && (float) $item->mp_price > 0) ? (float) $item->mp_price : null),
 
             // ── Bloque OFERTAS ──
             'is_on_offer'       => $offerInfo['is_on_offer'],
@@ -333,7 +338,7 @@ class MarketplaceListingSyncService
         $mpPrice = (isset($item->mp_price) && (float) $item->mp_price > 0)
             ? (float) $item->mp_price : null;
 
-        // Caso 1: override manual del tenant
+        // Caso 1: override manual del tenant via items.mp_price
         if ($mpPrice !== null && $mpPrice < $salePrice && $salePrice > 0) {
             return [
                 'is_on_offer'    => true,
@@ -342,6 +347,49 @@ class MarketplaceListingSyncService
                 'discount_pct'   => (int) round((1 - $mpPrice / $salePrice) * 100),
                 'discount_source'=> 'manual',
             ];
+        }
+
+        // Caso 1.5: flash_sale del modulo Ecommerce.
+        //
+        // tenant.flash_sales + flash_sale_items: el seller crea promos con
+        // contador en su panel de Marketing (ej. "Sorprende a mama..."). El
+        // template del ecommerce usa flash_sale_items.flash_price como precio
+        // mostrado. Antes el sync no lo veia → el badge -X% aparecia en
+        // alasitas.ebaemy.com pero NO en /marketplace.
+        //
+        // Tabla: flash_sales(active, ends_at, title)
+        //        flash_sale_items(flash_sale_id, item_id, flash_price)
+        try {
+            $flash = DB::connection('tenant')->table('flash_sale_items as fsi')
+                ->join('flash_sales as fs', 'fs.id', '=', 'fsi.flash_sale_id')
+                ->where('fsi.item_id', $item->id)
+                ->where('fs.active', 1)
+                ->where('fs.ends_at', '>', now())
+                ->where(function ($q) {
+                    $q->whereNull('fs.starts_at')->orWhere('fs.starts_at', '<=', now());
+                })
+                ->orderBy('fsi.flash_price') // si hay varios, el mas barato gana
+                ->select('fsi.flash_price', 'fs.ends_at', 'fs.title')
+                ->first();
+
+            if ($flash && (float) $flash->flash_price > 0 && (float) $flash->flash_price < $salePrice) {
+                return [
+                    'is_on_offer'    => true,
+                    'original_price' => $salePrice,
+                    'offer_ends_at'  => $flash->ends_at,
+                    'discount_pct'   => (int) round((1 - (float) $flash->flash_price / $salePrice) * 100),
+                    'discount_source'=> 'flash_sale',
+                    // _flash_price es consumido por syncOneListing para setear
+                    // mp_price con el precio rebajado (sino seguiria con sale_unit_price).
+                    '_flash_price'   => (float) $flash->flash_price,
+                ];
+            }
+        } catch (\Throwable $e) {
+            Log::info('MarketplaceListingSyncService: flash_sale check skipped', [
+                'item_id' => $item->id,
+                'error'   => $e->getMessage(),
+            ]);
+            // Sigue al caso 2 (DiscountRule estandar) abajo.
         }
 
         // Caso 2: PromotionEngine.
