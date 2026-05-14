@@ -117,68 +117,91 @@
             </button>
         </form>
 
-        {{-- ═══════════════════════ MEGA MENÚ DE CATEGORÍAS ═══════════════════════ --}}
+        {{-- ═══════════════════════ DRAWER DE CATEGORÍAS (2-pane) ═══════════════════════
+             Click en "Categorías" abre un drawer desde la izquierda con la
+             lista de roots. Click en un root revela sus children en el panel
+             derecho (desktop) o desliza hacia ellos (mobile). Estilo Amazon
+             Mobile — limpio, tap-friendly, no se desborda nunca. --}}
         @if(isset($marketplaceNavCategories) && $marketplaceNavCategories->count() > 0)
-            <div id="mpMegaPanel" class="mp-mega-panel" role="dialog" aria-label="Categorías" aria-hidden="true">
-                <div class="mp-mega-panel__head">
-                    <h3>Categorías</h3>
-                    <button type="button" class="mp-mega-panel__close" aria-label="Cerrar" data-mega-close>
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-                    </button>
-                </div>
-                @php
-                    // Cuando estamos en /marketplace/tienda/{X} las URLs del megamenú
-                    // deben quedarse dentro de esa tienda — usamos ?category=full_slug.
-                    $isScoped = !empty($navScopedToSubdomain ?? null);
-                    $scopedBase = $isScoped ? route('marketplace.tenant', ['subdomain' => $navScopedToSubdomain]) : null;
-                @endphp
-                <div class="mp-mega-panel__grid">
-                    @foreach($marketplaceNavCategories as $root)
-                        @php
-                            $rootHref = $isScoped
-                                ? $scopedBase . '?category=' . urlencode($root->full_slug)
-                                : route('marketplace.category_official', ['fullSlug' => $root->full_slug]);
-                        @endphp
-                        <details class="mp-mega-col" {{ $loop->first ? 'open' : '' }}>
-                            <summary class="mp-mega-col__head">
-                                <span class="mp-mega-col__icon">{{ $root->icon ?: '📦' }}</span>
-                                <span class="mp-mega-col__name">{{ $root->name }}</span>
-                                @if(!empty($root->listings_count_cache) && !$isScoped)
-                                    <span class="mp-mega-col__count">{{ $root->listings_count_cache }}</span>
-                                @endif
-                                <svg class="mp-mega-col__chev" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
-                            </summary>
-                            <div class="mp-mega-col__body">
-                                @if($root->children && $root->children->count())
-                                    <ul class="mp-mega-sublist">
-                                        @foreach($root->children->take(8) as $child)
-                                            @php
-                                                $childHref = $isScoped
-                                                    ? $scopedBase . '?category=' . urlencode($child->full_slug)
-                                                    : route('marketplace.category_official', ['fullSlug' => $child->full_slug]);
-                                            @endphp
-                                            <li>
-                                                <a href="{{ $childHref }}" class="mp-mega-sublink">
-                                                    @if($child->icon)<span class="mp-mega-sublink__icon">{{ $child->icon }}</span>@endif
-                                                    <span class="mp-mega-sublink__name">{{ $child->name }}</span>
-                                                </a>
-                                            </li>
-                                        @endforeach
-                                    </ul>
-                                    @if($root->children->count() > 8)
-                                        <a href="{{ $rootHref }}" class="mp-mega-seeall">Ver todas ({{ $root->children->count() }}) →</a>
-                                    @else
-                                        <a href="{{ $rootHref }}" class="mp-mega-seeall">Ver todo en {{ $root->name }} →</a>
+            @php
+                $isScoped = !empty($navScopedToSubdomain ?? null);
+                $scopedBase = $isScoped ? route('marketplace.tenant', ['subdomain' => $navScopedToSubdomain]) : null;
+            @endphp
+            <div id="mpMegaPanel" class="mp-cat-drawer" role="dialog" aria-label="Categorías" aria-hidden="true">
+                <div class="mp-cat-drawer__panel">
+                    {{-- Header del drawer --}}
+                    <div class="mp-cat-drawer__head">
+                        {{-- Mobile: boton volver cuando estamos en vista de children --}}
+                        <button type="button" class="mp-cat-drawer__back" id="mpCatBack" aria-label="Volver" style="display:none">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><polyline points="15 18 9 12 15 6"/></svg>
+                        </button>
+                        <h3 class="mp-cat-drawer__title" id="mpCatTitle">Categorías</h3>
+                        <button type="button" class="mp-cat-drawer__close" aria-label="Cerrar" data-mega-close>
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                        </button>
+                    </div>
+
+                    {{-- 2 paneles: roots (izquierda) y children (derecha).
+                         En mobile se ve uno a la vez, en desktop ambos. --}}
+                    <div class="mp-cat-drawer__panes" id="mpCatPanes">
+                        <ul class="mp-cat-drawer__roots" id="mpCatRoots">
+                            @foreach($marketplaceNavCategories as $root)
+                                @php
+                                    $rootHref = $isScoped
+                                        ? $scopedBase . '?category=' . urlencode($root->full_slug)
+                                        : route('marketplace.category_official', ['fullSlug' => $root->full_slug]);
+                                @endphp
+                                <li>
+                                    <button type="button"
+                                            class="mp-cat-drawer__root {{ $loop->first ? 'is-active' : '' }}"
+                                            data-cat-id="{{ $root->id }}"
+                                            data-cat-href="{{ $rootHref }}"
+                                            data-cat-name="{{ $root->name }}">
+                                        <span class="mp-cat-drawer__root-icon">{{ $root->icon ?: '📦' }}</span>
+                                        <span class="mp-cat-drawer__root-name">{{ $root->name }}</span>
+                                        <svg class="mp-cat-drawer__root-chev" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><polyline points="9 18 15 12 9 6"/></svg>
+                                    </button>
+                                </li>
+                            @endforeach
+                        </ul>
+
+                        <div class="mp-cat-drawer__children" id="mpCatChildren">
+                            @foreach($marketplaceNavCategories as $root)
+                                @php
+                                    $rootHref = $isScoped
+                                        ? $scopedBase . '?category=' . urlencode($root->full_slug)
+                                        : route('marketplace.category_official', ['fullSlug' => $root->full_slug]);
+                                @endphp
+                                <div class="mp-cat-drawer__child-pane {{ $loop->first ? 'is-active' : '' }}"
+                                     data-cat-id="{{ $root->id }}">
+                                    <a href="{{ $rootHref }}" class="mp-cat-drawer__child-all">
+                                        <span style="font-size:16px">{{ $root->icon ?: '📦' }}</span>
+                                        Ver todo en <strong>{{ $root->name }}</strong>
+                                    </a>
+                                    @if($root->children && $root->children->count())
+                                        <ul class="mp-cat-drawer__child-list">
+                                            @foreach($root->children as $child)
+                                                @php
+                                                    $childHref = $isScoped
+                                                        ? $scopedBase . '?category=' . urlencode($child->full_slug)
+                                                        : route('marketplace.category_official', ['fullSlug' => $child->full_slug]);
+                                                @endphp
+                                                <li>
+                                                    <a href="{{ $childHref }}" class="mp-cat-drawer__child">
+                                                        @if($child->icon)<span class="mp-cat-drawer__child-icon">{{ $child->icon }}</span>@endif
+                                                        <span>{{ $child->name }}</span>
+                                                    </a>
+                                                </li>
+                                            @endforeach
+                                        </ul>
                                     @endif
-                                @else
-                                    <a href="{{ $rootHref }}" class="mp-mega-seeall">Ver productos →</a>
-                                @endif
-                            </div>
-                        </details>
-                    @endforeach
+                                </div>
+                            @endforeach
+                        </div>
+                    </div>
                 </div>
+                <div class="mp-cat-drawer__backdrop" data-mega-close></div>
             </div>
-            <div id="mpMegaBackdrop" class="mp-mega-backdrop" aria-hidden="true" data-mega-close></div>
         @endif
 
         <style>
@@ -192,180 +215,238 @@
             .mp-mega-toggle[aria-expanded="true"] .mp-mega-toggle__chev { transform: rotate(180deg); }
 
             /* ───────────── Panel desktop (mega menú) ───────────── */
-            .mp-mega-panel {
-                position: absolute;
-                top: calc(100% + 6px);
-                left: 0; right: 0;
-                max-width: 1180px;
-                margin: 0 auto;
-                background: #fff;
-                border: 1px solid #e5e7eb;
-                border-radius: 16px;
-                box-shadow: 0 18px 40px -16px rgba(15,23,42,.18), 0 6px 16px -8px rgba(0,0,0,.08);
-                padding: 18px 22px 20px;
-                z-index: 50;
-                opacity: 0;
-                transform: translateY(-8px);
-                pointer-events: none;
-                transition: opacity .18s ease, transform .18s ease;
-            }
-            .mp-mega-panel.is-open { opacity: 1; transform: translateY(0); pointer-events: auto; }
-            .mp-mega-panel__head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
-            .mp-mega-panel__head h3 { margin: 0; font-size: 16px; font-weight: 700; color: #111827; }
-            .mp-mega-panel__close {
-                display: none; /* solo móvil */
-                background: transparent; border: 0; cursor: pointer;
-                width: 36px; height: 36px; border-radius: 999px; color: #6b7280;
-            }
-            .mp-mega-panel__close:hover { background: #f3f4f6; color: #111827; }
-            .mp-mega-panel__grid {
-                display: grid;
-                grid-template-columns: repeat(4, 1fr);
-                gap: 18px 26px;
-            }
-            .mp-mega-col { border: 0; }
-            .mp-mega-col__head {
-                display: flex; align-items: center; gap: 8px;
-                padding: 6px 0 8px;
-                cursor: pointer;
-                list-style: none;
-                border-bottom: 1px solid #f1f5f9;
-            }
-            .mp-mega-col__head::-webkit-details-marker { display: none; }
-            .mp-mega-col__icon { font-size: 16px; line-height: 1; }
-            .mp-mega-col__name { font-size: 14px; font-weight: 700; color: #0f172a; flex: 1; }
-            .mp-mega-col__count {
-                font-size: 11px; font-weight: 700;
-                background: #f3f4f6; color: #6b7280;
-                padding: 1px 7px; border-radius: 999px;
-            }
-            .mp-mega-col__chev { color: #94a3b8; transition: transform .2s; display: none; /* solo móvil */ }
-            .mp-mega-col__body { padding-top: 6px; }
-            .mp-mega-sublist {
-                list-style: none; margin: 0; padding: 0;
-                display: flex; flex-direction: column; gap: 1px;
-            }
-            .mp-mega-sublink {
-                display: flex; align-items: center; gap: 8px;
-                padding: 6px 6px;
-                font-size: 13px; color: #374151;
-                text-decoration: none;
-                border-radius: 6px;
-                transition: background .12s, color .12s;
-            }
-            .mp-mega-sublink:hover { background: #f0fdfa; color: var(--mp-primary, #0f8a82); }
-            .mp-mega-sublink__icon { font-size: 13px; }
-            .mp-mega-seeall {
-                display: inline-block;
-                margin-top: 6px; padding: 4px 6px;
-                font-size: 12px; font-weight: 600;
-                color: var(--mp-primary, #0f8a82);
-                text-decoration: none;
-            }
-            .mp-mega-seeall:hover { text-decoration: underline; }
-
-            /* ───────────── Backdrop ───────────── */
-            .mp-mega-backdrop {
-                display: none;
+            /* ═══════════════════════ DRAWER 2-pane ═══════════════════════ */
+            .mp-cat-drawer {
                 position: fixed; inset: 0;
-                background: rgba(15, 23, 42, .35);
-                z-index: 49;
+                z-index: 1100;
+                pointer-events: none;
+                visibility: hidden;
+            }
+            .mp-cat-drawer.is-open { pointer-events: auto; visibility: visible; }
+            .mp-cat-drawer__backdrop {
+                position: absolute; inset: 0;
+                background: rgba(15, 23, 42, .45);
                 opacity: 0;
-                transition: opacity .18s ease;
+                transition: opacity .22s ease;
             }
-            .mp-mega-backdrop.is-open { display: block; opacity: 1; }
+            .mp-cat-drawer.is-open .mp-cat-drawer__backdrop { opacity: 1; }
+            .mp-cat-drawer__panel {
+                position: absolute;
+                top: 0; left: 0; bottom: 0;
+                width: min(720px, 92vw);
+                background: #fff;
+                box-shadow: 8px 0 28px rgba(15,23,42,.18);
+                display: flex; flex-direction: column;
+                transform: translateX(-105%);
+                transition: transform .28s cubic-bezier(.16,1,.3,1);
+            }
+            .mp-cat-drawer.is-open .mp-cat-drawer__panel { transform: translateX(0); }
 
-            /* ───────────── Mobile: drawer slide desde la izquierda ───────────── */
-            @media (max-width: 900px) {
-                .mp-mega-toggle__label { display: none; } /* solo icon en móvil */
-                .mp-mega-panel {
-                    position: fixed;
-                    top: 0; left: 0; right: auto; bottom: 0;
-                    width: min(86vw, 360px);
-                    max-width: 360px;
-                    margin: 0;
-                    border-radius: 0 18px 18px 0;
-                    transform: translateX(-100%);
-                    transition: transform .25s ease, opacity .2s ease;
-                    overflow-y: auto;
-                    padding: 16px 14px calc(20px + env(safe-area-inset-bottom));
-                    opacity: 1;
+            /* Header */
+            .mp-cat-drawer__head {
+                display: flex; align-items: center; gap: 10px;
+                padding: 14px 18px;
+                border-bottom: 1px solid #e5e7eb;
+                flex-shrink: 0;
+            }
+            .mp-cat-drawer__title {
+                margin: 0; flex: 1;
+                font-size: 17px; font-weight: 700; color: #111827;
+            }
+            .mp-cat-drawer__back,
+            .mp-cat-drawer__close {
+                width: 38px; height: 38px;
+                background: transparent; border: 0; cursor: pointer;
+                border-radius: 999px;
+                color: #6b7280;
+                display: inline-flex; align-items: center; justify-content: center;
+                transition: background .12s;
+            }
+            .mp-cat-drawer__back:hover,
+            .mp-cat-drawer__close:hover { background: #f3f4f6; color: #111827; }
+
+            /* Panes container: 2 columnas en desktop, 1 + slide en mobile */
+            .mp-cat-drawer__panes {
+                flex: 1; min-height: 0;
+                display: grid;
+                grid-template-columns: 260px 1fr;
+            }
+
+            /* Lista de roots (izquierda) */
+            .mp-cat-drawer__roots {
+                list-style: none; margin: 0; padding: 8px 0;
+                overflow-y: auto;
+                background: #f9fafb;
+                border-right: 1px solid #e5e7eb;
+            }
+            .mp-cat-drawer__root {
+                display: flex; align-items: center; gap: 10px;
+                width: 100%; padding: 12px 16px;
+                background: transparent; border: 0; cursor: pointer;
+                font-size: 14px; font-weight: 500; color: #374151;
+                text-align: left;
+                transition: background .12s, color .12s;
+                min-height: 44px;
+            }
+            .mp-cat-drawer__root:hover {
+                background: #f3f4f6; color: #111827;
+            }
+            .mp-cat-drawer__root.is-active {
+                background: #fff;
+                color: var(--mp-primary-dark, #0c6b65);
+                font-weight: 700;
+                box-shadow: inset 3px 0 0 var(--mp-primary, #0f8a82);
+            }
+            .mp-cat-drawer__root-icon { font-size: 18px; line-height: 1; flex-shrink: 0; }
+            .mp-cat-drawer__root-name { flex: 1; }
+            .mp-cat-drawer__root-chev { color: #9ca3af; flex-shrink: 0; }
+            .mp-cat-drawer__root.is-active .mp-cat-drawer__root-chev { color: var(--mp-primary, #0f8a82); }
+
+            /* Panel de children (derecha) */
+            .mp-cat-drawer__children {
+                overflow-y: auto;
+                padding: 16px 20px 24px;
+            }
+            .mp-cat-drawer__child-pane { display: none; }
+            .mp-cat-drawer__child-pane.is-active { display: block; }
+
+            .mp-cat-drawer__child-all {
+                display: flex; align-items: center; gap: 10px;
+                padding: 11px 14px;
+                background: var(--mp-primary-soft, #e6f7f5);
+                color: var(--mp-primary-dark, #0c6b65);
+                border-radius: 10px;
+                font-size: 13.5px; font-weight: 600;
+                text-decoration: none;
+                margin-bottom: 14px;
+                min-height: 44px;
+            }
+            .mp-cat-drawer__child-all:hover { background: #d1fae5; }
+
+            .mp-cat-drawer__child-list {
+                list-style: none; margin: 0; padding: 0;
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                gap: 4px 12px;
+            }
+            .mp-cat-drawer__child {
+                display: flex; align-items: center; gap: 8px;
+                padding: 10px 10px;
+                font-size: 13.5px; color: #374151;
+                text-decoration: none;
+                border-radius: 8px;
+                transition: background .12s, color .12s;
+                min-height: 40px;
+            }
+            .mp-cat-drawer__child:hover {
+                background: #f0fdfa; color: var(--mp-primary-dark);
+            }
+            .mp-cat-drawer__child-icon { font-size: 14px; flex-shrink: 0; }
+
+            /* Mobile (<700px): un solo panel a la vez, slide entre roots y children */
+            @media (max-width: 700px) {
+                .mp-cat-drawer__panel { width: 100%; max-width: 100%; }
+                .mp-cat-drawer__panes {
+                    grid-template-columns: 100% 100%;
+                    transform: translateX(0);
+                    transition: transform .25s ease;
                 }
-                .mp-mega-panel.is-open { transform: translateX(0); }
-                .mp-mega-panel__close { display: inline-flex; align-items: center; justify-content: center; }
-                .mp-mega-panel__grid { grid-template-columns: 1fr; gap: 4px; }
-                .mp-mega-col__head { padding: 12px 4px; border-bottom: 1px solid #f1f5f9; }
-                .mp-mega-col__chev { display: inline-block; }
-                .mp-mega-col[open] .mp-mega-col__chev { transform: rotate(180deg); color: var(--mp-primary, #0f8a82); }
-                .mp-mega-sublink { padding: 10px 8px; font-size: 14px; } /* tap targets más grandes */
-                .mp-mega-col__body { padding-left: 8px; }
-            }
-            @media (min-width: 901px) {
-                /* En desktop todas las columnas siempre abiertas, no acordeón */
-                .mp-mega-col { /* details actúa como div en desktop */ }
-                .mp-mega-col__head { cursor: default; }
-            }
-            @media (max-width: 600px) {
-                .mp-mega-panel__grid { grid-template-columns: 1fr; }
-            }
-            @media (min-width: 901px) and (max-width: 1100px) {
-                .mp-mega-panel__grid { grid-template-columns: repeat(3, 1fr); }
+                .mp-cat-drawer__panes.is-children-view {
+                    transform: translateX(-100%);
+                }
+                .mp-cat-drawer__roots {
+                    border-right: 0;
+                }
+                .mp-cat-drawer__root.is-active {
+                    box-shadow: none;
+                    background: #f3f4f6;
+                }
+                .mp-cat-drawer__child-list {
+                    grid-template-columns: 1fr;
+                }
+                .mp-cat-drawer__child { font-size: 15px; padding: 12px 10px; }
             }
         </style>
 
         <script>
             (function () {
-                var btn = document.getElementById('mpMegaToggle');
-                var panel = document.getElementById('mpMegaPanel');
-                var backdrop = document.getElementById('mpMegaBackdrop');
-                if (!btn || !panel) return;
+                var btn      = document.getElementById('mpMegaToggle');
+                var drawer   = document.getElementById('mpMegaPanel');
+                if (!btn || !drawer) return;
+
+                var panes      = document.getElementById('mpCatPanes');
+                var backBtn    = document.getElementById('mpCatBack');
+                var titleEl    = document.getElementById('mpCatTitle');
+                var rootBtns   = drawer.querySelectorAll('.mp-cat-drawer__root');
+                var childPanes = drawer.querySelectorAll('.mp-cat-drawer__child-pane');
+
+                function isMobile() { return window.matchMedia('(max-width: 700px)').matches; }
 
                 function open() {
-                    panel.classList.add('is-open');
-                    panel.setAttribute('aria-hidden', 'false');
+                    drawer.classList.add('is-open');
+                    drawer.setAttribute('aria-hidden', 'false');
                     btn.setAttribute('aria-expanded', 'true');
-                    if (backdrop) backdrop.classList.add('is-open');
-                    if (window.matchMedia('(max-width: 900px)').matches) {
-                        document.body.style.overflow = 'hidden';
+                    document.body.style.overflow = 'hidden';
+                    if (isMobile()) {
+                        panes.classList.remove('is-children-view');
+                        backBtn.style.display = 'none';
+                        titleEl.textContent = 'Categorías';
                     }
                 }
                 function close() {
-                    panel.classList.remove('is-open');
-                    panel.setAttribute('aria-hidden', 'true');
+                    drawer.classList.remove('is-open');
+                    drawer.setAttribute('aria-hidden', 'true');
                     btn.setAttribute('aria-expanded', 'false');
-                    if (backdrop) backdrop.classList.remove('is-open');
                     document.body.style.overflow = '';
                 }
-                function toggle() {
-                    if (panel.classList.contains('is-open')) close(); else open();
+                function selectRoot(id, name) {
+                    rootBtns.forEach(function (b) {
+                        b.classList.toggle('is-active', String(b.dataset.catId) === String(id));
+                    });
+                    childPanes.forEach(function (p) {
+                        p.classList.toggle('is-active', String(p.dataset.catId) === String(id));
+                    });
+                    if (isMobile()) {
+                        panes.classList.add('is-children-view');
+                        backBtn.style.display = 'inline-flex';
+                        titleEl.textContent = name;
+                    }
                 }
 
                 btn.addEventListener('click', function (e) {
                     e.preventDefault();
-                    toggle();
+                    drawer.classList.contains('is-open') ? close() : open();
                 });
 
-                // Cerrar al clickear fuera (desktop) o en backdrop (mobile)
-                document.addEventListener('click', function (e) {
-                    if (!panel.classList.contains('is-open')) return;
-                    if (e.target.closest('[data-mega-close]')) { close(); return; }
-                    if (panel.contains(e.target) || btn.contains(e.target)) return;
-                    close();
-                });
-
-                // Escape cierra
-                document.addEventListener('keydown', function (e) {
-                    if (e.key === 'Escape' && panel.classList.contains('is-open')) close();
-                });
-
-                // En desktop, todas las columnas siempre abiertas (overrideamos el details)
-                if (window.matchMedia('(min-width: 901px)').matches) {
-                    panel.querySelectorAll('details.mp-mega-col').forEach(function (d) {
-                        d.setAttribute('open', '');
-                        // Bloquear toggle al click en summary en desktop
-                        d.querySelector('summary').addEventListener('click', function (e) { e.preventDefault(); });
+                rootBtns.forEach(function (b) {
+                    b.addEventListener('click', function (e) {
+                        e.preventDefault();
+                        var id   = b.dataset.catId;
+                        var name = b.dataset.catName;
+                        // Mobile: solo cambiar vista. Desktop: el click revela children
+                        // pero si volvemos a clickear el mismo root activo, navegamos a
+                        // la categoria.
+                        if (!isMobile() && b.classList.contains('is-active')) {
+                            window.location.href = b.dataset.catHref;
+                            return;
+                        }
+                        selectRoot(id, name);
                     });
-                }
+                });
+
+                backBtn.addEventListener('click', function () {
+                    panes.classList.remove('is-children-view');
+                    backBtn.style.display = 'none';
+                    titleEl.textContent = 'Categorías';
+                });
+
+                // Backdrop + boton X cierran
+                drawer.addEventListener('click', function (e) {
+                    if (e.target.closest('[data-mega-close]')) close();
+                });
+                document.addEventListener('keydown', function (e) {
+                    if (e.key === 'Escape' && drawer.classList.contains('is-open')) close();
+                });
             })();
         </script>
 
