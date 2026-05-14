@@ -777,10 +777,51 @@ class MarketplaceController extends Controller
             $this->decorateListingsWithVariantData($recentlyViewed);
         }
 
+        // Ofertas contextuales: primero buscamos OTRAS ofertas del MISMO
+        // tenant — son las mas relevantes para el comprador (un solo envio
+        // de la misma tienda, mejor conversion cruzada). Si la tienda no
+        // tiene mas ofertas, fallback a las ofertas generales del marketplace.
+        $sameStoreOffers = MarketplaceListing::published()
+            ->onOffer()
+            ->where('hostname_id', $listing->hostname_id)
+            ->where('id', '!=', $listing->id)
+            ->orderByDesc('discount_pct')
+            ->orderByDesc('view_count')
+            ->limit(8)
+            ->get();
+
+        $offersLabel = null;
+        $contextualOffers = collect();
+        if ($sameStoreOffers->count() >= 3) {
+            $contextualOffers = $sameStoreOffers;
+            $offersLabel = '🔥 Más ofertas en ' . ($listing->tenant_name ?: 'esta tienda');
+        } else {
+            // Fallback: ofertas del marketplace en general, excluyendo el actual
+            // y las que ya vimos en related para no duplicar visualmente.
+            $excludeIds = array_merge(
+                [$listing->id],
+                $related->pluck('id')->all()
+            );
+            $contextualOffers = MarketplaceListing::published()
+                ->onOffer()
+                ->whereNotIn('id', $excludeIds)
+                ->orderByDesc('discount_pct')
+                ->orderByDesc('view_count')
+                ->limit(8)
+                ->get();
+            if ($contextualOffers->isNotEmpty()) {
+                $offersLabel = '🔥 Ofertas del día';
+            }
+        }
+        if ($contextualOffers->isNotEmpty()) {
+            $this->decorateListingsWithVariantData($contextualOffers);
+        }
+
         return view('marketplace.show', compact(
             'listing', 'related', 'reviews', 'officialBreadcrumb', 'officialCategoryUrl',
             'variants', 'options', 'variantMap', 'primaryValueIds',
-            'recentlyViewed'
+            'recentlyViewed',
+            'contextualOffers', 'offersLabel'
         ));
     }
 

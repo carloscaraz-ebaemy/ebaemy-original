@@ -1045,6 +1045,92 @@
     </section>
 @endif
 
+{{-- ════════════ Ofertas contextuales (misma tienda > marketplace) ════════════
+     Muestra otras ofertas del mismo seller (o fallback a ofertas generales).
+     Mas profesional que copiar el carrusel home — el seller crea cross-sell
+     dentro de su propio catalogo (un solo envio, mayor conversion). --}}
+@if(!empty($contextualOffers) && $contextualOffers->count() > 0)
+    <section class="mp-show-offers" aria-label="Ofertas contextuales">
+        <div class="mp-show-offers__head">
+            <h2 class="mp-show-offers__title">{{ $offersLabel ?? '🔥 Ofertas del día' }}</h2>
+            @if(str_contains($offersLabel ?? '', 'Más ofertas en'))
+                <a href="{{ route('marketplace.tenant', ['subdomain' => $listing->subdomain]) }}?on_offer=1"
+                   class="mp-show-offers__see-all">Ver todas →</a>
+            @else
+                <a href="{{ route('marketplace.index', ['on_offer' => 1]) }}"
+                   class="mp-show-offers__see-all">Ver todas →</a>
+            @endif
+        </div>
+
+        <div class="mp-show-offers__scroll">
+            @foreach($contextualOffers as $offer)
+                <div class="mp-show-offers__item">
+                    @include('marketplace.partials.listing-card', ['listing' => $offer])
+                </div>
+            @endforeach
+        </div>
+    </section>
+
+    <style>
+    .mp-show-offers {
+        margin: 32px 0 16px;
+        padding: 18px clamp(12px, 3vw, 22px);
+        background: linear-gradient(135deg, #fff7ed 0%, #fff 60%);
+        border: 1px solid #fed7aa;
+        border-radius: 14px;
+    }
+    .mp-show-offers__head {
+        display: flex; align-items: center; justify-content: space-between;
+        gap: 12px; margin-bottom: 14px;
+        flex-wrap: wrap;
+    }
+    .mp-show-offers__title {
+        margin: 0;
+        font-size: clamp(16px, 3.4vw, 19px);
+        font-weight: 800;
+        color: #9a3412;
+        letter-spacing: -.01em;
+    }
+    .mp-show-offers__see-all {
+        font-size: 13px;
+        font-weight: 700;
+        color: #c2410c;
+        text-decoration: none;
+        padding: 6px 12px;
+        border-radius: 999px;
+        background: rgba(194, 65, 12, .08);
+        transition: background .12s;
+    }
+    .mp-show-offers__see-all:hover { background: rgba(194, 65, 12, .16); }
+    .mp-show-offers__scroll {
+        display: grid;
+        grid-auto-flow: column;
+        grid-auto-columns: minmax(190px, 1fr);
+        gap: 12px;
+        overflow-x: auto;
+        scroll-snap-type: x mandatory;
+        scrollbar-width: thin;
+        -webkit-mask-image: linear-gradient(to right, #000 94%, transparent);
+                mask-image: linear-gradient(to right, #000 94%, transparent);
+        padding: 4px 4px 12px;
+    }
+    .mp-show-offers__scroll::-webkit-scrollbar { height: 4px; }
+    .mp-show-offers__scroll::-webkit-scrollbar-thumb { background: #fdba74; border-radius: 999px; }
+    .mp-show-offers__item { scroll-snap-align: start; min-width: 0; }
+    @media (min-width: 900px) {
+        .mp-show-offers__scroll {
+            grid-auto-flow: row;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            overflow-x: visible;
+            -webkit-mask-image: none;
+                    mask-image: none;
+            scroll-snap-type: none;
+        }
+    }
+    .mp-show-offers__scroll .mp-card { height: 100%; }
+    </style>
+@endif
+
 @include('marketplace.partials.recently-viewed', ['recentlyViewed' => $recentlyViewed ?? collect()])
 
 @endsection
