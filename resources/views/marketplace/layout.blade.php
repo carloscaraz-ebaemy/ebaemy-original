@@ -128,7 +128,7 @@
                 $isScoped = !empty($navScopedToSubdomain ?? null);
                 $scopedBase = $isScoped ? route('marketplace.tenant', ['subdomain' => $navScopedToSubdomain]) : null;
             @endphp
-            <div id="mpMegaPanel" class="mp-cat-drawer" role="dialog" aria-label="Categorías" aria-hidden="true">
+            <div id="mpMegaPanel" class="mp-cat-drawer" role="dialog" aria-label="Categorías" aria-hidden="true" hidden>
                 <div class="mp-cat-drawer__panel">
                     {{-- Header del drawer --}}
                     <div class="mp-cat-drawer__head">
@@ -384,21 +384,39 @@
                 function isMobile() { return window.matchMedia('(max-width: 700px)').matches; }
 
                 function open() {
-                    drawer.classList.add('is-open');
-                    drawer.setAttribute('aria-hidden', 'false');
-                    btn.setAttribute('aria-expanded', 'true');
-                    document.body.style.overflow = 'hidden';
-                    if (isMobile()) {
-                        panes.classList.remove('is-children-view');
-                        backBtn.style.display = 'none';
-                        titleEl.textContent = 'Categorías';
-                    }
+                    // Quitar 'hidden' nativo PRIMERO (presente al cargar para
+                    // evitar FOUC con la lista de categorias visible un
+                    // instante antes del CSS). El doble RAF asegura que el
+                    // navegador procesa el cambio de display antes del
+                    // transition del slide-in.
+                    drawer.hidden = false;
+                    requestAnimationFrame(function () {
+                        requestAnimationFrame(function () {
+                            drawer.classList.add('is-open');
+                            drawer.setAttribute('aria-hidden', 'false');
+                            btn.setAttribute('aria-expanded', 'true');
+                            document.body.style.overflow = 'hidden';
+                            if (isMobile()) {
+                                panes.classList.remove('is-children-view');
+                                backBtn.style.display = 'none';
+                                titleEl.textContent = 'Categorías';
+                            }
+                        });
+                    });
                 }
                 function close() {
                     drawer.classList.remove('is-open');
                     drawer.setAttribute('aria-hidden', 'true');
                     btn.setAttribute('aria-expanded', 'false');
                     document.body.style.overflow = '';
+                    // Re-aplicar hidden DESPUES de la animacion de salida
+                    // (280ms del slide-out) para evitar que el contenido
+                    // reaparezca visualmente al cerrar.
+                    setTimeout(function () {
+                        if (!drawer.classList.contains('is-open')) {
+                            drawer.hidden = true;
+                        }
+                    }, 320);
                 }
                 function selectRoot(id, name) {
                     rootBtns.forEach(function (b) {
