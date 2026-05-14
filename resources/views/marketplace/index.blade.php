@@ -56,8 +56,10 @@
 {{-- Tiendas destacadas se muestran DESPUÉS del listado de productos para no
      desplazar la fila de productos por debajo del fold (UX 2026: productos primero). --}}
 
-{{-- ═══════════════════════ OFERTAS DEL DÍA (solo home, ≥4 ofertas) ═══════════════════════ --}}
-@if(isset($dailyOffers) && $dailyOffers->count() >= 4)
+{{-- ═══════════════════════ OFERTAS DEL DÍA (solo home, ≥4 ofertas) ═══════════════════════
+     Ocultar cuando el visitante ya esta filtrando por ofertas (?on_offer=1) —
+     el listado de abajo ya muestra los mismos productos, evitar duplicado. --}}
+@if(isset($dailyOffers) && $dailyOffers->count() >= 4 && empty($onOfferOnly))
     <section class="mp-section mp-offers-block" aria-label="Ofertas del día">
         <div class="mp-offers-head">
             <div>
@@ -339,10 +341,8 @@
                 <input type="checkbox" {{ !empty($packsOnly) ? 'checked' : '' }} onclick="return false">
                 📦 Solo packs / combos
             </a>
-            <label class="mp-filter-checkbox" style="opacity:.5;cursor:default">
-                <input type="checkbox" disabled> Envío gratis
-                <span style="font-size:10px;color:var(--mp-muted);margin-left:auto">Próx.</span>
-            </label>
+            {{-- 'Envío gratis' removido hasta que la feature este implementada.
+                 Lo dejamos comentado para reactivar cuando este lista. --}}
         </div>
 
         <div class="mp-filter-group">

@@ -50,15 +50,23 @@
             </svg>
         </button>
 
+        @php
+            // Si el producto esta en oferta, ocultamos NUEVO/Top/Best
+            // para no saturar visualmente. La oferta SIEMPRE gana en
+            // prominencia — es el call-to-action principal de la card.
+            $cardHasOfferBadge = !empty($listing->is_on_offer) && !empty($listing->discount_pct);
+        @endphp
         <div class="mp-card-badges">
-            @if(!empty($listing->is_featured) && (empty($listing->featured_until) || \Carbon\Carbon::parse($listing->featured_until)->isFuture()))
-                <span class="mp-badge mp-badge--top" title="Producto destacado" style="background:linear-gradient(135deg,#fbbf24,#f59e0b);color:#fff">⭐ Destacado</span>
-            @elseif($showTopBadge)
-                <span class="mp-badge mp-badge--top" title="Destacado">⭐ Top</span>
-            @elseif($showBestBadge)
-                <span class="mp-badge mp-badge--best" title="Más vendido">🔥 Más vendido</span>
-            @elseif($showNewBadge)
-                <span class="mp-badge mp-badge--new" title="Nuevo">NUEVO</span>
+            @if(!$cardHasOfferBadge)
+                @if(!empty($listing->is_featured) && (empty($listing->featured_until) || \Carbon\Carbon::parse($listing->featured_until)->isFuture()))
+                    <span class="mp-badge mp-badge--top" title="Producto destacado" style="background:linear-gradient(135deg,#fbbf24,#f59e0b);color:#fff">⭐ Destacado</span>
+                @elseif($showTopBadge)
+                    <span class="mp-badge mp-badge--top" title="Destacado">⭐ Top</span>
+                @elseif($showBestBadge)
+                    <span class="mp-badge mp-badge--best" title="Más vendido">🔥 Más vendido</span>
+                @elseif($showNewBadge)
+                    <span class="mp-badge mp-badge--new" title="Nuevo">NUEVO</span>
+                @endif
             @endif
             @if($listing->tenant_verified)
                 <span class="mp-badge mp-badge--verified" title="Tienda verificada">
@@ -66,7 +74,7 @@
                     Verificado
                 </span>
             @endif
-            @if(!empty($listing->is_on_offer) && !empty($listing->discount_pct))
+            @if($cardHasOfferBadge)
                 @if(($listing->discount_source ?? null) === 'flash_sale')
                     <span class="mp-badge mp-badge--flash" title="Oferta por tiempo limitado">⚡ Flash -{{ $listing->discount_pct }}%</span>
                 @else
