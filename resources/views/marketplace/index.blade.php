@@ -385,6 +385,8 @@
     })();
     </script>
 @endif
+
+{{-- ═══════════════════════ OFERTAS DEL DÍA (solo home, ≥4 ofertas) ═══════════════════════
      Ocultar cuando el visitante ya esta filtrando por ofertas (?on_offer=1) —
      el listado de abajo ya muestra los mismos productos, evitar duplicado. --}}
 @if(isset($dailyOffers) && $dailyOffers->count() >= 4 && empty($onOfferOnly))
