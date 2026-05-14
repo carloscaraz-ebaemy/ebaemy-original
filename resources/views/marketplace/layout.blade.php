@@ -391,7 +391,11 @@
         </div>
     </div>
 
-    @isset($marketplaceNavCategories)
+    {{-- Chip bar de categorias root oculta a pedido del usuario (2026-05-14):
+         con 15 root categories ocupaba 2 filas y saturaba el header. La
+         navegacion sigue disponible via el boton 'Categorias' del search
+         bar (megamenu). Para reactivar quitar el comentario externo. --}}
+    {{-- @isset($marketplaceNavCategories)
         @if($marketplaceNavCategories->count() > 0)
             @php
                 $catsBarScoped = !empty($navScopedToSubdomain ?? null);
@@ -419,7 +423,7 @@
                 </div>
             </nav>
         @endif
-    @endisset
+    @endisset --}}
 </header>
 
 {{-- ═══════════════════════ CONTENIDO ═══════════════════════ --}}
