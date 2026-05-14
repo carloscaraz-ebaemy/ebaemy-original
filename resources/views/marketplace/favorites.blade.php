@@ -93,6 +93,36 @@
         @endif
     </div>
 
+    {{-- Banner de bajadas de precio: si alguno de los favoritos esta mas
+         barato que cuando lo agregaste, se lo señalamos. --}}
+    @if(!empty($priceDropsCount) && $priceDropsCount > 0)
+        <div class="mp-fav-pricedrop-banner">
+            <span class="mp-fav-pricedrop-banner__icon">📉</span>
+            <strong>{{ $priceDropsCount }} producto{{ $priceDropsCount === 1 ? '' : 's' }} de tus favoritos
+                {{ $priceDropsCount === 1 ? 'bajó' : 'bajaron' }} de precio</strong>
+            <span class="mp-fav-pricedrop-banner__text">— ¡es un buen momento para comprar!</span>
+        </div>
+        <style>
+        .mp-fav-pricedrop-banner {
+            display: flex; align-items: center; gap: 10px;
+            padding: 12px 16px; margin-bottom: 18px;
+            background: linear-gradient(90deg, #f0fdf4 0%, #ecfdf5 100%);
+            border: 1px solid #86efac;
+            border-radius: 12px;
+            color: #14532d;
+            font-size: 14px;
+            line-height: 1.4;
+            flex-wrap: wrap;
+        }
+        .mp-fav-pricedrop-banner__icon { font-size: 22px; flex-shrink: 0; }
+        .mp-fav-pricedrop-banner strong { color: #166534; }
+        .mp-fav-pricedrop-banner__text { color: #4d7c0f; }
+        @media (max-width: 600px) {
+            .mp-fav-pricedrop-banner { font-size: 13px; padding: 10px 12px; }
+        }
+        </style>
+    @endif
+
     @if($listings->count() === 0)
         <div class="mp-fav-empty">
             <span class="mp-fav-empty__icon">🤍</span>

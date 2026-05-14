@@ -1460,13 +1460,24 @@ class MarketplaceController extends Controller
                 ->where('id', $existing->id)->delete();
             $isFavorited = false;
         } else {
+            // Snapshot del precio actual para detectar bajadas despues:
+            // si mp_price < price_snapshot al volver a /favoritos, mostramos
+            // el badge '¡Bajo de precio!'. Usamos mp_price si existe (precio
+            // del marketplace con descuento aplicado) o price normal.
+            $listing = MarketplaceListing::whereKey($listingId)
+                ->first(['mp_price', 'price']);
+            $priceSnapshot = $listing
+                ? ((float) ($listing->mp_price ?: $listing->price) ?: null)
+                : null;
+
             try {
                 \DB::connection('system')->table('marketplace_favorites')->insert([
-                    'session_id' => $sessionId,
-                    'user_id'    => $userId,
-                    'listing_id' => $listingId,
-                    'created_at' => now(),
-                    'updated_at' => now(),
+                    'session_id'     => $sessionId,
+                    'user_id'        => $userId,
+                    'listing_id'     => $listingId,
+                    'price_snapshot' => $priceSnapshot,
+                    'created_at'     => now(),
+                    'updated_at'     => now(),
                 ]);
                 $isFavorited = true;
             } catch (\Throwable $e) {
@@ -1517,13 +1528,20 @@ class MarketplaceController extends Controller
         $sessionId = $request->session()->getId();
         $userId = auth()->id() ?: null;
 
-        $favIdsQ = \DB::connection('system')->table('marketplace_favorites');
+        $favsQ = \DB::connection('system')->table('marketplace_favorites');
         if ($userId) {
-            $favIdsQ->where('user_id', $userId);
+            $favsQ->where('user_id', $userId);
         } else {
-            $favIdsQ->where('session_id', $sessionId);
+            $favsQ->where('session_id', $sessionId);
         }
-        $favIds = $favIdsQ->orderByDesc('created_at')->pluck('listing_id');
+        // Tomamos snapshot de precios capturados al agregar favorito.
+        // Sirve para detectar bajadas: si listing.price_actual < snapshot,
+        // mostramos badge '¡Bajo de precio!' en la card.
+        $favRows = $favsQ->orderByDesc('created_at')
+            ->get(['listing_id', 'price_snapshot', 'price_drop_seen_at']);
+
+        $favIds = $favRows->pluck('listing_id');
+        $snapshotByListing = $favRows->keyBy('listing_id');
 
         $listings = collect();
         if ($favIds->isNotEmpty()) {
@@ -1533,9 +1551,34 @@ class MarketplaceController extends Controller
             // Reordenar para respetar el orden 'recién marcado' del favIds.
             $listings = $listings->sortBy(fn ($l) => $favIds->search($l->id))->values();
             $this->decorateListingsWithVariantData($listings);
+
+            // Decorar cada listing con info de price drop. La card lee
+            // $listing->price_drop_amount/pct para renderizar el badge.
+            foreach ($listings as $l) {
+                $row = $snapshotByListing->get($l->id);
+                if (!$row || !$row->price_snapshot) {
+                    $l->price_drop_amount = null;
+                    $l->price_drop_pct    = null;
+                    continue;
+                }
+                $current = (float) ($l->mp_price ?: $l->price);
+                $snap    = (float) $row->price_snapshot;
+                if ($snap > 0 && $current > 0 && $current < $snap) {
+                    $diff = $snap - $current;
+                    $l->price_drop_amount   = round($diff, 2);
+                    $l->price_drop_pct      = (int) round(($diff / $snap) * 100);
+                    $l->price_drop_snapshot = $snap;
+                } else {
+                    $l->price_drop_amount = null;
+                    $l->price_drop_pct    = null;
+                }
+            }
         }
 
-        return view('marketplace.favorites', compact('listings'));
+        // Conteo de cuantos bajaron de precio — para el banner superior.
+        $priceDropsCount = $listings->whereNotNull('price_drop_amount')->count();
+
+        return view('marketplace.favorites', compact('listings', 'priceDropsCount'));
     }
 
     /**

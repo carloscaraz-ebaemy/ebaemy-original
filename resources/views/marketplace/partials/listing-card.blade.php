@@ -81,6 +81,13 @@
                     <span class="mp-badge mp-badge--offer" title="En oferta">-{{ $listing->discount_pct }}%</span>
                 @endif
             @endif
+            @if(!empty($listing->price_drop_amount) && $listing->price_drop_amount > 0)
+                <span class="mp-badge mp-badge--pricedrop"
+                      title="Bajó S/ {{ number_format($listing->price_drop_amount, 2) }} desde que lo guardaste"
+                      style="background:#bbf7d0;color:#166534;border:1px solid #86efac">
+                    📉 Bajó S/ {{ number_format($listing->price_drop_amount, 2) }}
+                </span>
+            @endif
             @if(!empty($listing->is_pack))
                 @php
                     $packCount = is_array($listing->pack_contents) ? count($listing->pack_contents) : 0;
