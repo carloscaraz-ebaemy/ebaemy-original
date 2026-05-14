@@ -1219,32 +1219,46 @@
     </script>
 @endif
 
-{{-- ════════════ Ofertas contextuales (misma tienda > marketplace) ════════════
-     Muestra otras ofertas del mismo seller (o fallback a ofertas generales).
-     Mas profesional que copiar el carrusel home — el seller crea cross-sell
-     dentro de su propio catalogo (un solo envio, mayor conversion). --}}
-@if(!empty($contextualOffers) && $contextualOffers->count() > 0)
-    <section class="mp-show-offers" aria-label="Ofertas contextuales">
-        <div class="mp-show-offers__head">
-            <h2 class="mp-show-offers__title">{{ $offersLabel ?? '🔥 Ofertas del día' }}</h2>
-            @if(str_contains($offersLabel ?? '', 'Más ofertas en'))
-                <a href="{{ route('marketplace.tenant', ['subdomain' => $listing->subdomain]) }}?on_offer=1"
-                   class="mp-show-offers__see-all">Ver todas →</a>
-            @else
-                <a href="{{ route('marketplace.index', ['on_offer' => 1]) }}"
-                   class="mp-show-offers__see-all">Ver todas →</a>
-            @endif
-        </div>
+{{-- ════════════ Ofertas contextuales ════════════
+     2 secciones cuando ambas tienen contenido:
+     (a) Más ofertas en [tienda actual] — cross-sell intra-tienda
+     (b) Ofertas en otras tiendas — descubrimiento del marketplace --}}
 
+@if(!empty($sameStoreOffers) && $sameStoreOffers->count() > 0)
+    <section class="mp-show-offers" aria-label="Más ofertas en esta tienda">
+        <div class="mp-show-offers__head">
+            <h2 class="mp-show-offers__title">{{ $sameStoreLabel ?? '🔥 Más ofertas de esta tienda' }}</h2>
+            <a href="{{ route('marketplace.tenant', ['subdomain' => $listing->subdomain]) }}?on_offer=1"
+               class="mp-show-offers__see-all">Ver todas →</a>
+        </div>
         <div class="mp-show-offers__scroll">
-            @foreach($contextualOffers as $offer)
+            @foreach($sameStoreOffers as $offer)
                 <div class="mp-show-offers__item">
                     @include('marketplace.partials.listing-card', ['listing' => $offer])
                 </div>
             @endforeach
         </div>
     </section>
+@endif
 
+@if(!empty($otherStoreOffers) && $otherStoreOffers->count() > 0)
+    <section class="mp-show-offers mp-show-offers--other" aria-label="Ofertas en otras tiendas">
+        <div class="mp-show-offers__head">
+            <h2 class="mp-show-offers__title">{{ $otherStoreLabel ?? '🔥 Ofertas en otras tiendas' }}</h2>
+            <a href="{{ route('marketplace.index', ['on_offer' => 1]) }}"
+               class="mp-show-offers__see-all">Ver todas →</a>
+        </div>
+        <div class="mp-show-offers__scroll">
+            @foreach($otherStoreOffers as $offer)
+                <div class="mp-show-offers__item">
+                    @include('marketplace.partials.listing-card', ['listing' => $offer, 'showShopName' => true])
+                </div>
+            @endforeach
+        </div>
+    </section>
+@endif
+
+@if((!empty($sameStoreOffers) && $sameStoreOffers->count() > 0) || (!empty($otherStoreOffers) && $otherStoreOffers->count() > 0))
     <style>
     .mp-show-offers {
         margin: 32px 0 16px;
@@ -1252,6 +1266,13 @@
         background: linear-gradient(135deg, #fff7ed 0%, #fff 60%);
         border: 1px solid #fed7aa;
         border-radius: 14px;
+    }
+    /* La 2da seccion (otras tiendas) usa otro tono para diferenciarse
+       visualmente — verde-azulado del marketplace en vez del naranja
+       'flash' de la tienda actual. */
+    .mp-show-offers--other {
+        background: linear-gradient(135deg, #f0fdfa 0%, #fff 60%);
+        border: 1px solid #a7f3d0;
     }
     .mp-show-offers__head {
         display: flex; align-items: center; justify-content: space-between;
@@ -1265,6 +1286,7 @@
         color: #9a3412;
         letter-spacing: -.01em;
     }
+    .mp-show-offers--other .mp-show-offers__title { color: #0c6b65; }
     .mp-show-offers__see-all {
         font-size: 13px;
         font-weight: 700;
@@ -1275,7 +1297,12 @@
         background: rgba(194, 65, 12, .08);
         transition: background .12s;
     }
+    .mp-show-offers--other .mp-show-offers__see-all {
+        color: #0c6b65;
+        background: rgba(15, 138, 130, .08);
+    }
     .mp-show-offers__see-all:hover { background: rgba(194, 65, 12, .16); }
+    .mp-show-offers--other .mp-show-offers__see-all:hover { background: rgba(15, 138, 130, .18); }
     .mp-show-offers__scroll {
         display: grid;
         grid-auto-flow: column;
@@ -1290,6 +1317,7 @@
     }
     .mp-show-offers__scroll::-webkit-scrollbar { height: 4px; }
     .mp-show-offers__scroll::-webkit-scrollbar-thumb { background: #fdba74; border-radius: 999px; }
+    .mp-show-offers--other .mp-show-offers__scroll::-webkit-scrollbar-thumb { background: #6ee7b7; }
     .mp-show-offers__item { scroll-snap-align: start; min-width: 0; }
     @media (min-width: 900px) {
         .mp-show-offers__scroll {

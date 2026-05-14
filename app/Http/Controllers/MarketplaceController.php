@@ -777,10 +777,17 @@ class MarketplaceController extends Controller
             $this->decorateListingsWithVariantData($recentlyViewed);
         }
 
-        // Ofertas contextuales: primero buscamos OTRAS ofertas del MISMO
-        // tenant — son las mas relevantes para el comprador (un solo envio
-        // de la misma tienda, mejor conversion cruzada). Si la tienda no
-        // tiene mas ofertas, fallback a las ofertas generales del marketplace.
+        // Ofertas contextuales: 2 colecciones separadas para mejor UX cuando
+        // hay variedad multi-tenant.
+        //
+        //   sameStoreOffers: del MISMO tenant (cross-sell intra-tienda,
+        //                    beneficio de un solo envio).
+        //   otherStoreOffers: de OTROS tenants (descubrimiento del marketplace,
+        //                     variedad de la oferta global).
+        //
+        // El blade renderiza las dos secciones cuando ambas tienen contenido.
+        // Si solo una existe, muestra esa unica.
+
         $sameStoreOffers = MarketplaceListing::published()
             ->onOffer()
             ->where('hostname_id', $listing->hostname_id)
@@ -790,38 +797,39 @@ class MarketplaceController extends Controller
             ->limit(8)
             ->get();
 
-        $offersLabel = null;
-        $contextualOffers = collect();
-        if ($sameStoreOffers->count() >= 3) {
-            $contextualOffers = $sameStoreOffers;
-            $offersLabel = '🔥 Más ofertas en ' . ($listing->tenant_name ?: 'esta tienda');
-        } else {
-            // Fallback: ofertas del marketplace en general, excluyendo el actual
-            // y las que ya vimos en related para no duplicar visualmente.
-            $excludeIds = array_merge(
-                [$listing->id],
-                $related->pluck('id')->all()
-            );
-            $contextualOffers = MarketplaceListing::published()
-                ->onOffer()
-                ->whereNotIn('id', $excludeIds)
-                ->orderByDesc('discount_pct')
-                ->orderByDesc('view_count')
-                ->limit(8)
-                ->get();
-            if ($contextualOffers->isNotEmpty()) {
-                $offersLabel = '🔥 Ofertas del día';
-            }
+        // Para "otras tiendas" excluimos: producto actual + related + lo del
+        // mismo tenant que ya mostramos arriba, para no duplicar visualmente.
+        $excludeIds = array_merge(
+            [$listing->id],
+            $related->pluck('id')->all(),
+            $sameStoreOffers->pluck('id')->all()
+        );
+
+        $otherStoreOffers = MarketplaceListing::published()
+            ->onOffer()
+            ->where('hostname_id', '!=', $listing->hostname_id)
+            ->whereNotIn('id', $excludeIds)
+            ->orderByDesc('discount_pct')
+            ->orderByDesc('view_count')
+            ->limit(8)
+            ->get();
+
+        if ($sameStoreOffers->isNotEmpty()) {
+            $this->decorateListingsWithVariantData($sameStoreOffers);
         }
-        if ($contextualOffers->isNotEmpty()) {
-            $this->decorateListingsWithVariantData($contextualOffers);
+        if ($otherStoreOffers->isNotEmpty()) {
+            $this->decorateListingsWithVariantData($otherStoreOffers);
         }
+
+        $sameStoreLabel  = '🔥 Más ofertas en ' . ($listing->tenant_name ?: 'esta tienda');
+        $otherStoreLabel = '🔥 Ofertas en otras tiendas';
 
         return view('marketplace.show', compact(
             'listing', 'related', 'reviews', 'officialBreadcrumb', 'officialCategoryUrl',
             'variants', 'options', 'variantMap', 'primaryValueIds',
             'recentlyViewed',
-            'contextualOffers', 'offersLabel'
+            'sameStoreOffers', 'sameStoreLabel',
+            'otherStoreOffers', 'otherStoreLabel'
         ));
     }
 
