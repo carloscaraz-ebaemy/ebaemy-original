@@ -6,17 +6,59 @@ use App\Models\Tenant\ScheduledReport;
 use App\Models\Tenant\Order;
 use App\Models\Tenant\Item;
 use App\Models\Tenant\Document;
+use Hyn\Tenancy\Environment;
+use Hyn\Tenancy\Models\Website;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use Carbon\Carbon;
 
 class SendScheduledReports extends Command
 {
     protected $signature = 'reports:send-scheduled {--dry-run : Solo muestra qué se enviaría}';
-    protected $description = 'Enviar reportes programados por email';
+    protected $description = 'Enviar reportes programados por email (loop por tenant)';
 
     public function handle(): int
+    {
+        // El cron corre en contexto system. Antes este comando intentaba
+        // hacer ScheduledReport::active()->get() directo → 'Database
+        // connection [tenant] not configured' cada corrida (log lleno).
+        //
+        // Ahora loop-amos los tenants activos, switch al contexto de cada
+        // uno y procesamos sus reportes programados.
+        $tenancy = app(Environment::class);
+        $websites = Website::all();
+        $totalSent = 0;
+        $totalErrors = 0;
+
+        foreach ($websites as $website) {
+            try {
+                $tenancy->tenant($website);
+                $sent = $this->processTenant($tenancy);
+                $totalSent += $sent;
+            } catch (\Throwable $e) {
+                $totalErrors++;
+                Log::warning('SendScheduledReports tenant failed', [
+                    'website_id'   => $website->id,
+                    'website_uuid' => $website->uuid,
+                    'error'        => $e->getMessage(),
+                ]);
+            }
+        }
+
+        // Volver a sistema central para no dejar el contexto sucio.
+        $tenancy->tenant(null);
+
+        $this->info("Total: {$totalSent} reportes enviados · {$totalErrors} tenants con error.");
+        return 0;
+    }
+
+    /**
+     * Procesa los reportes programados del tenant ACTUALMENTE activo en
+     * el Environment de Hyn. Retorna cuántos se enviaron.
+     */
+    private function processTenant(Environment $tenancy): int
     {
         $reports = ScheduledReport::active()->get();
         $sent = 0;
@@ -51,8 +93,7 @@ class SendScheduledReports extends Command
             }
         }
 
-        $this->info("{$sent} reportes enviados.");
-        return 0;
+        return $sent;
     }
 
     private function generateReportData(ScheduledReport $report): array
