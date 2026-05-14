@@ -765,11 +765,9 @@ button { font-family: inherit; cursor: pointer; }
    - Estado .is-loading mientras dispara el fetch
    - Estado .is-added pinta verde y muestra ✓ por 1.5s */
 .mp-card-quickadd {
-    position: absolute;
-    bottom: 10px;
-    right: 10px;
-    width: 40px;
-    height: 40px;
+    flex-shrink: 0;
+    width: 36px;
+    height: 36px;
     border-radius: 999px;
     border: 0;
     background: var(--mp-primary, #0f8a82);
@@ -778,21 +776,18 @@ button { font-family: inherit; cursor: pointer; }
     align-items: center;
     justify-content: center;
     cursor: pointer;
-    box-shadow: 0 4px 12px rgba(15,23,42,.18);
-    opacity: 0;
-    transform: translateY(6px);
-    transition: opacity .18s, transform .18s, background-color .15s;
-    z-index: 3;
+    box-shadow: 0 2px 6px rgba(15,138,130,.25);
+    transition: background-color .15s, transform .12s, box-shadow .15s;
+    align-self: center;
+    -webkit-tap-highlight-color: transparent;
 }
-.mp-card:hover .mp-card-quickadd,
-.mp-card-quickadd:focus-visible {
-    opacity: 1;
-    transform: translateY(0);
+.mp-card-quickadd:hover {
+    background: var(--mp-primary-dark, #0c6b65);
+    transform: scale(1.06);
+    box-shadow: 0 4px 10px rgba(15,138,130,.35);
 }
-.mp-card-quickadd:hover { background: var(--mp-primary-dark, #0c6b65); }
+.mp-card-quickadd:active { transform: scale(.94); }
 .mp-card-quickadd.is-loading {
-    opacity: 1;
-    transform: translateY(0);
     pointer-events: none;
 }
 .mp-card-quickadd.is-loading svg {
@@ -801,23 +796,29 @@ button { font-family: inherit; cursor: pointer; }
 @keyframes mpCardQuickaddSpin { to { transform: rotate(360deg); } }
 .mp-card-quickadd.is-added {
     background: #16a34a;
-    opacity: 1;
-    transform: translateY(0);
 }
 .mp-card-quickadd.is-detail {
-    /* Si no hay quick-add posible (variantes/sin stock), el icono navega
-       al detalle. Se ve igual pero usa color secundario para diferenciar. */
+    /* Sin quick-add posible (variantes/pack) — fondo oscuro para sugerir
+       'ir al detalle' en vez de 'agregar directo'. */
     background: #1f2937;
 }
 .mp-card-quickadd.is-detail:hover { background: #111827; }
 @media (max-width: 900px) {
-    /* Mobile: siempre visible, sin animación hover. */
-    .mp-card-quickadd {
-        opacity: 1;
-        transform: translateY(0);
-        width: 44px; height: 44px;
-        bottom: 8px; right: 8px;
-    }
+    .mp-card-quickadd { width: 40px; height: 40px; }
+}
+
+/* Info de precio en el row (texto a la izquierda, boton + a la derecha) */
+.mp-card-price-info {
+    display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px;
+    flex: 1; min-width: 0;
+}
+.mp-card-price-saving {
+    display: inline-block;
+    width: 100%;
+    font-size: 11px;
+    font-weight: 600;
+    color: #16a34a;
+    margin-top: 2px;
 }
 
 .mp-card-img-empty {
@@ -905,9 +906,9 @@ button { font-family: inherit; cursor: pointer; }
 
 .mp-card-price-row {
     display: flex;
-    align-items: baseline;
-    gap: 8px;
-    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
 }
 .mp-card-price {
     font-size: 18px;

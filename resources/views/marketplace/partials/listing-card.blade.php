@@ -85,27 +85,6 @@
             @endif
         </div>
 
-        {{-- Botón quick-add: añade al carrito sin entrar al detalle.
-             Si tiene variantes o sin precio, navega al detalle (necesita
-             que el comprador elija opciones). JS en listing-card-script.  --}}
-        @php
-            $cardHasVariants = !empty($listing->has_variants);
-            $cardCanQuickAdd = !$cardHasVariants
-                            && empty($listing->is_pack)
-                            && ($listing->display_price ?? 0) > 0
-                            && ($listing->stock ?? 0) > 0;
-        @endphp
-        <button type="button"
-                class="mp-card-quickadd {{ $cardCanQuickAdd ? 'is-quickadd' : 'is-detail' }}"
-                data-listing-id="{{ $listing->id }}"
-                data-listing-slug="{{ $listing->slug }}"
-                data-has-variants="{{ $cardHasVariants ? '1' : '0' }}"
-                aria-label="{{ $cardCanQuickAdd ? 'Añadir al carrito' : 'Ver detalles para comprar' }}">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true">
-                <line x1="12" y1="5" x2="12" y2="19"/>
-                <line x1="5" y1="12" x2="19" y2="12"/>
-            </svg>
-        </button>
     </div>
 
     <div class="mp-card-body">
@@ -120,19 +99,51 @@
             </div>
         @endif
 
+        @php
+            $cardHasVariants = !empty($listing->has_variants);
+            $cardCanQuickAdd = !$cardHasVariants
+                            && empty($listing->is_pack)
+                            && ($listing->display_price ?? 0) > 0
+                            && ($listing->stock ?? 0) > 0;
+            $cardHasDiscount = !empty($listing->is_on_offer)
+                            && !empty($listing->original_price)
+                            && $listing->original_price > $listing->display_price;
+        @endphp
         <div class="mp-card-price-row">
-            @if($listing->display_price > 0)
-                @if(!empty($listing->has_variants))
-                    <span class="mp-card-price-prefix">Desde</span>
-                    <span class="mp-card-price">S/ {{ number_format($listing->min_price ?? $listing->display_price, 2) }}</span>
-                @else
-                    <span class="mp-card-price">S/ {{ number_format($listing->display_price, 2) }}</span>
-                    @if(!empty($listing->is_on_offer) && !empty($listing->original_price) && $listing->original_price > $listing->display_price)
-                        <span class="mp-card-price-old">S/ {{ number_format($listing->original_price, 2) }}</span>
+            <div class="mp-card-price-info">
+                @if($listing->display_price > 0)
+                    @if($cardHasVariants)
+                        <span class="mp-card-price-prefix">Desde</span>
+                        <span class="mp-card-price">S/ {{ number_format($listing->min_price ?? $listing->display_price, 2) }}</span>
+                    @else
+                        <span class="mp-card-price">S/ {{ number_format($listing->display_price, 2) }}</span>
+                        @if($cardHasDiscount)
+                            <span class="mp-card-price-old">S/ {{ number_format($listing->original_price, 2) }}</span>
+                            @if(!empty($listing->discount_pct))
+                                <span class="mp-card-price-saving">Ahorra S/ {{ number_format($listing->original_price - $listing->display_price, 2) }}</span>
+                            @endif
+                        @endif
                     @endif
+                @else
+                    <span style="color:#6b7280;font-size:13px;font-weight:500">Consultar precio</span>
                 @endif
-            @else
-                <span style="color:#6b7280;font-size:13px;font-weight:500">Consultar precio</span>
+            </div>
+
+            {{-- Botón quick-add al lado del precio. Si tiene precio y stock
+                 sin variantes, agrega 1 al carrito directo. Si tiene
+                 variantes/pack, va al detalle. --}}
+            @if(($listing->display_price ?? 0) > 0 && ($listing->stock ?? 0) > 0)
+                <button type="button"
+                        class="mp-card-quickadd {{ $cardCanQuickAdd ? 'is-quickadd' : 'is-detail' }}"
+                        data-listing-id="{{ $listing->id }}"
+                        data-listing-slug="{{ $listing->slug }}"
+                        data-has-variants="{{ $cardHasVariants ? '1' : '0' }}"
+                        aria-label="{{ $cardCanQuickAdd ? 'Añadir al carrito' : 'Ver detalles' }}">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" aria-hidden="true">
+                        <line x1="12" y1="5" x2="12" y2="19"/>
+                        <line x1="5" y1="12" x2="19" y2="12"/>
+                    </svg>
+                </button>
             @endif
         </div>
 
