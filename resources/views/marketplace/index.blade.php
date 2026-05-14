@@ -394,7 +394,13 @@
         <div class="mp-offers-head">
             <div class="mp-offers-head__title-wrap">
                 <h2 class="mp-offers-title">🔥 Ofertas del día</h2>
-                <p class="mp-offers-sub">Descuentos vigentes de {{ $dailyOffers->pluck('hostname_id')->unique()->count() }} tienda{{ $dailyOffers->pluck('hostname_id')->unique()->count() === 1 ? '' : 's' }} verificada{{ $dailyOffers->pluck('hostname_id')->unique()->count() === 1 ? '' : 's' }}. Aprovecha mientras duren.</p>
+                @php
+                    // Conteo defensivo: $dailyOffers podria venir del cache con
+                    // tipo Collection generico (no Eloquent) tras la serializacion.
+                    // collect() lo normaliza para garantizar el pluck.
+                    $offerTenantsCount = collect($dailyOffers)->pluck('hostname_id')->unique()->count();
+                @endphp
+                <p class="mp-offers-sub">Descuentos vigentes de {{ $offerTenantsCount }} tienda{{ $offerTenantsCount === 1 ? '' : 's' }} verificada{{ $offerTenantsCount === 1 ? '' : 's' }}. Aprovecha mientras duren.</p>
             </div>
             <div class="mp-offers-head__actions">
                 <a href="{{ route('marketplace.index', ['on_offer' => 1]) }}" class="mp-offers-cta">Ver todas →</a>
