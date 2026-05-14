@@ -202,9 +202,9 @@ class RemindPendingTenantOrders extends Command
         $isGenericEmail = !empty($email) && stripos($email, 'admin@ebaemy.com') !== false;
         if (empty($email) || empty($phone) || $isGenericEmail) {
             try {
-                // Datos reales del seller en tenant.configurations
+                // Datos reales del seller en tenant.configuration_ecommerce
                 // (los pone el tenant en /ecommerce/configuration).
-                $cfg = DB::connection('tenant')->table('configurations')
+                $cfg = DB::connection('tenant')->table('configuration_ecommerce')
                     ->where('id', 1)
                     ->first(['information_contact_email', 'phone_whatsapp', 'information_contact_phone']);
                 if ($cfg) {

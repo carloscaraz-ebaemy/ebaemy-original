@@ -459,13 +459,13 @@ class MarketplaceMultiOrderDispatcher
     {
         try {
             // Datos REALES de contacto del seller — el tenant los configura
-            // en /ecommerce/configuration → 'Informacion de Contacto'. Estos
-            // SI son confiables (los pone el seller, no son alias genericos).
-            // Tabla tenant.configurations, campos:
+            // en /ecommerce/configuration → 'Informacion de Contacto'. La
+            // tabla es `configuration_ecommerce` (NO `configurations` —
+            // esa es la del system con smtp/sunat/etc.). Campos:
             //   - information_contact_email  (email del seller)
             //   - phone_whatsapp             (WhatsApp del seller)
-            // Fallback secundario: information_contact_phone (telefono fijo).
-            $cfg = DB::connection('tenant')->table('configurations')
+            //   - information_contact_phone  (fallback telefono fijo)
+            $cfg = DB::connection('tenant')->table('configuration_ecommerce')
                 ->where('id', 1)
                 ->first(['information_contact_email', 'phone_whatsapp', 'information_contact_phone']);
 
