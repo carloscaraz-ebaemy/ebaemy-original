@@ -394,6 +394,87 @@
             </form>
         </div>
 
+        {{-- ── Pills de filtros activos ────────────────────────────────────
+             Muestra arriba del grid TODO lo aplicado. Cada pill tiene su X
+             que quita SOLO ese filtro; "Limpiar todo" reset completo.
+             Mobile-first: scroll horizontal con fade gradient hint. --}}
+        @php
+            $activeFilters = [];
+            $currentParams = array_filter([
+                'q'                    => $q,
+                'category'             => $category,
+                'official_category_id' => $officialCatId,
+                'price_min'            => $priceMin,
+                'price_max'            => $priceMax,
+                'shop'                 => $shopSubdomain,
+                'on_offer'             => $onOfferOnly ? 1 : null,
+                'verified'             => $verifiedOnly ? 1 : null,
+                'in_stock'             => $inStockOnly ? 1 : null,
+                'packs'                => $packsOnly ? 1 : null,
+                'sort'                 => ($sort && $sort !== 'relevance') ? $sort : null,
+            ], fn($v) => $v !== null && $v !== '' && $v !== false);
+
+            $removeUrl = function (string ...$keys) use ($currentParams) {
+                $kept = $currentParams;
+                foreach ($keys as $k) { unset($kept[$k]); }
+                return route('marketplace.index', $kept);
+            };
+
+            if ($q) {
+                $activeFilters[] = ['label' => '🔍 "' . $q . '"', 'url' => $removeUrl('q')];
+            }
+            if ($shopSubdomain) {
+                $shopName = optional($shops->firstWhere('subdomain', $shopSubdomain))->name ?? $shopSubdomain;
+                $activeFilters[] = ['label' => '🏪 ' . $shopName, 'url' => $removeUrl('shop')];
+            }
+            if ($officialCatId) {
+                $catName = optional($officialRoots->firstWhere('id', $officialCatId))->name ?? 'Categoría';
+                $activeFilters[] = ['label' => '🏷️ ' . $catName, 'url' => $removeUrl('official_category_id')];
+            }
+            if ($category) {
+                $activeFilters[] = ['label' => '🏷️ ' . $category, 'url' => $removeUrl('category')];
+            }
+            if ($priceMin !== null || $priceMax !== null) {
+                $priceLabel = '💰 ';
+                if ($priceMin !== null && $priceMax !== null) {
+                    $priceLabel .= 'S/ ' . (int)$priceMin . ' - S/ ' . (int)$priceMax;
+                } elseif ($priceMin !== null) {
+                    $priceLabel .= 'Desde S/ ' . (int)$priceMin;
+                } else {
+                    $priceLabel .= 'Hasta S/ ' . (int)$priceMax;
+                }
+                $activeFilters[] = ['label' => $priceLabel, 'url' => $removeUrl('price_min', 'price_max')];
+            }
+            if ($onOfferOnly)  $activeFilters[] = ['label' => '⚡ Oferta',    'url' => $removeUrl('on_offer')];
+            if ($verifiedOnly) $activeFilters[] = ['label' => '✓ Verificada', 'url' => $removeUrl('verified')];
+            if ($inStockOnly)  $activeFilters[] = ['label' => '📦 Con stock', 'url' => $removeUrl('in_stock')];
+            if ($packsOnly)    $activeFilters[] = ['label' => '🎁 Pack',      'url' => $removeUrl('packs')];
+            if ($sort && $sort !== 'relevance') {
+                $sortLabels = ['price_asc' => 'Precio ↑', 'price_desc' => 'Precio ↓', 'newest' => 'Más recientes'];
+                $activeFilters[] = ['label' => '↕ ' . ($sortLabels[$sort] ?? $sort), 'url' => $removeUrl('sort')];
+            }
+        @endphp
+
+        @if(!empty($activeFilters))
+            <div class="mp-active-filters" role="region" aria-label="Filtros activos">
+                <span class="mp-active-filters__label">Filtros:</span>
+                <div class="mp-active-filters__pills">
+                    @foreach($activeFilters as $f)
+                        <a href="{{ $f['url'] }}" class="mp-pill" title="Quitar este filtro">
+                            <span class="mp-pill__text">{{ $f['label'] }}</span>
+                            <svg class="mp-pill__x" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" aria-hidden="true">
+                                <line x1="6" y1="6" x2="18" y2="18"/>
+                                <line x1="6" y1="18" x2="18" y2="6"/>
+                            </svg>
+                        </a>
+                    @endforeach
+                </div>
+                @if(count($activeFilters) >= 2)
+                    <a href="{{ route('marketplace.index') }}" class="mp-active-filters__clear">Limpiar todo</a>
+                @endif
+            </div>
+        @endif
+
         @if($listings->isEmpty())
             <div class="mp-empty">
                 <div class="mp-empty-icon">
@@ -610,6 +691,123 @@ if (window.matchMedia('(max-width: 899px)').matches) {
 }
 .mp-shop-see-all:hover { background: rgba(15,138,130,.04); }
 .mp-shop-empty { padding: 8px; font-size: 11.5px; color: var(--mp-muted); text-align: center; }
+
+/* ═════════════════════ Pills de filtros activos ═════════════════════
+   Aparecen sobre el grid cuando hay al menos 1 filtro aplicado. Click
+   en la X de un pill quita SOLO ese filtro. "Limpiar todo" reset.
+   Mobile: scroll horizontal con fade gradient hint. */
+.mp-active-filters {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 14px;
+    background: linear-gradient(135deg, #f0fdfa 0%, #fff 100%);
+    border: 1px solid #d1fae5;
+    border-radius: 10px;
+    margin-bottom: 12px;
+    flex-wrap: wrap;
+}
+.mp-active-filters__label {
+    font-size: 12.5px;
+    font-weight: 700;
+    color: #0c6b65;
+    text-transform: uppercase;
+    letter-spacing: .03em;
+    flex-shrink: 0;
+}
+.mp-active-filters__pills {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    flex: 1;
+    min-width: 0;
+}
+.mp-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 11px;
+    background: #fff;
+    border: 1.5px solid var(--mp-primary, #0f8a82);
+    color: var(--mp-primary-dark, #0c6b65);
+    border-radius: 999px;
+    text-decoration: none;
+    font-size: 13px;
+    font-weight: 600;
+    line-height: 1.2;
+    transition: background .12s, border-color .12s, color .12s;
+    white-space: nowrap;
+    max-width: 100%;
+}
+.mp-pill:hover {
+    background: #fee2e2;
+    border-color: #dc2626;
+    color: #b91c1c;
+}
+.mp-pill__text {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 200px;
+}
+.mp-pill__x {
+    flex-shrink: 0;
+    opacity: .7;
+}
+.mp-pill:hover .mp-pill__x { opacity: 1; }
+.mp-active-filters__clear {
+    margin-left: auto;
+    font-size: 13px;
+    color: #dc2626;
+    text-decoration: none;
+    font-weight: 700;
+    padding: 4px 10px;
+    border-radius: 8px;
+    flex-shrink: 0;
+}
+.mp-active-filters__clear:hover {
+    background: #fee2e2;
+    color: #b91c1c;
+}
+
+@media (max-width: 768px) {
+    .mp-active-filters {
+        padding: 8px 12px;
+        gap: 8px;
+    }
+    .mp-active-filters__label {
+        width: 100%;
+        margin-bottom: 2px;
+    }
+    .mp-active-filters__pills {
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        scrollbar-width: thin;
+        -webkit-mask-image: linear-gradient(to right, #000 92%, transparent);
+                mask-image: linear-gradient(to right, #000 92%, transparent);
+        padding-bottom: 4px;
+        margin-right: -12px;
+        padding-right: 12px;
+    }
+    .mp-active-filters__pills::-webkit-scrollbar { height: 3px; }
+    .mp-active-filters__pills::-webkit-scrollbar-thumb {
+        background: var(--mp-line, #e5e7eb);
+        border-radius: 999px;
+    }
+    .mp-pill {
+        padding: 7px 12px;
+        font-size: 12.5px;
+        flex-shrink: 0;
+    }
+    .mp-pill__text { max-width: 140px; }
+    .mp-active-filters__clear {
+        margin-left: 0;
+        width: 100%;
+        text-align: center;
+        padding: 6px;
+        background: #fff;
+        border: 1.5px dashed #dc2626;
+    }
+}
 </style>
 @endpush
 
