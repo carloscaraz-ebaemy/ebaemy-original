@@ -32,7 +32,11 @@ class MarketplaceAbandonedOrderMail extends Mailable
             ? '🛍️ Tu pedido ' . $this->order->order_number . ' aún espera pago — última recordación'
             : '🛍️ ¿Olvidaste algo? Tu pedido ' . $this->order->order_number . ' sigue esperando';
 
+        $fromAddr = config('mail.from.address') ?: 'no-reply@ebaemy.com';
+
         return $this
+            ->from($fromAddr, 'ebaemy Marketplace')
+            ->replyTo('soporte@ebaemy.com', 'Soporte ebaemy')
             ->subject($subject)
             ->view('emails.marketplace_abandoned_order', [
                 'order'       => $this->order,

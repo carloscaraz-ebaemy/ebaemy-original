@@ -25,7 +25,11 @@ class MarketplaceOrderConfirmationMail extends Mailable
     {
         $this->order->loadMissing(['items', 'tenantOrders']);
 
+        $fromAddr = config('mail.from.address') ?: 'no-reply@ebaemy.com';
+
         return $this
+            ->from($fromAddr, 'ebaemy Marketplace')
+            ->replyTo('soporte@ebaemy.com', 'Soporte ebaemy')
             ->subject('Tu pedido ' . $this->order->order_number . ' fue recibido — ebaemy')
             ->view('emails.marketplace_order_confirmation', [
                 'order'        => $this->order,

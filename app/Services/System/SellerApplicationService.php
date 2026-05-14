@@ -515,6 +515,13 @@ class SellerApplicationService
             // la creación del tenant (el seller puede subirlo luego).
             $this->copyLogoToTenantIfPresent($application, $client);
 
+            // Pre-rellenar configuration_ecommerce del tenant con los datos
+            // que el seller ya nos dio en su registro (business_name, email,
+            // phone). Asi cuando entre un pedido marketplace, las
+            // notificaciones email/WhatsApp van al seller real desde el
+            // dia 1 — sin tener que esperar a que llene esos campos manual.
+            $this->seedTenantEcommerceContactFromApplication($application, $client);
+
             // Marcar cliente como seller aprobado + actualizar aplicación + log
             DB::connection('system')->transaction(function () use ($application, $client, $reviewerId) {
                 $client->update([
@@ -1430,6 +1437,93 @@ class SellerApplicationService
                 'context'        => $context,
                 'application_id' => $applicationId,
                 'to'             => $to,
+                'error'          => $e->getMessage(),
+            ]);
+        }
+    }
+
+    /**
+     * Pre-rellena tenant.configuration_ecommerce con los datos que el
+     * seller ya nos dio en su registro. Sin esto, los nuevos tenants
+     * arrancan con valores por defecto (admin@mail.com, etc.) y las
+     * notificaciones del marketplace caen en un buzón inexistente.
+     *
+     * Mapeo:
+     *   seller_applications.business_name → information_contact_name
+     *   seller_applications.email         → information_contact_email
+     *   seller_applications.phone         → information_contact_phone + phone_whatsapp
+     *
+     * Solo escribe los campos que esten vacios/default — respeta lo que
+     * el seller ya haya cambiado manualmente (si re-corremos por algún
+     * fix, no pisamos cambios posteriores).
+     */
+    private function seedTenantEcommerceContactFromApplication(SellerApplication $application, Client $client): void
+    {
+        try {
+            $website = $client->hostname?->website ?? optional($client->hostname()->first())->website;
+            if (!$website) return;
+
+            $tenancy = app(Environment::class);
+            $tenancy->tenant($website);
+
+            $row = DB::connection('tenant')->table('configuration_ecommerce')
+                ->where('id', 1)->first();
+
+            if (!$row) {
+                // Algunos tenants viejos no tienen el row id=1 (la tabla
+                // se semilla en el seeder normal). Lo insertamos minimo.
+                DB::connection('tenant')->table('configuration_ecommerce')->insert([
+                    'id'                          => 1,
+                    'information_contact_name'    => $application->business_name ?: 'Tienda',
+                    'information_contact_email'   => $application->email ?: 'admin@mail.com',
+                    'information_contact_phone'   => $application->phone ?: '',
+                    'information_contact_address' => $application->address ?? '',
+                    'phone_whatsapp'              => $application->phone ?: null,
+                ]);
+                Log::info('seedTenantEcommerceContact: row inicial creado', [
+                    'application_id' => $application->id,
+                    'tenant_fqdn'    => $client->hostname->fqdn ?? null,
+                ]);
+                return;
+            }
+
+            $updates = [];
+
+            // Solo sobreescribir si el valor actual es el default o vacío.
+            $isDefault = fn($v, array $defaults) => empty($v) || in_array($v, $defaults, true);
+
+            if ($isDefault($row->information_contact_name, ['Admin', 'Tienda'])) {
+                $updates['information_contact_name'] = $application->business_name ?: $row->information_contact_name;
+            }
+            if ($isDefault($row->information_contact_email, ['admin@mail.com', 'admin@ebaemy.com'])) {
+                $updates['information_contact_email'] = $application->email ?: $row->information_contact_email;
+            }
+            if ($isDefault($row->information_contact_phone, ['01 505-5555', ''])) {
+                $updates['information_contact_phone'] = $application->phone ?: $row->information_contact_phone;
+            }
+            if (empty($row->phone_whatsapp)) {
+                $updates['phone_whatsapp'] = $application->phone ?: null;
+            }
+            if (empty($row->information_contact_address) && !empty($application->address)) {
+                $updates['information_contact_address'] = $application->address;
+            }
+
+            if (!empty($updates)) {
+                DB::connection('tenant')->table('configuration_ecommerce')
+                    ->where('id', 1)
+                    ->update($updates);
+
+                Log::info('seedTenantEcommerceContact: datos seller copiados', [
+                    'application_id' => $application->id,
+                    'tenant_fqdn'    => $client->hostname->fqdn ?? null,
+                    'fields_updated' => array_keys($updates),
+                ]);
+            }
+        } catch (\Throwable $e) {
+            // Best-effort — si falla no revierte la aprobacion. El seller
+            // puede rellenar manual desde /ecommerce/configuration.
+            Log::warning('seedTenantEcommerceContact: falló', [
+                'application_id' => $application->id,
                 'error'          => $e->getMessage(),
             ]);
         }

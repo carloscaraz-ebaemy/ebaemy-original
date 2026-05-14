@@ -17,39 +17,42 @@
                         ? 'linear-gradient(135deg,#f59e0b,#dc2626)'
                         : 'linear-gradient(135deg,#0f8a82,#0a6f68)';
                     $headerLabel = !empty($isReminder)
-                        ? '⏰ RECORDATORIO · PEDIDO PENDIENTE'
-                        : '🛍️ Nuevo pedido en tu tienda';
+                        ? 'Pedido pendiente de atención'
+                        : 'Tienes un nuevo pedido';
+                    $headerKicker = !empty($isReminder)
+                        ? 'RECORDATORIO ' . ($reminderNumber ?? 1) . ' DE 3'
+                        : 'NOTIFICACIÓN DE PEDIDO';
                 @endphp
-                <tr><td style="background:{{ $headerBg }};color:#fff;padding:24px;text-align:center">
-                    <div style="font-size:13px;letter-spacing:.05em;opacity:.9">EBAEMY MARKETPLACE</div>
-                    <h1 style="margin:8px 0 0;font-size:21px">{{ $headerLabel }}</h1>
-                    <div style="margin-top:8px;font-size:14px;font-family:ui-monospace,monospace;background:rgba(255,255,255,.15);display:inline-block;padding:4px 12px;border-radius:6px">
-                        {{ $order->order_number }}
+                <tr><td style="background:{{ $headerBg }};color:#fff;padding:28px 24px;text-align:center">
+                    <div style="font-size:11px;letter-spacing:.12em;opacity:.85;font-weight:600">{{ $headerKicker }}</div>
+                    <h1 style="margin:10px 0 0;font-size:22px;font-weight:700;letter-spacing:-.01em">{{ $headerLabel }}</h1>
+                    <div style="margin-top:12px;font-size:13px;font-family:ui-monospace,'SF Mono',Menlo,monospace;background:rgba(255,255,255,.18);display:inline-block;padding:5px 14px;border-radius:6px;letter-spacing:.02em">
+                        N° {{ $order->order_number }}
                     </div>
                 </td></tr>
 
                 {{-- Intro --}}
-                <tr><td style="padding:24px 28px 8px">
+                <tr><td style="padding:26px 28px 6px">
                     @if(!empty($isReminder))
-                        <div style="background:#fef2f2;border-left:4px solid #dc2626;padding:14px 16px;border-radius:8px;margin-bottom:14px">
-                            <strong style="color:#991b1b;font-size:14px">⚠ Este pedido sigue pendiente de atención.</strong>
-                            <p style="margin:6px 0 0;font-size:13px;color:#7f1d1d;line-height:1.5">
-                                Es el recordatorio número <strong>{{ $reminderNumber ?? 1 }}</strong>.
-                                Contacta al comprador para no perder la venta — si pasan más recordatorios sin acción,
-                                el pedido podría cancelarse automáticamente.
+                        <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:10px;padding:14px 16px;margin-bottom:18px">
+                            <div style="color:#991b1b;font-size:14px;font-weight:700;margin-bottom:4px">
+                                Acción requerida
+                            </div>
+                            <p style="margin:0;font-size:13.5px;color:#7f1d1d;line-height:1.55">
+                                Este pedido lleva varias horas pendiente en tu panel. Te recomendamos contactar al cliente cuanto antes para coordinar el pago y la entrega. Si no se atiende, el pedido podrá cancelarse automáticamente tras el último recordatorio.
                             </p>
                         </div>
+                        <p style="margin:0 0 12px;font-size:15px;line-height:1.55;color:#111827">
+                            Hola, este es un recordatorio del pedido <strong>{{ $order->order_number }}</strong> que llegó a <strong>{{ $tenantFqdn }}</strong> desde el marketplace de ebaemy y aún figura como pendiente.
+                        </p>
+                    @else
+                        <p style="margin:0 0 12px;font-size:15.5px;line-height:1.55;color:#111827">
+                            Hola, recibiste un nuevo pedido en <strong>{{ $tenantFqdn }}</strong> a través del marketplace central <strong>ebaemy.com</strong>.
+                        </p>
+                        <p style="margin:0;font-size:14px;line-height:1.55;color:#4b5563">
+                            A continuación encontrarás el detalle del pedido y los datos del cliente. Te sugerimos contactarlo dentro de las próximas <strong>2 horas</strong> para confirmar la disponibilidad de stock y coordinar entrega.
+                        </p>
                     @endif
-                    <p style="margin:0 0 12px;font-size:15px;line-height:1.5">
-                        @if(!empty($isReminder))
-                            Hace unas horas llegó este pedido a <strong>{{ $tenantFqdn }}</strong> desde el marketplace y aún no lo has atendido.
-                        @else
-                            Llegó un pedido a <strong>{{ $tenantFqdn }}</strong> desde el marketplace central <strong>ebaemy.com/marketplace</strong>.
-                        @endif
-                    </p>
-                    <p style="margin:0;font-size:13px;color:#6b7280">
-                        Contáctalo cuanto antes para coordinar el pago y la entrega.
-                    </p>
                 </td></tr>
 
                 {{-- Tabla items del subpedido --}}
@@ -73,10 +76,10 @@
                             </tr>
                         @endforeach
                         <tr style="background:#f0fdfa;border-top:2px solid #0f8a82">
-                            <td style="padding:12px 14px;font-size:14px;font-weight:700;color:#0c6b65">
-                                Total tu subpedido
+                            <td style="padding:14px 14px;font-size:14px;font-weight:600;color:#0c6b65">
+                                Total del pedido
                             </td>
-                            <td style="padding:12px 14px;text-align:right;font-size:16px;font-weight:800;color:#0c6b65">
+                            <td style="padding:14px 14px;text-align:right;font-size:17px;font-weight:800;color:#0c6b65;letter-spacing:-.01em">
                                 S/ {{ number_format($subtotal, 2) }}
                             </td>
                         </tr>
@@ -85,44 +88,83 @@
 
                 {{-- Datos del cliente --}}
                 <tr><td style="padding:18px 28px">
-                    <div style="background:#fef3c7;border-left:3px solid #f59e0b;border-radius:8px;padding:14px 16px">
-                        <div style="font-size:11px;font-weight:700;color:#92400e;text-transform:uppercase;letter-spacing:.04em;margin-bottom:6px">
-                            👤 Datos del comprador
+                    <div style="background:#fffbeb;border:1px solid #fde68a;border-radius:10px;padding:16px 18px">
+                        <div style="font-size:11px;font-weight:700;color:#92400e;text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px">
+                            Datos del cliente
                         </div>
-                        <div style="font-size:14px;font-weight:600;color:#111827">{{ $order->customer_name }}</div>
-                        @if($order->customer_doc_number)
-                            <div style="font-size:12.5px;color:#4b5563;margin-top:2px">
-                                {{ $order->customer_doc_type ?? 'DOC' }} {{ $order->customer_doc_number }}
-                            </div>
-                        @endif
-                        <div style="font-size:13px;color:#374151;margin-top:6px">📱 {{ $order->customer_phone }}</div>
-                        @if($order->customer_email)
-                            <div style="font-size:13px;color:#374151;margin-top:2px">✉️ {{ $order->customer_email }}</div>
-                        @endif
-                        <div style="font-size:13px;color:#374151;margin-top:8px">
-                            <strong>Entrega:</strong> {{ $order->delivery_address }}
-                            @if($order->delivery_district) — {{ $order->delivery_district }} @endif
-                        </div>
-                        @if($order->delivery_notes)
-                            <div style="font-size:12.5px;color:#6b7280;margin-top:4px;font-style:italic">
-                                💬 {{ $order->delivery_notes }}
-                            </div>
-                        @endif
+                        <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="font-size:13.5px;color:#1f2937;line-height:1.55">
+                            <tr>
+                                <td style="padding:2px 0;width:100px;color:#6b7280">Nombre:</td>
+                                <td style="padding:2px 0;font-weight:600">{{ $order->customer_name }}</td>
+                            </tr>
+                            @if($order->customer_doc_number)
+                                <tr>
+                                    <td style="padding:2px 0;color:#6b7280">{{ $order->customer_doc_type ?? 'Documento' }}:</td>
+                                    <td style="padding:2px 0">{{ $order->customer_doc_number }}</td>
+                                </tr>
+                            @endif
+                            <tr>
+                                <td style="padding:2px 0;color:#6b7280">Teléfono:</td>
+                                <td style="padding:2px 0">
+                                    <a href="tel:{{ $order->customer_phone }}" style="color:#0c6b65;text-decoration:none;font-weight:600">{{ $order->customer_phone }}</a>
+                                    &nbsp;·&nbsp;
+                                    <a href="https://wa.me/{{ preg_replace('/\D+/', '', $order->customer_phone) }}" style="color:#16a34a;text-decoration:none;font-weight:600">WhatsApp →</a>
+                                </td>
+                            </tr>
+                            @if($order->customer_email)
+                                <tr>
+                                    <td style="padding:2px 0;color:#6b7280">Correo:</td>
+                                    <td style="padding:2px 0"><a href="mailto:{{ $order->customer_email }}" style="color:#0c6b65;text-decoration:none">{{ $order->customer_email }}</a></td>
+                                </tr>
+                            @endif
+                            <tr>
+                                <td style="padding:6px 0 2px;color:#6b7280;vertical-align:top">Entrega:</td>
+                                <td style="padding:6px 0 2px;line-height:1.45">
+                                    {{ $order->delivery_address }}@if($order->delivery_district) — {{ $order->delivery_district }}@endif
+                                </td>
+                            </tr>
+                            @if($order->delivery_notes)
+                                <tr>
+                                    <td style="padding:2px 0;color:#6b7280;vertical-align:top">Indicaciones:</td>
+                                    <td style="padding:2px 0;font-style:italic;color:#4b5563">{{ $order->delivery_notes }}</td>
+                                </tr>
+                            @endif
+                        </table>
                     </div>
                 </td></tr>
 
+                {{-- Pasos sugeridos --}}
+                <tr><td style="padding:16px 28px 4px">
+                    <div style="font-size:11px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px">
+                        Próximos pasos
+                    </div>
+                    <ol style="margin:0;padding-left:20px;font-size:13.5px;color:#374151;line-height:1.65">
+                        <li>Contacta al cliente para confirmar disponibilidad y método de pago.</li>
+                        <li>Confirma el pedido desde tu panel y coordina la entrega.</li>
+                        <li>Emite el comprobante electrónico correspondiente.</li>
+                    </ol>
+                </td></tr>
+
                 {{-- CTA --}}
-                <tr><td align="center" style="padding:8px 28px 24px">
+                <tr><td align="center" style="padding:22px 28px 8px">
                     <a href="{{ $panelUrl }}"
-                       style="display:inline-block;padding:13px 28px;background:#111827;color:#fff;text-decoration:none;font-weight:700;font-size:14px;border-radius:10px">
-                        Ver pedido en mi panel →
+                       style="display:inline-block;padding:14px 32px;background:#0f8a82;color:#fff;text-decoration:none;font-weight:700;font-size:14.5px;border-radius:10px;letter-spacing:.01em">
+                        Atender este pedido
                     </a>
                 </td></tr>
 
+                {{-- Cita / linea de credibilidad --}}
+                <tr><td style="padding:6px 28px 18px;text-align:center">
+                    <div style="font-size:11.5px;color:#9ca3af;line-height:1.5">
+                        Acceso directo: <a href="{{ $panelUrl }}" style="color:#0f8a82;text-decoration:none">{{ $panelUrl }}</a>
+                    </div>
+                </td></tr>
+
                 {{-- Footer --}}
-                <tr><td style="padding:18px 28px;text-align:center;border-top:1px solid #e5e7eb;color:#9ca3af;font-size:12px;line-height:1.55">
-                    ebaemy Marketplace · Hecho en Perú 🇵🇪<br>
-                    ¿Dudas? Responde a este correo o escribe a <a href="mailto:soporte@ebaemy.com" style="color:#0f8a82;text-decoration:none">soporte@ebaemy.com</a>.
+                <tr><td style="padding:20px 28px;text-align:center;border-top:1px solid #e5e7eb;color:#9ca3af;font-size:12px;line-height:1.6">
+                    Recibiste este correo porque eres vendedor activo en <strong>ebaemy Marketplace</strong>.<br>
+                    Para consultas o reclamos escríbenos a <a href="mailto:soporte@ebaemy.com" style="color:#0f8a82;text-decoration:none">soporte@ebaemy.com</a>.<br>
+                    <span style="display:inline-block;margin-top:6px">© {{ date('Y') }} ebaemy · Marketplace peruano</span>
                 </td></tr>
 
             </table>

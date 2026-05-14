@@ -42,7 +42,14 @@ class MarketplaceTenantOrderMail extends Mailable
         // Sanitizar: SMTP rechaza newlines + control chars en headers.
         $safeSubject = mb_substr(trim(preg_replace('/\s+/', ' ', str_replace(["\r", "\n"], ' ', $subject))), 0, 100);
 
+        // From explicito para no depender de MAIL_FROM_NAME del .env (que
+        // Laravel deja por default en 'Example' y los clientes de correo
+        // muestran ese nombre como remitente).
+        $fromAddr = config('mail.from.address') ?: 'no-reply@ebaemy.com';
+
         return $this
+            ->from($fromAddr, 'ebaemy Marketplace')
+            ->replyTo('soporte@ebaemy.com', 'Soporte ebaemy')
             ->subject($safeSubject)
             ->view('emails.marketplace_tenant_order', [
                 'order'          => $this->order,
