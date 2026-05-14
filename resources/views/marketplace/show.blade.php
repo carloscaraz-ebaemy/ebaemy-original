@@ -1017,32 +1017,206 @@
 
 {{-- ═══════════════════════ RELACIONADOS ═══════════════════════ --}}
 @if($related->isNotEmpty())
-    <section class="mp-related">
-        <h3>También te puede interesar</h3>
-        <div class="mp-grid">
+    <section class="mp-related" aria-label="También te puede interesar">
+        <div class="mp-related__head">
+            <h3 class="mp-related__title">También te puede interesar</h3>
+            <div class="mp-related__nav" role="group" aria-label="Navegar carrusel">
+                <button type="button" class="mp-related__nav-btn" data-rel-prev aria-label="Anterior">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><polyline points="15 18 9 12 15 6"/></svg>
+                </button>
+                <button type="button" class="mp-related__nav-btn" data-rel-next aria-label="Siguiente">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><polyline points="9 18 15 12 9 6"/></svg>
+                </button>
+            </div>
+        </div>
+
+        <div class="mp-related__rail" id="mpRelatedRail">
             @foreach($related as $r)
-                <a href="{{ route('marketplace.item', $r->slug) }}" class="mp-card">
-                    <div class="mp-card-img">
+                <a href="{{ route('marketplace.item', $r->slug) }}" class="mp-related__card">
+                    <div class="mp-related__card-img">
                         @if($r->image_url)
                             <img src="{{ $r->image_url }}" alt="{{ $r->title }}" loading="lazy">
                         @else
-                            <div class="mp-card-img-empty">Sin imagen</div>
+                            <div class="mp-related__card-noimg">Sin imagen</div>
+                        @endif
+                        @if(!empty($r->is_on_offer) && !empty($r->discount_pct))
+                            <span class="mp-related__card-pct">-{{ $r->discount_pct }}%</span>
                         @endif
                     </div>
-                    <div class="mp-card-body">
-                        <h3 class="mp-card-title">{{ $r->title }}</h3>
-                        <div class="mp-card-price-row">
-                            <span class="mp-card-price">@if($r->display_price > 0)S/ {{ number_format($r->display_price, 2) }}@else<span style="color:#6b7280;font-size:13px;font-weight:500">Consultar precio</span>@endif</span>
+                    <div class="mp-related__card-body">
+                        <h4 class="mp-related__card-title">{{ $r->title }}</h4>
+                        <div class="mp-related__card-prices">
+                            @if($r->display_price > 0)
+                                <span class="mp-related__card-price">S/ {{ number_format($r->display_price, 2) }}</span>
+                                @if(!empty($r->is_on_offer) && !empty($r->original_price) && $r->original_price > $r->display_price)
+                                    <span class="mp-related__card-old">S/ {{ number_format($r->original_price, 2) }}</span>
+                                @endif
+                            @else
+                                <span class="mp-related__card-consult">Consultar precio</span>
+                            @endif
                         </div>
-                        <div class="mp-card-shop">
-                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9h18"/><path d="m3 9 1.5-6h15L21 9"/><path d="M3 9v10a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V9"/></svg>
-                            <span class="mp-card-shop-name">{{ \Illuminate\Support\Str::limit($r->seller_display, 24) }}</span>
+                        <div class="mp-related__card-shop">
+                            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9h18"/><path d="m3 9 1.5-6h15L21 9"/><path d="M3 9v10a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V9"/></svg>
+                            <span>{{ \Illuminate\Support\Str::limit($r->seller_display, 24) }}</span>
                         </div>
                     </div>
                 </a>
             @endforeach
         </div>
     </section>
+
+    <style>
+    .mp-related { margin: 32px 0 16px; padding: 0; }
+    .mp-related__head {
+        display: flex; align-items: center; justify-content: space-between;
+        gap: 12px; margin-bottom: 14px;
+        padding: 0 clamp(0px, 1vw, 4px);
+    }
+    .mp-related__title {
+        margin: 0;
+        font-size: clamp(16px, 3.4vw, 19px);
+        font-weight: 700;
+        color: var(--mp-ink, #111827);
+        letter-spacing: -.01em;
+    }
+    .mp-related__nav { display: inline-flex; gap: 6px; }
+    .mp-related__nav-btn {
+        width: 36px; height: 36px;
+        border-radius: 999px;
+        border: 1.5px solid var(--mp-line, #e5e7eb);
+        background: #fff;
+        color: var(--mp-ink, #111827);
+        cursor: pointer;
+        display: inline-flex; align-items: center; justify-content: center;
+        transition: border-color .15s, color .15s, background .15s, transform .12s;
+    }
+    .mp-related__nav-btn:hover {
+        border-color: var(--mp-primary, #0f8a82);
+        color: var(--mp-primary-dark, #0c6b65);
+    }
+    .mp-related__nav-btn:active { transform: scale(.94); }
+    .mp-related__nav-btn:disabled { opacity: .35; cursor: not-allowed; }
+
+    .mp-related__rail {
+        display: grid;
+        grid-auto-flow: column;
+        grid-auto-columns: minmax(200px, 1fr);
+        gap: 14px;
+        overflow-x: auto;
+        scroll-snap-type: x mandatory;
+        scroll-behavior: smooth;
+        scrollbar-width: thin;
+        -webkit-mask-image: linear-gradient(to right, #000 94%, transparent);
+                mask-image: linear-gradient(to right, #000 94%, transparent);
+        padding: 4px 4px 14px;
+    }
+    .mp-related__rail::-webkit-scrollbar { height: 4px; }
+    .mp-related__rail::-webkit-scrollbar-thumb { background: var(--mp-line, #e5e7eb); border-radius: 999px; }
+
+    .mp-related__card {
+        scroll-snap-align: start;
+        background: #fff;
+        border: 1px solid #f1f5f9;
+        border-radius: 14px;
+        text-decoration: none; color: inherit;
+        overflow: hidden;
+        transition: transform .18s, box-shadow .18s, border-color .18s;
+        display: flex; flex-direction: column;
+        min-width: 0;
+    }
+    .mp-related__card:hover {
+        transform: translateY(-3px);
+        border-color: var(--mp-primary, #0f8a82);
+        box-shadow: 0 10px 22px -12px rgba(15, 138, 130, .25);
+    }
+    .mp-related__card-img {
+        position: relative;
+        aspect-ratio: 1/1;
+        background: #f7f9fb;
+        overflow: hidden;
+    }
+    .mp-related__card-img img {
+        width: 100%; height: 100%;
+        object-fit: cover;
+        transition: transform .35s;
+    }
+    .mp-related__card:hover .mp-related__card-img img { transform: scale(1.05); }
+    .mp-related__card-noimg {
+        display: flex; align-items: center; justify-content: center;
+        height: 100%; color: #9ca3af; font-size: 12px;
+    }
+    .mp-related__card-pct {
+        position: absolute; top: 8px; left: 8px;
+        background: linear-gradient(135deg, #ef4444, #dc2626);
+        color: #fff;
+        font-size: 12px; font-weight: 800; letter-spacing: .3px;
+        padding: 3px 8px; border-radius: 999px;
+        box-shadow: 0 4px 8px -4px rgba(220,38,38,.45);
+    }
+    .mp-related__card-body { padding: 10px 12px 12px; }
+    .mp-related__card-title {
+        margin: 0 0 6px;
+        font-size: 13px; font-weight: 600; color: #1f2937;
+        line-height: 1.35;
+        display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+        overflow: hidden;
+        min-height: 34px;
+    }
+    .mp-related__card-prices {
+        display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap;
+        margin-bottom: 4px;
+    }
+    .mp-related__card-price {
+        font-size: 16px; font-weight: 800;
+        color: var(--mp-ink, #111827);
+        letter-spacing: -.01em;
+    }
+    .mp-related__card-old {
+        font-size: 12px;
+        color: #9ca3af;
+        text-decoration: line-through;
+    }
+    .mp-related__card-consult { font-size: 13px; font-weight: 500; color: #6b7280; }
+    .mp-related__card-shop {
+        display: inline-flex; align-items: center; gap: 4px;
+        font-size: 11.5px; color: #6b7280;
+        margin-top: 2px;
+    }
+
+    /* Mobile: cards mas compactas, ocultar nav buttons (swipe nativo) */
+    @media (max-width: 700px) {
+        .mp-related__rail { grid-auto-columns: minmax(160px, 1fr); gap: 10px; }
+        .mp-related__nav { display: none; }
+        .mp-related__card-title { font-size: 12.5px; min-height: 32px; }
+        .mp-related__card-price { font-size: 15px; }
+    }
+    </style>
+
+    <script>
+    (function () {
+        var rail = document.getElementById('mpRelatedRail');
+        if (!rail) return;
+        var prev = document.querySelector('[data-rel-prev]');
+        var next = document.querySelector('[data-rel-next]');
+        function scrollBy(dir) {
+            var card = rail.querySelector('.mp-related__card');
+            var step = card ? card.offsetWidth + 14 : 220;
+            rail.scrollBy({ left: dir * step * 2, behavior: 'smooth' });
+        }
+        if (prev) prev.addEventListener('click', function () { scrollBy(-1); });
+        if (next) next.addEventListener('click', function () { scrollBy(1); });
+
+        // Habilitar/deshabilitar botones segun posicion de scroll
+        function syncNav() {
+            if (!prev || !next) return;
+            prev.disabled = rail.scrollLeft <= 4;
+            next.disabled = rail.scrollLeft + rail.clientWidth >= rail.scrollWidth - 4;
+        }
+        rail.addEventListener('scroll', syncNav, { passive: true });
+        window.addEventListener('resize', syncNav);
+        syncNav();
+    })();
+    </script>
 @endif
 
 {{-- ════════════ Ofertas contextuales (misma tienda > marketplace) ════════════
