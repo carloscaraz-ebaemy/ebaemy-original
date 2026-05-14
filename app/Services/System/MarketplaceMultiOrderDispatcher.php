@@ -383,62 +383,24 @@ class MarketplaceMultiOrderDispatcher
         }
 
         try {
-            $tenantFqdn = $client->hostname->fqdn;
-            $itemsHtml = '';
-            foreach ($items as $line) {
-                $itemsHtml .= '<tr><td style="padding:6px 0">' . htmlspecialchars($line->title)
-                    . ' <span style="color:#9ca3af">×' . (int) $line->quantity . '</span></td>'
-                    . '<td style="padding:6px 0;text-align:right">S/ ' . number_format($line->total, 2) . '</td></tr>';
-            }
+            $tenantFqdn = $client->hostname->fqdn ?? '';
 
-            $html  = '<!DOCTYPE html><html><body style="font-family:sans-serif;color:#333;max-width:560px;margin:0 auto;padding:24px">';
-            $html .= '<div style="background:linear-gradient(135deg,#0f8a82 0%,#0a6f68 100%);color:#fff;padding:20px;border-radius:12px 12px 0 0;text-align:center">';
-            $html .= '<h2 style="margin:0;font-size:20px">🛍️ Nuevo pedido desde Marketplace ebaemy</h2></div>';
-            $html .= '<div style="background:#fff;border:1px solid #e5e7eb;border-top:none;padding:24px;border-radius:0 0 12px 12px">';
-            $html .= '<p>Hola, llegó un pedido a tu tienda desde <strong>ebaemy.com/marketplace</strong>.</p>';
-            $html .= '<p style="font-size:13px;color:#6b7280">Pedido marketplace: <strong>' . htmlspecialchars($order->order_number) . '</strong></p>';
-            $html .= '<table style="width:100%;border-collapse:collapse;margin:16px 0">' . $itemsHtml;
-            $html .= '<tr><td style="padding:10px 0;border-top:1px solid #e5e7eb;font-weight:600">Total tu subpedido</td>';
-            $html .= '<td style="padding:10px 0;border-top:1px solid #e5e7eb;text-align:right;font-weight:700">S/ ' . number_format($subtotal, 2) . '</td></tr>';
-            $html .= '</table>';
-            $html .= '<div style="background:#fef3c7;border-radius:10px;padding:16px;margin:20px 0">';
-            $html .= '<div style="font-weight:600;color:#92400e;margin-bottom:6px">👤 Cliente</div>';
-            $html .= '<div><strong>' . htmlspecialchars($order->customer_name) . '</strong>';
-            if ($order->customer_doc_number) {
-                $html .= ' · ' . htmlspecialchars($order->customer_doc_type . ' ' . $order->customer_doc_number);
-            }
-            $html .= '</div>';
-            $html .= '<div>📱 ' . htmlspecialchars($order->customer_phone) . '</div>';
-            if ($order->customer_email) {
-                $html .= '<div>✉️ ' . htmlspecialchars($order->customer_email) . '</div>';
-            }
-            $html .= '<div style="margin-top:8px;font-size:13px"><strong>Dirección:</strong> ' . htmlspecialchars($order->delivery_address);
-            if ($order->delivery_district) {
-                $html .= ' — ' . htmlspecialchars($order->delivery_district);
-            }
-            $html .= '</div>';
-            if ($order->delivery_notes) {
-                $html .= '<div style="margin-top:6px;font-size:13px">💬 ' . htmlspecialchars($order->delivery_notes) . '</div>';
-            }
-            $html .= '</div>';
-            $html .= '<a href="https://' . $tenantFqdn . '/orders" style="display:inline-block;background:#111;color:#fff;padding:12px 28px;border-radius:8px;text-decoration:none;font-weight:600">Ver pedido en mi panel →</a>';
-            $html .= '</div></body></html>';
-
-            $subject = '🛍️ Pedido marketplace ' . $order->order_number . ' (' . $items->count() . ' productos)';
-            $safeSubject = mb_substr(trim(preg_replace('/\s+/', ' ', str_replace(["\r", "\n"], ' ', $subject))), 0, 100);
-
-            // Aseguramos config SMTP del sistema (Configuration::setConfigSmtpMail)
-            // por si el .env no tiene credenciales pero la BD sí.
+            // Aseguramos config SMTP del sistema (lee mail_* de configurations
+            // y los setea en config('mail.*')). Si .env ya tiene MAIL_HOST
+            // valido este no-op queda silente — no hace daño.
             try { \App\Models\System\Configuration::setConfigSmtpMail(); } catch (\Throwable $_) {}
 
-            Mail::send([], [], function ($message) use ($toEmail, $safeSubject, $html) {
-                $message->to($toEmail)->subject($safeSubject)->html($html);
-            });
+            // Patron Mailable estandar — antes usabamos Mail::send([], [], closure)
+            // que en algunas configs de driver no enviaba el body. Misma forma que
+            // MarketplaceOrderConfirmationMail (al comprador) que si funciona.
+            Mail::to($toEmail)->send(
+                new \App\Mail\MarketplaceTenantOrderMail($order, $sub, $items, $subtotal, $tenantFqdn)
+            );
 
             Log::info('marketplace multi-order tenant notif enviada', [
                 'order' => $order->order_number,
                 'to'    => $toEmail,
-                'tenant' => $client->hostname->fqdn ?? null,
+                'tenant' => $tenantFqdn,
             ]);
         } catch (\Throwable $e) {
             Log::warning('marketplace multi-order tenant notification failed', [
