@@ -132,7 +132,259 @@
     </script>
 @endif
 
-{{-- ═══════════════════════ OFERTAS DEL DÍA (solo home, ≥4 ofertas) ═══════════════════════
+{{-- ═══════════════════════ MODO SELECCION MULTIPLE (solo en ofertas) ═══════════════════════
+     Al filtrar por ofertas, ofrecemos un toggle que activa checkboxes en
+     las cards. Sticky bar abajo muestra contador + ahorro total + boton
+     'Agregar al carrito'. Bulk add en un solo POST. --}}
+@if(!empty($onOfferOnly) && !$listings->isEmpty())
+    <div class="mp-bulk-toggle-row">
+        <button type="button" id="mpBulkToggle" class="mp-bulk-toggle" aria-pressed="false">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+            <span data-bulk-label>Comprar varias a la vez</span>
+        </button>
+        <span class="mp-bulk-toggle-hint">Selecciona varias ofertas y agrégalas al carrito de un click.</span>
+    </div>
+
+    {{-- Sticky bar abajo cuando hay items seleccionados --}}
+    <div class="mp-bulk-bar" id="mpBulkBar" hidden role="region" aria-label="Resumen seleccion">
+        <div class="mp-bulk-bar__info">
+            <strong id="mpBulkCount">0</strong> seleccionados
+            <span class="mp-bulk-bar__savings">· Ahorras <strong id="mpBulkSavings">S/ 0.00</strong></span>
+        </div>
+        <div class="mp-bulk-bar__actions">
+            <button type="button" id="mpBulkClear" class="mp-bulk-bar__clear">Limpiar</button>
+            <button type="button" id="mpBulkAdd" class="mp-bulk-bar__add">
+                Agregar al carrito
+                <span id="mpBulkAddTotal" class="mp-bulk-bar__add-total"></span>
+            </button>
+        </div>
+    </div>
+
+    <style>
+    .mp-bulk-toggle-row {
+        display: flex; align-items: center; gap: 12px;
+        margin-bottom: 12px; flex-wrap: wrap;
+    }
+    .mp-bulk-toggle {
+        display: inline-flex; align-items: center; gap: 8px;
+        padding: 9px 16px;
+        background: #fff;
+        border: 1.5px solid var(--mp-primary, #0f8a82);
+        color: var(--mp-primary-dark, #0c6b65);
+        border-radius: 999px;
+        font-size: 13.5px; font-weight: 700;
+        cursor: pointer;
+        transition: background .15s, color .15s;
+    }
+    .mp-bulk-toggle:hover { background: var(--mp-primary-soft, #e6f7f5); }
+    .mp-bulk-toggle[aria-pressed="true"] {
+        background: var(--mp-primary, #0f8a82); color: #fff;
+    }
+    .mp-bulk-toggle-hint { font-size: 12.5px; color: #6b7280; }
+    @media (max-width: 600px) { .mp-bulk-toggle-hint { display: none; } }
+
+    /* Cards en modo seleccion: checkbox visible top-left, fondo highlight si elegido */
+    .mp-bulk-mode .mp-card { position: relative; }
+    .mp-bulk-mode .mp-card::before {
+        content: '';
+        position: absolute; top: 10px; left: 10px;
+        width: 26px; height: 26px;
+        background: #fff;
+        border: 2px solid var(--mp-line, #e5e7eb);
+        border-radius: 6px;
+        z-index: 5;
+        transition: background .15s, border-color .15s;
+    }
+    .mp-bulk-mode .mp-card.is-bulk-selected::before {
+        background: var(--mp-primary, #0f8a82);
+        border-color: var(--mp-primary, #0f8a82);
+    }
+    .mp-bulk-mode .mp-card.is-bulk-selected::after {
+        content: '';
+        position: absolute; top: 13px; left: 16px;
+        width: 6px; height: 12px;
+        border: solid #fff;
+        border-width: 0 2.5px 2.5px 0;
+        transform: rotate(45deg);
+        z-index: 6;
+    }
+    .mp-bulk-mode .mp-card.is-bulk-selected {
+        border-color: var(--mp-primary, #0f8a82);
+        box-shadow: 0 0 0 2px var(--mp-primary-soft, #e6f7f5);
+    }
+    /* En modo seleccion, click en el card NO navega — selecciona/deselecciona */
+    .mp-bulk-mode .mp-card { cursor: pointer; }
+    /* Boton + del card oculto en modo seleccion (evita confusion) */
+    .mp-bulk-mode .mp-card-quickadd { display: none !important; }
+
+    /* Sticky bar */
+    .mp-bulk-bar {
+        position: fixed;
+        left: 0; right: 0; bottom: 0;
+        background: #fff;
+        border-top: 1px solid var(--mp-line, #e5e7eb);
+        box-shadow: 0 -8px 24px rgba(15, 23, 42, .12);
+        padding: 14px 18px calc(14px + env(safe-area-inset-bottom));
+        z-index: 200;
+        display: flex; align-items: center; justify-content: space-between;
+        gap: 14px;
+        flex-wrap: wrap;
+    }
+    .mp-bulk-bar__info { font-size: 14px; color: var(--mp-ink, #111827); }
+    .mp-bulk-bar__info strong { font-weight: 700; color: var(--mp-primary-dark, #0c6b65); }
+    .mp-bulk-bar__savings { color: #16a34a; margin-left: 6px; }
+    .mp-bulk-bar__savings strong { color: #16a34a; }
+    .mp-bulk-bar__actions { display: inline-flex; gap: 10px; align-items: center; }
+    .mp-bulk-bar__clear {
+        background: transparent; border: 0; color: #6b7280;
+        font-size: 13px; cursor: pointer;
+        padding: 8px 10px;
+    }
+    .mp-bulk-bar__clear:hover { color: var(--mp-ink); }
+    .mp-bulk-bar__add {
+        display: inline-flex; align-items: center; gap: 6px;
+        padding: 12px 22px;
+        background: var(--mp-primary, #0f8a82); color: #fff;
+        border: 0; border-radius: 10px;
+        font-weight: 700; font-size: 14px;
+        cursor: pointer;
+        transition: background .15s;
+        min-height: 44px;
+    }
+    .mp-bulk-bar__add:hover { background: var(--mp-primary-dark, #0c6b65); }
+    .mp-bulk-bar__add-total { opacity: .85; font-weight: 600; }
+    @media (max-width: 600px) {
+        .mp-bulk-bar { padding: 12px 14px calc(12px + env(safe-area-inset-bottom)); gap: 10px; }
+        .mp-bulk-bar__info { font-size: 13px; flex: 1 1 100%; }
+        .mp-bulk-bar__actions { flex: 1; justify-content: flex-end; }
+        .mp-bulk-bar__add { padding: 12px 16px; }
+    }
+    </style>
+
+    <script>
+    (function () {
+        var toggle  = document.getElementById('mpBulkToggle');
+        var bar     = document.getElementById('mpBulkBar');
+        if (!toggle || !bar) return;
+        var countEl   = document.getElementById('mpBulkCount');
+        var savingsEl = document.getElementById('mpBulkSavings');
+        var totalEl   = document.getElementById('mpBulkAddTotal');
+        var clearBtn  = document.getElementById('mpBulkClear');
+        var addBtn    = document.getElementById('mpBulkAdd');
+        var label     = toggle.querySelector('[data-bulk-label]');
+
+        var selected = new Map(); // id -> {price, originalPrice, title}
+        var mode = false;
+
+        function applyMode(on) {
+            mode = on;
+            document.body.classList.toggle('mp-bulk-mode', on);
+            toggle.setAttribute('aria-pressed', on ? 'true' : 'false');
+            label.textContent = on ? 'Salir del modo selección' : 'Comprar varias a la vez';
+            if (!on) {
+                clear();
+            }
+        }
+
+        function refreshBar() {
+            var n = selected.size;
+            countEl.textContent = n;
+            var total = 0, savings = 0;
+            selected.forEach(function (v) {
+                total   += v.price;
+                savings += Math.max(0, (v.originalPrice || 0) - v.price);
+            });
+            savingsEl.textContent = 'S/ ' + savings.toFixed(2);
+            totalEl.textContent   = '(S/ ' + total.toFixed(2) + ')';
+            bar.hidden = n === 0;
+        }
+
+        function clear() {
+            selected.clear();
+            document.querySelectorAll('.mp-card.is-bulk-selected').forEach(function (c) {
+                c.classList.remove('is-bulk-selected');
+            });
+            refreshBar();
+        }
+
+        toggle.addEventListener('click', function () { applyMode(!mode); });
+        clearBtn.addEventListener('click', clear);
+
+        // Delegate clicks: en modo seleccion, click en card → toggle. Sin
+        // modo seleccion, navegacion normal del <a class="mp-card">.
+        document.addEventListener('click', function (e) {
+            if (!mode) return;
+            var card = e.target.closest('.mp-card');
+            if (!card) return;
+            e.preventDefault();
+            // Solo agregamos a la seleccion los productos que se pueden
+            // bulk-add (sin variantes/pack). El backend tambien valida.
+            var quickAdd = card.querySelector('.mp-card-quickadd');
+            var isDetailOnly = quickAdd && quickAdd.classList.contains('is-detail');
+            if (isDetailOnly) {
+                // tiene variantes — no se puede agregar masivo, navegar al detalle
+                window.location.href = card.getAttribute('href');
+                return;
+            }
+            var id = quickAdd ? parseInt(quickAdd.getAttribute('data-listing-id'), 10) : null;
+            if (!id) return;
+            // Capturar precios desde el DOM
+            var priceEl = card.querySelector('.mp-card-price');
+            var oldEl   = card.querySelector('.mp-card-price-old');
+            var price   = priceEl ? parseFloat(priceEl.textContent.replace(/[^0-9.]/g, '')) || 0 : 0;
+            var oldP    = oldEl   ? parseFloat(oldEl.textContent.replace(/[^0-9.]/g, '')) || 0 : 0;
+
+            if (selected.has(id)) {
+                selected.delete(id);
+                card.classList.remove('is-bulk-selected');
+            } else {
+                selected.set(id, { price: price, originalPrice: oldP, title: '' });
+                card.classList.add('is-bulk-selected');
+            }
+            refreshBar();
+        });
+
+        addBtn.addEventListener('click', function () {
+            if (selected.size === 0) return;
+            addBtn.disabled = true;
+            var oldHtml = addBtn.innerHTML;
+            addBtn.innerHTML = 'Agregando…';
+
+            fetch(@json(route('marketplace.cart.bulk_add')), {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': @json(csrf_token()),
+                    'Accept': 'application/json',
+                },
+                credentials: 'same-origin',
+                body: JSON.stringify({ listing_ids: Array.from(selected.keys()) })
+            })
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
+                if (!data.success) throw new Error('failed');
+                if (window.mpCartBadgeUpdate) window.mpCartBadgeUpdate(data.summary);
+                var addedN  = data.added_count || 0;
+                var skipped = (data.skipped || []).length;
+                var msg = '✓ ' + addedN + ' agregado(s) al carrito';
+                if (skipped > 0) msg += ' (' + skipped + ' requieren elegir opciones)';
+                addBtn.innerHTML = msg;
+                setTimeout(function () {
+                    clear();
+                    applyMode(false);
+                    addBtn.innerHTML = oldHtml;
+                    addBtn.disabled = false;
+                }, 1800);
+            })
+            .catch(function () {
+                addBtn.innerHTML = oldHtml;
+                addBtn.disabled = false;
+                alert('No se pudo agregar — recarga e intenta otra vez.');
+            });
+        });
+    })();
+    </script>
+@endif
      Ocultar cuando el visitante ya esta filtrando por ofertas (?on_offer=1) —
      el listado de abajo ya muestra los mismos productos, evitar duplicado. --}}
 @if(isset($dailyOffers) && $dailyOffers->count() >= 4 && empty($onOfferOnly))

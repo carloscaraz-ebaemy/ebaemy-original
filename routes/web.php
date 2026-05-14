@@ -1206,6 +1206,8 @@ if ($hostname) {
         Route::get('marketplace/cart/mini',        'MarketplaceCartController@mini')->name('marketplace.cart.mini');
         Route::post('marketplace/cart',            'MarketplaceCartController@add')
              ->middleware('throttle:60,1')->name('marketplace.cart.add');
+        Route::post('marketplace/cart/bulk-add',   'MarketplaceCartController@bulkAdd')
+             ->middleware('throttle:20,1')->name('marketplace.cart.bulk_add');
         Route::patch('marketplace/cart/{listing}', 'MarketplaceCartController@update')
              ->whereNumber('listing')->name('marketplace.cart.update');
         Route::delete('marketplace/cart/{listing}','MarketplaceCartController@destroy')

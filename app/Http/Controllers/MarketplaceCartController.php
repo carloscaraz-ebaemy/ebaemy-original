@@ -80,6 +80,64 @@ class MarketplaceCartController extends Controller
     }
 
     /**
+     * POST /marketplace/cart/bulk-add — agrega varios productos al carrito
+     * de una sola vez. Pensado para el flujo de seleccion multiple desde
+     * el listado de ofertas (modo seleccion). Body: { listing_ids: [int,...] }
+     *
+     * Solo procesa items SIN variantes y con stock — los que requieren
+     * elegir opcion se devuelven en `skipped` para que el front avise.
+     */
+    public function bulkAdd(Request $request)
+    {
+        $data = $request->validate([
+            'listing_ids'   => 'required|array|max:50',
+            'listing_ids.*' => 'integer|min:1',
+        ]);
+
+        $listings = \App\Models\System\MarketplaceListing::published()
+            ->whereIn('id', $data['listing_ids'])
+            ->get();
+
+        $added   = [];
+        $skipped = [];
+
+        foreach ($listings as $listing) {
+            if (!empty($listing->has_variants) || !empty($listing->is_pack)) {
+                $skipped[] = [
+                    'id'     => $listing->id,
+                    'slug'   => $listing->slug,
+                    'title'  => $listing->title,
+                    'reason' => 'requires_variant',
+                ];
+                continue;
+            }
+            $line = $this->cart->add($listing->slug, 1);
+            if ($line === null) {
+                $skipped[] = [
+                    'id'     => $listing->id,
+                    'slug'   => $listing->slug,
+                    'title'  => $listing->title,
+                    'reason' => 'unavailable',
+                ];
+                continue;
+            }
+            $added[] = [
+                'id'    => $listing->id,
+                'slug'  => $listing->slug,
+                'title' => $listing->title,
+            ];
+        }
+
+        return response()->json([
+            'success'      => true,
+            'added_count'  => count($added),
+            'added'        => $added,
+            'skipped'      => $skipped,
+            'summary'      => $this->cart->summary(),
+        ]);
+    }
+
+    /**
      * PATCH /marketplace/cart/{listing} — fija cantidad (0 elimina).
      */
     public function update(Request $request, int $listing)
