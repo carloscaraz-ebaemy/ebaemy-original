@@ -1265,7 +1265,12 @@ if ($hostname) {
              ->middleware('throttle:20,1')->name('seller.access.go');
         Route::get('seller/register', 'SellerRegistrationController@create')->name('seller.register');
         Route::post('seller/register', 'SellerRegistrationController@store')
-             ->middleware('throttle:5,60')
+             // 5 intentos / 60min era demasiado restrictivo — sellers
+             // reales con errores de validacion (RUC, subdominio en uso,
+             // logo invalido) se bloqueaban antes de poder completar.
+             // Subimos a 20/30min: suficiente para retries normales,
+             // sigue protegiendo de spam masivo.
+             ->middleware('throttle:20,30')
              ->name('seller.register.store');
         Route::get('seller/register/validate-ruc', 'SellerRegistrationController@validateRuc')
              ->middleware('throttle:30,1')
