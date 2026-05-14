@@ -923,8 +923,25 @@
                 <div class="mp-empty-icon">
                     <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/><line x1="11" y1="8" x2="11" y2="14"/><line x1="8" y1="11" x2="14" y2="11"/></svg>
                 </div>
-                <h3>No encontramos productos</h3>
-                <p>Prueba con otra búsqueda o explora <a href="{{ route('marketplace.index') }}" style="color:var(--mp-primary-dark);font-weight:600">todo el marketplace</a>.</p>
+                <h3>No encontramos resultados@if($q) para "{{ $q }}"@endif</h3>
+                <p>
+                    Sugerencias:
+                </p>
+                <ul style="margin:8px 0 16px;padding-left:20px;font-size:13.5px;color:#4b5563;line-height:1.7;text-align:left;display:inline-block">
+                    <li>Verifica que las palabras estén bien escritas</li>
+                    <li>Usa términos más generales (ej. "planta" en lugar de "ficus lyrata 200cm")</li>
+                    <li>Prueba sin filtros: <a href="{{ route('marketplace.index', ['q' => $q]) }}" style="color:var(--mp-primary-dark);font-weight:600">buscar "{{ $q ?: 'sin filtros' }}" sin filtros</a></li>
+                </ul>
+                <p style="margin-top:8px">
+                    O explora <a href="{{ route('marketplace.index') }}" style="color:var(--mp-primary-dark);font-weight:600">todo el marketplace</a>
+                    @if(isset($officialRoots) && $officialRoots->count() > 0)
+                        — categorías populares:
+                        @foreach($officialRoots->take(4) as $root)
+                            <a href="{{ route('marketplace.category_official', ['fullSlug' => $root->full_slug]) }}"
+                               style="display:inline-block;margin:4px 4px 0 0;padding:4px 10px;background:#f3f4f6;border-radius:999px;font-size:12px;color:#374151;text-decoration:none">{{ $root->icon ?: '' }} {{ $root->name }}</a>
+                        @endforeach
+                    @endif
+                </p>
             </div>
         @else
             <div class="mp-grid">

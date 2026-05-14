@@ -169,13 +169,37 @@ class MarketplaceListing extends Model
                      });
     }
 
+    /**
+     * Búsqueda tolerante: divide la query en palabras y exige que CADA
+     * palabra aparezca en title/category/brand. Asi 'x 24' encuentra
+     * 'x24 Hojas', 'planta artificial' encuentra 'planta de bambu artificial',
+     * etc. Sin la division, una sola palabra inexacta hace 0 resultados.
+     *
+     * Tambien colapsa espacios multiples y trim — defensivo.
+     */
     public function scopeSearch($query, ?string $q)
     {
         if (!$q) return $query;
-        return $query->where(function ($w) use ($q) {
-            $w->where('title', 'like', "%{$q}%")
-              ->orWhere('category_name', 'like', "%{$q}%")
-              ->orWhere('brand_name', 'like', "%{$q}%");
+        $q = trim(preg_replace('/\s+/', ' ', $q));
+        if ($q === '') return $query;
+
+        // Tokenizar: cada palabra >=2 chars se exige presente. Tokens cortos
+        // (1 char) suelen ser ruido — los ignoramos a menos que sea el unico.
+        $tokens = array_filter(
+            explode(' ', $q),
+            fn ($t) => mb_strlen($t) >= 2
+        );
+        if (empty($tokens)) $tokens = [$q]; // fallback: todo como un solo token
+
+        return $query->where(function ($w) use ($tokens) {
+            foreach ($tokens as $tok) {
+                $like = '%' . $tok . '%';
+                $w->where(function ($sub) use ($like) {
+                    $sub->where('title', 'like', $like)
+                        ->orWhere('category_name', 'like', $like)
+                        ->orWhere('brand_name', 'like', $like);
+                });
+            }
         });
     }
 

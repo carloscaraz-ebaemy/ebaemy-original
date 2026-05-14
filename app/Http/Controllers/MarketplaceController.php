@@ -289,16 +289,28 @@ class MarketplaceController extends Controller
         // Cache por query lowercase para hits repetidos (ej. autocomplete de
         // shoppers buscando el mismo producto). TTL corto porque inventory
         // puede cambiar; 60s es buen tradeoff.
-        $cacheKey = 'mp_suggest_' . md5(mb_strtolower($q));
+        $cacheKey = 'mp_suggest_v2_' . md5(mb_strtolower($q));
         $data = \Cache::remember($cacheKey, 60, function () use ($q) {
-            $like = '%' . $q . '%';
+            // Mismo split en tokens que scopeSearch: cada palabra >=2 chars
+            // se exige presente. 'x 24' encuentra 'x24 Hojas', etc.
+            $qNorm = trim(preg_replace('/\s+/', ' ', $q));
+            $tokens = array_filter(
+                explode(' ', $qNorm),
+                fn ($t) => mb_strlen($t) >= 2
+            );
+            if (empty($tokens)) $tokens = [$qNorm];
 
             $listings = MarketplaceListing::published()
-                ->where(function ($w) use ($like) {
-                    $w->where('title', 'like', $like)
-                      ->orWhere('internal_id', 'like', $like)
-                      ->orWhere('brand_name', 'like', $like)
-                      ->orWhere('category_name', 'like', $like);
+                ->where(function ($w) use ($tokens) {
+                    foreach ($tokens as $tok) {
+                        $like = '%' . $tok . '%';
+                        $w->where(function ($sub) use ($like) {
+                            $sub->where('title', 'like', $like)
+                                ->orWhere('internal_id', 'like', $like)
+                                ->orWhere('brand_name', 'like', $like)
+                                ->orWhere('category_name', 'like', $like);
+                        });
+                    }
                 })
                 // Prioriza featured, luego score, luego views
                 ->orderByRaw('CASE WHEN is_featured = 1 AND (featured_until IS NULL OR featured_until > NOW()) THEN 1 ELSE 0 END DESC')
