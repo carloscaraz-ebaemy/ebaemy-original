@@ -56,6 +56,82 @@
 {{-- Tiendas destacadas se muestran DESPUÉS del listado de productos para no
      desplazar la fila de productos por debajo del fold (UX 2026: productos primero). --}}
 
+{{-- ═══════════════════════ BANNER DE URGENCIA (al filtrar por ofertas) ═══════════════════════
+     Cuando el cliente esta viendo /marketplace?on_offer=1, mostramos un
+     banner sticky arriba del grid con countdown a la oferta mas pronta.
+     Aumenta urgencia y conversion. --}}
+@php
+    $soonestOfferEnd = null;
+    if (!empty($onOfferOnly) && !$listings->isEmpty()) {
+        $soonestOfferEnd = collect($listings->items())
+            ->filter(fn ($l) => !empty($l->offer_ends_at))
+            ->map(fn ($l) => \Carbon\Carbon::parse($l->offer_ends_at))
+            ->filter(fn ($d) => $d->isFuture())
+            ->sort()
+            ->first();
+    }
+@endphp
+@if($soonestOfferEnd)
+    <div class="mp-offers-urgency-banner" data-ends-at="{{ $soonestOfferEnd->toIso8601String() }}">
+        <span class="mp-offers-urgency-banner__icon">⏰</span>
+        <span class="mp-offers-urgency-banner__text">
+            La oferta más próxima termina en
+            <strong class="mp-offers-urgency-banner__countdown" data-countdown>—</strong>
+            — ¡aprovecha antes que se acabe!
+        </span>
+    </div>
+    <style>
+    .mp-offers-urgency-banner {
+        display: flex; align-items: center; gap: 10px;
+        padding: 12px 16px;
+        background: linear-gradient(90deg, #fef2f2 0%, #fff7ed 100%);
+        border: 1px solid #fecaca;
+        border-radius: 12px;
+        margin-bottom: 14px;
+        font-size: 14px;
+        color: #7f1d1d;
+        line-height: 1.4;
+    }
+    .mp-offers-urgency-banner__icon { font-size: 20px; flex-shrink: 0; }
+    .mp-offers-urgency-banner__text { flex: 1; }
+    .mp-offers-urgency-banner__countdown {
+        font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+        font-weight: 700; color: #dc2626;
+        padding: 1px 8px;
+        background: rgba(220,38,38,.1);
+        border-radius: 6px;
+        white-space: nowrap;
+    }
+    @media (max-width: 600px) {
+        .mp-offers-urgency-banner { font-size: 12.5px; padding: 10px 12px; gap: 8px; }
+        .mp-offers-urgency-banner__icon { font-size: 18px; }
+    }
+    </style>
+    <script>
+    (function () {
+        var banner = document.querySelector('.mp-offers-urgency-banner');
+        if (!banner) return;
+        var ends = new Date(banner.getAttribute('data-ends-at')).getTime();
+        var span = banner.querySelector('[data-countdown]');
+        function fmt(ms) {
+            if (ms <= 0) return 'Expirada';
+            var d = Math.floor(ms / 86400000);
+            var h = Math.floor((ms % 86400000) / 3600000);
+            var m = Math.floor((ms % 3600000) / 60000);
+            var s = Math.floor((ms % 60000) / 1000);
+            if (d > 0) return d + 'd ' + h + 'h ' + m + 'm';
+            if (h > 0) return h + 'h ' + m + 'm ' + s + 's';
+            return m + 'm ' + s + 's';
+        }
+        function tick() {
+            span.textContent = fmt(ends - Date.now());
+        }
+        tick();
+        setInterval(tick, 1000);
+    })();
+    </script>
+@endif
+
 {{-- ═══════════════════════ OFERTAS DEL DÍA (solo home, ≥4 ofertas) ═══════════════════════
      Ocultar cuando el visitante ya esta filtrando por ofertas (?on_offer=1) —
      el listado de abajo ya muestra los mismos productos, evitar duplicado. --}}

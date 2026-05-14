@@ -1211,6 +1211,32 @@ button { font-family: inherit; cursor: pointer; }
     width: 100%;
     cursor: pointer;
 }
+/* Boton compartir por WhatsApp — verde WA outline, mismo tamaño que el
+   resto de CTAs secundarios de la pagina detalle. */
+.mp-cta-share {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    background: #fff;
+    color: #128c7e;
+    padding: 12px 20px;
+    border-radius: var(--mp-radius);
+    font-weight: 600;
+    font-size: 13.5px;
+    text-decoration: none;
+    border: 1.5px solid #25d366;
+    transition: background .15s, color .15s, transform .12s;
+    width: 100%;
+    cursor: pointer;
+}
+.mp-cta-share:hover {
+    background: #25d366;
+    color: #fff;
+    text-decoration: none;
+}
+.mp-cta-share:active { transform: scale(.98); }
+
 .mp-cta-secondary:hover {
     background: var(--mp-primary, #0f8a82);
     color: #fff;
