@@ -1203,6 +1203,7 @@ if ($hostname) {
         // ─── Carrito multi-tienda (marketplace central) ──────────────────────
         Route::get('marketplace/cart',             'MarketplaceCartController@show')->name('marketplace.cart');
         Route::get('marketplace/cart/json',        'MarketplaceCartController@summary')->name('marketplace.cart.json');
+        Route::get('marketplace/cart/mini',        'MarketplaceCartController@mini')->name('marketplace.cart.mini');
         Route::post('marketplace/cart',            'MarketplaceCartController@add')
              ->middleware('throttle:60,1')->name('marketplace.cart.add');
         Route::patch('marketplace/cart/{listing}', 'MarketplaceCartController@update')

@@ -43,6 +43,15 @@ class MarketplaceCartController extends Controller
     }
 
     /**
+     * GET /marketplace/cart/mini — detalle compacto para el mini-cart drawer
+     * del navbar. Items agrupados por tienda + summary.
+     */
+    public function mini()
+    {
+        return response()->json($this->cart->miniDetails());
+    }
+
+    /**
      * POST /marketplace/cart — añadir producto.
      * Body: slug (string, required), quantity (int, default 1)
      */

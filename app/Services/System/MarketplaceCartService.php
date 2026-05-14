@@ -236,6 +236,44 @@ class MarketplaceCartService
         ];
     }
 
+    /**
+     * Detalle compacto para el mini-cart drawer del navbar. Igual que
+     * summary() pero también devuelve los items agrupados por tienda
+     * (lightweight — solo lo necesario para mostrar el panel).
+     */
+    public function miniDetails(): array
+    {
+        $stores = $this->groupedByStore();
+        $miniStores = $stores->map(function ($store) {
+            return [
+                'hostname_id'  => $store['hostname_id'],
+                'tenant_fqdn'  => $store['tenant_fqdn'] ?? null,
+                'tenant_name'  => $store['tenant_name'] ?? '',
+                'tenant_logo'  => $store['tenant_logo'] ?? null,
+                'subtotal'     => $store['subtotal'] ?? 0,
+                'items'        => collect($store['items'] ?? [])
+                    ->map(fn ($l) => [
+                        'listing_id'  => $l['listing_id']  ?? null,
+                        'slug'        => $l['slug']        ?? null,
+                        'title'       => $l['title']       ?? '',
+                        'image'       => $l['image_url']   ?? null,
+                        'quantity'    => (int) ($l['quantity'] ?? 0),
+                        'price'       => (float) ($l['price'] ?? 0),
+                        'line_total'  => round(
+                            (int) ($l['quantity'] ?? 0) * (float) ($l['price'] ?? 0),
+                            2
+                        ),
+                    ])
+                    ->values(),
+            ];
+        })->values();
+
+        return [
+            'stores'  => $miniStores,
+            'summary' => $this->summary(),
+        ];
+    }
+
     // ──────────────────────────────────────────────────────────────────────
     //  Cupones aplicados por tienda — persistencia en sesión
     // ──────────────────────────────────────────────────────────────────────
