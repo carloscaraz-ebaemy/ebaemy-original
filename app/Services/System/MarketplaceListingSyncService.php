@@ -344,13 +344,26 @@ class MarketplaceListingSyncService
             ];
         }
 
-        // Caso 2: PromotionEngine. Solo si hay un canal 'marketplace' configurado
-        // y reglas activas que apliquen al item.
+        // Caso 2: PromotionEngine.
+        //
+        // Antes solo buscabamos reglas atadas al canal type='marketplace'.
+        // Problema: la mayoria de sellers crea promos para su tienda virtual
+        // (canal 'ecommerce') y nunca configura un canal marketplace aparte.
+        // Resultado: las ofertas que el comprador ve en alasitas.ebaemy.com
+        // NO se propagaban al marketplace central. Bug reportado 2026-05-14.
+        //
+        // Fix: aceptamos reglas de marketplace Y de ecommerce. Logica:
+        // si el seller hace una promo online, aplica a sus dos ventanas
+        // online (su tienda + marketplace). Si quiere marketplace-only, puede
+        // crear un canal marketplace con su propia regla — toma precedencia.
         if ($salePrice > 0) {
             try {
+                // Buscamos cualquier canal online activo (marketplace o ecommerce).
+                // Si hay marketplace dedicado, lo usamos; si no, fallback a ecommerce.
                 $channel = DB::connection('tenant')->table('sales_channels')
-                    ->where('type', 'marketplace')
                     ->where('is_active', true)
+                    ->whereIn('type', ['marketplace', 'ecommerce'])
+                    ->orderByRaw("FIELD(type, 'marketplace', 'ecommerce')") // prioridad
                     ->first();
 
                 if ($channel) {
@@ -363,19 +376,24 @@ class MarketplaceListingSyncService
                     ]];
 
                     $promo = PromotionEngine::make($cart, $salePrice)
-                        ->withChannel($channel->id, 'marketplace')
+                        ->withChannel($channel->id, $channel->type)
                         ->calculate(false); // commit=false → no incrementa used_count
 
                     $ruleDiscount = (float) ($promo['rule_discount'] ?? 0);
                     if ($ruleDiscount > 0) {
-                        // Buscar la fecha de expiración más cercana entre reglas activas
-                        // del canal que apliquen al item / categoría.
+                        // IDs de los canales online que vamos a considerar: marketplace
+                        // y ecommerce (ambos). Reglas con channel_id NULL siempre aplican.
+                        $onlineChannelIds = DB::connection('tenant')->table('sales_channels')
+                            ->where('is_active', true)
+                            ->whereIn('type', ['marketplace', 'ecommerce'])
+                            ->pluck('id')->all();
+
                         $earliestEnd = DB::connection('tenant')->table('discount_rules')
                             ->where('is_active', true)
                             ->whereNotNull('ends_at')
                             ->where('ends_at', '>', now())
-                            ->where(function ($q) use ($channel) {
-                                $q->whereNull('channel_id')->orWhere('channel_id', $channel->id);
+                            ->where(function ($q) use ($onlineChannelIds) {
+                                $q->whereNull('channel_id')->orWhereIn('channel_id', $onlineChannelIds);
                             })
                             ->where(function ($q) use ($item) {
                                 $q->whereNull('apply_item_id')
@@ -388,16 +406,13 @@ class MarketplaceListingSyncService
                             })
                             ->min('ends_at');
 
-                        // Detectar si alguna de las reglas activas es flash_sale
-                        // para que la UI muestre badge de urgencia ("flash") en
-                        // lugar del genérico de oferta.
                         $hasFlash = DB::connection('tenant')->table('discount_rules')
                             ->where('is_active', true)
                             ->where('type', 'flash_sale')
                             ->whereNotNull('ends_at')
                             ->where('ends_at', '>', now())
-                            ->where(function ($q) use ($channel) {
-                                $q->whereNull('channel_id')->orWhere('channel_id', $channel->id);
+                            ->where(function ($q) use ($onlineChannelIds) {
+                                $q->whereNull('channel_id')->orWhereIn('channel_id', $onlineChannelIds);
                             })
                             ->where(function ($q) use ($item) {
                                 $q->whereNull('apply_item_id')
