@@ -68,8 +68,9 @@
             <span>⭐ {{ \App\Models\System\Client::query()->where('is_verified', true)->count() }}+ tiendas verificadas</span>
         </div>
         <div class="mp-topbar-right">
-            <a href="{{ route('pricing') }}">Planes y precios</a>
-            <a href="{{ route('seller.landing') }}">¿Quieres vender?</a>
+            {{-- 'Planes y precios' y '¿Quieres vender?' removidos del topbar
+                 (ocupaban espacio y duplicaban accesos disponibles en el footer
+                 y el boton lateral 'Vender en ebaemy'). 2026-05-14. --}}
             <a href="mailto:soporte@ebaemy.com">Ayuda</a>
         </div>
     </div>
@@ -465,10 +466,8 @@
                 <span id="mpCartBadge"
                       style="display:none;position:absolute;top:-2px;right:-6px;background:#dc2626;color:#fff;font-size:10px;font-weight:700;border-radius:999px;min-width:18px;height:18px;padding:0 5px;line-height:18px;text-align:center"></span>
             </a>
-            <a href="{{ route('seller.landing') }}" class="mp-btn-sell">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13l-1.4 7h12.8"/><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/></svg>
-                <span class="mp-btn-sell-text">Vender en ebaemy</span>
-            </a>
+            {{-- 'Vender en ebaemy' removido del navbar a pedido del usuario.
+                 Acceso sigue disponible desde el footer (columna Vender). --}}
         </div>
     </div>
 
