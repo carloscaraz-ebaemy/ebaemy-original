@@ -291,9 +291,22 @@ class MarketplaceMultiOrderDispatcher
         Collection $items,
         float $subtotal
     ): void {
+        // 1) Intentar con clients.phone_ws (flujo seller_applications nuevo).
         $phone = preg_replace('/\D+/', '', (string) ($client->phone_ws ?? ''));
+
+        // 2) Fallback: si el client no tiene phone_ws (caso típico de tenants
+        //    creados manualmente antes de 2026-04), pegamos a tenant.users
+        //    type='admin' y tomamos su telephone/phone. Asi el WhatsApp
+        //    llega al seller real sin tener que rellenar clients.phone_ws.
         if (empty($phone) || mb_strlen($phone) < 9) {
-            Log::info('marketplace WA: tenant sin phone_ws, skip', [
+            $admin = $this->resolveTenantAdminContact();
+            if (!empty($admin['phone'])) {
+                $phone = preg_replace('/\D+/', '', (string) $admin['phone']);
+            }
+        }
+
+        if (empty($phone) || mb_strlen($phone) < 9) {
+            Log::info('marketplace WA: tenant sin telefono (phone_ws ni admin user), skip', [
                 'order' => $order->order_number,
                 'client_id' => $client->id,
             ]);
@@ -342,12 +355,24 @@ class MarketplaceMultiOrderDispatcher
         Collection $items,
         float $subtotal
     ): void {
-        // Algunos tenants (especialmente los creados antes de 2026-04) tienen
-        // contact_email lleno pero clients.email con un valor placeholder
-        // (admin@subdomain.com). Probamos primero contact_email, fallback a
-        // email para mantener compatibilidad. Asi llega al buzón real del
-        // seller, no al alias técnico.
+        // 1) contact_email (flujo seller_applications)  → fallback a email.
         $toEmail = !empty($client->contact_email) ? $client->contact_email : $client->email;
+
+        // 2) Si el email es generico admin@ebaemy.com (alias del SuperAdmin,
+        //    usado en los tenants creados manualmente), buscamos al admin
+        //    real en tenant.users y usamos su email — asi la notificacion
+        //    llega al buzón del seller, no al buzón compartido del SuperAdmin.
+        $isGenericAdminEmail = !empty($toEmail) && (
+            stripos($toEmail, 'admin@ebaemy.com') !== false ||
+            $toEmail === 'admin@' . ($client->hostname->fqdn ?? '')
+        );
+        if (empty($toEmail) || $isGenericAdminEmail) {
+            $admin = $this->resolveTenantAdminContact();
+            if (!empty($admin['email']) && $admin['email'] !== $toEmail) {
+                $toEmail = $admin['email'];
+            }
+        }
+
         if (empty($toEmail)) {
             Log::warning('marketplace multi-order tenant: sin email destinatario', [
                 'order' => $order->order_number,
@@ -421,6 +446,44 @@ class MarketplaceMultiOrderDispatcher
                 'to'    => $toEmail ?? null,
                 'error' => $e->getMessage(),
             ]);
+        }
+    }
+
+    /**
+     * Lee el contacto del admin del tenant actual (debe haberse cambiado
+     * el contexto via Tenancy\Environment->tenant() antes de llamar).
+     *
+     * Sirve de fallback cuando clients.phone_ws o clients.contact_email
+     * estan vacios/genericos — caso de tenants creados manualmente antes
+     * del flujo seller_applications.
+     *
+     * Devuelve ['email' => ?, 'phone' => ?] (cualquiera puede ser null).
+     */
+    private function resolveTenantAdminContact(): array
+    {
+        try {
+            $admin = DB::connection('tenant')->table('users')
+                ->where('type', 'admin')
+                ->where('active', true)
+                ->orderBy('id')
+                ->first(['email', 'telephone', 'phone']);
+
+            if (!$admin) {
+                return ['email' => null, 'phone' => null];
+            }
+
+            // Algunos sellers ponen el WhatsApp en `phone` (formal),
+            // otros en `telephone` (campo legacy). Probamos primero
+            // telephone (mas comun en este sistema), fallback a phone.
+            $phone = $admin->telephone ?: ($admin->phone ?: null);
+
+            return [
+                'email' => $admin->email ?: null,
+                'phone' => $phone,
+            ];
+        } catch (\Throwable $e) {
+            Log::info('resolveTenantAdminContact failed', ['error' => $e->getMessage()]);
+            return ['email' => null, 'phone' => null];
         }
     }
 }
