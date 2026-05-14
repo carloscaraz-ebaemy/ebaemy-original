@@ -234,6 +234,18 @@ class MarketplaceMultiOrderDispatcher
                 ]);
             }
 
+            // CRITICO: las notificaciones (notifyTenant + notifyTenantWhatsApp)
+            // usan resolveTenantAdminContact() que lee de tenant.users. Si
+            // cambiamos a null ANTES, la consulta cross-DB falla y el email
+            // se manda al alias generico admin@ebaemy.com (NO al seller real).
+            //
+            // Disparamos las notificaciones AUN dentro del contexto tenant,
+            // y solo despues volvemos a sistema. La sub_update y dispatched_at
+            // pueden esperar porque usan UsesSystemConnection (tabla system).
+
+            $this->notifyTenant($client, $order, $sub, $items, $orderSubtotal);
+            $this->notifyTenantWhatsApp($client, $order, $items, $orderSubtotal);
+
             // Volver a sistema central
             $tenancy->tenant(null);
 
@@ -245,9 +257,6 @@ class MarketplaceMultiOrderDispatcher
                 'dispatched_at'            => now(),
                 'sync_error'               => null,
             ]);
-
-            $this->notifyTenant($client, $order, $sub, $items, $orderSubtotal);
-            $this->notifyTenantWhatsApp($client, $order, $items, $orderSubtotal);
 
             return [
                 'success'        => true,
@@ -355,23 +364,48 @@ class MarketplaceMultiOrderDispatcher
         Collection $items,
         float $subtotal
     ): void {
-        // 1) contact_email (flujo seller_applications)  → fallback a email.
-        $toEmail = !empty($client->contact_email) ? $client->contact_email : $client->email;
+        // Resolucion de destinatario con logging por paso para que sea
+        // facil de auditar via storage/logs/laravel.log si algo no llega.
+        $sources = [];
 
-        // 2) Si el email es generico admin@ebaemy.com (alias del SuperAdmin,
-        //    usado en los tenants creados manualmente), buscamos al admin
-        //    real en tenant.users y usamos su email — asi la notificacion
-        //    llega al buzón del seller, no al buzón compartido del SuperAdmin.
+        $toEmail = $client->contact_email ?: null;
+        if ($toEmail) $sources[] = "contact_email=$toEmail";
+
+        if (empty($toEmail)) {
+            $toEmail = $client->email ?: null;
+            if ($toEmail) $sources[] = "email=$toEmail";
+        }
+
         $isGenericAdminEmail = !empty($toEmail) && (
             stripos($toEmail, 'admin@ebaemy.com') !== false ||
             $toEmail === 'admin@' . ($client->hostname->fqdn ?? '')
         );
+
+        // Fallback: buscar admin real del tenant.users si client.email es
+        // generico o vacio. Requiere estar en contexto tenant — el caller
+        // dispatchTenantSubOrder garantiza eso desde commit posterior.
         if (empty($toEmail) || $isGenericAdminEmail) {
             $admin = $this->resolveTenantAdminContact();
-            if (!empty($admin['email']) && $admin['email'] !== $toEmail) {
-                $toEmail = $admin['email'];
+            if (!empty($admin['email'])) {
+                $sources[] = "tenant_admin_user=" . $admin['email'];
+                // Solo reemplazar si NO es tambien admin@ebaemy.com
+                $adminIsGeneric = stripos($admin['email'], 'admin@ebaemy.com') !== false;
+                if (!$adminIsGeneric) {
+                    $toEmail = $admin['email'];
+                }
+            } else {
+                $sources[] = "tenant_admin_user=null";
             }
         }
+
+        Log::info('marketplace notifyTenant resolved recipient', [
+            'order'        => $order->order_number,
+            'client_id'    => $client->id,
+            'tenant_fqdn'  => $client->hostname->fqdn ?? null,
+            'final_email'  => $toEmail,
+            'is_generic'   => $isGenericAdminEmail,
+            'sources_tried' => $sources,
+        ]);
 
         if (empty($toEmail)) {
             Log::warning('marketplace multi-order tenant: sin email destinatario', [
