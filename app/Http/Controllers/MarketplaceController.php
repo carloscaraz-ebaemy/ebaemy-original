@@ -122,13 +122,31 @@ class MarketplaceController extends Controller
                   && $priceMin === null && $priceMax === null;
         $dailyOffers = collect();
         if ($isHome) {
-            $dailyOffers = Cache::remember('mp_daily_offers_v1', 1800, function () {
-                return MarketplaceListing::published()
+            // Cache bump v2: cambia el algoritmo a 'diversity-first' — tomamos
+            // hasta 30 ofertas candidatas y filtramos client-side a max 2 por
+            // tenant. Asi el carrusel se ve como marketplace de N tiendas, no
+            // como showcase de una sola tienda con muchas ofertas.
+            $dailyOffers = Cache::remember('mp_daily_offers_v2', 1800, function () {
+                $candidates = MarketplaceListing::published()
                     ->onOffer()
                     ->orderByDesc('discount_pct')
                     ->orderByDesc('view_count')
-                    ->limit(12)
+                    ->limit(30)
                     ->get();
+
+                // Max 2 ofertas por tenant para forzar diversidad.
+                $perTenantCap = 2;
+                $perTenantCount = [];
+                $diverse = collect();
+                foreach ($candidates as $c) {
+                    $h = $c->hostname_id;
+                    $n = $perTenantCount[$h] ?? 0;
+                    if ($n >= $perTenantCap) continue;
+                    $diverse->push($c);
+                    $perTenantCount[$h] = $n + 1;
+                    if ($diverse->count() >= 15) break;
+                }
+                return $diverse;
             });
         }
 

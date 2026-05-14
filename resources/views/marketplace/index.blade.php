@@ -390,55 +390,123 @@
      Ocultar cuando el visitante ya esta filtrando por ofertas (?on_offer=1) —
      el listado de abajo ya muestra los mismos productos, evitar duplicado. --}}
 @if(isset($dailyOffers) && $dailyOffers->count() >= 4 && empty($onOfferOnly))
-    <section class="mp-section mp-offers-block" aria-label="Ofertas del día">
+    <section class="mp-section mp-offers-block" id="mpOffersBlock" aria-label="Ofertas del día">
         <div class="mp-offers-head">
-            <div>
+            <div class="mp-offers-head__title-wrap">
                 <h2 class="mp-offers-title">🔥 Ofertas del día</h2>
-                <p class="mp-offers-sub">Descuentos vigentes de tiendas verificadas. Aprovecha mientras duren.</p>
+                <p class="mp-offers-sub">Descuentos vigentes de {{ $dailyOffers->pluck('hostname_id')->unique()->count() }} tienda{{ $dailyOffers->pluck('hostname_id')->unique()->count() === 1 ? '' : 's' }} verificada{{ $dailyOffers->pluck('hostname_id')->unique()->count() === 1 ? '' : 's' }}. Aprovecha mientras duren.</p>
             </div>
-            <a href="{{ route('marketplace.index', ['sort' => 'price_asc']) }}" class="mp-offers-cta">Ver todas →</a>
+            <div class="mp-offers-head__actions">
+                <a href="{{ route('marketplace.index', ['on_offer' => 1]) }}" class="mp-offers-cta">Ver todas →</a>
+                {{-- Flechas de carrusel (desktop) --}}
+                <button type="button" class="mp-offers-nav-btn" data-offers-prev aria-label="Anterior">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><polyline points="15 18 9 12 15 6"/></svg>
+                </button>
+                <button type="button" class="mp-offers-nav-btn" data-offers-next aria-label="Siguiente">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><polyline points="9 18 15 12 9 6"/></svg>
+                </button>
+                {{-- Toggle expandir/colapsar la seccion (usuario decide) --}}
+                <button type="button" class="mp-offers-collapse-btn" id="mpOffersCollapse" aria-expanded="true" aria-controls="mpOffersBody" title="Colapsar / expandir">
+                    <svg class="mp-offers-collapse-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg>
+                </button>
+            </div>
         </div>
-        <div class="mp-offers-rail" id="mpOffersRail">
-            @foreach($dailyOffers as $offer)
-                <a href="{{ route('marketplace.item', $offer->slug) }}" class="mp-offer-card">
-                    <div class="mp-offer-card__img">
-                        @if($offer->image_url)
-                            <img src="{{ $offer->image_url }}" alt="{{ $offer->title }}" loading="lazy">
-                        @else
-                            <div class="mp-offer-card__noimg">Sin imagen</div>
-                        @endif
-                        @if(!empty($offer->discount_pct))
-                            <span class="mp-offer-card__pct">-{{ $offer->discount_pct }}%</span>
-                        @endif
-                        @if(!empty($offer->offer_ends_at))
-                            <span class="mp-offer-card__timer" data-ends-at="{{ \Carbon\Carbon::parse($offer->offer_ends_at)->toIso8601String() }}">
-                                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="margin-right:3px"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-                                <span class="mp-offer-card__timer-txt">…</span>
-                            </span>
-                        @endif
-                    </div>
-                    <div class="mp-offer-card__body">
-                        <h3 class="mp-offer-card__title">{{ $offer->title }}</h3>
-                        <div class="mp-offer-card__price-row">
-                            <span class="mp-offer-card__price">S/ {{ number_format($offer->display_price, 2) }}</span>
-                            @if(!empty($offer->original_price) && $offer->original_price > $offer->display_price)
-                                <span class="mp-offer-card__old">S/ {{ number_format($offer->original_price, 2) }}</span>
+        <div class="mp-offers-body" id="mpOffersBody">
+            <div class="mp-offers-rail" id="mpOffersRail">
+                @foreach($dailyOffers as $offer)
+                    <a href="{{ route('marketplace.item', $offer->slug) }}" class="mp-offer-card">
+                        <div class="mp-offer-card__img">
+                            @if($offer->image_url)
+                                <img src="{{ $offer->image_url }}" alt="{{ $offer->title }}" loading="lazy">
+                            @else
+                                <div class="mp-offer-card__noimg">Sin imagen</div>
+                            @endif
+                            @if(!empty($offer->discount_pct))
+                                <span class="mp-offer-card__pct">-{{ $offer->discount_pct }}%</span>
+                            @endif
+                            @if(!empty($offer->offer_ends_at))
+                                <span class="mp-offer-card__timer" data-ends-at="{{ \Carbon\Carbon::parse($offer->offer_ends_at)->toIso8601String() }}">
+                                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="margin-right:3px"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                                    <span class="mp-offer-card__timer-txt">…</span>
+                                </span>
+                            @endif
+                        </div>
+                        <div class="mp-offer-card__body">
+                            <h3 class="mp-offer-card__title">{{ $offer->title }}</h3>
+                            <div class="mp-offer-card__price-row">
+                                <span class="mp-offer-card__price">S/ {{ number_format($offer->display_price, 2) }}</span>
+                                @if(!empty($offer->original_price) && $offer->original_price > $offer->display_price)
+                                    <span class="mp-offer-card__old">S/ {{ number_format($offer->original_price, 2) }}</span>
                             @endif
                         </div>
                         <div class="mp-offer-card__shop">{{ $offer->seller_display }}</div>
                     </div>
                 </a>
             @endforeach
-        </div>
+            </div> {{-- /.mp-offers-rail --}}
+        </div> {{-- /.mp-offers-body --}}
     </section>
 
     <style>
         .mp-offers-block { padding: 16px 0 8px; }
-        .mp-offers-head { display:flex; align-items:flex-end; justify-content:space-between; gap:12px; margin-bottom:12px; }
+        .mp-offers-head { display:flex; align-items:flex-end; justify-content:space-between; gap:12px; margin-bottom:12px; flex-wrap: wrap; }
+        .mp-offers-head__title-wrap { min-width: 0; flex: 1; }
+        .mp-offers-head__actions { display: inline-flex; gap: 8px; align-items: center; flex-shrink: 0; }
         .mp-offers-title { margin:0; font-size:18px; font-weight:800; color:#0a0e1a; }
         .mp-offers-sub { margin:2px 0 0; font-size:12.5px; color:#6b7280; }
         .mp-offers-cta { font-size:13px; font-weight:700; color:#dc2626; text-decoration:none; white-space:nowrap; }
         .mp-offers-cta:hover { text-decoration:underline; }
+
+        /* Flechas nav del carrusel (desktop). Mobile: ocultas, swipe nativo. */
+        .mp-offers-nav-btn {
+            width: 32px; height: 32px;
+            border-radius: 999px;
+            border: 1.5px solid var(--mp-line, #e5e7eb);
+            background: #fff;
+            color: #0a0e1a;
+            cursor: pointer;
+            display: inline-flex; align-items: center; justify-content: center;
+            transition: border-color .15s, color .15s, background .15s, transform .12s;
+        }
+        .mp-offers-nav-btn:hover { border-color: #dc2626; color: #dc2626; }
+        .mp-offers-nav-btn:active { transform: scale(.94); }
+        .mp-offers-nav-btn:disabled { opacity: .35; cursor: not-allowed; }
+        @media (max-width: 700px) {
+            .mp-offers-nav-btn { display: none; }
+        }
+
+        /* Boton collapse/expand */
+        .mp-offers-collapse-btn {
+            width: 32px; height: 32px;
+            border-radius: 999px;
+            border: 1.5px solid var(--mp-line, #e5e7eb);
+            background: #fff;
+            color: #6b7280;
+            cursor: pointer;
+            display: inline-flex; align-items: center; justify-content: center;
+            transition: border-color .15s, color .15s, background .15s;
+        }
+        .mp-offers-collapse-btn:hover { border-color: #6b7280; color: #0a0e1a; }
+        .mp-offers-collapse-icon { transition: transform .25s; }
+        .mp-offers-collapse-btn[aria-expanded="false"] .mp-offers-collapse-icon {
+            transform: rotate(-90deg);
+        }
+
+        /* Body collapsable con animacion */
+        .mp-offers-body {
+            transition: max-height .35s ease, opacity .25s ease;
+            max-height: 480px;
+            overflow: hidden;
+        }
+        .mp-offers-body.is-collapsed {
+            max-height: 0;
+            opacity: 0;
+            margin-top: 0;
+        }
+        /* Fade gradient en el borde derecho indicando 'mas contenido' */
+        .mp-offers-rail-wrap {
+            position: relative;
+        }
         .mp-offers-rail {
             display:flex; gap:14px;
             overflow-x:auto; scroll-snap-type:x mandatory; scroll-behavior:smooth;
@@ -526,6 +594,51 @@
         }
         tick();
         setInterval(tick, 60000);
+    })();
+
+    // Carrusel: flechas prev/next + collapse/expand del bloque.
+    (function () {
+        var rail  = document.getElementById('mpOffersRail');
+        var block = document.getElementById('mpOffersBlock');
+        var body  = document.getElementById('mpOffersBody');
+        if (!rail) return;
+
+        // Flechas de navegacion
+        var prevBtn = block.querySelector('[data-offers-prev]');
+        var nextBtn = block.querySelector('[data-offers-next]');
+        function scrollBy(dir) {
+            var card = rail.querySelector('.mp-offer-card');
+            var step = card ? card.offsetWidth + 14 : 220;
+            rail.scrollBy({ left: dir * step * 2, behavior: 'smooth' });
+        }
+        function syncNav() {
+            if (!prevBtn || !nextBtn) return;
+            prevBtn.disabled = rail.scrollLeft <= 4;
+            nextBtn.disabled = rail.scrollLeft + rail.clientWidth >= rail.scrollWidth - 4;
+        }
+        if (prevBtn) prevBtn.addEventListener('click', function () { scrollBy(-1); });
+        if (nextBtn) nextBtn.addEventListener('click', function () { scrollBy(1); });
+        rail.addEventListener('scroll', syncNav, { passive: true });
+        window.addEventListener('resize', syncNav);
+        syncNav();
+
+        // Collapse/expand — persiste en localStorage para que el usuario
+        // no tenga que cerrar la seccion en cada visita.
+        var collapseBtn = document.getElementById('mpOffersCollapse');
+        if (collapseBtn && body) {
+            var key = 'mp_offers_collapsed';
+            try {
+                if (localStorage.getItem(key) === '1') {
+                    body.classList.add('is-collapsed');
+                    collapseBtn.setAttribute('aria-expanded', 'false');
+                }
+            } catch (e) {}
+            collapseBtn.addEventListener('click', function () {
+                var collapsed = body.classList.toggle('is-collapsed');
+                collapseBtn.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+                try { localStorage.setItem(key, collapsed ? '1' : '0'); } catch (e) {}
+            });
+        }
     })();
     </script>
 @endif
