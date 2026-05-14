@@ -345,7 +345,16 @@ class MarketplaceController extends Controller
      */
     private function decorateListingsWithVariantData($listings): void
     {
-        $listingIds = collect($listings->items() ?? $listings)->pluck('id');
+        // Soporta tanto paginators (Paginator::items() devuelve array) como
+        // Collections (no tienen items(); iteramos directo). El '??' anterior
+        // NO atrapaba BadMethodCallException — tiraba 500 al recibir Collection
+        // (caso de favoritos, recently-viewed, tenant page con get()).
+        if ($listings instanceof \Illuminate\Contracts\Pagination\Paginator) {
+            $iterable = $listings->items();
+        } else {
+            $iterable = $listings;
+        }
+        $listingIds = collect($iterable)->pluck('id');
         if ($listingIds->isEmpty()) return;
 
         $variantImages = \App\Models\System\MarketplaceListingVariant::query()
