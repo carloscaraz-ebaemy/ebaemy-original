@@ -115,6 +115,7 @@ class MarketplaceController extends Controller
         // de la variante is_primary, y color activo. Reusable por todas
         // las acciones que renderizan grids de cards.
         $this->decorateListingsWithVariantData($listings);
+        $this->decorateListingsWithAlsoIn($listings);
 
         $categories = MarketplaceListing::published()
             ->whereNotNull('category_name')
@@ -485,6 +486,68 @@ class MarketplaceController extends Controller
     }
 
     /**
+     * Decora cada listing con also_in_count + also_in_min_price: cuantas
+     * OTRAS tiendas publican el mismo producto y a que precio minimo. Es
+     * el feature que distingue un marketplace de una coleccion de tiendas
+     * sueltas — el comprador ve de un vistazo si puede ahorrar comparando.
+     *
+     * Agrupamos por LOWER(TRIM(title)) en una sola query. Cada listing
+     * obtiene also_in_count (tiendas distintas excluyendo la propia) y
+     * also_in_min_price (precio efectivo minimo entre todos).
+     */
+    private function decorateListingsWithAlsoIn($listings): void
+    {
+        if ($listings instanceof \Illuminate\Contracts\Pagination\Paginator) {
+            $iterable = $listings->items();
+        } else {
+            $iterable = $listings;
+        }
+        if (empty($iterable) || (is_countable($iterable) && count($iterable) === 0)) return;
+
+        $titleKeys = [];
+        foreach ($iterable as $l) {
+            $k = mb_strtolower(trim((string) ($l->title ?? '')));
+            $l->_also_key = $k;
+            $l->also_in_count = 0;
+            $l->also_in_min_price = null;
+            if ($k !== '') $titleKeys[$k] = true;
+        }
+        if (empty($titleKeys)) return;
+        $keys = array_keys($titleKeys);
+
+        $placeholders = implode(',', array_fill(0, count($keys), '?'));
+        $rows = MarketplaceListing::published()
+            ->whereRaw("LOWER(TRIM(title)) IN ($placeholders)", $keys)
+            ->select('hostname_id', 'title', 'price', 'mp_price')
+            ->get();
+
+        $groups = [];
+        foreach ($rows as $r) {
+            $k = mb_strtolower(trim((string) $r->title));
+            if ($k === '') continue;
+            $effective = (float) ($r->mp_price ?: $r->price);
+            $groups[$k][] = ['hostname_id' => (int) $r->hostname_id, 'price' => $effective];
+        }
+
+        foreach ($iterable as $l) {
+            $k = $l->_also_key ?? '';
+            if ($k === '' || empty($groups[$k])) continue;
+            $rowsK = $groups[$k];
+            $otherHosts = [];
+            $minOtherPrice = null;
+            foreach ($rowsK as $r) {
+                if ($r['hostname_id'] === (int) $l->hostname_id) continue;
+                $otherHosts[$r['hostname_id']] = true;
+                if ($r['price'] > 0 && ($minOtherPrice === null || $r['price'] < $minOtherPrice)) {
+                    $minOtherPrice = $r['price'];
+                }
+            }
+            $l->also_in_count = count($otherHosts);
+            $l->also_in_min_price = $minOtherPrice;
+        }
+    }
+
+    /**
      * Raíces publicables del árbol oficial con conteo de listings. Cacheado
      * 30 min — el SuperAdmin rara vez cambia el árbol y el TTL corto basta.
      */
@@ -560,6 +623,7 @@ class MarketplaceController extends Controller
 
         $listings = $query->paginate(24)->withQueryString();
         $this->decorateListingsWithVariantData($listings);
+        $this->decorateListingsWithAlsoIn($listings);
         $total    = MarketplaceListing::published()->where('category_name', $category)->count();
 
         return view('marketplace.category', compact('listings', 'category', 'categorySlug', 'sort', 'priceMin', 'priceMax', 'total'));
@@ -607,6 +671,7 @@ class MarketplaceController extends Controller
 
         $listings = $query->paginate(24)->withQueryString();
         $this->decorateListingsWithVariantData($listings);
+        $this->decorateListingsWithAlsoIn($listings);
         $total    = MarketplaceListing::published()->inOfficialCategory($category->id)->count();
 
         // Breadcrumb oficial: ancestros + self
@@ -965,6 +1030,7 @@ class MarketplaceController extends Controller
 
         $listings = $query->paginate(24)->withQueryString();
         $this->decorateListingsWithVariantData($listings);
+        $this->decorateListingsWithAlsoIn($listings);
         $total    = MarketplaceListing::published()
                         ->where('hostname_id', $hostname->id)
                         ->count();

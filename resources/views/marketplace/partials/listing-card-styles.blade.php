@@ -101,6 +101,51 @@
         text-decoration: underline;
     }
 
+    /* Pill "También en N tiendas" — feature de comparación. Click va a
+       /marketplace?q=<titulo> para que el comprador vea todas las opciones. */
+    .mp-card-alsoin {
+        display: inline-flex; align-items: center; gap: 5px;
+        margin-top: 8px;
+        padding: 4px 9px 4px 7px;
+        font-size: 11.5px; line-height: 1.25; font-weight: 500;
+        color: #475569;
+        background: #f1f5f9;
+        border: 1px solid #e2e8f0;
+        border-radius: 999px;
+        text-decoration: none;
+        max-width: 100%;
+        white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        transition: background .15s, border-color .15s, color .15s;
+    }
+    .mp-card-alsoin svg {
+        width: 12px; height: 12px;
+        color: #94a3b8;
+        flex-shrink: 0;
+    }
+    .mp-card-alsoin strong {
+        color: #0f172a;
+        font-weight: 700;
+    }
+    .mp-card-alsoin:hover {
+        background: #ecfeff;
+        border-color: #67e8f9;
+        color: #0e7490;
+    }
+    .mp-card-alsoin:hover svg { color: #0891b2; }
+    /* Si en otra tienda está más barato, lo marcamos en verde para
+       generar una micro-señal de "puedes ahorrar". */
+    .mp-card-alsoin.is-cheaper {
+        background: #ecfdf5;
+        border-color: #a7f3d0;
+        color: #047857;
+    }
+    .mp-card-alsoin.is-cheaper svg { color: #10b981; }
+    .mp-card-alsoin.is-cheaper strong { color: #064e3b; }
+    .mp-card-alsoin.is-cheaper:hover {
+        background: #d1fae5;
+        border-color: #6ee7b7;
+    }
+
     /* Sidebar: contador junto al nombre de la tienda */
     .mp-filter-item .mp-filter-count {
         float: right;

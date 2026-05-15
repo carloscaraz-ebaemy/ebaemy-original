@@ -162,6 +162,42 @@
             @endif
         </div>
 
+        {{-- "También en N tiendas desde S/X" — el feature que distingue un
+             marketplace de un escaparate. Click filtra por título para
+             llevar al comprador al comparador visual. Solo se muestra si
+             hay al menos otra tienda con el mismo producto. --}}
+        @if(!empty($listing->also_in_count) && $listing->also_in_count > 0)
+            @php
+                $alsoInUrl = route('marketplace.index', ['q' => $listing->title]);
+                $alsoInMin = $listing->also_in_min_price ?? null;
+                $cardEffPrice = (float) ($listing->display_price ?? 0);
+                // Solo destacamos precio si en otra tienda es genuinamente
+                // mas barato (>1% de diferencia). Si los precios son similares
+                // o el propio es el mas bajo, solo mostramos el count para
+                // no inducir al comprador a hacer un click en falso.
+                $alsoIsCheaper = $alsoInMin !== null && $alsoInMin > 0
+                                && $cardEffPrice > 0
+                                && $alsoInMin < ($cardEffPrice * 0.99);
+                $alsoLabel = $listing->also_in_count === 1 ? 'otra tienda' : ($listing->also_in_count . ' tiendas más');
+            @endphp
+            <span class="mp-card-alsoin js-alsoin-link {{ $alsoIsCheaper ? 'is-cheaper' : '' }}"
+                  role="link" tabindex="0"
+                  data-href="{{ $alsoInUrl }}"
+                  title="Comparar este producto en otras tiendas">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="M3 9h18"/><path d="m3 9 1.5-6h15L21 9"/><path d="M3 9v10a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V9"/>
+                </svg>
+                <span>
+                    @if($alsoIsCheaper)
+                        También en {{ $alsoLabel }} · desde
+                        <strong>S/ {{ number_format($alsoInMin, 2) }}</strong>
+                    @else
+                        También en {{ $alsoLabel }}
+                    @endif
+                </span>
+            </span>
+        @endif
+
         {{-- Nombre de la tienda removido del card de listado (saturaba el grid).
              Sigue visible en la página de detalle del producto y en el cart.
              Si lo quieres reactivar para alguna vista puntual, pasa

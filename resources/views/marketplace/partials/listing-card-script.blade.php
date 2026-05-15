@@ -74,6 +74,21 @@ document.querySelectorAll('.js-shop-link').forEach(function (el) {
     });
 });
 
+// Pill "También en N tiendas" — mismo patrón: no podemos anidar <a>
+// dentro del <a> de la card, así que usamos span con data-href.
+document.querySelectorAll('.js-alsoin-link').forEach(function (el) {
+    var go = function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+        var href = el.getAttribute('data-href');
+        if (href) window.location.href = href;
+    };
+    el.addEventListener('click', go);
+    el.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter' || e.key === ' ') go(e);
+    });
+});
+
 // Wishlist: hidratar cards con estado de favoritos del visitante y
 // manejar el toggle del corazón. Session-based; no requiere login.
 (function () {
