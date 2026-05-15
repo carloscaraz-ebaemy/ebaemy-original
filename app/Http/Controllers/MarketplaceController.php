@@ -37,6 +37,19 @@ class MarketplaceController extends Controller
         // Filtros de precio — usa el campo efectivo (mp_price ?? price).
         $priceMin = $request->filled('price_min') ? max(0, (float) $request->input('price_min')) : null;
         $priceMax = $request->filled('price_max') ? max(0, (float) $request->input('price_max')) : null;
+
+        // Detector de intent de precio en la query libre. Si el comprador
+        // tipea '50 soles', 'S/ 50', 'menos de 100', interpretamos como
+        // price_max=N en lugar de busqueda textual (que daria 0 resultados
+        // porque 'soles' no aparece en ningun titulo de producto).
+        if (!empty($q) && $priceMin === null && $priceMax === null) {
+            $priceIntent = $this->detectPriceIntent($q);
+            if ($priceIntent) {
+                $priceMin = $priceIntent['min'] ?? null;
+                $priceMax = $priceIntent['max'] ?? null;
+                $q        = $priceIntent['remaining'] ?: null;
+            }
+        }
         // Filtro por tienda — el sidebar lo expone como ?shop=<subdomain>.
         // Resolvemos contra hostnames.fqdn (subdomain.ebaemy.com).
         $shopSubdomain = $request->input('shop');
@@ -1640,5 +1653,61 @@ class MarketplaceController extends Controller
         }
         if ($r->filled('sort') && $r->input('sort') !== 'relevance') return false;
         return true;
+    }
+
+    /**
+     * Detecta si la query del usuario expresa una intencion de PRECIO en
+     * lenguaje natural (en lugar de buscar productos por titulo). Si la
+     * detecta, devuelve min/max + el texto restante (sin la parte de precio)
+     * para combinar con busqueda textual si el usuario tipea ambas cosas.
+     *
+     * Ejemplos:
+     *   '50 soles'           → ['max' => 50]
+     *   'S/ 100'             → ['max' => 100]
+     *   'menos de 80'        → ['max' => 80]
+     *   'hasta 200'          → ['max' => 200]
+     *   'mas de 50'          → ['min' => 50]
+     *   'desde 30'           → ['min' => 30]
+     *   'entre 50 y 100'     → ['min' => 50, 'max' => 100]
+     *   'planta 100 soles'   → ['max' => 100, 'remaining' => 'planta']
+     *
+     * Si no hay intent de precio, devuelve null.
+     */
+    private function detectPriceIntent(string $q): ?array
+    {
+        $orig = trim($q);
+        $lower = mb_strtolower($orig);
+
+        // Patron: 'entre N y M' o 'entre N a M'
+        if (preg_match('/\bentre\s+(\d+(?:\.\d+)?)\s+(?:y|a)\s+(\d+(?:\.\d+)?)\b/u', $lower, $m)) {
+            $min = (float) $m[1];
+            $max = (float) $m[2];
+            if ($min > $max) [$min, $max] = [$max, $min];
+            $remaining = trim(preg_replace('/\bentre\s+\d+(?:\.\d+)?\s+(?:y|a)\s+\d+(?:\.\d+)?\b/u', '', $lower));
+            return ['min' => $min, 'max' => $max, 'remaining' => $remaining ?: null];
+        }
+
+        // Patron: 'menos de N' / 'hasta N' / 'no mas de N' / 'maximo N'
+        if (preg_match('/\b(?:menos\s+de|hasta|no\s+m[aá]s\s+de|m[aá]ximo)\s+(?:s\/\s*)?(\d+(?:\.\d+)?)\b/u', $lower, $m)) {
+            $remaining = trim(preg_replace('/\b(?:menos\s+de|hasta|no\s+m[aá]s\s+de|m[aá]ximo)\s+(?:s\/\s*)?\d+(?:\.\d+)?\b/u', '', $lower));
+            return ['max' => (float) $m[1], 'remaining' => $remaining ?: null];
+        }
+
+        // Patron: 'mas de N' / 'desde N' / 'minimo N'
+        if (preg_match('/\b(?:m[aá]s\s+de|desde|m[ií]nimo)\s+(?:s\/\s*)?(\d+(?:\.\d+)?)\b/u', $lower, $m)) {
+            $remaining = trim(preg_replace('/\b(?:m[aá]s\s+de|desde|m[ií]nimo)\s+(?:s\/\s*)?\d+(?:\.\d+)?\b/u', '', $lower));
+            return ['min' => (float) $m[1], 'remaining' => $remaining ?: null];
+        }
+
+        // Patron: 'N soles' / 'N sol' / 'S/ N' / 'S/N' (al final o solo)
+        // Ejemplos: '50 soles', 'planta 100 soles', 'S/ 200', 's/100'
+        if (preg_match('/(?:s\/\s*(\d+(?:\.\d+)?))|(\d+(?:\.\d+)?)\s*(?:soles?|sol)\b/u', $lower, $m)) {
+            $value = (float) (!empty($m[1]) ? $m[1] : $m[2]);
+            $remaining = trim(preg_replace('/(?:s\/\s*\d+(?:\.\d+)?)|(\d+(?:\.\d+)?)\s*(?:soles?|sol)\b/u', '', $lower));
+            return ['max' => $value, 'remaining' => $remaining ?: null];
+        }
+
+        // Sin intent de precio
+        return null;
     }
 }
