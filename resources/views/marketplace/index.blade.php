@@ -815,13 +815,13 @@
     <div class="mp-main-col">
         <div class="mp-toolbar">
             <div>
-                <div class="mp-toolbar-count">
+                <div class="mp-toolbar-count {{ $isHome ? 'mp-toolbar-count--home' : '' }}">
                     <strong>{{ $listings->total() }}</strong>
                     producto{{ $listings->total() === 1 ? '' : 's' }}
                     @if($q) para "{{ $q }}"@endif
                 </div>
                 @if($isHome && $listings->total() > 0)
-                    <div style="font-size:12px;color:var(--mp-muted);margin-top:2px">🔥 Productos destacados de nuestro marketplace</div>
+                    <div class="mp-toolbar-subtitle">🔥 Productos destacados de nuestro marketplace</div>
                 @endif
             </div>
             <form method="GET" action="{{ route('marketplace.index') }}" style="margin:0">
