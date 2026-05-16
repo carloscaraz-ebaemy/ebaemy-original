@@ -3,10 +3,12 @@
 // imagen principal de la card y mueve "is-active" al dot seleccionado.
 // Sticky: al salir/cerrar, la imagen y el dot activo quedan donde estaban.
 //
-// Mobile: 'mouseenter' es inconsistente en touch — iOS lo dispara una sola
-// vez por gesto y Android lo emula raro. El tap real entra por 'click',
-// asi que aplicamos el mismo efecto en ambos eventos. preventDefault del
-// click evita ademas que el <a> padre navegue al detalle.
+// Mobile: la card es un <a>; un tap en un dot dentro del <a> en touch
+// se interpreta como tap en el <a> y dispara navegacion antes de que
+// stopPropagation actue. Solucion: event delegation desde la card en
+// CAPTURE PHASE — interceptamos el evento ANTES de que llegue al <a>
+// y lo cancelamos. Ademas escuchamos pointerdown/touchstart para que
+// el preventDefault llegue lo mas temprano posible en mobile.
 document.querySelectorAll('.mp-card').forEach(function (card) {
     var dots = card.querySelectorAll('.mp-card-variant-dot, .mp-card-color-dot[data-img]');
     if (!dots.length) return;
@@ -22,14 +24,36 @@ document.querySelectorAll('.mp-card').forEach(function (card) {
             dot.classList.add('is-active');
         }
     }
+    function dotFromEvent(e) {
+        var t = e.target;
+        if (!t || !t.closest) return null;
+        return t.closest('.mp-card-color-dot[data-img], .mp-card-variant-dot');
+    }
+    // Captura cualquier tap/click dentro de la card y, si toca un dot,
+    // bloquea la navegacion del <a> y aplica el cambio de imagen. true
+    // = capture phase: el handler corre antes que cualquier listener
+    // en bubble (incluido el del propio <a>).
+    function handle(e) {
+        var dot = dotFromEvent(e);
+        if (!dot) return;
+        e.preventDefault();
+        e.stopPropagation();
+        if (typeof e.stopImmediatePropagation === 'function') e.stopImmediatePropagation();
+        activate(dot);
+    }
+    card.addEventListener('click', handle, true);
+    // pointerdown cubre touch y mouse en navegadores modernos.
+    // touchstart como fallback para iOS Safari antiguos.
+    card.addEventListener('pointerdown', function (e) {
+        if (dotFromEvent(e)) e.preventDefault();
+    }, true);
+    card.addEventListener('touchstart', function (e) {
+        if (dotFromEvent(e)) e.preventDefault();
+    }, { capture: true, passive: false });
 
+    // Desktop hover: sigue funcionando como antes para preview instantaneo.
     dots.forEach(function (dot) {
         dot.addEventListener('mouseenter', function () { activate(dot); });
-        dot.addEventListener('click', function (e) {
-            e.preventDefault();
-            e.stopPropagation();
-            activate(dot);
-        });
     });
 });
 
@@ -71,32 +95,42 @@ document.querySelectorAll('.mp-card[data-gallery]').forEach(function (card) {
     });
 });
 
-// Click en el nombre de la tienda dentro de la card → navega a la página
-// pública de esa tienda. Como la card entera es <a>, no podemos anidar
-// otro <a>; usamos span con data-href + stopPropagation.
-document.querySelectorAll('.js-shop-link').forEach(function (el) {
-    el.addEventListener('click', function (e) {
-        e.preventDefault();
-        e.stopPropagation();
-        var href = el.getAttribute('data-href');
-        if (href) window.location.href = href;
+// Sub-links dentro de la card (que es <a>): nombre de tienda + pill
+// "Tambien en N tiendas". Mismo bug mobile que los dots — el tap en el
+// span propaga al <a> padre antes de que stopPropagation actue.
+// Solucion: event delegation desde la card, capture phase, y
+// touchstart con preventDefault para abortar la navegacion nativa.
+(function () {
+    function findSubLink(e) {
+        var t = e.target;
+        if (!t || !t.closest) return null;
+        return t.closest('.js-shop-link, .js-alsoin-link');
+    }
+    document.querySelectorAll('.mp-card').forEach(function (card) {
+        if (!card.querySelector('.js-shop-link, .js-alsoin-link')) return;
+        card.addEventListener('click', function (e) {
+            var link = findSubLink(e);
+            if (!link) return;
+            e.preventDefault();
+            e.stopPropagation();
+            if (typeof e.stopImmediatePropagation === 'function') e.stopImmediatePropagation();
+            var href = link.getAttribute('data-href');
+            if (href) window.location.href = href;
+        }, true);
+        card.addEventListener('touchstart', function (e) {
+            if (findSubLink(e)) e.preventDefault();
+        }, { capture: true, passive: false });
     });
-});
-
-// Pill "También en N tiendas" — mismo patrón: no podemos anidar <a>
-// dentro del <a> de la card, así que usamos span con data-href.
-document.querySelectorAll('.js-alsoin-link').forEach(function (el) {
-    var go = function (e) {
-        e.preventDefault();
-        e.stopPropagation();
-        var href = el.getAttribute('data-href');
-        if (href) window.location.href = href;
-    };
-    el.addEventListener('click', go);
-    el.addEventListener('keydown', function (e) {
-        if (e.key === 'Enter' || e.key === ' ') go(e);
+    // Accesibilidad: Enter/Space en sub-links activa la navegacion.
+    document.querySelectorAll('.js-shop-link, .js-alsoin-link').forEach(function (el) {
+        el.addEventListener('keydown', function (e) {
+            if (e.key !== 'Enter' && e.key !== ' ') return;
+            e.preventDefault();
+            var href = el.getAttribute('data-href');
+            if (href) window.location.href = href;
+        });
     });
-});
+})();
 
 // Wishlist: hidratar cards con estado de favoritos del visitante y
 // manejar el toggle del corazón. Session-based; no requiere login.
