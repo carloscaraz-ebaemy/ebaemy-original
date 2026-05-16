@@ -665,6 +665,9 @@ button { font-family: inherit; cursor: pointer; }
 @media (max-width: 640px) {
     .mp-toolbar-count--home { display: none; }
     .mp-toolbar-subtitle { display: none; }
+    /* Subtitle decorativo de secciones ("Empresas peruanas reales con RUC
+       verificado vendiendo en ebaemy"): no es accionable y come altura. */
+    .mp-section-subtitle { display: none; }
 }
 .mp-sort-dropdown {
     padding: 9px 14px;

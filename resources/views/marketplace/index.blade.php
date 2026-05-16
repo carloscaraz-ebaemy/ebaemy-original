@@ -568,7 +568,10 @@
         @media (max-width: 640px) {
             .mp-offer-card { width: 160px; }
             .mp-offers-title { font-size:16px; }
-            .mp-offers-sub { font-size:12px; }
+            /* "Descuentos vigentes de N tiendas... Aprovecha mientras duren"
+               es flavor + numero que ya esta implicito en las cards. Recupera
+               una linea vertical. */
+            .mp-offers-sub { display: none; }
         }
     </style>
 
