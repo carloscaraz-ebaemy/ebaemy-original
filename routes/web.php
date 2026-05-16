@@ -1352,6 +1352,18 @@ if ($hostname) {
             Route::get('logs', '\Rap2hpoutre\LaravelLogViewer\LogViewerController@index');
             Route::get('dashboard', 'System\HomeController@index')->name('system.dashboard');
 
+            // ── Cupones de plataforma (asignables a marketplace_users) ───────
+            Route::prefix('admin/marketplace/coupons')->name('system.marketplace_coupons.')->group(function () {
+                Route::get('/',                'System\MarketplaceCouponController@index')->name('index');
+                Route::get('records',          'System\MarketplaceCouponController@records')->name('records');
+                Route::post('/',               'System\MarketplaceCouponController@store')->name('store');
+                Route::put('{id}',             'System\MarketplaceCouponController@update')->name('update')->whereNumber('id');
+                Route::post('{id}/toggle',     'System\MarketplaceCouponController@toggle')->name('toggle')->whereNumber('id');
+                Route::delete('{id}',          'System\MarketplaceCouponController@destroy')->name('destroy')->whereNumber('id');
+                Route::post('{id}/assign',     'System\MarketplaceCouponController@assign')->name('assign')->whereNumber('id');
+                Route::get('{id}/assignments', 'System\MarketplaceCouponController@assignments')->name('assignments')->whereNumber('id');
+            });
+
             // ── Categorías oficiales del marketplace (árbol global) ──────────
             Route::prefix('admin/marketplace/categories')->name('system.marketplace_categories.')->group(function () {
                 Route::get('/',               'System\MarketplaceCategoryController@index')->name('index');
