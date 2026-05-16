@@ -5,6 +5,7 @@ namespace App\Jobs\Marketplace;
 use App\Mail\Marketplace\MarketplacePriceDropMail;
 use App\Models\System\MarketplaceUser;
 use App\Services\Marketplace\MarketplaceNotificationService;
+use App\Services\Marketplace\MarketplaceWhatsAppNotifier;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -36,7 +37,7 @@ class DetectAndNotifyPriceDrops implements ShouldQueue
     const MIN_DROP_PCT = 5.0;
     const MAX_DROPS_PER_EMAIL = 10;
 
-    public function handle(MarketplaceNotificationService $notif): void
+    public function handle(MarketplaceNotificationService $notif, MarketplaceWhatsAppNotifier $wa): void
     {
         // Favoritos con drop real (snapshot - actual > 0).
         $rows = DB::connection('system')->table('marketplace_favorites as f')
@@ -57,8 +58,7 @@ class DetectAndNotifyPriceDrops implements ShouldQueue
         $byUser = $rows->groupBy('user_id');
         foreach ($byUser as $userId => $userDrops) {
             $user = MarketplaceUser::find($userId);
-            if (!$user) continue;
-            if (!$notif->canSendEmail($user, 'price_alerts')) continue;
+            if (!$user || !$user->isActive()) continue;
 
             $drops = $userDrops
                 ->map(function ($r) {
@@ -84,14 +84,30 @@ class DetectAndNotifyPriceDrops implements ShouldQueue
 
             if (empty($drops)) continue;
 
-            try {
-                Mail::to($user->email)->send(new MarketplacePriceDropMail($user, $drops));
-            } catch (\Throwable $e) {
-                logger()->warning('PriceDrop mail failed', ['user_id' => $user->id, 'error' => $e->getMessage()]);
-                continue;
+            $sentSomething = false;
+
+            // Email (con su propio consent gating)
+            if ($notif->canSendEmail($user, 'price_alerts')) {
+                try {
+                    Mail::to($user->email)->send(new MarketplacePriceDropMail($user, $drops));
+                    $sentSomething = true;
+                } catch (\Throwable $e) {
+                    logger()->warning('PriceDrop mail failed', ['user_id' => $user->id, 'error' => $e->getMessage()]);
+                }
             }
 
-            // Refresh snapshot para no re-mandar
+            // WhatsApp (consent independiente del email).
+            try {
+                if ($wa->sendPriceDrop($user, $drops)) {
+                    $sentSomething = true;
+                }
+            } catch (\Throwable $e) {
+                logger()->warning('PriceDrop WA failed', ['user_id' => $user->id, 'error' => $e->getMessage()]);
+            }
+
+            if (!$sentSomething) continue;
+
+            // Refresh snapshot para no re-mandar (solo si al menos un canal envio)
             $favIds = array_column($drops, 'fav_id');
             DB::connection('system')->table('marketplace_favorites')
                 ->whereIn('id', $favIds)

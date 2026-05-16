@@ -5,6 +5,7 @@ namespace App\Jobs\Marketplace;
 use App\Mail\Marketplace\MarketplaceWeeklyDigestMail;
 use App\Models\System\MarketplaceUser;
 use App\Services\Marketplace\MarketplaceNotificationService;
+use App\Services\Marketplace\MarketplaceWhatsAppNotifier;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -34,18 +35,24 @@ class SendWeeklyMarketplaceDigest implements ShouldQueue
     const TOP_CATEGORIES = 3;
     const OFFERS_PER_DIGEST = 6;
 
-    public function handle(MarketplaceNotificationService $notif): void
+    public function handle(MarketplaceNotificationService $notif, MarketplaceWhatsAppNotifier $wa): void
     {
+        // Users que tienen al menos un canal con weekly habilitado.
         $userIds = DB::connection('system')->table('marketplace_users as u')
-            ->join('marketplace_user_preferences as p', 'p.user_id', '=', 'u.id')
+            ->leftJoin('marketplace_user_preferences as p', 'p.user_id', '=', 'u.id')
             ->where('u.status', 'active')
-            ->where('p.email_frequency', 'weekly')
+            ->where(function ($q) {
+                $q->where('p.email_frequency', 'weekly')
+                  ->orWhere('p.whatsapp_frequency', 'weekly');
+            })
             ->pluck('u.id');
 
         foreach ($userIds as $userId) {
             $user = MarketplaceUser::find($userId);
             if (!$user) continue;
-            if (!$notif->canSendEmail($user, 'marketing')) continue;
+            $canEmail = $notif->canSendEmail($user, 'marketing');
+            $canWa    = $notif->canSendWhatsApp($user, 'marketing');
+            if (!$canEmail && !$canWa) continue;
 
             // Top categorias del user
             $topCats = DB::connection('system')->table('marketplace_user_interests as i')
@@ -75,10 +82,19 @@ class SendWeeklyMarketplaceDigest implements ShouldQueue
                 ->map(fn ($o) => (array) $o)
                 ->all();
 
-            try {
-                Mail::to($user->email)->send(new MarketplaceWeeklyDigestMail($user, $offers, $catNames));
-            } catch (\Throwable $e) {
-                logger()->warning('WeeklyDigest mail failed', ['user_id' => $userId, 'error' => $e->getMessage()]);
+            if ($canEmail) {
+                try {
+                    Mail::to($user->email)->send(new MarketplaceWeeklyDigestMail($user, $offers, $catNames));
+                } catch (\Throwable $e) {
+                    logger()->warning('WeeklyDigest mail failed', ['user_id' => $userId, 'error' => $e->getMessage()]);
+                }
+            }
+            if ($canWa) {
+                try {
+                    $wa->sendWeeklyOffers($user, $offers, $catNames);
+                } catch (\Throwable $e) {
+                    logger()->warning('WeeklyDigest WA failed', ['user_id' => $userId, 'error' => $e->getMessage()]);
+                }
             }
         }
     }
