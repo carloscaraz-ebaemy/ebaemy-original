@@ -1194,12 +1194,20 @@ if ($hostname) {
         // para comprar. SESSION_DOMAIN=.ebaemy.com hace que la sesion
         // de aqui sea reconocida en cualquier subdominio del tenant.
         Route::get('marketplace/login',                   'MarketplaceAuthController@showLogin')->name('marketplace.login');
+        // Magic link (passwordless): rapido para usuarios nuevos.
         Route::post('marketplace/auth/request',           'MarketplaceAuthController@requestLink')
              ->middleware('throttle:10,1')->name('marketplace.auth.request');
         Route::get('marketplace/auth/code',               'MarketplaceAuthController@showCodeForm')->name('marketplace.auth.code_form');
         Route::post('marketplace/auth/verify-code',       'MarketplaceAuthController@verifyCode')
              ->middleware('throttle:20,1')->name('marketplace.auth.verify_code');
         Route::get('marketplace/auth/verify',             'MarketplaceAuthController@verifyToken')->name('marketplace.auth.verify');
+        // Login con password: para usuarios recurrentes.
+        Route::post('marketplace/auth/login',             'MarketplaceAuthController@loginPassword')
+             ->middleware('throttle:10,1')->name('marketplace.auth.login_password');
+        // Registro con form completo (alternativa al magic link).
+        Route::get('marketplace/register',                'MarketplaceAuthController@showRegister')->name('marketplace.register');
+        Route::post('marketplace/register',               'MarketplaceAuthController@register')
+             ->middleware('throttle:5,1')->name('marketplace.auth.register');
         Route::post('marketplace/auth/logout',            'MarketplaceAuthController@logout')->name('marketplace.auth.logout');
         Route::get('marketplace/account',                 'MarketplaceAuthController@account')->name('marketplace.account');
         Route::get('marketplace/account/orders',          'MarketplaceAuthController@accountOrders')->name('marketplace.account.orders');

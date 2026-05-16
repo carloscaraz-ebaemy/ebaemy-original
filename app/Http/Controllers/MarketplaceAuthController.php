@@ -128,6 +128,63 @@ class MarketplaceAuthController extends Controller
             ->with('mkt_logout_ok', 'Sesion cerrada.');
     }
 
+    /** POST /marketplace/auth/login — email + password clasico. */
+    public function loginPassword(Request $request)
+    {
+        $data = $request->validate([
+            'email'    => 'required|email:rfc|max:190',
+            'password' => 'required|string|min:1|max:200',
+            'remember' => 'sometimes|boolean',
+            'next'     => 'nullable|string|max:300',
+        ]);
+        try {
+            $user = $this->auth->loginWithPassword($data['email'], $data['password'], $request);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return back()->withInput()->withErrors($e->errors());
+        }
+        $anonSessionId = $request->session()->getId();
+        Auth::guard('marketplace')->login($user, !empty($data['remember']));
+        $this->merge->mergeFromSession($user, $anonSessionId);
+        $request->session()->regenerate();
+        return redirect($data['next'] ?: route('marketplace.account'))
+            ->with('mkt_login_ok', 'Bienvenido de vuelta, ' . $user->name . '.');
+    }
+
+    /** GET /marketplace/register — form de registro completo. */
+    public function showRegister(Request $request)
+    {
+        if (Auth::guard('marketplace')->check()) {
+            return redirect()->route('marketplace.account');
+        }
+        return view('marketplace.auth.register', [
+            'next' => $request->input('next'),
+        ]);
+    }
+
+    /** POST /marketplace/register — crear cuenta con password. */
+    public function register(Request $request)
+    {
+        $data = $request->validate([
+            'name'      => 'required|string|max:120',
+            'email'     => 'required|email:rfc|max:190',
+            'phone'     => 'nullable|string|max:20',
+            'password'  => 'required|string|min:8|max:200|confirmed',
+            'marketing' => 'sometimes|boolean',
+            'next'      => 'nullable|string|max:300',
+        ]);
+        try {
+            $user = $this->auth->register($data, $request);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return back()->withInput()->withErrors($e->errors());
+        }
+        $anonSessionId = $request->session()->getId();
+        Auth::guard('marketplace')->login($user, true);
+        $this->merge->mergeFromSession($user, $anonSessionId);
+        $request->session()->regenerate();
+        return redirect($data['next'] ?: route('marketplace.account'))
+            ->with('mkt_login_ok', 'Cuenta creada. Bienvenido a ebaemy, ' . $user->name . '.');
+    }
+
     /** GET /marketplace/account/orders — historial cross-tenant. */
     public function accountOrders(Request $request)
     {

@@ -14,6 +14,7 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 
 /**
  * Servicio de autenticacion del comprador.
@@ -190,5 +191,90 @@ class MarketplaceAuthService
             'ip'         => $request->ip(),
             'user_agent' => substr((string) $request->userAgent(), 0, 255),
         ]);
+    }
+
+    /**
+     * Login clasico email + password. Lanza ValidationException si falla.
+     * Rate-limit por email + IP separado del magic link (5/15min).
+     */
+    public function loginWithPassword(string $email, string $password, Request $request): MarketplaceUser
+    {
+        $email = strtolower(trim($email));
+        $key   = 'mkt_login:' . sha1($email . '|' . $request->ip());
+        if (RateLimiter::tooManyAttempts($key, 5)) {
+            throw ValidationException::withMessages(['email' => 'Demasiados intentos. Intenta en 15 minutos.']);
+        }
+
+        $user = MarketplaceUser::where('email', $email)->first();
+        if (!$user || !$user->password_hash || !Hash::check($password, $user->password_hash)) {
+            RateLimiter::hit($key, 900);
+            throw ValidationException::withMessages(['password' => 'Email o contraseña incorrectos.']);
+        }
+        if (!$user->isActive()) {
+            throw ValidationException::withMessages(['email' => 'Esta cuenta esta deshabilitada.']);
+        }
+
+        RateLimiter::clear($key);
+        $user->forceFill([
+            'last_login_at' => now(),
+            'last_seen_at'  => now(),
+        ])->save();
+        return $user;
+    }
+
+    /**
+     * Registro con form completo (vs magic link que crea cuenta pasiva).
+     * Si el email YA existe sin password → setea password (recovery flow).
+     * Si el email YA existe con password → 422 (que use login normal).
+     */
+    public function register(array $data, Request $request): MarketplaceUser
+    {
+        $email = strtolower(trim($data['email']));
+        $existing = MarketplaceUser::where('email', $email)->first();
+        if ($existing && $existing->password_hash) {
+            throw ValidationException::withMessages([
+                'email' => 'Ya tienes cuenta. Inicia sesion con tu contraseña.',
+            ]);
+        }
+
+        $user = $existing ?: new MarketplaceUser();
+        $user->fill([
+            'email'             => $email,
+            'name'              => trim($data['name']),
+            'phone'             => !empty($data['phone']) ? preg_replace('/[^\d+]/', '', $data['phone']) : null,
+            'password_hash'     => Hash::make($data['password']),
+            'email_verified_at' => $user->email_verified_at ?? now(),
+            'status'            => 'active',
+            'last_login_at'     => now(),
+            'last_seen_at'      => now(),
+        ])->save();
+
+        // Preferencias default si no existen.
+        MarketplaceUserPreference::firstOrCreate(
+            ['user_id' => $user->id],
+            ['email_frequency' => 'weekly', 'whatsapp_frequency' => 'off']
+        );
+
+        // Consent transaccional implicito (necesario para confirmaciones).
+        $this->grantConsent($user, 'email', 'transactional', 'registration', $request);
+        if (!empty($data['marketing'])) {
+            $this->grantConsent($user, 'email', 'marketing', 'registration', $request);
+        }
+
+        return $user;
+    }
+
+    /** Cambio/seteo de password desde "Mi cuenta". */
+    public function setPassword(MarketplaceUser $user, ?string $current, string $new): void
+    {
+        if ($user->password_hash) {
+            if (!$current || !Hash::check($current, $user->password_hash)) {
+                throw ValidationException::withMessages(['current_password' => 'Contraseña actual incorrecta.']);
+            }
+        }
+        if (strlen($new) < 8) {
+            throw ValidationException::withMessages(['password' => 'La contraseña debe tener al menos 8 caracteres.']);
+        }
+        $user->forceFill(['password_hash' => Hash::make($new)])->save();
     }
 }
