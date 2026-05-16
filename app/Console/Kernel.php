@@ -52,6 +52,19 @@ class Kernel extends ConsoleKernel
                  ->withoutOverlapping()
                  ->appendOutputTo(storage_path('logs/marketplace_views_purge.log'));
 
+        // Marketplace notificaciones (con consent gating). El driver de
+        // mail puede ser smtp ahora y Brevo mas adelante sin cambios.
+        // Diario 09:00: detecta drops en favoritos y manda agrupado.
+        $schedule->job(new \App\Jobs\Marketplace\DetectAndNotifyPriceDrops())
+                 ->dailyAt('09:00')
+                 ->withoutOverlapping()
+                 ->appendOutputTo(storage_path('logs/marketplace_price_drops.log'));
+        // Domingos 10:00: digest semanal de ofertas en categorias seguidas.
+        $schedule->job(new \App\Jobs\Marketplace\SendWeeklyMarketplaceDigest())
+                 ->weeklyOn(0, '10:00')
+                 ->withoutOverlapping()
+                 ->appendOutputTo(storage_path('logs/marketplace_weekly_digest.log'));
+
         // Sincroniza estado de tracking con APIs de carriers (Chazki, 99Minutos, etc.)
         // Solo actúa si hay couriers con api_driver != 'manual' configurados
         $schedule->command('carrier:sync-tracking')
