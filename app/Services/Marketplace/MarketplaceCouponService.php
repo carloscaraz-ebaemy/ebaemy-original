@@ -111,4 +111,47 @@ class MarketplaceCouponService
                 'redeemed_order_id'    => $orderId,
             ]);
     }
+
+    /**
+     * Libera una asignacion previamente redeemed. Se invoca cuando el
+     * pago se cancela/rechaza tras haber creado el pedido — el cupon
+     * debe volver a estar disponible para que el comprador reintente.
+     *
+     * Idempotente: si ya esta libre (used_at null), no hace nada.
+     */
+    public function releaseRedemption(int $assignmentId): bool
+    {
+        return (bool) DB::connection('system')->table('marketplace_user_coupons')
+            ->where('id', $assignmentId)
+            ->whereNotNull('used_at')
+            ->update([
+                'used_at'              => null,
+                'redeemed_hostname_id' => null,
+                'redeemed_order_id'    => null,
+            ]);
+    }
+
+    /**
+     * Libera todos los cupones platform asignados a un MarketplaceOrder.
+     * Util para webhooks de cancel/reject de pago.
+     */
+    public function releaseAllForOrder(int $marketplaceOrderId): int
+    {
+        $assignmentIds = DB::connection('system')->table('tenant_marketplace_orders')
+            ->where('marketplace_order_id', $marketplaceOrderId)
+            ->whereNotNull('platform_coupon_assignment_id')
+            ->pluck('platform_coupon_assignment_id')
+            ->all();
+
+        if (empty($assignmentIds)) return 0;
+
+        return DB::connection('system')->table('marketplace_user_coupons')
+            ->whereIn('id', $assignmentIds)
+            ->whereNotNull('used_at')
+            ->update([
+                'used_at'              => null,
+                'redeemed_hostname_id' => null,
+                'redeemed_order_id'    => null,
+            ]);
+    }
 }

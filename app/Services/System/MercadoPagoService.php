@@ -323,6 +323,30 @@ class MercadoPagoService
                 return ['success' => true, 'order' => $order, 'status' => 'paid'];
             }
 
+            // Estados terminales NEGATIVOS: rejected, cancelled, charged_back.
+            // Liberamos cupones de plataforma que se hayan redeemed al crear
+            // el pedido, para que el comprador pueda reintentar.
+            if (in_array($payment->status, ['rejected', 'cancelled', 'charged_back'], true)) {
+                $order->payment_status = $payment->status === 'rejected' ? 'rejected' : 'cancelled';
+                $order->save();
+                try {
+                    $released = app(\App\Services\Marketplace\MarketplaceCouponService::class)
+                        ->releaseAllForOrder($order->id);
+                    if ($released > 0) {
+                        Log::info('[MercadoPago] Cupones platform liberados tras ' . $payment->status, [
+                            'order'    => $order->order_number,
+                            'released' => $released,
+                        ]);
+                    }
+                } catch (\Throwable $e) {
+                    Log::warning('[MercadoPago] Release cupones platform fallo', [
+                        'order' => $order->order_number,
+                        'err'   => $e->getMessage(),
+                    ]);
+                }
+                return ['success' => true, 'order' => $order, 'status' => $payment->status];
+            }
+
             // Estados no-final: pending, in_process, in_mediation, etc.
             // Solo persistimos el estado MP, no cambiamos payment_status.
             $order->save();
