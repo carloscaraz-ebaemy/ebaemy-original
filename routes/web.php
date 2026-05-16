@@ -1196,6 +1196,7 @@ if ($hostname) {
         Route::get('marketplace/login',                   'MarketplaceAuthController@showLogin')->name('marketplace.login');
         Route::post('marketplace/auth/request',           'MarketplaceAuthController@requestLink')
              ->middleware('throttle:10,1')->name('marketplace.auth.request');
+        Route::get('marketplace/auth/code',               'MarketplaceAuthController@showCodeForm')->name('marketplace.auth.code_form');
         Route::post('marketplace/auth/verify-code',       'MarketplaceAuthController@verifyCode')
              ->middleware('throttle:20,1')->name('marketplace.auth.verify_code');
         Route::get('marketplace/auth/verify',             'MarketplaceAuthController@verifyToken')->name('marketplace.auth.verify');

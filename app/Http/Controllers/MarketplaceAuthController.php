@@ -44,11 +44,29 @@ class MarketplaceAuthController extends Controller
             return back()->withInput()->withErrors(['email' => $e->getMessage()]);
         }
 
-        // Por seguridad: SIEMPRE respondemos "te enviamos un correo",
-        // existe o no el email. Evita enumeracion de cuentas.
+        // POST-redirect-GET: redirigimos a /code para que el browser
+        // tenga una URL legitima en GET (sobrevive refresh sin tirar 405).
+        // Pasamos email y next via flash session (no en URL: evita
+        // enumerar emails desde history).
+        return redirect()->route('marketplace.auth.code_form')
+            ->with('mkt_login_email', $data['email'])
+            ->with('mkt_login_next', $data['next'] ?? null);
+    }
+
+    /** GET /marketplace/auth/code — pantalla para ingresar el codigo. */
+    public function showCodeForm(Request $request)
+    {
+        $email = session('mkt_login_email');
+        $next  = session('mkt_login_next');
+        // Si llega aqui sin haber pedido magic link → mandamos a login.
+        if (!$email) {
+            return redirect()->route('marketplace.login');
+        }
+        // Re-flashear para que sobreviva el primer refresh.
+        $request->session()->reflash();
         return view('marketplace.auth.code', [
-            'email' => $data['email'],
-            'next'  => $data['next'] ?? null,
+            'email' => $email,
+            'next'  => $next,
         ]);
     }
 
