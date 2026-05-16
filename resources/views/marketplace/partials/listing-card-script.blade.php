@@ -1,55 +1,53 @@
 <script>
-// Hover (desktop) o tap (mobile) sobre dots de color/variante → cambia la
-// imagen principal de la card y mueve "is-active" al dot seleccionado.
+// Cambio de imagen al hover (desktop) o tap (mobile) sobre dots de
+// variante. Tres listeners en document, todos con event delegation
+// para cubrir cards renderizadas dinamicamente:
 //
-// Los dots ahora son <button type="button"> (antes <span>), lo que hace
-// que el navegador no propague el click al <a> padre. Combinado con
-// touch-action:manipulation y -webkit-tap-highlight-color:transparent
-// en CSS, el tap funciona limpio en iOS y Android sin necesidad de
-// preventDefault en touchstart (que rompia el segundo tap).
-//
-// Event delegation desde document: cubre cards renderizadas
-// dinamicamente y evita query por card al cargar.
-document.addEventListener('click', function (e) {
-    var dot = e.target.closest && e.target.closest(
-        '.mp-card-color-dot[data-img], .mp-card-variant-dot'
-    );
-    if (!dot) return;
-    var card = dot.closest('.mp-card');
-    if (!card) return;
-    // El <button> no navega como un <a>, pero por seguridad detenemos
-    // el bubble por si algun ancestor escucha click para algo.
-    e.preventDefault();
-    e.stopPropagation();
-    var primary = card.querySelector('.mp-card-img-primary');
-    if (!primary) return;
-    var url = dot.getAttribute('data-img');
-    if (url) primary.src = url;
-    if (dot.classList.contains('mp-card-color-dot')) {
-        card.querySelectorAll('.mp-card-color-dot').forEach(function (d) {
-            d.classList.remove('is-active');
-        });
-        dot.classList.add('is-active');
+// 1. pointerup CAPTURE: corre ANTES de cualquier handler en bubble
+//    (incluido el del <a> padre). Es el evento principal — funciona
+//    para mouse y touch sin delay del 300ms double-tap-to-zoom.
+// 2. click CAPTURE: solo previene la navegacion del <a> padre. El
+//    cambio de imagen ya lo hizo pointerup.
+// 3. mouseover: hover desktop preview. mouseover burbujea (mouseenter
+//    no), asi que sirve para delegation.
+(function () {
+    var DOT_SEL = '.mp-card-color-dot[data-img], .mp-card-variant-dot';
+    function findDot(e) {
+        return e.target && e.target.closest ? e.target.closest(DOT_SEL) : null;
     }
-});
-
-// Desktop hover: preview instantaneo sin necesidad de tap.
-document.querySelectorAll('.mp-card-color-dot[data-img], .mp-card-variant-dot').forEach(function (dot) {
-    dot.addEventListener('mouseenter', function () {
+    function activate(dot) {
         var card = dot.closest('.mp-card');
         if (!card) return;
         var primary = card.querySelector('.mp-card-img-primary');
         if (!primary) return;
         var url = dot.getAttribute('data-img');
-        if (url) primary.src = url;
+        if (url && primary.getAttribute('src') !== url) {
+            primary.setAttribute('src', url);
+        }
         if (dot.classList.contains('mp-card-color-dot')) {
             card.querySelectorAll('.mp-card-color-dot').forEach(function (d) {
                 d.classList.remove('is-active');
             });
             dot.classList.add('is-active');
         }
+    }
+    document.addEventListener('pointerup', function (e) {
+        var dot = findDot(e);
+        if (!dot) return;
+        e.preventDefault();
+        e.stopPropagation();
+        activate(dot);
+    }, true);
+    document.addEventListener('click', function (e) {
+        if (!findDot(e)) return;
+        e.preventDefault();
+        e.stopPropagation();
+    }, true);
+    document.addEventListener('mouseover', function (e) {
+        var dot = findDot(e);
+        if (dot) activate(dot);
     });
-});
+})();
 
 // Galería rotativa al hover sobre la card (estilo AliExpress / TikTok Shop).
 // Si la card tiene data-gallery con un array JSON de URLs, al hover ciclamos
