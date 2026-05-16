@@ -143,6 +143,13 @@
                         </a>
                     </li>
 
+                    <li class="{{ (isset($path[1]) && $path[1] === 'marketplace' && isset($path[2]) && $path[2] === 'coupons')?'nav-active':'' }}">
+                        <a class="nav-link" href="{{ route('system.marketplace_coupons.index') }}">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12V8H4v4"/><path d="M2 8h20v8H2z"/><path d="M8 12h.01"/><path d="M16 12h.01"/></svg>
+                            <span>Cupones de plataforma</span>
+                        </a>
+                    </li>
+
                     {{-- Marketing / Campañas — OCULTO temporalmente.
                          El backend (consent capture en checkout, opt-out tokens,
                          marketing_contacts) sigue activo, solo se oculta la UI
