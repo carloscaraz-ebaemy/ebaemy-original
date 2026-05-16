@@ -1285,6 +1285,22 @@
 .mp-mini-cart__line-remove:disabled {
     opacity: .4; cursor: wait;
 }
+/* Fadeout/slide al remover: NO refrescamos todo el panel, solo
+   animamos la linea y la quitamos del DOM. UX suave. */
+.mp-mini-cart__line {
+    transition: opacity .18s ease, max-height .2s ease, padding .2s ease, margin .2s ease;
+    overflow: hidden;
+    max-height: 200px;
+}
+.mp-mini-cart__line.is-removing {
+    opacity: 0;
+    max-height: 0;
+    padding-top: 0;
+    padding-bottom: 0;
+    margin-top: 0;
+    margin-bottom: 0;
+    pointer-events: none;
+}
 
 .mp-mini-cart__foot {
     border-top: 1px solid var(--mp-line, #e5e7eb);
@@ -1479,8 +1495,9 @@
         if (drawer.classList.contains('is-open')) open(); // refresh
     });
 
-    // Eliminar item del mini-cart via event delegation desde el body
-    // del drawer. Asi sobrevive cada re-render sin re-bindear.
+    // Eliminar item del mini-cart con remocion local animada — SIN
+    // re-fetch ni spinner ("Cargando..."). El endpoint devuelve summary
+    // actualizado; con eso ajustamos total general y badge.
     const csrf = @json(csrf_token());
     const updateBase = @json(url('/marketplace/cart')); // PATCH /marketplace/cart/{listing}
     body.addEventListener('click', function (e) {
@@ -1490,7 +1507,11 @@
         e.stopPropagation();
         const listingId = parseInt(btn.dataset.listingId, 10);
         if (!listingId || btn.disabled) return;
+        const lineEl  = btn.closest('.mp-mini-cart__line');
+        const storeEl = btn.closest('.mp-mini-cart__store');
         btn.disabled = true;
+        if (lineEl) lineEl.classList.add('is-removing');
+
         fetch(`${updateBase}/${listingId}`, {
             method: 'PATCH',
             headers: {
@@ -1503,13 +1524,45 @@
         })
         .then(r => r.json())
         .then(j => {
-            if (!j.success) { btn.disabled = false; return; }
-            // Refresca render. Si quedo vacio, renderEmpty lo maneja.
-            open();
-            // Actualiza badge global del nav.
-            if (window.mpCartBadgeUpdate) window.mpCartBadgeUpdate(j.summary);
+            if (!j.success) {
+                btn.disabled = false;
+                if (lineEl) lineEl.classList.remove('is-removing');
+                return;
+            }
+            // Espera el fadeout del CSS (180ms) y elimina la linea.
+            setTimeout(() => {
+                if (lineEl) lineEl.remove();
+                // ¿Quedo el store sin lineas? Ocultarlo.
+                if (storeEl && !storeEl.querySelector('.mp-mini-cart__line')) {
+                    storeEl.remove();
+                }
+                // ¿Carrito vacio? Render empty.
+                const sum = j.summary || { count: 0, subtotal: 0 };
+                if ((sum.count || 0) === 0) {
+                    renderEmpty();
+                } else {
+                    // Actualiza total y count sin re-renderear todo.
+                    totalEl.textContent = 'S/ ' + Number(sum.subtotal || 0).toFixed(2);
+                    countEl.textContent = sum.count;
+                    // Recalcular subtotal del store (sumar lineas restantes).
+                    if (storeEl && storeEl.isConnected) {
+                        let storeSubtotal = 0;
+                        storeEl.querySelectorAll('.mp-mini-cart__line-total').forEach(el => {
+                            const v = parseFloat(el.textContent.replace(/[^\d.]/g, '')) || 0;
+                            storeSubtotal += v;
+                        });
+                        const head = storeEl.querySelector('.mp-mini-cart__store-head span:last-child');
+                        if (head) head.textContent = 'S/ ' + storeSubtotal.toFixed(2);
+                    }
+                }
+                // Badge global del navbar.
+                if (window.mpCartBadgeUpdate) window.mpCartBadgeUpdate(sum);
+            }, 180);
         })
-        .catch(() => { btn.disabled = false; });
+        .catch(() => {
+            btn.disabled = false;
+            if (lineEl) lineEl.classList.remove('is-removing');
+        });
     });
 })();
 </script>
