@@ -57,6 +57,14 @@ class Kernel extends ConsoleKernel
                  ->dailyAt('04:15')
                  ->withoutOverlapping()
                  ->appendOutputTo(storage_path('logs/marketplace_coupon_release.log'));
+        // Sincroniza estado de pedidos del tenant al snapshot del comprador
+        // (marketplace_user_orders). Cubre cambios como Despachado/Entregado/
+        // Cancelado que se hacen desde el panel del tenant sin instrumentar
+        // su flujo legacy.
+        $schedule->job(new \App\Jobs\Marketplace\SyncTenantOrderStates())
+                 ->hourly()
+                 ->withoutOverlapping()
+                 ->appendOutputTo(storage_path('logs/marketplace_state_sync.log'));
 
         // Marketplace notificaciones (con consent gating). El driver de
         // mail puede ser smtp ahora y Brevo mas adelante sin cambios.
