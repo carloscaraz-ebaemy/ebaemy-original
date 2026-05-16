@@ -248,6 +248,14 @@
                 transform: translateX(-105%);
                 transition: transform .28s cubic-bezier(.16,1,.3,1);
             }
+            /* Wrapper full-viewport (forzado con dvw/dvh para iOS Safari
+               donde 100vh incluye barras del navegador). Garantiza que
+               el drawer cubra todo aun si position:fixed esta roto por
+               algun containing block raro en un ancestor. */
+            .mp-cat-drawer.is-open {
+                width: 100dvw; height: 100dvh;
+                top: 0; left: 0;
+            }
             .mp-cat-drawer.is-open .mp-cat-drawer__panel { transform: translateX(0); }
 
             /* Header */
@@ -353,7 +361,17 @@
 
             /* Mobile (<700px): un solo panel a la vez, slide entre roots y children */
             @media (max-width: 700px) {
-                .mp-cat-drawer__panel { width: 100%; max-width: 100%; }
+                /* Full-screen: 100dvw/100dvh para evitar el bug clasico
+                   de iOS Safari donde 100vh incluye URL bar. !important
+                   por si alguna regla anterior gano la cascada. */
+                .mp-cat-drawer__panel {
+                    width: 100dvw !important;
+                    max-width: 100dvw !important;
+                    height: 100dvh;
+                    box-shadow: none;
+                }
+                /* Backdrop no aporta nada cuando el panel cubre todo. */
+                .mp-cat-drawer__backdrop { display: none; }
                 .mp-cat-drawer__panes {
                     grid-template-columns: 100% 100%;
                     transform: translateX(0);
@@ -381,6 +399,15 @@
                 var btn      = document.getElementById('mpMegaToggle');
                 var drawer   = document.getElementById('mpMegaPanel');
                 if (!btn || !drawer) return;
+
+                // Teleport al <body>: el drawer queda renderizado dentro del
+                // <header> sticky, lo que puede romper position:fixed si algun
+                // ancestor (sticky, transform, filter, contain) crea un
+                // containing block. Moverlo al body raiz garantiza que
+                // position:fixed siempre se calcule contra el viewport.
+                if (drawer.parentNode !== document.body) {
+                    document.body.appendChild(drawer);
+                }
 
                 var panes      = document.getElementById('mpCatPanes');
                 var backBtn    = document.getElementById('mpCatBack');
