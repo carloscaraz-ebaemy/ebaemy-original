@@ -100,6 +100,18 @@ if ($hostname) {
             Route::get('orders/channel-report', 'Tenant\OrderController@channelReport');
             Route::post('orders/manual', 'Tenant\OrderController@storeManual');
 
+            // ── Cupones de plataforma (scope=tenant) — propios de este seller ────
+            Route::prefix('marketplace/coupons')->name('tenant.marketplace_coupons.')->group(function () {
+                Route::get('/',                'Tenant\MarketplaceCouponController@index')->name('index');
+                Route::get('records',          'Tenant\MarketplaceCouponController@records')->name('records');
+                Route::post('/',               'Tenant\MarketplaceCouponController@store')->name('store');
+                Route::put('{id}',             'Tenant\MarketplaceCouponController@update')->name('update')->whereNumber('id');
+                Route::post('{id}/toggle',     'Tenant\MarketplaceCouponController@toggle')->name('toggle')->whereNumber('id');
+                Route::delete('{id}',          'Tenant\MarketplaceCouponController@destroy')->name('destroy')->whereNumber('id');
+                Route::post('{id}/assign',     'Tenant\MarketplaceCouponController@assign')->name('assign')->whereNumber('id');
+                Route::get('{id}/assignments', 'Tenant\MarketplaceCouponController@assignments')->name('assignments')->whereNumber('id');
+            });
+
             // Reglas de descuento automático
             Route::get('discount-rules',                'Tenant\DiscountRuleController@index')->name('tenant.discount_rules.index');
             Route::get('discount-rules/records',        'Tenant\DiscountRuleController@records');
