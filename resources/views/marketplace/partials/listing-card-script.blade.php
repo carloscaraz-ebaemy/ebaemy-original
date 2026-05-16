@@ -1,20 +1,37 @@
 <script>
-// Cambio de imagen al hover (desktop) o tap (mobile) sobre dots de
-// variante. Tres listeners en document, todos con event delegation
-// para cubrir cards renderizadas dinamicamente:
-//
-// 1. pointerup CAPTURE: corre ANTES de cualquier handler en bubble
-//    (incluido el del <a> padre). Es el evento principal — funciona
-//    para mouse y touch sin delay del 300ms double-tap-to-zoom.
-// 2. click CAPTURE: solo previene la navegacion del <a> padre. El
-//    cambio de imagen ya lo hizo pointerup.
-// 3. mouseover: hover desktop preview. mouseover burbujea (mouseenter
-//    no), asi que sirve para delegation.
+// La card ahora es <div> (no <a>): los dots pueden recibir click sin
+// competir con un link padre. Un selector ampliado define que es
+// "elemento interactivo" — todo lo que NO lo sea, navega al detalle.
 (function () {
-    var DOT_SEL = '.mp-card-color-dot[data-img], .mp-card-variant-dot';
-    function findDot(e) {
-        return e.target && e.target.closest ? e.target.closest(DOT_SEL) : null;
-    }
+    var INTERACTIVE_SEL = 'a, button, input, select, textarea, [role="link"], [role="button"], .js-shop-link, .js-alsoin-link';
+
+    // Click en cualquier card → navegar al detalle, EXCEPTO si el click
+    // se origina en un elemento interactivo interno (dots, fav, quickadd,
+    // pills "tambien en N tiendas", nombre de tienda, etc).
+    document.addEventListener('click', function (e) {
+        var card = e.target.closest && e.target.closest('.mp-card');
+        if (!card || !card.dataset.href) return;
+        // Si el target esta dentro de un elemento interactivo dentro
+        // de la card (pero NO el seo-link invisible), no navegamos.
+        var inner = e.target.closest(INTERACTIVE_SEL);
+        if (inner && inner !== card && !inner.classList.contains('mp-card__seo-link')) {
+            return;
+        }
+        window.location.href = card.dataset.href;
+    });
+    // Accesibilidad: Enter/Space en la card focuseada navega.
+    document.addEventListener('keydown', function (e) {
+        if (e.key !== 'Enter' && e.key !== ' ') return;
+        var card = e.target.classList && e.target.classList.contains('mp-card') ? e.target : null;
+        if (!card || !card.dataset.href) return;
+        e.preventDefault();
+        window.location.href = card.dataset.href;
+    });
+
+    // Cambio de imagen al click/hover sobre dots de variante. Ahora
+    // que la card es <div>, el patron simple del detalle del producto
+    // (que SI funciona en mobile) basta: addEventListener('click')
+    // sin capture phase ni gimnasia adicional.
     function activate(dot) {
         var card = dot.closest('.mp-card');
         if (!card) return;
@@ -31,20 +48,16 @@
             dot.classList.add('is-active');
         }
     }
-    document.addEventListener('pointerup', function (e) {
-        var dot = findDot(e);
-        if (!dot) return;
-        e.preventDefault();
-        e.stopPropagation();
-        activate(dot);
-    }, true);
     document.addEventListener('click', function (e) {
-        if (!findDot(e)) return;
-        e.preventDefault();
-        e.stopPropagation();
-    }, true);
+        var dot = e.target.closest && e.target.closest(
+            '.mp-card-color-dot[data-img], .mp-card-variant-dot'
+        );
+        if (dot) activate(dot);
+    });
     document.addEventListener('mouseover', function (e) {
-        var dot = findDot(e);
+        var dot = e.target.closest && e.target.closest(
+            '.mp-card-color-dot[data-img], .mp-card-variant-dot'
+        );
         if (dot) activate(dot);
     });
 })();

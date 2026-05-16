@@ -704,6 +704,18 @@ button { font-family: inherit; cursor: pointer; }
     border: 1px solid var(--mp-line-soft);
     transition: border-color .2s var(--mp-ease), transform .2s var(--mp-ease), box-shadow .2s var(--mp-ease);
     color: inherit;
+    cursor: pointer;
+    text-decoration: none;
+    -webkit-tap-highlight-color: transparent;
+}
+/* Link invisible para crawlers/SEO. No recibe eventos ni se ve. */
+.mp-card__seo-link {
+    position: absolute;
+    width: 1px; height: 1px;
+    padding: 0; margin: -1px;
+    overflow: hidden; clip: rect(0,0,0,0);
+    white-space: nowrap; border: 0;
+    pointer-events: none;
 }
 .mp-card:hover {
     transform: translateY(-3px);

@@ -23,10 +23,19 @@
     // Imagen principal: variante is_primary si existe, fallback a la del padre.
     $cardPrimaryImg = $listing->primary_image_url ?? $listing->image_url;
 @endphp
-<a href="{{ route('marketplace.item', $listing->slug) }}" class="mp-card"
+{{-- Card como <div> (no <a>): los <button> de dots dentro de un <a>
+     compiten con la navegacion del link y en mobile el navegador prefiere
+     navegar antes de procesar el click del button. Usamos div+role+JS
+     para que la navegacion al detalle sea programatica y los dots tengan
+     control limpio. SEO: el <a class="mp-card__seo-link"> dentro mantiene
+     el href crawleable. --}}
+<div class="mp-card" data-href="{{ route('marketplace.item', $listing->slug) }}"
+     role="link" tabindex="0"
+     aria-label="{{ $listing->title }}"
    @if(!empty($listing->gallery_image_urls) && count($listing->gallery_image_urls) >= 2)
        data-gallery="{{ json_encode($listing->gallery_image_urls) }}"
    @endif>
+    <a class="mp-card__seo-link" href="{{ route('marketplace.item', $listing->slug) }}" aria-hidden="true" tabindex="-1"></a>
     <div class="mp-card-img" data-has-secondary="{{ $listing->secondary_image_url ? '1' : '0' }}">
         @if($cardPrimaryImg)
             <img class="mp-card-img-primary" src="{{ $cardPrimaryImg }}" alt="{{ $listing->title }}" loading="lazy">
@@ -251,4 +260,4 @@
             </div>
         @endif
     </div>
-</a>
+</div>
