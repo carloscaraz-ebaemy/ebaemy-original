@@ -51,6 +51,12 @@ class Kernel extends ConsoleKernel
                  ->dailyAt('03:45')
                  ->withoutOverlapping()
                  ->appendOutputTo(storage_path('logs/marketplace_views_purge.log'));
+        // Libera cupones platform redeemed cuyo pedido NUNCA llego a paid
+        // en 24h (webhook MP perdido, abandono pos-redeem, etc).
+        $schedule->job(new \App\Jobs\Marketplace\ReleaseStaleCouponRedemptions())
+                 ->dailyAt('04:15')
+                 ->withoutOverlapping()
+                 ->appendOutputTo(storage_path('logs/marketplace_coupon_release.log'));
 
         // Marketplace notificaciones (con consent gating). El driver de
         // mail puede ser smtp ahora y Brevo mas adelante sin cambios.
