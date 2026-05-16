@@ -2584,7 +2584,7 @@ class Item extends ModelTenant
      * @param  string $barcode_presentation
      * @return array
      */
-    public function getItemUnitTypesBarcode($search_item_by_barcode_presentation = false, $barcode_presentation)
+    public function getItemUnitTypesBarcode($search_item_by_barcode_presentation = false, $barcode_presentation = null)
     {
         return $search_item_by_barcode_presentation ? $this->item_unit_types()->where('barcode', $barcode_presentation)->get() : $this->item_unit_types;
     }
