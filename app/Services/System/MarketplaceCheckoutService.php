@@ -154,6 +154,15 @@ class MarketplaceCheckoutService
 
         try {
             $order = DB::connection('system')->transaction(function () use ($customer, $stores, $request, $couponsResolved, $platformResolved) {
+                // RE-VALIDACION CON LOCK pesimista DENTRO de la transaction.
+                // Mitiga race entre el primer validateStock() (linea 118) y
+                // la creacion del pedido. Si otro comprador vacio el stock
+                // en ese intervalo, abortamos antes de crear nada.
+                $stockErrorsLocked = $this->cart->validateStockWithLock();
+                if (!empty($stockErrorsLocked)) {
+                    throw new \RuntimeException(implode(' | ', $stockErrorsLocked));
+                }
+
                 $totalAll      = 0.0;
                 $itemsAll      = 0;
                 $discountTotal = 0.0;
@@ -343,9 +352,19 @@ class MarketplaceCheckoutService
             Log::error('MarketplaceCheckoutService::process failed', [
                 'error' => $e->getMessage(),
             ]);
+            // RuntimeException con mensajes "Stock insuficiente..." o
+            // "El cupon ... ya fue usado" son problemas de usuario que
+            // queremos mostrar tal cual (vienen del lock validate o del
+            // race de cupon). El resto, mensaje generico.
+            $isUserFacing = $e instanceof \RuntimeException
+                && (str_contains($e->getMessage(), 'tock')
+                    || str_contains($e->getMessage(), 'cupon')
+                    || str_contains($e->getMessage(), 'disponible'));
             return [
                 'success' => false,
-                'errors'  => ['Ocurrió un error procesando tu pedido. Vuelve a intentarlo.'],
+                'errors'  => [$isUserFacing
+                    ? $e->getMessage()
+                    : 'Ocurrió un error procesando tu pedido. Vuelve a intentarlo.'],
                 'message' => $e->getMessage(),
             ];
         }

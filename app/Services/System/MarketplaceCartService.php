@@ -346,6 +346,28 @@ class MarketplaceCartService
      */
     public function validateStock(): array
     {
+        return $this->doValidateStock(false);
+    }
+
+    /**
+     * Misma validacion pero con SELECT ... FOR UPDATE para serializar
+     * compradores concurrentes. Solo invocar DENTRO de una transaction —
+     * los locks se liberan al commit/rollback.
+     *
+     * Reduce la ventana de race entre validar y crear el pedido: dos
+     * compradores no pueden ambos ver "stock=1" simultaneamente y los
+     * dos crear pedido por 1. El segundo ve el stock ya decrementado
+     * (cuando exista decremento en system) o al menos serializa el
+     * acceso para que el dispatcher al tenant detecte el conflicto
+     * antes de cargar al cliente.
+     */
+    public function validateStockWithLock(): array
+    {
+        return $this->doValidateStock(true);
+    }
+
+    private function doValidateStock(bool $lock): array
+    {
         $errors = [];
         $cart = $this->get();
         if (empty($cart['items'])) {
@@ -354,7 +376,9 @@ class MarketplaceCartService
         }
 
         $ids = array_column($cart['items'], 'listing_id');
-        $listings = MarketplaceListing::query()->whereIn('id', $ids)->get()->keyBy('id');
+        $query = MarketplaceListing::query()->whereIn('id', $ids);
+        if ($lock) $query->lockForUpdate();
+        $listings = $query->get()->keyBy('id');
 
         foreach ($cart['items'] as $line) {
             $listing = $listings->get($line['listing_id']);
