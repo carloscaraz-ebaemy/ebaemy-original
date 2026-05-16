@@ -233,7 +233,7 @@ class MarketplaceCheckoutService
 
                     $discountTotal += $storeDiscount + $platDiscount;
 
-                    TenantMarketplaceOrder::create([
+                    $sub = TenantMarketplaceOrder::create([
                         'marketplace_order_id'           => $order->id,
                         'hostname_id'                    => $store['hostname_id'],
                         'tenant_fqdn'                    => $store['tenant_fqdn'],
@@ -247,6 +247,29 @@ class MarketplaceCheckoutService
                         'status'                         => TenantMarketplaceOrder::STATUS_PENDING,
                         'retry_count'                    => 0,
                     ]);
+
+                    // REDEEM ATOMICO: si el cupon platform se aplico, marcar
+                    // como usado AHORA — dentro de la misma transaction que
+                    // creo el sub-order. Si falla (cupon ya redimido por race),
+                    // el throw aborta toda la transaction y el pedido NO se
+                    // crea, evitando doble redencion.
+                    if ($platCouponData) {
+                        $redeemed = DB::connection('system')->table('marketplace_user_coupons')
+                            ->where('id', $platCouponData['assignment_id'])
+                            ->whereNull('used_at')
+                            ->update([
+                                'used_at'              => now(),
+                                'redeemed_hostname_id' => $sub->hostname_id,
+                                'redeemed_order_id'    => $sub->id, // ref al sub al menos; el tenant_order_id real lo llena el dispatcher
+                            ]);
+                        if ($redeemed === 0) {
+                            // Race: alguien mas redimio este cupon en simultaneo,
+                            // o ya esta usado. Abortamos el pedido entero.
+                            throw new \RuntimeException(
+                                'El cupon ' . $platCouponData['coupon']->code . ' ya fue usado. Intenta de nuevo.'
+                            );
+                        }
+                    }
                 }
 
                 $order->update([
@@ -298,26 +321,10 @@ class MarketplaceCheckoutService
             // si algún subpedido falló, el SuperAdmin/tenant puede atenderlo).
             $this->cart->clear();
 
-            // Redeem de cupones de plataforma usados en este pedido.
-            // Best-effort: si falla la fila, no afecta al pedido (el cupon
-            // queda visible al user, podemos limpiar a mano si pasa).
-            // Si el pago se cancela despues (MP webhook), liberar el cupon
-            // es responsabilidad de fase posterior — por ahora una vez
-            // marcado used se considera consumido.
-            try {
-                $platSvc = app(\App\Services\Marketplace\MarketplaceCouponService::class);
-                foreach (\App\Models\System\TenantMarketplaceOrder::where('marketplace_order_id', $order->id)
-                            ->whereNotNull('platform_coupon_assignment_id')
-                            ->get() as $sub) {
-                    $platSvc->redeem(
-                        (int) $sub->platform_coupon_assignment_id,
-                        (int) $sub->hostname_id,
-                        (int) ($sub->tenant_order_id ?: 0),
-                    );
-                }
-            } catch (\Throwable $e) {
-                Log::warning('Platform coupon redeem failed', ['err' => $e->getMessage(), 'order' => $order->id]);
-            }
+            // (El redeem de cupones platform ya se ejecuto atomicamente
+            //  DENTRO de la transaction de creacion del pedido — esta aqui
+            //  como recordatorio: si MP rechaza, el webhook libera via
+            //  MarketplaceCouponService::releaseAllForOrder.)
 
             $order->refresh();
 

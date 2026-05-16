@@ -7,6 +7,7 @@ use App\Models\System\MarketplaceOrder;
 use App\Services\System\MarketplaceCartService;
 use App\Services\System\MarketplaceCheckoutService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 
 /**
  * Checkout multi-tienda del marketplace central. Se compone de:
@@ -437,21 +438,27 @@ class MarketplaceCheckoutController extends Controller
     {
         // Mitigación IDOR: sólo deja ver la confirmación a:
         //   1) la sesión que generó el pedido (vía store() arriba), o
-        //   2) un usuario autenticado del sistema (admin/SuperAdmin) — para soporte.
+        //   2) un SuperAdmin autenticado (guard 'admin') — para soporte, o
+        //   3) el marketplace_user logueado que es DUEÑO del pedido.
         // Los order_numbers MP-* son secuenciales y enumerables; sin esta guarda,
         // cualquiera con un número válido vería los datos personales del comprador.
-        $allowedNumbers = collect(session('mp_orders_placed', []));
-        $isOwner        = $allowedNumbers->contains($number);
-        $isStaff        = $request->user() !== null;
-
-        if (!$isOwner && !$isStaff) {
-            abort(403);
-        }
-
+        // BUG previo: usabamos $request->user() (guard default 'web'); al agregar
+        // guard 'marketplace' eso devolvia ANY comprador logueado, permitiendole
+        // ver ordenes ajenas.
         $order = MarketplaceOrder::query()
             ->with(['items', 'tenantOrders'])
             ->where('order_number', $number)
             ->firstOrFail();
+
+        $allowedNumbers = collect(session('mp_orders_placed', []));
+        $isOwner   = $allowedNumbers->contains($number);
+        $isStaff   = Auth::guard('admin')->check();
+        $mktUser   = Auth::guard('marketplace')->user();
+        $isMktOwner = $mktUser && $order->marketplace_user_id === $mktUser->id;
+
+        if (!$isOwner && !$isStaff && !$isMktOwner) {
+            abort(403);
+        }
 
         $itemsByStore = $order->items->groupBy('hostname_id');
         $subOrders    = $order->tenantOrders->keyBy('hostname_id');

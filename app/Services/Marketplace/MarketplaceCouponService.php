@@ -63,8 +63,27 @@ class MarketplaceCouponService
             ->with('coupon')
             ->get();
 
+        if ($assignments->isEmpty()) return collect();
+
+        // Pre-calculo counts agregados para evitar N+1 (antes hacia 2
+        // queries adicionales POR CADA cupon en el filter).
+        $couponIds = $assignments->pluck('coupon_id')->unique()->all();
+        $usedGlobalByCoupon = DB::connection('system')->table('marketplace_user_coupons')
+            ->whereIn('coupon_id', $couponIds)
+            ->whereNotNull('used_at')
+            ->select('coupon_id', DB::raw('COUNT(*) as c'))
+            ->groupBy('coupon_id')
+            ->pluck('c', 'coupon_id');
+        $usedByThisUser = DB::connection('system')->table('marketplace_user_coupons')
+            ->where('user_id', $user->id)
+            ->whereIn('coupon_id', $couponIds)
+            ->whereNotNull('used_at')
+            ->select('coupon_id', DB::raw('COUNT(*) as c'))
+            ->groupBy('coupon_id')
+            ->pluck('c', 'coupon_id');
+
         return $assignments
-            ->filter(function ($asg) use ($hostnameId, $subtotal, $user) {
+            ->filter(function ($asg) use ($hostnameId, $subtotal, $usedGlobalByCoupon, $usedByThisUser) {
                 $c = $asg->coupon;
                 if (!$c || !$c->isWithinWindow()) return false;
                 if ($asg->expires_at && $asg->expires_at->isPast())  return false;
@@ -74,15 +93,10 @@ class MarketplaceCouponService
                 if ($c->min_subtotal !== null && $subtotal < $c->min_subtotal) return false;
                 // Limite global del coupon
                 if ($c->max_redemptions !== null) {
-                    $used = MarketplaceUserCoupon::where('coupon_id', $c->id)
-                        ->whereNotNull('used_at')->count();
-                    if ($used >= $c->max_redemptions) return false;
+                    if ((int) ($usedGlobalByCoupon[$c->id] ?? 0) >= $c->max_redemptions) return false;
                 }
                 // Limite por user
-                $usedByUser = MarketplaceUserCoupon::where('user_id', $user->id)
-                    ->where('coupon_id', $c->id)
-                    ->whereNotNull('used_at')->count();
-                if ($usedByUser >= $c->max_per_user) return false;
+                if ((int) ($usedByThisUser[$c->id] ?? 0) >= $c->max_per_user) return false;
                 return true;
             })
             ->map(function ($asg) use ($subtotal) {
