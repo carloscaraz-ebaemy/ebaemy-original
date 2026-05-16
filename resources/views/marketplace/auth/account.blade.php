@@ -91,10 +91,14 @@
             <h3>Mis pedidos</h3>
             <p>{{ $ordersCount === 0 ? 'Aun no tienes compras confirmadas.' : $ordersCount . ' pedido' . ($ordersCount === 1 ? '' : 's') . ' realizados.' }}</p>
         </a>
-        <div class="mp-acc-tile mp-acc-tile--disabled">
-            <h3>Preferencias</h3>
-            <p>Frecuencia de avisos y categorias (pronto).</p>
-        </div>
+        <a href="{{ route('marketplace.account.coupons') }}" class="mp-acc-tile">
+            <h3>Mis cupones</h3>
+            <p>Codigos de descuento asignados a tu cuenta.</p>
+        </a>
+        <a href="{{ route('marketplace.account.settings') }}" class="mp-acc-tile">
+            <h3>Ajustes</h3>
+            <p>Perfil, contraseña y preferencias de notificaciones.</p>
+        </a>
     </section>
 </div>
 

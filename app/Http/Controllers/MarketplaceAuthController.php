@@ -186,6 +186,110 @@ class MarketplaceAuthController extends Controller
             ->with('mkt_login_ok', 'Cuenta creada. Bienvenido a ebaemy, ' . $user->name . '.');
     }
 
+    /** GET /marketplace/account/settings — perfil + password + preferencias. */
+    public function settings(Request $request)
+    {
+        $user = Auth::guard('marketplace')->user();
+        if (!$user) return redirect()->route('marketplace.login');
+        $pref = \App\Models\System\MarketplaceUserPreference::firstOrCreate(
+            ['user_id' => $user->id],
+            ['email_frequency' => 'weekly', 'whatsapp_frequency' => 'off']
+        );
+        return view('marketplace.auth.settings', [
+            'user' => $user,
+            'pref' => $pref,
+            'hasMarketingConsent' => $user->hasActiveConsent('email', 'marketing'),
+            'hasPriceAlertConsent' => $user->hasActiveConsent('email', 'price_alerts'),
+            'hasWaMarketingConsent' => $user->hasActiveConsent('whatsapp', 'marketing'),
+        ]);
+    }
+
+    /** POST /marketplace/account/settings — guarda cambios. */
+    public function saveSettings(Request $request)
+    {
+        $user = Auth::guard('marketplace')->user();
+        if (!$user) return redirect()->route('marketplace.login');
+
+        $data = $request->validate([
+            'name'                => 'required|string|max:120',
+            'phone'               => 'nullable|string|max:20',
+            'current_password'    => 'nullable|string|max:200',
+            'password'            => 'nullable|string|min:8|max:200|confirmed',
+            'email_frequency'     => 'required|in:off,daily,weekly,monthly',
+            'whatsapp_frequency'  => 'required|in:off,critical_only,weekly',
+            'opt_email_marketing'   => 'sometimes|boolean',
+            'opt_email_price_alerts'=> 'sometimes|boolean',
+            'opt_wa_marketing'      => 'sometimes|boolean',
+        ]);
+
+        // Profile
+        $user->fill([
+            'name'  => trim($data['name']),
+            'phone' => !empty($data['phone']) ? preg_replace('/[^\d+]/', '', $data['phone']) : null,
+        ])->save();
+
+        // Password (opcional)
+        if (!empty($data['password'])) {
+            try {
+                $this->auth->setPassword($user, $data['current_password'] ?? null, $data['password']);
+            } catch (\Illuminate\Validation\ValidationException $e) {
+                return back()->withInput()->withErrors($e->errors());
+            }
+        }
+
+        // Preferences
+        \App\Models\System\MarketplaceUserPreference::updateOrCreate(
+            ['user_id' => $user->id],
+            [
+                'email_frequency'    => $data['email_frequency'],
+                'whatsapp_frequency' => $data['whatsapp_frequency'],
+            ]
+        );
+
+        // Consents: comparar estado actual vs flag del form. Si cambia,
+        // crear fila de grant o revoke (append-only).
+        $this->syncConsent($user, $request, 'email',    'marketing',     !empty($data['opt_email_marketing']));
+        $this->syncConsent($user, $request, 'email',    'price_alerts',  !empty($data['opt_email_price_alerts']));
+        $this->syncConsent($user, $request, 'whatsapp', 'marketing',     !empty($data['opt_wa_marketing']));
+
+        return redirect()->route('marketplace.account.settings')
+            ->with('mkt_settings_ok', 'Cambios guardados.');
+    }
+
+    private function syncConsent($user, Request $request, string $channel, string $purpose, bool $wanted): void
+    {
+        $has = $user->hasActiveConsent($channel, $purpose);
+        if ($wanted && !$has) {
+            $this->auth->grantConsent($user, $channel, $purpose, 'mi_cuenta', $request);
+        } elseif (!$wanted && $has) {
+            $this->auth->revokeConsent($user, $channel, $purpose, 'mi_cuenta', $request);
+        }
+    }
+
+    /** GET /marketplace/account/coupons — cupones de plataforma del user. */
+    public function accountCoupons(Request $request)
+    {
+        $user = Auth::guard('marketplace')->user();
+        if (!$user) return redirect()->route('marketplace.login');
+        $rows = \DB::connection('system')->table('marketplace_user_coupons as uc')
+            ->join('marketplace_coupons as c', 'c.id', '=', 'uc.coupon_id')
+            ->where('uc.user_id', $user->id)
+            ->where('c.is_active', true)
+            ->orderByDesc('uc.id')
+            ->limit(100)
+            ->select(
+                'uc.id', 'uc.assigned_at', 'uc.used_at', 'uc.expires_at',
+                'uc.redeemed_hostname_id', 'uc.redeemed_order_id',
+                'c.code', 'c.name', 'c.description', 'c.type', 'c.value',
+                'c.min_subtotal', 'c.scope', 'c.tenant_id', 'c.valid_until'
+            )
+            ->get();
+        return view('marketplace.auth.coupons', [
+            'user'    => $user,
+            'coupons' => $rows,
+        ]);
+    }
+
     /** GET /marketplace/auth/google — redirige a Google OAuth. */
     public function googleRedirect(Request $request)
     {

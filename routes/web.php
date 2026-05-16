@@ -1214,6 +1214,10 @@ if ($hostname) {
         Route::post('marketplace/auth/logout',            'MarketplaceAuthController@logout')->name('marketplace.auth.logout');
         Route::get('marketplace/account',                 'MarketplaceAuthController@account')->name('marketplace.account');
         Route::get('marketplace/account/orders',          'MarketplaceAuthController@accountOrders')->name('marketplace.account.orders');
+        Route::get('marketplace/account/coupons',         'MarketplaceAuthController@accountCoupons')->name('marketplace.account.coupons');
+        Route::get('marketplace/account/settings',        'MarketplaceAuthController@settings')->name('marketplace.account.settings');
+        Route::post('marketplace/account/settings',       'MarketplaceAuthController@saveSettings')
+             ->middleware('throttle:10,1')->name('marketplace.account.settings_save');
 
         // ─── Favoritos / wishlist (session-based, sin login obligatorio) ─────
         Route::get('marketplace/favoritos',       'MarketplaceController@favorites')->name('marketplace.favorites');
