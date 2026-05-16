@@ -1151,6 +1151,10 @@
     background: rgba(15, 23, 42, .45);
     opacity: 0;
     transition: opacity .25s ease;
+    /* Z-INDEX EXPLICITO: el backdrop esta declarado DESPUES del panel
+       en el DOM, lo que (sin z-index) lo renderia encima tapando los
+       botones (cerrar, eliminar). Lo mandamos atras. */
+    z-index: 1;
 }
 .mp-mini-cart.is-open .mp-mini-cart__backdrop { opacity: 1; }
 .mp-mini-cart__panel {
@@ -1163,6 +1167,8 @@
     width: min(420px, 92vw);
     transform: translateX(105%);
     transition: transform .28s cubic-bezier(.16,1,.3,1);
+    /* Por encima del backdrop para que close/eliminar reciban clicks. */
+    z-index: 2;
 }
 .mp-mini-cart.is-open .mp-mini-cart__panel { transform: translateX(0); }
 
@@ -1255,8 +1261,29 @@
 }
 .mp-mini-cart__line-total {
     font-weight: 700; color: var(--mp-primary-dark, #0c6b65);
-    font-size: 13px; align-self: flex-start;
+    font-size: 13px;
     white-space: nowrap;
+}
+.mp-mini-cart__line-actions {
+    display: flex; flex-direction: column; align-items: flex-end;
+    gap: 6px; flex-shrink: 0;
+}
+.mp-mini-cart__line-remove {
+    width: 28px; height: 28px;
+    background: transparent; border: 0; cursor: pointer;
+    border-radius: 6px;
+    color: #94a3b8;
+    display: inline-flex; align-items: center; justify-content: center;
+    transition: background .15s, color .15s;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+    padding: 0;
+}
+.mp-mini-cart__line-remove:hover {
+    background: #fef2f2; color: #dc2626;
+}
+.mp-mini-cart__line-remove:disabled {
+    opacity: .4; cursor: wait;
 }
 
 .mp-mini-cart__foot {
@@ -1385,7 +1412,7 @@
             </div>`;
 
             (store.items || []).forEach(line => {
-                html += `<div class="mp-mini-cart__line">`;
+                html += `<div class="mp-mini-cart__line" data-line-id="${line.listing_id ?? ''}">`;
                 if (line.image) {
                     html += `<img class="mp-mini-cart__line-img" src="${escapeHtml(line.image)}" alt="" loading="lazy">`;
                 } else {
@@ -1395,7 +1422,16 @@
                     <div class="mp-mini-cart__line-title">${escapeHtml(line.title)}</div>
                     <div class="mp-mini-cart__line-meta">${line.quantity} × S/ ${Number(line.price).toFixed(2)}</div>
                 </div>
-                <div class="mp-mini-cart__line-total">S/ ${Number(line.line_total).toFixed(2)}</div>
+                <div class="mp-mini-cart__line-actions">
+                    <div class="mp-mini-cart__line-total">S/ ${Number(line.line_total).toFixed(2)}</div>
+                    ${line.listing_id ? `
+                        <button type="button" class="mp-mini-cart__line-remove js-mini-cart-remove"
+                                data-listing-id="${line.listing_id}"
+                                aria-label="Eliminar del carrito" title="Eliminar">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M3 6h18"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>
+                        </button>
+                    ` : ''}
+                </div>
                 </div>`;
             });
             html += `</div>`;
@@ -1441,6 +1477,39 @@
     // el drawer para feedback inmediato. Lo controlamos via un custom event.
     window.addEventListener('mpCartChanged', function () {
         if (drawer.classList.contains('is-open')) open(); // refresh
+    });
+
+    // Eliminar item del mini-cart via event delegation desde el body
+    // del drawer. Asi sobrevive cada re-render sin re-bindear.
+    const csrf = @json(csrf_token());
+    const updateBase = @json(url('/marketplace/cart')); // PATCH /marketplace/cart/{listing}
+    body.addEventListener('click', function (e) {
+        const btn = e.target.closest && e.target.closest('.js-mini-cart-remove');
+        if (!btn) return;
+        e.preventDefault();
+        e.stopPropagation();
+        const listingId = parseInt(btn.dataset.listingId, 10);
+        if (!listingId || btn.disabled) return;
+        btn.disabled = true;
+        fetch(`${updateBase}/${listingId}`, {
+            method: 'PATCH',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': csrf,
+                'Accept': 'application/json',
+            },
+            credentials: 'same-origin',
+            body: JSON.stringify({ quantity: 0 }),
+        })
+        .then(r => r.json())
+        .then(j => {
+            if (!j.success) { btn.disabled = false; return; }
+            // Refresca render. Si quedo vacio, renderEmpty lo maneja.
+            open();
+            // Actualiza badge global del nav.
+            if (window.mpCartBadgeUpdate) window.mpCartBadgeUpdate(j.summary);
+        })
+        .catch(() => { btn.disabled = false; });
     });
 })();
 </script>
