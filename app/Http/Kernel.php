@@ -39,6 +39,11 @@ class Kernel extends HttpKernel
             \App\Http\Middleware\VerifyCsrfToken::class,
             \Illuminate\Routing\Middleware\SubstituteBindings::class,
             \App\Http\Middleware\LockedAdmin::class,
+            // Comprador del marketplace cross-tenant: expone
+            // $marketplaceUser en TODAS las views (null si anonimo).
+            // No bloquea, no redirige. Costo: 1 query a system DB
+            // por request (cacheable a futuro).
+            \App\Http\Middleware\IdentifyMarketplaceUser::class,
         ],
 
         'api' => [

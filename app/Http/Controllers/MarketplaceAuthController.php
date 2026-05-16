@@ -3,12 +3,16 @@
 namespace App\Http\Controllers;
 
 use App\Services\Marketplace\MarketplaceAuthService;
+use App\Services\Marketplace\MarketplaceUserMergeService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
 class MarketplaceAuthController extends Controller
 {
-    public function __construct(private MarketplaceAuthService $auth) {}
+    public function __construct(
+        private MarketplaceAuthService $auth,
+        private MarketplaceUserMergeService $merge,
+    ) {}
 
     /** GET /marketplace/login — form de email. */
     public function showLogin(Request $request)
@@ -63,7 +67,10 @@ class MarketplaceAuthController extends Controller
             return back()->withInput()->withErrors(['code' => $e->getMessage()]);
         }
 
+        // Merge ANTES del regenerate: necesitamos el session_id anonimo.
+        $anonSessionId = $request->session()->getId();
         Auth::guard('marketplace')->login($user, true);
+        $this->merge->mergeFromSession($user, $anonSessionId);
         $request->session()->regenerate();
 
         return redirect($data['next'] ?: route('marketplace.account'))
@@ -84,7 +91,9 @@ class MarketplaceAuthController extends Controller
             return redirect()->route('marketplace.login')->withErrors(['email' => $e->getMessage()]);
         }
 
+        $anonSessionId = $request->session()->getId();
         Auth::guard('marketplace')->login($user, true);
+        $this->merge->mergeFromSession($user, $anonSessionId);
         $request->session()->regenerate();
 
         return redirect()->route('marketplace.account')

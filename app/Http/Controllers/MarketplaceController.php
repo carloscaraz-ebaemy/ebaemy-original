@@ -1552,7 +1552,7 @@ class MarketplaceController extends Controller
         }
 
         $sessionId = $request->session()->getId();
-        $userId = auth()->id() ?: null;
+        $userId = auth('marketplace')->id() ?: null;
 
         $query = \DB::connection('system')->table('marketplace_favorites')
             ->where('listing_id', $listingId);
@@ -1611,7 +1611,7 @@ class MarketplaceController extends Controller
     public function favoritesJson(Request $request)
     {
         $sessionId = $request->session()->getId();
-        $userId = auth()->id() ?: null;
+        $userId = auth('marketplace')->id() ?: null;
 
         $query = \DB::connection('system')->table('marketplace_favorites');
         if ($userId) {
@@ -1635,7 +1635,7 @@ class MarketplaceController extends Controller
     public function favorites(Request $request)
     {
         $sessionId = $request->session()->getId();
-        $userId = auth()->id() ?: null;
+        $userId = auth('marketplace')->id() ?: null;
 
         $favsQ = \DB::connection('system')->table('marketplace_favorites');
         if ($userId) {
@@ -1695,7 +1695,7 @@ class MarketplaceController extends Controller
      */
     private function favoritesCountForCurrent(): int
     {
-        $userId = auth()->id() ?: null;
+        $userId = auth('marketplace')->id() ?: null;
         $query = \DB::connection('system')->table('marketplace_favorites');
         if ($userId) {
             $query->where('user_id', $userId);
