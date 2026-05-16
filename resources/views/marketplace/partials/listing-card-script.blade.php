@@ -1,59 +1,53 @@
 <script>
 // Hover (desktop) o tap (mobile) sobre dots de color/variante → cambia la
 // imagen principal de la card y mueve "is-active" al dot seleccionado.
-// Sticky: al salir/cerrar, la imagen y el dot activo quedan donde estaban.
 //
-// Mobile: la card es un <a>; un tap en un dot dentro del <a> en touch
-// se interpreta como tap en el <a> y dispara navegacion antes de que
-// stopPropagation actue. Solucion: event delegation desde la card en
-// CAPTURE PHASE — interceptamos el evento ANTES de que llegue al <a>
-// y lo cancelamos. Ademas escuchamos pointerdown/touchstart para que
-// el preventDefault llegue lo mas temprano posible en mobile.
-document.querySelectorAll('.mp-card').forEach(function (card) {
-    var dots = card.querySelectorAll('.mp-card-variant-dot, .mp-card-color-dot[data-img]');
-    if (!dots.length) return;
+// Los dots ahora son <button type="button"> (antes <span>), lo que hace
+// que el navegador no propague el click al <a> padre. Combinado con
+// touch-action:manipulation y -webkit-tap-highlight-color:transparent
+// en CSS, el tap funciona limpio en iOS y Android sin necesidad de
+// preventDefault en touchstart (que rompia el segundo tap).
+//
+// Event delegation desde document: cubre cards renderizadas
+// dinamicamente y evita query por card al cargar.
+document.addEventListener('click', function (e) {
+    var dot = e.target.closest && e.target.closest(
+        '.mp-card-color-dot[data-img], .mp-card-variant-dot'
+    );
+    if (!dot) return;
+    var card = dot.closest('.mp-card');
+    if (!card) return;
+    // El <button> no navega como un <a>, pero por seguridad detenemos
+    // el bubble por si algun ancestor escucha click para algo.
+    e.preventDefault();
+    e.stopPropagation();
     var primary = card.querySelector('.mp-card-img-primary');
     if (!primary) return;
-    var allDots = card.querySelectorAll('.mp-card-color-dot');
+    var url = dot.getAttribute('data-img');
+    if (url) primary.src = url;
+    if (dot.classList.contains('mp-card-color-dot')) {
+        card.querySelectorAll('.mp-card-color-dot').forEach(function (d) {
+            d.classList.remove('is-active');
+        });
+        dot.classList.add('is-active');
+    }
+});
 
-    function activate(dot) {
+// Desktop hover: preview instantaneo sin necesidad de tap.
+document.querySelectorAll('.mp-card-color-dot[data-img], .mp-card-variant-dot').forEach(function (dot) {
+    dot.addEventListener('mouseenter', function () {
+        var card = dot.closest('.mp-card');
+        if (!card) return;
+        var primary = card.querySelector('.mp-card-img-primary');
+        if (!primary) return;
         var url = dot.getAttribute('data-img');
         if (url) primary.src = url;
         if (dot.classList.contains('mp-card-color-dot')) {
-            allDots.forEach(function (d) { d.classList.remove('is-active'); });
+            card.querySelectorAll('.mp-card-color-dot').forEach(function (d) {
+                d.classList.remove('is-active');
+            });
             dot.classList.add('is-active');
         }
-    }
-    function dotFromEvent(e) {
-        var t = e.target;
-        if (!t || !t.closest) return null;
-        return t.closest('.mp-card-color-dot[data-img], .mp-card-variant-dot');
-    }
-    // Captura cualquier tap/click dentro de la card y, si toca un dot,
-    // bloquea la navegacion del <a> y aplica el cambio de imagen. true
-    // = capture phase: el handler corre antes que cualquier listener
-    // en bubble (incluido el del propio <a>).
-    function handle(e) {
-        var dot = dotFromEvent(e);
-        if (!dot) return;
-        e.preventDefault();
-        e.stopPropagation();
-        if (typeof e.stopImmediatePropagation === 'function') e.stopImmediatePropagation();
-        activate(dot);
-    }
-    card.addEventListener('click', handle, true);
-    // pointerdown cubre touch y mouse en navegadores modernos.
-    // touchstart como fallback para iOS Safari antiguos.
-    card.addEventListener('pointerdown', function (e) {
-        if (dotFromEvent(e)) e.preventDefault();
-    }, true);
-    card.addEventListener('touchstart', function (e) {
-        if (dotFromEvent(e)) e.preventDefault();
-    }, { capture: true, passive: false });
-
-    // Desktop hover: sigue funcionando como antes para preview instantaneo.
-    dots.forEach(function (dot) {
-        dot.addEventListener('mouseenter', function () { activate(dot); });
     });
 });
 

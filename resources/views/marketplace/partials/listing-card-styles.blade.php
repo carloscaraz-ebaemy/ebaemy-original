@@ -169,6 +169,10 @@
         align-items: center;
     }
     .mp-card-color-dot {
+        /* Resets para <button>: padding/font/appearance default arruinan
+           el dot circular si no se neutralizan. */
+        padding: 0; margin: 0; font: inherit;
+        -webkit-appearance: none; appearance: none;
         width: 16px; height: 16px;
         border-radius: 999px;
         border: 1.5px solid #e5e7eb;
@@ -178,6 +182,12 @@
         display: inline-block;
         position: relative;
         overflow: hidden;
+        /* Bloquear el "tap highlight" gris/azul de iOS/Android para que
+           el feedback visual lo controle nuestro :active/.is-active. */
+        -webkit-tap-highlight-color: transparent;
+        /* touch-action:manipulation desactiva el delay de 300ms del
+           double-tap-to-zoom — el tap se procesa inmediato. */
+        touch-action: manipulation;
     }
     .mp-card-color-dot:hover {
         border-color: #0a0e1a;
@@ -206,6 +216,9 @@
         flex-wrap: wrap;
     }
     .mp-card-variant-dot {
+        /* Resets para <button> — ver .mp-card-color-dot. */
+        padding: 0; margin: 0; font: inherit;
+        -webkit-appearance: none; appearance: none;
         width: 22px; height: 22px;
         border-radius: 6px;
         overflow: hidden;
@@ -214,6 +227,8 @@
         cursor: pointer;
         transition: border-color .15s, transform .12s;
         flex-shrink: 0;
+        -webkit-tap-highlight-color: transparent;
+        touch-action: manipulation;
     }
     .mp-card-variant-dot img {
         width: 100%; height: 100%;

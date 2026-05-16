@@ -216,7 +216,10 @@
         @endif
 
         {{-- Dots de color: solo cuando el value tiene color_hex Y al menos una
-             variante con stock > 0 lo usa (filtrado en el controller). --}}
+             variante con stock > 0 lo usa (filtrado en el controller).
+             Usamos <button type="button"> en vez de <span> para que touch
+             en iOS NO active el <a> padre — los buttons se comportan como
+             "no-link" nativamente. --}}
         @if(!empty($listing->color_dots) && $listing->color_dots->count())
             <div class="mp-card-colors" aria-label="Colores disponibles">
                 @foreach($listing->color_dots as $cd)
@@ -224,10 +227,11 @@
                         $isActiveDot = !empty($listing->active_color_hex)
                             && strcasecmp($cd->color_hex, $listing->active_color_hex) === 0;
                     @endphp
-                    <span class="mp-card-color-dot mp-card-color-dot--hex {{ $isActiveDot ? 'is-active' : '' }}"
-                          @if(!empty($cd->image_url)) data-img="{{ $cd->image_url }}" @endif
-                          title="{{ $cd->value }}"
-                          style="background:{{ $cd->color_hex }}"></span>
+                    <button type="button" class="mp-card-color-dot mp-card-color-dot--hex {{ $isActiveDot ? 'is-active' : '' }}"
+                            @if(!empty($cd->image_url)) data-img="{{ $cd->image_url }}" @endif
+                            title="{{ $cd->value }}"
+                            aria-label="Ver en {{ $cd->value }}"
+                            style="background:{{ $cd->color_hex }}"></button>
                 @endforeach
             </div>
         @endif
@@ -237,11 +241,12 @@
         @if(empty($listing->color_dots) && !empty($listing->variant_thumbs) && $listing->variant_thumbs->count())
             <div class="mp-card-variants" aria-label="Variantes disponibles">
                 @foreach($listing->variant_thumbs as $vt)
-                    <span class="mp-card-variant-dot"
-                          data-img="{{ $vt->image_url }}"
-                          title="{{ $vt->display_name }}">
+                    <button type="button" class="mp-card-variant-dot"
+                            data-img="{{ $vt->image_url }}"
+                            title="{{ $vt->display_name }}"
+                            aria-label="Ver {{ $vt->display_name }}">
                         <img src="{{ $vt->image_url }}" alt="{{ $vt->display_name }}" loading="lazy">
-                    </span>
+                    </button>
                 @endforeach
             </div>
         @endif
