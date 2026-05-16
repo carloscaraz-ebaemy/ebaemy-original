@@ -165,6 +165,10 @@ class MarketplaceCheckoutService
                     'customer_doc_number'  => $customer['doc_number']  ?? null,
                     'customer_phone'       => $customer['phone'],
                     'customer_email'       => $customer['email']       ?? null,
+                    // Si el comprador estaba logueado, lo asociamos para
+                    // que el dispatcher pueda sincronizar el pedido al
+                    // snapshot cross-tenant (marketplace_user_orders).
+                    'marketplace_user_id'  => \Illuminate\Support\Facades\Auth::guard('marketplace')->id() ?: null,
                     'delivery_address'     => $customer['address'],
                     'delivery_department'  => $customer['department']  ?? null,
                     'delivery_province'    => $customer['province']    ?? null,

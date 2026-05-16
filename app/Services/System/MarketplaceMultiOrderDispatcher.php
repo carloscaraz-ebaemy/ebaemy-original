@@ -258,6 +258,36 @@ class MarketplaceMultiOrderDispatcher
                 'sync_error'               => null,
             ]);
 
+            // Sync al snapshot cross-tenant del comprador (marketplace_user_orders).
+            // Solo si la orden tiene marketplace_user_id (comprador logueado).
+            // Dispatch async — el push al snapshot NO debe afectar el dispatch
+            // al tenant si falla.
+            if ($order->marketplace_user_id) {
+                try {
+                    // Categorias por defecto desde los items (best-effort).
+                    $cats = collect($items)->pluck('marketplace_category_id')
+                        ->filter()->unique()->values()->all();
+                    \App\Jobs\Marketplace\PushOrderToSystem::dispatch(
+                        (int) $order->marketplace_user_id,
+                        (int) $sub->hostname_id,
+                        (int) $orderId,
+                        (float) ($orderSubtotal - (float) $sub->discount_amount - (float) ($sub->platform_discount_amount ?? 0)),
+                        'PEN',
+                        'confirmed',
+                        now()->toDateTimeString(),
+                        null,
+                        count($items),
+                        $cats,
+                    )->afterResponse();
+                } catch (\Throwable $e) {
+                    Log::warning('PushOrderToSystem dispatch failed', [
+                        'order'   => $order->order_number,
+                        'tenant'  => $sub->tenant_fqdn,
+                        'error'   => $e->getMessage(),
+                    ]);
+                }
+            }
+
             return [
                 'success'        => true,
                 'tenant_fqdn'    => $client->hostname->fqdn,

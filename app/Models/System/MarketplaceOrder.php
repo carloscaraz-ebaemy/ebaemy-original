@@ -25,6 +25,7 @@ class MarketplaceOrder extends Model
         'customer_doc_number',
         'customer_phone',
         'customer_email',
+        'marketplace_user_id',
         'delivery_address',
         'delivery_department',
         'delivery_province',
