@@ -235,9 +235,16 @@
                 position: absolute;
                 top: 0; left: 0; bottom: 0;
                 width: min(720px, 92vw);
+                max-width: 100vw;
                 background: #fff;
                 box-shadow: 8px 0 28px rgba(15,23,42,.18);
                 display: flex; flex-direction: column;
+                /* Critico: el container de panes en mobile usa
+                   grid-template-columns:100% 100% (200% de ancho)
+                   para el slide horizontal. Sin overflow:hidden el
+                   segundo pane se desborda fuera del panel y se ve
+                   "cortado" a la derecha del viewport. */
+                overflow: hidden;
                 transform: translateX(-105%);
                 transition: transform .28s cubic-bezier(.16,1,.3,1);
             }
