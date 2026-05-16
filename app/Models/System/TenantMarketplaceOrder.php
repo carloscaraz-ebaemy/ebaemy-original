@@ -24,6 +24,9 @@ class TenantMarketplaceOrder extends Model
         'subtotal',
         'coupon_code',
         'discount_amount',
+        'platform_coupon_code',
+        'platform_discount_amount',
+        'platform_coupon_assignment_id',
         'item_count',
         'tenant_order_id',
         'tenant_order_external_id',
@@ -36,13 +39,14 @@ class TenantMarketplaceOrder extends Model
     ];
 
     protected $casts = [
-        'subtotal'         => 'float',
-        'discount_amount'  => 'float',
-        'item_count'       => 'integer',
-        'retry_count'      => 'integer',
-        'dispatched_at'    => 'datetime',
-        'reminder_sent_at' => 'datetime',
-        'reminder_count'   => 'integer',
+        'subtotal'                 => 'float',
+        'discount_amount'          => 'float',
+        'platform_discount_amount' => 'float',
+        'item_count'               => 'integer',
+        'retry_count'              => 'integer',
+        'dispatched_at'            => 'datetime',
+        'reminder_sent_at'         => 'datetime',
+        'reminder_count'           => 'integer',
     ];
 
     public const STATUS_PENDING    = 'pending';

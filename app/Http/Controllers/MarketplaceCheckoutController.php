@@ -40,24 +40,35 @@ class MarketplaceCheckoutController extends Controller
         $appliedCoupons = $this->cart->getCoupons();
 
         // Cupones de PLATAFORMA disponibles para el comprador logueado.
-        // Por ahora solo se muestran como informacion (no se aplican
-        // automaticamente; eso requiere refactor del checkoutService).
-        // Estructura: [hostname_id => Collection<['coupon', 'discount']>]
+        // Se aplican AUTOMATICAMENTE al confirmar el pedido (el mejor por
+        // tienda). Aqui los mostramos para que el comprador vea el ahorro
+        // antes de confirmar.
+        // Estructura: [hostname_id => Collection<['coupon','discount','assignment_id']>]
         $platformCoupons = collect();
+        $platformDiscountTotal = 0.0;
         $mktUser = auth('marketplace')->user();
         if ($mktUser) {
             $couponSvc = app(\App\Services\Marketplace\MarketplaceCouponService::class);
             foreach ($stores as $store) {
                 $hostnameId = (int) $store['hostname_id'];
+                // Subtotal "neto" tras descuento de tenant si hay.
                 $subtotal   = (float) $store['subtotal'];
-                $available  = $couponSvc->availableForUser($mktUser, $hostnameId, $subtotal);
+                $tenantDisc = (float) ($appliedCoupons[$hostnameId]['discount'] ?? 0);
+                $netoStore  = max(0, $subtotal - $tenantDisc);
+                $available  = $couponSvc->availableForUser($mktUser, $hostnameId, $netoStore);
                 if ($available->isNotEmpty()) {
                     $platformCoupons->put($hostnameId, $available);
+                    // El que se aplicara: el mejor.
+                    $best = $available->sortByDesc('discount')->first();
+                    $platformDiscountTotal += (float) $best['discount'];
                 }
             }
         }
 
-        return view('marketplace.checkout', compact('stores', 'summary', 'appliedCoupons', 'platformCoupons'));
+        return view('marketplace.checkout', compact(
+            'stores', 'summary', 'appliedCoupons',
+            'platformCoupons', 'platformDiscountTotal'
+        ));
     }
 
     /**

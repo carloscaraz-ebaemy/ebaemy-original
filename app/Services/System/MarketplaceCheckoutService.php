@@ -131,8 +131,29 @@ class MarketplaceCheckoutService
         $couponsInput = (array) ($request?->input('coupons') ?? []);
         $couponsResolved = $this->resolveCouponsForStores($stores, $couponsInput);
 
+        // Cupones DE PLATAFORMA del comprador logueado. Se aplican
+        // automaticamente (mejor descuento por tienda). Si el subtotal
+        // queda bajo el min_subtotal del cupon o se invalida, el service
+        // lo filtra. Estructura: [hostname_id => ['coupon', 'discount',
+        // 'assignment_id']].
+        $platformResolved = [];
+        $mktUser = \Illuminate\Support\Facades\Auth::guard('marketplace')->user();
+        if ($mktUser) {
+            $couponSvc = app(\App\Services\Marketplace\MarketplaceCouponService::class);
+            foreach ($stores as $store) {
+                $hostnameId = (int) $store['hostname_id'];
+                $subtotal   = (float) $store['subtotal'];
+                $available = $couponSvc->availableForUser($mktUser, $hostnameId, $subtotal);
+                if ($available->isNotEmpty()) {
+                    // El mejor (mayor descuento) en esta tienda.
+                    $best = $available->sortByDesc('discount')->first();
+                    $platformResolved[$hostnameId] = $best;
+                }
+            }
+        }
+
         try {
-            $order = DB::connection('system')->transaction(function () use ($customer, $stores, $request, $couponsResolved) {
+            $order = DB::connection('system')->transaction(function () use ($customer, $stores, $request, $couponsResolved, $platformResolved) {
                 $totalAll      = 0.0;
                 $itemsAll      = 0;
                 $discountTotal = 0.0;
@@ -189,22 +210,38 @@ class MarketplaceCheckoutService
                         ]);
                     }
 
-                    // Aplicar cupón si aplica a esta tienda
+                    // Aplicar cupón del tenant si aplica a esta tienda
                     $couponData = $couponsResolved[$store['hostname_id']] ?? null;
                     $storeDiscount = (float) ($couponData['discount'] ?? 0);
                     if ($storeDiscount > $storeSubtotal) $storeDiscount = $storeSubtotal;
-                    $discountTotal += $storeDiscount;
+
+                    // Aplicar cupón de plataforma (asignado al user) si lo hay.
+                    // Se calcula sobre el subtotal RESTANTE despues del tenant
+                    // coupon — evita doble descuento sobre el mismo monto y
+                    // mantiene el comportamiento previsible.
+                    $platCouponData = $platformResolved[$store['hostname_id']] ?? null;
+                    $platDiscount = 0.0;
+                    if ($platCouponData) {
+                        $remainingAfterTenant = max(0, $storeSubtotal - $storeDiscount);
+                        $platDiscount = $platCouponData['coupon']->discountFor($remainingAfterTenant);
+                        if ($platDiscount > $remainingAfterTenant) $platDiscount = $remainingAfterTenant;
+                    }
+
+                    $discountTotal += $storeDiscount + $platDiscount;
 
                     TenantMarketplaceOrder::create([
-                        'marketplace_order_id' => $order->id,
-                        'hostname_id'          => $store['hostname_id'],
-                        'tenant_fqdn'          => $store['tenant_fqdn'],
-                        'subtotal'             => round($storeSubtotal, 2),
-                        'coupon_code'          => $couponData['code'] ?? null,
-                        'discount_amount'      => round($storeDiscount, 2),
-                        'item_count'           => $storeCount,
-                        'status'               => TenantMarketplaceOrder::STATUS_PENDING,
-                        'retry_count'          => 0,
+                        'marketplace_order_id'           => $order->id,
+                        'hostname_id'                    => $store['hostname_id'],
+                        'tenant_fqdn'                    => $store['tenant_fqdn'],
+                        'subtotal'                       => round($storeSubtotal, 2),
+                        'coupon_code'                    => $couponData['code'] ?? null,
+                        'discount_amount'                => round($storeDiscount, 2),
+                        'platform_coupon_code'           => $platCouponData ? $platCouponData['coupon']->code : null,
+                        'platform_discount_amount'       => round($platDiscount, 2),
+                        'platform_coupon_assignment_id'  => $platCouponData ? $platCouponData['assignment_id'] : null,
+                        'item_count'                     => $storeCount,
+                        'status'                         => TenantMarketplaceOrder::STATUS_PENDING,
+                        'retry_count'                    => 0,
                     ]);
                 }
 
@@ -256,6 +293,27 @@ class MarketplaceCheckoutService
             // Limpiar carrito SIEMPRE (el pedido ya quedó persistido —
             // si algún subpedido falló, el SuperAdmin/tenant puede atenderlo).
             $this->cart->clear();
+
+            // Redeem de cupones de plataforma usados en este pedido.
+            // Best-effort: si falla la fila, no afecta al pedido (el cupon
+            // queda visible al user, podemos limpiar a mano si pasa).
+            // Si el pago se cancela despues (MP webhook), liberar el cupon
+            // es responsabilidad de fase posterior — por ahora una vez
+            // marcado used se considera consumido.
+            try {
+                $platSvc = app(\App\Services\Marketplace\MarketplaceCouponService::class);
+                foreach (\App\Models\System\TenantMarketplaceOrder::where('marketplace_order_id', $order->id)
+                            ->whereNotNull('platform_coupon_assignment_id')
+                            ->get() as $sub) {
+                    $platSvc->redeem(
+                        (int) $sub->platform_coupon_assignment_id,
+                        (int) $sub->hostname_id,
+                        (int) ($sub->tenant_order_id ?: 0),
+                    );
+                }
+            } catch (\Throwable $e) {
+                Log::warning('Platform coupon redeem failed', ['err' => $e->getMessage(), 'order' => $order->id]);
+            }
 
             $order->refresh();
 

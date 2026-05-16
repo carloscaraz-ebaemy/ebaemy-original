@@ -231,24 +231,28 @@
                          ahora — la aplicacion real va en una fase posterior
                          (requiere modificar el flujo de cobro). --}}
                     @if(isset($platformCoupons) && ($plat = $platformCoupons->get($store['hostname_id'])) && $plat->isNotEmpty())
+                        @php
+                            $bestPlat = $plat->sortByDesc('discount')->first();
+                        @endphp
                         <div class="mp-co-plat-coupons">
-                            <p class="mp-co-plat-coupons__title">🎟️ Cupones de plataforma disponibles para esta tienda:</p>
-                            <ul class="mp-co-plat-coupons__list">
-                                @foreach($plat as $pc)
-                                    <li>
-                                        <strong>{{ $pc['coupon']->code }}</strong>
-                                        <span>—</span>
-                                        {{ $pc['coupon']->name }}
-                                        <span class="mp-co-plat-coupons__save">−S/ {{ number_format($pc['discount'], 2) }}</span>
-                                    </li>
-                                @endforeach
-                            </ul>
-                            <p class="mp-co-plat-coupons__note">Se aplicaran automaticamente al confirmar el pedido.</p>
+                            <p class="mp-co-plat-coupons__title">✓ Cupon de plataforma se aplicara al confirmar:</p>
+                            <div class="mp-co-plat-coupons__main">
+                                <strong>{{ $bestPlat['coupon']->code }}</strong>
+                                <span>{{ $bestPlat['coupon']->name }}</span>
+                                <span class="mp-co-plat-coupons__save">−S/ {{ number_format($bestPlat['discount'], 2) }}</span>
+                            </div>
+                            @if($plat->count() > 1)
+                                <p class="mp-co-plat-coupons__note">Tienes {{ $plat->count() }} cupones aplicables — se elige el de mayor descuento.</p>
+                            @endif
                         </div>
                     @endif
                 </div>
             @endforeach
 
+            @php
+                $platDiscount = (float) ($platformDiscountTotal ?? 0);
+                $totalAfterPlat = max(0, (float) $summary['total'] - $platDiscount);
+            @endphp
             <div class="mp-co-totals">
                 <div class="mp-co-line"><span>Productos</span><span>{{ $summary['count'] }}</span></div>
                 <div class="mp-co-line"><span>Tiendas</span><span>{{ $stores->count() }}</span></div>
@@ -257,8 +261,14 @@
                     <span>Descuento (cupones)</span>
                     <span data-summary-discount style="color:#16a34a;font-weight:700">-S/ 0.00</span>
                 </div>
+                @if($platDiscount > 0)
+                    <div class="mp-co-line mp-co-line--discount">
+                        <span>Descuento (plataforma)</span>
+                        <span style="color:#16a34a;font-weight:700">-S/ {{ number_format($platDiscount, 2) }}</span>
+                    </div>
+                @endif
                 <div class="mp-co-line"><span>Envío</span><span style="color:#6b7280">A coordinar con cada tienda</span></div>
-                <div class="total"><span><strong>Total</strong></span><span class="v" data-summary-total>S/ {{ number_format($summary['total'], 2) }}</span></div>
+                <div class="total"><span><strong>Total</strong></span><span class="v" data-summary-total>S/ {{ number_format($totalAfterPlat, 2) }}</span></div>
             </div>
 
             <button type="submit" class="mp-co-submit">Confirmar pedido →</button>
@@ -328,9 +338,8 @@
     font-size: 13px;
 }
 .mp-co-plat-coupons__title { margin: 0 0 6px; font-weight: 700; color: #065f46; font-size: 12.5px; }
-.mp-co-plat-coupons__list { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 4px; }
-.mp-co-plat-coupons__list li { color: #047857; font-size: 12.5px; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
-.mp-co-plat-coupons__list li strong { font-family: 'SF Mono',Menlo,Consolas,monospace; background: #fff; padding: 2px 6px; border-radius: 4px; font-size: 11.5px; border: 1px solid #a7f3d0; color: #064e3b; letter-spacing: .03em; }
+.mp-co-plat-coupons__main { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 12.5px; color: #047857; }
+.mp-co-plat-coupons__main strong { font-family: 'SF Mono',Menlo,Consolas,monospace; background: #fff; padding: 2px 6px; border-radius: 4px; font-size: 11.5px; border: 1px solid #a7f3d0; color: #064e3b; letter-spacing: .03em; }
 .mp-co-plat-coupons__save { margin-left: auto; font-weight: 700; color: #047857; }
 .mp-co-plat-coupons__note { margin: 6px 0 0; font-size: 11.5px; color: #047857; opacity: .85; }
 .mp-co-line--discount { color: #166534; }
