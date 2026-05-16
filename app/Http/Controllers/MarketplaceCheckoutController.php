@@ -39,7 +39,25 @@ class MarketplaceCheckoutController extends Controller
         // re-ingresar el código si navegó y volvió.
         $appliedCoupons = $this->cart->getCoupons();
 
-        return view('marketplace.checkout', compact('stores', 'summary', 'appliedCoupons'));
+        // Cupones de PLATAFORMA disponibles para el comprador logueado.
+        // Por ahora solo se muestran como informacion (no se aplican
+        // automaticamente; eso requiere refactor del checkoutService).
+        // Estructura: [hostname_id => Collection<['coupon', 'discount']>]
+        $platformCoupons = collect();
+        $mktUser = auth('marketplace')->user();
+        if ($mktUser) {
+            $couponSvc = app(\App\Services\Marketplace\MarketplaceCouponService::class);
+            foreach ($stores as $store) {
+                $hostnameId = (int) $store['hostname_id'];
+                $subtotal   = (float) $store['subtotal'];
+                $available  = $couponSvc->availableForUser($mktUser, $hostnameId, $subtotal);
+                if ($available->isNotEmpty()) {
+                    $platformCoupons->put($hostnameId, $available);
+                }
+            }
+        }
+
+        return view('marketplace.checkout', compact('stores', 'summary', 'appliedCoupons', 'platformCoupons'));
     }
 
     /**

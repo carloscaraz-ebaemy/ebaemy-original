@@ -225,6 +225,27 @@
                         <input type="hidden" name="coupons[{{ $store['hostname_id'] }}]" data-coupon-hidden value="{{ $appliedCoupon['code'] ?? '' }}">
                         <input type="hidden" data-applied-discount value="{{ $appliedCoupon['discount'] ?? 0 }}">
                     </div>
+
+                    {{-- Cupones DE PLATAFORMA disponibles (asignados al user
+                         en marketplace_user_coupons). Solo informativo por
+                         ahora — la aplicacion real va en una fase posterior
+                         (requiere modificar el flujo de cobro). --}}
+                    @if(isset($platformCoupons) && ($plat = $platformCoupons->get($store['hostname_id'])) && $plat->isNotEmpty())
+                        <div class="mp-co-plat-coupons">
+                            <p class="mp-co-plat-coupons__title">🎟️ Cupones de plataforma disponibles para esta tienda:</p>
+                            <ul class="mp-co-plat-coupons__list">
+                                @foreach($plat as $pc)
+                                    <li>
+                                        <strong>{{ $pc['coupon']->code }}</strong>
+                                        <span>—</span>
+                                        {{ $pc['coupon']->name }}
+                                        <span class="mp-co-plat-coupons__save">−S/ {{ number_format($pc['discount'], 2) }}</span>
+                                    </li>
+                                @endforeach
+                            </ul>
+                            <p class="mp-co-plat-coupons__note">Se aplicaran automaticamente al confirmar el pedido.</p>
+                        </div>
+                    @endif
                 </div>
             @endforeach
 
@@ -296,6 +317,22 @@
 }
 .mp-co-coupon__msg.is-ok    { color: #16a34a; font-weight: 600; }
 .mp-co-coupon__msg.is-error { color: #b91c1c; font-weight: 500; }
+
+/* Cupones de plataforma (informativos, asignados al user) */
+.mp-co-plat-coupons {
+    margin-top: 10px;
+    padding: 12px 14px;
+    background: #ecfdf5;
+    border: 1px solid #a7f3d0;
+    border-radius: 10px;
+    font-size: 13px;
+}
+.mp-co-plat-coupons__title { margin: 0 0 6px; font-weight: 700; color: #065f46; font-size: 12.5px; }
+.mp-co-plat-coupons__list { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 4px; }
+.mp-co-plat-coupons__list li { color: #047857; font-size: 12.5px; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.mp-co-plat-coupons__list li strong { font-family: 'SF Mono',Menlo,Consolas,monospace; background: #fff; padding: 2px 6px; border-radius: 4px; font-size: 11.5px; border: 1px solid #a7f3d0; color: #064e3b; letter-spacing: .03em; }
+.mp-co-plat-coupons__save { margin-left: auto; font-weight: 700; color: #047857; }
+.mp-co-plat-coupons__note { margin: 6px 0 0; font-size: 11.5px; color: #047857; opacity: .85; }
 .mp-co-line--discount { color: #166534; }
 </style>
 @endpush
