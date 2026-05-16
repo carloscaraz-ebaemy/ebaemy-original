@@ -532,15 +532,51 @@
                 <span id="mpCartBadge"
                       style="display:none;position:absolute;top:-2px;right:-6px;background:#dc2626;color:#fff;font-size:10px;font-weight:700;border-radius:999px;min-width:18px;height:18px;padding:0 5px;line-height:18px;text-align:center"></span>
             </a>
-            {{-- Auth comprador: si esta logueado va a "Mi cuenta", si no
-                 al form de login. Mismo icono, distinto destino. --}}
+            {{-- Auth comprador.
+                 - Anonimo: link directo a /login.
+                 - Logueado: avatar boton que abre dropdown con accesos
+                   rapidos (mi cuenta, favoritos, pedidos, cupones, ajustes,
+                   cerrar sesion). En mobile el dropdown queda como modal
+                   overlay (CSS @media). --}}
             @php $mktUser = auth('marketplace')->user(); @endphp
-            <a href="{{ $mktUser ? route('marketplace.account') : route('marketplace.login') }}"
-               class="mp-nav-link" id="mpAccountNavLink"
-               title="{{ $mktUser ? 'Mi cuenta — ' . $mktUser->name : 'Entrar / Crear cuenta' }}">
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-8 8-8s8 3.6 8 8"/></svg>
-                <span class="mp-nav-link-text">{{ $mktUser ? \Illuminate\Support\Str::limit(explode(' ', $mktUser->name)[0], 12) : 'Entrar' }}</span>
-            </a>
+            @if(!$mktUser)
+                <a href="{{ route('marketplace.login') }}" class="mp-nav-link" id="mpAccountNavLink" title="Entrar / Crear cuenta">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-8 8-8s8 3.6 8 8"/></svg>
+                    <span class="mp-nav-link-text">Entrar</span>
+                </a>
+            @else
+                @php
+                    $firstName = \Illuminate\Support\Str::limit(explode(' ', $mktUser->name)[0], 12);
+                    $initial = mb_strtoupper(mb_substr($mktUser->name, 0, 1));
+                @endphp
+                <div class="mp-acc-menu" id="mpAccountMenu">
+                    <button type="button" class="mp-nav-link mp-acc-menu__btn" id="mpAccountMenuBtn"
+                            aria-haspopup="true" aria-expanded="false"
+                            title="Mi cuenta — {{ $mktUser->name }}">
+                        <span class="mp-acc-avatar" aria-hidden="true">{{ $initial }}</span>
+                        <span class="mp-nav-link-text">{{ $firstName }}</span>
+                        <svg class="mp-acc-menu__chev" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg>
+                    </button>
+                    <div class="mp-acc-menu__panel" role="menu" aria-hidden="true">
+                        <div class="mp-acc-menu__head">
+                            <div class="mp-acc-avatar mp-acc-avatar--lg" aria-hidden="true">{{ $initial }}</div>
+                            <div class="mp-acc-menu__head-info">
+                                <strong>{{ \Illuminate\Support\Str::limit($mktUser->name, 22) }}</strong>
+                                <span>{{ \Illuminate\Support\Str::limit($mktUser->email, 28) }}</span>
+                            </div>
+                        </div>
+                        <a href="{{ route('marketplace.account') }}" role="menuitem">Mi cuenta</a>
+                        <a href="{{ route('marketplace.favorites') }}" role="menuitem">Favoritos</a>
+                        <a href="{{ route('marketplace.account.orders') }}" role="menuitem">Mis pedidos</a>
+                        <a href="{{ route('marketplace.account.coupons') }}" role="menuitem">Mis cupones</a>
+                        <a href="{{ route('marketplace.account.settings') }}" role="menuitem">Ajustes</a>
+                        <form method="POST" action="{{ route('marketplace.auth.logout') }}" style="margin:0">
+                            @csrf
+                            <button type="submit" class="mp-acc-menu__logout" role="menuitem">Cerrar sesion</button>
+                        </form>
+                    </div>
+                </div>
+            @endif
             {{-- 'Vender en ebaemy' removido del navbar a pedido del usuario.
                  Acceso sigue disponible desde el footer (columna Vender). --}}
         </div>
@@ -1568,6 +1604,123 @@
 </script>
 
 @stack('scripts')
+
+{{-- ════════════════════════ AVATAR DROPDOWN (account menu) ════════════════════════
+     Dropdown del avatar del comprador en el navbar. En mobile se
+     convierte en bottom-sheet (overlay full width al pie). --}}
+<style>
+.mp-acc-menu { position: relative; }
+.mp-acc-menu__btn {
+    background: transparent; border: 0; cursor: pointer;
+    padding: 6px 10px 6px 6px;
+    display: inline-flex; align-items: center; gap: 8px;
+    color: var(--mp-ink, #111827); font-weight: 600; font-size: 14px;
+    border-radius: 999px;
+    transition: background .15s;
+    -webkit-tap-highlight-color: transparent;
+}
+.mp-acc-menu__btn:hover { background: var(--mp-line-soft, #f1f5f9); }
+.mp-acc-menu__chev { color: #94a3b8; transition: transform .15s; flex-shrink: 0; }
+.mp-acc-menu.is-open .mp-acc-menu__chev { transform: rotate(180deg); }
+.mp-acc-avatar {
+    width: 30px; height: 30px;
+    border-radius: 999px;
+    background: linear-gradient(135deg, #0f8a82, #0a6f68);
+    color: #fff;
+    display: inline-flex; align-items: center; justify-content: center;
+    font-size: 13px; font-weight: 700;
+    flex-shrink: 0;
+}
+.mp-acc-avatar--lg { width: 42px; height: 42px; font-size: 16px; }
+
+.mp-acc-menu__panel {
+    position: absolute; top: calc(100% + 8px); right: 0;
+    min-width: 240px;
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    box-shadow: 0 12px 32px -8px rgba(15,23,42,.18);
+    padding: 6px;
+    z-index: 1050;
+    opacity: 0; visibility: hidden;
+    transform: translateY(-4px);
+    transition: opacity .15s, transform .15s, visibility .15s;
+}
+.mp-acc-menu.is-open .mp-acc-menu__panel {
+    opacity: 1; visibility: visible; transform: translateY(0);
+}
+.mp-acc-menu__head {
+    display: flex; gap: 12px; align-items: center;
+    padding: 12px 12px 14px;
+    border-bottom: 1px solid #f1f5f9;
+    margin-bottom: 6px;
+}
+.mp-acc-menu__head-info { display: flex; flex-direction: column; min-width: 0; }
+.mp-acc-menu__head-info strong { font-size: 14px; color: #0f172a; }
+.mp-acc-menu__head-info span { font-size: 12.5px; color: #64748b; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.mp-acc-menu__panel a,
+.mp-acc-menu__logout {
+    display: block; width: 100%;
+    padding: 10px 12px;
+    font-size: 14px; color: #0f172a; font-weight: 500;
+    text-decoration: none;
+    border-radius: 8px;
+    text-align: left;
+    background: transparent; border: 0; cursor: pointer;
+    transition: background .12s;
+}
+.mp-acc-menu__panel a:hover { background: #f0fdfa; color: #0c6b65; }
+.mp-acc-menu__logout {
+    margin-top: 4px;
+    border-top: 1px solid #f1f5f9;
+    color: #b91c1c; font-weight: 600;
+}
+.mp-acc-menu__logout:hover { background: #fef2f2; }
+
+/* Mobile: dropdown se vuelve bottom-sheet con backdrop */
+@media (max-width: 640px) {
+    .mp-acc-menu.is-open::before {
+        content: '';
+        position: fixed; inset: 0;
+        background: rgba(15,23,42,.45);
+        z-index: 1049;
+    }
+    .mp-acc-menu__panel {
+        position: fixed;
+        top: auto; right: 0; left: 0; bottom: 0;
+        min-width: 0;
+        border-radius: 16px 16px 0 0;
+        padding: 8px 12px calc(16px + env(safe-area-inset-bottom));
+        transform: translateY(100%);
+        transition: transform .25s ease, visibility .25s, opacity .25s;
+    }
+    .mp-acc-menu.is-open .mp-acc-menu__panel { transform: translateY(0); }
+    .mp-acc-menu__head { padding: 14px 8px 16px; }
+    .mp-acc-menu__panel a,
+    .mp-acc-menu__logout { padding: 14px 12px; font-size: 15px; }
+}
+</style>
+<script>
+(function () {
+    const menu = document.getElementById('mpAccountMenu');
+    if (!menu) return;
+    const btn = document.getElementById('mpAccountMenuBtn');
+    const panel = menu.querySelector('.mp-acc-menu__panel');
+    function open()  { menu.classList.add('is-open');    btn.setAttribute('aria-expanded', 'true');  panel.setAttribute('aria-hidden', 'false'); }
+    function close() { menu.classList.remove('is-open'); btn.setAttribute('aria-expanded', 'false'); panel.setAttribute('aria-hidden', 'true');  }
+    btn.addEventListener('click', function (e) {
+        e.stopPropagation();
+        menu.classList.contains('is-open') ? close() : open();
+    });
+    document.addEventListener('click', function (e) {
+        if (!menu.contains(e.target)) close();
+    });
+    document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape') close();
+    });
+})();
+</script>
 
 </body>
 </html>
