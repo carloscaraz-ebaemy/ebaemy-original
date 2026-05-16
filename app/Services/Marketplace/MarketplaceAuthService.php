@@ -264,6 +264,47 @@ class MarketplaceAuthService
         return $user;
     }
 
+    /**
+     * Login/registro via Google OAuth. Recibe el SocialiteUser ya
+     * autenticado y crea o recupera el MarketplaceUser por email.
+     *
+     * Si el email YA existe → login (sin tocar password si existe).
+     * Si NO existe → registro pasivo, sin password (puede setearla
+     * desde "Mi cuenta" si quiere combinar metodos).
+     */
+    public function loginOrRegisterGoogle($googleUser, Request $request): MarketplaceUser
+    {
+        $email = strtolower(trim((string) $googleUser->getEmail()));
+        if (!$email) {
+            throw ValidationException::withMessages(['email' => 'Google no devolvio un email valido.']);
+        }
+        $user = MarketplaceUser::where('email', $email)->first();
+        $isNew = !$user;
+        if ($isNew) {
+            $user = new MarketplaceUser();
+        }
+        $user->fill([
+            'email'             => $email,
+            'name'              => $user->name ?: (trim((string) $googleUser->getName()) ?: Str::title(Str::before($email, '@'))),
+            'email_verified_at' => $user->email_verified_at ?? now(),
+            'status'            => $user->status ?: 'active',
+            'last_login_at'     => now(),
+            'last_seen_at'      => now(),
+        ])->save();
+
+        if ($isNew) {
+            MarketplaceUserPreference::firstOrCreate(
+                ['user_id' => $user->id],
+                ['email_frequency' => 'weekly', 'whatsapp_frequency' => 'off']
+            );
+            $this->grantConsent($user, 'email', 'transactional', 'google_signin', $request);
+        }
+        if (!$user->isActive()) {
+            throw ValidationException::withMessages(['email' => 'Esta cuenta esta deshabilitada.']);
+        }
+        return $user;
+    }
+
     /** Cambio/seteo de password desde "Mi cuenta". */
     public function setPassword(MarketplaceUser $user, ?string $current, string $new): void
     {

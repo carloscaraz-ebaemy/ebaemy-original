@@ -1204,6 +1204,9 @@ if ($hostname) {
         // Login con password: para usuarios recurrentes.
         Route::post('marketplace/auth/login',             'MarketplaceAuthController@loginPassword')
              ->middleware('throttle:10,1')->name('marketplace.auth.login_password');
+        // Login con Google (OAuth 2.0).
+        Route::get('marketplace/auth/google',             'MarketplaceAuthController@googleRedirect')->name('marketplace.auth.google');
+        Route::get('marketplace/auth/google/callback',    'MarketplaceAuthController@googleCallback')->name('marketplace.auth.google_callback');
         // Registro con form completo (alternativa al magic link).
         Route::get('marketplace/register',                'MarketplaceAuthController@showRegister')->name('marketplace.register');
         Route::post('marketplace/register',               'MarketplaceAuthController@register')

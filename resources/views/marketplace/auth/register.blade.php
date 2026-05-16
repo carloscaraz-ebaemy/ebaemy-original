@@ -12,6 +12,18 @@
             <div class="mp-auth-error">{{ $errors->first() }}</div>
         @endif
 
+        <a href="{{ route('marketplace.auth.google', ['next' => $next]) }}" class="mp-auth-social mp-auth-social--google">
+            <svg width="18" height="18" viewBox="0 0 48 48" aria-hidden="true">
+                <path fill="#4285f4" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>
+                <path fill="#34a853" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/>
+                <path fill="#fbbc05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/>
+                <path fill="#ea4335" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/>
+            </svg>
+            <span>Continuar con Google</span>
+        </a>
+
+        <div class="mp-auth-divider"><span>o crea cuenta con email</span></div>
+
         <form method="POST" action="{{ route('marketplace.auth.register') }}" novalidate>
             @csrf
             @if(!empty($next))<input type="hidden" name="next" value="{{ $next }}">@endif
@@ -57,6 +69,14 @@
 .mp-auth-title { margin: 0; font-size: 24px; font-weight: 700; color: #0f172a; }
 .mp-auth-subtitle { margin: 8px 0 20px; font-size: 14.5px; color: #64748b; line-height: 1.5; }
 .mp-auth-error { padding: 12px 14px; background: #fef2f2; border: 1px solid #fecaca; color: #991b1b; border-radius: 10px; font-size: 13.5px; margin-bottom: 16px; }
+.mp-auth-social { display: flex; align-items: center; justify-content: center; gap: 10px; width: 100%; padding: 12px 16px; background: #fff; border: 1.5px solid #e5e7eb; border-radius: 10px; font-size: 14.5px; font-weight: 600; color: #1f2937; text-decoration: none; transition: border-color .12s, background .12s; margin-bottom: 14px; }
+.mp-auth-social:hover { border-color: #cbd5e1; background: #f9fafb; color: #1f2937; text-decoration: none; }
+.mp-auth-social svg { flex-shrink: 0; }
+.mp-auth-divider { text-align: center; margin: 14px 0; position: relative; color: #94a3b8; font-size: 12px; }
+.mp-auth-divider::before, .mp-auth-divider::after { content: ''; position: absolute; top: 50%; width: calc(50% - 80px); height: 1px; background: #e5e7eb; }
+.mp-auth-divider::before { left: 0; }
+.mp-auth-divider::after  { right: 0; }
+.mp-auth-divider span { background: #fff; padding: 0 10px; }
 .mp-auth-label { display: block; font-size: 13px; font-weight: 600; color: #475569; margin-bottom: 6px; margin-top: 14px; }
 .mp-auth-label:first-of-type { margin-top: 0; }
 .mp-auth-input { width: 100%; box-sizing: border-box; padding: 12px 14px; font-size: 15px; border: 1.5px solid #e5e7eb; border-radius: 10px; background: #fff; transition: border-color .12s, box-shadow .12s; }

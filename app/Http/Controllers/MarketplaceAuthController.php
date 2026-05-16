@@ -6,6 +6,7 @@ use App\Services\Marketplace\MarketplaceAuthService;
 use App\Services\Marketplace\MarketplaceUserMergeService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Laravel\Socialite\Facades\Socialite;
 
 class MarketplaceAuthController extends Controller
 {
@@ -183,6 +184,54 @@ class MarketplaceAuthController extends Controller
         $request->session()->regenerate();
         return redirect($data['next'] ?: route('marketplace.account'))
             ->with('mkt_login_ok', 'Cuenta creada. Bienvenido a ebaemy, ' . $user->name . '.');
+    }
+
+    /** GET /marketplace/auth/google — redirige a Google OAuth. */
+    public function googleRedirect(Request $request)
+    {
+        // Guardamos 'next' en session para usarlo al volver del callback.
+        $request->session()->put('mkt_google_next', $request->input('next'));
+        if (!config('services.google.client_id') || !config('services.google.client_secret')) {
+            return redirect()->route('marketplace.login')
+                ->withErrors(['email' => 'Google login no esta configurado en este server.']);
+        }
+        return Socialite::driver('google')
+            ->scopes(['openid', 'profile', 'email'])
+            ->redirectUrl(url('/marketplace/auth/google/callback'))
+            ->redirect();
+    }
+
+    /** GET /marketplace/auth/google/callback — recibe el code de Google. */
+    public function googleCallback(Request $request)
+    {
+        if ($request->filled('error')) {
+            return redirect()->route('marketplace.login')
+                ->withErrors(['email' => 'Cancelaste el acceso con Google.']);
+        }
+        try {
+            $googleUser = Socialite::driver('google')
+                ->redirectUrl(url('/marketplace/auth/google/callback'))
+                ->user();
+        } catch (\Throwable $e) {
+            logger()->warning('Google OAuth failed', ['err' => $e->getMessage()]);
+            return redirect()->route('marketplace.login')
+                ->withErrors(['email' => 'No pudimos completar el login con Google. Intenta de nuevo.']);
+        }
+
+        try {
+            $user = $this->auth->loginOrRegisterGoogle($googleUser, $request);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return redirect()->route('marketplace.login')->withErrors($e->errors());
+        }
+
+        $anonSessionId = $request->session()->getId();
+        Auth::guard('marketplace')->login($user, true);
+        $this->merge->mergeFromSession($user, $anonSessionId);
+        $next = $request->session()->pull('mkt_google_next');
+        $request->session()->regenerate();
+
+        return redirect($next ?: route('marketplace.account'))
+            ->with('mkt_login_ok', 'Bienvenido, ' . $user->name . '.');
     }
 
     /** GET /marketplace/account/orders — historial cross-tenant. */
