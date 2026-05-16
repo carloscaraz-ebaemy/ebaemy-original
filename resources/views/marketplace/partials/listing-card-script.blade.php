@@ -1,25 +1,34 @@
 <script>
-// Hover sobre dots (color o variante) → cambia la imagen principal de la
-// card y mueve el "is-active" al dot bajo el cursor. Sticky: al salir del
-// card, la imagen y el dot activo quedan donde estaban.
+// Hover (desktop) o tap (mobile) sobre dots de color/variante → cambia la
+// imagen principal de la card y mueve "is-active" al dot seleccionado.
+// Sticky: al salir/cerrar, la imagen y el dot activo quedan donde estaban.
+//
+// Mobile: 'mouseenter' es inconsistente en touch — iOS lo dispara una sola
+// vez por gesto y Android lo emula raro. El tap real entra por 'click',
+// asi que aplicamos el mismo efecto en ambos eventos. preventDefault del
+// click evita ademas que el <a> padre navegue al detalle.
 document.querySelectorAll('.mp-card').forEach(function (card) {
     var dots = card.querySelectorAll('.mp-card-variant-dot, .mp-card-color-dot[data-img]');
     if (!dots.length) return;
     var primary = card.querySelector('.mp-card-img-primary');
     if (!primary) return;
     var allDots = card.querySelectorAll('.mp-card-color-dot');
+
+    function activate(dot) {
+        var url = dot.getAttribute('data-img');
+        if (url) primary.src = url;
+        if (dot.classList.contains('mp-card-color-dot')) {
+            allDots.forEach(function (d) { d.classList.remove('is-active'); });
+            dot.classList.add('is-active');
+        }
+    }
+
     dots.forEach(function (dot) {
-        dot.addEventListener('mouseenter', function () {
-            var url = dot.getAttribute('data-img');
-            if (url) primary.src = url;
-            if (dot.classList.contains('mp-card-color-dot')) {
-                allDots.forEach(function (d) { d.classList.remove('is-active'); });
-                dot.classList.add('is-active');
-            }
-        });
+        dot.addEventListener('mouseenter', function () { activate(dot); });
         dot.addEventListener('click', function (e) {
             e.preventDefault();
             e.stopPropagation();
+            activate(dot);
         });
     });
 });
