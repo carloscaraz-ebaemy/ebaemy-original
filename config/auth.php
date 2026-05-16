@@ -60,6 +60,14 @@ return [
             'provider' => 'customers',
         ],
 
+        // Comprador del marketplace cross-tenant (ebaemy.com).
+        // Sesion separada del guard 'web' del tenant: el comprador
+        // no pertenece a ningun tenant en particular.
+        'marketplace' => [
+            'driver' => 'session',
+            'provider' => 'marketplace_users',
+        ],
+
     ],
 
     /*
@@ -92,6 +100,10 @@ return [
         'customers' => [
             'driver' => 'eloquent',
             'model' => App\Models\Tenant\Person::class,
+        ],
+        'marketplace_users' => [
+            'driver' => 'eloquent',
+            'model' => App\Models\System\MarketplaceUser::class,
         ],
     ],
 

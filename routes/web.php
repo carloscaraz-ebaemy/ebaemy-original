@@ -1189,6 +1189,19 @@ if ($hostname) {
         Route::get('marketplace/terminos',        'MarketplaceController@terms')->name('marketplace.terms');
         Route::get('marketplace/privacidad',      'MarketplaceController@privacy')->name('marketplace.privacy');
 
+        // ─── Auth del comprador (cross-tenant) ───────────────────────────────
+        // Magic link + codigo 6 digitos. Cuenta opcional: no requerido
+        // para comprar. SESSION_DOMAIN=.ebaemy.com hace que la sesion
+        // de aqui sea reconocida en cualquier subdominio del tenant.
+        Route::get('marketplace/login',                   'MarketplaceAuthController@showLogin')->name('marketplace.login');
+        Route::post('marketplace/auth/request',           'MarketplaceAuthController@requestLink')
+             ->middleware('throttle:10,1')->name('marketplace.auth.request');
+        Route::post('marketplace/auth/verify-code',       'MarketplaceAuthController@verifyCode')
+             ->middleware('throttle:20,1')->name('marketplace.auth.verify_code');
+        Route::get('marketplace/auth/verify',             'MarketplaceAuthController@verifyToken')->name('marketplace.auth.verify');
+        Route::post('marketplace/auth/logout',            'MarketplaceAuthController@logout')->name('marketplace.auth.logout');
+        Route::get('marketplace/account',                 'MarketplaceAuthController@account')->name('marketplace.account');
+
         // ─── Favoritos / wishlist (session-based, sin login obligatorio) ─────
         Route::get('marketplace/favoritos',       'MarketplaceController@favorites')->name('marketplace.favorites');
         Route::get('marketplace/favorites/json',  'MarketplaceController@favoritesJson')->name('marketplace.favorites.json');

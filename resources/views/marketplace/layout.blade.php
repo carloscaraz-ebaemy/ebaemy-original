@@ -532,6 +532,15 @@
                 <span id="mpCartBadge"
                       style="display:none;position:absolute;top:-2px;right:-6px;background:#dc2626;color:#fff;font-size:10px;font-weight:700;border-radius:999px;min-width:18px;height:18px;padding:0 5px;line-height:18px;text-align:center"></span>
             </a>
+            {{-- Auth comprador: si esta logueado va a "Mi cuenta", si no
+                 al form de login. Mismo icono, distinto destino. --}}
+            @php $mktUser = auth('marketplace')->user(); @endphp
+            <a href="{{ $mktUser ? route('marketplace.account') : route('marketplace.login') }}"
+               class="mp-nav-link" id="mpAccountNavLink"
+               title="{{ $mktUser ? 'Mi cuenta — ' . $mktUser->name : 'Entrar / Crear cuenta' }}">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-8 8-8s8 3.6 8 8"/></svg>
+                <span class="mp-nav-link-text">{{ $mktUser ? \Illuminate\Support\Str::limit(explode(' ', $mktUser->name)[0], 12) : 'Entrar' }}</span>
+            </a>
             {{-- 'Vender en ebaemy' removido del navbar a pedido del usuario.
                  Acceso sigue disponible desde el footer (columna Vender). --}}
         </div>
