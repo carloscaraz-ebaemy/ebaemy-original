@@ -708,6 +708,26 @@ class MarketplaceController extends Controller
         // Tracking de "vistos recientemente" en session (LRU, max 12 IDs).
         app(\App\Services\Marketplace\RecentlyViewedService::class)->push($listing->id);
 
+        // Tracking persistente cross-device del comprador logueado. Dedupe
+        // por (user_id, listing_id) en los ultimos 60s para no inflar la
+        // tabla si recarga la ficha. El dispatch es async — nunca frena
+        // el render. Si la queue no esta corriendo, los jobs se acumulan
+        // y los procesa cuando arranque.
+        $mktUserId = auth('marketplace')->id();
+        if ($mktUserId) {
+            $cacheKey = "mkt_view_dedup:{$mktUserId}:{$listing->id}";
+            if (!\Cache::has($cacheKey)) {
+                \Cache::put($cacheKey, 1, 60);
+                \App\Jobs\Marketplace\RecordMarketplaceUserView::dispatch(
+                    (int) $mktUserId,
+                    (int) $listing->id,
+                    $listing->hostname_id ? (int) $listing->hostname_id : null,
+                    \request()->session()->getId(),
+                    \request()->headers->get('referer'),
+                )->afterResponse();
+            }
+        }
+
         // Variantes (solo si el listing las tiene). Orden: la marcada como
         // is_primary primero (define qué imagen y combo aparece al cargar),
         // después por precio asc. Si nadie está marcado, fallback al precio.

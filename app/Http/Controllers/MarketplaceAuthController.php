@@ -110,15 +110,46 @@ class MarketplaceAuthController extends Controller
             ->with('mkt_logout_ok', 'Sesion cerrada.');
     }
 
-    /** GET /marketplace/account — placeholder de Mi cuenta. */
+    /** GET /marketplace/account — resumen de actividad del comprador. */
     public function account(Request $request)
     {
         $user = Auth::guard('marketplace')->user();
         if (!$user) {
             return redirect()->route('marketplace.login');
         }
+
+        // Counts en una sola tanda — todas son queries indexadas baratas.
+        $favCount    = \DB::connection('system')->table('marketplace_favorites')
+                          ->where('user_id', $user->id)->count();
+        $ordersCount = \DB::connection('system')->table('marketplace_user_orders')
+                          ->where('user_id', $user->id)
+                          ->whereNotNull('confirmed_at')
+                          ->count();
+        // Ultimas 4 vistas para mostrar como "Sigue donde lo dejaste".
+        $recentViews = \DB::connection('system')->table('marketplace_user_views as v')
+            ->join('marketplace_listings as l', 'l.id', '=', 'v.listing_id')
+            ->where('v.user_id', $user->id)
+            ->where('l.is_active', true)
+            ->where('l.status', 'active')
+            ->orderByDesc('v.viewed_at')
+            ->limit(4)
+            ->select('l.id', 'l.title', 'l.slug', 'l.image_url', 'l.price', 'l.mp_price', 'v.viewed_at')
+            ->get();
+        // Top 3 categorias de interes (si el job ya corrio).
+        $interests = \DB::connection('system')->table('marketplace_user_interests as i')
+            ->leftJoin('marketplace_categories as c', 'c.id', '=', 'i.category_id')
+            ->where('i.user_id', $user->id)
+            ->orderByDesc('i.score')
+            ->limit(3)
+            ->select('c.name', 'c.full_slug', 'i.score')
+            ->get();
+
         return view('marketplace.auth.account', [
-            'user' => $user,
+            'user'         => $user,
+            'favCount'     => $favCount,
+            'ordersCount'  => $ordersCount,
+            'recentViews'  => $recentViews,
+            'interests'    => $interests,
         ]);
     }
 }

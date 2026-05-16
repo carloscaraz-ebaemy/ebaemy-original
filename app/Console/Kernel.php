@@ -41,6 +41,17 @@ class Kernel extends ConsoleKernel
                  ->at('03:00')
                  ->appendOutputTo(storage_path('logs/abandoned_carts.log'));
 
+        // Marketplace: recalcula intereses del comprador (categoria_id → score)
+        // y purga views > 90 dias. Ambos diario fuera de horario pico.
+        $schedule->job(new \App\Jobs\Marketplace\RecalculateMarketplaceUserInterests())
+                 ->dailyAt('03:30')
+                 ->withoutOverlapping()
+                 ->appendOutputTo(storage_path('logs/marketplace_interests.log'));
+        $schedule->job(new \App\Jobs\Marketplace\PurgeOldMarketplaceUserViews())
+                 ->dailyAt('03:45')
+                 ->withoutOverlapping()
+                 ->appendOutputTo(storage_path('logs/marketplace_views_purge.log'));
+
         // Sincroniza estado de tracking con APIs de carriers (Chazki, 99Minutos, etc.)
         // Solo actúa si hay couriers con api_driver != 'manual' configurados
         $schedule->command('carrier:sync-tracking')
