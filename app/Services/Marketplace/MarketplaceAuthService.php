@@ -7,6 +7,7 @@ use App\Models\System\MarketplaceUserConsent;
 use App\Models\System\MarketplaceUserMagicLink;
 use App\Models\System\MarketplaceUserPreference;
 use App\Mail\Marketplace\MarketplaceMagicLinkMail;
+use App\Mail\Marketplace\MarketplaceWelcomeMail;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
@@ -140,6 +141,8 @@ class MarketplaceAuthService
             // Consent transaccional: implicito al crear cuenta para
             // poder enviarle confirmaciones de pedido, magic links, etc.
             $this->grantConsent($user, 'email', 'transactional', 'registration', $request);
+            // Welcome email (transaccional, no requiere consent gating).
+            $this->sendWelcomeSilent($user);
         } else {
             // Marcamos verified si no lo estaba (login a cuenta preexistente).
             if (!$user->email_verified_at) {
@@ -261,6 +264,11 @@ class MarketplaceAuthService
             $this->grantConsent($user, 'email', 'marketing', 'registration', $request);
         }
 
+        // Welcome solo si la cuenta NO existia antes (existing es null en este path).
+        if (!$existing) {
+            $this->sendWelcomeSilent($user);
+        }
+
         return $user;
     }
 
@@ -298,11 +306,25 @@ class MarketplaceAuthService
                 ['email_frequency' => 'weekly', 'whatsapp_frequency' => 'off']
             );
             $this->grantConsent($user, 'email', 'transactional', 'google_signin', $request);
+            $this->sendWelcomeSilent($user);
         }
         if (!$user->isActive()) {
             throw ValidationException::withMessages(['email' => 'Esta cuenta esta deshabilitada.']);
         }
         return $user;
+    }
+
+    /**
+     * Envia welcome email — best-effort. Si SMTP cae, no rompe el registro.
+     * Transaccional: salta consent gating (es necesario que llegue).
+     */
+    private function sendWelcomeSilent(MarketplaceUser $user): void
+    {
+        try {
+            Mail::to($user->email)->send(new MarketplaceWelcomeMail($user));
+        } catch (\Throwable $e) {
+            logger()->warning('Welcome mail failed', ['user_id' => $user->id, 'err' => $e->getMessage()]);
+        }
     }
 
     /** Cambio/seteo de password desde "Mi cuenta". */
