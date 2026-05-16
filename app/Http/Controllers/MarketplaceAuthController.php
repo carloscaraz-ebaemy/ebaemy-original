@@ -110,6 +110,27 @@ class MarketplaceAuthController extends Controller
             ->with('mkt_logout_ok', 'Sesion cerrada.');
     }
 
+    /** GET /marketplace/account/orders — historial cross-tenant. */
+    public function accountOrders(Request $request)
+    {
+        $user = Auth::guard('marketplace')->user();
+        if (!$user) {
+            return redirect()->route('marketplace.login');
+        }
+        $orders = \DB::connection('system')->table('marketplace_user_orders as o')
+            ->leftJoin('hostnames as h', 'h.id', '=', 'o.hostname_id')
+            ->where('o.user_id', $user->id)
+            ->orderByDesc('o.confirmed_at')
+            ->orderByDesc('o.id')
+            ->limit(50)
+            ->select('o.*', 'h.fqdn as tenant_fqdn')
+            ->get();
+        return view('marketplace.auth.orders', [
+            'user'   => $user,
+            'orders' => $orders,
+        ]);
+    }
+
     /** GET /marketplace/account — resumen de actividad del comprador. */
     public function account(Request $request)
     {

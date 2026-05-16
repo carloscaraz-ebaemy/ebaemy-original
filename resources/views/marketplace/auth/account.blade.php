@@ -87,10 +87,10 @@
             <h3>Mi carrito</h3>
             <p>Lo que estas por comprar ahora mismo.</p>
         </a>
-        <div class="mp-acc-tile {{ $ordersCount === 0 ? 'mp-acc-tile--disabled' : '' }}">
+        <a href="{{ route('marketplace.account.orders') }}" class="mp-acc-tile">
             <h3>Mis pedidos</h3>
             <p>{{ $ordersCount === 0 ? 'Aun no tienes compras confirmadas.' : $ordersCount . ' pedido' . ($ordersCount === 1 ? '' : 's') . ' realizados.' }}</p>
-        </div>
+        </a>
         <div class="mp-acc-tile mp-acc-tile--disabled">
             <h3>Preferencias</h3>
             <p>Frecuencia de avisos y categorias (pronto).</p>

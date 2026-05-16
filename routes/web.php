@@ -1201,6 +1201,7 @@ if ($hostname) {
         Route::get('marketplace/auth/verify',             'MarketplaceAuthController@verifyToken')->name('marketplace.auth.verify');
         Route::post('marketplace/auth/logout',            'MarketplaceAuthController@logout')->name('marketplace.auth.logout');
         Route::get('marketplace/account',                 'MarketplaceAuthController@account')->name('marketplace.account');
+        Route::get('marketplace/account/orders',          'MarketplaceAuthController@accountOrders')->name('marketplace.account.orders');
 
         // ─── Favoritos / wishlist (session-based, sin login obligatorio) ─────
         Route::get('marketplace/favoritos',       'MarketplaceController@favorites')->name('marketplace.favorites');
