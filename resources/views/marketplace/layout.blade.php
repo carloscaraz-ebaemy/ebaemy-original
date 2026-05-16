@@ -215,6 +215,20 @@
             .mp-mega-toggle__chev { transition: transform .2s; flex-shrink: 0; }
             .mp-mega-toggle[aria-expanded="true"] .mp-mega-toggle__chev { transform: rotate(180deg); }
 
+            /* Mobile (<=640px): el boton "Categorias" come mucho ancho del
+               search bar (texto + chevron + padding ~110px). Lo compactamos
+               a solo el icono hamburguesa, manteniendo el tap target 44px
+               accesible. Asi el input de busqueda recupera ~80px. */
+            @media (max-width: 640px) {
+                .mp-mega-toggle {
+                    padding: 0;
+                    min-width: 44px; width: 44px;
+                    justify-content: center;
+                }
+                .mp-mega-toggle__label,
+                .mp-mega-toggle__chev { display: none; }
+            }
+
             /* ───────────── Panel desktop (mega menú) ───────────── */
             /* ═══════════════════════ DRAWER 2-pane ═══════════════════════ */
             .mp-cat-drawer {
