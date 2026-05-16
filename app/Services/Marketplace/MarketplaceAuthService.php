@@ -32,9 +32,11 @@ use Illuminate\Validation\ValidationException;
 class MarketplaceAuthService
 {
     public const TOKEN_TTL_MINUTES = 15;
-    public const MAX_REQUESTS_PER_EMAIL_HOUR = 3;
-    public const MAX_REQUESTS_PER_IP_HOUR    = 10;
-    public const MAX_CODE_ATTEMPTS           = 5;
+    public const MAX_REQUESTS_PER_EMAIL_HOUR  = 3;
+    public const MAX_REQUESTS_PER_IP_HOUR     = 10;
+    public const MAX_REQUESTS_GLOBAL_HOUR     = 200;
+    public const MAX_CODE_ATTEMPTS            = 5;
+    public const PASSWORD_MIN_LENGTH          = 8;
 
     /**
      * Solicita un magic link. Devuelve token cleartext si se envio,
@@ -48,9 +50,17 @@ class MarketplaceAuthService
     {
         $email = strtolower(trim($email));
 
-        // Rate limit por email (3/hora) y por IP (10/hora).
-        $emailKey = 'mkt_magic:email:' . sha1($email);
-        $ipKey    = 'mkt_magic:ip:'    . sha1((string) $request->ip());
+        // Rate limit por email (3/hora), por IP (10/hora) Y global (200/hora).
+        // El global mitiga enumeracion de emails a escala: un atacante con
+        // muchas IPs no puede simplemente iterar emails activos del sistema.
+        // No revelamos cual de los 3 limites bloqueo — solo "demasiadas
+        // solicitudes" generico cuando el global pega (mas dificil sondear).
+        $emailKey  = 'mkt_magic:email:'  . sha1($email);
+        $ipKey     = 'mkt_magic:ip:'     . sha1((string) $request->ip());
+        $globalKey = 'mkt_magic:global';
+        if (RateLimiter::tooManyAttempts($globalKey, self::MAX_REQUESTS_GLOBAL_HOUR)) {
+            throw new \RuntimeException('Servicio momentaneamente saturado. Intenta en unos minutos.');
+        }
         if (RateLimiter::tooManyAttempts($emailKey, self::MAX_REQUESTS_PER_EMAIL_HOUR)) {
             throw new \RuntimeException('Demasiadas solicitudes para este email. Intenta de nuevo en 1 hora.');
         }
@@ -59,6 +69,7 @@ class MarketplaceAuthService
         }
         RateLimiter::hit($emailKey, 3600);
         RateLimiter::hit($ipKey,    3600);
+        RateLimiter::hit($globalKey, 3600);
 
         $token = Str::random(40);
         $code  = (string) random_int(100000, 999999);
@@ -142,7 +153,12 @@ class MarketplaceAuthService
             // poder enviarle confirmaciones de pedido, magic links, etc.
             $this->grantConsent($user, 'email', 'transactional', 'registration', $request);
             // Welcome email (transaccional, no requiere consent gating).
-            $this->sendWelcomeSilent($user);
+            // El marketing opt-in del magic link se resuelve unas lineas
+            // mas abajo desde Cache; aqui pasamos false como default y la
+            // version "con ofertas" se enviaria solo a quien hizo opt-in
+            // en register() o pasa flag explicito en Google.
+            $marketingFlag = $token && Cache::has('mkt_marketing_optin:' . hash('sha256', $token));
+            $this->sendWelcomeSilent($user, $marketingFlag);
         } else {
             // Marcamos verified si no lo estaba (login a cuenta preexistente).
             if (!$user->email_verified_at) {
@@ -240,6 +256,8 @@ class MarketplaceAuthService
             ]);
         }
 
+        self::assertPasswordStrong((string) $data['password']);
+
         $user = $existing ?: new MarketplaceUser();
         $user->fill([
             'email'             => $email,
@@ -266,7 +284,7 @@ class MarketplaceAuthService
 
         // Welcome solo si la cuenta NO existia antes (existing es null en este path).
         if (!$existing) {
-            $this->sendWelcomeSilent($user);
+            $this->sendWelcomeSilent($user, !empty($data['marketing']));
         }
 
         return $user;
@@ -317,11 +335,15 @@ class MarketplaceAuthService
     /**
      * Envia welcome email — best-effort. Si SMTP cae, no rompe el registro.
      * Transaccional: salta consent gating (es necesario que llegue).
+     *
+     * @param bool $marketingOptIn Solo afecta el COPY del body — si false,
+     *                             no menciona ofertas/cupones para no
+     *                             parecer marketing al user que dijo NO.
      */
-    private function sendWelcomeSilent(MarketplaceUser $user): void
+    private function sendWelcomeSilent(MarketplaceUser $user, bool $marketingOptIn = false): void
     {
         try {
-            Mail::to($user->email)->send(new MarketplaceWelcomeMail($user));
+            Mail::to($user->email)->send(new MarketplaceWelcomeMail($user, $marketingOptIn));
         } catch (\Throwable $e) {
             logger()->warning('Welcome mail failed', ['user_id' => $user->id, 'err' => $e->getMessage()]);
         }
@@ -335,9 +357,36 @@ class MarketplaceAuthService
                 throw ValidationException::withMessages(['current_password' => 'Contraseña actual incorrecta.']);
             }
         }
-        if (strlen($new) < 8) {
-            throw ValidationException::withMessages(['password' => 'La contraseña debe tener al menos 8 caracteres.']);
-        }
+        self::assertPasswordStrong($new);
         $user->forceFill(['password_hash' => Hash::make($new)])->save();
+    }
+
+    /**
+     * Politica de password: minimo 8 chars + al menos una letra + al menos
+     * un numero. Bloquea diccionarios obvios (12345678, password, qwerty...)
+     * sin imponer simbolos (fricción alta sin ganancia real).
+     *
+     * Se usa desde register(), setPassword() y la regla "password" del
+     * controller (FormRequest puede tambien hacer custom rule, pero este
+     * helper estatico evita duplicacion).
+     */
+    public static function assertPasswordStrong(string $password): void
+    {
+        if (strlen($password) < self::PASSWORD_MIN_LENGTH) {
+            throw ValidationException::withMessages([
+                'password' => 'La contraseña debe tener al menos ' . self::PASSWORD_MIN_LENGTH . ' caracteres.',
+            ]);
+        }
+        if (!preg_match('/[A-Za-z]/', $password) || !preg_match('/\d/', $password)) {
+            throw ValidationException::withMessages([
+                'password' => 'La contraseña debe contener al menos una letra y un numero.',
+            ]);
+        }
+        $weak = ['12345678', 'password', 'qwerty123', 'abcd1234', 'admin123', '11111111', 'contrasena'];
+        if (in_array(strtolower($password), $weak, true)) {
+            throw ValidationException::withMessages([
+                'password' => 'Esta contraseña es demasiado comun. Elige una mas segura.',
+            ]);
+        }
     }
 }

@@ -20,7 +20,10 @@ class MarketplaceWelcomeMail extends Mailable
 {
     use Queueable, SerializesModels;
 
-    public function __construct(public MarketplaceUser $user) {}
+    public function __construct(
+        public MarketplaceUser $user,
+        public bool $marketingOptIn = false,
+    ) {}
 
     public function build()
     {
@@ -30,7 +33,8 @@ class MarketplaceWelcomeMail extends Mailable
             ->replyTo('soporte@ebaemy.com', 'Soporte ebaemy')
             ->subject('Bienvenido a ebaemy — tu cuenta esta lista')
             ->view('emails.marketplace_welcome', [
-                'user' => $this->user,
+                'user'        => $this->user,
+                'showOffersCta' => $this->marketingOptIn,
             ]);
     }
 }

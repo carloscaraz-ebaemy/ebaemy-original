@@ -25,7 +25,9 @@
                         <tr><td style="padding:8px 0;color:#475569;font-size:14px;line-height:1.5">🔍 <strong>Explorar productos</strong> de tiendas verificadas en Peru.</td></tr>
                         <tr><td style="padding:8px 0;color:#475569;font-size:14px;line-height:1.5">💾 <strong>Guardar favoritos</strong> — te avisamos si bajan de precio.</td></tr>
                         <tr><td style="padding:8px 0;color:#475569;font-size:14px;line-height:1.5">🛒 <strong>Comprar de varias tiendas</strong> en un solo checkout.</td></tr>
-                        <tr><td style="padding:8px 0;color:#475569;font-size:14px;line-height:1.5">🎟️ <strong>Recibir cupones</strong> de plataforma asignados a tu cuenta.</td></tr>
+                        @if(!empty($showOffersCta))
+                            <tr><td style="padding:8px 0;color:#475569;font-size:14px;line-height:1.5">🎟️ <strong>Recibir ofertas y cupones</strong> en tu email (suscrito).</td></tr>
+                        @endif
                     </table>
                 </td></tr>
                 <tr><td style="padding:24px 32px">
