@@ -1163,6 +1163,12 @@ $inventory_configuration = InventoryConfiguration::getSidebarPermissions();
                                         <span>Productos por Canal</span>
                                     </a>
                                 </li>
+                                <li class="{{ request()->routeIs('tenant.marketplace_coupons.*') ? 'nav-active' : '' }}">
+                                    <a class="nav-link" href="{{ route('tenant.marketplace_coupons.index') }}">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12V8H4v4"/><path d="M2 8h20v8H2z"/><path d="M8 12h.01"/><path d="M16 12h.01"/></svg>
+                                        <span>Cupones marketplace</span>
+                                    </a>
+                                </li>
 
                                 {{-- REPORTES ECOMMERCE --}}
                                 <span class="sb-group-label">Reportes</span>
