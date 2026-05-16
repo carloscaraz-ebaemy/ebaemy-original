@@ -323,11 +323,17 @@ class MercadoPagoService
                 return ['success' => true, 'order' => $order, 'status' => 'paid'];
             }
 
-            // Estados terminales NEGATIVOS: rejected, cancelled, charged_back.
-            // Liberamos cupones de plataforma que se hayan redeemed al crear
-            // el pedido, para que el comprador pueda reintentar.
-            if (in_array($payment->status, ['rejected', 'cancelled', 'charged_back'], true)) {
-                $order->payment_status = $payment->status === 'rejected' ? 'rejected' : 'cancelled';
+            // Estados terminales NEGATIVOS: rejected, cancelled, charged_back, refunded.
+            // refunded = MP devolvio el pago al cliente despues de aprobado
+            // (refund manual del seller o disputa). Tambien liberamos los
+            // cupones platform para que el comprador no los pierda en un
+            // pedido que ya no se cobro.
+            if (in_array($payment->status, ['rejected', 'cancelled', 'charged_back', 'refunded'], true)) {
+                $order->payment_status = match ($payment->status) {
+                    'rejected' => 'rejected',
+                    'refunded' => 'refunded',
+                    default    => 'cancelled',
+                };
                 $order->save();
                 try {
                     $released = app(\App\Services\Marketplace\MarketplaceCouponService::class)
