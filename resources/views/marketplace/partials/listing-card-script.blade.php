@@ -214,11 +214,15 @@ document.querySelectorAll('.mp-card[data-gallery]').forEach(function (card) {
 
             if (btn.classList.contains('is-loading') || btn.classList.contains('is-added')) return;
 
-            var listingId = parseInt(btn.getAttribute('data-listing-id'), 10);
-            if (!listingId) return;
+            var slug = btn.getAttribute('data-listing-slug');
+            if (!slug) return;
 
             btn.classList.add('is-loading');
 
+            // El endpoint valida { slug, quantity } — no listing_id. Antes
+            // mandabamos listing_id y la validacion fallaba con 422,
+            // disparando el fallback que navega al detalle. Resultado: el
+            // quick-add nunca anadia al carrito, solo abria la ficha.
             fetch(addUrl, {
                 method: 'POST',
                 headers: {
@@ -227,7 +231,7 @@ document.querySelectorAll('.mp-card[data-gallery]').forEach(function (card) {
                     'Accept': 'application/json',
                 },
                 credentials: 'same-origin',
-                body: JSON.stringify({ listing_id: listingId, quantity: 1 })
+                body: JSON.stringify({ slug: slug, quantity: 1 })
             })
             .then(function (r) { return r.json(); })
             .then(function (data) {
