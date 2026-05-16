@@ -148,6 +148,14 @@
                             @endif
                         @endif
                     @endif
+                    {{-- Precio personalizado: si el comprador logueado tiene un
+                         cupon de plataforma aplicable, mostramos el precio que
+                         pagaria al usarlo. Se aplica auto en checkout. --}}
+                    @if(!empty($listing->personal_discount) && $listing->personal_discount > 0)
+                        <span class="mp-card-personal" title="Cupon {{ $listing->personal_code }}">
+                            Con tu cupon: <strong>S/ {{ number_format($listing->personal_price, 2) }}</strong>
+                        </span>
+                    @endif
                 @else
                     <span style="color:#6b7280;font-size:13px;font-weight:500">Consultar precio</span>
                 @endif

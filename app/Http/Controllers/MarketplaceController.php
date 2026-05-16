@@ -116,6 +116,7 @@ class MarketplaceController extends Controller
         // las acciones que renderizan grids de cards.
         $this->decorateListingsWithVariantData($listings);
         $this->decorateListingsWithAlsoIn($listings);
+        $this->decorateListingsWithPersonalCoupon($listings);
 
         $categories = MarketplaceListing::published()
             ->whereNotNull('category_name')
@@ -486,6 +487,91 @@ class MarketplaceController extends Controller
     }
 
     /**
+     * Decora cada listing con personal_discount y personal_price si el
+     * comprador logueado tiene un cupon de plataforma aplicable a esa
+     * tienda. Hace una sola query a marketplace_user_coupons al inicio
+     * y aplica en memoria.
+     *
+     * El descuento se calcula sobre el precio efectivo (display_price)
+     * y respeta min_subtotal del cupon — si el precio individual del
+     * producto no llega al minimo, no se aplica (el descuento aparece
+     * recien en checkout cuando el subtotal del cart si cumple).
+     */
+    private function decorateListingsWithPersonalCoupon($listings): void
+    {
+        $user = \Illuminate\Support\Facades\Auth::guard('marketplace')->user();
+        if (!$user) return;
+
+        if ($listings instanceof \Illuminate\Contracts\Pagination\Paginator) {
+            $iterable = $listings->items();
+        } else {
+            $iterable = $listings;
+        }
+        if (empty($iterable) || (is_countable($iterable) && count($iterable) === 0)) return;
+
+        // Cupones vigentes del user (no usados, dentro de ventana, activos).
+        $now = now();
+        $coupons = \DB::connection('system')->table('marketplace_user_coupons as uc')
+            ->join('marketplace_coupons as c', 'c.id', '=', 'uc.coupon_id')
+            ->where('uc.user_id', $user->id)
+            ->whereNull('uc.used_at')
+            ->where('c.is_active', true)
+            ->where(function ($q) use ($now) {
+                $q->whereNull('uc.expires_at')->orWhere('uc.expires_at', '>', $now);
+            })
+            ->where(function ($q) use ($now) {
+                $q->whereNull('c.valid_until')->orWhere('c.valid_until', '>', $now);
+            })
+            ->where(function ($q) use ($now) {
+                $q->whereNull('c.valid_from')->orWhere('c.valid_from', '<=', $now);
+            })
+            ->select(
+                'uc.id as assignment_id',
+                'c.code', 'c.type', 'c.value', 'c.min_subtotal', 'c.max_discount',
+                'c.scope', 'c.tenant_id'
+            )
+            ->get();
+        if ($coupons->isEmpty()) return;
+
+        // Indexamos por scope para lookup rapido por listing.
+        $platformCoupons = $coupons->where('scope', 'platform')->values();
+        $tenantCoupons   = $coupons->where('scope', 'tenant')->groupBy('tenant_id');
+
+        foreach ($iterable as $l) {
+            $effPrice = (float) (($l->mp_price ?? null) ?: $l->price ?? 0);
+            if ($effPrice <= 0) continue;
+
+            // Candidatos para esta tienda: platform + los del hostname_id.
+            $candidates = $platformCoupons->concat(
+                $tenantCoupons->get((int) $l->hostname_id, collect())
+            );
+
+            $bestDiscount = 0;
+            $bestCode = null;
+            foreach ($candidates as $c) {
+                // min_subtotal: el precio individual del producto debe llegar.
+                if ($c->min_subtotal !== null && $effPrice < (float) $c->min_subtotal) continue;
+                $raw = $c->type === 'percent'
+                    ? round($effPrice * ((float) $c->value / 100), 2)
+                    : (float) $c->value;
+                if ($c->type === 'percent' && $c->max_discount !== null) {
+                    $raw = min($raw, (float) $c->max_discount);
+                }
+                $raw = min($raw, $effPrice);
+                if ($raw > $bestDiscount) {
+                    $bestDiscount = $raw;
+                    $bestCode = $c->code;
+                }
+            }
+            if ($bestDiscount > 0) {
+                $l->personal_discount = $bestDiscount;
+                $l->personal_price    = round($effPrice - $bestDiscount, 2);
+                $l->personal_code     = $bestCode;
+            }
+        }
+    }
+
+    /**
      * Decora cada listing con also_in_count + also_in_min_price: cuantas
      * OTRAS tiendas publican el mismo producto y a que precio minimo. Es
      * el feature que distingue un marketplace de una coleccion de tiendas
@@ -624,6 +710,7 @@ class MarketplaceController extends Controller
         $listings = $query->paginate(24)->withQueryString();
         $this->decorateListingsWithVariantData($listings);
         $this->decorateListingsWithAlsoIn($listings);
+        $this->decorateListingsWithPersonalCoupon($listings);
         $total    = MarketplaceListing::published()->where('category_name', $category)->count();
 
         return view('marketplace.category', compact('listings', 'category', 'categorySlug', 'sort', 'priceMin', 'priceMax', 'total'));
@@ -672,6 +759,7 @@ class MarketplaceController extends Controller
         $listings = $query->paginate(24)->withQueryString();
         $this->decorateListingsWithVariantData($listings);
         $this->decorateListingsWithAlsoIn($listings);
+        $this->decorateListingsWithPersonalCoupon($listings);
         $total    = MarketplaceListing::published()->inOfficialCategory($category->id)->count();
 
         // Breadcrumb oficial: ancestros + self
@@ -1051,6 +1139,7 @@ class MarketplaceController extends Controller
         $listings = $query->paginate(24)->withQueryString();
         $this->decorateListingsWithVariantData($listings);
         $this->decorateListingsWithAlsoIn($listings);
+        $this->decorateListingsWithPersonalCoupon($listings);
         $total    = MarketplaceListing::published()
                         ->where('hostname_id', $hostname->id)
                         ->count();
