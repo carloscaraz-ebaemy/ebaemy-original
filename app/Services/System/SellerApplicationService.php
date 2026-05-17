@@ -1017,6 +1017,127 @@ class SellerApplicationService
         }
     }
 
+    /**
+     * Edita campos de contacto + tienda de una solicitud antes de aprobarla.
+     *
+     * Permitido solo en estados revisables — una vez aprobada o rechazada,
+     * la solicitud queda inmutable.
+     *
+     * Para subdominio y email se valida contra duplicados (otros tenants u
+     * otras solicitudes activas) excluyendo la propia, para que el SuperAdmin
+     * pueda "guardar sin cambios" sin chocar consigo mismo.
+     *
+     * @param SellerApplication $application
+     * @param int               $reviewerId  ID del SuperAdmin que edita
+     * @param array             $data        campos validados por UpdateSellerApplicationRequest
+     *
+     * @return array{success: bool, message: string}
+     */
+    public function updateApplication(SellerApplication $application, int $reviewerId, array $data): array
+    {
+        if (!$application->isReviewable()) {
+            return [
+                'success' => false,
+                'message' => "La solicitud no se puede editar en este estado (actual: {$application->status})",
+            ];
+        }
+
+        // approving es revisable internamente para que el job complete, pero
+        // no debe ser editable manualmente (el job ya está corriendo con
+        // los datos actuales).
+        if ($application->status === SellerApplication::STATUS_APPROVING) {
+            return [
+                'success' => false,
+                'message' => 'No se puede editar una solicitud mientras se está creando el tenant.',
+            ];
+        }
+
+        $newSubdomain = strtolower(trim((string) ($data['requested_subdomain'] ?? '')));
+        $newEmail     = strtolower(trim((string) ($data['email'] ?? '')));
+
+        // ── Duplicados de subdominio ──────────────────────────────
+        // Solo chequear si cambió respecto al actual.
+        if ($newSubdomain !== '' && $newSubdomain !== strtolower((string) $application->requested_subdomain)) {
+            $uuid = config('tenant.prefix_database') . '_' . $newSubdomain;
+            $websiteExists = DB::connection('system')->table('websites')->where('uuid', $uuid)->exists();
+            if ($websiteExists) {
+                return ['success' => false, 'message' => "El subdominio '{$newSubdomain}' ya está en uso por otro tenant."];
+            }
+            $otherApp = SellerApplication::query()
+                ->active()
+                ->where('requested_subdomain', $newSubdomain)
+                ->where('id', '!=', $application->id)
+                ->exists();
+            if ($otherApp) {
+                return ['success' => false, 'message' => "El subdominio '{$newSubdomain}' está reservado por otra solicitud activa."];
+            }
+        }
+
+        // ── Duplicados de email ───────────────────────────────────
+        if ($newEmail !== '' && $newEmail !== strtolower((string) $application->email)) {
+            $clientWithEmail = DB::connection('system')->table('clients')
+                ->whereRaw('LOWER(email) = ?', [$newEmail])
+                ->exists();
+            if ($clientWithEmail) {
+                return ['success' => false, 'message' => "Ya existe un tenant con el email {$newEmail}."];
+            }
+        }
+
+        try {
+            // Construir diff legible para el log antes de actualizar.
+            $diff = [];
+            $editableFields = [
+                'email'               => 'Email',
+                'phone'               => 'Teléfono',
+                'requested_subdomain' => 'Subdominio',
+                'store_name'          => 'Nombre de tienda',
+                'store_description'   => 'Descripción de tienda',
+                'facebook_url'        => 'Facebook',
+                'instagram_url'       => 'Instagram',
+                'tiktok_url'          => 'TikTok',
+                'website_url'         => 'Sitio web',
+            ];
+
+            $updates = [];
+            foreach ($editableFields as $field => $label) {
+                if (!array_key_exists($field, $data)) continue;
+                $newValue = is_string($data[$field]) ? trim($data[$field]) : $data[$field];
+                if ($field === 'email' || $field === 'requested_subdomain') {
+                    $newValue = strtolower((string) $newValue);
+                }
+                $oldValue = (string) ($application->{$field} ?? '');
+                if ((string) $newValue !== $oldValue) {
+                    $updates[$field] = $newValue !== '' ? $newValue : null;
+                    $diff[] = "{$label}: '" . ($oldValue ?: '—') . "' → '" . ($newValue ?: '—') . "'";
+                }
+            }
+
+            if (empty($updates)) {
+                return ['success' => true, 'message' => 'Sin cambios para guardar.'];
+            }
+
+            DB::connection('system')->transaction(function () use ($application, $updates, $diff, $reviewerId) {
+                $application->update($updates);
+
+                SellerApplicationLog::create([
+                    'seller_application_id' => $application->id,
+                    'action'                => SellerApplicationLog::ACTION_NOTE_ADDED,
+                    'notes'                 => "Solicitud editada por SuperAdmin:\n" . implode("\n", $diff),
+                    'user_id'               => $reviewerId,
+                    'created_at'            => now(),
+                ]);
+            });
+
+            return ['success' => true, 'message' => 'Solicitud actualizada.'];
+        } catch (Exception $e) {
+            Log::error('SellerApplicationService::updateApplication error', [
+                'application_id' => $application->id,
+                'error'          => $e->getMessage(),
+            ]);
+            return ['success' => false, 'message' => 'Error al actualizar: ' . $e->getMessage()];
+        }
+    }
+
     // ─────────────────────────────────────────────────────────
     //  Helpers privados
     // ─────────────────────────────────────────────────────────

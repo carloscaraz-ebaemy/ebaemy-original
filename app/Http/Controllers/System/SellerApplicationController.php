@@ -7,6 +7,7 @@ use App\Http\Requests\System\AddNoteSellerApplicationRequest;
 use App\Http\Requests\System\ApproveSellerApplicationRequest;
 use App\Http\Requests\System\RejectSellerApplicationRequest;
 use App\Http\Requests\System\RequestDocumentsSellerApplicationRequest;
+use App\Http\Requests\System\UpdateSellerApplicationRequest;
 use App\Models\System\Plan;
 use App\Models\System\SellerApplication;
 use App\Services\System\SellerApplicationService;
@@ -177,6 +178,24 @@ class SellerApplicationController extends Controller
             $application,
             auth('admin')->id(),
             $request->input('note')
+        );
+
+        return response()->json($result, $result['success'] ? 200 : 422);
+    }
+
+    /**
+     * Edita campos de contacto + tienda antes de aprobar.
+     * Solo permitido en estados revisables (pending, under_review,
+     * requires_documents, requires_review).
+     */
+    public function update(UpdateSellerApplicationRequest $request, $id): JsonResponse
+    {
+        $application = SellerApplication::query()->findOrFail($id);
+
+        $result = $this->service->updateApplication(
+            $application,
+            auth('admin')->id(),
+            $request->validated()
         );
 
         return response()->json($result, $result['success'] ? 200 : 422);

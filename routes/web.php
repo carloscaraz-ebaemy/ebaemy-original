@@ -1467,6 +1467,7 @@ if ($hostname) {
                 Route::post('{id}/reject',            'System\SellerApplicationController@reject')->name('reject')->whereNumber('id');
                 Route::post('{id}/request-documents', 'System\SellerApplicationController@requestDocuments')->name('request_documents')->whereNumber('id');
                 Route::post('{id}/notes',             'System\SellerApplicationController@addNote')->name('add_note')->whereNumber('id');
+                Route::put('{id}',                    'System\SellerApplicationController@update')->name('update')->whereNumber('id');
             });
 
             // ── Moderación marketplace central ──────────────────────────────

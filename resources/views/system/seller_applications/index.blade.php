@@ -73,6 +73,10 @@
 const SA_CSRF  = document.querySelector('meta[name="csrf-token"]')?.content || '';
 const SA_ROUTE = @json(url('/admin/seller-applications'));
 let saCurrentPage = 1;
+// Cache del detalle actualmente abierto en el modal — usado para alternar
+// entre modo vista y modo edición sin re-fetch al servidor.
+let saCurrentDetail = null;
+let saEditMode = false;
 
 function saBadge(status) {
     const map = {
@@ -172,20 +176,36 @@ function saEscape(v) {
 async function saShowDetail(id) {
     const body = document.getElementById('saDetailBody');
     body.innerHTML = '<div class="text-center text-muted py-5">Cargando…</div>';
+    saCurrentDetail = null;
+    saEditMode = false;
     $('#saDetailModal').modal('show');
 
     try {
         const res = await fetch(`${SA_ROUTE}/${id}`, { headers: { 'Accept': 'application/json' } });
         const data = await res.json();
+        saCurrentDetail = data;
         body.innerHTML = saDetailHtml(data);
     } catch (e) {
         body.innerHTML = '<div class="alert alert-danger">Error: ' + e.message + '</div>';
     }
 }
 
+function saRerenderDetail() {
+    if (!saCurrentDetail) return;
+    document.getElementById('saDetailBody').innerHTML = saDetailHtml(saCurrentDetail);
+}
+
+function saToggleEdit() {
+    if (!saCurrentDetail) return;
+    saEditMode = !saEditMode;
+    saRerenderDetail();
+}
+
 function saDetailHtml(data) {
     const app = data.application;
     const reviewable = ['pending','under_review','requires_documents','requires_review'].includes(app.status);
+    const canEdit = reviewable && !app.is_activation_request;
+    const editing = saEditMode && canEdit;
 
     const planOptions = data.plans.map(p => `<option value="${p.id}">${saEscape(p.name)} — docs:${p.limit_documents} usu:${p.limit_users}</option>`).join('');
 
@@ -258,19 +278,87 @@ function saDetailHtml(data) {
         ? `<div class="text-center mb-3"><img src="/storage/${saEscape(app.logo_path)}" style="max-height:80px; max-width:180px; object-fit:contain;" alt="Logo"></div>`
         : '';
 
+    // Header con badges + toggle Editar/Cancelar (solo en estados revisables
+    // y no para solicitudes de activación, que no editan datos).
+    const editToggle = canEdit
+        ? (editing
+            ? `<button class="btn btn-sm btn-outline-secondary float-end" onclick="saToggleEdit()">✕ Cancelar edición</button>`
+            : `<button class="btn btn-sm btn-outline-primary float-end" onclick="saToggleEdit()">✎ Editar datos</button>`)
+        : '';
+
+    // ── Celdas de subdominio / email / teléfono: input si editing, texto si no ──
+    const subdomainCell = editing
+        ? `<input id="saEditSubdomain" type="text" class="form-control form-control-sm" value="${saEscape(app.requested_subdomain)}" placeholder="subdominio">`
+        : `<code>${saEscape(app.requested_subdomain)}</code>`;
+    const emailCell = editing
+        ? `<input id="saEditEmail" type="email" class="form-control form-control-sm" value="${saEscape(app.email)}">`
+        : saEscape(app.email);
+    const phoneCell = editing
+        ? `<input id="saEditPhone" type="text" class="form-control form-control-sm" value="${saEscape(app.phone)}">`
+        : saEscape(app.phone);
+
+    // ── Card adicional: tienda + redes (solo visible en modo edición; los
+    //    campos hoy no se muestran en la vista normal porque eran inmutables).
+    const storeAndSocialCard = editing ? `
+        <div class="card mb-3 border-primary">
+            <div class="card-header bg-primary-subtle"><strong>Tienda virtual y redes</strong></div>
+            <div class="card-body">
+                <div class="mb-2">
+                    <label class="form-label small mb-1">Nombre de la tienda</label>
+                    <input id="saEditStoreName" type="text" class="form-control form-control-sm" value="${saEscape(app.store_name || '')}" maxlength="120">
+                </div>
+                <div class="mb-2">
+                    <label class="form-label small mb-1">Descripción de la tienda</label>
+                    <textarea id="saEditStoreDescription" class="form-control form-control-sm" rows="2" maxlength="2000">${saEscape(app.store_description || '')}</textarea>
+                </div>
+                <div class="row g-2">
+                    <div class="col-md-6">
+                        <label class="form-label small mb-1">Facebook</label>
+                        <input id="saEditFacebook" type="url" class="form-control form-control-sm" value="${saEscape(app.facebook_url || '')}" placeholder="https://facebook.com/...">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label small mb-1">Instagram</label>
+                        <input id="saEditInstagram" type="url" class="form-control form-control-sm" value="${saEscape(app.instagram_url || '')}" placeholder="https://instagram.com/...">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label small mb-1">TikTok</label>
+                        <input id="saEditTiktok" type="url" class="form-control form-control-sm" value="${saEscape(app.tiktok_url || '')}" placeholder="https://tiktok.com/@...">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label small mb-1">Sitio web</label>
+                        <input id="saEditWebsite" type="url" class="form-control form-control-sm" value="${saEscape(app.website_url || '')}" placeholder="https://...">
+                    </div>
+                </div>
+                <hr>
+                <div class="d-flex justify-content-end gap-2">
+                    <button class="btn btn-sm btn-outline-secondary" onclick="saToggleEdit()">Cancelar</button>
+                    <button class="btn btn-sm btn-primary" onclick="saSaveEdit(${app.id})">💾 Guardar cambios</button>
+                </div>
+                <div class="form-text small mt-2">
+                    Solo se editan datos de contacto y tienda. El RUC, razón social,
+                    dirección fiscal y datos del responsable legal vienen de SUNAT
+                    y no son editables.
+                </div>
+            </div>
+        </div>
+    ` : '';
+
     return `
     <div class="row g-3">
         <div class="col-md-7">
             ${logoPreview}
             <div class="card mb-3">
-                <div class="card-header bg-light"><strong>Empresa</strong> ${saBadge(app.status)} ${saRucBadge(app)}</div>
+                <div class="card-header bg-light">
+                    <strong>Empresa</strong> ${saBadge(app.status)} ${saRucBadge(app)}
+                    ${editToggle}
+                </div>
                 <div class="card-body">
                     <table class="table table-sm mb-0">
-                        <tr><th>RUC</th><td>${app.ruc}</td></tr>
+                        <tr><th style="width:40%">RUC</th><td>${app.ruc} <small class="text-muted">(no editable)</small></td></tr>
                         <tr><th>Razón social</th><td>${saEscape(app.business_name)}</td></tr>
                         <tr><th>Nombre comercial</th><td>${saEscape(app.trade_name)}</td></tr>
                         <tr><th>Dirección fiscal</th><td>${saEscape(app.fiscal_address)}</td></tr>
-                        <tr><th>Subdominio solicitado</th><td><code>${saEscape(app.requested_subdomain)}</code></td></tr>
+                        <tr><th>Subdominio solicitado</th><td>${subdomainCell}</td></tr>
                         <tr><th>RUC SUNAT</th><td>${app.ruc_status || '—'} / ${app.ruc_condition || '—'}</td></tr>
                     </table>
                 </div>
@@ -279,14 +367,15 @@ function saDetailHtml(data) {
                 <div class="card-header bg-light"><strong>Responsable legal</strong></div>
                 <div class="card-body">
                     <table class="table table-sm mb-0">
-                        <tr><th>Nombre</th><td>${saEscape(app.legal_representative_name)}</td></tr>
+                        <tr><th style="width:40%">Nombre</th><td>${saEscape(app.legal_representative_name)}</td></tr>
                         <tr><th>DNI</th><td>${saEscape(app.legal_representative_dni)}</td></tr>
                         <tr><th>Cargo</th><td>${saEscape(app.legal_representative_position)}</td></tr>
-                        <tr><th>Email</th><td>${saEscape(app.email)}</td></tr>
-                        <tr><th>Teléfono</th><td>${saEscape(app.phone)}</td></tr>
+                        <tr><th>Email</th><td>${emailCell}</td></tr>
+                        <tr><th>Teléfono</th><td>${phoneCell}</td></tr>
                     </table>
                 </div>
             </div>
+            ${storeAndSocialCard}
             ${app.rejection_reason ? `<div class="alert alert-danger"><strong>Motivo de rechazo:</strong><br>${saEscape(app.rejection_reason)}</div>` : ''}
             ${app.review_notes ? `<div class="alert alert-warning"><strong>Notas de revisión:</strong><br>${saEscape(app.review_notes)}</div>` : ''}
         </div>
@@ -478,6 +567,67 @@ async function saPromptNote(id) {
     const note = prompt('Nota interna (mínimo 3 caracteres):');
     if (!note || note.length < 3) return;
     await saPost(id, 'notes', { note });
+}
+
+async function saSaveEdit(id) {
+    const body = {
+        email:               (document.getElementById('saEditEmail')?.value || '').trim(),
+        phone:               (document.getElementById('saEditPhone')?.value || '').trim(),
+        requested_subdomain: (document.getElementById('saEditSubdomain')?.value || '').trim().toLowerCase(),
+        store_name:          (document.getElementById('saEditStoreName')?.value || '').trim(),
+        store_description:   (document.getElementById('saEditStoreDescription')?.value || '').trim(),
+        facebook_url:        (document.getElementById('saEditFacebook')?.value || '').trim(),
+        instagram_url:       (document.getElementById('saEditInstagram')?.value || '').trim(),
+        tiktok_url:          (document.getElementById('saEditTiktok')?.value || '').trim(),
+        website_url:         (document.getElementById('saEditWebsite')?.value || '').trim(),
+    };
+
+    // Validación cliente: subdominio + email obligatorios y formato sano.
+    if (!body.requested_subdomain || !/^[a-z0-9](?:[a-z0-9-]{1,58}[a-z0-9])?$/.test(body.requested_subdomain)) {
+        return alert('Subdominio inválido. Solo minúsculas, números y guiones (no al inicio ni al final).');
+    }
+    if (!body.email || !/^\S+@\S+\.\S+$/.test(body.email)) {
+        return alert('Email inválido.');
+    }
+    if (!body.phone) {
+        return alert('Teléfono obligatorio.');
+    }
+
+    try {
+        const res = await fetch(`${SA_ROUTE}/${id}`, {
+            method: 'PUT',
+            headers: {
+                'Accept': 'application/json',
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': SA_CSRF,
+            },
+            body: JSON.stringify(body),
+        });
+        const txt = await res.text();
+        let json;
+        try { json = JSON.parse(txt); }
+        catch (e) {
+            const match = txt.match(/<title>(.*?)<\/title>/i);
+            return alert('Error del servidor: ' + (match ? match[1] : `HTTP ${res.status}`));
+        }
+        if (!json.success) {
+            // Mostrar errores de validación de Laravel (422) si vienen
+            if (json.errors) {
+                const msgs = Object.values(json.errors).flat().join('\n');
+                return alert('Errores de validación:\n' + msgs);
+            }
+            return alert('Error: ' + (json.message || 'desconocido'));
+        }
+
+        // Refrescar el detalle con los datos nuevos y salir del modo edición
+        saEditMode = false;
+        const refreshed = await fetch(`${SA_ROUTE}/${id}`, { headers: { 'Accept': 'application/json' } });
+        saCurrentDetail = await refreshed.json();
+        saRerenderDetail();
+        saLoad(saCurrentPage);
+    } catch (e) {
+        alert('Error: ' + e.message);
+    }
 }
 
 document.addEventListener('DOMContentLoaded', () => saLoad(1));
