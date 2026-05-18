@@ -54,6 +54,8 @@ body {
 
 /* ==========================================================================
    FONDO FULLSCREEN ADMINISTRABLE (imagen del tenant)
+   La imagen se renderiza ntida, sin overlays de gradiente encima.
+   El contraste con la card glass se logra con el blur/shadow propio de la card.
    ========================================================================== */
 .auth__image {
   position: fixed !important;
@@ -65,7 +67,7 @@ body {
   align-items: center;
   justify-content: center;
   overflow: hidden;
-  background: linear-gradient(135deg, #0a9d92 0%, #0f7a72 45%, #8a6c14 100%) !important;
+  background: #f6fbfc !important;
   border-radius: 0 !important;
   padding: 0 !important;
   margin: 0 !important;
@@ -78,47 +80,8 @@ body {
   width: 100vw !important;
   height: 100vh !important;
   object-fit: cover !important;
-  opacity: 0.32;
-  mix-blend-mode: soft-light;
+  opacity: 1;
   z-index: 0;
-  filter: saturate(0.85);
-}
-
-/* Overlay gradiente moderno (teal + azul + oscuro) para contraste premium con card */
-.auth__image::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background:
-    radial-gradient(ellipse at 15% 20%, rgba(31, 177, 166, 0.30) 0%, transparent 55%),
-    radial-gradient(ellipse at 85% 15%, rgba(37, 99, 235, 0.22) 0%, transparent 55%),
-    radial-gradient(ellipse at 70% 85%, rgba(15, 23, 42, 0.35) 0%, transparent 60%),
-    linear-gradient(135deg,
-      rgba(10, 111, 104, 0.45) 0%,
-      rgba(15, 138, 130, 0.28) 25%,
-      rgba(30, 64, 175, 0.22) 55%,
-      rgba(15, 23, 42, 0.55) 100%);
-  z-index: 1;
-  pointer-events: none;
-}
-
-/* Glow decorativo sutil detrás de la card */
-.auth__image::after {
-  content: '';
-  position: absolute;
-  top: 50%; left: 50%;
-  transform: translate(-50%, -50%);
-  width: 900px; height: 900px;
-  background: radial-gradient(circle, rgba(255, 255, 255, 0.08) 0%, transparent 55%);
-  border-radius: 50%;
-  z-index: 2;
-  pointer-events: none;
-  animation: ebGlowPulse 8s ease-in-out infinite;
-}
-
-@keyframes ebGlowPulse {
-  0%, 100% { opacity: 0.8; transform: translate(-50%, -50%) scale(1); }
-  50%      { opacity: 1;   transform: translate(-50%, -50%) scale(1.08); }
 }
 
 /* Logo en esquina de la pantalla (marca de agua) */

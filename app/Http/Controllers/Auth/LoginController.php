@@ -8,6 +8,8 @@ use App\Models\Tenant\Company;
 use App\Models\Tenant\Configuration;
 use App\Models\Tenant\Skin;
 use Illuminate\Foundation\Auth\AuthenticatesUsers;
+use Illuminate\Http\Request;
+use Illuminate\Validation\ValidationException;
 
 class LoginController extends Controller
 {
@@ -22,7 +24,9 @@ class LoginController extends Controller
     |
     */
 
-    use AuthenticatesUsers;
+    use AuthenticatesUsers {
+        login as traitLogin;
+    }
 
     /**
      * Where to redirect users after login.
@@ -80,6 +84,15 @@ class LoginController extends Controller
             ? $config->login_bg_color
             : '#ffffff';
         $company = Company::first();
+
+        // Si el tenant est bloqueado (locked_tenant=true), mostrar vista de
+        // 'Cuenta inactiva' en lugar del form. As el seller ve el estado
+        // de inmediato y no intenta loggearse en vano (el middleware
+        // locked.tenant igual lo rebotara con 403 al cargar /dashboard,
+        // pero esto es ms claro).
+        if ($this->isTenantLocked()) {
+            return view('tenant.auth.locked', compact('company', 'login', 'useLoginGlobal', 'loginBgColor'));
+        }
         
         // Obtener el tema seleccionado
         $tenantConfig = Configuration::first();
@@ -119,5 +132,38 @@ class LoginController extends Controller
         }
         
         return view('tenant.auth.login', compact('company', 'login', 'useLoginGlobal', 'loginBgColor', 'selectedSkin', 'themeColors', 'selectedTheme'));
+    }
+
+    /**
+     * Override del login() del trait AuthenticatesUsers. Rechaza el POST
+     * antes de autenticar si el tenant est bloqueado (configurations
+     * .locked_tenant=true). Defensa en profundidad: showLoginForm ya
+     * mostr la vista 'Cuenta inactiva', pero si alguien postea directo
+     * al endpoint, esto lo detiene tambin.
+     */
+    public function login(Request $request)
+    {
+        if ($this->isTenantLocked()) {
+            throw ValidationException::withMessages([
+                'email' => ['Esta cuenta est inactiva. Contacta a soporte.'],
+            ]);
+        }
+
+        return $this->traitLogin($request);
+    }
+
+    /**
+     * Determina si el tenant actual est bloqueado. Lee desde el cache
+     * para no agregar latencia al login.
+     */
+    private function isTenantLocked(): bool
+    {
+        try {
+            $cfg = Configuration::firstCached();
+            return $cfg && (bool) $cfg->locked_tenant;
+        } catch (\Throwable $e) {
+            // En contexto sin tenant resuelto (raro en /login), no bloquear.
+            return false;
+        }
     }
 }
