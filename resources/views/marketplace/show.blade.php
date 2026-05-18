@@ -144,8 +144,26 @@
             @endif
         </div>
 
-        {{-- Thumbnails (futuro: galería múltiple). Por ahora solo la principal. --}}
-        @if($listing->image_url)
+        {{-- Galería múltiple: usa $listing->gallery_image_urls cuando el item
+             tiene imágenes adicionales sincronizadas desde item_images. Si no
+             hay galería, muestra solo la principal. El JS de líneas ~636
+             enlaza click en thumb → cambia mpGalleryMain. --}}
+        @php
+            $galleryUrls = is_array($listing->gallery_image_urls) ? $listing->gallery_image_urls : [];
+            // Si no hay galería sincronizada o solo trae la principal, fallback al thumb único
+            $hasGallery = count($galleryUrls) > 1;
+        @endphp
+        @if($hasGallery)
+            <div class="mp-gallery-thumbs">
+                @foreach($galleryUrls as $idx => $thumbUrl)
+                    <button type="button"
+                            class="mp-gallery-thumb {{ $idx === 0 ? 'is-active' : '' }}"
+                            aria-label="Vista {{ $idx + 1 }}">
+                        <img src="{{ $thumbUrl }}" alt="" data-full-image="{{ $thumbUrl }}">
+                    </button>
+                @endforeach
+            </div>
+        @elseif($listing->image_url)
             <div class="mp-gallery-thumbs">
                 <button type="button" class="mp-gallery-thumb is-active" aria-label="Vista principal">
                     <img src="{{ $listing->image_url }}" alt="">
