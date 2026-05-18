@@ -276,6 +276,64 @@
                     </div>
                 @endif
             </div>
+
+            {{-- Cupones disponibles del comprador para esta tienda
+                 (item 6 roadmap visibilidad cupones). Solo se renderiza si
+                 el user logueado tiene cupones aplicables. Indicativo  el
+                 cupn se aplica recin en el checkout. --}}
+            @if(isset($availableCoupons) && $availableCoupons->isNotEmpty())
+                @php $best = $availableCoupons->sortByDesc('discount')->first(); @endphp
+                <a href="{{ route('marketplace.cart') }}" class="mp-detail-coupons-hint">
+                    <span class="mp-detail-coupons-hint__icon">🎟️</span>
+                    <span class="mp-detail-coupons-hint__body">
+                        <strong>Tienes {{ $availableCoupons->count() }} {{ $availableCoupons->count() === 1 ? 'cupn aplicable' : 'cupones aplicables' }}</strong>
+                        @if($best && $best['discount'] > 0)
+                            <br>Mejor descuento: <em>{{ $best['coupon']->code }}</em>  ahorras hasta <strong>S/ {{ number_format($best['discount'], 2) }}</strong>
+                        @else
+                            <br>Aplicalos en el checkout
+                        @endif
+                    </span>
+                    <span class="mp-detail-coupons-hint__arrow"></span>
+                </a>
+                <style>
+                .mp-detail-coupons-hint {
+                    display: flex;
+                    align-items: center;
+                    gap: 12px;
+                    margin-top: 12px;
+                    padding: 12px 14px;
+                    background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%);
+                    border: 1.5px solid #fbbf24;
+                    border-radius: 12px;
+                    text-decoration: none;
+                    color: #78350f;
+                    font-size: 13px;
+                    line-height: 1.4;
+                    transition: all .15s ease;
+                    box-shadow: 0 2px 8px -2px rgba(245, 158, 11, .25);
+                }
+                .mp-detail-coupons-hint:hover {
+                    border-color: #f59e0b;
+                    transform: translateY(-1px);
+                    color: #78350f;
+                    box-shadow: 0 6px 14px -2px rgba(245, 158, 11, .4);
+                }
+                .mp-detail-coupons-hint__icon { font-size: 28px; line-height: 1; flex-shrink: 0; }
+                .mp-detail-coupons-hint__body { flex: 1; }
+                .mp-detail-coupons-hint__body strong { color: #92400e; font-weight: 800; }
+                .mp-detail-coupons-hint__body em {
+                    font-style: normal;
+                    font-family: 'SF Mono', Menlo, Consolas, monospace;
+                    background: #fff;
+                    padding: 1px 6px;
+                    border-radius: 4px;
+                    border: 1px solid #fcd34d;
+                    font-size: 11.5px;
+                    letter-spacing: .04em;
+                }
+                .mp-detail-coupons-hint__arrow { font-size: 20px; flex-shrink: 0; color: #b45309; }
+                </style>
+            @endif
         </div>
 
         {{-- ═══════════ VARIANTES AGRUPADAS POR OPCIÓN (Fase 0.C) ═══════════ --}}

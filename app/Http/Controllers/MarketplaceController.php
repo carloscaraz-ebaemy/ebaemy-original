@@ -1040,12 +1040,28 @@ class MarketplaceController extends Controller
         $sameStoreLabel  = '🔥 Más ofertas en ' . ($listing->tenant_name ?: 'esta tienda');
         $otherStoreLabel = '🔥 Ofertas en otras tiendas';
 
+        // Cupones del comprador disponibles para esta tienda (item 6
+        // roadmap visibilidad). Se muestran en una seccin debajo del
+        // precio para que el comprador sepa que tiene descuento antes
+        // de llegar al checkout.
+        $availableCoupons = collect();
+        $mktUser = auth('marketplace')->user();
+        if ($mktUser && $listing->hostname_id) {
+            try {
+                $availableCoupons = app(\App\Services\Marketplace\MarketplaceCouponService::class)
+                    ->availableForUser($mktUser, (int) $listing->hostname_id, (float) $listing->display_price);
+            } catch (\Throwable $e) {
+                // Falla silenciosa  no romper la pgina por un fail de cupones
+            }
+        }
+
         return view('marketplace.show', compact(
             'listing', 'related', 'reviews', 'officialBreadcrumb', 'officialCategoryUrl',
             'variants', 'options', 'variantMap', 'primaryValueIds',
             'recentlyViewed',
             'sameStoreOffers', 'sameStoreLabel',
-            'otherStoreOffers', 'otherStoreLabel'
+            'otherStoreOffers', 'otherStoreLabel',
+            'availableCoupons'
         ));
     }
 
