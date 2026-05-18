@@ -267,6 +267,35 @@ class MarketplaceAuthController extends Controller
     }
 
     /** GET /marketplace/account/coupons — cupones de plataforma del user. */
+    /**
+     * Endpoint AJAX: conteo de cupones disponibles del usuario logueado.
+     * Lo consume el badge del navbar (mpCouponBadge en layout.blade.php).
+     * Anonimous = 0 (sin login no hay cupones asignados).
+     * Disponible = is_active + no usado + no vencido.
+     */
+    public function accountCouponsCount(Request $request)
+    {
+        $user = Auth::guard('marketplace')->user();
+        if (!$user) {
+            return response()->json(['count' => 0]);
+        }
+
+        $count = \DB::connection('system')->table('marketplace_user_coupons as uc')
+            ->join('marketplace_coupons as c', 'c.id', '=', 'uc.coupon_id')
+            ->where('uc.user_id', $user->id)
+            ->where('c.is_active', true)
+            ->whereNull('uc.used_at')
+            ->where(function ($q) {
+                $q->whereNull('uc.expires_at')->orWhere('uc.expires_at', '>=', now());
+            })
+            ->where(function ($q) {
+                $q->whereNull('c.valid_until')->orWhere('c.valid_until', '>=', now());
+            })
+            ->count();
+
+        return response()->json(['count' => (int) $count]);
+    }
+
     public function accountCoupons(Request $request)
     {
         $user = Auth::guard('marketplace')->user();

@@ -545,6 +545,22 @@
                 <span id="mpFavBadge"
                       style="display:none;position:absolute;top:-2px;right:-6px;background:#dc2626;color:#fff;font-size:10px;font-weight:700;border-radius:999px;min-width:18px;height:18px;padding:0 5px;line-height:18px;text-align:center"></span>
             </a>
+            {{-- Cupones: solo se muestra para usuarios logueados (los annimos
+                 no tienen cupones asignados). Badge con conteo de disponibles
+                 (no usados, no vencidos). --}}
+            @php $mktUserForCoupon = auth('marketplace')->user(); @endphp
+            @if($mktUserForCoupon)
+                <a href="{{ route('marketplace.account.coupons') }}" class="mp-nav-link" id="mpCouponNavLink"
+                   title="Mis cupones" style="position:relative">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M3 9a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v2a2 2 0 0 0 0 4v2a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-2a2 2 0 0 0 0-4V9z"/>
+                        <line x1="9" y1="9" x2="9" y2="15"/>
+                    </svg>
+                    <span class="mp-nav-link-text">Cupones</span>
+                    <span id="mpCouponBadge"
+                          style="display:none;position:absolute;top:-2px;right:-6px;background:#f59e0b;color:#fff;font-size:10px;font-weight:700;border-radius:999px;min-width:18px;height:18px;padding:0 5px;line-height:18px;text-align:center"></span>
+                </a>
+            @endif
             <a href="{{ route('marketplace.cart') }}" class="mp-nav-link" id="mpCartNavLink"
                title="Mi carrito" style="position:relative">
                 <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
@@ -991,6 +1007,31 @@
     window.mpCartBadgeUpdate = paint;
     fetch(@json(route('marketplace.cart.json')), { headers: { 'Accept': 'application/json' }, credentials: 'same-origin' })
         .then(r => r.json()).then(paint).catch(function(){ /* silent */ });
+})();
+
+// Badge del navbar para cupones (solo usuarios logueados). Carga el
+// conteo al inicio + expone mpCouponBadgeUpdate(n) para refrescar
+// despus de aplicar un cupn en checkout o asignar uno nuevo.
+(function(){
+    const cbadge = document.getElementById('mpCouponBadge');
+    if (!cbadge) return;
+    function paint(n) {
+        const count = parseInt(n, 10) || 0;
+        if (count > 0) {
+            cbadge.textContent = count > 99 ? '99+' : String(count);
+            cbadge.style.display = 'inline-block';
+        } else {
+            cbadge.style.display = 'none';
+        }
+    }
+    window.mpCouponBadgeUpdate = paint;
+    fetch(@json(route('marketplace.account.coupons.count')), {
+        headers: { 'Accept': 'application/json' },
+        credentials: 'same-origin',
+    })
+    .then(r => r.json())
+    .then(d => paint(d.count))
+    .catch(function(){ /* silent */ });
 })();
 
 // Badge del navbar para favoritos. El conteo inicial lo carga el script
