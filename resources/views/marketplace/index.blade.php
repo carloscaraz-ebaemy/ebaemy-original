@@ -1151,6 +1151,127 @@
     }
     /* Botn full-width cuando es el nico del sticky (Carrito solo) */
     .mp-mobile-actionbar .mp-mab-btn--full { flex: 1 1 100%; }
+
+    /* ───────────── Bottom sheet del detalle del producto (mobile) ─────────────
+       Solo activo en mobile (<=768px). En desktop nunca se muestra porque
+       el JS de intercept solo dispara cuando matchMedia es mobile. */
+    .mp-sheet {
+        position: fixed;
+        inset: 0;
+        z-index: 200;
+        display: none;
+        pointer-events: none;
+    }
+    .mp-sheet.is-open {
+        display: block;
+        pointer-events: auto;
+    }
+    .mp-sheet__overlay {
+        position: absolute;
+        inset: 0;
+        background: rgba(15, 23, 42, .55);
+        opacity: 0;
+        transition: opacity .25s ease;
+    }
+    .mp-sheet.is-open .mp-sheet__overlay { opacity: 1; }
+    .mp-sheet__panel {
+        position: absolute;
+        left: 0; right: 0; bottom: 0;
+        height: 92dvh;
+        background: #fff;
+        border-radius: 18px 18px 0 0;
+        box-shadow: 0 -10px 40px -10px rgba(0,0,0,.35);
+        transform: translateY(100%);
+        transition: transform .3s cubic-bezier(.32,.72,0,1);
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+    }
+    .mp-sheet.is-open .mp-sheet__panel { transform: translateY(0); }
+    .mp-sheet__grabber {
+        align-self: center;
+        width: 42px;
+        height: 5px;
+        background: #cbd5e1;
+        border-radius: 999px;
+        margin: 8px 0 4px;
+        cursor: pointer;
+        flex-shrink: 0;
+    }
+    .mp-sheet__topbar {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 4px 12px 10px;
+        border-bottom: 1px solid #f1f5f9;
+        flex-shrink: 0;
+    }
+    .mp-sheet__close,
+    .mp-sheet__expand {
+        width: 36px;
+        height: 36px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 999px;
+        background: #f1f5f9;
+        border: 0;
+        color: #475569;
+        cursor: pointer;
+        text-decoration: none;
+        flex-shrink: 0;
+    }
+    .mp-sheet__close:active,
+    .mp-sheet__expand:active { background: #e2e8f0; }
+    .mp-sheet__title {
+        flex: 1;
+        font-size: 14px;
+        font-weight: 700;
+        color: #0f172a;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    .mp-sheet__body {
+        flex: 1;
+        position: relative;
+        overflow: hidden;
+    }
+    .mp-sheet__frame {
+        width: 100%;
+        height: 100%;
+        border: 0;
+        display: block;
+    }
+    .mp-sheet__loader {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 12px;
+        background: #fff;
+        color: #64748b;
+        z-index: 2;
+    }
+    .mp-sheet__loader.is-hidden { display: none; }
+    .mp-sheet__spinner {
+        width: 32px;
+        height: 32px;
+        border: 3px solid #e2e8f0;
+        border-top-color: #0f8a82;
+        border-radius: 50%;
+        animation: mpSheetSpin 0.8s linear infinite;
+    }
+    .mp-sheet__loader-text { font-size: 13px; font-weight: 500; }
+    @keyframes mpSheetSpin { to { transform: rotate(360deg); } }
+    /* Body lock cuando el sheet est abierto (evita scroll de fondo) */
+    body.mp-sheet-open { overflow: hidden; }
+    /* En desktop nunca se abre el sheet, pero por si acaso lo escondemos */
+    @media (min-width: 769px) {
+        .mp-sheet { display: none !important; }
+    }
     @media (max-width: 768px) {
         .mp-mobile-actionbar { display: flex; }
         body { padding-bottom: 64px; } /* deja espacio para que el bar no tape contenido */
@@ -1184,6 +1305,39 @@
     </a>
 </div>
 
+{{-- ═══════════ Bottom sheet del detalle del producto (solo mobile) ═══════════
+     En vez de navegar a /marketplace/item/{slug}, en mobile interceptamos
+     el click en cada .mp-card y abrimos el detalle como bottom sheet
+     deslizable. Se carga la misma URL del detalle dentro de un iframe
+     con ?embed=1, lo que oculta header/footer del detalle dejando solo
+     el contenido. En desktop el click sigue navegando como antes.
+
+     Patrn: Instagram Shopping / TikTok Shop / Shopee.
+--}}
+<div id="mpProductSheet" class="mp-sheet" aria-hidden="true" role="dialog">
+    <div class="mp-sheet__overlay" data-mpsheet-close></div>
+    <div class="mp-sheet__panel" role="document">
+        <div class="mp-sheet__grabber" data-mpsheet-close aria-label="Cerrar"></div>
+        <div class="mp-sheet__topbar">
+            <button type="button" class="mp-sheet__close" data-mpsheet-close aria-label="Cerrar">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+            <div class="mp-sheet__title" id="mpSheetTitle">Producto</div>
+            <a href="#" class="mp-sheet__expand" id="mpSheetExpand" target="_blank" rel="noopener" aria-label="Abrir en pgina completa">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h6v6"/><path d="M10 14L21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></svg>
+            </a>
+        </div>
+        <div class="mp-sheet__body">
+            {{-- Loader mientras carga el iframe --}}
+            <div class="mp-sheet__loader" id="mpSheetLoader">
+                <div class="mp-sheet__spinner"></div>
+                <div class="mp-sheet__loader-text">Cargando producto</div>
+            </div>
+            <iframe id="mpSheetFrame" class="mp-sheet__frame" src="about:blank" title="Detalle del producto" loading="lazy"></iframe>
+        </div>
+    </div>
+</div>
+
 <script>
 if (window.matchMedia('(max-width: 899px)').matches) {
     var btn = document.getElementById('mpFiltersClose');
@@ -1193,6 +1347,83 @@ if (window.matchMedia('(max-width: 899px)').matches) {
 {{-- El JS de hover de dots y click en shop-link ahora vive en
      marketplace.partials.listing-card-script (incluido por layout.blade.php),
      compartido con todas las vistas que renderizan cards. --}}
+
+// ════════════ Bottom sheet del detalle del producto (mobile) ════════════
+// Patrn: click en una .mp-card en mobile  abre el detalle como sheet
+// deslizable con iframe en lugar de navegar. En desktop, el <a> navega
+// normal (no interceptamos). Permite seguir browseando el listado.
+(function () {
+    var sheet  = document.getElementById('mpProductSheet');
+    if (!sheet) return;
+
+    var frame  = document.getElementById('mpSheetFrame');
+    var loader = document.getElementById('mpSheetLoader');
+    var title  = document.getElementById('mpSheetTitle');
+    var expand = document.getElementById('mpSheetExpand');
+    var mqMobile = window.matchMedia('(max-width: 768px)');
+
+    function openSheet(url, productName) {
+        if (!url) return;
+        title.textContent = productName || 'Producto';
+        expand.href = url; // botn "abrir en pgina completa" usa la URL real
+        loader.classList.remove('is-hidden');
+        // Cargar el detalle con ?embed=1 para que el layout oculte header/footer
+        var sep = url.indexOf('?') >= 0 ? '&' : '?';
+        frame.src = url + sep + 'embed=1';
+        sheet.classList.add('is-open');
+        sheet.setAttribute('aria-hidden', 'false');
+        document.body.classList.add('mp-sheet-open');
+        // Push state para que el botn "atrs" del browser cierre el sheet
+        try { history.pushState({ mpSheet: true }, '', url); } catch (e) {}
+    }
+
+    function closeSheet(skipHistory) {
+        if (!sheet.classList.contains('is-open')) return;
+        sheet.classList.remove('is-open');
+        sheet.setAttribute('aria-hidden', 'true');
+        document.body.classList.remove('mp-sheet-open');
+        // Limpiar el iframe despus de la transicin (300ms) para liberar memoria
+        setTimeout(function () { frame.src = 'about:blank'; }, 320);
+        if (!skipHistory && history.state && history.state.mpSheet) {
+            try { history.back(); } catch (e) {}
+        }
+    }
+
+    // Botones de cierre (X, grabber, overlay) — cualquier elemento con data-mpsheet-close
+    sheet.addEventListener('click', function (e) {
+        if (e.target.closest('[data-mpsheet-close]')) closeSheet();
+    });
+
+    // Botn back del browser cierra el sheet
+    window.addEventListener('popstate', function () { closeSheet(true); });
+
+    // ESC cierra el sheet (en mobile no tiene teclado, pero por si acaso)
+    document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape') closeSheet();
+    });
+
+    // Loader: cuando el iframe termina de cargar, ocultarlo
+    frame.addEventListener('load', function () {
+        if (frame.src && frame.src !== 'about:blank') {
+            loader.classList.add('is-hidden');
+        }
+    });
+
+    // Interceptar click en las cards de productos. Las cards son <a class="mp-card">
+    // dentro de .mp-grid. Solo en mobile.
+    document.addEventListener('click', function (e) {
+        if (!mqMobile.matches) return; // desktop: navegar normal
+        var card = e.target.closest('a.mp-card');
+        if (!card) return;
+        // No interceptar si el click fue sobre un dot/thumb/link interno
+        // que tiene su propio handler (color dots, shop link, etc).
+        if (e.target.closest('.js-shop-link, .mp-card-dot, .mp-card-thumb, button')) return;
+        e.preventDefault();
+        var href = card.getAttribute('href');
+        var name = (card.querySelector('.mp-card-title') || {}).textContent || '';
+        openSheet(href, name.trim());
+    }, true); // capture: para que se ejecute antes que el navigate del <a>
+})();
 </script>
 @push('styles')
 <style>

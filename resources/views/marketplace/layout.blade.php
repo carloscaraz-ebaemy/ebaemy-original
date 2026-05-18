@@ -1,4 +1,9 @@
 @php
+    // Modo embed: cuando una URL viene con ?embed=1, se asume que se est
+    // mostrando dentro de un iframe (bottom sheet mobile). Oculta
+    // header/footer/trust bar va CSS para que solo se vea el contenido.
+    $isEmbed = (bool) request('embed');
+
     // Config administrable desde /admin/marketplace/seo. Cacheado 10min.
     // Fallbacks profesionales por si los campos están vacíos.
     $mpCfg = \App\Models\System\Configuration::firstCached();
@@ -56,8 +61,23 @@
     @include('marketplace.partials.listing-card-styles')
 
     @stack('styles')
+
+    @if($isEmbed)
+        {{-- Modo iframe: ocultar header, footer, trust bar y elementos
+             secundarios. Solo se ve <main class="mp-container"> con el
+             contenido del producto. --}}
+        <style>
+            body.is-embed > header,
+            body.is-embed > footer,
+            body.is-embed .mp-trust-sticky,
+            body.is-embed .mp-mobile-actionbar,
+            body.is-embed .mp-back-to-top { display: none !important; }
+            body.is-embed { padding-bottom: 0 !important; }
+            body.is-embed main.mp-container { padding-top: 12px; }
+        </style>
+    @endif
 </head>
-<body>
+<body class="{{ $isEmbed ? 'is-embed' : '' }}">
 
 {{-- ═══════════════════════ TOP BAR (desktop) ═══════════════════════ --}}
 <div class="mp-topbar">
