@@ -133,19 +133,45 @@ class ConfigurationController extends Controller
         };
 
         $file = request()->file('image');
+        // Un UploadedFile puede existir como objeto pero estar invlido
+        // (path vaco) si PHP rechaz el upload por exceder post_max_size
+        // o upload_max_filesize. Evitar llamar getMimeType/getSize en ese
+        // caso porque tira InvalidArgumentException.
+        $fileOk = $file && $file->isValid() && $file->getPathname() !== '';
         $debugLog('upload.received', [
             'has_file'        => request()->hasFile('image'),
             'file_valid'      => $file ? $file->isValid() : null,
+            'file_path_empty' => $file ? ($file->getPathname() === '') : null,
             'type'            => request('type'),
-            'original_name'   => $file ? $file->getClientOriginalName() : null,
-            'mime'            => $file ? $file->getMimeType() : null,
-            'client_mime'     => $file ? $file->getClientMimeType() : null,
-            'size_bytes'      => $file ? $file->getSize() : null,
-            'extension'       => $file ? $file->getClientOriginalExtension() : null,
+            'original_name'   => $fileOk ? $file->getClientOriginalName() : null,
+            'mime'            => $fileOk ? $file->getMimeType() : null,
+            'client_mime'     => $fileOk ? $file->getClientMimeType() : null,
+            'size_bytes'      => $fileOk ? $file->getSize() : null,
+            'extension'       => $fileOk ? $file->getClientOriginalExtension() : null,
             'upload_error'    => $file ? $file->getError() : null,
+            'upload_error_msg'=> $file ? self::uploadErrorMessage($file->getError()) : null,
             'php_post_max'    => ini_get('post_max_size'),
             'php_upload_max'  => ini_get('upload_max_filesize'),
+            'content_length'  => request()->header('Content-Length'),
         ]);
+
+        // Si PHP rechaz el upload por tamao (UPLOAD_ERR_INI_SIZE=1 o
+        // UPLOAD_ERR_FORM_SIZE=2), devolver mensaje claro al cliente antes
+        // de entrar a validacin (donde 'required' fallara con mensaje
+        // genrico). 4=UPLOAD_ERR_NO_FILE tambin: significa que no lleg
+        // ningn archivo (form mal armado o request truncada).
+        if ($file && in_array($file->getError(), [UPLOAD_ERR_INI_SIZE, UPLOAD_ERR_FORM_SIZE], true)) {
+            $debugLog('upload.too_large', [
+                'php_post_max'   => ini_get('post_max_size'),
+                'php_upload_max' => ini_get('upload_max_filesize'),
+                'content_length' => request()->header('Content-Length'),
+            ]);
+            return response()->json([
+                'success' => false,
+                'message' => 'La imagen excede el lmite de PHP del servidor ('
+                    . ini_get('upload_max_filesize') . '). Comprmela o pide al admin que suba upload_max_filesize y post_max_size en php.ini.',
+            ], 422);
+        }
 
         try {
             request()->validate([
@@ -216,6 +242,25 @@ class ConfigurationController extends Controller
             'message' => 'Información actualizada.',
             'image'   => $newUrl,
         ], 200);
+    }
+
+    /**
+     * Traduce el cdigo de error de PHP file upload a mensaje legible.
+     * Usado por storeBgLogin para loguear contexto del 422.
+     */
+    private static function uploadErrorMessage(int $code): string
+    {
+        return match ($code) {
+            UPLOAD_ERR_OK         => 'OK',
+            UPLOAD_ERR_INI_SIZE   => 'Excede upload_max_filesize de php.ini',
+            UPLOAD_ERR_FORM_SIZE  => 'Excede MAX_FILE_SIZE del form',
+            UPLOAD_ERR_PARTIAL    => 'Upload parcial (conexin interrumpida)',
+            UPLOAD_ERR_NO_FILE    => 'No se subi ningn archivo',
+            UPLOAD_ERR_NO_TMP_DIR => 'Falta directorio temporal en el server',
+            UPLOAD_ERR_CANT_WRITE => 'PHP no pudo escribir en disco',
+            UPLOAD_ERR_EXTENSION  => 'Extensin PHP bloque el upload',
+            default               => "Cdigo desconocido: {$code}",
+        };
     }
 
     public function InfoIndex(){
