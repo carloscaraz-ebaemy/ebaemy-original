@@ -5,6 +5,35 @@ description: Cómo modificar las cards del marketplace ebaemy.com manteniendo co
 
 # Cards del marketplace ebaemy
 
+## 🚨 REGLA DURA: cambios que afectan al listado SIEMPRE van a partials reutilizables
+
+**El usuario reportó el problema explícitamente (2026-05-18):** un cambio
+aplicado solo a `marketplace/index.blade.php` (bottom sheet del producto)
+no funcionaba al entrar a `/marketplace/c/{slug}` u otra vista de listado.
+
+Por eso:
+
+❌ **NUNCA** agregues markup/CSS/JS de un componente que se usa en cards
+   o listados directamente en una vista individual (`index.blade.php`,
+   `category.blade.php`, etc.). Si el componente debe verse en TODAS las
+   vistas con cards, va al **layout** (incluido por un partial).
+
+❌ **NUNCA** repitas el mismo bloque en las 4 vistas. Si te encuentras
+   copy-pasteando entre vistas del marketplace, **frena** → extrae al
+   partial. Caso típico: agregar un banner, modal, hint, tooltip, sheet,
+   sticky bar, etc.
+
+✅ **SIEMPRE** que agregues un nuevo componente shared (badge en card,
+   modal, sheet, banner global, etc.):
+   1. Crear `marketplace/partials/<nombre>.blade.php` con markup + style + script.
+   2. Incluir en `marketplace/layout.blade.php` al final del body (después
+      del mini-cart y del listing-card-script).
+   3. Verificar visualmente en las 4 vistas listadas abajo + favorites + show.
+   4. Documentar el nuevo partial en este skill (sección "Partials shared").
+
+✅ **SIEMPRE** que toques `partials/listing-card.blade.php` o sus
+   styles/script asociados, verificar las 4 URLs antes de cerrar el commit.
+
 ## Vistas que renderizan cards
 
 Hay **4 vistas** que muestran grids de productos, y todas usan el MISMO partial:
@@ -15,6 +44,23 @@ Hay **4 vistas** que muestran grids de productos, y todas usan el MISMO partial:
 | Categoría oficial         | `/marketplace/c/{full_slug}`     | `categoryOfficial()` |
 | Categoría legacy (string) | `/marketplace/categoria/{slug}`  | `category()`      |
 | Página por tienda         | `/marketplace/tienda/{subdomain}`| `tenantPage()`    |
+
+Plus vistas adicionales con `.mp-card`: `favorites.blade.php`,
+`show.blade.php` (sección "relacionados"). También se benefician de
+cualquier mejora compartida via partial+layout.
+
+## Partials shared incluidos por layout.blade.php
+
+Estos componentes se renderizan UNA vez en el layout y funcionan en
+TODAS las vistas del marketplace sin necesidad de duplicar:
+
+| Partial | Qué hace | Activo en |
+|---|---|---|
+| `partials/listing-card-styles.blade.php` | CSS de cards/grid/paginador/badge cupón | Todas (cargado en `<head>`) |
+| `partials/listing-card-script.blade.php` | JS: hover dots, shop link, fav, quickadd, badge cupón disponible | Todas (al final del body) |
+| `partials/product-sheet.blade.php` | Bottom sheet mobile del detalle (click card → fetch HTML + inject) | Todas (al final del body) |
+| `mpMiniCart` (inline en layout) | Drawer del carrito con hint de cupones | Todas |
+| `mpCouponsToast` (inline en layout) | Toast post-login con cupones disponibles | Todas |
 
 ## Archivos que importan
 

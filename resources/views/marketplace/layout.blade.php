@@ -1085,6 +1085,12 @@ window.mpCouponTenantIds = []; // hostname_ids donde el user tiene cupn
      hover en color dots + click en nombre de tienda. --}}
 @include('marketplace.partials.listing-card-script')
 
+{{-- Bottom sheet del detalle de producto (solo mobile). Renderizado
+     una sola vez en layout  funciona en TODAS las vistas que muestran
+     cards (home, categora, categora oficial, tienda, favoritos, etc.).
+     NO duplicar este markup en vistas individuales. --}}
+@include('marketplace.partials.product-sheet')
+
 {{-- ════════ Toast post-login: cupones disponibles (item 5 roadmap) ════════
      Cuando el user se loggea y tiene cupones disponibles, MarketplaceAuthController
      flashea mkt_coupons_toast con el count. Lo mostramos como toast flotante
