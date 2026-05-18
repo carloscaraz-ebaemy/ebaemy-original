@@ -71,6 +71,96 @@
             ->first();
     }
 @endphp
+{{-- Banner de cupones por vencer (item 8 roadmap visibilidad).
+     Solo se renderiza si el comprador logueado tiene cupones que
+     vencen en <=72h. Muestra los 3 ms prximos como pills con
+     contador. --}}
+@if(isset($expiringCoupons) && $expiringCoupons->isNotEmpty())
+    <a href="{{ route('marketplace.account.coupons') }}" class="mp-coupons-expiring-banner">
+        <span class="mp-coupons-expiring-banner__icon">⏰</span>
+        <span class="mp-coupons-expiring-banner__body">
+            <strong>{{ $expiringCoupons->count() === 1 ? 'Tienes 1 cupn que vence pronto' : 'Tienes ' . $expiringCoupons->count() . ' cupones por vencer' }}</strong>
+            <span class="mp-coupons-expiring-banner__list">
+                @foreach($expiringCoupons as $ec)
+                    @php
+                        $vLabel = $ec->type === 'percent' ? '-' . (int) $ec->value . '%' : '-S/ ' . number_format($ec->value, 0);
+                        $hoursLeft = \Carbon\Carbon::parse($ec->expires_at)->diffInHours(now());
+                    @endphp
+                    <span class="mp-coupons-expiring-pill">
+                        <code>{{ $ec->code }}</code>
+                        <em>{{ $vLabel }}</em>
+                        <small>{{ $hoursLeft }}h</small>
+                    </span>
+                @endforeach
+            </span>
+        </span>
+        <span class="mp-coupons-expiring-banner__arrow"></span>
+    </a>
+    <style>
+    .mp-coupons-expiring-banner {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        margin-bottom: 14px;
+        padding: 12px 16px;
+        background: linear-gradient(90deg, #fff7ed 0%, #fef3c7 100%);
+        border: 1.5px solid #f59e0b;
+        border-radius: 12px;
+        text-decoration: none;
+        color: #78350f;
+        font-size: 13.5px;
+        line-height: 1.4;
+        transition: all .15s ease;
+        box-shadow: 0 2px 8px -2px rgba(245, 158, 11, .25);
+    }
+    .mp-coupons-expiring-banner:hover {
+        color: #78350f;
+        transform: translateY(-1px);
+        box-shadow: 0 4px 14px -2px rgba(245, 158, 11, .4);
+    }
+    .mp-coupons-expiring-banner__icon { font-size: 24px; line-height: 1; flex-shrink: 0; }
+    .mp-coupons-expiring-banner__body { flex: 1; display: flex; flex-direction: column; gap: 6px; }
+    .mp-coupons-expiring-banner__body strong { color: #92400e; font-weight: 800; }
+    .mp-coupons-expiring-banner__list { display: flex; flex-wrap: wrap; gap: 6px; }
+    .mp-coupons-expiring-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        background: #fff;
+        border: 1px solid #fcd34d;
+        border-radius: 8px;
+        padding: 3px 8px;
+        font-size: 11.5px;
+    }
+    .mp-coupons-expiring-pill code {
+        font-family: 'SF Mono', Menlo, Consolas, monospace;
+        color: #92400e;
+        font-weight: 700;
+        background: transparent;
+        padding: 0;
+        letter-spacing: .03em;
+    }
+    .mp-coupons-expiring-pill em {
+        font-style: normal;
+        color: #b45309;
+        font-weight: 800;
+    }
+    .mp-coupons-expiring-pill small {
+        background: #fef3c7;
+        color: #78350f;
+        padding: 1px 6px;
+        border-radius: 4px;
+        font-size: 10px;
+        font-weight: 700;
+    }
+    .mp-coupons-expiring-banner__arrow { font-size: 20px; flex-shrink: 0; color: #b45309; }
+    @media (max-width: 640px) {
+        .mp-coupons-expiring-banner { flex-wrap: wrap; }
+        .mp-coupons-expiring-banner__icon { font-size: 20px; }
+    }
+    </style>
+@endif
+
 @if($soonestOfferEnd)
     <div class="mp-offers-urgency-banner" data-ends-at="{{ $soonestOfferEnd->toIso8601String() }}">
         <span class="mp-offers-urgency-banner__icon">⏰</span>

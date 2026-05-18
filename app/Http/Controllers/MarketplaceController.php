@@ -218,13 +218,35 @@ class MarketplaceController extends Controller
             }
         }
 
+        // Cupones del comprador prximos a vencer (<=72h). Item 8 del
+        // roadmap visibilidad  banner urgente en la home para incentivar
+        // uso antes de que expiren.
+        $expiringCoupons = collect();
+        $mktUser = auth('marketplace')->user();
+        if ($mktUser) {
+            $expiringCoupons = \DB::connection('system')->table('marketplace_user_coupons as uc')
+                ->join('marketplace_coupons as c', 'c.id', '=', 'uc.coupon_id')
+                ->where('uc.user_id', $mktUser->id)
+                ->where('c.is_active', true)
+                ->whereNull('uc.used_at')
+                ->where(function ($q) {
+                    $q->whereNotNull('uc.expires_at')
+                      ->where('uc.expires_at', '>=', now())
+                      ->where('uc.expires_at', '<=', now()->addHours(72));
+                })
+                ->select('c.code', 'c.name', 'c.type', 'c.value', 'uc.expires_at')
+                ->orderBy('uc.expires_at', 'asc')
+                ->limit(3)
+                ->get();
+        }
+
         return view('marketplace.index', compact(
             'listings', 'categories', 'officialRoots', 'dailyOffers',
             'q', 'category', 'officialCatId',
             'sort', 'priceMin', 'priceMax',
             'shops', 'shopSubdomain',
             'onOfferOnly', 'verifiedOnly', 'inStockOnly', 'packsOnly',
-            'recentlyViewed'
+            'recentlyViewed', 'expiringCoupons'
         ));
     }
 
