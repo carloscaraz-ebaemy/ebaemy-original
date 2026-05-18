@@ -268,19 +268,25 @@ class MarketplaceAuthController extends Controller
 
     /** GET /marketplace/account/coupons — cupones de plataforma del user. */
     /**
-     * Endpoint AJAX: conteo de cupones disponibles del usuario logueado.
-     * Lo consume el badge del navbar (mpCouponBadge en layout.blade.php).
-     * Anonimous = 0 (sin login no hay cupones asignados).
+     * Endpoint AJAX: conteo de cupones disponibles del usuario logueado +
+     * lista de hostname_ids donde tiene cupones aplicables.
+     *
+     * Lo consume:
+     *   - badge navbar (mpCouponBadge en layout.blade.php) usa `count`
+     *   - card del producto (listing-card-script) usa `tenant_ids` para
+     *     mostrar badge "Cupn disponible" en cards de tiendas con cupones
+     *
+     * Anonimous = count 0 + tenant_ids vaco.
      * Disponible = is_active + no usado + no vencido.
      */
     public function accountCouponsCount(Request $request)
     {
         $user = Auth::guard('marketplace')->user();
         if (!$user) {
-            return response()->json(['count' => 0]);
+            return response()->json(['count' => 0, 'tenant_ids' => []]);
         }
 
-        $count = \DB::connection('system')->table('marketplace_user_coupons as uc')
+        $rows = \DB::connection('system')->table('marketplace_user_coupons as uc')
             ->join('marketplace_coupons as c', 'c.id', '=', 'uc.coupon_id')
             ->where('uc.user_id', $user->id)
             ->where('c.is_active', true)
@@ -291,9 +297,19 @@ class MarketplaceAuthController extends Controller
             ->where(function ($q) {
                 $q->whereNull('c.valid_until')->orWhere('c.valid_until', '>=', now());
             })
-            ->count();
+            ->select('c.tenant_id', 'c.scope')
+            ->get();
 
-        return response()->json(['count' => (int) $count]);
+        // tenant_ids: dnde el user tiene cupones aplicables. Si scope=tenant,
+        // el tenant_id es especfico; si scope=platform sin tenant_id, marcamos
+        // 'all' (aplica a cualquier tienda  hoy no implementado pero
+        // futuro-proof).
+        $tenantIds = $rows->pluck('tenant_id')->filter()->unique()->values()->all();
+
+        return response()->json([
+            'count'      => $rows->count(),
+            'tenant_ids' => array_map('intval', $tenantIds),
+        ]);
     }
 
     public function accountCoupons(Request $request)

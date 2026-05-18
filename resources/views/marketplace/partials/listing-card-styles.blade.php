@@ -274,6 +274,34 @@
         50%      { box-shadow: 0 0 0 5px rgba(249, 115, 22, 0); }
     }
 
+    /* Badge "Cupn disponible" sobre la imagen — solo se inyecta via JS
+       cuando el user tiene cupn aplicable a esa tienda. */
+    .mp-card-coupon-badge {
+        position: absolute;
+        left: 8px;
+        bottom: 8px;
+        z-index: 4;
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 4px 9px;
+        background: linear-gradient(135deg, #fbbf24, #f59e0b);
+        color: #78350f;
+        font-size: 10.5px;
+        font-weight: 800;
+        letter-spacing: .3px;
+        border-radius: 999px;
+        box-shadow: 0 2px 6px -1px rgba(245, 158, 11, .5);
+        line-height: 1.2;
+        pointer-events: none;
+        white-space: nowrap;
+    }
+    .mp-card-coupon-badge span { font-size: 10px; text-transform: uppercase; }
+    @media (max-width: 640px) {
+        .mp-card-coupon-badge { padding: 3px 7px; font-size: 10px; }
+        .mp-card-coupon-badge span { display: none; } /* solo emoji en mobile */
+    }
+
     /* Grid 2 cols en móvil, 4-5 cols en desktop */
     .mp-grid {
         display: grid;

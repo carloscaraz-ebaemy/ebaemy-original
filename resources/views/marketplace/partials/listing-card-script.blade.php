@@ -257,4 +257,36 @@ document.querySelectorAll('.mp-card[data-gallery]').forEach(function (card) {
         });
     });
 })();
+
+// ════════ Badge "Cupn disponible" en cards ════════
+// Cuando layout.blade.php termina de fetchear /account/coupons/count,
+// dispara mp:coupons-loaded con la lista de hostname_ids donde el user
+// tiene cupones aplicables. Recorremos las cards y pintamos un badge
+// dorado a las que pertenecen a esos tenants.
+(function () {
+    function paintBadges(tenantIds) {
+        if (!Array.isArray(tenantIds) || !tenantIds.length) return;
+        var set = new Set(tenantIds.map(function (id) { return String(id); }));
+        document.querySelectorAll('.mp-card[data-hostname-id]').forEach(function (card) {
+            var hostId = card.getAttribute('data-hostname-id');
+            if (!set.has(hostId)) return;
+            if (card.querySelector('.mp-card-coupon-badge')) return; // ya pintado
+            var badge = document.createElement('div');
+            badge.className = 'mp-card-coupon-badge';
+            badge.setAttribute('aria-label', 'Tienes cupn disponible para esta tienda');
+            badge.innerHTML = '🎟️ <span>Cupn disponible</span>';
+            // Lo insertamos al inicio de .mp-card-img para que quede sobre la imagen
+            var imgEl = card.querySelector('.mp-card-img');
+            if (imgEl) imgEl.appendChild(badge);
+        });
+    }
+    window.addEventListener('mp:coupons-loaded', function (e) {
+        paintBadges(e.detail && e.detail.tenant_ids);
+    });
+    // Si el evento ya pas (race: el layout fetche antes que este script
+    // se evale), revisar la variable global.
+    if (Array.isArray(window.mpCouponTenantIds) && window.mpCouponTenantIds.length) {
+        paintBadges(window.mpCouponTenantIds);
+    }
+})();
 </script>

@@ -30,6 +30,7 @@
      control limpio. SEO: el <a class="mp-card__seo-link"> dentro mantiene
      el href crawleable. --}}
 <div class="mp-card" data-href="{{ route('marketplace.item', $listing->slug) }}"
+     data-hostname-id="{{ $listing->hostname_id ?? '' }}"
      role="link" tabindex="0"
      aria-label="{{ $listing->title }}"
    @if(!empty($listing->gallery_image_urls) && count($listing->gallery_image_urls) >= 2)

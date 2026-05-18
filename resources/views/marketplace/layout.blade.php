@@ -1012,9 +1012,11 @@
 // Badge del navbar para cupones (solo usuarios logueados). Carga el
 // conteo al inicio + expone mpCouponBadgeUpdate(n) para refrescar
 // despus de aplicar un cupn en checkout o asignar uno nuevo. Adems
-// trackea el conteo en window.mpCouponCount para que otros touchpoints
-// (mini-cart hint, banner home) lo lean sin re-fetchear.
+// trackea el conteo en window.mpCouponCount + window.mpCouponTenantIds
+// para que otros touchpoints (mini-cart hint, badge en cards, banner
+// home) los lean sin re-fetchear.
 window.mpCouponCount = 0;
+window.mpCouponTenantIds = []; // hostname_ids donde el user tiene cupn
 (function(){
     const cbadge = document.getElementById('mpCouponBadge');
     const hint   = document.getElementById('mpMiniCartCouponHint');
@@ -1050,7 +1052,14 @@ window.mpCouponCount = 0;
             credentials: 'same-origin',
         })
         .then(r => r.json())
-        .then(d => paint(d.count))
+        .then(d => {
+            window.mpCouponTenantIds = Array.isArray(d.tenant_ids) ? d.tenant_ids : [];
+            paint(d.count);
+            // Disparar evento para que las cards ya renderizadas pinten su badge
+            window.dispatchEvent(new CustomEvent('mp:coupons-loaded', {
+                detail: { count: d.count, tenant_ids: window.mpCouponTenantIds }
+            }));
+        })
         .catch(function(){ /* silent */ });
     }
 })();
