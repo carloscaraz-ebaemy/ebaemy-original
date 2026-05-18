@@ -194,4 +194,75 @@ class MarketplaceCouponService
                 'redeemed_order_id'    => null,
             ]);
     }
+
+    /**
+     * Simula el impacto de aplicar un cupón sobre los items del carrito y
+     * detecta qué items quedarían bajo floor_price del vendedor.
+     *
+     * Es un HELPER no-destructivo: NO bloquea el cupón por sí solo. El
+     * checkout decide qué hacer con el resultado (rechazar, advertir, o
+     * permitir si la plataforma absorbe el descuento).
+     *
+     * Decisión arquitectural Fase 1 rediseño precios (2026-05-18):
+     * separar simulación de aplicación para no acoplar este service al
+     * flujo de checkout. Ver [[project_pricing_redesign]].
+     *
+     * @param  MarketplaceCoupon  $coupon
+     * @param  array<int, array{item_id:int, unit_price:float, qty:float, floor_price?:float}>  $cartItems
+     *         Cada item debe traer floor_price (snapshot al checkout) o se
+     *         consultará items.floor_price del tenant. Si floor_price es
+     *         null, se ignora ese item en la validación.
+     * @return array{
+     *   total_discount: float,
+     *   items_below_floor: array<int, array{item_id:int, final_unit_price:float, floor_price:float, gap:float}>,
+     *   has_breach: bool,
+     * }
+     */
+    public function simulateCouponMarginImpact(MarketplaceCoupon $coupon, array $cartItems): array
+    {
+        $subtotal = array_sum(array_map(
+            fn ($i) => ((float) ($i['unit_price'] ?? 0)) * ((float) ($i['qty'] ?? 1)),
+            $cartItems
+        ));
+
+        $totalDiscount = $coupon->discountFor($subtotal);
+
+        if ($totalDiscount <= 0 || $subtotal <= 0) {
+            return ['total_discount' => 0.0, 'items_below_floor' => [], 'has_breach' => false];
+        }
+
+        // Distribuir el descuento proporcionalmente entre items según su peso
+        // en el subtotal (modelo simple — el real puede ser por reglas del cupón
+        // si el cupón aplica solo a ciertos items, pero MarketplaceCoupon hoy
+        // es flat sobre subtotal).
+        $itemsBelowFloor = [];
+        foreach ($cartItems as $item) {
+            $unitPrice = (float) ($item['unit_price'] ?? 0);
+            $qty       = (float) ($item['qty'] ?? 1);
+            $floor     = $item['floor_price'] ?? null;
+
+            if ($floor === null || $unitPrice <= 0 || $qty <= 0) {
+                continue;
+            }
+
+            $itemSubtotal = $unitPrice * $qty;
+            $itemDiscount = $totalDiscount * ($itemSubtotal / $subtotal);
+            $finalUnit    = $unitPrice - ($itemDiscount / $qty);
+
+            if ($finalUnit < (float) $floor) {
+                $itemsBelowFloor[] = [
+                    'item_id'          => (int) $item['item_id'],
+                    'final_unit_price' => round($finalUnit, 4),
+                    'floor_price'      => round((float) $floor, 4),
+                    'gap'              => round((float) $floor - $finalUnit, 4),
+                ];
+            }
+        }
+
+        return [
+            'total_discount'    => $totalDiscount,
+            'items_below_floor' => $itemsBelowFloor,
+            'has_breach'        => !empty($itemsBelowFloor),
+        ];
+    }
 }
