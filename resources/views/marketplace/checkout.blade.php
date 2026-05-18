@@ -226,24 +226,38 @@
                         <input type="hidden" data-applied-discount value="{{ $appliedCoupon['discount'] ?? 0 }}">
                     </div>
 
-                    {{-- Cupones DE PLATAFORMA disponibles (asignados al user
-                         en marketplace_user_coupons). Solo informativo por
-                         ahora — la aplicacion real va en una fase posterior
-                         (requiere modificar el flujo de cobro). --}}
+                    {{-- Cupones disponibles para el comprador en esta tienda
+                         (asignados al user en marketplace_user_coupons que
+                         cumplan ventana de validez + scope + min_subtotal).
+                         Click en cualquiera  autocompleta el input + dispara
+                         Aplicar. As el comprador no tiene que recordar el
+                         cdigo: ve sus cupones y elige el ms conveniente. --}}
                     @if(isset($platformCoupons) && ($plat = $platformCoupons->get($store['hostname_id'])) && $plat->isNotEmpty())
                         @php
                             $bestPlat = $plat->sortByDesc('discount')->first();
                         @endphp
-                        <div class="mp-co-plat-coupons">
-                            <p class="mp-co-plat-coupons__title">✓ Cupon de plataforma se aplicara al confirmar:</p>
-                            <div class="mp-co-plat-coupons__main">
-                                <strong>{{ $bestPlat['coupon']->code }}</strong>
-                                <span>{{ $bestPlat['coupon']->name }}</span>
-                                <span class="mp-co-plat-coupons__save">−S/ {{ number_format($bestPlat['discount'], 2) }}</span>
+                        <div class="mp-co-avail-coupons">
+                            <p class="mp-co-avail-coupons__title">
+                                🎟️ Tienes {{ $plat->count() }} {{ $plat->count() === 1 ? 'cupn disponible' : 'cupones disponibles' }} para esta tienda
+                            </p>
+                            <div class="mp-co-avail-coupons__list">
+                                @foreach($plat->sortByDesc('discount') as $item)
+                                    @php $c = $item['coupon']; @endphp
+                                    <button type="button"
+                                            class="mp-co-avail-coupon {{ $loop->first ? 'is-best' : '' }}"
+                                            data-coupon-suggest="{{ $c->code }}"
+                                            title="{{ $c->name }} - Aplicar"
+                                    >
+                                        <span class="mp-co-avail-coupon__code">{{ $c->code }}</span>
+                                        <span class="mp-co-avail-coupon__value">
+                                            {{ $c->type === 'percent' ? '-' . (int) $c->value . '%' : '-S/ ' . number_format($c->value, 0) }}
+                                        </span>
+                                        <span class="mp-co-avail-coupon__save">Ahorras S/ {{ number_format($item['discount'], 2) }}</span>
+                                        @if($loop->first)<span class="mp-co-avail-coupon__badge">MEJOR</span>@endif
+                                    </button>
+                                @endforeach
                             </div>
-                            @if($plat->count() > 1)
-                                <p class="mp-co-plat-coupons__note">Tienes {{ $plat->count() }} cupones aplicables — se elige el de mayor descuento.</p>
-                            @endif
+                            <p class="mp-co-avail-coupons__hint">Toca uno para aplicarlo automticamente</p>
                         </div>
                     @endif
                 </div>
@@ -328,20 +342,105 @@
 .mp-co-coupon__msg.is-ok    { color: #16a34a; font-weight: 600; }
 .mp-co-coupon__msg.is-error { color: #b91c1c; font-weight: 500; }
 
-/* Cupones de plataforma (informativos, asignados al user) */
-.mp-co-plat-coupons {
-    margin-top: 10px;
+/* Cupones disponibles del usuario para esta tienda (clickeables) */
+.mp-co-avail-coupons {
+    margin-top: 12px;
     padding: 12px 14px;
-    background: #ecfdf5;
-    border: 1px solid #a7f3d0;
+    background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%);
+    border: 1.5px solid #fbbf24;
     border-radius: 10px;
+    box-shadow: 0 2px 8px -2px rgba(245, 158, 11, .2);
+}
+.mp-co-avail-coupons__title {
+    margin: 0 0 10px;
+    font-weight: 700;
+    color: #92400e;
+    font-size: 12.5px;
+    line-height: 1.3;
+}
+.mp-co-avail-coupons__list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+.mp-co-avail-coupon {
+    flex: 1 1 auto;
+    min-width: 0;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 12px;
+    background: #fff;
+    border: 1.5px solid #fcd34d;
+    border-radius: 10px;
+    cursor: pointer;
+    font-size: 12.5px;
+    color: #78350f;
+    text-align: left;
+    transition: all .15s ease;
+    position: relative;
+    touch-action: manipulation;
+}
+.mp-co-avail-coupon:hover,
+.mp-co-avail-coupon:focus {
+    background: #fffbeb;
+    border-color: #f59e0b;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 10px -2px rgba(245, 158, 11, .35);
+}
+.mp-co-avail-coupon.is-best {
+    border-color: #16a34a;
+    background: linear-gradient(135deg, #fff 0%, #ecfdf5 100%);
+}
+.mp-co-avail-coupon.is-best:hover { border-color: #15803d; }
+.mp-co-avail-coupon__code {
+    font-family: 'SF Mono', Menlo, Consolas, monospace;
+    background: #fef3c7;
+    padding: 2px 7px;
+    border-radius: 5px;
+    font-size: 11.5px;
+    color: #92400e;
+    letter-spacing: .04em;
+    font-weight: 700;
+    border: 1px solid #fcd34d;
+}
+.mp-co-avail-coupon.is-best .mp-co-avail-coupon__code {
+    background: #dcfce7;
+    color: #166534;
+    border-color: #86efac;
+}
+.mp-co-avail-coupon__value {
+    font-weight: 800;
+    color: #b45309;
     font-size: 13px;
 }
-.mp-co-plat-coupons__title { margin: 0 0 6px; font-weight: 700; color: #065f46; font-size: 12.5px; }
-.mp-co-plat-coupons__main { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 12.5px; color: #047857; }
-.mp-co-plat-coupons__main strong { font-family: 'SF Mono',Menlo,Consolas,monospace; background: #fff; padding: 2px 6px; border-radius: 4px; font-size: 11.5px; border: 1px solid #a7f3d0; color: #064e3b; letter-spacing: .03em; }
-.mp-co-plat-coupons__save { margin-left: auto; font-weight: 700; color: #047857; }
-.mp-co-plat-coupons__note { margin: 6px 0 0; font-size: 11.5px; color: #047857; opacity: .85; }
+.mp-co-avail-coupon.is-best .mp-co-avail-coupon__value { color: #15803d; }
+.mp-co-avail-coupon__save {
+    margin-left: auto;
+    font-size: 11.5px;
+    color: #6b7280;
+    white-space: nowrap;
+}
+.mp-co-avail-coupon__badge {
+    position: absolute;
+    top: -8px;
+    right: 6px;
+    background: #16a34a;
+    color: #fff;
+    font-size: 9px;
+    font-weight: 800;
+    padding: 2px 7px;
+    border-radius: 999px;
+    letter-spacing: .05em;
+    box-shadow: 0 2px 4px rgba(0,0,0,.15);
+}
+.mp-co-avail-coupons__hint {
+    margin: 10px 0 0;
+    font-size: 11px;
+    color: #92400e;
+    opacity: .75;
+    text-align: center;
+}
 .mp-co-line--discount { color: #166534; }
 </style>
 @endpush
@@ -462,6 +561,31 @@
             });
         }
         if (removeBtn) removeBtn.addEventListener('click', remove);
+
+        // Click en un cupn sugerido (item 3 del roadmap) → autocompleta el
+        // input y dispara apply. Si ya hay un cupn aplicado, primero confirmar
+        // que el user quiere reemplazarlo (remove + apply nuevo).
+        block.querySelectorAll('[data-coupon-suggest]').forEach(chip => {
+            chip.addEventListener('click', async (e) => {
+                e.preventDefault();
+                const suggestedCode = chip.dataset.couponSuggest;
+                if (!suggestedCode) return;
+                if (couponBox?.dataset.applied === '1') {
+                    if (!confirm('Ya tienes un cupn aplicado en esta tienda. Quers reemplazarlo por ' + suggestedCode + '?')) return;
+                    // Quitamos el actual y al cargar de nuevo el user podr aplicar el nuevo
+                    try {
+                        await fetch(REMOVE_URL_BASE + '/' + hostnameId, {
+                            method: 'DELETE',
+                            headers: { 'Accept':'application/json', 'X-CSRF-TOKEN': CSRF },
+                        });
+                    } catch (e) {}
+                }
+                input.value = suggestedCode;
+                input.readOnly = false;
+                // Reusamos la lgica de apply (mismo endpoint, mismo flow)
+                apply();
+            });
+        });
     });
 
     // Render inicial del resumen reflejando cupones persistidos
