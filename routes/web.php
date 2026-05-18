@@ -1519,6 +1519,7 @@ if ($hostname) {
             Route::post('secret-login', 'System\SecretLoginController@secretLogin')->middleware('throttle:10,1');
 
             Route::post('clients/upload', 'System\ClientController@upload');
+            Route::post('clients/{id}/upload-logo', 'System\ClientController@uploadTenantLogo')->whereNumber('id');
             Route::get('clients/confirm-limit-reseller', 'System\ClientController@confirmLimitReseller');
 
             Route::get('client_payments/records/{client_id}', 'System\ClientPaymentController@records');

@@ -652,6 +652,10 @@
                                         </el-dropdown-item>
                                         
                                         <template v-if="!row.locked">
+                                            <el-dropdown-item :command="{action: 'uploadLogo', row: row}">
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="me-2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
+                                                Cambiar logo
+                                            </el-dropdown-item>
                                             <el-dropdown-item :command="{action: 'password', id: row.id}">
                                                 <svg  xmlns="http://www.w3.org/2000/svg"  width="16"  height="16"  viewBox="0 0 24 24"  fill="none"  stroke="currentColor"  stroke-width="2"  stroke-linecap="round"  stroke-linejoin="round"  class="icon icon-tabler icons-tabler-outline icon-tabler-key me-2"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M16.555 3.843l3.602 3.602a2.877 2.877 0 0 1 0 4.069l-2.643 2.643a2.877 2.877 0 0 1 -4.069 0l-.301 -.301l-6.558 6.558a2 2 0 0 1 -1.239 .578l-.175 .008h-1.172a1 1 0 0 1 -.993 -.883l-.007 -.117v-1.172a2 2 0 0 1 .467 -1.284l.119 -.13l.414 -.414h2v-2h2v-2l2.144 -2.144l-.301 -.301a2.877 2.877 0 0 1 0 -4.069l2.643 -2.643a2.877 2.877 0 0 1 4.069 0z" /><path d="M15 9h.01" /></svg>
                                                 Restablecer contraseña
@@ -743,6 +747,40 @@
 
         <demo-configuration :clientId="recordId"
                         :showDialog.sync="showDemoConfiguration"></demo-configuration>
+
+        <el-dialog
+            title="Cambiar logo del tenant"
+            :visible.sync="showDialogUploadLogo"
+            width="460px"
+            :close-on-click-modal="false"
+            @closed="resetUploadLogo">
+            <div v-if="uploadLogoRow" class="mb-3">
+                <p class="mb-1"><strong>{{ uploadLogoRow.name }}</strong></p>
+                <p class="text-muted small mb-3">RUC {{ uploadLogoRow.number }} · {{ uploadLogoRow.hostname && uploadLogoRow.hostname.fqdn }}</p>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Archivo de logo</label>
+                <input
+                    type="file"
+                    ref="logoFileInput"
+                    accept="image/jpeg,image/jpg,image/png,image/svg+xml,image/webp"
+                    @change="onLogoFileSelected"
+                    class="form-control form-control-sm">
+                <small class="form-text text-muted">JPG, PNG, SVG o WebP · máx 2 MB.</small>
+            </div>
+            <div v-if="logoPreviewUrl" class="text-center mt-3 p-3" style="background:#f8f9fa; border-radius:8px;">
+                <img :src="logoPreviewUrl" alt="Preview" style="max-height:80px; max-width:200px; object-fit:contain;">
+                <div class="small text-muted mt-2">Vista previa</div>
+            </div>
+            <span slot="footer">
+                <el-button @click="showDialogUploadLogo = false">Cancelar</el-button>
+                <el-button
+                    type="primary"
+                    :loading="uploadingLogo"
+                    :disabled="!logoFile"
+                    @click="submitUploadLogo">Subir logo</el-button>
+            </span>
+        </el-dialog>
     </div>
 </template>
 <style>
@@ -893,6 +931,11 @@ export default {
             showDialogDelete: false,
             record: {},
             showDemoConfiguration:false,
+            showDialogUploadLogo: false,
+            uploadLogoRow: null,
+            logoFile: null,
+            logoPreviewUrl: null,
+            uploadingLogo: false,
             showLeftShadow: false,
             showRightShadow: false,
             isFiltersVisible: false,
@@ -1215,7 +1258,69 @@ export default {
                 case 'domains':
                     window.location.href = '/clients/' + command.id + '/domains-panel';
                     break;
+                case 'uploadLogo':
+                    this.clickUploadLogo(command.row);
+                    break;
             }
+        },
+        clickUploadLogo(row) {
+            this.uploadLogoRow = row;
+            this.logoFile = null;
+            this.logoPreviewUrl = null;
+            this.showDialogUploadLogo = true;
+        },
+        resetUploadLogo() {
+            this.uploadLogoRow = null;
+            this.logoFile = null;
+            this.logoPreviewUrl = null;
+            this.uploadingLogo = false;
+            if (this.$refs.logoFileInput) {
+                this.$refs.logoFileInput.value = '';
+            }
+        },
+        onLogoFileSelected(e) {
+            const file = e.target.files && e.target.files[0];
+            if (!file) {
+                this.logoFile = null;
+                this.logoPreviewUrl = null;
+                return;
+            }
+            if (file.size > 2 * 1024 * 1024) {
+                this.$message.error('El archivo supera 2 MB.');
+                e.target.value = '';
+                this.logoFile = null;
+                this.logoPreviewUrl = null;
+                return;
+            }
+            this.logoFile = file;
+            this.logoPreviewUrl = URL.createObjectURL(file);
+        },
+        submitUploadLogo() {
+            if (!this.logoFile || !this.uploadLogoRow) return;
+
+            const formData = new FormData();
+            formData.append('logo', this.logoFile);
+
+            this.uploadingLogo = true;
+            this.$http.post(
+                'clients/' + this.uploadLogoRow.id + '/upload-logo',
+                formData,
+                { headers: { 'Content-Type': 'multipart/form-data' } }
+            ).then(response => {
+                if (response.data.success) {
+                    this.$message.success(response.data.message);
+                    this.showDialogUploadLogo = false;
+                } else {
+                    this.$message.error(response.data.message || 'Error al subir el logo.');
+                }
+            }).catch(error => {
+                const msg = (error.response && error.response.data && error.response.data.message)
+                    ? error.response.data.message
+                    : (error.message || 'Error al subir el logo.');
+                this.$message.error(msg);
+            }).finally(() => {
+                this.uploadingLogo = false;
+            });
         },
         initScrollShadow() {
           this.$nextTick(() => {

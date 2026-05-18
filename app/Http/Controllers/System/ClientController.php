@@ -889,6 +889,84 @@ use App\Models\System\PlanPeriod;
 
 
         /**
+         * Sube/reemplaza el logo de la empresa de un tenant desde el panel
+         * SuperAdmin. til para tenants que no subieron logo al registrarse
+         * o cuya copia inicial (SellerApplicationService::copyLogoToTenantIfPresent)
+         * fall silenciosamente.
+         *
+         * Replica el patrn de copyLogoToTenantIfPresent: switch al contexto
+         * del tenant + escritura del archivo en storage compartido + update
+         * de companies.logo en la BD del tenant.
+         */
+        public function uploadTenantLogo(Request $request, $id)
+        {
+            $request->validate([
+                'logo' => 'required|file|mimes:jpeg,png,jpg,svg,webp|max:2048',
+            ]);
+
+            $client = Client::query()->findOrFail($id);
+
+            $website = $client->hostname?->website ?? optional($client->hostname()->first())->website;
+            if (!$website) {
+                return [
+                    'success' => false,
+                    'message' => 'El cliente no tiene un website asociado.',
+                ];
+            }
+
+            try {
+                $file = $request->file('logo');
+                $ext  = strtolower($file->getClientOriginalExtension() ?: 'png');
+                $newName = 'logo_' . $client->number . '.' . $ext;
+                $destRel = 'public/uploads/logos/' . $newName;
+                $destAbs = storage_path('app/' . $destRel);
+
+                if (!is_dir(dirname($destAbs))) {
+                    mkdir(dirname($destAbs), 0755, true);
+                }
+
+                if (!move_uploaded_file($file->getRealPath(), $destAbs)) {
+                    // Fallback: algunas configuraciones de PHP no permiten
+                    // move_uploaded_file en CLI/tests; copy() siempre funciona.
+                    if (!copy($file->getRealPath(), $destAbs)) {
+                        return [
+                            'success' => false,
+                            'message' => 'No se pudo guardar el archivo en disco.',
+                        ];
+                    }
+                }
+
+                // Switch al tenant para actualizar companies.logo
+                $tenancy = app(Environment::class);
+                $tenancy->tenant($website);
+                DB::connection('tenant')->table('companies')->update(['logo' => $newName]);
+
+                \Illuminate\Support\Facades\Log::info('uploadTenantLogo: logo actualizado', [
+                    'client_id' => $client->id,
+                    'ruc'       => $client->number,
+                    'logo'      => $newName,
+                ]);
+
+                return [
+                    'success'  => true,
+                    'message'  => 'Logo actualizado correctamente.',
+                    'logo'     => $newName,
+                    'logo_url' => asset('storage/uploads/logos/' . $newName),
+                ];
+            } catch (\Throwable $e) {
+                \Illuminate\Support\Facades\Log::error('uploadTenantLogo: excepcin', [
+                    'client_id' => $client->id,
+                    'error'     => $e->getMessage(),
+                ]);
+                return [
+                    'success' => false,
+                    'message' => 'Error: ' . $e->getMessage(),
+                ];
+            }
+        }
+
+
+        /**
          *
          * Validar si el valor de confirmacion ingresado por el usuario es
          * igual al ruc o nombre de la empresa, para poder eliminar el cliente
