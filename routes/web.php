@@ -1130,6 +1130,15 @@ if ($hostname) {
         Route::post('login', 'System\LoginController@login')->middleware('throttle:10,1');
         Route::post('logout', 'System\LoginController@logout')->name('logout');
 
+        // CSRF refresh para el dominio principal (SuperAdmin). El JS
+        // bootstrap.js hace heartbeat cada 60s y al volver del background
+        // (visibilitychange) para evitar 419 en uploads. La ruta del tenant
+        // est en el bloque Route::domain($hostname->fqdn) de arriba; sin
+        // esta copia, el SuperAdmin vea 404 cada minuto en consola.
+        Route::get('csrf-refresh', function () {
+            return response()->json(['token' => csrf_token(), 'ok' => true]);
+        })->name('system.csrf.refresh');
+
         // ── 2FA — verificación durante login (sin auth) ──────────────────────
         Route::get('2fa/verify',  'System\TwoFactorController@showVerify')->name('system.2fa.verify');
         Route::post('2fa/verify', 'System\TwoFactorController@verify')->middleware('throttle:5,1');
