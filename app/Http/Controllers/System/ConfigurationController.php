@@ -124,26 +124,77 @@ class ConfigurationController extends Controller
 
     public function storeBgLogin()
     {
-        request()->validate([
-            'image' => 'required|mimes:jpeg,png,jpg,gif,svg,webp|max:5120',
-            'type'  => 'required|string|in:bg,logo',
-        ], [
-            'image.max'   => 'La imagen supera 5 MB. Comprmela y reintenta.',
-            'image.mimes' => 'Formato no permitido. Usa JPG, PNG, SVG o WebP.',
+        // Helper: log a archivo dedicado (independiente de LOG_CHANNEL).
+        // Necesario porque el .env de produccin tiene LOG_CHANNEL en un
+        // canal que no escribe archivos, dejando ciegos los errores.
+        $debugLog = function (string $event, array $ctx = []) {
+            $line = '[' . date('Y-m-d H:i:s') . '] ' . $event . ' ' . json_encode($ctx, JSON_UNESCAPED_UNICODE);
+            @file_put_contents(storage_path('logs/upload_bg_debug.log'), $line . "\n", FILE_APPEND);
+        };
+
+        $file = request()->file('image');
+        $debugLog('upload.received', [
+            'has_file'        => request()->hasFile('image'),
+            'file_valid'      => $file ? $file->isValid() : null,
+            'type'            => request('type'),
+            'original_name'   => $file ? $file->getClientOriginalName() : null,
+            'mime'            => $file ? $file->getMimeType() : null,
+            'client_mime'     => $file ? $file->getClientMimeType() : null,
+            'size_bytes'      => $file ? $file->getSize() : null,
+            'extension'       => $file ? $file->getClientOriginalExtension() : null,
+            'upload_error'    => $file ? $file->getError() : null,
+            'php_post_max'    => ini_get('post_max_size'),
+            'php_upload_max'  => ini_get('upload_max_filesize'),
         ]);
+
+        try {
+            request()->validate([
+                'image' => 'required|file|mimes:jpeg,png,jpg,gif,svg,webp|max:5120',
+                'type'  => 'required|string|in:bg,logo',
+            ], [
+                'image.max'      => 'La imagen supera 5 MB. Comprmela y reintenta.',
+                'image.mimes'    => 'Formato no permitido. Usa JPG, PNG, SVG o WebP.',
+                'image.required' => 'No lleg el archivo al servidor.',
+                'image.file'     => 'El campo image no es un archivo vlido.',
+                'type.required'  => 'Falta el campo type.',
+                'type.in'        => 'El campo type debe ser "bg" o "logo".',
+            ]);
+        } catch (\Illuminate\Validation\ValidationException $ve) {
+            $debugLog('upload.validation_failed', ['errors' => $ve->errors()]);
+            throw $ve;
+        }
 
         $config = Configuration::first();
         $newUrl = null;
 
         if (request()->hasFile('image') && request()->file('image')->isValid()) {
             $file = request()->file('image');
-            $ext = $file->getClientOriginalExtension();
+            $ext = strtolower($file->getClientOriginalExtension());
             $name = time() . '.' . $ext;
             $path = 'public/uploads/login';
 
-            UploadFileHelper::checkIfValidFile($name, $file->getPathName(), true);
+            try {
+                UploadFileHelper::checkIfValidFile($name, $file->getPathName(), true);
+            } catch (\Throwable $e) {
+                $debugLog('upload.helper_rejected', [
+                    'error' => $e->getMessage(),
+                    'name'  => $name,
+                ]);
+                return response()->json([
+                    'success' => false,
+                    'message' => 'El archivo fue rechazado por el validador: ' . $e->getMessage(),
+                ], 422);
+            }
 
-            $file->storeAs($path, $name);
+            try {
+                $file->storeAs($path, $name);
+            } catch (\Throwable $e) {
+                $debugLog('upload.store_failed', ['error' => $e->getMessage()]);
+                return response()->json([
+                    'success' => false,
+                    'message' => 'No se pudo guardar el archivo en disco: ' . $e->getMessage(),
+                ], 500);
+            }
 
             $loginConfig = $config->login;
             $basePathStorage = 'storage/uploads/login/';
@@ -156,6 +207,8 @@ class ConfigurationController extends Controller
             }
             $config->login = $loginConfig;
             $config->save();
+
+            $debugLog('upload.success', ['url' => $newUrl, 'name' => $name]);
         }
 
         return response()->json([
