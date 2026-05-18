@@ -54,8 +54,8 @@ body {
 
 /* ==========================================================================
    FONDO FULLSCREEN ADMINISTRABLE (imagen del tenant)
-   La imagen se renderiza ntida, sin overlays de gradiente encima.
-   El contraste con la card glass se logra con el blur/shadow propio de la card.
+   Por defecto: gradient suave neutro tipo Stripe/Linear.
+   Si el tenant tiene imagen custom, side_left.blade.php la renderiza.
    ========================================================================== */
 .auth__image {
   position: fixed !important;
@@ -67,7 +67,7 @@ body {
   align-items: center;
   justify-content: center;
   overflow: hidden;
-  background: #f6fbfc !important;
+  background: linear-gradient(135deg, #f0fdfa 0%, #e6f7f4 35%, #f0f9ff 70%, #fef7e8 100%) !important;
   border-radius: 0 !important;
   padding: 0 !important;
   margin: 0 !important;
