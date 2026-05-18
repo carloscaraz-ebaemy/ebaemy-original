@@ -670,10 +670,47 @@
 {{-- ═══════════════════════ LAYOUT LISTADO ═══════════════════════ --}}
 <div class="mp-list-layout" id="productos">
 
-    <button type="button" class="mp-filters-mobile-btn" onclick="document.getElementById('mpFilters').classList.add('is-open'); document.body.style.overflow='hidden';">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></svg>
-        Filtros{{ $hasFilters ? ' (activos)' : '' }}
-    </button>
+    {{-- Barra horizontal mobile con [Ordenar] [Filtros] juntos.
+         Solo visible en mobile (CSS abajo en mp-mobile-topbar). En desktop
+         el ordenar vive dentro de .mp-toolbar y los filtros estn en el sidebar.
+
+         El select de ordenar usa los mismos hidden inputs que la versin
+         desktop pero hace submit nativo (el browser muestra el picker
+         nativo en mobile, mejor UX que un custom dropdown). --}}
+    <div class="mp-mobile-topbar">
+        <form method="GET" action="{{ route('marketplace.index') }}" class="mp-mobile-topbar__sort">
+            @if($q)        <input type="hidden" name="q"        value="{{ $q }}">        @endif
+            @if($category) <input type="hidden" name="category" value="{{ $category }}"> @endif
+            @if($priceMin !== null) <input type="hidden" name="price_min" value="{{ $priceMin }}"> @endif
+            @if($priceMax !== null) <input type="hidden" name="price_max" value="{{ $priceMax }}"> @endif
+            @if($shopSubdomain)        <input type="hidden" name="shop"     value="{{ $shopSubdomain }}"> @endif
+            @if(!empty($onOfferOnly))  <input type="hidden" name="on_offer" value="1"> @endif
+            @if(!empty($verifiedOnly)) <input type="hidden" name="verified" value="1"> @endif
+            @if(!empty($inStockOnly))  <input type="hidden" name="in_stock" value="1"> @endif
+            @if(!empty($packsOnly))    <input type="hidden" name="packs"    value="1"> @endif
+            <label class="mp-mobile-topbar__btn mp-mobile-topbar__btn--sort">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="M3 6h18M6 12h12M10 18h4"/>
+                </svg>
+                <select name="sort" onchange="this.form.submit()" aria-label="Ordenar">
+                    <option value="relevance" {{ $sort === 'relevance'  ? 'selected' : '' }}>Relevancia</option>
+                    <option value="price_asc" {{ $sort === 'price_asc'  ? 'selected' : '' }}>Precio: menor a mayor</option>
+                    <option value="price_desc"{{ $sort === 'price_desc' ? 'selected' : '' }}>Precio: mayor a menor</option>
+                    <option value="newest"    {{ $sort === 'newest'     ? 'selected' : '' }}>Ms recientes</option>
+                </select>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <polyline points="6 9 12 15 18 9"/>
+                </svg>
+            </label>
+        </form>
+        <button type="button" class="mp-mobile-topbar__btn mp-mobile-topbar__btn--filters"
+                onclick="document.getElementById('mpFilters').classList.add('is-open'); document.body.style.overflow='hidden';">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/>
+            </svg>
+            Filtros{{ $hasFilters ? ' ' : '' }}
+        </button>
+    </div>
 
     <aside class="mp-filters-card" id="mpFilters">
         <div class="mp-filters-header">
@@ -1027,6 +1064,65 @@
      tienda) compartan exactamente el mismo CSS. --}}
 
 <style>
+    /* ───────────── Barra superior mobile [Ordenar][Filtros] ─────────────
+       Solo visible en mobile (<=768px). En desktop el ordenar vive en
+       .mp-toolbar (lado derecho) y los filtros estn en el sidebar.
+    */
+    .mp-mobile-topbar { display: none; }
+    @media (max-width: 768px) {
+        .mp-mobile-topbar {
+            display: flex;
+            gap: 8px;
+            margin: 0 0 12px;
+            padding: 0;
+        }
+        .mp-mobile-topbar__btn {
+            flex: 1;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            min-height: 42px;
+            padding: 0 14px;
+            border-radius: 10px;
+            border: 1px solid #e2e8f0;
+            background: #fff;
+            color: #1f2937;
+            font-weight: 600;
+            font-size: 13.5px;
+            cursor: pointer;
+            transition: background-color .15s ease, border-color .15s ease;
+        }
+        .mp-mobile-topbar__btn:hover,
+        .mp-mobile-topbar__btn:focus {
+            background: #f8fafc;
+            border-color: #cbd5e1;
+        }
+        .mp-mobile-topbar__btn--sort {
+            position: relative;
+            padding: 0 10px 0 14px;
+        }
+        /* El <select> nativo se superpone invisible sobre el label para
+           que en mobile abra el picker nativo (mejor UX que custom dropdown). */
+        .mp-mobile-topbar__btn--sort select {
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            border: 0;
+            background: transparent;
+            color: transparent;
+            font-size: 13.5px;
+            appearance: none;
+            -webkit-appearance: none;
+            cursor: pointer;
+        }
+        .mp-mobile-topbar__btn--sort select option { color: #1f2937; }
+        .mp-mobile-topbar__sort { flex: 1; margin: 0; }
+        /* En mobile, ocultar el sort de .mp-toolbar (duplicara con el de arriba). */
+        .mp-toolbar > form { display: none !important; }
+    }
+
     /* ───────────── Sticky bottom bar móvil con carrito + filtros ───────────── */
     .mp-mobile-actionbar {
         display: none;
@@ -1053,6 +1149,8 @@
         background: linear-gradient(135deg, #0f8a82, #0a6f68);
         color: #fff; border-color: transparent;
     }
+    /* Botn full-width cuando es el nico del sticky (Carrito solo) */
+    .mp-mobile-actionbar .mp-mab-btn--full { flex: 1 1 100%; }
     @media (max-width: 768px) {
         .mp-mobile-actionbar { display: flex; }
         body { padding-bottom: 64px; } /* deja espacio para que el bar no tape contenido */
@@ -1075,15 +1173,14 @@
     }
 </style>
 
+{{-- Sticky bottom mobile: solo Carrito.
+     El botn Filtrar y el dropdown Ordenar viven ahora en
+     mp-mobile-topbar arriba, lo que evita redundancia y libera espacio
+     visual. --}}
 <div class="mp-mobile-actionbar" aria-hidden="false">
-    <button type="button" class="mp-mab-btn"
-            onclick="document.getElementById('mpFilters').classList.add('is-open');document.body.style.overflow='hidden';">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></svg>
-        Filtrar
-    </button>
-    <a href="{{ route('marketplace.cart') }}" class="mp-mab-btn mp-mab-btn--primary">
+    <a href="{{ route('marketplace.cart') }}" class="mp-mab-btn mp-mab-btn--primary mp-mab-btn--full">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
-        Carrito
+        Ver carrito
     </a>
 </div>
 
