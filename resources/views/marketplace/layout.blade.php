@@ -1011,27 +1011,48 @@
 
 // Badge del navbar para cupones (solo usuarios logueados). Carga el
 // conteo al inicio + expone mpCouponBadgeUpdate(n) para refrescar
-// despus de aplicar un cupn en checkout o asignar uno nuevo.
+// despus de aplicar un cupn en checkout o asignar uno nuevo. Adems
+// trackea el conteo en window.mpCouponCount para que otros touchpoints
+// (mini-cart hint, banner home) lo lean sin re-fetchear.
+window.mpCouponCount = 0;
 (function(){
     const cbadge = document.getElementById('mpCouponBadge');
-    if (!cbadge) return;
+    const hint   = document.getElementById('mpMiniCartCouponHint');
+    const hintN  = document.getElementById('mpMiniCartCouponHintCount');
     function paint(n) {
         const count = parseInt(n, 10) || 0;
-        if (count > 0) {
-            cbadge.textContent = count > 99 ? '99+' : String(count);
-            cbadge.style.display = 'inline-block';
-        } else {
-            cbadge.style.display = 'none';
+        window.mpCouponCount = count;
+        // Badge navbar
+        if (cbadge) {
+            if (count > 0) {
+                cbadge.textContent = count > 99 ? '99+' : String(count);
+                cbadge.style.display = 'inline-block';
+            } else {
+                cbadge.style.display = 'none';
+            }
+        }
+        // Hint en mini-cart drawer
+        if (hint && hintN) {
+            if (count > 0) {
+                hintN.textContent = count;
+                hint.style.display = 'flex';
+            } else {
+                hint.style.display = 'none';
+            }
         }
     }
     window.mpCouponBadgeUpdate = paint;
-    fetch(@json(route('marketplace.account.coupons.count')), {
-        headers: { 'Accept': 'application/json' },
-        credentials: 'same-origin',
-    })
-    .then(r => r.json())
-    .then(d => paint(d.count))
-    .catch(function(){ /* silent */ });
+    // Solo fetcheamos si hay endpoint disponible (user logueado tiene navbar
+    // con icono; anonimous no, evitamos pegada innecesaria).
+    if (cbadge) {
+        fetch(@json(route('marketplace.account.coupons.count')), {
+            headers: { 'Accept': 'application/json' },
+            credentials: 'same-origin',
+        })
+        .then(r => r.json())
+        .then(d => paint(d.count))
+        .catch(function(){ /* silent */ });
+    }
 })();
 
 // Badge del navbar para favoritos. El conteo inicial lo carga el script
@@ -1217,6 +1238,20 @@
             </button>
         </div>
 
+        {{-- Hint de cupones disponibles. Visible solo si el user logueado
+             tiene cupones (mpCouponCount > 0). Lo poblamos desde JS al
+             abrir el drawer para no acoplar al render del cart. --}}
+        <a href="{{ route('marketplace.account.coupons') }}"
+           id="mpMiniCartCouponHint"
+           class="mp-mini-cart__coupon-hint"
+           style="display:none">
+            <span class="mp-mini-cart__coupon-hint-icon">🎟️</span>
+            <span class="mp-mini-cart__coupon-hint-text">
+                Tienes <strong id="mpMiniCartCouponHintCount">0</strong> cupones disponibles para aplicar en el checkout
+            </span>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="9 18 15 12 9 6"/></svg>
+        </a>
+
         <div class="mp-mini-cart__body" id="mpMiniCartBody">
             <div class="mp-mini-cart__loading">Cargando…</div>
         </div>
@@ -1297,6 +1332,32 @@
     flex: 1; overflow-y: auto;
     padding: 8px 18px 12px;
 }
+.mp-mini-cart__coupon-hint {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 14px 14px 0;
+    padding: 12px 14px;
+    background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%);
+    border: 1.5px solid #fbbf24;
+    border-radius: 12px;
+    text-decoration: none;
+    color: #78350f;
+    font-size: 13px;
+    line-height: 1.35;
+    transition: all .15s ease;
+    box-shadow: 0 2px 8px -2px rgba(245, 158, 11, .25);
+}
+.mp-mini-cart__coupon-hint:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px -2px rgba(245, 158, 11, .35);
+    border-color: #f59e0b;
+}
+.mp-mini-cart__coupon-hint-icon { font-size: 22px; line-height: 1; flex-shrink: 0; }
+.mp-mini-cart__coupon-hint-text { flex: 1; }
+.mp-mini-cart__coupon-hint-text strong { color: #92400e; font-weight: 800; }
+.mp-mini-cart__coupon-hint svg { flex-shrink: 0; opacity: .6; }
+
 .mp-mini-cart__loading {
     text-align: center; padding: 40px 16px; color: #9ca3af; font-size: 14px;
 }
