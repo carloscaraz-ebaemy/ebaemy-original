@@ -26,6 +26,10 @@ class MarketplaceCouponService
     /**
      * Asigna un coupon a un user (asignacion explicita desde admin o job).
      * Idempotente: si ya existe asignacion vigente sin uso, no duplica.
+     *
+     * Side effect: si crea una asignacin nueva (no idempotente skip),
+     * dispara CouponAssignedMail al user para que sepa que tiene el
+     * cupn. El mail es best-effort  no rompe la asignacin si falla.
      */
     public function assignToUser(MarketplaceUser $user, MarketplaceCoupon $coupon, ?\DateTimeInterface $expiresAt = null): MarketplaceUserCoupon
     {
@@ -36,7 +40,7 @@ class MarketplaceCouponService
             ->first();
         if ($existing) return $existing;
 
-        return MarketplaceUserCoupon::create([
+        $assignment = MarketplaceUserCoupon::create([
             'user_id'     => $user->id,
             'coupon_id'   => $coupon->id,
             'scope'       => $coupon->scope,
@@ -44,6 +48,28 @@ class MarketplaceCouponService
             'assigned_at' => now(),
             'expires_at'  => $expiresAt ?: $coupon->valid_until,
         ]);
+
+        // Notificar al user va email (item 7 roadmap visibilidad). Solo si
+        // tiene email vlido y el cupn est activo. Best-effort  si falla
+        // el mail, la asignacin sigue valida y el user ver el cupn al
+        // entrar a /account/coupons o al loggearse (toast item 5).
+        if ($coupon->is_active && !empty($user->email)) {
+            try {
+                \Illuminate\Support\Facades\Mail::to($user->email)
+                    ->queue(new \App\Mail\Marketplace\CouponAssignedMail(
+                        $user,
+                        $coupon,
+                        $expiresAt ?: $coupon->valid_until
+                    ));
+            } catch (\Throwable $e) {
+                \Illuminate\Support\Facades\Log::warning(
+                    'CouponAssignedMail dispatch failed: ' . $e->getMessage(),
+                    ['user_id' => $user->id, 'coupon_id' => $coupon->id]
+                );
+            }
+        }
+
+        return $assignment;
     }
 
     /**
