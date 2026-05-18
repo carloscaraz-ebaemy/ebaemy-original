@@ -1237,12 +1237,18 @@
         position: relative;
         overflow: hidden;
     }
-    .mp-sheet__frame {
+    .mp-sheet__content {
         width: 100%;
         height: 100%;
-        border: 0;
-        display: block;
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+        padding: 0 14px 24px;
     }
+    /* El show.blade.php tiene su propio mp-container con padding/max-width.
+       Dentro del sheet queremos full width sin extras  resetear. */
+    .mp-sheet__content .mp-container,
+    .mp-sheet__content > main { padding: 0 !important; max-width: none !important; margin: 0 !important; }
+    .mp-sheet__content .mp-breadcrumb { font-size: 12px; margin-bottom: 8px; }
     .mp-sheet__loader {
         position: absolute;
         inset: 0;
@@ -1328,12 +1334,14 @@
             </a>
         </div>
         <div class="mp-sheet__body">
-            {{-- Loader mientras carga el iframe --}}
+            {{-- Loader mientras carga el HTML --}}
             <div class="mp-sheet__loader" id="mpSheetLoader">
                 <div class="mp-sheet__spinner"></div>
                 <div class="mp-sheet__loader-text">Cargando producto</div>
             </div>
-            <iframe id="mpSheetFrame" class="mp-sheet__frame" src="about:blank" title="Detalle del producto" loading="lazy"></iframe>
+            {{-- Contenido inyectado via AJAX (parseamos el <main> del show.blade
+                 con DOMParser y lo metemos ac, como hace el mini-cart). --}}
+            <div id="mpSheetContent" class="mp-sheet__content"></div>
         </div>
     </div>
 </div>
@@ -1349,30 +1357,85 @@ if (window.matchMedia('(max-width: 899px)').matches) {
      compartido con todas las vistas que renderizan cards. --}}
 
 // ════════════ Bottom sheet del detalle del producto (mobile) ════════════
-// Patrn: click en una .mp-card en mobile  abre el detalle como sheet
-// deslizable con iframe en lugar de navegar. En desktop, el <a> navega
-// normal (no interceptamos). Permite seguir browseando el listado.
+// Patrn: click en una .mp-card en mobile  fetch del HTML del detalle,
+// parseamos con DOMParser, inyectamos el <main> en el sheet y
+// re-ejecutamos los <script> embebidos para que la galera, selector
+// de variantes, agregar al carrito, etc. funcionen.
+//
+// Mismo patrn que usa mpMiniCart pero con HTML server-rendered en vez
+// de JSON renderizado en JS. No usamos iframe  todo es nativo del DOM
+// padre, sin doble carga de CSS ni overhead.
 (function () {
     var sheet  = document.getElementById('mpProductSheet');
     if (!sheet) return;
 
-    var frame  = document.getElementById('mpSheetFrame');
-    var loader = document.getElementById('mpSheetLoader');
-    var title  = document.getElementById('mpSheetTitle');
-    var expand = document.getElementById('mpSheetExpand');
+    var content = document.getElementById('mpSheetContent');
+    var loader  = document.getElementById('mpSheetLoader');
+    var title   = document.getElementById('mpSheetTitle');
+    var expand  = document.getElementById('mpSheetExpand');
     var mqMobile = window.matchMedia('(max-width: 768px)');
+
+    /**
+     * Re-ejecuta los <script> que vienen dentro de un container HTML.
+     * innerHTML inyecta los nodos pero NO ejecuta sus scripts; hay que
+     * clonarlos como nodos nuevos para que el browser los corra.
+     */
+    function executeScripts(container) {
+        var scripts = container.querySelectorAll('script');
+        scripts.forEach(function (oldScript) {
+            var newScript = document.createElement('script');
+            Array.from(oldScript.attributes).forEach(function (attr) {
+                newScript.setAttribute(attr.name, attr.value);
+            });
+            newScript.textContent = oldScript.textContent;
+            oldScript.parentNode.replaceChild(newScript, oldScript);
+        });
+    }
+
+    function showLoader() {
+        loader.classList.remove('is-hidden');
+        content.innerHTML = '';
+    }
+    function hideLoader() {
+        loader.classList.add('is-hidden');
+    }
+
+    async function loadProduct(url) {
+        showLoader();
+        try {
+            var sep = url.indexOf('?') >= 0 ? '&' : '?';
+            var resp = await fetch(url + sep + 'embed=1', {
+                headers: { 'Accept': 'text/html', 'X-Requested-With': 'XMLHttpRequest' },
+                credentials: 'same-origin',
+            });
+            if (!resp.ok) throw new Error('HTTP ' + resp.status);
+            var html = await resp.text();
+            var doc = new DOMParser().parseFromString(html, 'text/html');
+            // Extraer solo el <main> con el contenido del detalle
+            var main = doc.querySelector('main.mp-container') || doc.querySelector('main') || doc.body;
+            if (!main) throw new Error('No se encontr el contenido');
+            content.innerHTML = main.innerHTML;
+            executeScripts(content);
+            hideLoader();
+            // Scroll al inicio cada vez que se carga un producto
+            content.scrollTop = 0;
+        } catch (err) {
+            content.innerHTML = '<div style="padding:40px 20px;text-align:center;color:#64748b">' +
+                '<div style="font-size:32px;margin-bottom:10px">⚠️</div>' +
+                'No se pudo cargar el producto.<br>' +
+                '<a href="' + url + '" style="color:#0f8a82;text-decoration:underline">Abrir en pgina completa</a></div>';
+            hideLoader();
+        }
+    }
 
     function openSheet(url, productName) {
         if (!url) return;
         title.textContent = productName || 'Producto';
         expand.href = url; // botn "abrir en pgina completa" usa la URL real
-        loader.classList.remove('is-hidden');
-        // Cargar el detalle con ?embed=1 para que el layout oculte header/footer
-        var sep = url.indexOf('?') >= 0 ? '&' : '?';
-        frame.src = url + sep + 'embed=1';
         sheet.classList.add('is-open');
         sheet.setAttribute('aria-hidden', 'false');
         document.body.classList.add('mp-sheet-open');
+        loadProduct(url);
         // Push state para que el botn "atrs" del browser cierre el sheet
         try { history.pushState({ mpSheet: true }, '', url); } catch (e) {}
     }
@@ -1382,8 +1445,8 @@ if (window.matchMedia('(max-width: 899px)').matches) {
         sheet.classList.remove('is-open');
         sheet.setAttribute('aria-hidden', 'true');
         document.body.classList.remove('mp-sheet-open');
-        // Limpiar el iframe despus de la transicin (300ms) para liberar memoria
-        setTimeout(function () { frame.src = 'about:blank'; }, 320);
+        // Limpiar contenido despus de la transicin (300ms)
+        setTimeout(function () { content.innerHTML = ''; }, 320);
         if (!skipHistory && history.state && history.state.mpSheet) {
             try { history.back(); } catch (e) {}
         }
@@ -1397,20 +1460,12 @@ if (window.matchMedia('(max-width: 899px)').matches) {
     // Botn back del browser cierra el sheet
     window.addEventListener('popstate', function () { closeSheet(true); });
 
-    // ESC cierra el sheet (en mobile no tiene teclado, pero por si acaso)
+    // ESC cierra el sheet
     document.addEventListener('keydown', function (e) {
         if (e.key === 'Escape') closeSheet();
     });
 
-    // Loader: cuando el iframe termina de cargar, ocultarlo
-    frame.addEventListener('load', function () {
-        if (frame.src && frame.src !== 'about:blank') {
-            loader.classList.add('is-hidden');
-        }
-    });
-
-    // Interceptar click en las cards de productos. Las cards son <a class="mp-card">
-    // dentro de .mp-grid. Solo en mobile.
+    // Interceptar click en las cards de productos. Solo en mobile.
     document.addEventListener('click', function (e) {
         if (!mqMobile.matches) return; // desktop: navegar normal
         var card = e.target.closest('a.mp-card');
