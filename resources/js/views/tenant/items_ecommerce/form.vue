@@ -2282,6 +2282,12 @@ export default {
                     this.hydrateMpCategoryPath()
                     this.has_percentage_perception = (this.form.percentage_perception) ? true : false
                     this.changeAffectationIgvType()
+                    // Cargar imágenes adicionales de la galería. El @open del
+                    // dialog dispara create() (no loadRecord), así que esta
+                    // llamada DEBE estar acá explícita — el watcher de recordId
+                    // no existe y sin esta línea la galería queda vacía aunque
+                    // item_images tenga filas. Trampa Vue documentada.
+                    this.loadGalleryImages()
                     // Re-mount del cascader para forzar hidratación con
                     // tree + path nuevos (workaround del bug ElementUI).
                     this.$nextTick(() => { this.cascaderKey++ })
@@ -2289,6 +2295,7 @@ export default {
             } else {
                 // Producto nuevo: solo necesitamos el tree disponible.
                 this.loadMarketplaceCategoryTree()
+                this.galleryImages = []
             }
         },
         loadRecord() {
