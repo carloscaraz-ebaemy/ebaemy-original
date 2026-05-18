@@ -247,6 +247,35 @@
                                     <small v-if="errors.sale_unit_price"
                                         class="form-control-feedback"
                                         v-text="errors.sale_unit_price[0]"></small>
+
+                                    <!-- ═════════ Fase 2 pricing — chip de margen tiempo real ═════════
+                                         Verde: margen >= objetivo
+                                         Ámbar: margen entre min y objetivo
+                                         Rojo: margen < min (warn)
+                                         Crítico: precio < costo (bloqueado por backend)
+                                         Ver project_pricing_redesign.md -->
+                                    <div v-if="priceSnapshot" class="ie-margin-chip" :class="'is-' + priceSnapshot.status" style="margin-top:6px;padding:6px 10px;border-radius:6px;font-size:11.5px;line-height:1.4;border:1px solid">
+                                        <strong v-if="priceSnapshot.status === 'ok'" style="color:#065f46">🟢 Margen {{ priceSnapshot.margin_actual_pct }}%</strong>
+                                        <strong v-else-if="priceSnapshot.status === 'warn_below_target'" style="color:#92400e">🟡 Margen {{ priceSnapshot.margin_actual_pct }}% (bajo objetivo)</strong>
+                                        <strong v-else-if="priceSnapshot.status === 'warn_below_min'" style="color:#9f1239">🔴 Margen {{ priceSnapshot.margin_actual_pct }}% (bajo mínimo)</strong>
+                                        <strong v-else-if="priceSnapshot.status === 'block_below_cost'" style="color:#7f1d1d">⛔ PÉRDIDA · Bloqueado</strong>
+                                        <br>
+                                        <span style="color:#374151">Utilidad: S/ {{ priceSnapshot.profit_per_unit.toFixed(2) }}</span>
+                                        <template v-if="priceSnapshot.list_price && priceSnapshot.list_price != form.sale_unit_price">
+                                            <br>
+                                            <a href="#" @click.prevent="applyListPriceSuggestion" style="color:#4f46e5;font-weight:600">
+                                                💡 Sugerido S/ {{ priceSnapshot.list_price.toFixed(2) }} (aplicar)
+                                            </a>
+                                        </template>
+                                    </div>
+                                    <!-- Sugerencia de costo desde WeightedAverageCost -->
+                                    <div v-if="priceRecommendation && priceRecommendation.wac_suggested_cost && Math.abs((priceRecommendation.wac_diff_pct || 0)) > 1"
+                                         style="margin-top:6px;padding:6px 10px;border-radius:6px;font-size:11.5px;background:#eff6ff;border:1px solid #bfdbfe;color:#1e40af">
+                                        💡 Costo ponderado últ. compras:
+                                        <a href="#" @click.prevent="applyWacSuggestion" style="color:#1e40af;font-weight:700">
+                                            S/ {{ priceRecommendation.wac_suggested_cost.toFixed(2) }} (aplicar)
+                                        </a>
+                                    </div>
                                 </div>
                             </div>
                             <div class="col-md-6">
@@ -263,6 +292,93 @@
                                     <small v-if="errors.sale_affectation_igv_type_id"
                                         class="form-control-feedback"
                                         v-text="errors.sale_affectation_igv_type_id[0]"></small>
+                                </div>
+                            </div>
+
+                            <!-- ═════════ Fase 2 pricing — configuración avanzada de precio ═════════
+                                 Colapsable por default. Inputs profesionales:
+                                 margen objetivo, margen mínimo (guardrail), costo adicional %,
+                                 precio tachado tipo Shopify, modo liquidación.
+                                 Toda lógica se sincroniza con el chip vía watchers. -->
+                            <div class="col-md-12" style="margin-top:6px">
+                                <div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;padding:10px 14px">
+                                    <a href="#" @click.prevent="advancedPricingOpen = !advancedPricingOpen"
+                                       style="display:flex;align-items:center;gap:6px;color:#374151;font-weight:600;font-size:13px;text-decoration:none">
+                                        <span>{{ advancedPricingOpen ? '▼' : '▶' }}</span>
+                                        ⚙️ Configuración avanzada de precio
+                                        <small style="color:#6b7280;font-weight:normal">(margen objetivo, mínimo, precio tachado, liquidación)</small>
+                                    </a>
+                                    <div v-show="advancedPricingOpen" style="margin-top:10px">
+                                        <div class="row">
+                                            <div class="col-md-3">
+                                                <div class="form-group">
+                                                    <label class="control-label" style="font-size:12px">
+                                                        Margen objetivo %
+                                                        <el-tooltip content="Margen de ganancia deseado sobre el precio de venta (no sobre costo). El sistema sugerirá el precio de lista." placement="top">
+                                                            <i class="fa fa-info-circle" style="color:#9ca3af"></i>
+                                                        </el-tooltip>
+                                                    </label>
+                                                    <el-input v-model.number="form.target_margin_pct" type="number" min="0" max="99.99" step="0.01" placeholder="ej. 35"></el-input>
+                                                    <small v-if="errors.target_margin_pct" class="form-control-feedback" v-text="errors.target_margin_pct[0]"></small>
+                                                </div>
+                                            </div>
+                                            <div class="col-md-3">
+                                                <div class="form-group">
+                                                    <label class="control-label" style="font-size:12px">
+                                                        Margen mínimo % (piso)
+                                                        <el-tooltip content="Margen mínimo permitido. El sistema bloquea descuentos que rompan este piso. Si vacío, usa el default del tenant." placement="top">
+                                                            <i class="fa fa-info-circle" style="color:#9ca3af"></i>
+                                                        </el-tooltip>
+                                                    </label>
+                                                    <el-input v-model.number="form.min_margin_pct" type="number" min="0" max="99.99" step="0.01"
+                                                              :placeholder="pricingSettings ? ('default ' + pricingSettings.default_min_margin_pct + '%') : 'ej. 10'"></el-input>
+                                                    <small v-if="errors.min_margin_pct" class="form-control-feedback" v-text="errors.min_margin_pct[0]"></small>
+                                                </div>
+                                            </div>
+                                            <div class="col-md-3">
+                                                <div class="form-group">
+                                                    <label class="control-label" style="font-size:12px">
+                                                        Costo adicional %
+                                                        <el-tooltip content="Porcentaje adicional al costo: flete, importación, mermas. Se suma al costo efectivo." placement="top">
+                                                            <i class="fa fa-info-circle" style="color:#9ca3af"></i>
+                                                        </el-tooltip>
+                                                    </label>
+                                                    <el-input v-model.number="form.landed_cost_extra_pct" type="number" min="0" max="100" step="0.01" placeholder="0"></el-input>
+                                                </div>
+                                            </div>
+                                            <div class="col-md-3">
+                                                <div class="form-group">
+                                                    <label class="control-label" style="font-size:12px">
+                                                        Precio tachado (referencia)
+                                                        <el-tooltip content="Precio anterior mostrado al cliente como referencia (tipo Shopify). Debe ser mayor o igual al precio de venta." placement="top">
+                                                            <i class="fa fa-info-circle" style="color:#9ca3af"></i>
+                                                        </el-tooltip>
+                                                    </label>
+                                                    <el-input v-model.number="form.compare_at_price" type="number" min="0" step="0.01" placeholder="Opcional"></el-input>
+                                                    <small v-if="errors.compare_at_price" class="form-control-feedback" v-text="errors.compare_at_price[0]"></small>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="row">
+                                            <div class="col-md-12">
+                                                <el-checkbox v-model="form.liquidation_mode" style="font-size:12px">
+                                                    🏷️ Modo liquidación
+                                                    <small style="color:#6b7280;margin-left:4px">(permite vender bajo el precio piso — usar solo para liquidación real)</small>
+                                                </el-checkbox>
+                                            </div>
+                                        </div>
+                                        <div v-if="priceSnapshot && priceSnapshot.floor_price > 0" class="row" style="margin-top:8px">
+                                            <div class="col-md-12">
+                                                <small style="color:#6b7280">
+                                                    💰 Costo efectivo: <strong>S/ {{ priceSnapshot.effective_cost.toFixed(2) }}</strong>
+                                                    · 🔒 Precio piso: <strong>S/ {{ priceSnapshot.floor_price.toFixed(2) }}</strong>
+                                                    <template v-if="priceSnapshot.customer_savings > 0">
+                                                        · 🎁 Ahorro cliente: <strong style="color:#059669">S/ {{ priceSnapshot.customer_savings.toFixed(2) }} ({{ priceSnapshot.customer_savings_pct }}%)</strong>
+                                                    </template>
+                                                </small>
+                                            </div>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                             <!-- <div v-show="form.unit_type_id !='ZZ'"
@@ -1764,6 +1880,12 @@ export default {
             errors: {},
             headers: headers_token,
             form: {},
+            // Fase 2 pricing — snapshot calculado por backend con debounce
+            priceSnapshot: null,
+            priceRecommendation: null,
+            priceCalcDebounceId: null,
+            advancedPricingOpen: false,
+            pricingSettings: null,
             unit_types: [],
             currency_types: [],
             system_isc_types: [],
@@ -1970,6 +2092,12 @@ export default {
                 this.suggestMpCategoryFromTenant()
             }
         },
+        // Fase 2 pricing — cualquier cambio en inputs de costo/margen dispara recalc
+        'form.purchase_unit_price'() { this.scheduleRecalcPriceSnapshot() },
+        'form.landed_cost_extra_pct'() { this.scheduleRecalcPriceSnapshot() },
+        'form.target_margin_pct'() { this.scheduleRecalcPriceSnapshot() },
+        'form.min_margin_pct'() { this.scheduleRecalcPriceSnapshot() },
+        'form.compare_at_price'() { this.scheduleRecalcPriceSnapshot() },
     },
     mounted() {
         // Listener para que el modal se reajuste si el seller rota el
@@ -2168,6 +2296,13 @@ export default {
                 currency_type_id: 'PEN',
                 sale_unit_price: 0,
                 purchase_unit_price: 0,
+                // Fase 2 rediseño pricing (2026-05-18) — ver project_pricing_redesign.md
+                landed_cost_extra_pct: 0,
+                target_margin_pct: null,
+                min_margin_pct: null,
+                compare_at_price: null,
+                pricing_mode: 'margin',
+                liquidation_mode: false,
                 has_isc: false,
                 system_isc_type_id: null,
                 percentage_isc: 0,
@@ -2288,6 +2423,9 @@ export default {
                     // no existe y sin esta línea la galería queda vacía aunque
                     // item_images tenga filas. Trampa Vue documentada.
                     this.loadGalleryImages()
+                    // Fase 2 pricing — cargar snapshot inicial + WAC sugerido
+                    this.recalcPriceSnapshot()
+                    this.loadPriceRecommendation()
                     // Re-mount del cascader para forzar hidratación con
                     // tree + path nuevos (workaround del bug ElementUI).
                     this.$nextTick(() => { this.cascaderKey++ })
@@ -2470,6 +2608,57 @@ export default {
             } else {
                 this.form.percentage_of_profit = difference / parseFloat(this.form.purchase_unit_price) * 100;
             }
+            // Fase 2: además del cálculo legacy, recalcular el snapshot del chip
+            this.scheduleRecalcPriceSnapshot()
+        },
+        // Fase 2 pricing — debounce 300ms para no spammear el endpoint en cada keystroke
+        scheduleRecalcPriceSnapshot() {
+            if (this.priceCalcDebounceId) clearTimeout(this.priceCalcDebounceId)
+            this.priceCalcDebounceId = setTimeout(() => this.recalcPriceSnapshot(), 300)
+        },
+        recalcPriceSnapshot() {
+            const cost = parseFloat(this.form.purchase_unit_price) || 0
+            if (cost <= 0) {
+                this.priceSnapshot = null
+                return
+            }
+            this.$http.post(`/${this.resource}/calculate-price`, {
+                cost: cost,
+                landed_cost_extra_pct: parseFloat(this.form.landed_cost_extra_pct) || 0,
+                target_margin_pct: this.form.target_margin_pct,
+                min_margin_pct: this.form.min_margin_pct,
+                sale_price: parseFloat(this.form.sale_unit_price) || null,
+                discount_pct: 0,
+                compare_at_price: this.form.compare_at_price,
+            })
+            .then(res => {
+                if (res.data.success) {
+                    this.priceSnapshot = res.data.data
+                    this.pricingSettings = res.data.settings
+                }
+            })
+            .catch(() => { /* no romper si endpoint falla — chip simplemente no se muestra */ })
+        },
+        loadPriceRecommendation() {
+            if (!this.recordId) {
+                this.priceRecommendation = null
+                return
+            }
+            this.$http.get(`/${this.resource}/${this.recordId}/price-recommendation`)
+                .then(res => {
+                    if (res.data.success) this.priceRecommendation = res.data.data
+                })
+                .catch(() => { this.priceRecommendation = null })
+        },
+        applyWacSuggestion() {
+            if (!this.priceRecommendation || !this.priceRecommendation.wac_suggested_cost) return
+            this.form.purchase_unit_price = this.priceRecommendation.wac_suggested_cost
+            this.scheduleRecalcPriceSnapshot()
+        },
+        applyListPriceSuggestion() {
+            if (!this.priceSnapshot || !this.priceSnapshot.list_price) return
+            this.form.sale_unit_price = this.priceSnapshot.list_price
+            this.scheduleRecalcPriceSnapshot()
         },
         calculatePercentageOfProfitByPurchase() {
             if (this.form.percentage_of_profit === '') {

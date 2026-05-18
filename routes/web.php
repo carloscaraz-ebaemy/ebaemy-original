@@ -496,6 +496,9 @@ if ($hostname) {
             Route::post('items/enableMassive', 'Tenant\ItemController@enableMassive');
             Route::get('items/images/{item}', 'Tenant\ItemController@images');
             Route::get('items/images/delete/{id}', 'Tenant\ItemController@delete_images');
+            // Fase 2 rediseño pricing — endpoints en tiempo real para el chip de margen del form
+            Route::post('items/calculate-price', 'Tenant\ItemController@calculatePrice');
+            Route::get('items/{item}/price-recommendation', 'Tenant\ItemController@priceRecommendation');
             Route::get('items/without-image', 'Tenant\ItemController@withoutImage');
             Route::get('items/export', 'Tenant\ItemController@export')->name('tenant.items.export');
             Route::get('items/export/wp', 'Tenant\ItemController@exportWp')->name('tenant.items.export.wp');

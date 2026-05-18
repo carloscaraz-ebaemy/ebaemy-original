@@ -38,6 +38,8 @@ use App\Models\Tenant\Configuration;
 use App\Models\Tenant\Establishment;
 use App\Models\Tenant\Item;
 use App\Models\Tenant\ItemImage;
+use App\Models\Tenant\PricingSettings;
+use App\Services\Tenant\Pricing\PriceCalculator;
 use App\Models\Tenant\ItemMovement;
 use App\Models\Tenant\ItemSupply;
 use App\Models\Tenant\ItemTag;
@@ -2592,6 +2594,82 @@ class ItemController extends Controller
         return $selected;
     }
 
+    /**
+     * Fase 2 rediseño pricing: cálculo en tiempo real para el chip de margen
+     * del form. Recibe los inputs del usuario (cost, margin, sale, discount)
+     * y devuelve el snapshot completo con todos los derivados.
+     *
+     * Endpoint POST /items/calculate-price
+     *
+     * Body: {
+     *   cost: float, landed_cost_extra_pct?: float,
+     *   target_margin_pct?: float, min_margin_pct?: float,
+     *   sale_price?: float, discount_pct?: float, compare_at_price?: float
+     * }
+     */
+    public function calculatePrice(Request $request)
+    {
+        $cost = (float) $request->input('cost', 0);
+        if ($cost < 0) {
+            return response()->json(['success' => false, 'message' => 'cost debe ser >= 0'], 422);
+        }
 
+        try {
+            $snapshot = PriceCalculator::snapshot(
+                $cost,
+                (float) $request->input('landed_cost_extra_pct', 0),
+                $request->filled('target_margin_pct') ? (float) $request->input('target_margin_pct') : null,
+                $request->filled('min_margin_pct')    ? (float) $request->input('min_margin_pct')    : null,
+                $request->filled('sale_price')        ? (float) $request->input('sale_price')        : null,
+                (float) $request->input('discount_pct', 0),
+                $request->filled('compare_at_price')  ? (float) $request->input('compare_at_price')  : null
+            );
+        } catch (\InvalidArgumentException $e) {
+            return response()->json(['success' => false, 'message' => $e->getMessage()], 422);
+        }
+
+        // Settings del tenant para que el frontend pueda mostrar el default
+        // de min_margin si el item no tiene override propio
+        $settings = PricingSettings::find(1);
+
+        return [
+            'success'  => true,
+            'data'     => $snapshot,
+            'settings' => $settings ? [
+                'default_min_margin_pct' => (float) $settings->default_min_margin_pct,
+                'block_sales_below_cost' => (bool) $settings->block_sales_below_cost,
+            ] : null,
+        ];
+    }
+
+    /**
+     * Fase 2 rediseño pricing: devuelve costo sugerido (weighted average) e
+     * info de competencia marketplace para que el seller decida con datos.
+     *
+     * Endpoint GET /items/{item}/price-recommendation
+     */
+    public function priceRecommendation($item)
+    {
+        $itemModel = Item::find($item);
+        if (!$itemModel) {
+            return response()->json(['success' => false, 'message' => 'item no encontrado'], 404);
+        }
+
+        $wac = \Modules\Purchase\Models\WeightedAverageCost::findLastWeightedAverageCost($item);
+        $wacCost = $wac && isset($wac->weighted_cost) ? (float) $wac->weighted_cost : null;
+
+        return [
+            'success' => true,
+            'data'    => [
+                'item_id'              => (int) $item,
+                'current_cost'         => (float) $itemModel->purchase_unit_price,
+                'current_sale_price'   => (float) $itemModel->sale_unit_price,
+                'wac_suggested_cost'   => $wacCost,
+                'wac_diff_pct'         => $wacCost && $itemModel->purchase_unit_price > 0
+                    ? round((($wacCost - $itemModel->purchase_unit_price) / $itemModel->purchase_unit_price) * 100, 2)
+                    : null,
+            ],
+        ];
+    }
 
 }
