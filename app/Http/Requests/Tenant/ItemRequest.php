@@ -58,7 +58,16 @@ class ItemRequest extends FormRequest
                 new MinMarginRule($cost, $landedExtraPct, $minMarginPct, $liquidationMode),
             ],
             'purchase_unit_price' => [
-                'required', 'numeric', 'gte:0'
+                'required', 'numeric', 'gte:0',
+                // Opt-in via env BLOCK_MARKETPLACE_WITHOUT_COST=true: bloquea
+                // publicar en marketplace si purchase_unit_price <= 0.
+                // Corre `pricing:audit-zero-cost` primero para evaluar impacto.
+                function ($attribute, $value, $fail) {
+                    if (!env('BLOCK_MARKETPLACE_WITHOUT_COST', false)) return;
+                    if ((bool) $this->input('marketplace_publishable') && (float) $value <= 0) {
+                        $fail('Para publicar en marketplace debes registrar el precio de compra (costo). Sin costo no se puede validar margen ni proteger contra pérdidas en descuentos.');
+                    }
+                },
             ],
             'landed_cost_extra_pct' => [
                 'nullable', 'numeric', 'between:0,100',

@@ -906,6 +906,15 @@
                                                     <div v-if="!form.marketplace_category_id" style="font-size:12px;color:#dc2626;font-weight:600;margin-bottom:6px">
                                                         ⚠️ Selecciona una categoría arriba para poder publicar.
                                                     </div>
+                                                    <!-- Fase 2 pricing — warning si publica en marketplace sin costo registrado.
+                                                         Sin costo el sistema no puede validar pérdidas en descuentos/cupones.
+                                                         Si BLOCK_MARKETPLACE_WITHOUT_COST=true en .env, ItemRequest bloquea
+                                                         al guardar; sin ese flag solo advertimos visualmente. -->
+                                                    <div v-if="!(parseFloat(form.purchase_unit_price) > 0)" style="font-size:12px;color:#92400e;font-weight:600;margin-bottom:6px;padding:8px 10px;background:#fef3c7;border:1px solid #fcd34d;border-radius:6px">
+                                                        ⚠️ Este producto no tiene <strong>precio de compra (costo)</strong> registrado.
+                                                        Sin costo el sistema no puede validar márgenes ni detectar pérdidas al aplicar descuentos.
+                                                        <br><small style="font-weight:normal">Registralo abajo en la sección "Datos de compra".</small>
+                                                    </div>
                                                     <div class="ie-mp-extra-row">
                                                         <div>
                                                             <label class="ie-mp-extra-label">Precio en marketplace</label>
