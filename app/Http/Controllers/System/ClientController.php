@@ -833,6 +833,7 @@ use App\Models\System\PlanPeriod;
             $tenancy = app(Environment::class);
             $tenancy->tenant($client->hostname->website);
             DB::connection('tenant')->table('configurations')->where('id', 1)->update(['locked_users' => $client->locked_users]);
+            \App\Models\Tenant\Configuration::flushCache();
 
             return [
                 'success' => true,
@@ -852,6 +853,7 @@ use App\Models\System\PlanPeriod;
             $tenancy = app(Environment::class);
             $tenancy->tenant($client->hostname->website);
             DB::connection('tenant')->table('configurations')->where('id', 1)->update(['locked_emission' => $client->locked_emission]);
+            \App\Models\Tenant\Configuration::flushCache();
 
             return [
                 'success' => true,
@@ -871,6 +873,12 @@ use App\Models\System\PlanPeriod;
             $tenancy = app(Environment::class);
             $tenancy->tenant($client->hostname->website);
             DB::connection('tenant')->table('configurations')->where('id', 1)->update(['locked_tenant' => $client->locked_tenant]);
+            // Invalidar cache del tenant: el middleware LockedTenant lee con
+            // Configuration::firstCached() (TTL 10 min). Sin este flush, el
+            // desbloqueo no surte efecto hasta que expire el cache (el
+            // raw update via DB::table no dispara el evento saved() Eloquent
+            // que normalmente invalidaría el cache).
+            \App\Models\Tenant\Configuration::flushCache();
 
             return [
                 'success' => true,

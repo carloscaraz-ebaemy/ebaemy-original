@@ -78,6 +78,8 @@ class ResellerController extends Controller
             $tenancy = app(Environment::class);
             $tenancy->tenant($client->hostname->website);
             DB::connection('tenant')->table('configurations')->where('id', 1)->update(['locked_tenant' => $client->locked_tenant]);
+            // Invalidar cache del tenant activo (raw update no dispara evento saved)
+            \App\Models\Tenant\Configuration::flushCache();
 
         }
 

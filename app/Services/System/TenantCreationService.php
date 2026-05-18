@@ -15,6 +15,7 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Modules\MobileApp\Models\System\AppModule;
 use App\Models\System\Plan;
+use App\Models\System\PlanPeriod;
 use App\Services\Tenant\CourierCompanyCatalog;
 
 /**
@@ -146,6 +147,20 @@ class TenantCreationService
 
     private function createSystemClient(int $hostnameId, array $payload): Client
     {
+        // Calcular fin del ciclo de facturación según el período del plan.
+        // ANTES: ending_billing_cycle = hoy → el cron PaymentOrderCommand
+        // detectaba al cliente como vencido en la primera medianoche y lo
+        // bloqueaba automáticamente (locked_tenant = true), dejando al
+        // tenant inaccesible al día siguiente de creado.
+        // AHORA: hoy + N meses según plan_period (1 mes default).
+        $planMonths = 1;
+        if (!empty($payload['plan_period_id'])) {
+            $period = PlanPeriod::find($payload['plan_period_id']);
+            if ($period && (int) $period->months > 0) {
+                $planMonths = (int) $period->months;
+            }
+        }
+
         return Client::query()->create([
             'hostname_id'          => $hostnameId,
             'token'                => $payload['token'],
@@ -158,7 +173,7 @@ class TenantCreationService
             'price'                => $payload['price']                ?? null,
             'plan_period_id'       => $payload['plan_period_id']       ?? null,
             'start_billing_cycle'  => Carbon::now()->toDateString(),
-            'ending_billing_cycle' => Carbon::now()->toDateString(),
+            'ending_billing_cycle' => Carbon::now()->addMonths($planMonths)->toDateString(),
             'client_name'          => !empty($payload['client_name']) ? $payload['client_name'] : $payload['name'],
             'phone_ws'             => $payload['phone_ws']             ?? null,
             'contact_email'        => !empty($payload['contact_email']) ? $payload['contact_email'] : $payload['email'],

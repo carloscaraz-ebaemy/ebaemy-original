@@ -108,6 +108,8 @@ class PaymentOrderCommand extends Command
                 $tenancy = app(Environment::class);
                 $tenancy->tenant($client->hostname->website);
                 DB::connection('tenant')->table('configurations')->where('id', 1)->update(['locked_tenant' => $client->locked_tenant]);
+                // Invalidar cache del tenant (raw update no dispara evento saved)
+                \App\Models\Tenant\Configuration::flushCache();
                 $order_payment->order_state_id = 3; // Vencida
                 $order_payment->save();
             }
