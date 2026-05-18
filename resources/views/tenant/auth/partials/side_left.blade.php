@@ -27,10 +27,9 @@
             @if ($login->position_logo != 'on-form')
                 <img class="auth__logo {{ $login->position_logo }}" src="{{ asset('storage/uploads/logos/' . $company->logo) }}" alt="Logo" />
             @endif
-        @else
-            @if ($login->position_logo != 'on-form')
-                <img class="auth__logo {{ $login->position_logo }}" src="{{ asset('logo/logo.jpg') }}" alt="Logo" />
-            @endif
         @endif
+        {{-- Sin logo del tenant: NO renderizamos marca de agua, para evitar
+             que el placeholder aparezca duplicado (uno en el side_left +
+             otro en el form). El form_logo ya muestra el placeholder. --}}
     @endif
 </article>
