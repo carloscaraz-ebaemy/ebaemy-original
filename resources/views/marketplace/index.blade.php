@@ -1466,18 +1466,26 @@ if (window.matchMedia('(max-width: 899px)').matches) {
     });
 
     // Interceptar click en las cards de productos. Solo en mobile.
+    // La card es <div class="mp-card" data-href="..."> (no <a>) y el
+    // navigate lo hace listing-card-script via window.location.href en
+    // bubble phase. Para interceptar antes:
+    //   - capture: true  corremos en capture (antes de bubble)
+    //   - stopImmediatePropagation  evitamos que el handler bubble del
+    //     listing-card-script ejecute window.location.href
     document.addEventListener('click', function (e) {
         if (!mqMobile.matches) return; // desktop: navegar normal
-        var card = e.target.closest('a.mp-card');
+        var card = e.target.closest('.mp-card[data-href]');
         if (!card) return;
-        // No interceptar si el click fue sobre un dot/thumb/link interno
-        // que tiene su propio handler (color dots, shop link, etc).
-        if (e.target.closest('.js-shop-link, .mp-card-dot, .mp-card-thumb, button')) return;
+        // No interceptar si el click fue sobre un elemento interactivo
+        // interno (dots, fav, shop link, quickadd, "tambien en N tiendas").
+        // Esos tienen sus propios handlers y NO deben abrir el sheet.
+        if (e.target.closest('.js-shop-link, .js-alsoin-link, .mp-card-dot, .mp-card-thumb, .mp-card-fav, button, input, select')) return;
         e.preventDefault();
-        var href = card.getAttribute('href');
+        e.stopImmediatePropagation();
+        var href = card.dataset.href;
         var name = (card.querySelector('.mp-card-title') || {}).textContent || '';
         openSheet(href, name.trim());
-    }, true); // capture: para que se ejecute antes que el navigate del <a>
+    }, true); // capture: para que se ejecute antes que el handler bubble
 })();
 </script>
 @push('styles')
