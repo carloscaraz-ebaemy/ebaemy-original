@@ -22,15 +22,22 @@
       @change="onGeneratePreview"
       ref="inputFile"
       class="hidden"
+      accept="image/jpeg,image/jpg,image/png,image/svg+xml,image/webp,image/heic,image/heif"
     />
     <small class="form-control-feedback mt-2 d-block"
       >{{ helpText }}</small
     >
+    <small v-if="compressInfo" class="form-control-feedback text-muted d-block mt-1">
+      {{ compressInfo }}
+    </small>
   </div>
 </template>
 
 <script>
+import { imageCompressor } from "../../../mixins/imageCompressor";
+
 export default {
+  mixins: [imageCompressor],
   props: {
     type: {
       type: String,
@@ -46,7 +53,8 @@ export default {
       imageUrl: "",
       loading: false,
       btnText: '',
-      helpText: ''
+      helpText: '',
+      compressInfo: '',
     };
   },
   mounted() {
@@ -67,21 +75,48 @@ export default {
     onShowFilePicker() {
       this.$refs.inputFile.click();
     },
-    onGeneratePreview(event) {
+    async onGeneratePreview(event) {
       const files = event.target.files;
-      if (files.length > 0) {
-        const fileReader = new FileReader();
-        fileReader.addEventListener("load", () => {
-          this.imageUrl = fileReader.result;
-        });
-        fileReader.readAsDataURL(files[0]);
-        const image = files[0];
-        const payload = new FormData();
-        payload.append("image", image);
-        payload.append("type", this.type);
-        this.loading = true;
-        this.$http
-          .post("/configurations/bg", payload)
+      if (!files || !files.length) return;
+
+      const originalFile = files[0];
+      const originalKb = Math.round(originalFile.size / 1024);
+
+      this.loading = true;
+      this.compressInfo = '';
+
+      // Comprimir/redimensionar antes de subir (mixin imageCompressor):
+      //  - HEIC/HEIF  JPG via heic2any (dynamic import)
+      //  - resize a max 1200x1200 (1024 en mvil)
+      //  - quality 0.82 JPG
+      // Garantiza que la imagen llegue al server con tamao razonable
+      // independiente del original, sin tocar php.ini ni post_max_size.
+      let image = originalFile;
+      try {
+        image = await this.beforeUpload(originalFile);
+      } catch (e) {
+        this.$message.error('Error procesando la imagen: ' + (e.message || e));
+        this.loading = false;
+        return;
+      }
+
+      const finalKb = Math.round(image.size / 1024);
+      if (finalKb < originalKb) {
+        this.compressInfo = `Comprimida: ${originalKb} KB  ${finalKb} KB`;
+      }
+
+      // Preview local de la imagen comprimida
+      const fileReader = new FileReader();
+      fileReader.addEventListener("load", () => {
+        this.imageUrl = fileReader.result;
+      });
+      fileReader.readAsDataURL(image);
+
+      const payload = new FormData();
+      payload.append("image", image);
+      payload.append("type", this.type);
+      this.$http
+        .post("/configurations/bg", payload)
           .then((response) => {
             this.$message({
               message: response.data.message,
@@ -123,7 +158,6 @@ export default {
               }
           })
           .finally(() => (this.loading = false));
-      }
     },
   },
 };
