@@ -91,9 +91,35 @@ class MarketplaceAuthController extends Controller
         Auth::guard('marketplace')->login($user, true);
         $this->merge->mergeFromSession($user, $anonSessionId);
         $request->session()->regenerate();
+        $this->flashCouponsAvailable($user, $request);
 
         return redirect($data['next'] ?: route('marketplace.account'))
             ->with('mkt_login_ok', 'Bienvenido a ebaemy.');
+    }
+
+    /**
+     * Helper: si el user logueado tiene cupones disponibles, flashea
+     * un toast que el layout renderiza tras el login. Item 5 del roadmap
+     * visibilidad de cupones — push proactivo al regresar al sitio.
+     */
+    private function flashCouponsAvailable($user, $request)
+    {
+        if (!$user) return;
+        $count = \DB::connection('system')->table('marketplace_user_coupons as uc')
+            ->join('marketplace_coupons as c', 'c.id', '=', 'uc.coupon_id')
+            ->where('uc.user_id', $user->id)
+            ->where('c.is_active', true)
+            ->whereNull('uc.used_at')
+            ->where(function ($q) {
+                $q->whereNull('uc.expires_at')->orWhere('uc.expires_at', '>=', now());
+            })
+            ->where(function ($q) {
+                $q->whereNull('c.valid_until')->orWhere('c.valid_until', '>=', now());
+            })
+            ->count();
+        if ($count > 0) {
+            $request->session()->flash('mkt_coupons_toast', $count);
+        }
     }
 
     /** GET /marketplace/auth/verify?token=... — consume magic link directo. */
@@ -114,6 +140,7 @@ class MarketplaceAuthController extends Controller
         Auth::guard('marketplace')->login($user, true);
         $this->merge->mergeFromSession($user, $anonSessionId);
         $request->session()->regenerate();
+        $this->flashCouponsAvailable($user, $request);
 
         return redirect()->route('marketplace.account')
             ->with('mkt_login_ok', 'Bienvenido a ebaemy.');
@@ -147,6 +174,7 @@ class MarketplaceAuthController extends Controller
         Auth::guard('marketplace')->login($user, !empty($data['remember']));
         $this->merge->mergeFromSession($user, $anonSessionId);
         $request->session()->regenerate();
+        $this->flashCouponsAvailable($user, $request);
         return redirect($data['next'] ?: route('marketplace.account'))
             ->with('mkt_login_ok', 'Bienvenido de vuelta, ' . $user->name . '.');
     }

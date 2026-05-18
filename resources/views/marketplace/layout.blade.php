@@ -1085,6 +1085,99 @@ window.mpCouponTenantIds = []; // hostname_ids donde el user tiene cupn
      hover en color dots + click en nombre de tienda. --}}
 @include('marketplace.partials.listing-card-script')
 
+{{-- ════════ Toast post-login: cupones disponibles (item 5 roadmap) ════════
+     Cuando el user se loggea y tiene cupones disponibles, MarketplaceAuthController
+     flashea mkt_coupons_toast con el count. Lo mostramos como toast flotante
+     auto-hide a los 8s, clickeable a /account/coupons. --}}
+@if(session('mkt_coupons_toast'))
+    <div id="mpCouponsToast" class="mp-toast mp-toast--coupons" role="status" aria-live="polite">
+        <span class="mp-toast__icon">🎟️</span>
+        <span class="mp-toast__body">
+            Tienes <strong>{{ session('mkt_coupons_toast') }}</strong>
+            {{ session('mkt_coupons_toast') == 1 ? 'cupn disponible' : 'cupones disponibles' }}
+            <br><small>Aplicalos en tu prximo pedido</small>
+        </span>
+        <a href="{{ route('marketplace.account.coupons') }}" class="mp-toast__cta">Ver</a>
+        <button type="button" class="mp-toast__close" aria-label="Cerrar">×</button>
+    </div>
+    <style>
+    .mp-toast {
+        position: fixed;
+        bottom: 78px;
+        right: 16px;
+        z-index: 1100;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 14px 16px;
+        max-width: 360px;
+        background: linear-gradient(135deg, #fffbeb, #fef3c7);
+        border: 1.5px solid #fbbf24;
+        border-radius: 14px;
+        box-shadow: 0 12px 32px -8px rgba(245, 158, 11, .35);
+        font-size: 13.5px;
+        color: #78350f;
+        line-height: 1.4;
+        animation: mpToastSlideIn .4s cubic-bezier(.32,.72,0,1);
+    }
+    .mp-toast.is-hiding { animation: mpToastSlideOut .35s ease forwards; }
+    @keyframes mpToastSlideIn {
+        from { transform: translateY(20px); opacity: 0; }
+        to   { transform: translateY(0); opacity: 1; }
+    }
+    @keyframes mpToastSlideOut {
+        to { transform: translateY(20px); opacity: 0; }
+    }
+    .mp-toast__icon { font-size: 28px; flex-shrink: 0; line-height: 1; }
+    .mp-toast__body { flex: 1; }
+    .mp-toast__body strong { color: #92400e; font-weight: 800; }
+    .mp-toast__body small { color: #b45309; font-size: 11.5px; opacity: .85; }
+    .mp-toast__cta {
+        flex-shrink: 0;
+        background: #f59e0b;
+        color: #fff;
+        padding: 8px 14px;
+        border-radius: 8px;
+        font-weight: 700;
+        font-size: 12.5px;
+        text-decoration: none;
+        transition: background .15s;
+    }
+    .mp-toast__cta:hover { background: #d97706; color: #fff; }
+    .mp-toast__close {
+        background: transparent;
+        border: 0;
+        font-size: 22px;
+        line-height: 1;
+        color: #92400e;
+        opacity: .5;
+        cursor: pointer;
+        padding: 0 4px;
+    }
+    .mp-toast__close:hover { opacity: 1; }
+    @media (max-width: 640px) {
+        .mp-toast {
+            right: 8px;
+            left: 8px;
+            bottom: 78px;
+            max-width: none;
+        }
+    }
+    </style>
+    <script>
+    (function () {
+        var t = document.getElementById('mpCouponsToast');
+        if (!t) return;
+        var hide = function () {
+            t.classList.add('is-hiding');
+            setTimeout(function () { t.remove(); }, 400);
+        };
+        t.querySelector('.mp-toast__close').addEventListener('click', hide);
+        setTimeout(hide, 8000); // auto-hide a los 8s
+    })();
+    </script>
+@endif
+
 {{-- ═══════════════════════ SEARCH AUTOCOMPLETE ═══════════════════════
      Debounce 250ms; pega al endpoint searchSuggest (cache 60s server-side).
      ↑/↓ navegan, Enter abre la suggestion activa o submitea el form. --}}
