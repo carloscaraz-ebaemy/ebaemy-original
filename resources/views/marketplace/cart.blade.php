@@ -56,12 +56,62 @@
 .mp-cart-qty button {
     width: 28px; height: 28px; border: none; background: transparent;
     cursor: pointer; font-size: 16px; color: #4b5563; border-radius: 6px;
+    touch-action: manipulation; /* Evita zoom por doble-tap accidental en mobile */
 }
 .mp-cart-qty button:hover:not(:disabled) { background: #f3f4f6; color: var(--mp-primary-dark, #0c6b65); }
+.mp-cart-qty button:active:not(:disabled) { background: #e5e7eb; transform: scale(.96); }
 .mp-cart-qty input { width: 36px; text-align: center; border: none; outline: none; font-weight: 600; }
 .mp-cart-line-remove {
     background: transparent; border: none; color: #dc2626; cursor: pointer;
     font-size: 18px; padding: 4px;
+    touch-action: manipulation;
+}
+
+/* ───── Tap targets ms grandes en mobile (Apple HIG / Material: min 44px) ─────
+   Los botones desktop de 28px son muy chicos para el dedo en mobile, generando
+   mis-taps frecuentes en el +/-. Subimos a 44x44 con espaciado generoso. */
+@media (max-width: 768px) {
+    .mp-cart-qty {
+        gap: 4px;
+        padding: 4px;
+        border-radius: 12px;
+        border-width: 1.5px;
+    }
+    .mp-cart-qty button {
+        width: 44px;
+        height: 44px;
+        font-size: 22px;
+        font-weight: 700;
+        border-radius: 8px;
+    }
+    .mp-cart-qty input {
+        width: 44px;
+        font-size: 16px; /* 16+ evita zoom de Safari iOS al enfocar */
+        font-weight: 700;
+    }
+    .mp-cart-line-remove {
+        width: 44px;
+        height: 44px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 22px;
+        border-radius: 10px;
+        margin-left: 2px;
+    }
+    .mp-cart-line-remove:active { background: #fee2e2; transform: scale(.94); }
+    /* Reordenar controles: el precio ocupa lnea propia para no apretarse
+       con el +/- agrandado, mejor jerarqua visual en mobile. */
+    .mp-cart-line-controls {
+        flex-wrap: wrap;
+        gap: 10px 12px;
+    }
+    .mp-cart-line-price {
+        order: -1;
+        width: 100%;
+        margin-left: 0;
+        font-size: 16px;
+    }
 }
 
 .mp-cart-summary {
