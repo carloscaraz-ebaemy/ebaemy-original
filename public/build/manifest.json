@@ -3880,7 +3880,7 @@
       "resources/js/views/system/payments/index.vue",
       "resources/js/views/system/analytics/index.vue"
     ],
-    "file": "assets/system-fdef9200.js",
+    "file": "assets/system-d83cc426.js",
     "imports": [
       "_vue-clipboard-bd378cdb.js"
     ],
@@ -3987,14 +3987,14 @@
     "src": "resources/js/views/system/configuration/emailConfiguration.vue"
   },
   "resources/js/views/system/configuration/login.css": {
-    "file": "assets/login-7ccdb22a.css",
+    "file": "assets/login-e0a94ff1.css",
     "src": "resources/js/views/system/configuration/login.css"
   },
   "resources/js/views/system/configuration/login.vue": {
     "css": [
-      "assets/login-7ccdb22a.css"
+      "assets/login-e0a94ff1.css"
     ],
-    "file": "assets/login-f4d52d71.js",
+    "file": "assets/login-4d19011e.js",
     "imports": [
       "_vue-clipboard-bd378cdb.js"
     ],

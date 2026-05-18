@@ -87,10 +87,39 @@ export default {
               message: response.data.message,
               type: "success",
             });
+            // Si el backend devolvi la nueva URL, refrescar la preview con
+            // la URL real (no la local del FileReader) para confirmar que
+            // se guard.
+            if (response.data && response.data.image) {
+                this.imageUrl = response.data.image;
+            }
           })
           .catch(error => {
-              if (error.response.status === 500) {
-                  this.$message.error(error.response.data.message)
+              const resp = error.response;
+              let msg = 'Error al subir el archivo.';
+              if (resp) {
+                  if (resp.status === 422 && resp.data && resp.data.errors) {
+                      // Errores de validacin de Laravel
+                      const allErrors = Object.values(resp.data.errors).flat();
+                      msg = allErrors.join(' ');
+                  } else if (resp.status === 413) {
+                      msg = 'El archivo es demasiado grande para el servidor.';
+                  } else if (resp.status === 419) {
+                      msg = 'Tu sesin caduc. Recarga la pgina e intenta de nuevo.';
+                  } else if (resp.data && resp.data.message) {
+                      msg = resp.data.message;
+                  } else {
+                      msg = `Error ${resp.status}: ${resp.statusText || ''}`;
+                  }
+              } else if (error.message) {
+                  msg = error.message;
+              }
+              this.$message.error(msg);
+              // Revertir preview a la imagen anterior porque NO se guard
+              if (this.type === 'bg') {
+                  this.imageUrl = this.config.image;
+              } else {
+                  this.imageUrl = this.config.logo || '/logo/tulogo.png';
               }
           })
           .finally(() => (this.loading = false));

@@ -125,10 +125,16 @@ class ConfigurationController extends Controller
     public function storeBgLogin()
     {
         request()->validate([
-            'image' => 'required|mimes:jpeg,png,jpg,gif,svg|max:2048'
+            'image' => 'required|mimes:jpeg,png,jpg,gif,svg,webp|max:5120',
+            'type'  => 'required|string|in:bg,logo',
+        ], [
+            'image.max'   => 'La imagen supera 5 MB. Comprmela y reintenta.',
+            'image.mimes' => 'Formato no permitido. Usa JPG, PNG, SVG o WebP.',
         ]);
 
         $config = Configuration::first();
+        $newUrl = null;
+
         if (request()->hasFile('image') && request()->file('image')->isValid()) {
             $file = request()->file('image');
             $ext = $file->getClientOriginalExtension();
@@ -141,11 +147,12 @@ class ConfigurationController extends Controller
 
             $loginConfig = $config->login;
             $basePathStorage = 'storage/uploads/login/';
+            $newUrl = asset($basePathStorage . $name);
 			if (request('type') === 'bg') {
                 $loginConfig->type = 'image';
-				$loginConfig->image = asset($basePathStorage . $name);
+				$loginConfig->image = $newUrl;
 			} else {
-                $loginConfig->logo = asset($basePathStorage . $name);
+                $loginConfig->logo = $newUrl;
             }
             $config->login = $loginConfig;
             $config->save();
@@ -154,6 +161,7 @@ class ConfigurationController extends Controller
         return response()->json([
             'success' => true,
             'message' => 'Información actualizada.',
+            'image'   => $newUrl,
         ], 200);
     }
 
