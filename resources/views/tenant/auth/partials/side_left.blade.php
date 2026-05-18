@@ -16,7 +16,15 @@
             style="width: 100%; height: 100%; object-fit: {{ ($login->padding_in_form ?? false) ? 'cover' : 'contain' }}"
         />
     @endunless
-    @if ($useLoginGlobal)
+    {{-- Logo del side_left (marca de agua sobre el fondo).
+         Regla: si hay imagen de fondo custom (no decorativa), NO mostramos
+         ningn logo encima  evita el efecto "marca encima de marca" que
+         se ve cuando el SuperAdmin sube un fondo con escena (laptop, oficina)
+         y el logo global de ebaemy se renderiza superpuesto. El logo del
+         tenant siempre aparece en el card (form_logo). --}}
+    @if (!$isDefaultBg)
+        {{-- Hay fondo custom  ocultar logo del side_left para no superponer --}}
+    @elseif ($useLoginGlobal)
         @if ($login->logo ?? false)
             @if ($login->position_logo != 'none' && $login->position_logo != 'on-form')
                 <img class="auth__logo {{ $login->position_logo }}" src="{{ $login->logo }}" alt="Logo" />
