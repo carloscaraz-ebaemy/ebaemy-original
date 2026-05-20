@@ -54,6 +54,42 @@ if ($hostname) {
             return redirect('/ecommerce');
         });
 
+        // ── PWA del vendedor: manifest dinámico por tenant ───────────────
+        // El panel admin (alasitas.ebaemy.com/dashboard) se vuelve instalable
+        // como app con el nombre de la tienda. Íconos genéricos ebaemy
+        // (cuadrados garantizados); el logo del tenant puede no ser cuadrado.
+        // Público (sin auth) porque el navegador pide el manifest sin cookies.
+        Route::get('seller-manifest.json', function () {
+            $name = 'ebaemy';
+            try {
+                $company = \App\Models\Tenant\Company::first();
+                if ($company && !empty($company->name)) {
+                    $name = $company->name;
+                }
+            } catch (\Throwable $e) { /* fallback ebaemy */ }
+
+            return response()->json([
+                'name'             => \Illuminate\Support\Str::limit($name, 40, '') . ' · Gestión',
+                'short_name'       => \Illuminate\Support\Str::limit($name, 12, ''),
+                'description'      => 'Panel de gestión de tu tienda en ebaemy: productos, pedidos, stock, cupones y métricas.',
+                'start_url'        => '/dashboard?utm_source=pwa',
+                'scope'            => '/',
+                'display'          => 'standalone',
+                'background_color' => '#ffffff',
+                'theme_color'      => '#2563eb',
+                'orientation'      => 'portrait-primary',
+                'icons'            => [
+                    ['src' => '/images/icon-192.png', 'sizes' => '192x192', 'type' => 'image/png', 'purpose' => 'any'],
+                    ['src' => '/images/icon-512.png', 'sizes' => '512x512', 'type' => 'image/png', 'purpose' => 'any'],
+                    ['src' => '/images/icon-192.png', 'sizes' => '192x192', 'type' => 'image/png', 'purpose' => 'maskable'],
+                    ['src' => '/images/icon-512.png', 'sizes' => '512x512', 'type' => 'image/png', 'purpose' => 'maskable'],
+                ],
+                'categories'       => ['business', 'productivity'],
+                'lang'             => 'es',
+                'dir'              => 'ltr',
+            ])->header('Content-Type', 'application/manifest+json');
+        })->name('tenant.seller_manifest');
+
         // ── Rutas públicas legítimas (rate-limited) ─────────────────────
         Route::get('/exchange_rate/ecommence/{date}', 'Tenant\Api\ServiceController@exchangeRateTest')
              ->middleware('throttle:30,1');

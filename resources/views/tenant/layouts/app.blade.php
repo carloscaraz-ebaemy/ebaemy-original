@@ -39,6 +39,17 @@
     <meta name="googlebot" content="noindex">
     <meta name="robots" content="noindex">
 
+    {{-- PWA del vendedor — panel admin instalable como app. Manifest dinámico
+         por tenant (/seller-manifest.json) con el nombre de la tienda.
+         SW propio (sw-seller.js) ignora /ecommerce y /marketplace. --}}
+    <link rel="manifest" href="{{ url('seller-manifest.json') }}">
+    <link rel="apple-touch-icon" href="{{ asset('images/icon-192.png') }}">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="{{ \Illuminate\Support\Str::limit($vc_company->title_web ?? 'ebaemy', 12, '') }}">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="theme-color" content="#2563eb">
+
     @php
         $themeName = $visual->sidebar_theme ?? '';
         $themeVars = '';
@@ -417,6 +428,17 @@
     })();
     </script>
     @endif
+
+    <script>
+    // PWA del vendedor — registrar service worker del panel (scope /).
+    // sw-seller.js ignora /ecommerce y /marketplace para no pisar la tienda.
+    if ('serviceWorker' in navigator) {
+        window.addEventListener('load', function () {
+            navigator.serviceWorker.register('{{ asset('sw-seller.js') }}', { scope: '/' })
+                .catch(function (err) { console.warn('[PWA-Seller] SW registro fallo:', err); });
+        });
+    }
+    </script>
 </body>
 
 </html>
