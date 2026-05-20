@@ -1,0 +1,47 @@
+{
+    "packageId": "com.ebaemy.marketplace",
+    "host": "ebaemy.com",
+    "name": "ebaemy Marketplace",
+    "launcherName": "ebaemy",
+    "display": "standalone",
+    "themeColor": "#0f8a82",
+    "themeColorDark": "#0a6b64",
+    "navigationColor": "#0f8a82",
+    "navigationColorDark": "#0a6b64",
+    "navigationDividerColor": "#0f8a82",
+    "navigationDividerColorDark": "#0a6b64",
+    "backgroundColor": "#ffffff",
+    "enableNotifications": true,
+    "startUrl": "/marketplace?utm_source=twa",
+    "iconUrl": "https://ebaemy.com/images/icon-512.png",
+    "maskableIconUrl": "https://ebaemy.com/images/icon-512.png",
+    "monochromeIconUrl": "https://ebaemy.com/images/icon-512.png",
+    "webManifestUrl": "https://ebaemy.com/manifest-marketplace.json",
+    "fallbackType": "customtabs",
+    "orientation": "portrait",
+    "shortcuts": [
+        {
+            "name": "Buscar productos",
+            "shortName": "Buscar",
+            "url": "/marketplace?utm_source=twa_shortcut",
+            "chosenIconUrl": "https://ebaemy.com/images/icon-192.png"
+        }
+    ],
+    "signingKey": {
+        "path": "./android-keystore.jks",
+        "alias": "ebaemy"
+    },
+    "appVersionName": "1.0.0",
+    "appVersionCode": 1,
+    "shellVersion": "2.0.0",
+    "splashScreenFadeOutDuration": 300,
+    "enableSiteSettingsShortcut": true,
+    "isChromeOSOnly": false,
+    "isMetaQuest": false,
+    "fullScopeUrl": "https://ebaemy.com/marketplace",
+    "minSdkVersion": 21,
+    "features": {},
+    "alphaDependencies": {
+        "enabled": false
+    }
+}

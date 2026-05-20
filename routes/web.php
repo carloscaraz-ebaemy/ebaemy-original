@@ -1224,6 +1224,22 @@ if ($hostname) {
         Route::get('marketplace',                       'MarketplaceController@index')->name('marketplace.index');
         // PWA — pantalla offline servida por el service worker cuando no hay red
         Route::view('marketplace/offline', 'marketplace.offline')->name('marketplace.offline');
+        // TWA Android — Digital Asset Links. Verifica que la app de Play Store
+        // y el dominio son del mismo dueño → quita la barra del navegador en
+        // la TWA. El fingerprint sale del keystore (ver TWA_README). Acepta
+        // varios separados por coma (upload cert + Play App Signing cert).
+        Route::get('.well-known/assetlinks.json', function () {
+            $fps = array_filter(array_map('trim', explode(',', (string) env('TWA_SHA256_FINGERPRINT', ''))));
+            $pkg = env('TWA_PACKAGE_NAME', 'com.ebaemy.marketplace');
+            return response()->json([[
+                'relation' => ['delegate_permission/common.handle_all_urls'],
+                'target'   => [
+                    'namespace'                => 'android_app',
+                    'package_name'             => $pkg,
+                    'sha256_cert_fingerprints' => array_values($fps),
+                ],
+            ]])->header('Content-Type', 'application/json');
+        })->name('twa.assetlinks');
         // PWA — Web Push (suscripción del comprador). public-key es GET público.
         Route::get('marketplace/push/public-key',  'Marketplace\PushSubscriptionController@publicKey')->name('marketplace.push.key');
         Route::post('marketplace/push/subscribe',  'Marketplace\PushSubscriptionController@subscribe')
