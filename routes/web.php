@@ -1186,6 +1186,8 @@ if ($hostname) {
         // Vitrina agregadora: productos de tenants opt-in. Redirige la compra
         // a un lead que se convierte en Order dentro del tenant.
         Route::get('marketplace',                       'MarketplaceController@index')->name('marketplace.index');
+        // PWA — pantalla offline servida por el service worker cuando no hay red
+        Route::view('marketplace/offline', 'marketplace.offline')->name('marketplace.offline');
         // Autocomplete del search bar — devuelve JSON con top 8 listings que
         // matchean el query (título / category_name / tenant_name). Throttle
         // alto porque el front-end dispara con cada keystroke (300ms debounce).

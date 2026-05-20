@@ -29,6 +29,18 @@
     <meta name="robots"      content="index, follow">
     <meta name="theme-color" content="#0f8a82">
 
+    {{-- PWA — instalable como app del marketplace (scope /marketplace).
+         Usa manifest e íconos propios, NO colisiona con la PWA del
+         ecommerce del tenant (/manifest.json + /sw.js). --}}
+    @unless($isEmbed)
+    <link rel="manifest" href="{{ asset('manifest-marketplace.json') }}">
+    <link rel="apple-touch-icon" href="{{ asset('images/icon-192.png') }}">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="ebaemy">
+    <meta name="mobile-web-app-capable" content="yes">
+    @endunless
+
     <link rel="canonical" href="@yield('canonical', url()->current())">
 
     {{-- Open Graph (administrable desde /admin/marketplace/seo) --}}
@@ -1951,6 +1963,19 @@ window.mpCouponTenantIds = []; // hostname_ids donde el user tiene cupn
     });
 })();
 </script>
+
+@unless($isEmbed)
+<script>
+// PWA — registrar service worker del marketplace. Scope acotado a
+// /marketplace para no pisar el SW del ecommerce del tenant (/sw.js).
+if ('serviceWorker' in navigator) {
+    window.addEventListener('load', function () {
+        navigator.serviceWorker.register('{{ asset('sw-marketplace.js') }}', { scope: '/marketplace' })
+            .catch(function (err) { console.warn('[PWA] SW registro fallo:', err); });
+    });
+}
+</script>
+@endunless
 
 </body>
 </html>

@@ -1,0 +1,54 @@
+{
+    "name": "ebaemy Marketplace",
+    "short_name": "ebaemy",
+    "description": "Marketplace de tiendas peruanas verificadas. Compra productos de multiples tiendas en un solo lugar, con envio a todo Peru.",
+    "start_url": "/marketplace?utm_source=pwa",
+    "scope": "/marketplace",
+    "display": "standalone",
+    "background_color": "#ffffff",
+    "theme_color": "#0f8a82",
+    "orientation": "portrait-primary",
+    "icons": [
+        {
+            "src": "/images/icon-192.png",
+            "sizes": "192x192",
+            "type": "image/png",
+            "purpose": "any"
+        },
+        {
+            "src": "/images/icon-512.png",
+            "sizes": "512x512",
+            "type": "image/png",
+            "purpose": "any"
+        },
+        {
+            "src": "/images/icon-192.png",
+            "sizes": "192x192",
+            "type": "image/png",
+            "purpose": "maskable"
+        },
+        {
+            "src": "/images/icon-512.png",
+            "sizes": "512x512",
+            "type": "image/png",
+            "purpose": "maskable"
+        }
+    ],
+    "shortcuts": [
+        {
+            "name": "Buscar productos",
+            "short_name": "Buscar",
+            "url": "/marketplace?utm_source=pwa_shortcut",
+            "icons": [{ "src": "/images/icon-192.png", "sizes": "192x192" }]
+        },
+        {
+            "name": "Mi cuenta",
+            "short_name": "Cuenta",
+            "url": "/marketplace/account?utm_source=pwa_shortcut",
+            "icons": [{ "src": "/images/icon-192.png", "sizes": "192x192" }]
+        }
+    ],
+    "categories": ["shopping", "business"],
+    "lang": "es",
+    "dir": "ltr"
+}
