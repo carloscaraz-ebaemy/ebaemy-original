@@ -1975,6 +1975,9 @@ if ('serviceWorker' in navigator) {
     });
 }
 </script>
+{{-- Web Push: expone window.ebaemyEnablePush()/DisablePush() para botones.
+     No pide permiso automáticamente (mala UX) — se llama desde un control. --}}
+<script src="{{ asset('js/push-marketplace.js') }}" defer></script>
 @endunless
 
 </body>

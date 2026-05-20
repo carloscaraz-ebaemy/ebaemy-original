@@ -1224,6 +1224,12 @@ if ($hostname) {
         Route::get('marketplace',                       'MarketplaceController@index')->name('marketplace.index');
         // PWA — pantalla offline servida por el service worker cuando no hay red
         Route::view('marketplace/offline', 'marketplace.offline')->name('marketplace.offline');
+        // PWA — Web Push (suscripción del comprador). public-key es GET público.
+        Route::get('marketplace/push/public-key',  'Marketplace\PushSubscriptionController@publicKey')->name('marketplace.push.key');
+        Route::post('marketplace/push/subscribe',  'Marketplace\PushSubscriptionController@subscribe')
+             ->middleware('throttle:30,1')->name('marketplace.push.subscribe');
+        Route::post('marketplace/push/unsubscribe','Marketplace\PushSubscriptionController@unsubscribe')
+             ->middleware('throttle:30,1')->name('marketplace.push.unsubscribe');
         // Autocomplete del search bar — devuelve JSON con top 8 listings que
         // matchean el query (título / category_name / tenant_name). Throttle
         // alto porque el front-end dispara con cada keystroke (300ms debounce).

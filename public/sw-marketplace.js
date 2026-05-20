@@ -122,3 +122,37 @@ function networkFirstWithFallback(req) {
         });
     });
 }
+
+// ── Push notifications ─────────────────────────────────────────────────────────
+// El backend (WebPushService) envía un JSON: { title, body, url, icon, tag }
+self.addEventListener('push', function (e) {
+    var data = {};
+    try { data = e.data ? e.data.json() : {}; } catch (err) { data = { body: e.data ? e.data.text() : '' }; }
+
+    var title = data.title || 'ebaemy Marketplace';
+    var options = {
+        body:  data.body || '',
+        icon:  data.icon || '/images/icon-192.png',
+        badge: '/images/icon-192.png',
+        tag:   data.tag || 'ebaemy-mp',
+        data:  { url: data.url || '/marketplace' },
+        vibrate: [80, 40, 80],
+        renotify: !!data.tag,
+    };
+    e.waitUntil(self.registration.showNotification(title, options));
+});
+
+// Click en la notificación → enfocar pestaña existente o abrir nueva
+self.addEventListener('notificationclick', function (e) {
+    e.notification.close();
+    var targetUrl = (e.notification.data && e.notification.data.url) || '/marketplace';
+    e.waitUntil(
+        clients.matchAll({ type: 'window', includeUncontrolled: true }).then(function (list) {
+            for (var i = 0; i < list.length; i++) {
+                var c = list[i];
+                if (c.url.indexOf(targetUrl) !== -1 && 'focus' in c) return c.focus();
+            }
+            if (clients.openWindow) return clients.openWindow(targetUrl);
+        })
+    );
+});
