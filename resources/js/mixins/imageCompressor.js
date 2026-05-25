@@ -167,6 +167,31 @@ export const imageCompressor = {
                     onError && onError(new Error(msg))
                 }
             } catch (err) {
+                // Fallback resiliente: si el flujo async se estanca (p.ej. sin
+                // worker de cola), hacemos upload síncrono para no dejar la UI
+                // congelada en 90%.
+                const isTimeout = /Tiempo de espera agotado/i.test((err && err.message) || '')
+                if (isTimeout) {
+                    try {
+                        onProgress && onProgress({ percent: 92 })
+                        const fd = new FormData()
+                        fd.append('file', file)
+                        fd.append('skip_preview', '1')
+                        const syncResp = await this.$http.post('/items/upload', fd)
+
+                        if (!syncResp.data || !syncResp.data.success) {
+                            onError && onError(new Error(syncResp.data?.message || 'Error en fallback de subida'))
+                            return
+                        }
+
+                        onProgress && onProgress({ percent: 100 })
+                        onSuccess && onSuccess(syncResp.data, file)
+                        return
+                    } catch (fallbackErr) {
+                        onError && onError(fallbackErr)
+                        return
+                    }
+                }
                 onError && onError(err)
             }
         },
