@@ -8,7 +8,9 @@
                             ref="upload_images"
                             list-type="picture-card"
                             :file-list="fileList"
-                            :http-request="asyncUpload"
+                            :action="`/${resource}/upload`"
+                            :data="{ type: 'items', skip_preview: 1 }"
+                            :headers="headers"
                             :on-success="onSuccessF"
                             :on-error="onErrorF"
                             :on-progress="onProgressF"
@@ -97,8 +99,7 @@
             onProgressF(event)
             {
                 const pct = event && event.percent ? Math.round(event.percent) : 0
-                if (pct < 50)        this.processingMsg = `Subiendo… ${pct}%`
-                else if (pct < 100)  this.processingMsg = `Procesando…`
+                if (pct < 100)       this.processingMsg = `Subiendo… ${pct}%`
                 else                  this.processingMsg = `Listo`
             },
             cleanFileList(){
