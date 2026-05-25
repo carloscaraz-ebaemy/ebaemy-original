@@ -735,7 +735,8 @@
                                                     :before-upload="beforeUpload"
                                                     :on-change="onFileChange"
                                                     :show-file-list="false"
-                                                    accept="image/jpeg,image/jpg,image/png,image/gif,image/webp,image/bmp"
+                                                    accept="image/jpeg,image/jpg,image/png,image/gif,image/webp,image/bmp,image/heic,image/heif"
+                                                    capture="environment"
                                                     class="ie-primary-upload">
                                                 <img v-if="form.image_url"
                                                     :src="form.image_url"

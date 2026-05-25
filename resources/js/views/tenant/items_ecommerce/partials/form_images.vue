@@ -14,6 +14,7 @@
                             :on-progress="onProgressF"
                             :on-remove="handleRemove"
                             accept="image/jpeg,image/jpg,image/png,image/gif,image/webp,image/bmp,image/heic,image/heif"
+                            capture="environment"
                             :before-upload="beforeUpload" >
                             <i class="el-icon-plus"></i>
                         </el-upload>

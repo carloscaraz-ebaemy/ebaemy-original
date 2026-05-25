@@ -43,11 +43,19 @@ async function convertHeicToJpegFile(file) {
 }
 
 // Helpers internos para el flujo async (no reactivos, evita Vue reactivity)
-const ASYNC_TIMEOUT_MS  = 90000   // 90s — HEIC + Imagick + remove-bg futuro
+const ASYNC_TIMEOUT_MS  = 90000   // desktop default
 const ASYNC_INTERVAL_MS = 1500    // polling cada 1.5s
 
 export const imageCompressor = {
     methods: {
+        _isMobileClient() {
+            return /iPhone|iPad|iPod|Android/i.test(navigator.userAgent || '')
+        },
+        _getAsyncTimeoutMs() {
+            // En móvil el usuario percibe más "cuelgue" a 90%; reducimos espera
+            // y activamos fallback sync antes.
+            return this._isMobileClient() ? 35000 : ASYNC_TIMEOUT_MS
+        },
         async beforeUpload(file) {
             if (!file) return file
 
@@ -61,10 +69,11 @@ export const imageCompressor = {
 
             // 2) Compresión adaptativa: en móvil reducimos resolución y
             //    calidad para acelerar la subida sobre redes celulares.
-            const isMobile  = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent)
-            const maxWidth  = isMobile ? 1024 : 1200
-            const maxHeight = isMobile ? 1024 : 1200
-            const quality   = isMobile ? 0.72 : 0.82
+            const isMobile  = this._isMobileClient()
+            const saveData  = !!(navigator.connection && navigator.connection.saveData)
+            const maxWidth  = isMobile ? (saveData ? 880 : 960) : 1200
+            const maxHeight = isMobile ? (saveData ? 880 : 960) : 1200
+            const quality   = isMobile ? (saveData ? 0.64 : 0.68) : 0.82
 
             // Solo saltar SVG (no se puede comprimir con canvas)
             if (file.type === 'image/svg+xml') return file
@@ -163,8 +172,13 @@ export const imageCompressor = {
                         },
                     }, file)
                 } else {
-                    const msg = result.error_message || 'Error procesando la imagen.'
-                    onError && onError(new Error(msg))
+                    // Si el job falló en cola, intentamos fallback sync para no
+                    // bloquear al usuario móvil.
+                    const fallbackOk = await this._trySyncFallbackUpload(file, onProgress, onSuccess)
+                    if (!fallbackOk) {
+                        const msg = result.error_message || 'Error procesando la imagen.'
+                        onError && onError(new Error(msg))
+                    }
                 }
             } catch (err) {
                 // Fallback resiliente: si el flujo async se estanca (p.ej. sin
@@ -172,27 +186,32 @@ export const imageCompressor = {
                 // congelada en 90%.
                 const isTimeout = /Tiempo de espera agotado/i.test((err && err.message) || '')
                 if (isTimeout) {
-                    try {
-                        onProgress && onProgress({ percent: 92 })
-                        const fd = new FormData()
-                        fd.append('file', file)
-                        fd.append('skip_preview', '1')
-                        const syncResp = await this.$http.post('/items/upload', fd)
-
-                        if (!syncResp.data || !syncResp.data.success) {
-                            onError && onError(new Error(syncResp.data?.message || 'Error en fallback de subida'))
-                            return
-                        }
-
-                        onProgress && onProgress({ percent: 100 })
-                        onSuccess && onSuccess(syncResp.data, file)
-                        return
-                    } catch (fallbackErr) {
-                        onError && onError(fallbackErr)
-                        return
+                    const fallbackOk = await this._trySyncFallbackUpload(file, onProgress, onSuccess)
+                    if (!fallbackOk) {
+                        onError && onError(err)
                     }
+                    return
                 }
                 onError && onError(err)
+            }
+        },
+        async _trySyncFallbackUpload(file, onProgress, onSuccess) {
+            try {
+                onProgress && onProgress({ percent: 92 })
+                const fd = new FormData()
+                fd.append('file', file)
+                fd.append('skip_preview', '1')
+                const syncResp = await this.$http.post('/items/upload', fd)
+
+                if (!syncResp.data || !syncResp.data.success) {
+                    return false
+                }
+
+                onProgress && onProgress({ percent: 100 })
+                onSuccess && onSuccess(syncResp.data, file)
+                return true
+            } catch (e) {
+                return false
             }
         },
 
@@ -200,6 +219,7 @@ export const imageCompressor = {
             return new Promise((resolve, reject) => {
                 const start = Date.now()
                 let pct = 50
+                const timeoutMs = this._getAsyncTimeoutMs()
 
                 const tick = () => {
                     this.$http.get(`/items/upload-jobs/${uuid}`)
@@ -213,7 +233,7 @@ export const imageCompressor = {
                             pct = Math.min(90, pct + 5)
                             onProgress && onProgress({ percent: pct })
 
-                            if (Date.now() - start > ASYNC_TIMEOUT_MS) {
+                            if (Date.now() - start > timeoutMs) {
                                 return reject(new Error('Tiempo de espera agotado.'))
                             }
                             setTimeout(tick, ASYNC_INTERVAL_MS)
