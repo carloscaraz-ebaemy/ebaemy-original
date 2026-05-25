@@ -76,7 +76,13 @@
                 this.processingMsg = ''
                 if(response.success)
                 {
-                    this.source_images.push(response.data)
+                    const payload = response.data || {}
+                    // Compatibilidad: algunos flujos devuelven temp_image
+                    // (upload sync/fallback) en lugar de image_url.
+                    if (!payload.image_url && payload.temp_image) {
+                        payload.image_url = payload.temp_image
+                    }
+                    this.source_images.push(payload)
                 }else {
                     this.$message.error(response.message || 'Error al subir la imagen.')
                 }

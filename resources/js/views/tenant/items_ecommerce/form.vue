@@ -1967,7 +1967,7 @@ export default {
                 _pending: false,
             }))
             const pending = (this.form.multi_images || []).map((img, i) => ({
-                url: img.image_url || img.url,
+                url: img.image_url || img.temp_image || img.url,
                 _key: 'n_' + (img.filename || i),
                 _pending: true,
             }))
