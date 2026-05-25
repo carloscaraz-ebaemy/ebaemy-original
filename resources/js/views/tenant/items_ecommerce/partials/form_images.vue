@@ -74,7 +74,7 @@
                 }
 
             },
-            onSuccessF(response)
+            onSuccessF(response, file)
             {
                 this.processingMsg = ''
                 if(response.success)
@@ -84,6 +84,12 @@
                     // (upload sync/fallback) en lugar de image_url.
                     if (!payload.image_url && payload.temp_image) {
                         payload.image_url = payload.temp_image
+                    }
+                    // Element UI (picture-card) necesita `file.url` para pintar
+                    // el thumbnail en caliente tras subir.
+                    const thumb = payload.image_url || payload.temp_image || payload.url
+                    if (file && thumb) {
+                        file.url = thumb
                     }
                     this.source_images.push(payload)
                 }else {
