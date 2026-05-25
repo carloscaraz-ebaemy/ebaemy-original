@@ -651,23 +651,32 @@
                 // Cualquier <img> dentro de .mp-gallery-thumb se vuelve clickeable
                 // y al click cambia la imagen principal. Útil cuando el producto
                 // tiene galería múltiple (item_images).
-                document.querySelectorAll('.mp-gallery-thumb img, [class*="thumb"] img').forEach(function (t) {
-                    if (t.id === 'mpGalleryMain' || t.dataset.mpBound) return;
-                    t.dataset.mpBound = '1';
-                    t.style.cursor = 'pointer';
-                    t.addEventListener('click', function (e) {
+                // Thumbs clickeables (scope estricto a la galeria principal).
+                // Evita conflictos con otros bloques que tambien tienen "thumb".
+                var mainImgEl = document.getElementById('mpGalleryMain');
+                var thumbBtns = document.querySelectorAll('.mp-gallery .mp-gallery-thumb');
+                thumbBtns.forEach(function (btn) {
+                    if (btn.dataset.mpBound) return;
+                    btn.dataset.mpBound = '1';
+                    btn.addEventListener('click', function (e) {
                         e.preventDefault();
-                        var url = t.dataset.fullImage || t.src;
-                        var imgs = Array.from(document.querySelectorAll('img')).filter(function (i) {
-                            return i.src && i.src.indexOf('/uploads/items/') !== -1 && i.offsetWidth >= 200;
-                        });
-                        imgs.forEach(function (img) { img.src = url; });
-                        // Marcar thumb activa
-                        document.querySelectorAll('.mp-gallery-thumb').forEach(function (b) {
-                            b.classList.remove('is-active');
-                        });
-                        var btn = t.closest('.mp-gallery-thumb');
-                        if (btn) btn.classList.add('is-active');
+                        var thumbImg = btn.querySelector('img');
+                        if (!thumbImg || !mainImgEl) return;
+                        var url = thumbImg.dataset.fullImage || thumbImg.src;
+                        if (!url) return;
+
+                        mainImgEl.style.transition = 'opacity .15s ease, transform .15s ease';
+                        mainImgEl.style.opacity = '0';
+                        mainImgEl.style.transform = 'scale(1)';
+                        mainImgEl.style.transformOrigin = 'center center';
+                        setTimeout(function () {
+                            mainImgEl.src = url;
+                            if (mainImgEl.dataset.zoomImage !== undefined) mainImgEl.dataset.zoomImage = url;
+                            mainImgEl.style.opacity = '1';
+                        }, 80);
+
+                        thumbBtns.forEach(function (b) { b.classList.remove('is-active'); });
+                        btn.classList.add('is-active');
                     });
                 });
 
@@ -1435,3 +1444,4 @@
 @include('marketplace.partials.recently-viewed', ['recentlyViewed' => $recentlyViewed ?? collect()])
 
 @endsection
+
