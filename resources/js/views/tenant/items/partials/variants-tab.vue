@@ -209,7 +209,8 @@
                                            :on-success="(r) => onVariantImageSuccess(v, r)"
                                            :on-error="onVariantImageError"
                                            :before-upload="beforeVariantImage"
-                                           accept="image/jpeg,image/jpg,image/png,image/webp,image/bmp"
+                                           accept="image/jpeg,image/jpg,image/png,image/webp,image/bmp,image/heic,image/heif"
+                                           capture="environment"
                                            name="file"
                                            class="vt-img-uploader">
                                     <div v-if="v.image_url" class="vt-img-thumb"
@@ -428,8 +429,11 @@
 </template>
 
 <script>
+import { imageCompressor } from '../../../../mixins/imageCompressor'
+
 export default {
     name: 'VariantsTab',
+    mixins: [imageCompressor],
 
     props: {
         itemId:                   { type: Number,  default: null },
@@ -946,10 +950,10 @@ export default {
         },
 
         // ── Imagen por variante ──────────────────────────────────────────
-        beforeVariantImage(file) {
-            const ALLOWED = ['image/jpeg', 'image/png', 'image/jpg', 'image/webp', 'image/bmp']
+        async beforeVariantImage(file) {
+            const ALLOWED = ['image/jpeg', 'image/png', 'image/jpg', 'image/webp', 'image/bmp', 'image/heic', 'image/heif']
             if (!ALLOWED.includes(file.type)) {
-                this.$message.error('Formato no soportado. Usa JPG, PNG o WEBP.')
+                this.$message.error('Formato no soportado. Usa JPG, PNG, WEBP o HEIC.')
                 return false
             }
             const sizeMB = file.size / 1024 / 1024
@@ -957,7 +961,8 @@ export default {
                 this.$message.error(`La imagen es demasiado grande (${sizeMB.toFixed(1)} MB). Máximo 15 MB.`)
                 return false
             }
-            return true
+            const processed = await this.beforeUpload(file)
+            return processed || file
         },
 
         onVariantImageSuccess(variant, response) {
