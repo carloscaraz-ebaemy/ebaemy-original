@@ -201,18 +201,18 @@ class MarketplaceListingSyncService
         // Tienda vendedora: trade_name comercial y logo desde Company del tenant
         [$tenantName, $tenantLogoUrl] = $this->resolveTenantBranding($fqdn, $client);
 
-        // WhatsApp del vendedor — para botón "Contactar al vendedor" en
-        // marketplace/show. Viene de configuration_ecommerce.whatsapp_vendor_number
-        // del tenant. Si está vacío, el botón se oculta en el blade.
+        // WhatsApp del vendedor — para el botón "Escribir al vendedor" en
+        // marketplace/show. Preferimos el número dedicado
+        // (configuration_ecommerce.whatsapp_vendor_number); si está vacío,
+        // caemos al teléfono de la tienda (configuration_ecommerce.phone), que
+        // muchos sellers sí llenan. Si tampoco hay, el blade abre el formulario
+        // de consulta como último recurso.
         $sellerWhatsapp = null;
         try {
-            $sellerWhatsapp = DB::connection('tenant')->table('configuration_ecommerce')
-                ->value('whatsapp_vendor_number');
-            // Normalizamos: solo dígitos (wa.me lo requiere sin +, espacios o guiones)
-            if ($sellerWhatsapp) {
-                $sellerWhatsapp = preg_replace('/\D+/', '', (string) $sellerWhatsapp);
-                if (strlen($sellerWhatsapp) < 9) $sellerWhatsapp = null;
-            }
+            $cfg = DB::connection('tenant')->table('configuration_ecommerce')
+                ->first(['whatsapp_vendor_number', 'phone']);
+            $candidate = ($cfg->whatsapp_vendor_number ?? null) ?: ($cfg->phone ?? null);
+            $sellerWhatsapp = $this->normalizeWhatsapp($candidate);
         } catch (\Throwable $e) {
             $sellerWhatsapp = null;
         }
@@ -952,7 +952,25 @@ class MarketplaceListingSyncService
      *   3. companies.trade_name (último recurso — algunos tenants guardan aquí el
      *      nombre personal del titular por mal llenado de datos)
      *   4. $client->name → $fqdn (fallbacks externos a la BD del tenant)
-     *
+     * Normaliza un teléfono a formato que wa.me acepta: solo dígitos, sin +,
+     * espacios ni guiones. Antepone el código de país 51 a los móviles
+     * peruanos de 9 dígitos que empiezan en 9 (formato local típico), de modo
+     * que wa.me/{numero} resuelva al chat correcto. Si ya trae código de país
+     * (>= 10 dígitos) se respeta tal cual. Devuelve null si no es usable.
+     */
+    private function normalizeWhatsapp($raw): ?string
+    {
+        if (!$raw) return null;
+        $digits = preg_replace('/\D+/', '', (string) $raw);
+        if (strlen($digits) < 9) return null;
+        // Móvil peruano local (9 dígitos, empieza en 9) → anteponer 51.
+        if (strlen($digits) === 9 && $digits[0] === '9') {
+            $digits = '51' . $digits;
+        }
+        return $digits;
+    }
+
+    /**
      * Logo: se resuelve desde companies.logo.
      */
     private function resolveTenantBranding(string $fqdn, Client $client): array
