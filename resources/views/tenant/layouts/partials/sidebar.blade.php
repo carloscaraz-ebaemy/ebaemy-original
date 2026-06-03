@@ -1188,18 +1188,25 @@ $inventory_configuration = InventoryConfiguration::getSidebarPermissions();
                                         <span>Dashboard Ventas</span>
                                     </a>
                                 </li>
+                                {{-- Pricing fase 4: enlaces blindados con Route::has — solo se
+                                     muestran cuando las rutas estén desplegadas (evita 500 en el
+                                     sidebar si la fase 4 aún no está en producción). --}}
+                                @if(Route::has('tenant.pricing.margin_report'))
                                 <li class="{{ request()->routeIs('tenant.pricing.margin_report') ? 'nav-active' : '' }}">
                                     <a class="nav-link" href="{{ route('tenant.pricing.margin_report') }}">
                                         <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M19 9l-5 5-4-4-3 3"/></svg>
                                         <span>Margen erosionado</span>
                                     </a>
                                 </li>
+                                @endif
+                                @if(Route::has('tenant.pricing.settings'))
                                 <li class="{{ request()->routeIs('tenant.pricing.settings') ? 'nav-active' : '' }}">
                                     <a class="nav-link" href="{{ route('tenant.pricing.settings') }}">
                                         <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v2m0 14v2m9-9h-2M5 12H3m15.36-6.36l-1.42 1.42M7.05 16.95l-1.41 1.41m12.72 0l-1.41-1.41M7.05 7.05L5.64 5.64"/><circle cx="12" cy="12" r="3.5"/></svg>
                                         <span>Reglas de margen</span>
                                     </a>
                                 </li>
+                                @endif
 
                                 {{-- APARIENCIA --}}
                                 <span class="sb-group-label">Apariencia</span>
