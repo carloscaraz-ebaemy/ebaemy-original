@@ -433,8 +433,18 @@ span.badge.bg-danger.text-white {
 }
 span.badge.bg-secondary.text-white.bg-success,
 span.badge.text-white.bg-success {
-    background: rgb(35 218 149 / 20%) !important;
-    color: #23da95 !important;
+    background: color-mix(in srgb, var(--success) 20%, #ffffff00) !important;
+    color: var(--success) !important;
+}
+span.badge.bg-secondary.text-white.bg-danger,
+span.badge.text-white.bg-danger {
+    background: color-mix(in srgb, var(--danger) 20%, #ffffff00) !important;
+    color: var(--danger) !important;
+}
+span.badge.bg-secondary.text-white.bg-warning,
+span.badge.text-white.bg-warning {
+    background: color-mix(in srgb, var(--warning) 20%, #ffffff00) !important;
+    color: var(--warning) !important;
 }
 .btn-warning:hover, .btn-warning.hover {
     background-color: #ffa71f;
@@ -1482,4 +1492,87 @@ html.dark .sidebar-toggle-container .sidebar-toggle:hover {
     .card-body-invoice div .row .filter-invoice .content-filter-invoice{
         padding: 0 15px !important;
     }
+}
+/* estilos login (portado de pro8) */
+.btn-signin {
+    background-color: var(--primary-color);
+    text-transform: uppercase;
+}
+/* tags / editor de etiquetas (portado de pro8) */
+.el-tag{
+    background-color: color-mix(in srgb, var(--primary-color) 10%, #ffffff00);
+    border-radius: 4px;
+    border-color: var(--primary-color);
+    font-size: 12px;
+    color: var(--primary-color);
+}
+.el-tag .el-icon-close{
+    color: var(--primary-color);
+}
+.el-tag .el-tag__close:hover{
+    background-color: var(--primary-color);
+    color: var(--light-color);
+}
+.container-tag-editor .btn-icon-tags{
+    background-color: transparent;
+    border: none;
+    color: color-mix(in srgb, var(--dark-color) 60%, #ffffff);
+    transition: background-color 0.2s ease, color 0.2s ease;
+}
+.container-tag-editor .btn-icon-tags:hover{
+    background-color: var(--light-color);
+    color: var(--dark-color);
+}
+.container-tag-editor .template-card{
+    border-radius: 6px;
+}
+.container-tag-editor .template-card.select{
+    border-color: var(--primary-color);
+    background-color: transparent;
+}
+.container-tag-editor .btn-align.active, .container-tag-editor .btn-toggle.active {
+    background: var(--primary-color);
+    border-color: var(--primary-color);
+    color: #fff;
+}
+.container-tag-editor .btn-align:hover, .container-tag-editor .btn-toggle:hover {
+    background: #fff;
+    border-color: var(--primary-color);
+}
+/* tablas de precios (portado de pro8) */
+.table-list-prices{
+    border: 1px solid var(--light-color);
+    border-radius: 8px;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+}
+.table-list-prices tbody tr {
+    border-bottom: 2px solid var(--light-color);
+}
+.table-list-prices .btn-dropdown-toggle {
+    height: 32px;
+    width: 32px;
+    padding: 0px !important;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    background-color: transparent;
+    color: var(--dark-color);
+}
+.table-list-prices .btn-dropdown-toggle:hover,
+.table-list-prices .btn-dropdown-toggle:focus,
+.table-list-prices .btn-dropdown-toggle:active{
+    background-color: var(--accent-color);
+}
+.add-row-table{
+    border-color: color-mix(in srgb, var(--accent-color) 75%, #000000);
+    border-radius: 8px;
+    margin: 1rem .8rem;
+    color: color-mix(in srgb, var(--accent-color) 75%, #000000);
+    transition: background-color 0.3s ease, border-color 0.3s ease, color 0.3s ease;
+}
+.add-row-table:hover{
+    border-color: var(--primary-color);
+    background-color: color-mix(in srgb, var(--primary-color) 10%, #ffffff00);
+    color: var(--primary-color);
 }

@@ -3055,3 +3055,68 @@ html.dark .sidebar-margin-selector .sidebar-example div{
 html.dark .sidebar-example.sidebar-example-selected > div {
     border-color: var(--black-highlight);
 }
+/* estilos login (portado de pro8) */
+.btn-signin {
+    background-color: var(--black-primary);
+    text-transform: capitalize;
+}
+/* tags / editor de etiquetas (portado de pro8) */
+.el-tag{
+    background-color: color-mix(in srgb, var(--black-primary) 10%, #ffffff00);
+    border-radius: 10px;
+    border-color: var(--black-primary);
+    font-size: 12px;
+    color: var(--black-primary);
+}
+.el-tag .el-icon-close{
+    color: var(--black-primary);
+}
+.el-tag .el-tag__close:hover{
+    background-color: var(--black-primary);
+    color: var(--black-light);
+}
+.container-tag-editor .btn-icon-tags{
+    background-color: transparent;
+    border: none;
+    color: var(--black-accent);
+    transition: background-color 0.2s ease, color 0.2s ease;
+}
+.container-tag-editor .btn-icon-tags:hover{
+    background-color: var(--black-highlight);
+    color: var(--black-dark);
+}
+.container-tag-editor .btn-icon-tags.destructive:hover{
+    color: var(--danger);
+    background-color: color-mix(in srgb, var(--danger) 10%, #ffffff00);
+}
+.container-tag-editor .default-badge{
+    color: var(--success);
+    background-color: color-mix(in srgb, var(--success) 10%, #ffffff00);
+    white-space: nowrap;
+    display: inline-flex;
+    align-items: center;
+    line-height: normal;
+}
+.container-tag-editor .btn-icon.default.default {
+    color: var(--success) !important;
+}
+.container-tag-editor .template-card{
+    border-radius: 10px;
+}
+.container-tag-editor .template-card.default{
+    border-color: var(--success);
+    background-color: transparent;
+}
+.container-tag-editor .template-card.select{
+    border-color: var(--black-primary);
+    background-color: transparent;
+}
+.container-tag-editor .btn-align.active, .container-tag-editor .btn-toggle.active {
+    background: var(--black-primary);
+    border-color: var(--black-primary);
+    color: #fff;
+}
+.container-tag-editor .btn-align:hover, .container-tag-editor .btn-toggle:hover {
+    background: #fff;
+    border-color: var(--black-primary);
+}
