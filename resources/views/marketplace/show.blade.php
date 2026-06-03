@@ -172,6 +172,64 @@
         @endif
     </div>
 
+    {{-- Galería: thumbs clickeables + zoom hover. Vive FUERA del bloque de
+         variantes (mp-options) porque los productos SIN variantes también
+         tienen galería y deben poder cambiar/ampliar la imagen. El guard
+         data-mpBound evita doble-binding si el script de variantes corre. --}}
+    <script>
+    (function () {
+        var mainImgEl = document.getElementById('mpGalleryMain');
+        var thumbBtns = document.querySelectorAll('.mp-gallery .mp-gallery-thumb');
+
+        // ── Thumbs clickeables → cambian la imagen principal ──
+        thumbBtns.forEach(function (btn) {
+            if (btn.dataset.mpBound) return;
+            btn.dataset.mpBound = '1';
+            btn.addEventListener('click', function (e) {
+                e.preventDefault();
+                var thumbImg = btn.querySelector('img');
+                if (!thumbImg || !mainImgEl) return;
+                var url = thumbImg.dataset.fullImage || thumbImg.src;
+                if (!url) return;
+
+                mainImgEl.style.transition = 'opacity .15s ease, transform .15s ease';
+                mainImgEl.style.opacity = '0';
+                mainImgEl.style.transform = 'scale(1)';
+                mainImgEl.style.transformOrigin = 'center center';
+                setTimeout(function () {
+                    mainImgEl.src = url;
+                    if (mainImgEl.dataset.zoomImage !== undefined) mainImgEl.dataset.zoomImage = url;
+                    mainImgEl.style.opacity = '1';
+                }, 80);
+
+                thumbBtns.forEach(function (b) { b.classList.remove('is-active'); });
+                btn.classList.add('is-active');
+            });
+        });
+
+        // ── Zoom hover sobre imagen principal ──
+        var container = mainImgEl && mainImgEl.parentElement;
+        if (mainImgEl && container && !container.classList.contains('mp-zoom-wrap')) {
+            container.classList.add('mp-zoom-wrap');
+            container.style.overflow = 'hidden';
+            container.addEventListener('mousemove', function (e) {
+                var rect = container.getBoundingClientRect();
+                var x = ((e.clientX - rect.left) / rect.width) * 100;
+                var y = ((e.clientY - rect.top) / rect.height) * 100;
+                mainImgEl.style.transformOrigin = x + '% ' + y + '%';
+            });
+            container.addEventListener('mouseenter', function () {
+                mainImgEl.style.transition = 'transform .2s ease';
+                mainImgEl.style.transform = 'scale(1.8)';
+                mainImgEl.style.cursor = 'zoom-in';
+            });
+            container.addEventListener('mouseleave', function () {
+                mainImgEl.style.transform = 'scale(1)';
+            });
+        }
+    })();
+    </script>
+
     {{-- ═══════════════════════ INFO + COMPRA ═══════════════════════ --}}
     <div class="mp-detail-info">
 
@@ -647,66 +705,10 @@
                 var initial = findCurrentVariant();
                 applyVariant(initial);
 
-                // ── Thumbs clickeables ──────────────────────────────────────
-                // Cualquier <img> dentro de .mp-gallery-thumb se vuelve clickeable
-                // y al click cambia la imagen principal. Útil cuando el producto
-                // tiene galería múltiple (item_images).
-                // Thumbs clickeables (scope estricto a la galeria principal).
-                // Evita conflictos con otros bloques que tambien tienen "thumb".
-                var mainImgEl = document.getElementById('mpGalleryMain');
-                var thumbBtns = document.querySelectorAll('.mp-gallery .mp-gallery-thumb');
-                thumbBtns.forEach(function (btn) {
-                    if (btn.dataset.mpBound) return;
-                    btn.dataset.mpBound = '1';
-                    btn.addEventListener('click', function (e) {
-                        e.preventDefault();
-                        var thumbImg = btn.querySelector('img');
-                        if (!thumbImg || !mainImgEl) return;
-                        var url = thumbImg.dataset.fullImage || thumbImg.src;
-                        if (!url) return;
-
-                        mainImgEl.style.transition = 'opacity .15s ease, transform .15s ease';
-                        mainImgEl.style.opacity = '0';
-                        mainImgEl.style.transform = 'scale(1)';
-                        mainImgEl.style.transformOrigin = 'center center';
-                        setTimeout(function () {
-                            mainImgEl.src = url;
-                            if (mainImgEl.dataset.zoomImage !== undefined) mainImgEl.dataset.zoomImage = url;
-                            mainImgEl.style.opacity = '1';
-                        }, 80);
-
-                        thumbBtns.forEach(function (b) { b.classList.remove('is-active'); });
-                        btn.classList.add('is-active');
-                    });
-                });
-
-                // ── Zoom hover sobre imagen principal ───────────────────────
-                // Solo aplica si NO hay zoom nativo (heurística por texto).
-                var bodyText = (document.body.innerText || '').toLowerCase();
-                var hasNativeZoom = bodyText.indexOf('pasa el mouse para hacer zoom') !== -1
-                    || bodyText.indexOf('ampliar imagen') !== -1;
-                if (!hasNativeZoom) {
-                    var mainImg = document.getElementById('mpGalleryMain');
-                    var container = mainImg && mainImg.parentElement;
-                    if (mainImg && container && !container.classList.contains('mp-zoom-wrap')) {
-                        container.classList.add('mp-zoom-wrap');
-                        container.style.overflow = 'hidden';
-                        container.addEventListener('mousemove', function (e) {
-                            var rect = container.getBoundingClientRect();
-                            var x = ((e.clientX - rect.left) / rect.width) * 100;
-                            var y = ((e.clientY - rect.top) / rect.height) * 100;
-                            mainImg.style.transformOrigin = x + '% ' + y + '%';
-                        });
-                        container.addEventListener('mouseenter', function () {
-                            mainImg.style.transition = 'transform .2s ease';
-                            mainImg.style.transform = 'scale(1.8)';
-                            mainImg.style.cursor = 'zoom-in';
-                        });
-                        container.addEventListener('mouseleave', function () {
-                            mainImg.style.transform = 'scale(1)';
-                        });
-                    }
-                }
+                // Nota: el binding de thumbs clickeables + zoom hover se movió a
+                // un script standalone justo después de la galería (corre para
+                // TODOS los productos, con/sin variantes). El guard data-mpBound
+                // de ese script ya evita el doble-binding.
 
                 // Exponer al script existente del botón Comprar (que ya leía
                 // `variant_id` desde un input radio). Mantenemos compatibilidad:
@@ -743,48 +745,60 @@
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
                 Añadir al carrito
             </button>
+            {{-- Escribir al vendedor: canal directo UNIFICADO (reemplaza al viejo
+                 "Contactar al vendedor" + repurpose del botón Compartir).
+                 - Con seller_whatsapp → abre WhatsApp directo al vendedor con el
+                   producto pre-cargado.
+                 - Sin seller_whatsapp → abre el acordeón de consulta (#mpAskSeller)
+                   y hace scroll; ese form despacha el lead al tenant igual, así
+                   que el canal directo nunca queda sin salida. --}}
             @if(!empty($listing->seller_whatsapp))
                 @php
                     $waMessage = '¡Hola! Te escribo desde ebaemy.com/marketplace por este producto:'
                                  . "\n\n" . $listing->title
-                                 . "\n" . url('/marketplace/p/' . $listing->slug)
-                                 . "\n\nQuisiera hacerte una consulta antes de comprar.";
+                                 . "\n" . route('marketplace.item', $listing->slug)
+                                 . "\n\nQuisiera hacerte una consulta.";
                     $waUrl = 'https://wa.me/' . $listing->seller_whatsapp
                            . '?text=' . rawurlencode($waMessage);
                 @endphp
                 <a href="{{ $waUrl }}" target="_blank" rel="noopener nofollow"
                    class="mp-cta-secondary"
-                   style="margin-top:8px">
+                   style="margin-top:8px"
+                   onclick="if(window.gtag){gtag('event','contact_seller',{method:'whatsapp',item_id:'{{ $listing->slug }}'});}">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
                         <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.501-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 0 1-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 0 1-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 0 1 2.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0 0 12.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 0 0 5.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 0 0-3.48-8.413Z"/>
                     </svg>
-                    Contactar al vendedor
+                    Escribir al vendedor
                 </a>
+            @else
+                {{-- Sin WhatsApp del vendedor: el botón abre el acordeón de consulta
+                     y enfoca el formulario (que despacha el lead al tenant). --}}
+                <button type="button" class="mp-cta-secondary" id="mpWriteSellerBtn"
+                        style="margin-top:8px;width:100%;cursor:pointer"
+                        onclick="(function(){var d=document.getElementById('mpAskSeller');if(!d)return;d.open=true;d.scrollIntoView({behavior:'smooth',block:'center'});var n=d.querySelector('input[name=customer_name]');if(n)setTimeout(function(){n.focus();},350);})()">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                    Escribir al vendedor
+                </button>
             @endif
 
-            {{-- Boton "Compartir por WhatsApp": viraliza la oferta. Especialmente
-                 util en productos con descuento — el receptor abre el link
-                 directo al producto en el marketplace. --}}
+            {{-- Compartir (viralidad): degradado a link de texto para que no
+                 compita con los CTAs de compra/contacto. --}}
             @php
                 $shareText = '🛍️ Mira este producto en ebaemy Marketplace:'
                            . "\n\n" . $listing->title
                            . (!empty($listing->is_on_offer) && !empty($listing->discount_pct)
                                 ? "\n⚡ ¡Oferta -" . $listing->discount_pct . '%! Solo S/ ' . number_format($listing->display_price, 2)
                                 : "\nDesde S/ " . number_format($listing->display_price, 2))
-                           . "\n\n" . url('/marketplace/item/' . $listing->slug);
+                           . "\n\n" . route('marketplace.item', $listing->slug);
                 $shareUrl = 'https://wa.me/?text=' . rawurlencode($shareText);
             @endphp
             <a href="{{ $shareUrl }}" target="_blank" rel="noopener nofollow"
-               class="mp-cta-share"
-               style="margin-top:8px"
+               class="mp-share-link"
+               style="display:flex;align-items:center;justify-content:center;gap:6px;margin-top:10px;font-size:13px;font-weight:600;color:var(--mp-muted);text-decoration:none"
                onclick="if(window.gtag){gtag('event','share',{method:'whatsapp',item_id:'{{ $listing->slug }}'});}">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.501-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 0 1-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 0 1-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 0 1 2.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0 0 12.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 0 0 5.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 0 0-3.48-8.413Z"/>
-                </svg>
-                Compartir por WhatsApp
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+                Compartir este producto
             </a>
-
-            <div class="mp-cta-divider"><span>o solicita información / envío al vendedor</span></div>
 
             {{-- Sticky bottom bar mobile: aparece cuando el CTA principal sale
                  del viewport (IntersectionObserver). Solo visible <768px.
@@ -899,55 +913,107 @@
         })();
         </script>
 
-        {{-- Form de lead (datos del formulario intactos) --}}
-        <form method="POST" action="{{ route('marketplace.lead', $listing->slug) }}" class="mp-lead-form">
-            @csrf
-            {{-- Honeypot --}}
-            <input type="text" name="website" tabindex="-1" autocomplete="off"
-                   style="position:absolute;left:-9999px;width:1px;height:1px;opacity:0"
-                   aria-hidden="true">
+        {{-- Consulta al vendedor (acordeón). Reformulado: ya NO es un segundo
+             "comprar" que compite con el carrito, sino el canal para preguntar
+             antes de comprar. El form despacha el lead al tenant vía dispatcher
+             (funciona aunque el vendedor no tenga WhatsApp). Se auto-abre si hubo
+             errores de validación, o cuando el botón "Escribir al vendedor" (sin
+             WhatsApp) lo dispara. --}}
+        <details class="mp-ask-seller" id="mpAskSeller" {{ $errors->any() ? 'open' : '' }}>
+            <summary class="mp-ask-seller__summary">
+                <span class="mp-ask-seller__icon">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                </span>
+                <span class="mp-ask-seller__txt">
+                    <strong>¿Tienes dudas?</strong>
+                    <small>Escríbele al vendedor antes de comprar</small>
+                </span>
+                <svg class="mp-ask-seller__chevron" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+            </summary>
 
-            <div>
-                <label>Nombre completo *</label>
-                <input type="text" name="customer_name" value="{{ old('customer_name') }}" required maxlength="180">
-            </div>
+            <form method="POST" action="{{ route('marketplace.lead', $listing->slug) }}" class="mp-lead-form">
+                @csrf
+                {{-- Honeypot --}}
+                <input type="text" name="website" tabindex="-1" autocomplete="off"
+                       style="position:absolute;left:-9999px;width:1px;height:1px;opacity:0"
+                       aria-hidden="true">
 
-            <div class="row-2">
                 <div>
-                    <label>Teléfono / WhatsApp</label>
-                    <input type="tel" name="customer_phone" value="{{ old('customer_phone') }}" maxlength="40" placeholder="9XX XXX XXX">
+                    <label>Nombre completo *</label>
+                    <input type="text" name="customer_name" value="{{ old('customer_name') }}" required maxlength="180">
                 </div>
-                <div>
-                    <label>Email</label>
-                    <input type="email" name="customer_email" value="{{ old('customer_email') }}" maxlength="180">
-                </div>
-            </div>
 
-            <div class="row-2">
-                <div>
-                    <label>Cantidad</label>
-                    <input type="number" name="quantity" value="{{ old('quantity', 1) }}" min="1" max="{{ max(1, $listing->stock) }}">
+                <div class="row-2">
+                    <div>
+                        <label>Teléfono / WhatsApp</label>
+                        <input type="tel" name="customer_phone" value="{{ old('customer_phone') }}" maxlength="40" placeholder="9XX XXX XXX">
+                    </div>
+                    <div>
+                        <label>Email</label>
+                        <input type="email" name="customer_email" value="{{ old('customer_email') }}" maxlength="180">
+                    </div>
                 </div>
-                <div>
-                    <label>&nbsp;</label>
+
+                <div class="row-2">
+                    <div>
+                        <label>Cantidad</label>
+                        <input type="number" name="quantity" value="{{ old('quantity', 1) }}" min="1" max="{{ max(1, $listing->stock) }}">
+                    </div>
+                    <div>
+                        <label>&nbsp;</label>
+                    </div>
                 </div>
-            </div>
 
-            <div>
-                <label>Mensaje al vendedor <span style="color:var(--mp-muted);font-weight:400">(opcional)</span></label>
-                <textarea name="message" placeholder="Preguntas, detalles de envío, etc.">{{ old('message') }}</textarea>
-            </div>
+                <div>
+                    <label>Tu mensaje / consulta <span style="color:var(--mp-muted);font-weight:400">(opcional)</span></label>
+                    <textarea name="message" placeholder="Preguntas, detalles de envío, disponibilidad, etc.">{{ old('message') }}</textarea>
+                </div>
 
-            <button type="submit" class="mp-cta" @if($listing->stock <= 0) disabled @endif>
-                @if($listing->stock <= 0)
-                    Sin stock
-                @else
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;margin-right:4px"><path d="m22 2-7 20-4-9-9-4 20-7z"/><path d="m22 2-11 11"/></svg>
-                    Solicitar este producto
-                @endif
-            </button>
-            <small style="color:var(--mp-muted);text-align:center;font-size:12px;display:block;margin-top:-4px">Tu solicitud se envía directamente a <strong>{{ $listing->seller_display }}</strong></small>
-        </form>
+                <button type="submit" class="mp-cta" @if($listing->stock <= 0) disabled @endif>
+                    @if($listing->stock <= 0)
+                        Sin stock
+                    @else
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;margin-right:4px"><path d="m22 2-7 20-4-9-9-4 20-7z"/><path d="m22 2-11 11"/></svg>
+                        Enviar consulta al vendedor
+                    @endif
+                </button>
+                <small style="color:var(--mp-muted);text-align:center;font-size:12px;display:block;margin-top:-4px">Tu consulta se envía directamente a <strong>{{ $listing->seller_display }}</strong></small>
+            </form>
+        </details>
+
+        <style>
+        .mp-ask-seller {
+            margin-top: 16px;
+            border: 1.5px solid #e5e7eb;
+            border-radius: 12px;
+            overflow: hidden;
+            background: #fff;
+            transition: border-color .15s ease;
+        }
+        .mp-ask-seller[open] { border-color: var(--mp-primary, #0f8a82); }
+        .mp-ask-seller__summary {
+            display: flex; align-items: center; gap: 12px;
+            padding: 13px 16px;
+            cursor: pointer;
+            list-style: none;
+            user-select: none;
+        }
+        .mp-ask-seller__summary::-webkit-details-marker { display: none; }
+        .mp-ask-seller__icon {
+            flex-shrink: 0;
+            width: 38px; height: 38px;
+            border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            background: #f0fdfa;
+            color: var(--mp-primary, #0f8a82);
+        }
+        .mp-ask-seller__txt { flex: 1; display: flex; flex-direction: column; line-height: 1.3; }
+        .mp-ask-seller__txt strong { font-size: 14px; color: #111827; }
+        .mp-ask-seller__txt small { font-size: 12.5px; color: #6b7280; }
+        .mp-ask-seller__chevron { flex-shrink: 0; color: #9ca3af; transition: transform .2s ease; }
+        .mp-ask-seller[open] .mp-ask-seller__chevron { transform: rotate(180deg); }
+        .mp-ask-seller .mp-lead-form { padding: 4px 16px 16px; margin: 0; border: none; box-shadow: none; background: transparent; }
+        </style>
 
         {{-- Badges de confianza mini (dentro de la columna de compra) --}}
         <div class="mp-trust-mini">
