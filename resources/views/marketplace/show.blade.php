@@ -207,28 +207,122 @@
             });
         });
 
-        // ── Zoom hover sobre imagen principal ──
-        var container = mainImgEl && mainImgEl.parentElement;
-        if (mainImgEl && container && !container.classList.contains('mp-zoom-wrap')) {
-            container.classList.add('mp-zoom-wrap');
-            container.style.overflow = 'hidden';
-            container.addEventListener('mousemove', function (e) {
-                var rect = container.getBoundingClientRect();
-                var x = ((e.clientX - rect.left) / rect.width) * 100;
-                var y = ((e.clientY - rect.top) / rect.height) * 100;
-                mainImgEl.style.transformOrigin = x + '% ' + y + '%';
-            });
-            container.addEventListener('mouseenter', function () {
-                mainImgEl.style.transition = 'transform .2s ease';
-                mainImgEl.style.transform = 'scale(1.8)';
-                mainImgEl.style.cursor = 'zoom-in';
-            });
-            container.addEventListener('mouseleave', function () {
-                mainImgEl.style.transform = 'scale(1)';
+        // ── Lightbox: click en la imagen principal → ver el producto COMPLETO
+        // en grande (pantalla completa). Reemplaza al viejo zoom-hover que
+        // magnificaba una región y recortaba el resto del producto.
+        var galleryImgs = [];
+        thumbBtns.forEach(function (b) {
+            var im = b.querySelector('img');
+            if (im) galleryImgs.push(im.dataset.fullImage || im.src);
+        });
+        if (!galleryImgs.length && mainImgEl) galleryImgs.push(mainImgEl.src);
+
+        if (mainImgEl && galleryImgs.length) {
+            mainImgEl.style.cursor = 'zoom-in';
+
+            var lb = document.createElement('div');
+            lb.className = 'mp-lightbox';
+            lb.innerHTML =
+                '<button type="button" class="mp-lightbox__close" aria-label="Cerrar">&times;</button>' +
+                '<button type="button" class="mp-lightbox__nav mp-lightbox__prev" aria-label="Anterior">&#8249;</button>' +
+                '<img class="mp-lightbox__img" alt="">' +
+                '<button type="button" class="mp-lightbox__nav mp-lightbox__next" aria-label="Siguiente">&#8250;</button>';
+            document.body.appendChild(lb);
+
+            var lbImg  = lb.querySelector('.mp-lightbox__img');
+            var lbPrev = lb.querySelector('.mp-lightbox__prev');
+            var lbNext = lb.querySelector('.mp-lightbox__next');
+            var lbIndex = 0;
+
+            function currentThumbIndex() {
+                var active = document.querySelector('.mp-gallery .mp-gallery-thumb.is-active');
+                var idx = Array.prototype.indexOf.call(thumbBtns, active);
+                return idx >= 0 ? idx : 0;
+            }
+            function render() {
+                lbImg.src = galleryImgs[lbIndex];
+                var multi = galleryImgs.length > 1;
+                lbPrev.style.display = multi ? '' : 'none';
+                lbNext.style.display = multi ? '' : 'none';
+            }
+            function openAt(i) {
+                lbIndex = i; render();
+                lb.classList.add('is-open');
+                document.body.style.overflow = 'hidden';
+            }
+            function close() {
+                lb.classList.remove('is-open');
+                document.body.style.overflow = '';
+            }
+            function step(d) {
+                lbIndex = (lbIndex + d + galleryImgs.length) % galleryImgs.length;
+                render();
+            }
+
+            mainImgEl.addEventListener('click', function () { openAt(currentThumbIndex()); });
+            lb.querySelector('.mp-lightbox__close').addEventListener('click', close);
+            lbPrev.addEventListener('click', function (e) { e.stopPropagation(); step(-1); });
+            lbNext.addEventListener('click', function (e) { e.stopPropagation(); step(1); });
+            // Click en el fondo (no en la imagen ni en los botones) cierra.
+            lb.addEventListener('click', function (e) { if (e.target === lb) close(); });
+            document.addEventListener('keydown', function (e) {
+                if (!lb.classList.contains('is-open')) return;
+                if (e.key === 'Escape') close();
+                else if (e.key === 'ArrowLeft') step(-1);
+                else if (e.key === 'ArrowRight') step(1);
             });
         }
     })();
     </script>
+
+    <style>
+        /* La imagen principal muestra el producto COMPLETO (no recorta). */
+        .mp-gallery-main img { object-fit: contain !important; }
+        .mp-gallery-main:hover img { transform: none; } /* sin micro-zoom que recorte */
+
+        /* Lightbox a pantalla completa */
+        .mp-lightbox {
+            position: fixed; inset: 0; z-index: 4000;
+            display: none;
+            align-items: center; justify-content: center;
+            background: rgba(10, 14, 26, .92);
+            padding: 24px;
+        }
+        .mp-lightbox.is-open { display: flex; }
+        .mp-lightbox__img {
+            max-width: 92vw; max-height: 90vh;
+            object-fit: contain;
+            border-radius: 8px;
+            box-shadow: 0 12px 40px rgba(0,0,0,.5);
+            user-select: none;
+        }
+        .mp-lightbox__close {
+            position: absolute; top: 16px; right: 18px;
+            width: 44px; height: 44px;
+            border: none; border-radius: 50%;
+            background: rgba(255,255,255,.12); color: #fff;
+            font-size: 30px; line-height: 1; cursor: pointer;
+            display: flex; align-items: center; justify-content: center;
+            transition: background .15s;
+        }
+        .mp-lightbox__close:hover { background: rgba(255,255,255,.25); }
+        .mp-lightbox__nav {
+            position: absolute; top: 50%; transform: translateY(-50%);
+            width: 52px; height: 52px;
+            border: none; border-radius: 50%;
+            background: rgba(255,255,255,.12); color: #fff;
+            font-size: 32px; line-height: 1; cursor: pointer;
+            display: flex; align-items: center; justify-content: center;
+            transition: background .15s;
+        }
+        .mp-lightbox__nav:hover { background: rgba(255,255,255,.25); }
+        .mp-lightbox__prev { left: 18px; }
+        .mp-lightbox__next { right: 18px; }
+        @media (max-width: 600px) {
+            .mp-lightbox__nav { width: 42px; height: 42px; font-size: 26px; }
+            .mp-lightbox__prev { left: 8px; } .mp-lightbox__next { right: 8px; }
+        }
+    </style>
 
     {{-- ═══════════════════════ INFO + COMPRA ═══════════════════════ --}}
     <div class="mp-detail-info">
