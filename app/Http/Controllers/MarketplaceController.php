@@ -103,11 +103,17 @@ class MarketplaceController extends Controller
                 $query->orderByDesc('created_at');
                 break;
             default:
-                // Relevance: featured (no expirados) primero, luego score, luego views
+                // Relevance: destacados (no expirados) primero, luego un IMPULSO
+                // DE NOVEDAD (productos nuevos ≤14 días suben arriba para resolver
+                // el arranque en frío — ventana igual al badge "NUEVO"), y recién
+                // después por desempeño (score, vistas). created_at como
+                // desempate final (más nuevo primero).
                 $query->orderByRaw('CASE WHEN is_featured = 1 AND (featured_until IS NULL OR featured_until > NOW()) THEN 1 ELSE 0 END DESC')
                       ->orderByDesc('featured_score')
+                      ->orderByRaw('CASE WHEN created_at >= ? THEN 1 ELSE 0 END DESC', [now()->subDays(14)->toDateTimeString()])
                       ->orderByDesc('sort_score')
-                      ->orderByDesc('view_count');
+                      ->orderByDesc('view_count')
+                      ->orderByDesc('created_at');
         }
 
         $listings   = $query->paginate(24)->withQueryString();
@@ -771,7 +777,11 @@ class MarketplaceController extends Controller
             case 'price_asc':  $query->orderByRaw('COALESCE(mp_price, price) ASC');  break;
             case 'price_desc': $query->orderByRaw('COALESCE(mp_price, price) DESC'); break;
             case 'newest':     $query->orderByDesc('created_at');                    break;
-            default:           $query->orderByDesc('sort_score')->orderByDesc('view_count');
+            default:
+                // Mismo impulso de novedad que el index: nuevos (≤14 días) arriba,
+                // luego por desempeño.
+                $query->orderByRaw('CASE WHEN created_at >= ? THEN 1 ELSE 0 END DESC', [now()->subDays(14)->toDateTimeString()])
+                      ->orderByDesc('sort_score')->orderByDesc('view_count')->orderByDesc('created_at');
         }
 
         $listings = $query->paginate(24)->withQueryString();
@@ -820,7 +830,10 @@ class MarketplaceController extends Controller
             case 'price_asc':  $query->orderByRaw('COALESCE(mp_price, price) ASC');  break;
             case 'price_desc': $query->orderByRaw('COALESCE(mp_price, price) DESC'); break;
             case 'newest':     $query->orderByDesc('created_at');                    break;
-            default:           $query->orderByDesc('sort_score')->orderByDesc('view_count');
+            default:
+                // Mismo impulso de novedad que el index: nuevos (≤14 días) arriba.
+                $query->orderByRaw('CASE WHEN created_at >= ? THEN 1 ELSE 0 END DESC', [now()->subDays(14)->toDateTimeString()])
+                      ->orderByDesc('sort_score')->orderByDesc('view_count')->orderByDesc('created_at');
         }
 
         $listings = $query->paginate(24)->withQueryString();
@@ -1244,7 +1257,10 @@ class MarketplaceController extends Controller
             case 'price_asc':  $query->orderByRaw('COALESCE(mp_price, price) ASC');  break;
             case 'price_desc': $query->orderByRaw('COALESCE(mp_price, price) DESC'); break;
             case 'newest':     $query->orderByDesc('created_at');                    break;
-            default:           $query->orderByDesc('sort_score')->orderByDesc('view_count');
+            default:
+                // Mismo impulso de novedad que el index: nuevos (≤14 días) arriba.
+                $query->orderByRaw('CASE WHEN created_at >= ? THEN 1 ELSE 0 END DESC', [now()->subDays(14)->toDateTimeString()])
+                      ->orderByDesc('sort_score')->orderByDesc('view_count')->orderByDesc('created_at');
         }
 
         $listings = $query->paginate(24)->withQueryString();
