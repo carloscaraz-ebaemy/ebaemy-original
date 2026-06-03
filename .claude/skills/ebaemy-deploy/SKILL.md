@@ -63,6 +63,12 @@ composer install --no-dev --optimize-autoloader
 php artisan migrate --force                  # idempotente; "Nothing to migrate" es OK
 ```
 
+⚠ **CRÍTICO post-`composer install`: reaplicar permisos del tmp de mPDF.** Composer regenera `vendor/` con dueño `ebaemy`; si el tmp de mPDF no es escribible por `www-data`, **TODOS los documentos (cotización/NV/boleta/factura) fallan con "Ocurrió un error"** porque mPDF no puede crear el PDF temporal (`Cache.php: Temporary files directory is not writable`). Diagnosticado y resuelto 2026-06-03.
+```bash
+sudo chown -R www-data:www-data vendor/mpdf/mpdf/tmp storage bootstrap/cache
+sudo chmod -R 0775 vendor/mpdf/mpdf/tmp storage bootstrap/cache
+```
+
 Si hay migraciones tenant a aplicar a los 11:
 ```bash
 php artisan tinker --execute="\$ws = \Hyn\Tenancy\Models\Website::all(); foreach (\$ws as \$w) { app(\Hyn\Tenancy\Environment::class)->tenant(\$w); echo \$w->uuid . PHP_EOL; \Artisan::call('migrate', ['--force' => true]); echo \Artisan::output(); }"

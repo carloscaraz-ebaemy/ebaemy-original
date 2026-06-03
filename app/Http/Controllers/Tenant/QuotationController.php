@@ -289,31 +289,41 @@ class QuotationController extends Controller
 
     public function store(QuotationRequest $request)
     {
-        DB::connection('tenant')->transaction(function () use ($request) {
+        try {
+            DB::connection('tenant')->transaction(function () use ($request) {
 
-            $data = $this->mergeData($request);
-            $data['terms_condition'] = $this->getTermsCondition();
+                $data = $this->mergeData($request);
+                $data['terms_condition'] = $this->getTermsCondition();
 
-            $this->quotation = Quotation::create($data);
+                $this->quotation = Quotation::create($data);
 
-            foreach ($data['items'] as $row) {
-                $this->quotation->items()->create($row);
-            }
+                foreach ($data['items'] as $row) {
+                    $this->quotation->items()->create($row);
+                }
 
-            $this->savePayments($this->quotation, $data['payments']);
+                $this->savePayments($this->quotation, $data['payments']);
 
-            $this->setFilename();
-            $this->createPdf($this->quotation, "a4", $this->quotation->filename);
+                $this->setFilename();
+                $this->createPdf($this->quotation, "a4", $this->quotation->filename);
 
-        });
+            });
 
-        return [
-            'success' => true,
-            'data' => [
-                'id' => $this->quotation->id,
-                'number_full' => $this->quotation->number_full,
-            ],
-        ];
+            return [
+                'success' => true,
+                'data' => [
+                    'id' => $this->quotation->id,
+                    'number_full' => $this->quotation->number_full,
+                ],
+            ];
+        } catch (\Throwable $e) {
+            // El transaction() ya hace rollback automático al propagarse la excepción.
+            $this->generalWriteErrorLog($e);
+
+            return [
+                'success' => false,
+                'message' => 'Ocurrió un error al procesar la cotización: ' . $e->getMessage(),
+            ];
+        }
     }
 
     public function update(QuotationRequest $request)

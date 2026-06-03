@@ -879,7 +879,7 @@ class SaleNoteController extends Controller
             ];
 
         }
-        catch(Exception $e)
+        catch(\Throwable $e)
         {
             \App\Services\Tenant\SaleNoteStockService::$skipProvinceCommit = false;
             $this->generalWriteErrorLog($e);
@@ -887,7 +887,7 @@ class SaleNoteController extends Controller
             DB::connection('tenant')->rollBack();
             return [
                 'success' => false,
-                'message' => 'Ocurrió un error al procesar la nota de venta.',
+                'message' => 'Ocurrió un error al procesar la nota de venta: ' . $e->getMessage(),
             ];
         }
     }

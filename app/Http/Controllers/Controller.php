@@ -407,7 +407,13 @@ $string = var_export($header,true);
          */
         public function generalWriteErrorLog($exception, $message = null)
         {
+            // Log de una línea (compatibilidad) + traza completa para diagnóstico real.
             Log::error(($message ?? '')."Line: {$exception->getLine()} - Message: {$exception->getMessage()} - File: {$exception->getFile()}");
+            Log::error('[TRACE] '.get_class($exception).': '.$exception->getMessage(), [
+                'file'  => $exception->getFile(),
+                'line'  => $exception->getLine(),
+                'trace' => $exception->getTraceAsString(),
+            ]);
         }
 
         /**
