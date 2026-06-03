@@ -101,6 +101,27 @@ class MarketplaceListingSyncService
     }
 
     /**
+     * Normaliza texto para búsqueda: minúsculas + sin acentos + espacios
+     * colapsados. Usado tanto al indexar (search_text) como al consultar
+     * (MarketplaceListing::scopeSearch) para que ambos lados coincidan.
+     */
+    public static function normalizeForSearch(string $text): string
+    {
+        $text = mb_strtolower(trim($text), 'UTF-8');
+        $map = [
+            'á'=>'a','à'=>'a','ä'=>'a','â'=>'a','ã'=>'a',
+            'é'=>'e','è'=>'e','ë'=>'e','ê'=>'e',
+            'í'=>'i','ì'=>'i','ï'=>'i','î'=>'i',
+            'ó'=>'o','ò'=>'o','ö'=>'o','ô'=>'o','õ'=>'o',
+            'ú'=>'u','ù'=>'u','ü'=>'u','û'=>'u',
+            'ñ'=>'n','ç'=>'c',
+        ];
+        $text = strtr($text, $map);
+        $text = preg_replace('/\s+/', ' ', $text);
+        return mb_substr(trim($text), 0, 500, 'UTF-8');
+    }
+
+    /**
      * Construye el payload para insertar/actualizar en marketplace_listings.
      * Requiere estar conectado al tenant antes de llamar.
      */
@@ -230,6 +251,14 @@ class MarketplaceListingSyncService
             'category_name'     => $categoryName,
             'marketplace_category_id' => $item->marketplace_category_id ?? null,
             'brand_name'        => $brandName,
+
+            // Texto de búsqueda normalizado (sin acentos, minúsculas) para que el
+            // buscador sea insensible a tildes/mayúsculas sin depender de la
+            // colación de MySQL. Lo consume MarketplaceListing::scopeSearch.
+            'search_text'       => self::normalizeForSearch(
+                (string) ($item->description ?: $item->name ?: '') . ' '
+                . (string) $brandName . ' ' . (string) $categoryName
+            ),
 
             // Precio "principal" mostrado en cards. Para items con variantes
             // usamos el min — el cliente verá "Desde S/X" derivado de min_price.

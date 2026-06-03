@@ -5,7 +5,23 @@ namespace App\Models\Tenant;
 /**
  * Regla de descuento automático.
  *
- * Tipos: volume, auto, channel, flash_sale, bundle
+ * Tipos:
+ *   volume       — % o monto fijo al alcanzar una cantidad
+ *   auto         — % o monto fijo al alcanzar un subtotal mínimo
+ *   channel      — restringe la regla a un canal de venta
+ *   flash_sale   — vigencia por ventana de tiempo
+ *   bundle       — descuento sobre un pack (is_set)
+ *   nxm          — "lleva N, paga M" (2x1, 3x2, 4x3…): regala unidades
+ *   second_unit  — % de descuento en la 2da unidad (o cada k-ésima)
+ *   progressive  — descuentos escalonados por tramos (más compras, más ahorras)
+ *
+ * Parámetros de los tipos nuevos viven en trigger_json (sin migración):
+ *   nxm:         {"buy_qty": 2, "pay_qty": 1}
+ *   second_unit: {"every": 2, "percent": 50}
+ *   progressive: {"tiers": [{"min_qty":3,"type":"percentage","value":10},
+ *                            {"min_qty":6,"type":"percentage","value":20}]}
+ * El alcance (item/category/all) usa applies_to + apply_item_id/apply_category_id.
+ *
  * Se aplican sin código del cliente, a diferencia de Coupon.
  */
 class DiscountRule extends ModelTenant
@@ -112,6 +128,11 @@ class DiscountRule extends ModelTenant
     {
         if ($remaining <= 0) return 0;
 
+        // Tipos por unidad/tramo se calculan aparte (no son % de una base simple).
+        if (in_array($this->type, ['nxm', 'second_unit', 'progressive'], true)) {
+            return $this->calculateSpecialDiscount($cart, $remaining);
+        }
+
         $base = $this->resolveScopedBase($cart, $remaining);
         if ($base <= 0) return 0;
 
@@ -190,13 +211,107 @@ class DiscountRule extends ModelTenant
         $trigger = $this->trigger_json ?? [];
 
         return match ($this->type) {
-            'volume'     => $this->matchesVolume($cart, $trigger),
-            'auto'       => $this->matchesAuto($subtotal, $trigger),
-            'channel'    => $this->matchesChannel($channelId, $channelType, $trigger),
-            'flash_sale' => true, // Vigencia controlada por scope active()
-            'bundle'     => $this->matchesBundle($cart, $trigger),
-            default      => false,
+            'volume'      => $this->matchesVolume($cart, $trigger),
+            'auto'        => $this->matchesAuto($subtotal, $trigger),
+            'channel'     => $this->matchesChannel($channelId, $channelType, $trigger),
+            'flash_sale'  => true, // Vigencia controlada por scope active()
+            'bundle'      => $this->matchesBundle($cart, $trigger),
+            // Tipos por unidad/tramo: basta que haya líneas en el alcance; el
+            // cálculo (calculateSpecialDiscount) devuelve 0 si no se cumple el
+            // umbral, y el motor descarta los descuentos <= 0.
+            'nxm',
+            'second_unit',
+            'progressive' => !empty($this->matchingLines($cart)),
+            default       => false,
         };
+    }
+
+    /**
+     * Devuelve las líneas del carrito que caen dentro del alcance de la regla
+     * (applies_to: item / category / all), normalizadas a {qty, price}.
+     */
+    private function matchingLines(array $cart): array
+    {
+        $scope = $this->applies_to ?: 'all';
+        $predicate = fn($i) => true;
+
+        if ($scope === 'item') {
+            $targetId = $this->apply_item_id ?? ($this->trigger_json['item_id'] ?? null);
+            if (!$targetId) return [];
+            $predicate = fn($i) => (int)($i['id'] ?? 0) === (int)$targetId;
+        } elseif ($scope === 'category') {
+            if (!$this->apply_category_id) return [];
+            $itemIds = collect($cart)->map(fn($i) => (int)((array)$i)['id'] ?? 0)->filter()->unique()->all();
+            $matching = empty($itemIds) ? [] : Item::whereIn('id', $itemIds)
+                ->where('category_id', $this->apply_category_id)
+                ->pluck('id')->all();
+            $predicate = fn($i) => in_array((int)($i['id'] ?? 0), $matching, true);
+        }
+
+        $lines = [];
+        foreach ($cart as $raw) {
+            $i = (array) $raw;
+            if (!$predicate($i)) continue;
+            $lines[] = [
+                'qty'   => (float) ($i['quantity'] ?? $i['cantidad'] ?? 1),
+                'price' => (float) ($i['sale_unit_price'] ?? $i['unit_price'] ?? $i['price'] ?? 0),
+            ];
+        }
+        return $lines;
+    }
+
+    /**
+     * Calcula descuento para tipos por unidad/tramo: nxm, second_unit, progressive.
+     * Nunca excede $remaining.
+     */
+    private function calculateSpecialDiscount(array $cart, float $remaining): float
+    {
+        $lines = $this->matchingLines($cart);
+        if (empty($lines)) return 0;
+
+        $trigger  = $this->trigger_json ?? [];
+        $discount = 0.0;
+
+        if ($this->type === 'nxm') {
+            // "Lleva N, paga M": por cada grupo de N unidades, (N-M) salen gratis.
+            $n = max(1, (int) ($trigger['buy_qty'] ?? $trigger['n'] ?? 2));
+            $m = max(0, (int) ($trigger['pay_qty'] ?? $trigger['m'] ?? ($n - 1)));
+            $free = max(0, $n - $m);
+            if ($free <= 0) return 0;
+            foreach ($lines as $l) {
+                $sets = intdiv((int) $l['qty'], $n);
+                $discount += $sets * $free * $l['price'];
+            }
+        } elseif ($this->type === 'second_unit') {
+            // % de descuento en cada k-ésima unidad (por defecto la 2da).
+            $every = max(2, (int) ($trigger['every'] ?? 2));
+            $pct   = min(100, max(0, (float) ($trigger['percent'] ?? $this->discount_value ?? 50)));
+            if ($pct <= 0) return 0;
+            foreach ($lines as $l) {
+                $discounted = intdiv((int) $l['qty'], $every);
+                $discount  += $discounted * $l['price'] * $pct / 100;
+            }
+        } elseif ($this->type === 'progressive') {
+            // Tramos: elige el de mayor umbral cumplido (por cantidad o monto).
+            $tiers = $trigger['tiers'] ?? [];
+            if (empty($tiers)) return 0;
+            $totalQty = array_sum(array_map(fn($l) => $l['qty'], $lines));
+            $base     = array_sum(array_map(fn($l) => $l['qty'] * $l['price'], $lines));
+            $best = null; $bestTh = -1;
+            foreach ($tiers as $t) {
+                $okQty = isset($t['min_qty'])    ? $totalQty >= (float) $t['min_qty']    : true;
+                $okAmt = isset($t['min_amount']) ? $base     >= (float) $t['min_amount'] : true;
+                if (!($okQty && $okAmt)) continue;
+                $th = (float) ($t['min_amount'] ?? $t['min_qty'] ?? 0);
+                if ($th > $bestTh) { $bestTh = $th; $best = $t; }
+            }
+            if (!$best) return 0;
+            $type = $best['type'] ?? 'percentage';
+            $val  = (float) ($best['value'] ?? 0);
+            $discount = $type === 'percentage' ? $base * min($val, 100) / 100 : $val;
+        }
+
+        return min(round(max($discount, 0), 2), $remaining);
     }
 
     // ─── Helpers privados ────────────────────────────────────────────────────

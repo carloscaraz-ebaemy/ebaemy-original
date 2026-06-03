@@ -107,7 +107,7 @@
                          Route::post('/email', 'ReportDocumentController@email')
                             ->name('tenant.reports.sales.email');
                          Route::post('/export', 'ReportDocumentController@export')
-                         ->name('tenant.reports.sales.email');
+                         ->name('tenant.reports.sales.export');
                    });
                    /**
                     * /reports/sale-notes
@@ -199,7 +199,7 @@
                     Route::get('document-detractions/filter', 'ReportDocumentDetractionController@filter')
                          ->name('tenant.reports.document_detractions.filter');
                     Route::get('document-detractions/records', 'ReportDocumentDetractionController@records')
-                         ->name('tenant.reports.document_hotels.records');
+                         ->name('tenant.reports.document_detractions.records');
 
 
                    /**

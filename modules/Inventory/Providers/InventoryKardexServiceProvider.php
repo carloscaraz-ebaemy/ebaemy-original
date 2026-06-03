@@ -112,9 +112,11 @@ class InventoryKardexServiceProvider extends ServiceProvider
                 //$this->createInventory($document_item->item_id, $factor * $document_item->quantity, $warehouse->id);
                 $this->createInventoryKardex($document_item->document, $document_item->item_id, ($factor * ($document_item->quantity * $presentationQuantity)), $warehouse->id);
 
+                $movesStock = false;
                 if (!$document_item->document->sale_note_id && !$document_item->document->order_note_id && !$document_item->document->dispatch_id && !$document_item->document->sale_notes_relateds)
                 {
                     $this->updateStock($document_item->item_id, ($factor * ($document_item->quantity * $presentationQuantity)), $warehouse->id);
+                    $movesStock = true;
 
                 } else
                 {
@@ -122,9 +124,30 @@ class InventoryKardexServiceProvider extends ServiceProvider
                     {
                         if (!$document_item->document->dispatch->transfer_reason_type->discount_stock) {
                             $this->updateStock($document_item->item_id, ($factor * ($document_item->quantity * $presentationQuantity)), $warehouse->id);
+                            $movesStock = true;
                         }
                     }
                 }
+
+                // ── Ajustar stock de variante (venta por CPE directo) ──────
+                // Solo cuando ESTE documento mueve stock (no cuando proviene de
+                // una NV/pedido/despacho que ya descontó la variante). Respeta el
+                // factor: -1 descuenta (venta), +1 reingresa (nota de crédito 07).
+                $variantId = $document_item->item->variant_id ?? null;
+                if ($variantId && $movesStock) {
+                    $variantDelta = $factor * ($document_item->quantity * $presentationQuantity);
+                    $vw = ItemVariantWarehouse::where('item_variant_id', $variantId)
+                        ->where('warehouse_id', $warehouse->id)
+                        ->first();
+                    if ($vw) {
+                        $vw->stock_physical = max(0, $vw->stock_physical + $variantDelta);
+                        $vw->stock          = $vw->stock_physical;
+                        $vw->save();
+                    }
+                    $totalVariant = ItemVariantWarehouse::where('item_variant_id', $variantId)->sum('stock_physical');
+                    ItemVariant::where('id', $variantId)->update(['stock' => $totalVariant]);
+                }
+                // ── /Ajustar stock de variante ─────────────────────────────
 
             } else {
 

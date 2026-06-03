@@ -1319,15 +1319,29 @@ class EcommerceController extends Controller
                 $finalTotal     = $promo['final_total'];
 
                 // ── Costo de envío server-side (no confiar en el cliente) ──
-                $shippingZoneId = $input['shipping_zone_id'] ?? null;
-                $shippingCost   = 0.0;
-                $shippingZone   = null;
-                if ($shippingZoneId) {
-                    $shippingZone = \App\Models\Tenant\ShippingZone::find($shippingZoneId);
-                    if ($shippingZone && $shippingZone->is_active) {
-                        $shippingCost = (float) $shippingZone->cost;
-                    }
+                // Re-resolver la zona por el DISTRITO declarado, no por el
+                // shipping_zone_id que manda el cliente (manipulable a la zona más
+                // barata). Si es entrega a domicilio y no hay zona resoluble, NO se
+                // permite continuar con envío en 0 silencioso.
+                $districtId   = $customer['ubigeo'] ?? null;
+                $shippingZone = \App\Models\Tenant\ShippingZone::resolveForDistrict($districtId, $isPickup);
+                $shippingCost = 0.0;
+                if ($shippingZone && $shippingZone->is_active) {
+                    $shippingCost = (float) $shippingZone->cost;
+                } elseif (!$isPickup) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'No pudimos calcular el costo de envío para tu distrito. Verifica tu distrito o elige recojo en tienda.',
+                    ], 422);
                 }
+
+                // Envío gratis por umbral: si el subtotal (tras descuentos) alcanza
+                // el monto configurado, el envío a domicilio sale 0.
+                $freeShipThreshold = (float) (\App\Models\Tenant\Configuration::first()->ecommerce_free_shipping_threshold ?? 0);
+                if (!$isPickup && $freeShipThreshold > 0 && $finalTotal >= $freeShipThreshold) {
+                    $shippingCost = 0.0;
+                }
+
                 $finalTotal += $shippingCost;
 
                 // Convertir a centavos para Culqi (si aplica) y comparar
@@ -1439,6 +1453,37 @@ class EcommerceController extends Controller
                             $vw->save();
                         }
                     });
+                }
+
+                // Reservar stock de COMPONENTES de bundles (is_set). Antes solo se
+                // validaba pero no se reservaba → sobreventa de packs en pagos
+                // efectivo concurrentes. Reservamos committed en el item_warehouse
+                // de cada componente, con lock.
+                foreach ($verifiedItems as $item) {
+                    if (!empty($item['variant_id'])) continue;
+                    $itemId = $item['id'] ?? null;
+                    if (!$itemId) continue;
+                    $isSet = $item['is_set'] ?? null;
+                    if ($isSet === null) {
+                        $isSet = (bool) Item::where('id', $itemId)->value('is_set');
+                    }
+                    if (!$isSet) continue;
+
+                    $bundleQty = (float) ($item['quantity'] ?? 1);
+                    $components = \App\Models\Tenant\ItemSet::where('item_id', $itemId)->get();
+                    foreach ($components as $comp) {
+                        $compQty = $bundleQty * (float) $comp->quantity;
+                        if ($compQty <= 0) continue;
+                        \Illuminate\Support\Facades\DB::transaction(function () use ($comp, $compQty, $channelWarehouseId) {
+                            $ciw = $channelWarehouseId
+                                ? \App\Models\Tenant\ItemWarehouse::where('item_id', $comp->individual_item_id)->where('warehouse_id', $channelWarehouseId)->lockForUpdate()->first()
+                                : \App\Models\Tenant\ItemWarehouse::where('item_id', $comp->individual_item_id)->orderByDesc('stock_physical')->lockForUpdate()->first();
+                            if ($ciw) {
+                                $ciw->stock_committed = (float) $ciw->stock_committed + $compQty;
+                                $ciw->save();
+                            }
+                        });
+                    }
                 }
 
                 // Incrementar uso del cupón
@@ -2177,21 +2222,35 @@ class EcommerceController extends Controller
             $deliveryType === 'pickup'
         );
 
+        $freeShipThreshold = (float) (\App\Models\Tenant\Configuration::first()->ecommerce_free_shipping_threshold ?? 0);
+
         if (!$zone) {
             return response()->json([
                 'success' => false,
                 'message' => 'No hay zonas de envío configuradas',
                 'cost' => 0,
+                'free_shipping_threshold' => $freeShipThreshold,
             ]);
+        }
+
+        // Envío gratis por umbral: el front decide si el subtotal lo alcanza.
+        $subtotal = (float) $request->input('subtotal', 0);
+        $cost     = (float) $zone->cost;
+        $freeApplied = false;
+        if (!$zone->is_pickup && $freeShipThreshold > 0 && $subtotal >= $freeShipThreshold) {
+            $cost = 0.0;
+            $freeApplied = true;
         }
 
         return response()->json([
             'success'        => true,
             'zone_id'        => $zone->id,
             'zone_name'      => $zone->name,
-            'cost'           => (float) $zone->cost,
+            'cost'           => $cost,
             'estimated_days' => (int) $zone->estimated_days,
             'is_pickup'      => (bool) $zone->is_pickup,
+            'free_shipping_threshold' => $freeShipThreshold,
+            'free_shipping_applied'   => $freeApplied,
         ]);
     }
 

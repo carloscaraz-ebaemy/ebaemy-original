@@ -998,17 +998,34 @@
                             (data.data||data||[]).forEach(function(d){ sel.innerHTML += '<option value="'+d.id+'">'+d.description+'</option>'; });
                         });
                     };
+                    var truckSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>';
+                    var checkSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#10B981" stroke-width="2"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>';
                     window.calcShipping = function(){
-                        var dept = document.getElementById('ec-ship-dept');
-                        var deptName = dept.options[dept.selectedIndex]?.text || '';
+                        var dist = document.getElementById('ec-ship-dist');
+                        var districtId = dist.value || '';
                         var result = document.getElementById('ec-ship-result');
-                        var isLima = deptName.toLowerCase().includes('lima');
-                        if(isLima){
-                            result.innerHTML = '<div class="ec-ship-ok"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#10B981" stroke-width="2"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg> <strong>Envio: S/ 10.00</strong> — Entrega en 1-2 dias habiles</div>';
-                        } else {
-                            result.innerHTML = '<div class="ec-ship-ok"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg> <strong>Envio: S/ 20.00</strong> — Entrega en 3-5 dias habiles (agencia)</div>';
-                        }
+                        if(!districtId){ result.style.display = 'none'; return; }
+                        result.innerHTML = '<div class="ec-ship-ok">Calculando costo de envío…</div>';
                         result.style.display = 'block';
+                        // Fuente única: el mismo endpoint que usa el checkout (ShippingZone real).
+                        fetch('/ecommerce/calculate-shipping', {
+                            method: 'POST',
+                            headers: {'Content-Type':'application/json','X-CSRF-TOKEN': (document.querySelector('meta[name=csrf-token]')||{}).content || ''},
+                            body: JSON.stringify({ district_id: districtId, delivery_type: 'delivery' })
+                        }).then(r=>r.json()).then(function(data){
+                            if(!data || !data.success){
+                                result.innerHTML = '<div class="ec-ship-ok">'+truckSvg+' Costo de envío disponible en el checkout para tu distrito.</div>';
+                                return;
+                            }
+                            var cost = parseFloat(data.cost||0);
+                            var days = parseInt(data.estimated_days||0,10);
+                            var icon = cost === 0 ? checkSvg : truckSvg;
+                            var costTxt = cost === 0 ? 'Envío gratis' : ('Envío: S/ ' + cost.toFixed(2));
+                            var daysTxt = days > 0 ? (' — Entrega aprox. en ' + days + ' día' + (days>1?'s':'') + ' hábil' + (days>1?'es':'')) : '';
+                            result.innerHTML = '<div class="ec-ship-ok">'+icon+' <strong>'+costTxt+'</strong>'+daysTxt+'</div>';
+                        }).catch(function(){
+                            result.innerHTML = '<div class="ec-ship-ok">'+truckSvg+' Costo de envío disponible en el checkout.</div>';
+                        });
                     };
                 })();
                 </script>

@@ -15,6 +15,7 @@
         'verified'  => !empty($verifiedOnly) ? 1 : null,
         'in_stock'  => !empty($inStockOnly) ? 1 : null,
         'packs'     => !empty($packsOnly) ? 1 : null,
+        'brand'     => $brand ?? null,
     ], fn($v) => $v !== null && $v !== '');
 
     $hasBooleanFilter = !empty($onOfferOnly) || !empty($verifiedOnly) || !empty($inStockOnly) || !empty($packsOnly);
@@ -896,6 +897,7 @@
                 @if(!empty($verifiedOnly)) <input type="hidden" name="verified" value="1"> @endif
                 @if(!empty($inStockOnly))  <input type="hidden" name="in_stock" value="1"> @endif
                 @if(!empty($packsOnly))    <input type="hidden" name="packs"    value="1"> @endif
+                @if(!empty($brand))        <input type="hidden" name="brand"    value="{{ $brand }}"> @endif
                 <div class="mp-price-range">
                     <input type="number" name="price_min" min="0" step="0.01" placeholder="Desde" value="{{ $priceMin !== null ? $priceMin : '' }}">
                     <span class="mp-price-range-sep">—</span>
@@ -904,6 +906,33 @@
                 <button type="submit" class="mp-filter-apply">Aplicar</button>
             </form>
         </div>
+
+        @if(isset($brands) && $brands->count() > 0)
+        <div class="mp-filter-group">
+            <div class="mp-filter-label">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>
+                Marca
+            </div>
+            <form method="GET" action="{{ route('marketplace.index') }}">
+                @if($q)             <input type="hidden" name="q"        value="{{ $q }}">             @endif
+                @if($category)      <input type="hidden" name="category" value="{{ $category }}">      @endif
+                @if($sort && $sort !== 'relevance') <input type="hidden" name="sort" value="{{ $sort }}"> @endif
+                @if($shopSubdomain) <input type="hidden" name="shop"     value="{{ $shopSubdomain }}"> @endif
+                @if($priceMin !== null) <input type="hidden" name="price_min" value="{{ $priceMin }}"> @endif
+                @if($priceMax !== null) <input type="hidden" name="price_max" value="{{ $priceMax }}"> @endif
+                @if(!empty($onOfferOnly))  <input type="hidden" name="on_offer" value="1"> @endif
+                @if(!empty($verifiedOnly)) <input type="hidden" name="verified" value="1"> @endif
+                @if(!empty($inStockOnly))  <input type="hidden" name="in_stock" value="1"> @endif
+                @if(!empty($packsOnly))    <input type="hidden" name="packs"    value="1"> @endif
+                <select name="brand" class="mp-filter-select" onchange="this.form.submit()" style="width:100%;padding:8px 10px;border:1px solid #e5e7eb;border-radius:8px;font-size:13px;background:#fff;color:#374151">
+                    <option value="">Todas las marcas</option>
+                    @foreach($brands as $b)
+                        <option value="{{ $b }}" {{ ($brand ?? null) === $b ? 'selected' : '' }}>{{ $b }}</option>
+                    @endforeach
+                </select>
+            </form>
+        </div>
+        @endif
 
         <div class="mp-filter-group">
             <div class="mp-filter-label">
@@ -990,6 +1019,7 @@
                 'verified'             => $verifiedOnly ? 1 : null,
                 'in_stock'             => $inStockOnly ? 1 : null,
                 'packs'                => $packsOnly ? 1 : null,
+                'brand'                => $brand ?? null,
                 'sort'                 => ($sort && $sort !== 'relevance') ? $sort : null,
             ], fn($v) => $v !== null && $v !== '' && $v !== false);
 
@@ -1028,6 +1058,7 @@
             if ($verifiedOnly) $activeFilters[] = ['label' => '✓ Verificada', 'url' => $removeUrl('verified')];
             if ($inStockOnly)  $activeFilters[] = ['label' => '📦 Con stock', 'url' => $removeUrl('in_stock')];
             if ($packsOnly)    $activeFilters[] = ['label' => '🎁 Pack',      'url' => $removeUrl('packs')];
+            if (!empty($brand)) $activeFilters[] = ['label' => '🔖 ' . $brand, 'url' => $removeUrl('brand')];
             if ($sort && $sort !== 'relevance') {
                 $sortLabels = ['price_asc' => 'Precio ↑', 'price_desc' => 'Precio ↓', 'newest' => 'Más recientes'];
                 $activeFilters[] = ['label' => '↕ ' . ($sortLabels[$sort] ?? $sort), 'url' => $removeUrl('sort')];
@@ -1516,6 +1547,8 @@ if (window.matchMedia('(max-width: 899px)').matches) {
 })();
 </script>
 @endpush
+
+@include('marketplace.partials.recommended', ['recommendedForYou' => $recommendedForYou ?? collect()])
 
 @include('marketplace.partials.recently-viewed', ['recentlyViewed' => $recentlyViewed ?? collect()])
 

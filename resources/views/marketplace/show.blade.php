@@ -1124,6 +1124,47 @@
 </section>
 
 {{-- ═══════════════════════ RELACIONADOS ═══════════════════════ --}}
+@if(isset($boughtTogether) && $boughtTogether->isNotEmpty())
+    <section class="mp-related" aria-label="Comprados juntos">
+        <div class="mp-related__head">
+            <h3 class="mp-related__title">Quienes compraron esto también llevaron</h3>
+        </div>
+        <div class="mp-related__rail">
+            @foreach($boughtTogether as $r)
+                <a href="{{ route('marketplace.item', $r->slug) }}" class="mp-related__card">
+                    <div class="mp-related__card-img">
+                        @if($r->image_url)
+                            <img src="{{ $r->image_url }}" alt="{{ $r->title }}" loading="lazy">
+                        @else
+                            <div class="mp-related__card-noimg">Sin imagen</div>
+                        @endif
+                        @if(!empty($r->is_on_offer) && !empty($r->discount_pct))
+                            <span class="mp-related__card-pct">-{{ $r->discount_pct }}%</span>
+                        @endif
+                    </div>
+                    <div class="mp-related__card-body">
+                        <h4 class="mp-related__card-title">{{ $r->title }}</h4>
+                        <div class="mp-related__card-prices">
+                            @if($r->display_price > 0)
+                                <span class="mp-related__card-price">S/ {{ number_format($r->display_price, 2) }}</span>
+                                @if(!empty($r->is_on_offer) && !empty($r->original_price) && $r->original_price > $r->display_price)
+                                    <span class="mp-related__card-old">S/ {{ number_format($r->original_price, 2) }}</span>
+                                @endif
+                            @else
+                                <span class="mp-related__card-consult">Consultar precio</span>
+                            @endif
+                        </div>
+                        <div class="mp-related__card-shop">
+                            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9h18"/><path d="m3 9 1.5-6h15L21 9"/><path d="M3 9v10a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V9"/></svg>
+                            <span>{{ \Illuminate\Support\Str::limit($r->seller_display, 24) }}</span>
+                        </div>
+                    </div>
+                </a>
+            @endforeach
+        </div>
+    </section>
+@endif
+
 @if($related->isNotEmpty())
     <section class="mp-related" aria-label="También te puede interesar">
         <div class="mp-related__head">

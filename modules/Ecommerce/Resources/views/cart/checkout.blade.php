@@ -416,6 +416,12 @@
                     <span v-if="shipping.cost > 0">S/ @{{ shipping.cost.toFixed(2) }}</span>
                     <span v-else style="color:#16a34a;font-weight:700">Gratis</span>
                 </div>
+                {{-- Incentivo: cuánto falta para envío gratis --}}
+                <div class="ec-order-line" v-if="shipping.loaded && !shipping.is_pickup && shipping.free_threshold > 0 && shipping.cost > 0">
+                    <small style="color:#0c6b65;font-weight:600">
+                        🚚 Te faltan S/ @{{ Math.max(0, (shipping.free_threshold - (parseFloat(totalFinal) - shipping.cost))).toFixed(2) }} para envío gratis
+                    </small>
+                </div>
             </div>
             <div class="ec-order-total">
                 <span>Total a pagar</span>
@@ -477,21 +483,24 @@
                     </span>
                 </label>
 
-                {{-- Opción 2: Pagar con tarjeta --}}
+                @php $culqiEnabled = !empty($configuration->token_public_culqui ?? null); @endphp
+                {{-- Opción 2: Pagar con tarjeta / Yape (solo si Culqi está configurado) --}}
+                @if($culqiEnabled)
                 <label class="ec-payment-option" :class="{ 'ec-payment-option--active': paymentMethod === 'card' }" @click="paymentMethod = 'card'">
                     <span class="ec-payment-option__radio"></span>
                     <span class="ec-payment-option__icon" style="background:#eef2ff;color:#4f46e5">
                         <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
                     </span>
                     <span class="ec-payment-option__text">
-                        <strong>Pagar con tarjeta</strong>
-                        <small>Visa, Mastercard, American Express</small>
+                        <strong>Pagar con tarjeta o Yape</strong>
+                        <small>Visa, Mastercard, American Express o Yape</small>
                     </span>
                     <span class="ec-payment-cards">
                         <img src="{{ asset('porto-ecommerce/assets/images/visa.svg') }}" alt="Visa" width="32" height="20" onerror="this.style.display='none'">
                         <img src="{{ asset('porto-ecommerce/assets/images/mastercard.svg') }}" alt="Mastercard" width="32" height="20" onerror="this.style.display='none'">
                     </span>
                 </label>
+                @endif
 
                 @if($paypalScriptSrc)
                 {{-- Opción 3: PayPal --}}
@@ -782,6 +791,8 @@
                 cost: 0,
                 estimated_days: 0,
                 is_pickup: false,
+                free_applied: false,
+                free_threshold: 0,
             },
             loading_payment: false,
             wantsInvoice: false, // comprobante fiscal opcional
@@ -997,9 +1008,13 @@
                 // Consulta el costo de envío según el distrito o tipo de entrega.
                 // Se dispara desde watchers de district_id y deliveryType.
                 try {
+                    // Subtotal de mercancía (tras descuentos, sin envío) para evaluar
+                    // el umbral de envío gratis del lado servidor.
+                    var goodsSubtotal = parseFloat(this.totalFinal || 0) - parseFloat(this.shipping.cost || 0);
                     var r = await axios.post('/ecommerce/calculate-shipping', {
                         district_id: this.ubigeo.district_id || null,
                         delivery_type: this.deliveryType,
+                        subtotal: goodsSubtotal > 0 ? goodsSubtotal : 0,
                     });
                     if (r.data && r.data.success) {
                         this.shipping.loaded = true;
@@ -1008,9 +1023,12 @@
                         this.shipping.cost = parseFloat(r.data.cost) || 0;
                         this.shipping.estimated_days = r.data.estimated_days || 0;
                         this.shipping.is_pickup = !!r.data.is_pickup;
+                        this.shipping.free_applied = !!r.data.free_shipping_applied;
+                        this.shipping.free_threshold = parseFloat(r.data.free_shipping_threshold) || 0;
                     } else {
                         this.shipping.loaded = false;
                         this.shipping.cost = 0;
+                        this.shipping.free_threshold = parseFloat((r.data || {}).free_shipping_threshold) || 0;
                     }
                 } catch(e) {
                     // Si falla el backend, no bloqueamos checkout — envío queda en 0
@@ -1348,7 +1366,15 @@
 
     Culqi.publicKey = {!! \Illuminate\Support\Js::from($configuration->token_public_culqui) !!};
     if (!Culqi.publicKey) { $('.culqi').hide(); }
-    Culqi.options({ installments: true });
+    // Habilitar Yape junto a tarjeta. En Culqi v4 estas opciones activan el medio;
+    // en v3 las llaves desconocidas se ignoran y Yape aparece si está activo en el
+    // dashboard del comercio. El cobro backend (token_id) es idéntico para ambos.
+    try {
+        Culqi.options({
+            installments: true,
+            paymentMethods: { tarjeta: true, yape: true, bancaMovil: false, billetera: false, cuotealo: false }
+        });
+    } catch (e) { Culqi.options({ installments: true }); }
 
     async function execCulqi() {
         let precio = Math.round((Number($("#total_amount").data('total')) * 100).toFixed(2));

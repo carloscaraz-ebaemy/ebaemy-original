@@ -43,6 +43,12 @@ use App\Http\Requests\Tenant\PurchaseOrderRequest;
 use App\CoreFacturalo\Requests\Inputs\Common\PersonInput;
 use Modules\Sale\Models\SaleOpportunity;
 use Modules\Finance\Helpers\UploadFileHelper;
+use App\Models\Tenant\ItemVariant;
+use App\Models\Tenant\ItemVariantWarehouse;
+use App\Models\Tenant\ItemWarehouse;
+use App\Models\Tenant\StockMovement;
+use App\Enums\StockMovementTypeEnum;
+use App\Services\Tenant\ItemVariantService;
 
 class PurchaseOrderController extends Controller
 {
@@ -558,6 +564,16 @@ class PurchaseOrderController extends Controller
                     return ['success' => false, 'message' => 'Esta OC ya está marcada como recibida.'];
                 }
 
+                // Guard anti doble-ingreso: si la OC ya tiene una Compra registrada,
+                // el stock ya entró vía PurchaseItem::created. Recibir además duplicaría
+                // el inventario. Bloquear y orientar al usuario.
+                if ($po->purchases()->exists()) {
+                    return [
+                        'success' => false,
+                        'message' => 'Esta OC ya tiene una compra registrada (el stock ya ingresó con ese documento). No se debe recibir además para no duplicar inventario.',
+                    ];
+                }
+
                 // Resolver warehouse de destino: el del establecimiento.
                 $establishment = Establishment::find($po->establishment_id);
                 $warehouseId = optional($establishment)->warehouse_id
@@ -577,15 +593,11 @@ class PurchaseOrderController extends Controller
 
                     if ($delta <= 0) continue; // ya estaba recibido completo
 
-                    // Sumar al stock por warehouse — usando el patrón legacy
-                    // (KardexTrait->restoreStockInWarehpuse). Compatible con
-                    // el smart stock al actualizar item_warehouse.stock.
-                    $iw = \Modules\Inventory\Models\ItemWarehouse::firstOrNew([
-                        'item_id'      => $poItem->item_id,
-                        'warehouse_id' => $warehouseId,
-                    ]);
-                    $iw->stock = ($iw->stock ?? 0) + $delta;
-                    $iw->save();
+                    $item = Item::find($poItem->item_id);
+                    if (!$item) continue;
+
+                    // Ingreso de stock variant-safe + visible en kardex + ledger Smart Stock.
+                    $this->applyReceptionStock($item, (int) $warehouseId, $delta, $po);
 
                     // Actualizar tracking en el item
                     $poItem->quantity_received = $expected;
@@ -614,6 +626,97 @@ class PurchaseOrderController extends Controller
                 'error' => $e->getMessage(),
             ]);
             return ['success' => false, 'message' => 'Error al recibir: ' . $e->getMessage()];
+        }
+    }
+
+    /**
+     * Ingresa $delta unidades de $item al almacén $warehouseId por recepción de OC,
+     * de forma íntegra con los tres sistemas de stock del ERP:
+     *
+     *  1. Kardex físico (inventory_kardex): se crea un movimiento `Inventory` type=1,
+     *     cuyo observer (InventoryChangeServiceProvider) registra el kardex y suma el
+     *     stock legacy en item_warehouse.stock. Así la recepción SÍ aparece en el
+     *     reporte de movimientos de inventario.
+     *
+     *  2. Productos CON variantes (regla de oro, skill ebaemy-stock-flow): NUNCA se
+     *     escribe item_warehouse.stock directo. El ingreso se enruta a la variante
+     *     primaria en item_variant_warehouse y luego propagateStock() recalcula el
+     *     padre desde las variantes — sobrescribiendo el bump del observer, por lo que
+     *     NO hay doble conteo.
+     *
+     *  3. Ledger Smart Stock (stock_movements + stock_physical): se sincroniza
+     *     stock_physical y se registra un movimiento PURCHASE_ENTRY con snapshot.
+     *
+     * NOTA de costeo: la valorización SUNAT (kardex valorizado) se alimenta del
+     * documento de Compra real, no de la OC. La recepción es un movimiento físico;
+     * el costeo se consolida al registrar la factura/boleta de compra asociada.
+     */
+    private function applyReceptionStock(Item $item, int $warehouseId, float $delta, PurchaseOrder $po): void
+    {
+        $reference = trim(($po->prefix ? $po->prefix . '-' : 'OC-') . $po->id);
+
+        // (1) Movimiento de inventario + kardex físico vía observer Inventory::created
+        \Modules\Inventory\Models\Inventory::create([
+            'type'         => 1,
+            'description'  => 'Recepción ' . $reference,
+            'item_id'      => $item->id,
+            'warehouse_id' => $warehouseId,
+            'quantity'     => $delta,
+            'comments'     => 'Ingreso por recepción de orden de compra ' . $reference,
+        ]);
+
+        if ($item->has_variants) {
+            // (2) Variant-safe: enrutar a la variante primaria y propagar.
+            $variant = ItemVariant::where('item_id', $item->id)
+                ->where('is_active', true)
+                ->orderByDesc('is_primary')
+                ->orderBy('id')
+                ->first();
+
+            if ($variant) {
+                $ivw = ItemVariantWarehouse::firstOrNew([
+                    'item_variant_id' => $variant->id,
+                    'warehouse_id'    => $warehouseId,
+                ]);
+                $ivw->stock_physical  = (float) ($ivw->stock_physical ?? 0) + $delta;
+                $ivw->stock_committed = (float) ($ivw->stock_committed ?? 0);
+                $ivw->stock           = $ivw->stock_physical;
+                $ivw->save();
+
+                // item_variants.stock = SUM(item_variant_warehouse.stock_physical)
+                $variant->stock = ItemVariantWarehouse::where('item_variant_id', $variant->id)
+                    ->sum('stock_physical');
+                $variant->save();
+            }
+
+            // Recalcula item_warehouse e items.stock desde las variantes (fuente de verdad).
+            app(ItemVariantService::class)->propagateStock($item->fresh());
+        } else {
+            // El observer ya sumó item_warehouse.stock; sincronizar stock_physical
+            // (Smart Stock) para que stock_available del ecommerce refleje la recepción.
+            $iw = ItemWarehouse::where('item_id', $item->id)
+                ->where('warehouse_id', $warehouseId)
+                ->lockForUpdate()
+                ->first();
+            if ($iw) {
+                $iw->stock_physical = (float) $iw->stock;
+                $iw->save();
+            }
+        }
+
+        // (3) Ledger Smart Stock — snapshot post-operación sobre el item_warehouse padre.
+        $iwLedger = ItemWarehouse::where('item_id', $item->id)
+            ->where('warehouse_id', $warehouseId)
+            ->first();
+        if ($iwLedger) {
+            StockMovement::record(
+                $iwLedger,
+                StockMovementTypeEnum::PURCHASE_ENTRY,
+                $delta,
+                auth()->id(),
+                $po,
+                'Recepción ' . $reference
+            );
         }
     }
 

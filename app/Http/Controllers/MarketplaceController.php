@@ -67,6 +67,7 @@ class MarketplaceController extends Controller
         $verifiedOnly = $request->boolean('verified');
         $inStockOnly  = $request->boolean('in_stock');
         $packsOnly    = $request->boolean('packs');
+        $brand        = $request->filled('brand') ? trim((string) $request->input('brand')) : null;
 
         $query = MarketplaceListing::published()
             ->search($q)
@@ -89,6 +90,7 @@ class MarketplaceController extends Controller
         if ($verifiedOnly) $query->where('tenant_verified', true);
         if ($inStockOnly)  $query->where('stock', '>', 0);
         if ($packsOnly)    $query->where('is_pack', true);
+        if ($brand)        $query->where('brand_name', $brand);
 
         switch ($sort) {
             case 'price_asc':
@@ -125,6 +127,18 @@ class MarketplaceController extends Controller
             ->orderBy('category_name')
             ->limit(40)
             ->pluck('category_name');
+
+        // Faceta de marcas — top marcas por nº de productos publicados. Faceta
+        // facetada estilo Amazon/MercadoLibre; aprovecha brand_name ya sincronizado.
+        $brands = MarketplaceListing::published()
+            ->whereNotNull('brand_name')
+            ->where('brand_name', '!=', '')
+            ->select('brand_name', \DB::raw('COUNT(*) as products_count'))
+            ->groupBy('brand_name')
+            ->orderByDesc(\DB::raw('COUNT(*)'))
+            ->orderBy('brand_name')
+            ->limit(30)
+            ->pluck('brand_name');
 
         // Árbol oficial (sólo raíces visibles) — cacheado 30min.
         $officialRoots = $this->getOfficialRootsCached();
@@ -240,13 +254,44 @@ class MarketplaceController extends Controller
                 ->get();
         }
 
+        // "Recomendado para ti" — personalización on-site usando el perfil de
+        // intereses por categoría ya calculado por RecalculateMarketplaceUserInterests
+        // (hasta ahora solo alimentaba el digest semanal por email). Solo en home
+        // limpia y para compradores logueados con historial.
+        $recommendedForYou = collect();
+        if ($isCleanHome && $mktUser) {
+            $topCategoryIds = \DB::connection('system')->table('marketplace_user_interests')
+                ->where('user_id', $mktUser->id)
+                ->orderByDesc('score')
+                ->limit(3)
+                ->pluck('category_id')
+                ->filter()
+                ->all();
+
+            if (!empty($topCategoryIds)) {
+                $excludeIds = $recentlyViewed->pluck('id')->filter()->all();
+                $recommendedForYou = MarketplaceListing::published()
+                    ->whereIn('marketplace_category_id', $topCategoryIds)
+                    ->when(!empty($excludeIds), fn($qq) => $qq->whereNotIn('id', $excludeIds))
+                    ->orderByDesc('is_featured')
+                    ->orderByDesc('sort_score')
+                    ->orderByDesc('view_count')
+                    ->limit(8)
+                    ->get();
+                if ($recommendedForYou->isNotEmpty()) {
+                    $this->decorateListingsWithVariantData($recommendedForYou);
+                }
+            }
+        }
+
         return view('marketplace.index', compact(
             'listings', 'categories', 'officialRoots', 'dailyOffers',
             'q', 'category', 'officialCatId',
             'sort', 'priceMin', 'priceMax',
             'shops', 'shopSubdomain',
             'onOfferOnly', 'verifiedOnly', 'inStockOnly', 'packsOnly',
-            'recentlyViewed', 'expiringCoupons'
+            'brand', 'brands',
+            'recentlyViewed', 'expiringCoupons', 'recommendedForYou'
         ));
     }
 
@@ -1062,6 +1107,34 @@ class MarketplaceController extends Controller
         $sameStoreLabel  = '🔥 Más ofertas en ' . ($listing->tenant_name ?: 'esta tienda');
         $otherStoreLabel = '🔥 Ofertas en otras tiendas';
 
+        // "Comprados juntos" — market-basket por co-ocurrencia en pedidos reales
+        // (marketplace_order_items). Cache 6h porque el patrón cambia lento y la
+        // query con self-join es costosa. Es la palanca de cross-sell tipo
+        // "quienes compraron esto también llevaron…".
+        $boughtTogether = collect();
+        $boughtTogetherIds = Cache::remember('mp_bought_together_' . $listing->id, 21600, function () use ($listing) {
+            return \DB::connection('system')->table('marketplace_order_items as a')
+                ->join('marketplace_order_items as b', 'a.marketplace_order_id', '=', 'b.marketplace_order_id')
+                ->where('a.listing_id', $listing->id)
+                ->where('b.listing_id', '!=', $listing->id)
+                ->whereNotNull('b.listing_id')
+                ->groupBy('b.listing_id')
+                ->orderByRaw('COUNT(*) DESC')
+                ->limit(8)
+                ->pluck('b.listing_id')
+                ->all();
+        });
+        if (!empty($boughtTogetherIds)) {
+            $boughtTogether = MarketplaceListing::published()
+                ->whereIn('id', $boughtTogetherIds)
+                ->get()
+                ->sortBy(fn($l) => array_search($l->id, $boughtTogetherIds))
+                ->values();
+            if ($boughtTogether->isNotEmpty()) {
+                $this->decorateListingsWithVariantData($boughtTogether);
+            }
+        }
+
         // Cupones del comprador disponibles para esta tienda (item 6
         // roadmap visibilidad). Se muestran en una seccin debajo del
         // precio para que el comprador sepa que tiene descuento antes
@@ -1083,7 +1156,7 @@ class MarketplaceController extends Controller
             'recentlyViewed',
             'sameStoreOffers', 'sameStoreLabel',
             'otherStoreOffers', 'otherStoreLabel',
-            'availableCoupons'
+            'availableCoupons', 'boughtTogether'
         ));
     }
 

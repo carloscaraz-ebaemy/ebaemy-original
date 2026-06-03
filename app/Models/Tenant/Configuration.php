@@ -287,6 +287,7 @@ use Illuminate\Support\Facades\Log;
             'point_system_sale_amount',
             'quantity_of_points',
             'round_points_of_sale',
+            'ecommerce_free_shipping_threshold',
             'show_complete_name_pos',
             'enable_categories_products_view',
             'restrict_seller_discount',

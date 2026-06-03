@@ -88,13 +88,13 @@ class ReconcileStock extends Command
     private function reconcileItem(Item $item, bool $fix, float $threshold): void
     {
         // Suma real: stock_physical - stock_committed de todas las variantes en todos los almacenes
-        $realStock = ItemVariantWarehouse::whereHas('itemVariant', function ($q) use ($item) {
+        $realStock = ItemVariantWarehouse::whereHas('variant', function ($q) use ($item) {
                 $q->where('item_id', $item->id)->where('is_active', true);
             })
             ->sum(DB::raw('stock_physical - stock_committed'));
 
         $realStock  = max(0, (float) $realStock);
-        $storedStock = (float) $item->attributes['stock']; // leer campo directo, no accessor
+        $storedStock = (float) ($item->getAttributes()['stock'] ?? 0); // campo crudo, no accessor
 
         $diff = abs($realStock - $storedStock);
         if ($diff <= $threshold) return;
@@ -127,7 +127,7 @@ class ReconcileStock extends Command
 
             Log::info('[stock:reconcile] Divergencia corregida', [
                 'item_id'    => $item->id,
-                'stock_old'  => (float) $item->attributes['stock'],
+                'stock_old'  => (float) ($item->getAttributes()['stock'] ?? 0),
                 'stock_new'  => $realStock,
             ]);
         }

@@ -36,6 +36,7 @@ class MarketplaceListing extends Model
         'category_name',
         'marketplace_category_id',
         'brand_name',
+        'search_text',
         'price',
         'mp_price',
         'stock',
@@ -194,8 +195,13 @@ class MarketplaceListing extends Model
         return $query->where(function ($w) use ($tokens) {
             foreach ($tokens as $tok) {
                 $like = '%' . $tok . '%';
-                $w->where(function ($sub) use ($like) {
-                    $sub->where('title', 'like', $like)
+                // Token normalizado (sin acentos) para matchear contra search_text.
+                $likeNorm = '%' . \App\Services\System\MarketplaceListingSyncService::normalizeForSearch($tok) . '%';
+                $w->where(function ($sub) use ($like, $likeNorm) {
+                    // Primario: índice de búsqueda normalizado (insensible a tildes).
+                    $sub->where('search_text', 'like', $likeNorm)
+                        // Fallback: columnas originales (filas aún no resincronizadas).
+                        ->orWhere('title', 'like', $like)
                         ->orWhere('category_name', 'like', $like)
                         ->orWhere('brand_name', 'like', $like);
                 });

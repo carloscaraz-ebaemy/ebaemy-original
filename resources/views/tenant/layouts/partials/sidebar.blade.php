@@ -553,6 +553,16 @@ $inventory_configuration = InventoryConfiguration::getSidebarPermissions();
                                             </li>
                                             @endif
 
+                                            {{-- Zonas de envío --}}
+                                            @if(in_array(auth()->user()->type ?? '', ['admin', 'superadmin']))
+                                            <li class="{{ request()->is('shipping-zones*') ? 'nav-active' : '' }}">
+                                                <a class="nav-link" href="{{ url('shipping-zones') }}">
+                                                    <i class="fas fa-map-marked-alt fa-fw me-1"></i>
+                                                    <span>Zonas de envío</span>
+                                                </a>
+                                            </li>
+                                            @endif
+
                                         </ul>
                                     </li>
                                     @endif
@@ -1176,6 +1186,18 @@ $inventory_configuration = InventoryConfiguration::getSidebarPermissions();
                                     <a class="nav-link" href="/reports/ecommerce">
                                         <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></svg>
                                         <span>Dashboard Ventas</span>
+                                    </a>
+                                </li>
+                                <li class="{{ request()->routeIs('tenant.pricing.margin_report') ? 'nav-active' : '' }}">
+                                    <a class="nav-link" href="{{ route('tenant.pricing.margin_report') }}">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M19 9l-5 5-4-4-3 3"/></svg>
+                                        <span>Margen erosionado</span>
+                                    </a>
+                                </li>
+                                <li class="{{ request()->routeIs('tenant.pricing.settings') ? 'nav-active' : '' }}">
+                                    <a class="nav-link" href="{{ route('tenant.pricing.settings') }}">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v2m0 14v2m9-9h-2M5 12H3m15.36-6.36l-1.42 1.42M7.05 16.95l-1.41 1.41m12.72 0l-1.41-1.41M7.05 7.05L5.64 5.64"/><circle cx="12" cy="12" r="3.5"/></svg>
+                                        <span>Reglas de margen</span>
                                     </a>
                                 </li>
 
