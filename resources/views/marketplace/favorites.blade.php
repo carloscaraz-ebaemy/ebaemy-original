@@ -102,6 +102,7 @@
                 {{ $priceDropsCount === 1 ? 'bajó' : 'bajaron' }} de precio</strong>
             <span class="mp-fav-pricedrop-banner__text">— ¡es un buen momento para comprar!</span>
         </div>
+        @push('styles')
         <style>
         .mp-fav-pricedrop-banner {
             display: flex; align-items: center; gap: 10px;
@@ -121,6 +122,7 @@
             .mp-fav-pricedrop-banner { font-size: 13px; padding: 10px 12px; }
         }
         </style>
+        @endpush
     @endif
 
     @if($listings->count() === 0)

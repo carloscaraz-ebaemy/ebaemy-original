@@ -94,6 +94,7 @@
     </form>
 </div>
 
+@push('styles')
 <style>
 .mp-settings-wrap { max-width: 640px; margin: 32px auto 64px; padding: 0 16px; }
 .mp-settings-head { display: flex; align-items: center; gap: 14px; margin-bottom: 22px; flex-wrap: wrap; }
@@ -130,4 +131,5 @@
 }
 .mp-settings-submit:hover { filter: brightness(1.05); }
 </style>
+@endpush
 @endsection

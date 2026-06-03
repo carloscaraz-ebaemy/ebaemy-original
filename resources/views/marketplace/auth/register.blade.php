@@ -63,6 +63,7 @@
     </div>
 </div>
 
+@push('styles')
 <style>
 .mp-auth-wrap { max-width: 460px; margin: 32px auto 64px; padding: 0 16px; }
 .mp-auth-card { background: #fff; border-radius: 16px; border: 1px solid #e5e7eb; padding: 32px 28px; box-shadow: 0 4px 16px rgba(15,23,42,.04); }
@@ -90,4 +91,5 @@
 .mp-auth-helper a { color: #0c6b65; font-weight: 600; text-decoration: none; }
 .mp-auth-helper a:hover { text-decoration: underline; }
 </style>
+@endpush
 @endsection

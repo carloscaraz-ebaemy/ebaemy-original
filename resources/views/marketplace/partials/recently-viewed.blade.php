@@ -30,6 +30,7 @@
 </section>
 
 @once
+@push('styles')
 <style>
 .mp-recent {
     margin: 32px 0;
@@ -92,5 +93,6 @@
 /* Las cards dentro del scroll: igualar altura para no romper el grid */
 .mp-recent-scroll .mp-card { height: 100%; }
 </style>
+@endpush
 @endonce
 @endif

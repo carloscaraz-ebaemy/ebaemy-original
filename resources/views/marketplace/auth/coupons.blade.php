@@ -70,6 +70,7 @@
     @endif
 </div>
 
+@push('styles')
 <style>
 .mp-cpn-wrap { max-width: 680px; margin: 32px auto 64px; padding: 0 16px; }
 .mp-cpn-head { display: flex; align-items: center; gap: 14px; margin-bottom: 22px; flex-wrap: wrap; }
@@ -109,4 +110,5 @@
 .mp-cpn-pill--used { background: #e5e7eb; color: #4b5563; }
 .mp-cpn-pill--expired { background: #fee2e2; color: #991b1b; }
 </style>
+@endpush
 @endsection

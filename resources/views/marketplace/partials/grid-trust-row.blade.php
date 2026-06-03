@@ -44,6 +44,7 @@
     </div>
 </div>
 
+@push('styles')
 <style>
     .mp-grid-trust {
         display: grid;
@@ -80,3 +81,4 @@
         .mp-grid-trust__txt small { font-size: 11px; }
     }
 </style>
+@endpush

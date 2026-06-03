@@ -102,6 +102,7 @@
     </section>
 </div>
 
+@push('styles')
 <style>
 .mp-acc-wrap { max-width: 880px; margin: 32px auto 64px; padding: 0 16px; }
 .mp-acc-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 20px; flex-wrap: wrap; }
@@ -145,4 +146,5 @@
     .mp-acc-stat { padding: 10px 6px; }
 }
 </style>
+@endpush
 @endsection

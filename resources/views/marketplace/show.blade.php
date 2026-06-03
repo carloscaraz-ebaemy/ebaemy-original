@@ -275,6 +275,7 @@
     })();
     </script>
 
+    @push('styles')
     <style>
         /* La imagen principal muestra el producto COMPLETO (no recorta). */
         .mp-gallery-main img { object-fit: contain !important; }
@@ -323,6 +324,7 @@
             .mp-lightbox__prev { left: 8px; } .mp-lightbox__next { right: 8px; }
         }
     </style>
+    @endpush
 
     {{-- ═══════════════════════ INFO + COMPRA ═══════════════════════ --}}
     <div class="mp-detail-info">
@@ -465,6 +467,7 @@
                     </span>
                     <span class="mp-detail-coupons-hint__arrow"></span>
                 </a>
+                @push('styles')
                 <style>
                 .mp-detail-coupons-hint {
                     display: flex;
@@ -503,6 +506,7 @@
                 }
                 .mp-detail-coupons-hint__arrow { font-size: 20px; flex-shrink: 0; color: #b45309; }
                 </style>
+                @endpush
             @endif
         </div>
 
@@ -559,6 +563,7 @@
             {{-- Datos para JS resolver la combinación elegida --}}
             <script type="application/json" id="mpVariantMapData">{!! json_encode($variantMap) !!}</script>
 
+            @push('styles')
             <style>
                 .mp-options { margin: 14px 0 4px; display: flex; flex-direction: column; gap: 14px; }
                 .mp-option-group__head {
@@ -633,6 +638,7 @@
                     cursor: not-allowed;
                 }
             </style>
+            @endpush
 
             <script>
             (function () {
@@ -1075,6 +1081,7 @@
             </form>
         </details>
 
+        @push('styles')
         <style>
         .mp-ask-seller {
             margin-top: 16px;
@@ -1108,6 +1115,7 @@
         .mp-ask-seller[open] .mp-ask-seller__chevron { transform: rotate(180deg); }
         .mp-ask-seller .mp-lead-form { padding: 4px 16px 16px; margin: 0; border: none; box-shadow: none; background: transparent; }
         </style>
+        @endpush
 
         {{-- Badges de confianza mini (dentro de la columna de compra) --}}
         <div class="mp-trust-mini">
@@ -1374,6 +1382,7 @@
         </div>
     </section>
 
+    @push('styles')
     <style>
     .mp-related { margin: 32px 0 16px; padding: 0; }
     .mp-related__head {
@@ -1500,6 +1509,7 @@
         .mp-related__card-price { font-size: 15px; }
     }
     </style>
+    @endpush
 
     <script>
     (function () {
@@ -1568,6 +1578,7 @@
 @endif
 
 @if((!empty($sameStoreOffers) && $sameStoreOffers->count() > 0) || (!empty($otherStoreOffers) && $otherStoreOffers->count() > 0))
+    @push('styles')
     <style>
     .mp-show-offers {
         margin: 32px 0 16px;
@@ -1640,6 +1651,7 @@
     }
     .mp-show-offers__scroll .mp-card { height: 100%; }
     </style>
+    @endpush
 @endif
 
 @include('marketplace.partials.recently-viewed', ['recentlyViewed' => $recentlyViewed ?? collect()])

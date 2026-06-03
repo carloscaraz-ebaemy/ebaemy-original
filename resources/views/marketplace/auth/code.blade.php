@@ -41,6 +41,7 @@
     </div>
 </div>
 
+@push('styles')
 <style>
 .mp-auth-wrap { max-width: 460px; margin: 32px auto 64px; padding: 0 16px; }
 .mp-auth-card {
@@ -60,4 +61,5 @@
 .mp-auth-submit:hover { filter: brightness(1.05); }
 .mp-auth-footer { margin: 18px 0 0; font-size: 13px; color: #64748b; line-height: 1.5; }
 </style>
+@endpush
 @endsection

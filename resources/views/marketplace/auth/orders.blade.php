@@ -58,6 +58,7 @@
     @endif
 </div>
 
+@push('styles')
 <style>
 .mp-orders-wrap { max-width: 760px; margin: 32px auto 64px; padding: 0 16px; }
 .mp-orders-head { display: flex; align-items: center; gap: 14px; margin-bottom: 22px; flex-wrap: wrap; }
@@ -83,4 +84,5 @@
 .mp-order-card__total { margin: 0; font-size: 17px; font-weight: 700; color: #0f172a; }
 .mp-order-card__meta { margin: 0; font-size: 13px; color: #64748b; }
 </style>
+@endpush
 @endsection
