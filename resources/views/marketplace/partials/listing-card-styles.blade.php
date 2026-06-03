@@ -302,13 +302,16 @@
         .mp-card-coupon-badge span { display: none; } /* solo emoji en mobile */
     }
 
-    /* Pie de card: entrega + stock disponible (estilo marketplace) */
+    /* Pie de card: entrega + stock disponible (estilo marketplace).
+       margin-top:auto lo fija al FONDO de la card para que todos los pies
+       de una fila queden alineados (las cards se estiran a igual altura, y
+       las de descuento traen filas extra de chip + ahorro). */
     .mp-card-foot {
         display: flex;
         align-items: center;
         gap: 12px;
         flex-wrap: wrap;
-        margin-top: 10px;
+        margin-top: auto;
         padding-top: 9px;
         border-top: 1px solid #f0f1f3;
         font-size: 11px;
