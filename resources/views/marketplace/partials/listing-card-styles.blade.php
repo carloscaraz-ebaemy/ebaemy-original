@@ -302,28 +302,6 @@
         .mp-card-coupon-badge span { display: none; } /* solo emoji en mobile */
     }
 
-    /* Pie de card: entrega + stock disponible (estilo marketplace).
-       margin-top:auto lo fija al FONDO de la card para que todos los pies
-       de una fila queden alineados (las cards se estiran a igual altura, y
-       las de descuento traen filas extra de chip + ahorro). */
-    .mp-card-foot {
-        display: flex;
-        align-items: center;
-        gap: 12px;
-        flex-wrap: wrap;
-        margin-top: auto;
-        padding-top: 9px;
-        border-top: 1px solid #f0f1f3;
-        font-size: 11px;
-        font-weight: 500;
-        color: #6b7280;
-    }
-    .mp-card-foot-item { display: inline-flex; align-items: center; gap: 4px; }
-    .mp-card-foot-item svg { width: 13px; height: 13px; flex-shrink: 0; color: #9ca3af; }
-    @media (max-width: 640px) {
-        .mp-card-foot { gap: 8px; font-size: 10px; margin-top: 8px; padding-top: 7px; }
-        .mp-card-foot-item svg { width: 12px; height: 12px; }
-    }
 
     /* Grid 2 cols en móvil, 4-5 cols en desktop */
     .mp-grid {
