@@ -97,6 +97,7 @@
         </span>
         <span class="mp-coupons-expiring-banner__arrow"></span>
     </a>
+    @push('styles')
     <style>
     .mp-coupons-expiring-banner {
         display: flex;
@@ -160,6 +161,7 @@
         .mp-coupons-expiring-banner__icon { font-size: 20px; }
     }
     </style>
+    @endpush
 @endif
 
 @if($soonestOfferEnd)
@@ -171,6 +173,7 @@
             — ¡aprovecha antes que se acabe!
         </span>
     </div>
+    @push('styles')
     <style>
     .mp-offers-urgency-banner {
         display: flex; align-items: center; gap: 10px;
@@ -198,6 +201,7 @@
         .mp-offers-urgency-banner__icon { font-size: 18px; }
     }
     </style>
+    @endpush
     <script>
     (function () {
         var banner = document.querySelector('.mp-offers-urgency-banner');
@@ -251,6 +255,7 @@
         </div>
     </div>
 
+    @push('styles')
     <style>
     .mp-bulk-toggle-row {
         display: flex; align-items: center; gap: 12px;
@@ -351,6 +356,7 @@
         .mp-bulk-bar__add { padding: 12px 16px; }
     }
     </style>
+    @endpush
 
     <script>
     (function () {
@@ -544,6 +550,7 @@
         </div> {{-- /.mp-offers-body --}}
     </section>
 
+    @push('styles')
     <style>
         .mp-offers-block { padding: 16px 0 8px; }
         .mp-offers-head { display:flex; align-items:flex-end; justify-content:space-between; gap:12px; margin-bottom:12px; flex-wrap: wrap; }
@@ -665,6 +672,7 @@
             .mp-offers-sub { display: none; }
         }
     </style>
+    @endpush
 
     <script>
     // Countdown ligero para los timers de "Termina en". Update cada minuto;
@@ -1189,6 +1197,7 @@
      para que las 4 vistas (home, categoría oficial, categoría legacy,
      tienda) compartan exactamente el mismo CSS. --}}
 
+@push('styles')
 <style>
     /* ───────────── Barra superior mobile [Ordenar][Filtros] ─────────────
        Solo visible en mobile (<=768px). En desktop el ordenar vive en
@@ -1302,6 +1311,7 @@
         .mp-filters-card.is-open { display: block; }
     }
 </style>
+@endpush
 
 {{-- Sticky bottom mobile: solo Carrito.
      El botn Filtrar y el dropdown Ordenar viven ahora en
