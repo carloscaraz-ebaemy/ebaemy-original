@@ -1136,6 +1136,11 @@
             <div class="mp-pag">
                 {{ $listings->links('pagination::bootstrap-4') }}
             </div>
+
+            {{-- Fila de confianza bajo el grid (envíos / compra segura / soporte /
+                 garantía). Partial reutilizable; replicar el @include en
+                 category/tenant si se quiere también ahí. --}}
+            @include('marketplace.partials.grid-trust-row')
         @endif
     </div>
 </div>
