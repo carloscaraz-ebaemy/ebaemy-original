@@ -28,12 +28,9 @@
                     </template>
                 </el-table-column>
 
-                <el-table-column label="Descuento" width="130">
+                <el-table-column label="Descuento" width="150">
                     <template slot-scope="s">
-                        <span class="dr-discount-badge">
-                            <span v-if="s.row.discount_type === 'percentage'">{{ s.row.discount_value }}%</span>
-                            <span v-else>S/ {{ Number(s.row.discount_value).toFixed(2) }}</span>
-                        </span>
+                        <span class="dr-discount-badge">{{ discountSummary(s.row) }}</span>
                     </template>
                 </el-table-column>
 
@@ -261,6 +258,70 @@
                         </div>
                     </template>
 
+                    <!-- Tipo: Lleva N paga M (2x1, 3x2) -->
+                    <template v-if="form.type === 'nxm'">
+                        <div class="dr-condition-card">
+                            <div class="dr-condition-icon">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#EC4899" stroke-width="2"><path d="M20 12v6a2 2 0 01-2 2H6a2 2 0 01-2-2v-6"/><rect x="2" y="7" width="20" height="5"/><path d="M12 22V7M12 7H7.5a2.5 2.5 0 010-5C11 2 12 7 12 7zM12 7h4.5a2.5 2.5 0 000-5C13 2 12 7 12 7z"/></svg>
+                            </div>
+                            <div class="dr-condition-body">
+                                <label class="dr-condition-label">Lleva N, paga M</label>
+                                <div class="d-flex align-items-center gap-2 flex-wrap">
+                                    <span>Lleva</span>
+                                    <el-input-number v-model="form.trigger.buy_qty" :min="2" :precision="0" controls-position="right" style="width:120px"></el-input-number>
+                                    <span>paga</span>
+                                    <el-input-number v-model="form.trigger.pay_qty" :min="1" :max="(form.trigger.buy_qty || 2) - 1" :precision="0" controls-position="right" style="width:120px"></el-input-number>
+                                </div>
+                                <span class="dr-condition-hint">
+                                    Ej: <strong>2x1</strong> = lleva 2 paga 1 · <strong>3x2</strong> = lleva 3 paga 2.
+                                    Por cada {{ form.trigger.buy_qty || 2 }} unidades, {{ Math.max(0,(form.trigger.buy_qty||2)-(form.trigger.pay_qty||1)) }} sale(n) gratis.
+                                </span>
+                            </div>
+                        </div>
+                    </template>
+
+                    <!-- Tipo: Segunda unidad con descuento -->
+                    <template v-if="form.type === 'second_unit'">
+                        <div class="dr-condition-card">
+                            <div class="dr-condition-icon">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#0EA5E9" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M9.5 9a2.5 2.5 0 015 0c0 1.5-1.5 2.5-2.5 3.5L9 15h6"/></svg>
+                            </div>
+                            <div class="dr-condition-body">
+                                <label class="dr-condition-label">Descuento en la 2da unidad</label>
+                                <div class="d-flex align-items-center gap-2 flex-wrap">
+                                    <span>Cada</span>
+                                    <el-input-number v-model="form.trigger.every" :min="2" :precision="0" controls-position="right" style="width:110px"></el-input-number>
+                                    <span>unidades, 1 con</span>
+                                    <el-input-number v-model="form.trigger.percent" :min="1" :max="100" :precision="0" controls-position="right" style="width:120px"></el-input-number>
+                                    <span class="dr-currency">%</span>
+                                    <span>dcto</span>
+                                </div>
+                                <span class="dr-condition-hint">Ej: cada 2 unidades, la 2da con 50% → "2da unidad a mitad de precio".</span>
+                            </div>
+                        </div>
+                    </template>
+
+                    <!-- Tipo: Descuentos progresivos por tramos -->
+                    <template v-if="form.type === 'progressive'">
+                        <div class="dr-condition-card" style="flex-direction:column;align-items:stretch">
+                            <label class="dr-condition-label">Tramos de descuento (se aplica el tramo más alto alcanzado)</label>
+                            <div v-for="(tier, i) in form.trigger.tiers" :key="i" class="d-flex align-items-center gap-2 flex-wrap mb-2" style="padding:8px;border:1px solid #eef2ff;border-radius:8px;background:#fafbff">
+                                <span>Desde</span>
+                                <el-input-number v-model="tier.min_qty" :min="1" :precision="0" controls-position="right" style="width:120px" placeholder="cantidad"></el-input-number>
+                                <span>und →</span>
+                                <el-select v-model="tier.type" style="width:130px">
+                                    <el-option label="Porcentaje" value="percentage"></el-option>
+                                    <el-option label="Monto fijo" value="fixed"></el-option>
+                                </el-select>
+                                <el-input-number v-model="tier.value" :min="0" :precision="2" controls-position="right" style="width:130px"></el-input-number>
+                                <span>{{ tier.type === 'percentage' ? '%' : 'S/' }}</span>
+                                <el-button type="danger" size="mini" icon="el-icon-delete" circle @click="removeTier(i)" v-if="form.trigger.tiers.length > 1"></el-button>
+                            </div>
+                            <el-button size="small" icon="el-icon-plus" plain @click="addTier" style="align-self:flex-start">Agregar tramo</el-button>
+                            <span class="dr-condition-hint">Ej: desde 3 und → 10%, desde 6 und → 20%. El descuento aplica sobre las líneas en el alcance elegido.</span>
+                        </div>
+                    </template>
+
                     <el-form-item label="Aplica a" prop="applies_to" :rules="[{required:true}]" class="mt-3">
                         <el-radio-group v-model="form.applies_to" class="dr-applies-group" @change="onAppliesToChange">
                             <el-radio-button label="all">Todo el carrito</el-radio-button>
@@ -323,8 +384,8 @@
                     </el-form-item>
                 </div>
 
-                <!-- SECCION 3: Descuento -->
-                <div class="dr-section">
+                <!-- SECCION 3: Descuento (no aplica a tipos por unidad/tramo) -->
+                <div class="dr-section" v-if="!['nxm','second_unit','progressive'].includes(form.type)">
                     <div class="dr-section-header">
                         <span class="dr-section-number">3</span>
                         <h4 class="dr-section-title">Descuento</h4>
@@ -490,10 +551,13 @@ export default {
                     channel: 'Solo para un canal de venta especifico',
                     flash_sale: 'Oferta por tiempo limitado',
                     bundle: 'Aplica al comprar un pack/conjunto',
+                    nxm: 'Lleva N unidades y paga solo M (2x1, 3x2)',
+                    second_unit: 'Descuento en la 2da (o k-esima) unidad',
+                    progressive: 'Mas compras = mas ahorro, por tramos',
                 };
                 this.types = (r.data.types || []).map(t => ({
                     ...t,
-                    icon: { volume: '📦', auto: '💰', channel: '🏪', flash_sale: '⚡', bundle: '🎁' }[t.id] || '',
+                    icon: { volume: '📦', auto: '💰', channel: '🏪', flash_sale: '⚡', bundle: '🎁', nxm: '🎉', second_unit: '2️⃣', progressive: '📈' }[t.id] || '',
                     desc: descs[t.id] || '',
                 }));
                 this.channels = r.data.channels;
@@ -569,7 +633,23 @@ export default {
                 .finally(() => { this.itemsLoading = false; });
         },
         onTypeChange() {
-            this.form.trigger = { min_quantity: 3, min_amount: 100 };
+            var t = this.form.type;
+            if (t === 'nxm') {
+                this.form.trigger = { buy_qty: 2, pay_qty: 1 };
+            } else if (t === 'second_unit') {
+                this.form.trigger = { every: 2, percent: 50 };
+            } else if (t === 'progressive') {
+                this.form.trigger = { tiers: [{ min_qty: 3, type: 'percentage', value: 10 }] };
+            } else {
+                this.form.trigger = { min_quantity: 3, min_amount: 100 };
+            }
+        },
+        addTier() {
+            if (!this.form.trigger.tiers) this.$set(this.form.trigger, 'tiers', []);
+            this.form.trigger.tiers.push({ min_qty: 1, type: 'percentage', value: 5 });
+        },
+        removeTier(i) {
+            this.form.trigger.tiers.splice(i, 1);
         },
         save() {
             this.$refs.ruleForm.validate(valid => {
@@ -618,10 +698,24 @@ export default {
                 }).catch(() => {});
         },
         typeLabel(type) {
-            return { volume: 'Por volumen', auto: 'Automatico', channel: 'Por canal', flash_sale: 'Flash Sale', bundle: 'Pack/Bundle' }[type] || type;
+            return { volume: 'Por volumen', auto: 'Automatico', channel: 'Por canal', flash_sale: 'Flash Sale', bundle: 'Pack/Bundle', nxm: 'Lleva N paga M', second_unit: '2da unidad', progressive: 'Progresivo' }[type] || type;
         },
         typeColor(type) {
-            return { volume: 'primary', auto: 'success', channel: 'warning', flash_sale: 'danger', bundle: '' }[type] || '';
+            return { volume: 'primary', auto: 'success', channel: 'warning', flash_sale: 'danger', bundle: '', nxm: 'danger', second_unit: 'primary', progressive: 'success' }[type] || '';
+        },
+        discountSummary(row) {
+            var tj = row.trigger_json || {};
+            if (row.type === 'nxm') {
+                return 'Lleva ' + (tj.buy_qty || 2) + ' paga ' + (tj.pay_qty || 1);
+            }
+            if (row.type === 'second_unit') {
+                return (tj.percent || 0) + '% en la ' + (tj.every || 2) + 'ª und';
+            }
+            if (row.type === 'progressive') {
+                return (tj.tiers ? tj.tiers.length : 0) + ' tramo(s)';
+            }
+            if (row.discount_type === 'percentage') return row.discount_value + '%';
+            return 'S/ ' + Number(row.discount_value).toFixed(2);
         },
         appliesToLabel(v) {
             return { all: 'Todo', item: 'Producto', bundle: 'Pack', category: 'Categoria' }[v] || v;

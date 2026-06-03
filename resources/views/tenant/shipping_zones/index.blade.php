@@ -22,6 +22,19 @@
             <strong>recojo en tienda</strong> siempre tiene costo 0.
         </p>
 
+        {{-- Envío gratis por umbral de monto --}}
+        <div class="border rounded p-3 mb-3" style="background:#f0fdf4;border-color:#bbf7d0!important">
+            <div class="d-flex align-items-center flex-wrap" style="gap:10px">
+                <strong style="color:#166534">🚚 Envío gratis a domicilio desde:</strong>
+                <div class="input-group input-group-sm" style="width:190px">
+                    <span class="input-group-text">S/</span>
+                    <input type="number" min="0" step="0.01" id="sz-free-threshold" class="form-control" placeholder="0.00">
+                </div>
+                <button type="button" class="btn btn-sm btn-success" id="sz-free-save" onclick="sz.saveSettings()">Guardar</button>
+                <small class="text-muted">Deja 0 o vacío para desactivar. Aplica solo a entrega a domicilio (no a recojo).</small>
+            </div>
+        </div>
+
         <table class="table table-sm table-hover">
             <thead class="table-light">
                 <tr>
@@ -129,6 +142,30 @@ window.sz = (function() {
         zones = rz;
         districts = rd.districts || [];
         renderTable();
+        // Precargar umbral de envío gratis (viene en el mismo /tables)
+        const el = document.getElementById('sz-free-threshold');
+        if (el) el.value = (rd.free_shipping_threshold > 0) ? rd.free_shipping_threshold : '';
+    }
+
+    async function saveSettings() {
+        const btn = document.getElementById('sz-free-save');
+        const el = document.getElementById('sz-free-threshold');
+        btn.disabled = true;
+        try {
+            // Reusa la ruta POST /shipping-zones con flag _settings (sin rutas nuevas)
+            const r = await fetch('/shipping-zones', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': getCsrf(), 'Accept': 'application/json' },
+                body: JSON.stringify({ _settings: true, free_shipping_threshold: parseFloat(el.value) || 0 }),
+            }).then(r => r.json());
+            if (r.success) {
+                btn.textContent = '✓ Guardado';
+                setTimeout(() => { btn.textContent = 'Guardar'; }, 1500);
+            } else {
+                alert(r.message || 'Error al guardar');
+            }
+        } catch(e) { alert('Error de conexión'); }
+        btn.disabled = false;
     }
 
     function renderTable() {
@@ -263,7 +300,7 @@ window.sz = (function() {
 
     loadData();
 
-    return { openCreate, edit, save, remove, toggleDistrict };
+    return { openCreate, edit, save, remove, toggleDistrict, saveSettings };
 })();
 </script>
 @endsection

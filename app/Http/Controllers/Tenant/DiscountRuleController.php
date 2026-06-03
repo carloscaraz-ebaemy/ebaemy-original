@@ -65,11 +65,14 @@ class DiscountRuleController extends Controller
             'channels'   => SalesChannel::active()->get(['id', 'name', 'type', 'code']),
             'categories' => Category::orderBy('name')->get(['id', 'name']),
             'types'      => [
-                ['id' => 'volume',     'label' => 'Descuento por volumen'],
-                ['id' => 'auto',       'label' => 'Descuento automático (monto mínimo)'],
-                ['id' => 'channel',    'label' => 'Descuento por canal'],
-                ['id' => 'flash_sale', 'label' => 'Flash Sale (tiempo limitado)'],
-                ['id' => 'bundle',     'label' => 'Descuento por pack/bundle'],
+                ['id' => 'volume',      'label' => 'Descuento por volumen'],
+                ['id' => 'auto',        'label' => 'Descuento automático (monto mínimo)'],
+                ['id' => 'channel',     'label' => 'Descuento por canal'],
+                ['id' => 'flash_sale',  'label' => 'Flash Sale (tiempo limitado)'],
+                ['id' => 'bundle',      'label' => 'Descuento por pack/bundle'],
+                ['id' => 'nxm',         'label' => 'Lleva N, paga M (2x1, 3x2)'],
+                ['id' => 'second_unit', 'label' => 'Segunda unidad con descuento'],
+                ['id' => 'progressive', 'label' => 'Descuentos progresivos (por tramos)'],
             ],
         ]);
     }
@@ -104,11 +107,15 @@ class DiscountRuleController extends Controller
         // FIX BUG #2: limitar discount_value según tipo
         $maxDiscount = $request->discount_type === 'percentage' ? 100 : 99999;
 
+        // Tipos por unidad/tramo (nxm/second_unit/progressive) no usan discount_value
+        // simple: sus parámetros viven en trigger_json. Se relaja la exigencia.
+        $unitTypes = in_array($request->type, ['nxm', 'second_unit', 'progressive'], true);
+
         $request->validate([
             'name'           => 'required|string|max:100',
-            'type'           => 'required|in:volume,auto,channel,flash_sale,bundle',
-            'discount_type'  => 'required|in:percentage,fixed',
-            'discount_value' => "required|numeric|min:0.01|max:{$maxDiscount}",
+            'type'           => 'required|in:volume,auto,channel,flash_sale,bundle,nxm,second_unit,progressive',
+            'discount_type'  => 'nullable|in:percentage,fixed',
+            'discount_value' => ($unitTypes ? 'nullable' : 'required') . "|numeric|min:0|max:{$maxDiscount}",
             'applies_to'     => 'required|in:all,item,bundle,category',
             'priority'       => 'integer|min:0|max:999',
             'max_uses'       => 'nullable|integer|min:0',

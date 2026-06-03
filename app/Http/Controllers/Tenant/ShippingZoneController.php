@@ -37,11 +37,30 @@ class ShippingZoneController extends Controller
             ->orderBy('description')
             ->get(['id', 'description', 'province_id']);
 
-        return ['districts' => $districts];
+        // Umbral de envío gratis (Configuration del tenant) — el front lo usa
+        // para precargar el campo sin necesitar un endpoint extra.
+        $freeShipThreshold = (float) (\App\Models\Tenant\Configuration::first()->ecommerce_free_shipping_threshold ?? 0);
+
+        return ['districts' => $districts, 'free_shipping_threshold' => $freeShipThreshold];
     }
 
     public function store(Request $request)
     {
+        // Guardado del umbral de envío gratis (reusa esta ruta POST con flag
+        // _settings para no añadir rutas nuevas). 0/null = desactivado.
+        if ($request->boolean('_settings')) {
+            $data = $request->validate([
+                'free_shipping_threshold' => 'nullable|numeric|min:0|max:9999999',
+            ]);
+            $config = \App\Models\Tenant\Configuration::first();
+            if (!$config) {
+                return ['success' => false, 'message' => 'No existe configuración del tenant'];
+            }
+            $config->ecommerce_free_shipping_threshold = ((float) ($data['free_shipping_threshold'] ?? 0)) ?: null;
+            $config->save();
+            return ['success' => true, 'message' => 'Umbral de envío gratis actualizado'];
+        }
+
         $data = $request->validate([
             'name'           => 'required|string|max:80',
             'cost'           => 'required|numeric|min:0',
