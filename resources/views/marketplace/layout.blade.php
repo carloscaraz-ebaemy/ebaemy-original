@@ -63,8 +63,13 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    @php
+        // Cache-busting por filemtime: el navegador recarga el CSS solo cuando
+        // el archivo cambia (evita "deployé pero no veo el cambio" por caché).
+        $mpCssVer = @filemtime(public_path('css/marketplace.css')) ?: null;
+    @endphp
     <link rel="stylesheet" href="{{ asset('css/design-tokens.css') }}">
-    <link rel="stylesheet" href="{{ asset('css/marketplace.css') }}">
+    <link rel="stylesheet" href="{{ asset('css/marketplace.css') }}{{ $mpCssVer ? '?v=' . $mpCssVer : '' }}">
 
     {{-- Estilos de cards/grid/paginador compartidos por las 4 vistas que
          renderizan listings (home, categoría oficial, categoría legacy,

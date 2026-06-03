@@ -145,7 +145,12 @@
                         @if($cardHasDiscount)
                             <span class="mp-card-price-old">S/ {{ number_format($listing->original_price, 2) }}</span>
                             @if(!empty($listing->discount_pct))
-                                <span class="mp-card-price-saving">Ahorra S/ {{ number_format($listing->original_price - $listing->display_price, 2) }}</span>
+                                <span class="mp-card-price-pct">-{{ $listing->discount_pct }}%</span>
+                                {{-- Ahorro en píldora verde (lo más persuasivo). El wrapper
+                                     fuerza el salto de línea dentro del flex-wrap del price-info. --}}
+                                <span class="mp-card-saving-line">
+                                    <span class="mp-card-price-saving">Ahorras S/ {{ number_format($listing->original_price - $listing->display_price, 2) }}</span>
+                                </span>
                             @endif
                         @endif
                     @endif

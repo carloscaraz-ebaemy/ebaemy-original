@@ -837,13 +837,48 @@ button { font-family: inherit; cursor: pointer; }
     display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px;
     flex: 1; min-width: 0;
 }
-.mp-card-price-saving {
-    display: inline-block;
+/* Chip rojo "-10%" junto al precio — refuerza el descuento en el punto
+   exacto donde el ojo lee el precio (además del badge ⚡ de la esquina). */
+.mp-card-price-pct {
+    display: inline-flex;
+    align-items: center;
+    padding: 1px 6px;
+    background: #fee2e2;
+    color: #dc2626;
+    border-radius: 6px;
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: .2px;
+    line-height: 1.4;
+}
+/* Salto de línea para que la píldora de ahorro caiga debajo del precio
+   dentro del flex-wrap de .mp-card-price-info (sin estirar el fondo). */
+.mp-card-saving-line {
+    flex-basis: 100%;
     width: 100%;
-    font-size: 10.5px;
-    font-weight: 500;
-    color: var(--mp-muted, #9ca3af);
-    margin-top: 2px;
+    margin-top: 5px;
+}
+/* Ahorro en píldora VERDE en negrita — el verde comunica "ganas dinero".
+   Es el elemento más persuasivo de la card en oferta. */
+.mp-card-price-saving {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    width: fit-content;
+    max-width: 100%;
+    padding: 3px 9px;
+    background: #ecfdf5;
+    border: 1px solid #a7f3d0;
+    color: #047857;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 800;
+    line-height: 1.3;
+    letter-spacing: .2px;
+}
+.mp-card-price-saving::before {
+    content: '💰';
+    font-size: 11px;
 }
 /* Precio personalizado: el comprador logueado ve cuanto pagaria con
    su cupon de plataforma aplicado. Pill verde para que destaque. */
