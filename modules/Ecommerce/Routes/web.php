@@ -214,6 +214,7 @@ Route::middleware(['check.permission', 'locked.tenant', 'check.email.verified', 
     Route::middleware('auth')->group(function () {
         Route::get('flash-sales', 'FlashSaleController@index')->name('tenant.ecommerce.flash_sales');
         Route::get('flash-sales/records', 'FlashSaleController@records');
+        Route::post('flash-sales/price-check', 'FlashSaleController@priceCheck');
         Route::post('flash-sales', 'FlashSaleController@store');
         Route::put('flash-sales/{id}', 'FlashSaleController@update');
         Route::post('flash-sales/{id}/send-whatsapp', 'FlashSaleController@sendWhatsApp');

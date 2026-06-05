@@ -5,6 +5,8 @@ namespace Modules\Ecommerce\Http\Controllers;
 use App\Http\Controllers\Controller;
 use App\Models\Tenant\FlashSale;
 use App\Models\Tenant\Item;
+use App\Models\Tenant\PricingSettings;
+use App\Services\Tenant\Pricing\PriceCalculator;
 use App\Services\Tenant\WhatsAppOfferCampaignService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
@@ -61,6 +63,72 @@ class FlashSaleController extends Controller
             ]);
             return response()->json(['data' => [], 'error' => 'No se pudieron cargar las flash sales']);
         }
+    }
+
+    /**
+     * Evalúa la salud del margen de cada precio flash propuesto, reusando el
+     * mismo PriceCalculator que el chip del formulario de producto. Así el
+     * vendedor ve si una oferta flash queda bajo costo o bajo el margen mínimo
+     * (piso) ANTES de guardar.
+     *
+     * Body: { items: [{ id, flash_price }] }
+     * Respuesta: { data: { <id>: { status, margin_actual_pct, floor_price, ... } } }
+     */
+    public function priceCheck(Request $request)
+    {
+        $rows = $request->input('items', []);
+        if (!is_array($rows) || empty($rows)) {
+            return response()->json(['data' => []]);
+        }
+
+        $ids      = collect($rows)->pluck('id')->filter()->unique()->values();
+        $models   = Item::whereIn('id', $ids)->get()->keyBy('id');
+        $settings = PricingSettings::find(1);
+
+        $out = [];
+        foreach ($rows as $row) {
+            $id    = $row['id'] ?? null;
+            $flash = isset($row['flash_price']) ? (float) $row['flash_price'] : null;
+            $item  = $id !== null ? ($models[$id] ?? null) : null;
+            if (!$item || $flash === null) {
+                continue;
+            }
+
+            $cost = (float) $item->purchase_unit_price;
+            if ($cost <= 0) {
+                // Sin costo no se puede validar margen — el front muestra "sin costo".
+                $out[$id] = ['has_cost' => false];
+                continue;
+            }
+
+            // Margen mínimo efectivo: override del item > override de categoría > default del tenant.
+            $minMargin = $item->min_margin_pct !== null
+                ? (float) $item->min_margin_pct
+                : ($settings ? $settings->minMarginFor($item->category_id !== null ? (int) $item->category_id : null) : 0.0);
+
+            $snap = PriceCalculator::snapshot(
+                $cost,
+                (float) ($item->landed_cost_extra_pct ?? 0),
+                null,            // target_margin: no aplica a flash (solo piso/costo)
+                $minMargin,
+                $flash,          // sale_price = precio flash propuesto
+                0,
+                null
+            );
+
+            $out[$id] = [
+                'has_cost'          => true,
+                'status'            => $snap['status'],   // ok | warn_below_min | block_below_cost
+                'margin_actual_pct' => round($snap['margin_actual_pct'], 1),
+                'profit_per_unit'   => round($snap['profit_per_unit'], 2),
+                'floor_price'       => round($snap['floor_price'], 2),
+                'effective_cost'    => round($snap['effective_cost'], 2),
+                'min_margin_pct'    => round($minMargin, 2),
+                'liquidation_mode'  => (bool) ($item->liquidation_mode ?? false),
+            ];
+        }
+
+        return response()->json(['data' => $out]);
     }
 
     public function store(Request $request)

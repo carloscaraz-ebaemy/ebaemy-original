@@ -38,7 +38,9 @@
                         </el-tooltip>
                         <el-switch v-model="sale.active" @change="toggleActive(sale)" active-color="#16a34a"></el-switch>
                         <el-tooltip content="Editar" placement="top">
-                            <button class="fs-btn-icon" @click="openEdit(sale)"><i class="fa fa-pencil"></i></button>
+                            <button class="fs-btn-icon" @click="openEdit(sale)" aria-label="Editar">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+                            </button>
                         </el-tooltip>
                         <el-tooltip content="Eliminar" placement="top">
                             <button class="fs-btn-icon fs-btn-icon--danger" @click="remove(sale)"><i class="fa fa-trash"></i></button>
@@ -176,7 +178,8 @@
                                     </td>
                                     <td class="text-center text-muted" data-label="Precio normal"><del>S/ {{ Number(item.regular_price).toFixed(2) }}</del></td>
                                     <td class="text-center" data-label="Precio flash">
-                                        <el-input-number v-model="item.flash_price" :min="0.01" :precision="2" :step="1" size="small" class="fs-flash-input"></el-input-number>
+                                        <el-input-number v-model="item.flash_price" :min="0.01" :precision="2" :step="1" size="small" class="fs-flash-input" @change="scheduleMarginCheck"></el-input-number>
+                                        <div v-if="marginChip(item)" class="fs-margin-chip" :class="'is-' + marginChip(item).status">{{ marginChip(item).text }}</div>
                                     </td>
                                     <td class="text-center" data-label="Descuento">
                                         <span class="fs-discount-badge" v-if="item.regular_price > 0">-{{ discount(item) }}%</span>
@@ -211,6 +214,7 @@ export default {
         return {
             sales: [], loading: false, saving: false, dialogVisible: false,
             itemSearch: '', _allItems: null,
+            marginInfo: {}, _marginTimer: null,
             form: { id: null, title: '', subtitle: '', starts_at: null, ends_at: null, active: true, items: [] }
         };
     },
@@ -225,6 +229,7 @@ export default {
         openCreate() {
             this.form = { id: null, title: '', subtitle: '', starts_at: null, ends_at: null, active: true, items: [] };
             this.itemSearch = '';
+            this.marginInfo = {};
             this.dialogVisible = true;
         },
         openEdit(row) {
@@ -234,12 +239,37 @@ export default {
                 items: row.items.map(i => ({ id: i.id, description: i.description, regular_price: i.regular_price, flash_price: i.flash_price, image_url: i.image_url || null }))
             };
             this.itemSearch = '';
+            this.marginInfo = {};
             this.dialogVisible = true;
+            this.checkMargins();
         },
         save() {
             if (!this.form.title) { this.$message.warning('Ingresa el titulo'); return; }
             if (!this.form.ends_at) { this.$message.warning('Ingresa la fecha de fin'); return; }
             if (!this.form.items.length) { this.$message.warning('Agrega al menos un producto'); return; }
+
+            // Guardrail: avisar si algún precio flash queda bajo costo o bajo el
+            // margen mínimo del producto (salvo que el producto esté en liquidación).
+            const risky = this.form.items.filter(i => {
+                const m = this.marginInfo[i.id];
+                return m && m.has_cost !== false && !m.liquidation_mode
+                    && (m.status === 'block_below_cost' || m.status === 'warn_below_min');
+            });
+            if (risky.length) {
+                const loss = risky.filter(i => this.marginInfo[i.id].status === 'block_below_cost').length;
+                const msg = loss > 0
+                    ? `${loss} producto(s) quedan POR DEBAJO DEL COSTO (pérdida) y ${risky.length - loss} bajo el margen mínimo.`
+                    : `${risky.length} producto(s) quedan bajo el margen mínimo (piso).`;
+                this.$confirm(msg + ' ¿Guardar la oferta de todos modos?', 'Revisa el margen', {
+                    type: 'warning',
+                    confirmButtonText: 'Guardar igual',
+                    cancelButtonText: 'Revisar precios'
+                }).then(() => this._doSave()).catch(() => {});
+                return;
+            }
+            this._doSave();
+        },
+        _doSave() {
             this.saving = true;
             const payload = {
                 title: this.form.title, subtitle: this.form.subtitle,
@@ -313,12 +343,39 @@ export default {
                 image_url: item.image_url_small || item.image_url || null,
             });
             this.itemSearch = '';
+            this.scheduleMarginCheck();
         },
         onImgError(e) {
             // Fallback si la imagen del producto no carga
             e.target.src = '/logo/imagen-no-disponible.jpg';
         },
-        removeItem(idx) { this.form.items.splice(idx, 1); },
+        // ─── Guardrail de margen: reusa el mismo PriceCalculator del form de producto ───
+        scheduleMarginCheck() {
+            clearTimeout(this._marginTimer);
+            this._marginTimer = setTimeout(() => this.checkMargins(), 350);
+        },
+        checkMargins() {
+            const items = this.form.items
+                .filter(i => i.id && Number(i.flash_price) > 0)
+                .map(i => ({ id: i.id, flash_price: i.flash_price }));
+            if (!items.length) { this.marginInfo = {}; return; }
+            this.$http.post('/ecommerce/flash-sales/price-check', { items })
+                .then(r => { this.marginInfo = (r.data && r.data.data) || {}; })
+                .catch(() => { /* silencioso: el chip simplemente no se muestra */ });
+        },
+        // Devuelve { status, text } para pintar el chip de cada producto, o null.
+        marginChip(item) {
+            const m = this.marginInfo[item.id];
+            if (!m) return null;
+            if (m.has_cost === false) return { status: 'nocost', text: 'Sin costo' };
+            if (m.liquidation_mode && (m.status === 'warn_below_min' || m.status === 'block_below_cost')) {
+                return { status: 'liquidation', text: 'Liquidación' };
+            }
+            if (m.status === 'block_below_cost') return { status: 'loss', text: 'Pérdida' };
+            if (m.status === 'warn_below_min')  return { status: 'warn', text: 'Margen ' + m.margin_actual_pct + '%' };
+            return { status: 'ok', text: 'Margen ' + m.margin_actual_pct + '%' };
+        },
+        removeItem(idx) { this.form.items.splice(idx, 1); this.scheduleMarginCheck(); },
         discount(item) {
             if (!item.regular_price || item.regular_price <= 0) return 0;
             return Math.round(((item.regular_price - item.flash_price) / item.regular_price) * 100);
@@ -395,6 +452,14 @@ export default {
 }
 
 .fs-discount-badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 700; background: #fef2f2; color: #ef4444; }
+
+/* Chip de salud del margen del precio flash (mismo criterio que el form de producto) */
+.fs-margin-chip { display: inline-block; margin-top: 5px; padding: 1px 7px; border-radius: 8px; font-size: 10.5px; font-weight: 700; line-height: 1.6; white-space: nowrap; }
+.fs-margin-chip.is-ok          { background: #ecfdf3; color: #15803d; }
+.fs-margin-chip.is-warn        { background: #fffbeb; color: #b45309; }
+.fs-margin-chip.is-loss        { background: #fef2f2; color: #dc2626; }
+.fs-margin-chip.is-nocost,
+.fs-margin-chip.is-liquidation  { background: #f3f4f6; color: #6b7280; }
 
 .fs-empty-products { text-align: center; padding: 20px; color: #9ca3af; font-size: 13px; }
 
