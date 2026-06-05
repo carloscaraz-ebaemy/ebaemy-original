@@ -1388,24 +1388,38 @@
 .ie-items-dialog .el-dialog__body { padding: 14px 18px; }
 @media (max-width: 767px) {
     /* En mobile: dialog full-screen sin radios ni shadows raros.
-       max-height (NO height fijo): si el form es más corto que la pantalla el
-       dialog se ajusta a su contenido y NO deja espacio en blanco abajo; si es
-       más largo se topa con la pantalla y el body hace scroll. */
+       height:100vh da una altura DEFINIDA — imprescindible para que el body
+       (overflow:auto) contenga y scrollee el form en vez de desbordarse fuera
+       de la caja bajo la máscara. El blanco que dejaba cuando el contenido es
+       corto se resuelve abajo estirando la cadena flex hasta el form para que
+       el footer quede pegado al fondo. */
     .ie-items-dialog {
         margin: 0 !important;
         max-width: 100% !important;
+        width: 100% !important;
+        height: 100vh;
         max-height: 100vh;
         border-radius: 0 !important;
         display: flex !important;
         flex-direction: column;
     }
-    .ie-items-dialog .el-dialog__header { padding: 12px 14px; flex-shrink: 0; }
+    .ie-items-dialog .el-dialog__header { padding: 12px 14px; flex: 0 0 auto; }
     .ie-items-dialog .el-dialog__body {
         padding: 10px 14px 14px;
         overflow-y: auto;
         flex: 1 1 auto;
         min-height: 0;            /* permite encoger y hacer scroll dentro del flex */
+        display: flex;
+        flex-direction: column;
     }
+    /* Cadena flex body → tabs → pane → form: que el form llene el alto del body.
+       Así el footer sticky queda pegado abajo y NO se ve blanco con form corto;
+       con form largo, el body scrollea normal (el alto definido lo garantiza). */
+    .ie-items-dialog .el-tabs { flex: 1 1 auto; display: flex; flex-direction: column; min-height: 0; }
+    .ie-items-dialog .el-tabs__content { flex: 1 1 auto; min-height: 0; }
+    .ie-items-dialog .el-tab-pane { min-height: 100%; }
+    .ie-items-dialog form { display: flex; flex-direction: column; min-height: 100%; }
+    .ie-items-dialog .form-body { flex: 1 1 auto; }
     /* Header sections con menos padding */
     .mp-form-section { padding: 10px 12px !important; margin-bottom: 10px !important; }
     .mp-form-section__head h5 { font-size: 14px !important; }
