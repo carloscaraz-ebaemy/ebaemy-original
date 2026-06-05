@@ -10,10 +10,9 @@
                @open="create">
 
         <!-- Banner: edición rápida sobre el catálogo maestro + estado de canales -->
-        <div style="margin:-8px 0 12px;padding:10px 14px;background:#ecfdf5;border:1px solid #a7f3d0;border-radius:8px;display:flex;align-items:center;gap:10px;font-size:13px;flex-wrap:wrap">
-            <span style="font-size:18px;line-height:1">📚</span>
-            <div style="flex:1;min-width:240px;color:#065f46">
-                <strong>Edición rápida del catálogo.</strong> Cambios aquí afectan el producto maestro (inventario, facturación, tienda, marketplace).
+        <div style="margin:-6px 0 14px;padding:9px 12px;background:var(--ie-surface-sunken);border:1px solid var(--ie-border);border-radius:var(--ie-radius);display:flex;align-items:center;gap:12px;font-size:12.5px;flex-wrap:wrap">
+            <div style="flex:1;min-width:220px;color:var(--ie-text-muted)">
+                Los cambios afectan el <strong style="color:var(--ie-text)">producto maestro</strong>: inventario, tienda y marketplace.
             </div>
             <!-- Badges de estado: muestran de un vistazo dónde se está vendiendo
                  el producto. Se sincronizan automáticamente con los checkboxes
@@ -30,7 +29,7 @@
                     🌐 Marketplace
                 </span>
             </div>
-            <a v-if="form.id" :href="'/items#edit-' + form.id" style="color:#065f46;font-size:12px;font-weight:500;text-decoration:underline">
+            <a v-if="form.id" :href="'/items#edit-' + form.id" style="color:var(--ie-accent);font-size:12px;font-weight:600;text-decoration:none">
                 Abrir ficha completa →
             </a>
         </div>
@@ -52,10 +51,10 @@
                         <div class="ie-progress-banner__head">
                             <div class="ie-progress-banner__title">
                                 <span v-if="completionPercent === 100">
-                                    🎉 Producto listo para publicar
+                                    Producto listo para publicar
                                 </span>
                                 <span v-else>
-                                    ✨ Tu producto: <strong>{{ completionPercent }}%</strong> listo
+                                    Tu producto: <strong>{{ completionPercent }}%</strong> listo
                                 </span>
                             </div>
                             <div class="ie-progress-banner__bar">
@@ -83,8 +82,7 @@
                     <div class="form-body">
                         <!-- ━━━━━━━━━━ SECCIÓN: INFORMACIÓN BÁSICA ━━━━━━━━━━ -->
                         <div class="mp-form-section">
-                            <div class="mp-form-section__head">📦 Información básica</div>
-                            <div class="mp-form-section__hint">Datos esenciales del producto: nombre, precios, stock e imagen.</div>
+                            <div class="mp-form-section__head">Datos básicos</div>
                         </div>
                         <div class="row">
 
@@ -254,28 +252,22 @@
                                          Rojo: margen < min (warn)
                                          Crítico: precio < costo (bloqueado por backend)
                                          Ver project_pricing_redesign.md -->
-                                    <div v-if="priceSnapshot" class="ie-margin-chip" :class="'is-' + priceSnapshot.status" style="margin-top:6px;padding:6px 10px;border-radius:6px;font-size:11.5px;line-height:1.4;border:1px solid">
-                                        <strong v-if="priceSnapshot.status === 'ok'" style="color:#065f46">🟢 Margen {{ priceSnapshot.margin_actual_pct }}%</strong>
-                                        <strong v-else-if="priceSnapshot.status === 'warn_below_target'" style="color:#92400e">🟡 Margen {{ priceSnapshot.margin_actual_pct }}% (bajo objetivo)</strong>
-                                        <strong v-else-if="priceSnapshot.status === 'warn_below_min'" style="color:#9f1239">🔴 Margen {{ priceSnapshot.margin_actual_pct }}% (bajo mínimo)</strong>
-                                        <strong v-else-if="priceSnapshot.status === 'block_below_cost'" style="color:#7f1d1d">⛔ PÉRDIDA · Bloqueado</strong>
-                                        <br>
-                                        <span style="color:#374151">Utilidad: S/ {{ priceSnapshot.profit_per_unit.toFixed(2) }}</span>
-                                        <template v-if="priceSnapshot.list_price && priceSnapshot.list_price != form.sale_unit_price">
-                                            <br>
-                                            <a href="#" @click.prevent="applyListPriceSuggestion" style="color:#4f46e5;font-weight:600">
-                                                💡 Sugerido S/ {{ priceSnapshot.list_price.toFixed(2) }} (aplicar)
-                                            </a>
-                                        </template>
-                                    </div>
-                                    <!-- Sugerencia de costo desde WeightedAverageCost -->
-                                    <div v-if="priceRecommendation && priceRecommendation.wac_suggested_cost && Math.abs((priceRecommendation.wac_diff_pct || 0)) > 1"
-                                         style="margin-top:6px;padding:6px 10px;border-radius:6px;font-size:11.5px;background:#eff6ff;border:1px solid #bfdbfe;color:#1e40af">
-                                        💡 Costo ponderado últ. compras:
-                                        <a href="#" @click.prevent="applyWacSuggestion" style="color:#1e40af;font-weight:700">
-                                            S/ {{ priceRecommendation.wac_suggested_cost.toFixed(2) }} (aplicar)
+                                    <div v-if="priceSnapshot" class="ie-margin-chip" :class="'is-' + priceSnapshot.status">
+                                        <strong v-if="priceSnapshot.status === 'ok'" class="ie-margin-chip__label">Margen {{ priceSnapshot.margin_actual_pct }}%</strong>
+                                        <strong v-else-if="priceSnapshot.status === 'warn_below_target'" class="ie-margin-chip__label">Margen {{ priceSnapshot.margin_actual_pct }}% · bajo objetivo</strong>
+                                        <strong v-else-if="priceSnapshot.status === 'warn_below_min'" class="ie-margin-chip__label">Margen {{ priceSnapshot.margin_actual_pct }}% · bajo mínimo</strong>
+                                        <strong v-else-if="priceSnapshot.status === 'block_below_cost'" class="ie-margin-chip__label">Pérdida · bloqueado</strong>
+                                        <span class="ie-margin-chip__profit">Utilidad: S/ {{ priceSnapshot.profit_per_unit.toFixed(2) }}</span>
+                                        <a v-if="priceSnapshot.list_price && priceSnapshot.list_price != form.sale_unit_price"
+                                           href="#" @click.prevent="applyListPriceSuggestion" class="ie-margin-chip__action">
+                                            Sugerido S/ {{ priceSnapshot.list_price.toFixed(2) }} · aplicar
                                         </a>
                                     </div>
+                                    <!-- Sugerencia de costo desde WeightedAverageCost -->
+                                    <a v-if="priceRecommendation && priceRecommendation.wac_suggested_cost && Math.abs((priceRecommendation.wac_diff_pct || 0)) > 1"
+                                       href="#" @click.prevent="applyWacSuggestion" class="ie-note ie-note--link">
+                                        Costo ponderado últ. compras: <strong>S/ {{ priceRecommendation.wac_suggested_cost.toFixed(2) }}</strong> · aplicar
+                                    </a>
                                 </div>
                             </div>
                             <div class="col-md-6">
@@ -301,12 +293,12 @@
                                  precio tachado tipo Shopify, modo liquidación.
                                  Toda lógica se sincroniza con el chip vía watchers. -->
                             <div class="col-md-12" style="margin-top:6px">
-                                <div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;padding:10px 14px">
+                                <div style="background:var(--ie-surface-sunken);border:1px solid var(--ie-border);border-radius:var(--ie-radius);padding:10px 14px">
                                     <a href="#" @click.prevent="advancedPricingOpen = !advancedPricingOpen"
-                                       style="display:flex;align-items:center;gap:6px;color:#374151;font-weight:600;font-size:13px;text-decoration:none">
-                                        <span>{{ advancedPricingOpen ? '▼' : '▶' }}</span>
-                                        ⚙️ Configuración avanzada de precio
-                                        <small style="color:#6b7280;font-weight:normal">(margen objetivo, mínimo, precio tachado, liquidación)</small>
+                                       style="display:flex;align-items:center;gap:7px;color:var(--ie-text);font-weight:600;font-size:13px;text-decoration:none">
+                                        <span style="color:var(--ie-text-faint);font-size:11px">{{ advancedPricingOpen ? '▼' : '▶' }}</span>
+                                        Configuración avanzada de precio
+                                        <small style="color:var(--ie-text-faint);font-weight:normal">(margen objetivo, mínimo, precio tachado, liquidación)</small>
                                     </a>
                                     <div v-show="advancedPricingOpen" style="margin-top:10px">
                                         <div class="row">
@@ -362,18 +354,18 @@
                                         <div class="row">
                                             <div class="col-md-12">
                                                 <el-checkbox v-model="form.liquidation_mode" style="font-size:12px">
-                                                    🏷️ Modo liquidación
+                                                    Modo liquidación
                                                     <small style="color:#6b7280;margin-left:4px">(permite vender bajo el precio piso — usar solo para liquidación real)</small>
                                                 </el-checkbox>
                                             </div>
                                         </div>
                                         <div v-if="priceSnapshot && priceSnapshot.floor_price > 0" class="row" style="margin-top:8px">
                                             <div class="col-md-12">
-                                                <small style="color:#6b7280">
-                                                    💰 Costo efectivo: <strong>S/ {{ priceSnapshot.effective_cost.toFixed(2) }}</strong>
-                                                    · 🔒 Precio piso: <strong>S/ {{ priceSnapshot.floor_price.toFixed(2) }}</strong>
+                                                <small style="color:var(--ie-text-muted)">
+                                                    Costo efectivo: <strong>S/ {{ priceSnapshot.effective_cost.toFixed(2) }}</strong>
+                                                    · Precio piso: <strong>S/ {{ priceSnapshot.floor_price.toFixed(2) }}</strong>
                                                     <template v-if="priceSnapshot.customer_savings > 0">
-                                                        · 🎁 Ahorro cliente: <strong style="color:#059669">S/ {{ priceSnapshot.customer_savings.toFixed(2) }} ({{ priceSnapshot.customer_savings_pct }}%)</strong>
+                                                        · Ahorro cliente: <strong style="color:var(--ie-ok)">S/ {{ priceSnapshot.customer_savings.toFixed(2) }} ({{ priceSnapshot.customer_savings_pct }}%)</strong>
                                                     </template>
                                                 </small>
                                             </div>
@@ -704,13 +696,10 @@
                                      role="button">
                                     <div class="mp-form-section__head">
                                         <span class="mp-collapse-chev" :class="{ 'is-open': imageSectionOpen }">▸</span>
-                                        🏷️ Imagen y categorización
+                                        Imagen y categoría
                                         <span v-if="!imageSectionOpen && form.image_url && form.marketplace_category_id"
                                               class="ie-collapse__badge"
-                                              style="margin-left:auto">✓ completo</span>
-                                    </div>
-                                    <div v-show="imageSectionOpen" class="mp-form-section__hint">
-                                        Imagen, categoría interna, marca, etiquetas y datos de compra.
+                                              style="margin-left:auto">Completo</span>
                                     </div>
                                 </div>
                             </div>
@@ -724,7 +713,7 @@
                                         <!-- ═══════ Imagen principal (izquierda) ═══════ -->
                                         <div class="ie-image-card__primary-wrap">
                                             <div class="ie-image-card__label">
-                                                <span>📷 Principal</span>
+                                                <span>Principal</span>
                                                 <span v-if="form.image_url" class="ie-image-card__ok-pill">✓</span>
                                             </div>
                                             <el-upload :action="`/${resource}/upload`"
@@ -754,7 +743,7 @@
                                         <!-- ═══════ Galería adicional (derecha) ═══════ -->
                                         <div class="ie-image-card__gallery-wrap">
                                             <div class="ie-image-card__label">
-                                                <span>🖼️ Galería adicional</span>
+                                                <span>Galería adicional</span>
                                                 <span v-if="allGalleryImages.length"
                                                       class="ie-image-card__count-pill">
                                                     {{ allGalleryImages.length }} foto<span v-if="allGalleryImages.length > 1">s</span>
@@ -766,7 +755,7 @@
                                                 <small v-if="hasPendingImages"
                                                        class="ie-image-card__hint-pending"
                                                        style="margin-left:8px">
-                                                    ⏳ {{ pendingImagesCount }} sin guardar
+                                                    {{ pendingImagesCount }} sin guardar
                                                 </small>
                                             </div>
 
@@ -812,7 +801,7 @@
                                                 <div v-if="mp_category_suggestions.length && !form.marketplace_category_id"
                                                      class="ie-mp-cat-suggestions">
                                                     <div class="ie-mp-cat-suggestions__head">
-                                                        💡 <strong>Sugerencias para tu producto:</strong>
+                                                        <strong>Sugerencias para tu producto:</strong>
                                                         <small>(click para aplicar)</small>
                                                     </div>
                                                     <div class="ie-mp-cat-suggestions__chips">
@@ -879,11 +868,11 @@
                                              compra y tags. -->
                                         <div class="col-md-12">
                                             <div class="ie-channels-card">
-                                                <div class="ie-channels-card__head">🛒 Canales de venta</div>
+                                                <div class="ie-channels-card__head">Canales de venta</div>
                                                 <div class="ie-channels-card__body">
                                                     <label class="ie-channel">
                                                         <el-checkbox v-model="form.apply_store">
-                                                            <span class="ie-channel__title">🏪 Tu tienda virtual</span>
+                                                            <span class="ie-channel__title">Tu tienda virtual</span>
                                                         </el-checkbox>
                                                         <div class="ie-channel__hint">
                                                             Visible en <strong>{{ tenant_subdomain || 'tu tienda' }}.ebaemy.com</strong>
@@ -891,7 +880,7 @@
                                                     </label>
                                                     <label class="ie-channel">
                                                         <el-checkbox v-model="form.marketplace_publishable">
-                                                            <span class="ie-channel__title">🌐 Marketplace ebaemy</span>
+                                                            <span class="ie-channel__title">Marketplace ebaemy</span>
                                                         </el-checkbox>
                                                         <div class="ie-channel__hint">
                                                             Aparece en <strong>ebaemy.com/marketplace</strong> para todos
@@ -904,17 +893,15 @@
 
                                                 <!-- Panel extra solo si publica en marketplace -->
                                                 <div v-if="form.marketplace_publishable" class="ie-channels-card__extra">
-                                                    <div v-if="!form.marketplace_category_id" style="font-size:12px;color:#dc2626;font-weight:600;margin-bottom:6px">
-                                                        ⚠️ Selecciona una categoría arriba para poder publicar.
+                                                    <div v-if="!form.marketplace_category_id" class="ie-note ie-note--danger" style="margin-bottom:8px">
+                                                        Selecciona una categoría arriba para poder publicar.
                                                     </div>
                                                     <!-- Fase 2 pricing — warning si publica en marketplace sin costo registrado.
                                                          Sin costo el sistema no puede validar pérdidas en descuentos/cupones.
                                                          Si BLOCK_MARKETPLACE_WITHOUT_COST=true en .env, ItemRequest bloquea
                                                          al guardar; sin ese flag solo advertimos visualmente. -->
-                                                    <div v-if="!(parseFloat(form.purchase_unit_price) > 0)" style="font-size:12px;color:#92400e;font-weight:600;margin-bottom:6px;padding:8px 10px;background:#fef3c7;border:1px solid #fcd34d;border-radius:6px">
-                                                        ⚠️ Este producto no tiene <strong>precio de compra (costo)</strong> registrado.
-                                                        Sin costo el sistema no puede validar márgenes ni detectar pérdidas al aplicar descuentos.
-                                                        <br><small style="font-weight:normal">Registralo abajo en la sección "Datos de compra".</small>
+                                                    <div v-if="!(parseFloat(form.purchase_unit_price) > 0)" class="ie-note ie-note--warn" style="margin-bottom:8px">
+                                                        Sin <strong>precio de compra (costo)</strong> el sistema no puede validar márgenes ni pérdidas al aplicar descuentos. Regístralo en "Datos contables".
                                                     </div>
                                                     <div class="ie-mp-extra-row">
                                                         <div>
@@ -922,7 +909,7 @@
                                                             <el-input-number v-model="form.mp_price" :min="0" :precision="2" :step="1"
                                                                 placeholder="Igual al precio normal" controls-position="right" size="small"
                                                                 style="width:100%"></el-input-number>
-                                                            <small style="color:#7c3aed;font-size:11px">Vacío = precio de venta normal.</small>
+                                                            <small style="color:var(--ie-text-faint);font-size:11px">Vacío = precio de venta normal.</small>
                                                         </div>
                                                         <a href="#" @click.prevent="openMpCategoryRequest" class="ie-mp-extra-link">
                                                             ¿No encuentras una categoría adecuada?
@@ -1033,12 +1020,12 @@
                                  @toggle="variantsSectionOpen = $event.target.open">
                             <summary class="ie-collapse__summary">
                                 <span class="ie-collapse__chev">▼</span>
-                                <strong>🎨 Variantes del producto</strong>
+                                <strong>Variantes del producto</strong>
                                 <span class="ie-collapse__hint">
-                                    (talla, color, etc. — opcional)
+                                    talla, color, etc. (opcional)
                                 </span>
-                                <span v-if="form.has_variants" class="ie-collapse__badge" style="background:#fae8ff;color:#86198f;border:1px solid #f5d0fe">
-                                    ✓ activas
+                                <span v-if="form.has_variants" class="ie-collapse__badge">
+                                    Activas
                                 </span>
                             </summary>
                             <div class="ie-collapse__content">
@@ -1047,12 +1034,10 @@
                                      "Guardar" del bottom bar. En su lugar, el botón del bottom detecta
                                      que esta sección está expandida y cambia su label automáticamente a
                                      "Guardar y agregar variantes" + lleva al seller acá tras crear. -->
-                                <div v-if="!form.id" style="color:#6b7280;text-align:center;padding:24px 12px;background:#f9fafb;border:1px dashed #d1d5db;border-radius:10px">
-                                    <div style="font-size:32px;line-height:1;margin-bottom:8px">🎨</div>
-                                    <div style="font-weight:600;margin-bottom:4px;color:#374151">Primero guarda el producto</div>
+                                <div v-if="!form.id" style="color:var(--ie-text-muted);text-align:center;padding:22px 16px;background:var(--ie-surface-sunken);border:1px dashed var(--ie-border-strong);border-radius:var(--ie-radius)">
+                                    <div style="font-weight:600;margin-bottom:4px;color:var(--ie-text)">Primero guarda el producto</div>
                                     <div style="font-size:12.5px">
-                                        Click el botón <strong>"Guardar y agregar variantes"</strong> abajo
-                                        — vuelves a este formulario y desbloqueamos las variantes.
+                                        Usa <strong>"Guardar y agregar variantes"</strong> abajo: vuelves aquí y se habilitan las variantes.
                                     </div>
                                 </div>
                                 <variants-tab v-else
@@ -1152,6 +1137,31 @@
 </template>
 
 <style>
+/* ═══════════════════════════════════════════════════════════════════
+   SISTEMA DE DISEÑO — formulario de producto (rediseño profesional)
+   Un solo acento (índigo, el primario existente). Neutros tintados al
+   mismo hue. Semánticos desaturados, sólo para estados accionables.
+   Todo scoped a .ie-items-dialog para no filtrar a otras vistas.
+   ═══════════════════════════════════════════════════════════════════ */
+.ie-items-dialog {
+    --ie-accent:         oklch(0.52 0.20 277);
+    --ie-accent-weak:    oklch(0.965 0.022 277);
+    --ie-accent-border:  oklch(0.88 0.05 277);
+    --ie-text:           oklch(0.30 0.02 277);
+    --ie-text-muted:     oklch(0.53 0.015 277);
+    --ie-text-faint:     oklch(0.66 0.012 277);
+    --ie-surface:        oklch(0.995 0.003 277);
+    --ie-surface-sunken: oklch(0.975 0.006 277);
+    --ie-border:         oklch(0.92 0.008 277);
+    --ie-border-strong:  oklch(0.86 0.01 277);
+    --ie-ok:             oklch(0.56 0.12 155);
+    --ie-ok-weak:        oklch(0.965 0.035 155);
+    --ie-warn:           oklch(0.64 0.13 70);
+    --ie-warn-weak:      oklch(0.965 0.045 80);
+    --ie-danger:         oklch(0.56 0.17 27);
+    --ie-danger-weak:    oklch(0.965 0.035 27);
+    --ie-radius:         10px;
+}
 .el-tabs__item.is-disabled {
     pointer-events: auto !important;   /* No clics ni hover */
     cursor: not-allowed !important;
@@ -1166,29 +1176,57 @@
 }
 
 /* ───────── Separadores de sección (Información básica / Imagen / etc.) ───────── */
+/* Sección = etiqueta corta en mayúsculas + línea fina. Sin cards de color,
+   sin side-stripes, sin gradientes. El aire y la tipografía hacen la jerarquía. */
 .mp-form-section {
-    margin: 18px 0 12px;
-    padding: 12px 16px;
-    background: linear-gradient(135deg, #ecfdf5, #f0fdfa);
-    border-left: 4px solid #10b981;
-    border-radius: 8px;
+    margin: 26px 0 14px;
+    padding: 0 0 7px;
+    background: none;
+    border: 0;
+    border-bottom: 1px solid var(--ie-border);
+    border-radius: 0;
 }
-.mp-form-section--alt {
-    background: linear-gradient(135deg, #eff6ff, #f0f9ff);
-    border-left-color: #3b82f6;
-}
+.mp-form-section--alt,
 .mp-form-section--variants {
-    background: linear-gradient(135deg, #fdf4ff, #faf5ff);
-    border-left-color: #a855f7;
+    background: none;
+    border: 0;
+    border-bottom: 1px solid var(--ie-border);
 }
-.mp-form-section--variants .mp-form-section__head { color: #6b21a8; }
-.mp-form-section--variants .mp-form-section__hint { color: #7e22ce; }
+.mp-form-section__head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: .09em;
+    text-transform: uppercase;
+    color: var(--ie-text-muted);
+}
+.mp-form-section--variants .mp-form-section__head { color: var(--ie-text-muted); }
+.mp-form-section__hint {
+    font-size: 12px;
+    color: var(--ie-text-faint);
+    margin-top: 4px;
+    font-weight: 400;
+    text-transform: none;
+    letter-spacing: 0;
+}
+/* Labels de campo consistentes en todo el form */
+.ie-items-dialog .control-label {
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--ie-text);
+    margin-bottom: 5px;
+}
+.ie-items-dialog .form-group { margin-bottom: 15px; }
+/* Texto de ayuda bajo campos, uniforme y discreto */
+.ie-items-dialog .form-group > small:not(.form-control-feedback) { color: var(--ie-text-faint); }
 
 /* ─────── Desplegable con <details> (descripción rica) ─────── */
 .ie-collapse {
-    border: 1px solid #e5e7eb;
-    border-radius: 8px;
-    background: #fff;
+    border: 1px solid var(--ie-border);
+    border-radius: var(--ie-radius);
+    background: var(--ie-surface);
     overflow: hidden;
     margin-bottom: 12px;
 }
@@ -1196,24 +1234,26 @@
     display: flex;
     align-items: center;
     gap: 8px;
-    padding: 10px 14px;
+    padding: 11px 14px;
     cursor: pointer;
     user-select: none;
-    background: #f9fafb;
+    background: var(--ie-surface-sunken);
     list-style: none;          /* quita el triángulo nativo del browser */
     transition: background .12s;
+    font-size: 13px;
+    color: var(--ie-text);
 }
 .ie-collapse__summary::-webkit-details-marker { display: none; }
-.ie-collapse__summary:hover { background: #f3f4f6; }
+.ie-collapse__summary:hover { background: var(--ie-accent-weak); }
 .ie-collapse__chev {
-    color: #6b7280;
+    color: var(--ie-text-faint);
     transition: transform .15s;
     font-size: 12px;
 }
 .ie-collapse[open] .ie-collapse__chev { transform: rotate(180deg); }
 .ie-collapse__hint {
     font-size: 11.5px;
-    color: #9ca3af;
+    color: var(--ie-text-faint);
     font-weight: 400;
     margin-left: 4px;
 }
@@ -1221,8 +1261,9 @@
     margin-left: auto;
     font-size: 11px;
     font-weight: 600;
-    color: #047857;
-    background: #d1fae5;
+    color: var(--ie-text-muted);
+    background: var(--ie-surface);
+    border: 1px solid var(--ie-border-strong);
     padding: 2px 8px;
     border-radius: 999px;
 }
@@ -1245,29 +1286,26 @@
     line-height: 1.4;
     white-space: nowrap;
 }
-.ie-status-badge--on  { background:#dcfce7; color:#15803d; border-color:#86efac; }
-.ie-status-badge--mp  { background:#dbeafe; color:#1d4ed8; border-color:#93c5fd; }
-.ie-status-badge--off { background:#f3f4f6; color:#9ca3af; border-color:#e5e7eb; }
+.ie-status-badge--on  { background:transparent; color:var(--ie-text); border-color:var(--ie-border-strong); }
+.ie-status-badge--mp  { background:transparent; color:var(--ie-accent); border-color:var(--ie-accent-border); }
+.ie-status-badge--off { background:transparent; color:var(--ie-text-faint); border-color:var(--ie-border); }
 
 /* ─────── Banner de progreso (sticky top) ─────── */
 .ie-progress-banner {
     position: sticky;
     top: 0;
     z-index: 20;
-    background: linear-gradient(135deg, #eff6ff 0%, #f5f3ff 100%);
-    border: 1px solid #bfdbfe;
-    border-radius: 10px;
+    background: var(--ie-surface);
+    border: 1px solid var(--ie-border);
+    border-radius: var(--ie-radius);
     padding: 12px 14px;
-    margin-bottom: 16px;
-    box-shadow: 0 2px 8px rgba(59, 130, 246, .08);
+    margin-bottom: 18px;
+    box-shadow: none;
 }
-.ie-progress-banner.is-ready-mp {
-    background: linear-gradient(135deg, #fefce8 0%, #fff7ed 100%);
-    border-color: #fcd34d;
-}
+.ie-progress-banner.is-ready-mp,
 .ie-progress-banner.is-complete {
-    background: linear-gradient(135deg, #ecfdf5 0%, #f0fdf4 100%);
-    border-color: #86efac;
+    background: var(--ie-surface);
+    border-color: var(--ie-border);
 }
 .ie-progress-banner__head {
     display: flex;
@@ -1276,34 +1314,30 @@
     margin-bottom: 10px;
 }
 .ie-progress-banner__title {
-    font-size: 13.5px;
+    font-size: 13px;
     font-weight: 600;
-    color: #1e3a8a;
+    color: var(--ie-text);
     white-space: nowrap;
 }
-.is-ready-mp .ie-progress-banner__title { color: #92400e; }
-.is-complete .ie-progress-banner__title { color: #166534; }
-.ie-progress-banner__title strong { font-weight: 800; }
+.is-ready-mp .ie-progress-banner__title,
+.is-complete .ie-progress-banner__title { color: var(--ie-text); }
+.ie-progress-banner__title strong { font-weight: 700; }
 .ie-progress-banner__bar {
     flex: 1;
-    height: 8px;
-    background: rgba(255, 255, 255, .6);
+    height: 6px;
+    background: var(--ie-surface-sunken);
     border-radius: 999px;
     overflow: hidden;
-    box-shadow: inset 0 1px 2px rgba(0, 0, 0, .05);
+    box-shadow: none;
 }
 .ie-progress-banner__bar-fill {
     height: 100%;
-    background: linear-gradient(90deg, #3b82f6 0%, #8b5cf6 100%);
+    background: var(--ie-accent);
     border-radius: 999px;
-    transition: width .35s ease;
+    transition: width .4s cubic-bezier(.22,1,.36,1);
 }
-.is-ready-mp .ie-progress-banner__bar-fill {
-    background: linear-gradient(90deg, #f59e0b 0%, #f97316 100%);
-}
-.is-complete .ie-progress-banner__bar-fill {
-    background: linear-gradient(90deg, #10b981 0%, #22c55e 100%);
-}
+.is-ready-mp .ie-progress-banner__bar-fill { background: var(--ie-warn); }
+.is-complete .ie-progress-banner__bar-fill { background: var(--ie-ok); }
 .ie-progress-banner__items {
     display: flex;
     flex-wrap: wrap;
@@ -1312,34 +1346,29 @@
 .ie-progress-banner__chip {
     display: inline-flex;
     align-items: center;
-    gap: 5px;
+    gap: 6px;
     font-size: 11.5px;
     font-weight: 500;
     padding: 4px 10px;
     border-radius: 999px;
     cursor: pointer;
-    border: 1px solid;
-    background: #fff;
-    transition: transform .08s, box-shadow .12s;
+    border: 1px solid var(--ie-border-strong);
+    background: var(--ie-surface);
+    color: var(--ie-text-muted);
+    transition: border-color .12s, color .12s;
 }
-.ie-progress-banner__chip:hover {
-    transform: translateY(-1px);
-    box-shadow: 0 2px 6px rgba(0, 0, 0, .08);
-}
+.ie-progress-banner__chip:hover { border-color: var(--ie-accent); color: var(--ie-text); }
 .ie-progress-banner__chip.is-done {
-    color: #166534;
-    border-color: #86efac;
-    background: #dcfce7;
+    color: var(--ie-text);
+    border-color: var(--ie-border);
 }
 .ie-progress-banner__chip.is-pending.is-required {
-    color: #b91c1c;
-    border-color: #fca5a5;
-    background: #fee2e2;
+    color: var(--ie-danger);
+    border-color: var(--ie-danger);
 }
 .ie-progress-banner__chip.is-pending.is-optional {
-    color: #6b7280;
-    border-color: #d1d5db;
-    background: #f9fafb;
+    color: var(--ie-text-faint);
+    border-color: var(--ie-border);
     border-style: dashed;
 }
 .ie-progress-banner__chip-icon {
@@ -1354,17 +1383,17 @@
     line-height: 1;
 }
 .ie-progress-banner__chip.is-done .ie-progress-banner__chip-icon {
-    background: #16a34a;
+    background: var(--ie-ok);
     color: #fff;
 }
 .ie-progress-banner__chip.is-pending.is-required .ie-progress-banner__chip-icon {
-    background: #dc2626;
+    background: var(--ie-danger);
     color: #fff;
 }
 .ie-progress-banner__chip.is-pending.is-optional .ie-progress-banner__chip-icon {
-    background: #fff;
-    color: #9ca3af;
-    border: 1px solid #d1d5db;
+    background: transparent;
+    color: var(--ie-text-faint);
+    border: 1px solid var(--ie-border-strong);
 }
 /* Flash visual cuando se hace scroll a un campo */
 @keyframes ie-flash-pulse {
@@ -1678,100 +1707,153 @@
 .ie-mp-cat-suggestions {
     margin: 0 0 10px;
     padding: 10px 12px;
-    background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%);
-    border: 1px solid #6ee7b7;
-    border-radius: 10px;
+    background: var(--ie-surface-sunken);
+    border: 1px solid var(--ie-border);
+    border-radius: 8px;
 }
 .ie-mp-cat-suggestions__head {
     font-size: 12px;
-    color: #047857;
-    margin-bottom: 6px;
+    color: var(--ie-text-muted);
+    margin-bottom: 8px;
 }
-.ie-mp-cat-suggestions__head small { color: #059669; margin-left: 4px; font-weight: 400; }
+.ie-mp-cat-suggestions__head small { color: var(--ie-text-faint); margin-left: 4px; font-weight: 400; }
 .ie-mp-cat-suggestions__chips {
     display: flex;
     flex-wrap: wrap;
     gap: 6px;
 }
 .ie-mp-cat-chip {
-    background: #fff;
-    border: 1.5px solid #10b981;
-    color: #065f46;
+    background: var(--ie-surface);
+    border: 1px solid var(--ie-accent-border);
+    color: var(--ie-accent);
     padding: 5px 12px;
     border-radius: 999px;
     font-size: 12.5px;
     font-weight: 600;
     cursor: pointer;
-    transition: all .12s;
+    transition: background .12s, color .12s;
 }
 .ie-mp-cat-chip:hover {
-    background: #10b981;
+    background: var(--ie-accent);
     color: #fff;
-    transform: translateY(-1px);
-    box-shadow: 0 4px 12px -4px rgba(16,185,129,.4);
 }
 .ie-mp-cat-tip {
     margin: 0 0 8px;
-    padding: 8px 12px;
-    background: #eff6ff;
-    border: 1px dashed #93c5fd;
-    border-radius: 6px;
+    padding: 8px 11px;
+    background: var(--ie-surface-sunken);
+    border: 1px solid var(--ie-border);
+    border-radius: 8px;
     font-size: 12px;
-    color: #1e40af;
+    color: var(--ie-text-muted);
 }
-.ie-mp-cat-tip em { color: #3b82f6; font-style: normal; font-weight: 600; }
+.ie-mp-cat-tip em { color: var(--ie-text); font-style: normal; font-weight: 600; }
 .ie-mp-cat-selected {
-    margin-top: 6px;
-    padding: 6px 10px;
-    background: #ecfdf5;
-    border: 1px solid #6ee7b7;
-    border-radius: 6px;
+    margin-top: 8px;
+    padding: 7px 11px;
+    background: var(--ie-accent-weak);
+    border: 1px solid var(--ie-accent-border);
+    border-radius: 8px;
     font-size: 12.5px;
-    color: #065f46;
+    color: var(--ie-text);
 }
-.ie-mp-cat-selected span { color: #059669; margin-right: 4px; font-weight: 600; }
+.ie-mp-cat-selected span { color: var(--ie-accent); margin-right: 4px; font-weight: 600; }
 .ie-mp-cat-selected strong { font-weight: 700; }
 
+/* ─────── Nota / aviso unificado (reemplaza los 9 callouts de colores) ─────── */
+.ie-note {
+    font-size: 12px;
+    line-height: 1.45;
+    color: var(--ie-text-muted);
+    background: var(--ie-surface-sunken);
+    border: 1px solid var(--ie-border);
+    border-radius: 8px;
+    padding: 8px 11px;
+}
+.ie-note strong { color: var(--ie-text); font-weight: 600; }
+.ie-note--warn   { color: var(--ie-warn);   background: var(--ie-warn-weak);   border-color: color-mix(in oklch, var(--ie-warn) 30%, transparent); }
+.ie-note--danger { color: var(--ie-danger); background: var(--ie-danger-weak); border-color: color-mix(in oklch, var(--ie-danger) 30%, transparent); }
+.ie-note--warn strong, .ie-note--danger strong { color: inherit; }
+.ie-note--link { display: block; text-decoration: none; cursor: pointer; transition: border-color .12s; }
+.ie-note--link:hover { border-color: var(--ie-accent); color: var(--ie-accent); }
+.ie-note--link strong { color: var(--ie-accent); }
+
+/* Chip de margen: semántico (verde/ámbar/rojo) porque comunica salud del
+   margen, un estado accionable. Punto de color + etiqueta, sin emoji. */
+.ie-margin-chip {
+    margin-top: 8px;
+    padding: 8px 11px;
+    border-radius: 8px;
+    font-size: 11.5px;
+    line-height: 1.55;
+    border: 1px solid var(--ie-border);
+    background: var(--ie-surface-sunken);
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+}
+.ie-margin-chip__label { font-weight: 700; position: relative; padding-left: 14px; }
+.ie-margin-chip__label::before {
+    content: '';
+    position: absolute; left: 0; top: 50%; transform: translateY(-50%);
+    width: 8px; height: 8px; border-radius: 999px; background: currentColor;
+}
+.ie-margin-chip__profit { color: var(--ie-text-muted); }
+.ie-margin-chip__action { color: var(--ie-accent); font-weight: 600; text-decoration: none; }
+.ie-margin-chip__action:hover { text-decoration: underline; }
+.ie-margin-chip.is-ok               { background: var(--ie-ok-weak);     border-color: color-mix(in oklch, var(--ie-ok) 28%, transparent); }
+.ie-margin-chip.is-ok .ie-margin-chip__label { color: var(--ie-ok); }
+.ie-margin-chip.is-warn_below_target { background: var(--ie-warn-weak);  border-color: color-mix(in oklch, var(--ie-warn) 28%, transparent); }
+.ie-margin-chip.is-warn_below_target .ie-margin-chip__label { color: var(--ie-warn); }
+.ie-margin-chip.is-warn_below_min,
+.ie-margin-chip.is-block_below_cost  { background: var(--ie-danger-weak); border-color: color-mix(in oklch, var(--ie-danger) 28%, transparent); }
+.ie-margin-chip.is-warn_below_min .ie-margin-chip__label,
+.ie-margin-chip.is-block_below_cost .ie-margin-chip__label { color: var(--ie-danger); }
+
 .ie-channels-card {
-    border: 1px solid #e5e7eb;
-    border-radius: 10px;
-    background: #f9fafb;
-    padding: 12px 14px;
+    border: 1px solid var(--ie-border);
+    border-radius: var(--ie-radius);
+    background: transparent;
+    padding: 0;
     margin-bottom: 12px;
+    overflow: hidden;
 }
 .ie-channels-card__head {
-    font-size: 12.5px;
+    font-size: 11px;
     font-weight: 700;
-    color: #1f2937;
-    margin-bottom: 8px;
-    letter-spacing: .2px;
+    color: var(--ie-text-muted);
+    padding: 10px 14px;
+    letter-spacing: .09em;
+    text-transform: uppercase;
+    border-bottom: 1px solid var(--ie-border);
+    background: var(--ie-surface-sunken);
 }
 .ie-channels-card__body {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 10px;
+    gap: 12px;
+    padding: 12px 14px;
 }
 @media (max-width: 720px) {
     .ie-channels-card__body { grid-template-columns: 1fr; }
 }
 .ie-channel {
     display: block;
-    padding: 10px;
-    background: #fff;
-    border: 1px solid #e5e7eb;
+    padding: 11px 12px;
+    background: var(--ie-surface);
+    border: 1px solid var(--ie-border);
     border-radius: 8px;
     cursor: pointer;
-    transition: border-color .12s, box-shadow .12s;
+    transition: border-color .12s;
     margin: 0;
 }
-.ie-channel:hover { border-color: #10b981; box-shadow: 0 1px 6px -2px rgba(16,185,129,.18); }
-.ie-channel__title { font-weight: 600; color: #111827; font-size: 13px; }
-.ie-channel__hint  { font-size: 11.5px; color: #6b7280; margin-top: 2px; }
+.ie-channel:hover { border-color: var(--ie-accent); }
+.ie-channel__title { font-weight: 600; color: var(--ie-text); font-size: 13px; }
+.ie-channel__hint  { font-size: 11.5px; color: var(--ie-text-muted); margin-top: 3px; }
 .ie-channels-card__extra {
-    margin-top: 10px;
-    padding: 10px 12px;
-    background: #faf5ff;
-    border: 1px solid #e9d5ff;
+    margin: 0 14px 14px;
+    padding: 11px 12px;
+    background: var(--ie-surface-sunken);
+    border: 1px solid var(--ie-border);
     border-radius: 8px;
 }
 .ie-mp-extra-row {
@@ -1785,16 +1867,17 @@
 .ie-mp-extra-label {
     display: block;
     font-size: 12px;
-    color: #6b21a8;
+    color: var(--ie-text-muted);
     font-weight: 500;
-    margin-bottom: 2px;
+    margin-bottom: 3px;
 }
 .ie-mp-extra-link {
     font-size: 11px;
-    color: #7c3aed;
-    text-decoration: underline;
+    color: var(--ie-accent);
+    text-decoration: none;
     white-space: nowrap;
 }
+.ie-mp-extra-link:hover { text-decoration: underline; }
 
 /* ─────── Colapsable variantes — más espacioso ─────── */
 .ie-collapse--variants .ie-collapse__content { padding: 14px; }
