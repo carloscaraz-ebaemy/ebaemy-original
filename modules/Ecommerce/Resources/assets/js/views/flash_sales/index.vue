@@ -76,6 +76,7 @@
             :title="form.id ? 'Editar Flash Sale' : 'Nueva Flash Sale'"
             :visible.sync="dialogVisible"
             width="720px"
+            custom-class="fs-dialog"
             :close-on-click-modal="false"
             top="5vh"
         >
@@ -166,15 +167,15 @@
                             </thead>
                             <tbody>
                                 <tr v-for="(item, index) in form.items" :key="item.id">
-                                    <td><strong>{{ item.description }}</strong></td>
-                                    <td class="text-center text-muted"><del>S/ {{ Number(item.regular_price).toFixed(2) }}</del></td>
-                                    <td class="text-center">
-                                        <el-input-number v-model="item.flash_price" :min="0.01" :precision="2" :step="1" size="small" style="width:120px"></el-input-number>
+                                    <td class="fs-cell-name"><strong>{{ item.description }}</strong></td>
+                                    <td class="text-center text-muted" data-label="Precio normal"><del>S/ {{ Number(item.regular_price).toFixed(2) }}</del></td>
+                                    <td class="text-center" data-label="Precio flash">
+                                        <el-input-number v-model="item.flash_price" :min="0.01" :precision="2" :step="1" size="small" class="fs-flash-input"></el-input-number>
                                     </td>
-                                    <td class="text-center">
+                                    <td class="text-center" data-label="Descuento">
                                         <span class="fs-discount-badge" v-if="item.regular_price > 0">-{{ discount(item) }}%</span>
                                     </td>
-                                    <td class="text-center">
+                                    <td class="text-center fs-cell-remove">
                                         <button class="fs-btn-icon fs-btn-icon--danger fs-btn-icon--sm" @click="removeItem(index)"><i class="fa fa-times"></i></button>
                                     </td>
                                 </tr>
@@ -367,8 +368,83 @@ export default {
 .fs-products-table table { width: 100%; border-collapse: collapse; }
 .fs-products-table th { font-size: 11px; text-transform: uppercase; color: #999; font-weight: 600; padding: 8px 12px; background: #f8f9fa; border-bottom: 1px solid #eee; }
 .fs-products-table td { padding: 10px 12px; vertical-align: middle; border-bottom: 1px solid #f5f5f5; }
+.fs-flash-input { width: 120px; }
 
 .fs-discount-badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 700; background: #fef2f2; color: #ef4444; }
 
 .fs-empty-products { text-align: center; padding: 20px; color: #9ca3af; font-size: 13px; }
+
+/* ─── Móvil: la tabla de productos se apila como tarjetas (no más texto vertical) ─── */
+@media (max-width: 640px) {
+    .fs-products-table { border: 0; background: transparent; border-radius: 0; overflow: visible; }
+    .fs-products-table table,
+    .fs-products-table tbody,
+    .fs-products-table tr,
+    .fs-products-table td { display: block; width: 100%; }
+    .fs-products-table thead { display: none; }
+    .fs-products-table tr {
+        border: 1px solid #ebedf2;
+        border-radius: 10px;
+        background: #fff;
+        padding: 12px 14px;
+        margin-bottom: 10px;
+        position: relative;
+    }
+    .fs-products-table td {
+        border: 0;
+        padding: 5px 0;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        text-align: right !important;
+    }
+    .fs-products-table td::before {
+        content: attr(data-label);
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: .04em;
+        color: #9aa0aa;
+        font-weight: 600;
+        text-align: left;
+        flex-shrink: 0;
+    }
+    /* Nombre del producto: ocupa toda la fila, sin etiqueta, arriba */
+    .fs-products-table td.fs-cell-name {
+        display: block;
+        font-size: 14px;
+        padding: 0 0 8px;
+        margin-bottom: 6px;
+        border-bottom: 1px solid #f1f2f5;
+        text-align: left !important;
+    }
+    .fs-products-table td.fs-cell-name::before { display: none; }
+    /* Botón eliminar: esquina superior derecha de la tarjeta */
+    .fs-products-table td.fs-cell-remove {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        width: auto;
+        padding: 0;
+    }
+    .fs-products-table td.fs-cell-remove::before { display: none; }
+    .fs-cell-name strong { display: block; padding-right: 34px; }
+    .fs-flash-input { width: 140px; }
+}
+</style>
+
+<!-- No-scoped: alcanza las clases internas del el-dialog de Element -->
+<style>
+@media (max-width: 640px) {
+    .fs-dialog {
+        width: 96vw !important;
+        max-width: 96vw !important;
+        margin: 0 auto !important;
+    }
+    .fs-dialog .el-dialog__body { padding: 14px 16px; }
+    .fs-dialog .fs-form { gap: 12px; }
+    .fs-dialog .fs-form__section { padding: 12px 14px; }
+    /* el-input-number e inputs no se desbordan de la tarjeta */
+    .fs-dialog .el-input-number { max-width: 100%; }
+}
 </style>
