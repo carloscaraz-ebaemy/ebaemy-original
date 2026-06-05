@@ -141,12 +141,13 @@
 
                     <div class="fs-field" style="margin-bottom:12px">
                         <label>Agregar producto</label>
-                        <el-autocomplete v-model="itemSearch" :fetch-suggestions="searchItems" placeholder="Buscar producto..." @select="addItem" style="width:100%" value-key="description">
+                        <el-autocomplete v-model="itemSearch" :fetch-suggestions="searchItems" placeholder="Buscar producto..." @select="addItem" style="width:100%" value-key="description" popper-class="fs-suggestions-pop">
                             <template slot-scope="{item}">
-                                <div style="display:flex;justify-content:space-between;align-items:center;gap:8px">
-                                    <span>{{ item.description }}</span>
-                                    <span style="display:flex;align-items:center;gap:6px">
-                                        <span v-if="item.is_set" style="background:#eef0ff;color:#5b5ea6;padding:1px 6px;border-radius:8px;font-size:10px;font-weight:700">PACK</span>
+                                <div class="fs-suggestion">
+                                    <img class="fs-suggestion__img" :src="item.image_url_small || item.image_url" alt="" @error="onImgError">
+                                    <span class="fs-suggestion__name">{{ item.description }}</span>
+                                    <span class="fs-suggestion__meta">
+                                        <span v-if="item.is_set" class="fs-suggestion__pack">PACK</span>
                                         <span class="text-muted small">{{ item.sale_unit_price }}</span>
                                     </span>
                                 </div>
@@ -167,7 +168,12 @@
                             </thead>
                             <tbody>
                                 <tr v-for="(item, index) in form.items" :key="item.id">
-                                    <td class="fs-cell-name"><strong>{{ item.description }}</strong></td>
+                                    <td class="fs-cell-name">
+                                        <div class="fs-prod-name">
+                                            <img class="fs-prod-name__img" :src="item.image_url" alt="" v-if="item.image_url" @error="onImgError">
+                                            <strong>{{ item.description }}</strong>
+                                        </div>
+                                    </td>
                                     <td class="text-center text-muted" data-label="Precio normal"><del>S/ {{ Number(item.regular_price).toFixed(2) }}</del></td>
                                     <td class="text-center" data-label="Precio flash">
                                         <el-input-number v-model="item.flash_price" :min="0.01" :precision="2" :step="1" size="small" class="fs-flash-input"></el-input-number>
@@ -225,7 +231,7 @@ export default {
             this.form = {
                 id: row.id, title: row.title, subtitle: row.subtitle || '',
                 starts_at: row.starts_at || null, ends_at: row.ends_at, active: row.active,
-                items: row.items.map(i => ({ id: i.id, description: i.description, regular_price: i.regular_price, flash_price: i.flash_price }))
+                items: row.items.map(i => ({ id: i.id, description: i.description, regular_price: i.regular_price, flash_price: i.flash_price, image_url: i.image_url || null }))
             };
             this.itemSearch = '';
             this.dialogVisible = true;
@@ -299,8 +305,18 @@ export default {
         addItem(item) {
             if (this.form.items.find(i => i.id === item.id)) { this.$message.info('Ya esta en la lista'); return; }
             const price = parseFloat(item.amount_sale_unit_price) || parseFloat(item.sale_unit_price) || 0;
-            this.form.items.push({ id: item.id, description: item.description, regular_price: price, flash_price: price });
+            this.form.items.push({
+                id: item.id,
+                description: item.description,
+                regular_price: price,
+                flash_price: price,
+                image_url: item.image_url_small || item.image_url || null,
+            });
             this.itemSearch = '';
+        },
+        onImgError(e) {
+            // Fallback si la imagen del producto no carga
+            e.target.src = '/logo/imagen-no-disponible.jpg';
         },
         removeItem(idx) { this.form.items.splice(idx, 1); },
         discount(item) {
@@ -370,6 +386,14 @@ export default {
 .fs-products-table td { padding: 10px 12px; vertical-align: middle; border-bottom: 1px solid #f5f5f5; }
 .fs-flash-input { width: 120px; }
 
+/* Nombre del producto con miniatura */
+.fs-prod-name { display: flex; align-items: center; gap: 10px; }
+.fs-prod-name__img {
+    width: 36px; height: 36px; flex-shrink: 0;
+    border-radius: 7px; object-fit: cover;
+    border: 1px solid #ececf1; background: #f6f7f9;
+}
+
 .fs-discount-badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 700; background: #fef2f2; color: #ef4444; }
 
 .fs-empty-products { text-align: center; padding: 20px; color: #9ca3af; font-size: 13px; }
@@ -428,13 +452,40 @@ export default {
         padding: 0;
     }
     .fs-products-table td.fs-cell-remove::before { display: none; }
-    .fs-cell-name strong { display: block; padding-right: 34px; }
+    .fs-cell-name .fs-prod-name { padding-right: 34px; }
     .fs-flash-input { width: 140px; }
 }
 </style>
 
-<!-- No-scoped: alcanza las clases internas del el-dialog de Element -->
+<!-- No-scoped: alcanza las clases internas del el-dialog de Element y el
+     popper del autocomplete (que Element monta en el body) -->
 <style>
+/* Item del buscador con miniatura del producto */
+.fs-suggestions-pop .fs-suggestion {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    line-height: 1.3;
+    padding: 2px 0;
+}
+.fs-suggestions-pop .fs-suggestion__img {
+    width: 34px; height: 34px; flex-shrink: 0;
+    border-radius: 7px; object-fit: cover;
+    border: 1px solid #ececf1; background: #f6f7f9;
+}
+.fs-suggestions-pop .fs-suggestion__name {
+    flex: 1; min-width: 0;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.fs-suggestions-pop .fs-suggestion__meta {
+    display: flex; align-items: center; gap: 6px; flex-shrink: 0;
+}
+.fs-suggestions-pop .fs-suggestion__pack {
+    background: #eef0ff; color: #5b5ea6;
+    padding: 1px 6px; border-radius: 8px; font-size: 10px; font-weight: 700;
+}
+.fs-suggestions-pop li { line-height: 1.4; padding-top: 6px; padding-bottom: 6px; }
+
 @media (max-width: 640px) {
     .fs-dialog {
         width: 96vw !important;

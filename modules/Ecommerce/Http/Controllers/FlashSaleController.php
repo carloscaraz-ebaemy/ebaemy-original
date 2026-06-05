@@ -43,6 +43,9 @@ class FlashSaleController extends Controller
                             'description'   => $i->description,
                             'regular_price' => $i->sale_unit_price,
                             'flash_price'   => optional($i->pivot)->flash_price,
+                            'image_url'     => ($i->image && $i->image !== 'imagen-no-disponible.jpg')
+                                ? asset('storage/uploads/items/' . $i->image)
+                                : asset('logo/imagen-no-disponible.jpg'),
                         ]),
                     ];
                 });
