@@ -2671,10 +2671,21 @@ export default {
             this.scheduleRecalcPriceSnapshot()
         },
         calculatePercentageOfProfitByPurchase() {
-            if (this.form.percentage_of_profit === '') {
-                this.form.percentage_of_profit = 0;
+            // En esta vista el seller fija el PRECIO DE VENTA directamente y el
+            // costo solo sirve para derivar el margen. El comportamiento legacy
+            // (heredado del ERP: costo × margen → venta) sobrescribía la venta
+            // con el costo cuando percentage_of_profit era 0, borrando el precio
+            // que el seller ya había puesto. Ahora derivamos el margen desde la
+            // venta existente y NO tocamos sale_unit_price.
+            const cost = parseFloat(this.form.purchase_unit_price)
+            const sale = parseFloat(this.form.sale_unit_price)
+            if (!cost || cost <= 0) {
+                this.form.percentage_of_profit = 0
+            } else {
+                this.form.percentage_of_profit = ((sale - cost) / cost) * 100
             }
-            this.form.sale_unit_price = (this.form.purchase_unit_price * (100 + parseFloat(this.form.percentage_of_profit))) / 100
+            // Fase 2: refrescar el chip de margen/snapshot.
+            this.scheduleRecalcPriceSnapshot()
         },
         calculatePercentageOfProfitByPercentage() {
             if (this.form.percentage_of_profit === '') {
