@@ -1387,11 +1387,13 @@
 /* ─────── Responsive global del form ─────── */
 .ie-items-dialog .el-dialog__body { padding: 14px 18px; }
 @media (max-width: 767px) {
-    /* En mobile: dialog full-screen sin radios ni shadows raros */
+    /* En mobile: dialog full-screen sin radios ni shadows raros.
+       max-height (NO height fijo): si el form es más corto que la pantalla el
+       dialog se ajusta a su contenido y NO deja espacio en blanco abajo; si es
+       más largo se topa con la pantalla y el body hace scroll. */
     .ie-items-dialog {
         margin: 0 !important;
         max-width: 100% !important;
-        height: 100vh;
         max-height: 100vh;
         border-radius: 0 !important;
         display: flex !important;
@@ -1401,7 +1403,8 @@
     .ie-items-dialog .el-dialog__body {
         padding: 10px 14px 14px;
         overflow-y: auto;
-        flex: 1;
+        flex: 1 1 auto;
+        min-height: 0;            /* permite encoger y hacer scroll dentro del flex */
     }
     /* Header sections con menos padding */
     .mp-form-section { padding: 10px 12px !important; margin-bottom: 10px !important; }
