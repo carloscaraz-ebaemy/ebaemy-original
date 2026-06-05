@@ -1398,6 +1398,7 @@
         margin: 0 auto !important;
         width: 100% !important;
         max-width: 100% !important;
+        min-height: 100vh;        /* la tarjeta llena la pantalla → no se ve gris debajo */
         border-radius: 0 !important;
     }
     .ie-items-dialog .el-dialog__header {
@@ -1408,7 +1409,9 @@
         background: #fff;
         border-bottom: 1px solid #eef0f2;
     }
-    .ie-items-dialog .el-dialog__body { padding: 10px 14px 14px; }
+    /* padding-bottom amplio: deja sitio para el footer fijo y evita que el
+       último campo quede tapado por él. */
+    .ie-items-dialog .el-dialog__body { padding: 10px 14px 96px; }
     /* Header sections con menos padding */
     .mp-form-section { padding: 10px 12px !important; margin-bottom: 10px !important; }
     .mp-form-section__head h5 { font-size: 14px !important; }
@@ -1422,9 +1425,19 @@
     .control-label { font-size: 12.5px; margin-bottom: 4px; }
     /* CKEditor no se desborda */
     .ck-editor__main { max-width: 100%; overflow-x: auto; }
-    /* Botones sticky del fondo */
-    .ie-sticky-actions { padding: 8px 10px !important; }
-    .ie-sticky-actions .el-button { padding: 8px 12px; font-size: 13px; }
+    /* Footer fijo al fondo de la pantalla (no sticky): los botones quedan
+       anclados abajo siempre, sin importar el largo del form. Así el espacio
+       sobre ellos se lee como margen, nunca como hueco roto. */
+    .ie-items-dialog .ie-sticky-actions {
+        position: fixed !important;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        margin: 0 !important;
+        padding: 10px 14px calc(10px + env(safe-area-inset-bottom)) !important;
+        z-index: 10;
+    }
+    .ie-sticky-actions .el-button { padding: 10px 14px; font-size: 14px; }
 }
 @media (max-width: 480px) {
     /* Smartphone pequeño: tipografía más chica + secciones más estrechas */
