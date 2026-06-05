@@ -14,6 +14,7 @@
                             :on-success="onSuccessF"
                             :on-error="onErrorF"
                             :on-progress="onProgressF"
+                            :on-change="onChangeF"
                             :on-remove="handleRemove"
                             accept="image/jpeg,image/jpg,image/png,image/gif,image/webp,image/bmp,image/heic,image/heif"
                             capture="environment"
@@ -74,6 +75,17 @@
                 }
 
             },
+            onChangeF(file)
+            {
+                // Preview local instantáneo. El upload va con skip_preview:1, así
+                // que el backend NO devuelve base64; sin esto el thumbnail de la
+                // galería sale roto. Mismo enfoque que la imagen principal
+                // (form.vue onFileChange). El blob es un string liviano: no infla
+                // el POST del formulario como sí lo haría el base64.
+                if (file && file.raw && file.raw.type && file.raw.type.startsWith('image/')) {
+                    file.url = URL.createObjectURL(file.raw)
+                }
+            },
             onSuccessF(response, file)
             {
                 this.processingMsg = ''
@@ -86,10 +98,17 @@
                         payload.image_url = payload.temp_image
                     }
                     // Element UI (picture-card) necesita `file.url` para pintar
-                    // el thumbnail en caliente tras subir.
-                    const thumb = payload.image_url || payload.temp_image || payload.url
+                    // el thumbnail en caliente tras subir. Si el server no mandó
+                    // preview (skip_preview), usamos el blob local de onChangeF.
+                    const thumb = payload.image_url || payload.temp_image || payload.url || (file && file.url)
                     if (file && thumb) {
                         file.url = thumb
+                    }
+                    // Persistir el preview en el payload para que la tira inline
+                    // del formulario (allGalleryImages → img.url) lo renderice
+                    // mientras la foto está pendiente de guardar.
+                    if (thumb && !payload.url) {
+                        payload.url = thumb
                     }
                     this.source_images.push(payload)
                 }else {
