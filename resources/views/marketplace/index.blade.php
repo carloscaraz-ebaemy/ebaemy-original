@@ -615,10 +615,12 @@
             display:flex; gap:14px;
             overflow-x:auto; scroll-snap-type:x mandatory; scroll-behavior:smooth;
             padding:4px 2px 14px;
-            scrollbar-width:thin;
+            /* Barra de scroll oculta (sigue desplazándose con dedo/arrastre/rueda).
+               El fade del borde derecho indica que hay más contenido. */
+            scrollbar-width:none;            /* Firefox */
+            -ms-overflow-style:none;         /* IE/Edge antiguo */
         }
-        .mp-offers-rail::-webkit-scrollbar { height:6px; }
-        .mp-offers-rail::-webkit-scrollbar-thumb { background:rgba(0,0,0,.1); border-radius:999px; }
+        .mp-offers-rail::-webkit-scrollbar { width:0; height:0; display:none; }  /* Chrome/Safari */
         .mp-offer-card {
             flex:0 0 auto; scroll-snap-align:start;
             width:200px;
@@ -1498,18 +1500,15 @@ if (window.matchMedia('(max-width: 899px)').matches) {
     .mp-active-filters__pills {
         flex-wrap: nowrap;
         overflow-x: auto;
-        scrollbar-width: thin;
+        scrollbar-width: none;            /* Firefox */
+        -ms-overflow-style: none;         /* IE/Edge antiguo */
         -webkit-mask-image: linear-gradient(to right, #000 92%, transparent);
                 mask-image: linear-gradient(to right, #000 92%, transparent);
         padding-bottom: 4px;
         margin-right: -12px;
         padding-right: 12px;
     }
-    .mp-active-filters__pills::-webkit-scrollbar { height: 3px; }
-    .mp-active-filters__pills::-webkit-scrollbar-thumb {
-        background: var(--mp-line, #e5e7eb);
-        border-radius: 999px;
-    }
+    .mp-active-filters__pills::-webkit-scrollbar { width: 0; height: 0; display: none; }  /* Chrome/Safari */
     .mp-pill {
         padding: 7px 12px;
         font-size: 12.5px;

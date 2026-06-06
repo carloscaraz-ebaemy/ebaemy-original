@@ -68,13 +68,13 @@
     gap: 12px;
     overflow-x: auto;
     scroll-snap-type: x mandatory;
-    scrollbar-width: thin;
+    scrollbar-width: none;            /* Firefox */
+    -ms-overflow-style: none;         /* IE/Edge antiguo */
     -webkit-mask-image: linear-gradient(to right, #000 94%, transparent);
             mask-image: linear-gradient(to right, #000 94%, transparent);
     padding: 4px 4px 12px;
 }
-.mp-recent-scroll::-webkit-scrollbar { height: 4px; }
-.mp-recent-scroll::-webkit-scrollbar-thumb { background: var(--mp-line, #e5e7eb); border-radius: 999px; }
+.mp-recent-scroll::-webkit-scrollbar { width: 0; height: 0; display: none; }  /* Chrome/Safari */
 .mp-recent-item {
     scroll-snap-align: start;
     min-width: 0;
