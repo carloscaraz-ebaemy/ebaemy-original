@@ -1623,31 +1623,27 @@
     }
     .mp-show-offers__see-all:hover { background: rgba(194, 65, 12, .16); }
     .mp-show-offers--other .mp-show-offers__see-all:hover { background: rgba(15, 138, 130, .18); }
+    /* Carrusel horizontal en TODOS los anchos (también desktop). El fade del
+       borde derecho indica que hay más; la barra de scroll va oculta. */
     .mp-show-offers__scroll {
         display: grid;
         grid-auto-flow: column;
-        grid-auto-columns: minmax(190px, 1fr);
+        grid-auto-columns: minmax(170px, 46vw);
         gap: 12px;
         overflow-x: auto;
         scroll-snap-type: x mandatory;
-        scrollbar-width: thin;
+        scrollbar-width: none;            /* Firefox */
+        -ms-overflow-style: none;         /* IE/Edge antiguo */
         -webkit-mask-image: linear-gradient(to right, #000 94%, transparent);
                 mask-image: linear-gradient(to right, #000 94%, transparent);
         padding: 4px 4px 12px;
     }
-    .mp-show-offers__scroll::-webkit-scrollbar { height: 4px; }
-    .mp-show-offers__scroll::-webkit-scrollbar-thumb { background: #fdba74; border-radius: 999px; }
-    .mp-show-offers--other .mp-show-offers__scroll::-webkit-scrollbar-thumb { background: #6ee7b7; }
+    .mp-show-offers__scroll::-webkit-scrollbar { width: 0; height: 0; display: none; }
     .mp-show-offers__item { scroll-snap-align: start; min-width: 0; }
+    /* Desktop: tarjetas de ancho fijo para que sea un carrusel real (no una
+       fila estirada). Se ven ~6 y el resto se desplaza. */
     @media (min-width: 900px) {
-        .mp-show-offers__scroll {
-            grid-auto-flow: row;
-            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-            overflow-x: visible;
-            -webkit-mask-image: none;
-                    mask-image: none;
-            scroll-snap-type: none;
-        }
+        .mp-show-offers__scroll { grid-auto-columns: 210px; }
     }
     .mp-show-offers__scroll .mp-card { height: 100%; }
     </style>
