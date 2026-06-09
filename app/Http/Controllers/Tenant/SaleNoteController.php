@@ -2232,6 +2232,18 @@ class SaleNoteController extends Controller
         $this->sale_note->number = SaleNote::getLastNumberByModel($obj) ;
         $this->sale_note->unique_filename = null;
 
+        // replicate() copia date_of_issue/time_of_issue/due_date del original, lo que
+        // hacía que la NV duplicada (y la boleta generada desde ella) heredara fechas
+        // viejas — p.ej. un vencimiento anterior a la emisión. Reseteamos a hoy y
+        // recalculamos el vencimiento según la condición de pago.
+        $today = Carbon::now();
+        $this->sale_note->date_of_issue = $today->format('Y-m-d');
+        $this->sale_note->time_of_issue = $today->format('H:i:s');
+        $days = (string)$obj->payment_condition_id === '01'
+            ? 0
+            : (int) optional($obj->payment_condition)->days;
+        $this->sale_note->due_date = $today->copy()->addDays($days)->format('Y-m-d');
+
         $this->sale_note->changed = false;
         $this->sale_note->document_id = null;
 
