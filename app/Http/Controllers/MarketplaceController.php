@@ -948,6 +948,8 @@ class MarketplaceController extends Controller
 
         // Pageview — se incrementa asíncronamente para no ralentizar render
         MarketplaceListing::where('id', $listing->id)->increment('view_count');
+        // Snapshot diario por producto (habilita analítica filtrable por fecha)
+        $this->recordDailyStat($listing->id, $listing->hostname_id, 'views');
 
         // Tracking de "vistos recientemente" en session (LRU, max 12 IDs).
         app(\App\Services\Marketplace\RecentlyViewedService::class)->push($listing->id);
@@ -1575,8 +1577,40 @@ class MarketplaceController extends Controller
             ->firstOrFail();
 
         MarketplaceListing::where('id', $listing->id)->increment('click_count');
+        // Snapshot diario por producto (habilita analítica filtrable por fecha)
+        $this->recordDailyStat($listing->id, $listing->hostname_id, 'clicks');
 
         return redirect()->away($listing->tenant_item_url_with_utm, 302);
+    }
+
+    /**
+     * Incrementa atómicamente la fila (producto, día) de
+     * marketplace_listing_stats_daily. Es la fuente de la analítica por
+     * producto filtrable por fecha.
+     *
+     * - INSERT ... ON DUPLICATE KEY UPDATE: una sola query, sin race aunque
+     *   dos requests caigan el mismo día sobre el mismo producto.
+     * - $column está whitelisteado (jamás viene del request) → no hay
+     *   inyección posible en el nombre de columna.
+     * - Envuelto en try/catch: un fallo de tracking NUNCA debe romper el
+     *   render de la ficha ni el redirect del click. Solo se loguea.
+     */
+    private function recordDailyStat(int $listingId, $hostnameId, string $column): void
+    {
+        if (!in_array($column, ['views', 'clicks'], true)) return;
+
+        try {
+            $day = now()->toDateString();
+            \DB::connection('system')->statement(
+                "INSERT INTO marketplace_listing_stats_daily
+                    (listing_id, hostname_id, stat_date, {$column}, created_at, updated_at)
+                 VALUES (?, ?, ?, 1, NOW(), NOW())
+                 ON DUPLICATE KEY UPDATE {$column} = {$column} + 1, updated_at = NOW()",
+                [$listingId, $hostnameId, $day]
+            );
+        } catch (\Throwable $e) {
+            \Log::warning('[MarketplaceController::recordDailyStat] ' . $e->getMessage());
+        }
     }
 
     /**
