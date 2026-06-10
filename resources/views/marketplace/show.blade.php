@@ -417,7 +417,9 @@
         </div>
 
         <div class="mp-price-box">
-            <div class="mp-price-box-label">Precio en {{ $listing->seller_display }}</div>
+            {{-- El vendedor ya se muestra arriba en "Vendido por", así que el
+                 label se mantiene corto para no competir con el monto. --}}
+            <div class="mp-price-box-label">Precio</div>
             <div class="mp-price" id="mpDisplayPrice">
                 @if($listing->display_price > 0)
                     S/ {{ number_format(($variants->isNotEmpty() ? $variants->first()->price : $listing->display_price), 2) }}

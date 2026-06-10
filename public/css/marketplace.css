@@ -1274,24 +1274,24 @@ button { font-family: inherit; cursor: pointer; }
     filter: brightness(1.06);
 }
 
-/* Variante secundaria: blanca con borde verde — para CTAs alternativos
-   ("Comprar directo en tienda", etc.). NO usar mp-cta-primary porque
-   tiene color: #fff !important que vuelve invisible el texto. */
+/* Acción secundaria: ghost liviano (sin caja sólida) para que el CTA
+   principal "Añadir al carrito" sea el claro protagonista. El contacto al
+   vendedor sigue accesible pero ya no compite visualmente con la compra. */
 .mp-cta-secondary {
     display: flex;
     align-items: center;
     justify-content: center;
     gap: 8px;
-    background: #fff;
+    background: transparent;
     color: var(--mp-primary-dark, #0c6b65);
-    padding: 14px 22px;
+    padding: 11px 22px;
     border-radius: var(--mp-radius);
-    font-weight: 700;
-    font-size: 14px;
+    font-weight: 600;
+    font-size: 13.5px;
     text-decoration: none;
     margin-bottom: 12px;
-    border: 1.5px solid var(--mp-primary, #0f8a82);
-    transition: background .15s var(--mp-ease), color .15s var(--mp-ease);
+    border: 1px solid var(--mp-line, #e5e7eb);
+    transition: background .15s var(--mp-ease), color .15s var(--mp-ease), border-color .15s var(--mp-ease);
     width: 100%;
     cursor: pointer;
 }
@@ -1322,8 +1322,9 @@ button { font-family: inherit; cursor: pointer; }
 .mp-cta-share:active { transform: scale(.98); }
 
 .mp-cta-secondary:hover {
-    background: var(--mp-primary, #0f8a82);
-    color: #fff;
+    background: var(--mp-primary-soft, rgba(15,138,130,0.07));
+    border-color: var(--mp-primary, #0f8a82);
+    color: var(--mp-primary-dark, #0c6b65);
     text-decoration: none;
 }
 
