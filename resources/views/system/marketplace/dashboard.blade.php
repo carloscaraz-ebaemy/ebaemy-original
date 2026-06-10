@@ -37,7 +37,7 @@
         return $c->format('d/m');
     };
     // ¿Hay suficientes puntos para apreciar una tendencia (subidas/bajadas)?
-    $trendPoints = $dailySeries->count();
+    $trendPoints = $trendSeries->count();
 
     // Escalas para las mini-barras de la tabla.
     $maxViews  = max(1, $rows->max('views') ?: 1);
@@ -50,9 +50,10 @@
 
     $chartData = [
         'trend' => [
-            'labels' => $dailySeries->map(fn($d) => $trendLabel($d->day))->values(),
-            'views'  => $dailySeries->pluck('views')->values(),
-            'clicks' => $dailySeries->pluck('clicks')->values(),
+            'labels'       => $trendSeries->map(fn($d) => $trendLabel($d->day))->values(),
+            'views'        => $trendSeries->pluck('views')->values(),
+            'clicks'       => $trendIsHistorical ? [] : $trendSeries->pluck('clicks')->values(),
+            'isHistorical' => $trendIsHistorical,
         ],
         'top' => [
             'labels' => $topByViews->map(fn($l) => Str::limit($l->title, 28))->values(),
@@ -73,7 +74,7 @@
             'values' => collect($funnel)->pluck('value')->values(),
             'rates'  => collect($funnel)->pluck('rate')->values(),
         ],
-        'showTrend' => $dailySeries->isNotEmpty(),
+        'showTrend' => $trendSeries->isNotEmpty(),
     ];
 @endphp
 
@@ -236,7 +237,10 @@
     {{-- Fila 1: línea de tiempo de vistas (protagonista visual) --}}
     <div class="mpd-panel">
         <div class="mpd-panel__head">
-            <h5 class="mpd-panel__title">Vistas en el tiempo</h5>
+            <h5 class="mpd-panel__title">
+                Vistas en el tiempo
+                @if($trendIsHistorical)<span class="mpd-tag">compradores registrados</span>@endif
+            </h5>
             <div class="mpd-segmented">
                 @foreach($granOptions as $g => $lbl)
                     <a href="{{ $granUrl($g) }}" class="{{ $gran === $g ? 'is-active' : '' }}">{{ $lbl }}</a>
@@ -252,7 +256,12 @@
                 @endif
             </div>
             <div id="chTrend" class="mpd-canvas"></div>
-            @if($trendPoints <= 1)
+            @if($trendIsHistorical)
+                <div class="mpd-trendnote">
+                    Tendencia de <strong>compradores registrados</strong> (vistas con fecha), como referencia hasta que el tracking diario completo acumule historia (arrancó el {{ $trackingStart ? \Carbon\Carbon::parse($trackingStart)->format('d/m/Y') : 'hoy' }}).
+                    Es un <strong>subconjunto</strong> de las vistas: no incluye anónimos, por eso el total es menor que los KPIs de arriba.
+                </div>
+            @elseif($trendPoints <= 1)
                 <div class="mpd-trendnote">
                     Por ahora hay datos de <strong>1 {{ $unitWord }}</strong>, así que todavía no se aprecia si las vistas suben o bajan: una tendencia necesita al menos <strong>2 {{ $unitPlural }}</strong>.
                     El tracking diario arrancó el {{ $trackingStart ? \Carbon\Carbon::parse($trackingStart)->format('d/m/Y') : 'hoy' }}; cada {{ $unitWord }} nuevo suma un punto a la curva.
@@ -427,6 +436,7 @@
 .mpd-panel { background: var(--mp-surface); border: 1px solid var(--mp-line); border-radius: 12px; margin-bottom: 16px; }
 .mpd-panel__head { display: flex; align-items: baseline; justify-content: space-between; padding: 14px 18px; border-bottom: 1px solid var(--mp-line2); }
 .mpd-panel__title { font-size: 14.5px; font-weight: 650; margin: 0; }
+.mpd-tag { display: inline-block; margin-left: 8px; font-size: 10.5px; font-weight: 600; text-transform: uppercase; letter-spacing: .03em; color: var(--mp-accent); background: var(--mp-accent-soft); padding: 2px 8px; border-radius: 999px; vertical-align: middle; }
 .mpd-panel__count { font-size: 12.5px; color: var(--mp-muted); }
 .mpd-trendstats { display: flex; gap: 18px; flex-wrap: wrap; font-size: 12.5px; color: var(--mp-muted); padding: 12px 18px 0; }
 .mpd-trendstats strong { color: var(--mp-ink); font-weight: 700; }
@@ -514,15 +524,16 @@
 
         function emptyState(id){ var c = document.querySelector(id); if (c) c.style.display='none'; var e = document.querySelector(id+'Empty'); if (e) e.hidden=false; }
 
-        // Tendencia diaria (área)
+        // Tendencia (área). Histórica = solo Vistas; tracking = Vistas + Clicks.
         if (DATA.showTrend) {
+            var trendSeries = [{ name: DATA.trend.isHistorical ? 'Vistas (registrados)' : 'Vistas', data: DATA.trend.views }];
+            if (!DATA.trend.isHistorical && DATA.trend.clicks && DATA.trend.clicks.length) {
+                trendSeries.push({ name: 'Clicks', data: DATA.trend.clicks });
+            }
             render('#chTrend', {
                 chart: { type: 'area', height: 300 },
-                series: [
-                    { name: 'Vistas', data: DATA.trend.views },
-                    { name: 'Clicks', data: DATA.trend.clicks },
-                ],
-                colors: ['#4f46e5', '#f59e0b'],
+                series: trendSeries,
+                colors: DATA.trend.isHistorical ? ['#4f46e5'] : ['#4f46e5', '#f59e0b'],
                 xaxis: { categories: DATA.trend.labels, tickAmount: 8, axisBorder: { show: false }, axisTicks: { show: false } },
                 stroke: { curve: 'smooth', width: 2 },
                 // Pocos puntos → marcadores grandes (se ve cada dato). Muchos → sin marcador.

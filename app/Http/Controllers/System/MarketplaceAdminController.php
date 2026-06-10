@@ -168,38 +168,66 @@ class MarketplaceAdminController extends Controller
             })
             ->groupByRaw($bucketExpr)->orderBy('day')->get()->keyBy('day');
 
-        // Serie continua (sin huecos) iterando bucket a bucket.
-        $dailySeries = collect();
-        if ($trackingStart) {
-            $end    = \Carbon\Carbon::parse($to);
-            $cursor = \Carbon\Carbon::parse($trendFrom);
-            if ($granularity === 'week')  $cursor->startOfWeek();   // lunes
-            if ($granularity === 'month') $cursor->startOfMonth();
-            // Cap de puntos para no saturar (día: últimos 92).
-            if ($granularity === 'day' && $cursor->diffInDays($end) + 1 > 92) {
-                $cursor = (clone $end)->subDays(91);
-            }
-            $guard = 0;
-            while ($cursor->lte($end) && $guard < 400) {
-                $key = $cursor->toDateString();
-                $dailySeries->push((object) [
-                    'day'    => $key,
-                    'views'  => (int) ($dailyView[$key]->views  ?? 0),
-                    'clicks' => (int) ($dailyView[$key]->clicks ?? 0),
-                ]);
-                $granularity === 'week' ? $cursor->addWeek()
-                    : ($granularity === 'month' ? $cursor->addMonth() : $cursor->addDay());
-                $guard++;
-            }
-        }
+        // Serie continua del tracking diario (desde el inicio del tracking).
+        $dailySeries = $trackingStart
+            ? $this->bucketSeries($dailyView, $trendFrom, $to, $granularity, ['views', 'clicks'])
+            : collect();
 
-        // Stats de la línea de tiempo (para los chips del panel).
+        // ── Tendencia HISTÓRICA (compradores registrados) ──────────────────────
+        // marketplace_user_views guarda vistas con fecha (viewed_at) de usuarios
+        // logueados, con 90 días de retención. Es un SUBCONJUNTO de las vistas
+        // (no incluye anónimos), pero permite mostrar una curva real ANTES de
+        // que el tracking diario completo acumule historia. Se usa solo como
+        // referencia cuando el tracking propio todavía no tiene >=2 puntos.
+        $histRaw = collect();
+        if (\Schema::connection('system')->hasTable('marketplace_user_views')) {
+            $bucketViewed = match ($granularity) {
+                'week'  => 'DATE(DATE_SUB(viewed_at, INTERVAL WEEKDAY(viewed_at) DAY))',
+                'month' => "DATE_FORMAT(viewed_at, '%Y-%m-01')",
+                default => 'DATE(viewed_at)',
+            };
+            $histRaw = $conn->table('marketplace_user_views')
+                ->selectRaw("$bucketViewed as day, COUNT(*) as views")
+                ->whereBetween('viewed_at', [$from . ' 00:00:00', $to . ' 23:59:59'])
+                ->when($tenant !== '' || $categoryId || $status || $q !== '', function ($qb) use ($tenant, $categoryId, $status, $q) {
+                    $ids = MarketplaceListing::query()
+                        ->when($tenant !== '', fn($x) => $x->where('tenant_fqdn', 'like', "%{$tenant}%"))
+                        ->when($categoryId, fn($x) => $x->where('marketplace_category_id', $categoryId))
+                        ->when($status, fn($x) => $x->where('status', $status))
+                        ->when($q !== '', fn($x) => $x->where('title', 'like', "%{$q}%"))
+                        ->pluck('id');
+                    $qb->whereIn('listing_id', $ids);
+                })
+                ->groupByRaw($bucketViewed)->orderBy('day')->get()->keyBy('day');
+        }
+        $histSeries = $histRaw->isNotEmpty()
+            ? $this->bucketSeries($histRaw, $from, $to, $granularity, ['views'])
+            : collect();
+
+        // ── Elegir qué serie alimenta la línea de tiempo ───────────────────────
+        // Preferimos el tracking propio (completo) si ya tiene >=2 puntos; si no,
+        // mostramos la histórica de compradores registrados para que haya algo
+        // que mirar; si tampoco hay, el único punto del tracking; si nada, vacío.
+        $histTotal = (int) $histSeries->sum('views');
+        if ($dailySeries->count() >= 2) {
+            $timelineSource = 'tracking';
+        } elseif ($histTotal > 0) {
+            $timelineSource = 'historical';
+        } elseif ($dailySeries->count() >= 1) {
+            $timelineSource = 'tracking';
+        } else {
+            $timelineSource = 'none';
+        }
+        $trendIsHistorical = $timelineSource === 'historical';
+        $trendSeries = $trendIsHistorical ? $histSeries : $dailySeries;
+
+        // Stats de la línea de tiempo (sobre la serie activa).
         $trendStats = [
-            'total_views' => (int) $dailySeries->sum('views'),
-            'avg_views'   => $dailySeries->count() ? round($dailySeries->avg('views'), 1) : 0,
-            'peak_views'  => (int) ($dailySeries->max('views') ?? 0),
-            'peak_day'    => optional($dailySeries->sortByDesc('views')->first())->day,
-            'days'        => $dailySeries->count(),
+            'total_views' => (int) $trendSeries->sum('views'),
+            'avg_views'   => $trendSeries->count() ? round($trendSeries->avg('views'), 1) : 0,
+            'peak_views'  => (int) ($trendSeries->max('views') ?? 0),
+            'peak_day'    => optional($trendSeries->sortByDesc('views')->first())->day,
+            'days'        => $trendSeries->count(),
         ];
 
         // ── Agregados para los gráficos ────────────────────────────────────────
@@ -243,7 +271,8 @@ class MarketplaceAdminController extends Controller
         $filters = compact('from', 'to', 'sort', 'tenant', 'status', 'q', 'minViews', 'granularity') + ['category' => $categoryId];
 
         return view('system.marketplace.dashboard', compact(
-            'rows', 'kpis', 'topByViews', 'topByClicks', 'champion', 'laggard', 'dailySeries',
+            'rows', 'kpis', 'topByViews', 'topByClicks', 'champion', 'laggard',
+            'trendSeries', 'trendIsHistorical', 'timelineSource',
             'categories', 'filters', 'useFallback', 'trackingStart', 'spanDays', 'trendStats',
             'byCategory', 'byTenant', 'revenueByTenant', 'listingsByStatus', 'funnel'
         ));
@@ -324,6 +353,37 @@ class MarketplaceAdminController extends Controller
      * Si falla (timeout, network, FB cambió el endpoint), devolvemos false
      * para que el caller muestre el fallback manual. No tiramos exception.
      */
+    /**
+     * Construye una serie temporal CONTINUA (sin huecos) a partir de un mapa
+     * de buckets [day => row]. Itera bucket a bucket entre $from y $to según la
+     * granularidad, rellenando con 0 los buckets sin datos. Para 'day' limita a
+     * los últimos 92 puntos para no saturar el gráfico.
+     */
+    private function bucketSeries($map, string $from, string $to, string $gran, array $keys = ['views']): \Illuminate\Support\Collection
+    {
+        $series = collect();
+        $end    = \Carbon\Carbon::parse($to);
+        $cursor = \Carbon\Carbon::parse($from);
+        if ($gran === 'week')  $cursor->startOfWeek();   // lunes ISO
+        if ($gran === 'month') $cursor->startOfMonth();
+        if ($gran === 'day' && $cursor->diffInDays($end) + 1 > 92) {
+            $cursor = (clone $end)->subDays(91);
+        }
+        $guard = 0;
+        while ($cursor->lte($end) && $guard < 400) {
+            $key = $cursor->toDateString();
+            $row = ['day' => $key];
+            foreach ($keys as $k) {
+                $row[$k] = (int) ($map[$key]->{$k} ?? 0);
+            }
+            $series->push((object) $row);
+            $gran === 'week' ? $cursor->addWeek()
+                : ($gran === 'month' ? $cursor->addMonth() : $cursor->addDay());
+            $guard++;
+        }
+        return $series;
+    }
+
     private function invalidateSocialCache(string $url): bool
     {
         try {
