@@ -3,7 +3,7 @@
 @section('content')
 @php
     use Illuminate\Support\Str;
-    // Presets de rango rápido (links que reescriben from/to manteniendo el resto).
+
     $today = now()->toDateString();
     $presets = [
         '7'  => ['label' => '7 días',  'from' => now()->subDays(6)->toDateString()],
@@ -17,6 +17,30 @@
     $sortLabels = [
         'views' => 'Más vistas', 'clicks' => 'Más clicks',
         'ctr' => 'Mejor CTR', 'leads' => 'Más leads',
+    ];
+
+    // ── Datos para los gráficos (precalculados; json_encode evita el trap de @json) ──
+    $chartData = [
+        'trend' => [
+            'labels' => $dailySeries->map(fn($d) => \Carbon\Carbon::parse($d->day)->format('d/m'))->values(),
+            'views'  => $dailySeries->pluck('views')->values(),
+            'clicks' => $dailySeries->pluck('clicks')->values(),
+        ],
+        'top' => [
+            'labels' => $topByViews->map(fn($l) => Str::limit($l->title, 24))->values(),
+            'views'  => $topByViews->pluck('views')->values(),
+            'clicks' => $topByViews->pluck('clicks')->values(),
+        ],
+        'cat' => [
+            'labels' => $byCategory->pluck('label')->values(),
+            'views'  => $byCategory->pluck('views')->values(),
+        ],
+        'tenant' => [
+            'labels' => $byTenant->pluck('label')->values(),
+            'views'  => $byTenant->pluck('views')->values(),
+            'clicks' => $byTenant->pluck('clicks')->values(),
+        ],
+        'showTrend' => !$useFallback && $spanDays <= 92 && $dailySeries->isNotEmpty(),
     ];
 @endphp
 
@@ -92,180 +116,97 @@
         </div>
     </form>
 
-    {{-- Aviso de rango activo + fallback histórico --}}
+    {{-- Aviso de rango / fallback --}}
     @if($useFallback)
         <div class="alert alert-warning py-2 px-3 small mb-3">
             ⚠️ El rango <strong>{{ \Carbon\Carbon::parse($filters['from'])->format('d/m/Y') }} – {{ \Carbon\Carbon::parse($filters['to'])->format('d/m/Y') }}</strong>
-            no tiene desglose diario por producto, así que se muestran los
-            <strong>totales históricos acumulados</strong> de cada producto.
+            no tiene desglose diario, así que se muestran los <strong>totales históricos acumulados</strong> por producto.
             @if($trackingStart)
-                El tracking diario por fecha empezó el <strong>{{ \Carbon\Carbon::parse($trackingStart)->format('d/m/Y') }}</strong>: elegí un rango desde esa fecha en adelante para ver la evolución día a día.
+                El tracking diario empezó el <strong>{{ \Carbon\Carbon::parse($trackingStart)->format('d/m/Y') }}</strong>: elegí un rango desde esa fecha para ver la evolución día a día.
             @else
-                El tracking diario por fecha empieza a registrar desde el primer pageview tras este despliegue.
+                El tracking diario empieza a registrar desde el primer pageview tras el despliegue.
             @endif
-        </div>
-    @else
-        <div class="small text-muted mb-3">
-            Mostrando <strong>{{ \Carbon\Carbon::parse($filters['from'])->format('d/m/Y') }} – {{ \Carbon\Carbon::parse($filters['to'])->format('d/m/Y') }}</strong>
-            ({{ $spanDays }} {{ $spanDays === 1 ? 'día' : 'días' }}) · orden: {{ $sortLabels[$filters['sort']] ?? $filters['sort'] }}
         </div>
     @endif
 
-    {{-- ════════════ PRODUCTO ESTRELLA ════════════ --}}
-    @if($champion && $champion->views > 0)
-        <div class="card p-3 mb-4 mpa-champion">
-            <div class="d-flex align-items-center gap-3 flex-wrap">
-                <div class="mpa-champ-thumb">
-                    @if($champion->image_url)
-                        <img src="{{ $champion->image_url }}" alt="" loading="lazy">
-                    @else
-                        <span>📦</span>
-                    @endif
-                </div>
-                <div class="flex-fill" style="min-width:200px">
-                    <div class="small text-uppercase fw-bold" style="letter-spacing:1px;color:#8b5cf6">🏆 Producto con más vistas</div>
-                    <div class="h5 mb-1">{{ Str::limit($champion->title, 70) }}</div>
-                    <div class="small text-muted">{{ $champion->tenant_fqdn }}</div>
-                </div>
-                <div class="d-flex gap-4 text-center flex-wrap">
-                    <div><div class="h4 mb-0">{{ number_format($champion->views) }}</div><small class="text-muted">vistas</small></div>
-                    <div><div class="h4 mb-0">{{ number_format($champion->clicks) }}</div><small class="text-muted">clicks</small></div>
-                    <div><div class="h4 mb-0">{{ $champion->ctr }}%</div><small class="text-muted">CTR</small></div>
-                    <div><div class="h4 mb-0">{{ number_format($champion->leads) }}</div><small class="text-muted">leads</small></div>
+    {{-- ════════════ DASHBOARD OSCURO (gráficos) ════════════ --}}
+    <div class="mpa-dash">
+        {{-- Cabecera: rango activo + producto estrella --}}
+        <div class="mpa-dash__head">
+            <div>
+                <div class="mpa-dash__title">Rendimiento de productos</div>
+                <div class="mpa-dash__sub">
+                    {{ \Carbon\Carbon::parse($filters['from'])->format('d/m/Y') }} – {{ \Carbon\Carbon::parse($filters['to'])->format('d/m/Y') }}
+                    · {{ $spanDays }} {{ $spanDays === 1 ? 'día' : 'días' }}
                 </div>
             </div>
-        </div>
-    @endif
-
-    {{-- ════════════ KPIs DEL RANGO ════════════ --}}
-    <div class="mpd-section-label">📋 Totales del rango</div>
-    <div class="row g-3 mb-4">
-        <div class="col-6 col-md">
-            <div class="card p-3 border-secondary">
-                <small class="text-muted">📦 Productos</small>
-                <h3 class="mb-0">{{ number_format($kpis['products']) }}</h3>
-                <small class="text-muted">con datos en el filtro</small>
-            </div>
-        </div>
-        <div class="col-6 col-md">
-            <div class="card p-3 border-info">
-                <small class="text-info">👁️ Vistas</small>
-                <h3 class="mb-0">{{ number_format($kpis['views']) }}</h3>
-                <small class="text-muted">en el rango</small>
-            </div>
-        </div>
-        <div class="col-6 col-md">
-            <div class="card p-3" style="border-color:#8b5cf6">
-                <small style="color:#8b5cf6">🖱️ Clicks</small>
-                <h3 class="mb-0">{{ number_format($kpis['clicks']) }}</h3>
-                <small class="text-muted">al storefront</small>
-            </div>
-        </div>
-        <div class="col-6 col-md">
-            <div class="card p-3 border-primary">
-                <small class="text-primary">🎯 CTR</small>
-                <h3 class="mb-0">{{ $kpis['ctr'] }}%</h3>
-                <small class="text-muted">clicks / vistas</small>
-            </div>
-        </div>
-        <div class="col-6 col-md">
-            <div class="card p-3 border-warning">
-                <small class="text-warning">📞 Leads</small>
-                <h3 class="mb-0">{{ number_format($kpis['leads']) }}</h3>
-                <small class="text-muted">consultas generadas</small>
-            </div>
-        </div>
-    </div>
-
-    {{-- ════════════ TENDENCIA DIARIA ════════════ --}}
-    @unless($useFallback)
-        <div class="mpd-section-label">📈 Evolución día a día</div>
-        <div class="card mb-4 p-3">
-            @php
-                $isEmpty = $dailySeries->isEmpty() || $dailySeries->every(fn($d) => $d->views === 0 && $d->clicks === 0);
-                $maxBar  = max(1, $dailySeries->max(fn($d) => $d->views));
-            @endphp
-            @if($spanDays > 92)
-                <div class="text-center text-muted py-4">El rango es muy amplio para el gráfico diario (máx. 92 días). Acotá las fechas para ver la evolución.</div>
-            @elseif($isEmpty)
-                <div class="text-center text-muted py-4">No hubo vistas ni clicks en este rango con los filtros aplicados.</div>
-            @else
-                <div style="display:flex;align-items:end;gap:2px;height:150px">
-                    @foreach($dailySeries as $d)
-                        @php
-                            $viewH = max(2, round($d->views * 100 / $maxBar));
-                            $clickH = $d->views > 0 ? min(100, round($d->clicks * 100 / max(1,$d->views))) : 0;
-                        @endphp
-                        <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;height:100%;justify-content:flex-end"
-                             title="{{ \Carbon\Carbon::parse($d->day)->format('d/m/Y') }}: {{ $d->views }} vistas · {{ $d->clicks }} clicks">
-                            <div style="width:100%;height:{{ $viewH }}%;position:relative;background:#c4b5fd;border-radius:4px 4px 0 0;overflow:hidden;display:flex;align-items:end">
-                                <div style="width:100%;height:{{ $clickH }}%;background:#6d28d9"></div>
-                            </div>
-                            @if($spanDays <= 31)
-                                <small style="font-size:9px;color:#9ca3af">{{ \Carbon\Carbon::parse($d->day)->format('d/m') }}</small>
-                            @endif
-                        </div>
-                    @endforeach
-                </div>
-                <div class="mt-2 small d-flex gap-3">
-                    <span><span style="display:inline-block;width:10px;height:10px;background:#c4b5fd;border-radius:2px"></span> Vistas</span>
-                    <span><span style="display:inline-block;width:10px;height:10px;background:#6d28d9;border-radius:2px"></span> Clicks (dentro de la barra de vistas)</span>
+            @if($champion && $champion->views > 0)
+                <div class="mpa-champ">
+                    <div class="mpa-champ__thumb">
+                        @if($champion->image_url)<img src="{{ $champion->image_url }}" alt="" loading="lazy">@else<span>📦</span>@endif
+                    </div>
+                    <div>
+                        <div class="mpa-champ__tag">🏆 Producto con más vistas</div>
+                        <div class="mpa-champ__name">{{ Str::limit($champion->title, 46) }}</div>
+                        <div class="mpa-champ__meta">{{ number_format($champion->views) }} vistas · {{ number_format($champion->clicks) }} clicks · {{ $champion->ctr }}% CTR</div>
+                    </div>
                 </div>
             @endif
         </div>
-    @endunless
 
-    {{-- ════════════ TOP 10 — BARRAS ════════════ --}}
-    <div class="mpd-section-label">🔥 Ranking de productos</div>
-    <div class="row g-3 mb-4">
-        <div class="col-md-6">
-            <div class="card p-3 h-100">
-                <h5 class="mb-3">Top 10 — por vistas 👁️</h5>
-                @if($topByViews->isEmpty() || $topByViews->first()->views == 0)
-                    <div class="text-center text-muted py-4">Sin vistas en este rango</div>
+        {{-- KPIs --}}
+        <div class="mpa-kpis">
+            <div class="mpa-kpi"><span class="mpa-kpi__ico" style="color:#94a3b8">📦</span><div><div class="mpa-kpi__num">{{ number_format($kpis['products']) }}</div><div class="mpa-kpi__lbl">Productos</div></div></div>
+            <div class="mpa-kpi"><span class="mpa-kpi__ico" style="color:#38bdf8">👁️</span><div><div class="mpa-kpi__num">{{ number_format($kpis['views']) }}</div><div class="mpa-kpi__lbl">Vistas</div></div></div>
+            <div class="mpa-kpi"><span class="mpa-kpi__ico" style="color:#a78bfa">🖱️</span><div><div class="mpa-kpi__num">{{ number_format($kpis['clicks']) }}</div><div class="mpa-kpi__lbl">Clicks</div></div></div>
+            <div class="mpa-kpi"><span class="mpa-kpi__ico" style="color:#34d399">🎯</span><div><div class="mpa-kpi__num">{{ $kpis['ctr'] }}%</div><div class="mpa-kpi__lbl">CTR</div></div></div>
+            <div class="mpa-kpi"><span class="mpa-kpi__ico" style="color:#fbbf24">📞</span><div><div class="mpa-kpi__num">{{ number_format($kpis['leads']) }}</div><div class="mpa-kpi__lbl">Leads</div></div></div>
+        </div>
+
+        {{-- Fila 1: tendencia (área) a todo el ancho --}}
+        <div class="mpa-grid">
+            <div class="mpa-chart mpa-chart--wide">
+                <div class="mpa-chart__title">Vistas y clicks por día</div>
+                @if($chartData['showTrend'])
+                    <div id="chTrend" class="mpa-chart__canvas"></div>
                 @else
-                    @php $vMax = max(1, $topByViews->max('views')); @endphp
-                    <div class="mp-status-bars">
-                        @foreach($topByViews as $l)
-                            @php $pct = max(2, round($l->views / $vMax * 100, 1)); @endphp
-                            <div class="mp-status-row">
-                                <div class="mp-status-row__head">
-                                    <span title="{{ $l->title }}">{{ Str::limit($l->title, 42) }}</span>
-                                    <span class="text-muted small">{{ number_format($l->views) }}</span>
-                                </div>
-                                <div class="mp-status-bar"><div class="mp-status-fill" style="width:{{ $pct }}%;background:linear-gradient(90deg,#818cf8,#6366f1)"></div></div>
-                            </div>
-                        @endforeach
+                    <div class="mpa-chart__empty">
+                        @if($useFallback)
+                            Elegí un rango dentro del período con tracking diario para ver la evolución.
+                        @else
+                            Sin actividad diaria en este rango.
+                        @endif
                     </div>
                 @endif
             </div>
         </div>
-        <div class="col-md-6">
-            <div class="card p-3 h-100">
-                <h5 class="mb-3">Top 10 — por clicks 🖱️</h5>
-                @if($topByClicks->isEmpty() || $topByClicks->first()->clicks == 0)
-                    <div class="text-center text-muted py-4">Sin clicks en este rango</div>
-                @else
-                    @php $cMax = max(1, $topByClicks->max('clicks')); @endphp
-                    <div class="mp-status-bars">
-                        @foreach($topByClicks as $l)
-                            @php $pct = max(2, round($l->clicks / $cMax * 100, 1)); @endphp
-                            <div class="mp-status-row">
-                                <div class="mp-status-row__head">
-                                    <span title="{{ $l->title }}">{{ Str::limit($l->title, 42) }}</span>
-                                    <span class="text-muted small">{{ number_format($l->clicks) }}</span>
-                                </div>
-                                <div class="mp-status-bar"><div class="mp-status-fill" style="width:{{ $pct }}%;background:linear-gradient(90deg,#a78bfa,#7c3aed)"></div></div>
-                            </div>
-                        @endforeach
-                    </div>
-                @endif
+
+        {{-- Fila 2: barras agrupadas + donut --}}
+        <div class="mpa-grid mpa-grid--2">
+            <div class="mpa-chart">
+                <div class="mpa-chart__title">Top 10 productos — vistas vs clicks</div>
+                <div id="chTop" class="mpa-chart__canvas"></div>
+                <div class="mpa-chart__empty" id="chTopEmpty" hidden>Sin vistas en este rango.</div>
+            </div>
+            <div class="mpa-chart">
+                <div class="mpa-chart__title">Vistas por categoría</div>
+                <div id="chCat" class="mpa-chart__canvas"></div>
+                <div class="mpa-chart__empty" id="chCatEmpty" hidden>Sin categorías con vistas.</div>
+            </div>
+        </div>
+
+        {{-- Fila 3: barras horizontales por tienda --}}
+        <div class="mpa-grid">
+            <div class="mpa-chart mpa-chart--wide">
+                <div class="mpa-chart__title">Vistas y clicks por tienda</div>
+                <div id="chTenant" class="mpa-chart__canvas"></div>
+                <div class="mpa-chart__empty" id="chTenantEmpty" hidden>Sin tiendas con vistas.</div>
             </div>
         </div>
     </div>
 
     {{-- ════════════ TABLA DETALLE ════════════ --}}
-    <div class="mpd-section-label">📋 Detalle por producto ({{ number_format($rows->count()) }})</div>
+    <div class="mpd-section-label mt-4">📋 Detalle por producto ({{ number_format($rows->count()) }})</div>
     <div class="card p-0 mb-4">
         <div class="table-responsive">
             <table class="table table-sm table-hover align-middle mb-0 mpa-table">
@@ -285,9 +226,7 @@
                     @forelse($rows->take(200) as $i => $l)
                         <tr>
                             <td class="text-muted">{{ $i + 1 }}</td>
-                            <td>
-                                <a href="{{ url('/marketplace/item/' . $l->slug) }}" target="_blank" rel="noopener">{{ Str::limit($l->title, 60) }}</a>
-                            </td>
+                            <td><a href="{{ url('/marketplace/item/' . $l->slug) }}" target="_blank" rel="noopener">{{ Str::limit($l->title, 60) }}</a></td>
                             <td><small class="text-muted">{{ $l->tenant_fqdn }}</small></td>
                             <td class="text-center"><span class="badge bg-light text-dark">{{ $statusLabels[$l->status] ?? $l->status }}</span></td>
                             <td class="text-end">{{ number_format($l->views) }}</td>
@@ -312,24 +251,134 @@
 <style>
 .mpa-filters .form-label { color:#6b7280; font-weight:600; }
 
-.mpa-champion { border:1px solid #ede9fe; background:linear-gradient(90deg,#faf5ff,#ffffff); }
-.mpa-champ-thumb { width:72px; height:72px; border-radius:10px; overflow:hidden; background:#f3f4f6;
-    display:flex; align-items:center; justify-content:center; font-size:28px; flex-shrink:0; }
-.mpa-champ-thumb img { width:100%; height:100%; object-fit:cover; }
+/* ── Banda oscura estilo BI dashboard ── */
+.mpa-dash { background:#0f1729; border-radius:16px; padding:20px; color:#e2e8f0;
+    box-shadow:0 10px 30px rgba(15,23,42,.25); }
+.mpa-dash__head { display:flex; justify-content:space-between; align-items:center; gap:16px; flex-wrap:wrap; margin-bottom:18px; }
+.mpa-dash__title { font-size:18px; font-weight:700; color:#fff; }
+.mpa-dash__sub { font-size:12.5px; color:#94a3b8; }
 
+.mpa-champ { display:flex; align-items:center; gap:12px; background:#1b2440; border:1px solid #2a3656;
+    border-radius:12px; padding:10px 14px; max-width:420px; }
+.mpa-champ__thumb { width:52px; height:52px; border-radius:9px; overflow:hidden; background:#0f1729;
+    display:flex; align-items:center; justify-content:center; font-size:22px; flex-shrink:0; }
+.mpa-champ__thumb img { width:100%; height:100%; object-fit:cover; }
+.mpa-champ__tag { font-size:10.5px; font-weight:700; letter-spacing:.5px; color:#c4b5fd; text-transform:uppercase; }
+.mpa-champ__name { font-size:14px; font-weight:600; color:#fff; line-height:1.2; }
+.mpa-champ__meta { font-size:11.5px; color:#94a3b8; }
+
+/* KPIs */
+.mpa-kpis { display:grid; grid-template-columns:repeat(5,1fr); gap:12px; margin-bottom:18px; }
+.mpa-kpi { display:flex; align-items:center; gap:10px; background:#1b2440; border:1px solid #2a3656;
+    border-radius:12px; padding:12px 14px; }
+.mpa-kpi__ico { font-size:20px; }
+.mpa-kpi__num { font-size:20px; font-weight:700; color:#fff; line-height:1.1; }
+.mpa-kpi__lbl { font-size:11px; color:#94a3b8; text-transform:uppercase; letter-spacing:.4px; }
+
+/* Grid de gráficos */
+.mpa-grid { display:grid; grid-template-columns:1fr; gap:14px; margin-bottom:14px; }
+.mpa-grid--2 { grid-template-columns:1fr 1fr; }
+.mpa-chart { background:#131c33; border:1px solid #2a3656; border-radius:14px; padding:16px; }
+.mpa-chart__title { font-size:13.5px; font-weight:700; color:#e2e8f0; margin-bottom:6px; }
+.mpa-chart__canvas { min-height:300px; }
+.mpa-chart--wide .mpa-chart__canvas { min-height:320px; }
+.mpa-chart__empty { color:#64748b; text-align:center; padding:60px 10px; font-size:13px; }
+
+@media (max-width: 991px){
+    .mpa-kpis { grid-template-columns:repeat(2,1fr); }
+    .mpa-grid--2 { grid-template-columns:1fr; }
+}
+
+/* Tabla detalle */
 .mpa-table th { font-size:12px; text-transform:uppercase; letter-spacing:.4px; color:#6b7280; white-space:nowrap; }
 .mpa-table td { font-size:13px; }
-
-/* Barras horizontales y labels — mismas clases que el dashboard para consistencia */
-.mp-status-bars { display:flex; flex-direction:column; gap:10px; }
-.mp-status-row { display:flex; flex-direction:column; gap:4px; }
-.mp-status-row__head { display:flex; justify-content:space-between; align-items:center; font-size:13px; color:#374151; font-weight:500; gap:8px; }
-.mp-status-row__head span:first-child { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-.mp-status-bar { height:18px; background:#f3f4f6; border-radius:4px; overflow:hidden; }
-.mp-status-fill { height:100%; border-radius:4px; transition:width .6s ease; }
-
 .mpd-section-label { font-size:11.5px; font-weight:700; text-transform:uppercase; letter-spacing:1px;
-    color:#6b7280; padding:4px 0 10px; margin-top:6px; border-bottom:1px solid #e5e7eb; margin-bottom:12px; }
-.mpd-section-label:first-of-type { margin-top:0; }
+    color:#6b7280; padding:4px 0 10px; border-bottom:1px solid #e5e7eb; margin-bottom:12px; }
 </style>
+@endpush
+
+@push('scripts')
+<script src="https://cdn.jsdelivr.net/npm/apexcharts@3.54.1/dist/apexcharts.min.js"></script>
+<script>
+(function () {
+    var DATA = {!! json_encode($chartData) !!};
+    var PALETTE = ['#3b82f6', '#22d3ee', '#ef4444', '#f59e0b', '#10b981', '#a78bfa', '#ec4899'];
+
+    function ready(fn){ document.readyState === 'loading' ? document.addEventListener('DOMContentLoaded', fn) : fn(); }
+
+    ready(function () {
+        if (typeof ApexCharts === 'undefined') return; // CDN caído → quedan los textos/tabla
+
+        var base = {
+            chart: { background: 'transparent', toolbar: { show: false }, fontFamily: 'inherit', foreColor: '#94a3b8' },
+            theme: { mode: 'dark' },
+            grid: { borderColor: '#243049', strokeDashArray: 4 },
+            tooltip: { theme: 'dark' },
+            dataLabels: { enabled: false },
+            legend: { labels: { colors: '#cbd5e1' } },
+            noData: { text: 'Sin datos', style: { color: '#64748b' } },
+        };
+        var sum = function (a){ return (a || []).reduce(function (s, n){ return s + (+n || 0); }, 0); };
+        function deepMerge(a, b){ var o = Object.assign({}, a); for (var k in b){ o[k] = (b[k] && typeof b[k]==='object' && !Array.isArray(b[k])) ? deepMerge(a[k]||{}, b[k]) : b[k]; } return o; }
+        function render(id, opts){ var el = document.querySelector(id); if (el) new ApexCharts(el, deepMerge(base, opts)).render(); }
+        function emptyState(id){ var c = document.querySelector(id); if (c) c.style.display='none'; var e = document.querySelector(id+'Empty'); if (e) e.hidden=false; }
+
+        // ── 1. Tendencia diaria (área con degradado) ──
+        if (DATA.showTrend) {
+            render('#chTrend', {
+                chart: { type: 'area', height: 320 },
+                series: [
+                    { name: 'Vistas',  data: DATA.trend.views },
+                    { name: 'Clicks',  data: DATA.trend.clicks },
+                ],
+                colors: ['#22d3ee', '#a78bfa'],
+                xaxis: { categories: DATA.trend.labels, tickAmount: 10, axisBorder: { color: '#243049' }, axisTicks: { color: '#243049' } },
+                stroke: { curve: 'smooth', width: 2 },
+                fill: { type: 'gradient', gradient: { shadeIntensity: 1, opacityFrom: 0.45, opacityTo: 0.05, stops: [0, 95] } },
+            });
+        }
+
+        // ── 2. Top 10 productos: vistas vs clicks (barras agrupadas) ──
+        if (sum(DATA.top.views) > 0) {
+            render('#chTop', {
+                chart: { type: 'bar', height: 360 },
+                series: [
+                    { name: 'Vistas', data: DATA.top.views },
+                    { name: 'Clicks', data: DATA.top.clicks },
+                ],
+                colors: ['#3b82f6', '#ef4444'],
+                plotOptions: { bar: { horizontal: false, columnWidth: '62%', borderRadius: 4 } },
+                xaxis: { categories: DATA.top.labels, labels: { rotate: -40, hideOverlappingLabels: false, trim: true, style: { fontSize: '10px' } } },
+            });
+        } else { emptyState('#chTop'); }
+
+        // ── 3. Vistas por categoría (donut) ──
+        if (sum(DATA.cat.views) > 0) {
+            render('#chCat', {
+                chart: { type: 'donut', height: 360 },
+                series: DATA.cat.views,
+                labels: DATA.cat.labels,
+                colors: PALETTE,
+                legend: { position: 'bottom', labels: { colors: '#cbd5e1' } },
+                plotOptions: { pie: { donut: { size: '62%', labels: { show: true, total: { show: true, label: 'Vistas', color: '#cbd5e1' } } } } },
+                stroke: { colors: ['#131c33'] },
+            });
+        } else { emptyState('#chCat'); }
+
+        // ── 4. Vistas y clicks por tienda (barras horizontales) ──
+        if (sum(DATA.tenant.views) > 0) {
+            render('#chTenant', {
+                chart: { type: 'bar', height: 340 },
+                series: [
+                    { name: 'Vistas', data: DATA.tenant.views },
+                    { name: 'Clicks', data: DATA.tenant.clicks },
+                ],
+                colors: ['#10b981', '#f59e0b'],
+                plotOptions: { bar: { horizontal: true, barHeight: '64%', borderRadius: 4 } },
+                xaxis: { categories: DATA.tenant.labels },
+            });
+        } else { emptyState('#chTenant'); }
+    });
+})();
+</script>
 @endpush

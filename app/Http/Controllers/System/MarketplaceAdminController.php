@@ -290,13 +290,34 @@ class MarketplaceAdminController extends Controller
         // Catálogo de categorías para el <select> del filtro.
         $categories = $conn->table('marketplace_categories')
             ->orderBy('name')->get(['id', 'name']);
+        $catName = $categories->pluck('name', 'id');
+
+        // ── Agregados para los gráficos (derivados de $rows, sin más queries) ──
+        // Vistas por categoría → donut. "Sin categoría" agrupa los nulos.
+        $byCategory = $rows->groupBy('marketplace_category_id')
+            ->map(fn($g, $cid) => (object) [
+                'label' => $cid ? ($catName[$cid] ?? 'Categoría #' . $cid) : 'Sin categoría',
+                'views' => (int) $g->sum('views'),
+            ])
+            ->filter(fn($c) => $c->views > 0)
+            ->sortByDesc('views')->values()->take(7);
+
+        // Vistas por tienda → barras horizontales (top 8).
+        $byTenant = $rows->groupBy('tenant_fqdn')
+            ->map(fn($g, $fqdn) => (object) [
+                'label'  => $fqdn,
+                'views'  => (int) $g->sum('views'),
+                'clicks' => (int) $g->sum('clicks'),
+            ])
+            ->filter(fn($t) => $t->views > 0)
+            ->sortByDesc('views')->values()->take(8);
 
         $filters = compact('from', 'to', 'sort', 'tenant', 'status', 'q', 'minViews') + ['category' => $categoryId];
 
         return view('system.marketplace.products_analytics', compact(
             'rows', 'kpis', 'topByViews', 'topByClicks', 'champion',
             'dailySeries', 'categories', 'filters', 'useFallback',
-            'trackingStart', 'spanDays'
+            'trackingStart', 'spanDays', 'byCategory', 'byTenant'
         ));
     }
 
