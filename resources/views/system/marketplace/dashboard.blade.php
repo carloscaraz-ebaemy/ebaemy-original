@@ -74,7 +74,13 @@
             'values' => collect($funnel)->pluck('value')->values(),
             'rates'  => collect($funnel)->pluck('rate')->values(),
         ],
-        'showTrend' => $trendSeries->isNotEmpty(),
+        'activity' => [
+            'labels' => $activitySeries->map(fn($d) => $trendLabel($d->day))->values(),
+            'leads'  => $activitySeries->pluck('leads')->values(),
+            'orders' => $activitySeries->pluck('orders')->values(),
+        ],
+        'showTrend'    => $trendSeries->isNotEmpty(),
+        'showActivity' => $activitySeries->isNotEmpty() && ($activityStats['leads'] + $activityStats['orders']) > 0,
     ];
 @endphp
 
@@ -274,6 +280,24 @@
             <div class="mpd-canvas-empty">
                 Todavía no hay vistas registradas día a día. La línea de tiempo se empieza a dibujar con el primer tráfico que entre tras activar el tracking.
             </div>
+        @endif
+    </div>
+
+    {{-- Fila 1b: leads y pedidos en el tiempo (historia real, gráfico aparte) --}}
+    <div class="mpd-panel">
+        <div class="mpd-panel__head">
+            <h5 class="mpd-panel__title">Leads y pedidos en el tiempo</h5>
+            @if($chartData['showActivity'])
+                <div class="mpd-trendstats">
+                    <span><strong>{{ number_format($activityStats['leads']) }}</strong> leads</span>
+                    <span><strong>{{ number_format($activityStats['orders']) }}</strong> pedidos</span>
+                </div>
+            @endif
+        </div>
+        @if($chartData['showActivity'])
+            <div id="chActivity" class="mpd-canvas"></div>
+        @else
+            <div class="mpd-canvas-empty">Sin leads ni pedidos en este rango.</div>
         @endif
     </div>
 
@@ -538,6 +562,22 @@
                 stroke: { curve: 'smooth', width: 2 },
                 // Pocos puntos → marcadores grandes (se ve cada dato). Muchos → sin marcador.
                 markers: { size: DATA.trend.views.length <= 10 ? 5 : 0, strokeWidth: 2, strokeColors: '#fff', hover: { sizeOffset: 2 } },
+                fill: { type: 'gradient', gradient: { shadeIntensity: 1, opacityFrom: 0.25, opacityTo: 0.02, stops: [0, 95] } },
+            });
+        }
+
+        // Leads y pedidos en el tiempo (gráfico aparte, historia real)
+        if (DATA.showActivity) {
+            render('#chActivity', {
+                chart: { type: 'area', height: 300 },
+                series: [
+                    { name: 'Leads', data: DATA.activity.leads },
+                    { name: 'Pedidos', data: DATA.activity.orders },
+                ],
+                colors: ['#0ea5e9', '#22c55e'],
+                xaxis: { categories: DATA.activity.labels, tickAmount: 8, axisBorder: { show: false }, axisTicks: { show: false } },
+                stroke: { curve: 'smooth', width: 2 },
+                markers: { size: DATA.activity.leads.length <= 10 ? 5 : 0, strokeWidth: 2, strokeColors: '#fff', hover: { sizeOffset: 2 } },
                 fill: { type: 'gradient', gradient: { shadeIntensity: 1, opacityFrom: 0.25, opacityTo: 0.02, stops: [0, 95] } },
             });
         }

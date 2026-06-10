@@ -146,13 +146,8 @@ class MarketplaceAdminController extends Controller
         $spanDays  = \Carbon\Carbon::parse($from)->diffInDays(\Carbon\Carbon::parse($to)) + 1;
         $trendFrom = $trackingStart ? max($from, $trackingStart) : $from;
 
-        // Expresión SQL del "bucket" según granularidad. WEEKDAY()=0 es lunes,
-        // así que restarlo lleva la fecha al lunes de su semana (ISO).
-        $bucketExpr = match ($granularity) {
-            'week'  => 'DATE(DATE_SUB(stat_date, INTERVAL WEEKDAY(stat_date) DAY))',
-            'month' => "DATE_FORMAT(stat_date, '%Y-%m-01')",
-            default => 'DATE(stat_date)',
-        };
+        // Expresión SQL del "bucket" según granularidad (ver bucketExprFor()).
+        $bucketExpr = $this->bucketExprFor('stat_date', $granularity);
 
         $dailyView = !$trackingStart ? collect() : $conn->table('marketplace_listing_stats_daily')
             ->selectRaw("$bucketExpr as day, SUM(views) as views, SUM(clicks) as clicks")
@@ -181,11 +176,7 @@ class MarketplaceAdminController extends Controller
         // referencia cuando el tracking propio todavía no tiene >=2 puntos.
         $histRaw = collect();
         if (\Schema::connection('system')->hasTable('marketplace_user_views')) {
-            $bucketViewed = match ($granularity) {
-                'week'  => 'DATE(DATE_SUB(viewed_at, INTERVAL WEEKDAY(viewed_at) DAY))',
-                'month' => "DATE_FORMAT(viewed_at, '%Y-%m-01')",
-                default => 'DATE(viewed_at)',
-            };
+            $bucketViewed = $this->bucketExprFor('viewed_at', $granularity);
             $histRaw = $conn->table('marketplace_user_views')
                 ->selectRaw("$bucketViewed as day, COUNT(*) as views")
                 ->whereBetween('viewed_at', [$from . ' 00:00:00', $to . ' 23:59:59'])
@@ -230,6 +221,52 @@ class MarketplaceAdminController extends Controller
             'days'        => $trendSeries->count(),
         ];
 
+        // ── Actividad en el tiempo (leads + pedidos) ───────────────────────────
+        // A diferencia de las vistas, leads y pedidos SÍ guardan fecha real
+        // (created_at), así que su línea de tiempo tiene historia completa. Va
+        // en un gráfico APARTE del de vistas.
+        $leadBucket = $this->bucketExprFor('created_at', $granularity);
+        $leadsRaw = MarketplaceLead::query()
+            ->selectRaw("$leadBucket as day, COUNT(*) as cnt")
+            ->whereBetween('created_at', [$from . ' 00:00:00', $to . ' 23:59:59'])
+            ->when($tenant !== '' || $categoryId || $status || $q !== '', function ($qb) use ($tenant, $categoryId, $status, $q) {
+                $ids = MarketplaceListing::query()
+                    ->when($tenant !== '', fn($x) => $x->where('tenant_fqdn', 'like', "%{$tenant}%"))
+                    ->when($categoryId, fn($x) => $x->where('marketplace_category_id', $categoryId))
+                    ->when($status, fn($x) => $x->where('status', $status))
+                    ->when($q !== '', fn($x) => $x->where('title', 'like', "%{$q}%"))
+                    ->pluck('id');
+                $qb->whereIn('listing_id', $ids);
+            })
+            ->groupByRaw($leadBucket)->orderBy('day')->pluck('cnt', 'day');
+
+        $orderBucket = $this->bucketExprFor('created_at', $granularity);
+        $ordersRaw = $conn->table('tenant_marketplace_orders')
+            ->selectRaw("$orderBucket as day, COUNT(*) as cnt")
+            ->whereBetween('created_at', [$from . ' 00:00:00', $to . ' 23:59:59'])
+            ->when($tenant !== '', function ($qb) use ($tenant, $conn) {
+                $hids = $conn->table('hostnames')->where('fqdn', 'like', "%{$tenant}%")->pluck('id');
+                $qb->whereIn('hostname_id', $hids);
+            })
+            ->groupByRaw($orderBucket)->orderBy('day')->pluck('cnt', 'day');
+
+        // Mapa unificado [day => {leads, orders}] para la serie continua.
+        $actMap = collect();
+        foreach ($leadsRaw as $day => $cnt) {
+            $actMap[$day] = (object) ['leads' => (int) $cnt, 'orders' => 0];
+        }
+        foreach ($ordersRaw as $day => $cnt) {
+            if (isset($actMap[$day])) $actMap[$day]->orders = (int) $cnt;
+            else $actMap[$day] = (object) ['leads' => 0, 'orders' => (int) $cnt];
+        }
+        $activitySeries = $actMap->isNotEmpty()
+            ? $this->bucketSeries($actMap, $from, $to, $granularity, ['leads', 'orders'])
+            : collect();
+        $activityStats = [
+            'leads'  => (int) $activitySeries->sum('leads'),
+            'orders' => (int) $activitySeries->sum('orders'),
+        ];
+
         // ── Agregados para los gráficos ────────────────────────────────────────
         $categories = $conn->table('marketplace_categories')->orderBy('name')->get(['id', 'name']);
         $catName = $categories->pluck('name', 'id');
@@ -272,7 +309,7 @@ class MarketplaceAdminController extends Controller
 
         return view('system.marketplace.dashboard', compact(
             'rows', 'kpis', 'topByViews', 'topByClicks', 'champion', 'laggard',
-            'trendSeries', 'trendIsHistorical', 'timelineSource',
+            'trendSeries', 'trendIsHistorical', 'timelineSource', 'activitySeries', 'activityStats',
             'categories', 'filters', 'useFallback', 'trackingStart', 'spanDays', 'trendStats',
             'byCategory', 'byTenant', 'revenueByTenant', 'listingsByStatus', 'funnel'
         ));
@@ -353,6 +390,20 @@ class MarketplaceAdminController extends Controller
      * Si falla (timeout, network, FB cambió el endpoint), devolvemos false
      * para que el caller muestre el fallback manual. No tiramos exception.
      */
+    /**
+     * Expresión SQL que agrupa una columna de fecha en buckets según la
+     * granularidad. WEEKDAY()=0 es lunes, así que restarlo lleva la fecha al
+     * lunes de su semana (ISO). Para mes, el primero del mes.
+     */
+    private function bucketExprFor(string $col, string $gran): string
+    {
+        return match ($gran) {
+            'week'  => "DATE(DATE_SUB($col, INTERVAL WEEKDAY($col) DAY))",
+            'month' => "DATE_FORMAT($col, '%Y-%m-01')",
+            default => "DATE($col)",
+        };
+    }
+
     /**
      * Construye una serie temporal CONTINUA (sin huecos) a partir de un mapa
      * de buckets [day => row]. Itera bucket a bucket entre $from y $to según la
