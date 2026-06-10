@@ -85,7 +85,14 @@
                 </div><!-- End .product-container -->
 
                 <div class="price-box">
-                    <span class="old-price">{{ $record->currency_type['symbol'] }} {{ number_format( ($record->sale_unit_price * 1.2 ) , 2 ) }}</span>
+                    @php
+                        // Precio tachado REAL: original_price (flash/pack) o compare_at_price (oferta Saga).
+                        $refPrice = data_get($record, 'original_price') ?: data_get($record, 'compare_at_price');
+                        $refPrice = ($refPrice && $refPrice > $record->sale_unit_price) ? $refPrice : null;
+                    @endphp
+                    @if($refPrice)
+                        <span class="old-price">{{ $record->currency_type['symbol'] }} {{ number_format($refPrice, 2) }}</span>
+                    @endif
                     <span class="product-price">{{ $record->currency_type['symbol'] }} {{ number_format($record->sale_unit_price, 2) }}</span>
                 </div><!-- End .price-box -->
 

@@ -71,6 +71,9 @@
         $displayPrice  = $__flashPrices[$item->id];
     } elseif ($displayPrice < $originalPrice) {
         // pack discount
+    } elseif ($item->compare_at_price && (float) $item->compare_at_price > $displayPrice) {
+        // Oferta tipo Saga: precio regular tachado vía compare_at_price
+        $originalPrice = (float) $item->compare_at_price;
     } else {
         $originalPrice = 0; // no discount
     }
