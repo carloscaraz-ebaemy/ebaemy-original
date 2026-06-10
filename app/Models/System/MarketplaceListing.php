@@ -266,6 +266,39 @@ class MarketplaceListing extends Model
     }
 
     /**
+     * Quita el sufijo de variante "_mp" de una URL de imagen para apuntar a la
+     * variante 'main' (1200px, aspect ratio ORIGINAL sin recorte). El _mp es un
+     * recorte cuadrado 1080x1080 (fit()) ideal para la grilla de cards, pero en
+     * la PÁGINA DE DETALLE queremos mostrar el producto completo.
+     *   "foo-abc_mp.webp" → "foo-abc.webp"
+     */
+    private static function toFullImageUrl(?string $url): ?string
+    {
+        if (empty($url)) return null;
+        // Reemplaza "_mp" inmediatamente antes de la extensión (último punto).
+        return preg_replace('/_mp(\.[A-Za-z0-9]+)$/', '$1', $url);
+    }
+
+    /**
+     * Imagen principal SIN recorte para la página de detalle. Las cards siguen
+     * usando image_url (cuadrado _mp) — esto NO cambia la lógica de la grilla.
+     */
+    public function getImageFullUrlAttribute(): ?string
+    {
+        return self::toFullImageUrl($this->image_url);
+    }
+
+    /**
+     * Galería en resolución completa (aspect ratio original) para el detalle.
+     */
+    public function getGalleryFullImageUrlsAttribute(): array
+    {
+        $urls = is_array($this->gallery_image_urls) ? $this->gallery_image_urls : [];
+        $full = array_map([self::class, 'toFullImageUrl'], $urls);
+        return array_values(array_filter($full));
+    }
+
+    /**
      * URL al storefront del tenant original (para redirect "Comprar").
      * Si el tenant expone el item en su ecommerce, apunta al detalle.
      */

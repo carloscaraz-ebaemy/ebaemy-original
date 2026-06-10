@@ -138,7 +138,10 @@
     <div class="mp-gallery">
         <div class="mp-gallery-main">
             @if($listing->image_url)
-                <img id="mpGalleryMain" src="{{ $listing->image_url }}" alt="{{ $listing->title }}">
+                {{-- En el DETALLE mostramos la variante completa (sin recorte _mp)
+                     para que el producto se vea entero. Las thumbs y las cards
+                     siguen usando el cuadrado _mp para grilla uniforme. --}}
+                <img id="mpGalleryMain" src="{{ $listing->image_full_url }}" alt="{{ $listing->title }}">
             @else
                 <div style="display:flex;height:100%;align-items:center;justify-content:center;color:var(--mp-muted);font-size:14px;font-weight:500">Sin imagen disponible</div>
             @endif
@@ -147,9 +150,12 @@
         {{-- Galería múltiple: usa $listing->gallery_image_urls cuando el item
              tiene imágenes adicionales sincronizadas desde item_images. Si no
              hay galería, muestra solo la principal. El JS de líneas ~636
-             enlaza click en thumb → cambia mpGalleryMain. --}}
+             enlaza click en thumb → cambia mpGalleryMain. La thumb usa el _mp
+             cuadrado (src) pero data-full-image apunta a la versión completa,
+             que es la que va al visor principal y al lightbox. --}}
         @php
-            $galleryUrls = is_array($listing->gallery_image_urls) ? $listing->gallery_image_urls : [];
+            $galleryUrls     = is_array($listing->gallery_image_urls) ? $listing->gallery_image_urls : [];
+            $galleryFullUrls = is_array($listing->gallery_full_image_urls) ? $listing->gallery_full_image_urls : [];
             // Si no hay galería sincronizada o solo trae la principal, fallback al thumb único
             $hasGallery = count($galleryUrls) > 1;
         @endphp
@@ -159,14 +165,14 @@
                     <button type="button"
                             class="mp-gallery-thumb {{ $idx === 0 ? 'is-active' : '' }}"
                             aria-label="Vista {{ $idx + 1 }}">
-                        <img src="{{ $thumbUrl }}" alt="" data-full-image="{{ $thumbUrl }}">
+                        <img src="{{ $thumbUrl }}" alt="" data-full-image="{{ $galleryFullUrls[$idx] ?? $thumbUrl }}">
                     </button>
                 @endforeach
             </div>
         @elseif($listing->image_url)
             <div class="mp-gallery-thumbs">
                 <button type="button" class="mp-gallery-thumb is-active" aria-label="Vista principal">
-                    <img src="{{ $listing->image_url }}" alt="">
+                    <img src="{{ $listing->image_url }}" alt="" data-full-image="{{ $listing->image_full_url }}">
                 </button>
             </div>
         @endif
