@@ -776,7 +776,7 @@ input.mp-co-invalid, select.mp-co-invalid, textarea.mp-co-invalid {
         const distSel = document.querySelector('[data-ubigeo="dist"]');
         if (!depSel || !provSel || !distSel) return;
 
-        const URL = @json(asset('marketplace/ubigeo.json'));
+        const URL = @json(asset('static/ubigeo-pe.json'));
         let data = null;
         const norm = (s) => (s || '').toString().trim().toUpperCase();
 
