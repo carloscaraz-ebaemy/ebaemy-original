@@ -27,6 +27,27 @@
         </div>
     </div>
 
+    {{-- Progreso de importación de catálogo --}}
+    <div class="col-12 mb-3" id="mp-import-panel" style="display:none">
+        <div class="card border-primary">
+            <div class="card-body">
+                <h5 class="mb-2"><i class="fas fa-cloud-download-alt mr-2"></i> Importando catálogo de Saga Falabella…</h5>
+                <div class="progress mb-2" style="height:22px">
+                    <div id="mp-import-bar" class="progress-bar progress-bar-striped progress-bar-animated bg-primary"
+                         role="progressbar" style="width:0%">0%</div>
+                </div>
+                <div id="mp-import-status" class="text-muted small">Iniciando…</div>
+                <div class="mt-2">
+                    <span class="badge badge-success" id="mp-import-created">Creados: 0</span>
+                    <span class="badge badge-info" id="mp-import-linked">Enlazados: 0</span>
+                    <span class="badge badge-secondary" id="mp-import-skipped">Saltados: 0</span>
+                    <span class="badge badge-danger" id="mp-import-failed">Fallidos: 0</span>
+                </div>
+                <small class="text-muted d-block mt-2">No cierres esta página mientras importa. Puede tardar varios minutos.</small>
+            </div>
+        </div>
+    </div>
+
     {{-- Productos mapeados --}}
     <div class="col-12">
         <div class="card">
@@ -78,12 +99,17 @@ document.addEventListener('DOMContentLoaded', function(){
                 statusBadge = '<span class="badge badge-secondary">'+(ch.status || 'inactivo')+'</span>';
             }
             filter.innerHTML += '<option value="'+ch.id+'">'+ch.name+' ('+ch.platform+')</option>';
+            // Botón destacado: traer el catálogo de Saga hacia EBAEMY (solo Falabella)
+            var importBtn = ch.platform === 'falabella'
+                ? '<button class="btn btn-xs btn-primary mr-1 mb-1" onclick="importCatalog('+ch.id+')"><i class="fas fa-cloud-download-alt"></i> Importar de Saga</button>'
+                : '';
             html += '<tr>'
                 + '<td><strong>'+ch.name+'</strong><br><small class="text-muted">'+ch.platform+'</small></td>'
                 + '<td>'+statusBadge+'</td>'
                 + '<td id="mp-count-'+ch.id+'">-</td>'
                 + '<td>'+(ch.last_sync_at || '<span class="text-muted">Nunca</span>')+'</td>'
                 + '<td>'
+                + importBtn
                 + '<button class="btn btn-xs btn-outline-primary mr-1 mb-1" onclick="syncProducts('+ch.id+')"><i class="fas fa-sync"></i> Sync productos</button>'
                 + '<button class="btn btn-xs btn-outline-success mr-1 mb-1" onclick="syncStock('+ch.id+')"><i class="fas fa-boxes"></i> Sync stock</button>'
                 + '<button class="btn btn-xs btn-outline-warning mr-1 mb-1" onclick="fetchOrders('+ch.id+')"><i class="fas fa-download"></i> Traer órdenes</button>'
@@ -163,6 +189,86 @@ document.addEventListener('DOMContentLoaded', function(){
         fetch('/ecommerce/marketplace/channels/'+channelId+'/auto-map', {method:'POST', headers:headers})
         .then(function(r){return r.json()})
         .then(function(data){ alert(data.message || 'Productos mapeados'); loadProducts(channelId); });
+    };
+
+    // Importar catálogo de Saga → EBAEMY, por lotes con barra de progreso.
+    var mpImporting = false;
+    window.importCatalog = function(channelId){
+        if (mpImporting) { alert('Ya hay una importación en curso.'); return; }
+        if (!confirm('Esto traerá tus productos de Saga Falabella y los creará en tu tienda (con sus imágenes). Puede tardar varios minutos. ¿Continuar?')) return;
+
+        mpImporting = true;
+        var panel = document.getElementById('mp-import-panel');
+        var bar = document.getElementById('mp-import-bar');
+        var status = document.getElementById('mp-import-status');
+        panel.style.display = 'block';
+        panel.scrollIntoView({behavior:'smooth', block:'center'});
+
+        var totals = {created:0, linked:0, skipped:0, failed:0, processed:0};
+        var offset = 0;
+        var limit = 10;
+        var totalFetchedSoFar = 0;
+
+        function setBadges(){
+            document.getElementById('mp-import-created').textContent = 'Creados: ' + totals.created;
+            document.getElementById('mp-import-linked').textContent = 'Enlazados: ' + totals.linked;
+            document.getElementById('mp-import-skipped').textContent = 'Saltados: ' + totals.skipped;
+            document.getElementById('mp-import-failed').textContent = 'Fallidos: ' + totals.failed;
+        }
+
+        function finish(msg, ok){
+            mpImporting = false;
+            bar.classList.remove('progress-bar-animated','progress-bar-striped');
+            bar.classList.toggle('bg-success', ok !== false);
+            bar.classList.toggle('bg-danger', ok === false);
+            bar.style.width = '100%';
+            bar.textContent = ok === false ? 'Error' : '100%';
+            status.innerHTML = '<strong>'+msg+'</strong>';
+            // refrescar conteo de productos del canal
+            fetch('/ecommerce/marketplace/channels/'+channelId+'/products', {headers:{'Accept':'application/json'}})
+            .then(function(r){return r.json()}).then(function(prods){
+                var el = document.getElementById('mp-count-'+channelId);
+                var count = prods.total || prods.length || (prods.data ? prods.data.length : 0);
+                if(el) el.textContent = count + ' productos';
+            });
+        }
+
+        function nextBatch(){
+            fetch('/ecommerce/marketplace/channels/'+channelId+'/import-catalog', {
+                method:'POST', headers:headers,
+                body: JSON.stringify({offset:offset, limit:limit, with_images:true})
+            })
+            .then(function(r){return r.json()})
+            .then(function(data){
+                if (data.error) { finish('Error: '+data.error, false); return; }
+
+                totals.created += data.created||0;
+                totals.linked  += data.linked||0;
+                totals.skipped += data.skipped||0;
+                totals.failed  += data.failed||0;
+                totals.processed += data.fetched||0;
+                totalFetchedSoFar += data.fetched||0;
+                setBadges();
+
+                // No conocemos el total exacto de antemano: barra animada (indeterminada)
+                // y mostramos el conteo real procesado, que es la señal honesta de avance.
+                status.textContent = 'Procesados ' + totals.processed + ' productos…';
+                if (!data.done) {
+                    bar.style.width = '100%';
+                    bar.textContent = totals.processed + ' productos';
+                }
+
+                if (data.done) {
+                    finish('Importación completada: ' + totals.created + ' creados, ' + totals.linked + ' enlazados, ' + totals.skipped + ' ya existían, ' + totals.failed + ' fallidos.', true);
+                } else {
+                    offset = data.next_offset;
+                    nextBatch();
+                }
+            })
+            .catch(function(e){ finish('Error de red: '+e.message, false); });
+        }
+
+        nextBatch();
     };
 });
 </script>

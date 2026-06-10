@@ -253,6 +253,41 @@ class MarketplaceController extends Controller
         return response()->json($result);
     }
 
+    /**
+     * Importa el catálogo de Saga Falabella HACIA EBAEMY, por lotes.
+     * El frontend llama este endpoint en tandas (offset += limit) y muestra el
+     * progreso. Cada llamada es corta para no exceder el timeout del servidor.
+     */
+    public function importCatalog(Request $request, int $channelId)
+    {
+        $channel = MarketplaceChannel::findOrFail($channelId);
+
+        if ($channel->platform !== 'falabella') {
+            return response()->json(['error' => 'La importación de catálogo solo está disponible para Saga Falabella'], 400);
+        }
+
+        $offset     = max(0, (int) $request->input('offset', 0));
+        $limit      = min(25, max(1, (int) $request->input('limit', 10)));
+        $withImages = $request->boolean('with_images', true);
+        $dryRun     = $request->boolean('dry_run', false);
+
+        try {
+            $service = new \App\Services\Marketplace\FalabellaImportService($channel, $withImages);
+            $summary = $service->import($dryRun, $limit, $offset);
+
+            // 'done' cuando Saga devolvió menos productos que el lote pedido.
+            $summary['done'] = $summary['fetched'] < $limit;
+            $summary['next_offset'] = $offset + $limit;
+
+            // No devolvemos el detalle completo de filas (puede ser grande).
+            unset($summary['rows']);
+
+            return response()->json($summary);
+        } catch (\Throwable $e) {
+            return response()->json(['error' => $e->getMessage(), 'done' => true], 500);
+        }
+    }
+
     // ── Orders ─────────────────────────────────────────────────
 
     public function orders(Request $request)

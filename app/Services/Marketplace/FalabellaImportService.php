@@ -50,16 +50,21 @@ class FalabellaImportService
      * Ejecuta la importación.
      *
      * @param  bool  $dryRun   Si true, NO escribe nada: solo reporta qué haría.
-     * @param  int   $limit    Máximo de productos a traer de Saga.
+     * @param  int   $limit    Máximo de productos a traer de Saga en esta tanda.
+     * @param  int   $offset   Desde qué posición traer (paginación por lotes).
      * @return array  Resumen { fetched, created, linked, skipped, failed, rows[] }
      */
-    public function import(bool $dryRun = false, int $limit = 1000): array
+    public function import(bool $dryRun = false, int $limit = 1000, int $offset = 0): array
     {
         if (!$this->warehouse && !$dryRun) {
             throw new \RuntimeException('El tenant no tiene ningún almacén (warehouse) configurado.');
         }
 
-        $products = $this->api->getProducts(['Limit' => $limit]);
+        $params = ['Limit' => $limit];
+        if ($offset > 0) {
+            $params['Offset'] = $offset;
+        }
+        $products = $this->api->getProducts($params);
 
         $summary = [
             'fetched' => count($products),

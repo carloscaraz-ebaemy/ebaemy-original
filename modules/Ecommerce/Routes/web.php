@@ -254,6 +254,7 @@ Route::middleware(['check.permission', 'locked.tenant', 'check.email.verified', 
         Route::get('items_ecommerce/records_all', '\App\Http\Controllers\Tenant\ItemController@recordsAllSimple');
         Route::get('marketplace/orders', '\App\Http\Controllers\Tenant\MarketplaceController@orders');
         Route::get('marketplace/channels/{channelId}/fetch-orders', '\App\Http\Controllers\Tenant\MarketplaceController@fetchOrders');
+        Route::post('marketplace/channels/{channelId}/import-catalog', '\App\Http\Controllers\Tenant\MarketplaceController@importCatalog');
     });
 
     //Item Sets
