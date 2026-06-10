@@ -1360,6 +1360,36 @@ class ItemController extends Controller
     }
 
     /**
+     * Edición rápida de precios desde la lista de Productos: precio de venta
+     * (oferta) + precio tachado (normal) + opcional vigencia. saveQuietly para
+     * no disparar la provisión de almacén/observers pesados.
+     */
+    public function quickPrice(Request $request)
+    {
+        $item = Item::find($request->id);
+        if (!$item) {
+            return ['success' => false, 'message' => 'Producto no encontrado'];
+        }
+
+        $sale = (float) $request->sale_unit_price;
+        if ($sale <= 0) {
+            return ['success' => false, 'message' => 'El precio de oferta debe ser mayor a 0'];
+        }
+
+        $compare = ($request->compare_at_price !== null && $request->compare_at_price !== '')
+            ? (float) $request->compare_at_price : null;
+
+        $data = ['sale_unit_price' => $sale, 'compare_at_price' => $compare];
+        if ($request->has('compare_at_until')) {
+            $data['compare_at_until'] = $request->compare_at_until ?: null;
+        }
+
+        $item->forceFill($data)->saveQuietly();
+
+        return ['success' => true, 'message' => 'Precio actualizado', 'id' => $item->id];
+    }
+
+    /**
      * Publica o despublica el item en el marketplace central (ebaemy.com).
      * Requiere internal_id para que el sync pueda identificar el producto.
      * Sincroniza al instante al índice central para evitar esperar al cron.

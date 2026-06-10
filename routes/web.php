@@ -499,6 +499,7 @@ if ($hostname) {
             Route::post('items/upload-async', 'Tenant\ItemController@uploadAsync');
             Route::get('items/upload-jobs/{uuid}', 'Tenant\ItemController@uploadJobStatus');
             Route::post('items/visible_store', 'Tenant\ItemController@visibleStore');
+            Route::post('items/quick-price', 'Tenant\ItemController@quickPrice');
             Route::post('items/marketplace-toggle', 'Tenant\ItemController@marketplaceToggle');
             Route::get('items/marketplace-stats',    'Tenant\ItemController@marketplaceStats');
             // Dashboard analytics del marketplace (vista completa con charts +

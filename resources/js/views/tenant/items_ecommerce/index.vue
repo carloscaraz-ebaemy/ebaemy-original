@@ -190,12 +190,24 @@
                             <!--<img :src="row.image_url_medium"  width="40" height="40" class="img-thumbail img-custom" /> -->
                         </td>
                         <td>{{ row.description }}</td>
-                        <td class="text-end">
-                            <span v-if="row.compare_at_price && row.compare_at_price > 0"
-                                  style="text-decoration:line-through;color:#9ca3af;font-size:11px;display:block">
-                                S/ {{ Number(row.compare_at_price).toFixed(2) }}
-                            </span>
-                            <span :style="row.compare_at_price && row.compare_at_price > 0 ? 'color:#e53e3e;font-weight:600' : ''">{{ row.sale_unit_price }}</span>
+                        <td class="text-end" style="min-width:128px">
+                            <div style="display:flex;flex-direction:column;gap:3px;align-items:flex-end">
+                                <div style="display:flex;align-items:center;gap:4px">
+                                    <small style="color:#9ca3af;font-size:10px">Normal</small>
+                                    <input type="number" min="0" step="0.01"
+                                           v-model.number="row.compare_at_price"
+                                           @change="updatePrice(row)"
+                                           placeholder="—"
+                                           style="width:74px;text-align:right;border:1px solid #e5e7eb;border-radius:4px;padding:1px 4px;font-size:11px;color:#9ca3af">
+                                </div>
+                                <div style="display:flex;align-items:center;gap:4px">
+                                    <small style="color:#e53e3e;font-size:10px;font-weight:600">Oferta</small>
+                                    <input type="number" min="0" step="0.01"
+                                           v-model.number="row.amount_sale_unit_price"
+                                           @change="updatePrice(row)"
+                                           style="width:74px;text-align:right;border:1px solid #fca5a5;border-radius:4px;padding:1px 4px;font-size:13px;color:#e53e3e;font-weight:700">
+                                </div>
+                            </div>
                         </td>
                         <td
                             class="text-end"
@@ -449,6 +461,23 @@ export default {
                 })
                 .catch(error => {})
                 .then(() => {});
+        },
+        updatePrice(row) {
+            var sale = parseFloat(row.amount_sale_unit_price);
+            if (!sale || sale <= 0) { this.$message.error('La oferta debe ser mayor a 0'); return; }
+            var compare = (row.compare_at_price === '' || row.compare_at_price === null || row.compare_at_price === undefined)
+                ? null : parseFloat(row.compare_at_price);
+            this.$http
+                .post(`/${this.resource}/quick-price`, { id: row.id, sale_unit_price: sale, compare_at_price: compare })
+                .then(response => {
+                    if (response.data.success) {
+                        this.$message.success('Precio actualizado');
+                        row.sale_unit_price = 'S/ ' + sale.toFixed(2);
+                    } else {
+                        this.$message.error(response.data.message || 'No se pudo actualizar');
+                    }
+                })
+                .catch(() => this.$message.error('Error al actualizar precio'));
         },
         toggleMarketplace(value, id) {
             this.$http
