@@ -33,12 +33,15 @@ class MarketplaceAdminController extends Controller
         $conn = \DB::connection('system');
 
         // ── Filtros (rango por defecto: últimos 30 días, incluye hoy) ──────────
-        $to   = $request->filled('to')
-            ? \Carbon\Carbon::parse($request->input('to'))->toDateString()
-            : now()->toDateString();
-        $from = $request->filled('from')
-            ? \Carbon\Carbon::parse($request->input('from'))->toDateString()
-            : now()->subDays(29)->toDateString();
+        // Parseo defensivo: la URL es editable por el usuario, una fecha
+        // inválida (?from=bad) NO debe tirar 500 — cae al default.
+        $parseDate = function ($value, string $default): string {
+            if (!$value) return $default;
+            try { return \Carbon\Carbon::parse($value)->toDateString(); }
+            catch (\Throwable $e) { return $default; }
+        };
+        $to   = $parseDate($request->input('to'),   now()->toDateString());
+        $from = $parseDate($request->input('from'), now()->subDays(29)->toDateString());
         if ($from > $to) { [$from, $to] = [$to, $from]; }
 
         $sort       = in_array($request->input('sort'), ['views', 'clicks', 'ctr', 'leads'], true)
@@ -124,9 +127,8 @@ class MarketplaceAdminController extends Controller
         ];
         $kpis['ctr'] = $kpis['views'] > 0 ? round($kpis['clicks'] / $kpis['views'] * 100, 2) : 0;
 
-        $topByViews  = $rows->sortByDesc('views')->take(10)->values();
-        $topByClicks = $rows->sortByDesc('clicks')->take(10)->values();
-        $champion    = $topByViews->first();
+        $topByViews = $rows->sortByDesc('views')->take(10)->values();
+        $champion   = $topByViews->first();
 
         // "Rezagado": producto con tráfico real pero la PEOR conversión — se ve
         // mucho y nadie hace click. Es el más accionable ("desperdicia vistas").
@@ -286,17 +288,6 @@ class MarketplaceAdminController extends Controller
             ])
             ->filter(fn($t) => $t->views > 0)->sortByDesc('views')->values()->take(8);
 
-        // Revenue por tienda en el rango (top 6) → donut.
-        $revenueByTenant = $conn->table('tenant_marketplace_orders as tmo')
-            ->join('hostnames as h', 'h.id', '=', 'tmo.hostname_id')
-            ->whereBetween('tmo.created_at', [$from . ' 00:00:00', $to . ' 23:59:59'])
-            ->selectRaw('h.fqdn as tenant_fqdn, COALESCE(SUM(tmo.subtotal - tmo.discount_amount),0) as revenue')
-            ->groupBy('h.fqdn')->orderByDesc('revenue')->limit(6)->get();
-
-        // Distribución actual de listings por estado.
-        $listingsByStatus = MarketplaceListing::selectRaw('status, COUNT(*) as cnt')
-            ->groupBy('status')->orderByDesc('cnt')->get();
-
         // Funnel global del rango.
         $funnel = [
             ['stage' => 'Vistas',  'value' => $kpis['views'],  'rate' => 100],
@@ -308,10 +299,10 @@ class MarketplaceAdminController extends Controller
         $filters = compact('from', 'to', 'sort', 'tenant', 'status', 'q', 'minViews', 'granularity') + ['category' => $categoryId];
 
         return view('system.marketplace.dashboard', compact(
-            'rows', 'kpis', 'topByViews', 'topByClicks', 'champion', 'laggard',
+            'rows', 'kpis', 'topByViews', 'champion', 'laggard',
             'trendSeries', 'trendIsHistorical', 'timelineSource', 'activitySeries', 'activityStats',
             'categories', 'filters', 'useFallback', 'trackingStart', 'spanDays', 'trendStats',
-            'byCategory', 'byTenant', 'revenueByTenant', 'listingsByStatus', 'funnel'
+            'byCategory', 'byTenant', 'funnel'
         ));
     }
 
