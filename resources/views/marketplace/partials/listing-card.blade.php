@@ -141,11 +141,18 @@
                         <span class="mp-card-price-prefix">Desde</span>
                         <span class="mp-card-price">S/ {{ number_format($listing->min_price ?? $listing->display_price, 2) }}</span>
                     @else
-                        <span class="mp-card-price">S/ {{ number_format($listing->display_price, 2) }}</span>
+                        {{-- Precio vigente + "-X%" juntos (nowrap) para que el chip
+                             de descuento quede SIEMPRE al costado del precio, aunque
+                             la card sea angosta. El precio tachado va debajo. --}}
+                        <span class="mp-card-price-lead">
+                            <span class="mp-card-price">S/ {{ number_format($listing->display_price, 2) }}</span>
+                            @if($cardHasDiscount && !empty($listing->discount_pct))
+                                <span class="mp-card-price-pct">-{{ $listing->discount_pct }}%</span>
+                            @endif
+                        </span>
                         @if($cardHasDiscount)
                             <span class="mp-card-price-old">S/ {{ number_format($listing->original_price, 2) }}</span>
                             @if(!empty($listing->discount_pct))
-                                <span class="mp-card-price-pct">-{{ $listing->discount_pct }}%</span>
                                 {{-- Ahorro en píldora verde (lo más persuasivo). El wrapper
                                      fuerza el salto de línea dentro del flex-wrap del price-info. --}}
                                 <span class="mp-card-saving-line">

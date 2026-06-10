@@ -837,6 +837,15 @@ button { font-family: inherit; cursor: pointer; }
     display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px;
     flex: 1; min-width: 0;
 }
+/* Precio vigente + chip "-X%" agrupados sin wrap: el descuento queda SIEMPRE
+   pegado al costado del precio, no debajo, aunque la card sea angosta. */
+.mp-card-price-lead {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: nowrap;
+    flex-shrink: 0;
+}
 /* Chip rojo "-10%" junto al precio — refuerza el descuento en el punto
    exacto donde el ojo lee el precio (además del badge ⚡ de la esquina). */
 .mp-card-price-pct {
