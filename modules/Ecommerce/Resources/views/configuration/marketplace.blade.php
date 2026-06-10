@@ -69,6 +69,24 @@
             </div>
         </div>
     </div>
+
+    {{-- Pedidos de Saga (despacho) --}}
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h4 class="card-title mb-0"><i class="fas fa-shipping-fast mr-2"></i> Pedidos de Marketplace (despacho)</h4>
+                <button class="btn btn-sm btn-outline-secondary" onclick="loadOrders()"><i class="fas fa-sync"></i> Actualizar</button>
+            </div>
+            <div class="card-body p-0">
+                <table class="table table-hover mb-0">
+                    <thead><tr><th>Pedido</th><th>Cliente</th><th>Total</th><th>Estado</th><th>Despacho</th></tr></thead>
+                    <tbody id="mp-orders-tbody">
+                        <tr><td colspan="5" class="text-center text-muted py-3">Cargando pedidos…</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
 </div>
 
 <script>
@@ -270,6 +288,75 @@ document.addEventListener('DOMContentLoaded', function(){
 
         nextBatch();
     };
+
+    // ── Pedidos / Despacho ──────────────────────────────────────
+    var ORDER_STATUS = {
+        'pending': '<span class="badge badge-warning">Pendiente</span>',
+        'ready_to_ship': '<span class="badge badge-info">Listo p/ despacho</span>',
+        'shipped': '<span class="badge badge-primary">Enviado</span>',
+        'delivered': '<span class="badge badge-success">Entregado</span>',
+        'processed': '<span class="badge badge-success">Procesado</span>'
+    };
+
+    window.loadOrders = function(){
+        var tbody = document.getElementById('mp-orders-tbody');
+        tbody.innerHTML = '<tr><td colspan="5" class="text-center py-3">Cargando…</td></tr>';
+        fetch('/ecommerce/marketplace/orders', {headers:{'Accept':'application/json'}})
+        .then(function(r){return r.json()})
+        .then(function(resp){
+            var orders = resp.data || resp;
+            if(!orders || !orders.length){
+                tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted py-4">No hay pedidos todavía. Llegan solos cada 15 min, o usa "Traer órdenes".</td></tr>';
+                return;
+            }
+            var html = '';
+            orders.forEach(function(o){
+                var cust = o.customer_data || {};
+                var st = ORDER_STATUS[o.status] || ('<span class="badge badge-secondary">'+o.status+'</span>');
+                var ch = o.channel_id;
+                var actions = '';
+                if (o.status === 'pending') {
+                    actions = '<button class="btn btn-xs btn-success mr-1 mb-1" onclick="orderReady('+ch+','+o.id+')"><i class="fas fa-check"></i> Marcar listo</button>';
+                } else if (o.status === 'ready_to_ship') {
+                    actions = '<button class="btn btn-xs btn-primary mr-1 mb-1" onclick="downloadDoc('+ch+','+o.id+',\'shippingLabel\')"><i class="fas fa-file-pdf"></i> Hoja de despacho</button>'
+                            + '<button class="btn btn-xs btn-outline-secondary mr-1 mb-1" onclick="downloadDoc('+ch+','+o.id+',\'invoice\')"><i class="fas fa-receipt"></i> Boleta/Factura</button>'
+                            + '<button class="btn btn-xs btn-outline-primary mb-1" onclick="orderShipped('+ch+','+o.id+')"><i class="fas fa-truck"></i> Marcar enviado</button>';
+                } else {
+                    actions = '<button class="btn btn-xs btn-outline-primary mb-1" onclick="downloadDoc('+ch+','+o.id+',\'shippingLabel\')"><i class="fas fa-file-pdf"></i> Hoja de despacho</button>';
+                }
+                html += '<tr>'
+                    + '<td><strong>#'+(o.external_order_id||o.id)+'</strong></td>'
+                    + '<td>'+(cust.name||'-')+'</td>'
+                    + '<td>S/ '+(parseFloat(o.total||0).toFixed(2))+'</td>'
+                    + '<td>'+st+'</td>'
+                    + '<td>'+actions+'</td>'
+                    + '</tr>';
+            });
+            tbody.innerHTML = html;
+        })
+        .catch(function(e){ tbody.innerHTML = '<tr><td colspan="5" class="text-danger text-center py-3">Error: '+e.message+'</td></tr>'; });
+    };
+
+    window.orderReady = function(channelId, orderId){
+        if(!confirm('¿Marcar este pedido como LISTO para despacho en Saga? Después podrás descargar la hoja de despacho.')) return;
+        fetch('/ecommerce/marketplace/channels/'+channelId+'/orders/'+orderId+'/ready', {method:'POST', headers:headers})
+        .then(function(r){return r.json()})
+        .then(function(d){ alert(d.message || d.error || 'Listo'); loadOrders(); });
+    };
+
+    window.orderShipped = function(channelId, orderId){
+        if(!confirm('¿Confirmar a Saga que este pedido ya fue ENVIADO?')) return;
+        fetch('/ecommerce/marketplace/channels/'+channelId+'/orders/'+orderId+'/shipped', {method:'POST', headers:headers})
+        .then(function(r){return r.json()})
+        .then(function(d){ alert(d.message || d.error || 'Listo'); loadOrders(); });
+    };
+
+    window.downloadDoc = function(channelId, orderId, type){
+        // Abre el documento (PDF) en una pestaña nueva para imprimir
+        window.open('/ecommerce/marketplace/channels/'+channelId+'/orders/'+orderId+'/document/'+type, '_blank');
+    };
+
+    loadOrders();
 });
 </script>
 @endsection

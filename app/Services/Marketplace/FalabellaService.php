@@ -62,6 +62,25 @@ class FalabellaService
             ->retry(3, 1000)
             ->get($this->baseUrl, $signed);
 
+        return $this->handleResponse($action, $response);
+    }
+
+    /**
+     * Variante POST para acciones de escritura de estado (SetStatusTo*).
+     * Seller Center firma TODOS los params en el query string; el body va vacío.
+     */
+    protected function callPost(string $action, array $params = [])
+    {
+        $signed = $this->signRequest($action, $params);
+        $url = $this->baseUrl . '?' . http_build_query($signed, '', '&', PHP_QUERY_RFC3986);
+
+        $response = Http::timeout(30)->post($url);
+
+        return $this->handleResponse($action, $response);
+    }
+
+    protected function handleResponse(string $action, $response)
+    {
         if ($response->failed()) {
             $error = $response->json('ErrorResponse.Head.ErrorMessage', $response->body());
             Log::channel('payments')->error("Falabella API error: {$action}", [
@@ -333,7 +352,12 @@ class FalabellaService
                     $itemsResult = $this->call('GetOrderItems', ['OrderId' => $externalId]);
                     $orderItems = $itemsResult['OrderItems']['OrderItem'] ?? [];
 
-                    MarketplaceOrder::create([
+                    // Normalizar: GetOrderItems devuelve objeto suelto si hay 1 item
+                    if (isset($orderItems['OrderItemId'])) {
+                        $orderItems = [$orderItems];
+                    }
+
+                    $mpOrder = MarketplaceOrder::create([
                         'channel_id' => $this->channel->id,
                         'external_order_id' => $externalId,
                         'status' => 'pending',
@@ -354,6 +378,9 @@ class FalabellaService
 
                     // Descontar stock en ERP
                     $this->processOrderStock($orderItems);
+
+                    // Avisar al vendedor (email) que entró un pedido nuevo
+                    $this->notifyNewOrder($mpOrder);
 
                     $created++;
                 } catch (\Throwable $e) {
@@ -402,6 +429,109 @@ class FalabellaService
                     }
                 }
             });
+        }
+    }
+
+    // ══════════════════════════════════════════════════════════════
+    // FULFILLMENT — Despacho de pedidos (vuelta a Saga)
+    // ══════════════════════════════════════════════════════════════
+
+    /**
+     * Obtiene los items de una orden de Saga (OrderItemId, estado, tracking...).
+     */
+    public function getOrderItems(string $externalOrderId): array
+    {
+        $result = $this->call('GetOrderItems', ['OrderId' => $externalOrderId]);
+        $items = data_get($result, 'OrderItems.OrderItem', []);
+        if (isset($items['OrderItemId'])) {
+            $items = [$items];
+        }
+        return is_array($items) ? $items : [];
+    }
+
+    /**
+     * Marca items como LISTOS PARA DESPACHO (SetStatusToReadyToShip).
+     * Para el modelo Dropshipping/Falabella, Saga ya asignó el tracking.
+     */
+    public function setReadyToShip(array $orderItemIds, string $deliveryType = 'dropship', string $shippingProvider = 'falabella', ?string $trackingNumber = null): array
+    {
+        $params = [
+            'OrderItemIds' => '[' . implode(',', $orderItemIds) . ']',
+            'DeliveryType' => $deliveryType,
+            'ShippingProvider' => $shippingProvider,
+        ];
+        if ($trackingNumber) {
+            $params['TrackingNumber'] = $trackingNumber;
+        }
+        return $this->callPost('SetStatusToReadyToShip', $params);
+    }
+
+    /**
+     * Marca items como ENVIADOS (SetStatusToShipped).
+     */
+    public function setShipped(array $orderItemIds, string $deliveryType = 'dropship', string $shippingProvider = 'falabella', ?string $trackingNumber = null): array
+    {
+        $params = [
+            'OrderItemIds' => '[' . implode(',', $orderItemIds) . ']',
+            'DeliveryType' => $deliveryType,
+            'ShippingProvider' => $shippingProvider,
+        ];
+        if ($trackingNumber) {
+            $params['TrackingNumber'] = $trackingNumber;
+        }
+        return $this->callPost('SetStatusToShipped', $params);
+    }
+
+    /**
+     * Descarga un documento de la orden (hoja de despacho, boleta/factura...).
+     *
+     * @param  string  $type  shippingLabel | invoice | carrierManifest
+     * @return array  { mime, file (base64), filename }
+     */
+    public function getDocument(array $orderItemIds, string $type = 'shippingLabel'): array
+    {
+        $result = $this->call('GetDocument', [
+            'OrderItemIds' => '[' . implode(',', $orderItemIds) . ']',
+            'DocumentType' => $type,
+        ]);
+
+        return [
+            'mime' => data_get($result, 'Documents.Document.MimeType', 'application/pdf'),
+            'file' => data_get($result, 'Documents.Document.File'), // base64
+            'type' => $type,
+        ];
+    }
+
+    /**
+     * Avisa al vendedor por email que entró un pedido nuevo de Saga.
+     * Defensivo: nunca rompe el fetch de órdenes si el email falla.
+     */
+    protected function notifyNewOrder(MarketplaceOrder $order): void
+    {
+        try {
+            $establishment = \App\Models\Tenant\Establishment::first();
+            $email = $establishment->email ?? null;
+            $store = $establishment->name ?? 'tu tienda';
+            $customer = data_get($order->customer_data, 'name', 'Cliente');
+            $total = number_format((float) $order->total, 2);
+            $count = is_array($order->items_data) ? count($order->items_data) : 0;
+
+            if ($email) {
+                $body = "Nuevo pedido en Saga Falabella\n\n"
+                    . "Pedido #{$order->external_order_id}\n"
+                    . "Cliente: {$customer}\n"
+                    . "Productos: {$count}\n"
+                    . "Total: S/ {$total}\n\n"
+                    . "Entra a tu panel → Marketplace para marcarlo listo y descargar la hoja de despacho.";
+
+                \Illuminate\Support\Facades\Mail::raw($body, function ($m) use ($email, $store) {
+                    $m->to($email)->subject("🛒 Nuevo pedido Saga Falabella — {$store}");
+                });
+            }
+
+            Log::channel('payments')->info("Nuevo pedido Saga #{$order->external_order_id} (notificado a " . ($email ?: 'sin email') . ')');
+        } catch (\Throwable $e) {
+            Log::channel('payments')->warning("No se pudo notificar pedido Saga: {$e->getMessage()}");
         }
     }
 

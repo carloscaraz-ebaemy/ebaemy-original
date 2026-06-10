@@ -255,6 +255,10 @@ Route::middleware(['check.permission', 'locked.tenant', 'check.email.verified', 
         Route::get('marketplace/orders', '\App\Http\Controllers\Tenant\MarketplaceController@orders');
         Route::get('marketplace/channels/{channelId}/fetch-orders', '\App\Http\Controllers\Tenant\MarketplaceController@fetchOrders');
         Route::post('marketplace/channels/{channelId}/import-catalog', '\App\Http\Controllers\Tenant\MarketplaceController@importCatalog');
+        // Despacho de pedidos
+        Route::post('marketplace/channels/{channelId}/orders/{orderId}/ready', '\App\Http\Controllers\Tenant\MarketplaceController@markOrderReady');
+        Route::post('marketplace/channels/{channelId}/orders/{orderId}/shipped', '\App\Http\Controllers\Tenant\MarketplaceController@markOrderShipped');
+        Route::get('marketplace/channels/{channelId}/orders/{orderId}/document/{type}', '\App\Http\Controllers\Tenant\MarketplaceController@downloadDocument');
     });
 
     //Item Sets

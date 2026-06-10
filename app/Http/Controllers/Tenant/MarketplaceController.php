@@ -288,6 +288,124 @@ class MarketplaceController extends Controller
         }
     }
 
+    // ── Fulfillment / Despacho ─────────────────────────────────
+
+    /**
+     * Deriva los parámetros de despacho desde los items de la orden de Saga.
+     * @return array{0: array, 1: string, 2: string, 3: ?string}  [ids, deliveryType, provider, tracking]
+     */
+    protected function dispatchParams(MarketplaceOrder $order): array
+    {
+        $items = is_array($order->items_data) ? $order->items_data : [];
+        if (isset($items['OrderItemId'])) $items = [$items];
+
+        $ids = [];
+        $provider = 'falabella';
+        $deliveryType = 'dropship';
+        $tracking = null;
+
+        foreach ($items as $it) {
+            $id = $it['OrderItemId'] ?? null;
+            if ($id) $ids[] = $id;
+            $provider = $it['ShipmentProvider'] ?? $provider;
+            if (stripos($it['ShippingType'] ?? '', 'dropship') !== false) $deliveryType = 'dropship';
+            $tracking = $it['TrackingCode'] ?? $tracking;
+        }
+
+        return [$ids, $deliveryType, $provider, $tracking];
+    }
+
+    public function markOrderReady(int $channelId, int $orderId)
+    {
+        $channel = MarketplaceChannel::findOrFail($channelId);
+        $order = MarketplaceOrder::where('channel_id', $channelId)->findOrFail($orderId);
+        $service = MarketplaceOrchestrator::resolveService($channel);
+
+        if (!$service || !method_exists($service, 'setReadyToShip')) {
+            return response()->json(['error' => 'Acción no disponible para este canal'], 400);
+        }
+
+        [$ids, $deliveryType, $provider, $tracking] = $this->dispatchParams($order);
+        if (empty($ids)) {
+            return response()->json(['error' => 'La orden no tiene items para despachar'], 422);
+        }
+
+        try {
+            $service->setReadyToShip($ids, $deliveryType, $provider, $tracking);
+            $order->update(['status' => 'ready_to_ship']);
+            return response()->json(['success' => true, 'message' => 'Pedido marcado como listo para despacho']);
+        } catch (\Throwable $e) {
+            return response()->json(['error' => $e->getMessage()], 500);
+        }
+    }
+
+    public function markOrderShipped(int $channelId, int $orderId)
+    {
+        $channel = MarketplaceChannel::findOrFail($channelId);
+        $order = MarketplaceOrder::where('channel_id', $channelId)->findOrFail($orderId);
+        $service = MarketplaceOrchestrator::resolveService($channel);
+
+        if (!$service || !method_exists($service, 'setShipped')) {
+            return response()->json(['error' => 'Acción no disponible para este canal'], 400);
+        }
+
+        [$ids, $deliveryType, $provider, $tracking] = $this->dispatchParams($order);
+        if (empty($ids)) {
+            return response()->json(['error' => 'La orden no tiene items'], 422);
+        }
+
+        try {
+            $service->setShipped($ids, $deliveryType, $provider, $tracking);
+            $order->update(['status' => 'shipped']);
+            return response()->json(['success' => true, 'message' => 'Pedido marcado como enviado']);
+        } catch (\Throwable $e) {
+            return response()->json(['error' => $e->getMessage()], 500);
+        }
+    }
+
+    /**
+     * Descarga un documento del pedido (hoja de despacho, boleta/factura).
+     */
+    public function downloadDocument(int $channelId, int $orderId, string $type)
+    {
+        $allowed = ['shippingLabel', 'invoice', 'carrierManifest'];
+        if (!in_array($type, $allowed, true)) {
+            abort(400, 'Tipo de documento inválido');
+        }
+
+        $channel = MarketplaceChannel::findOrFail($channelId);
+        $order = MarketplaceOrder::where('channel_id', $channelId)->findOrFail($orderId);
+        $service = MarketplaceOrchestrator::resolveService($channel);
+
+        if (!$service || !method_exists($service, 'getDocument')) {
+            abort(400, 'Acción no disponible para este canal');
+        }
+
+        [$ids] = $this->dispatchParams($order);
+        if (empty($ids)) {
+            abort(422, 'La orden no tiene items');
+        }
+
+        try {
+            $doc = $service->getDocument($ids, $type);
+        } catch (\Throwable $e) {
+            abort(500, $e->getMessage());
+        }
+
+        if (empty($doc['file'])) {
+            abort(404, 'Saga no devolvió el documento (¿el pedido ya está listo para despacho?)');
+        }
+
+        $binary = base64_decode($doc['file']);
+        $mime = $doc['mime'] ?: 'application/pdf';
+        $ext = str_contains($mime, 'pdf') ? 'pdf' : (str_contains($mime, 'html') ? 'html' : 'bin');
+        $filename = "{$type}_{$order->external_order_id}.{$ext}";
+
+        return response($binary, 200)
+            ->header('Content-Type', $mime)
+            ->header('Content-Disposition', 'inline; filename="' . $filename . '"');
+    }
+
     // ── Orders ─────────────────────────────────────────────────
 
     public function orders(Request $request)
