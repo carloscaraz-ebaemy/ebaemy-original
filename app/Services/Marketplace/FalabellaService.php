@@ -125,6 +125,27 @@ class FalabellaService
     }
 
     // ══════════════════════════════════════════════════════════════
+    // CATALOG — Leer el catálogo del seller (Saga → EBAEMY)
+    // ══════════════════════════════════════════════════════════════
+
+    /**
+     * Trae los productos del seller desde Saga (GetProducts).
+     * Normaliza la respuesta a una lista plana de productos.
+     */
+    public function getProducts(array $params = []): array
+    {
+        $result = $this->call('GetProducts', $params);
+        $prods = data_get($result, 'Products.Product', []);
+
+        // La API devuelve un objeto suelto si hay un solo producto.
+        if (isset($prods['SellerSku'])) {
+            $prods = [$prods];
+        }
+
+        return is_array($prods) ? $prods : [];
+    }
+
+    // ══════════════════════════════════════════════════════════════
     // PRODUCTS — Crear / Actualizar productos
     // ══════════════════════════════════════════════════════════════
 
