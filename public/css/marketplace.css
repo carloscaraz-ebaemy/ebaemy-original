@@ -1345,6 +1345,38 @@ button { font-family: inherit; cursor: pointer; }
     width: 100%;
     cursor: pointer;
 }
+/* Botón "Consultar por WhatsApp" — sólido verde WhatsApp, idéntico al de la
+   tienda ecommerce (.ropa-btn-whatsapp). Va directo a wa.me con el producto
+   pre-cargado. Es la acción de contacto principal cuando el vendedor tiene
+   WhatsApp configurado. */
+.mp-cta-whatsapp {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    background: #25d366;
+    color: #fff;
+    padding: 13px 22px;
+    border-radius: var(--mp-radius);
+    font-weight: 700;
+    font-size: 14px;
+    text-decoration: none;
+    margin-bottom: 12px;
+    border: none;
+    width: 100%;
+    cursor: pointer;
+    box-shadow: 0 6px 18px -4px rgba(37,211,102,.45);
+    transition: background .18s var(--mp-ease), transform .15s var(--mp-ease), box-shadow .15s var(--mp-ease);
+}
+.mp-cta-whatsapp:hover {
+    background: #1da851;
+    color: #fff;
+    text-decoration: none;
+    transform: translateY(-1px);
+    box-shadow: 0 10px 24px -4px rgba(37,211,102,.5);
+}
+.mp-cta-whatsapp:active { transform: translateY(0); }
+
 /* Boton compartir por WhatsApp — verde WA outline, mismo tamaño que el
    resto de CTAs secundarios de la pagina detalle. */
 .mp-cta-share {
