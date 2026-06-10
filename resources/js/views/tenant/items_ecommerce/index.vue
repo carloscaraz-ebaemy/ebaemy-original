@@ -159,7 +159,8 @@
                                 }"></i>
                             </a>
                         </th>
-                        <th class="text-end">P.Unitario (Venta)</th>
+                        <th class="text-end">Precio</th>
+                        <th class="text-end">Precio oferta</th>
                         <th class="text-end">Stock General</th>
                         <th class="text-center">Tags</th>
 
@@ -190,24 +191,24 @@
                             <!--<img :src="row.image_url_medium"  width="40" height="40" class="img-thumbail img-custom" /> -->
                         </td>
                         <td>{{ row.description }}</td>
-                        <td class="text-end" style="min-width:128px">
-                            <div style="display:flex;flex-direction:column;gap:3px;align-items:flex-end">
-                                <div style="display:flex;align-items:center;gap:4px">
-                                    <small style="color:#9ca3af;font-size:10px">Normal</small>
-                                    <input type="number" min="0" step="0.01"
-                                           v-model.number="row.compare_at_price"
-                                           @change="updatePrice(row)"
-                                           placeholder="—"
-                                           style="width:74px;text-align:right;border:1px solid #e5e7eb;border-radius:4px;padding:1px 4px;font-size:11px;color:#9ca3af">
-                                </div>
-                                <div style="display:flex;align-items:center;gap:4px">
-                                    <small style="color:#e53e3e;font-size:10px;font-weight:600">Oferta</small>
-                                    <input type="number" min="0" step="0.01"
-                                           v-model.number="row.amount_sale_unit_price"
-                                           @change="updatePrice(row)"
-                                           style="width:74px;text-align:right;border:1px solid #fca5a5;border-radius:4px;padding:1px 4px;font-size:13px;color:#e53e3e;font-weight:700">
-                                </div>
-                            </div>
+                        <!-- Precio (normal) -->
+                        <td class="text-end" style="min-width:96px">
+                            <input type="number" min="0" step="0.01"
+                                   :value="regularOf(row)"
+                                   @change="onPriceChange(row, 'regular', $event.target.value)"
+                                   style="width:82px;text-align:right;border:1px solid #e5e7eb;border-radius:4px;padding:2px 5px;font-size:13px;color:#374151">
+                        </td>
+                        <!-- Precio oferta (editable, con vigencia) -->
+                        <td class="text-end" style="min-width:110px">
+                            <input type="number" min="0" step="0.01"
+                                   :value="offerOf(row)"
+                                   @change="onPriceChange(row, 'offer', $event.target.value)"
+                                   placeholder="Sin oferta"
+                                   style="width:82px;text-align:right;border:1px solid #fca5a5;border-radius:4px;padding:2px 5px;font-size:13px;color:#e53e3e;font-weight:700">
+                            <small v-if="offerOf(row) && row.compare_at_until"
+                                   style="display:block;color:#16a34a;font-size:10px">
+                                hasta {{ row.compare_at_until }}
+                            </small>
                         </td>
                         <td
                             class="text-end"
@@ -462,17 +463,40 @@ export default {
                 .catch(error => {})
                 .then(() => {});
         },
-        updatePrice(row) {
-            var sale = parseFloat(row.amount_sale_unit_price);
-            if (!sale || sale <= 0) { this.$message.error('La oferta debe ser mayor a 0'); return; }
-            var compare = (row.compare_at_price === '' || row.compare_at_price === null || row.compare_at_price === undefined)
-                ? null : parseFloat(row.compare_at_price);
+        // Precio "normal" mostrado: si hay oferta (compare_at > venta) el normal es
+        // compare_at_price; si no, es el propio precio de venta.
+        regularOf(row) {
+            var sale = parseFloat(row.amount_sale_unit_price) || 0;
+            var cap = parseFloat(row.compare_at_price) || 0;
+            return (cap > sale ? cap : sale).toFixed(2);
+        },
+        // Precio "oferta": solo si hay descuento (compare_at > venta); si no, vacío.
+        offerOf(row) {
+            var sale = parseFloat(row.amount_sale_unit_price) || 0;
+            var cap = parseFloat(row.compare_at_price) || 0;
+            return (cap > sale) ? sale.toFixed(2) : '';
+        },
+        onPriceChange(row, which, val) {
+            var regular = parseFloat(this.regularOf(row));
+            var offerStr = this.offerOf(row);
+            var offer = (offerStr === '' ? null : parseFloat(offerStr));
+            if (which === 'regular') regular = parseFloat(val);
+            if (which === 'offer')   offer = (val === '' ? null : parseFloat(val));
+
+            if (!regular || regular <= 0) { this.$message.error('El precio debe ser mayor a 0'); return; }
+            if (offer !== null && offer >= regular) {
+                this.$message.warning('La oferta debe ser menor al precio normal');
+            }
+
             this.$http
-                .post(`/${this.resource}/quick-price`, { id: row.id, sale_unit_price: sale, compare_at_price: compare })
+                .post(`/${this.resource}/quick-price`, { id: row.id, regular_price: regular, offer_price: offer })
                 .then(response => {
                     if (response.data.success) {
                         this.$message.success('Precio actualizado');
-                        row.sale_unit_price = 'S/ ' + sale.toFixed(2);
+                        // Refrescar los crudos para que las columnas recomputen
+                        row.amount_sale_unit_price = response.data.sale_unit_price;
+                        row.compare_at_price = response.data.compare_at_price;
+                        row.sale_unit_price = 'S/ ' + parseFloat(response.data.sale_unit_price).toFixed(2);
                     } else {
                         this.$message.error(response.data.message || 'No se pudo actualizar');
                     }

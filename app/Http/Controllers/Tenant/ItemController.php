@@ -1371,13 +1371,25 @@ class ItemController extends Controller
             return ['success' => false, 'message' => 'Producto no encontrado'];
         }
 
-        $sale = (float) $request->sale_unit_price;
-        if ($sale <= 0) {
-            return ['success' => false, 'message' => 'El precio de oferta debe ser mayor a 0'];
+        // El front envía "precio normal" (regular) y "precio oferta" (opcional).
+        // Aquí los mapeamos al modelo interno: si hay oferta válida (menor al
+        // normal) → sale_unit_price = oferta y compare_at_price = normal (tachado);
+        // si no → sale_unit_price = normal y sin tachado.
+        $regular = (float) $request->regular_price;
+        if ($regular <= 0) {
+            return ['success' => false, 'message' => 'El precio debe ser mayor a 0'];
         }
 
-        $compare = ($request->compare_at_price !== null && $request->compare_at_price !== '')
-            ? (float) $request->compare_at_price : null;
+        $offerRaw = $request->offer_price;
+        $offer = ($offerRaw !== null && $offerRaw !== '') ? (float) $offerRaw : null;
+
+        if ($offer !== null && $offer > 0 && $offer < $regular) {
+            $sale = $offer;
+            $compare = $regular;
+        } else {
+            $sale = $regular;
+            $compare = null;
+        }
 
         $data = ['sale_unit_price' => $sale, 'compare_at_price' => $compare];
         if ($request->has('compare_at_until')) {
@@ -1386,7 +1398,13 @@ class ItemController extends Controller
 
         $item->forceFill($data)->saveQuietly();
 
-        return ['success' => true, 'message' => 'Precio actualizado', 'id' => $item->id];
+        return [
+            'success' => true,
+            'message' => 'Precio actualizado',
+            'id' => $item->id,
+            'sale_unit_price' => $sale,
+            'compare_at_price' => $compare,
+        ];
     }
 
     /**
