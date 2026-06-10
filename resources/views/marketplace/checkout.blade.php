@@ -194,18 +194,27 @@ input.mp-co-invalid, select.mp-co-invalid, textarea.mp-co-invalid {
                        placeholder="Av. ejemplo 123, dpto 4B"
                        value="{{ old('delivery_address') }}">
 
+                {{-- Ubigeo dependiente (Departamento → Provincia → Distrito).
+                     Carga marketplace/ubigeo.json (INEI) y cascada client-side.
+                     Mantiene los mismos name= para no tocar el backend. --}}
                 <div class="mp-co-row-3">
                     <div>
                         <label>Departamento</label>
-                        <input type="text" name="delivery_department" maxlength="80" value="{{ old('delivery_department') }}">
+                        <select name="delivery_department" data-ubigeo="dep" data-old="{{ old('delivery_department') }}">
+                            <option value="">— Selecciona —</option>
+                        </select>
                     </div>
                     <div>
                         <label>Provincia</label>
-                        <input type="text" name="delivery_province" maxlength="80" value="{{ old('delivery_province') }}">
+                        <select name="delivery_province" data-ubigeo="prov" data-old="{{ old('delivery_province') }}" disabled>
+                            <option value="">— Selecciona —</option>
+                        </select>
                     </div>
                     <div>
                         <label>Distrito</label>
-                        <input type="text" name="delivery_district" maxlength="80" value="{{ old('delivery_district') }}">
+                        <select name="delivery_district" data-ubigeo="dist" data-old="{{ old('delivery_district') }}" disabled>
+                            <option value="">— Selecciona —</option>
+                        </select>
                     </div>
                 </div>
 
@@ -683,10 +692,6 @@ input.mp-co-invalid, select.mp-co-invalid, textarea.mp-co-invalid {
         const statusEl = document.querySelector('[data-doc-status]');
         if (!docNum || !nameEl) return;
 
-        const depEl = document.querySelector('[name="delivery_department"]');
-        const provEl = document.querySelector('[name="delivery_province"]');
-        const distEl = document.querySelector('[name="delivery_district"]');
-
         // Marca si el nombre fue autocompletado para poder sobreescribirlo en
         // una nueva consulta, pero NO pisar lo que el usuario tipeó a mano.
         let autofilled = false;
@@ -695,10 +700,6 @@ input.mp-co-invalid, select.mp-co-invalid, textarea.mp-co-invalid {
         function setStatus(text, cls) {
             statusEl.textContent = text || '';
             statusEl.className = 'mp-co-doc-status' + (cls ? ' ' + cls : '');
-        }
-
-        function fillIfEmpty(el, val) {
-            if (el && val && !el.value.trim()) el.value = val;
         }
 
         let lastQuery = '';
@@ -732,10 +733,11 @@ input.mp-co-invalid, select.mp-co-invalid, textarea.mp-co-invalid {
                         nameEl.value = data.name;
                         autofilled = true;
                     }
-                    if (type === 'RUC') {
-                        fillIfEmpty(depEl, data.department);
-                        fillIfEmpty(provEl, data.province);
-                        fillIfEmpty(distEl, data.district);
+                    if (type === 'RUC' && window.__mpUbigeoSet) {
+                        // Intenta seleccionar el ubigeo del RUC en los selects
+                        // (best-effort: si el nombre SUNAT no matchea el INEI, el
+                        // comprador lo elige a mano).
+                        window.__mpUbigeoSet(data.department, data.province, data.district);
                     }
                     setStatus('✓ ' + data.name, 'is-ok');
                 } else {
@@ -753,6 +755,72 @@ input.mp-co-invalid, select.mp-co-invalid, textarea.mp-co-invalid {
         docNum.addEventListener('input', schedule);
         docNum.addEventListener('blur', lookup);
         if (docType) docType.addEventListener('change', () => { lastQuery = ''; lookup(); });
+    })();
+
+    // ── Ubigeo dependiente: Departamento → Provincia → Distrito ─────────────
+    (function () {
+        const depSel  = document.querySelector('[data-ubigeo="dep"]');
+        const provSel = document.querySelector('[data-ubigeo="prov"]');
+        const distSel = document.querySelector('[data-ubigeo="dist"]');
+        if (!depSel || !provSel || !distSel) return;
+
+        const URL = @json(asset('marketplace/ubigeo.json'));
+        let data = null;
+        const norm = (s) => (s || '').toString().trim().toUpperCase();
+
+        function opt(v) { const o = document.createElement('option'); o.value = v; o.textContent = v; return o; }
+        function reset(sel) { sel.innerHTML = '<option value="">— Selecciona —</option>'; }
+
+        function onDep() {
+            reset(provSel); reset(distSel);
+            distSel.disabled = true;
+            const dep = data && data.find(d => d.n === depSel.value);
+            provSel.disabled = !dep;
+            if (dep) {
+                dep.p.forEach(p => provSel.appendChild(opt(p.n)));
+                if (provSel.dataset.old) { provSel.value = provSel.dataset.old; if (provSel.value) onProv(); }
+            }
+        }
+        function onProv() {
+            reset(distSel);
+            const dep = data && data.find(d => d.n === depSel.value);
+            const prov = dep && dep.p.find(p => p.n === provSel.value);
+            distSel.disabled = !prov;
+            if (prov) {
+                prov.d.forEach(dd => distSel.appendChild(opt(dd)));
+                if (distSel.dataset.old) distSel.value = distSel.dataset.old;
+            }
+        }
+
+        depSel.addEventListener('change', onDep);
+        provSel.addEventListener('change', onProv);
+
+        // Selección por nombre (la usa el autocompletado de RUC).
+        window.__mpUbigeoSet = function (dep, prov, dist) {
+            if (!data || !dep) return;
+            const depObj = data.find(d => norm(d.n) === norm(dep));
+            if (!depObj) return;
+            depSel.value = depObj.n; onDep();
+            if (prov) {
+                const pObj = depObj.p.find(p => norm(p.n) === norm(prov));
+                if (pObj) {
+                    provSel.value = pObj.n; onProv();
+                    if (dist) {
+                        const dObj = pObj.d.find(x => norm(x) === norm(dist));
+                        if (dObj) distSel.value = dObj;
+                    }
+                }
+            }
+        };
+
+        fetch(URL, { credentials: 'same-origin' })
+            .then(r => r.json())
+            .then(d => {
+                data = d;
+                data.forEach(dep => depSel.appendChild(opt(dep.n)));
+                if (depSel.dataset.old) { depSel.value = depSel.dataset.old; if (depSel.value) onDep(); }
+            })
+            .catch(() => { /* sin ubigeo: el envío igual funciona (campos vacíos) */ });
     })();
 
     // ── Validación inline antes de enviar ──────────────────────────────────
