@@ -79,6 +79,36 @@
         </div>
     </div>
 
+    {{-- Feed por tienda --}}
+    <div class="mpf-card mt-3">
+        <div class="mpf-feed__label">Feed por tienda</div>
+        <p class="mpf-note mt-0 mb-2">Cada tienda tiene su propia URL (solo sus productos). Útil si un vendedor quiere conectar su propio Facebook o TikTok.</p>
+        @forelse($tenants as $t)
+            <div class="mpf-listrow">
+                <div class="mpf-listrow__name">{{ $t->tenant_name ?: $t->subdomain }} <span class="mpf-listrow__cnt">{{ number_format($t->cnt) }}</span></div>
+                <input type="text" readonly class="mpf-url" id="tf{{ $loop->index }}" value="{{ $metaUrl }}?tienda={{ $t->subdomain }}">
+                <button type="button" class="btn btn-outline-primary btn-sm mpf-copy" data-target="tf{{ $loop->index }}">Copiar</button>
+            </div>
+        @empty
+            <div class="mpf-note">Aún no hay tiendas con productos publicados.</div>
+        @endforelse
+    </div>
+
+    {{-- Feed por categoría --}}
+    <div class="mpf-card mt-3">
+        <div class="mpf-feed__label">Feed por categoría</div>
+        <p class="mpf-note mt-0 mb-2">Una URL por categoría oficial (incluye sus subcategorías). Ideal para campañas segmentadas en Facebook/TikTok.</p>
+        @forelse($cats as $c)
+            <div class="mpf-listrow">
+                <div class="mpf-listrow__name">{{ $c->name }} <span class="mpf-listrow__cnt">{{ number_format($c->cnt) }}</span></div>
+                <input type="text" readonly class="mpf-url" id="cf{{ $loop->index }}" value="{{ $metaUrl }}?categoria={{ $c->id }}">
+                <button type="button" class="btn btn-outline-primary btn-sm mpf-copy" data-target="cf{{ $loop->index }}">Copiar</button>
+            </div>
+        @empty
+            <div class="mpf-note">Aún no hay categorías oficiales con productos publicados.</div>
+        @endforelse
+    </div>
+
     <div class="mpf-foot">
         ¿El catálogo rechaza productos? Suele ser por foto faltante, precio en 0 o sin stock. Revisalo en
         <a href="{{ route('system.marketplace.listings') }}">Productos publicados</a>.
@@ -103,6 +133,11 @@
 .mpf-steps li { margin-bottom:4px; }
 .mpf-steps strong { color:var(--mp-ink); }
 .mpf-tip { margin-top:10px; font-size:12px; color:var(--mp-muted); border-top:1px solid #f1f3f7; padding-top:8px; }
+.mpf-listrow { display:flex; align-items:center; gap:8px; flex-wrap:wrap; padding:7px 0; border-top:1px solid #f1f3f7; }
+.mpf-listrow:first-of-type { border-top:none; }
+.mpf-listrow__name { flex:1 1 180px; font-size:13px; font-weight:600; color:var(--mp-ink); min-width:0; }
+.mpf-listrow__cnt { display:inline-block; margin-left:6px; font-size:11px; font-weight:600; color:var(--mp-accent); background:var(--mp-accent-soft); padding:1px 7px; border-radius:999px; }
+.mpf-listrow .mpf-url { flex:2 1 260px; height:32px; font-size:12.5px; }
 .mpf-foot { margin-top:16px; font-size:12.5px; color:var(--mp-muted); }
 </style>
 @endpush

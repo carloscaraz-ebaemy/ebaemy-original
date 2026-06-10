@@ -322,7 +322,32 @@ class MarketplaceAdminController extends Controller
         $googleUrl    = route('marketplace.feed.google');  // /feeds/google-merchant.xml
         $productCount = MarketplaceListing::published()->count();
 
-        return view('system.marketplace.feeds', compact('metaUrl', 'googleUrl', 'productCount'));
+        // Tiendas con productos publicados → feed por tienda (?tienda=subdominio).
+        $tenants = MarketplaceListing::published()
+            ->selectRaw('tenant_fqdn, MAX(tenant_name) as tenant_name, COUNT(*) as cnt')
+            ->groupBy('tenant_fqdn')
+            ->orderByDesc('cnt')->get()
+            ->map(function ($t) {
+                $t->subdomain = strtolower(strtok((string) $t->tenant_fqdn, '.')) ?: null;
+                return $t;
+            })
+            ->filter(fn($t) => $t->subdomain)->values();
+
+        // Categorías oficiales con productos publicados → feed por categoría.
+        // Columnas calificadas: marketplace_categories también tiene is_active,
+        // así que el scope published() (sin calificar) sería ambiguo en el join.
+        $cats = MarketplaceListing::query()
+            ->join('marketplace_categories as mc', 'mc.id', '=', 'marketplace_listings.marketplace_category_id')
+            ->where('marketplace_listings.is_active', true)
+            ->where('marketplace_listings.status', 'active')
+            ->where('marketplace_listings.stock', '>', 0)
+            ->selectRaw('mc.id, MAX(mc.name) as name, COUNT(*) as cnt')
+            ->groupBy('mc.id')
+            ->orderByDesc('cnt')->get();
+
+        return view('system.marketplace.feeds', compact(
+            'metaUrl', 'googleUrl', 'productCount', 'tenants', 'cats'
+        ));
     }
 
     // ── SEO / Open Graph del marketplace ──────────────────────────────────────

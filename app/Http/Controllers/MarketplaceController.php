@@ -1737,17 +1737,36 @@ class MarketplaceController extends Controller
      * Cada item incluye <g:id> = mp_{listing_id} para evitar colisiones con
      * IDs internos de tenants. <g:link> apunta a la ficha pública del marketplace.
      */
-    public function metaCatalog()
+    public function metaCatalog(Request $request)
     {
-        $listings = MarketplaceListing::published()
-            ->orderByDesc('updated_at')
+        $query = MarketplaceListing::published();
+        $title = 'ebaemy Marketplace';
+
+        // Feed POR TIENDA: ?tienda={subdomain}. Resuelve el hostname por el
+        // subdominio (igual criterio que tenantPage) y acota a sus listings.
+        if ($sub = trim((string) $request->query('tienda', ''))) {
+            $sub = strtolower($sub);
+            $hostname = \Hyn\Tenancy\Models\Hostname::query()
+                ->where('fqdn', 'like', $sub . '.%')->first();
+            $query->where('hostname_id', $hostname?->id ?? 0);
+            $title = 'ebaemy · ' . $sub;
+        }
+
+        // Feed POR CATEGORÍA: ?categoria={id}. Incluye descendencia (scope).
+        if ($cat = (int) $request->query('categoria', 0)) {
+            $query->inOfficialCategory($cat);
+            $catName = optional(\App\Models\System\MarketplaceCategory::find($cat))->name;
+            $title  .= $catName ? ' · ' . $catName : ' · categoría';
+        }
+
+        $listings = $query->orderByDesc('updated_at')
             ->limit(20000) // Meta Commerce permite hasta 20k items por feed
             ->get();
 
         $xml  = '<?xml version="1.0" encoding="UTF-8"?>' . "\n";
         $xml .= '<rss version="2.0" xmlns:g="http://base.google.com/ns/1.0">' . "\n";
         $xml .= '<channel>' . "\n";
-        $xml .= '  <title>ebaemy Marketplace</title>' . "\n";
+        $xml .= '  <title>' . htmlspecialchars($title, ENT_XML1) . '</title>' . "\n";
         $xml .= '  <link>' . url('/marketplace') . '</link>' . "\n";
         $xml .= '  <description>Productos de tiendas verificadas en ebaemy.com</description>' . "\n";
 
