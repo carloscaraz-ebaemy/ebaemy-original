@@ -172,11 +172,15 @@ class MarketplaceAdminController extends Controller
         $minViews = max(0, (int) $request->input('min_views', 0));
 
         // ¿Desde cuándo hay tracking diario? Define si el rango cae en zona
-        // con desglose o si hay que avisar del fallback histórico.
+        // con desglose o si hay que mostrar el acumulado histórico.
         $trackingStart = $conn->table('marketplace_listing_stats_daily')->min('stat_date');
-        $hasDailyInRange = $conn->table('marketplace_listing_stats_daily')
-            ->whereBetween('stat_date', [$from, $to])->exists();
-        $useFallback = !$hasDailyInRange;
+
+        // Usamos el desglose diario SOLO si TODO el rango cae dentro del período
+        // ya trackeado (from >= trackingStart). Si el rango empieza antes de que
+        // existiera el tracking, mostramos el acumulado histórico (coincide con
+        // el Dashboard) en vez de un parcial engañoso — p. ej. "1 vista" cuando
+        // en realidad hubo miles registradas en los contadores acumulados.
+        $useFallback = !$trackingStart || $from < $trackingStart;
 
         // ── Agregado por producto en el rango ─────────────────────────────────
         if ($useFallback) {
