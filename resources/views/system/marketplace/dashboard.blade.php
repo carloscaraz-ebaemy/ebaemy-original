@@ -502,7 +502,7 @@
 @endpush
 
 @push('scripts')
-<script src="https://cdn.jsdelivr.net/npm/apexcharts@3.54.1/dist/apexcharts.min.js"></script>
+<script src="{{ asset('vendor/apexcharts/apexcharts.min.js') }}"></script>
 <script>
 (function () {
     var DATA = {!! json_encode($chartData) !!};
