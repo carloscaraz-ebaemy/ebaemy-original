@@ -128,6 +128,14 @@ class MarketplaceAdminController extends Controller
         $topByClicks = $rows->sortByDesc('clicks')->take(10)->values();
         $champion    = $topByViews->first();
 
+        // "Rezagado": producto con tráfico real pero la PEOR conversión — se ve
+        // mucho y nadie hace click. Es el más accionable ("desperdicia vistas").
+        // Lo buscamos entre los 20 más vistos para que no sea un producto con
+        // 1 sola vista; de esos, el de menor CTR.
+        $laggard = $rows->sortByDesc('views')->take(20)
+            ->filter(fn($r) => $r->views > 0)
+            ->sortBy('ctr')->first();
+
         // ── Tendencia diaria (vistas + clicks) ─────────────────────────────────
         $dailyView = $useFallback ? collect() : $conn->table('marketplace_listing_stats_daily')
             ->selectRaw('stat_date as day, SUM(views) as views, SUM(clicks) as clicks')
@@ -200,7 +208,7 @@ class MarketplaceAdminController extends Controller
         $filters = compact('from', 'to', 'sort', 'tenant', 'status', 'q', 'minViews') + ['category' => $categoryId];
 
         return view('system.marketplace.dashboard', compact(
-            'rows', 'kpis', 'topByViews', 'topByClicks', 'champion', 'dailySeries',
+            'rows', 'kpis', 'topByViews', 'topByClicks', 'champion', 'laggard', 'dailySeries',
             'categories', 'filters', 'useFallback', 'trackingStart', 'spanDays',
             'byCategory', 'byTenant', 'revenueByTenant', 'listingsByStatus', 'funnel'
         ));
