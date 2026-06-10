@@ -1130,11 +1130,16 @@ button { font-family: inherit; cursor: pointer; }
 .mp-gallery-main img {
     width: 100%;
     height: 100%;
-    object-fit: cover;
+    /* contain (no cover): muestra el producto COMPLETO sin recortar. Vive en el
+       CSS global —y no solo en el @push del show.blade— para que aplique también
+       dentro del bottom-sheet móvil, que inyecta el detalle vía AJAX en otra
+       página donde aquel @push no existe. */
+    object-fit: contain;
     object-position: center;
     transition: transform .35s var(--mp-ease);
 }
-.mp-gallery-main:hover img { transform: scale(1.04); }
+/* Sin micro-zoom en hover: con contain, el scale recortaría la imagen. */
+.mp-gallery-main:hover img { transform: none; }
 .mp-gallery-thumbs {
     display: flex;
     gap: 8px;
