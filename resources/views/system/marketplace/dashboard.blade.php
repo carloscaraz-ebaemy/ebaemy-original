@@ -92,6 +92,7 @@
             <div class="mpd-breadcrumb">Rendimiento de productos y tiendas</div>
         </div>
         <div class="d-flex gap-2">
+            <a href="{{ route('system.marketplace.feeds') }}" class="btn btn-outline-primary btn-sm">Conectar catálogo</a>
             <a href="{{ route('system.marketplace.seo') }}" class="btn btn-outline-secondary btn-sm">SEO / Compartir</a>
             <a href="{{ route('system.marketplace.listings') }}" class="btn btn-outline-secondary btn-sm">Listings</a>
             <a href="{{ route('system.marketplace.leads') }}" class="btn btn-outline-secondary btn-sm">Leads</a>

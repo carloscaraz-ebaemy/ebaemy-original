@@ -306,6 +306,25 @@ class MarketplaceAdminController extends Controller
         ));
     }
 
+    // ── Feeds de catálogo (Facebook / TikTok / Google) ────────────────────────
+
+    /**
+     * Página que expone las URLs del feed de productos del marketplace para
+     * conectar TODO el catálogo a Facebook (Meta), TikTok y Google con un solo
+     * feed en formato Google Shopping (RSS-XML con namespace g:).
+     *
+     * Las URLs ya existían (rutas marketplace.feed.*) pero no estaban visibles
+     * en ningún lado del admin — esta página las surfacea con instrucciones.
+     */
+    public function feeds()
+    {
+        $metaUrl      = route('marketplace.feed.meta');    // /feeds/meta-catalog.xml
+        $googleUrl    = route('marketplace.feed.google');  // /feeds/google-merchant.xml
+        $productCount = MarketplaceListing::published()->count();
+
+        return view('system.marketplace.feeds', compact('metaUrl', 'googleUrl', 'productCount'));
+    }
+
     // ── SEO / Open Graph del marketplace ──────────────────────────────────────
     //
     // Permite al SuperAdmin editar el título, descripción e imagen que aparece

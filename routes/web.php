@@ -1549,6 +1549,7 @@ if ($hostname) {
             // ── Moderación marketplace central ──────────────────────────────
             Route::prefix('admin/marketplace')->name('system.marketplace.')->group(function () {
                 Route::get('/',                       'System\MarketplaceAdminController@dashboard')->name('dashboard');
+                Route::get('feeds',                   'System\MarketplaceAdminController@feeds')->name('feeds');
                 Route::get('listings',                'System\MarketplaceAdminController@listings')->name('listings');
                 Route::post('listings/{id}/status',   'System\MarketplaceAdminController@updateListingStatus')->name('listings.status');
                 Route::post('listings/{id}/featured', 'System\MarketplaceAdminController@toggleListingFeatured')->name('listings.featured');
