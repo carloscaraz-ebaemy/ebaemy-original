@@ -18,193 +18,60 @@ class MarketplaceAdminController extends Controller
 {
     // ── Dashboard ─────────────────────────────────────────────────────────────
 
-    public function dashboard()
-    {
-        // Fix: distinct('col') + count('col') no funcionaba — Laravel ignora
-        // el argumento de distinct. Forma correcta: distinct()->count('col')
-        // que emite COUNT(DISTINCT col).
-        $stats = [
-            'listings_total'   => MarketplaceListing::count(),
-            'listings_active'  => MarketplaceListing::where('status', 'active')->count(),
-            'listings_paused'  => MarketplaceListing::where('status', 'paused')->count(),
-            'listings_rejected' => MarketplaceListing::where('status', 'rejected')->count(),
-            'tenants_active'   => MarketplaceListing::where('is_active', true)
-                                    ->distinct()
-                                    ->count('hostname_id'),
-            'views_total'      => (int) MarketplaceListing::sum('view_count'),
-            'clicks_total'     => (int) MarketplaceListing::sum('click_count'),
-            'leads_total'      => MarketplaceLead::count(),
-            'leads_converted'  => MarketplaceLead::where('status', 'converted')->count(),
-            'leads_failed'     => MarketplaceLead::where('status', 'failed')->count(),
-            'leads_30d'        => MarketplaceLead::where('created_at', '>=', now()->subDays(30))->count(),
-        ];
-
-        // Tasa de conversión global click → lead
-        $stats['conversion_rate'] = $stats['clicks_total'] > 0
-            ? round(($stats['leads_total'] / $stats['clicks_total']) * 100, 2)
-            : 0;
-
-        // Pedidos marketplace (tenant_marketplace_orders) — multi-tienda real.
-        // Estos son los pedidos del checkout central, distintos de los leads
-        // (que pueden o no convertirse).
-        $ordersAgg = \DB::connection('system')->table('tenant_marketplace_orders')
-            ->selectRaw('
-                COUNT(*) as total,
-                SUM(CASE WHEN created_at >= ? THEN 1 ELSE 0 END) as last_30d,
-                COALESCE(SUM(subtotal), 0) as gross,
-                COALESCE(SUM(discount_amount), 0) as discount,
-                COALESCE(SUM(CASE WHEN created_at >= ? THEN subtotal - discount_amount ELSE 0 END), 0) as revenue_30d
-            ', [now()->subDays(30), now()->subDays(30)])
-            ->first();
-
-        $stats['orders_total']    = (int) ($ordersAgg->total ?? 0);
-        $stats['orders_30d']      = (int) ($ordersAgg->last_30d ?? 0);
-        $stats['revenue_total']   = round((float) (($ordersAgg->gross ?? 0) - ($ordersAgg->discount ?? 0)), 2);
-        $stats['revenue_30d']     = round((float) ($ordersAgg->revenue_30d ?? 0), 2);
-
-        // Top 10 tiendas por leads
-        $topTenants = MarketplaceListing::selectRaw('tenant_fqdn, SUM(view_count) as v, SUM(click_count) as c, SUM(lead_count) as l, COUNT(*) as listings')
-            ->groupBy('tenant_fqdn')
-            ->orderByDesc('l')
-            ->limit(10)
-            ->get();
-
-        // Top 10 productos por clicks
-        $topListings = MarketplaceListing::orderByDesc('click_count')
-            ->limit(10)
-            ->get();
-
-        // Serie diaria 30d: leads + orders (combinada para chart)
-        $leadsByDay  = MarketplaceLead::selectRaw('DATE(created_at) as day, COUNT(*) as count')
-            ->where('created_at', '>=', now()->subDays(30))
-            ->groupBy('day')->orderBy('day')->pluck('count', 'day');
-        $ordersByDay = \DB::connection('system')->table('tenant_marketplace_orders')
-            ->selectRaw('DATE(created_at) as day, COUNT(*) as count')
-            ->where('created_at', '>=', now()->subDays(30))
-            ->groupBy('day')->orderBy('day')->pluck('count', 'day');
-
-        // Serie continua para que el chart no tenga huecos
-        $dailySeries = collect();
-        for ($i = 29; $i >= 0; $i--) {
-            $d = now()->subDays($i)->toDateString();
-            $dailySeries->push((object) [
-                'day'    => $d,
-                'leads'  => (int) ($leadsByDay[$d] ?? 0),
-                'orders' => (int) ($ordersByDay[$d] ?? 0),
-            ]);
-        }
-
-        // Revenue por tenant (top 5) — para doughnut chart
-        $revenueByTenant = \DB::connection('system')->table('tenant_marketplace_orders as tmo')
-            ->join('hostnames as h', 'h.id', '=', 'tmo.hostname_id')
-            ->selectRaw('h.fqdn as tenant_fqdn, COALESCE(SUM(tmo.subtotal - tmo.discount_amount), 0) as revenue')
-            ->groupBy('h.fqdn')
-            ->orderByDesc('revenue')
-            ->limit(5)
-            ->get();
-
-        // Distribución de listings por estado
-        $listingsByStatus = MarketplaceListing::selectRaw('status, COUNT(*) as cnt')
-            ->groupBy('status')
-            ->orderByDesc('cnt')
-            ->get();
-
-        // Top categorías oficiales — qué taxonomía tiene más productos
-        $topCategories = \DB::connection('system')->table('marketplace_listings as ml')
-            ->join('marketplace_categories as mc', 'mc.id', '=', 'ml.marketplace_category_id')
-            ->where('ml.is_active', true)
-            ->selectRaw('mc.name, COUNT(*) as cnt, SUM(ml.view_count) as views, SUM(ml.click_count) as clicks')
-            ->groupBy('mc.id', 'mc.name')
-            ->orderByDesc('cnt')
-            ->limit(8)
-            ->get();
-
-        // Funnel global de conversión
-        $funnel = [
-            ['stage' => 'Vistas',  'value' => $stats['views_total'],  'rate' => 100],
-            ['stage' => 'Clicks',  'value' => $stats['clicks_total'], 'rate' => $stats['views_total']  > 0 ? round($stats['clicks_total'] / $stats['views_total'] * 100, 2) : 0],
-            ['stage' => 'Leads',   'value' => $stats['leads_total'],  'rate' => $stats['views_total']  > 0 ? round($stats['leads_total']  / $stats['views_total'] * 100, 2) : 0],
-            ['stage' => 'Pedidos', 'value' => $stats['orders_total'], 'rate' => $stats['views_total']  > 0 ? round($stats['orders_total'] / $stats['views_total'] * 100, 2) : 0],
-        ];
-
-        return view('system.marketplace.dashboard', compact(
-            'stats', 'topTenants', 'topListings', 'leadsByDay', 'dailySeries',
-            'revenueByTenant', 'listingsByStatus', 'topCategories', 'funnel'
-        ));
-    }
-
-    // ── Analítica por producto ────────────────────────────────────────────────
-
     /**
-     * Reporte de rendimiento POR PRODUCTO: qué listing tiene más vistas,
-     * cuántos clicks obtuvo, CTR y leads — con gráficos y filtro por fecha.
+     * Dashboard ÚNICO del marketplace. Fusiona la analítica por producto
+     * (vistas/clicks/CTR/leads con filtro por fecha y gráficos) con los KPIs
+     * de negocio (pedidos, revenue, tiendas, funnel). Todo respeta el rango
+     * de fechas elegido.
      *
-     * FUENTE DE DATOS:
-     *  - Vistas/clicks por día: marketplace_listing_stats_daily (tracking
-     *    going-forward; ver migración). Permite el filtro por rango real.
-     *  - Leads por día: marketplace_leads.created_at (ya tenía timestamp).
-     *
-     * FALLBACK: si el rango pedido no tiene filas diarias (p. ej. fechas
-     * anteriores al inicio del tracking), se muestran los contadores
-     * acumulados históricos de marketplace_listings y se avisa al usuario.
+     * FUENTE: vistas/clicks por día → marketplace_listing_stats_daily (tracking
+     * going-forward). Si el rango empieza antes del inicio del tracking, se usa
+     * el acumulado histórico de marketplace_listings (ver $useFallback).
      */
-    public function productsAnalytics(Request $request)
+    public function dashboard(Request $request)
     {
         $conn = \DB::connection('system');
 
-        // ── Filtros ───────────────────────────────────────────────────────────
-        // Rango por defecto: últimos 30 días (incluye hoy).
+        // ── Filtros (rango por defecto: últimos 30 días, incluye hoy) ──────────
         $to   = $request->filled('to')
             ? \Carbon\Carbon::parse($request->input('to'))->toDateString()
             : now()->toDateString();
         $from = $request->filled('from')
             ? \Carbon\Carbon::parse($request->input('from'))->toDateString()
             : now()->subDays(29)->toDateString();
-        // Si el usuario invierte el rango, lo corregimos en vez de fallar.
         if ($from > $to) { [$from, $to] = [$to, $from]; }
 
-        $sort     = in_array($request->input('sort'), ['views', 'clicks', 'ctr', 'leads'], true)
-                    ? $request->input('sort') : 'views';
-        $tenant   = trim((string) $request->input('tenant', ''));
+        $sort       = in_array($request->input('sort'), ['views', 'clicks', 'ctr', 'leads'], true)
+                      ? $request->input('sort') : 'views';
+        $tenant     = trim((string) $request->input('tenant', ''));
         $categoryId = $request->input('category');
-        $status   = $request->input('status');
-        $q        = trim((string) $request->input('q', ''));
-        $minViews = max(0, (int) $request->input('min_views', 0));
+        $status     = $request->input('status');
+        $q          = trim((string) $request->input('q', ''));
+        $minViews   = max(0, (int) $request->input('min_views', 0));
 
-        // ¿Desde cuándo hay tracking diario? Define si el rango cae en zona
-        // con desglose o si hay que mostrar el acumulado histórico.
+        // Desglose diario SOLO si todo el rango cae dentro del período trackeado.
         $trackingStart = $conn->table('marketplace_listing_stats_daily')->min('stat_date');
+        $useFallback   = !$trackingStart || $from < $trackingStart;
 
-        // Usamos el desglose diario SOLO si TODO el rango cae dentro del período
-        // ya trackeado (from >= trackingStart). Si el rango empieza antes de que
-        // existiera el tracking, mostramos el acumulado histórico (coincide con
-        // el Dashboard) en vez de un parcial engañoso — p. ej. "1 vista" cuando
-        // en realidad hubo miles registradas en los contadores acumulados.
-        $useFallback = !$trackingStart || $from < $trackingStart;
-
-        // ── Agregado por producto en el rango ─────────────────────────────────
+        // ── Agregado por producto en el rango ──────────────────────────────────
         if ($useFallback) {
-            // Sin datos diarios en el rango → acumulado histórico del listing.
             $base = MarketplaceListing::query()
                 ->selectRaw('marketplace_listings.id,
                     marketplace_listings.view_count  as views,
                     marketplace_listings.click_count as clicks,
                     marketplace_listings.lead_count  as leads');
         } else {
-            // Vistas/clicks reales del rango desde la tabla diaria.
             $base = MarketplaceListing::query()
                 ->leftJoinSub(
                     $conn->table('marketplace_listing_stats_daily')
                         ->selectRaw('listing_id, SUM(views) as views, SUM(clicks) as clicks')
-                        ->whereBetween('stat_date', [$from, $to])
-                        ->groupBy('listing_id'),
+                        ->whereBetween('stat_date', [$from, $to])->groupBy('listing_id'),
                     'd', 'd.listing_id', '=', 'marketplace_listings.id'
                 )
                 ->leftJoinSub(
                     $conn->table('marketplace_leads')
                         ->selectRaw('listing_id, COUNT(*) as leads')
-                        ->whereBetween('created_at', [$from . ' 00:00:00', $to . ' 23:59:59'])
-                        ->groupBy('listing_id'),
+                        ->whereBetween('created_at', [$from . ' 00:00:00', $to . ' 23:59:59'])->groupBy('listing_id'),
                     'lq', 'lq.listing_id', '=', 'marketplace_listings.id'
                 )
                 ->selectRaw('marketplace_listings.id,
@@ -212,21 +79,15 @@ class MarketplaceAdminController extends Controller
                     COALESCE(d.clicks, 0) as clicks,
                     COALESCE(lq.leads, 0) as leads');
         }
-
-        // Campos para mostrar / filtrar.
         $base->addSelect(
-            'marketplace_listings.title',
-            'marketplace_listings.slug',
-            'marketplace_listings.tenant_fqdn',
-            'marketplace_listings.status',
-            'marketplace_listings.image_url',
-            'marketplace_listings.marketplace_category_id'
+            'marketplace_listings.title', 'marketplace_listings.slug',
+            'marketplace_listings.tenant_fqdn', 'marketplace_listings.status',
+            'marketplace_listings.image_url', 'marketplace_listings.marketplace_category_id'
         );
-
-        if ($tenant !== '')   $base->where('marketplace_listings.tenant_fqdn', 'like', "%{$tenant}%");
-        if ($categoryId)      $base->where('marketplace_listings.marketplace_category_id', $categoryId);
-        if ($status)          $base->where('marketplace_listings.status', $status);
-        if ($q !== '')        $base->where('marketplace_listings.title', 'like', "%{$q}%");
+        if ($tenant !== '') $base->where('marketplace_listings.tenant_fqdn', 'like', "%{$tenant}%");
+        if ($categoryId)    $base->where('marketplace_listings.marketplace_category_id', $categoryId);
+        if ($status)        $base->where('marketplace_listings.status', $status);
+        if ($q !== '')      $base->where('marketplace_listings.title', 'like', "%{$q}%");
 
         $rows = $base->get()->map(function ($r) {
             $r->views  = (int) $r->views;
@@ -235,34 +96,43 @@ class MarketplaceAdminController extends Controller
             $r->ctr    = $r->views > 0 ? round($r->clicks / $r->views * 100, 1) : 0.0;
             return $r;
         });
-
         if ($minViews > 0) $rows = $rows->where('views', '>=', $minViews)->values();
-
-        // Orden según el filtro elegido.
         $rows = $rows->sortByDesc($sort === 'ctr' ? 'ctr' : $sort)->values();
 
-        // ── KPIs del rango ────────────────────────────────────────────────────
+        // ── Pedidos + revenue del rango (respetan el filtro de fecha) ──────────
+        $ordersAgg = $conn->table('tenant_marketplace_orders')
+            ->whereBetween('created_at', [$from . ' 00:00:00', $to . ' 23:59:59'])
+            ->selectRaw('COUNT(*) as total, COALESCE(SUM(subtotal),0) as gross, COALESCE(SUM(discount_amount),0) as discount')
+            ->first();
+        $ordersRange  = (int) ($ordersAgg->total ?? 0);
+        $revenueRange = round((float) (($ordersAgg->gross ?? 0) - ($ordersAgg->discount ?? 0)), 2);
+
+        // ── KPIs ───────────────────────────────────────────────────────────────
         $kpis = [
-            'products' => $rows->count(),
-            'views'    => (int) $rows->sum('views'),
-            'clicks'   => (int) $rows->sum('clicks'),
-            'leads'    => (int) $rows->sum('leads'),
+            'products'          => $rows->count(),
+            'views'             => (int) $rows->sum('views'),
+            'clicks'            => (int) $rows->sum('clicks'),
+            'leads'             => (int) $rows->sum('leads'),
+            'orders'            => $ordersRange,
+            'revenue'           => $revenueRange,
+            // Estado actual (no depende del rango de fechas).
+            'tenants_active'    => (int) MarketplaceListing::where('is_active', true)->distinct()->count('hostname_id'),
+            'listings_total'    => MarketplaceListing::count(),
+            'listings_active'   => MarketplaceListing::where('status', 'active')->count(),
+            'listings_paused'   => MarketplaceListing::where('status', 'paused')->count(),
+            'listings_rejected' => MarketplaceListing::where('status', 'rejected')->count(),
         ];
         $kpis['ctr'] = $kpis['views'] > 0 ? round($kpis['clicks'] / $kpis['views'] * 100, 2) : 0;
 
-        // Top 10 para los gráficos de barras.
         $topByViews  = $rows->sortByDesc('views')->take(10)->values();
         $topByClicks = $rows->sortByDesc('clicks')->take(10)->values();
+        $champion    = $topByViews->first();
 
-        // El producto estrella (respuesta directa a la pregunta del usuario).
-        $champion = $topByViews->first();
-
-        // ── Tendencia diaria del rango (vistas + clicks) ──────────────────────
+        // ── Tendencia diaria (vistas + clicks) ─────────────────────────────────
         $dailyView = $useFallback ? collect() : $conn->table('marketplace_listing_stats_daily')
             ->selectRaw('stat_date as day, SUM(views) as views, SUM(clicks) as clicks')
             ->whereBetween('stat_date', [$from, $to])
             ->when($tenant !== '' || $categoryId || $status || $q !== '', function ($qb) use ($tenant, $categoryId, $status, $q) {
-                // Acota la tendencia a los mismos listings filtrados.
                 $ids = MarketplaceListing::query()
                     ->when($tenant !== '', fn($x) => $x->where('tenant_fqdn', 'like', "%{$tenant}%"))
                     ->when($categoryId, fn($x) => $x->where('marketplace_category_id', $categoryId))
@@ -271,10 +141,8 @@ class MarketplaceAdminController extends Controller
                     ->pluck('id');
                 $qb->whereIn('listing_id', $ids);
             })
-            ->groupBy('stat_date')->orderBy('stat_date')
-            ->get()->keyBy('day');
+            ->groupBy('stat_date')->orderBy('stat_date')->get()->keyBy('day');
 
-        // Serie continua (sin huecos) acotada a un máximo razonable de barras.
         $dailySeries = collect();
         $cursor = \Carbon\Carbon::parse($from);
         $end    = \Carbon\Carbon::parse($to);
@@ -291,37 +159,50 @@ class MarketplaceAdminController extends Controller
             }
         }
 
-        // Catálogo de categorías para el <select> del filtro.
-        $categories = $conn->table('marketplace_categories')
-            ->orderBy('name')->get(['id', 'name']);
+        // ── Agregados para los gráficos ────────────────────────────────────────
+        $categories = $conn->table('marketplace_categories')->orderBy('name')->get(['id', 'name']);
         $catName = $categories->pluck('name', 'id');
 
-        // ── Agregados para los gráficos (derivados de $rows, sin más queries) ──
-        // Vistas por categoría → donut. "Sin categoría" agrupa los nulos.
         $byCategory = $rows->groupBy('marketplace_category_id')
             ->map(fn($g, $cid) => (object) [
                 'label' => $cid ? ($catName[$cid] ?? 'Categoría #' . $cid) : 'Sin categoría',
                 'views' => (int) $g->sum('views'),
             ])
-            ->filter(fn($c) => $c->views > 0)
-            ->sortByDesc('views')->values()->take(7);
+            ->filter(fn($c) => $c->views > 0)->sortByDesc('views')->values()->take(7);
 
-        // Vistas por tienda → barras horizontales (top 8).
         $byTenant = $rows->groupBy('tenant_fqdn')
             ->map(fn($g, $fqdn) => (object) [
                 'label'  => $fqdn,
                 'views'  => (int) $g->sum('views'),
                 'clicks' => (int) $g->sum('clicks'),
             ])
-            ->filter(fn($t) => $t->views > 0)
-            ->sortByDesc('views')->values()->take(8);
+            ->filter(fn($t) => $t->views > 0)->sortByDesc('views')->values()->take(8);
+
+        // Revenue por tienda en el rango (top 6) → donut.
+        $revenueByTenant = $conn->table('tenant_marketplace_orders as tmo')
+            ->join('hostnames as h', 'h.id', '=', 'tmo.hostname_id')
+            ->whereBetween('tmo.created_at', [$from . ' 00:00:00', $to . ' 23:59:59'])
+            ->selectRaw('h.fqdn as tenant_fqdn, COALESCE(SUM(tmo.subtotal - tmo.discount_amount),0) as revenue')
+            ->groupBy('h.fqdn')->orderByDesc('revenue')->limit(6)->get();
+
+        // Distribución actual de listings por estado.
+        $listingsByStatus = MarketplaceListing::selectRaw('status, COUNT(*) as cnt')
+            ->groupBy('status')->orderByDesc('cnt')->get();
+
+        // Funnel global del rango.
+        $funnel = [
+            ['stage' => 'Vistas',  'value' => $kpis['views'],  'rate' => 100],
+            ['stage' => 'Clicks',  'value' => $kpis['clicks'], 'rate' => $kpis['views'] > 0 ? round($kpis['clicks'] / $kpis['views'] * 100, 2) : 0],
+            ['stage' => 'Leads',   'value' => $kpis['leads'],  'rate' => $kpis['views'] > 0 ? round($kpis['leads']  / $kpis['views'] * 100, 2) : 0],
+            ['stage' => 'Pedidos', 'value' => $kpis['orders'], 'rate' => $kpis['views'] > 0 ? round($kpis['orders'] / $kpis['views'] * 100, 2) : 0],
+        ];
 
         $filters = compact('from', 'to', 'sort', 'tenant', 'status', 'q', 'minViews') + ['category' => $categoryId];
 
-        return view('system.marketplace.products_analytics', compact(
-            'rows', 'kpis', 'topByViews', 'topByClicks', 'champion',
-            'dailySeries', 'categories', 'filters', 'useFallback',
-            'trackingStart', 'spanDays', 'byCategory', 'byTenant'
+        return view('system.marketplace.dashboard', compact(
+            'rows', 'kpis', 'topByViews', 'topByClicks', 'champion', 'dailySeries',
+            'categories', 'filters', 'useFallback', 'trackingStart', 'spanDays',
+            'byCategory', 'byTenant', 'revenueByTenant', 'listingsByStatus', 'funnel'
         ));
     }
 
