@@ -57,7 +57,7 @@
             'values' => collect($funnel)->pluck('value')->values(),
             'rates'  => collect($funnel)->pluck('rate')->values(),
         ],
-        'showTrend' => !$useFallback && $spanDays <= 92 && $dailySeries->isNotEmpty(),
+        'showTrend' => $dailySeries->isNotEmpty(),
     ];
 @endphp
 
@@ -217,21 +217,28 @@
     </div>
 
     {{-- ════════════ GRÁFICOS ════════════ --}}
-    {{-- Fila 1: tendencia diaria a todo el ancho --}}
+    {{-- Fila 1: línea de tiempo de vistas (protagonista visual) --}}
     <div class="mpd-panel">
         <div class="mpd-panel__head">
-            <h5 class="mpd-panel__title">Vistas y clicks por día</h5>
-            <span class="mpd-panel__count">evolución del tráfico</span>
+            <h5 class="mpd-panel__title">Vistas en el tiempo</h5>
+            @if($chartData['showTrend'])
+                <div class="mpd-trendstats">
+                    <span><strong>{{ number_format($trendStats['total_views']) }}</strong> vistas en {{ $trendStats['days'] }} {{ $trendStats['days'] === 1 ? 'día' : 'días' }}</span>
+                    <span><strong>{{ number_format($trendStats['avg_views'], 1) }}</strong> promedio/día</span>
+                    @if($trendStats['peak_day'])
+                        <span>Pico: <strong>{{ number_format($trendStats['peak_views']) }}</strong> el {{ \Carbon\Carbon::parse($trendStats['peak_day'])->format('d/m') }}</span>
+                    @endif
+                </div>
+            @endif
         </div>
         @if($chartData['showTrend'])
             <div id="chTrend" class="mpd-canvas"></div>
+            @if($useFallback && $trackingStart)
+                <div class="mpd-panel__foot">La línea de tiempo arranca el {{ \Carbon\Carbon::parse($trackingStart)->format('d/m/Y') }} (inicio del tracking diario). Los KPIs de arriba muestran el histórico acumulado completo.</div>
+            @endif
         @else
             <div class="mpd-canvas-empty">
-                @if($useFallback)
-                    El desglose diario aparece al elegir un rango dentro del período con tracking (desde {{ $trackingStart ? \Carbon\Carbon::parse($trackingStart)->format('d/m/Y') : 'el primer tráfico nuevo' }}).
-                @else
-                    Sin actividad diaria en este rango.
-                @endif
+                Todavía no hay vistas registradas día a día. La línea de tiempo se empieza a dibujar con el primer tráfico que entre tras activar el tracking.
             </div>
         @endif
     </div>
@@ -396,6 +403,8 @@
 .mpd-panel__head { display: flex; align-items: baseline; justify-content: space-between; padding: 14px 18px; border-bottom: 1px solid var(--mp-line2); }
 .mpd-panel__title { font-size: 14.5px; font-weight: 650; margin: 0; }
 .mpd-panel__count { font-size: 12.5px; color: var(--mp-muted); }
+.mpd-trendstats { display: flex; gap: 16px; flex-wrap: wrap; font-size: 12.5px; color: var(--mp-muted); }
+.mpd-trendstats strong { color: var(--mp-ink); font-weight: 700; }
 .mpd-panel__foot { padding: 10px 18px; font-size: 12px; color: var(--mp-muted); text-align: center; border-top: 1px solid var(--mp-line2); }
 
 /* Tabla protagonista */

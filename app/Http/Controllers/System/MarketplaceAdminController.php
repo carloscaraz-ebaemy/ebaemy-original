@@ -136,10 +136,17 @@ class MarketplaceAdminController extends Controller
             ->filter(fn($r) => $r->views > 0)
             ->sortBy('ctr')->first();
 
-        // ── Tendencia diaria (vistas + clicks) ─────────────────────────────────
-        $dailyView = $useFallback ? collect() : $conn->table('marketplace_listing_stats_daily')
+        // ── Línea de tiempo de vistas/clicks por día ───────────────────────────
+        // A diferencia de los KPIs (que pueden caer al acumulado histórico), la
+        // línea de tiempo SIEMPRE muestra los días con tracking dentro del rango,
+        // aunque el rango empiece antes del inicio del tracking. Así el usuario
+        // ve la evolución desde el primer día registrado en adelante.
+        $spanDays  = \Carbon\Carbon::parse($from)->diffInDays(\Carbon\Carbon::parse($to)) + 1;
+        $trendFrom = $trackingStart ? max($from, $trackingStart) : $from;
+
+        $dailyView = !$trackingStart ? collect() : $conn->table('marketplace_listing_stats_daily')
             ->selectRaw('stat_date as day, SUM(views) as views, SUM(clicks) as clicks')
-            ->whereBetween('stat_date', [$from, $to])
+            ->whereBetween('stat_date', [$trendFrom, $to])
             ->when($tenant !== '' || $categoryId || $status || $q !== '', function ($qb) use ($tenant, $categoryId, $status, $q) {
                 $ids = MarketplaceListing::query()
                     ->when($tenant !== '', fn($x) => $x->where('tenant_fqdn', 'like', "%{$tenant}%"))
@@ -152,10 +159,14 @@ class MarketplaceAdminController extends Controller
             ->groupBy('stat_date')->orderBy('stat_date')->get()->keyBy('day');
 
         $dailySeries = collect();
-        $cursor = \Carbon\Carbon::parse($from);
-        $end    = \Carbon\Carbon::parse($to);
-        $spanDays = $cursor->diffInDays($end) + 1;
-        if (!$useFallback && $spanDays <= 92) {
+        if ($trackingStart) {
+            $cursor = \Carbon\Carbon::parse($trendFrom);
+            $end    = \Carbon\Carbon::parse($to);
+            // Tope de barras: si el tramo trackeado supera 92 días, mostramos los
+            // últimos 92 para no saturar el gráfico.
+            if ($cursor->diffInDays($end) + 1 > 92) {
+                $cursor = (clone $end)->subDays(91);
+            }
             while ($cursor->lte($end)) {
                 $key = $cursor->toDateString();
                 $dailySeries->push((object) [
@@ -166,6 +177,15 @@ class MarketplaceAdminController extends Controller
                 $cursor->addDay();
             }
         }
+
+        // Stats de la línea de tiempo (para los chips del panel).
+        $trendStats = [
+            'total_views' => (int) $dailySeries->sum('views'),
+            'avg_views'   => $dailySeries->count() ? round($dailySeries->avg('views'), 1) : 0,
+            'peak_views'  => (int) ($dailySeries->max('views') ?? 0),
+            'peak_day'    => optional($dailySeries->sortByDesc('views')->first())->day,
+            'days'        => $dailySeries->count(),
+        ];
 
         // ── Agregados para los gráficos ────────────────────────────────────────
         $categories = $conn->table('marketplace_categories')->orderBy('name')->get(['id', 'name']);
@@ -209,7 +229,7 @@ class MarketplaceAdminController extends Controller
 
         return view('system.marketplace.dashboard', compact(
             'rows', 'kpis', 'topByViews', 'topByClicks', 'champion', 'laggard', 'dailySeries',
-            'categories', 'filters', 'useFallback', 'trackingStart', 'spanDays',
+            'categories', 'filters', 'useFallback', 'trackingStart', 'spanDays', 'trendStats',
             'byCategory', 'byTenant', 'revenueByTenant', 'listingsByStatus', 'funnel'
         ));
     }
