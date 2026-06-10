@@ -470,7 +470,7 @@ class MarketplaceController extends Controller
             if (strlen($number) !== 11) {
                 return response()->json(['ok' => false]);
             }
-            $cacheKey = 'mp_doc_ruc_' . $number;
+            $cacheKey = 'mp_doc_ruc_v2_' . $number;
             return response()->json(\Cache::remember($cacheKey, 86400, function () use ($number) {
                 try {
                     $res = app(\App\Services\System\RucValidationService::class)->validate($number);
@@ -479,6 +479,7 @@ class MarketplaceController extends Controller
                             'ok'         => true,
                             'type'       => 'RUC',
                             'name'       => $res['business_name'],
+                            'address'    => $res['fiscal_address'] ?? null,
                             'department' => $res['department'] ?? null,
                             'province'   => $res['province'] ?? null,
                             'district'   => $res['district'] ?? null,

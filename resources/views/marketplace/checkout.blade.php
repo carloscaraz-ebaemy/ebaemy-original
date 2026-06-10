@@ -690,12 +690,17 @@ input.mp-co-invalid, select.mp-co-invalid, textarea.mp-co-invalid {
         const docNum  = document.querySelector('[name="customer_doc_number"]');
         const nameEl  = document.querySelector('[name="customer_name"]');
         const statusEl = document.querySelector('[data-doc-status]');
+        const addrEl  = document.querySelector('[name="delivery_address"]');
         if (!docNum || !nameEl) return;
 
         // Marca si el nombre fue autocompletado para poder sobreescribirlo en
         // una nueva consulta, pero NO pisar lo que el usuario tipeó a mano.
         let autofilled = false;
         nameEl.addEventListener('input', () => { autofilled = false; });
+        // Igual para la dirección: la rellenamos con la fiscal del RUC, pero si
+        // el comprador la edita dejamos de pisarla (la entrega puede diferir).
+        let addrAutofilled = false;
+        if (addrEl) addrEl.addEventListener('input', () => { addrAutofilled = false; });
 
         function setStatus(text, cls) {
             statusEl.textContent = text || '';
@@ -733,11 +738,18 @@ input.mp-co-invalid, select.mp-co-invalid, textarea.mp-co-invalid {
                         nameEl.value = data.name;
                         autofilled = true;
                     }
-                    if (type === 'RUC' && window.__mpUbigeoSet) {
-                        // Intenta seleccionar el ubigeo del RUC en los selects
-                        // (best-effort: si el nombre SUNAT no matchea el INEI, el
-                        // comprador lo elige a mano).
-                        window.__mpUbigeoSet(data.department, data.province, data.district);
+                    if (type === 'RUC') {
+                        // Dirección fiscal de SUNAT (editable: la entrega puede diferir).
+                        if (addrEl && data.address && (!addrEl.value.trim() || addrAutofilled)) {
+                            addrEl.value = data.address;
+                            addrAutofilled = true;
+                            addrEl.classList.remove('mp-co-invalid');
+                        }
+                        // Selecciona el ubigeo del RUC en los selects (best-effort:
+                        // si el nombre SUNAT no matchea el INEI, se elige a mano).
+                        if (window.__mpUbigeoSet) {
+                            window.__mpUbigeoSet(data.department, data.province, data.district);
+                        }
                     }
                     setStatus('✓ ' + data.name, 'is-ok');
                 } else {
