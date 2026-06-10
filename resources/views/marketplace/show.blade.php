@@ -416,23 +416,43 @@
             @endif
         </div>
 
-        <div class="mp-price-box">
+        @php
+            // Precio vigente y original (soporta variantes). Si está en oferta y
+            // el original es mayor, calculamos % y ahorro para destacar el descuento.
+            $curPrice  = $variants->isNotEmpty() ? $variants->first()->price : $listing->display_price;
+            $origPrice = $variants->isNotEmpty() ? ($variants->first()->original_price ?? 0) : ($listing->original_price ?? 0);
+            $isOnOffer = $variants->isNotEmpty() ? $variants->first()->is_on_offer : $listing->is_on_offer;
+            $hasOffer  = $isOnOffer && $origPrice > 0 && $origPrice > $curPrice;
+            $offerPct  = $hasOffer ? (int) round((1 - $curPrice / $origPrice) * 100) : 0;
+            $offerSave = $hasOffer ? $origPrice - $curPrice : 0;
+            // En productos con variantes, una variante distinta puede tener (o no)
+            // oferta. Renderizamos los elementos del descuento aunque la variante
+            // inicial no esté en oferta — ocultos — para que applyVariant() los
+            // pueda mostrar/ocultar sin recargar.
+            $renderOfferEls = $hasOffer || $variants->isNotEmpty();
+        @endphp
+        <div class="mp-price-box {{ $hasOffer ? 'mp-price-box--offer' : '' }}" id="mpPriceBox">
+            @if($renderOfferEls)
+                {{-- Badge de descuento: lo primero que ve el ojo. --}}
+                <div class="mp-price-offer-badge" id="mpOfferBadge" style="{{ $hasOffer ? '' : 'display:none' }}">-{{ $offerPct }}%</div>
+            @endif
             {{-- El vendedor ya se muestra arriba en "Vendido por", así que el
                  label se mantiene corto para no competir con el monto. --}}
-            <div class="mp-price-box-label">Precio</div>
-            <div class="mp-price" id="mpDisplayPrice">
-                @if($listing->display_price > 0)
-                    S/ {{ number_format(($variants->isNotEmpty() ? $variants->first()->price : $listing->display_price), 2) }}
-                @else
-                    <span style="font-size:18px;color:#6b7280">Precio a consultar</span>
+            <div class="mp-price-box-label" id="mpPriceLabel">{{ $hasOffer ? 'Precio de oferta' : 'Precio' }}</div>
+            <div class="mp-price-line">
+                <div class="mp-price" id="mpDisplayPrice">
+                    @if($listing->display_price > 0)
+                        S/ {{ number_format($curPrice, 2) }}
+                    @else
+                        <span style="font-size:18px;color:#6b7280">Precio a consultar</span>
+                    @endif
+                </div>
+                @if($renderOfferEls)
+                    <span class="mp-price-old" id="mpOldPrice" style="{{ $hasOffer ? '' : 'display:none' }}">S/ {{ number_format($origPrice, 2) }}</span>
                 @endif
             </div>
-            @if(($variants->isNotEmpty() && $variants->first()->is_on_offer) || (!$variants->isNotEmpty() && $listing->is_on_offer))
-                <div class="mp-price-old" id="mpOldPrice">
-                    <span style="text-decoration:line-through;color:#9ca3af;font-size:14px">
-                        S/ {{ number_format(($variants->isNotEmpty() ? ($variants->first()->original_price ?? 0) : ($listing->original_price ?? 0)), 2) }}
-                    </span>
-                </div>
+            @if($renderOfferEls)
+                <div class="mp-price-saving" id="mpPriceSaving" style="{{ $hasOffer ? '' : 'display:none' }}">Ahorras S/ {{ number_format($offerSave, 2) }}</div>
             @endif
 
             @php
@@ -710,15 +730,30 @@
                     // Precio
                     var priceEl = document.getElementById('mpDisplayPrice');
                     if (priceEl) priceEl.textContent = 'S/ ' + Number(v.price).toFixed(2);
-                    var oldEl = document.getElementById('mpOldPrice');
+                    // Estado de oferta de la variante → actualiza precio tachado,
+                    // badge de %, ahorro y el acento del recuadro.
+                    var varOnOffer = !!(v.is_on_offer && v.original_price && v.original_price > v.price);
+                    var varPct  = varOnOffer ? Math.round((1 - v.price / v.original_price) * 100) : 0;
+                    var varSave = varOnOffer ? (v.original_price - v.price) : 0;
+                    var oldEl    = document.getElementById('mpOldPrice');
+                    var badgeEl  = document.getElementById('mpOfferBadge');
+                    var savingEl = document.getElementById('mpPriceSaving');
+                    var boxEl    = document.getElementById('mpPriceBox');
+                    var labelEl  = document.getElementById('mpPriceLabel');
                     if (oldEl) {
-                        if (v.is_on_offer && v.original_price && v.original_price > v.price) {
-                            oldEl.innerHTML = '<span style="text-decoration:line-through;color:#9ca3af;font-size:14px">S/ ' + Number(v.original_price).toFixed(2) + '</span>';
-                            oldEl.style.display = '';
-                        } else {
-                            oldEl.style.display = 'none';
-                        }
+                        oldEl.textContent = 'S/ ' + Number(v.original_price || 0).toFixed(2);
+                        oldEl.style.display = varOnOffer ? '' : 'none';
                     }
+                    if (badgeEl) {
+                        badgeEl.textContent = '-' + varPct + '%';
+                        badgeEl.style.display = varOnOffer ? '' : 'none';
+                    }
+                    if (savingEl) {
+                        savingEl.textContent = 'Ahorras S/ ' + Number(varSave).toFixed(2);
+                        savingEl.style.display = varOnOffer ? '' : 'none';
+                    }
+                    if (boxEl) boxEl.classList.toggle('mp-price-box--offer', varOnOffer);
+                    if (labelEl) labelEl.textContent = varOnOffer ? 'Precio de oferta' : 'Precio';
                     // Stock
                     var stockBox = document.getElementById('mpStockBox');
                     if (stockBox) {
