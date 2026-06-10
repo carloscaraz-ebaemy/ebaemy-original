@@ -84,9 +84,9 @@
     ];
 @endphp
 
-<div class="container-fluid py-3 mpd">
+<div class="container-fluid py-2 mpd">
     {{-- ── Encabezado ── --}}
-    <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+    <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
         <div>
             <h3 class="mpd-h1 mb-0">Marketplace</h3>
             <div class="mpd-breadcrumb">Rendimiento de productos y tiendas</div>
@@ -240,7 +240,8 @@
     </div>
 
     {{-- ════════════ GRÁFICOS ════════════ --}}
-    {{-- Fila 1: línea de tiempo de vistas (protagonista visual) --}}
+    {{-- Fila 1: líneas de tiempo lado a lado (vistas | leads+pedidos) --}}
+    <div class="mpd-charts">
     <div class="mpd-panel">
         <div class="mpd-panel__head">
             <h5 class="mpd-panel__title">
@@ -300,6 +301,7 @@
             <div class="mpd-canvas-empty">Sin leads ni pedidos en este rango.</div>
         @endif
     </div>
+    </div>{{-- /Fila 1 líneas de tiempo --}}
 
     {{-- Fila 2: top productos + funnel --}}
     <div class="mpd-charts">
@@ -404,18 +406,18 @@
     --mp-warn: #b45309; --mp-warn-soft: #fffbeb;
 }
 .mpd { color: var(--mp-ink); }
-.mpd-h1 { font-size: 22px; font-weight: 700; letter-spacing: -.01em; }
+.mpd-h1 { font-size: 19px; font-weight: 700; letter-spacing: -.01em; }
 .mpd-breadcrumb { font-size: 12.5px; color: var(--mp-muted); margin-top: 2px; }
 
 /* Filtros */
-.mpd-filters { background: var(--mp-surface); border: 1px solid var(--mp-line); border-radius: 12px; padding: 14px 16px; margin-bottom: 14px; }
-.mpd-filters__dates { display: flex; align-items: flex-end; gap: 14px; flex-wrap: wrap; padding-bottom: 12px; margin-bottom: 12px; border-bottom: 1px solid var(--mp-line2); }
-.mpd-filters__row { display: flex; align-items: flex-end; gap: 12px; flex-wrap: wrap; }
-.mpd-field { display: flex; flex-direction: column; gap: 5px; min-width: 130px; }
+.mpd-filters { background: var(--mp-surface); border: 1px solid var(--mp-line); border-radius: 12px; padding: 10px 14px; margin-bottom: 10px; }
+.mpd-filters__dates { display: flex; align-items: flex-end; gap: 12px; flex-wrap: wrap; padding-bottom: 8px; margin-bottom: 8px; border-bottom: 1px solid var(--mp-line2); }
+.mpd-filters__row { display: flex; align-items: flex-end; gap: 10px; flex-wrap: wrap; }
+.mpd-field { display: flex; flex-direction: column; gap: 4px; min-width: 130px; }
 .mpd-field--grow { flex: 1 1 220px; }
 .mpd-field--narrow { min-width: 90px; max-width: 110px; }
 .mpd-field label { font-size: 11px; font-weight: 600; color: var(--mp-muted); text-transform: uppercase; letter-spacing: .03em; }
-.mpd-field input, .mpd-field select { height: 36px; border: 1px solid var(--mp-line); border-radius: 8px; padding: 0 10px; font-size: 13.5px; color: var(--mp-ink); background: var(--mp-surface); transition: border-color .15s, box-shadow .15s; }
+.mpd-field input, .mpd-field select { height: 32px; border: 1px solid var(--mp-line); border-radius: 8px; padding: 0 10px; font-size: 13px; color: var(--mp-ink); background: var(--mp-surface); transition: border-color .15s, box-shadow .15s; }
 .mpd-field input:focus, .mpd-field select:focus { outline: none; border-color: var(--mp-accent); box-shadow: 0 0 0 3px var(--mp-accent-soft); }
 .mpd-presets { display: flex; gap: 6px; margin-left: auto; }
 .mpd-chip { font-size: 12.5px; padding: 7px 12px; border-radius: 999px; border: 1px solid var(--mp-line); color: var(--mp-muted); text-decoration: none; transition: all .15s; }
@@ -424,47 +426,47 @@
 .mpd-actions { display: flex; align-items: center; gap: 4px; margin-left: auto; }
 
 /* Range bar */
-.mpd-rangebar { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; margin-bottom: 16px; font-size: 13px; }
+.mpd-rangebar { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; margin-bottom: 10px; font-size: 12.5px; }
 .mpd-rangebar__period { font-weight: 700; color: var(--mp-ink); }
 .mpd-rangebar__note { color: var(--mp-muted); }
 
 /* Metric strip */
-.mpd-metrics { display: flex; align-items: stretch; gap: 0; background: var(--mp-surface); border: 1px solid var(--mp-line); border-radius: 12px; padding: 4px 0; margin-bottom: 16px; flex-wrap: wrap; }
-.mpd-metric { display: flex; flex-direction: column; gap: 2px; padding: 14px 22px; border-right: 1px solid var(--mp-line2); }
-.mpd-metric__label { font-size: 11.5px; font-weight: 600; color: var(--mp-muted); text-transform: uppercase; letter-spacing: .03em; }
-.mpd-metric__value { font-size: 22px; font-weight: 700; letter-spacing: -.02em; line-height: 1.1; }
-.mpd-metric__rate { font-size: 11.5px; color: var(--mp-faint); }
-.mpd-metric--primary { padding-left: 24px; }
-.mpd-metric--primary .mpd-metric__value { font-size: 30px; color: var(--mp-accent); }
-.mpd-metric__context { display: flex; flex-direction: column; justify-content: center; gap: 4px; padding: 14px 22px; margin-left: auto; font-size: 12.5px; color: var(--mp-muted); }
+.mpd-metrics { display: flex; align-items: stretch; gap: 0; background: var(--mp-surface); border: 1px solid var(--mp-line); border-radius: 12px; padding: 2px 0; margin-bottom: 12px; flex-wrap: wrap; }
+.mpd-metric { display: flex; flex-direction: column; gap: 1px; padding: 9px 18px; border-right: 1px solid var(--mp-line2); }
+.mpd-metric__label { font-size: 11px; font-weight: 600; color: var(--mp-muted); text-transform: uppercase; letter-spacing: .03em; }
+.mpd-metric__value { font-size: 18px; font-weight: 700; letter-spacing: -.02em; line-height: 1.15; }
+.mpd-metric__rate { font-size: 11px; color: var(--mp-faint); }
+.mpd-metric--primary { padding-left: 20px; }
+.mpd-metric--primary .mpd-metric__value { font-size: 24px; color: var(--mp-accent); }
+.mpd-metric__context { display: flex; flex-direction: column; justify-content: center; gap: 3px; padding: 9px 18px; margin-left: auto; font-size: 12px; color: var(--mp-muted); }
 .mpd-metric__context strong { color: var(--mp-ink); }
 
 /* Highlights Top / Rezagado */
-.mpd-highlights { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 16px; }
-.mpd-card { display: block; background: var(--mp-surface); border: 1px solid var(--mp-line); border-radius: 12px; padding: 16px 18px; text-decoration: none; color: var(--mp-ink); transition: box-shadow .15s, transform .15s; }
+.mpd-highlights { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px; }
+.mpd-card { display: block; background: var(--mp-surface); border: 1px solid var(--mp-line); border-radius: 12px; padding: 11px 14px; text-decoration: none; color: var(--mp-ink); transition: box-shadow .15s, transform .15s; }
 .mpd-card:hover { box-shadow: 0 6px 18px rgba(30,35,48,.08); transform: translateY(-1px); color: var(--mp-ink); }
-.mpd-card__head { display: flex; align-items: center; gap: 7px; font-size: 11.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; margin-bottom: 8px; }
+.mpd-card__head { display: flex; align-items: center; gap: 7px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; margin-bottom: 5px; }
 .mpd-card--good .mpd-card__head { color: var(--mp-good); }
 .mpd-card--warn .mpd-card__head { color: var(--mp-warn); }
 .mpd-card--good { border-color: #c7eed4; background: #fbfffc; }
 .mpd-card--warn { border-color: #f3e3c2; background: #fffdf6; }
 .mpd-card__title { font-size: 15px; font-weight: 650; line-height: 1.25; }
 .mpd-card__tenant { font-size: 12.5px; color: var(--mp-muted); margin-top: 2px; }
-.mpd-card__stats { display: flex; gap: 16px; margin-top: 10px; font-size: 13px; color: var(--mp-muted); }
+.mpd-card__stats { display: flex; gap: 16px; margin-top: 7px; font-size: 13px; color: var(--mp-muted); }
 .mpd-card__stats strong { color: var(--mp-ink); font-size: 14px; }
 .mpd-stat-good strong { color: var(--mp-good); }
 .mpd-stat-warn strong { color: var(--mp-warn); }
-.mpd-card__hint { margin-top: 10px; font-size: 12px; color: var(--mp-warn); background: var(--mp-warn-soft); border-radius: 7px; padding: 6px 10px; }
+.mpd-card__hint { margin-top: 7px; font-size: 11.5px; color: var(--mp-warn); background: var(--mp-warn-soft); border-radius: 7px; padding: 5px 9px; }
 
 /* Panels */
-.mpd-panel { background: var(--mp-surface); border: 1px solid var(--mp-line); border-radius: 12px; margin-bottom: 16px; }
-.mpd-panel__head { display: flex; align-items: baseline; justify-content: space-between; padding: 14px 18px; border-bottom: 1px solid var(--mp-line2); }
+.mpd-panel { background: var(--mp-surface); border: 1px solid var(--mp-line); border-radius: 12px; margin-bottom: 12px; }
+.mpd-panel__head { display: flex; align-items: baseline; justify-content: space-between; padding: 9px 14px; border-bottom: 1px solid var(--mp-line2); }
 .mpd-panel__title { font-size: 14.5px; font-weight: 650; margin: 0; }
 .mpd-tag { display: inline-block; margin-left: 8px; font-size: 10.5px; font-weight: 600; text-transform: uppercase; letter-spacing: .03em; color: var(--mp-accent); background: var(--mp-accent-soft); padding: 2px 8px; border-radius: 999px; vertical-align: middle; }
 .mpd-panel__count { font-size: 12.5px; color: var(--mp-muted); }
-.mpd-trendstats { display: flex; gap: 18px; flex-wrap: wrap; font-size: 12.5px; color: var(--mp-muted); padding: 12px 18px 0; }
+.mpd-trendstats { display: flex; gap: 16px; flex-wrap: wrap; font-size: 12px; color: var(--mp-muted); padding: 8px 14px 0; }
 .mpd-trendstats strong { color: var(--mp-ink); font-weight: 700; }
-.mpd-trendnote { margin: 0 18px 16px; padding: 10px 14px; font-size: 12.5px; line-height: 1.5; color: #3730a3; background: var(--mp-accent-soft); border: 1px solid #dfe3ff; border-radius: 9px; }
+.mpd-trendnote { margin: 0 14px 12px; padding: 8px 12px; font-size: 12px; line-height: 1.45; color: #3730a3; background: var(--mp-accent-soft); border: 1px solid #dfe3ff; border-radius: 9px; }
 .mpd-trendnote strong { font-weight: 700; }
 .mpd-trendnote a { color: var(--mp-accent); font-weight: 600; white-space: nowrap; }
 
@@ -477,14 +479,14 @@
 
 /* Tabla protagonista */
 .mpd-table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
-.mpd-table thead th { position: sticky; top: 0; background: var(--mp-subtle); font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .03em; color: var(--mp-muted); padding: 10px 14px; text-align: left; border-bottom: 1px solid var(--mp-line); white-space: nowrap; }
+.mpd-table thead th { position: sticky; top: 0; background: var(--mp-subtle); font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .03em; color: var(--mp-muted); padding: 8px 12px; text-align: left; border-bottom: 1px solid var(--mp-line); white-space: nowrap; }
 .mpd-table thead th a { color: var(--mp-muted); text-decoration: none; }
 .mpd-table thead th a:hover { color: var(--mp-accent); }
 .mp-sort-on { color: var(--mp-accent); font-weight: 700; }
 .mpd-th-num { width: 44px; text-align: center !important; }
 .mpd-th-c { text-align: center !important; }
 .mpd-th-r { text-align: right !important; }
-.mpd-table tbody td { padding: 10px 14px; border-bottom: 1px solid var(--mp-line2); vertical-align: middle; }
+.mpd-table tbody td { padding: 6px 12px; border-bottom: 1px solid var(--mp-line2); vertical-align: middle; }
 .mpd-table tbody tr:hover { background: var(--mp-subtle); }
 .mpd-table tbody tr:last-child td { border-bottom: none; }
 .mpd-td-num { text-align: center; color: var(--mp-faint); font-variant-numeric: tabular-nums; }
@@ -512,9 +514,9 @@
 .mpd-empty { text-align: center; color: var(--mp-muted); padding: 40px 16px !important; }
 
 /* Charts */
-.mpd-charts { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
-.mpd-canvas { min-height: 300px; padding: 8px 10px 12px; }
-.mpd-canvas-empty { min-height: 200px; display: flex; align-items: center; justify-content: center; text-align: center; color: var(--mp-muted); font-size: 13px; padding: 20px; }
+.mpd-charts { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.mpd-canvas { min-height: 220px; padding: 2px 6px 6px; }
+.mpd-canvas-empty { min-height: 150px; display: flex; align-items: center; justify-content: center; text-align: center; color: var(--mp-muted); font-size: 13px; padding: 16px; }
 
 @media (max-width: 991px) {
     .mpd-highlights, .mpd-charts { grid-template-columns: 1fr; }
@@ -555,7 +557,7 @@
                 trendSeries.push({ name: 'Clicks', data: DATA.trend.clicks });
             }
             render('#chTrend', {
-                chart: { type: 'area', height: 300 },
+                chart: { type: 'area', height: 220 },
                 series: trendSeries,
                 colors: DATA.trend.isHistorical ? ['#4f46e5'] : ['#4f46e5', '#f59e0b'],
                 xaxis: { categories: DATA.trend.labels, tickAmount: 8, axisBorder: { show: false }, axisTicks: { show: false } },
@@ -569,7 +571,7 @@
         // Leads y pedidos en el tiempo (gráfico aparte, historia real)
         if (DATA.showActivity) {
             render('#chActivity', {
-                chart: { type: 'area', height: 300 },
+                chart: { type: 'area', height: 220 },
                 series: [
                     { name: 'Leads', data: DATA.activity.leads },
                     { name: 'Pedidos', data: DATA.activity.orders },
@@ -585,7 +587,7 @@
         // Top 10 productos por vistas (barras horizontales)
         if (sum(DATA.top.views) > 0) {
             render('#chTop', {
-                chart: { type: 'bar', height: 340 },
+                chart: { type: 'bar', height: 250 },
                 series: [
                     { name: 'Vistas', data: DATA.top.views },
                     { name: 'Clicks', data: DATA.top.clicks },
@@ -599,7 +601,7 @@
         // Embudo de conversión (barras horizontales con %)
         if (sum(DATA.funnel.values) > 0) {
             render('#chFunnel', {
-                chart: { type: 'bar', height: 340 },
+                chart: { type: 'bar', height: 250 },
                 series: [{ name: 'Cantidad', data: DATA.funnel.values }],
                 colors: ['#4f46e5', '#0ea5e9', '#f59e0b', '#22c55e'],
                 plotOptions: { bar: { horizontal: true, distributed: true, barHeight: '58%', borderRadius: 3 } },
@@ -613,7 +615,7 @@
         // Rendimiento por tienda (barras horizontales)
         if (sum(DATA.tenant.views) > 0) {
             render('#chTenant', {
-                chart: { type: 'bar', height: 300 },
+                chart: { type: 'bar', height: 230 },
                 series: [
                     { name: 'Vistas', data: DATA.tenant.views },
                     { name: 'Clicks', data: DATA.tenant.clicks },
@@ -627,7 +629,7 @@
         // Vistas por categoría (donut, paleta índigo secuencial)
         if (sum(DATA.cat.views) > 0) {
             render('#chCat', {
-                chart: { type: 'donut', height: 300 },
+                chart: { type: 'donut', height: 230 },
                 series: DATA.cat.views,
                 labels: DATA.cat.labels,
                 colors: ['#4f46e5', '#0ea5e9', '#14b8a6', '#22c55e', '#f59e0b', '#ef4444', '#a855f7'],
