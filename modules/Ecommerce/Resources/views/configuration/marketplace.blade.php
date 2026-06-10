@@ -67,7 +67,16 @@ document.addEventListener('DOMContentLoaded', function(){
         }
         var html = '';
         channels.forEach(function(ch){
-            var statusBadge = ch.status === 'active' ? '<span class="badge badge-success">Activo</span>' : '<span class="badge badge-secondary">' + ch.status + '</span>';
+            var statusBadge;
+            if (ch.status === 'active') {
+                statusBadge = '<span class="badge badge-success">Conectado</span>';
+            } else if (ch.status === 'error') {
+                var err = (ch.last_error_message || 'Error de conexión').replace(/"/g, '&quot;');
+                statusBadge = '<span class="badge badge-danger" title="'+err+'">Error</span>'
+                    + '<br><small class="text-danger">'+err.substring(0,60)+'</small>';
+            } else {
+                statusBadge = '<span class="badge badge-secondary">'+(ch.status || 'inactivo')+'</span>';
+            }
             filter.innerHTML += '<option value="'+ch.id+'">'+ch.name+' ('+ch.platform+')</option>';
             html += '<tr>'
                 + '<td><strong>'+ch.name+'</strong><br><small class="text-muted">'+ch.platform+'</small></td>'
@@ -75,9 +84,10 @@ document.addEventListener('DOMContentLoaded', function(){
                 + '<td id="mp-count-'+ch.id+'">-</td>'
                 + '<td>'+(ch.last_sync_at || '<span class="text-muted">Nunca</span>')+'</td>'
                 + '<td>'
-                + '<button class="btn btn-xs btn-outline-primary mr-1" onclick="syncProducts('+ch.id+')"><i class="fas fa-sync"></i> Sync productos</button>'
-                + '<button class="btn btn-xs btn-outline-success mr-1" onclick="syncStock('+ch.id+')"><i class="fas fa-boxes"></i> Sync stock</button>'
-                + '<button class="btn btn-xs btn-outline-info" onclick="loadProducts('+ch.id+')"><i class="fas fa-list"></i> Ver productos</button>'
+                + '<button class="btn btn-xs btn-outline-primary mr-1 mb-1" onclick="syncProducts('+ch.id+')"><i class="fas fa-sync"></i> Sync productos</button>'
+                + '<button class="btn btn-xs btn-outline-success mr-1 mb-1" onclick="syncStock('+ch.id+')"><i class="fas fa-boxes"></i> Sync stock</button>'
+                + '<button class="btn btn-xs btn-outline-warning mr-1 mb-1" onclick="fetchOrders('+ch.id+')"><i class="fas fa-download"></i> Traer órdenes</button>'
+                + '<button class="btn btn-xs btn-outline-info mb-1" onclick="loadProducts('+ch.id+')"><i class="fas fa-list"></i> Ver productos</button>'
                 + '</td></tr>';
         });
         tbody.innerHTML = html;
@@ -132,6 +142,22 @@ document.addEventListener('DOMContentLoaded', function(){
         fetch('/ecommerce/marketplace/channels/'+channelId+'/sync-stock', {method:'POST', headers:headers})
         .then(function(r){return r.json()})
         .then(function(data){ alert(data.message || 'Stock sincronizado'); });
+    };
+    window.fetchOrders = function(channelId){
+        fetch('/ecommerce/marketplace/channels/'+channelId+'/fetch-orders', {headers:{'Accept':'application/json'}})
+        .then(function(r){return r.json()})
+        .then(function(data){
+            var msg;
+            if (data.error) {
+                msg = 'Error: ' + data.error;
+            } else if (data.success !== undefined) {
+                msg = (data.success||0) + ' órdenes nuevas, ' + (data.failed||0) + ' con error';
+            } else {
+                msg = data.message || 'Órdenes sincronizadas';
+            }
+            alert(msg);
+        })
+        .catch(function(e){ alert('Error al traer órdenes: '+e.message); });
     };
     window.autoMap = function(channelId){
         fetch('/ecommerce/marketplace/channels/'+channelId+'/auto-map', {method:'POST', headers:headers})

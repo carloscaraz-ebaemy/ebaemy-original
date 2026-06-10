@@ -119,11 +119,23 @@ class Kernel extends ConsoleKernel
                  ->dailyAt('02:30')
                  ->withoutOverlapping()
                  ->appendOutputTo(storage_path('logs/warehouse_etl.log'));
-        // Marketplace: sync stock + fetch orders cada 15 min
+        // Marketplace (Falabella/Meta): sync stock cada 15 min — recorre todos los tenants
         $schedule->command('marketplace:sync stock')
                  ->everyFifteenMinutes()
                  ->withoutOverlapping()
                  ->appendOutputTo(storage_path('logs/marketplace_stock.log'));
+
+        // Trae órdenes nuevas de los marketplaces externos cada 15 min
+        $schedule->command('marketplace:sync orders')
+                 ->everyFifteenMinutes()
+                 ->withoutOverlapping()
+                 ->appendOutputTo(storage_path('logs/marketplace_orders.log'));
+
+        // Sincroniza precios una vez al día (los cambios de precio son menos frecuentes)
+        $schedule->command('marketplace:sync prices')
+                 ->dailyAt('05:00')
+                 ->withoutOverlapping()
+                 ->appendOutputTo(storage_path('logs/marketplace_prices.log'));
 
         // Marketplace ebaemy (agregador central): refresca el índice de
         // listings de los tenants que publicaron productos.

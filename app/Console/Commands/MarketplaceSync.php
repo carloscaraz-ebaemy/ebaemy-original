@@ -5,6 +5,8 @@ namespace App\Console\Commands;
 use App\Services\Marketplace\MarketplaceOrchestrator;
 use App\Models\Tenant\MarketplaceChannel;
 use App\Services\Marketplace\MetaFeedService;
+use Hyn\Tenancy\Environment;
+use Hyn\Tenancy\Models\Website;
 use Illuminate\Console\Command;
 
 class MarketplaceSync extends Command
@@ -12,9 +14,10 @@ class MarketplaceSync extends Command
     protected $signature = 'marketplace:sync
         {action=all : products|stock|prices|orders|feed|all}
         {--platform= : falabella|meta|all}
-        {--channel= : Channel ID specific}';
+        {--channel= : Channel ID specific}
+        {--tenant= : UUID de un website específico (por defecto: todos)}';
 
-    protected $description = 'Sincronizar marketplace (Falabella, Meta)';
+    protected $description = 'Sincronizar marketplace (Falabella, Meta) — recorre todos los tenants';
 
     public function handle(): void
     {
@@ -23,38 +26,58 @@ class MarketplaceSync extends Command
 
         $this->info("Marketplace sync: {$action} [{$platform}]");
 
-        // Este comando SOLO sirve para integraciones externas (Falabella, Meta).
-        // MarketplaceChannel es modelo de tenant — requiere contexto activo.
-        // Si nos llaman sin tenant (ej. cron system) damos hint claro en vez
-        // del confuso 'Database connection [tenant] not configured'.
+        $env = app(Environment::class);
+
+        // Si ya hay un tenant activo (ej. se invoca dentro de otro flujo tenant),
+        // procesamos sólo ese. Si no (cron del sistema), recorremos todos.
+        if ($env->tenant()) {
+            $this->processTenant($env->tenant(), $action, $platform);
+            $this->info('Done.');
+            return;
+        }
+
+        $uuid = $this->option('tenant');
+        $websites = $uuid ? Website::where('uuid', $uuid)->get() : Website::all();
+
+        if ($websites->isEmpty()) {
+            $this->warn('No se encontraron tenants.');
+            return;
+        }
+
+        foreach ($websites as $w) {
+            $env->tenant($w);
+            $this->processTenant($w, $action, $platform);
+        }
+
+        $this->info('Done.');
+    }
+
+    /**
+     * Procesa los canales de un tenant ya activado.
+     */
+    protected function processTenant(Website $website, string $action, string $platform): void
+    {
         try {
             $channels = MarketplaceChannel::active()
                 ->when($platform !== 'all', fn($q) => $q->where('platform', $platform))
                 ->when($this->option('channel'), fn($q) => $q->where('id', $this->option('channel')))
                 ->get();
         } catch (\Throwable $e) {
-            if (str_contains($e->getMessage(), "Database connection [tenant] not configured")) {
-                $this->warn('Este comando (marketplace:sync) es para integraciones externas');
-                $this->warn('(Falabella, Meta) y debe correrse desde un contexto tenant.');
-                $this->newLine();
-                $this->info('Para sincronizar el marketplace INTERNO de ebaemy.com usa:');
-                $this->info('  php artisan ebaemy-marketplace:sync                   # todos los tenants');
-                $this->info('  php artisan ebaemy-marketplace:sync --client=1        # un tenant especifico');
-                return;
-            }
-            throw $e;
-        }
-
-        if ($channels->isEmpty()) {
-            $this->warn('No active marketplace channels found.');
+            // Tenant sin tablas de marketplace todavía — lo saltamos en silencio.
             return;
         }
 
+        if ($channels->isEmpty()) {
+            return;
+        }
+
+        $this->line("→ Tenant {$website->uuid}");
+
         foreach ($channels as $channel) {
-            $this->line("  → {$channel->platform}: {$channel->name}");
+            $this->line("  · {$channel->platform}: {$channel->name}");
             $service = MarketplaceOrchestrator::resolveService($channel);
             if (!$service) {
-                $this->warn("    No service for platform: {$channel->platform}");
+                $this->warn("    Sin servicio para: {$channel->platform}");
                 continue;
             }
 
@@ -73,8 +96,6 @@ class MarketplaceSync extends Command
                 $channel->markError($e->getMessage());
             }
         }
-
-        $this->info('Done.');
     }
 
     protected function runAndReport($service, string $method): void

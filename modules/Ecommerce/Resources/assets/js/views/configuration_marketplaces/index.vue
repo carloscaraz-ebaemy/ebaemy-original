@@ -32,7 +32,7 @@
                   Probar conexión
                 </el-button>
                 <span v-if="test_result_falabella" :class="test_result_falabella === 'ok' ? 'text-success' : 'text-danger'" style="margin-left:10px">
-                  {{ test_result_falabella === 'ok' ? '✓ Conectado' : '✗ Error de conexión' }}
+                  {{ test_result_falabella === 'ok' ? '✓ Conectado' : ('✗ ' + (test_message_falabella || 'Error de conexión')) }}
                 </span>
               </div>
             </div>
@@ -157,6 +157,8 @@ export default {
       testing_mercadolibre: false,
       test_result_falabella: null,
       test_result_mercadolibre: null,
+      test_message_falabella: '',
+      test_message_mercadolibre: '',
       regenerating_feed: false,
       feed_message: '',
     };
@@ -198,14 +200,17 @@ export default {
     async testConnection(platform) {
       this['testing_' + platform] = true;
       this['test_result_' + platform] = null;
+      this['test_message_' + platform] = '';
       try {
         const response = await this.$http.post(`/${this.resource}/test_marketplace_connection`, {
           platform: platform,
           credentials: this.form,
         });
         this['test_result_' + platform] = response.data.success ? 'ok' : 'error';
+        this['test_message_' + platform] = response.data.message || '';
       } catch (e) {
         this['test_result_' + platform] = 'error';
+        this['test_message_' + platform] = 'No se pudo contactar el servidor';
       }
       this['testing_' + platform] = false;
     },

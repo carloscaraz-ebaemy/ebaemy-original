@@ -76,6 +76,55 @@ class FalabellaService
     }
 
     // ══════════════════════════════════════════════════════════════
+    // CONNECTION TEST — Verificar credenciales realmente
+    // ══════════════════════════════════════════════════════════════
+
+    /**
+     * Construir un servicio a partir de credenciales sueltas (sin canal persistido).
+     * Útil para probar la conexión antes de guardar.
+     */
+    public static function fromCredentials(array $credentials): self
+    {
+        $channel = new MarketplaceChannel([
+            'platform'    => 'falabella',
+            'credentials' => $credentials,
+        ]);
+
+        return new self($channel);
+    }
+
+    /**
+     * Probar la conexión haciendo una llamada firmada real a Falabella.
+     * A diferencia del check anterior (status < 500), esto valida la firma:
+     * sólo retorna success=true si la API responde SuccessResponse.
+     */
+    public function testConnection(): array
+    {
+        if ($this->apiKey === '' || $this->userId === '') {
+            return ['success' => false, 'message' => 'Falta User ID o API Key'];
+        }
+
+        try {
+            $signed = $this->signRequest('GetProducts', ['Limit' => 1]);
+
+            $response = Http::timeout(15)->get($this->baseUrl, $signed);
+            $json = $response->json() ?? [];
+
+            if (isset($json['SuccessResponse'])) {
+                return ['success' => true, 'message' => 'Conexión exitosa con Seller Center'];
+            }
+
+            $message = data_get($json, 'ErrorResponse.Head.ErrorMessage')
+                ?: data_get($json, 'ErrorResponse.Head.ErrorCode')
+                ?: 'Credenciales inválidas (firma rechazada por Falabella)';
+
+            return ['success' => false, 'message' => $message];
+        } catch (\Throwable $e) {
+            return ['success' => false, 'message' => 'No se pudo contactar a Falabella: ' . $e->getMessage()];
+        }
+    }
+
+    // ══════════════════════════════════════════════════════════════
     // PRODUCTS — Crear / Actualizar productos
     // ══════════════════════════════════════════════════════════════
 
@@ -179,8 +228,12 @@ class FalabellaService
     public function syncStock(): array
     {
         return MarketplaceSyncLog::log($this->channel->id, 'sync_stock', 'push', function ($log) {
+            // Sincroniza por SellerSku: aplica tanto a productos creados desde EBAEMY
+            // como a los que el seller ya tenía en Seller Center (mapeados, status 'pending').
             $mappings = MarketplaceProduct::where('channel_id', $this->channel->id)
-                ->where('sync_status', 'synced')
+                ->where('sync_status', '!=', 'excluded')
+                ->whereNotNull('external_sku')
+                ->where('external_sku', '!=', '')
                 ->with(['item.warehouses', 'variant'])
                 ->get();
 
@@ -339,7 +392,9 @@ class FalabellaService
     {
         return MarketplaceSyncLog::log($this->channel->id, 'sync_prices', 'push', function ($log) {
             $mappings = MarketplaceProduct::where('channel_id', $this->channel->id)
-                ->where('sync_status', 'synced')
+                ->where('sync_status', '!=', 'excluded')
+                ->whereNotNull('external_sku')
+                ->where('external_sku', '!=', '')
                 ->with(['item', 'variant'])
                 ->get();
 

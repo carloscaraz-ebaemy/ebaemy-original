@@ -716,16 +716,12 @@ public function uploadFile(Request $request)
 
         try {
             if ($platform === 'falabella') {
-                $response = \Illuminate\Support\Facades\Http::timeout(10)
-                    ->get($creds['falabella_api_url'] ?? 'https://sellercenter-api.falabella.com', [
-                        'Action' => 'GetProducts',
-                        'Format' => 'JSON',
-                        'UserID' => $creds['falabella_user_id'] ?? '',
-                        'Timestamp' => now()->toIso8601String(),
-                        'Version' => '1.0',
-                        'Signature' => hash_hmac('sha256', 'test', $creds['falabella_api_key'] ?? ''),
-                    ]);
-                return ['success' => $response->status() < 500];
+                $service = \App\Services\Marketplace\FalabellaService::fromCredentials([
+                    'user_id' => $creds['falabella_user_id'] ?? '',
+                    'api_key' => $creds['falabella_api_key'] ?? '',
+                    'api_url' => $creds['falabella_api_url'] ?? 'https://sellercenter-api.falabella.com',
+                ]);
+                return $service->testConnection();
             }
 
             if ($platform === 'mercadolibre') {
