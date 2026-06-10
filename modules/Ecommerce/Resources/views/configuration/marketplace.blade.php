@@ -39,6 +39,7 @@
                 <div id="mp-import-status" class="text-muted small">Iniciando…</div>
                 <div class="mt-2">
                     <span class="badge badge-success" id="mp-import-created">Creados: 0</span>
+                    <span class="badge badge-warning" id="mp-import-updated">Precios actualizados: 0</span>
                     <span class="badge badge-info" id="mp-import-linked">Enlazados: 0</span>
                     <span class="badge badge-secondary" id="mp-import-skipped">Saltados: 0</span>
                     <span class="badge badge-danger" id="mp-import-failed">Fallidos: 0</span>
@@ -213,7 +214,7 @@ document.addEventListener('DOMContentLoaded', function(){
     var mpImporting = false;
     window.importCatalog = function(channelId){
         if (mpImporting) { alert('Ya hay una importación en curso.'); return; }
-        if (!confirm('Esto traerá tus productos de Saga Falabella y los creará en tu tienda (con sus imágenes). Puede tardar varios minutos. ¿Continuar?')) return;
+        if (!confirm('Esto traerá tus productos de Saga Falabella: crea los nuevos (con imágenes) y ACTUALIZA los precios (oferta/regular) de los que ya tienes. Puede tardar varios minutos. ¿Continuar?')) return;
 
         mpImporting = true;
         var panel = document.getElementById('mp-import-panel');
@@ -222,13 +223,14 @@ document.addEventListener('DOMContentLoaded', function(){
         panel.style.display = 'block';
         panel.scrollIntoView({behavior:'smooth', block:'center'});
 
-        var totals = {created:0, linked:0, skipped:0, failed:0, processed:0};
+        var totals = {created:0, updated:0, linked:0, skipped:0, failed:0, processed:0};
         var offset = 0;
         var limit = 10;
         var totalFetchedSoFar = 0;
 
         function setBadges(){
             document.getElementById('mp-import-created').textContent = 'Creados: ' + totals.created;
+            document.getElementById('mp-import-updated').textContent = 'Precios actualizados: ' + totals.updated;
             document.getElementById('mp-import-linked').textContent = 'Enlazados: ' + totals.linked;
             document.getElementById('mp-import-skipped').textContent = 'Saltados: ' + totals.skipped;
             document.getElementById('mp-import-failed').textContent = 'Fallidos: ' + totals.failed;
@@ -261,6 +263,7 @@ document.addEventListener('DOMContentLoaded', function(){
                 if (data.error) { finish('Error: '+data.error, false); return; }
 
                 totals.created += data.created||0;
+                totals.updated += data.updated||0;
                 totals.linked  += data.linked||0;
                 totals.skipped += data.skipped||0;
                 totals.failed  += data.failed||0;
@@ -277,7 +280,7 @@ document.addEventListener('DOMContentLoaded', function(){
                 }
 
                 if (data.done) {
-                    finish('Importación completada: ' + totals.created + ' creados, ' + totals.linked + ' enlazados, ' + totals.skipped + ' ya existían, ' + totals.failed + ' fallidos.', true);
+                    finish('Importación completada: ' + totals.created + ' creados, ' + totals.updated + ' con precio actualizado, ' + totals.linked + ' enlazados, ' + totals.failed + ' fallidos.', true);
                 } else {
                     offset = data.next_offset;
                     nextBatch();

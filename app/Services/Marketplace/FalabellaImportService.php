@@ -70,6 +70,7 @@ class FalabellaImportService
             'fetched' => count($products),
             'created' => 0,
             'linked'  => 0,
+            'updated' => 0,
             'skipped' => 0,
             'failed'  => 0,
             'rows'    => [],
@@ -103,25 +104,35 @@ class FalabellaImportService
     {
         $name = trim((string) data_get($p, 'Name', $sku));
 
-        // 1) ¿Ya está enlazado este SellerSku en este canal?
-        $existingMapping = MarketplaceProduct::where('channel_id', $this->channel->id)
-            ->where('external_sku', $sku)
-            ->first();
-        if ($existingMapping) {
-            return ['sku' => $sku, 'action' => 'skipped', 'name' => $name, 'reason' => 'ya enlazado'];
-        }
-
-        // 2) ¿Ya existe un item con ese SellerSku (item_code)? → enlazar sin crear.
-        $item = Item::where('item_code', $sku)->first();
-        $action = $item ? 'linked' : 'created';
-
-        // Datos de negocio (precio/stock) vienen en BusinessUnits.
+        // Datos de negocio (precio/stock) vienen en BusinessUnits. Se calculan
+        // primero para poder actualizar precios de productos ya importados.
         $bu = data_get($p, 'BusinessUnits.BusinessUnit');
         if (isset($bu[0])) $bu = $bu[0]; // si hay varias unidades de negocio, tomar la primera
 
         // Precio efectivo (oferta si está activa) + precio tachado de referencia.
         [$price, $compareAt] = $this->resolvePrices($bu);
         $stock = (int) (data_get($bu, 'Stock') ?: 0);
+
+        // 1) ¿Ya está enlazado este SellerSku? → ACTUALIZAR precios desde Saga
+        //    (Saga es la fuente de verdad de precios/ofertas; no tocamos el stock).
+        $existingMapping = MarketplaceProduct::where('channel_id', $this->channel->id)
+            ->where('external_sku', $sku)
+            ->first();
+        if ($existingMapping) {
+            if (!$dryRun) {
+                $existing = Item::find($existingMapping->item_id);
+                if ($existing) {
+                    $existing->sale_unit_price = $price;
+                    $existing->compare_at_price = $compareAt;
+                    $existing->saveQuietly();
+                }
+            }
+            return ['sku' => $sku, 'action' => 'updated', 'name' => $name, 'price' => $price, 'compare_at' => $compareAt, 'stock' => $stock];
+        }
+
+        // 2) ¿Ya existe un item con ese SellerSku (item_code)? → enlazar sin crear.
+        $item = Item::where('item_code', $sku)->first();
+        $action = $item ? 'linked' : 'created';
 
         if ($dryRun) {
             return [
@@ -134,6 +145,11 @@ class FalabellaImportService
         $isNew = !$item;
         if (!$item) {
             $item = $this->createItem($p, $sku, $name, $price, $compareAt, $stock);
+        } else {
+            // El item existía sin enlace → actualizar también sus precios.
+            $item->sale_unit_price = $price;
+            $item->compare_at_price = $compareAt;
+            $item->saveQuietly();
         }
 
         // 3) Stock por almacén. Solo sembramos el stock de Saga en items NUEVOS;

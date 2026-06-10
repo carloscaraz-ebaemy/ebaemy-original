@@ -71,8 +71,8 @@ class FalabellaImportCatalog extends Command
 
         $this->newLine();
         $this->table(
-            ['Traídos', 'Crear/Creados', 'Enlazados', 'Saltados', 'Fallidos'],
-            [[$summary['fetched'], $summary['created'], $summary['linked'], $summary['skipped'], $summary['failed']]]
+            ['Traídos', 'Creados', 'Precios actualizados', 'Enlazados', 'Saltados', 'Fallidos'],
+            [[$summary['fetched'], $summary['created'], $summary['updated'] ?? 0, $summary['linked'], $summary['skipped'], $summary['failed']]]
         );
 
         // Mostrar primeras filas como muestra
