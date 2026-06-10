@@ -102,6 +102,10 @@
 @section('og_title', $listing->title)
 @section('og_description', $seoDescription)
 @section('og_image', $seoImage)
+{{-- La imagen social es la variante _mp, cuadrada 1080x1080. Declaramos esas
+     dimensiones exactas para que WhatsApp/Facebook NO descarten el preview. --}}
+@section('og_image_width', '1080')
+@section('og_image_height', '1080')
 @section('og_type', 'product')
 @section('canonical', $canonical)
 
@@ -897,8 +901,21 @@
                    que el canal directo nunca queda sin salida. --}}
             @if(!empty($listing->seller_whatsapp))
                 @php
+                    // Línea de precio para el mensaje. Si el producto está en
+                    // oferta, se destaca el descuento (precio, antes y % OFF) para
+                    // que la consulta llegue con el contexto de la promoción.
+                    if ($hasOffer) {
+                        $waPriceLine = "\n\n💰 Precio de oferta: S/ " . number_format($curPrice, 2)
+                                     . "\n~Antes S/ " . number_format($origPrice, 2) . "~ (-" . $offerPct . '% OFF)'
+                                     . "\nAhorras S/ " . number_format($offerSave, 2);
+                    } elseif ($curPrice > 0) {
+                        $waPriceLine = "\n\nPrecio: S/ " . number_format($curPrice, 2);
+                    } else {
+                        $waPriceLine = '';
+                    }
                     $waMessage = '¡Hola! Te escribo desde ebaemy.com/marketplace por este producto:'
                                  . "\n\n" . $listing->title
+                                 . $waPriceLine
                                  . "\n" . route('marketplace.item', $listing->slug)
                                  . "\n\nQuisiera hacerte una consulta.";
                     $waUrl = 'https://wa.me/' . $listing->seller_whatsapp

@@ -51,8 +51,11 @@
     <meta property="og:description" content="@yield('og_description', $mpOgDesc)">
     <meta property="og:image"       content="@yield('og_image', $mpOgImage)">
     <meta property="og:image:secure_url" content="@yield('og_image', $mpOgImage)">
-    <meta property="og:image:width"  content="1200">
-    <meta property="og:image:height" content="630">
+    {{-- Las dimensiones DEBEN coincidir con la imagen real o WhatsApp/Facebook
+         descartan el preview. El detalle de producto las sobreescribe a 1080x1080
+         (variante _mp cuadrada); el resto usa el banner 1200x630 por defecto. --}}
+    <meta property="og:image:width"  content="@yield('og_image_width', '1200')">
+    <meta property="og:image:height" content="@yield('og_image_height', '630')">
     <meta property="og:url"         content="@yield('canonical', url()->current())">
 
     <meta name="twitter:card"        content="summary_large_image">
