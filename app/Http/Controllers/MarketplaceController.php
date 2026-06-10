@@ -451,6 +451,81 @@ class MarketplaceController extends Controller
     }
 
     /**
+     * Autocompletado de DNI/RUC en el checkout: dado un documento, devuelve el
+     * nombre/razón social (y ubigeo para RUC) para rellenar el formulario.
+     *
+     * - RUC (11 díg) → reusa RucValidationService (apiperu.dev → SUNAT scraper).
+     * - DNI (8 díg)  → apiperu.dev /api/dni con el token de system.configurations.
+     *
+     * Degrada con elegancia: si no hay token o el provider falla, responde
+     * { ok:false } sin error visible — el comprador simplemente escribe a mano.
+     */
+    public function lookupDocument(Request $request)
+    {
+        $type   = strtoupper(trim((string) $request->input('type', '')));
+        $number = preg_replace('/\D+/', '', (string) $request->input('number', ''));
+
+        // RUC ───────────────────────────────────────────────────────────────
+        if ($type === 'RUC' || strlen($number) === 11) {
+            if (strlen($number) !== 11) {
+                return response()->json(['ok' => false]);
+            }
+            $cacheKey = 'mp_doc_ruc_' . $number;
+            return response()->json(\Cache::remember($cacheKey, 86400, function () use ($number) {
+                try {
+                    $res = app(\App\Services\System\RucValidationService::class)->validate($number);
+                    if (!empty($res['business_name'])) {
+                        return [
+                            'ok'         => true,
+                            'type'       => 'RUC',
+                            'name'       => $res['business_name'],
+                            'department' => $res['department'] ?? null,
+                            'province'   => $res['province'] ?? null,
+                            'district'   => $res['district'] ?? null,
+                        ];
+                    }
+                } catch (\Throwable $e) {
+                    \Log::warning('mp lookupDocument RUC falló', ['e' => $e->getMessage()]);
+                }
+                return ['ok' => false];
+            }));
+        }
+
+        // DNI ───────────────────────────────────────────────────────────────
+        if ($type === 'DNI' || strlen($number) === 8) {
+            if (strlen($number) !== 8) {
+                return response()->json(['ok' => false]);
+            }
+            $cacheKey = 'mp_doc_dni_' . $number;
+            return response()->json(\Cache::remember($cacheKey, 86400, function () use ($number) {
+                try {
+                    $config = \App\Models\System\Configuration::first();
+                    $token  = $config->token_apiruc ?? null;
+                    if (!$token) return ['ok' => false];
+                    $url = ($config->url_apiruc ?? null)
+                        ?: config('configuration.api_service_url', 'https://apiperu.dev');
+                    $resp = \Illuminate\Support\Facades\Http::timeout(10)
+                        ->withHeaders(['Authorization' => 'Bearer ' . $token, 'Accept' => 'application/json'])
+                        ->get(rtrim($url, '/') . '/api/dni/' . $number);
+                    if ($resp->ok()) {
+                        $data = $resp->json('data') ?? [];
+                        $name = $data['nombre_completo']
+                            ?? trim(($data['nombres'] ?? '') . ' ' . ($data['apellido_paterno'] ?? '') . ' ' . ($data['apellido_materno'] ?? ''));
+                        if (!empty(trim((string) $name))) {
+                            return ['ok' => true, 'type' => 'DNI', 'name' => trim($name)];
+                        }
+                    }
+                } catch (\Throwable $e) {
+                    \Log::warning('mp lookupDocument DNI falló', ['e' => $e->getMessage()]);
+                }
+                return ['ok' => false];
+            }));
+        }
+
+        return response()->json(['ok' => false]);
+    }
+
+    /**
      * Decora un paginator/colección de listings con los datos que usa la card
      * del marketplace: dots de color con su imagen, thumbs de variantes con
      * imagen propia, y la "variante principal" que define la imagen y el

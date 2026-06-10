@@ -1251,6 +1251,9 @@ if ($hostname) {
         // alto porque el front-end dispara con cada keystroke (300ms debounce).
         Route::get('marketplace/api/search-suggest',    'MarketplaceController@searchSuggest')
              ->middleware('throttle:120,1')->name('marketplace.search.suggest');
+        // Autocompletado DNI/RUC en el checkout → nombre/razón social + ubigeo.
+        Route::get('marketplace/api/lookup-document',   'MarketplaceController@lookupDocument')
+             ->middleware('throttle:30,1')->name('marketplace.lookup.document');
         // URL canónica de categoría oficial (Fase D). fullSlug puede contener slashes (p.ej. hogar/muebles/sillas).
         Route::get('marketplace/c/{fullSlug}',          'MarketplaceController@categoryOfficial')
              ->where('fullSlug', '[a-z0-9\-/]+')

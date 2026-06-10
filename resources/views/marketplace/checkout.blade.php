@@ -61,6 +61,43 @@
     background: #fee2e2; border: 1px solid #fecaca; color: #991b1b;
     padding: 12px 14px; border-radius: 10px; font-size: 13px; margin-bottom: 16px;
 }
+
+/* Estado del autocompletado de documento (DNI/RUC) */
+.mp-co-doc-status {
+    font-size: 12px; margin-top: 4px; min-height: 15px; line-height: 1.3;
+}
+.mp-co-doc-status.is-loading { color: #6b7280; }
+.mp-co-doc-status.is-ok      { color: #047857; font-weight: 600; }
+.mp-co-doc-status.is-warn    { color: #b45309; }
+
+/* ── Barra fija de Total + Confirmar (solo móvil) ───────────────────────── */
+.mp-co-sticky { display: none; }
+@media (max-width: 768px) {
+    .mp-co-sticky {
+        display: flex;
+        position: fixed;
+        left: 0; right: 0; bottom: 0;
+        z-index: 60;
+        align-items: center;
+        gap: 12px;
+        padding: 10px 14px calc(10px + env(safe-area-inset-bottom));
+        background: #fff;
+        border-top: 1px solid #e5e7eb;
+        box-shadow: 0 -6px 20px -8px rgba(0,0,0,.2);
+    }
+    .mp-co-sticky__total { display: flex; flex-direction: column; line-height: 1.1; flex-shrink: 0; }
+    .mp-co-sticky__label { font-size: 11px; color: #6b7280; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; }
+    .mp-co-sticky__value { font-size: 20px; font-weight: 800; color: var(--mp-primary-dark, #0c6b65); }
+    .mp-co-sticky__btn {
+        flex: 1;
+        padding: 14px;
+        background: var(--mp-primary, #0f8a82); color: #fff; border: none;
+        border-radius: 10px; font-size: 15px; font-weight: 700; cursor: pointer;
+    }
+    .mp-co-sticky__btn:active { background: var(--mp-primary-dark, #0c6b65); }
+    /* Espacio para que la barra no tape el último contenido al hacer scroll. */
+    body { padding-bottom: 76px; }
+}
 </style>
 @endpush
 
@@ -113,7 +150,8 @@
                     </div>
                     <div>
                         <label>Número de documento</label>
-                        <input type="text" name="customer_doc_number" maxlength="20" value="{{ old('customer_doc_number') }}">
+                        <input type="text" name="customer_doc_number" maxlength="20" inputmode="numeric" autocomplete="off" value="{{ old('customer_doc_number') }}">
+                        <div class="mp-co-doc-status" data-doc-status aria-live="polite"></div>
                     </div>
                 </div>
 
@@ -291,6 +329,17 @@
                 ⚠️ Recibirás un mensaje por WhatsApp/email de cada tienda. Cada vendedor emite su propio comprobante por separado (productos de distintos RUC no van en una sola factura).
             </div>
         </aside>
+    </div>
+
+    {{-- Barra fija solo-móvil: total siempre visible + Confirmar sin tener que
+         scrollear hasta el final. Vive dentro del <form> para que el botón
+         submitee normalmente. El total se sincroniza desde [data-summary-total]. --}}
+    <div class="mp-co-sticky" aria-hidden="false">
+        <div class="mp-co-sticky__total">
+            <span class="mp-co-sticky__label">Total</span>
+            <span class="mp-co-sticky__value" data-summary-total-sticky>S/ {{ number_format($totalAfterPlat, 2) }}</span>
+        </div>
+        <button type="submit" class="mp-co-sticky__btn">Confirmar pedido →</button>
     </div>
 </form>
 
@@ -590,6 +639,100 @@
 
     // Render inicial del resumen reflejando cupones persistidos
     recalcSummary();
+
+    // ── Barra fija móvil: espejar el Total en tiempo real ──────────────────
+    (function () {
+        const src = document.querySelector('[data-summary-total]');
+        const dst = document.querySelector('[data-summary-total-sticky]');
+        if (!src || !dst) return;
+        const sync = () => { dst.textContent = src.textContent; };
+        sync();
+        // El total cambia cuando se aplican/quitan cupones (recalcSummary edita
+        // el texto). Un MutationObserver mantiene la barra sincronizada sin
+        // acoplarnos a la lógica interna de cupones.
+        new MutationObserver(sync).observe(src, { childList: true, characterData: true, subtree: true });
+    })();
+
+    // ── Autocompletado DNI/RUC → nombre + ubigeo ───────────────────────────
+    (function () {
+        const LOOKUP_URL = @json(route('marketplace.lookup.document'));
+        const docType = document.querySelector('[name="customer_doc_type"]');
+        const docNum  = document.querySelector('[name="customer_doc_number"]');
+        const nameEl  = document.querySelector('[name="customer_name"]');
+        const statusEl = document.querySelector('[data-doc-status]');
+        if (!docNum || !nameEl) return;
+
+        const depEl = document.querySelector('[name="delivery_department"]');
+        const provEl = document.querySelector('[name="delivery_province"]');
+        const distEl = document.querySelector('[name="delivery_district"]');
+
+        // Marca si el nombre fue autocompletado para poder sobreescribirlo en
+        // una nueva consulta, pero NO pisar lo que el usuario tipeó a mano.
+        let autofilled = false;
+        nameEl.addEventListener('input', () => { autofilled = false; });
+
+        function setStatus(text, cls) {
+            statusEl.textContent = text || '';
+            statusEl.className = 'mp-co-doc-status' + (cls ? ' ' + cls : '');
+        }
+
+        function fillIfEmpty(el, val) {
+            if (el && val && !el.value.trim()) el.value = val;
+        }
+
+        let lastQuery = '';
+        let timer = null;
+
+        async function lookup() {
+            const raw = (docNum.value || '').replace(/\D+/g, '');
+            let type = (docType && docType.value || '').toUpperCase();
+            // Autodetecta tipo por longitud si no se eligió uno.
+            if (!type) {
+                if (raw.length === 8) type = 'DNI';
+                else if (raw.length === 11) type = 'RUC';
+            }
+            const valid = (type === 'DNI' && raw.length === 8) || (type === 'RUC' && raw.length === 11);
+            if (!valid) { setStatus(''); return; }
+
+            const key = type + ':' + raw;
+            if (key === lastQuery) return;
+            lastQuery = key;
+
+            // Auto-selecciona el tipo en el dropdown por comodidad.
+            if (docType && !docType.value && (type === 'DNI' || type === 'RUC')) docType.value = type;
+
+            setStatus('Buscando ' + type + '…', 'is-loading');
+            try {
+                const url = LOOKUP_URL + '?type=' + type + '&number=' + raw;
+                const resp = await fetch(url, { headers: { 'Accept': 'application/json' }, credentials: 'same-origin' });
+                const data = await resp.json();
+                if (data && data.ok && data.name) {
+                    if (!nameEl.value.trim() || autofilled) {
+                        nameEl.value = data.name;
+                        autofilled = true;
+                    }
+                    if (type === 'RUC') {
+                        fillIfEmpty(depEl, data.department);
+                        fillIfEmpty(provEl, data.province);
+                        fillIfEmpty(distEl, data.district);
+                    }
+                    setStatus('✓ ' + data.name, 'is-ok');
+                } else {
+                    setStatus('No encontramos ese ' + type + '. Puedes escribir el nombre a mano.', 'is-warn');
+                }
+            } catch (e) {
+                setStatus('', '');
+            }
+        }
+
+        function schedule() {
+            clearTimeout(timer);
+            timer = setTimeout(lookup, 400);
+        }
+        docNum.addEventListener('input', schedule);
+        docNum.addEventListener('blur', lookup);
+        if (docType) docType.addEventListener('change', () => { lastQuery = ''; lookup(); });
+    })();
 })();
 </script>
 @endpush
