@@ -118,20 +118,22 @@ class FalabellaImportService
         // Datos de negocio (precio/stock) vienen en BusinessUnits.
         $bu = data_get($p, 'BusinessUnits.BusinessUnit');
         if (isset($bu[0])) $bu = $bu[0]; // si hay varias unidades de negocio, tomar la primera
-        $price = (float) (data_get($bu, 'Price') ?: data_get($bu, 'SpecialPrice') ?: 0);
+
+        // Precio efectivo (oferta si está activa) + precio tachado de referencia.
+        [$price, $compareAt] = $this->resolvePrices($bu);
         $stock = (int) (data_get($bu, 'Stock') ?: 0);
 
         if ($dryRun) {
             return [
                 'sku' => $sku, 'action' => $action, 'name' => $name,
-                'price' => $price, 'stock' => $stock,
+                'price' => $price, 'compare_at' => $compareAt, 'stock' => $stock,
                 'brand' => data_get($p, 'Brand'), 'category' => data_get($p, 'PrimaryCategory'),
             ];
         }
 
         $isNew = !$item;
         if (!$item) {
-            $item = $this->createItem($p, $sku, $name, $price, $stock);
+            $item = $this->createItem($p, $sku, $name, $price, $compareAt, $stock);
         }
 
         // 3) Stock por almacén. Solo sembramos el stock de Saga en items NUEVOS;
@@ -160,7 +162,45 @@ class FalabellaImportService
         return ['sku' => $sku, 'action' => $action, 'name' => $name, 'item_id' => $item->id, 'price' => $price, 'stock' => $stock];
     }
 
-    protected function createItem(array $p, string $sku, string $name, float $price, int $stock): Item
+    /**
+     * Resuelve el precio de venta y el precio tachado desde la BusinessUnit de Saga.
+     * Si hay oferta (SpecialPrice) vigente → venta = oferta, tachado = precio regular.
+     * Si no → venta = precio regular, sin tachado.
+     *
+     * @return array{0: float, 1: ?float}  [salePrice, compareAtPrice]
+     */
+    protected function resolvePrices($bu): array
+    {
+        $regular = (float) (data_get($bu, 'Price') ?: 0);
+        $special = (float) (data_get($bu, 'SpecialPrice') ?: 0);
+
+        if ($special > 0 && $special < $regular && $this->offerActive($bu)) {
+            return [$special, $regular]; // venta = oferta, tachado = regular
+        }
+
+        return [$regular ?: $special, null];
+    }
+
+    /**
+     * ¿La oferta (SpecialPrice) está vigente según SpecialFromDate / SpecialToDate?
+     * Si no hay fechas, se considera vigente.
+     */
+    protected function offerActive($bu): bool
+    {
+        $from = data_get($bu, 'SpecialFromDate');
+        $to   = data_get($bu, 'SpecialToDate');
+
+        try {
+            if ($from && now()->lt(\Illuminate\Support\Carbon::parse($from))) return false;
+            if ($to && now()->gt(\Illuminate\Support\Carbon::parse($to)))   return false;
+        } catch (\Throwable $e) {
+            // Fecha inválida → tratar la oferta como vigente.
+        }
+
+        return true;
+    }
+
+    protected function createItem(array $p, string $sku, string $name, float $price, ?float $compareAt, int $stock): Item
     {
         $category = $this->resolveCategory((string) data_get($p, 'PrimaryCategory', ''));
         $brand    = $this->resolveBrand((string) data_get($p, 'Brand', ''));
@@ -175,6 +215,7 @@ class FalabellaImportService
         $item->unit_type_id = 'NIU';                // Unidades
         $item->currency_type_id = 'PEN';            // Soles
         $item->sale_unit_price = $price;
+        $item->compare_at_price = $compareAt; // precio tachado (regular) cuando hay oferta
         $item->purchase_unit_price = 0;
         $item->sale_affectation_igv_type_id = '10';     // Gravado
         $item->purchase_affectation_igv_type_id = '10';

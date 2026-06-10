@@ -131,11 +131,11 @@ class Kernel extends ConsoleKernel
                  ->withoutOverlapping()
                  ->appendOutputTo(storage_path('logs/marketplace_orders.log'));
 
-        // Sincroniza precios una vez al día (los cambios de precio son menos frecuentes)
-        $schedule->command('marketplace:sync prices')
-                 ->dailyAt('05:00')
-                 ->withoutOverlapping()
-                 ->appendOutputTo(storage_path('logs/marketplace_prices.log'));
+        // NOTA: el sync de precios (marketplace:sync prices) NO se programa a propósito.
+        // Los sellers manejan precios y OFERTAS en el panel de Saga; empujar el precio
+        // desde EBAEMY sobrescribiría el precio regular con el de oferta y dañaría las
+        // ofertas activas. Si en el futuro se gestionan precios desde EBAEMY, primero
+        // hay que hacer que syncPrices respete SpecialPrice + fechas. Queda manual.
 
         // Marketplace ebaemy (agregador central): refresca el índice de
         // listings de los tenants que publicaron productos.
