@@ -32,10 +32,12 @@
     $mesAbbr = ['', 'ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
     $trendLabel = function ($day) use ($gran, $mesAbbr) {
         $c = \Carbon\Carbon::parse($day);
-        if ($gran === 'month') return $mesAbbr[(int) $c->format('n')] . ' ' . $c->format('y');
+        if ($gran === 'month') return $mesAbbr[(int) $c->format('n')] . ' ' . $c->format('Y');
         if ($gran === 'week')  return 'sem ' . $c->format('d/m');
         return $c->format('d/m');
     };
+    // ¿Hay suficientes puntos para apreciar una tendencia (subidas/bajadas)?
+    $trendPoints = $dailySeries->count();
 
     // Escalas para las mini-barras de la tabla.
     $maxViews  = max(1, $rows->max('views') ?: 1);
@@ -250,7 +252,13 @@
                 @endif
             </div>
             <div id="chTrend" class="mpd-canvas"></div>
-            @if($useFallback && $trackingStart)
+            @if($trendPoints <= 1)
+                <div class="mpd-trendnote">
+                    Por ahora hay datos de <strong>1 {{ $unitWord }}</strong>, así que todavía no se aprecia si las vistas suben o bajan: una tendencia necesita al menos <strong>2 {{ $unitPlural }}</strong>.
+                    El tracking diario arrancó el {{ $trackingStart ? \Carbon\Carbon::parse($trackingStart)->format('d/m/Y') : 'hoy' }}; cada {{ $unitWord }} nuevo suma un punto a la curva.
+                    @if($gran !== 'day')<a href="{{ $granUrl('day') }}">Ver por día →</a>@endif
+                </div>
+            @elseif($useFallback && $trackingStart)
                 <div class="mpd-panel__foot">La línea de tiempo arranca el {{ \Carbon\Carbon::parse($trackingStart)->format('d/m/Y') }} (inicio del tracking diario). Los KPIs de arriba muestran el histórico acumulado completo.</div>
             @endif
         @else
@@ -422,6 +430,9 @@
 .mpd-panel__count { font-size: 12.5px; color: var(--mp-muted); }
 .mpd-trendstats { display: flex; gap: 18px; flex-wrap: wrap; font-size: 12.5px; color: var(--mp-muted); padding: 12px 18px 0; }
 .mpd-trendstats strong { color: var(--mp-ink); font-weight: 700; }
+.mpd-trendnote { margin: 0 18px 16px; padding: 10px 14px; font-size: 12.5px; line-height: 1.5; color: #3730a3; background: var(--mp-accent-soft); border: 1px solid #dfe3ff; border-radius: 9px; }
+.mpd-trendnote strong { font-weight: 700; }
+.mpd-trendnote a { color: var(--mp-accent); font-weight: 600; white-space: nowrap; }
 
 /* Selector segmentado día / semana / mes */
 .mpd-segmented { display: inline-flex; background: var(--mp-subtle); border: 1px solid var(--mp-line); border-radius: 8px; padding: 2px; gap: 2px; }
@@ -514,6 +525,8 @@
                 colors: ['#4f46e5', '#f59e0b'],
                 xaxis: { categories: DATA.trend.labels, tickAmount: 8, axisBorder: { show: false }, axisTicks: { show: false } },
                 stroke: { curve: 'smooth', width: 2 },
+                // Pocos puntos → marcadores grandes (se ve cada dato). Muchos → sin marcador.
+                markers: { size: DATA.trend.views.length <= 10 ? 5 : 0, strokeWidth: 2, strokeColors: '#fff', hover: { sizeOffset: 2 } },
                 fill: { type: 'gradient', gradient: { shadeIntensity: 1, opacityFrom: 0.25, opacityTo: 0.02, stops: [0, 95] } },
             });
         }
