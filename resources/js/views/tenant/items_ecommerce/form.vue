@@ -350,6 +350,18 @@
                                                     <small v-if="errors.compare_at_price" class="form-control-feedback" v-text="errors.compare_at_price[0]"></small>
                                                 </div>
                                             </div>
+                                            <div class="col-md-3">
+                                                <div class="form-group">
+                                                    <label class="control-label" style="font-size:12px">
+                                                        Descuento válido hasta
+                                                        <el-tooltip content="Fecha hasta la que se muestra el descuento (precio tachado) en la tienda. Vacío = sin vencimiento." placement="top">
+                                                            <i class="fa fa-info-circle" style="color:#9ca3af"></i>
+                                                        </el-tooltip>
+                                                    </label>
+                                                    <el-date-picker v-model="form.compare_at_until" type="date" value-format="yyyy-MM-dd" format="dd/MM/yyyy" placeholder="Sin vencimiento" style="width:100%"></el-date-picker>
+                                                    <small v-if="errors.compare_at_until" class="form-control-feedback" v-text="errors.compare_at_until[0]"></small>
+                                                </div>
+                                            </div>
                                         </div>
                                         <div class="row">
                                             <div class="col-md-12">
@@ -2413,6 +2425,7 @@ export default {
                 target_margin_pct: null,
                 min_margin_pct: null,
                 compare_at_price: null,
+                compare_at_until: null,
                 pricing_mode: 'margin',
                 liquidation_mode: false,
                 has_isc: false,
@@ -2742,6 +2755,7 @@ export default {
                 sale_price: parseFloat(this.form.sale_unit_price) || null,
                 discount_pct: 0,
                 compare_at_price: this.form.compare_at_price,
+                compare_at_until: this.form.compare_at_until,
             })
             .then(res => {
                 if (res.data.success) {

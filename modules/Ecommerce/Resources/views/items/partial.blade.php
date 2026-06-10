@@ -86,8 +86,14 @@
 
                 <div class="price-box">
                     @php
-                        // Precio tachado REAL: original_price (flash/pack) o compare_at_price (oferta Saga).
-                        $refPrice = data_get($record, 'original_price') ?: data_get($record, 'compare_at_price');
+                        // Precio tachado REAL: original_price (flash/pack) o compare_at_price (oferta Saga vigente).
+                        $refPrice = data_get($record, 'original_price');
+                        if (!$refPrice) {
+                            $cap   = data_get($record, 'compare_at_price');
+                            $until = data_get($record, 'compare_at_until');
+                            $vigente = !$until || \Illuminate\Support\Carbon::parse($until)->endOfDay()->gte(now());
+                            $refPrice = ($cap && $vigente) ? $cap : null;
+                        }
                         $refPrice = ($refPrice && $refPrice > $record->sale_unit_price) ? $refPrice : null;
                     @endphp
                     @if($refPrice)

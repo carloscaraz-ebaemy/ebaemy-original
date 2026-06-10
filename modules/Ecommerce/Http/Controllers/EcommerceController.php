@@ -529,8 +529,10 @@ class EcommerceController extends Controller
         if ($flashPrice && $flashPrice < $finalPrice) {
             $finalPrice = $flashPrice;
         }
-        // Oferta tipo Saga: precio regular tachado vía compare_at_price (si no hubo flash/pack)
-        if ($originalPrice == $finalPrice && $row->compare_at_price && (float) $row->compare_at_price > $finalPrice) {
+        // Oferta tipo Saga: precio regular tachado vía compare_at_price (si no hubo flash/pack
+        // y mientras la oferta esté vigente según compare_at_until)
+        if ($originalPrice == $finalPrice && $row->compare_at_price && (float) $row->compare_at_price > $finalPrice
+            && (empty($row->compare_at_until) || $row->compare_at_until->endOfDay()->gte(now()))) {
             $originalPrice = (float) $row->compare_at_price;
         }
 

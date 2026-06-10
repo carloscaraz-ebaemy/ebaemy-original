@@ -190,7 +190,13 @@
                             <!--<img :src="row.image_url_medium"  width="40" height="40" class="img-thumbail img-custom" /> -->
                         </td>
                         <td>{{ row.description }}</td>
-                        <td class="text-end">{{ row.sale_unit_price }}</td>
+                        <td class="text-end">
+                            <span v-if="row.compare_at_price && row.compare_at_price > 0"
+                                  style="text-decoration:line-through;color:#9ca3af;font-size:11px;display:block">
+                                S/ {{ Number(row.compare_at_price).toFixed(2) }}
+                            </span>
+                            <span :style="row.compare_at_price && row.compare_at_price > 0 ? 'color:#e53e3e;font-weight:600' : ''">{{ row.sale_unit_price }}</span>
+                        </td>
                         <td
                             class="text-end"
                             :class="{
