@@ -38,10 +38,24 @@
             'views'  => $dailySeries->pluck('views')->values(),
             'clicks' => $dailySeries->pluck('clicks')->values(),
         ],
+        'top' => [
+            'labels' => $topByViews->map(fn($l) => Str::limit($l->title, 28))->values(),
+            'views'  => $topByViews->pluck('views')->values(),
+            'clicks' => $topByViews->pluck('clicks')->values(),
+        ],
         'tenant' => [
             'labels' => $byTenant->pluck('label')->values(),
             'views'  => $byTenant->pluck('views')->values(),
             'clicks' => $byTenant->pluck('clicks')->values(),
+        ],
+        'cat' => [
+            'labels' => $byCategory->pluck('label')->values(),
+            'views'  => $byCategory->pluck('views')->values(),
+        ],
+        'funnel' => [
+            'labels' => collect($funnel)->pluck('stage')->values(),
+            'values' => collect($funnel)->pluck('value')->values(),
+            'rates'  => collect($funnel)->pluck('rate')->values(),
         ],
         'showTrend' => !$useFallback && $spanDays <= 92 && $dailySeries->isNotEmpty(),
     ];
@@ -202,6 +216,56 @@
         @endif
     </div>
 
+    {{-- ════════════ GRÁFICOS ════════════ --}}
+    {{-- Fila 1: tendencia diaria a todo el ancho --}}
+    <div class="mpd-panel">
+        <div class="mpd-panel__head">
+            <h5 class="mpd-panel__title">Vistas y clicks por día</h5>
+            <span class="mpd-panel__count">evolución del tráfico</span>
+        </div>
+        @if($chartData['showTrend'])
+            <div id="chTrend" class="mpd-canvas"></div>
+        @else
+            <div class="mpd-canvas-empty">
+                @if($useFallback)
+                    El desglose diario aparece al elegir un rango dentro del período con tracking (desde {{ $trackingStart ? \Carbon\Carbon::parse($trackingStart)->format('d/m/Y') : 'el primer tráfico nuevo' }}).
+                @else
+                    Sin actividad diaria en este rango.
+                @endif
+            </div>
+        @endif
+    </div>
+
+    {{-- Fila 2: top productos + funnel --}}
+    <div class="mpd-charts">
+        <div class="mpd-panel">
+            <div class="mpd-panel__head"><h5 class="mpd-panel__title">Top 10 productos por vistas</h5></div>
+            <div id="chTop" class="mpd-canvas"></div>
+            <div class="mpd-canvas-empty" id="chTopEmpty" hidden>Sin vistas en este rango.</div>
+        </div>
+        <div class="mpd-panel">
+            <div class="mpd-panel__head">
+                <h5 class="mpd-panel__title">Embudo de conversión</h5>
+                <span class="mpd-panel__count">vistas → clicks → leads → pedidos</span>
+            </div>
+            <div id="chFunnel" class="mpd-canvas"></div>
+        </div>
+    </div>
+
+    {{-- Fila 3: por tienda + por categoría --}}
+    <div class="mpd-charts">
+        <div class="mpd-panel">
+            <div class="mpd-panel__head"><h5 class="mpd-panel__title">Rendimiento por tienda</h5></div>
+            <div id="chTenant" class="mpd-canvas"></div>
+            <div class="mpd-canvas-empty" id="chTenantEmpty" hidden>Sin tiendas con vistas en este rango.</div>
+        </div>
+        <div class="mpd-panel">
+            <div class="mpd-panel__head"><h5 class="mpd-panel__title">Vistas por categoría</h5></div>
+            <div id="chCat" class="mpd-canvas"></div>
+            <div class="mpd-canvas-empty" id="chCatEmpty" hidden>Sin categorías con vistas.</div>
+        </div>
+    </div>
+
     {{-- ════════════ PROTAGONISTA: tabla de rendimiento ════════════ --}}
     <div class="mpd-panel mpd-panel--table">
         <div class="mpd-panel__head">
@@ -261,29 +325,6 @@
         @if($rows->count() > 200)
             <div class="mpd-panel__foot">Mostrando los primeros 200 de {{ number_format($rows->count()) }}. Acotá los filtros para ver el resto.</div>
         @endif
-    </div>
-
-    {{-- ════════════ Gráficos focales (2) ════════════ --}}
-    <div class="mpd-charts">
-        <div class="mpd-panel">
-            <div class="mpd-panel__head"><h5 class="mpd-panel__title">Vistas y clicks por día</h5></div>
-            @if($chartData['showTrend'])
-                <div id="chTrend" class="mpd-canvas"></div>
-            @else
-                <div class="mpd-canvas-empty">
-                    @if($useFallback)
-                        El desglose diario aparece al elegir un rango dentro del período con tracking.
-                    @else
-                        Sin actividad diaria en este rango.
-                    @endif
-                </div>
-            @endif
-        </div>
-        <div class="mpd-panel">
-            <div class="mpd-panel__head"><h5 class="mpd-panel__title">Rendimiento por tienda</h5></div>
-            <div id="chTenant" class="mpd-canvas"></div>
-            <div class="mpd-canvas-empty" id="chTenantEmpty" hidden>Sin tiendas con vistas en este rango.</div>
-        </div>
     </div>
 </div>
 @endsection
@@ -428,6 +469,9 @@
         function render(id, opts){ var el = document.querySelector(id); if (el) new ApexCharts(el, deepMerge(base, opts)).render(); }
         var sum = function (a){ return (a || []).reduce(function (s, n){ return s + (+n || 0); }, 0); };
 
+        function emptyState(id){ var c = document.querySelector(id); if (c) c.style.display='none'; var e = document.querySelector(id+'Empty'); if (e) e.hidden=false; }
+
+        // Tendencia diaria (área)
         if (DATA.showTrend) {
             render('#chTrend', {
                 chart: { type: 'area', height: 300 },
@@ -442,6 +486,35 @@
             });
         }
 
+        // Top 10 productos por vistas (barras horizontales)
+        if (sum(DATA.top.views) > 0) {
+            render('#chTop', {
+                chart: { type: 'bar', height: 340 },
+                series: [
+                    { name: 'Vistas', data: DATA.top.views },
+                    { name: 'Clicks', data: DATA.top.clicks },
+                ],
+                colors: ['#4f46e5', '#a5b4fc'],
+                plotOptions: { bar: { horizontal: true, barHeight: '64%', borderRadius: 3 } },
+                xaxis: { categories: DATA.top.labels, axisBorder: { show: false } },
+            });
+        } else { emptyState('#chTop'); }
+
+        // Embudo de conversión (barras horizontales con %)
+        if (sum(DATA.funnel.values) > 0) {
+            render('#chFunnel', {
+                chart: { type: 'bar', height: 340 },
+                series: [{ name: 'Cantidad', data: DATA.funnel.values }],
+                colors: ['#4f46e5', '#6366f1', '#818cf8', '#a5b4fc'],
+                plotOptions: { bar: { horizontal: true, distributed: true, barHeight: '58%', borderRadius: 3 } },
+                dataLabels: { enabled: true, style: { colors: ['#fff'], fontSize: '11px' }, formatter: function(v){ return Number(v).toLocaleString('es-PE'); } },
+                xaxis: { categories: DATA.funnel.labels, axisBorder: { show: false } },
+                legend: { show: false },
+                tooltip: { y: { formatter: function(v, o){ var r = DATA.funnel.rates[o.dataPointIndex]; return Number(v).toLocaleString('es-PE') + ' (' + r + '% de vistas)'; } } },
+            });
+        }
+
+        // Rendimiento por tienda (barras horizontales)
         if (sum(DATA.tenant.views) > 0) {
             render('#chTenant', {
                 chart: { type: 'bar', height: 300 },
@@ -453,10 +526,20 @@
                 plotOptions: { bar: { horizontal: true, barHeight: '62%', borderRadius: 3 } },
                 xaxis: { categories: DATA.tenant.labels, axisBorder: { show: false } },
             });
-        } else {
-            var c = document.querySelector('#chTenant'); if (c) c.style.display = 'none';
-            var e = document.querySelector('#chTenantEmpty'); if (e) e.hidden = false;
-        }
+        } else { emptyState('#chTenant'); }
+
+        // Vistas por categoría (donut, paleta índigo secuencial)
+        if (sum(DATA.cat.views) > 0) {
+            render('#chCat', {
+                chart: { type: 'donut', height: 300 },
+                series: DATA.cat.views,
+                labels: DATA.cat.labels,
+                colors: ['#4f46e5', '#6366f1', '#818cf8', '#a5b4fc', '#c7d2fe', '#ddd6fe', '#e0e7ff'],
+                legend: { position: 'bottom', labels: { colors: '#6b7280' } },
+                plotOptions: { pie: { donut: { size: '64%', labels: { show: true, total: { show: true, label: 'Vistas', color: '#6b7280' } } } } },
+                stroke: { colors: ['#ffffff'], width: 2 },
+            });
+        } else { emptyState('#chCat'); }
     });
 })();
 </script>
