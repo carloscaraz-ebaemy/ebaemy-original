@@ -62,6 +62,24 @@
     padding: 12px 14px; border-radius: 10px; font-size: 13px; margin-bottom: 16px;
 }
 
+/* Texto de ayuda bajo un campo */
+.mp-co-hint { font-size: 11.5px; color: #9ca3af; margin-top: 4px; line-height: 1.3; }
+
+/* Etiqueta tranquilizadora "Sin pago adelantado" */
+.mp-co-paytag {
+    display: inline-flex; align-items: center; gap: 4px;
+    padding: 3px 10px; border-radius: 999px;
+    background: #ecfdf5; border: 1px solid #a7f3d0; color: #047857;
+    font-size: 12.5px; font-weight: 700;
+}
+
+/* Validación inline */
+.mp-co-field-err { font-size: 12px; color: #b91c1c; margin-top: 4px; min-height: 14px; line-height: 1.3; }
+input.mp-co-invalid, select.mp-co-invalid, textarea.mp-co-invalid {
+    border-color: #ef4444 !important;
+    box-shadow: 0 0 0 2px rgba(239,68,68,.12);
+}
+
 /* Estado del autocompletado de documento (DNI/RUC) */
 .mp-co-doc-status {
     font-size: 12px; margin-top: 4px; min-height: 15px; line-height: 1.3;
@@ -126,7 +144,7 @@
     </div>
 @endif
 
-<form method="POST" action="{{ route('marketplace.checkout.store') }}">
+<form method="POST" action="{{ route('marketplace.checkout.store') }}" id="mpCheckoutForm" novalidate>
     @csrf
     <input type="text" name="website" tabindex="-1" autocomplete="off"
            style="position:absolute;left:-9999px;width:1px;height:1px;opacity:0" aria-hidden="true">
@@ -141,10 +159,10 @@
                 <div class="mp-co-row">
                     <div>
                         <label>Tipo de documento</label>
+                        @php $selDoc = old('customer_doc_type', 'DNI'); @endphp
                         <select name="customer_doc_type">
-                            <option value="">— Selecciona —</option>
                             @foreach(['DNI','RUC','CE','Pasaporte'] as $t)
-                                <option value="{{ $t }}" {{ old('customer_doc_type') === $t ? 'selected' : '' }}>{{ $t }}</option>
+                                <option value="{{ $t }}" {{ $selDoc === $t ? 'selected' : '' }}>{{ $t }}</option>
                             @endforeach
                         </select>
                     </div>
@@ -158,11 +176,13 @@
                 <div class="mp-co-row">
                     <div>
                         <label>Teléfono / WhatsApp *</label>
-                        <input type="tel" name="customer_phone" required maxlength="40" placeholder="9XX XXX XXX" value="{{ old('customer_phone') }}">
+                        <input type="tel" name="customer_phone" required maxlength="40" inputmode="numeric" placeholder="9XX XXX XXX" value="{{ old('customer_phone') }}">
+                        <div class="mp-co-hint">Aquí te llega la confirmación de tu pedido.</div>
                     </div>
                     <div>
-                        <label>Email</label>
+                        <label>Email <span style="color:#9ca3af;font-weight:400">(opcional)</span></label>
                         <input type="email" name="customer_email" maxlength="180" value="{{ old('customer_email') }}">
+                        <div class="mp-co-hint">Para enviarte tu comprobante.</div>
                     </div>
                 </div>
             </section>
@@ -195,6 +215,7 @@
 
             <section class="mp-co-card">
                 <h3>💳 Forma de pago</h3>
+                <p style="margin:0 0 8px"><span class="mp-co-paytag">✓ Sin pago adelantado</span></p>
                 <p style="color:#6b7280;margin:0">
                     Cada tienda coordinará el pago contigo después de recibir el pedido (Yape, Plin, depósito o pago contraentrega según su política).
                     Por ahora ebaemy no procesa cobros centralizados.
@@ -732,6 +753,100 @@
         docNum.addEventListener('input', schedule);
         docNum.addEventListener('blur', lookup);
         if (docType) docType.addEventListener('change', () => { lastQuery = ''; lookup(); });
+    })();
+
+    // ── Validación inline antes de enviar ──────────────────────────────────
+    (function () {
+        const form = document.getElementById('mpCheckoutForm');
+        if (!form) return;
+        const $ = (sel) => form.querySelector(sel);
+
+        // Inserta el mensaje JUSTO después del input (no al final del card) y lo
+        // recuerda por input para limpiarlo después.
+        const boxes = new Map();
+        function errBox(input) {
+            if (boxes.has(input)) return boxes.get(input);
+            const box = document.createElement('div');
+            box.className = 'mp-co-field-err';
+            input.insertAdjacentElement('afterend', box);
+            boxes.set(input, box);
+            return box;
+        }
+        function setErr(input, msg) {
+            if (!input) return;
+            input.classList.add('mp-co-invalid');
+            errBox(input).textContent = msg;
+        }
+        function clearErr(input) {
+            if (!input) return;
+            input.classList.remove('mp-co-invalid');
+            if (boxes.has(input)) boxes.get(input).textContent = '';
+        }
+
+        function validate() {
+            const errors = [];
+            const name  = $('[name="customer_name"]');
+            const dtype = $('[name="customer_doc_type"]');
+            const dnum  = $('[name="customer_doc_number"]');
+            const phone = $('[name="customer_phone"]');
+            const email = $('[name="customer_email"]');
+            const addr  = $('[name="delivery_address"]');
+
+            [name, dnum, phone, email, addr].forEach(clearErr);
+
+            if (!name.value.trim() || name.value.trim().length < 3) {
+                setErr(name, 'Ingresa el nombre completo o razón social.');
+                errors.push(name);
+            }
+
+            // Documento: opcional, pero si se llena debe cuadrar con el tipo.
+            const dv = (dnum.value || '').replace(/\D+/g, '');
+            const dt = (dtype && dtype.value || '').toUpperCase();
+            if (dnum.value.trim()) {
+                if (dt === 'DNI' && dv.length !== 8) { setErr(dnum, 'El DNI debe tener 8 dígitos.'); errors.push(dnum); }
+                else if (dt === 'RUC' && dv.length !== 11) { setErr(dnum, 'El RUC debe tener 11 dígitos.'); errors.push(dnum); }
+            }
+
+            // Teléfono: requerido, celular peruano 9 dígitos (acepta prefijo 51).
+            let pv = (phone.value || '').replace(/\D+/g, '');
+            if (pv.length === 11 && pv.startsWith('51')) pv = pv.slice(2);
+            if (!pv) { setErr(phone, 'Ingresa tu teléfono / WhatsApp.'); errors.push(phone); }
+            else if (!/^9\d{8}$/.test(pv)) { setErr(phone, 'Debe ser un celular válido de 9 dígitos (empieza en 9).'); errors.push(phone); }
+
+            // Email: opcional, pero válido si se llena.
+            if (email.value.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.value.trim())) {
+                setErr(email, 'Revisa el formato del correo.');
+                errors.push(email);
+            }
+
+            if (!addr.value.trim() || addr.value.trim().length < 5) {
+                setErr(addr, 'Ingresa la dirección de entrega.');
+                errors.push(addr);
+            }
+
+            return errors;
+        }
+
+        // Limpia el error del campo apenas el usuario corrige.
+        ['customer_name','customer_doc_number','customer_phone','customer_email','delivery_address'].forEach(n => {
+            const el = $('[name="' + n + '"]');
+            if (el) el.addEventListener('input', () => clearErr(el));
+        });
+
+        let submitting = false;
+        form.addEventListener('submit', function (e) {
+            if (submitting) return;
+            const errors = validate();
+            if (errors.length) {
+                e.preventDefault();
+                errors[0].focus();
+                errors[0].scrollIntoView({ behavior: 'smooth', block: 'center' });
+                return;
+            }
+            // Evita doble submit (doble tap en móvil sobre la barra fija).
+            submitting = true;
+            form.querySelectorAll('.mp-co-submit, .mp-co-sticky__btn').forEach(b => { b.disabled = true; });
+        });
     })();
 })();
 </script>
