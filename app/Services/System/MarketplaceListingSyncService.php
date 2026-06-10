@@ -201,17 +201,27 @@ class MarketplaceListingSyncService
         // Tienda vendedora: trade_name comercial y logo desde Company del tenant
         [$tenantName, $tenantLogoUrl] = $this->resolveTenantBranding($fqdn, $client);
 
-        // WhatsApp del vendedor — para el botón "Escribir al vendedor" en
-        // marketplace/show. Preferimos el número dedicado
-        // (configuration_ecommerce.whatsapp_vendor_number); si está vacío,
-        // caemos al teléfono de la tienda (configuration_ecommerce.phone), que
-        // muchos sellers sí llenan. Si tampoco hay, el blade abre el formulario
-        // de consulta como último recurso.
+        // WhatsApp del vendedor — para el botón "Consultar por WhatsApp" en
+        // marketplace/show. Mismo número que usa el botón de WhatsApp de la
+        // tienda ecommerce, que toma `configuration_ecommerce.phone_whatsapp`.
+        // Prioridad:
+        //   1. whatsapp_vendor_number   (número dedicado al marketplace, si lo hay)
+        //   2. phone_whatsapp           (el de la tienda ecommerce — el más usado)
+        //   3. information_contact_phone (teléfono de contacto de la tienda)
+        //   4. configuration.phone_whatsapp (global del tenant)
+        // Si nada califica, el blade cae al formulario de consulta.
         $sellerWhatsapp = null;
         try {
             $cfg = DB::connection('tenant')->table('configuration_ecommerce')
-                ->first(['whatsapp_vendor_number', 'phone']);
-            $candidate = ($cfg->whatsapp_vendor_number ?? null) ?: ($cfg->phone ?? null);
+                ->first(['whatsapp_vendor_number', 'phone_whatsapp', 'information_contact_phone']);
+            $candidate = ($cfg->whatsapp_vendor_number ?? null)
+                ?: ($cfg->phone_whatsapp ?? null)
+                ?: ($cfg->information_contact_phone ?? null);
+            // Fallback global del tenant (configuration.phone_whatsapp).
+            if (!$candidate) {
+                $candidate = DB::connection('tenant')->table('configuration')
+                    ->value('phone_whatsapp');
+            }
             $sellerWhatsapp = $this->normalizeWhatsapp($candidate);
         } catch (\Throwable $e) {
             $sellerWhatsapp = null;
