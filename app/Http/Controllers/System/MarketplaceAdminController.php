@@ -136,16 +136,26 @@ class MarketplaceAdminController extends Controller
             ->filter(fn($r) => $r->views > 0)
             ->sortBy('ctr')->first();
 
-        // ── Línea de tiempo de vistas/clicks por día ───────────────────────────
+        // ── Línea de tiempo de vistas/clicks ───────────────────────────────────
         // A diferencia de los KPIs (que pueden caer al acumulado histórico), la
-        // línea de tiempo SIEMPRE muestra los días con tracking dentro del rango,
-        // aunque el rango empiece antes del inicio del tracking. Así el usuario
-        // ve la evolución desde el primer día registrado en adelante.
+        // línea de tiempo SIEMPRE muestra el tracking diario dentro del rango,
+        // agrupado según la granularidad elegida (día / semana / mes).
+        $granularity = in_array($request->input('granularity'), ['day', 'week', 'month'], true)
+            ? $request->input('granularity') : 'day';
+
         $spanDays  = \Carbon\Carbon::parse($from)->diffInDays(\Carbon\Carbon::parse($to)) + 1;
         $trendFrom = $trackingStart ? max($from, $trackingStart) : $from;
 
+        // Expresión SQL del "bucket" según granularidad. WEEKDAY()=0 es lunes,
+        // así que restarlo lleva la fecha al lunes de su semana (ISO).
+        $bucketExpr = match ($granularity) {
+            'week'  => 'DATE(DATE_SUB(stat_date, INTERVAL WEEKDAY(stat_date) DAY))',
+            'month' => "DATE_FORMAT(stat_date, '%Y-%m-01')",
+            default => 'DATE(stat_date)',
+        };
+
         $dailyView = !$trackingStart ? collect() : $conn->table('marketplace_listing_stats_daily')
-            ->selectRaw('stat_date as day, SUM(views) as views, SUM(clicks) as clicks')
+            ->selectRaw("$bucketExpr as day, SUM(views) as views, SUM(clicks) as clicks")
             ->whereBetween('stat_date', [$trendFrom, $to])
             ->when($tenant !== '' || $categoryId || $status || $q !== '', function ($qb) use ($tenant, $categoryId, $status, $q) {
                 $ids = MarketplaceListing::query()
@@ -156,25 +166,30 @@ class MarketplaceAdminController extends Controller
                     ->pluck('id');
                 $qb->whereIn('listing_id', $ids);
             })
-            ->groupBy('stat_date')->orderBy('stat_date')->get()->keyBy('day');
+            ->groupByRaw($bucketExpr)->orderBy('day')->get()->keyBy('day');
 
+        // Serie continua (sin huecos) iterando bucket a bucket.
         $dailySeries = collect();
         if ($trackingStart) {
-            $cursor = \Carbon\Carbon::parse($trendFrom);
             $end    = \Carbon\Carbon::parse($to);
-            // Tope de barras: si el tramo trackeado supera 92 días, mostramos los
-            // últimos 92 para no saturar el gráfico.
-            if ($cursor->diffInDays($end) + 1 > 92) {
+            $cursor = \Carbon\Carbon::parse($trendFrom);
+            if ($granularity === 'week')  $cursor->startOfWeek();   // lunes
+            if ($granularity === 'month') $cursor->startOfMonth();
+            // Cap de puntos para no saturar (día: últimos 92).
+            if ($granularity === 'day' && $cursor->diffInDays($end) + 1 > 92) {
                 $cursor = (clone $end)->subDays(91);
             }
-            while ($cursor->lte($end)) {
+            $guard = 0;
+            while ($cursor->lte($end) && $guard < 400) {
                 $key = $cursor->toDateString();
                 $dailySeries->push((object) [
                     'day'    => $key,
                     'views'  => (int) ($dailyView[$key]->views  ?? 0),
                     'clicks' => (int) ($dailyView[$key]->clicks ?? 0),
                 ]);
-                $cursor->addDay();
+                $granularity === 'week' ? $cursor->addWeek()
+                    : ($granularity === 'month' ? $cursor->addMonth() : $cursor->addDay());
+                $guard++;
             }
         }
 
@@ -225,7 +240,7 @@ class MarketplaceAdminController extends Controller
             ['stage' => 'Pedidos', 'value' => $kpis['orders'], 'rate' => $kpis['views'] > 0 ? round($kpis['orders'] / $kpis['views'] * 100, 2) : 0],
         ];
 
-        $filters = compact('from', 'to', 'sort', 'tenant', 'status', 'q', 'minViews') + ['category' => $categoryId];
+        $filters = compact('from', 'to', 'sort', 'tenant', 'status', 'q', 'minViews', 'granularity') + ['category' => $categoryId];
 
         return view('system.marketplace.dashboard', compact(
             'rows', 'kpis', 'topByViews', 'topByClicks', 'champion', 'laggard', 'dailySeries',

@@ -23,6 +23,20 @@
     $sortUrl = fn($col) => route('system.marketplace.dashboard', array_merge(request()->except('page'), ['sort' => $col]));
     $sortMark = fn($col) => $filters['sort'] === $col ? '<span class="mp-sort-on">↓</span>' : '';
 
+    // Granularidad de la línea de tiempo.
+    $gran = $filters['granularity'] ?? 'day';
+    $granUrl = fn($g) => route('system.marketplace.dashboard', array_merge(request()->except('page'), ['granularity' => $g]));
+    $granOptions = ['day' => 'Día', 'week' => 'Semana', 'month' => 'Mes'];
+    $unitWord   = ['day' => 'día', 'week' => 'semana', 'month' => 'mes'][$gran];
+    $unitPlural = ['day' => 'días', 'week' => 'semanas', 'month' => 'meses'][$gran];
+    $mesAbbr = ['', 'ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+    $trendLabel = function ($day) use ($gran, $mesAbbr) {
+        $c = \Carbon\Carbon::parse($day);
+        if ($gran === 'month') return $mesAbbr[(int) $c->format('n')] . ' ' . $c->format('y');
+        if ($gran === 'week')  return 'sem ' . $c->format('d/m');
+        return $c->format('d/m');
+    };
+
     // Escalas para las mini-barras de la tabla.
     $maxViews  = max(1, $rows->max('views') ?: 1);
     $maxClicks = max(1, $rows->max('clicks') ?: 1);
@@ -34,7 +48,7 @@
 
     $chartData = [
         'trend' => [
-            'labels' => $dailySeries->map(fn($d) => \Carbon\Carbon::parse($d->day)->format('d/m'))->values(),
+            'labels' => $dailySeries->map(fn($d) => $trendLabel($d->day))->values(),
             'views'  => $dailySeries->pluck('views')->values(),
             'clicks' => $dailySeries->pluck('clicks')->values(),
         ],
@@ -221,17 +235,20 @@
     <div class="mpd-panel">
         <div class="mpd-panel__head">
             <h5 class="mpd-panel__title">Vistas en el tiempo</h5>
-            @if($chartData['showTrend'])
-                <div class="mpd-trendstats">
-                    <span><strong>{{ number_format($trendStats['total_views']) }}</strong> vistas en {{ $trendStats['days'] }} {{ $trendStats['days'] === 1 ? 'día' : 'días' }}</span>
-                    <span><strong>{{ number_format($trendStats['avg_views'], 1) }}</strong> promedio/día</span>
-                    @if($trendStats['peak_day'])
-                        <span>Pico: <strong>{{ number_format($trendStats['peak_views']) }}</strong> el {{ \Carbon\Carbon::parse($trendStats['peak_day'])->format('d/m') }}</span>
-                    @endif
-                </div>
-            @endif
+            <div class="mpd-segmented">
+                @foreach($granOptions as $g => $lbl)
+                    <a href="{{ $granUrl($g) }}" class="{{ $gran === $g ? 'is-active' : '' }}">{{ $lbl }}</a>
+                @endforeach
+            </div>
         </div>
         @if($chartData['showTrend'])
+            <div class="mpd-trendstats">
+                <span><strong>{{ number_format($trendStats['total_views']) }}</strong> vistas en {{ $trendStats['days'] }} {{ $trendStats['days'] === 1 ? $unitWord : $unitPlural }}</span>
+                <span><strong>{{ number_format($trendStats['avg_views'], 1) }}</strong> promedio/{{ $unitWord }}</span>
+                @if($trendStats['peak_day'])
+                    <span>Pico: <strong>{{ number_format($trendStats['peak_views']) }}</strong> {{ $gran === 'month' ? 'en' : 'el' }} {{ $trendLabel($trendStats['peak_day']) }}</span>
+                @endif
+            </div>
             <div id="chTrend" class="mpd-canvas"></div>
             @if($useFallback && $trackingStart)
                 <div class="mpd-panel__foot">La línea de tiempo arranca el {{ \Carbon\Carbon::parse($trackingStart)->format('d/m/Y') }} (inicio del tracking diario). Los KPIs de arriba muestran el histórico acumulado completo.</div>
@@ -403,8 +420,14 @@
 .mpd-panel__head { display: flex; align-items: baseline; justify-content: space-between; padding: 14px 18px; border-bottom: 1px solid var(--mp-line2); }
 .mpd-panel__title { font-size: 14.5px; font-weight: 650; margin: 0; }
 .mpd-panel__count { font-size: 12.5px; color: var(--mp-muted); }
-.mpd-trendstats { display: flex; gap: 16px; flex-wrap: wrap; font-size: 12.5px; color: var(--mp-muted); }
+.mpd-trendstats { display: flex; gap: 18px; flex-wrap: wrap; font-size: 12.5px; color: var(--mp-muted); padding: 12px 18px 0; }
 .mpd-trendstats strong { color: var(--mp-ink); font-weight: 700; }
+
+/* Selector segmentado día / semana / mes */
+.mpd-segmented { display: inline-flex; background: var(--mp-subtle); border: 1px solid var(--mp-line); border-radius: 8px; padding: 2px; gap: 2px; }
+.mpd-segmented a { font-size: 12.5px; font-weight: 600; color: var(--mp-muted); text-decoration: none; padding: 4px 12px; border-radius: 6px; transition: all .15s; }
+.mpd-segmented a:hover { color: var(--mp-accent); }
+.mpd-segmented a.is-active { background: var(--mp-surface); color: var(--mp-accent); box-shadow: 0 1px 2px rgba(30,35,48,.08); }
 .mpd-panel__foot { padding: 10px 18px; font-size: 12px; color: var(--mp-muted); text-align: center; border-top: 1px solid var(--mp-line2); }
 
 /* Tabla protagonista */
@@ -437,7 +460,7 @@
 .mpd-barcell__track { width: 100%; height: 4px; background: var(--mp-line2); border-radius: 3px; overflow: hidden; }
 .mpd-barcell__fill { display: block; height: 100%; border-radius: 3px; }
 .mpd-fill-views { background: var(--mp-accent); }
-.mpd-fill-clicks { background: #a5b4fc; }
+.mpd-fill-clicks { background: #f59e0b; }
 .mpd-ctr { font-variant-numeric: tabular-nums; font-weight: 600; color: var(--mp-muted); }
 .mpd-ctr.is-good { color: var(--mp-good); }
 .mpd-ctr.is-warn { color: var(--mp-warn); }
@@ -488,7 +511,7 @@
                     { name: 'Vistas', data: DATA.trend.views },
                     { name: 'Clicks', data: DATA.trend.clicks },
                 ],
-                colors: ['#4f46e5', '#94a3b8'],
+                colors: ['#4f46e5', '#f59e0b'],
                 xaxis: { categories: DATA.trend.labels, tickAmount: 8, axisBorder: { show: false }, axisTicks: { show: false } },
                 stroke: { curve: 'smooth', width: 2 },
                 fill: { type: 'gradient', gradient: { shadeIntensity: 1, opacityFrom: 0.25, opacityTo: 0.02, stops: [0, 95] } },
@@ -503,7 +526,7 @@
                     { name: 'Vistas', data: DATA.top.views },
                     { name: 'Clicks', data: DATA.top.clicks },
                 ],
-                colors: ['#4f46e5', '#a5b4fc'],
+                colors: ['#4f46e5', '#f59e0b'],
                 plotOptions: { bar: { horizontal: true, barHeight: '64%', borderRadius: 3 } },
                 xaxis: { categories: DATA.top.labels, axisBorder: { show: false } },
             });
@@ -514,7 +537,7 @@
             render('#chFunnel', {
                 chart: { type: 'bar', height: 340 },
                 series: [{ name: 'Cantidad', data: DATA.funnel.values }],
-                colors: ['#4f46e5', '#6366f1', '#818cf8', '#a5b4fc'],
+                colors: ['#4f46e5', '#0ea5e9', '#f59e0b', '#22c55e'],
                 plotOptions: { bar: { horizontal: true, distributed: true, barHeight: '58%', borderRadius: 3 } },
                 dataLabels: { enabled: true, style: { colors: ['#fff'], fontSize: '11px' }, formatter: function(v){ return Number(v).toLocaleString('es-PE'); } },
                 xaxis: { categories: DATA.funnel.labels, axisBorder: { show: false } },
@@ -531,7 +554,7 @@
                     { name: 'Vistas', data: DATA.tenant.views },
                     { name: 'Clicks', data: DATA.tenant.clicks },
                 ],
-                colors: ['#4f46e5', '#a5b4fc'],
+                colors: ['#4f46e5', '#f59e0b'],
                 plotOptions: { bar: { horizontal: true, barHeight: '62%', borderRadius: 3 } },
                 xaxis: { categories: DATA.tenant.labels, axisBorder: { show: false } },
             });
@@ -543,7 +566,7 @@
                 chart: { type: 'donut', height: 300 },
                 series: DATA.cat.views,
                 labels: DATA.cat.labels,
-                colors: ['#4f46e5', '#6366f1', '#818cf8', '#a5b4fc', '#c7d2fe', '#ddd6fe', '#e0e7ff'],
+                colors: ['#4f46e5', '#0ea5e9', '#14b8a6', '#22c55e', '#f59e0b', '#ef4444', '#a855f7'],
                 legend: { position: 'bottom', labels: { colors: '#6b7280' } },
                 plotOptions: { pie: { donut: { size: '64%', labels: { show: true, total: { show: true, label: 'Vistas', color: '#6b7280' } } } } },
                 stroke: { colors: ['#ffffff'], width: 2 },
