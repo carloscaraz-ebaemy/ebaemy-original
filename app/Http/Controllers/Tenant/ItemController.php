@@ -1392,8 +1392,12 @@ class ItemController extends Controller
         }
 
         $data = ['sale_unit_price' => $sale, 'compare_at_price' => $compare];
+        // Duración de la oferta (rango). Solo tiene sentido si hay descuento.
+        if ($request->has('compare_at_from')) {
+            $data['compare_at_from'] = ($compare !== null && $request->compare_at_from) ? $request->compare_at_from : null;
+        }
         if ($request->has('compare_at_until')) {
-            $data['compare_at_until'] = $request->compare_at_until ?: null;
+            $data['compare_at_until'] = ($compare !== null && $request->compare_at_until) ? $request->compare_at_until : null;
         }
 
         $item->forceFill($data)->saveQuietly();
@@ -1404,6 +1408,8 @@ class ItemController extends Controller
             'id' => $item->id,
             'sale_unit_price' => $sale,
             'compare_at_price' => $compare,
+            'compare_at_from' => $data['compare_at_from'] ?? null,
+            'compare_at_until' => $data['compare_at_until'] ?? null,
         ];
     }
 

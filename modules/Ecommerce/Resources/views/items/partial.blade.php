@@ -90,8 +90,10 @@
                         $refPrice = data_get($record, 'original_price');
                         if (!$refPrice) {
                             $cap   = data_get($record, 'compare_at_price');
+                            $from  = data_get($record, 'compare_at_from');
                             $until = data_get($record, 'compare_at_until');
-                            $vigente = !$until || \Illuminate\Support\Carbon::parse($until)->endOfDay()->gte(now());
+                            $vigente = (!$from  || \Illuminate\Support\Carbon::parse($from)->startOfDay()->lte(now()))
+                                    && (!$until || \Illuminate\Support\Carbon::parse($until)->endOfDay()->gte(now()));
                             $refPrice = ($cap && $vigente) ? $cap : null;
                         }
                         $refPrice = ($refPrice && $refPrice > $record->sale_unit_price) ? $refPrice : null;

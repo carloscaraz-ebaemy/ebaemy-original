@@ -72,6 +72,7 @@
     } elseif ($displayPrice < $originalPrice) {
         // pack discount
     } elseif ($item->compare_at_price && (float) $item->compare_at_price > $displayPrice
+              && (empty($item->compare_at_from)  || $item->compare_at_from->startOfDay()->lte(now()))
               && (empty($item->compare_at_until) || $item->compare_at_until->endOfDay()->gte(now()))) {
         // Oferta tipo Saga: precio regular tachado vía compare_at_price (mientras esté vigente)
         $originalPrice = (float) $item->compare_at_price;

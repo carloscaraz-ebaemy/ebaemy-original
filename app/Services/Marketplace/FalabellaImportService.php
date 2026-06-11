@@ -109,8 +109,8 @@ class FalabellaImportService
         $bu = data_get($p, 'BusinessUnits.BusinessUnit');
         if (isset($bu[0])) $bu = $bu[0]; // si hay varias unidades de negocio, tomar la primera
 
-        // Precio efectivo (oferta si está activa) + precio tachado + fecha "válido hasta".
-        [$price, $compareAt, $until] = $this->resolvePrices($bu);
+        // Precio efectivo (oferta si está activa) + precio tachado + duración (from/until).
+        [$price, $compareAt, $until, $from] = $this->resolvePrices($bu);
         $stock = (int) (data_get($bu, 'Stock') ?: 0);
 
         // 1) ¿Ya está enlazado este SellerSku? → ACTUALIZAR precios desde Saga
@@ -124,6 +124,7 @@ class FalabellaImportService
                 if ($existing) {
                     $existing->sale_unit_price = $price;
                     $existing->compare_at_price = $compareAt;
+                    $existing->compare_at_from = $from;
                     $existing->compare_at_until = $until;
                     $existing->saveQuietly();
                 }
@@ -145,11 +146,12 @@ class FalabellaImportService
 
         $isNew = !$item;
         if (!$item) {
-            $item = $this->createItem($p, $sku, $name, $price, $compareAt, $until, $stock);
+            $item = $this->createItem($p, $sku, $name, $price, $compareAt, $from, $until, $stock);
         } else {
             // El item existía sin enlace → actualizar también sus precios.
             $item->sale_unit_price = $price;
             $item->compare_at_price = $compareAt;
+            $item->compare_at_from = $from;
             $item->compare_at_until = $until;
             $item->saveQuietly();
         }
@@ -193,16 +195,18 @@ class FalabellaImportService
         $special = (float) (data_get($bu, 'SpecialPrice') ?: 0);
 
         if ($special > 0 && $special < $regular && $this->offerActive($bu)) {
-            // venta = oferta, tachado = regular, válido hasta = SpecialToDate
-            $until = null;
+            // venta = oferta, tachado = regular, duración = SpecialFromDate..SpecialToDate
+            $until = $from = null;
             try {
                 $to = data_get($bu, 'SpecialToDate');
                 $until = $to ? \Illuminate\Support\Carbon::parse($to)->toDateString() : null;
+                $fd = data_get($bu, 'SpecialFromDate');
+                $from = $fd ? \Illuminate\Support\Carbon::parse($fd)->toDateString() : null;
             } catch (\Throwable $e) {}
-            return [$special, $regular, $until];
+            return [$special, $regular, $until, $from];
         }
 
-        return [$regular ?: $special, null, null];
+        return [$regular ?: $special, null, null, null];
     }
 
     /**
@@ -224,7 +228,7 @@ class FalabellaImportService
         return true;
     }
 
-    protected function createItem(array $p, string $sku, string $name, float $price, ?float $compareAt, ?string $until, int $stock): Item
+    protected function createItem(array $p, string $sku, string $name, float $price, ?float $compareAt, ?string $from, ?string $until, int $stock): Item
     {
         $category = $this->resolveCategory((string) data_get($p, 'PrimaryCategory', ''));
         $brand    = $this->resolveBrand((string) data_get($p, 'Brand', ''));
@@ -240,7 +244,8 @@ class FalabellaImportService
         $item->currency_type_id = 'PEN';            // Soles
         $item->sale_unit_price = $price;
         $item->compare_at_price = $compareAt; // precio tachado (regular) cuando hay oferta
-        $item->compare_at_until = $until;     // vigencia de la oferta (SpecialToDate de Saga)
+        $item->compare_at_from = $from;       // inicio de la oferta (SpecialFromDate de Saga)
+        $item->compare_at_until = $until;     // fin de la oferta (SpecialToDate de Saga)
         $item->purchase_unit_price = 0;
         $item->sale_affectation_igv_type_id = '10';     // Gravado
         $item->purchase_affectation_igv_type_id = '10';

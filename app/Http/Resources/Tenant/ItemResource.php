@@ -97,6 +97,7 @@
                 'sale_unit_price' => $this->getFormatSaleUnitPrice(),
                 // 'sale_unit_price' => $this->sale_unit_price,
                 'compare_at_price' => $this->compare_at_price,
+                'compare_at_from' => optional($this->compare_at_from)->format('Y-m-d'),
                 'compare_at_until' => optional($this->compare_at_until)->format('Y-m-d'),
                 'purchase_unit_price' => $this->purchase_unit_price,
                 'unit_type_id' => $this->unit_type_id,
