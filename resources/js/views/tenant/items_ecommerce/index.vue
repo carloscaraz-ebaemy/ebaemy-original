@@ -192,25 +192,21 @@
                         </td>
                         <td>{{ row.description }}</td>
                         <!-- Precio (normal) -->
-                        <td class="text-end" style="min-width:96px">
-                            <input type="number" min="0" step="0.01"
-                                   :value="regularOf(row)"
-                                   @change="onPriceChange(row, 'regular', $event.target.value)"
-                                   style="width:82px;text-align:right;border:1px solid #e5e7eb;border-radius:4px;padding:2px 5px;font-size:13px;color:#374151">
-                        </td>
-                        <!-- Precio oferta (lápiz → popup con duración) -->
-                        <td class="text-end" style="min-width:124px">
+                        <td class="text-end">S/ {{ regularOf(row) }}</td>
+                        <!-- Precio oferta: texto + tooltip (estado + duración) + lápiz -->
+                        <td class="text-end" style="min-width:120px">
                             <div style="display:flex;align-items:center;justify-content:flex-end;gap:6px">
-                                <div style="text-align:right">
-                                    <span v-if="offerOf(row)" style="color:#e53e3e;font-weight:700">S/ {{ offerOf(row) }}</span>
+                                <el-tooltip placement="top" :disabled="!offerOf(row)" effect="dark">
+                                    <div slot="content">
+                                        <div><strong>El precio de oferta está {{ offerStatus(row) }}</strong></div>
+                                        <div>Desde: {{ fmtDate(row.compare_at_from) }}</div>
+                                        <div>Hasta: {{ fmtDate(row.compare_at_until) }}</div>
+                                    </div>
+                                    <span v-if="offerOf(row)" style="color:#e53e3e;font-weight:700;cursor:help">S/ {{ offerOf(row) }}</span>
                                     <span v-else style="color:#9ca3af">—</span>
-                                    <small v-if="offerOf(row) && (row.compare_at_from || row.compare_at_until)"
-                                           style="display:block;color:#16a34a;font-size:10px">
-                                        {{ row.compare_at_from || '…' }} → {{ row.compare_at_until || '…' }}
-                                    </small>
-                                </div>
-                                <button type="button" @click="openOfferDialog(row)" title="Editar precio oferta"
-                                        style="border:none;background:transparent;cursor:pointer;color:#6b7280;padding:2px">
+                                </el-tooltip>
+                                <button type="button" @click="openOfferDialog(row)" title="Editar precio"
+                                        style="border:none;background:transparent;cursor:pointer;color:#409eff;padding:2px">
                                     <i class="fa fa-pencil"></i>
                                 </button>
                             </div>
@@ -348,11 +344,15 @@
             </el-dialog>
 
             <!-- Popup: editar precio oferta + duración (estilo Saga) -->
-            <el-dialog title="Editar precio oferta" :visible.sync="offerDialogVisible" width="380px" append-to-body>
+            <el-dialog title="Editar precio" :visible.sync="offerDialogVisible" width="380px" append-to-body>
+                <div class="form-group">
+                    <label class="control-label">Precio normal</label>
+                    <el-input v-model.number="offerForm.regular" type="number" min="0" step="0.01" placeholder="Ej. 200"></el-input>
+                </div>
                 <div class="form-group">
                     <label class="control-label">Precio de venta (oferta)</label>
                     <el-input v-model.number="offerForm.offer" type="number" min="0" step="0.01" placeholder="Ej. 109"></el-input>
-                    <small class="text-muted">Precio normal: S/ {{ offerForm.regular }}. Deja vacío para quitar la oferta.</small>
+                    <small class="text-muted">Debe ser menor al normal. Deja vacío para quitar la oferta.</small>
                 </div>
                 <div class="form-group">
                     <label class="control-label">Duración oferta</label>
@@ -502,6 +502,23 @@ export default {
             var cap = parseFloat(row.compare_at_price) || 0;
             return (cap > sale) ? sale.toFixed(2) : '';
         },
+        // Estado de la oferta según el rango de fechas (estilo Saga).
+        offerStatus(row) {
+            var today = new Date(); today.setHours(0,0,0,0);
+            var from = row.compare_at_from ? new Date(row.compare_at_from + 'T00:00:00') : null;
+            var until = row.compare_at_until ? new Date(row.compare_at_until + 'T00:00:00') : null;
+            if (from && today < from) return 'Programado';
+            if (until && today > until) return 'Vencido';
+            return 'Activo';
+        },
+        // 'yyyy-MM-dd' → '10 de junio de 2026'
+        fmtDate(d) {
+            if (!d) return 'Sin definir';
+            var meses = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+            var p = String(d).split('-');
+            if (p.length < 3) return d;
+            return parseInt(p[2],10) + ' de ' + (meses[parseInt(p[1],10)-1] || '') + ' de ' + p[0];
+        },
         openOfferDialog(row) {
             var regular = parseFloat(this.regularOf(row));
             var offerStr = this.offerOf(row);
@@ -539,33 +556,6 @@ export default {
                         row.compare_at_until = response.data.compare_at_until;
                         row.sale_unit_price = 'S/ ' + parseFloat(response.data.sale_unit_price).toFixed(2);
                         this.offerDialogVisible = false;
-                    } else {
-                        this.$message.error(response.data.message || 'No se pudo actualizar');
-                    }
-                })
-                .catch(() => this.$message.error('Error al actualizar precio'));
-        },
-        onPriceChange(row, which, val) {
-            var regular = parseFloat(this.regularOf(row));
-            var offerStr = this.offerOf(row);
-            var offer = (offerStr === '' ? null : parseFloat(offerStr));
-            if (which === 'regular') regular = parseFloat(val);
-            if (which === 'offer')   offer = (val === '' ? null : parseFloat(val));
-
-            if (!regular || regular <= 0) { this.$message.error('El precio debe ser mayor a 0'); return; }
-            if (offer !== null && offer >= regular) {
-                this.$message.warning('La oferta debe ser menor al precio normal');
-            }
-
-            this.$http
-                .post(`/${this.resource}/quick-price`, { id: row.id, regular_price: regular, offer_price: offer })
-                .then(response => {
-                    if (response.data.success) {
-                        this.$message.success('Precio actualizado');
-                        // Refrescar los crudos para que las columnas recomputen
-                        row.amount_sale_unit_price = response.data.sale_unit_price;
-                        row.compare_at_price = response.data.compare_at_price;
-                        row.sale_unit_price = 'S/ ' + parseFloat(response.data.sale_unit_price).toFixed(2);
                     } else {
                         this.$message.error(response.data.message || 'No se pudo actualizar');
                     }
