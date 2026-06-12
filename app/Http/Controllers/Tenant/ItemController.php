@@ -449,9 +449,15 @@ class ItemController extends Controller
             $item->fill($request->all());
         }
 
-        // Si el usuario activó marketplace_publishable pero no seteó mp_status,
-        // default a 'active' para que el sync no lo trate como rejected.
-        if ($item->marketplace_publishable && empty($item->mp_status)) {
+        // mp_status es NOT NULL en la BD (enum, default 'active'). El form del
+        // producto envía mp_status=null cuando NO se publica al marketplace, y
+        // bajo MySQL en modo estricto (producción) insertar un NULL explícito en
+        // una columna NOT NULL lanza "Column 'mp_status' cannot be null" (1048).
+        // En local (modo no-estricto) pasa desapercibido. Garantizamos siempre un
+        // valor no-null: 'active' es el default histórico de la columna y es
+        // inocuo si marketplace_publishable=false (el sync solo actúa cuando
+        // publishable=true).
+        if (empty($item->mp_status)) {
             $item->mp_status = 'active';
         }
 
