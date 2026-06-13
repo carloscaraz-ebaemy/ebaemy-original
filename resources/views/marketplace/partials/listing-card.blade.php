@@ -78,13 +78,9 @@
                     <span class="mp-badge mp-badge--new" title="Nuevo">NUEVO</span>
                 @endif
             @endif
-            @if($listing->tenant_verified)
-                {{-- Solo ícono (✓) para no tapar la imagen del producto.
-                     El texto "Verificado" queda en el title (hover) + detalle. --}}
-                <span class="mp-badge mp-badge--verified" title="Tienda verificada" aria-label="Tienda verificada">
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-                </span>
-            @endif
+            {{-- El badge "Verificado" se removió de las cards del listado (tapaba la
+                 imagen y se veía raro). La verificación de tienda se muestra en la
+                 PÁGINA DEL PRODUCTO, junto al vendedor. --}}
             @if($cardHasOfferBadge)
                 @if(($listing->discount_source ?? null) === 'flash_sale')
                     <span class="mp-badge mp-badge--flash" title="Oferta por tiempo limitado">⚡ Flash -{{ $listing->discount_pct }}%</span>
