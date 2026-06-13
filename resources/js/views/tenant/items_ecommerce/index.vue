@@ -205,10 +205,9 @@
                                     <span v-if="offerOf(row)" style="color:#e53e3e;font-weight:700;cursor:help">S/ {{ offerOf(row) }}</span>
                                     <span v-else style="color:#9ca3af">—</span>
                                 </el-tooltip>
-                                <button type="button" @click="openOfferDialog(row)" title="Editar precio"
-                                        style="border:none;background:transparent;cursor:pointer;color:#409eff;padding:2px">
-                                    <i class="fa fa-pencil"></i>
-                                </button>
+                                <el-button type="text" icon="el-icon-edit" @click="openOfferDialog(row)"
+                                           title="Editar precio"
+                                           style="padding:0;font-size:17px;color:#409eff"></el-button>
                             </div>
                         </td>
                         <td
