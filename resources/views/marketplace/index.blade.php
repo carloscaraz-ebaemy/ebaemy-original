@@ -550,6 +550,25 @@
         </div> {{-- /.mp-offers-body --}}
     </section>
 
+    {{-- Botón flotante para abrir el modal de ofertas (solo móvil) --}}
+    <button type="button" id="mpOffersFab" class="mp-offers-fab" aria-label="Ver ofertas del día">
+        🔥 Ofertas
+    </button>
+
+    {{-- Modal de ofertas (solo móvil). El carrusel (#mpOffersRail) se MUEVE aquí
+         por JS para no duplicar markup ni datos. --}}
+    <div id="mpOffersModal" class="mp-offers-modal" aria-hidden="true">
+        <div class="mp-offers-modal__backdrop" data-offers-close></div>
+        <div class="mp-offers-modal__panel" role="dialog" aria-modal="true" aria-label="Ofertas del día">
+            <div class="mp-offers-modal__head">
+                <h2 class="mp-offers-modal__title">🔥 Ofertas del día</h2>
+                <button type="button" class="mp-offers-modal__close" data-offers-close aria-label="Cerrar">✕</button>
+            </div>
+            <div class="mp-offers-modal__body" id="mpOffersModalBody"></div>
+            <a href="{{ route('marketplace.index', ['on_offer' => 1]) }}" class="mp-offers-modal__all">Ver todas las ofertas →</a>
+        </div>
+    </div>
+
     @push('styles')
     <style>
         .mp-offers-block { padding: 16px 0 8px; }
@@ -673,6 +692,41 @@
                una linea vertical. */
             .mp-offers-sub { display: none; }
         }
+
+        /* ── Modal de ofertas + FAB: ocultos en escritorio, activos en móvil ── */
+        .mp-offers-fab, .mp-offers-modal { display: none; }
+        @media (max-width: 700px) {
+            /* La fila inline se oculta en móvil; el rail se reubica al modal por JS */
+            .mp-offers-block { display: none; }
+
+            .mp-offers-fab {
+                display: inline-flex; align-items: center; gap: 6px;
+                position: fixed; left: 14px; bottom: 80px; z-index: 1200;
+                background: linear-gradient(135deg,#ef4444,#dc2626); color:#fff;
+                border: none; border-radius: 999px; padding: 10px 16px;
+                font-size: 13px; font-weight: 800;
+                box-shadow: 0 8px 20px -6px rgba(220,38,38,.55); cursor: pointer;
+            }
+            .mp-offers-fab:active { transform: scale(.96); }
+
+            .mp-offers-modal.is-open { display: block; }
+            .mp-offers-modal__backdrop { position: fixed; inset: 0; background: rgba(15,23,42,.55); z-index: 1300; }
+            .mp-offers-modal__panel {
+                position: fixed; left: 0; right: 0; bottom: 0; z-index: 1310;
+                background: #fff; border-radius: 18px 18px 0 0;
+                padding: 14px 14px calc(14px + env(safe-area-inset-bottom));
+                max-height: 84vh; display: flex; flex-direction: column;
+                animation: mpOffersUp .28s ease;
+            }
+            @keyframes mpOffersUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+            .mp-offers-modal__head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+            .mp-offers-modal__title { margin: 0; font-size: 17px; font-weight: 800; color: #0a0e1a; }
+            .mp-offers-modal__close { border: none; background: #f3f4f6; width: 32px; height: 32px; border-radius: 999px; font-size: 15px; cursor: pointer; color: #374151; }
+            .mp-offers-modal__body { overflow-y: auto; }
+            /* El rail movido aquí: carrusel horizontal con swipe (hereda sus estilos) */
+            .mp-offers-modal__body .mp-offers-rail { padding-bottom: 6px; }
+            .mp-offers-modal__all { display: block; text-align: center; margin-top: 10px; padding-top: 8px; font-size: 13px; font-weight: 700; color: #dc2626; text-decoration: none; border-top: 1px solid #f1f5f9; }
+        }
     </style>
     @endpush
 
@@ -749,6 +803,34 @@
                 try { localStorage.setItem(key, collapsed ? '1' : '0'); } catch (e) {}
             });
         }
+    })();
+
+    // Móvil: mover el carrusel a un modal y auto-abrirlo una vez por sesión.
+    // No duplica markup ni datos — reubica el MISMO #mpOffersRail.
+    (function () {
+        var modal = document.getElementById('mpOffersModal');
+        var rail  = document.getElementById('mpOffersRail');
+        var fab   = document.getElementById('mpOffersFab');
+        var mBody = document.getElementById('mpOffersModalBody');
+        if (!modal || !rail || !mBody) return;
+        if (!window.matchMedia('(max-width: 700px)').matches) return; // solo móvil
+
+        mBody.appendChild(rail); // mover el rail (con sus cards + timers) al modal
+
+        function open()  { modal.classList.add('is-open');  modal.setAttribute('aria-hidden', 'false'); document.body.style.overflow = 'hidden'; }
+        function close() { modal.classList.remove('is-open'); modal.setAttribute('aria-hidden', 'true');  document.body.style.overflow = ''; }
+
+        if (fab) fab.addEventListener('click', open);
+        modal.querySelectorAll('[data-offers-close]').forEach(function (el) { el.addEventListener('click', close); });
+        document.addEventListener('keydown', function (e) { if (e.key === 'Escape') close(); });
+
+        // Auto-abrir una sola vez por sesión (no molesta en cada navegación)
+        try {
+            if (!sessionStorage.getItem('mp_offers_modal_seen')) {
+                sessionStorage.setItem('mp_offers_modal_seen', '1');
+                setTimeout(open, 600);
+            }
+        } catch (e) {}
     })();
     </script>
 @endif
