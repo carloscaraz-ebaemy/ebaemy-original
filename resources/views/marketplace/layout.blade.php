@@ -733,6 +733,26 @@
         } else {
             badge.style.display = 'none';
         }
+
+        // Barra inferior móvil "Ver carrito" (solo existe en el home/listado):
+        // se muestra SOLO cuando hay productos, con cantidad + total. Antes
+        // estaba siempre visible y se veía poco profesional.
+        const bar = document.querySelector('.mp-mobile-actionbar');
+        if (bar) {
+            if (count > 0) {
+                bar.classList.add('is-visible');
+                bar.setAttribute('aria-hidden', 'false');
+                document.body.classList.add('mp-cartbar-on');
+                const c = document.getElementById('mpMabCount');
+                if (c) c.textContent = '(' + count + ')';
+                const t = document.getElementById('mpMabTotal');
+                if (t && summary && summary.subtotal != null) t.textContent = 'S/ ' + Number(summary.subtotal).toFixed(2);
+            } else {
+                bar.classList.remove('is-visible');
+                bar.setAttribute('aria-hidden', 'true');
+                document.body.classList.remove('mp-cartbar-on');
+            }
+        }
     }
     window.mpCartBadgeUpdate = paint;
     fetch(@json(route('marketplace.cart.json')), { headers: { 'Accept': 'application/json' }, credentials: 'same-origin' })

@@ -1370,13 +1370,17 @@
     }
     /* Botn full-width cuando es el nico del sticky (Carrito solo) */
     .mp-mobile-actionbar .mp-mab-btn--full { flex: 1 1 100%; }
+    .mp-mab-count { font-weight: 800; }
+    .mp-mab-total { margin-left: auto; font-weight: 800; opacity: .95; }
 
     /* Estilos del bottom sheet del producto extrados a
        marketplace.partials.product-sheet  funciona en todas las vistas. */
 
     @media (max-width: 768px) {
-        .mp-mobile-actionbar { display: flex; }
-        body { padding-bottom: 64px; } /* deja espacio para que el bar no tape contenido */
+        /* La barra de carrito SOLO aparece cuando hay productos (JS agrega
+           .is-visible). Antes estaba siempre visible y se vea poco profesional. */
+        .mp-mobile-actionbar.is-visible { display: flex; }
+        body.mp-cartbar-on { padding-bottom: 64px; } /* espacio solo cuando hay barra */
     }
 
     /* ───────────── Filtros como modal en móvil (overlay) ───────────── */
@@ -1401,10 +1405,12 @@
      El botn Filtrar y el dropdown Ordenar viven ahora en
      mp-mobile-topbar arriba, lo que evita redundancia y libera espacio
      visual. --}}
-<div class="mp-mobile-actionbar" aria-hidden="false">
+<div class="mp-mobile-actionbar" aria-hidden="true">
     <a href="{{ route('marketplace.cart') }}" class="mp-mab-btn mp-mab-btn--primary mp-mab-btn--full">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
-        Ver carrito
+        <span>Ver carrito</span>
+        <span class="mp-mab-count" id="mpMabCount"></span>
+        <span class="mp-mab-total" id="mpMabTotal"></span>
     </a>
 </div>
 
