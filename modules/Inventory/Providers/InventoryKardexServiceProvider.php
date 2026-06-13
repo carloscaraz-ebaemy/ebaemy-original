@@ -270,8 +270,16 @@ class InventoryKardexServiceProvider extends ServiceProvider
 
                 $presentationQuantity = (!empty($sale_note_item->item->presentation)) ? $sale_note_item->item->presentation->quantity_unit : 1;
 
-                // $warehouse = $this->findWarehouse($sale_note_item->sale_note->establishment_id);
-                $warehouse = ($sale_note_item->warehouse_id) ? $this->findWarehouse($this->findWarehouseById($sale_note_item->warehouse_id)->establishment_id) : $this->findWarehouse($sale_note_item->sale_note->establishment_id);
+                // Descontar del almacén EXACTO elegido en la línea (warehouse_id),
+                // no del primer almacén del establecimiento. findWarehouse(establishment_id)
+                // hacía firstOrCreate y devolvía el almacén canónico del establecimiento,
+                // ignorando la selección del usuario: si el stock estaba en un almacén
+                // distinto (p.ej. "Oficina Principal") y la NV salía de otro ("tienda 3"),
+                // descontaba de un almacén con 0 → "no tiene suficiente stock". Usar el
+                // warehouse_id directo respeta el selector por línea. No-op cuando el
+                // establecimiento tiene un solo almacén. El handler de borrado abajo usa
+                // la misma resolución para que devolución y descuento sean simétricos.
+                $warehouse = ($sale_note_item->warehouse_id) ? $this->findWarehouseById($sale_note_item->warehouse_id) : $this->findWarehouse($sale_note_item->sale_note->establishment_id);
 
                 // $this->createInventoryKardex($sale_note_item->sale_note, $sale_note_item->item_id, (-1 * ($sale_note_item->quantity * $presentationQuantity)), $warehouse->id);
                 $this->createInventoryKardexSaleNote($sale_note_item->sale_note, $sale_note_item->item_id, (-1 * ($sale_note_item->quantity * $presentationQuantity)), $warehouse->id, $sale_note_item->id);
@@ -368,8 +376,9 @@ class InventoryKardexServiceProvider extends ServiceProvider
 
                 $presentationQuantity = (!empty($sale_note_item->item->presentation)) ? $sale_note_item->item->presentation->quantity_unit : 1;
 
-                // $warehouse = $this->findWarehouse();
-                $warehouse = ($sale_note_item->warehouse_id) ? $this->findWarehouse($this->findWarehouseById($sale_note_item->warehouse_id)->establishment_id) : $this->findWarehouse($sale_note_item->sale_note->establishment_id);
+                // Devolución simétrica al descuento: mismo almacén EXACTO (warehouse_id)
+                // que se usó al crear la línea. Ver comentario en sale_note() arriba.
+                $warehouse = ($sale_note_item->warehouse_id) ? $this->findWarehouseById($sale_note_item->warehouse_id) : $this->findWarehouse($sale_note_item->sale_note->establishment_id);
 
                 $this->createInventoryKardex($sale_note_item->sale_note, $sale_note_item->item_id, ($sale_note_item->quantity * $presentationQuantity), $warehouse->id);
                 // $this->deleteInventoryKardex($sale_note_item->sale_note, $sale_note_item->inventory_kardex_id);
