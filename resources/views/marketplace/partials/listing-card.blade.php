@@ -79,9 +79,10 @@
                 @endif
             @endif
             @if($listing->tenant_verified)
-                <span class="mp-badge mp-badge--verified" title="Tienda verificada">
-                    <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l2.39 5.42L20 8.27l-4 4.15.94 5.58L12 15.77l-4.94 2.23L8 12.42 4 8.27l5.61-.85L12 2z"/></svg>
-                    Verificado
+                {{-- Solo ícono (✓) para no tapar la imagen del producto.
+                     El texto "Verificado" queda en el title (hover) + detalle. --}}
+                <span class="mp-badge mp-badge--verified" title="Tienda verificada" aria-label="Tienda verificada">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
                 </span>
             @endif
             @if($cardHasOfferBadge)

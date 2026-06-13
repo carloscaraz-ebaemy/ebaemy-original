@@ -262,6 +262,16 @@
         font-weight: 800;
         letter-spacing: .3px;
     }
+    /* Verificado: solo ícono en círculo (no tapa la imagen del producto). */
+    .mp-badge--verified {
+        padding: 0 !important;
+        width: 20px; height: 20px; min-width: 20px;
+        border-radius: 999px;
+        display: inline-flex; align-items: center; justify-content: center;
+        background: #0ea5e9; color: #fff;
+        box-shadow: 0 2px 6px -2px rgba(2,132,199,.5);
+    }
+    .mp-badge--verified svg { width: 12px; height: 12px; }
     .mp-badge--flash {
         background: linear-gradient(135deg, #f97316, #ea580c);
         color: #fff;
