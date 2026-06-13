@@ -283,7 +283,14 @@ class InventoryKardexServiceProvider extends ServiceProvider
 
                 // $this->createInventoryKardex($sale_note_item->sale_note, $sale_note_item->item_id, (-1 * ($sale_note_item->quantity * $presentationQuantity)), $warehouse->id);
                 $this->createInventoryKardexSaleNote($sale_note_item->sale_note, $sale_note_item->item_id, (-1 * ($sale_note_item->quantity * $presentationQuantity)), $warehouse->id, $sale_note_item->id);
-                if(!$sale_note_item->sale_note->order_note_id) $this->updateStock($sale_note_item->item_id, (-1 * ($sale_note_item->quantity * $presentationQuantity)), $warehouse->id);
+                // DESACTIVADO: el descuento del stock del PADRE ahora lo maneja
+                // SaleNoteStockService (app/Providers/InventoryKardexServiceProvider →
+                // onItemCreated → applyStockMovement), que descuenta stock_physical Y
+                // sincroniza stock = stock_physical. Mantener este updateStock legacy
+                // duplicaba el descuento del campo `stock` (quedaba en negativo/desfasado
+                // mientras `stock_physical` quedaba correcto). La lógica de VARIANTES de
+                // abajo NO está en el sistema nuevo, por eso se conserva.
+                // if(!$sale_note_item->sale_note->order_note_id) $this->updateStock($sale_note_item->item_id, (-1 * ($sale_note_item->quantity * $presentationQuantity)), $warehouse->id);
 
                 // ── Descontar stock de variante ───────────────────────────
                 $variantId = $sale_note_item->item->variant_id ?? null;
@@ -382,7 +389,11 @@ class InventoryKardexServiceProvider extends ServiceProvider
 
                 $this->createInventoryKardex($sale_note_item->sale_note, $sale_note_item->item_id, ($sale_note_item->quantity * $presentationQuantity), $warehouse->id);
                 // $this->deleteInventoryKardex($sale_note_item->sale_note, $sale_note_item->inventory_kardex_id);
-                $this->updateStock($sale_note_item->item_id, (1 * ($sale_note_item->quantity * $presentationQuantity)), $warehouse->id);
+                // DESACTIVADO (simétrico al descuento): la DEVOLUCIÓN del stock del padre
+                // ahora la maneja SaleNoteStockService → onItemDeleted → applyStockMovement.
+                // Mantener este updateStock legacy duplicaba la devolución del campo `stock`.
+                // La devolución de VARIANTES de abajo se conserva (no está en el nuevo).
+                // $this->updateStock($sale_note_item->item_id, (1 * ($sale_note_item->quantity * $presentationQuantity)), $warehouse->id);
 
                 // ── Revertir stock de variante ────────────────────────────
                 $variantId = $sale_note_item->item->variant_id ?? null;
