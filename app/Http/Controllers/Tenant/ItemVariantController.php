@@ -70,8 +70,13 @@ class ItemVariantController extends Controller
 
     public function saveOptions(Request $request, Item $item): JsonResponse
     {
+        // 'present' (no 'required|min:1') permite enviar lista VACÍA para
+        // eliminar todas las variantes y volver el producto a "simple":
+        // syncVariants() detecta opciones vacías → desactiva variantes y pone
+        // has_variants=false. Las reglas por-opción solo aplican cuando hay
+        // opciones, así que no estorban al caso vacío.
         $data = $request->validate([
-            'options'                       => 'required|array|min:1|max:5',
+            'options'                       => 'present|array|max:5',
             'options.*.name'                => 'required|string|max:80',
             'options.*.position'            => 'integer|min:0',
             'options.*.values'              => 'required|array|min:1',

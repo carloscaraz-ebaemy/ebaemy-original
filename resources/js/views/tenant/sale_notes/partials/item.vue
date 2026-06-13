@@ -280,10 +280,16 @@
                                     >{{ val.value }}</button>
                                 </div>
                             </div>
-                            <div v-if="resolvedVariant" style="margin-top:6px;padding:6px 10px;background:#f0f9eb;border-radius:6px;display:flex;align-items:center;gap:8px;">
+                            <div v-if="resolvedVariant" style="margin-top:6px;padding:6px 10px;background:#f0f9eb;border-radius:6px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
                                 <i class="el-icon-check" style="color:#67C23A;font-weight:700;"></i>
                                 <span style="font-size:12px;color:#67C23A;font-weight:600;">{{ resolvedVariant.display_name }}</span>
-                                <span v-if="resolvedVariant.sale_unit_price" style="font-size:12px;color:#606266;margin-left:auto;">
+                                <span style="margin-left:auto;display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:600;"
+                                      :style="{color: parseFloat(resolvedVariant.stock || 0) > 0 ? '#67C23A' : '#F56C6C'}"
+                                      :title="parseFloat(resolvedVariant.stock || 0) > 0 ? 'Stock disponible de esta variante' : 'Sin stock en esta variante'">
+                                    <i class="fa fa-cubes" style="font-size:10px;opacity:.8"></i>
+                                    Stock: {{ parseFloat(resolvedVariant.stock || 0) }}
+                                </span>
+                                <span v-if="resolvedVariant.sale_unit_price" style="font-size:12px;color:#606266;">
                                     S/ {{ parseFloat(resolvedVariant.sale_unit_price).toFixed(2) }}
                                 </span>
                             </div>
