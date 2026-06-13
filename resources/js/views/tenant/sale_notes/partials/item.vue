@@ -3,6 +3,7 @@
         :close-on-click-modal="false"
         :title="titleDialog"
         :visible="showDialog"
+        custom-class="sn-item-modal"
         top="7vh"
         @close="close"
         @open="create"
@@ -289,6 +290,10 @@
                             <el-alert v-if="variantNotFound" type="warning" :closable="false"
                                       title="Combinación no disponible. Elige otra opción." show-icon style="margin-top:6px;" />
                         </div>
+                    </div>
+
+                    <div class="col-12">
+                        <div class="sn-section">Cantidad, precio e impuestos</div>
                     </div>
 
                     <div class="col-md-5">
@@ -924,6 +929,87 @@
 .el-select-dropdown {
     max-width: 80% !important;
     margin-right: 5% !important;
+}
+
+/* ── Modal "Editar Producto o Servicio" — organización profesional ──────────
+   Solo presentación. No altera ninguna lógica/binding del template.
+   Alcance acotado a .sn-item-modal (custom-class del el-dialog). */
+.sn-item-modal {
+    width: 760px !important;
+    max-width: 96vw !important;
+    border-radius: 12px;
+    overflow: hidden;
+}
+.sn-item-modal .el-dialog__header {
+    padding: 18px 24px 14px;
+    border-bottom: 1px solid #eef0f4;
+}
+.sn-item-modal .el-dialog__title {
+    font-size: 16px;
+    font-weight: 700;
+    color: #2d3142;
+    letter-spacing: .2px;
+}
+.sn-item-modal .el-dialog__headerbtn { top: 20px; }
+.sn-item-modal .el-dialog__body { padding: 20px 24px 8px; }
+
+/* Ritmo vertical uniforme entre campos */
+.sn-item-modal .form-group { margin-bottom: 18px; }
+
+/* Etiquetas: jerarquía clara, mayúsculas discretas */
+.sn-item-modal .control-label {
+    display: block;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: .4px;
+    color: #8a909c;
+    margin-bottom: 6px;
+}
+
+/* Inputs/selects ocupan el ancho de su columna → alineación consistente */
+.sn-item-modal .el-input,
+.sn-item-modal .el-select,
+.sn-item-modal .el-input-number,
+.sn-item-modal .currency-container { width: 100%; }
+
+/* Checkboxes con aire y agrupados */
+.sn-item-modal .el-checkbox { margin: 6px 16px 0 0; }
+
+/* Encabezado de sección con hairline a la derecha */
+.sn-item-modal .sn-section {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin: 8px 0 16px;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .6px;
+    color: #5a6acf;
+}
+.sn-item-modal .sn-section::after {
+    content: "";
+    flex: 1;
+    height: 1px;
+    background: #eef0f4;
+}
+
+/* Pie de acciones separado del cuerpo */
+.sn-item-modal .form-actions {
+    border-top: 1px solid #eef0f4;
+    padding: 16px 0 4px;
+    margin-top: 8px;
+}
+.sn-item-modal .form-actions .el-button { min-width: 96px; }
+
+/* Móvil: ocupa casi toda la pantalla y deja respirar */
+@media (max-width: 768px) {
+    .sn-item-modal {
+        width: 96vw !important;
+        margin-top: 4vh !important;
+    }
+    .sn-item-modal .el-dialog__body { padding: 16px 16px 8px; }
 }
 </style>
 
