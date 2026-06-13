@@ -541,7 +541,41 @@ class MarketplaceListingSyncService
             }
         }
 
+        // Caso final (último recurso): oferta "tipo Saga" vía compare_at_price.
+        // No interfiere con flash sales / promos (que tienen precedencia arriba):
+        // solo aplica si NINGUNA otra oferta ganó. Aquí el precio que paga el
+        // cliente YA es sale_unit_price; compare_at_price es el precio normal
+        // tachado. Vigencia opcional [compare_at_from, compare_at_until].
+        $compareAt = (float) ($item->compare_at_price ?? 0);
+        if ($salePrice > 0 && $compareAt > $salePrice && $this->compareAtActive($item)) {
+            $ends = null;
+            if (!empty($item->compare_at_until)) {
+                try { $ends = \Illuminate\Support\Carbon::parse($item->compare_at_until)->endOfDay()->toDateTimeString(); } catch (\Throwable $e) {}
+            }
+            return [
+                'is_on_offer'    => true,
+                'original_price' => $compareAt,
+                'offer_ends_at'  => $ends,
+                'discount_pct'   => (int) round((1 - $salePrice / $compareAt) * 100),
+                'discount_source'=> 'compare_at',
+            ];
+        }
+
         return $this->emptyOfferInfo();
+    }
+
+    /**
+     * ¿La oferta de compare_at_price está vigente? (rango opcional)
+     */
+    private function compareAtActive($item): bool
+    {
+        try {
+            $from  = $item->compare_at_from ?? null;
+            $until = $item->compare_at_until ?? null;
+            if ($from  && now()->lt(\Illuminate\Support\Carbon::parse($from)->startOfDay()))  return false;
+            if ($until && now()->gt(\Illuminate\Support\Carbon::parse($until)->endOfDay()))    return false;
+        } catch (\Throwable $e) {}
+        return true;
     }
 
     private function emptyOfferInfo(): array
