@@ -1564,9 +1564,16 @@
         margin-top: 2px;
     }
 
-    /* Mobile: cards mas compactas, ocultar nav buttons (swipe nativo) */
+    /* Mobile: carrusel real. Ancho fijo (~44%) en vez de 1fr para que las cards
+       NO se estiren a llenar la pantalla; así siempre asoma la siguiente card y
+       se ve/desliza como carrusel aunque haya pocos productos. */
     @media (max-width: 700px) {
-        .mp-related__rail { grid-auto-columns: minmax(160px, 1fr); gap: 10px; }
+        .mp-related__rail {
+            grid-auto-columns: 44%;
+            gap: 10px;
+            /* quitar el mask-fade en móvil: con pocas cards recortaba raro */
+            -webkit-mask-image: none; mask-image: none;
+        }
         .mp-related__nav { display: none; }
         .mp-related__card-title { font-size: 12.5px; min-height: 32px; }
         .mp-related__card-price { font-size: 15px; }
