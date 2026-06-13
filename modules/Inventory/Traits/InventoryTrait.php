@@ -375,11 +375,25 @@ trait InventoryTrait
                                            ->lockForUpdate()
                                            ->first();
 
+            $iwIsNew = false;
             if (!$item_warehouse) {
                 $item_warehouse = new ItemWarehouse(['item_id' => $item_id, 'warehouse_id' => $warehouse_id, 'stock' => 0]);
+                $iwIsNew = true;
             }
 
             $item_warehouse->stock = $item_warehouse->stock + $quantity;
+
+            // Provisión inicial (stock inicial al registrar producto / primer
+            // movimiento de la fila): sincronizar stock_physical con stock para
+            // que el sistema nuevo de venta/despacho (que lee stock_physical) vea
+            // el stock desde el inicio. SOLO en filas nuevas con cantidad positiva:
+            // en filas existentes NO se toca, para no duplicar con applyStockMovement
+            // (que ya maneja stock_physical en las ventas). Sin esto, los productos
+            // recién registrados quedaban con stock_physical=0 y la venta los
+            // rechazaba aunque "stock" mostrara unidades. Ver skill ebaemy-stock-flow.
+            if ($iwIsNew && $quantity > 0 && empty($item_warehouse->stock_physical)) {
+                $item_warehouse->stock_physical = $item_warehouse->stock;
+            }
 
             if ($quantity < 0 && $item_warehouse->item->unit_type_id !== 'ZZ') {
                 if (($inventory_configuration->stock_control) && ($item_warehouse->stock < 0)) {
