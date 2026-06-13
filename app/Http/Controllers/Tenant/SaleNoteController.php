@@ -770,6 +770,38 @@ class SaleNoteController extends Controller
                     $row['item']['lots'] = isset($row['lots']) ? $row['lots']:$row['item']['lots'];
                 }
 
+                // ── Resolver el almacén con stock REAL ───────────────────────
+                // Multi-sucursal: si la línea no trae warehouse_id, o trae uno
+                // donde el producto NO tiene stock suficiente, descontar del
+                // almacén donde el producto SÍ lo tiene (el de mayor stock). Esto
+                // evita "El producto X no tiene suficiente stock!" cuando todo el
+                // stock vive en otro almacén (p.ej. Oficina Principal) distinto al
+                // que llega por defecto. Si el almacén elegido ya tiene stock, se
+                // respeta. Se persiste en la línea (warehouse_id) para que el
+                // descuento (created) y la devolución (deleted) del observer de
+                // inventario usen el MISMO almacén — sin esto se corrompe el stock.
+                if (!empty($row['item_id'])) {
+                    $needQty    = (float) ($row['quantity'] ?? 0);
+                    $chosenWh   = $row['warehouse_id'] ?? null;
+                    $okInChosen = $chosenWh && ItemWarehouse::where('item_id', $row['item_id'])
+                        ->where('warehouse_id', $chosenWh)
+                        ->where('stock', '>=', $needQty)
+                        ->exists();
+                    if (!$okInChosen) {
+                        $best = ItemWarehouse::where('item_id', $row['item_id'])
+                                ->where('stock', '>=', $needQty)
+                                ->orderByDesc('stock')
+                                ->first()
+                            ?: ItemWarehouse::where('item_id', $row['item_id'])
+                                ->where('stock', '>', 0)
+                                ->orderByDesc('stock')
+                                ->first();
+                        if ($best) {
+                            $row['warehouse_id'] = $best->warehouse_id;
+                        }
+                    }
+                }
+
                 $this->setIdLoteSelectedToItem($row);
                 $sale_note_item->fill($row);
                 $sale_note_item->sale_note_id = $this->sale_note->id;
