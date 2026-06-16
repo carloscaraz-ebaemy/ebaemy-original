@@ -2141,6 +2141,27 @@ button { font-family: inherit; cursor: pointer; }
         border-radius: var(--mp-radius);
         border: 1px solid var(--mp-line-soft);
     }
+    /* En móvil los 6 ítems envolvían en filas irregulares y ocupaban mucho
+       alto. Grilla 3×2 compacta: ícono arriba, etiqueta (puede ir a 2 líneas)
+       debajo, todo centrado. 2 filas limpias en vez de 3-4 desparejas. */
+    .mp-trust-sticky-inner {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 8px 6px;
+        overflow: visible;
+        padding: 12px 8px;
+    }
+    .mp-trust-sticky-item {
+        flex-direction: column;
+        justify-content: flex-start;
+        text-align: center;
+        gap: 5px;
+        padding: 4px 2px;
+        font-size: 11px;
+        line-height: 1.2;
+        white-space: normal;
+    }
+    .mp-trust-sticky-item svg { width: 20px; height: 20px; }
 }
 .mp-trust-sticky-inner {
     max-width: var(--mp-container-w);
