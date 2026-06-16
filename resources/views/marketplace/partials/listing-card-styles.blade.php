@@ -72,7 +72,7 @@
     .mp-card-img {
         position: relative;
         aspect-ratio: 1 / 1;
-        background: #f7f9fb;
+        background: #fff;
         overflow: hidden;
     }
     .mp-card-img img { transition: transform .35s ease; }
@@ -83,7 +83,9 @@
     .mp-card-img-secondary {
         position: absolute; top: 0; left: 0;
         width: 100%; height: 100%;
-        object-fit: cover;
+        box-sizing: border-box;
+        padding: 8px;              /* aire alrededor: look premium, el producto no toca los bordes */
+        object-fit: contain;       /* era 'cover' (recortaba). 'contain' muestra la foto COMPLETA */
         transition: opacity .25s ease, transform .35s ease;
     }
     .mp-card-img-secondary { opacity: 0; }
