@@ -323,8 +323,23 @@
     }
     @media (max-width: 640px) {
         .mp-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
-        .mp-card-body { padding: 10px 10px 12px; }
-        .mp-card-title { font-size: 13px; }
+        /* Pasada de densidad de la card en móvil: textos, acciones y badges
+           ocupaban demasiado y dejaban poco producto por pantalla. */
+        .mp-card-body { padding: 9px 10px 11px; gap: 4px; }
+        .mp-card-title { font-size: 12.5px; line-height: 1.3; min-height: 2.6em; }
         .mp-card-price { font-size: 15px; }
+        .mp-card-price-old { font-size: 11.5px; }
+        .mp-card-price-pct { font-size: 10px; padding: 1px 5px; }
+        /* Acciones más compactas (siguen siendo tappables). */
+        .mp-card-fav { width: 34px; height: 34px; top: 6px; right: 6px; }
+        .mp-card-fav svg, .mp-card-fav-icon { width: 16px; height: 16px; }
+        .mp-card-quickadd { width: 36px; height: 36px; }
+        .mp-card-quickadd svg { width: 18px; height: 18px; }
+        /* Badge superior más chico. */
+        .mp-card-badges { top: 6px; left: 6px; gap: 4px; }
+        .mp-badge { padding: 3px 7px; font-size: 9.5px; }
+        /* "Ahorras S/X": el chip -X% y el precio tachado ya comunican el
+           descuento. En móvil lo ocultamos para bajar altura y ruido. */
+        .mp-card-saving-line { display: none; }
     }
 </style>
