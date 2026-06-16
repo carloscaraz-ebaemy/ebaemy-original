@@ -213,7 +213,19 @@ body.mp-sheet-open { overflow: hidden; }
             var doc = new DOMParser().parseFromString(html, 'text/html');
             var main = doc.querySelector('main.mp-container') || doc.querySelector('main') || doc.body;
             if (!main) throw new Error('No se encontr el contenido');
-            content.innerHTML = main.innerHTML;
+            // show.blade empuja sus estilos con @push('styles') → terminan en el
+            // <head> vía @stack('styles'), NO dentro de <main>. Como solo
+            // inyectamos main.innerHTML, esos <style> (bloque de precio,
+            // galería, carrusel "También te puede interesar", etc.) se perdían
+            // y esas secciones salían sin CSS. Copiamos los <style> inline del
+            // doc parseado al inicio del contenido. Son reglas scoped .mp-*
+            // así que duplicar las que ya existen en el padre es inocuo, y al
+            // estar dentro de #mpSheetContent se limpian al cerrar el sheet.
+            var stylesHtml = '';
+            doc.querySelectorAll('style').forEach(function (s) {
+                stylesHtml += '<style>' + s.textContent + '</style>';
+            });
+            content.innerHTML = stylesHtml + main.innerHTML;
             executeScripts(content);
             hideLoader();
             content.scrollTop = 0;
