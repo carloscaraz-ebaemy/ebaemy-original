@@ -894,6 +894,32 @@
             Filtros{{ $hasFilters ? ' ' : '' }}
         </button>
     </div>
+    <script>
+    // Barra Ordenar+Filtros sticky-on-scroll (solo móvil). Se mantiene fuera
+    // del flujo y solo aparece, pegada bajo el header sticky, al bajar pasado
+    // un umbral. Reclama el espacio fijo que antes ocupaba arriba.
+    (function () {
+        var bar = document.querySelector('.mp-mobile-topbar');
+        if (!bar) return;
+        var nav = document.querySelector('.mp-nav');
+        var mq  = window.matchMedia('(max-width: 768px)');
+        var ticking = false;
+        function apply() {
+            ticking = false;
+            if (!mq.matches) { bar.classList.remove('is-stuck'); return; }
+            // Pegar justo debajo del header sticky usando su altura real.
+            bar.style.top = (nav ? nav.offsetHeight : 0) + 'px';
+            if (window.scrollY > 320) bar.classList.add('is-stuck');
+            else bar.classList.remove('is-stuck');
+        }
+        function onScroll() {
+            if (!ticking) { ticking = true; requestAnimationFrame(apply); }
+        }
+        window.addEventListener('scroll', onScroll, { passive: true });
+        window.addEventListener('resize', apply);
+        apply();
+    })();
+    </script>
 
     <aside class="mp-filters-card" id="mpFilters">
         <div class="mp-filters-header">
@@ -1289,11 +1315,31 @@
     */
     .mp-mobile-topbar { display: none; }
     @media (max-width: 768px) {
+        /* Barra Ordenar+Filtros: ya NO ocupa una fila fija al inicio. Sale del
+           flujo (fixed) y aparece pegada justo debajo del header sticky solo
+           al hacer scroll hacia abajo. El JS fija el `top` según la altura
+           real del .mp-nav; z-index < nav (50) para que se deslice oculta
+           detrás del header cuando está retraída. */
         .mp-mobile-topbar {
             display: flex;
             gap: 8px;
-            margin: 0 0 12px;
-            padding: 0;
+            position: fixed;
+            left: 0; right: 0; top: 0;
+            z-index: 45;
+            margin: 0;
+            padding: 8px clamp(12px, 3vw, 24px);
+            background: rgba(255,255,255,.97);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            border-bottom: 1px solid #e5e7eb;
+            box-shadow: 0 6px 16px -10px rgba(0,0,0,.18);
+            transform: translateY(-120%);
+            transition: transform .25s ease;
+            pointer-events: none;
+        }
+        .mp-mobile-topbar.is-stuck {
+            transform: translateY(0);
+            pointer-events: auto;
         }
         .mp-mobile-topbar__btn {
             flex: 1;
@@ -1301,7 +1347,7 @@
             align-items: center;
             justify-content: center;
             gap: 6px;
-            min-height: 42px;
+            min-height: 38px;
             padding: 0 14px;
             border-radius: 10px;
             border: 1px solid #e2e8f0;
