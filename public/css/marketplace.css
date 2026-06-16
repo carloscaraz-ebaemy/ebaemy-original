@@ -2337,6 +2337,26 @@ button { font-family: inherit; cursor: pointer; }
 @media (min-width: 640px) { .mp-shops-row { grid-template-columns: repeat(3, 1fr); } }
 @media (min-width: 900px) { .mp-shops-row { grid-template-columns: repeat(4, 1fr); } }
 @media (min-width: 1200px){ .mp-shops-row { grid-template-columns: repeat(6, 1fr); } }
+/* En móvil las tiendas se apilaban en 2 columnas ocupando mucho alto. Las
+   pasamos a un carrusel horizontal deslizable (scroll-snap): cards de ancho
+   fijo, se asoma la siguiente para invitar a deslizar. Ocupa una sola fila. */
+@media (max-width: 639px) {
+    .mp-shops-row {
+        display: flex;
+        gap: 10px;
+        overflow-x: auto;
+        scroll-snap-type: x proximity;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: none;
+        padding-bottom: 4px;
+    }
+    .mp-shops-row::-webkit-scrollbar { display: none; }
+    .mp-shop-card {
+        flex: 0 0 148px;
+        scroll-snap-align: start;
+        padding: 16px 12px;
+    }
+}
 
 .mp-shop-card {
     background: #fff;
