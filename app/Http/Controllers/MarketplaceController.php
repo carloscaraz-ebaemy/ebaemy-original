@@ -111,12 +111,24 @@ class MarketplaceController extends Controller
                 $query->orderByRaw('CASE WHEN is_featured = 1 AND (featured_until IS NULL OR featured_until > NOW()) THEN 1 ELSE 0 END DESC')
                       ->orderByDesc('featured_score')
                       ->orderByRaw('CASE WHEN created_at >= ? THEN 1 ELSE 0 END DESC', [now()->subDays(14)->toDateTimeString()])
+                      ->orderByDesc('tenant_verified')   // tiendas verificadas primero (refuerza propuesta de valor)
                       ->orderByDesc('sort_score')
                       ->orderByDesc('view_count')
                       ->orderByDesc('created_at');
         }
 
         $listings   = $query->paginate(24)->withQueryString();
+
+        // Diversidad de tiendas: en el orden por relevancia (home/explorar),
+        // intercalamos los productos por tienda para que la primera pantalla
+        // muestre VARIAS tiendas en vez de 24 productos de una sola. Mejora
+        // la experiencia (más variedad = más clics) y reparte exposición a
+        // los sellers. NO se aplica en price/newest, donde el comprador pidió
+        // un orden explícito. Reordena solo la página visible, conserva el
+        // ranking interno de cada tienda (destacados/relevancia primero).
+        if ($sort === 'relevance') {
+            $this->diversifyBySeller($listings);
+        }
 
         // Decora cada listing con los datos que la card necesita: dots de
         // color, thumbs de variantes con imagen, imagen primaria heredada
@@ -524,6 +536,49 @@ class MarketplaceController extends Controller
         }
 
         return response()->json(['ok' => false]);
+    }
+
+    /**
+     * Diversidad de tiendas: reordena la página visible intercalando los
+     * productos por tienda (round-robin sobre hostname_id) para que la
+     * primera pantalla muestre varias tiendas en vez de un bloque de una
+     * sola. Conserva el ranking interno de cada tienda (el primero de cada
+     * bucket sigue siendo su producto mejor rankeado: destacado/relevante).
+     *
+     * Solo reordena la página actual ya paginada — no altera el total ni la
+     * paginación. Tiendas con mejor ranking lideran cada ronda (el orden de
+     * los buckets respeta el primer producto de cada tienda en el ranking).
+     */
+    private function diversifyBySeller($paginator): void
+    {
+        $items = $paginator->getCollection();
+        if ($items->count() < 3) return;
+
+        // Agrupa preservando el orden de ranking dentro de cada tienda.
+        $buckets = [];
+        foreach ($items as $it) {
+            $buckets[$it->hostname_id ?? 0][] = $it;
+        }
+        // Si todo es de la misma tienda no hay nada que intercalar.
+        if (count($buckets) < 2) return;
+
+        // Round-robin: una pasada por ronda toma el i-ésimo producto de cada
+        // tienda. Resultado: tienda A, tienda B, tienda C, … y vuelta.
+        $ordered = [];
+        $round   = 0;
+        $pending = true;
+        while ($pending) {
+            $pending = false;
+            foreach ($buckets as $bucket) {
+                if (isset($bucket[$round])) {
+                    $ordered[] = $bucket[$round];
+                    $pending   = true;
+                }
+            }
+            $round++;
+        }
+
+        $paginator->setCollection(collect($ordered));
     }
 
     /**
