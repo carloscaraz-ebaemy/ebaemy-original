@@ -1251,6 +1251,20 @@
                 @endforeach
             </div>
 
+            {{-- Scroll infinito: el sentinel guarda la URL de la siguiente
+                 página (con filtros preservados). El JS observa el sentinel y
+                 va anexando cards. La paginación queda como fallback sin-JS
+                 (el JS la oculta al activarse). --}}
+            @if($listings->hasMorePages())
+                <div id="mpInfiniteSentinel"
+                     data-next-url="{{ $listings->appends(request()->except('page'))->nextPageUrl() }}"
+                     aria-hidden="true"></div>
+                <div id="mpInfiniteLoader" class="mp-infinite-loader" hidden>
+                    <span class="mp-infinite-spinner" aria-hidden="true"></span>
+                    <span>Cargando más productos…</span>
+                </div>
+            @endif
+
             <div class="mp-pag">
                 {{ $listings->links('pagination::bootstrap-4') }}
             </div>
@@ -1262,6 +1276,65 @@
         @endif
     </div>
 </div>
+
+<script>
+// ════════ Scroll infinito del listado ════════
+// Observa el sentinel y va anexando las cards de la siguiente página vía
+// fetch + DOMParser. Preserva filtros (la URL viene del paginador con
+// appends). Las cards usan handlers delegados en document (ver
+// listing-card-script), así que funcionan sin re-bindear; lo no-delegado
+// (galería hover, estado de favoritos, badges de cupón) se re-hidrata con
+// el evento 'mp:cards-appended'. La paginación se oculta al activarse.
+(function () {
+    var grid     = document.querySelector('.mp-grid');
+    var sentinel = document.getElementById('mpInfiniteSentinel');
+    if (!grid || !sentinel || !('IntersectionObserver' in window)) return;
+
+    var loader = document.getElementById('mpInfiniteLoader');
+    var pag    = document.querySelector('.mp-pag');
+    if (pag) pag.style.display = 'none';
+
+    var nextUrl = sentinel.dataset.nextUrl || null;
+    var loading = false;
+
+    function setLoader(on) { if (loader) loader.hidden = !on; }
+
+    async function loadMore() {
+        if (loading || !nextUrl) return;
+        loading = true;
+        setLoader(true);
+        try {
+            var resp = await fetch(nextUrl, {
+                headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                credentials: 'same-origin',
+            });
+            if (!resp.ok) throw new Error('HTTP ' + resp.status);
+            var doc = new DOMParser().parseFromString(await resp.text(), 'text/html');
+            var newGrid = doc.querySelector('.mp-grid');
+            if (newGrid) {
+                grid.insertAdjacentHTML('beforeend', newGrid.innerHTML);
+                window.dispatchEvent(new CustomEvent('mp:cards-appended', { detail: { grid: grid } }));
+            }
+            // La URL de la siguiente página la trae el nuevo sentinel.
+            var ns = doc.getElementById('mpInfiniteSentinel');
+            nextUrl = ns ? (ns.dataset.nextUrl || null) : null;
+            if (!nextUrl) observer.disconnect();
+        } catch (e) {
+            // Falla de red → restaurar paginación como fallback y parar.
+            if (pag) pag.style.display = '';
+            observer.disconnect();
+        } finally {
+            loading = false;
+            setLoader(false);
+        }
+    }
+
+    var observer = new IntersectionObserver(function (entries) {
+        if (entries[0].isIntersecting) loadMore();
+    }, { rootMargin: '700px 0px' });
+    observer.observe(sentinel);
+})();
+</script>
 
 {{-- ═══════════════════════ TIENDAS DESTACADAS (después de productos) ═══════════════════════ --}}
 @if($featuredShops->count() >= 3)
@@ -1313,6 +1386,27 @@
        Solo visible en mobile (<=768px). En desktop el ordenar vive en
        .mp-toolbar (lado derecho) y los filtros estn en el sidebar.
     */
+    /* Loader del scroll infinito */
+    .mp-infinite-loader {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 10px;
+        padding: 20px 0;
+        color: #6b7280;
+        font-size: 13.5px;
+        font-weight: 500;
+    }
+    .mp-infinite-loader[hidden] { display: none; }
+    .mp-infinite-spinner {
+        width: 18px; height: 18px;
+        border: 2.5px solid #e5e7eb;
+        border-top-color: var(--mp-primary, #0f8a82);
+        border-radius: 50%;
+        animation: mpInfiniteSpin .7s linear infinite;
+    }
+    @keyframes mpInfiniteSpin { to { transform: rotate(360deg); } }
+
     .mp-mobile-topbar { display: none; }
     @media (max-width: 768px) {
         /* Barra Ordenar+Filtros: ya NO ocupa una fila fija al inicio. Sale del

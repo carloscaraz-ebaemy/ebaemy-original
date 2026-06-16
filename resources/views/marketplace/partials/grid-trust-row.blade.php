@@ -74,11 +74,28 @@
     @media (max-width: 860px) {
         .mp-grid-trust { grid-template-columns: repeat(2, 1fr); gap: 12px; padding: 16px; }
     }
-    @media (max-width: 460px) {
-        .mp-grid-trust__icon { width: 36px; height: 36px; }
-        .mp-grid-trust__icon svg { width: 17px; height: 17px; }
-        .mp-grid-trust__txt strong { font-size: 12.5px; }
-        .mp-grid-trust__txt small { font-size: 11px; }
+    /* En móvil el 2×2 ocupaba mucho alto y duplicaba el bloque de garantías
+       del footer. Lo pasamos a una tira horizontal deslizable de chips
+       (solo ícono + título, sin subtítulo) en una sola línea. */
+    @media (max-width: 600px) {
+        .mp-grid-trust {
+            grid-template-columns: none;
+            display: flex;
+            gap: 8px;
+            overflow-x: auto;
+            scroll-snap-type: x proximity;
+            -webkit-overflow-scrolling: touch;
+            scrollbar-width: none;
+            padding: 10px 12px;
+            margin-top: 16px;
+        }
+        .mp-grid-trust::-webkit-scrollbar { display: none; }
+        .mp-grid-trust__item { flex: 0 0 auto; gap: 7px; scroll-snap-align: start; }
+        .mp-grid-trust__icon { width: 30px; height: 30px; }
+        .mp-grid-trust__icon svg { width: 15px; height: 15px; }
+        .mp-grid-trust__txt { flex-direction: row; }
+        .mp-grid-trust__txt small { display: none; }
+        .mp-grid-trust__txt strong { font-size: 12px; white-space: nowrap; }
     }
 </style>
 @endpush
