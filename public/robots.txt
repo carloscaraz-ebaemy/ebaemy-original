@@ -16,6 +16,17 @@ Disallow: /storage/uploads/
 Disallow: /seller/application/
 Disallow: /marketplace/gracias/
 
+# Páginas de cuenta/compra: no aportan a búsqueda y NO deben rankear como
+# resultado de marca (antes salía /marketplace/login como resultado #1).
+Disallow: /marketplace/login
+Disallow: /marketplace/register
+Disallow: /marketplace/auth/
+Disallow: /marketplace/account
+Disallow: /marketplace/cart
+Disallow: /marketplace/checkout
+Disallow: /marketplace/favoritos
+Disallow: /marketplace/favorites
+
 User-agent: GPTBot
 Disallow: /
 

@@ -2,6 +2,7 @@
 
 @section('title', 'Tu carrito — Marketplace ebaemy')
 @section('description', 'Revisa los productos de tu carrito agrupados por tienda. Cada tienda gestiona su propia entrega y comprobante.')
+@section('robots', 'noindex, follow')
 @section('canonical', route('marketplace.cart'))
 
 @push('styles')

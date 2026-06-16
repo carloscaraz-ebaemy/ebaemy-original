@@ -2,6 +2,7 @@
 
 @section('title', 'Finalizar pedido — Marketplace ebaemy')
 @section('description', 'Completa tus datos de entrega. Cada tienda gestiona su propio envío y comprobante.')
+@section('robots', 'noindex, follow')
 @section('canonical', route('marketplace.checkout'))
 
 @push('styles')

@@ -1,6 +1,7 @@
 @extends('marketplace.layout')
 
 @section('title', 'Mis cupones')
+@section('robots', 'noindex, follow')
 
 @section('content')
 <div class="mp-cpn-wrap">

@@ -1,6 +1,7 @@
 @extends('marketplace.layout')
 
 @section('title', 'Ingresa el codigo')
+@section('robots', 'noindex, follow')
 
 @section('content')
 <div class="mp-auth-wrap">

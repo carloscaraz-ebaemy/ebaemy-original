@@ -1,6 +1,7 @@
 @extends('marketplace.layout')
 
 @section('title', 'Ajustes — Mi cuenta')
+@section('robots', 'noindex, follow')
 
 @section('content')
 <div class="mp-settings-wrap">

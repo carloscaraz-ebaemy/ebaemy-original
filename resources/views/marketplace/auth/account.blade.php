@@ -1,6 +1,7 @@
 @extends('marketplace.layout')
 
 @section('title', 'Mi cuenta')
+@section('robots', 'noindex, follow')
 
 @section('content')
 <div class="mp-acc-wrap">

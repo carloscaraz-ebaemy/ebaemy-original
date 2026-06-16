@@ -14,6 +14,53 @@
     $mpOgImage = $mpCfg ? $mpCfg->marketplace_og_image_url : asset('logo/logo.jpg');
     $mpKeywords= $mpCfg->marketplace_meta_keywords
                 ?? 'marketplace peru, ebaemy, tiendas online verificadas, compra segura, productos peruanos';
+
+    // sameAs: perfiles oficiales para que Google/Bing reconozcan "ebaemy"
+    // como una entidad/marca propia (clave para separar la marca de "eBay"
+    // en los resultados de búsqueda y habilitar el panel de conocimiento).
+    $mpSameAs = array_values(array_filter([
+        $mpCfg->marketplace_facebook_url  ?? null,
+        $mpCfg->marketplace_instagram_url ?? null,
+        $mpCfg->marketplace_tiktok_url    ?? null,
+    ]));
+
+    // JSON-LD Organization + WebSite. El WebSite.potentialAction habilita el
+    // "sitelinks searchbox" (cuadro de búsqueda dentro del resultado de Google).
+    $mpHome = route('marketplace.index');
+    $mpJsonLd = [
+        '@context' => 'https://schema.org',
+        '@graph'   => [
+            [
+                '@type'        => 'Organization',
+                '@id'          => url('/') . '#organization',
+                'name'         => 'ebaemy',
+                'alternateName'=> 'ebaemy Marketplace',
+                'url'          => url('/'),
+                'logo'         => asset('logo/logo.jpg'),
+                'description'  => $mpOgDesc,
+                'email'        => 'soporte@ebaemy.com',
+                'areaServed'   => ['@type' => 'Country', 'name' => 'Perú'],
+                'sameAs'       => $mpSameAs,
+            ],
+            [
+                '@type'           => 'WebSite',
+                '@id'             => url('/') . '#website',
+                'name'            => 'ebaemy',
+                'alternateName'   => 'Marketplace ebaemy',
+                'url'             => url('/'),
+                'inLanguage'      => 'es-PE',
+                'publisher'       => ['@id' => url('/') . '#organization'],
+                'potentialAction' => [
+                    '@type'       => 'SearchAction',
+                    'target'      => [
+                        '@type'       => 'EntryPoint',
+                        'urlTemplate' => $mpHome . '?q={search_term_string}',
+                    ],
+                    'query-input' => 'required name=search_term_string',
+                ],
+            ],
+        ],
+    ];
 @endphp
 <!DOCTYPE html>
 <html lang="es">
@@ -26,7 +73,7 @@
     <title>@yield('title', $mpOgTitle)</title>
     <meta name="description" content="@yield('description', $mpOgDesc)">
     <meta name="keywords"    content="@yield('keywords', $mpKeywords)">
-    <meta name="robots"      content="index, follow">
+    <meta name="robots"      content="@yield('robots', 'index, follow')">
     <meta name="theme-color" content="#0f8a82">
 
     {{-- PWA — instalable como app del marketplace (scope /marketplace).
@@ -62,6 +109,13 @@
     <meta name="twitter:title"       content="@yield('og_title', $mpOgTitle)">
     <meta name="twitter:description" content="@yield('og_description', $mpOgDesc)">
     <meta name="twitter:image"       content="@yield('og_image', $mpOgImage)">
+
+    {{-- JSON-LD global de marca (Organization + WebSite). Solo en páginas
+         reales, no en el iframe embed. Identifica "ebaemy" como entidad
+         propia ante Google/Bing y habilita el cuadro de búsqueda de sitelinks. --}}
+    @unless($isEmbed)
+    <script type="application/ld+json">{!! json_encode($mpJsonLd, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) !!}</script>
+    @endunless
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>

@@ -1,6 +1,7 @@
 @extends('marketplace.layout')
 
 @section('title', 'Mis pedidos')
+@section('robots', 'noindex, follow')
 
 @section('content')
 <div class="mp-orders-wrap">

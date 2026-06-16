@@ -2,6 +2,7 @@
 
 @section('title', 'Mis favoritos — ebaemy Marketplace')
 @section('description', 'Productos que guardaste para comprar después en ebaemy.')
+@section('robots', 'noindex, follow')
 
 @push('styles')
 <style>
