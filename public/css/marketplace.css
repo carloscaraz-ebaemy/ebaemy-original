@@ -252,23 +252,18 @@ button { font-family: inherit; cursor: pointer; }
     gap: 6px;
     align-items: center;
 }
-/* Desktop: que envuelva a 2 filas en vez de cortar — con 15+ categorías
-   root la barra horizontal escondía las últimas tras el scroll oculto. */
-@media (min-width: 900px) {
-    .mp-cats-bar {
-        overflow-x: visible;
-        -webkit-mask-image: none;
-                mask-image: none;
-    }
-    .mp-cats-inner { flex-wrap: wrap; row-gap: 8px; }
-}
+/* Una sola línea deslizable en TODOS los anchos (incluido desktop). Antes en
+   ≥900px envolvía a 2 filas y saturaba el header — por eso se había ocultado.
+   Ahora es scroll horizontal de una línea con el fade derecho que sugiere que
+   hay más; nunca toma más de una fila. */
+.mp-cats-inner { flex-wrap: nowrap; }
 /* Mobile: chips un poco más compactos para que entren más en pantalla. */
 @media (max-width: 600px) {
     .mp-cat-chip {
-        padding: 6px 11px;
+        padding: 5px 11px;
         font-size: 12.5px;
     }
-    .mp-cats-inner { padding: 8px 12px; gap: 5px; }
+    .mp-cats-inner { padding: 7px 12px; gap: 5px; }
 }
 .mp-cat-chip {
     padding: 8px 14px;
