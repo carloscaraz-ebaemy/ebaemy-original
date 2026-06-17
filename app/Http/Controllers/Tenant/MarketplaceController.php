@@ -349,6 +349,11 @@ class MarketplaceController extends Controller
             return response()->json(['error' => 'Acción no disponible para este canal'], 400);
         }
 
+        // Idempotencia: si ya está listo/enviado, no re-llamar a Saga.
+        if (in_array($order->status, ['ready_to_ship', 'shipped'], true)) {
+            return response()->json(['success' => true, 'message' => 'El pedido ya estaba listo para despacho']);
+        }
+
         [$ids, $deliveryType, $provider, $tracking] = $this->dispatchParams($order, $service);
         if (empty($ids)) {
             return response()->json(['error' => 'La orden no tiene items para despachar'], 422);
@@ -357,6 +362,9 @@ class MarketplaceController extends Controller
         try {
             $service->setReadyToShip($ids, $deliveryType, $provider, $tracking);
             $order->update(['status' => 'ready_to_ship']);
+            \Log::channel('payments')->info("Saga: pedido #{$order->external_order_id} marcado READY", [
+                'order_id' => $order->id, 'channel_id' => $channelId, 'items' => $ids,
+            ]);
             return response()->json(['success' => true, 'message' => 'Pedido marcado como listo para despacho']);
         } catch (\Throwable $e) {
             return response()->json(['error' => $e->getMessage()], 500);
@@ -373,6 +381,11 @@ class MarketplaceController extends Controller
             return response()->json(['error' => 'Acción no disponible para este canal'], 400);
         }
 
+        // Idempotencia: si ya está enviado, no re-llamar a Saga.
+        if ($order->status === 'shipped') {
+            return response()->json(['success' => true, 'message' => 'El pedido ya estaba marcado como enviado']);
+        }
+
         [$ids, $deliveryType, $provider, $tracking] = $this->dispatchParams($order, $service);
         if (empty($ids)) {
             return response()->json(['error' => 'La orden no tiene items'], 422);
@@ -381,6 +394,9 @@ class MarketplaceController extends Controller
         try {
             $service->setShipped($ids, $deliveryType, $provider, $tracking);
             $order->update(['status' => 'shipped']);
+            \Log::channel('payments')->info("Saga: pedido #{$order->external_order_id} marcado SHIPPED", [
+                'order_id' => $order->id, 'channel_id' => $channelId, 'items' => $ids,
+            ]);
             return response()->json(['success' => true, 'message' => 'Pedido marcado como enviado']);
         } catch (\Throwable $e) {
             return response()->json(['error' => $e->getMessage()], 500);
