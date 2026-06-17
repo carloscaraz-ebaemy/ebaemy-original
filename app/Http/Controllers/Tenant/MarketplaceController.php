@@ -424,11 +424,19 @@ class MarketplaceController extends Controller
 
     public function orders(Request $request)
     {
-        $orders = MarketplaceOrder::with('channel:id,platform,name')
+        // El panel de despacho filtra por estado en el cliente (pestañas) y necesita
+        // todos los pedidos, no 20. Tope alto para no traer históricos infinitos.
+        // Carga el Order enlazado (solo campos de comprobante) para que el flujo
+        // guiado sepa si el tenant ya generó la boleta de cada pedido.
+        $orders = MarketplaceOrder::with([
+                'channel:id,platform,name',
+                'order:id,number_document,document_external_id',
+            ])
             ->when($request->channel_id, fn($q) => $q->where('channel_id', $request->channel_id))
             ->when($request->status, fn($q) => $q->where('status', $request->status))
             ->orderByDesc('created_at')
-            ->paginate(20);
+            ->limit(500)
+            ->get();
 
         return response()->json($orders);
     }

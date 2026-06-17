@@ -1,6 +1,58 @@
 @extends('tenant.layouts.app')
 
 @section('content')
+<style>
+.mp-dispatch .card-header{display:block}
+.mp-d-head{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
+.mp-tabs{display:flex;flex-wrap:wrap;gap:6px;margin-top:12px}
+.mp-tab{border:1px solid #e2e8f0;background:#fff;border-radius:999px;padding:5px 14px;font-size:13px;font-weight:600;color:#475569;cursor:pointer;transition:all .15s}
+.mp-tab:hover{border-color:#c7d2fe;color:#4f46e5}
+.mp-tab.active{background:#4f46e5;border-color:#4f46e5;color:#fff}
+.mp-tab-n{display:inline-block;min-width:18px;text-align:center;background:rgba(0,0,0,.08);border-radius:999px;padding:0 6px;font-size:11px;margin-left:4px}
+.mp-tab.active .mp-tab-n{background:rgba(255,255,255,.25)}
+.mp-table thead th{font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:#94a3b8;border-top:0}
+.mp-table td{vertical-align:middle}
+.mp-badge{display:inline-block;padding:3px 10px;border-radius:999px;font-size:12px;font-weight:600;white-space:nowrap}
+.mp-b-warn{background:#fef3c7;color:#92400e}
+.mp-b-info{background:#dbeafe;color:#1e40af}
+.mp-b-primary{background:#e0e7ff;color:#3730a3}
+.mp-b-success{background:#dcfce7;color:#166534}
+.mp-b-muted{background:#f1f5f9;color:#64748b}
+.mp-sub{font-size:11.5px;color:#94a3b8;margin-top:2px}
+.mp-sub i{margin-right:3px}
+/* Stepper de cumplimiento */
+.mp-steps{display:flex;align-items:center;gap:2px;flex-wrap:wrap;margin-bottom:10px}
+.mp-step{display:flex;align-items:center;gap:5px;font-size:11px;font-weight:600;color:#94a3b8}
+.mp-step .dot{width:20px;height:20px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;border:1.5px solid #cbd5e1;background:#fff;color:#94a3b8;flex:0 0 auto}
+.mp-step.done{color:#166534}
+.mp-step.done .dot{background:#16a34a;border-color:#16a34a;color:#fff}
+.mp-step.warn{color:#b45309}
+.mp-step.warn .dot{border-color:#f59e0b;color:#f59e0b;background:#fffbeb}
+.mp-step.cur .dot{border-color:#4f46e5;color:#4f46e5;background:#eef2ff;box-shadow:0 0 0 3px rgba(79,70,229,.12)}
+.mp-step.cur{color:#4f46e5}
+.mp-step-sep{width:14px;height:1.5px;background:#e2e8f0;margin:0 1px}
+.mp-nextwrap{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.mp-warn-note{font-size:11.5px;color:#b45309;font-weight:600}
+.mp-warn-note i{margin-right:3px}
+.mp-dl{font-size:13px;font-weight:600;white-space:nowrap}
+.mp-dl-ok{color:#475569}.mp-dl-soon{color:#b45309}.mp-dl-over{color:#dc2626}
+.mp-actions .btn{margin-left:4px;margin-bottom:4px}
+.mp-btn-go{background:#16a34a;color:#fff}.mp-btn-go:hover{background:#15803d;color:#fff}
+.mp-btn-ship{background:#4f46e5;color:#fff}.mp-btn-ship:hover{background:#4338ca;color:#fff}
+.mp-btn-doc,.mp-btn-ghost{background:#fff;border:1px solid #e2e8f0;color:#475569}
+.mp-btn-doc:hover,.mp-btn-ghost:hover{border-color:#4f46e5;color:#4f46e5}
+.mp-cards{padding:12px}
+.mp-card{border:1px solid #eef2f7;border-radius:12px;padding:14px;margin-bottom:10px;box-shadow:0 1px 2px rgba(0,0,0,.04)}
+.mp-card-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px}
+.mp-card-cust{color:#334155;font-size:14px;margin-bottom:8px}
+.mp-card-meta{display:flex;justify-content:space-between;font-size:13px;color:#64748b;margin-bottom:12px}
+.mp-card-actions{display:flex;flex-wrap:wrap;gap:8px}
+.mp-card-actions .btn{flex:1;min-width:120px}
+.mp-toast-wrap{position:fixed;right:18px;bottom:18px;z-index:9999;display:flex;flex-direction:column;gap:8px}
+.mp-toast{background:#1e293b;color:#fff;padding:12px 16px;border-radius:10px;font-size:14px;box-shadow:0 8px 24px rgba(0,0,0,.18);opacity:0;transform:translateY(10px);transition:all .25s;max-width:340px}
+.mp-toast.show{opacity:1;transform:translateY(0)}
+.mp-toast-success{background:#16a34a}.mp-toast-error{background:#dc2626}
+</style>
 <div class="page-header pr-0">
     <h2><i class="fas fa-store"></i></h2>
     <ol class="breadcrumbs">
@@ -73,22 +125,36 @@
 
     {{-- Pedidos de Saga (despacho) --}}
     <div class="col-12">
-        <div class="card">
-            <div class="card-header d-flex justify-content-between align-items-center">
-                <h4 class="card-title mb-0"><i class="fas fa-shipping-fast mr-2"></i> Pedidos de Marketplace (despacho)</h4>
-                <button class="btn btn-sm btn-outline-secondary" onclick="loadOrders()"><i class="fas fa-sync"></i> Actualizar</button>
+        <div class="card mp-dispatch">
+            <div class="card-header">
+                <div class="mp-d-head">
+                    <h4 class="card-title mb-0"><i class="fas fa-shipping-fast mr-2"></i> Pedidos de Marketplace</h4>
+                    <button class="btn btn-sm btn-outline-secondary" onclick="loadOrders()"><i class="fas fa-sync"></i> Actualizar</button>
+                </div>
+                <div class="mp-tabs" id="mp-order-tabs"></div>
             </div>
             <div class="card-body p-0">
-                <table class="table table-hover mb-0">
-                    <thead><tr><th>Pedido</th><th>Cliente</th><th>Total</th><th>Estado</th><th>Despacho</th></tr></thead>
-                    <tbody id="mp-orders-tbody">
-                        <tr><td colspan="5" class="text-center text-muted py-3">Cargando pedidos…</td></tr>
-                    </tbody>
-                </table>
+                {{-- Escritorio: tabla --}}
+                <div class="table-responsive d-none d-md-block">
+                    <table class="table table-hover mb-0 mp-table">
+                        <thead><tr>
+                            <th>Pedido</th><th>Cliente</th><th>Total</th>
+                            <th>Límite de despacho</th><th>Progreso del pedido</th>
+                        </tr></thead>
+                        <tbody id="mp-orders-tbody">
+                            <tr><td colspan="5" class="text-center text-muted py-4">Cargando pedidos…</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+                {{-- Móvil: tarjetas --}}
+                <div class="mp-cards d-md-none" id="mp-orders-cards">
+                    <div class="text-center text-muted py-4">Cargando pedidos…</div>
+                </div>
             </div>
         </div>
     </div>
 </div>
+<div id="mp-toast-wrap" class="mp-toast-wrap"></div>
 
 <script>
 document.addEventListener('DOMContentLoaded', function(){
@@ -294,68 +360,176 @@ document.addEventListener('DOMContentLoaded', function(){
 
     // ── Pedidos / Despacho ──────────────────────────────────────
     var ORDER_STATUS = {
-        'pending': '<span class="badge badge-warning">Pendiente</span>',
-        'ready_to_ship': '<span class="badge badge-info">Listo p/ despacho</span>',
-        'shipped': '<span class="badge badge-primary">Enviado</span>',
-        'delivered': '<span class="badge badge-success">Entregado</span>',
-        'processed': '<span class="badge badge-success">Procesado</span>'
+        'pending':       {label:'Pendiente',         cls:'mp-b-warn'},
+        'ready_to_ship': {label:'Listo p/ despacho', cls:'mp-b-info'},
+        'shipped':       {label:'Enviado',           cls:'mp-b-primary'},
+        'delivered':     {label:'Entregado',         cls:'mp-b-success'},
+        'processed':     {label:'Procesado',         cls:'mp-b-success'},
+        'canceled':      {label:'Cancelado',         cls:'mp-b-muted'}
     };
+    var MP_TABS = [
+        {key:'todispatch', label:'Por despachar', match:function(s){return s==='pending'||s==='ready_to_ship';}},
+        {key:'shipped',    label:'Enviados',      match:function(s){return s==='shipped';}},
+        {key:'delivered',  label:'Entregados',    match:function(s){return s==='delivered';}},
+        {key:'canceled',   label:'Cancelados',    match:function(s){return s==='canceled';}},
+        {key:'all',        label:'Todos',         match:function(){return true;}}
+    ];
+    var mpOrders = [], mpFilter = 'todispatch';
+
+    function mpToast(msg, type){
+        var wrap = document.getElementById('mp-toast-wrap');
+        var t = document.createElement('div');
+        t.className = 'mp-toast mp-toast-'+(type||'info');
+        t.textContent = msg;
+        wrap.appendChild(t);
+        setTimeout(function(){ t.classList.add('show'); }, 10);
+        setTimeout(function(){ t.classList.remove('show'); setTimeout(function(){ t.remove(); }, 300); }, 3800);
+    }
+    function mpBadge(status){
+        var s = ORDER_STATUS[status] || {label:status, cls:'mp-b-muted'};
+        return '<span class="mp-badge '+s.cls+'">'+s.label+'</span>';
+    }
+    function mpDeadline(o){
+        var raw = (o.shipping_data && o.shipping_data.promised_shipping_time) || null;
+        if(!raw) return '<span class="text-muted">—</span>';
+        var d = new Date(String(raw).replace(' ','T'));
+        if(isNaN(d.getTime())) return '<span class="text-muted">'+raw+'</span>';
+        var fmt = d.toLocaleDateString('es-PE',{day:'2-digit',month:'short'})+' '+d.toLocaleTimeString('es-PE',{hour:'2-digit',minute:'2-digit'});
+        // Si ya está enviado/entregado/cancelado, el deadline ya no urge.
+        if(o.status==='shipped'||o.status==='delivered'||o.status==='canceled'){
+            return '<span class="mp-dl mp-dl-ok">'+fmt+'</span>';
+        }
+        var diffH = (d - new Date())/36e5;
+        var cls = diffH < 0 ? 'mp-dl-over' : (diffH < 24 ? 'mp-dl-soon' : 'mp-dl-ok');
+        return '<span class="mp-dl '+cls+'">'+fmt+(diffH<0?' (vencido)':'')+'</span>';
+    }
+    function mpShipType(o){
+        var m = (o.shipping_data && o.shipping_data.method) || '';
+        return m ? '<div class="mp-sub"><i class="fas fa-truck-loading"></i>'+m+'</div>' : '';
+    }
+    function mpTracking(o){
+        var items = o.items_data || [];
+        var tc = null;
+        items.forEach(function(it){ if(it && it.TrackingCode) tc = it.TrackingCode; });
+        return tc ? '<div class="mp-sub"><i class="fas fa-barcode"></i>'+tc+'</div>' : '';
+    }
+    function mpFlags(o){
+        var s=o.status;
+        return {
+            canceled: s==='canceled',
+            ready:   (s==='ready_to_ship'||s==='shipped'||s==='delivered'),
+            shipped: (s==='shipped'||s==='delivered'),
+            // El tenant genera su boleta: detectamos si el Order enlazado ya tiene comprobante.
+            boleta:  !!(o.order && (o.order.number_document || o.order.document_external_id))
+        };
+    }
+    function mpStepper(o){
+        var f=mpFlags(o);
+        if(f.canceled){
+            return '<div class="mp-steps"><span class="mp-step warn"><span class="dot">✕</span>Cancelado</span></div>';
+        }
+        var steps=[
+            {label:'Recibido', done:true},
+            {label:'Listo',    done:f.ready},
+            {label:'Boleta',   done:f.boleta, warn:!f.boleta},
+            {label:'Enviado',  done:f.shipped}
+        ];
+        var curIdx=-1;
+        for(var i=0;i<steps.length;i++){ if(!steps[i].done){ curIdx=i; break; } }
+        var html='<div class="mp-steps">';
+        steps.forEach(function(st,i){
+            if(i>0) html+='<span class="mp-step-sep"></span>';
+            var cls = st.done?'done':(st.warn?'warn':(i===curIdx?'cur':''));
+            var ico = st.done?'<i class="fas fa-check"></i>':(st.warn?'!':(i+1));
+            html+='<span class="mp-step '+cls+'"><span class="dot">'+ico+'</span>'+st.label+'</span>';
+        });
+        return html+'</div>';
+    }
+    function mpNext(o){
+        var ch=o.channel_id, id=o.id, f=mpFlags(o);
+        if(f.canceled) return '';
+        var btns='';
+        if(!f.ready){
+            btns+='<button class="btn btn-sm mp-btn-go" onclick="orderReady('+ch+','+id+')"><i class="fas fa-check"></i> Marcar listo</button>';
+        } else if(!f.shipped){
+            btns+='<button class="btn btn-sm mp-btn-doc" onclick="downloadDoc('+ch+','+id+',\'shippingLabel\')"><i class="fas fa-file-pdf"></i> Hoja</button>'
+                + '<button class="btn btn-sm mp-btn-ship" onclick="orderShipped('+ch+','+id+')"><i class="fas fa-truck"></i> Marcar enviado</button>';
+        } else {
+            btns+='<button class="btn btn-sm mp-btn-ghost" onclick="downloadDoc('+ch+','+id+',\'shippingLabel\')"><i class="fas fa-file-pdf"></i> Hoja</button>';
+        }
+        var note = !f.boleta ? '<span class="mp-warn-note"><i class="fas fa-exclamation-triangle"></i>Falta generar boleta</span>' : '';
+        return '<div class="mp-nextwrap">'+btns+note+'</div>';
+    }
+    function renderTabs(){
+        var html='';
+        MP_TABS.forEach(function(t){
+            var n=mpOrders.filter(function(o){return t.match(o.status);}).length;
+            html+='<button class="mp-tab'+(mpFilter===t.key?' active':'')+'" onclick="mpSetFilter(\''+t.key+'\')">'+t.label+' <span class="mp-tab-n">'+n+'</span></button>';
+        });
+        document.getElementById('mp-order-tabs').innerHTML=html;
+    }
+    window.mpSetFilter=function(k){ mpFilter=k; renderTabs(); renderOrders(); };
+    function renderOrders(){
+        var tab=MP_TABS.filter(function(t){return t.key===mpFilter;})[0]||MP_TABS[0];
+        var list=mpOrders.filter(function(o){return tab.match(o.status);});
+        var tbody=document.getElementById('mp-orders-tbody');
+        var cards=document.getElementById('mp-orders-cards');
+        if(!list.length){
+            var empty='No hay pedidos en esta vista.';
+            tbody.innerHTML='<tr><td colspan="5" class="text-center text-muted py-4">'+empty+'</td></tr>';
+            cards.innerHTML='<div class="text-center text-muted py-4">'+empty+'</div>';
+            return;
+        }
+        var rows='', cs='';
+        list.forEach(function(o){
+            var cust=o.customer_data||{};
+            var num='#'+(o.external_order_id||o.id);
+            var total='S/ '+(parseFloat(o.total||0).toFixed(2));
+            rows+='<tr>'
+                +'<td><strong>'+num+'</strong>'+mpShipType(o)+'</td>'
+                +'<td>'+(cust.name||'-')+mpTracking(o)+'</td>'
+                +'<td>'+total+'</td>'
+                +'<td>'+mpDeadline(o)+'</td>'
+                +'<td>'+mpStepper(o)+mpNext(o)+'</td>'
+                +'</tr>';
+            cs+='<div class="mp-card">'
+                +'<div class="mp-card-top"><strong>'+num+'</strong><span>'+total+'</span></div>'
+                +'<div class="mp-card-cust">'+(cust.name||'-')+mpShipType(o)+mpTracking(o)+'</div>'
+                +mpStepper(o)
+                +'<div class="mp-card-meta"><span>'+mpDeadline(o)+'</span></div>'
+                +'<div class="mp-card-actions">'+mpNext(o)+'</div>'
+                +'</div>';
+        });
+        tbody.innerHTML=rows;
+        cards.innerHTML=cs;
+    }
 
     window.loadOrders = function(){
-        var tbody = document.getElementById('mp-orders-tbody');
-        tbody.innerHTML = '<tr><td colspan="5" class="text-center py-3">Cargando…</td></tr>';
+        document.getElementById('mp-orders-tbody').innerHTML='<tr><td colspan="6" class="text-center py-4">Cargando…</td></tr>';
         fetch('/ecommerce/marketplace/orders', {headers:{'Accept':'application/json'}})
         .then(function(r){return r.json()})
         .then(function(resp){
-            var orders = resp.data || resp;
-            if(!orders || !orders.length){
-                tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted py-4">No hay pedidos todavía. Llegan solos cada 15 min, o usa "Traer órdenes".</td></tr>';
-                return;
-            }
-            var html = '';
-            orders.forEach(function(o){
-                var cust = o.customer_data || {};
-                var st = ORDER_STATUS[o.status] || ('<span class="badge badge-secondary">'+o.status+'</span>');
-                var ch = o.channel_id;
-                var actions = '';
-                if (o.status === 'pending') {
-                    actions = '<button class="btn btn-xs btn-success mr-1 mb-1" onclick="orderReady('+ch+','+o.id+')"><i class="fas fa-check"></i> Marcar listo</button>';
-                } else if (o.status === 'ready_to_ship') {
-                    actions = '<button class="btn btn-xs btn-primary mr-1 mb-1" onclick="downloadDoc('+ch+','+o.id+',\'shippingLabel\')"><i class="fas fa-file-pdf"></i> Hoja de despacho</button>'
-                            + '<button class="btn btn-xs btn-outline-secondary mr-1 mb-1" onclick="downloadDoc('+ch+','+o.id+',\'invoice\')"><i class="fas fa-receipt"></i> Boleta/Factura</button>'
-                            + '<button class="btn btn-xs btn-outline-primary mb-1" onclick="orderShipped('+ch+','+o.id+')"><i class="fas fa-truck"></i> Marcar enviado</button>';
-                } else {
-                    actions = '<button class="btn btn-xs btn-outline-primary mb-1" onclick="downloadDoc('+ch+','+o.id+',\'shippingLabel\')"><i class="fas fa-file-pdf"></i> Hoja de despacho</button>';
-                }
-                html += '<tr>'
-                    + '<td><strong>#'+(o.external_order_id||o.id)+'</strong></td>'
-                    + '<td>'+(cust.name||'-')+'</td>'
-                    + '<td>S/ '+(parseFloat(o.total||0).toFixed(2))+'</td>'
-                    + '<td>'+st+'</td>'
-                    + '<td>'+actions+'</td>'
-                    + '</tr>';
-            });
-            tbody.innerHTML = html;
+            mpOrders = resp.data || resp || [];
+            renderTabs(); renderOrders();
         })
-        .catch(function(e){ tbody.innerHTML = '<tr><td colspan="5" class="text-danger text-center py-3">Error: '+e.message+'</td></tr>'; });
+        .catch(function(e){ document.getElementById('mp-orders-tbody').innerHTML='<tr><td colspan="6" class="text-danger text-center py-3">Error: '+e.message+'</td></tr>'; });
     };
 
     window.orderReady = function(channelId, orderId){
         if(!confirm('¿Marcar este pedido como LISTO para despacho en Saga? Después podrás descargar la hoja de despacho.')) return;
         fetch('/ecommerce/marketplace/channels/'+channelId+'/orders/'+orderId+'/ready', {method:'POST', headers:headers})
         .then(function(r){return r.json()})
-        .then(function(d){ alert(d.message || d.error || 'Listo'); loadOrders(); });
+        .then(function(d){ mpToast(d.message || d.error || 'Listo', d.error?'error':'success'); loadOrders(); })
+        .catch(function(e){ mpToast('Error: '+e.message, 'error'); });
     };
-
     window.orderShipped = function(channelId, orderId){
         if(!confirm('¿Confirmar a Saga que este pedido ya fue ENVIADO?')) return;
         fetch('/ecommerce/marketplace/channels/'+channelId+'/orders/'+orderId+'/shipped', {method:'POST', headers:headers})
         .then(function(r){return r.json()})
-        .then(function(d){ alert(d.message || d.error || 'Listo'); loadOrders(); });
+        .then(function(d){ mpToast(d.message || d.error || 'Listo', d.error?'error':'success'); loadOrders(); })
+        .catch(function(e){ mpToast('Error: '+e.message, 'error'); });
     };
-
     window.downloadDoc = function(channelId, orderId, type){
-        // Abre el documento (PDF) en una pestaña nueva para imprimir
         window.open('/ecommerce/marketplace/channels/'+channelId+'/orders/'+orderId+'/document/'+type, '_blank');
     };
 
