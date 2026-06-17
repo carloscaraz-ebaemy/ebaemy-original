@@ -414,9 +414,23 @@ class FalabellaService
                     $vw = \App\Models\Tenant\ItemVariantWarehouse::where('item_variant_id', $mapping->item_variant_id)
                         ->lockForUpdate()->first();
                     if ($vw) {
+                        // 1. Descontar de la hoja (fuente de verdad).
                         $vw->stock_physical = max(0, $vw->stock_physical - $qty);
                         $vw->stock = $vw->stock_physical;
                         $vw->save();
+
+                        // 2 + 3. Recalcular los agregados derivados. Sin esto, el
+                        // tenant (items.stock) y el marketplace (item_variants.stock)
+                        // quedan desincronizados y se puede sobrevender.
+                        // Ver skill ebaemy-stock-flow (regla de oro).
+                        $variant = $vw->variant;
+                        if ($variant) {
+                            $variant->stock = \App\Models\Tenant\ItemVariantWarehouse::where('item_variant_id', $variant->id)
+                                ->sum('stock_physical');
+                            $variant->save();
+                            app(\App\Services\Tenant\ItemVariantService::class)
+                                ->propagateStock($variant->item);
+                        }
                     }
                 } else {
                     $iw = \App\Models\Tenant\ItemWarehouse::where('item_id', $mapping->item_id)
