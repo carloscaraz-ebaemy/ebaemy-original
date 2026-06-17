@@ -474,10 +474,22 @@ class FalabellaService
             'DeliveryType' => $deliveryType,
             'ShippingProvider' => $shippingProvider,
         ];
-        if ($trackingNumber) {
+        // En el modelo Dropshipping de Saga (ShippingProvider=falabella) la propia
+        // Saga asigna el TrackingCode; reenviárselo es redundante y puede ser
+        // rechazado. Solo mandamos tracking cuando el seller usa su propio courier.
+        if ($trackingNumber && !$this->sagaManagesTracking($shippingProvider)) {
             $params['TrackingNumber'] = $trackingNumber;
         }
         return $this->callPost('SetStatusToReadyToShip', $params);
+    }
+
+    /**
+     * ¿Saga asigna el tracking automáticamente? (modelo Falabella-managed /
+     * clickandcollect). En ese caso NO debemos reenviar el TrackingNumber.
+     */
+    protected function sagaManagesTracking(string $shippingProvider): bool
+    {
+        return strtolower(trim($shippingProvider)) === 'falabella';
     }
 
     /**
@@ -490,7 +502,7 @@ class FalabellaService
             'DeliveryType' => $deliveryType,
             'ShippingProvider' => $shippingProvider,
         ];
-        if ($trackingNumber) {
+        if ($trackingNumber && !$this->sagaManagesTracking($shippingProvider)) {
             $params['TrackingNumber'] = $trackingNumber;
         }
         return $this->callPost('SetStatusToShipped', $params);
