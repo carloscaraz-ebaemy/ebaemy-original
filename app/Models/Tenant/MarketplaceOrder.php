@@ -68,6 +68,14 @@ class MarketplaceOrder extends Model
             'purchase'           => [],
         ]);
 
+        // La fecha de emisión del Order debe reflejar la fecha real del pedido en
+        // Saga (ordered_at), no el momento de la conversión. La tabla `orders`
+        // muestra `created_at` como "Fecha emisión".
+        if ($this->ordered_at) {
+            $order->created_at = $this->ordered_at;
+            $order->save();
+        }
+
         $this->order_id = $order->id;
         $this->save();
 
