@@ -294,17 +294,41 @@ class MarketplaceController extends Controller
      * Deriva los parámetros de despacho desde los items de la orden de Saga.
      * @return array{0: array, 1: string, 2: string, 3: ?string}  [ids, deliveryType, provider, tracking]
      */
-    protected function dispatchParams(MarketplaceOrder $order): array
+    protected function dispatchParams(MarketplaceOrder $order, $service = null): array
     {
         $items = is_array($order->items_data) ? $order->items_data : [];
         if (isset($items['OrderItemId'])) $items = [$items];
 
+        [$ids, $deliveryType, $provider, $tracking] = $this->parseDispatchItems($items);
+
+        // Fallback en vivo: si el snapshot no trae OrderItemId (orden vieja o hipo
+        // en GetOrderItems al fetch), consultamos a Saga en el momento. Evita el
+        // 422 "no tiene items" silencioso cuando el pedido sí es despachable.
+        if (empty($ids) && $service && method_exists($service, 'getOrderItems')) {
+            try {
+                $live = $service->getOrderItems($order->external_order_id);
+                [$ids, $deliveryType, $provider, $tracking] = $this->parseDispatchItems($live);
+            } catch (\Throwable $e) {
+                // Sin snapshot ni respuesta en vivo: dejamos $ids vacío y el caller
+                // responde 422 con su mensaje habitual.
+            }
+        }
+
+        return [$ids, $deliveryType, $provider, $tracking];
+    }
+
+    /**
+     * Extrae [ids, deliveryType, provider, tracking] de una lista de OrderItems.
+     */
+    protected function parseDispatchItems(array $items): array
+    {
         $ids = [];
         $provider = 'falabella';
         $deliveryType = 'dropship';
         $tracking = null;
 
         foreach ($items as $it) {
+            if (!is_array($it)) continue;
             $id = $it['OrderItemId'] ?? null;
             if ($id) $ids[] = $id;
             $provider = $it['ShipmentProvider'] ?? $provider;
@@ -325,7 +349,7 @@ class MarketplaceController extends Controller
             return response()->json(['error' => 'Acción no disponible para este canal'], 400);
         }
 
-        [$ids, $deliveryType, $provider, $tracking] = $this->dispatchParams($order);
+        [$ids, $deliveryType, $provider, $tracking] = $this->dispatchParams($order, $service);
         if (empty($ids)) {
             return response()->json(['error' => 'La orden no tiene items para despachar'], 422);
         }
@@ -349,7 +373,7 @@ class MarketplaceController extends Controller
             return response()->json(['error' => 'Acción no disponible para este canal'], 400);
         }
 
-        [$ids, $deliveryType, $provider, $tracking] = $this->dispatchParams($order);
+        [$ids, $deliveryType, $provider, $tracking] = $this->dispatchParams($order, $service);
         if (empty($ids)) {
             return response()->json(['error' => 'La orden no tiene items'], 422);
         }
@@ -381,7 +405,7 @@ class MarketplaceController extends Controller
             abort(400, 'Acción no disponible para este canal');
         }
 
-        [$ids] = $this->dispatchParams($order);
+        [$ids] = $this->dispatchParams($order, $service);
         if (empty($ids)) {
             abort(422, 'La orden no tiene items');
         }
