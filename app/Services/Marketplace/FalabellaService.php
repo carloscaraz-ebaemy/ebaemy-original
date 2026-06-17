@@ -371,6 +371,8 @@ class FalabellaService
                             'address' => $orderData['ShippingAddress'] ?? null,
                             'city' => $orderData['ShippingCity'] ?? null,
                             'method' => $orderData['ShippingType'] ?? null,
+                            // Límite de despacho de Saga ("Promised shipping time")
+                            'promised_shipping_time' => $orderData['PromisedShippingTime'] ?? null,
                         ],
                         'total' => (float) ($orderData['Price'] ?? 0),
                         'ordered_at' => $orderData['CreatedAt'] ?? now(),
@@ -470,6 +472,111 @@ class FalabellaService
             $items = [$items];
         }
         return is_array($items) ? $items : [];
+    }
+
+    /**
+     * Reconcilia el estado de los pedidos locales NO terminales contra Saga.
+     *
+     * fetchOrders solo CREA pedidos nuevos (filtra Status=pending) y nunca toca
+     * los que ya tenía → una vez fetchado, si en Saga se despacha/cancela/entrega,
+     * el estado local quedaba 'pending' para siempre. Esto consulta cada pedido
+     * local pending/ready_to_ship y actualiza su estado real (y el límite de
+     * despacho) desde los items de Saga.
+     */
+    public function reconcileOrders(): array
+    {
+        return MarketplaceSyncLog::log($this->channel->id, 'reconcile_orders', 'pull', function ($log) {
+            $locals = MarketplaceOrder::where('channel_id', $this->channel->id)
+                ->whereIn('status', ['pending', 'ready_to_ship'])
+                ->get();
+
+            $checked = 0;
+            $updated = 0;
+            $errors = [];
+
+            foreach ($locals as $mp) {
+                try {
+                    $items = $this->getOrderItems($mp->external_order_id);
+                    $checked++;
+
+                    $newStatus = $this->deriveStatusFromItems($items);
+                    $dirty = false;
+
+                    if ($newStatus && $newStatus !== $mp->status) {
+                        $mp->status = $newStatus;
+                        $dirty = true;
+                    }
+
+                    // Captura/actualiza el límite de despacho si Saga lo expone.
+                    $deadline = null;
+                    foreach ($items as $it) {
+                        $deadline = $it['PromisedShippingTime'] ?? $deadline;
+                    }
+                    if ($deadline) {
+                        $sd = is_array($mp->shipping_data) ? $mp->shipping_data : [];
+                        if (($sd['promised_shipping_time'] ?? null) !== $deadline) {
+                            $sd['promised_shipping_time'] = $deadline;
+                            $mp->shipping_data = $sd;
+                            $dirty = true;
+                        }
+                    }
+
+                    if ($dirty) {
+                        $mp->save();
+                        $updated++;
+                    }
+                } catch (\Throwable $e) {
+                    $errors[] = ['order' => $mp->external_order_id, 'error' => $e->getMessage()];
+                }
+            }
+
+            return ['processed' => $checked, 'success' => $updated, 'failed' => count($errors), 'details' => $errors ?: null];
+        })->toArray();
+    }
+
+    /**
+     * Deriva el estado local de un pedido a partir del Status de sus items de Saga.
+     * Toma el estado MENOS avanzado (si un item sigue pendiente, el pedido lo está).
+     */
+    protected function deriveStatusFromItems(array $items): ?string
+    {
+        // Mapa Saga → estado local. Orden = de menos a más avanzado.
+        $rank = [
+            'pending'        => 0,
+            'ready_to_ship'  => 1,
+            'shipped'        => 2,
+            'delivered'      => 3,
+            'canceled'       => 4,
+            'cancelled'      => 4,
+            'failed'         => 4,
+        ];
+
+        $statuses = [];
+        foreach ($items as $it) {
+            $s = strtolower(trim($it['Status'] ?? ''));
+            if ($s !== '') $statuses[] = $s;
+        }
+        if (empty($statuses)) {
+            return null;
+        }
+
+        // Si TODOS están cancelados/fallidos → canceled.
+        $allCanceled = collect($statuses)->every(fn($s) => ($rank[$s] ?? -1) >= 4);
+        if ($allCanceled) {
+            return 'canceled';
+        }
+
+        // Ignora cancelados parciales y toma el item activo MENOS avanzado.
+        $active = array_filter($statuses, fn($s) => ($rank[$s] ?? 0) < 4);
+        $least = collect($active)->sortBy(fn($s) => $rank[$s] ?? 0)->first();
+
+        return match ($least) {
+            'pending'       => 'pending',
+            'ready_to_ship' => 'ready_to_ship',
+            'shipped'       => 'shipped',
+            'delivered'     => 'delivered',
+            default         => null,
+        };
     }
 
     /**

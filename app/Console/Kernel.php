@@ -131,6 +131,14 @@ class Kernel extends ConsoleKernel
                  ->withoutOverlapping()
                  ->appendOutputTo(storage_path('logs/marketplace_orders.log'));
 
+        // Reconcilia el estado de los pedidos ya fetchados contra Saga (despachado/
+        // cancelado/entregado) — fetchOrders solo crea nuevos, nunca actualiza.
+        // Cada hora: tras la 1ª pasada quedan pocos no-terminales, es ligero.
+        $schedule->command('marketplace:sync reconcile')
+                 ->hourly()
+                 ->withoutOverlapping()
+                 ->appendOutputTo(storage_path('logs/marketplace_orders.log'));
+
         // NOTA: el sync de precios (marketplace:sync prices) NO se programa a propósito.
         // Los sellers manejan precios y OFERTAS en el panel de Saga; empujar el precio
         // desde EBAEMY sobrescribiría el precio regular con el de oferta y dañaría las
