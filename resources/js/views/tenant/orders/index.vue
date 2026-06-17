@@ -143,7 +143,14 @@
                         </td>
                         <td class="text-end">S/ {{ row.total }}</td>
                         <td>{{ formatDate(row.created_at) }}</td>
-                        <td>{{ row.reference_payment }}</td>
+                        <td>
+                            <span
+                                v-if="isMarketplace(row)"
+                                class="mp-pay-badge"
+                                >{{ marketplaceLabel(row) }}</span
+                            >
+                            <template v-else>{{ row.reference_payment }}</template>
+                        </td>
                         <td>
                             <el-select
                                 v-model="row.status_order_id"
@@ -290,6 +297,16 @@
     </div>
 </template>
 <style>
+.mp-pay-badge {
+    display: inline-block;
+    padding: 2px 10px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 600;
+    background: #eef2ff;
+    color: #3730a3;
+    white-space: nowrap;
+}
 @media only screen and (max-width: 485px) {
     .filter-container {
         margin-top: 0px;
@@ -346,6 +363,18 @@ export default {
     },
     computed: {},
     methods: {
+        isMarketplace(row) {
+            const ref = (row.reference_payment || "").toUpperCase();
+            return ref.startsWith("MARKETPLACE") || row.channel_type === "marketplace";
+        },
+        marketplaceLabel(row) {
+            const ref = (row.reference_payment || "").toUpperCase();
+            if (ref.indexOf("FALABELLA") !== -1) return "Saga Falabella";
+            if (ref.indexOf("MERCADOLIBRE") !== -1) return "MercadoLibre";
+            if (ref.indexOf("TIKTOK") !== -1) return "TikTok Shop";
+            if (ref.indexOf("META") !== -1) return "Meta";
+            return row.channel_name || "Marketplace";
+        },
         formatDate(date) {
             if (!date) return null;
             const parsedDate = moment(date);
