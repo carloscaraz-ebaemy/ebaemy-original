@@ -74,35 +74,9 @@ class MarketplaceController extends Controller
             ], 422);
         }
 
-        // Buscar el canal de venta correspondiente al marketplace
-        $channel = $mpOrder->channel;
-        $salesChannel = \App\Models\Tenant\SalesChannel::where('type', 'marketplace')
-            ->where('name', 'LIKE', '%' . ($channel->platform ?? $channel->name) . '%')
-            ->first();
-
-        $channelId = $salesChannel->id ?? null;
-        $warehouseId = $salesChannel->warehouse_id ?? \Modules\Inventory\Models\Warehouse::first()->id ?? null;
-
-        // Crear Order regular
-        $order = \App\Models\Tenant\Order::create([
-            'external_id'      => \Illuminate\Support\Str::uuid()->toString(),
-            'customer'         => $mpOrder->customer_data ?? [],
-            'items'            => $mpOrder->items_data ?? [],
-            'total'            => $mpOrder->total,
-            'shipping_address' => $mpOrder->shipping_data['address'] ?? 'Marketplace',
-            'status_order_id'  => 1,
-            'reference_payment'=> 'marketplace_' . ($channel->platform ?? 'unknown'),
-            'channel_id'       => $channelId,
-            'warehouse_id'     => $warehouseId,
-            'marketplace_notes'=> 'Pedido externo #' . $mpOrder->external_order_id . ' de ' . ($channel->name ?? $channel->platform),
-            'purchase'         => [],
-        ]);
-
-        // Vincular marketplace_order con el order
-        $mpOrder->order_id = $order->id;
-        $mpOrder->status = 'processed';
-        $mpOrder->processed_at = now();
-        $mpOrder->save();
+        // Crea y enlaza el Order interno (lógica compartida con la auto-conversión
+        // del fetch). No tocamos el status de despacho aquí.
+        $order = $mpOrder->createErpOrder();
 
         return response()->json([
             'success' => true,

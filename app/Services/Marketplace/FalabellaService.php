@@ -382,6 +382,15 @@ class FalabellaService
                     // Avisar al vendedor (email) que entró un pedido nuevo
                     $this->notifyNewOrder($mpOrder);
 
+                    // Convertir automáticamente a Order interno para que aparezca
+                    // en la página Pedidos (no toca el status de despacho). Defensivo:
+                    // no rompe el fetch si la conversión falla.
+                    try {
+                        $mpOrder->createErpOrder();
+                    } catch (\Throwable $e) {
+                        Log::channel('payments')->warning("No se pudo auto-convertir pedido Saga #{$externalId} a Order: {$e->getMessage()}");
+                    }
+
                     $created++;
                 } catch (\Throwable $e) {
                     $errors[] = ['order' => $externalId ?? 'unknown', 'error' => $e->getMessage()];
