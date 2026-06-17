@@ -408,7 +408,8 @@ document.addEventListener('DOMContentLoaded', function(){
         return m ? '<div class="mp-sub"><i class="fas fa-truck-loading"></i>'+m+'</div>' : '';
     }
     function mpTracking(o){
-        var items = o.items_data || [];
+        var items = o.items_data;
+        if(!Array.isArray(items)) items = items ? [items] : [];
         var tc = null;
         items.forEach(function(it){ if(it && it.TrackingCode) tc = it.TrackingCode; });
         return tc ? '<div class="mp-sub"><i class="fas fa-barcode"></i>'+tc+'</div>' : '';
