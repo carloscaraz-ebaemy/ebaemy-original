@@ -523,6 +523,8 @@ class FalabellaService
 
                     if ($dirty) {
                         $mp->save();
+                        // Mantiene /orders en sincronía con el estado real de Saga.
+                        $mp->syncErpOrderStatus();
                         $updated++;
                     }
                 } catch (\Throwable $e) {

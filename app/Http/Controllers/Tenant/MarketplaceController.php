@@ -336,6 +336,7 @@ class MarketplaceController extends Controller
         try {
             $service->setReadyToShip($ids, $deliveryType, $provider, $tracking);
             $order->update(['status' => 'ready_to_ship']);
+            $order->syncErpOrderStatus();
             \Log::channel('payments')->info("Saga: pedido #{$order->external_order_id} marcado READY", [
                 'order_id' => $order->id, 'channel_id' => $channelId, 'items' => $ids,
             ]);
@@ -368,6 +369,7 @@ class MarketplaceController extends Controller
         try {
             $service->setShipped($ids, $deliveryType, $provider, $tracking);
             $order->update(['status' => 'shipped']);
+            $order->syncErpOrderStatus();
             \Log::channel('payments')->info("Saga: pedido #{$order->external_order_id} marcado SHIPPED", [
                 'order_id' => $order->id, 'channel_id' => $channelId, 'items' => $ids,
             ]);

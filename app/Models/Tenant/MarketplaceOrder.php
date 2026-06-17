@@ -59,7 +59,8 @@ class MarketplaceOrder extends Model
             'items'              => $this->items_data ?? [],
             'total'              => $this->total,
             'shipping_address'   => $this->shipping_data['address'] ?? 'Marketplace',
-            'status_order_id'    => 1,
+            'status_order_id'    => $this->erpStatusId(),
+            'payment_status'     => 'paid', // En Saga el cliente ya pagó (Falabella cobra y liquida)
             'reference_payment'  => 'marketplace_' . ($channel->platform ?? 'unknown'),
             'channel_id'         => $salesChannel->id ?? null,
             'warehouse_id'       => $warehouseId,
@@ -80,5 +81,41 @@ class MarketplaceOrder extends Model
         $this->save();
 
         return $order;
+    }
+
+    /**
+     * Mapea el estado de despacho del marketplace al status_order_id del Order
+     * interno (la columna que /orders usa como "Estatus del pedido").
+     * En Saga el cliente ya pagó, así que nunca es 1 (Pendiente de pago).
+     */
+    public function erpStatusId(): int
+    {
+        return [
+            'pending'       => 2, // Pago verificado (pagado, por despachar)
+            'ready_to_ship' => 3, // En preparación
+            'shipped'       => 4, // Despachado
+            'delivered'     => 6, // Entregado
+            'canceled'      => 5, // Cancelado
+        ][$this->status] ?? 2;
+    }
+
+    /**
+     * Sincroniza el estado del Order interno con el estado de despacho de Saga,
+     * para que /orders (centro de control) refleje la realidad sin intervención.
+     */
+    public function syncErpOrderStatus(): void
+    {
+        if (!$this->order_id) {
+            return;
+        }
+        $order = $this->order;
+        if (!$order) {
+            return;
+        }
+        $order->status_order_id = $this->erpStatusId();
+        if (empty($order->payment_status)) {
+            $order->payment_status = 'paid';
+        }
+        $order->save();
     }
 }
