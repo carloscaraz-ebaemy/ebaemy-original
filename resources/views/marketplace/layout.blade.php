@@ -491,12 +491,12 @@
         </div>
     </div>
 
-    {{-- Chip bar de categorías root: una sola línea horizontal deslizable bajo
-         el buscador (reactivada 2026-06-16). Antes envolvía a 2 filas en
-         desktop y saturaba el header; ahora es scroll de una sola línea en
-         todos los anchos (ver .mp-cats-bar en marketplace.css). Da navegación
-         de categorías de un toque sin abrir el megamenú. --}}
-    @isset($marketplaceNavCategories)
+    {{-- Chip bar de categorías root OCULTA a pedido del usuario (2026-06-16).
+         El CSS (.mp-cats-bar) ya quedó como una sola línea deslizable; para
+         reactivarla, descomentar el bloque de abajo (quitar el envoltorio de
+         comentario Blade). La navegación de categorías sigue disponible via el
+         botón "Categorías" del search bar (megamenú). --}}
+    {{-- @isset($marketplaceNavCategories)
         @if($marketplaceNavCategories->count() > 0)
             @php
                 $catsBarScoped = !empty($navScopedToSubdomain ?? null);
@@ -524,7 +524,7 @@
                 </div>
             </nav>
         @endif
-    @endisset
+    @endisset --}}
 </header>
 
 {{-- ═══════════════════════ CONTENIDO ═══════════════════════ --}}
