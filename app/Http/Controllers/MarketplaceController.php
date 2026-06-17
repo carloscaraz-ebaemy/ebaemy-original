@@ -103,32 +103,43 @@ class MarketplaceController extends Controller
                 $query->orderByDesc('created_at');
                 break;
             default:
-                // Relevance: destacados (no expirados) primero, luego un IMPULSO
-                // DE NOVEDAD (productos nuevos ≤14 días suben arriba para resolver
-                // el arranque en frío — ventana igual al badge "NUEVO"), y recién
-                // después por desempeño (score, vistas). created_at como
-                // desempate final (más nuevo primero).
-                $query->orderByRaw('CASE WHEN is_featured = 1 AND (featured_until IS NULL OR featured_until > NOW()) THEN 1 ELSE 0 END DESC')
-                      ->orderByDesc('featured_score')
-                      ->orderByRaw('CASE WHEN created_at >= ? THEN 1 ELSE 0 END DESC', [now()->subDays(14)->toDateTimeString()])
-                      ->orderByDesc('tenant_verified')   // tiendas verificadas primero (refuerza propuesta de valor)
-                      ->orderByDesc('sort_score')
-                      ->orderByDesc('view_count')
-                      ->orderByDesc('created_at');
+                // Relevance + DIVERSIDAD DE TIENDAS a nivel SQL (window function,
+                // MySQL 8). Rankeamos cada producto DENTRO de su tienda por
+                // relevancia (tenant_rank vía ROW_NUMBER) y ordenamos globalmente
+                // por ese rank primero → round-robin REAL en TODA la paginación:
+                // el 1er producto de cada tienda, luego el 2º de cada una, etc.
+                // Así ninguna pantalla queda dominada por una sola tienda (antes
+                // el ranking global agrupaba muchos productos del mismo seller).
+                //
+                // El orden de relevancia interno: destacados (no expirados), luego
+                // impulso de novedad (≤14 días, igual al badge "NUEVO"), después
+                // desempeño (score, vistas) y created_at como desempate. El cutoff
+                // de novedad va INLINE (no binding) a propósito: así no aparece en
+                // el SELECT/ORDER del COUNT de la paginación y no rompe el conteo.
+                $newCut = now()->subDays(14)->toDateTimeString();
+                $relevanceOrder =
+                    "CASE WHEN is_featured = 1 AND (featured_until IS NULL OR featured_until > NOW()) THEN 1 ELSE 0 END DESC, "
+                    . "featured_score DESC, "
+                    . "CASE WHEN created_at >= '{$newCut}' THEN 1 ELSE 0 END DESC, "
+                    . "sort_score DESC, "
+                    . "view_count DESC, "
+                    . "created_at DESC";
+                $query->selectRaw(
+                        "marketplace_listings.*, "
+                        . "ROW_NUMBER() OVER (PARTITION BY hostname_id ORDER BY {$relevanceOrder}) AS tenant_rank"
+                    )
+                    ->orderBy('tenant_rank')            // round-robin entre tiendas
+                    ->orderByDesc('tenant_verified')    // dentro de cada ronda, verificadas primero
+                    ->orderByRaw($relevanceOrder);      // y luego por relevancia
         }
 
         $listings   = $query->paginate(24)->withQueryString();
 
-        // Diversidad de tiendas: en el orden por relevancia (home/explorar),
-        // intercalamos los productos por tienda para que la primera pantalla
-        // muestre VARIAS tiendas en vez de 24 productos de una sola. Mejora
-        // la experiencia (más variedad = más clics) y reparte exposición a
-        // los sellers. NO se aplica en price/newest, donde el comprador pidió
-        // un orden explícito. Reordena solo la página visible, conserva el
-        // ranking interno de cada tienda (destacados/relevancia primero).
-        if ($sort === 'relevance') {
-            $this->diversifyBySeller($listings);
-        }
+        // Nota: la diversidad de tiendas en el orden 'relevance' ahora se
+        // resuelve a nivel SQL (window function tenant_rank, ver el switch de
+        // orden arriba), que intercala por tienda en TODA la paginación. Ya no
+        // hace falta el reshuffle por página de diversifyBySeller() — que solo
+        // reordenaba los 24 visibles y dejaba las páginas siguientes agrupadas.
 
         // Decora cada listing con los datos que la card necesita: dots de
         // color, thumbs de variantes con imagen, imagen primaria heredada
@@ -536,49 +547,6 @@ class MarketplaceController extends Controller
         }
 
         return response()->json(['ok' => false]);
-    }
-
-    /**
-     * Diversidad de tiendas: reordena la página visible intercalando los
-     * productos por tienda (round-robin sobre hostname_id) para que la
-     * primera pantalla muestre varias tiendas en vez de un bloque de una
-     * sola. Conserva el ranking interno de cada tienda (el primero de cada
-     * bucket sigue siendo su producto mejor rankeado: destacado/relevante).
-     *
-     * Solo reordena la página actual ya paginada — no altera el total ni la
-     * paginación. Tiendas con mejor ranking lideran cada ronda (el orden de
-     * los buckets respeta el primer producto de cada tienda en el ranking).
-     */
-    private function diversifyBySeller($paginator): void
-    {
-        $items = $paginator->getCollection();
-        if ($items->count() < 3) return;
-
-        // Agrupa preservando el orden de ranking dentro de cada tienda.
-        $buckets = [];
-        foreach ($items as $it) {
-            $buckets[$it->hostname_id ?? 0][] = $it;
-        }
-        // Si todo es de la misma tienda no hay nada que intercalar.
-        if (count($buckets) < 2) return;
-
-        // Round-robin: una pasada por ronda toma el i-ésimo producto de cada
-        // tienda. Resultado: tienda A, tienda B, tienda C, … y vuelta.
-        $ordered = [];
-        $round   = 0;
-        $pending = true;
-        while ($pending) {
-            $pending = false;
-            foreach ($buckets as $bucket) {
-                if (isset($bucket[$round])) {
-                    $ordered[] = $bucket[$round];
-                    $pending   = true;
-                }
-            }
-            $round++;
-        }
-
-        $paginator->setCollection(collect($ordered));
     }
 
     /**
