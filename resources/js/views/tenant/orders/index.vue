@@ -190,20 +190,41 @@
                                         {{ statusLabel(row.status_order_id) }}
                                     </div>
                                 </template>
-                                <el-select
-                                    v-model="row.status_order_id"
-                                    size="mini"
-                                    class="ord-status-edit"
-                                    placeholder="Cambiar estado"
-                                    @change="updateStatus(row)"
-                                >
-                                    <el-option
-                                        v-for="item in options"
-                                        :key="item.id"
-                                        :label="item.description"
-                                        :value="item.id"
-                                    ></el-option>
-                                </el-select>
+                                <div class="ord-status-editbar">
+                                    <template
+                                        v-if="editingStatusId === row.id"
+                                    >
+                                        <el-select
+                                            v-model="row.status_order_id"
+                                            size="mini"
+                                            class="ord-status-edit"
+                                            placeholder="Cambiar estado"
+                                            @change="updateStatus(row)"
+                                        >
+                                            <el-option
+                                                v-for="item in options"
+                                                :key="item.id"
+                                                :label="item.description"
+                                                :value="item.id"
+                                            ></el-option>
+                                        </el-select>
+                                        <button
+                                            class="ord-lock-btn cancel"
+                                            title="Cancelar"
+                                            @click="editingStatusId = null"
+                                        >
+                                            <i class="fas fa-times"></i>
+                                        </button>
+                                    </template>
+                                    <button
+                                        v-else
+                                        class="ord-lock-btn"
+                                        title="Desbloquear para cambiar el estado"
+                                        @click="editingStatusId = row.id"
+                                    >
+                                        <i class="fas fa-lock"></i> Cambiar
+                                    </button>
+                                </div>
                             </div>
                         </td>
                         <td class="text-center">
@@ -448,6 +469,36 @@
     background: #fef3c7;
     color: #92400e;
 }
+.ord-status-editbar {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    margin-top: 4px;
+}
+.ord-lock-btn {
+    border: 1px solid #e2e8f0;
+    background: #fff;
+    color: #64748b;
+    border-radius: 6px;
+    font-size: 11.5px;
+    font-weight: 600;
+    padding: 3px 8px;
+    cursor: pointer;
+    transition: all 0.15s;
+}
+.ord-lock-btn:hover {
+    border-color: #4f46e5;
+    color: #4f46e5;
+}
+.ord-lock-btn i {
+    margin-right: 3px;
+}
+.ord-lock-btn.cancel {
+    color: #b91c1c;
+}
+.ord-lock-btn.cancel i {
+    margin-right: 0;
+}
 @media only screen and (max-width: 485px) {
     .filter-container {
         margin-top: 0px;
@@ -479,6 +530,8 @@ export default {
             resource: "orders",
             recordId: null,
             options: [],
+            // Id del pedido cuyo estado está desbloqueado para editar (candado).
+            editingStatusId: null,
             // Ruta lineal del pedido para el stepper (Cancelado=5 va aparte).
             statusSteps: [
                 { id: 1, label: "Pendiente" },
@@ -606,6 +659,8 @@ export default {
         },
         async updateStatus(record) {
             this.record = record;
+            // Re-bloquea (candado) tras intentar el cambio.
+            this.editingStatusId = null;
 
             if (record.status_order_id === 2) {
                 this.order_id = record.id;
