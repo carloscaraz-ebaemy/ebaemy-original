@@ -457,6 +457,77 @@ class FalabellaService
         }
     }
 
+    /**
+     * RESTITUYE el stock de un pedido cancelado/devuelto (reverso de
+     * processOrderStock): devuelve las unidades a stock_physical. Idempotente
+     * por marketplace_orders.stock_restored_at. Sigue el flujo correcto del
+     * skill ebaemy-stock-flow (variante → hoja + propagación).
+     */
+    public function restoreOrderStock(MarketplaceOrder $mp): bool
+    {
+        if ($mp->stock_restored_at) {
+            return false; // ya restituido
+        }
+
+        $items = is_array($mp->items_data) ? $mp->items_data : [];
+        if (isset($items['OrderItemId'])) {
+            $items = [$items];
+        }
+
+        foreach ($items as $orderItem) {
+            if (!is_array($orderItem)) continue;
+            $sku = $orderItem['ShopSku'] ?? $orderItem['Sku'] ?? null;
+            if (!$sku) continue;
+
+            $mapping = MarketplaceProduct::where('channel_id', $this->channel->id)
+                ->where('external_sku', $sku)
+                ->first();
+            if (!$mapping) continue;
+
+            $qty = (int) ($orderItem['Quantity'] ?? 1) ?: 1;
+
+            DB::connection('tenant')->transaction(function () use ($mapping, $qty) {
+                if ($mapping->item_variant_id) {
+                    $vw = \App\Models\Tenant\ItemVariantWarehouse::where('item_variant_id', $mapping->item_variant_id)
+                        ->lockForUpdate()->first();
+                    if ($vw) {
+                        $vw->stock_physical = $vw->stock_physical + $qty; // devuelve
+                        $vw->stock = $vw->stock_physical;
+                        $vw->save();
+
+                        $variant = $vw->variant;
+                        if ($variant) {
+                            $variant->stock = \App\Models\Tenant\ItemVariantWarehouse::where('item_variant_id', $variant->id)
+                                ->sum('stock_physical');
+                            $variant->save();
+                            app(\App\Services\Tenant\ItemVariantService::class)
+                                ->propagateStock($variant->item);
+                        }
+                    }
+                } else {
+                    $iw = \App\Models\Tenant\ItemWarehouse::where('item_id', $mapping->item_id)
+                        ->lockForUpdate()->first();
+                    if ($iw) {
+                        $iw->applyStockMovement(
+                            \App\Enums\StockMovementTypeEnum::SALE_STORE_RETURN,
+                            $qty
+                        );
+                    }
+                }
+            });
+        }
+
+        $mp->stock_restored_at = now();
+        $mp->save();
+
+        Log::channel('payments')->info('Saga: stock restituido por cancelación/devolución', [
+            'marketplace_order_id' => $mp->id,
+            'external_order_id'    => $mp->external_order_id,
+        ]);
+
+        return true;
+    }
+
     // ══════════════════════════════════════════════════════════════
     // FULFILLMENT — Despacho de pedidos (vuelta a Saga)
     // ══════════════════════════════════════════════════════════════
@@ -486,8 +557,16 @@ class FalabellaService
     public function reconcileOrders(): array
     {
         return MarketplaceSyncLog::log($this->channel->id, 'reconcile_orders', 'pull', function ($log) {
+            // Pendientes/listos (progresión de estado) + enviados/entregados de los
+            // últimos 35 días (ventana de devolución de Saga) para detectar
+            // cancelaciones/devoluciones y restituir el stock. Los ya cancelados
+            // se excluyen.
             $locals = MarketplaceOrder::where('channel_id', $this->channel->id)
-                ->whereIn('status', ['pending', 'ready_to_ship'])
+                ->where('status', '!=', 'canceled')
+                ->where(function ($q) {
+                    $q->whereIn('status', ['pending', 'ready_to_ship'])
+                      ->orWhere('ordered_at', '>=', now()->subDays(35));
+                })
                 ->get();
 
             $checked = 0;
@@ -527,6 +606,15 @@ class FalabellaService
                         $mp->syncErpOrderStatus();
                         $updated++;
                     }
+
+                    // Cancelado/devuelto → restituir stock (idempotente) y, si ya
+                    // tenía boleta, marcar que falta emitir Nota de Crédito.
+                    if ($newStatus === 'canceled') {
+                        if ($this->restoreOrderStock($mp) && $mp->document_id && empty($mp->invoice_upload_error)) {
+                            $mp->invoice_upload_error = 'DEVOLUCIÓN/CANCELACIÓN: emitir Nota de Crédito de la boleta de este pedido.';
+                            $mp->save();
+                        }
+                    }
                 } catch (\Throwable $e) {
                     $errors[] = ['order' => $mp->external_order_id, 'error' => $e->getMessage()];
                 }
@@ -556,7 +644,12 @@ class FalabellaService
         $statuses = [];
         foreach ($items as $it) {
             $s = strtolower(trim($it['Status'] ?? ''));
-            if ($s !== '') $statuses[] = $s;
+            if ($s === '') continue;
+            // Cualquier variante de cancelación/fallo/devolución es terminal.
+            if (str_contains($s, 'cancel') || str_contains($s, 'fail') || str_contains($s, 'return') || str_contains($s, 'reject')) {
+                $s = 'canceled';
+            }
+            $statuses[] = $s;
         }
         if (empty($statuses)) {
             return null;

@@ -13,7 +13,7 @@ class MarketplaceOrder extends Model
         'channel_id', 'external_order_id', 'status', 'customer_data',
         'items_data', 'shipping_data', 'total', 'currency',
         'order_id', 'sale_note_id', 'document_id', 'ordered_at', 'processed_at',
-        'invoice_uploaded_at', 'invoice_upload_error',
+        'invoice_uploaded_at', 'invoice_upload_error', 'stock_restored_at',
     ];
 
     protected $casts = [
@@ -24,6 +24,7 @@ class MarketplaceOrder extends Model
         'ordered_at' => 'datetime',
         'processed_at' => 'datetime',
         'invoice_uploaded_at' => 'datetime',
+        'stock_restored_at' => 'datetime',
     ];
 
     public function channel() { return $this->belongsTo(MarketplaceChannel::class, 'channel_id'); }
