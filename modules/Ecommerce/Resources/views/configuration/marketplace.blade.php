@@ -34,6 +34,8 @@
 .mp-nextwrap{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .mp-warn-note{font-size:11.5px;color:#b45309;font-weight:600}
 .mp-warn-note i{margin-right:3px}
+.mp-ok-note{font-size:11.5px;color:#166534;font-weight:600}
+.mp-ok-note i{margin-right:3px}
 .mp-dl{font-size:13px;font-weight:600;white-space:nowrap}
 .mp-dl-ok{color:#475569}.mp-dl-soon{color:#b45309}.mp-dl-over{color:#dc2626}
 .mp-actions .btn{margin-left:4px;margin-bottom:4px}
@@ -421,7 +423,8 @@ document.addEventListener('DOMContentLoaded', function(){
             ready:   (s==='ready_to_ship'||s==='shipped'||s==='delivered'),
             shipped: (s==='shipped'||s==='delivered'),
             // El tenant genera su boleta: detectamos si el Order enlazado ya tiene comprobante.
-            boleta:  !!(o.order && (o.order.number_document || o.order.document_external_id))
+            boleta:  !!(o.order && (o.order.number_document || o.order.document_external_id)),
+            invoiceUploaded: !!o.invoice_uploaded_at
         };
     }
     function mpStepper(o){
@@ -432,7 +435,7 @@ document.addEventListener('DOMContentLoaded', function(){
         var steps=[
             {label:'Recibido', done:true},
             {label:'Listo',    done:f.ready},
-            {label:'Boleta',   done:f.boleta, warn:!f.boleta},
+            {label:'Boleta',   done:f.invoiceUploaded, warn:(f.ready && !f.boleta)},
             {label:'Enviado',  done:f.shipped}
         ];
         var curIdx=-1;
@@ -452,13 +455,24 @@ document.addEventListener('DOMContentLoaded', function(){
         var btns='';
         if(!f.ready){
             btns+='<button class="btn btn-sm mp-btn-go" onclick="orderReady('+ch+','+id+')"><i class="fas fa-check"></i> Marcar listo</button>';
-        } else if(!f.shipped){
-            btns+='<button class="btn btn-sm mp-btn-doc" onclick="downloadDoc('+ch+','+id+',\'shippingLabel\')"><i class="fas fa-file-pdf"></i> Hoja</button>'
-                + '<button class="btn btn-sm mp-btn-ship" onclick="orderShipped('+ch+','+id+')"><i class="fas fa-truck"></i> Marcar enviado</button>';
         } else {
-            btns+='<button class="btn btn-sm mp-btn-ghost" onclick="downloadDoc('+ch+','+id+',\'shippingLabel\')"><i class="fas fa-file-pdf"></i> Hoja</button>';
+            if(!f.shipped){
+                btns+='<button class="btn btn-sm mp-btn-doc" onclick="downloadDoc('+ch+','+id+',\'shippingLabel\')"><i class="fas fa-file-pdf"></i> Hoja</button>'
+                    + '<button class="btn btn-sm mp-btn-ship" onclick="orderShipped('+ch+','+id+')"><i class="fas fa-truck"></i> Marcar enviado</button>';
+            } else {
+                btns+='<button class="btn btn-sm mp-btn-ghost" onclick="downloadDoc('+ch+','+id+',\'shippingLabel\')"><i class="fas fa-file-pdf"></i> Hoja</button>';
+            }
+            // Cumplimiento: boleta SUNAT + carga a Saga
+            if(!f.boleta){
+                btns+='<button class="btn btn-sm mp-btn-go" onclick="genInvoice('+ch+','+id+')"><i class="fas fa-file-invoice"></i> Generar boleta</button>';
+            } else if(!f.invoiceUploaded){
+                btns+='<button class="btn btn-sm mp-btn-ship" onclick="uploadInvoice('+ch+','+id+')"><i class="fas fa-cloud-upload-alt"></i> Subir a Saga</button>';
+            }
         }
-        var note = !f.boleta ? '<span class="mp-warn-note"><i class="fas fa-exclamation-triangle"></i>Falta generar boleta</span>' : '';
+        var note='';
+        if(f.ready && !f.boleta) note='<span class="mp-warn-note"><i class="fas fa-exclamation-triangle"></i>Falta generar boleta</span>';
+        else if(f.boleta && !f.invoiceUploaded) note='<span class="mp-warn-note"><i class="fas fa-exclamation-triangle"></i>Falta subir a Saga</span>';
+        else if(f.invoiceUploaded) note='<span class="mp-ok-note"><i class="fas fa-check-circle"></i>Boleta subida</span>';
         return '<div class="mp-nextwrap">'+btns+note+'</div>';
     }
     function renderTabs(){
@@ -532,6 +546,21 @@ document.addEventListener('DOMContentLoaded', function(){
     };
     window.downloadDoc = function(channelId, orderId, type){
         window.open('/ecommerce/marketplace/channels/'+channelId+'/orders/'+orderId+'/document/'+type, '_blank');
+    };
+
+    window.genInvoice = function(channelId, orderId){
+        if(!confirm('¿Generar la BOLETA electrónica (SUNAT) de este pedido? Se emitirá un comprobante fiscal.')) return;
+        fetch('/ecommerce/marketplace/channels/'+channelId+'/orders/'+orderId+'/invoice', {method:'POST', headers:headers})
+        .then(function(r){return r.json()})
+        .then(function(d){ mpToast(d.message || d.error || 'Listo', d.error?'error':'success'); loadOrders(); })
+        .catch(function(e){ mpToast('Error: '+e.message, 'error'); });
+    };
+    window.uploadInvoice = function(channelId, orderId){
+        if(!confirm('¿Subir la boleta de este pedido a Saga Falabella?')) return;
+        fetch('/ecommerce/marketplace/channels/'+channelId+'/orders/'+orderId+'/upload-invoice', {method:'POST', headers:headers})
+        .then(function(r){return r.json()})
+        .then(function(d){ mpToast(d.message || d.error || 'Listo', d.error?'error':'success'); loadOrders(); })
+        .catch(function(e){ mpToast('Error: '+e.message, 'error'); });
     };
 
     loadOrders();

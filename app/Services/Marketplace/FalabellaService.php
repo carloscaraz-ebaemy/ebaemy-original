@@ -647,6 +647,42 @@ class FalabellaService
     }
 
     /**
+     * Sube el comprobante (boleta) del pedido a Saga — acción SetInvoicePDF.
+     * Cierra el cumplimiento que causó el delisting ("carga de comprobantes").
+     *
+     * @param  array   $orderItemIds  IDs de los items del pedido en Saga
+     * @param  string  $invoiceNumber Número del CPE (debe coincidir, ej "B001-123")
+     * @param  string  $invoiceDate   Fecha de emisión (Y-m-d)
+     * @param  string  $pdfBase64     PDF de la boleta en base64
+     * @param  string  $invoiceType   BOLETA | FACTURA | NOTA_DE_CREDITO
+     * @see https://developers.falabella.com/v600.0.0/reference/setinvoicepdf
+     */
+    public function setInvoicePDF(array $orderItemIds, string $invoiceNumber, string $invoiceDate, string $pdfBase64, string $invoiceType = 'BOLETA'): array
+    {
+        return $this->callPostForm('SetInvoicePDF', [
+            'OrderItemIds'    => '[' . implode(',', $orderItemIds) . ']',
+            'InvoiceNumber'   => $invoiceNumber,
+            'InvoiceDate'     => $invoiceDate,
+            'InvoiceType'     => $invoiceType,
+            'OperatorCode'    => 'FAPE', // Falabella Perú
+            'InvoiceDocument' => $pdfBase64,
+        ]);
+    }
+
+    /**
+     * Variante de POST para acciones con payload grande (ej. PDF base64): firma
+     * TODOS los params (incluido el documento) pero los envía en el BODY como
+     * form-urlencoded para no exceder el límite de longitud del query string.
+     */
+    protected function callPostForm(string $action, array $params = [])
+    {
+        $signed = $this->signRequest($action, $params);
+        $response = Http::asForm()->timeout(60)->post($this->baseUrl, $signed);
+
+        return $this->handleResponse($action, $response);
+    }
+
+    /**
      * Avisa al vendedor por email que entró un pedido nuevo de Saga.
      * Defensivo: nunca rompe el fetch de órdenes si el email falla.
      */

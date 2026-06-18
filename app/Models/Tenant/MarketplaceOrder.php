@@ -12,7 +12,8 @@ class MarketplaceOrder extends Model
     protected $fillable = [
         'channel_id', 'external_order_id', 'status', 'customer_data',
         'items_data', 'shipping_data', 'total', 'currency',
-        'order_id', 'sale_note_id', 'ordered_at', 'processed_at',
+        'order_id', 'sale_note_id', 'document_id', 'ordered_at', 'processed_at',
+        'invoice_uploaded_at', 'invoice_upload_error',
     ];
 
     protected $casts = [
@@ -22,11 +23,13 @@ class MarketplaceOrder extends Model
         'total' => 'float',
         'ordered_at' => 'datetime',
         'processed_at' => 'datetime',
+        'invoice_uploaded_at' => 'datetime',
     ];
 
     public function channel() { return $this->belongsTo(MarketplaceChannel::class, 'channel_id'); }
     public function order() { return $this->belongsTo(Order::class); }
     public function saleNote() { return $this->belongsTo(SaleNote::class); }
+    public function document() { return $this->belongsTo(Document::class); }
 
     public function scopePending($q) { return $q->where('status', 'pending'); }
 

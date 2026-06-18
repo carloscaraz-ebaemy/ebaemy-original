@@ -259,6 +259,9 @@ Route::middleware(['check.permission', 'locked.tenant', 'check.email.verified', 
         Route::post('marketplace/channels/{channelId}/orders/{orderId}/ready', '\App\Http\Controllers\Tenant\MarketplaceController@markOrderReady');
         Route::post('marketplace/channels/{channelId}/orders/{orderId}/shipped', '\App\Http\Controllers\Tenant\MarketplaceController@markOrderShipped');
         Route::get('marketplace/channels/{channelId}/orders/{orderId}/document/{type}', '\App\Http\Controllers\Tenant\MarketplaceController@downloadDocument');
+        // Cumplimiento: emitir boleta SUNAT y subirla a Saga
+        Route::post('marketplace/channels/{channelId}/orders/{orderId}/invoice', '\App\Http\Controllers\Tenant\MarketplaceController@generateInvoice');
+        Route::post('marketplace/channels/{channelId}/orders/{orderId}/upload-invoice', '\App\Http\Controllers\Tenant\MarketplaceController@uploadInvoice');
     });
 
     //Item Sets

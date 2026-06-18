@@ -8,11 +8,16 @@ use App\Models\Tenant\MarketplaceProduct;
 use App\Models\Tenant\MarketplaceOrder;
 use App\Models\Tenant\MarketplaceSyncLog;
 use App\Models\Tenant\Item;
+use App\Models\Tenant\Document;
 use App\Services\Marketplace\MarketplaceOrchestrator;
+use App\Services\Marketplace\MarketplaceInvoiceService;
+use App\CoreFacturalo\Helpers\Storage\StorageDocument;
 use Illuminate\Http\Request;
 
 class MarketplaceController extends Controller
 {
+    use StorageDocument;
+
     public function index()
     {
         return view('ecommerce::configuration.marketplace');
@@ -420,6 +425,83 @@ class MarketplaceController extends Controller
         return response($binary, 200)
             ->header('Content-Type', $mime)
             ->header('Content-Disposition', 'inline; filename="' . $filename . '"');
+    }
+
+    /**
+     * Genera la BOLETA electrónica (SUNAT) del pedido de Saga.
+     * Solo si el pedido ya está listo/enviado (restricción de Saga).
+     */
+    public function generateInvoice(int $channelId, int $orderId)
+    {
+        $order = MarketplaceOrder::where('channel_id', $channelId)->findOrFail($orderId);
+
+        if (!in_array($order->status, ['ready_to_ship', 'shipped'], true)) {
+            return response()->json(['error' => 'Marca el pedido como "Listo para despacho" antes de generar la boleta.'], 422);
+        }
+
+        try {
+            $document = app(MarketplaceInvoiceService::class)->emitInvoice($order);
+            return response()->json([
+                'success' => true,
+                'message' => 'Boleta generada: ' . $document->number_full,
+                'number'  => $document->number_full,
+            ]);
+        } catch (\Throwable $e) {
+            \Log::channel('payments')->error('Saga: error al generar boleta', [
+                'marketplace_order_id' => $orderId, 'error' => $e->getMessage(),
+            ]);
+            return response()->json(['error' => $e->getMessage()], 500);
+        }
+    }
+
+    /**
+     * Sube a Saga (SetInvoicePDF) la boleta ya emitida del pedido.
+     */
+    public function uploadInvoice(int $channelId, int $orderId)
+    {
+        $channel = MarketplaceChannel::findOrFail($channelId);
+        $order = MarketplaceOrder::where('channel_id', $channelId)->findOrFail($orderId);
+        $service = MarketplaceOrchestrator::resolveService($channel);
+
+        if (!$service || !method_exists($service, 'setInvoicePDF')) {
+            return response()->json(['error' => 'Acción no disponible para este canal'], 400);
+        }
+
+        // Idempotencia: ya subida.
+        if ($order->invoice_uploaded_at) {
+            return response()->json(['success' => true, 'message' => 'La boleta ya estaba subida a Saga']);
+        }
+
+        if (!$order->document_id) {
+            return response()->json(['error' => 'Genera la boleta antes de subirla a Saga.'], 422);
+        }
+        $document = Document::find($order->document_id);
+        if (!$document) {
+            return response()->json(['error' => 'No se encontró el comprobante emitido.'], 422);
+        }
+
+        [$ids] = $this->dispatchParams($order, $service);
+        if (empty($ids)) {
+            return response()->json(['error' => 'La orden no tiene items'], 422);
+        }
+
+        try {
+            $pdfBase64 = base64_encode($this->getStorage($document->filename, 'pdf'));
+            $service->setInvoicePDF(
+                $ids,
+                $document->number_full,
+                $document->date_of_issue->format('Y-m-d'),
+                $pdfBase64
+            );
+            $order->update(['invoice_uploaded_at' => now(), 'invoice_upload_error' => null]);
+            \Log::channel('payments')->info('Saga: boleta subida', [
+                'marketplace_order_id' => $orderId, 'number' => $document->number_full,
+            ]);
+            return response()->json(['success' => true, 'message' => 'Boleta subida a Saga: ' . $document->number_full]);
+        } catch (\Throwable $e) {
+            $order->update(['invoice_upload_error' => $e->getMessage()]);
+            return response()->json(['error' => $e->getMessage()], 500);
+        }
     }
 
     // ── Orders ─────────────────────────────────────────────────
