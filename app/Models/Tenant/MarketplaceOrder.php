@@ -59,7 +59,7 @@ class MarketplaceOrder extends Model
         $order = Order::create([
             'external_id'        => (string) \Illuminate\Support\Str::uuid(),
             'customer'           => $this->customer_data ?? [],
-            'items'              => $this->items_data ?? [],
+            'items'              => $this->normalizedItems(),
             'total'              => $this->total,
             'shipping_address'   => $this->shipping_data['address'] ?? 'Marketplace',
             'status_order_id'    => $this->erpStatusId(),
@@ -84,6 +84,70 @@ class MarketplaceOrder extends Model
         $this->save();
 
         return $order;
+    }
+
+    /**
+     * Normaliza los items crudos de Saga (items_data: Name/PaidPrice/…) a la
+     * estructura que consume el ERP: el detalle de /orders (nombre, cantidad,
+     * sale_unit_price, currency_type_id, exchange_rate_sale) y la generación de
+     * Nota de Venta (item_id, quantity, sale_unit_price). Sin esto, el detalle
+     * sale "S/ NaN" y la NV queda con precios/cantidades en cero.
+     */
+    public function normalizedItems(): array
+    {
+        $raw = is_array($this->items_data) ? $this->items_data : [];
+        if (isset($raw['OrderItemId'])) {
+            $raw = [$raw];
+        }
+
+        $out = [];
+        foreach ($raw as $it) {
+            if (!is_array($it)) {
+                continue;
+            }
+            $name  = $it['Name'] ?? $it['ProductName'] ?? 'Producto';
+            $qty   = (float) ($it['Quantity'] ?? 1) ?: 1;
+            $price = (float) ($it['PaidPrice'] ?? $it['ItemPrice'] ?? 0);
+            $sku   = $it['ShopSku'] ?? $it['Sku'] ?? null;
+
+            $itemId = null;
+            if ($sku) {
+                $itemId = MarketplaceProduct::where('channel_id', $this->channel_id)
+                    ->where('external_sku', $sku)
+                    ->value('item_id');
+            }
+
+            $out[] = [
+                'item_id'            => $itemId,
+                'nombre'             => $name,
+                'descripcion'        => $name,
+                'description'        => $name,
+                'cantidad'           => $qty,
+                'quantity'           => $qty,
+                'sale_unit_price'    => $price,
+                'unit_price'         => $price,
+                'currency_type_id'   => 'PEN',
+                'exchange_rate_sale' => 1,
+            ];
+        }
+
+        // Fallback: una línea por el total para que el detalle no quede vacío.
+        if (empty($out)) {
+            $out[] = [
+                'item_id'            => null,
+                'nombre'             => 'Pedido Saga #' . $this->external_order_id,
+                'descripcion'        => 'Pedido Saga #' . $this->external_order_id,
+                'description'        => 'Pedido Saga #' . $this->external_order_id,
+                'cantidad'           => 1,
+                'quantity'           => 1,
+                'sale_unit_price'    => (float) $this->total,
+                'unit_price'         => (float) $this->total,
+                'currency_type_id'   => 'PEN',
+                'exchange_rate_sale' => 1,
+            ];
+        }
+
+        return $out;
     }
 
     /**
