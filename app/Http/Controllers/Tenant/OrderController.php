@@ -147,6 +147,24 @@ class OrderController extends Controller
         return new OrderCollection($query->paginate(config('tenant.items_per_page')));
     }
 
+    /**
+     * Conteos por chip de filtro (para los badges estilo Saga).
+     */
+    public function statusCounts()
+    {
+        return response()->json([
+            'all'        => Order::count(),
+            'todispatch' => Order::whereIn('status_order_id', [1, 2, 3])->count(),
+            'shipped'    => Order::where('status_order_id', 4)->count(),
+            'delivered'  => Order::where('status_order_id', 6)->count(),
+            'canceled'   => Order::where('status_order_id', 5)->count(),
+            'no_invoice' => Order::whereNull('number_document')
+                ->whereHas('marketplaceOrder', function ($q) {
+                    $q->whereNull('invoice_uploaded_at')->whereNull('document_id');
+                })->count(),
+        ]);
+    }
+
     public function stats()
     {
         $today      = now()->toDateString();

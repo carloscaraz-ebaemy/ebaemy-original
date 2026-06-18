@@ -132,6 +132,7 @@ if ($hostname) {
             Route::get('orders', 'Tenant\OrderController@index')->name('tenant_orders_index');
             Route::get('orders/columns', 'Tenant\OrderController@columns');
             Route::get('orders/stats', 'Tenant\OrderController@stats');
+            Route::get('orders/status-counts', 'Tenant\OrderController@statusCounts');
             Route::get('orders/channels', 'Tenant\OrderController@channels');
             Route::get('orders/channel-report', 'Tenant\OrderController@channelReport');
             Route::post('orders/manual', 'Tenant\OrderController@storeManual');

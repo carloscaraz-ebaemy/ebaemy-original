@@ -625,6 +625,69 @@ class FalabellaService
     }
 
     /**
+     * Trae de Saga los pedidos DEVUELTOS y CANCELADOS (GetOrders por estado) y,
+     * para los que tenemos localmente, marca Cancelado + restituye el stock +
+     * avisa Nota de Crédito si ya tenían boleta.
+     *
+     * Saga NO tiene API de devoluciones aparte: las devoluciones se reflejan como
+     * estado de orden 'returned' (además de 'canceled'). Esto es más eficiente que
+     * escanear getOrderItems pedido por pedido.
+     */
+    public function reconcileReturns(): array
+    {
+        return MarketplaceSyncLog::log($this->channel->id, 'reconcile_returns', 'pull', function ($log) {
+            $processed = 0;
+            $marked = 0;
+            $errors = [];
+
+            foreach (['returned', 'canceled'] as $sagaStatus) {
+                try {
+                    $result = $this->call('GetOrders', [
+                        'Status' => $sagaStatus,
+                        'Limit'  => 200,
+                    ]);
+                    $orders = data_get($result, 'Orders.Order', []);
+                    if (isset($orders['OrderId'])) {
+                        $orders = [$orders];
+                    }
+                    if (!is_array($orders)) {
+                        continue;
+                    }
+
+                    foreach ($orders as $o) {
+                        $oid = $o['OrderId'] ?? null;
+                        if (!$oid) continue;
+                        $processed++;
+
+                        $mp = MarketplaceOrder::where('channel_id', $this->channel->id)
+                            ->where('external_order_id', $oid)
+                            ->first();
+                        if (!$mp) continue; // no lo importamos → no descontamos su stock
+
+                        if ($mp->status !== 'canceled') {
+                            $mp->status = 'canceled';
+                            $mp->save();
+                            $mp->syncErpOrderStatus();
+                        }
+
+                        if ($this->restoreOrderStock($mp)) {
+                            $marked++;
+                            if ($mp->document_id && empty($mp->invoice_upload_error)) {
+                                $mp->invoice_upload_error = 'DEVOLUCIÓN/CANCELACIÓN: emitir Nota de Crédito de la boleta de este pedido.';
+                                $mp->save();
+                            }
+                        }
+                    }
+                } catch (\Throwable $e) {
+                    $errors[] = ['status' => $sagaStatus, 'error' => $e->getMessage()];
+                }
+            }
+
+            return ['processed' => $processed, 'success' => $marked, 'failed' => count($errors), 'details' => $errors ?: null];
+        })->toArray();
+    }
+
+    /**
      * Deriva el estado local de un pedido a partir del Status de sus items de Saga.
      * Toma el estado MENOS avanzado (si un item sigue pendiente, el pedido lo está).
      */

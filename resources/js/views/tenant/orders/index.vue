@@ -42,9 +42,18 @@
                         @click="applyMpFilter(chip.key)"
                     >
                         {{ chip.label }}
+                        <span
+                            v-if="chipCounts[chip.key] !== undefined"
+                            class="ord-chip-n"
+                            >{{ chipCounts[chip.key] }}</span
+                        >
                     </button>
                 </div>
-                <data-table ref="ordersTable" :resource="resource">
+                <data-table
+                    ref="ordersTable"
+                    :resource="resource"
+                    @records-changed="loadChipCounts"
+                >
                     <tr slot="heading" width="100%">
                         <th>Codigo de Pedido</th>
                         <th>Cliente</th>
@@ -514,6 +523,19 @@
     border-color: #4f46e5;
     color: #fff;
 }
+.ord-chip-n {
+    display: inline-block;
+    min-width: 18px;
+    text-align: center;
+    background: rgba(0, 0, 0, 0.08);
+    border-radius: 999px;
+    padding: 0 6px;
+    font-size: 11px;
+    margin-left: 4px;
+}
+.ord-chip.active .ord-chip-n {
+    background: rgba(255, 255, 255, 0.25);
+}
 .ord-status-editbar {
     display: flex;
     align-items: center;
@@ -579,6 +601,7 @@ export default {
             editingStatusId: null,
             // Chips de filtro rápido (estilo Saga).
             mpFilter: "all",
+            chipCounts: {},
             orderChips: [
                 { key: "all", label: "Todos" },
                 { key: "todispatch", label: "Por despachar" },
@@ -616,10 +639,19 @@ export default {
         this.$http.get(`/statusOrder/records`).then(response => {
             this.options = response.data;
         });
+        this.loadChipCounts();
         this.events();
     },
     computed: {},
     methods: {
+        loadChipCounts() {
+            this.$http
+                .get(`/orders/status-counts`)
+                .then(response => {
+                    this.chipCounts = response.data || {};
+                })
+                .catch(() => {});
+        },
         isMarketplace(row) {
             const ref = (row.reference_payment || "").toUpperCase();
             return ref.startsWith("MARKETPLACE") || row.channel_type === "marketplace";

@@ -139,6 +139,13 @@ class Kernel extends ConsoleKernel
                  ->withoutOverlapping()
                  ->appendOutputTo(storage_path('logs/marketplace_orders.log'));
 
+        // Trae devoluciones/cancelaciones de Saga (GetOrders returned+canceled) y
+        // restituye el stock de los pedidos devueltos. Cada 2 horas.
+        $schedule->command('marketplace:sync returns')
+                 ->everyTwoHours()
+                 ->withoutOverlapping()
+                 ->appendOutputTo(storage_path('logs/marketplace_orders.log'));
+
         // NOTA: el sync de precios (marketplace:sync prices) NO se programa a propósito.
         // Los sellers manejan precios y OFERTAS en el panel de Saga; empujar el precio
         // desde EBAEMY sobrescribiría el precio regular con el de oferta y dañaría las
