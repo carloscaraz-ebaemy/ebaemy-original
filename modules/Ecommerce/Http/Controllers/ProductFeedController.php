@@ -23,12 +23,76 @@ class ProductFeedController extends Controller
     private function getProducts()
     {
         return Item::where('apply_store', 1)
-            ->whereNotNull('internal_id')
-            ->with(['category', 'warehouses'])
+            ->with(['category', 'warehouses', 'variants'])
             ->select(['id', 'slug', 'description', 'name', 'image', 'sale_unit_price',
-                      'sale_unit_price_set', 'is_set',
+                      'sale_unit_price_set', 'is_set', 'has_variants',
                       'currency_type_id', 'updated_at', 'stock', 'internal_id'])
             ->get();
+    }
+
+    /**
+     * Stock efectivo: en productos con variantes el stock vive en las variantes,
+     * no en item_warehouse del padre.
+     */
+    private function resolveStock($product): float
+    {
+        if ($product->has_variants && $product->variants->isNotEmpty()) {
+            return (float) $product->variants->sum('stock');
+        }
+
+        $stock = 0;
+        foreach ($product->warehouses as $wh) {
+            $stock += $wh->stock;
+        }
+        return (float) $stock;
+    }
+
+    /**
+     * Precio efectivo: en productos con variantes el padre suele tener 0/null,
+     * Meta rechaza precio 0 → usamos el precio mínimo de variante con precio válido.
+     */
+    private function resolvePrice($product): float
+    {
+        if ($product->has_variants && $product->variants->isNotEmpty()) {
+            $prices = $product->variants
+                ->pluck('sale_unit_price')
+                ->filter(fn ($p) => (float) $p > 0);
+
+            if ($prices->isNotEmpty()) {
+                return (float) $prices->min();
+            }
+        }
+
+        if ($product->is_set && $product->sale_unit_price_set) {
+            return (float) $product->sale_unit_price_set;
+        }
+
+        return (float) $product->sale_unit_price;
+    }
+
+    /**
+     * Imagen efectiva: si el padre no tiene foto (caso típico en productos con
+     * variantes) tomamos la primera imagen válida de las variantes.
+     */
+    private function resolveImageUrl($product): string
+    {
+        $valid = fn ($img) => $img && $img !== 'imagen-no-disponible.jpg';
+
+        if ($valid($product->image)) {
+            return asset('storage/uploads/items/' . $product->image);
+        }
+
+        if ($product->has_variants && $product->variants->isNotEmpty()) {
+            $variantImg = $product->variants
+                ->pluck('image')
+                ->first(fn ($img) => $valid($img));
+
+            if ($variantImg) {
+                return asset('storage/uploads/items/' . $variantImg);
+            }
+        }
+
+        return asset('logo/imagen-no-disponible.jpg');
     }
 
     /**
@@ -53,19 +117,11 @@ class ProductFeedController extends Controller
         foreach ($products as $product) {
             $slug        = $product->slug ?: $product->id;
             $productUrl  = $base . '/item/' . $slug;
-            $imageUrl    = ($product->image && $product->image !== 'imagen-no-disponible.jpg')
-                ? asset('storage/uploads/items/' . $product->image)
-                : asset('logo/imagen-no-disponible.jpg');
+            $imageUrl    = $this->resolveImageUrl($product);
 
-            $stock       = 0;
-            foreach ($product->warehouses as $wh) {
-                $stock += $wh->stock;
-            }
+            $stock        = $this->resolveStock($product);
             $availability = $stock > 0 ? 'in stock' : 'out of stock';
-            $unitPrice    = ($product->is_set && $product->sale_unit_price_set)
-                            ? (float)$product->sale_unit_price_set
-                            : (float)$product->sale_unit_price;
-            $price        = number_format($unitPrice, 2, '.', '');
+            $price        = number_format($this->resolvePrice($product), 2, '.', '');
             $categoryName = $product->category ? $product->category->name : 'General';
             $description  = $product->name ?: $product->description;
 
@@ -119,19 +175,11 @@ class ProductFeedController extends Controller
             foreach ($products as $product) {
                 $slug       = $product->slug ?: $product->id;
                 $productUrl = $base . '/item/' . $slug;
-                $imageUrl   = ($product->image && $product->image !== 'imagen-no-disponible.jpg')
-                    ? asset('storage/uploads/items/' . $product->image)
-                    : asset('logo/imagen-no-disponible.jpg');
+                $imageUrl   = $this->resolveImageUrl($product);
 
-                $stock = 0;
-                foreach ($product->warehouses as $wh) {
-                    $stock += $wh->stock;
-                }
+                $stock        = $this->resolveStock($product);
                 $availability = $stock > 0 ? 'in stock' : 'out of stock';
-                $unitPrice    = ($product->is_set && $product->sale_unit_price_set)
-                                ? (float)$product->sale_unit_price_set
-                                : (float)$product->sale_unit_price;
-                $price        = number_format($unitPrice, 2, '.', '') . ' ' . $currency;
+                $price        = number_format($this->resolvePrice($product), 2, '.', '') . ' ' . $currency;
                 $description  = $product->name ?: $product->description;
 
                 fputcsv($out, [
@@ -184,16 +232,11 @@ class ProductFeedController extends Controller
             foreach ($products as $product) {
                 $slug       = $product->slug ?: $product->id;
                 $productUrl = $base . '/item/' . $slug;
-                $imageUrl   = ($product->image && $product->image !== 'imagen-no-disponible.jpg')
-                    ? asset('storage/uploads/items/' . $product->image)
-                    : asset('logo/imagen-no-disponible.jpg');
+                $imageUrl   = $this->resolveImageUrl($product);
 
-                $stock = 0;
-                foreach ($product->warehouses as $wh) {
-                    $stock += $wh->stock;
-                }
+                $stock        = $this->resolveStock($product);
                 $availability = $stock > 0 ? 'in stock' : 'out of stock';
-                $price        = number_format((float)$product->sale_unit_price, 2, '.', '') . ' ' . $currency;
+                $price        = number_format($this->resolvePrice($product), 2, '.', '') . ' ' . $currency;
                 $description  = $product->name ?: $product->description;
                 $categoryName = $product->category ? $product->category->name : '';
 
@@ -258,19 +301,11 @@ class ProductFeedController extends Controller
             foreach ($products as $product) {
                 $slug       = $product->slug ?: $product->id;
                 $productUrl = $base . '/item/' . $slug;
-                $imageUrl   = ($product->image && $product->image !== 'imagen-no-disponible.jpg')
-                    ? asset('storage/uploads/items/' . $product->image)
-                    : asset('logo/imagen-no-disponible.jpg');
+                $imageUrl   = $this->resolveImageUrl($product);
 
-                $stock = 0;
-                foreach ($product->warehouses as $wh) {
-                    $stock += $wh->stock;
-                }
+                $stock        = $this->resolveStock($product);
                 $availability = $stock > 0 ? 'in stock' : 'out of stock';
-                $unitPrice    = ($product->is_set && $product->sale_unit_price_set)
-                                ? (float) $product->sale_unit_price_set
-                                : (float) $product->sale_unit_price;
-                $price        = number_format($unitPrice, 2, '.', '') . ' ' . $currency;
+                $price        = number_format($this->resolvePrice($product), 2, '.', '') . ' ' . $currency;
                 $description  = $product->name ?: $product->description;
                 $categoryName = $product->category ? $product->category->name : 'General';
 
