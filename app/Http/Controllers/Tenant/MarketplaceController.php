@@ -433,10 +433,32 @@ class MarketplaceController extends Controller
      */
     public function generateInvoice(int $channelId, int $orderId)
     {
+        $channel = MarketplaceChannel::findOrFail($channelId);
         $order = MarketplaceOrder::where('channel_id', $channelId)->findOrFail($orderId);
 
         if (!in_array($order->status, ['ready_to_ship', 'shipped'], true)) {
             return response()->json(['error' => 'Marca el pedido como "Listo para despacho" antes de generar la boleta.'], 422);
+        }
+
+        // Guard anti-duplicado: si Saga YA tiene un comprobante de este pedido
+        // (emitido en otro sistema), no generamos otra boleta. Lo marcamos cumplido.
+        $service = MarketplaceOrchestrator::resolveService($channel);
+        if ($service && method_exists($service, 'getOrderInvoiceNumber')) {
+            try {
+                $existing = $service->getOrderInvoiceNumber($order->external_order_id);
+            } catch (\Throwable $e) {
+                $existing = null; // best-effort; no bloquea
+            }
+            if ($existing) {
+                $order->update([
+                    'invoice_uploaded_at' => $order->invoice_uploaded_at ?? now(),
+                    'invoice_upload_error' => 'Boleta externa en Saga: ' . $existing,
+                ]);
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Este pedido ya tiene boleta en Saga (' . $existing . '). Se marcó como cumplido; no se generó otra.',
+                ]);
+            }
         }
 
         try {
@@ -452,6 +474,20 @@ class MarketplaceController extends Controller
             ]);
             return response()->json(['error' => $e->getMessage()], 500);
         }
+    }
+
+    /**
+     * Marca manualmente un pedido como "boleta ya emitida" (en otro sistema),
+     * sin generar comprobante en EBAEMY. Para pedidos ya facturados por fuera.
+     */
+    public function markInvoiced(int $channelId, int $orderId)
+    {
+        $order = MarketplaceOrder::where('channel_id', $channelId)->findOrFail($orderId);
+        $order->update([
+            'invoice_uploaded_at' => $order->invoice_uploaded_at ?? now(),
+            'invoice_upload_error' => $order->invoice_upload_error ?: 'Boleta emitida fuera de EBAEMY (marcado manual)',
+        ]);
+        return response()->json(['success' => true, 'message' => 'Pedido marcado: ya tiene boleta (externa).']);
     }
 
     /**

@@ -463,9 +463,10 @@ document.addEventListener('DOMContentLoaded', function(){
                 btns+='<button class="btn btn-sm mp-btn-ghost" onclick="downloadDoc('+ch+','+id+',\'shippingLabel\')"><i class="fas fa-file-pdf"></i> Hoja</button>';
             }
             // Cumplimiento: boleta SUNAT + carga a Saga
-            if(!f.boleta){
-                btns+='<button class="btn btn-sm mp-btn-go" onclick="genInvoice('+ch+','+id+')"><i class="fas fa-file-invoice"></i> Generar boleta</button>';
-            } else if(!f.invoiceUploaded){
+            if(!f.boleta && !f.invoiceUploaded){
+                btns+='<button class="btn btn-sm mp-btn-go" onclick="genInvoice('+ch+','+id+')"><i class="fas fa-file-invoice"></i> Generar boleta</button>'
+                    + '<button class="btn btn-sm mp-btn-ghost" onclick="markInvoiced('+ch+','+id+')" title="El pedido ya fue facturado en otro sistema"><i class="fas fa-check"></i> Ya tiene boleta</button>';
+            } else if(f.boleta && !f.invoiceUploaded){
                 btns+='<button class="btn btn-sm mp-btn-ship" onclick="uploadInvoice('+ch+','+id+')"><i class="fas fa-cloud-upload-alt"></i> Subir a Saga</button>';
             }
         }
@@ -558,6 +559,13 @@ document.addEventListener('DOMContentLoaded', function(){
     window.uploadInvoice = function(channelId, orderId){
         if(!confirm('¿Subir la boleta de este pedido a Saga Falabella?')) return;
         fetch('/ecommerce/marketplace/channels/'+channelId+'/orders/'+orderId+'/upload-invoice', {method:'POST', headers:headers})
+        .then(function(r){return r.json()})
+        .then(function(d){ mpToast(d.message || d.error || 'Listo', d.error?'error':'success'); loadOrders(); })
+        .catch(function(e){ mpToast('Error: '+e.message, 'error'); });
+    };
+    window.markInvoiced = function(channelId, orderId){
+        if(!confirm('¿Marcar que este pedido YA tiene boleta (emitida en otro sistema)? No se generará comprobante en EBAEMY.')) return;
+        fetch('/ecommerce/marketplace/channels/'+channelId+'/orders/'+orderId+'/mark-invoiced', {method:'POST', headers:headers})
         .then(function(r){return r.json()})
         .then(function(d){ mpToast(d.message || d.error || 'Listo', d.error?'error':'success'); loadOrders(); })
         .catch(function(e){ mpToast('Error: '+e.message, 'error'); });

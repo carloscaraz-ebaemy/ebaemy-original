@@ -647,6 +647,60 @@ class FalabellaService
     }
 
     /**
+     * Devuelve el número de comprobante que Saga ya tiene registrado para el
+     * pedido (si lo hay), leyendo los items. Sirve para NO emitir una boleta
+     * duplicada cuando el pedido ya fue facturado en otro sistema.
+     * Tolerante con el nombre del campo (InvoiceNumber / InvoiceDocumentLink).
+     */
+    public function getOrderInvoiceNumber(string $externalOrderId): ?string
+    {
+        $items = $this->getOrderItems($externalOrderId);
+        foreach ($items as $it) {
+            if (!is_array($it)) continue;
+            $num = $it['InvoiceNumber'] ?? null;
+            if (!empty($num)) {
+                return (string) $num;
+            }
+            // Algunos catálogos exponen solo el link del documento ya cargado.
+            if (!empty($it['InvoiceDocumentLink'])) {
+                return 'documento';
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Marca como "boleta ya cargada" los pedidos locales que Saga reporta como
+     * facturados pero que NO se emitieron desde EBAEMY (document_id null). Evita
+     * volver a pedir "Generar boleta" para pedidos históricos ya cumplidos.
+     */
+    public function detectExternalInvoices(): array
+    {
+        $locals = MarketplaceOrder::where('channel_id', $this->channel->id)
+            ->whereNull('invoice_uploaded_at')
+            ->whereNull('document_id')
+            ->get();
+
+        $checked = 0;
+        $marked = 0;
+        foreach ($locals as $mp) {
+            try {
+                $checked++;
+                $num = $this->getOrderInvoiceNumber($mp->external_order_id);
+                if ($num) {
+                    $mp->invoice_uploaded_at = $mp->ordered_at ?? now();
+                    $mp->invoice_upload_error = 'Boleta externa en Saga: ' . $num;
+                    $mp->save();
+                    $marked++;
+                }
+            } catch (\Throwable $e) {
+                // best-effort; sigue con el resto
+            }
+        }
+        return ['processed' => $checked, 'success' => $marked, 'failed' => 0];
+    }
+
+    /**
      * Sube el comprobante (boleta) del pedido a Saga — acción SetInvoicePDF.
      * Cierra el cumplimiento que causó el delisting ("carga de comprobantes").
      *
