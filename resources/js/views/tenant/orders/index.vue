@@ -33,7 +33,18 @@
         </div>
         <div class="card tab-content-default row-new mb-0">
             <div class="card-body">
-                <data-table :resource="resource">
+                <div class="ord-chips">
+                    <button
+                        v-for="chip in orderChips"
+                        :key="chip.key"
+                        class="ord-chip"
+                        :class="{ active: mpFilter === chip.key }"
+                        @click="applyMpFilter(chip.key)"
+                    >
+                        {{ chip.label }}
+                    </button>
+                </div>
+                <data-table ref="ordersTable" :resource="resource">
                     <tr slot="heading" width="100%">
                         <th>Codigo de Pedido</th>
                         <th>Cliente</th>
@@ -477,6 +488,32 @@
     background: #fef3c7;
     color: #92400e;
 }
+.ord-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 14px;
+}
+.ord-chip {
+    border: 1px solid #e2e8f0;
+    background: #fff;
+    border-radius: 999px;
+    padding: 6px 16px;
+    font-size: 13px;
+    font-weight: 600;
+    color: #475569;
+    cursor: pointer;
+    transition: all 0.15s;
+}
+.ord-chip:hover {
+    border-color: #c7d2fe;
+    color: #4f46e5;
+}
+.ord-chip.active {
+    background: #4f46e5;
+    border-color: #4f46e5;
+    color: #fff;
+}
 .ord-status-editbar {
     display: flex;
     align-items: center;
@@ -540,6 +577,16 @@ export default {
             options: [],
             // Id del pedido cuyo estado está desbloqueado para editar (candado).
             editingStatusId: null,
+            // Chips de filtro rápido (estilo Saga).
+            mpFilter: "all",
+            orderChips: [
+                { key: "all", label: "Todos" },
+                { key: "todispatch", label: "Por despachar" },
+                { key: "shipped", label: "Enviados" },
+                { key: "delivered", label: "Entregados" },
+                { key: "canceled", label: "Cancelados / Devoluciones" },
+                { key: "no_invoice", label: "Sin boleta" },
+            ],
             // Ruta lineal del pedido para el stepper (Cancelado=5 va aparte).
             statusSteps: [
                 { id: 1, label: "Pendiente" },
@@ -607,6 +654,16 @@ export default {
             this.statusDocument.send = "";
             this.resource_options = "documents";
             this.showDialogOptions = true;
+        },
+        applyMpFilter(key) {
+            this.mpFilter = key;
+            var dt = this.$refs.ordersTable;
+            if (!dt) return;
+            // Inyecta el filtro en la consulta del DataTable (se hace spread de
+            // search en getQueryParameters) y recarga desde el server.
+            dt.search.mp_filter = key === "all" ? null : key;
+            dt.pagination.current_page = 1;
+            dt.getRecords();
         },
         canDownloadLabel(row) {
             // Solo pedidos de Saga ya despachables tienen rótulo en Saga.

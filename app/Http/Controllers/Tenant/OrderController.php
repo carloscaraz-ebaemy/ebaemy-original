@@ -122,6 +122,28 @@ class OrderController extends Controller
             $query->whereHas('channel', fn($q) => $q->where('type', $request->channel_type));
         }
 
+        // Chips estilo Saga: filtro rápido por etapa / cumplimiento.
+        switch ($request->mp_filter) {
+            case 'todispatch': // Por despachar (pendiente/verificado/preparación)
+                $query->whereIn('status_order_id', [1, 2, 3]);
+                break;
+            case 'shipped':    // Enviados (despachado)
+                $query->where('status_order_id', 4);
+                break;
+            case 'delivered':  // Entregados
+                $query->where('status_order_id', 6);
+                break;
+            case 'canceled':   // Cancelados / Devoluciones
+                $query->where('status_order_id', 5);
+                break;
+            case 'no_invoice': // Pedidos de marketplace SIN boleta
+                $query->whereNull('number_document')
+                    ->whereHas('marketplaceOrder', function ($q) {
+                        $q->whereNull('invoice_uploaded_at')->whereNull('document_id');
+                    });
+                break;
+        }
+
         return new OrderCollection($query->paginate(config('tenant.items_per_page')));
     }
 
