@@ -78,6 +78,11 @@
             return $this->belongsTo(SalesChannel::class, 'channel_id');
         }
 
+        public function marketplaceOrder()
+        {
+            return $this->hasOne(MarketplaceOrder::class, 'order_id');
+        }
+
         public function warehouse()
         {
             return $this->belongsTo(\Modules\Inventory\Models\Warehouse::class, 'warehouse_id');

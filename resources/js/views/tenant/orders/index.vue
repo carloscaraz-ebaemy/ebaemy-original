@@ -207,12 +207,28 @@
                             </div>
                         </td>
                         <td class="text-center">
-                            <template v-if="row.document_type_id == '80'">
-                                {{ row.sale_note_number_full }}
-                            </template>
-                            <template v-else>
-                                {{ row.number_document }}
-                            </template>
+                            <span
+                                v-if="row.number_document"
+                                class="ord-doc-badge ord-doc-ok"
+                                >{{ row.number_document }}</span
+                            >
+                            <span
+                                v-else-if="row.document_type_id == '80' && row.sale_note_number_full"
+                                >{{ row.sale_note_number_full }}</span
+                            >
+                            <span
+                                v-else-if="row.mp_invoice_state === 'external'"
+                                class="ord-doc-badge ord-doc-ext"
+                                title="Boleta emitida fuera de EBAEMY"
+                                >Boleta externa</span
+                            >
+                            <span
+                                v-else-if="row.mp_invoice_state === 'pending'"
+                                class="ord-doc-badge ord-doc-pend"
+                                title="Pedido de marketplace sin boleta"
+                                >Sin boleta</span
+                            >
+                            <span v-else class="text-muted">—</span>
                         </td>
                         <td class="text-end">
                             <template v-if="row.document_type_id == '80'">
@@ -411,6 +427,26 @@
 .ord-status-edit {
     width: 100%;
     margin-top: 2px;
+}
+.ord-doc-badge {
+    display: inline-block;
+    padding: 2px 9px;
+    border-radius: 999px;
+    font-size: 11.5px;
+    font-weight: 600;
+    white-space: nowrap;
+}
+.ord-doc-ok {
+    background: #dcfce7;
+    color: #166534;
+}
+.ord-doc-ext {
+    background: #e0e7ff;
+    color: #3730a3;
+}
+.ord-doc-pend {
+    background: #fef3c7;
+    color: #92400e;
 }
 @media only screen and (max-width: 485px) {
     .filter-container {

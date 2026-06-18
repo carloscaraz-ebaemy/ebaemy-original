@@ -40,6 +40,24 @@ class OrderCollection extends ResourceCollection
                 'id'                   => $row->id,
                 'external_id'          => $row->external_id,
                 'number_document'      => $row->number_document,
+                // Estado de la boleta para pedidos de marketplace (Saga):
+                //   ebaemy   = boleta emitida desde EBAEMY (muestra number_document)
+                //   external = ya facturado fuera de EBAEMY (marca/carga)
+                //   pending  = pedido de marketplace SIN boleta aún
+                //   null     = pedido normal del ecommerce (no marketplace)
+                'mp_invoice_state'     => (function () use ($row) {
+                    $mp = $row->marketplaceOrder;
+                    if (!$mp) {
+                        return null;
+                    }
+                    if ($row->number_document || $mp->document_id) {
+                        return 'ebaemy';
+                    }
+                    if ($mp->invoice_uploaded_at) {
+                        return 'external';
+                    }
+                    return 'pending';
+                })(),
                 'order_id'             => str_pad($row->id, 6, "0", STR_PAD_LEFT),
                 'customer'             => $customerName,
                 'customer_email'       => $customerEmail,
