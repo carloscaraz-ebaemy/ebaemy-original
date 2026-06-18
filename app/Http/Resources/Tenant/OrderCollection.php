@@ -58,6 +58,10 @@ class OrderCollection extends ResourceCollection
                     }
                     return 'pending';
                 })(),
+                // Datos del pedido de marketplace para descargar el rótulo (Saga).
+                'mp_order_id'          => optional($row->marketplaceOrder)->id,
+                'mp_channel_id'        => optional($row->marketplaceOrder)->channel_id,
+                'mp_status'            => optional($row->marketplaceOrder)->status,
                 'order_id'             => str_pad($row->id, 6, "0", STR_PAD_LEFT),
                 'customer'             => $customerName,
                 'customer_email'       => $customerEmail,

@@ -274,6 +274,14 @@
                                     "
                                 ></el-button>
                             </template>
+                            <el-button
+                                v-if="canDownloadLabel(row)"
+                                size="mini"
+                                icon="el-icon-printer"
+                                title="Hoja de despacho de Saga"
+                                @click.prevent="downloadLabel(row)"
+                                >Rótulo</el-button
+                            >
                         </td>
                     </tr>
                 </data-table>
@@ -599,6 +607,26 @@ export default {
             this.statusDocument.send = "";
             this.resource_options = "documents";
             this.showDialogOptions = true;
+        },
+        canDownloadLabel(row) {
+            // Solo pedidos de Saga ya despachables tienen rótulo en Saga.
+            return (
+                row.mp_order_id &&
+                row.mp_channel_id &&
+                ["ready_to_ship", "shipped", "delivered"].indexOf(
+                    row.mp_status
+                ) !== -1
+            );
+        },
+        downloadLabel(row) {
+            window.open(
+                "/ecommerce/marketplace/channels/" +
+                    row.mp_channel_id +
+                    "/orders/" +
+                    row.mp_order_id +
+                    "/document/shippingLabel",
+                "_blank"
+            );
         },
         statusIndex(statusId) {
             // Posición en la ruta lineal; -1 si no está (ej. Cancelado=5).

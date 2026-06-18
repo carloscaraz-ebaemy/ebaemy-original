@@ -104,7 +104,7 @@ class OrderController extends Controller
     {
         $allowedColumns = ['date_of_issue', 'id', 'shipping_address', 'reference_payment', 'total'];
         $column = in_array($request->column, $allowedColumns) ? $request->column : 'id';
-        $query = Order::with(['channel', 'marketplaceOrder:id,order_id,invoice_uploaded_at,document_id'])->latest();
+        $query = Order::with(['channel', 'marketplaceOrder:id,order_id,channel_id,status,invoice_uploaded_at,document_id'])->latest();
 
         if ($request->value) {
             $query->where($column, 'like', "%{$request->value}%");
