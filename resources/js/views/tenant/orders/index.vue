@@ -152,19 +152,59 @@
                             <template v-else>{{ row.reference_payment }}</template>
                         </td>
                         <td>
-                            <el-select
-                                v-model="row.status_order_id"
-                                placeholder="Estatus Pedido"
-                                :value="row.status_order_id"
-                                @change="updateStatus(row)"
-                            >
-                                <el-option
-                                    v-for="item in options"
-                                    :key="item.id"
-                                    :label="item.description"
-                                    :value="item.id"
-                                ></el-option>
-                            </el-select>
+                            <div class="ord-status-cell">
+                                <template v-if="row.status_order_id == 5">
+                                    <span class="ord-badge-cancel"
+                                        ><i class="fas fa-times-circle"></i>
+                                        Cancelado</span
+                                    >
+                                </template>
+                                <template v-else>
+                                    <div class="ord-steps">
+                                        <template
+                                            v-for="(st, i) in statusSteps"
+                                        >
+                                            <span
+                                                class="ord-step"
+                                                :class="stepClass(row.status_order_id, i)"
+                                                :title="st.label"
+                                                :key="'s' + i"
+                                            >
+                                                <i
+                                                    v-if="stepDone(row.status_order_id, i)"
+                                                    class="fas fa-check"
+                                                ></i>
+                                                <template v-else>{{
+                                                    i + 1
+                                                }}</template>
+                                            </span>
+                                            <span
+                                                v-if="i < statusSteps.length - 1"
+                                                class="ord-sep"
+                                                :class="{ done: stepDone(row.status_order_id, i + 1) }"
+                                                :key="'l' + i"
+                                            ></span>
+                                        </template>
+                                    </div>
+                                    <div class="ord-step-label">
+                                        {{ statusLabel(row.status_order_id) }}
+                                    </div>
+                                </template>
+                                <el-select
+                                    v-model="row.status_order_id"
+                                    size="mini"
+                                    class="ord-status-edit"
+                                    placeholder="Cambiar estado"
+                                    @change="updateStatus(row)"
+                                >
+                                    <el-option
+                                        v-for="item in options"
+                                        :key="item.id"
+                                        :label="item.description"
+                                        :value="item.id"
+                                    ></el-option>
+                                </el-select>
+                            </div>
                         </td>
                         <td class="text-center">
                             <template v-if="row.document_type_id == '80'">
@@ -307,6 +347,71 @@
     color: #3730a3;
     white-space: nowrap;
 }
+/* Stepper de estado del pedido */
+.ord-status-cell {
+    min-width: 170px;
+}
+.ord-steps {
+    display: flex;
+    align-items: center;
+}
+.ord-step {
+    flex: 0 0 auto;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 10px;
+    font-weight: 700;
+    border: 1.5px solid #cbd5e1;
+    background: #fff;
+    color: #94a3b8;
+}
+.ord-step.done {
+    background: #16a34a;
+    border-color: #16a34a;
+    color: #fff;
+}
+.ord-step.current {
+    border-color: #4f46e5;
+    color: #4f46e5;
+    background: #eef2ff;
+    box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.12);
+}
+.ord-sep {
+    flex: 1 1 auto;
+    height: 2px;
+    min-width: 8px;
+    background: #e2e8f0;
+    margin: 0 2px;
+}
+.ord-sep.done {
+    background: #16a34a;
+}
+.ord-step-label {
+    font-size: 12px;
+    font-weight: 600;
+    color: #334155;
+    margin: 4px 0 2px;
+}
+.ord-badge-cancel {
+    display: inline-block;
+    padding: 2px 10px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 600;
+    background: #fee2e2;
+    color: #b91c1c;
+}
+.ord-badge-cancel i {
+    margin-right: 3px;
+}
+.ord-status-edit {
+    width: 100%;
+    margin-top: 2px;
+}
 @media only screen and (max-width: 485px) {
     .filter-container {
         margin-top: 0px;
@@ -338,6 +443,14 @@ export default {
             resource: "orders",
             recordId: null,
             options: [],
+            // Ruta lineal del pedido para el stepper (Cancelado=5 va aparte).
+            statusSteps: [
+                { id: 1, label: "Pendiente" },
+                { id: 2, label: "Pago verificado" },
+                { id: 3, label: "En preparación" },
+                { id: 4, label: "Despachado" },
+                { id: 6, label: "Entregado" },
+            ],
             warehouses: [],
             estableciment_id: "",
             totalProduct: [], // items_id
@@ -397,6 +510,33 @@ export default {
             this.statusDocument.send = "";
             this.resource_options = "documents";
             this.showDialogOptions = true;
+        },
+        statusIndex(statusId) {
+            // Posición en la ruta lineal; -1 si no está (ej. Cancelado=5).
+            return this.statusSteps.findIndex(function (s) {
+                return String(s.id) === String(statusId);
+            });
+        },
+        stepDone(statusId, i) {
+            var cur = this.statusIndex(statusId);
+            return cur >= 0 && i <= cur;
+        },
+        stepClass(statusId, i) {
+            var cur = this.statusIndex(statusId);
+            if (cur < 0) return "pending";
+            if (i < cur) return "done";
+            if (i === cur) return "current";
+            return "pending";
+        },
+        statusLabel(statusId) {
+            var found = this.options.find(function (o) {
+                return String(o.id) === String(statusId);
+            });
+            if (found) return found.description;
+            var step = this.statusSteps.find(function (s) {
+                return String(s.id) === String(statusId);
+            });
+            return step ? step.label : "";
         },
         subtotal(item) {
             var subtotal;
