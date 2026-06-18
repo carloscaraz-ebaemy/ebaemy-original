@@ -33,6 +33,26 @@
         </div>
         <div class="card tab-content-default row-new mb-0">
             <div class="card-body">
+                <div class="ord-kpis">
+                    <div class="ord-kpi">
+                        <div class="ord-kpi-label">Por despachar</div>
+                        <div class="ord-kpi-val">{{ chipCounts.todispatch || 0 }}</div>
+                    </div>
+                    <div class="ord-kpi ord-kpi-warn">
+                        <div class="ord-kpi-label">Sin boleta</div>
+                        <div class="ord-kpi-val">{{ chipCounts.no_invoice || 0 }}</div>
+                    </div>
+                    <div class="ord-kpi ord-kpi-ok">
+                        <div class="ord-kpi-label">Entregados</div>
+                        <div class="ord-kpi-val">{{ chipCounts.delivered || 0 }}</div>
+                    </div>
+                    <div class="ord-kpi ord-kpi-rev">
+                        <div class="ord-kpi-label">Vendido del mes</div>
+                        <div class="ord-kpi-val">
+                            S/ {{ formatMoney(stats.revenueMonth) }}
+                        </div>
+                    </div>
+                </div>
                 <div class="ord-chips">
                     <button
                         v-for="chip in orderChips"
@@ -49,12 +69,33 @@
                         >
                     </button>
                 </div>
+                <div v-if="selectedIds.length" class="ord-bulkbar">
+                    <span class="ord-bulk-count"
+                        >{{ selectedIds.length }} seleccionado(s)</span
+                    >
+                    <button class="ord-bulk-btn" @click="bulkMarkInvoiced">
+                        <i class="fas fa-check"></i> Marcar boleta (externa)
+                    </button>
+                    <button class="ord-bulk-btn" @click="bulkDownloadLabels">
+                        <i class="fas fa-printer"></i> Descargar rótulos
+                    </button>
+                    <button class="ord-bulk-btn ghost" @click="selectedIds = []">
+                        Limpiar
+                    </button>
+                </div>
                 <data-table
                     ref="ordersTable"
                     :resource="resource"
-                    @records-changed="loadChipCounts"
+                    @records-changed="onRecordsChanged"
                 >
                     <tr slot="heading" width="100%">
+                        <th class="text-center" style="width: 36px">
+                            <input
+                                type="checkbox"
+                                :checked="allSelected"
+                                @change="toggleAll($event)"
+                            />
+                        </th>
                         <th>Codigo de Pedido</th>
                         <th>Cliente</th>
                         <th class="text-center">Detalle Productos</th>
@@ -67,9 +108,16 @@
                     </tr>
                     <tr></tr>
                     <tr slot-scope="{ index, row }">
-                        <td>{{ row.order_id }}</td>
-                        <td>{{ row.customer }}</td>
                         <td class="text-center">
+                            <input
+                                type="checkbox"
+                                :value="row.id"
+                                v-model="selectedIds"
+                            />
+                        </td>
+                        <td data-label="Código">{{ row.order_id }}</td>
+                        <td data-label="Cliente">{{ row.customer }}</td>
+                        <td class="text-center" data-label="Detalle">
                             <template>
                                 <el-popover
                                     placement="right"
@@ -161,9 +209,9 @@
                                 </el-popover>
                             </template>
                         </td>
-                        <td class="text-end">S/ {{ row.total }}</td>
-                        <td>{{ formatDate(row.created_at) }}</td>
-                        <td>
+                        <td class="text-end" data-label="Total">S/ {{ row.total }}</td>
+                        <td data-label="Fecha">{{ formatDate(row.created_at) }}</td>
+                        <td data-label="Medio pago">
                             <span
                                 v-if="isMarketplace(row)"
                                 class="mp-pay-badge"
@@ -171,7 +219,7 @@
                             >
                             <template v-else>{{ row.reference_payment }}</template>
                         </td>
-                        <td>
+                        <td data-label="Estado">
                             <div class="ord-status-cell">
                                 <template v-if="row.status_order_id == 5">
                                     <span class="ord-badge-cancel"
@@ -247,7 +295,7 @@
                                 </div>
                             </div>
                         </td>
-                        <td class="text-center">
+                        <td class="text-center" data-label="Documento">
                             <span
                                 v-if="row.number_document"
                                 class="ord-doc-badge ord-doc-ok"
@@ -271,7 +319,7 @@
                             >
                             <span v-else class="text-muted">—</span>
                         </td>
-                        <td class="text-end">
+                        <td class="text-end" data-label="Opciones">
                             <template v-if="row.document_type_id == '80'">
                                 <el-button
                                     v-if="row.sale_note_id"
@@ -536,6 +584,108 @@
 .ord-chip.active .ord-chip-n {
     background: rgba(255, 255, 255, 0.25);
 }
+/* KPIs */
+.ord-kpis {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10px;
+    margin-bottom: 14px;
+}
+.ord-kpi {
+    border: 1px solid #eef2f7;
+    border-radius: 12px;
+    padding: 12px 14px;
+    background: #fff;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+.ord-kpi-label {
+    font-size: 12px;
+    color: #64748b;
+    font-weight: 600;
+}
+.ord-kpi-val {
+    font-size: 22px;
+    font-weight: 700;
+    color: #1e293b;
+    margin-top: 2px;
+}
+.ord-kpi-warn .ord-kpi-val {
+    color: #b45309;
+}
+.ord-kpi-ok .ord-kpi-val {
+    color: #166534;
+}
+.ord-kpi-rev .ord-kpi-val {
+    color: #4f46e5;
+}
+/* Barra de acciones masivas */
+.ord-bulkbar {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    background: #eef2ff;
+    border: 1px solid #c7d2fe;
+    border-radius: 10px;
+    padding: 8px 12px;
+    margin-bottom: 12px;
+}
+.ord-bulk-count {
+    font-weight: 700;
+    color: #3730a3;
+    margin-right: 6px;
+}
+.ord-bulk-btn {
+    border: 1px solid #c7d2fe;
+    background: #fff;
+    color: #4f46e5;
+    border-radius: 8px;
+    padding: 5px 12px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+}
+.ord-bulk-btn:hover {
+    background: #4f46e5;
+    color: #fff;
+}
+.ord-bulk-btn.ghost {
+    border-color: #e2e8f0;
+    color: #64748b;
+}
+/* Vista móvil: tabla → tarjetas */
+@media (max-width: 768px) {
+    .orders .ord-kpis {
+        grid-template-columns: repeat(2, 1fr);
+    }
+    .orders table thead {
+        display: none;
+    }
+    .orders table tbody tr {
+        display: block;
+        border: 1px solid #eef2f7;
+        border-radius: 12px;
+        margin-bottom: 10px;
+        padding: 6px 10px;
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+    }
+    .orders table tbody td {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 10px;
+        border: none !important;
+        padding: 6px 0;
+        text-align: right;
+    }
+    .orders table tbody td::before {
+        content: attr(data-label);
+        font-weight: 600;
+        color: #64748b;
+        text-align: left;
+        flex: 0 0 auto;
+    }
+}
 .ord-status-editbar {
     display: flex;
     align-items: center;
@@ -602,6 +752,9 @@ export default {
             // Chips de filtro rápido (estilo Saga).
             mpFilter: "all",
             chipCounts: {},
+            stats: {},
+            selectedIds: [],
+            currentRecords: [],
             orderChips: [
                 { key: "all", label: "Todos" },
                 { key: "todispatch", label: "Por despachar" },
@@ -640,10 +793,74 @@ export default {
             this.options = response.data;
         });
         this.loadChipCounts();
+        this.loadStats();
         this.events();
     },
-    computed: {},
+    computed: {
+        allSelected() {
+            return (
+                this.currentRecords.length > 0 &&
+                this.currentRecords.every(r =>
+                    this.selectedIds.includes(r.id)
+                )
+            );
+        },
+    },
     methods: {
+        onRecordsChanged(records) {
+            this.currentRecords = records || [];
+            this.selectedIds = []; // limpia selección al cambiar de página/filtro
+            this.loadChipCounts();
+        },
+        toggleAll(e) {
+            if (e.target.checked) {
+                this.selectedIds = this.currentRecords.map(r => r.id);
+            } else {
+                this.selectedIds = [];
+            }
+        },
+        selectedRows() {
+            return this.currentRecords.filter(r =>
+                this.selectedIds.includes(r.id)
+            );
+        },
+        async bulkMarkInvoiced() {
+            var rows = this.selectedRows().filter(
+                r => r.mp_order_id && r.mp_channel_id
+            );
+            if (!rows.length) {
+                return this.$message.warning(
+                    "Selecciona pedidos de marketplace."
+                );
+            }
+            if (
+                !confirm(
+                    "¿Marcar " +
+                        rows.length +
+                        " pedido(s) como 'ya tiene boleta' (emitida fuera de EBAEMY)?"
+                )
+            )
+                return;
+            for (const r of rows) {
+                try {
+                    await this.$http.post(
+                        `/ecommerce/marketplace/channels/${r.mp_channel_id}/orders/${r.mp_order_id}/mark-invoiced`
+                    );
+                } catch (e) {}
+            }
+            this.$message.success("Listo: " + rows.length + " marcados.");
+            this.selectedIds = [];
+            this.$refs.ordersTable.getRecords();
+        },
+        bulkDownloadLabels() {
+            var rows = this.selectedRows().filter(r => this.canDownloadLabel(r));
+            if (!rows.length) {
+                return this.$message.warning(
+                    "Ningún pedido seleccionado tiene rótulo disponible."
+                );
+            }
+            rows.forEach(r => this.downloadLabel(r));
+        },
         loadChipCounts() {
             this.$http
                 .get(`/orders/status-counts`)
@@ -651,6 +868,20 @@ export default {
                     this.chipCounts = response.data || {};
                 })
                 .catch(() => {});
+        },
+        loadStats() {
+            this.$http
+                .get(`/orders/stats`)
+                .then(response => {
+                    this.stats = response.data || {};
+                })
+                .catch(() => {});
+        },
+        formatMoney(v) {
+            return Number(v || 0).toLocaleString("es-PE", {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+            });
         },
         isMarketplace(row) {
             const ref = (row.reference_payment || "").toUpperCase();
