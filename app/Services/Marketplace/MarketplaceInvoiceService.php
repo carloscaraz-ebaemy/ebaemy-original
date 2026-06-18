@@ -158,6 +158,14 @@ class MarketplaceInvoiceService
             $sumTotal = round((float) $mo->total, 2);
         }
 
+        // Saga cobra el envío además del precio de los ítems; agrégalo como una
+        // línea para que el total de la boleta cuadre con lo realmente cobrado.
+        $shipping = round((float) $mo->total - $sumTotal, 2);
+        if ($shipping > self::TOTAL_TOLERANCE) {
+            $items[] = $this->buildItemLine('Costo de envío', 1, $shipping);
+            $sumTotal = round($sumTotal + $shipping, 2);
+        }
+
         // La boleta debe cuadrar con lo que Saga cobró.
         $diff = round($sumTotal - (float) $mo->total, 2);
         if (abs($diff) > self::TOTAL_TOLERANCE) {
