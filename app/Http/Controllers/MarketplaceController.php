@@ -69,28 +69,29 @@ class MarketplaceController extends Controller
         $packsOnly    = $request->boolean('packs');
         $brand        = $request->filled('brand') ? trim((string) $request->input('brand')) : null;
 
-        $query = MarketplaceListing::published()
-            ->search($q)
-            ->category($category)
-            ->inOfficialCategory($officialCatId);
+        // Filtros compartidos: se aplican a la query de resultados Y al conteo de
+        // tiendas del sidebar (facetas) para que ambos cuadren. $includeShop=false
+        // omite el filtro de tienda seleccionada (el facet muestra todas para
+        // poder cambiar de tienda, estilo MercadoLibre).
+        $applyFilters = function ($qb, bool $includeShop = true) use (
+            $q, $category, $officialCatId, $shopHostnameId, $priceMin, $priceMax,
+            $onOfferOnly, $verifiedOnly, $inStockOnly, $packsOnly, $brand
+        ) {
+            $qb->search($q)->category($category)->inOfficialCategory($officialCatId);
+            if ($includeShop && $shopHostnameId) $qb->where('hostname_id', $shopHostnameId);
+            // COALESCE(mp_price, price) → precio efectivo mostrado al usuario
+            if ($priceMin !== null) $qb->whereRaw('COALESCE(mp_price, price) >= ?', [$priceMin]);
+            if ($priceMax !== null) $qb->whereRaw('COALESCE(mp_price, price) <= ?', [$priceMax]);
+            if ($onOfferOnly)  $qb->where('is_on_offer', true);
+            if ($verifiedOnly) $qb->where('tenant_verified', true);
+            if ($inStockOnly)  $qb->where('stock', '>', 0);
+            if ($packsOnly)    $qb->where('is_pack', true);
+            if ($brand)        $qb->where('brand_name', $brand);
+            return $qb;
+        };
 
-        if ($shopHostnameId) {
-            $query->where('hostname_id', $shopHostnameId);
-        }
-
-        // COALESCE(mp_price, price) → precio efectivo mostrado al usuario
-        if ($priceMin !== null) {
-            $query->whereRaw('COALESCE(mp_price, price) >= ?', [$priceMin]);
-        }
-        if ($priceMax !== null) {
-            $query->whereRaw('COALESCE(mp_price, price) <= ?', [$priceMax]);
-        }
-
-        if ($onOfferOnly)  $query->where('is_on_offer', true);
-        if ($verifiedOnly) $query->where('tenant_verified', true);
-        if ($inStockOnly)  $query->where('stock', '>', 0);
-        if ($packsOnly)    $query->where('is_pack', true);
-        if ($brand)        $query->where('brand_name', $brand);
+        $query = MarketplaceListing::published();
+        $applyFilters($query);
 
         switch ($sort) {
             case 'price_asc':
@@ -216,9 +217,18 @@ class MarketplaceController extends Controller
         // inline + scroll vertical en el sidebar el shopper puede llegar a
         // cualquiera). MAX(tenant_verified) porque la query es agrupada y
         // el flag está repetido en todos los listings de la misma tienda.
-        $shops = Cache::remember('mp_shops_top_v2', 1800, function () {
-            return MarketplaceListing::published()
-                ->whereNotNull('tenant_fqdn')
+        $mapShop = function ($s) {
+            $sub = strtolower(strtok((string) $s->tenant_fqdn, '.')) ?: null;
+            return (object) [
+                'subdomain'      => $sub,
+                'name'           => $s->tenant_name ?: $sub,
+                'logo_url'       => $s->tenant_logo_url,
+                'verified'       => (bool) $s->tenant_verified,
+                'products_count' => (int) $s->products_count,
+            ];
+        };
+        $shopSelect = function ($qb) {
+            return $qb->whereNotNull('tenant_fqdn')
                 ->select(
                     'tenant_fqdn',
                     'tenant_name',
@@ -227,23 +237,28 @@ class MarketplaceController extends Controller
                     \DB::raw('COUNT(*) as products_count')
                 )
                 ->groupBy('tenant_fqdn', 'tenant_name')
-                ->orderByDesc(\DB::raw('MAX(tenant_verified)'))  // verificadas primero
+                ->orderByDesc(\DB::raw('MAX(tenant_verified)'))
                 ->orderByDesc('products_count')
-                ->limit(20)
-                ->get()
-                ->map(function ($s) {
-                    $sub = strtolower(strtok((string) $s->tenant_fqdn, '.')) ?: null;
-                    return (object) [
-                        'subdomain'      => $sub,
-                        'name'           => $s->tenant_name ?: $sub,
-                        'logo_url'       => $s->tenant_logo_url,
-                        'verified'       => (bool) $s->tenant_verified,
-                        'products_count' => (int) $s->products_count,
-                    ];
-                })
-                ->filter(fn($s) => $s->subdomain)
-                ->values();
-        });
+                ->limit(20);
+        };
+
+        $hasFilters = $q || $category || $officialCatId || $priceMin !== null || $priceMax !== null
+            || $onOfferOnly || $verifiedOnly || $inStockOnly || $packsOnly || $brand;
+
+        if ($hasFilters) {
+            // Facetas acotadas a la búsqueda/filtros (sin el filtro de tienda) →
+            // los conteos del sidebar cuadran con los resultados (no más "208"
+            // cuando la búsqueda da 0).
+            $fq = MarketplaceListing::published();
+            $applyFilters($fq, false);
+            $shops = $shopSelect($fq)->get()->map($mapShop)->filter(fn($s) => $s->subdomain)->values();
+        } else {
+            // Home limpia → lista global cacheada (ranking lento).
+            $shops = Cache::remember('mp_shops_top_v2', 1800, function () use ($shopSelect, $mapShop) {
+                return $shopSelect(MarketplaceListing::published())->get()->map($mapShop)
+                    ->filter(fn($s) => $s->subdomain)->values();
+            });
+        }
 
         // "Vistos recientemente" — solo si la home está sin filtros (es la
         // home propiamente dicha). Con filtros activos el usuario está
