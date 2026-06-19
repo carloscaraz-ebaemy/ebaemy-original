@@ -105,16 +105,16 @@
                                 size="small"
                                 @change="handleChannelFilterChange"
                             >
-                                <el-option label="Todos" value="all"></el-option>
-                                <el-option label="🛍️ En tienda online" value="in_store"></el-option>
-                                <el-option label="🌐 Publicado en Marketplace" value="in_marketplace"></el-option>
-                                <el-option label="⏳ Pendiente en Marketplace" value="pending_mp"></el-option>
-                                <el-option label="⏸️ Pausado en Marketplace" value="paused_mp"></el-option>
-                                <el-option label="❌ Rechazado en Marketplace" value="rejected_mp"></el-option>
-                                <el-option label="Sin publicar (ningún canal)" value="unpublished"></el-option>
-                                <el-option label="🟢 En Saga Falabella" value="in_saga"></el-option>
-                                <el-option label="🟡 Saga pendiente / QC" value="saga_pending"></el-option>
-                                <el-option label="🔴 Saga con error" value="saga_error"></el-option>
+                                <el-option label="Todos los canales" value="all"></el-option>
+                                <el-option label="🛍️ En tienda" value="in_store"></el-option>
+                                <el-option label="🌐 En Marketplace" value="in_marketplace"></el-option>
+                                <el-option label="⏳ Pendiente MP" value="pending_mp"></el-option>
+                                <el-option label="⏸️ Pausado MP" value="paused_mp"></el-option>
+                                <el-option label="❌ Rechazado MP" value="rejected_mp"></el-option>
+                                <el-option label="Sin publicar" value="unpublished"></el-option>
+                                <el-option label="🟢 En Saga" value="in_saga"></el-option>
+                                <el-option label="🟡 Saga pendiente" value="saga_pending"></el-option>
+                                <el-option label="🔴 Saga error" value="saga_error"></el-option>
                             </el-select>
                         </div>
                     </div>
@@ -232,6 +232,22 @@
 .btn-show-filter.shift {
     display: block !important;
 }
+
+/* Barra de filtros: controles alineados a la base, ritmo y acabado consistentes. */
+.filter-content {
+    align-items: flex-end;
+    row-gap: 10px;
+}
+.filter-content .el-input__inner {
+    border-radius: 8px;
+    height: 38px;
+    line-height: 38px;
+}
+.filter-content .el-input__icon {
+    line-height: 38px;
+}
+/* Buscador prominente: el input ocupa todo el ancho de su columna. */
+.filter-content .el-input { width: 100%; }
 
 .datatable-product-filter {
     display: flex;
