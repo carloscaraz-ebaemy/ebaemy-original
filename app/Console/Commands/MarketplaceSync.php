@@ -12,7 +12,7 @@ use Illuminate\Console\Command;
 class MarketplaceSync extends Command
 {
     protected $signature = 'marketplace:sync
-        {action=all : products|stock|prices|orders|reconcile|returns|detect-invoices|feed|all}
+        {action=all : products|feed-status|stock|prices|orders|reconcile|returns|detect-invoices|feed|all}
         {--platform= : falabella|meta|all}
         {--channel= : Channel ID specific}
         {--tenant= : UUID de un website específico (por defecto: todos)}';
@@ -84,6 +84,7 @@ class MarketplaceSync extends Command
             try {
                 match ($action) {
                     'products' => $this->runAndReport($service, 'syncProducts'),
+                    'feed-status' => $this->runAndReport($service, 'syncFeedStatuses'),
                     'stock' => $this->runAndReport($service, 'syncStock'),
                     'prices' => $this->runAndReport($service, 'syncPrices'),
                     'orders' => $this->runAndReport($service, 'fetchOrders'),

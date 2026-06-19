@@ -7,8 +7,11 @@ use App\Models\Tenant\MarketplaceChannel;
 use App\Models\Tenant\MarketplaceProduct;
 use App\Models\Tenant\MarketplaceOrder;
 use App\Models\Tenant\MarketplaceSyncLog;
+use App\Models\Tenant\SagaCategoryMap;
+use App\Models\Tenant\SagaCategoryAttribute;
 use App\Models\Tenant\Item;
 use App\Models\Tenant\Document;
+use Modules\Item\Models\Category;
 use App\Services\Marketplace\MarketplaceOrchestrator;
 use App\Services\Marketplace\MarketplaceInvoiceService;
 use App\CoreFacturalo\Helpers\Storage\StorageDocument;
@@ -121,6 +124,27 @@ class MarketplaceController extends Controller
         return response()->json(['success' => true]);
     }
 
+    /**
+     * Activa/desactiva el auto-publish a Saga del canal (Fase 4). Con ON, cada
+     * producto nuevo con apply_store se publica solo; los ya enlazados se
+     * re-sincronizan al editarlos (eso es independiente de este flag).
+     */
+    public function toggleAutoPublish(int $channelId)
+    {
+        $channel = MarketplaceChannel::findOrFail($channelId);
+        $settings = $channel->settings ?? [];
+        $settings['auto_publish'] = !($settings['auto_publish'] ?? false);
+        $channel->update(['settings' => $settings]);
+
+        return response()->json([
+            'success' => true,
+            'auto_publish' => $settings['auto_publish'],
+            'message' => $settings['auto_publish']
+                ? 'Auto-publicación activada: los productos nuevos se publicarán en Saga.'
+                : 'Auto-publicación desactivada.',
+        ]);
+    }
+
     // ── Product Mapping ────────────────────────────────────────
 
     public function products(int $channelId)
@@ -206,6 +230,46 @@ class MarketplaceController extends Controller
         return response()->json($result);
     }
 
+    /**
+     * Resuelve el estado de los productos enviados con ProductCreate (asíncrono):
+     * consulta FeedStatus/QC y actualiza external_id, qc_status y motivos de rechazo.
+     */
+    public function syncFeedStatuses(int $channelId)
+    {
+        $channel = MarketplaceChannel::findOrFail($channelId);
+        $service = MarketplaceOrchestrator::resolveService($channel);
+
+        if (!$service || !method_exists($service, 'syncFeedStatuses')) {
+            return response()->json(['error' => 'Acción no disponible para este canal'], 400);
+        }
+
+        $result = $service->syncFeedStatuses();
+        return response()->json($result);
+    }
+
+    /**
+     * Reintenta publicar UN producto puntual (botón "Reintentar" en la lista).
+     * Reutiliza FalabellaService::publishOne (valida + push, deja last_error).
+     */
+    public function retryProduct(int $channelId, int $productId)
+    {
+        $channel = MarketplaceChannel::findOrFail($channelId);
+        $mapping = MarketplaceProduct::where('channel_id', $channelId)->findOrFail($productId);
+        $service = MarketplaceOrchestrator::resolveService($channel);
+
+        if (!$service || !method_exists($service, 'publishOne')) {
+            return response()->json(['error' => 'Acción no disponible para este canal'], 400);
+        }
+
+        $result = $service->publishOne($mapping);
+        return response()->json([
+            'success' => $result['success'] ?? false,
+            'message' => ($result['success'] ?? false)
+                ? 'Producto reenviado a Saga.'
+                : ('No se pudo publicar: ' . ($result['error'] ?? 'error desconocido')),
+        ]);
+    }
+
     public function syncStock(int $channelId)
     {
         $channel = MarketplaceChannel::findOrFail($channelId);
@@ -264,6 +328,160 @@ class MarketplaceController extends Controller
             return response()->json($summary);
         } catch (\Throwable $e) {
             return response()->json(['error' => $e->getMessage(), 'done' => true], 500);
+        }
+    }
+
+    // ── Homologación de categorías (Saga) ──────────────────────
+
+    /**
+     * Categorías internas con su homologación actual a Saga (solo lectura, BD).
+     * El árbol de Saga se trae aparte (sagaCategoryTree) porque es una llamada
+     * a la API potencialmente pesada.
+     */
+    public function sagaCategories(int $channelId)
+    {
+        $channel = MarketplaceChannel::findOrFail($channelId);
+
+        $maps = SagaCategoryMap::where('channel_id', $channelId)
+            ->get()
+            ->keyBy('category_id');
+
+        $categories = Category::orderBy('name')->get(['id', 'name'])->map(function ($c) use ($maps) {
+            $m = $maps->get($c->id);
+            return [
+                'category_id'        => $c->id,
+                'name'               => $c->name,
+                'saga_category_id'   => $m->saga_category_id ?? null,
+                'saga_category_name' => $m->saga_category_name ?? null,
+                'saga_category_path' => $m->saga_category_path ?? null,
+            ];
+        });
+
+        return response()->json([
+            'platform'   => $channel->platform,
+            'categories' => $categories,
+            'mapped'     => $maps->count(),
+            'total'      => $categories->count(),
+        ]);
+    }
+
+    /**
+     * Trae el árbol de categorías de Saga (en vivo) aplanado. Solo hojas, que
+     * son las asignables como PrimaryCategory.
+     */
+    public function sagaCategoryTree(int $channelId)
+    {
+        $channel = MarketplaceChannel::findOrFail($channelId);
+        if ($channel->platform !== 'falabella') {
+            return response()->json(['error' => 'Solo disponible para Saga Falabella'], 400);
+        }
+
+        $service = MarketplaceOrchestrator::resolveService($channel);
+        if (!$service || !method_exists($service, 'getCategoryTree')) {
+            return response()->json(['error' => 'Servicio no disponible'], 400);
+        }
+
+        try {
+            $tree = collect($service->getCategoryTree())
+                ->filter(fn ($n) => $n['is_leaf'])   // solo hojas
+                ->values()
+                ->all();
+            return response()->json(['leaves' => $tree, 'count' => count($tree)]);
+        } catch (\Throwable $e) {
+            return response()->json(['error' => $e->getMessage()], 500);
+        }
+    }
+
+    /**
+     * Guarda (o borra) la homologación de una categoría interna → categoría Saga.
+     * Al asignar, cachea los atributos obligatorios de esa categoría Saga para
+     * que el builder del payload (Fase 2) los conozca sin re-llamar a la API.
+     */
+    public function saveSagaCategory(Request $request, int $channelId)
+    {
+        $channel = MarketplaceChannel::findOrFail($channelId);
+        $data = $request->validate([
+            'category_id'        => 'required|integer',
+            'saga_category_id'   => 'nullable|string|max:60',
+            'saga_category_name' => 'nullable|string|max:191',
+            'saga_category_path' => 'nullable|string|max:500',
+        ]);
+
+        // Sin saga_category_id → desmapear.
+        if (empty($data['saga_category_id'])) {
+            SagaCategoryMap::where('channel_id', $channelId)
+                ->where('category_id', $data['category_id'])
+                ->delete();
+            return response()->json(['success' => true, 'message' => 'Homologación eliminada']);
+        }
+
+        SagaCategoryMap::updateOrCreate(
+            ['channel_id' => $channelId, 'category_id' => $data['category_id']],
+            [
+                'saga_category_id'   => $data['saga_category_id'],
+                'saga_category_name' => $data['saga_category_name'] ?? null,
+                'saga_category_path' => $data['saga_category_path'] ?? null,
+            ]
+        );
+
+        // Cachear atributos obligatorios (best-effort: no bloquea el guardado).
+        $required = [];
+        $service = MarketplaceOrchestrator::resolveService($channel);
+        if ($service && method_exists($service, 'getCategoryAttributes')) {
+            try {
+                $attrs = $service->getCategoryAttributes($data['saga_category_id']);
+                SagaCategoryAttribute::updateOrCreate(
+                    ['channel_id' => $channelId, 'saga_category_id' => $data['saga_category_id']],
+                    ['attributes' => $attrs, 'fetched_at' => now()]
+                );
+                $required = array_values(array_filter($attrs, fn ($a) => $a['mandatory']));
+            } catch (\Throwable $e) {
+                \Log::channel('payments')->warning('Saga: no se pudieron traer atributos de categoría', [
+                    'channel_id' => $channelId,
+                    'saga_category_id' => $data['saga_category_id'],
+                    'error' => $e->getMessage(),
+                ]);
+            }
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Categoría homologada',
+            'required_attributes' => $required,
+            'required_count' => count($required),
+        ]);
+    }
+
+    /**
+     * Devuelve los atributos de una categoría Saga (desde caché; si no existe,
+     * los trae en vivo y los cachea).
+     */
+    public function sagaCategoryAttributes(int $channelId, string $sagaCategoryId)
+    {
+        $channel = MarketplaceChannel::findOrFail($channelId);
+
+        $cached = SagaCategoryAttribute::where('channel_id', $channelId)
+            ->where('saga_category_id', $sagaCategoryId)
+            ->first();
+
+        if ($cached) {
+            return response()->json(['attributes' => $cached->attributes ?? [], 'cached' => true]);
+        }
+
+        $service = MarketplaceOrchestrator::resolveService($channel);
+        if (!$service || !method_exists($service, 'getCategoryAttributes')) {
+            return response()->json(['error' => 'Servicio no disponible'], 400);
+        }
+
+        try {
+            $attrs = $service->getCategoryAttributes($sagaCategoryId);
+            SagaCategoryAttribute::updateOrCreate(
+                ['channel_id' => $channelId, 'saga_category_id' => $sagaCategoryId],
+                ['attributes' => $attrs, 'fetched_at' => now()]
+            );
+            return response()->json(['attributes' => $attrs, 'cached' => false]);
+        } catch (\Throwable $e) {
+            return response()->json(['error' => $e->getMessage()], 500);
         }
     }
 

@@ -36,6 +36,8 @@ class AppServiceProvider extends ServiceProvider
 		}
 		Document::observe(DocumentObserver::class);
 		\App\Models\Tenant\Item::observe(\App\Observers\ItemPriceObserver::class);
+		// Auto-publica a Saga Falabella al crear/editar productos (Fase 4).
+		\App\Models\Tenant\Item::observe(\App\Observers\MarketplaceItemObserver::class);
 
 		// Macro DB::replica() — devuelve la conexión de solo-lectura (réplica)
 		// si TENANT_REPLICA_HOST está configurado, o la primaria como fallback.

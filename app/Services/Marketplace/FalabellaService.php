@@ -79,6 +79,30 @@ class FalabellaService
         return $this->handleResponse($action, $response);
     }
 
+    /**
+     * Variante de POST para las acciones de FEED de catálogo (ProductCreate,
+     * ProductUpdate, ProductStockUpdate, ProductPriceUpdate).
+     *
+     * En Seller Center estas acciones NO van como GET con el XML en la query:
+     * el XML viaja en el BODY de un POST y SOLO los parámetros estándar
+     * (Action/UserID/Timestamp/Version/Format) se firman en el query string. La
+     * firma NO incluye el cuerpo XML. Enviarlo por GET (como hacía call()) trunca
+     * el payload y Falabella lo rechaza → por eso el push de productos/stock/precio
+     * nunca funcionó.
+     */
+    protected function callFeed(string $action, string $xmlBody)
+    {
+        $signed = $this->signRequest($action);
+        $url = $this->baseUrl . '?' . http_build_query($signed, '', '&', PHP_QUERY_RFC3986);
+
+        $response = Http::withBody($xmlBody, 'text/xml')
+            ->timeout(60)
+            ->retry(2, 1000)
+            ->post($url);
+
+        return $this->handleResponse($action, $response);
+    }
+
     protected function handleResponse(string $action, $response)
     {
         if ($response->failed()) {
@@ -165,6 +189,128 @@ class FalabellaService
     }
 
     // ══════════════════════════════════════════════════════════════
+    // CATEGORY HOMOLOGATION — Árbol y atributos de Saga (Fase 1)
+    // ══════════════════════════════════════════════════════════════
+
+    /**
+     * Trae el árbol de categorías de Saga (GetCategoryTree) y lo APLANA a una
+     * lista con su ruta (breadcrumb). Marca cuáles son hoja: SOLO una categoría
+     * hoja es asignable como PrimaryCategory de un producto.
+     *
+     * @return array<int, array{id:string, name:string, path:string, is_leaf:bool, depth:int}>
+     */
+    public function getCategoryTree(): array
+    {
+        $result = $this->call('GetCategoryTree');
+        $roots = data_get($result, 'Categories.Category', []);
+        if (isset($roots['CategoryId']) || isset($roots['Name'])) {
+            $roots = [$roots]; // un solo nodo raíz
+        }
+
+        $flat = [];
+        $this->flattenCategories(is_array($roots) ? $roots : [], '', 0, $flat);
+        return $flat;
+    }
+
+    /**
+     * Recorre recursivamente los nodos del árbol y los acumula aplanados.
+     */
+    protected function flattenCategories(array $nodes, string $parentPath, int $depth, array &$out): void
+    {
+        foreach ($nodes as $node) {
+            if (!is_array($node)) continue;
+
+            $id = (string) ($node['CategoryId'] ?? '');
+            $name = (string) ($node['Name'] ?? '');
+            if ($id === '' && $name === '') continue;
+
+            $path = $parentPath === '' ? $name : ($parentPath . ' › ' . $name);
+
+            $children = data_get($node, 'Children.Category', []);
+            if (isset($children['CategoryId']) || isset($children['Name'])) {
+                $children = [$children];
+            }
+            $children = is_array($children) ? $children : [];
+            $isLeaf = count($children) === 0;
+
+            $out[] = [
+                'id' => $id,
+                'name' => $name,
+                'path' => $path,
+                'is_leaf' => $isLeaf,
+                'depth' => $depth,
+            ];
+
+            if (!$isLeaf) {
+                $this->flattenCategories($children, $path, $depth + 1, $out);
+            }
+        }
+    }
+
+    /**
+     * Trae los atributos que Saga exige para una categoría (GetCategoryAttributes)
+     * y los normaliza. Los marcados mandatory=true son obligatorios para publicar.
+     *
+     * @return array<int, array{name:string, label:string, mandatory:bool, input_type:string, type:string, options:array}>
+     */
+    public function getCategoryAttributes(string $primaryCategory): array
+    {
+        $result = $this->call('GetCategoryAttributes', ['PrimaryCategory' => $primaryCategory]);
+        $attrs = data_get($result, 'Attributes.Attribute', []);
+        if (isset($attrs['Name']) || isset($attrs['Label'])) {
+            $attrs = [$attrs];
+        }
+        if (!is_array($attrs)) {
+            return [];
+        }
+
+        return collect($attrs)->map(function ($a) {
+            $options = data_get($a, 'Options.Option', []);
+            if (isset($options['Name']) || isset($options['GlobalIdentifier'])) {
+                $options = [$options];
+            }
+            $options = collect(is_array($options) ? $options : [])
+                ->map(fn ($o) => is_array($o) ? ($o['Name'] ?? $o['GlobalIdentifier'] ?? null) : $o)
+                ->filter()
+                ->values()
+                ->all();
+
+            return [
+                'name' => (string) ($a['Name'] ?? ''),
+                'label' => (string) ($a['Label'] ?? $a['Name'] ?? ''),
+                // Seller Center devuelve "0"/"1" como string en isMandatory.
+                'mandatory' => (bool) ((int) ($a['isMandatory'] ?? 0)),
+                'input_type' => (string) ($a['InputType'] ?? 'text'),
+                'type' => (string) ($a['AttributeType'] ?? ''),
+                'options' => $options,
+            ];
+        })->filter(fn ($a) => $a['name'] !== '')->values()->all();
+    }
+
+    /**
+     * Trae las marcas registradas del seller en Saga (GetBrands). Útil para la
+     * homologación de marcas (Saga valida la marca contra su catálogo).
+     *
+     * @return array<int, array{id:string, name:string}>
+     */
+    public function getBrands(): array
+    {
+        $result = $this->call('GetBrands');
+        $brands = data_get($result, 'Brands.Brand', []);
+        if (isset($brands['Name'])) {
+            $brands = [$brands];
+        }
+        if (!is_array($brands)) {
+            return [];
+        }
+
+        return collect($brands)->map(fn ($b) => [
+            'id' => (string) ($b['BrandId'] ?? $b['GlobalIdentifier'] ?? ''),
+            'name' => (string) ($b['Name'] ?? ''),
+        ])->filter(fn ($b) => $b['name'] !== '')->values()->all();
+    }
+
+    // ══════════════════════════════════════════════════════════════
     // PRODUCTS — Crear / Actualizar productos
     // ══════════════════════════════════════════════════════════════
 
@@ -187,7 +333,11 @@ class FalabellaService
             foreach ($mappings as $mapping) {
                 try {
                     $this->pushProduct($mapping);
-                    $mapping->update(['sync_status' => 'synced', 'synced_at' => now(), 'last_error' => null]);
+                    // pushProduct deja el estado correcto: 'synced' si fue UPDATE de
+                    // un producto existente, o 'pending' + qc_status='queued' si fue
+                    // un CREATE (el feed sigue en cola/QC → lo resuelve
+                    // syncFeedStatuses). Aquí solo limpiamos el último error.
+                    $mapping->update(['last_error' => null]);
                     $success++;
                 } catch (\Throwable $e) {
                     $mapping->update(['sync_status' => 'error', 'last_error' => $e->getMessage()]);
@@ -205,57 +355,194 @@ class FalabellaService
         })->toArray();
     }
 
-    protected function pushProduct(MarketplaceProduct $mapping): void
+    /**
+     * Publica/actualiza UN producto y deja el resultado en el mapeo (sync_status /
+     * last_error). Lo usa PublishProductToSagaJob (auto-publish). No lanza: devuelve
+     * el resultado para que el job decida.
+     */
+    public function publishOne(MarketplaceProduct $mapping): array
     {
-        $item = $mapping->item;
-        if (!$item) throw new \RuntimeException("Item not found: {$mapping->item_id}");
-
-        $variant = $mapping->variant;
-        $sku = $mapping->external_sku ?: $item->internal_id;
-        $price = $variant ? ($variant->sale_unit_price ?: $item->sale_unit_price) : $item->sale_unit_price;
-        $stock = $variant ? $variant->stock : $item->stock;
-
-        // Falabella ProductCreate XML format
-        $xml = $this->buildProductXml([
-            'SellerSku' => $sku,
-            'Name' => substr($item->description, 0, 255),
-            'Description' => $item->name ?: $item->description,
-            'Brand' => $item->brand->name ?? 'Genérica',
-            'Price' => number_format($price, 2, '.', ''),
-            'Quantity' => max(0, (int) $stock),
-            'PrimaryCategory' => $item->category->name ?? 'General',
-            'ProductId' => $item->barcode ?: $sku,
-            'ProductData' => [
-                'ShortDescription' => substr($item->description, 0, 500),
-            ],
-        ]);
-
-        if ($mapping->external_id) {
-            // Update existing product
-            $this->call('ProductUpdate', ['ProductData' => $xml]);
-        } else {
-            // Create new product
-            $result = $this->call('ProductCreate', ['ProductData' => $xml]);
-            $mapping->update(['external_id' => $result['ProductId'] ?? $sku]);
+        try {
+            $this->pushProduct($mapping);
+            $mapping->update(['last_error' => null]);
+            return ['success' => true];
+        } catch (\Throwable $e) {
+            $mapping->update(['sync_status' => 'error', 'last_error' => $e->getMessage()]);
+            Log::channel('payments')->error('Falabella publishOne failed', [
+                'channel_id' => $this->channel->id,
+                'sku'        => $mapping->external_sku,
+                'error'      => $e->getMessage(),
+            ]);
+            return ['success' => false, 'error' => $e->getMessage()];
         }
     }
 
-    protected function buildProductXml(array $data): string
+    protected function pushProduct(MarketplaceProduct $mapping): void
     {
-        $xml = '<?xml version="1.0" encoding="UTF-8"?><Request><Product>';
-        foreach ($data as $key => $value) {
-            if (is_array($value)) {
-                $xml .= "<{$key}>";
-                foreach ($value as $k => $v) {
-                    $xml .= "<{$k}>" . htmlspecialchars($v) . "</{$k}>";
-                }
-                $xml .= "</{$key}>";
-            } else {
-                $xml .= "<{$key}>" . htmlspecialchars($value) . "</{$key}>";
-            }
+        if (!$mapping->item) {
+            throw new \RuntimeException("Item not found: {$mapping->item_id}");
         }
-        $xml .= '</Product></Request>';
-        return $xml;
+
+        // Builder + validación previa (Fase 2): no enviamos a Saga un producto
+        // incompleto; el motivo exacto queda en el error → last_error del mapeo.
+        $builder = new SagaProductPayloadBuilder($this->channel, $mapping);
+        $problems = $builder->validate();
+        if (!empty($problems)) {
+            throw new \RuntimeException('Producto incompleto para Saga: ' . implode(' ', $problems));
+        }
+
+        $xml = $builder->toXml();
+
+        if ($mapping->external_id) {
+            // Update de un producto YA existente en Saga (POST, XML en el body).
+            $this->callFeed('ProductUpdate', $xml);
+            $mapping->update(['sync_status' => 'synced', 'qc_status' => 'live', 'synced_at' => now()]);
+        } else {
+            // Create ASÍNCRONO: Seller Center devuelve un FeedId y el producto pasa
+            // por QC; el ProductId aprobado y el estado se obtienen luego vía
+            // FeedStatus/GetProducts (syncFeedStatuses). NO marcamos synced ni
+            // fijamos un external_id falso → queda 'pending' + qc_status='queued'.
+            $result = $this->callFeed('ProductCreate', $xml);
+            $feedId = data_get($result, 'FeedId') ?? data_get($result, 'RequestId');
+            $mapping->update([
+                'feed_id'     => $feedId,
+                'qc_status'   => 'queued',
+                'sync_status' => 'pending',
+                'external_data' => array_merge(
+                    is_array($mapping->external_data) ? $mapping->external_data : [],
+                    ['feed_submitted_at' => now()->toIso8601String()]
+                ),
+            ]);
+        }
+    }
+
+    // ══════════════════════════════════════════════════════════════
+    // FEED STATUS — Resolver el ProductCreate asíncrono / QC (Fase 3)
+    // ══════════════════════════════════════════════════════════════
+
+    /**
+     * Resuelve el estado de los productos enviados con ProductCreate (asíncrono).
+     * Por cada mapeo con feed_id no terminal consulta FeedStatus:
+     *  - sigue en cola/proceso → actualiza qc_status y espera.
+     *  - terminó con errores → qc_status='rejected' + rejection_reasons + last_error.
+     *  - terminó OK → busca el ProductId asignado y el estado real (refreshProductStatus).
+     */
+    public function syncFeedStatuses(): array
+    {
+        return MarketplaceSyncLog::log($this->channel->id, 'feed_status', 'pull', function ($log) {
+            $mappings = MarketplaceProduct::where('channel_id', $this->channel->id)
+                ->whereNotNull('feed_id')
+                ->where(function ($q) {
+                    $q->whereNull('qc_status')
+                      ->orWhereIn('qc_status', ['queued', 'processing']);
+                })
+                ->limit(100)
+                ->get();
+
+            $processed = 0;
+            $resolved = 0;
+            $errors = [];
+
+            foreach ($mappings as $m) {
+                try {
+                    $processed++;
+                    $detail = $this->call('FeedStatus', ['FeedID' => $m->feed_id]);
+                    $status = strtolower((string) (
+                        data_get($detail, 'FeedDetail.Status')
+                        ?? data_get($detail, 'Status')
+                        ?? ''
+                    ));
+
+                    // Aún en cola/proceso → guardamos el avance y seguimos esperando.
+                    if (!in_array($status, ['finished', 'canceled', 'cancelled'], true)) {
+                        $m->update(['qc_status' => $status ?: 'processing']);
+                        continue;
+                    }
+
+                    // Errores del feed para este SKU.
+                    $feedErrors = data_get($detail, 'FeedDetail.FeedErrors.Error',
+                        data_get($detail, 'FeedErrors.Error', []));
+                    if (isset($feedErrors['Message']) || isset($feedErrors['Code'])) {
+                        $feedErrors = [$feedErrors];
+                    }
+                    $feedErrors = is_array($feedErrors) ? $feedErrors : [];
+
+                    if (!empty($feedErrors)) {
+                        $msgs = array_map(
+                            fn ($e) => trim((string) (($e['Code'] ?? '') . ' ' . ($e['Message'] ?? ''))),
+                            $feedErrors
+                        );
+                        $m->update([
+                            'qc_status'         => 'rejected',
+                            'rejection_reasons' => $feedErrors,
+                            'sync_status'       => 'error',
+                            'last_error'        => implode(' | ', array_filter($msgs)) ?: 'Rechazado por Saga',
+                        ]);
+                        $resolved++;
+                        continue;
+                    }
+
+                    // Feed aceptado → traer el ProductId y el estado real del producto.
+                    $this->refreshProductStatus($m);
+                    $resolved++;
+                } catch (\Throwable $e) {
+                    $errors[] = ['feed' => $m->feed_id, 'sku' => $m->external_sku, 'error' => $e->getMessage()];
+                }
+            }
+
+            return ['processed' => $processed, 'success' => $resolved, 'failed' => count($errors), 'details' => $errors ?: null];
+        })->toArray();
+    }
+
+    /**
+     * Busca en Saga el producto por su SellerSku (GetProducts) y sincroniza el
+     * external_id (ProductId/ShopSku) y el estado QC en el mapeo local.
+     */
+    public function refreshProductStatus(MarketplaceProduct $m): void
+    {
+        $sku = (string) $m->external_sku;
+        if ($sku === '') {
+            return;
+        }
+
+        $prods = $this->getProducts(['Search' => $sku, 'Limit' => 20]);
+        $match = collect($prods)->first(function ($p) use ($sku) {
+            return (string) data_get($p, 'SellerSku') === $sku
+                || (string) data_get($p, 'ShopSku') === $sku;
+        });
+
+        // Creado pero aún no indexado / en QC: lo dejamos en 'processing' para
+        // reintentar en la próxima pasada.
+        if (!$match) {
+            $m->update(['qc_status' => 'processing']);
+            return;
+        }
+
+        $externalId = data_get($match, 'ProductId')
+            ?: data_get($match, 'ShopSku')
+            ?: data_get($match, 'SellerSku');
+
+        $statusRaw = strtolower((string) (
+            data_get($match, 'Status')
+            ?? data_get($match, 'BusinessUnits.BusinessUnit.Status')
+            ?? ''
+        ));
+
+        $qc = match (true) {
+            str_contains($statusRaw, 'reject') || str_contains($statusRaw, 'disapprov') => 'rejected',
+            str_contains($statusRaw, 'active') => 'live',
+            str_contains($statusRaw, 'pending') || str_contains($statusRaw, 'qc')       => 'processing',
+            $statusRaw !== '' => $statusRaw,
+            default => 'approved',
+        };
+
+        $m->update([
+            'external_id' => $externalId,
+            'qc_status'   => $qc,
+            'sync_status' => $qc === 'rejected' ? 'error' : 'synced',
+            'synced_at'   => now(),
+            'last_error'  => $qc === 'rejected' ? ($m->last_error ?: 'Rechazado en QC de Saga') : null,
+        ]);
     }
 
     // ══════════════════════════════════════════════════════════════
@@ -293,24 +580,32 @@ class FalabellaService
             $chunks = array_chunk($skus, 100);
             $success = 0;
             $failed = 0;
+            $errors = [];
 
-            foreach ($chunks as $chunk) {
+            foreach ($chunks as $i => $chunk) {
                 try {
                     $xml = '<?xml version="1.0" encoding="UTF-8"?><Request>';
                     foreach ($chunk as $sku) {
-                        $xml .= "<Product><SellerSku>{$sku['SellerSku']}</SellerSku>"
+                        $skuXml = htmlspecialchars($sku['SellerSku']);
+                        $xml .= "<Product><SellerSku>{$skuXml}</SellerSku>"
                               . "<Quantity>{$sku['Quantity']}</Quantity></Product>";
                     }
                     $xml .= '</Request>';
 
-                    $this->call('ProductStockUpdate', ['ProductData' => $xml]);
+                    $this->callFeed('ProductStockUpdate', $xml);
                     $success += count($chunk);
                 } catch (\Throwable $e) {
                     $failed += count($chunk);
+                    $errors[] = ['batch' => $i, 'count' => count($chunk), 'error' => $e->getMessage()];
+                    Log::channel('payments')->error('Falabella ProductStockUpdate batch failed', [
+                        'channel_id' => $this->channel->id,
+                        'batch' => $i,
+                        'error' => $e->getMessage(),
+                    ]);
                 }
             }
 
-            return ['processed' => count($skus), 'success' => $success, 'failed' => $failed];
+            return ['processed' => count($skus), 'success' => $success, 'failed' => $failed, 'details' => $errors ?: null];
         })->toArray();
     }
 
@@ -940,25 +1235,34 @@ class FalabellaService
                 ->get();
 
             $success = 0;
+            $errors = [];
             foreach ($mappings as $mapping) {
                 try {
                     $price = $mapping->variant
                         ? ($mapping->variant->sale_unit_price ?: $mapping->item->sale_unit_price)
                         : $mapping->item->sale_unit_price;
 
+                    $skuXml = htmlspecialchars($mapping->external_sku);
                     $xml = '<?xml version="1.0" encoding="UTF-8"?><Request>'
-                         . "<Product><SellerSku>{$mapping->external_sku}</SellerSku>"
+                         . "<Product><SellerSku>{$skuXml}</SellerSku>"
                          . "<Price>" . number_format($price, 2, '.', '') . "</Price></Product>"
                          . '</Request>';
 
-                    $this->call('ProductPriceUpdate', ['ProductData' => $xml]);
+                    $this->callFeed('ProductPriceUpdate', $xml);
+                    $mapping->update(['last_error' => null]);
                     $success++;
                 } catch (\Throwable $e) {
-                    // Log but continue
+                    $mapping->update(['last_error' => $e->getMessage()]);
+                    $errors[] = ['sku' => $mapping->external_sku, 'error' => $e->getMessage()];
+                    Log::channel('payments')->error('Falabella ProductPriceUpdate failed', [
+                        'channel_id' => $this->channel->id,
+                        'sku' => $mapping->external_sku,
+                        'error' => $e->getMessage(),
+                    ]);
                 }
             }
 
-            return ['processed' => $mappings->count(), 'success' => $success, 'failed' => $mappings->count() - $success];
+            return ['processed' => $mappings->count(), 'success' => $success, 'failed' => $mappings->count() - $success, 'details' => $errors ?: null];
         })->toArray();
     }
 }

@@ -246,6 +246,9 @@ Route::middleware(['check.permission', 'locked.tenant', 'check.email.verified', 
         Route::get('marketplace/channels/{channelId}/products', '\App\Http\Controllers\Tenant\MarketplaceController@products');
         Route::post('marketplace/channels/{channelId}/sync-products', '\App\Http\Controllers\Tenant\MarketplaceController@syncProducts');
         Route::post('marketplace/channels/{channelId}/sync-stock', '\App\Http\Controllers\Tenant\MarketplaceController@syncStock');
+        Route::post('marketplace/channels/{channelId}/feed-status', '\App\Http\Controllers\Tenant\MarketplaceController@syncFeedStatuses');
+        Route::post('marketplace/channels/{channelId}/toggle-auto-publish', '\App\Http\Controllers\Tenant\MarketplaceController@toggleAutoPublish');
+        Route::post('marketplace/channels/{channelId}/products/{productId}/retry', '\App\Http\Controllers\Tenant\MarketplaceController@retryProduct');
         Route::post('marketplace/channels/{channelId}/auto-map', '\App\Http\Controllers\Tenant\MarketplaceController@autoMapProducts');
         Route::post('marketplace/map-product', '\App\Http\Controllers\Tenant\MarketplaceController@mapProduct');
         Route::post('marketplace/orders/{id}/convert', '\App\Http\Controllers\Tenant\MarketplaceController@convertToOrder');
@@ -255,6 +258,11 @@ Route::middleware(['check.permission', 'locked.tenant', 'check.email.verified', 
         Route::get('marketplace/orders', '\App\Http\Controllers\Tenant\MarketplaceController@orders');
         Route::get('marketplace/channels/{channelId}/fetch-orders', '\App\Http\Controllers\Tenant\MarketplaceController@fetchOrders');
         Route::post('marketplace/channels/{channelId}/import-catalog', '\App\Http\Controllers\Tenant\MarketplaceController@importCatalog');
+        // Homologación de categorías ERP → Saga (Fase 1)
+        Route::get('marketplace/channels/{channelId}/saga-categories', '\App\Http\Controllers\Tenant\MarketplaceController@sagaCategories');
+        Route::get('marketplace/channels/{channelId}/saga-category-tree', '\App\Http\Controllers\Tenant\MarketplaceController@sagaCategoryTree');
+        Route::post('marketplace/channels/{channelId}/saga-categories', '\App\Http\Controllers\Tenant\MarketplaceController@saveSagaCategory');
+        Route::get('marketplace/channels/{channelId}/saga-categories/{sagaCategoryId}/attributes', '\App\Http\Controllers\Tenant\MarketplaceController@sagaCategoryAttributes');
         // Despacho de pedidos
         Route::post('marketplace/channels/{channelId}/orders/{orderId}/ready', '\App\Http\Controllers\Tenant\MarketplaceController@markOrderReady');
         Route::post('marketplace/channels/{channelId}/orders/{orderId}/shipped', '\App\Http\Controllers\Tenant\MarketplaceController@markOrderShipped');

@@ -146,6 +146,13 @@ class Kernel extends ConsoleKernel
                  ->withoutOverlapping()
                  ->appendOutputTo(storage_path('logs/marketplace_orders.log'));
 
+        // Resuelve el ProductCreate asíncrono (feed/QC): trae el ProductId
+        // asignado y el estado de aprobación de los productos auto-publicados.
+        $schedule->command('marketplace:sync feed-status')
+                 ->everyThirtyMinutes()
+                 ->withoutOverlapping()
+                 ->appendOutputTo(storage_path('logs/marketplace_orders.log'));
+
         // NOTA: el sync de precios (marketplace:sync prices) NO se programa a propósito.
         // Los sellers manejan precios y OFERTAS en el panel de Saga; empujar el precio
         // desde EBAEMY sobrescribiría el precio regular con el de oferta y dañaría las

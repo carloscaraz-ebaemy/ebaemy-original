@@ -61,7 +61,12 @@ class FalabellaImportService
             throw new \RuntimeException('El tenant no tiene ningún almacén (warehouse) configurado.');
         }
 
-        $params = ['Limit' => $limit];
+        // Silencia el auto-publish a Saga durante la importación: traer productos
+        // DE Saga no debe re-publicarlos (evita bucle de retroalimentación).
+        $obsPrev = \App\Observers\MarketplaceItemObserver::$enabled;
+        \App\Observers\MarketplaceItemObserver::$enabled = false;
+        try {
+            $params = ['Limit' => $limit];
         if ($offset > 0) {
             $params['Offset'] = $offset;
         }
@@ -95,7 +100,10 @@ class FalabellaImportService
             }
         }
 
-        return $summary;
+            return $summary;
+        } finally {
+            \App\Observers\MarketplaceItemObserver::$enabled = $obsPrev;
+        }
     }
 
     /**

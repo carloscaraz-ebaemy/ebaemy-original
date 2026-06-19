@@ -125,6 +125,29 @@
         </div>
     </div>
 
+    {{-- Homologación de categorías Saga (Fase 1) --}}
+    <div class="col-12 mb-3" id="mp-sagacat-panel" style="display:none">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center flex-wrap">
+                <h4 class="card-title mb-0"><i class="fas fa-sitemap mr-2"></i> Homologación de categorías <small id="mp-sagacat-channel" class="text-muted"></small></h4>
+                <div class="d-flex align-items-center" style="gap:6px">
+                    <input id="mp-sagacat-search" class="form-control form-control-sm" style="width:200px" placeholder="Buscar categoría…">
+                    <button class="btn btn-sm btn-outline-secondary" onclick="document.getElementById('mp-sagacat-panel').style.display='none'">Cerrar</button>
+                </div>
+            </div>
+            <div class="card-body">
+                <p class="text-muted small mb-2">Asocia cada categoría interna con una categoría de Saga Falabella. Saga exige su propio <strong>ID de categoría</strong> (no el nombre) para poder publicar un producto. <span id="mp-sagacat-summary" class="font-weight-bold"></span></p>
+                <div id="mp-sagacat-status" class="text-muted small mb-2">Cargando…</div>
+                <div class="table-responsive">
+                    <table class="table table-sm table-hover mb-0">
+                        <thead><tr><th style="width:35%">Categoría interna</th><th>Categoría en Saga</th><th style="width:18%">Atributos</th></tr></thead>
+                        <tbody id="mp-sagacat-tbody"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
     {{-- Pedidos de Saga (despacho) --}}
     <div class="col-12">
         <div class="card mp-dispatch">
@@ -190,6 +213,19 @@ document.addEventListener('DOMContentLoaded', function(){
             var importBtn = ch.platform === 'falabella'
                 ? '<button class="btn btn-xs btn-primary mr-1 mb-1" onclick="importCatalog('+ch.id+')"><i class="fas fa-cloud-download-alt"></i> Importar de Saga</button>'
                 : '';
+            // Homologación de categorías ERP → Saga (Fase 1, solo Falabella)
+            var catBtn = ch.platform === 'falabella'
+                ? '<button class="btn btn-xs btn-outline-dark mr-1 mb-1" onclick="loadSagaCategories('+ch.id+',\''+(ch.name||'').replace(/\'/g,'')+'\')"><i class="fas fa-sitemap"></i> Categorías</button>'
+                : '';
+            // Estado de publicación (ProductCreate asíncrono / QC), solo Falabella
+            var feedBtn = ch.platform === 'falabella'
+                ? '<button class="btn btn-xs btn-outline-info mr-1 mb-1" onclick="syncFeedStatus('+ch.id+')"><i class="fas fa-clipboard-check"></i> Estado publicación</button>'
+                : '';
+            // Toggle de auto-publicación (Fase 4), solo Falabella
+            var ap = !!(ch.settings && ch.settings.auto_publish);
+            var apBtn = ch.platform === 'falabella'
+                ? '<button id="mp-ap-'+ch.id+'" class="btn btn-xs '+(ap?'btn-success':'btn-outline-secondary')+' mr-1 mb-1" onclick="toggleAutoPublish('+ch.id+')" title="Publica automáticamente los productos nuevos en Saga"><i class="fas fa-magic"></i> Auto-publicar: '+(ap?'ON':'OFF')+'</button>'
+                : '';
             html += '<tr>'
                 + '<td><strong>'+ch.name+'</strong><br><small class="text-muted">'+ch.platform+'</small></td>'
                 + '<td>'+statusBadge+'</td>'
@@ -197,7 +233,10 @@ document.addEventListener('DOMContentLoaded', function(){
                 + '<td>'+(ch.last_sync_at || '<span class="text-muted">Nunca</span>')+'</td>'
                 + '<td>'
                 + importBtn
+                + catBtn
+                + apBtn
                 + '<button class="btn btn-xs btn-outline-primary mr-1 mb-1" onclick="syncProducts('+ch.id+')"><i class="fas fa-sync"></i> Sync productos</button>'
+                + feedBtn
                 + '<button class="btn btn-xs btn-outline-success mr-1 mb-1" onclick="syncStock('+ch.id+')"><i class="fas fa-boxes"></i> Sync stock</button>'
                 + '<button class="btn btn-xs btn-outline-warning mr-1 mb-1" onclick="fetchOrders('+ch.id+')"><i class="fas fa-download"></i> Traer órdenes</button>'
                 + '<button class="btn btn-xs btn-outline-info mb-1" onclick="loadProducts('+ch.id+')"><i class="fas fa-list"></i> Ver productos</button>'
@@ -238,9 +277,20 @@ document.addEventListener('DOMContentLoaded', function(){
             }
             var html = '';
             prods.forEach(function(p){
-                var syncBadge = {'synced':'<span class="badge badge-success">Sincronizado</span>','pending':'<span class="badge badge-warning">Pendiente</span>','error':'<span class="badge badge-danger">Error</span>'}[p.sync_status] || '<span class="badge badge-secondary">'+p.sync_status+'</span>';
+                var syncBadge = {'synced':'<span class="badge badge-success">Sincronizado</span>','pending':'<span class="badge badge-warning">Pendiente</span>','error':'<span class="badge badge-danger">Error</span>','excluded':'<span class="badge badge-secondary">Excluido</span>'}[p.sync_status] || '<span class="badge badge-secondary">'+p.sync_status+'</span>';
                 var itemName = p.item ? p.item.description : ('Item #'+p.item_id);
-                html += '<tr><td>'+itemName+'</td><td>'+(p.channel?p.channel.name:'')+'</td><td><code>'+(p.external_sku||'-')+'</code></td><td>'+syncBadge+'</td><td>'+(p.synced_at||'<span class="text-muted">-</span>')+'</td></tr>';
+                // Si quedó en error, mostramos el motivo exacto (Saga / validación previa).
+                var errNote = (p.sync_status === 'error' && p.last_error)
+                    ? '<div class="mp-sub text-danger" style="white-space:normal">'+escHtml(p.last_error)+'</div>'
+                    : '';
+                // Estado del feed/QC del ProductCreate asíncrono.
+                var QC = {'queued':'En cola','processing':'En revisión (QC)','approved':'Aprobado','live':'Publicado','rejected':'Rechazado'};
+                var qcNote = p.qc_status ? '<div class="mp-sub">QC: '+(QC[p.qc_status]||escHtml(p.qc_status))+'</div>' : '';
+                // Reintentar publicación en productos con error.
+                var retryBtn = (p.sync_status === 'error')
+                    ? '<div class="mt-1"><button class="btn btn-xs btn-outline-danger" onclick="retryProduct('+p.channel_id+','+p.id+')"><i class="fas fa-redo"></i> Reintentar</button></div>'
+                    : '';
+                html += '<tr><td>'+itemName+'</td><td>'+(p.channel?p.channel.name:'')+'</td><td><code>'+(p.external_sku||'-')+'</code></td><td>'+syncBadge+qcNote+errNote+retryBtn+'</td><td>'+(p.synced_at||'<span class="text-muted">-</span>')+'</td></tr>';
             });
             tbody.innerHTML = html;
         });
@@ -255,6 +305,34 @@ document.addEventListener('DOMContentLoaded', function(){
         fetch('/ecommerce/marketplace/channels/'+channelId+'/sync-stock', {method:'POST', headers:headers})
         .then(function(r){return r.json()})
         .then(function(data){ alert(data.message || 'Stock sincronizado'); });
+    };
+    // Activa/desactiva el auto-publish a Saga del canal.
+    window.toggleAutoPublish = function(channelId){
+        fetch('/ecommerce/marketplace/channels/'+channelId+'/toggle-auto-publish', {method:'POST', headers:headers})
+        .then(function(r){return r.json()})
+        .then(function(data){
+            if (data.error){ alert('Error: '+data.error); return; }
+            var btn = document.getElementById('mp-ap-'+channelId);
+            if (btn){
+                var on = !!data.auto_publish;
+                btn.className = 'btn btn-xs '+(on?'btn-success':'btn-outline-secondary')+' mr-1 mb-1';
+                btn.innerHTML = '<i class="fas fa-magic"></i> Auto-publicar: '+(on?'ON':'OFF');
+            }
+            alert(data.message || 'Actualizado');
+        })
+        .catch(function(e){ alert('Error: '+e.message); });
+    };
+
+    // Resuelve el estado del ProductCreate asíncrono (feed/QC) de Saga.
+    window.syncFeedStatus = function(channelId){
+        fetch('/ecommerce/marketplace/channels/'+channelId+'/feed-status', {method:'POST', headers:headers})
+        .then(function(r){return r.json()})
+        .then(function(data){
+            if (data.error){ alert('Error: '+data.error); return; }
+            alert((data.success||0)+' productos resueltos, '+(data.failed||0)+' con error. Revisa "Ver productos" para el detalle.');
+            loadProducts(channelId);
+        })
+        .catch(function(e){ alert('Error: '+e.message); });
     };
     window.fetchOrders = function(channelId){
         fetch('/ecommerce/marketplace/channels/'+channelId+'/fetch-orders', {headers:{'Accept':'application/json'}})
@@ -271,6 +349,13 @@ document.addEventListener('DOMContentLoaded', function(){
             alert(msg);
         })
         .catch(function(e){ alert('Error al traer órdenes: '+e.message); });
+    };
+    // Reintenta publicar un producto puntual que quedó en error.
+    window.retryProduct = function(channelId, productId){
+        fetch('/ecommerce/marketplace/channels/'+channelId+'/products/'+productId+'/retry', {method:'POST', headers:headers})
+        .then(function(r){return r.json()})
+        .then(function(d){ alert(d.message || (d.success?'OK':'Error')); loadProducts(channelId); })
+        .catch(function(e){ alert('Error: '+e.message); });
     };
     window.autoMap = function(channelId){
         fetch('/ecommerce/marketplace/channels/'+channelId+'/auto-map', {method:'POST', headers:headers})
@@ -570,6 +655,124 @@ document.addEventListener('DOMContentLoaded', function(){
         .then(function(d){ mpToast(d.message || d.error || 'Listo', d.error?'error':'success'); loadOrders(); })
         .catch(function(e){ mpToast('Error: '+e.message, 'error'); });
     };
+
+    // ── Homologación de categorías Saga ─────────────────────────
+    function escHtml(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+    function escAttr(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;'); }
+
+    var sagaCatLeavesOptions = ''; // <option> compartido para todos los selects
+    var sagaCatChannel = null;
+
+    window.loadSagaCategories = function(channelId, channelName){
+        sagaCatChannel = channelId;
+        var panel = document.getElementById('mp-sagacat-panel');
+        panel.style.display = 'block';
+        panel.scrollIntoView({behavior:'smooth', block:'start'});
+        document.getElementById('mp-sagacat-channel').textContent = channelName ? '· '+channelName : '';
+        document.getElementById('mp-sagacat-summary').textContent = '';
+        document.getElementById('mp-sagacat-status').textContent = 'Cargando el árbol de categorías de Saga (puede tardar unos segundos)…';
+        document.getElementById('mp-sagacat-tbody').innerHTML = '';
+        sagaCatLeavesOptions = '';
+
+        // 1) Árbol de Saga (solo hojas) — llamada a la API, lenta.
+        fetch('/ecommerce/marketplace/channels/'+channelId+'/saga-category-tree', {headers:{'Accept':'application/json'}})
+        .then(function(r){return r.json()})
+        .then(function(tree){
+            if (tree.error){ document.getElementById('mp-sagacat-status').innerHTML = '<span class="text-danger">No se pudo traer el árbol de Saga: '+escHtml(tree.error)+'</span>'; return Promise.reject(); }
+            var opts = '<option value="">— Sin asignar —</option>';
+            (tree.leaves||[]).forEach(function(n){
+                opts += '<option value="'+escAttr(n.id)+'" data-path="'+escAttr(n.path)+'" data-name="'+escAttr(n.name)+'">'+escHtml(n.path)+'</option>';
+            });
+            sagaCatLeavesOptions = opts;
+            document.getElementById('mp-sagacat-status').textContent = (tree.count||0)+' categorías hoja disponibles en Saga.';
+            // 2) Categorías internas + homologación actual.
+            return fetch('/ecommerce/marketplace/channels/'+channelId+'/saga-categories', {headers:{'Accept':'application/json'}});
+        })
+        .then(function(r){ return r ? r.json() : null; })
+        .then(function(data){
+            if (!data) return;
+            document.getElementById('mp-sagacat-summary').textContent = '('+data.mapped+' de '+data.total+' homologadas)';
+            renderSagaCats(data.categories||[]);
+        })
+        .catch(function(){});
+    };
+
+    function renderSagaCats(cats){
+        var tbody = document.getElementById('mp-sagacat-tbody');
+        if (!cats.length){ tbody.innerHTML = '<tr><td colspan="3" class="text-center text-muted py-3">No hay categorías internas.</td></tr>'; return; }
+        var html = '';
+        cats.forEach(function(c){
+            var sel = '<select class="form-control form-control-sm mp-sagacat-select" data-cat="'+c.category_id+'" onchange="saveSagaCat(this)">'+sagaCatLeavesOptions+'</select>';
+            var attr = c.saga_category_id
+                ? '<a href="#" class="small" onclick="return showSagaAttrs(\''+escAttr(c.saga_category_id)+'\')">ver atributos</a>'
+                : '<span class="text-muted small">—</span>';
+            html += '<tr data-name="'+escAttr((c.name||'').toLowerCase())+'">'
+                + '<td>'+escHtml(c.name||('#'+c.category_id))+'</td>'
+                + '<td>'+sel+'</td>'
+                + '<td class="mp-sagacat-attr" data-cat="'+c.category_id+'">'+attr+'</td>'
+                + '</tr>';
+        });
+        tbody.innerHTML = html;
+        // Preseleccionar el mapping actual en cada select.
+        cats.forEach(function(c){
+            if (c.saga_category_id){
+                var s = tbody.querySelector('.mp-sagacat-select[data-cat="'+c.category_id+'"]');
+                if (s) s.value = c.saga_category_id;
+            }
+        });
+    }
+
+    window.saveSagaCat = function(sel){
+        var opt = sel.options[sel.selectedIndex];
+        var body = {
+            category_id: parseInt(sel.getAttribute('data-cat')),
+            saga_category_id: sel.value || null,
+            saga_category_name: opt ? opt.getAttribute('data-name') : null,
+            saga_category_path: opt ? opt.getAttribute('data-path') : null
+        };
+        sel.disabled = true;
+        fetch('/ecommerce/marketplace/channels/'+sagaCatChannel+'/saga-categories', {method:'POST', headers:headers, body: JSON.stringify(body)})
+        .then(function(r){return r.json()})
+        .then(function(d){
+            sel.disabled = false;
+            mpToast(d.message || d.error || 'Guardado', d.error?'error':'success');
+            var cell = document.querySelector('.mp-sagacat-attr[data-cat="'+body.category_id+'"]');
+            if (cell){
+                if (!body.saga_category_id){ cell.innerHTML = '<span class="text-muted small">—</span>'; }
+                else {
+                    var n = d.required_count || 0;
+                    cell.innerHTML = '<a href="#" class="small" onclick="return showSagaAttrs(\''+escAttr(body.saga_category_id)+'\')">'+(n? n+' obligatorios':'ver atributos')+'</a>';
+                }
+            }
+        })
+        .catch(function(e){ sel.disabled = false; mpToast('Error: '+e.message, 'error'); });
+    };
+
+    window.showSagaAttrs = function(sagaId){
+        fetch('/ecommerce/marketplace/channels/'+sagaCatChannel+'/saga-categories/'+encodeURIComponent(sagaId)+'/attributes', {headers:{'Accept':'application/json'}})
+        .then(function(r){return r.json()})
+        .then(function(d){
+            if (d.error){ alert('Error: '+d.error); return; }
+            var attrs = d.attributes||[];
+            var req = attrs.filter(function(a){return a.mandatory;});
+            var msg = 'Atributos de la categoría Saga '+sagaId+':\n\n';
+            msg += 'OBLIGATORIOS ('+req.length+'):\n' + (req.map(function(a){return '• '+a.label+' ('+a.input_type+')';}).join('\n')||'—');
+            msg += '\n\nOpcionales: '+(attrs.length-req.length);
+            alert(msg);
+        });
+        return false;
+    };
+
+    var sagaSearchEl = document.getElementById('mp-sagacat-search');
+    if (sagaSearchEl){
+        sagaSearchEl.addEventListener('input', function(){
+            var q = this.value.toLowerCase();
+            document.querySelectorAll('#mp-sagacat-tbody tr').forEach(function(tr){
+                var n = tr.getAttribute('data-name')||'';
+                tr.style.display = (n.indexOf(q) === -1) ? 'none' : '';
+            });
+        });
+    }
 
     loadOrders();
 });

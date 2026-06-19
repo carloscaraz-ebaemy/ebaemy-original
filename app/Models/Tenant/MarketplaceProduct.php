@@ -11,11 +11,13 @@ class MarketplaceProduct extends Model
 
     protected $fillable = [
         'channel_id', 'item_id', 'item_variant_id', 'external_sku',
-        'external_id', 'sync_status', 'external_data', 'last_error', 'synced_at',
+        'external_id', 'feed_id', 'sync_status', 'qc_status',
+        'external_data', 'last_error', 'rejection_reasons', 'synced_at',
     ];
 
     protected $casts = [
         'external_data' => 'array',
+        'rejection_reasons' => 'array',
         'synced_at' => 'datetime',
     ];
 
