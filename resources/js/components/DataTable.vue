@@ -112,6 +112,9 @@
                                 <el-option label="⏸️ Pausado en Marketplace" value="paused_mp"></el-option>
                                 <el-option label="❌ Rechazado en Marketplace" value="rejected_mp"></el-option>
                                 <el-option label="Sin publicar (ningún canal)" value="unpublished"></el-option>
+                                <el-option label="🟢 En Saga Falabella" value="in_saga"></el-option>
+                                <el-option label="🟡 Saga pendiente / QC" value="saga_pending"></el-option>
+                                <el-option label="🔴 Saga con error" value="saga_error"></el-option>
                             </el-select>
                         </div>
                     </div>
@@ -233,22 +236,28 @@
 .datatable-product-filter {
     display: flex;
     align-items: center;
-    justify-content: end;
+    justify-content: flex-start; /* antes 'end' empujaba y recortaba el label/valor */
     gap: 8px;
     width: 100%;
+    flex-wrap: wrap;             /* en pantallas chicas baja el select en vez de truncar */
 }
 
 .datatable-filter-label {
     display: inline-block;
-    max-width: 140px;
+    max-width: 100%;            /* antes 140px recortaba "Canal" -> "Ca..." */
     overflow: hidden;
     white-space: nowrap;
     text-overflow: ellipsis;
+    font-size: 12px;
+    color: #6b7280;
+    flex: 0 0 auto;
 }
 
 .datatable-filter-select {
     width: 100%;
-    max-width: 220px;
+    min-width: 170px;          /* evita que el valor salga cortado ("Per…") */
+    max-width: 260px;
+    flex: 1 1 170px;
 }
 
 .btn-show-all-products__info {

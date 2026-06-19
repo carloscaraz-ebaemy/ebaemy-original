@@ -188,6 +188,19 @@
                :class="['cs-chip', 'cs-chip--muted', activeChannel === 'unpublished' ? 'cs-chip--active' : '']">
                 💤 Sin publicar <strong>{{ channelStats.unpublished }}</strong>
             </a>
+            <!-- Saga Falabella (canal externo): chips de estado -->
+            <a v-if="channelStats.in_saga > 0" href="#" @click.prevent="applyChannelFilter('in_saga')"
+               :class="['cs-chip', activeChannel === 'in_saga' ? 'cs-chip--active' : '']">
+                🟢 En Saga <strong>{{ channelStats.in_saga }}</strong>
+            </a>
+            <a v-if="channelStats.saga_pending > 0" href="#" @click.prevent="applyChannelFilter('saga_pending')"
+               :class="['cs-chip', 'cs-chip--warn', activeChannel === 'saga_pending' ? 'cs-chip--active' : '']">
+                🟡 Saga pendiente <strong>{{ channelStats.saga_pending }}</strong>
+            </a>
+            <a v-if="channelStats.saga_error > 0" href="#" @click.prevent="applyChannelFilter('saga_error')"
+               :class="['cs-chip', 'cs-chip--danger', activeChannel === 'saga_error' ? 'cs-chip--active' : '']">
+                🔴 Saga error <strong>{{ channelStats.saga_error }}</strong>
+            </a>
         </div>
 
         <div class="card tab-content-default row-new mb-0">
@@ -813,7 +826,7 @@ export default {
             selected: [],
             selectedMeta: {},
             visibleRows: [],
-            channelStats: { total: 0, in_store: 0, in_marketplace: 0, pending_mp: 0, paused_mp: 0, rejected_mp: 0, unpublished: 0 },
+            channelStats: { total: 0, in_store: 0, in_marketplace: 0, pending_mp: 0, paused_mp: 0, rejected_mp: 0, unpublished: 0, in_saga: 0, saga_pending: 0, saga_error: 0 },
             activeChannel: 'all',
             can_add_new_product: false,
             showDialog: false,
@@ -912,7 +925,7 @@ export default {
         this.loadChannelStats();
 
         try {
-            const allowed = ['all', 'in_store', 'in_marketplace', 'pending_mp', 'paused_mp', 'rejected_mp', 'unpublished']
+            const allowed = ['all', 'in_store', 'in_marketplace', 'pending_mp', 'paused_mp', 'rejected_mp', 'unpublished', 'in_saga', 'saga_pending', 'saga_error']
             const qs = new URLSearchParams(window.location.search)
             const qsChannel = qs.get('channel')
             if (qsChannel && allowed.includes(qsChannel)) {

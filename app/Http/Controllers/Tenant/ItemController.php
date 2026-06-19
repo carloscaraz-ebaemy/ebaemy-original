@@ -283,6 +283,15 @@ class ItemController extends Controller
                         $q->where('marketplace_publishable', 0)->orWhereNull('marketplace_publishable');
                     });
                     break;
+
+                // Estado en Saga Falabella (mapeo en marketplace_products del canal).
+                case 'in_saga':
+                case 'saga_pending':
+                case 'saga_error':
+                    $statusMap = ['in_saga' => 'synced', 'saga_pending' => 'pending', 'saga_error' => 'error'];
+                    $ids = $this->sagaItemIdsByStatus($statusMap[$request->input('channel_filter')]);
+                    $records->whereIn('id', $ids ?: [-1]); // [-1] = ninguno (lista vacía)
+                    break;
             }
         }
 
@@ -1727,7 +1736,7 @@ class ItemController extends Controller
             ")
             ->first();
 
-        return [
+        return array_merge([
             'total'          => (int) ($row->total ?? 0),
             'in_store'       => (int) ($row->in_store ?? 0),
             'in_marketplace' => (int) ($row->in_marketplace ?? 0),
@@ -1735,7 +1744,33 @@ class ItemController extends Controller
             'paused_mp'      => (int) ($row->paused_mp ?? 0),
             'rejected_mp'    => (int) ($row->rejected_mp ?? 0),
             'unpublished'    => (int) ($row->unpublished ?? 0),
-        ];
+        ], $this->sagaStatusCounts());
+    }
+
+    /**
+     * Conteo de productos por estado en Saga Falabella (reusa el mapa memoizado).
+     * Devuelve ceros si el tenant no tiene canal Falabella activo.
+     */
+    protected function sagaStatusCounts(): array
+    {
+        $in = $pending = $error = 0;
+        foreach (\App\Models\Tenant\Item::resolveSagaStatusMap() as $s) {
+            switch ($s['sync_status'] ?? null) {
+                case 'synced':  $in++;      break;
+                case 'pending': $pending++; break;
+                case 'error':   $error++;   break;
+            }
+        }
+        return ['in_saga' => $in, 'saga_pending' => $pending, 'saga_error' => $error];
+    }
+
+    /**
+     * item_ids cuyo estado AGREGADO en Saga coincide con $status (synced|pending|error).
+     */
+    protected function sagaItemIdsByStatus(string $status): array
+    {
+        $map = \App\Models\Tenant\Item::resolveSagaStatusMap();
+        return array_keys(array_filter($map, fn ($s) => ($s['sync_status'] ?? null) === $status));
     }
 
     /**
