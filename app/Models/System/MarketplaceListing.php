@@ -195,15 +195,18 @@ class MarketplaceListing extends Model
         return $query->where(function ($w) use ($tokens) {
             foreach ($tokens as $tok) {
                 $like = '%' . $tok . '%';
-                // Token normalizado (sin acentos) para matchear contra search_text.
-                $likeNorm = '%' . \App\Services\System\MarketplaceListingSyncService::normalizeForSearch($tok) . '%';
-                $w->where(function ($sub) use ($like, $likeNorm) {
-                    // Primario: índice de búsqueda normalizado (insensible a tildes).
-                    $sub->where('search_text', 'like', $likeNorm)
-                        // Fallback: columnas originales (filas aún no resincronizadas).
-                        ->orWhere('title', 'like', $like)
+                // Token normalizado + sinónimos (asiento→silla, etc.), todos
+                // insensibles a tildes, contra el índice search_text.
+                $variants = \App\Services\System\SearchSynonyms::expand($tok);
+                $w->where(function ($sub) use ($like, $variants) {
+                    foreach ($variants as $v) {
+                        $sub->orWhere('search_text', 'like', '%' . $v . '%');
+                    }
+                    // Fallback: columnas originales + SKU/código interno.
+                    $sub->orWhere('title', 'like', $like)
                         ->orWhere('category_name', 'like', $like)
-                        ->orWhere('brand_name', 'like', $like);
+                        ->orWhere('brand_name', 'like', $like)
+                        ->orWhere('internal_id', 'like', $like);
                 });
             }
         });

@@ -956,58 +956,91 @@ window.mpCouponTenantIds = []; // hostname_ids donde el user tiene cupn
         dropdown.setAttribute('aria-hidden','false');
     }
 
+    function productItemHtml(s, i) {
+        const url = SEARCH_BASE.replace(/\/$/,'') + '/item/' + s.slug;
+        const badges = [];
+        if (s.is_pack) badges.push('<span class="mp-search-suggest__badge mp-search-suggest__badge--pack">📦 Pack</span>');
+        if (s.is_on_offer && s.discount_pct) badges.push(`<span class="mp-search-suggest__badge mp-search-suggest__badge--offer">-${s.discount_pct}%</span>`);
+        if (s.out_of_stock) badges.push('<span class="mp-search-suggest__badge mp-search-suggest__badge--out">Agotado</span>');
+        return `
+            <a class="mp-search-suggest__item" data-idx="${i}" href="${url}">
+                ${s.image_url ? `<img class="mp-search-suggest__thumb" src="${esc(s.image_url)}" alt="" loading="lazy">` : '<div class="mp-search-suggest__thumb"></div>'}
+                <div class="mp-search-suggest__info">
+                    <span class="mp-search-suggest__title">${esc(s.title)}</span>
+                    <span class="mp-search-suggest__meta">
+                        ${badges.join('')}
+                        ${s.tenant_name ? '<span>· ' + esc(s.tenant_name) + '</span>' : ''}
+                    </span>
+                </div>
+                <span class="mp-search-suggest__price">S/ ${(s.price || 0).toFixed(2)}</span>
+            </a>`;
+    }
+
+    // Bloques de populares + categorías (foco vacío y "sin resultados").
+    function popularBlocks(data) {
+        let html = '';
+        const popular = data.popular || [];
+        const cats = data.categories || [];
+        if (popular.length) {
+            html += '<div class="mp-search-suggest__section">';
+            html += '<div class="mp-search-suggest__header">Productos populares</div>';
+            popular.forEach((s, i) => { html += productItemHtml(s, i); });
+            html += '</div>';
+        }
+        if (cats.length) {
+            html += '<div class="mp-search-suggest__section">';
+            html += '<div class="mp-search-suggest__header">Categorías</div>';
+            html += '<div class="mp-search-suggest__cats">';
+            cats.forEach(c => {
+                const url = `${SEARCH_BASE}?q=${encodeURIComponent(c)}`;
+                html += `<a class="mp-search-suggest__cat" href="${url}">${esc(c)}</a>`;
+            });
+            html += '</div></div>';
+        }
+        return html;
+    }
+
     function render(data, q) {
         const sug = data.suggestions || [];
         const shops = data.shops || [];
-        if (!sug.length && !shops.length) {
-            dropdown.innerHTML = `<div class="mp-search-suggest__empty">Sin resultados para "${esc(q)}"</div>`;
-            open();
-            return;
-        }
         let html = '';
-        if (sug.length) {
-            html += '<div class="mp-search-suggest__section">';
-            html += '<div class="mp-search-suggest__header">Productos</div>';
-            sug.forEach((s, i) => {
-                const url = SEARCH_BASE.replace(/\/$/,'') + '/item/' + s.slug;
-                const badges = [];
-                if (s.is_pack) badges.push('<span class="mp-search-suggest__badge mp-search-suggest__badge--pack">📦 Pack</span>');
-                if (s.is_on_offer && s.discount_pct) badges.push(`<span class="mp-search-suggest__badge mp-search-suggest__badge--offer">-${s.discount_pct}%</span>`);
-                if (s.out_of_stock) badges.push('<span class="mp-search-suggest__badge mp-search-suggest__badge--out">Agotado</span>');
-                html += `
-                    <a class="mp-search-suggest__item" data-idx="${i}" href="${url}">
-                        ${s.image_url ? `<img class="mp-search-suggest__thumb" src="${esc(s.image_url)}" alt="" loading="lazy">` : '<div class="mp-search-suggest__thumb"></div>'}
-                        <div class="mp-search-suggest__info">
-                            <span class="mp-search-suggest__title">${esc(s.title)}</span>
-                            <span class="mp-search-suggest__meta">
-                                ${badges.join('')}
-                                ${s.tenant_name ? '<span>· ' + esc(s.tenant_name) + '</span>' : ''}
-                            </span>
-                        </div>
-                        <span class="mp-search-suggest__price">S/ ${(s.price || 0).toFixed(2)}</span>
-                    </a>`;
-            });
-            html += '</div>';
+
+        if (sug.length || shops.length) {
+            if (sug.length) {
+                html += '<div class="mp-search-suggest__section">';
+                html += '<div class="mp-search-suggest__header">Productos</div>';
+                sug.forEach((s, i) => { html += productItemHtml(s, i); });
+                html += '</div>';
+            }
+            if (shops.length) {
+                html += '<div class="mp-search-suggest__section">';
+                html += '<div class="mp-search-suggest__header">Tiendas</div>';
+                shops.forEach(sh => {
+                    const url = SEARCH_BASE + '/tienda/' + encodeURIComponent(sh.subdomain || '');
+                    html += `
+                        <a class="mp-search-suggest__item" href="${url}">
+                            <div class="mp-search-suggest__thumb" style="display:flex;align-items:center;justify-content:center;font-size:18px">🏪</div>
+                            <div class="mp-search-suggest__info">
+                                <span class="mp-search-suggest__title">${esc(sh.name)}</span>
+                                <span class="mp-search-suggest__meta">${sh.products_count} productos</span>
+                            </div>
+                        </a>`;
+                });
+                html += '</div>';
+            }
+            html += `<a class="mp-search-suggest__seemore" href="${SEARCH_BASE}?q=${encodeURIComponent(q)}">Ver todos los resultados →</a>`;
+        } else {
+            // Sin resultados (q presente) o foco vacío (q vacío) → populares + categorías.
+            if (q) {
+                html += `<div class="mp-search-suggest__empty">Sin resultados para "${esc(q)}". Quizás te interese:</div>`;
+            }
+            const blocks = popularBlocks(data);
+            html += blocks;
+            if (!blocks && q) {
+                html = `<div class="mp-search-suggest__empty">Sin resultados para "${esc(q)}"</div>`;
+            }
+            if (!html) return; // nada que mostrar
         }
-        if (shops.length) {
-            html += '<div class="mp-search-suggest__section">';
-            html += '<div class="mp-search-suggest__header">Tiendas</div>';
-            shops.forEach(sh => {
-                // Página dedicada de tienda — tiene OG con logo del seller
-                // (preview correcto al compartir en WhatsApp / FB).
-                const url = SEARCH_BASE + '/tienda/' + encodeURIComponent(sh.subdomain || '');
-                html += `
-                    <a class="mp-search-suggest__item" href="${url}">
-                        <div class="mp-search-suggest__thumb" style="display:flex;align-items:center;justify-content:center;font-size:18px">🏪</div>
-                        <div class="mp-search-suggest__info">
-                            <span class="mp-search-suggest__title">${esc(sh.name)}</span>
-                            <span class="mp-search-suggest__meta">${sh.products_count} productos</span>
-                        </div>
-                    </a>`;
-            });
-            html += '</div>';
-        }
-        html += `<a class="mp-search-suggest__seemore" href="${SEARCH_BASE}?q=${encodeURIComponent(q)}">Ver todos los resultados →</a>`;
 
         dropdown.innerHTML = html;
         items = Array.from(dropdown.querySelectorAll('.mp-search-suggest__item'));
@@ -1064,7 +1097,10 @@ window.mpCouponTenantIds = []; // hostname_ids donde el user tiene cupn
         if (!form.contains(e.target)) close();
     });
     input.addEventListener('focus', () => {
-        if (input.value.trim().length >= 2 && dropdown.innerHTML) open();
+        const q = input.value.trim();
+        if (q.length >= 2 && dropdown.innerHTML) { open(); return; }
+        // Foco con input vacío → sugerencias populares + categorías.
+        if (q.length < 2) { lastQ = ''; fetchSuggest(''); }
     });
 })();
 </script>

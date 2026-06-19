@@ -390,69 +390,96 @@ class MarketplaceController extends Controller
         }
     }
 
+    /** Columnas mínimas para las tarjetas de sugerencia. */
+    private const SUGGEST_COLS = [
+        'id', 'slug', 'title', 'image_url', 'price', 'mp_price',
+        'tenant_name', 'tenant_fqdn', 'is_on_offer', 'discount_pct',
+        'is_pack', 'stock',
+    ];
+
+    private function mapListingForSuggest($l): array
+    {
+        return [
+            'slug'         => $l->slug,
+            'title'        => $l->title,
+            'image_url'    => $l->image_url,
+            'price'        => (float) ($l->mp_price ?: $l->price),
+            'tenant_name'  => $l->tenant_name,
+            'is_on_offer'  => (bool) $l->is_on_offer,
+            'discount_pct' => (int) $l->discount_pct,
+            'is_pack'      => (bool) $l->is_pack,
+            'out_of_stock' => (int) $l->stock <= 0,
+        ];
+    }
+
+    /** Productos populares + categorías top (para foco vacío y "sin resultados"). */
+    private function suggestPopular(): array
+    {
+        return \Cache::remember('mp_suggest_popular_v1', 300, function () {
+            $popular = MarketplaceListing::published()
+                ->orderByRaw('CASE WHEN is_featured = 1 AND (featured_until IS NULL OR featured_until > NOW()) THEN 1 ELSE 0 END DESC')
+                ->orderByDesc('view_count')
+                ->limit(6)
+                ->get(self::SUGGEST_COLS)
+                ->map(fn ($l) => $this->mapListingForSuggest($l))
+                ->values();
+
+            $categories = MarketplaceListing::published()
+                ->whereNotNull('category_name')->where('category_name', '!=', '')
+                ->select('category_name', \DB::raw('COUNT(*) as c'))
+                ->groupBy('category_name')
+                ->orderByDesc('c')
+                ->limit(8)
+                ->pluck('category_name')
+                ->values();
+
+            return ['suggestions' => [], 'shops' => [], 'popular' => $popular, 'categories' => $categories];
+        });
+    }
+
     public function searchSuggest(Request $request)
     {
         $q = trim((string) $request->input('q', ''));
+
+        // Foco con input vacío → sugerencias populares + categorías.
         if (mb_strlen($q) < 2) {
-            return response()->json(['suggestions' => [], 'shops' => []]);
+            return response()->json($this->suggestPopular());
         }
 
-        // Cache por query lowercase para hits repetidos (ej. autocomplete de
-        // shoppers buscando el mismo producto). TTL corto porque inventory
-        // puede cambiar; 60s es buen tradeoff.
-        $cacheKey = 'mp_suggest_v2_' . md5(mb_strtolower($q));
+        $cacheKey = 'mp_suggest_v3_' . md5(mb_strtolower($q));
         $data = \Cache::remember($cacheKey, 60, function () use ($q) {
-            // Mismo split en tokens que scopeSearch: cada palabra >=2 chars
-            // se exige presente. 'x 24' encuentra 'x24 Hojas', etc.
             $qNorm = trim(preg_replace('/\s+/', ' ', $q));
-            $tokens = array_filter(
-                explode(' ', $qNorm),
-                fn ($t) => mb_strlen($t) >= 2
-            );
+            $tokens = array_filter(explode(' ', $qNorm), fn ($t) => mb_strlen($t) >= 2);
             if (empty($tokens)) $tokens = [$qNorm];
 
             $listings = MarketplaceListing::published()
                 ->where(function ($w) use ($tokens) {
                     foreach ($tokens as $tok) {
                         $like = '%' . $tok . '%';
-                        $w->where(function ($sub) use ($like) {
-                            $sub->where('title', 'like', $like)
+                        // Sinónimos + sin acentos (search_text) + SKU.
+                        $variants = \App\Services\System\SearchSynonyms::expand($tok);
+                        $w->where(function ($sub) use ($like, $variants) {
+                            foreach ($variants as $v) {
+                                $sub->orWhere('search_text', 'like', '%' . $v . '%');
+                            }
+                            $sub->orWhere('title', 'like', $like)
                                 ->orWhere('internal_id', 'like', $like)
                                 ->orWhere('brand_name', 'like', $like)
                                 ->orWhere('category_name', 'like', $like);
                         });
                     }
                 })
-                // Prioriza featured, luego score, luego views
                 ->orderByRaw('CASE WHEN is_featured = 1 AND (featured_until IS NULL OR featured_until > NOW()) THEN 1 ELSE 0 END DESC')
                 ->orderByDesc('view_count')
                 ->limit(8)
-                ->get([
-                    'id', 'slug', 'title', 'image_url', 'price', 'mp_price',
-                    'tenant_name', 'tenant_fqdn', 'is_on_offer', 'discount_pct',
-                    'is_pack', 'stock',
-                ])
-                ->map(function ($l) {
-                    return [
-                        'slug'         => $l->slug,
-                        'title'        => $l->title,
-                        'image_url'    => $l->image_url,
-                        'price'        => (float) ($l->mp_price ?: $l->price),
-                        'tenant_name'  => $l->tenant_name,
-                        'is_on_offer'  => (bool) $l->is_on_offer,
-                        'discount_pct' => (int) $l->discount_pct,
-                        'is_pack'      => (bool) $l->is_pack,
-                        'out_of_stock' => (int) $l->stock <= 0,
-                    ];
-                })
+                ->get(self::SUGGEST_COLS)
+                ->map(fn ($l) => $this->mapListingForSuggest($l))
                 ->values();
 
-            // También sugerimos tiendas que matchean (top 3) — el shopper a
-            // veces escribe el nombre de la tienda en lugar del producto.
+            $shopsLike = '%' . $qNorm . '%';
             $shops = MarketplaceListing::published()
-                ->where('tenant_name', 'like', $like)
-                ->select('tenant_name', 'tenant_fqdn',
-                    \DB::raw('COUNT(*) as products_count'))
+                ->where('tenant_name', 'like', $shopsLike)
+                ->select('tenant_name', 'tenant_fqdn', \DB::raw('COUNT(*) as products_count'))
                 ->groupBy('tenant_name', 'tenant_fqdn')
                 ->orderByDesc('products_count')
                 ->limit(3)
@@ -467,7 +494,15 @@ class MarketplaceController extends Controller
                 })
                 ->values();
 
-            return ['suggestions' => $listings, 'shops' => $shops];
+            $out = ['suggestions' => $listings, 'shops' => $shops];
+
+            // "Sin resultados" inteligente: si no hubo coincidencias, adjunta
+            // populares + categorías para que el comprador no quede en vacío.
+            if ($listings->isEmpty() && $shops->isEmpty()) {
+                $out = array_merge($out, $this->suggestPopular());
+            }
+
+            return $out;
         });
 
         return response()->json($data);
