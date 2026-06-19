@@ -392,6 +392,18 @@
                                         <span style="display:inline-flex;align-items:center;gap:3px;font-size:10px;padding:2px 6px;background:#fee2e2;color:#991b1b;border-radius:4px;font-weight:500">❌ MP rechazado</span>
                                     </el-tooltip>
                                 </template>
+                                <!-- Estado en Saga Falabella (canal externo, distinto del Marketplace ebaemy) -->
+                                <template v-if="row.saga_status">
+                                    <el-tooltip v-if="row.saga_status === 'error' || row.saga_qc === 'rejected'" content="Saga Falabella: error / rechazado. Revisa Configuración → Marketplace → Ver productos." placement="top">
+                                        <span style="display:inline-flex;align-items:center;gap:3px;font-size:10px;padding:2px 6px;background:#fee2e2;color:#991b1b;border-radius:4px;font-weight:500">🔴 Saga</span>
+                                    </el-tooltip>
+                                    <el-tooltip v-else-if="row.saga_status === 'pending' || row.saga_qc === 'queued' || row.saga_qc === 'processing'" content="Saga Falabella: pendiente / en revisión (QC)" placement="top">
+                                        <span style="display:inline-flex;align-items:center;gap:3px;font-size:10px;padding:2px 6px;background:#fef3c7;color:#92400e;border-radius:4px;font-weight:500">🟡 Saga</span>
+                                    </el-tooltip>
+                                    <el-tooltip v-else-if="row.saga_status === 'synced'" :content="row.saga_qc === 'live' ? 'Publicado en Saga Falabella' : 'En Saga Falabella (sincronizado)'" placement="top">
+                                        <span style="display:inline-flex;align-items:center;gap:3px;font-size:10px;padding:2px 6px;background:#dcfce7;color:#166534;border-radius:4px;font-weight:500">🟢 Saga</span>
+                                    </el-tooltip>
+                                </template>
                             </div>
                         </td>
                         <td v-if="columns.description.visible">

@@ -1398,6 +1398,52 @@ class Item extends ModelTenant
      *
      * @return array
      */
+    /**
+     * Mapa item_id => estado de publicación en Saga Falabella, resuelto UNA vez
+     * por request (memoizado) para alimentar la lista de Productos sin N+1.
+     * Devuelve [] si el tenant no tiene canal Falabella activo o sin tablas de
+     * marketplace. Agrega por item (varias variantes): prioriza error > pending
+     * > synced para que los problemas se vean.
+     *
+     * @return array<int, array{sync_status:?string, qc_status:?string}>
+     */
+    public static ?array $sagaStatusMap = null;
+
+    public static function resolveSagaStatusMap(): array
+    {
+        if (self::$sagaStatusMap !== null) {
+            return self::$sagaStatusMap;
+        }
+
+        self::$sagaStatusMap = [];
+        try {
+            $channelId = \App\Models\Tenant\MarketplaceChannel::where('platform', 'falabella')
+                ->where('status', 'active')
+                ->value('id');
+
+            if ($channelId) {
+                self::$sagaStatusMap = \App\Models\Tenant\MarketplaceProduct::where('channel_id', $channelId)
+                    ->get(['item_id', 'sync_status', 'qc_status'])
+                    ->groupBy('item_id')
+                    ->map(function ($group) {
+                        $statuses = $group->pluck('sync_status')->filter()->all();
+                        $status = in_array('error', $statuses, true) ? 'error'
+                            : (in_array('pending', $statuses, true) ? 'pending'
+                            : (in_array('synced', $statuses, true) ? 'synced' : ($statuses[0] ?? null)));
+                        return [
+                            'sync_status' => $status,
+                            'qc_status'   => $group->pluck('qc_status')->filter()->first(),
+                        ];
+                    })
+                    ->toArray();
+            }
+        } catch (\Throwable $e) {
+            self::$sagaStatusMap = [];
+        }
+
+        return self::$sagaStatusMap;
+    }
+
     public function getCollectionData(Configuration $configuration = null, $isRestaurant = false){
         if(empty($configuration)){
             $configuration =  Configuration::first();
@@ -1568,6 +1614,10 @@ class Item extends ModelTenant
             'marketplace_publishable' => (bool) ($this->marketplace_publishable ?? false),
             'mp_price'   => $this->mp_price,
             'mp_status'  => $this->mp_status,
+            // Estado de publicación en Saga Falabella (canal externo per-tenant).
+            // Resuelto en bloque (1 query/request) para no caer en N+1.
+            'saga_status' => self::resolveSagaStatusMap()[$this->id]['sync_status'] ?? null,
+            'saga_qc'     => self::resolveSagaStatusMap()[$this->id]['qc_status'] ?? null,
             'mp_notes'   => $this->mp_notes,
             'marketplace_category_id'   => $this->marketplace_category_id,
             'marketplace_category_path' => $this->resolveMarketplaceCategoryPath(),
