@@ -19,7 +19,7 @@
                 <div class="row filter-content" v-if="applyFilter && isVisible">
                     <div class="col-sm-12 pb-2"
                     :class="{
-                      'col-lg-4 col-md-4': !fromEcommerce && !fromRestaurant,
+                      'col-lg-3 col-md-4': !fromEcommerce && !fromRestaurant,
                       'col-md-6 col-lg-6': fromEcommerce || fromRestaurant
                     }">
                         <div class="d-flex">
@@ -42,7 +42,7 @@
                     </div>
                     <div class="col-sm-12 pb-2"
                     :class="{
-                      'col-lg-3 col-md-3': !fromEcommerce && !fromRestaurant,
+                      'col-lg-5 col-md-5': !fromEcommerce && !fromRestaurant,
                       'col-md-5 col-lg-5': fromEcommerce || fromRestaurant
                     }">
                         <template

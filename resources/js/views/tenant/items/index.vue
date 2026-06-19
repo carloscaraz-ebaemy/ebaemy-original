@@ -273,7 +273,7 @@
                 </el-dropdown>
             </div>
             <div class="card-body">
-                <data-table ref="DataTable" :productType="type" :resource="resource" :sort-field="sortField" :sort-direction="sortDirection" :showProductFilter="type !== 'ZZ'" :showChannelFilter="true" @sort-change="handleSortChange" @records-changed="handleRecordsChanged" @channel-filter-change="onChannelFilterChange">
+                <data-table ref="DataTable" :productType="type" :resource="resource" :sort-field="sortField" :sort-direction="sortDirection" :showProductFilter="type !== 'ZZ'" :showChannelFilter="false" @sort-change="handleSortChange" @records-changed="handleRecordsChanged" @channel-filter-change="onChannelFilterChange">
                     <tr slot="heading" width="100%" slot-scope="{ sort }">
                         <th class="text-center" style="width: 34px;">
                             <el-checkbox
