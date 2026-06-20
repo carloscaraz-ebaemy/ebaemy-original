@@ -99,6 +99,9 @@ class ItemController extends Controller
     public function columns()
     {
         return [
+            // Búsqueda global (default): un solo cuadro que cruza nombre, códigos,
+            // modelo, marca y categoría a la vez. Resuelta en getRecords (case 'all').
+            'all' => '🔎 Todos los campos',
             'description' => 'Nombre',
             'internal_id' => 'Código interno',
             'barcode' => 'Código de barras',
@@ -153,6 +156,34 @@ class ItemController extends Controller
 
         switch ($request->column)
         {
+
+            // Búsqueda global "más diversa": cada palabra debe aparecer en AL MENOS
+            // uno de los campos (nombre/códigos/modelo/marca/categoría). Las palabras
+            // se combinan con AND entre sí → "waflera corazon" exige ambas. El `like`
+            // hereda la insensibilidad a acentos de la colación (utf8_*_ci).
+            case 'all':
+                $term = trim((string) $request->value);
+                if ($term !== '') {
+                    $tokens = $records->getModel()->getSearchValues($term);
+                    $records->where(function ($outer) use ($tokens) {
+                        foreach ($tokens as $tok) {
+                            $outer->where(function ($q) use ($tok) {
+                                $q->where('description', 'like', "%{$tok}%")
+                                  ->orWhere('internal_id', 'like', "%{$tok}%")
+                                  ->orWhere('item_code', 'like', "%{$tok}%")
+                                  ->orWhere('barcode', 'like', "%{$tok}%")
+                                  ->orWhere('model', 'like', "%{$tok}%")
+                                  ->orWhereHas('brand', function ($b) use ($tok) {
+                                      $b->where('name', 'like', "%{$tok}%");
+                                  })
+                                  ->orWhereHas('category', function ($c) use ($tok) {
+                                      $c->where('name', 'like', "%{$tok}%");
+                                  });
+                            });
+                        }
+                    });
+                }
+                break;
 
             case 'brand':
                 $records->whereHas('brand',function($q) use($request){
@@ -291,6 +322,26 @@ class ItemController extends Controller
                     $statusMap = ['in_saga' => 'synced', 'saga_pending' => 'pending', 'saga_error' => 'error'];
                     $ids = $this->sagaItemIdsByStatus($statusMap[$request->input('channel_filter')]);
                     $records->whereIn('id', $ids ?: [-1]); // [-1] = ninguno (lista vacía)
+                    break;
+
+                // Inventario (columna stock, la misma "Stock General" que se lista).
+                case 'no_stock':
+                    $records->where('stock', '<=', 0);
+                    break;
+                case 'with_stock':
+                    $records->where('stock', '>', 0);
+                    break;
+
+                // Oferta vigente: precio tachado (compare_at_price) mayor al de venta
+                // y dentro del rango de fechas (o sin fechas = siempre vigente).
+                case 'on_offer':
+                    $records->whereColumn('compare_at_price', '>', 'sale_unit_price')
+                            ->where(function ($q) {
+                                $q->whereNull('compare_at_from')->orWhere('compare_at_from', '<=', now());
+                            })
+                            ->where(function ($q) {
+                                $q->whereNull('compare_at_until')->orWhere('compare_at_until', '>=', now());
+                            });
                     break;
             }
         }
@@ -1460,7 +1511,16 @@ class ItemController extends Controller
             \App\Models\Tenant\MarketplaceProduct::where('channel_id', $channel->id)
                 ->where('item_id', $item->id)
                 ->update(['sync_status' => 'excluded']);
-            return ['success' => true, 'message' => 'Producto retirado del sync de Saga.', 'saga_status' => null, 'saga_enabled' => false];
+            // Importante: 'excluded' detiene el sync de stock pero NO despublica de
+            // Saga; el delist real se hace en el panel de Seller Center.
+            return ['success' => true, 'message' => 'Retirado del sync de Saga. (Para quitarlo del catálogo, hazlo en el panel de Saga.)', 'saga_status' => null, 'saga_enabled' => false];
+        }
+
+        // Productos con variantes: cada talla/color necesita su propia SKU en Saga.
+        // El toggle 1-clic publica una sola SKU (item_variant_id=null) → corrompería
+        // el listing. Lo bloqueamos hasta tener el editor de variantes por canal.
+        if ($item->has_variants) {
+            return ['success' => false, 'message' => 'Este producto tiene variantes. Publícalo en Saga desde su ficha: cada variante necesita su propia SKU.'];
         }
 
         $sku = $item->internal_id ?: $item->item_code;

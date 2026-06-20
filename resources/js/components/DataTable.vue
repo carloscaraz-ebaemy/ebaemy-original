@@ -98,23 +98,34 @@
                         class="col-lg-3 col-md-4 col-sm-12 pb-2 d-flex align-items-center"
                     >
                         <div class="datatable-product-filter">
-                            <span class="datatable-filter-label">Canal</span>
+                            <span class="datatable-filter-label">Estado</span>
                             <el-select
                                 class="datatable-filter-select"
                                 v-model="search.channel_filter"
                                 size="small"
                                 @change="handleChannelFilterChange"
                             >
-                                <el-option label="Todos los canales" value="all"></el-option>
-                                <el-option label="🛍️ En tienda" value="in_store"></el-option>
-                                <el-option label="🌐 En Marketplace" value="in_marketplace"></el-option>
-                                <el-option label="⏳ Pendiente MP" value="pending_mp"></el-option>
-                                <el-option label="⏸️ Pausado MP" value="paused_mp"></el-option>
-                                <el-option label="❌ Rechazado MP" value="rejected_mp"></el-option>
-                                <el-option label="Sin publicar" value="unpublished"></el-option>
-                                <el-option label="🟢 En Saga" value="in_saga"></el-option>
-                                <el-option label="🟡 Saga pendiente" value="saga_pending"></el-option>
-                                <el-option label="🔴 Saga error" value="saga_error"></el-option>
+                                <el-option label="Todos" value="all"></el-option>
+                                <el-option-group label="Canal de venta">
+                                    <el-option label="🛍️ En tienda" value="in_store"></el-option>
+                                    <el-option label="🌐 En Marketplace" value="in_marketplace"></el-option>
+                                    <el-option label="⏳ Pendiente MP" value="pending_mp"></el-option>
+                                    <el-option label="⏸️ Pausado MP" value="paused_mp"></el-option>
+                                    <el-option label="❌ Rechazado MP" value="rejected_mp"></el-option>
+                                    <el-option label="Sin publicar" value="unpublished"></el-option>
+                                </el-option-group>
+                                <el-option-group label="Saga Falabella">
+                                    <el-option label="🟢 En Saga" value="in_saga"></el-option>
+                                    <el-option label="🟡 Saga pendiente" value="saga_pending"></el-option>
+                                    <el-option label="🔴 Saga error" value="saga_error"></el-option>
+                                </el-option-group>
+                                <el-option-group label="Inventario">
+                                    <el-option label="📦 Con stock" value="with_stock"></el-option>
+                                    <el-option label="🚫 Sin stock" value="no_stock"></el-option>
+                                </el-option-group>
+                                <el-option-group label="Precio">
+                                    <el-option label="🏷️ Con oferta vigente" value="on_offer"></el-option>
+                                </el-option-group>
                             </el-select>
                         </div>
                     </div>
@@ -404,7 +415,7 @@ export default {
         }
 
         if (this.showChannelFilter) {
-            const allowed = ['all', 'in_store', 'in_marketplace', 'pending_mp', 'paused_mp', 'rejected_mp', 'unpublished'];
+            const allowed = ['all', 'in_store', 'in_marketplace', 'pending_mp', 'paused_mp', 'rejected_mp', 'unpublished', 'in_saga', 'saga_pending', 'saga_error', 'with_stock', 'no_stock', 'on_offer'];
             // Prioridad 1: querystring ?channel=X (deep-link desde dashboard / email / etc.)
             try {
                 const qs = new URLSearchParams(window.location.search);
