@@ -336,7 +336,13 @@ class SagaProductPayloadBuilder
         ];
     }
 
-    public function toXml(): string
+    /**
+     * @param bool $includePrice  En ProductUpdate lo pasamos false: el seller
+     *   maneja precio/ofertas EN Saga (el cron de precios está OFF a propósito),
+     *   así que al re-publicar NO reenviamos price/sale_price y no los pisamos.
+     *   En ProductCreate va true (Saga necesita el precio inicial).
+     */
+    public function toXml(bool $includePrice = true): string
     {
         $d = $this->toArray();
         $e = fn ($v) => htmlspecialchars((string) $v, ENT_XML1 | ENT_QUOTES, 'UTF-8');
@@ -371,11 +377,13 @@ class SagaProductPayloadBuilder
         $xml .= '<Skus><Sku>';
         $xml .= '<SellerSku>' . $e($d['sku']) . '</SellerSku>';
         $xml .= '<quantity>' . (int) $d['quantity'] . '</quantity>';
-        $xml .= '<price>' . number_format($p['price'], 2, '.', '') . '</price>';
-        if ($p['sale_price'] !== null) {
-            $xml .= '<sale_price>' . number_format($p['sale_price'], 2, '.', '') . '</sale_price>';
-            if ($p['sale_start']) $xml .= '<sale_start_date>' . $e($p['sale_start']) . '</sale_start_date>';
-            if ($p['sale_end'])   $xml .= '<sale_end_date>' . $e($p['sale_end']) . '</sale_end_date>';
+        if ($includePrice) {
+            $xml .= '<price>' . number_format($p['price'], 2, '.', '') . '</price>';
+            if ($p['sale_price'] !== null) {
+                $xml .= '<sale_price>' . number_format($p['sale_price'], 2, '.', '') . '</sale_price>';
+                if ($p['sale_start']) $xml .= '<sale_start_date>' . $e($p['sale_start']) . '</sale_start_date>';
+                if ($p['sale_end'])   $xml .= '<sale_end_date>' . $e($p['sale_end']) . '</sale_end_date>';
+            }
         }
         if ($d['product_id'] !== '') {
             $xml .= '<package_content>' . $e($d['name']) . '</package_content>';

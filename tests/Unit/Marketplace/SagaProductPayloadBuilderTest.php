@@ -104,6 +104,22 @@ class SagaProductPayloadBuilderTest extends TestCase
         $this->assertStringNotContainsString('<test>', $xml);
     }
 
+    public function test_toxml_sin_precio_para_update_no_envia_price()
+    {
+        // ProductUpdate: no debe reenviar price/sale_price (el seller los maneja
+        // en Saga) pero sí el resto (sku, quantity, dimensiones).
+        $xml = $this->builder($this->item([
+            'sale_unit_price' => 99.0, 'compare_at_price' => 149.0,
+            'compare_at_from' => Carbon::parse('2026-06-01'),
+            'compare_at_until' => Carbon::parse('2026-06-30'),
+        ]))->toXml(false);
+
+        $this->assertStringNotContainsString('<price>', $xml);
+        $this->assertStringNotContainsString('<sale_price>', $xml);
+        $this->assertStringContainsString('<SellerSku>SKU-1</SellerSku>', $xml);
+        $this->assertStringContainsString('<quantity>', $xml);
+    }
+
     public function test_toxml_incluye_oferta_cuando_aplica()
     {
         $xml = $this->builder($this->item([

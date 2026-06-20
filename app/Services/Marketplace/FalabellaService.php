@@ -391,18 +391,20 @@ class FalabellaService
             throw new \RuntimeException('Producto incompleto para Saga: ' . implode(' ', $problems));
         }
 
-        $xml = $builder->toXml();
-
         if ($mapping->external_id) {
             // Update de un producto YA existente en Saga (POST, XML en el body).
-            $this->callFeed('ProductUpdate', $xml);
+            // SIN precio: el seller maneja precio/ofertas en el panel de Saga (el
+            // cron de precios está OFF a propósito); reenviarlo lo pisaría. Sí
+            // actualizamos datos del producto + stock.
+            $this->callFeed('ProductUpdate', $builder->toXml(false));
             $mapping->update(['sync_status' => 'synced', 'qc_status' => 'live', 'synced_at' => now()]);
         } else {
             // Create ASÍNCRONO: Seller Center devuelve un FeedId y el producto pasa
             // por QC; el ProductId aprobado y el estado se obtienen luego vía
             // FeedStatus/GetProducts (syncFeedStatuses). NO marcamos synced ni
             // fijamos un external_id falso → queda 'pending' + qc_status='queued'.
-            $result = $this->callFeed('ProductCreate', $xml);
+            // CON precio: Saga necesita el precio inicial al crear.
+            $result = $this->callFeed('ProductCreate', $builder->toXml(true));
             $feedId = data_get($result, 'FeedId') ?? data_get($result, 'RequestId');
             $mapping->update([
                 'feed_id'     => $feedId,
