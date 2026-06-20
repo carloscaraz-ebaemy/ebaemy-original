@@ -104,6 +104,22 @@ class SagaProductPayloadBuilderTest extends TestCase
         $this->assertStringNotContainsString('<test>', $xml);
     }
 
+    public function test_quantity_usa_suma_de_warehouses_no_items_stock()
+    {
+        // items.stock=10 (posible valor stale) pero los warehouses suman 35:
+        // debe enviar 35, el stock real (igual que el marketplace central).
+        $item = $this->item(['stock' => 10, 'warehouses' => collect([
+            (object) ['stock' => 20], (object) ['stock' => 15],
+        ])]);
+        $this->assertSame(35, $this->builder($item)->quantity());
+    }
+
+    public function test_quantity_fallback_a_items_stock_sin_warehouses()
+    {
+        // Sin relación warehouses cargada → fallback a items.stock.
+        $this->assertSame(10, $this->builder($this->item())->quantity());
+    }
+
     public function test_statusxml_genera_update_de_estado_minimo()
     {
         $b = $this->builder($this->item());

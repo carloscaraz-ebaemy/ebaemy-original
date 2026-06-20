@@ -179,8 +179,18 @@ class SagaProductPayloadBuilder
 
     public function quantity(): int
     {
-        $stock = $this->variant ? $this->variant->stock : $this->item->stock;
-        return max(0, (int) $stock);
+        if ($this->variant) {
+            return max(0, (int) $this->variant->stock);
+        }
+        // Stock real = SUMA de item_warehouse.stock, igual que el marketplace
+        // central (MarketplaceListingSyncService). NO usamos items.stock porque
+        // puede quedar desincronizado (sistema dual stock/stock_physical). Las
+        // variantes están bloqueadas en el toggle → aquí solo entran simples.
+        if (isset($this->item->warehouses)) {
+            return max(0, (int) collect($this->item->warehouses)->sum('stock'));
+        }
+        // Fallback (relación no cargada / contexto de test sin BD).
+        return max(0, (int) ($this->item->stock ?? 0));
     }
 
     /**

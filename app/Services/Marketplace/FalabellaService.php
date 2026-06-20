@@ -600,9 +600,12 @@ class FalabellaService
 
             $skus = [];
             foreach ($mappings as $mapping) {
+                // Stock real = SUMA de item_warehouse.stock (eager-loaded arriba),
+                // igual que el marketplace central. NO items.stock (sistema dual,
+                // puede quedar desincronizado).
                 $stock = $mapping->variant
                     ? max(0, (int) $mapping->variant->stock)
-                    : max(0, (int) ($mapping->item->stock ?? 0));
+                    : max(0, (int) ($mapping->item ? $mapping->item->warehouses->sum('stock') : 0));
 
                 $skus[] = [
                     'SellerSku' => $mapping->external_sku,
