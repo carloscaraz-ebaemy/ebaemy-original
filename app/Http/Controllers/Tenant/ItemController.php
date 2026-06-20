@@ -1546,26 +1546,38 @@ class ItemController extends Controller
             ['channel_id' => $channel->id, 'item_id' => $item->id, 'item_variant_id' => null],
             ['external_sku' => $sku, 'sync_status' => 'pending']
         );
+        \App\Models\Tenant\Item::$sagaStatusMap = null;
 
-        $service = new \App\Services\Marketplace\FalabellaService($channel);
-        // Si ya existía en Saga (pudo quedar inactive por un OFF previo), lo
-        // reactivamos antes de re-publicar para devolverlo a la vitrina.
-        if ($mapping->external_id) {
-            $service->setProductActive($mapping, true);
+        // Validación previa SÍNCRONA (local, sin API): feedback inmediato de qué
+        // le falta al producto. La llamada a la API de Saga (lo que puede colgar)
+        // va al job async → sin riesgo de timeout en el clic.
+        $problems = (new \App\Services\Marketplace\SagaProductPayloadBuilder($channel, $mapping->fresh()))->validate();
+        if (!empty($problems)) {
+            return [
+                'success'      => true,
+                'warning'      => true,
+                'message'      => 'Marcado para Saga, pero falta para publicarlo: ' . implode(' ', $problems),
+                'saga_status'  => 'pending',
+                'saga_enabled' => true,
+            ];
         }
-        $result = $service->publishOne($mapping->fresh());
+
+        // Encolar la publicación (reactivate=true → si quedó inactive por un OFF
+        // previo, el job lo reactiva antes de re-publicar).
+        $tenantUuid = optional(app(\Hyn\Tenancy\Environment::class)->tenant())->uuid;
+        if ($tenantUuid) {
+            \App\Jobs\Marketplace\PublishProductToSagaJob::dispatch($tenantUuid, $channel->id, $item->id, null, true);
+            return ['success' => true, 'message' => 'Producto en cola para publicarse en Saga (se actualizará en breve).', 'saga_status' => 'pending', 'saga_enabled' => true];
+        }
+
+        // Sin contexto de tenant (no debería pasar en web): fallback síncrono.
+        $result = (new \App\Services\Marketplace\FalabellaService($channel))->publishOne($mapping->fresh());
         \App\Models\Tenant\Item::$sagaStatusMap = null;
         $status = $mapping->fresh()->sync_status;
-
-        if ($result['success'] ?? false) {
-            return ['success' => true, 'message' => 'Producto enviado a Saga Falabella.', 'saga_status' => $status, 'saga_enabled' => true];
-        }
-
-        // Quedó marcado para Saga pero no se pudo publicar (datos incompletos).
         return [
             'success'      => true,
-            'warning'      => true,
-            'message'      => 'Marcado para Saga, pero falta para publicarlo: ' . ($result['error'] ?? 'datos incompletos'),
+            'warning'      => !($result['success'] ?? false),
+            'message'      => ($result['success'] ?? false) ? 'Producto enviado a Saga Falabella.' : ('No se pudo publicar: ' . ($result['error'] ?? 'datos incompletos')),
             'saga_status'  => $status,
             'saga_enabled' => true,
         ];

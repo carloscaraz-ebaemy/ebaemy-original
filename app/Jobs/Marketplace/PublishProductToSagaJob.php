@@ -33,7 +33,10 @@ class PublishProductToSagaJob implements ShouldQueue
         public string $tenantUuid,
         public int $channelId,
         public int $itemId,
-        public ?int $variantId = null
+        public ?int $variantId = null,
+        // true cuando viene del toggle ON: si el producto quedó inactive por un
+        // OFF previo, lo reactivamos en Saga antes de re-publicar.
+        public bool $reactivate = false
     ) {}
 
     public function handle(): void
@@ -74,7 +77,11 @@ class PublishProductToSagaJob implements ShouldQueue
             $mapping->update(['external_sku' => $defaultSku]);
         }
 
-        $result = (new FalabellaService($channel))->publishOne($mapping);
+        $service = new FalabellaService($channel);
+        if ($this->reactivate && $mapping->external_id) {
+            $service->setProductActive($mapping, true);
+        }
+        $result = $service->publishOne($mapping);
 
         if (!($result['success'] ?? false)) {
             Log::channel('payments')->warning('Saga auto-publish: producto no publicado', [
