@@ -171,6 +171,12 @@
                                 <i class="el-icon-info text-info" style="cursor:help;margin-left:2px"></i>
                             </el-tooltip>
                         </th>
+                        <th v-if="mpStats.has_saga" class="text-center" style="min-width:90px">
+                            Saga Falabella
+                            <el-tooltip content="Publicar este producto en Saga Falabella con un clic" placement="top">
+                                <i class="el-icon-info text-info" style="cursor:help;margin-left:2px"></i>
+                            </el-tooltip>
+                        </th>
                         <th class="text-end">Acciones</th>
                     </tr>
                     <tr></tr>
@@ -246,6 +252,14 @@
                                 v-model="row.marketplace_publishable"
                                 active-color="#8b5cf6"
                                 @change="toggleMarketplace($event, row.id)"
+                            ></el-switch>
+                        </td>
+                        <td v-if="mpStats.has_saga" class="text-center">
+                            <el-switch
+                                v-model="row.saga_enabled"
+                                active-color="#e30613"
+                                :loading="sagaLoading === row.id"
+                                @change="toggleSaga($event, row)"
                             ></el-switch>
                         </td>
                         <td class="text-end">
@@ -448,8 +462,10 @@ export default {
             ecommerce: true,
             sortField: localStorage.getItem('itemSortField') || 'id',
             sortDirection: localStorage.getItem('itemSortDirection') || 'desc',
-            mpStats: { published: 0, views: 0, clicks: 0, leads_total: 0, leads_30d: 0, top: [] },
+            mpStats: { published: 0, views: 0, clicks: 0, leads_total: 0, leads_30d: 0, top: [], has_saga: false },
             publishingAll: false,
+            // id de la fila cuyo switch de Saga está procesando (spinner en el switch)
+            sagaLoading: null,
             // null = cargando · 0 = vacío (mostrar welcome card) · >0 = hay items
             // Sólo se usa para decidir si mostrar el welcome card; el data-table
             // sigue siendo el dueño del listado real y paginación.
@@ -591,6 +607,36 @@ export default {
                 })
                 .catch(() => {
                     this.$message.error('Error al actualizar marketplace');
+                });
+        },
+        // Un clic: publicar / retirar este producto en Saga Falabella. El switch
+        // ya está optimista (v-model); si el backend falla lo revertimos. Al
+        // volver, sincronizamos saga_status para que el chip 🔴🟡🟢 quede al día.
+        toggleSaga(value, row) {
+            this.sagaLoading = row.id;
+            this.$http
+                .post(`/items/saga-toggle`, { id: row.id, saga_enabled: value })
+                .then(response => {
+                    const d = response.data || {};
+                    if (d.success) {
+                        // Refleja el estado real devuelto por el backend.
+                        row.saga_status = d.saga_status || null;
+                        row.saga_enabled = !!d.saga_enabled;
+                        d.warning
+                            ? this.$message.warning(d.message)
+                            : this.$message.success(d.message);
+                    } else {
+                        // No se aplicó: revertir el switch a su estado previo.
+                        row.saga_enabled = !value;
+                        this.$message.error(d.message || 'No se pudo actualizar Saga');
+                    }
+                })
+                .catch(() => {
+                    row.saga_enabled = !value;
+                    this.$message.error('Error al actualizar Saga Falabella');
+                })
+                .finally(() => {
+                    this.sagaLoading = null;
                 });
         },
         loadMarketplaceStats() {

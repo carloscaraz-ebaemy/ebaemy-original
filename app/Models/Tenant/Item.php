@@ -1618,6 +1618,8 @@ class Item extends ModelTenant
             // Resuelto en bloque (1 query/request) para no caer en N+1.
             'saga_status' => self::resolveSagaStatusMap()[$this->id]['sync_status'] ?? null,
             'saga_qc'     => self::resolveSagaStatusMap()[$this->id]['qc_status'] ?? null,
+            // ¿El producto está marcado para Saga? (mapeo activo, no excluido) → switch.
+            'saga_enabled' => in_array(self::resolveSagaStatusMap()[$this->id]['sync_status'] ?? null, ['synced', 'pending', 'error'], true),
             'mp_notes'   => $this->mp_notes,
             'marketplace_category_id'   => $this->marketplace_category_id,
             'marketplace_category_path' => $this->resolveMarketplaceCategoryPath(),

@@ -502,6 +502,7 @@ if ($hostname) {
             Route::post('items/visible_store', 'Tenant\ItemController@visibleStore');
             Route::post('items/quick-price', 'Tenant\ItemController@quickPrice');
             Route::post('items/marketplace-toggle', 'Tenant\ItemController@marketplaceToggle');
+            Route::post('items/saga-toggle',         'Tenant\ItemController@sagaToggle');
             Route::get('items/marketplace-stats',    'Tenant\ItemController@marketplaceStats');
             // Dashboard analytics del marketplace (vista completa con charts +
             // KPIs + top productos). El endpoint marketplace-stats sigue

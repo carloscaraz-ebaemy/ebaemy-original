@@ -1433,6 +1433,64 @@ class ItemController extends Controller
      * Requiere internal_id para que el sync pueda identificar el producto.
      * Sincroniza al instante al índice central para evitar esperar al cron.
      */
+    /**
+     * Toggle "este producto en Saga Falabella" desde la lista (1 clic), igual que
+     * el de Marketplace. ON: crea/activa el mapeo e intenta publicarlo en Saga
+     * (publishOne valida y empuja). OFF: lo excluye del sync (no borra historial).
+     */
+    public function sagaToggle(Request $request)
+    {
+        $item = Item::find($request->id);
+        if (!$item) {
+            return ['success' => false, 'message' => 'Producto no encontrado'];
+        }
+
+        $channel = \App\Models\Tenant\MarketplaceChannel::where('platform', 'falabella')
+            ->where('status', 'active')->first();
+        if (!$channel) {
+            return ['success' => false, 'message' => 'No hay un canal de Saga Falabella activo.'];
+        }
+
+        $enable = filter_var($request->saga_enabled, FILTER_VALIDATE_BOOLEAN);
+        \App\Models\Tenant\Item::$sagaStatusMap = null; // invalida el memo del badge
+
+        if (!$enable) {
+            // Retirar del sync (excluido). No tocamos Saga: si ya estaba publicado,
+            // su listing en Saga lo gestiona el seller; aquí solo dejamos de sincronizar.
+            \App\Models\Tenant\MarketplaceProduct::where('channel_id', $channel->id)
+                ->where('item_id', $item->id)
+                ->update(['sync_status' => 'excluded']);
+            return ['success' => true, 'message' => 'Producto retirado del sync de Saga.', 'saga_status' => null, 'saga_enabled' => false];
+        }
+
+        $sku = $item->internal_id ?: $item->item_code;
+        if (!$sku) {
+            return ['success' => false, 'message' => 'Asigna un código interno (SKU) antes de publicar en Saga.'];
+        }
+
+        $mapping = \App\Models\Tenant\MarketplaceProduct::updateOrCreate(
+            ['channel_id' => $channel->id, 'item_id' => $item->id, 'item_variant_id' => null],
+            ['external_sku' => $sku, 'sync_status' => 'pending']
+        );
+
+        $result = (new \App\Services\Marketplace\FalabellaService($channel))->publishOne($mapping->fresh());
+        \App\Models\Tenant\Item::$sagaStatusMap = null;
+        $status = $mapping->fresh()->sync_status;
+
+        if ($result['success'] ?? false) {
+            return ['success' => true, 'message' => 'Producto enviado a Saga Falabella.', 'saga_status' => $status, 'saga_enabled' => true];
+        }
+
+        // Quedó marcado para Saga pero no se pudo publicar (datos incompletos).
+        return [
+            'success'      => true,
+            'warning'      => true,
+            'message'      => 'Marcado para Saga, pero falta para publicarlo: ' . ($result['error'] ?? 'datos incompletos'),
+            'saga_status'  => $status,
+            'saga_enabled' => true,
+        ];
+    }
+
     public function marketplaceToggle(Request $request)
     {
         $item = Item::find($request->id);
@@ -1808,6 +1866,11 @@ class ItemController extends Controller
             ->limit(3)
             ->get(['title', 'view_count', 'click_count', 'lead_count']);
 
+        // ¿El tenant tiene canal de Saga Falabella activo? Gatea la columna/switch
+        // de Saga en la lista (la mayoría de tenants no vende en Saga).
+        $hasSaga = \App\Models\Tenant\MarketplaceChannel::where('platform', 'falabella')
+            ->where('status', 'active')->exists();
+
         return [
             'published'   => (int) ($row->published ?? 0),
             'views'       => (int) ($row->views ?? 0),
@@ -1815,6 +1878,7 @@ class ItemController extends Controller
             'leads_total' => (int) ($row->leads_total ?? 0),
             'leads_30d'   => $leads30d,
             'top'         => $top,
+            'has_saga'    => $hasSaga,
         ];
     }
 
