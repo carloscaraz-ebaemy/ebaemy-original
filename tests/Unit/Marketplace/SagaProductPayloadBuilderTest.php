@@ -104,6 +104,19 @@ class SagaProductPayloadBuilderTest extends TestCase
         $this->assertStringNotContainsString('<test>', $xml);
     }
 
+    public function test_statusxml_genera_update_de_estado_minimo()
+    {
+        $b = $this->builder($this->item());
+
+        $off = $b->statusXml('inactive');
+        $this->assertStringContainsString('<SellerSku>SKU-1</SellerSku>', $off);
+        $this->assertStringContainsString('<Status>inactive</Status>', $off);
+        $this->assertStringNotContainsString('<price>', $off);
+
+        $on = $b->statusXml('active');
+        $this->assertStringContainsString('<Status>active</Status>', $on);
+    }
+
     public function test_toxml_sin_precio_para_update_no_envia_price()
     {
         // ProductUpdate: no debe reenviar price/sale_price (el seller los maneja

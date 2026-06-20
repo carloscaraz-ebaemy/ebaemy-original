@@ -377,6 +377,38 @@ class FalabellaService
         }
     }
 
+    /**
+     * Activa o desactiva el listing en Saga (delist REVERSIBLE: no borra el
+     * producto, solo lo saca/devuelve a la vitrina). Best-effort: si el producto
+     * aún no existe en Saga (sin external_id) o la API falla, NO lanza —
+     * degrada al comportamiento previo (el caller ya marcó el estado interno).
+     *
+     * NOTA: la etiqueta <Status> de ProductUpdate sigue la forma documentada de
+     * Seller Center pero se valida en vivo en el 1er uso real contra la cuenta.
+     */
+    public function setProductActive(MarketplaceProduct $mapping, bool $active): array
+    {
+        if (!$mapping->external_id) {
+            // Aún no publicado en Saga (o en cola de QC) → nada que (des)activar.
+            return ['success' => false, 'skipped' => true];
+        }
+
+        $status = $active ? 'active' : 'inactive';
+        try {
+            $builder = new SagaProductPayloadBuilder($this->channel, $mapping);
+            $this->callFeed('ProductUpdate', $builder->statusXml($status));
+            return ['success' => true, 'status' => $status];
+        } catch (\Throwable $e) {
+            Log::channel('payments')->warning('Falabella setProductActive falló', [
+                'channel_id' => $this->channel->id,
+                'sku'        => $mapping->external_sku,
+                'status'     => $status,
+                'error'      => $e->getMessage(),
+            ]);
+            return ['success' => false, 'error' => $e->getMessage()];
+        }
+    }
+
     protected function pushProduct(MarketplaceProduct $mapping): void
     {
         if (!$mapping->item) {

@@ -1506,14 +1506,28 @@ class ItemController extends Controller
         \App\Models\Tenant\Item::$sagaStatusMap = null; // invalida el memo del badge
 
         if (!$enable) {
-            // Retirar del sync (excluido). No tocamos Saga: si ya estaba publicado,
-            // su listing en Saga lo gestiona el seller; aquí solo dejamos de sincronizar.
+            // Retirar del sync (excluido) + intentar DESPUBLICAR de Saga (delist
+            // reversible: Status=inactive, no borra el producto). Best-effort: si
+            // el producto no existe en Saga o la API falla, igual queda excluido.
+            $mapping = \App\Models\Tenant\MarketplaceProduct::where('channel_id', $channel->id)
+                ->where('item_id', $item->id)
+                ->whereNull('item_variant_id')
+                ->first();
+
+            $delisted = false;
+            if ($mapping && $mapping->external_id) {
+                $res = (new \App\Services\Marketplace\FalabellaService($channel))->setProductActive($mapping, false);
+                $delisted = $res['success'] ?? false;
+            }
+
             \App\Models\Tenant\MarketplaceProduct::where('channel_id', $channel->id)
                 ->where('item_id', $item->id)
                 ->update(['sync_status' => 'excluded']);
-            // Importante: 'excluded' detiene el sync de stock pero NO despublica de
-            // Saga; el delist real se hace en el panel de Seller Center.
-            return ['success' => true, 'message' => 'Retirado del sync de Saga. (Para quitarlo del catálogo, hazlo en el panel de Saga.)', 'saga_status' => null, 'saga_enabled' => false];
+
+            $msg = $delisted
+                ? 'Producto despublicado de Saga y retirado del sync.'
+                : 'Retirado del sync de Saga. (Si seguía visible en Saga, despublícalo desde su panel.)';
+            return ['success' => true, 'message' => $msg, 'saga_status' => null, 'saga_enabled' => false];
         }
 
         // Productos con variantes: cada talla/color necesita su propia SKU en Saga.
@@ -1533,7 +1547,13 @@ class ItemController extends Controller
             ['external_sku' => $sku, 'sync_status' => 'pending']
         );
 
-        $result = (new \App\Services\Marketplace\FalabellaService($channel))->publishOne($mapping->fresh());
+        $service = new \App\Services\Marketplace\FalabellaService($channel);
+        // Si ya existía en Saga (pudo quedar inactive por un OFF previo), lo
+        // reactivamos antes de re-publicar para devolverlo a la vitrina.
+        if ($mapping->external_id) {
+            $service->setProductActive($mapping, true);
+        }
+        $result = $service->publishOne($mapping->fresh());
         \App\Models\Tenant\Item::$sagaStatusMap = null;
         $status = $mapping->fresh()->sync_status;
 

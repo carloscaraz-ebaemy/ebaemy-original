@@ -408,4 +408,23 @@ class SagaProductPayloadBuilder
 
         return $xml;
     }
+
+    /**
+     * XML mínimo para ACTIVAR/DESACTIVAR el listing en Saga sin tocar nada más
+     * (reversible, no borra el producto). Se manda como ProductUpdate.
+     * $status: 'active' | 'inactive'.
+     */
+    public function statusXml(string $status): string
+    {
+        $e = fn ($v) => htmlspecialchars((string) $v, ENT_XML1 | ENT_QUOTES, 'UTF-8');
+        $status = $status === 'active' ? 'active' : 'inactive';
+
+        $xml  = '<?xml version="1.0" encoding="UTF-8"?>';
+        $xml .= '<Request><Product><Skus><Sku>';
+        $xml .= '<SellerSku>' . $e($this->sku()) . '</SellerSku>';
+        $xml .= '<Status>' . $status . '</Status>';
+        $xml .= '</Sku></Skus></Product></Request>';
+
+        return $xml;
+    }
 }
