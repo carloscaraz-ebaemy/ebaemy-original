@@ -190,7 +190,15 @@
                             </a>
                             <!--<img :src="row.image_url_medium"  width="40" height="40" class="img-thumbail img-custom" /> -->
                         </td>
-                        <td>{{ row.description }}</td>
+                        <td>
+                            {{ row.description }}
+                            <!-- Estado en Saga Falabella -->
+                            <template v-if="row.saga_status">
+                                <span v-if="row.saga_status === 'error' || row.saga_qc === 'rejected'" class="ie-saga ie-saga--err" title="Saga Falabella: error / rechazado">🔴 Saga</span>
+                                <span v-else-if="row.saga_status === 'pending' || row.saga_qc === 'queued' || row.saga_qc === 'processing'" class="ie-saga ie-saga--pend" title="Saga Falabella: pendiente / en revisión">🟡 Saga</span>
+                                <span v-else-if="row.saga_status === 'synced'" class="ie-saga ie-saga--ok" title="En Saga Falabella">🟢 Saga</span>
+                            </template>
+                        </td>
                         <!-- Precio (normal) -->
                         <td class="text-end">S/ {{ regularOf(row) }}</td>
                         <!-- Precio oferta: texto + tooltip (estado + duración) + lápiz -->
@@ -384,20 +392,26 @@
 .mp-stats-card {
     background: linear-gradient(135deg,#faf5ff 0%,#f3e8ff 100%);
     border: 1px solid #e9d5ff;
-    border-radius: 12px;
-    padding: 14px 18px;
-    margin: 0 0 12px;
+    border-radius: 10px;
+    padding: 8px 14px;
+    margin: 0 0 10px;
 }
-.mp-stats-head { display:flex; align-items:center; justify-content:space-between; margin-bottom:10px; }
-.mp-stats-title { font-size:14px; color:#6b21a8; }
+.mp-stats-head { display:flex; align-items:center; justify-content:space-between; margin-bottom:6px; }
+.mp-stats-title { font-size:13px; color:#6b21a8; }
 .mp-stats-link  { font-size:12px; color:#7e22ce; text-decoration:none; }
 .mp-stats-link:hover { text-decoration:underline; }
-.mp-stats-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:10px; }
-.mp-stat { background:#fff; border-radius:8px; padding:10px 12px; text-align:center; border:1px solid #f3e8ff; }
-.mp-stat__n { font-size:20px; font-weight:700; color:#111827; }
-.mp-stat__l { font-size:11px; color:#6b7280; margin-top:2px; text-transform:uppercase; letter-spacing:.3px; }
+/* Compacto: tira horizontal de mini-stats en vez de 4 tarjetas grandes. */
+.mp-stats-grid { display:flex; flex-wrap:wrap; gap:6px 20px; }
+.mp-stat { background:transparent; border:0; padding:0; display:flex; align-items:baseline; gap:6px; }
+.mp-stat__n { font-size:15px; font-weight:700; color:#111827; }
+.mp-stat__l { font-size:11px; color:#6b7280; margin-top:0; text-transform:none; letter-spacing:0; }
 .mp-stat--hl .mp-stat__n { color:#7e22ce; }
-.mp-stats-top { margin-top:10px; font-size:12px; color:#64748b; display:flex; gap:12px; flex-wrap:wrap; }
+.mp-stats-top { margin-top:6px; font-size:11.5px; color:#64748b; display:flex; gap:10px; flex-wrap:wrap; }
+/* Chip de estado en Saga Falabella (celda Nombre) */
+.ie-saga { display:inline-block; margin-left:6px; padding:1px 7px; border-radius:999px; font-size:10.5px; font-weight:600; vertical-align:middle; white-space:nowrap; }
+.ie-saga--ok   { background:#dcfce7; color:#166534; }
+.ie-saga--pend { background:#fef3c7; color:#92400e; }
+.ie-saga--err  { background:#fee2e2; color:#991b1b; }
 .mp-stats-top__label { font-weight:600; }
 .mp-stats-top__item small { color:#9ca3af; }
 @media (max-width:680px) {
@@ -688,23 +702,23 @@ export default {
 .ie-info-banner {
     display: flex;
     align-items: center;
-    gap: 12px;
-    margin-bottom: 14px;
-    padding: 12px 16px;
+    gap: 10px;
+    margin-bottom: 10px;
+    padding: 7px 13px;
     background: #ecfdf5;
     border: 1px solid #a7f3d0;
-    border-radius: 10px;
+    border-radius: 9px;
     flex-wrap: wrap;
 }
-.ie-info-banner__icon { font-size: 22px; line-height: 1; flex-shrink: 0; }
+.ie-info-banner__icon { font-size: 17px; line-height: 1; flex-shrink: 0; }
 .ie-info-banner__text { flex: 1; min-width: 240px; }
 .ie-info-banner__title {
     font-weight: 600;
-    font-size: 14px;
+    font-size: 13px;
     color: #065f46;
 }
 .ie-info-banner__hint {
-    font-size: 12px;
+    font-size: 11.5px;
     color: #047857;
     margin-top: 2px;
 }
