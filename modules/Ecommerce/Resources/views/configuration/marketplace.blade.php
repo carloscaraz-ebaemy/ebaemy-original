@@ -54,6 +54,17 @@
 .mp-toast{background:#1e293b;color:#fff;padding:12px 16px;border-radius:10px;font-size:14px;box-shadow:0 8px 24px rgba(0,0,0,.18);opacity:0;transform:translateY(10px);transition:all .25s;max-width:340px}
 .mp-toast.show{opacity:1;transform:translateY(0)}
 .mp-toast-success{background:#16a34a}.mp-toast-error{background:#dc2626}
+/* Modal editor de atributos por producto */
+.mp-prodattr-overlay{position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:10000;display:flex;align-items:center;justify-content:center;padding:16px}
+.mp-prodattr-box{background:#fff;border-radius:14px;width:100%;max-width:540px;max-height:90vh;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,.3)}
+.mp-prodattr-head{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid #e5e7eb}
+.mp-prodattr-sub{padding:10px 18px 0}
+.mp-prodattr-body{padding:12px 18px;overflow:auto}
+.mp-prodattr-foot{display:flex;justify-content:flex-end;gap:8px;padding:14px 18px;border-top:1px solid #e5e7eb}
+.mp-prodattr-field{margin-bottom:12px}
+.mp-prodattr-field label{display:block;font-size:13px;font-weight:600;margin-bottom:4px}
+.mp-prodattr-field .mp-req{color:#dc2626;margin-left:3px}
+.mp-prodattr-field small{color:#6b7280}
 </style>
 <div class="page-header pr-0">
     <h2><i class="fas fa-store"></i></h2>
@@ -148,6 +159,50 @@
         </div>
     </div>
 
+    {{-- Homologación de marcas Saga --}}
+    <div class="col-12 mb-3" id="mp-sagabrand-panel" style="display:none">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center flex-wrap">
+                <h4 class="card-title mb-0"><i class="fas fa-tags mr-2"></i> Homologación de marcas <small id="mp-sagabrand-channel" class="text-muted"></small></h4>
+                <div class="d-flex align-items-center" style="gap:6px">
+                    <input id="mp-sagabrand-search" class="form-control form-control-sm" style="width:200px" placeholder="Buscar marca…">
+                    <button class="btn btn-sm btn-outline-secondary" onclick="document.getElementById('mp-sagabrand-panel').style.display='none'">Cerrar</button>
+                </div>
+            </div>
+            <div class="card-body">
+                <p class="text-muted small mb-2">Asocia cada marca interna con una marca del catálogo de Saga Falabella. Saga <strong>valida la marca</strong>: si envías una que no reconoce, rechaza la publicación. <span id="mp-sagabrand-summary" class="font-weight-bold"></span></p>
+                <div id="mp-sagabrand-status" class="text-muted small mb-2">Cargando…</div>
+                <div class="table-responsive">
+                    <table class="table table-sm table-hover mb-0">
+                        <thead><tr><th style="width:45%">Marca interna</th><th>Marca en Saga</th></tr></thead>
+                        <tbody id="mp-sagabrand-tbody"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {{-- Editor de atributos obligatorios por producto --}}
+    <div id="mp-prodattr-modal" class="mp-prodattr-overlay" style="display:none">
+        <div class="mp-prodattr-box">
+            <div class="mp-prodattr-head">
+                <h5 class="mb-0"><i class="fas fa-sliders-h mr-2"></i> Atributos para Saga</h5>
+                <button type="button" class="btn btn-sm btn-light" onclick="closeProductAttrs()">✕</button>
+            </div>
+            <div class="mp-prodattr-sub">
+                <div id="mp-prodattr-item" class="font-weight-bold"></div>
+                <div id="mp-prodattr-cat" class="text-muted small"></div>
+            </div>
+            <div id="mp-prodattr-body" class="mp-prodattr-body">
+                <div class="text-center text-muted py-3">Cargando…</div>
+            </div>
+            <div class="mp-prodattr-foot">
+                <button type="button" class="btn btn-sm btn-secondary" onclick="closeProductAttrs()">Cancelar</button>
+                <button type="button" id="mp-prodattr-save" class="btn btn-sm btn-primary" onclick="saveProductAttrs()">Guardar atributos</button>
+            </div>
+        </div>
+    </div>
+
     {{-- Pedidos de Saga (despacho) --}}
     <div class="col-12">
         <div class="card mp-dispatch">
@@ -217,6 +272,10 @@ document.addEventListener('DOMContentLoaded', function(){
             var catBtn = ch.platform === 'falabella'
                 ? '<button class="btn btn-xs btn-outline-dark mr-1 mb-1" onclick="loadSagaCategories('+ch.id+',\''+(ch.name||'').replace(/\'/g,'')+'\')"><i class="fas fa-sitemap"></i> Categorías</button>'
                 : '';
+            // Homologación de marcas ERP → Saga (solo Falabella)
+            var brandBtn = ch.platform === 'falabella'
+                ? '<button class="btn btn-xs btn-outline-dark mr-1 mb-1" onclick="loadSagaBrands('+ch.id+',\''+(ch.name||'').replace(/\'/g,'')+'\')"><i class="fas fa-tags"></i> Marcas</button>'
+                : '';
             // Estado de publicación (ProductCreate asíncrono / QC), solo Falabella
             var feedBtn = ch.platform === 'falabella'
                 ? '<button class="btn btn-xs btn-outline-info mr-1 mb-1" onclick="syncFeedStatus('+ch.id+')"><i class="fas fa-clipboard-check"></i> Estado publicación</button>'
@@ -234,6 +293,7 @@ document.addEventListener('DOMContentLoaded', function(){
                 + '<td>'
                 + importBtn
                 + catBtn
+                + brandBtn
                 + apBtn
                 + '<button class="btn btn-xs btn-outline-primary mr-1 mb-1" onclick="syncProducts('+ch.id+')"><i class="fas fa-sync"></i> Sync productos</button>'
                 + feedBtn
@@ -290,7 +350,9 @@ document.addEventListener('DOMContentLoaded', function(){
                 var retryBtn = (p.sync_status === 'error')
                     ? '<div class="mt-1"><button class="btn btn-xs btn-outline-danger" onclick="retryProduct('+p.channel_id+','+p.id+')"><i class="fas fa-redo"></i> Reintentar</button></div>'
                     : '';
-                html += '<tr><td>'+itemName+'</td><td>'+(p.channel?p.channel.name:'')+'</td><td><code>'+(p.external_sku||'-')+'</code></td><td>'+syncBadge+qcNote+errNote+retryBtn+'</td><td>'+(p.synced_at||'<span class="text-muted">-</span>')+'</td></tr>';
+                // Editor de atributos obligatorios de la categoría (Color/Talla/…).
+                var attrBtn = '<div class="mt-1"><button class="btn btn-xs btn-outline-dark" onclick="openProductAttrs('+p.channel_id+','+p.id+')"><i class="fas fa-sliders-h"></i> Atributos</button></div>';
+                html += '<tr><td>'+itemName+'</td><td>'+(p.channel?p.channel.name:'')+'</td><td><code>'+(p.external_sku||'-')+'</code></td><td>'+syncBadge+qcNote+errNote+retryBtn+attrBtn+'</td><td>'+(p.synced_at||'<span class="text-muted">-</span>')+'</td></tr>';
             });
             tbody.innerHTML = html;
         });
@@ -773,6 +835,174 @@ document.addEventListener('DOMContentLoaded', function(){
             });
         });
     }
+
+    // ── Homologación de marcas ──────────────────────────────────
+    var sagaBrandOptions = '';   // <option> compartido (catálogo de marcas Saga)
+    var sagaBrandChannel = null;
+
+    window.loadSagaBrands = function(channelId, channelName){
+        sagaBrandChannel = channelId;
+        var panel = document.getElementById('mp-sagabrand-panel');
+        panel.style.display = 'block';
+        panel.scrollIntoView({behavior:'smooth', block:'start'});
+        document.getElementById('mp-sagabrand-channel').textContent = channelName ? '· '+channelName : '';
+        document.getElementById('mp-sagabrand-summary').textContent = '';
+        document.getElementById('mp-sagabrand-status').textContent = 'Trayendo el catálogo de marcas de Saga (puede tardar unos segundos)…';
+        document.getElementById('mp-sagabrand-tbody').innerHTML = '';
+        sagaBrandOptions = '';
+
+        fetch('/ecommerce/marketplace/channels/'+channelId+'/saga-brands', {headers:{'Accept':'application/json'}})
+        .then(function(r){return r.json()})
+        .then(function(data){
+            if (data.error){ document.getElementById('mp-sagabrand-status').innerHTML = '<span class="text-danger">'+escHtml(data.error)+'</span>'; return; }
+            var opts = '<option value="">— Sin asignar —</option>';
+            (data.saga_brands||[]).forEach(function(b){
+                opts += '<option value="'+escAttr(b.name)+'" data-id="'+escAttr(b.id)+'">'+escHtml(b.name)+'</option>';
+            });
+            sagaBrandOptions = opts;
+            var n = (data.saga_brands||[]).length;
+            document.getElementById('mp-sagabrand-status').textContent = n
+                ? (n+' marcas disponibles en Saga.')
+                : 'Saga no devolvió marcas (puedes escribir el nombre exacto igual).';
+            document.getElementById('mp-sagabrand-summary').textContent = '('+data.mapped+' de '+data.total+' homologadas)';
+            renderSagaBrands(data.brands||[]);
+        })
+        .catch(function(e){ document.getElementById('mp-sagabrand-status').innerHTML = '<span class="text-danger">Error: '+escHtml(e.message)+'</span>'; });
+    };
+
+    function renderSagaBrands(brands){
+        var tbody = document.getElementById('mp-sagabrand-tbody');
+        if (!brands.length){ tbody.innerHTML = '<tr><td colspan="2" class="text-center text-muted py-3">No hay marcas internas.</td></tr>'; return; }
+        var html = '';
+        brands.forEach(function(b){
+            var sel = '<select class="form-control form-control-sm mp-sagabrand-select" data-brand="'+b.brand_id+'" onchange="saveSagaBrand(this)">'+sagaBrandOptions+'</select>';
+            html += '<tr data-name="'+escAttr((b.name||'').toLowerCase())+'">'
+                + '<td>'+escHtml(b.name||('#'+b.brand_id))+'</td>'
+                + '<td>'+sel+'</td>'
+                + '</tr>';
+        });
+        tbody.innerHTML = html;
+        // Preseleccionar el mapping actual.
+        brands.forEach(function(b){
+            if (b.saga_brand_name){
+                var s = tbody.querySelector('.mp-sagabrand-select[data-brand="'+b.brand_id+'"]');
+                if (s){
+                    // Si la marca homologada no está en el catálogo, la agregamos como opción.
+                    if (!Array.prototype.some.call(s.options, function(o){return o.value===b.saga_brand_name;})){
+                        var o = document.createElement('option'); o.value=b.saga_brand_name; o.textContent=b.saga_brand_name+' (manual)';
+                        if (b.saga_brand_id) o.setAttribute('data-id', b.saga_brand_id);
+                        s.appendChild(o);
+                    }
+                    s.value = b.saga_brand_name;
+                }
+            }
+        });
+    }
+
+    window.saveSagaBrand = function(sel){
+        var opt = sel.options[sel.selectedIndex];
+        var body = {
+            brand_id: parseInt(sel.getAttribute('data-brand')),
+            saga_brand_name: sel.value || null,
+            saga_brand_id: opt ? opt.getAttribute('data-id') : null
+        };
+        sel.disabled = true;
+        fetch('/ecommerce/marketplace/channels/'+sagaBrandChannel+'/saga-brands', {method:'POST', headers:headers, body: JSON.stringify(body)})
+        .then(function(r){return r.json()})
+        .then(function(d){ sel.disabled = false; mpToast(d.message || d.error || 'Guardado', d.error?'error':'success'); })
+        .catch(function(e){ sel.disabled = false; mpToast('Error: '+e.message, 'error'); });
+    };
+
+    var brandSearchEl = document.getElementById('mp-sagabrand-search');
+    if (brandSearchEl){
+        brandSearchEl.addEventListener('input', function(){
+            var q = this.value.toLowerCase();
+            document.querySelectorAll('#mp-sagabrand-tbody tr').forEach(function(tr){
+                var n = tr.getAttribute('data-name')||'';
+                tr.style.display = (n.indexOf(q) === -1) ? 'none' : '';
+            });
+        });
+    }
+
+    // ── Editor de atributos por producto ────────────────────────
+    var prodAttrCtx = { channelId: null, productId: null, attrs: [] };
+
+    window.openProductAttrs = function(channelId, productId){
+        prodAttrCtx = { channelId: channelId, productId: productId, attrs: [] };
+        document.getElementById('mp-prodattr-modal').style.display = 'flex';
+        document.getElementById('mp-prodattr-item').textContent = '';
+        document.getElementById('mp-prodattr-cat').textContent = '';
+        document.getElementById('mp-prodattr-body').innerHTML = '<div class="text-center text-muted py-3">Cargando…</div>';
+        document.getElementById('mp-prodattr-save').disabled = true;
+
+        fetch('/ecommerce/marketplace/channels/'+channelId+'/products/'+productId+'/attributes', {headers:{'Accept':'application/json'}})
+        .then(function(r){return r.json().then(function(d){return {ok:r.ok, d:d};});})
+        .then(function(res){
+            var d = res.d;
+            if (!res.ok || d.error){
+                document.getElementById('mp-prodattr-body').innerHTML = '<div class="alert alert-warning mb-0">'+escHtml(d.error||'No se pudieron cargar los atributos')+'</div>';
+                return;
+            }
+            document.getElementById('mp-prodattr-item').textContent = d.item_name || '';
+            document.getElementById('mp-prodattr-cat').textContent = 'Categoría Saga: '+(d.category||'—');
+            renderProductAttrs(d.attributes||[], d.values||{});
+            document.getElementById('mp-prodattr-save').disabled = false;
+        })
+        .catch(function(e){ document.getElementById('mp-prodattr-body').innerHTML = '<div class="alert alert-danger mb-0">Error: '+escHtml(e.message)+'</div>'; });
+    };
+
+    function renderProductAttrs(attrs, values){
+        prodAttrCtx.attrs = attrs;
+        if (!attrs.length){
+            document.getElementById('mp-prodattr-body').innerHTML = '<div class="text-muted">Esta categoría no tiene atributos definidos en Saga (o aún no se cachearon). No hay nada que completar.</div>';
+            return;
+        }
+        // Obligatorios primero.
+        var sorted = attrs.slice().sort(function(a,b){ return (b.mandatory?1:0)-(a.mandatory?1:0); });
+        var html = '';
+        sorted.forEach(function(a){
+            var name = a.name; var cur = (values && values[name] != null) ? values[name] : '';
+            var req = a.mandatory ? '<span class="mp-req">*</span>' : '';
+            var field;
+            if (a.options && a.options.length){
+                var opts = '<option value="">— Elegir —</option>';
+                a.options.forEach(function(o){ opts += '<option value="'+escAttr(o)+'"'+(String(cur)===String(o)?' selected':'')+'>'+escHtml(o)+'</option>'; });
+                field = '<select class="form-control form-control-sm mp-pa-input" data-name="'+escAttr(name)+'">'+opts+'</select>';
+            } else {
+                field = '<input type="text" class="form-control form-control-sm mp-pa-input" data-name="'+escAttr(name)+'" value="'+escAttr(cur)+'">';
+            }
+            html += '<div class="mp-prodattr-field">'
+                + '<label>'+escHtml(a.label||name)+req+'</label>'
+                + field
+                + (a.input_type && a.input_type!=='text' ? '<small>'+escHtml(a.input_type)+'</small>' : '')
+                + '</div>';
+        });
+        document.getElementById('mp-prodattr-body').innerHTML = html;
+    }
+
+    window.saveProductAttrs = function(){
+        // Validar obligatorios.
+        var values = {}; var missing = [];
+        var byName = {}; prodAttrCtx.attrs.forEach(function(a){ byName[a.name] = a; });
+        document.querySelectorAll('#mp-prodattr-body .mp-pa-input').forEach(function(el){
+            var name = el.getAttribute('data-name'); var v = (el.value||'').trim();
+            if (v !== '') values[name] = v;
+            if (byName[name] && byName[name].mandatory && v === '') missing.push(byName[name].label||name);
+        });
+        if (missing.length){ mpToast('Faltan obligatorios: '+missing.join(', '), 'error'); return; }
+
+        var btn = document.getElementById('mp-prodattr-save'); btn.disabled = true;
+        fetch('/ecommerce/marketplace/channels/'+prodAttrCtx.channelId+'/products/'+prodAttrCtx.productId+'/attributes', {method:'POST', headers:headers, body: JSON.stringify({values: values})})
+        .then(function(r){return r.json()})
+        .then(function(d){
+            btn.disabled = false;
+            mpToast(d.message || d.error || 'Guardado', d.error?'error':'success');
+            if (d.success){ closeProductAttrs(); loadProducts(prodAttrCtx.channelId); }
+        })
+        .catch(function(e){ btn.disabled = false; mpToast('Error: '+e.message, 'error'); });
+    };
+
+    window.closeProductAttrs = function(){ document.getElementById('mp-prodattr-modal').style.display = 'none'; };
 
     loadOrders();
 });

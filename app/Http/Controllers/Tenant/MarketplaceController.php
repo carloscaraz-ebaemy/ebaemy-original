@@ -9,9 +9,11 @@ use App\Models\Tenant\MarketplaceOrder;
 use App\Models\Tenant\MarketplaceSyncLog;
 use App\Models\Tenant\SagaCategoryMap;
 use App\Models\Tenant\SagaCategoryAttribute;
+use App\Models\Tenant\SagaBrandMap;
 use App\Models\Tenant\Item;
 use App\Models\Tenant\Document;
 use Modules\Item\Models\Category;
+use Modules\Item\Models\Brand;
 use App\Services\Marketplace\MarketplaceOrchestrator;
 use App\Services\Marketplace\MarketplaceInvoiceService;
 use App\CoreFacturalo\Helpers\Storage\StorageDocument;
@@ -483,6 +485,161 @@ class MarketplaceController extends Controller
         } catch (\Throwable $e) {
             return response()->json(['error' => $e->getMessage()], 500);
         }
+    }
+
+    // ── Homologación de marcas (Saga valida la marca contra su catálogo) ──
+
+    /**
+     * Devuelve las marcas internas con su homologación actual + el catálogo de
+     * marcas de Saga (GetBrands en vivo) para poblar los selects.
+     */
+    public function sagaBrands(int $channelId)
+    {
+        $channel = MarketplaceChannel::findOrFail($channelId);
+        if ($channel->platform !== 'falabella') {
+            return response()->json(['error' => 'Solo disponible para Saga Falabella'], 400);
+        }
+
+        $maps = SagaBrandMap::where('channel_id', $channelId)->get()->keyBy('brand_id');
+
+        $brands = Brand::orderBy('name')->get(['id', 'name'])->map(function ($b) use ($maps) {
+            $m = $maps->get($b->id);
+            return [
+                'brand_id'        => $b->id,
+                'name'            => $b->name,
+                'saga_brand_id'   => $m->saga_brand_id ?? null,
+                'saga_brand_name' => $m->saga_brand_name ?? null,
+            ];
+        });
+
+        // Catálogo de marcas de Saga (en vivo). Best-effort: si falla, devolvemos
+        // el listado interno igual para no bloquear la pantalla.
+        $sagaBrands = [];
+        $service = MarketplaceOrchestrator::resolveService($channel);
+        if ($service && method_exists($service, 'getBrands')) {
+            try {
+                $sagaBrands = $service->getBrands();
+            } catch (\Throwable $e) {
+                \Log::channel('payments')->warning('Saga: no se pudieron traer marcas', [
+                    'channel_id' => $channelId, 'error' => $e->getMessage(),
+                ]);
+            }
+        }
+
+        return response()->json([
+            'brands'      => $brands,
+            'saga_brands' => $sagaBrands,
+            'mapped'      => $maps->count(),
+            'total'       => $brands->count(),
+        ]);
+    }
+
+    /**
+     * Guarda (o borra) la homologación de una marca interna → marca Saga.
+     */
+    public function saveSagaBrand(Request $request, int $channelId)
+    {
+        MarketplaceChannel::findOrFail($channelId);
+        $data = $request->validate([
+            'brand_id'        => 'required|integer',
+            'saga_brand_id'   => 'nullable|string|max:60',
+            'saga_brand_name' => 'nullable|string|max:191',
+        ]);
+
+        if (empty($data['saga_brand_name'])) {
+            SagaBrandMap::where('channel_id', $channelId)
+                ->where('brand_id', $data['brand_id'])
+                ->delete();
+            return response()->json(['success' => true, 'message' => 'Homologación de marca eliminada']);
+        }
+
+        SagaBrandMap::updateOrCreate(
+            ['channel_id' => $channelId, 'brand_id' => $data['brand_id']],
+            [
+                'saga_brand_id'   => $data['saga_brand_id'] ?? null,
+                'saga_brand_name' => $data['saga_brand_name'],
+            ]
+        );
+
+        return response()->json(['success' => true, 'message' => 'Marca homologada']);
+    }
+
+    // ── Atributos obligatorios por producto ────────────────────
+
+    /**
+     * Esquema de atributos de la categoría Saga del producto + los valores ya
+     * guardados, para pintar el editor. Resuelve: producto → item → categoría
+     * interna → categoría Saga homologada → atributos cacheados.
+     */
+    public function productAttributes(int $channelId, int $productId)
+    {
+        MarketplaceChannel::findOrFail($channelId);
+        $product = MarketplaceProduct::where('channel_id', $channelId)
+            ->where('id', $productId)
+            ->with('item')
+            ->firstOrFail();
+
+        $categoryId = $product->item->category_id ?? null;
+        if (!$categoryId) {
+            return response()->json(['error' => 'El producto no tiene categoría interna asignada.'], 422);
+        }
+
+        $map = SagaCategoryMap::where('channel_id', $channelId)
+            ->where('category_id', $categoryId)
+            ->first();
+        if (!$map) {
+            return response()->json(['error' => 'La categoría de este producto aún no está homologada a Saga. Hazlo en "Categorías".'], 422);
+        }
+
+        $cache = SagaCategoryAttribute::where('channel_id', $channelId)
+            ->where('saga_category_id', $map->saga_category_id)
+            ->first();
+
+        return response()->json([
+            'attributes'  => $cache->attributes ?? [],
+            'values'      => $product->attributes ?? (object) [],
+            'category'    => $map->saga_category_name ?: $map->saga_category_id,
+            'item_name'   => $product->item->description ?? ('Item #' . $product->item_id),
+        ]);
+    }
+
+    /**
+     * Guarda los valores de atributos del producto (mapa nombre→valor). Marca el
+     * mapeo como 'pending' para que el próximo sync/publish lo reenvíe con los
+     * datos completos.
+     */
+    public function saveProductAttributes(Request $request, int $channelId, int $productId)
+    {
+        MarketplaceChannel::findOrFail($channelId);
+        $product = MarketplaceProduct::where('channel_id', $channelId)
+            ->where('id', $productId)
+            ->firstOrFail();
+
+        $values = $request->input('values', []);
+        if (!is_array($values)) {
+            $values = [];
+        }
+        // Solo pares string/escalar no vacíos.
+        $clean = [];
+        foreach ($values as $k => $v) {
+            if (is_string($k) && $k !== '' && $v !== null && $v !== '') {
+                $clean[$k] = is_array($v) ? $v : (string) $v;
+            }
+        }
+
+        $product->attributes = $clean ?: null;
+        // Si estaba excluido lo dejamos como está; si no, lo marcamos pendiente
+        // para reenviar con los atributos completos.
+        if ($product->sync_status !== 'excluded') {
+            $product->sync_status = 'pending';
+        }
+        $product->save();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Atributos guardados. Se reenviarán a Saga en el próximo sync/publicación.',
+            'count'   => count($clean),
+        ]);
     }
 
     // ── Fulfillment / Despacho ─────────────────────────────────

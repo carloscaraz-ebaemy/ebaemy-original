@@ -6,6 +6,7 @@ use App\Models\Tenant\MarketplaceChannel;
 use App\Models\Tenant\MarketplaceProduct;
 use App\Models\Tenant\SagaCategoryMap;
 use App\Models\Tenant\SagaCategoryAttribute;
+use App\Models\Tenant\SagaBrandMap;
 use Hyn\Tenancy\Environment;
 use Hyn\Tenancy\Models\Hostname;
 use Illuminate\Support\Str;
@@ -138,7 +139,32 @@ class SagaProductPayloadBuilder
 
     public function brand(): string
     {
+        // Homologación: si la marca interna está mapeada a una marca de Saga,
+        // usamos el nombre EXACTO de Saga (su catálogo valida la marca). Si no,
+        // caemos al nombre interno (Saga puede rechazar marca desconocida).
+        $brandId = $this->item->brand_id ?? null;
+        if ($brandId) {
+            $mapped = SagaBrandMap::where('channel_id', $this->channel->id)
+                ->where('brand_id', $brandId)
+                ->value('saga_brand_name');
+            if ($mapped) {
+                return (string) $mapped;
+            }
+        }
         return (string) ($this->item->brand->name ?? 'Genérica');
+    }
+
+    /**
+     * Valores de atributos capturados por producto (editor), filtrando vacíos.
+     * Mapa { nombre_atributo_saga: valor }.
+     */
+    public function storedAttributes(): array
+    {
+        $attrs = $this->mapping->attributes ?? [];
+        if (!is_array($attrs)) {
+            return [];
+        }
+        return array_filter($attrs, fn ($v) => $v !== null && $v !== '' && $v !== []);
     }
 
     public function sagaCategoryId(): ?string
@@ -241,10 +267,18 @@ class SagaProductPayloadBuilder
             return []; // sin caché aún → no bloqueamos por atributos
         }
 
+        // Atributos que ya cubre el editor por producto (normalizados).
+        $storedKeys = [];
+        foreach (array_keys($this->storedAttributes()) as $k) {
+            $storedKeys[] = $this->normalizeKey((string) $k);
+        }
+
         $missing = [];
         foreach ($cache->mandatory() as $attr) {
             $key = $this->normalizeKey($attr['name'] ?? '');
-            if ($key === '' || in_array($key, $this->providedAttrKeys, true)) {
+            if ($key === ''
+                || in_array($key, $this->providedAttrKeys, true)
+                || in_array($key, $storedKeys, true)) {
                 continue;
             }
             $missing[] = $attr['label'] ?? $attr['name'];
@@ -318,6 +352,19 @@ class SagaProductPayloadBuilder
         $xml .= '<short_description>' . $e($d['short_description']) . '</short_description>';
         $xml .= '<description>' . $e($d['description']) . '</description>';
         $xml .= '<brand>' . $e($d['brand']) . '</brand>';
+        // Atributos obligatorios de la categoría capturados por producto (Color,
+        // Talla, Material…). La clave es el `name` del atributo de Saga; se omiten
+        // los estándar para no duplicar name/brand/etc.
+        foreach ($this->storedAttributes() as $attrName => $attrValue) {
+            $tag = preg_replace('/[^A-Za-z0-9_]/', '', (string) $attrName);
+            if ($tag === '' || in_array($this->normalizeKey($tag), $this->providedAttrKeys, true)) {
+                continue;
+            }
+            if (is_array($attrValue)) {
+                $attrValue = implode(',', $attrValue);
+            }
+            $xml .= '<' . $tag . '>' . $e($attrValue) . '</' . $tag . '>';
+        }
         $xml .= '</Attributes>';
 
         // Un Sku por mapeo (producto simple o variante individual)
