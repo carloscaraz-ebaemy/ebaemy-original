@@ -144,11 +144,17 @@ class SagaProductPayloadBuilder
         // caemos al nombre interno (Saga puede rechazar marca desconocida).
         $brandId = $this->item->brand_id ?? null;
         if ($brandId) {
-            $mapped = SagaBrandMap::where('channel_id', $this->channel->id)
-                ->where('brand_id', $brandId)
-                ->value('saga_brand_name');
-            if ($mapped) {
-                return (string) $mapped;
+            try {
+                $mapped = SagaBrandMap::where('channel_id', $this->channel->id)
+                    ->where('brand_id', $brandId)
+                    ->value('saga_brand_name');
+                if ($mapped) {
+                    return (string) $mapped;
+                }
+            } catch (\Throwable $e) {
+                // Tabla saga_brand_map aún no migrada (deploy de código antes que
+                // la migración): degradamos al nombre interno en vez de romper el
+                // push. Una vez aplicada la migración, la homologación funciona.
             }
         }
         return (string) ($this->item->brand->name ?? 'Genérica');
