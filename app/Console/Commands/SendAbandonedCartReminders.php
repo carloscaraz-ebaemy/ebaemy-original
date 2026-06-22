@@ -46,7 +46,7 @@ class SendAbandonedCartReminders extends Command
 
                     $company   = Company::first();
                     $storeName = $company?->trade_name ?? $company?->name ?? 'Nuestra tienda';
-                    $storeUrl  = 'https://' . (optional(optional($website->hostnames->first())->fqdn) ?? request()->getHost());
+                    $storeUrl  = 'https://' . (optional($website->hostnames->first())->fqdn ?? request()->getHost());
 
                     // ── Paso 1: 1 hora, sin reminders previos ──────────────────
                     $step1 = AbandonedCart::active()
