@@ -1836,6 +1836,33 @@ class MarketplaceController extends Controller
             ->limit(20000) // Meta Commerce permite hasta 20k items por feed
             ->get();
 
+        // Variantes: para los productos con variantes emitimos UN <item> por
+        // variante (mismo item_group_id) en vez del padre, para que Meta/Google
+        // muestren cada color/talla. Batch-load para evitar N+1.
+        $variantsByListing = collect();
+        $attrsByVariant    = collect();
+        $variantListingIds = $listings->where('has_variants', true)->pluck('id');
+        if ($variantListingIds->isNotEmpty()) {
+            $variantsByListing = \App\Models\System\MarketplaceListingVariant::whereIn('listing_id', $variantListingIds)
+                ->where('is_active', true)
+                ->orderBy('listing_id')
+                ->orderByDesc('is_primary')
+                ->orderBy('id')
+                ->get()
+                ->groupBy('listing_id');
+
+            $variantIds = $variantsByListing->flatten(1)->pluck('id');
+            if ($variantIds->isNotEmpty()) {
+                $attrsByVariant = \DB::connection('system')->table('marketplace_listing_variant_values as vv')
+                    ->join('marketplace_listing_option_values as ov', 'ov.id', '=', 'vv.option_value_id')
+                    ->join('marketplace_listing_options as o', 'o.id', '=', 'ov.option_id')
+                    ->whereIn('vv.listing_variant_id', $variantIds)
+                    ->select('vv.listing_variant_id', 'o.name as option_name', 'ov.value')
+                    ->get()
+                    ->groupBy('listing_variant_id');
+            }
+        }
+
         $xml  = '<?xml version="1.0" encoding="UTF-8"?>' . "\n";
         $xml .= '<rss version="2.0" xmlns:g="http://base.google.com/ns/1.0">' . "\n";
         $xml .= '<channel>' . "\n";
@@ -1844,7 +1871,16 @@ class MarketplaceController extends Controller
         $xml .= '  <description>Productos de tiendas verificadas en ebaemy.com</description>' . "\n";
 
         foreach ($listings as $l) {
-            $xml .= $this->productFeedItemXml($l);
+            $variants = $variantsByListing->get($l->id);
+            if (!empty($l->has_variants) && $variants && $variants->count() > 0) {
+                // Un item por variante (agrupadas por item_group_id).
+                foreach ($variants as $v) {
+                    $xml .= $this->variantFeedItemXml($l, $v, $attrsByVariant->get($v->id, collect()));
+                }
+            } else {
+                // Producto simple (o variantes no sincronizadas) → item del padre.
+                $xml .= $this->productFeedItemXml($l);
+            }
         }
 
         $xml .= '</channel>' . "\n";
@@ -1947,6 +1983,84 @@ class MarketplaceController extends Controller
         if (!empty($l->is_on_offer) && !empty($l->discount_source)) {
             $xml .= '    <g:custom_label_1>discount_' . $esc($l->discount_source) . "</g:custom_label_1>\n";
         }
+        $xml .= "  </item>\n";
+
+        return $xml;
+    }
+
+    /**
+     * Emite un <item> por VARIANTE (color/talla) de un producto con variantes.
+     * Todas comparten el mismo g:item_group_id → Meta/Google las agrupan en un
+     * solo producto con selector. Cada una lleva su propia imagen, precio, stock
+     * y atributos g:color / g:size. Sin esto, el feed solo mostraba el padre.
+     */
+    private function variantFeedItemXml(MarketplaceListing $l, \App\Models\System\MarketplaceListingVariant $v, $attrs): string
+    {
+        $esc = fn($s) => htmlspecialchars((string) $s, ENT_XML1);
+
+        // Color / talla desde las opciones de la variante.
+        $color = null;
+        $size  = null;
+        foreach ($attrs as $a) {
+            $name = mb_strtolower((string) $a->option_name);
+            if (str_contains($name, 'color')) {
+                $color = $a->value;
+            } elseif (str_contains($name, 'talla') || str_contains($name, 'size') || str_contains($name, 'tama') || str_contains($name, 'medida')) {
+                $size = $a->value;
+            }
+        }
+
+        // Título: padre + nombre de la variante (color/talla) para distinguirlas.
+        $suffix = $v->display_name ?: trim(implode(' ', array_filter([$color, $size])));
+        $title  = $suffix ? ($l->title . ' - ' . $suffix) : $l->title;
+
+        // Precio/oferta de la variante (cae al del padre si la variante no trae).
+        $unit    = (float) ($v->price ?: $l->display_price);
+        $price   = number_format($unit, 2, '.', '') . ' PEN';
+        $hasSale = !empty($v->is_on_offer) && !empty($v->original_price) && $v->original_price > $unit;
+        $regular = $hasSale ? number_format((float) $v->original_price, 2, '.', '') . ' PEN' : null;
+
+        $availability = ($v->stock > 0) ? 'in stock' : 'out of stock';
+        $image        = $v->image_url ?: $l->image_url;
+        $description  = mb_substr(trim(strip_tags($l->description ?? $l->title)), 0, 5000);
+
+        // item_group_id: el mismo que usa el padre (agrupa todas las variantes).
+        $group = (!empty($l->remote_item_id) && !empty($l->hostname_id))
+            ? 't' . $l->hostname_id . '_' . $l->remote_item_id
+            : 'mp_' . $l->id;
+
+        $xml  = "  <item>\n";
+        $xml .= '    <g:id>mp_' . $l->id . '_v' . $v->id . "</g:id>\n";
+        $xml .= '    <g:item_group_id>' . $esc($group) . "</g:item_group_id>\n";
+        $xml .= '    <g:title>' . $esc(mb_substr($title, 0, 150)) . "</g:title>\n";
+        $xml .= '    <g:description>' . $esc($description ?: $title) . "</g:description>\n";
+        $xml .= '    <g:link>' . $esc($l->public_url) . "</g:link>\n";
+        if ($image) {
+            $xml .= '    <g:image_link>' . $esc($image) . "</g:image_link>\n";
+        }
+        $xml .= '    <g:availability>' . $availability . "</g:availability>\n";
+        $xml .= '    <g:price>' . ($hasSale ? $regular : $price) . "</g:price>\n";
+        if ($hasSale) {
+            $xml .= '    <g:sale_price>' . $price . "</g:sale_price>\n";
+        }
+        $xml .= '    <g:condition>new</g:condition>' . "\n";
+        $xml .= '    <g:identifier_exists>no</g:identifier_exists>' . "\n";
+        if ($v->sku) {
+            $xml .= '    <g:mpn>' . $esc(mb_substr($v->sku, 0, 70)) . "</g:mpn>\n";
+        }
+        if ($l->brand_name) {
+            $xml .= '    <g:brand>' . $esc(mb_substr($l->brand_name, 0, 70)) . "</g:brand>\n";
+        }
+        if ($l->category_name) {
+            $xml .= '    <g:product_type>' . $esc(mb_substr($l->category_name, 0, 250)) . "</g:product_type>\n";
+        }
+        if ($color) {
+            $xml .= '    <g:color>' . $esc(mb_substr($color, 0, 100)) . "</g:color>\n";
+        }
+        if ($size) {
+            $xml .= '    <g:size>' . $esc(mb_substr($size, 0, 100)) . "</g:size>\n";
+        }
+        $xml .= '    <g:custom_label_0>' . $esc(mb_substr($l->seller_display, 0, 100)) . "</g:custom_label_0>\n";
         $xml .= "  </item>\n";
 
         return $xml;
