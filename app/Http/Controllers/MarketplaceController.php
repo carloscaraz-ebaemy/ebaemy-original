@@ -147,6 +147,7 @@ class MarketplaceController extends Controller
         // de la variante is_primary, y color activo. Reusable por todas
         // las acciones que renderizan grids de cards.
         $this->decorateListingsWithVariantData($listings);
+        $this->explodeVariantsIntoCards($listings);
         $this->decorateListingsWithAlsoIn($listings);
         $this->decorateListingsWithPersonalCoupon($listings);
 
@@ -709,6 +710,67 @@ class MarketplaceController extends Controller
     }
 
     /**
+     * Expande cada producto CON variantes en UNA card por variante: la grilla
+     * muestra cada color/talla individualmente (decisión de negocio). Reusa el
+     * MISMO partial — clona el listing y sobreescribe imagen/precio/título/stock
+     * con los de la variante. Cap a 6 por producto para no dominar la grilla.
+     *
+     * Solo aplica a paginators (las rails de "recomendados/recién vistos" se
+     * quedan con 1 card por producto). Llamar DESPUÉS de
+     * decorateListingsWithVariantData en las 4 vistas de listado.
+     */
+    private function explodeVariantsIntoCards($listings): void
+    {
+        if (!$listings instanceof \Illuminate\Contracts\Pagination\Paginator) {
+            return;
+        }
+        $items = collect($listings->items());
+        $variantListingIds = $items->filter(fn($l) => !empty($l->has_variants))->pluck('id');
+        if ($variantListingIds->isEmpty()) {
+            return;
+        }
+
+        $variantsByListing = \App\Models\System\MarketplaceListingVariant::whereIn('listing_id', $variantListingIds)
+            ->where('is_active', true)
+            ->orderByDesc('is_primary')
+            ->orderBy('id')
+            ->get()
+            ->groupBy('listing_id');
+
+        $expanded = collect();
+        foreach ($items as $l) {
+            $variants = $variantsByListing->get($l->id);
+            // Solo separamos si hay ≥2 variantes activas (si no, no aporta).
+            if (!empty($l->has_variants) && $variants && $variants->count() >= 2) {
+                foreach ($variants->take(6) as $v) {
+                    $unit = (float) ($v->price ?: $l->display_price);
+                    $card = clone $l;
+                    $card->variant_card_id     = $v->id;                       // marca: card de variante concreta
+                    $card->has_variants        = false;                        // precio exacto, sin "Desde", sin dots
+                    $card->title               = $v->display_name ? ($l->title . ' - ' . $v->display_name) : $l->title;
+                    $card->primary_image_url   = $v->image_url ?: ($l->primary_image_url ?? $l->image_url);
+                    $card->image_url           = $v->image_url ?: $l->image_url;
+                    $card->secondary_image_url = null;
+                    // display_price es accessor (lee mp_price/price) → seteamos
+                    // las columnas para que muestre el precio de la variante.
+                    $card->price               = $unit;
+                    $card->mp_price            = null;
+                    $card->original_price      = $v->original_price;
+                    $card->is_on_offer         = (bool) $v->is_on_offer;
+                    $card->discount_pct        = $v->discount_pct;
+                    $card->stock               = (int) $v->stock;
+                    $card->color_dots          = collect();
+                    $card->variant_thumbs      = collect();
+                    $expanded->push($card);
+                }
+            } else {
+                $expanded->push($l);
+            }
+        }
+        $listings->setCollection($expanded);
+    }
+
+    /**
      * Decora cada listing con personal_discount y personal_price si el
      * comprador logueado tiene un cupon de plataforma aplicable a esa
      * tienda. Hace una sola query a marketplace_user_coupons al inicio
@@ -935,6 +997,7 @@ class MarketplaceController extends Controller
 
         $listings = $query->paginate(24)->withQueryString();
         $this->decorateListingsWithVariantData($listings);
+        $this->explodeVariantsIntoCards($listings);
         $this->decorateListingsWithAlsoIn($listings);
         $this->decorateListingsWithPersonalCoupon($listings);
         $total    = MarketplaceListing::published()->where('category_name', $category)->count();
@@ -987,6 +1050,7 @@ class MarketplaceController extends Controller
 
         $listings = $query->paginate(24)->withQueryString();
         $this->decorateListingsWithVariantData($listings);
+        $this->explodeVariantsIntoCards($listings);
         $this->decorateListingsWithAlsoIn($listings);
         $this->decorateListingsWithPersonalCoupon($listings);
         $total    = MarketplaceListing::published()->inOfficialCategory($category->id)->count();
@@ -1416,6 +1480,7 @@ class MarketplaceController extends Controller
 
         $listings = $query->paginate(24)->withQueryString();
         $this->decorateListingsWithVariantData($listings);
+        $this->explodeVariantsIntoCards($listings);
         $this->decorateListingsWithAlsoIn($listings);
         $this->decorateListingsWithPersonalCoupon($listings);
         $total    = MarketplaceListing::published()

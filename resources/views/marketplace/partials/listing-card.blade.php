@@ -123,7 +123,10 @@
 
         @php
             $cardHasVariants = !empty($listing->has_variants);
+            // Las cards de variante concreta (explodeVariantsIntoCards) van al
+            // detalle a confirmar la variante, no quick-add del padre.
             $cardCanQuickAdd = !$cardHasVariants
+                            && empty($listing->variant_card_id)
                             && empty($listing->is_pack)
                             && ($listing->display_price ?? 0) > 0
                             && ($listing->stock ?? 0) > 0;
