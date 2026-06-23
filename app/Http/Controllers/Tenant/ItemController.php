@@ -2128,7 +2128,19 @@ class ItemController extends Controller
         }
 
         $new = $obj->setDescription($obj->getDescription().' (Duplicado)')->replicate();
+
+        // replicate() copia TODOS los atributos, incluido internal_id y barcode, que
+        // se derivan del id del item original. Si no se limpian, el duplicado hereda
+        // el mismo código interno → códigos repetidos. Se nulifican para regenerarlos
+        // a partir del id nuevo (ver generateInternalId / generación de barcode).
+        $new->internal_id = null;
+        $new->barcode = null;
         $new->save();
+
+        // Regenera barcode (mismo criterio que store) y código interno con el id nuevo.
+        $new->barcode = str_pad($new->id, 12, '0', STR_PAD_LEFT);
+        $new->save();
+        $this->generateInternalId($new);
 
         return [
             'success' => true,
