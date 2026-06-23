@@ -1530,13 +1530,9 @@ class ItemController extends Controller
             return ['success' => true, 'message' => $msg, 'saga_status' => null, 'saga_enabled' => false];
         }
 
-        // Productos con variantes: cada talla/color necesita su propia SKU en Saga.
-        // El toggle 1-clic publica una sola SKU (item_variant_id=null) → corrompería
-        // el listing. Lo bloqueamos hasta tener el editor de variantes por canal.
-        if ($item->has_variants) {
-            return ['success' => false, 'message' => 'Este producto tiene variantes. Publícalo en Saga desde su ficha: cada variante necesita su propia SKU.'];
-        }
-
+        // Productos con variantes: el builder arma UN Product con un <Sku> por
+        // variante (color/talla), así Saga las agrupa. El mapeo padre ancla la
+        // publicación; syncStock empuja stock por variante. (Antes se bloqueaba.)
         $sku = $item->internal_id ?: $item->item_code;
         if (!$sku) {
             return ['success' => false, 'message' => 'Asigna un código interno (SKU) antes de publicar en Saga.'];

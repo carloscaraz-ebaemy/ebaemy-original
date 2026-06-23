@@ -389,40 +389,139 @@ class SagaProductPayloadBuilder
         }
         $xml .= '</Attributes>';
 
-        // Un Sku por mapeo (producto simple o variante individual)
-        $xml .= '<Skus><Sku>';
-        $xml .= '<SellerSku>' . $e($d['sku']) . '</SellerSku>';
-        $xml .= '<quantity>' . (int) $d['quantity'] . '</quantity>';
+        // Skus: un <Sku> por VARIANTE (producto con variantes → Saga las agrupa
+        // bajo este Product con selector color/talla) o un solo Sku (simple).
+        $xml .= '<Skus>';
+        $variants = $this->productVariantSkus();
+        if (!empty($variants)) {
+            foreach ($variants as $vs) {
+                $xml .= $this->skuXml($vs['sku'], $vs['quantity'], $vs['pricing'], $vs['images'], $vs['variation'], $includePrice, $d);
+            }
+        } else {
+            $xml .= $this->skuXml($d['sku'], (int) $d['quantity'], $p, $d['images'], [], $includePrice, $d);
+        }
+        $xml .= '</Skus>';
+        $xml .= '</Product></Request>';
+
+        return $xml;
+    }
+
+    /**
+     * Construye UN <Sku> (producto simple o una variante). $d es el array de
+     * producto (toArray) para los campos comunes (nombre, peso, dimensiones).
+     * $variation = [NombreOpción => valor] → atributos de variación (Color/Talla).
+     */
+    private function skuXml(string $sku, int $qty, array $p, array $images, array $variation, bool $includePrice, array $d): string
+    {
+        $e = fn ($v) => htmlspecialchars((string) $v, ENT_XML1 | ENT_QUOTES, 'UTF-8');
+
+        $xml  = '<Sku>';
+        $xml .= '<SellerSku>' . $e($sku) . '</SellerSku>';
+        $xml .= '<quantity>' . $qty . '</quantity>';
         if ($includePrice) {
             $xml .= '<price>' . number_format($p['price'], 2, '.', '') . '</price>';
-            if ($p['sale_price'] !== null) {
+            if (($p['sale_price'] ?? null) !== null) {
                 $xml .= '<sale_price>' . number_format($p['sale_price'], 2, '.', '') . '</sale_price>';
-                if ($p['sale_start']) $xml .= '<sale_start_date>' . $e($p['sale_start']) . '</sale_start_date>';
-                if ($p['sale_end'])   $xml .= '<sale_end_date>' . $e($p['sale_end']) . '</sale_end_date>';
+                if (!empty($p['sale_start'])) $xml .= '<sale_start_date>' . $e($p['sale_start']) . '</sale_start_date>';
+                if (!empty($p['sale_end']))   $xml .= '<sale_end_date>' . $e($p['sale_end']) . '</sale_end_date>';
             }
         }
-        if ($d['product_id'] !== '') {
+        if (($d['product_id'] ?? '') !== '') {
             $xml .= '<package_content>' . $e($d['name']) . '</package_content>';
         }
-        if ($d['weight'] > 0) $xml .= '<package_weight>' . number_format($d['weight'], 3, '.', '') . '</package_weight>';
-        if ($d['length'] > 0) $xml .= '<package_length>' . number_format($d['length'], 2, '.', '') . '</package_length>';
-        if ($d['width']  > 0) $xml .= '<package_width>'  . number_format($d['width'], 2, '.', '') . '</package_width>';
-        if ($d['height'] > 0) $xml .= '<package_height>' . number_format($d['height'], 2, '.', '') . '</package_height>';
+        if (($d['weight'] ?? 0) > 0) $xml .= '<package_weight>' . number_format($d['weight'], 3, '.', '') . '</package_weight>';
+        if (($d['length'] ?? 0) > 0) $xml .= '<package_length>' . number_format($d['length'], 2, '.', '') . '</package_length>';
+        if (($d['width']  ?? 0) > 0) $xml .= '<package_width>'  . number_format($d['width'], 2, '.', '') . '</package_width>';
+        if (($d['height'] ?? 0) > 0) $xml .= '<package_height>' . number_format($d['height'], 2, '.', '') . '</package_height>';
 
-        // Imágenes (máx 8, principal primero)
-        $images = array_slice($d['images'], 0, 8);
-        if (!empty($images)) {
+        // Atributos de variación (Color/Talla) a nivel SKU — distinguen cada
+        // variante dentro del Product. El tag es el nombre de la opción.
+        foreach ($variation as $name => $val) {
+            $tag = preg_replace('/[^A-Za-z0-9_]/', '', (string) $name);
+            if ($tag === '' || $val === null || $val === '') continue;
+            $xml .= '<' . $tag . '>' . $e($val) . '</' . $tag . '>';
+        }
+
+        $imgs = array_slice($images, 0, 8);
+        if (!empty($imgs)) {
             $xml .= '<Images>';
-            foreach ($images as $url) {
+            foreach ($imgs as $url) {
                 $xml .= '<Image>' . $e($url) . '</Image>';
             }
             $xml .= '</Images>';
         }
 
-        $xml .= '</Sku></Skus>';
-        $xml .= '</Product></Request>';
-
+        $xml .= '</Sku>';
         return $xml;
+    }
+
+    /**
+     * Datos de Sku por variante (productos con variantes). Vacío para simples.
+     * Cada variante aporta su SellerSku, stock real (suma de almacenes), precio,
+     * imagen y atributos de variación (Color/Talla) desde sus optionValues.
+     */
+    private function productVariantSkus(): array
+    {
+        if (empty($this->item->has_variants)) {
+            return [];
+        }
+        $variants = $this->item->variants ?? null; // relación: solo activas
+        if (!$variants || count($variants) === 0) {
+            return [];
+        }
+
+        $base = $this->imageBase();
+        $skuFallback = $this->item->internal_id ?: $this->item->item_code;
+        $out = [];
+        foreach ($variants as $v) {
+            $vsku = (string) ($v->sku ?: ($skuFallback . '-V' . $v->id));
+            // Stock real de la variante (suma item_variant_warehouse), igual
+            // criterio que el padre (no item_variants.stock que puede estar stale).
+            $qty = isset($v->warehouseStocks)
+                ? (int) $v->warehouseStocks->sum('stock')
+                : (int) ($v->stock ?? 0);
+            $imgs = ($base && $v->image && $v->image !== 'imagen-no-disponible.jpg')
+                ? [$base . $v->image]
+                : $this->images();
+
+            $out[] = [
+                'sku'       => $vsku,
+                'quantity'  => max(0, $qty),
+                'pricing'   => $this->variantPricing($v),
+                'images'    => $imgs,
+                'variation' => $this->variantAttributes($v),
+            ];
+        }
+        return $out;
+    }
+
+    private function variantPricing($v): array
+    {
+        $price = (float) ($v->sale_unit_price ?: $this->item->sale_unit_price);
+        return ['price' => round($price, 2), 'sale_price' => null, 'sale_start' => null, 'sale_end' => null];
+    }
+
+    /** [Color => Rosado, Talla => M] desde las opciones de la variante. */
+    private function variantAttributes($v): array
+    {
+        $attrs = [];
+        try {
+            foreach ($v->optionValues as $ov) {
+                $name = $ov->option->name ?? null;
+                if ($name) {
+                    $attrs[$name] = $ov->value;
+                }
+            }
+        } catch (\Throwable $e) {
+            // optionValues no cargables (contexto de test) → sin variación.
+        }
+        return $attrs;
+    }
+
+    private function imageBase(): ?string
+    {
+        $fqdn = $this->fqdn();
+        return $fqdn ? ('https://' . $fqdn . '/storage/uploads/items/') : null;
     }
 
     /**

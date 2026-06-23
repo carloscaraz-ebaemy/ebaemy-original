@@ -595,22 +595,31 @@ class FalabellaService
                 ->where('sync_status', '!=', 'excluded')
                 ->whereNotNull('external_sku')
                 ->where('external_sku', '!=', '')
-                ->with(['item.warehouses', 'variant'])
+                ->with(['item.warehouses', 'item.variants.warehouseStocks', 'variant'])
                 ->get();
 
             $skus = [];
             foreach ($mappings as $mapping) {
-                // Stock real = SUMA de item_warehouse.stock (eager-loaded arriba),
-                // igual que el marketplace central. NO items.stock (sistema dual,
-                // puede quedar desincronizado).
-                $stock = $mapping->variant
-                    ? max(0, (int) $mapping->variant->stock)
-                    : max(0, (int) ($mapping->item ? $mapping->item->warehouses->sum('stock') : 0));
-
-                $skus[] = [
-                    'SellerSku' => $mapping->external_sku,
-                    'Quantity' => $stock,
-                ];
+                if ($mapping->variant) {
+                    // Mapeo de UNA variante concreta.
+                    $skus[] = ['SellerSku' => $mapping->external_sku, 'Quantity' => max(0, (int) $mapping->variant->stock)];
+                } elseif ($mapping->item && $mapping->item->has_variants && $mapping->item->variants->count() > 0) {
+                    // Producto con variantes: se publicó un <Sku> por variante →
+                    // empujamos stock por variante con el MISMO SellerSku que el
+                    // builder generó (variant->sku o internal_id-V{id}).
+                    $fallback = $mapping->item->internal_id ?: $mapping->item->item_code;
+                    foreach ($mapping->item->variants as $v) {
+                        $vsku = $v->sku ?: ($fallback . '-V' . $v->id);
+                        $vqty = isset($v->warehouseStocks)
+                            ? (int) $v->warehouseStocks->sum('stock')
+                            : (int) ($v->stock ?? 0);
+                        $skus[] = ['SellerSku' => $vsku, 'Quantity' => max(0, $vqty)];
+                    }
+                } else {
+                    // Producto simple: SUMA item_warehouse.stock (no items.stock).
+                    $stock = max(0, (int) ($mapping->item ? $mapping->item->warehouses->sum('stock') : 0));
+                    $skus[] = ['SellerSku' => $mapping->external_sku, 'Quantity' => $stock];
+                }
             }
 
             // Batch update (Falabella acepta hasta 100 por request)

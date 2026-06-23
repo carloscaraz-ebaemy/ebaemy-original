@@ -120,6 +120,26 @@ class SagaProductPayloadBuilderTest extends TestCase
         $this->assertSame(10, $this->builder($this->item())->quantity());
     }
 
+    public function test_toxml_emite_un_sku_por_variante()
+    {
+        $v1 = (object) ['id' => 1, 'sku' => 'SAK-R', 'sale_unit_price' => 250.0, 'stock' => 5, 'image' => null,
+            'optionValues' => collect([(object) ['value' => 'Rosado', 'option' => (object) ['name' => 'Color']]])];
+        $v2 = (object) ['id' => 2, 'sku' => 'SAK-B', 'sale_unit_price' => 270.0, 'stock' => 0, 'image' => null,
+            'optionValues' => collect([(object) ['value' => 'Blanco', 'option' => (object) ['name' => 'Color']]])];
+        $item = $this->item(['has_variants' => true, 'variants' => collect([$v1, $v2])]);
+
+        $xml = $this->builder($item)->toXml();
+
+        $this->assertSame(2, substr_count($xml, '<Sku>'));
+        $this->assertStringContainsString('<SellerSku>SAK-R</SellerSku>', $xml);
+        $this->assertStringContainsString('<SellerSku>SAK-B</SellerSku>', $xml);
+        $this->assertStringContainsString('<Color>Rosado</Color>', $xml);
+        $this->assertStringContainsString('<Color>Blanco</Color>', $xml);
+        // Precio por variante.
+        $this->assertStringContainsString('<price>250.00</price>', $xml);
+        $this->assertStringContainsString('<price>270.00</price>', $xml);
+    }
+
     public function test_statusxml_genera_update_de_estado_minimo()
     {
         $b = $this->builder($this->item());
