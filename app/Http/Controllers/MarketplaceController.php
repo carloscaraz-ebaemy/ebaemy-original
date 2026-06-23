@@ -740,9 +740,12 @@ class MarketplaceController extends Controller
         $expanded = collect();
         foreach ($items as $l) {
             $variants = $variantsByListing->get($l->id);
-            // Solo separamos si hay ≥2 variantes activas (si no, no aporta).
-            if (!empty($l->has_variants) && $variants && $variants->count() >= 2) {
-                foreach ($variants->take(6) as $v) {
+            // Solo cards de variantes CON stock (las agotadas no se muestran en la
+            // grilla, igual que published() filtra productos sin stock).
+            $inStock = $variants ? $variants->filter(fn($v) => (int) $v->stock > 0) : collect();
+
+            if (!empty($l->has_variants) && $variants && $variants->count() >= 2 && $inStock->isNotEmpty()) {
+                foreach ($inStock->take(6) as $v) {
                     $unit = (float) ($v->price ?: $l->display_price);
                     $card = clone $l;
                     $card->variant_card_id     = $v->id;                       // marca: card de variante concreta
