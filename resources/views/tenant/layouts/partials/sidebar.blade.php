@@ -2009,6 +2009,55 @@ $inventory_configuration = InventoryConfiguration::getSidebarPermissions();
         padding: 0 4px !important;
         font-size: 12px !important;
     }
+
+    /* ===========================================================
+       Fix menú lateral en MÓVIL (especialmente iPhone / iOS Safari)
+       -----------------------------------------------------------
+       iOS soporta -webkit-overflow-scrolling, por lo que Modernizr
+       marca <html class="overflowscrolling"> (NO .no-overflowscrolling).
+       Por eso la regla `html.no-overflowscrolling .nano` de arriba no
+       aplicaba en el iPhone: el .nano ocupaba el 100% de alto y la barra
+       inferior "Configuración y más" (50px) quedaba ENCIMA de los últimos
+       submenús → se veían pero no se podían tocar.
+       =========================================================== */
+    @media (max-width: 767px) {
+        /* Reservar los 50px de la barra inferior en cualquier navegador móvil. */
+        .sidebar-left .nano {
+            height: calc(100% - 50px) !important;
+        }
+
+        /* Colchón al final para poder desplazar el último módulo expandido
+           por encima de la barra inferior. */
+        .nano-content-mobile {
+            padding-bottom: 24px;
+        }
+
+        /* La barra inferior siempre opaca y por encima del contenido scrolleable. */
+        .more-config-mobile {
+            position: relative;
+            z-index: 3;
+            background: #fff;
+        }
+
+        /* Items con acción (ej. "Crear"): etiqueta + botón en una fila,
+           el botón compacto a la derecha (no como barra verde full-width). */
+        .nav-main .nav-children li.nav-item-with-action {
+            display: flex;
+            align-items: center;
+        }
+        .nav-main .nav-children li.nav-item-with-action > .nav-link {
+            flex: 1 1 auto;
+            min-width: 0;
+            padding-right: 8px !important;
+        }
+        .nav-main .nav-children li.nav-item-with-action > .nav-action {
+            position: static;
+            transform: none;
+            flex: 0 0 auto;
+            margin-right: 12px;
+            white-space: nowrap;
+        }
+    }
 </style>
 
 <script>
