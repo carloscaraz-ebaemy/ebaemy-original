@@ -2011,16 +2011,80 @@ $inventory_configuration = InventoryConfiguration::getSidebarPermissions();
     }
 
     /* ===========================================================
-       Fix menú lateral en MÓVIL: el último módulo (Tienda Virtual)
-       quedaba debajo de la barra "Configuración y más" y no se podía
-       tocar. Solución mínima y segura: colchón inferior en la lista
-       para que los últimos submódulos suban por encima de la barra al
-       hacer scroll. NO se toca la altura/scroll del .nano ni la barra
-       (cambiarlos rompía el desplazamiento en iOS).
+       Fix menú lateral en MÓVIL (iPhone/iOS incluido)
+       -----------------------------------------------------------
+       Problema raíz: el scroll del menú (.nano) sólo estaba definido
+       para navegadores con html.no-overflowscrolling. En iOS Safari
+       (html.overflowscrolling) NO había regla de scroll en móvil, así
+       que el menú quedaba fijo: no se podía desplazar y los últimos
+       módulos (Tienda Virtual) quedaban inalcanzables bajo la barra
+       "Configuración y más".
+
+       Solución robusta e independiente de ese flag: convertir el
+       sidebar en columna flex → el .nano crece y scrollea siempre, y
+       la barra inferior queda anclada abajo sin tapar nada.
        =========================================================== */
     @media (max-width: 767px) {
-        ul.nav-main-mobile {
-            padding-bottom: 90px;
+        .sidebar-left {
+            display: flex !important;
+            flex-direction: column;
+            padding-top: 0 !important;
+            padding-bottom: 0 !important;
+        }
+
+        /* Área del menú: ocupa el espacio disponible y scrollea. */
+        .sidebar-left .nano {
+            flex: 1 1 auto;
+            min-height: 0;
+            height: auto !important;
+            overflow-y: auto !important;
+            -webkit-overflow-scrolling: touch;
+            position: static !important;
+        }
+        .sidebar-left .nano > .nano-content {
+            position: static !important;
+            overflow: visible !important;
+            height: auto !important;
+        }
+        /* El header ya va sticky en flujo; sin el offset heredado. */
+        .nano-content-mobile {
+            margin-top: 8px;
+        }
+
+        /* Logo/cabecera del menú: fija arriba mientras se hace scroll. */
+        .sidebar-left .nano > .sidebar-header-mobile {
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+
+        /* Barra "Configuración y más": anclada al fondo, opaca. */
+        .more-config-mobile {
+            flex: 0 0 auto;
+            position: relative;
+            z-index: 2;
+            background: #fff;
+        }
+
+        /* Items con acción ("Crear"): etiqueta + botón compacto en fila,
+           ya no como barra verde full-width que tapaba el nombre. */
+        ul.nav-main-mobile .nav-children li.nav-item-with-action {
+            display: flex !important;
+            align-items: center;
+            gap: 8px;
+        }
+        ul.nav-main-mobile .nav-children li.nav-item-with-action > .nav-link {
+            flex: 1 1 auto;
+            min-width: 0;
+            padding-right: 8px !important;
+        }
+        ul.nav-main-mobile .nav-children li.nav-item-with-action > .nav-action {
+            position: static !important;
+            transform: none !important;
+            flex: 0 0 auto;
+            width: auto !important;
+            margin: 0 12px 0 0 !important;
+            white-space: nowrap;
         }
     }
 </style>
