@@ -1544,6 +1544,19 @@ class MarketplaceController extends Controller
         }
         $navScopedToSubdomain = $subdomain;
 
+        // Ofertas del día de ESTA tienda — alimentan el carrusel + modal de
+        // bienvenida (mismo partial que la home). Cache 30 min por tenant. El
+        // Blade solo lo muestra si hay 4+ ofertas vigentes (mismo umbral).
+        $dailyOffers = Cache::remember('mp_tenant_offers_' . $hostname->id, 1800, function () use ($hostname) {
+            return MarketplaceListing::published()
+                ->where('hostname_id', $hostname->id)
+                ->onOffer()
+                ->orderByDesc('discount_pct')
+                ->orderByDesc('view_count')
+                ->limit(15)
+                ->get();
+        });
+
         // Metadata visible: priorizar la del listing más reciente que ya
         // tiene tenant_name/logo/verified denormalizados. Si no hay listings,
         // caer al Client.
@@ -1565,7 +1578,7 @@ class MarketplaceController extends Controller
         return view('marketplace.tenant', compact(
             'store', 'listings', 'total', 'sort', 'priceMin', 'priceMax', 'q',
             'tenantCategories', 'activeCategoryFullSlug',
-            'marketplaceNavCategories', 'navScopedToSubdomain'
+            'marketplaceNavCategories', 'navScopedToSubdomain', 'dailyOffers'
         ));
     }
 

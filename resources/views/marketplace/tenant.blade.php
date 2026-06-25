@@ -165,6 +165,17 @@
     </div>
 </section>
 
+{{-- Ofertas del día de ESTA tienda: carrusel + modal de bienvenida (1×/sesión).
+     Solo en la portada de la tienda (sin filtros ni búsqueda) y con 4+ ofertas. --}}
+@if(isset($dailyOffers) && $dailyOffers->count() >= 4 && !$hasFilters && empty($q))
+    @include('marketplace.partials.daily-offers', [
+        'offers'       => $dailyOffers,
+        'seeAllUrl'    => route('marketplace.index', ['on_offer' => 1, 'shop' => $store->subdomain]),
+        'modalSeenKey' => 'mp_offers_modal_seen_' . $store->subdomain,
+        'offersSub'    => 'Descuentos vigentes en ' . $store->name . '. Aprovecha mientras duren.',
+    ])
+@endif
+
 <div class="mp-list-layout">
 
     <button type="button" class="mp-filters-mobile-btn" onclick="document.getElementById('mpFilters').classList.add('is-open'); document.body.style.overflow='hidden';">
