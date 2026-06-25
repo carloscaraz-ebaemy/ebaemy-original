@@ -186,7 +186,7 @@ class MarketplaceController extends Controller
             // hasta 30 ofertas candidatas y filtramos client-side a max 2 por
             // tenant. Asi el carrusel se ve como marketplace de N tiendas, no
             // como showcase de una sola tienda con muchas ofertas.
-            $dailyOffers = Cache::remember('mp_daily_offers_v3', 1800, function () {
+            $dailyOffers = Cache::remember('mp_daily_offers_v4', 1800, function () {
                 // Pool amplio de candidatos: si una sola tienda concentra las
                 // ofertas de mayor descuento, un limit pequeño (30) la dejaba
                 // monopolizar el top y el cap de 2/tienda recortaba el carrusel
@@ -200,17 +200,29 @@ class MarketplaceController extends Controller
                     ->limit(300)
                     ->get();
 
-                // Max 2 ofertas por tenant para forzar diversidad.
-                $perTenantCap = 2;
-                $perTenantCount = [];
-                $diverse = collect();
+                // Agrupar por tenant preservando el orden por descuento (la
+                // mejor oferta de cada tienda queda primera en su grupo). El
+                // orden de aparición de los grupos = tienda con el descuento
+                // más alto primero.
+                $byTenant = [];
                 foreach ($candidates as $c) {
-                    $h = $c->hostname_id;
-                    $n = $perTenantCount[$h] ?? 0;
-                    if ($n >= $perTenantCap) continue;
-                    $diverse->push($c);
-                    $perTenantCount[$h] = $n + 1;
-                    if ($diverse->count() >= 15) break;
+                    $byTenant[$c->hostname_id][] = $c;
+                }
+
+                // Intercalar tiendas (round-robin): ronda 0 toma la mejor
+                // oferta de CADA tienda, ronda 1 la segunda, etc. Así el
+                // carrusel alterna tiendas (tienda A, B, C, D, A, B…) en vez
+                // de agrupar las 2 ofertas de cada una juntas. Cap 2/tienda,
+                // máximo 15 cards.
+                $perTenantCap = 2;
+                $diverse = collect();
+                for ($round = 0; $round < $perTenantCap; $round++) {
+                    foreach ($byTenant as $offers) {
+                        if (isset($offers[$round])) {
+                            $diverse->push($offers[$round]);
+                            if ($diverse->count() >= 15) break 2;
+                        }
+                    }
                 }
                 return $diverse;
             });
