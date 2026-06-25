@@ -186,12 +186,18 @@ class MarketplaceController extends Controller
             // hasta 30 ofertas candidatas y filtramos client-side a max 2 por
             // tenant. Asi el carrusel se ve como marketplace de N tiendas, no
             // como showcase de una sola tienda con muchas ofertas.
-            $dailyOffers = Cache::remember('mp_daily_offers_v2', 1800, function () {
+            $dailyOffers = Cache::remember('mp_daily_offers_v3', 1800, function () {
+                // Pool amplio de candidatos: si una sola tienda concentra las
+                // ofertas de mayor descuento, un limit pequeño (30) la dejaba
+                // monopolizar el top y el cap de 2/tienda recortaba el carrusel
+                // por debajo del umbral de 4 → la sección desaparecía. Con un
+                // pool grande entran ofertas de TODAS las tiendas antes de
+                // aplicar la diversidad.
                 $candidates = MarketplaceListing::published()
                     ->onOffer()
                     ->orderByDesc('discount_pct')
                     ->orderByDesc('view_count')
-                    ->limit(30)
+                    ->limit(300)
                     ->get();
 
                 // Max 2 ofertas por tenant para forzar diversidad.
