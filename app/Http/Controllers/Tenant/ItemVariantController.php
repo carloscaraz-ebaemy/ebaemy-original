@@ -77,32 +77,98 @@ class ItemVariantController extends Controller
         // opciones, así que no estorban al caso vacío.
         $data = $request->validate([
             'options'                       => 'present|array|max:5',
+            'options.*.id'                  => 'nullable|integer',
             'options.*.name'                => 'required|string|max:80',
             'options.*.position'            => 'integer|min:0',
             'options.*.values'              => 'required|array|min:1',
+            'options.*.values.*.id'         => 'nullable|integer',
             'options.*.values.*.value'      => 'required|string|max:100',
             'options.*.values.*.color_hex'  => 'nullable|string|regex:/^#[0-9A-Fa-f]{6}$/',
             'options.*.values.*.position'   => 'integer|min:0',
         ]);
 
         DB::connection('tenant')->transaction(function () use ($data, $item) {
-            // Borrar opciones anteriores (cascade borra valores y el pivot)
-            // Las variantes se sincronizan después
-            $item->itemOptions()->delete();
+            // Sincronización IN-PLACE preservando los IDs de opciones y valores.
+            //
+            // CRÍTICO: el variant_hash se calcula como md5 de los IDs ordenados
+            // de item_option_values. Si borráramos y recreáramos los valores
+            // (como hacía antes con itemOptions()->delete()), sus IDs cambiaban
+            // y TODAS las variantes existentes quedaban "obsoletas" en
+            // syncVariants() → se desactivaban y se recreaban vacías (sin
+            // imagen, stock 0, ocultas en marketplace). Al reusar los IDs de
+            // los valores que no cambian, las combinaciones sin cambios
+            // conservan su hash y syncVariants() las respeta con su imagen,
+            // stock y precio. Solo los valores realmente nuevos reciben IDs
+            // nuevos → solo esas combinaciones se crean como variantes vacías.
+            $existingOptions = $item->itemOptions()->with('values')->get();
 
+            $keptOptionIds = [];
             foreach ($data['options'] as $pos => $optData) {
-                $option = $item->itemOptions()->create([
-                    'name'     => $optData['name'],
-                    'position' => $optData['position'] ?? $pos,
-                ]);
+                // Match de la opción: por id si vino del front, si no por nombre
+                // (case-insensitive). Reusar id sobrevive incluso a renombrar.
+                $option = null;
+                if (!empty($optData['id'])) {
+                    $option = $existingOptions->firstWhere('id', (int) $optData['id']);
+                }
+                if (!$option) {
+                    $option = $existingOptions->first(fn ($o) =>
+                        mb_strtolower(trim($o->name)) === mb_strtolower(trim($optData['name']))
+                    );
+                }
 
+                if ($option) {
+                    $option->update([
+                        'name'     => $optData['name'],
+                        'position' => $optData['position'] ?? $pos,
+                    ]);
+                } else {
+                    $option = $item->itemOptions()->create([
+                        'name'     => $optData['name'],
+                        'position' => $optData['position'] ?? $pos,
+                    ]);
+                    $option->setRelation('values', collect());
+                }
+                $keptOptionIds[] = $option->id;
+
+                $existingValues = $option->values;
+                $keptValueIds = [];
                 foreach ($optData['values'] as $vPos => $vData) {
-                    $option->values()->create([
+                    $value = null;
+                    if (!empty($vData['id'])) {
+                        $value = $existingValues->firstWhere('id', (int) $vData['id']);
+                    }
+                    if (!$value) {
+                        $value = $existingValues->first(fn ($v) =>
+                            mb_strtolower(trim($v->value)) === mb_strtolower(trim($vData['value']))
+                        );
+                    }
+
+                    $attrs = [
                         'value'     => $vData['value'],
                         'color_hex' => $vData['color_hex'] ?? null,
                         'position'  => $vData['position'] ?? $vPos,
-                    ]);
+                    ];
+                    if ($value) {
+                        $value->update($attrs);
+                    } else {
+                        $value = $option->values()->create($attrs);
+                    }
+                    $keptValueIds[] = $value->id;
                 }
+
+                // Valores que el usuario quitó de esta opción: borrarlos (el FK
+                // cascade limpia el pivot; sus combinaciones quedan obsoletas y
+                // syncVariants() las desactiva/borra según tengan stock).
+                $option->values()->whereNotIn('id', $keptValueIds)->delete();
+            }
+
+            // Opciones eliminadas por completo (cascade borra valores + pivot).
+            // Si no quedó ninguna ($data['options'] vacío), borrar todas: el
+            // producto vuelve a "simple" y syncVariants() desactiva variantes.
+            if (empty($keptOptionIds)) {
+                $item->itemOptions()->delete();
+            } else {
+                $item->itemOptions()->whereNotIn('id', $keptOptionIds)->delete();
             }
         });
 
