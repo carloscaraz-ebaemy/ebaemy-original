@@ -527,6 +527,23 @@ $inventory_configuration = InventoryConfiguration::getSidebarPermissions();
                                             </li>
                                             @endif
 
+                                            {{-- Registro y Control de Envíos --}}
+                                            @if(in_array(auth()->user()->type ?? '', ['admin', 'warehouse']))
+                                            @php
+                                                $shipNoGuide = 0;
+                                                try { $shipNoGuide = \App\Models\Tenant\ShippingRequest::withoutGuide()->count(); } catch (\Throwable $e) {}
+                                            @endphp
+                                            <li class="{{ request()->is('registro-envio*') ? 'nav-active' : '' }}">
+                                                <a class="nav-link" href="{{ route('shipments.index') }}">
+                                                    <i class="fas fa-dolly fa-fw me-1"></i>
+                                                    <span>Registro de Envíos</span>
+                                                    @if($shipNoGuide > 0)
+                                                        <span class="badge bg-danger ms-1" title="Paquetes sin guía">{{ $shipNoGuide }}</span>
+                                                    @endif
+                                                </a>
+                                            </li>
+                                            @endif
+
                                             {{-- Devoluciones --}}
                                             @if(in_array(auth()->user()->type ?? '', ['admin', 'warehouse']))
                                             @php

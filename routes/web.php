@@ -98,10 +98,37 @@ if ($hostname) {
         Route::get('logistic/tracking', [\App\Http\Controllers\Tenant\Logistic\TrackingController::class, 'index'])
              ->name('logistic.tracking')
              ->middleware('throttle:20,1');
+
+        // ── Registro de Envíos: formulario PÚBLICO del cliente ──────────
+        // El cliente llena sus datos + acepta términos → crea el envío en
+        // estado "pendiente". El panel del encargado (grupo auth) sube la guía.
+        Route::get('envio/nuevo', [\App\Http\Controllers\Tenant\ShipmentController::class, 'publicForm'])
+             ->name('shipments.public.form');
+        Route::post('envio/nuevo', [\App\Http\Controllers\Tenant\ShipmentController::class, 'publicStore'])
+             ->name('shipments.public.store')
+             ->middleware('throttle:20,1');
         // Route::get('/ecommerce/color-ecommerce', [\App\Http\Controllers\Tenant\ConfigurationController::class, 'getColorEcommerce']);
 
         Route::middleware(['auth', 'redirect.module', 'locked.tenant','check.email.verified'])->group(function () {
             // Route::get('catalogs', 'Tenant\CatalogController@index')->name('tenant.catalogs.index');
+
+            // ─── Registro y Control de Envíos (panel del encargado) ─────────
+            Route::prefix('registro-envio')->group(function () {
+                Route::get('/', [\App\Http\Controllers\Tenant\ShipmentController::class, 'index'])
+                     ->name('shipments.index');
+                Route::get('sin-guia', [\App\Http\Controllers\Tenant\ShipmentController::class, 'withoutGuide'])
+                     ->name('shipments.without_guide');
+                Route::post('/', [\App\Http\Controllers\Tenant\ShipmentController::class, 'store'])
+                     ->name('shipments.store');
+                Route::post('{shipment}/subir-guia', [\App\Http\Controllers\Tenant\ShipmentController::class, 'uploadGuide'])
+                     ->name('shipments.upload_guide');
+                Route::post('{shipment}/estado', [\App\Http\Controllers\Tenant\ShipmentController::class, 'updateStatus'])
+                     ->name('shipments.status');
+                Route::get('{shipment}/imprimir', [\App\Http\Controllers\Tenant\ShipmentController::class, 'printLabel'])
+                     ->name('shipments.print');
+                Route::get('{shipment}/guia', [\App\Http\Controllers\Tenant\ShipmentController::class, 'downloadGuide'])
+                     ->name('shipments.guide');
+            });
             Route::get('list-reports', 'Tenant\SettingController@listReports');
             Route::get('list-extras', 'Tenant\SettingController@listExtras');
             Route::get('list-settings', 'Tenant\SettingController@indexSettings')->name('tenant.general_configuration.index');
