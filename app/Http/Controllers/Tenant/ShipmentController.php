@@ -318,6 +318,32 @@ class ShipmentController extends Controller
 
     // ── Formulario público (lo llena el cliente) ───────────────────────────
 
+    /** Seguimiento público: el cliente consulta su envío por el código ENV. */
+    public function publicTracking(Request $request)
+    {
+        $code     = trim((string) $request->query('code', ''));
+        $shipment = null;
+        $notFound = false;
+
+        if ($code !== '') {
+            $q = strtoupper($code);
+            $shipment = ShippingRequest::where('shipment_code', $q)->first();
+            // Aceptar también que ingresen solo el número (ej. "5").
+            if (!$shipment && ctype_digit($code)) {
+                $shipment = ShippingRequest::where('shipment_code', ShippingRequest::buildCode((int) $code))->first();
+            }
+            $notFound = !$shipment;
+        }
+
+        return view('tenant.shipments.tracking', [
+            'company'  => Company::first(),
+            'code'     => $code,
+            'shipment' => $shipment,
+            'notFound' => $notFound,
+            'statuses' => ShippingRequest::STATUSES,
+        ]);
+    }
+
     public function publicForm()
     {
         $company = Company::first();

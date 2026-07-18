@@ -55,7 +55,8 @@
                 @endif
                 <div class="code">{{ $sent }}</div>
                 <p style="color:var(--muted);font-size:12.5px;">Nuestro equipo preparará tu paquete y te enviará la guía cuando salga.</p>
-                <a href="{{ route('shipments.public.form') }}" class="btn" style="display:inline-block;text-decoration:none;margin-top:6px;">Registrar otro envío</a>
+                <a href="{{ route('shipments.public.tracking', ['code' => $sent]) }}" class="btn" style="display:inline-block;text-decoration:none;margin-top:6px;">📦 Ver seguimiento</a>
+                <a href="{{ route('shipments.public.form') }}" style="display:inline-block;text-decoration:none;margin-top:10px;color:var(--muted);font-size:13px;">Registrar otro envío</a>
             </div>
         @else
             @if($errors->any())

@@ -107,6 +107,10 @@ if ($hostname) {
         Route::post('envio/nuevo', [\App\Http\Controllers\Tenant\ShipmentController::class, 'publicStore'])
              ->name('shipments.public.store')
              ->middleware('throttle:20,1');
+        // Seguimiento público de envíos: el cliente consulta por su código ENV.
+        Route::get('envio/seguimiento', [\App\Http\Controllers\Tenant\ShipmentController::class, 'publicTracking'])
+             ->name('shipments.public.tracking')->middleware('throttle:60,1');
+
         // Ubigeo en cascada (público: lo usa el formulario del cliente y el panel).
         Route::get('envio/ubigeo/provincias/{department}', [\App\Http\Controllers\Tenant\ShipmentController::class, 'provinces'])
              ->where('department', '[0-9]+')->name('shipments.ubigeo.provinces')->middleware('throttle:120,1');
