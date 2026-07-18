@@ -196,6 +196,37 @@ class ShipmentController extends Controller
         );
     }
 
+    /**
+     * Ubigeo: búsqueda por texto (distrito). Devuelve el ubigeo completo con
+     * su ruta legible, para el input de búsqueda del cascader. Público.
+     */
+    public function searchUbigeo(Request $request)
+    {
+        $q = trim((string) $request->input('q', ''));
+        if (mb_strlen($q) < 2) {
+            return response()->json([]);
+        }
+
+        $rows = District::with('province.department')
+            ->where('description', 'like', "%{$q}%")
+            ->orderBy('description')
+            ->limit(25)
+            ->get();
+
+        return response()->json($rows->map(function ($d) {
+            $prov = $d->province;
+            $dep  = $prov ? $prov->department : null;
+            return [
+                'district_id'   => $d->id,
+                'province_id'   => $d->province_id,
+                'department_id' => $dep ? $dep->id : null,
+                'label'         => $d->description
+                    . ' — ' . ($prov ? $prov->description : '')
+                    . ', ' . ($dep ? $dep->description : ''),
+            ];
+        })->values());
+    }
+
     /** Editar los datos de un envío (mismo set de reglas que el alta). */
     public function update(Request $request, ShippingRequest $shipment): RedirectResponse
     {

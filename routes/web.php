@@ -112,6 +112,12 @@ if ($hostname) {
              ->where('department', '[0-9]+')->name('shipments.ubigeo.provinces')->middleware('throttle:120,1');
         Route::get('envio/ubigeo/distritos/{province}', [\App\Http\Controllers\Tenant\ShipmentController::class, 'districts'])
              ->where('province', '[0-9]+')->name('shipments.ubigeo.districts')->middleware('throttle:120,1');
+        Route::get('envio/ubigeo/buscar', [\App\Http\Controllers\Tenant\ShipmentController::class, 'searchUbigeo'])
+             ->name('shipments.ubigeo.search')->middleware('throttle:120,1');
+        // Consulta DNI/RUC pública (para el formulario del cliente), con throttle estricto.
+        Route::get('envio/consulta/{type}/{number}', [\App\Http\Controllers\Tenant\ShipmentController::class, 'lookupDocument'])
+             ->where('type', 'dni|ruc')->where('number', '[0-9]+')
+             ->name('shipments.public.lookup')->middleware('throttle:30,1');
         // Route::get('/ecommerce/color-ecommerce', [\App\Http\Controllers\Tenant\ConfigurationController::class, 'getColorEcommerce']);
 
         Route::middleware(['auth', 'redirect.module', 'locked.tenant','check.email.verified'])->group(function () {

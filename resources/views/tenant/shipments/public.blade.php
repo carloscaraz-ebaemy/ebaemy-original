@@ -31,18 +31,6 @@
         .ok { text-align:center; padding:10px 0; }
         .ok .code { font-size:26px; font-weight:800; letter-spacing:2px; color:var(--brand); background:#eff6ff; border:1px dashed var(--brand); border-radius:12px; padding:12px; margin:10px 0; }
         .foot { text-align:center; color:var(--muted); font-size:11.5px; margin-top:16px; }
-
-        /* ── Cascader de ubigeo (1 campo, popup 3 columnas) ── */
-        .ubigeo-field { position:relative; }
-        .ubigeo-display { border:1px solid var(--line); border-radius:10px; padding:11px 12px; cursor:pointer; background:#fff; color:var(--muted); font-size:15px; }
-        .ubigeo-display.has-value { color:var(--ink); font-weight:500; }
-        .ubigeo-pop { position:absolute; z-index:5000; top:calc(100% + 4px); left:0; right:0; background:#fff; border:1px solid var(--line); border-radius:10px; box-shadow:0 12px 32px -8px rgba(15,23,42,.25); display:flex; overflow:hidden; }
-        .ubigeo-col { flex:1; min-width:33%; max-height:240px; overflow-y:auto; border-right:1px solid #f1f5f9; }
-        .ubigeo-col:last-child { border-right:none; }
-        .ubigeo-item { padding:9px 10px; cursor:pointer; font-size:13px; border-bottom:1px solid #f8fafc; }
-        .ubigeo-item:hover, .ubigeo-item.active { background:#eff6ff; color:var(--brand); font-weight:600; }
-        .ubigeo-col:empty::before { content:'—'; display:block; text-align:center; color:#cbd5e1; padding:12px 0; font-size:12px; }
-        @media (max-width:520px){ .ubigeo-pop{ overflow-x:auto; } .ubigeo-col{ min-width:130px; } }
     </style>
 </head>
 <body>
@@ -81,19 +69,17 @@
             <form method="POST" action="{{ route('shipments.public.store') }}">
                 @csrf
 
-                <label class="req">Nombre completo</label>
-                <input type="text" name="full_name" value="{{ old('full_name') }}" required maxlength="160">
+                <label>DNI / RUC</label>
+                <input type="text" name="dni" id="pub_dni" value="{{ old('dni') }}" class="js-doc-lookup"
+                       data-target-name="pub_full_name" data-target-address="pub_shipping_destination" data-ubigeo-group="pub"
+                       maxlength="11" inputmode="numeric" autocomplete="off" placeholder="8 dígitos (DNI) u 11 (RUC)">
+                <small class="js-doc-status" style="display:block;font-size:12px;margin-top:2px;"></small>
 
-                <div class="row">
-                    <div>
-                        <label>DNI</label>
-                        <input type="text" name="dni" value="{{ old('dni') }}" maxlength="15" inputmode="numeric">
-                    </div>
-                    <div>
-                        <label class="req">Teléfono</label>
-                        <input type="tel" name="phone" value="{{ old('phone') }}" required maxlength="20" inputmode="tel">
-                    </div>
-                </div>
+                <label class="req">Nombre completo</label>
+                <input type="text" name="full_name" id="pub_full_name" value="{{ old('full_name') }}" required maxlength="160">
+
+                <label class="req">Teléfono</label>
+                <input type="tel" name="phone" value="{{ old('phone') }}" required maxlength="20" inputmode="tel">
 
                 <label class="req">Destino (ubigeo)</label>
                 <div class="ubigeo-field" data-ubigeo-group="pub">
@@ -109,7 +95,7 @@
                 </div>
 
                 <label>Dirección / referencia de destino</label>
-                <input type="text" name="shipping_destination" value="{{ old('shipping_destination') }}" maxlength="255">
+                <input type="text" name="shipping_destination" id="pub_shipping_destination" value="{{ old('shipping_destination') }}" maxlength="255">
 
                 <label>Agencia de envío (si la conoces)</label>
                 <input type="text" name="shipping_agency" value="{{ old('shipping_agency') }}" maxlength="120" placeholder="Shalom, Olva…">
@@ -136,6 +122,38 @@
         var b = f.querySelector('button[type="submit"]');
         if (b) { b.disabled = true; b.textContent = 'Enviando…'; }
     });
+
+    // Consulta DNI (RENIEC) / RUC (SUNAT) — igual que el panel del encargado.
+    (function () {
+        var LOOKUP = '{{ url("envio/consulta") }}';
+        var inp = document.getElementById('pub_dni');
+        if (!inp) return;
+        var status = document.querySelector('.js-doc-status');
+        var t = null;
+        inp.addEventListener('input', function () {
+            var num = (inp.value || '').replace(/\D+/g, '');
+            clearTimeout(t);
+            if (num.length !== 8 && num.length !== 11) { if (status) status.textContent = ''; return; }
+            var kind = num.length === 8 ? 'dni' : 'ruc';
+            if (status) { status.style.color = '#6b7280'; status.textContent = 'Consultando ' + kind.toUpperCase() + '…'; }
+            t = setTimeout(function () {
+                fetch(LOOKUP + '/' + kind + '/' + num, { headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' } })
+                    .then(function (r) { return r.json(); })
+                    .then(function (res) {
+                        if (!res || res.success === false || !res.data) { if (status) { status.style.color = '#dc2626'; status.textContent = (res && res.message) ? res.message : 'No se encontraron datos.'; } return; }
+                        var d = res.data;
+                        var full = d.name || [d.first_name, d.last_name].filter(Boolean).join(' ');
+                        var nameEl = document.getElementById('pub_full_name'); if (nameEl && full) nameEl.value = full;
+                        if (d.address) { var a = document.getElementById('pub_shipping_destination'); if (a && !a.value) a.value = d.address; }
+                        var loc = d.location_id;
+                        var dep = (loc && loc[0]) || d.department_id || '', prov = (loc && loc[1]) || d.province_id || '', dist = (loc && loc[2]) || d.district_id || '';
+                        if ((dep || dist) && window.__ubPreset) window.__ubPreset('pub', dep, prov, dist);
+                        if (status) { status.style.color = '#16a34a'; status.textContent = '✓ ' + (full || 'encontrado'); }
+                    })
+                    .catch(function () { if (status) { status.style.color = '#dc2626'; status.textContent = 'No se pudo consultar.'; } });
+            }, 450);
+        });
+    })();
 </script>
 @include('tenant.shipments.partials.ubigeo-cascader-js')
 </body>

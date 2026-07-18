@@ -1,21 +1,5 @@
 @extends('tenant.layouts.app')
 
-@push('styles')
-<style>
-    /* ── Cascader de ubigeo (1 campo, popup 3 columnas) ── */
-    .ubigeo-field { position: relative; }
-    .ubigeo-display { border: 1px solid #dee2e6; border-radius: .375rem; padding: .375rem .75rem; cursor: pointer; background: #fff; color: #6c757d; font-size: .95rem; min-height: 38px; }
-    .ubigeo-display.has-value { color: #212529; font-weight: 500; }
-    .ubigeo-pop { position: absolute; z-index: 5000; top: calc(100% + 4px); left: 0; right: 0; background: #fff; border: 1px solid #dee2e6; border-radius: .5rem; box-shadow: 0 12px 32px -8px rgba(15,23,42,.28); display: flex; overflow: hidden; }
-    .ubigeo-col { flex: 1; min-width: 33%; max-height: 240px; overflow-y: auto; border-right: 1px solid #f1f3f5; }
-    .ubigeo-col:last-child { border-right: none; }
-    .ubigeo-item { padding: 8px 10px; cursor: pointer; font-size: 13px; border-bottom: 1px solid #f8f9fa; white-space: nowrap; }
-    .ubigeo-item:hover, .ubigeo-item.active { background: #eef2ff; color: #4f46e5; font-weight: 600; }
-    .ubigeo-col:empty::before { content: '—'; display: block; text-align: center; color: #ced4da; padding: 12px 0; font-size: 12px; }
-    @media (max-width: 520px) { .ubigeo-pop { overflow-x: auto; } .ubigeo-col { min-width: 130px; } }
-</style>
-@endpush
-
 @section('content')
 <div class="container-fluid px-2 px-md-3 py-3" id="shipmentsApp">
 
