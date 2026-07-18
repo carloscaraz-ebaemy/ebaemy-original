@@ -141,6 +141,23 @@ class ShipmentController extends Controller
         return back()->with('success', "Estado actualizado a «{$shipment->status_label}».");
     }
 
+    /** Editar los datos de un envío (mismo set de reglas que el alta). */
+    public function update(Request $request, ShippingRequest $shipment): RedirectResponse
+    {
+        $data = $this->validateShipment($request);
+        $shipment->update($data);
+
+        return back()->with('success', "Envío {$shipment->shipment_code} actualizado.");
+    }
+
+    /** Anular un envío (queda en estado 'anulado', no se borra). */
+    public function cancel(ShippingRequest $shipment): RedirectResponse
+    {
+        $shipment->update(['status' => ShippingRequest::STATUS_ANULADO]);
+
+        return back()->with('success', "Envío {$shipment->shipment_code} anulado.");
+    }
+
     /** Rótulo imprimible del envío (standalone, listo para imprimir/PDF). */
     public function printLabel(ShippingRequest $shipment)
     {

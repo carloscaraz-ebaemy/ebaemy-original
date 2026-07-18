@@ -65,6 +65,7 @@ class ShippingRequest extends Model
     public const STATUS_LISTO      = 'listo';
     public const STATUS_ENVIADO    = 'enviado';
     public const STATUS_ENTREGADO  = 'entregado';
+    public const STATUS_ANULADO    = 'anulado';
 
     public const STATUSES = [
         self::STATUS_PENDIENTE  => 'Pendiente',
@@ -72,6 +73,16 @@ class ShippingRequest extends Model
         self::STATUS_LISTO      => 'Listo para envío',
         self::STATUS_ENVIADO    => 'Enviado',
         self::STATUS_ENTREGADO  => 'Entregado',
+        self::STATUS_ANULADO    => 'Anulado',
+    ];
+
+    /** Estados que el usuario puede elegir desde el dropdown (sin 'anulado', que tiene su propia acción). */
+    public const SELECTABLE_STATUSES = [
+        self::STATUS_PENDIENTE,
+        self::STATUS_PREPARANDO,
+        self::STATUS_LISTO,
+        self::STATUS_ENVIADO,
+        self::STATUS_ENTREGADO,
     ];
 
     /** Etiqueta legible del estado actual. */
@@ -86,10 +97,18 @@ class ShippingRequest extends Model
         return !empty($this->shipping_guide_path);
     }
 
+    /** ¿Está anulado? */
+    public function getIsCancelledAttribute(): bool
+    {
+        return $this->status === self::STATUS_ANULADO;
+    }
+
     // ── Scopes para los filtros del panel ─────────────────────────────────
     public function scopeWithoutGuide($q)
     {
-        return $q->whereNull('shipping_guide_path');
+        // Los anulados no cuentan como "pendientes de guía".
+        return $q->whereNull('shipping_guide_path')
+                 ->where('status', '!=', self::STATUS_ANULADO);
     }
 
     public function scopeWithGuide($q)

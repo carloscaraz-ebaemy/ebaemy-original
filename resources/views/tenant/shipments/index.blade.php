@@ -100,9 +100,10 @@
                             'listo'      => 'info',
                             'enviado'    => 'success',
                             'entregado'  => 'primary',
+                            'anulado'    => 'dark',
                         ][$s->status] ?? 'secondary';
                     @endphp
-                    <tr>
+                    <tr class="{{ $s->is_cancelled ? 'text-muted' : '' }}" style="{{ $s->is_cancelled ? 'opacity:.7' : '' }}">
                         <td><span class="fw-semibold">{{ $s->shipment_code }}</span></td>
                         <td>
                             <div class="fw-semibold">{{ $s->full_name }}</div>
@@ -127,6 +128,7 @@
                                 </button>
                                 <ul class="dropdown-menu">
                                     @foreach($statuses as $val => $lbl)
+                                        @if($val !== 'anulado')
                                         <li>
                                             <form method="POST" action="{{ route('shipments.status', $s->id) }}">
                                                 @csrf
@@ -134,26 +136,60 @@
                                                 <button class="dropdown-item {{ $s->status === $val ? 'active' : '' }}" type="submit">{{ $lbl }}</button>
                                             </form>
                                         </li>
+                                        @endif
                                     @endforeach
                                 </ul>
                             </div>
                         </td>
                         <td class="text-end text-nowrap">
-                            @if(!$s->has_guide)
+                            @if($s->has_guide)
+                                <a href="{{ route('shipments.guide', $s->id) }}" target="_blank" class="btn btn-sm btn-outline-success">
+                                    <i class="fas fa-eye me-1"></i> Ver guía
+                                </a>
+                            @elseif(!$s->is_cancelled)
                                 <button type="button" class="btn btn-sm btn-primary"
                                         data-bs-toggle="modal" data-bs-target="#modalSubirGuia"
                                         data-id="{{ $s->id }}" data-cliente="{{ $s->full_name }}"
                                         data-agencia="{{ $s->shipping_agency }}" data-ciudad="{{ $s->destination_city }}">
                                     <i class="fas fa-upload me-1"></i> Subir guía
                                 </button>
-                            @else
-                                <a href="{{ route('shipments.guide', $s->id) }}" target="_blank" class="btn btn-sm btn-outline-success">
-                                    <i class="fas fa-eye me-1"></i> Ver guía
-                                </a>
                             @endif
                             <a href="{{ route('shipments.print', $s->id) }}" target="_blank" class="btn btn-sm btn-outline-secondary">
                                 <i class="fas fa-print me-1"></i> Imprimir
                             </a>
+                            <div class="dropdown d-inline-block">
+                                <button class="btn btn-sm btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown" aria-label="Más acciones"><i class="fas fa-ellipsis-v"></i></button>
+                                <ul class="dropdown-menu dropdown-menu-end">
+                                    <li>
+                                        <button type="button" class="dropdown-item btn-editar"
+                                                data-bs-toggle="modal" data-bs-target="#modalEditar"
+                                                data-id="{{ $s->id }}"
+                                                data-full_name="{{ $s->full_name }}"
+                                                data-dni="{{ $s->dni }}"
+                                                data-phone="{{ $s->phone }}"
+                                                data-shipping_destination="{{ $s->shipping_destination }}"
+                                                data-destination_city="{{ $s->destination_city }}"
+                                                data-shipping_agency="{{ $s->shipping_agency }}"
+                                                data-package_content="{{ $s->package_content }}"
+                                                data-package_count="{{ $s->package_count }}"
+                                                data-notes="{{ $s->notes }}">
+                                            <i class="fas fa-pen me-2"></i> Editar
+                                        </button>
+                                    </li>
+                                    @if(!$s->is_cancelled)
+                                    <li><hr class="dropdown-divider"></li>
+                                    <li>
+                                        <form method="POST" action="{{ route('shipments.cancel', $s->id) }}"
+                                              onsubmit="return confirm('¿Anular el envío {{ $s->shipment_code }}? Podrás reactivarlo cambiando su estado.');">
+                                            @csrf
+                                            <button type="submit" class="dropdown-item text-danger">
+                                                <i class="fas fa-ban me-2"></i> Anular
+                                            </button>
+                                        </form>
+                                    </li>
+                                    @endif
+                                </ul>
+                            </div>
                         </td>
                     </tr>
                 @empty
@@ -256,6 +292,47 @@
     </div>
   </div>
 </div>
+
+{{-- ══════════════ Modal: Editar envío ══════════════ --}}
+<div class="modal fade" id="modalEditar" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <form method="POST" action="#" id="formEditar">
+        @csrf
+        <div class="modal-header">
+          <h5 class="modal-title">✏️ Editar envío <span id="edCode" class="text-muted small"></span></h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <div class="row g-2">
+            <div class="col-12"><label class="form-label small mb-0">Nombre completo *</label>
+              <input type="text" name="full_name" id="ed_full_name" class="form-control" required></div>
+            <div class="col-6"><label class="form-label small mb-0">DNI</label>
+              <input type="text" name="dni" id="ed_dni" class="form-control"></div>
+            <div class="col-6"><label class="form-label small mb-0">Teléfono *</label>
+              <input type="text" name="phone" id="ed_phone" class="form-control" required></div>
+            <div class="col-12"><label class="form-label small mb-0">Destino (dirección)</label>
+              <input type="text" name="shipping_destination" id="ed_shipping_destination" class="form-control"></div>
+            <div class="col-6"><label class="form-label small mb-0">Ciudad *</label>
+              <input type="text" name="destination_city" id="ed_destination_city" class="form-control" required></div>
+            <div class="col-6"><label class="form-label small mb-0">Agencia</label>
+              <input type="text" name="shipping_agency" id="ed_shipping_agency" class="form-control"></div>
+            <div class="col-8"><label class="form-label small mb-0">Contenido del paquete</label>
+              <input type="text" name="package_content" id="ed_package_content" class="form-control"></div>
+            <div class="col-4"><label class="form-label small mb-0">N° de bultos</label>
+              <input type="number" name="package_count" id="ed_package_count" class="form-control" min="1" max="9999"></div>
+            <div class="col-12"><label class="form-label small mb-0">Información adicional</label>
+              <input type="text" name="notes" id="ed_notes" class="form-control"></div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+          <button type="submit" class="btn btn-primary">Guardar cambios</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
 @endsection
 
 @push('scripts')
@@ -273,6 +350,23 @@
             var ciudad = btn.getAttribute('data-ciudad') || '';
             var ag = btn.getAttribute('data-agencia') || '';
             document.getElementById('sgDestino').textContent = [ag, ciudad].filter(Boolean).join(' · ') || '—';
+        });
+    }
+
+    // Modal editar: precargar los campos desde los data-* del botón.
+    var modalEd = document.getElementById('modalEditar');
+    if (modalEd) {
+        modalEd.addEventListener('show.bs.modal', function (ev) {
+            var btn = ev.relatedTarget;
+            if (!btn) return;
+            var id = btn.getAttribute('data-id');
+            document.getElementById('formEditar').setAttribute('action', '{{ url("registro-envio") }}/' + id + '/editar');
+            ['full_name','dni','phone','shipping_destination','destination_city','shipping_agency','package_content','package_count','notes'].forEach(function (f) {
+                var el = document.getElementById('ed_' + f);
+                if (el) el.value = btn.getAttribute('data-' + f) || '';
+            });
+            var code = document.getElementById('edCode');
+            if (code) code.textContent = '';
         });
     }
 

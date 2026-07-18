@@ -122,6 +122,10 @@ if ($hostname) {
                      ->name('shipments.store');
                 Route::post('{shipment}/subir-guia', [\App\Http\Controllers\Tenant\ShipmentController::class, 'uploadGuide'])
                      ->name('shipments.upload_guide');
+                Route::post('{shipment}/editar', [\App\Http\Controllers\Tenant\ShipmentController::class, 'update'])
+                     ->name('shipments.update');
+                Route::post('{shipment}/anular', [\App\Http\Controllers\Tenant\ShipmentController::class, 'cancel'])
+                     ->name('shipments.cancel');
                 Route::post('{shipment}/estado', [\App\Http\Controllers\Tenant\ShipmentController::class, 'updateStatus'])
                      ->name('shipments.status');
                 Route::get('{shipment}/imprimir', [\App\Http\Controllers\Tenant\ShipmentController::class, 'printLabel'])
