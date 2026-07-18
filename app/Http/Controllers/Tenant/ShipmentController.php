@@ -249,9 +249,25 @@ class ShipmentController extends Controller
     {
         $company = Company::first();
 
+        // Ubigeo completo (distrito, provincia, departamento) para el rótulo.
+        $ubigeo = null;
+        if ($shipment->district_id) {
+            $dist = District::with('province.department')->find($shipment->district_id);
+            if ($dist) {
+                $prov = $dist->province;
+                $dep  = $prov ? $prov->department : null;
+                $ubigeo = [
+                    'district'   => $dist->description,
+                    'province'   => $prov ? $prov->description : null,
+                    'department' => $dep ? $dep->description : null,
+                ];
+            }
+        }
+
         return view('tenant.shipments.label', [
             'shipment' => $shipment,
             'company'  => $company,
+            'ubigeo'   => $ubigeo,
         ]);
     }
 

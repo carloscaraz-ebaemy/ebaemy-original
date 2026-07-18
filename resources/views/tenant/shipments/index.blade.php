@@ -258,28 +258,34 @@
 
 {{-- ══════════════ Modal: Registrar envío (manual) ══════════════ --}}
 <div class="modal fade" id="modalNuevoEnvio" tabindex="-1">
-  <div class="modal-dialog modal-dialog-centered">
+  <div class="modal-dialog modal-dialog-centered modal-lg">
     <div class="modal-content">
       <form method="POST" action="{{ route('shipments.store') }}">
         @csrf
-        <div class="modal-header">
-          <h5 class="modal-title">Registrar envío</h5>
+        <div class="modal-header bg-light">
+          <h5 class="modal-title"><i class="fas fa-dolly text-primary me-2"></i>Registrar envío</h5>
           <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
         </div>
         <div class="modal-body">
-          <div class="row g-2">
-            <div class="col-12">
-              <label class="form-label small mb-0">DNI / RUC</label>
+
+          <div class="sh-section"><i class="fas fa-user fa-fw me-1"></i> Destinatario</div>
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label class="form-label small mb-1">DNI / RUC <span class="text-muted">(autocompleta)</span></label>
               <input type="text" name="dni" id="nv_dni" class="form-control js-doc-lookup"
                      data-target-name="nv_full_name" data-target-address="nv_shipping_destination" data-ubigeo-group="nv"
                      inputmode="numeric" maxlength="11" autocomplete="off" placeholder="8 dígitos (DNI) u 11 (RUC)">
-              <small class="text-muted js-doc-status"></small>
+              <small class="js-doc-status d-block mt-1"></small>
             </div>
-            <div class="col-12"><label class="form-label small mb-0">Nombre completo *</label>
-              <input type="text" name="full_name" id="nv_full_name" class="form-control" required></div>
-            <div class="col-12"><label class="form-label small mb-0">Teléfono *</label>
+            <div class="col-md-6"><label class="form-label small mb-1">Teléfono *</label>
               <input type="text" name="phone" class="form-control" required></div>
-            <div class="col-12"><label class="form-label small mb-0">Destino (ubigeo) *</label>
+            <div class="col-12"><label class="form-label small mb-1">Nombre completo *</label>
+              <input type="text" name="full_name" id="nv_full_name" class="form-control" required></div>
+          </div>
+
+          <div class="sh-section"><i class="fas fa-map-marker-alt fa-fw me-1"></i> Destino</div>
+          <div class="row g-3">
+            <div class="col-12"><label class="form-label small mb-1">Ubigeo (Departamento / Provincia / Distrito) *</label>
               <div class="ubigeo-field" data-ubigeo-group="nv">
                 <div class="ubigeo-display" tabindex="0">Seleccionar departamento / provincia / distrito…</div>
                 <input type="hidden" name="department_id" data-ub="department">
@@ -291,21 +297,26 @@
                   <div class="ubigeo-col" data-col="dist"></div>
                 </div>
               </div></div>
-            <div class="col-12"><label class="form-label small mb-0">Destino (dirección)</label>
+            <div class="col-md-7"><label class="form-label small mb-1">Dirección / referencia</label>
               <input type="text" name="shipping_destination" id="nv_shipping_destination" class="form-control"></div>
-            <div class="col-12"><label class="form-label small mb-0">Agencia</label>
+            <div class="col-md-5"><label class="form-label small mb-1">Agencia</label>
               <input type="text" name="shipping_agency" class="form-control" placeholder="Shalom, Olva…"></div>
-            <div class="col-8"><label class="form-label small mb-0">Contenido del paquete</label>
+          </div>
+
+          <div class="sh-section"><i class="fas fa-box fa-fw me-1"></i> Paquete</div>
+          <div class="row g-3">
+            <div class="col-md-8"><label class="form-label small mb-1">Contenido del paquete</label>
               <input type="text" name="package_content" class="form-control" placeholder="Ej: 2 mantas, 1 juego de ollas"></div>
-            <div class="col-4"><label class="form-label small mb-0">N° de bultos</label>
+            <div class="col-md-4"><label class="form-label small mb-1">N° de bultos</label>
               <input type="number" name="package_count" class="form-control" value="1" min="1" max="9999"></div>
-            <div class="col-12"><label class="form-label small mb-0">Información adicional</label>
+            <div class="col-12"><label class="form-label small mb-1">Información adicional</label>
               <input type="text" name="notes" class="form-control" placeholder="Referencia, indicaciones…"></div>
           </div>
+
         </div>
-        <div class="modal-footer">
-          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-          <button type="submit" class="btn btn-primary">Registrar</button>
+        <div class="modal-footer bg-light">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+          <button type="submit" class="btn btn-primary px-4"><i class="fas fa-save me-1"></i> Registrar</button>
         </div>
       </form>
     </div>
@@ -314,26 +325,32 @@
 
 {{-- ══════════════ Modal: Editar envío ══════════════ --}}
 <div class="modal fade" id="modalEditar" tabindex="-1">
-  <div class="modal-dialog modal-dialog-centered">
+  <div class="modal-dialog modal-dialog-centered modal-lg">
     <div class="modal-content">
       <form method="POST" action="#" id="formEditar">
         @csrf
-        <div class="modal-header">
-          <h5 class="modal-title">✏️ Editar envío <span id="edCode" class="text-muted small"></span></h5>
+        <div class="modal-header bg-light">
+          <h5 class="modal-title"><i class="fas fa-pen text-primary me-2"></i>Editar envío <span id="edCode" class="text-muted small ms-1"></span></h5>
           <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
         </div>
         <div class="modal-body">
-          <div class="row g-2">
-            <div class="col-12"><label class="form-label small mb-0">Nombre completo *</label>
-              <input type="text" name="full_name" id="ed_full_name" class="form-control" required></div>
-            <div class="col-6"><label class="form-label small mb-0">DNI / RUC</label>
+
+          <div class="sh-section"><i class="fas fa-user fa-fw me-1"></i> Destinatario</div>
+          <div class="row g-3">
+            <div class="col-md-6"><label class="form-label small mb-1">DNI / RUC <span class="text-muted">(autocompleta)</span></label>
               <input type="text" name="dni" id="ed_dni" class="form-control js-doc-lookup"
                      data-target-name="ed_full_name" data-target-address="ed_shipping_destination" data-ubigeo-group="ed"
                      inputmode="numeric" maxlength="11" autocomplete="off">
-              <small class="text-muted js-doc-status"></small></div>
-            <div class="col-6"><label class="form-label small mb-0">Teléfono *</label>
+              <small class="js-doc-status d-block mt-1"></small></div>
+            <div class="col-md-6"><label class="form-label small mb-1">Teléfono *</label>
               <input type="text" name="phone" id="ed_phone" class="form-control" required></div>
-            <div class="col-12"><label class="form-label small mb-0">Destino (ubigeo) *</label>
+            <div class="col-12"><label class="form-label small mb-1">Nombre completo *</label>
+              <input type="text" name="full_name" id="ed_full_name" class="form-control" required></div>
+          </div>
+
+          <div class="sh-section"><i class="fas fa-map-marker-alt fa-fw me-1"></i> Destino</div>
+          <div class="row g-3">
+            <div class="col-12"><label class="form-label small mb-1">Ubigeo (Departamento / Provincia / Distrito) *</label>
               <div class="ubigeo-field" data-ubigeo-group="ed">
                 <div class="ubigeo-display" tabindex="0">Seleccionar departamento / provincia / distrito…</div>
                 <input type="hidden" name="department_id" data-ub="department">
@@ -345,21 +362,26 @@
                   <div class="ubigeo-col" data-col="dist"></div>
                 </div>
               </div></div>
-            <div class="col-12"><label class="form-label small mb-0">Destino (dirección)</label>
+            <div class="col-md-7"><label class="form-label small mb-1">Dirección / referencia</label>
               <input type="text" name="shipping_destination" id="ed_shipping_destination" class="form-control"></div>
-            <div class="col-6"><label class="form-label small mb-0">Agencia</label>
+            <div class="col-md-5"><label class="form-label small mb-1">Agencia</label>
               <input type="text" name="shipping_agency" id="ed_shipping_agency" class="form-control"></div>
-            <div class="col-8"><label class="form-label small mb-0">Contenido del paquete</label>
+          </div>
+
+          <div class="sh-section"><i class="fas fa-box fa-fw me-1"></i> Paquete</div>
+          <div class="row g-3">
+            <div class="col-md-8"><label class="form-label small mb-1">Contenido del paquete</label>
               <input type="text" name="package_content" id="ed_package_content" class="form-control"></div>
-            <div class="col-4"><label class="form-label small mb-0">N° de bultos</label>
+            <div class="col-md-4"><label class="form-label small mb-1">N° de bultos</label>
               <input type="number" name="package_count" id="ed_package_count" class="form-control" min="1" max="9999"></div>
-            <div class="col-12"><label class="form-label small mb-0">Información adicional</label>
+            <div class="col-12"><label class="form-label small mb-1">Información adicional</label>
               <input type="text" name="notes" id="ed_notes" class="form-control"></div>
           </div>
+
         </div>
-        <div class="modal-footer">
-          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-          <button type="submit" class="btn btn-primary">Guardar cambios</button>
+        <div class="modal-footer bg-light">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+          <button type="submit" class="btn btn-primary px-4"><i class="fas fa-save me-1"></i> Guardar cambios</button>
         </div>
       </form>
     </div>

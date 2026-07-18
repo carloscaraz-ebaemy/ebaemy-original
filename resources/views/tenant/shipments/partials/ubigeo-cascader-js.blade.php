@@ -18,6 +18,10 @@
     .ubigeo-col:empty::before { content: '—'; display: block; text-align: center; color: #ced4da; padding: 12px 0; font-size: 12px; }
     .ubigeo-empty { padding: 14px; text-align: center; color: #adb5bd; font-size: 13px; }
     @media (max-width: 520px) { .ubigeo-cols { overflow-x: auto; } .ubigeo-col { min-width: 130px; } }
+
+    /* Encabezados de sección del formulario de envío */
+    .sh-section { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .6px; color: #4f46e5; border-bottom: 1px solid #eef2ff; padding-bottom: 5px; margin: 20px 0 12px; }
+    .sh-section:first-child { margin-top: 4px; }
 </style>
 <script>
 (function () {

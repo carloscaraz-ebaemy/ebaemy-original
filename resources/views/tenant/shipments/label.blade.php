@@ -57,7 +57,11 @@
         @if($shipment->phone)<div class="med-text">Cel: {{ $shipment->phone }}</div>@endif
         @if($shipment->dni)<div class="med-text">DNI: {{ $shipment->dni }}</div>@endif
         @if($shipment->shipping_destination)<div class="med-text" style="font-weight:bold">{{ $shipment->shipping_destination }}</div>@endif
-        @if($shipment->destination_city)<div class="med-text">{{ $shipment->destination_city }}</div>@endif
+        @if(!empty($ubigeo))
+            <div class="med-text" style="font-weight:bold">{{ $ubigeo['district'] }}@if($ubigeo['province']), {{ $ubigeo['province'] }}@endif@if($ubigeo['department']), {{ $ubigeo['department'] }}@endif</div>
+        @elseif($shipment->destination_city)
+            <div class="med-text">{{ $shipment->destination_city }}</div>
+        @endif
     </div>
 
     @if($shipment->package_content || $shipment->package_count)
