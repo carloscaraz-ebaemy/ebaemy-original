@@ -16,6 +16,10 @@
         .label { width: 10cm; background: #fff; border: 2px solid #000; padding: 12px; page-break-inside: avoid; }
 
         .qr-img { width: 2.4cm; height: 2.4cm; flex: 0 0 auto; }
+        .bulto-box { display: inline-block; flex: 1; height: .9cm; border: 2px solid #000; border-radius: 3px; background: #fff; }
+        .bulto-total { font-weight: bold; font-size: 16px; }
+        body.fmt-a5 .bulto-box { height: 1.1cm; } body.fmt-a5 .bulto-total { font-size: 20px; }
+        body.fmt-a4 .bulto-box { height: 1.7cm; } body.fmt-a4 .bulto-total { font-size: 30px; }
 
         /* ── Formatos de papel: escalan el contenido para llenar la hoja ── */
         body.fmt-a5 .label { width: 100%; max-width: 14cm; padding: 18px; }
@@ -119,29 +123,26 @@
         @if($ubigeoLine)<div class="med-text" style="font-weight:bold">{{ $ubigeoLine }}</div>@endif
     </div>
 
-    @if($shipment->package_content || $shipment->package_count)
+    @if($shipment->package_content)
         <div class="section">
             <div class="section-title">Contenido del paquete</div>
-            <div class="med-text">
-                {{ $shipment->package_content ?: '—' }}
-                <span style="float:right;font-weight:bold;">{{ (int) ($shipment->package_count ?: 1) }} bulto{{ (int) ($shipment->package_count ?: 1) === 1 ? '' : 's' }}</span>
-            </div>
+            <div class="med-text">{{ $shipment->package_content }}</div>
         </div>
     @endif
 
     <div class="divider"></div>
 
-    {{-- Agencia / Estado / Guía --}}
+    {{-- Agencia / Bulto N° (se escribe a mano) --}}
     <div class="grid">
         <div class="box">
             <div class="section-title">Agencia</div>
             <div class="v">{{ strtoupper($shipment->shipping_agency ?: '—') }}</div>
         </div>
         <div class="box">
-            <div class="section-title">Estado</div>
-            <div class="v">
-                @php $stClass = $shipment->status === 'enviado' ? 'st-enviado' : ($shipment->status === 'entregado' ? 'st-entregado' : 'st-otro'); @endphp
-                <span class="status-chip {{ $stClass }}">{{ strtoupper($shipment->status_label) }}</span>
+            <div class="section-title">Bulto N° (escribir a mano)</div>
+            <div style="display:flex;align-items:center;gap:8px;margin-top:2px;">
+                <span class="bulto-box"></span>
+                <span class="bulto-total">/ {{ (int) ($shipment->package_count ?: 1) }}</span>
             </div>
         </div>
     </div>
