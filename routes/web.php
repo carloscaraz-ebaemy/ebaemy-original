@@ -136,6 +136,8 @@ if ($hostname) {
                 Route::get('consulta/{type}/{number}', [\App\Http\Controllers\Tenant\ShipmentController::class, 'lookupDocument'])
                      ->where('type', 'dni|ruc')->where('number', '[0-9]+')
                      ->name('shipments.lookup');
+                Route::get('lote-imprimir', [\App\Http\Controllers\Tenant\ShipmentController::class, 'printBatch'])
+                     ->name('shipments.print_batch');
                 Route::post('/', [\App\Http\Controllers\Tenant\ShipmentController::class, 'store'])
                      ->name('shipments.store');
                 Route::post('{shipment}/subir-guia', [\App\Http\Controllers\Tenant\ShipmentController::class, 'uploadGuide'])

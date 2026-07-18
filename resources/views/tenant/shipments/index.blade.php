@@ -76,12 +76,21 @@
         </div>
     </form>
 
+    {{-- Barra de selección (impresión por lote) --}}
+    <div id="shBulkBar" class="alert alert-primary d-none align-items-center justify-content-between py-2 mb-2">
+        <span><strong id="shSelCount">0</strong> seleccionados</span>
+        <button type="button" class="btn btn-sm btn-primary" id="shPrintSel">
+            <i class="fas fa-print me-1"></i> Imprimir rótulos seleccionados
+        </button>
+    </div>
+
     {{-- Tabla (scroll horizontal en móvil) --}}
     <div class="card">
         <div class="table-responsive">
-            <table class="table table-hover align-middle mb-0" style="min-width:820px;">
+            <table class="table table-hover align-middle mb-0" style="min-width:860px;">
                 <thead class="table-light">
                     <tr>
+                        <th style="width:34px;"><input type="checkbox" class="form-check-input" id="shCheckAll" title="Seleccionar todos"></th>
                         <th>Envío</th>
                         <th>Cliente</th>
                         <th>Ciudad</th>
@@ -104,6 +113,7 @@
                         ][$s->status] ?? 'secondary';
                     @endphp
                     <tr class="{{ $s->is_cancelled ? 'text-muted' : '' }}" style="{{ $s->is_cancelled ? 'opacity:.7' : '' }}">
+                        <td><input type="checkbox" class="form-check-input sh-check" value="{{ $s->id }}"></td>
                         <td><span class="fw-semibold">{{ $s->shipment_code }}</span></td>
                         <td>
                             <div class="fw-semibold">{{ $s->full_name }}</div>
@@ -198,7 +208,7 @@
                     </tr>
                 @empty
                     <tr>
-                        <td colspan="7" class="text-center text-muted py-4">
+                        <td colspan="8" class="text-center text-muted py-4">
                             <i class="fas fa-box-open fa-2x mb-2 d-block"></i>
                             No hay envíos {{ $filter !== 'todos' ? 'con este filtro' : 'registrados todavía' }}.
                         </td>
@@ -406,6 +416,30 @@
         });
     }
     initDropdowns();
+
+    // ── Selección para impresión por lote ──
+    (function () {
+        var checkAll = document.getElementById('shCheckAll');
+        var bar = document.getElementById('shBulkBar');
+        var countEl = document.getElementById('shSelCount');
+        var printBtn = document.getElementById('shPrintSel');
+        function checks() { return Array.prototype.slice.call(document.querySelectorAll('.sh-check')); }
+        function refresh() {
+            var sel = checks().filter(function (c) { return c.checked; });
+            if (countEl) countEl.textContent = sel.length;
+            if (bar) { bar.classList.toggle('d-none', sel.length === 0); bar.classList.toggle('d-flex', sel.length > 0); }
+        }
+        if (checkAll) checkAll.addEventListener('change', function () {
+            checks().forEach(function (c) { c.checked = checkAll.checked; }); refresh();
+        });
+        document.addEventListener('change', function (ev) {
+            if (ev.target && ev.target.classList && ev.target.classList.contains('sh-check')) refresh();
+        });
+        if (printBtn) printBtn.addEventListener('click', function () {
+            var ids = checks().filter(function (c) { return c.checked; }).map(function (c) { return c.value; });
+            if (ids.length) window.open('{{ route("shipments.print_batch") }}?ids=' + ids.join(','), '_blank');
+        });
+    })();
 
     // El widget cascader de ubigeo se define en el partial incluido abajo,
     // que expone window.__ubPreset(group, dep, prov, dist).

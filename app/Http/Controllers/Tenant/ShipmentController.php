@@ -255,38 +255,64 @@ class ShipmentController extends Controller
             $format = 'a5';
         }
 
-        // Ubigeo completo (distrito, provincia, departamento) para el rótulo.
-        $ubigeo = null;
-        if ($shipment->district_id) {
-            $dist = District::with('province.department')->find($shipment->district_id);
-            if ($dist) {
-                $prov = $dist->province;
-                $dep  = $prov ? $prov->department : null;
-                $ubigeo = [
-                    'district'   => $dist->description,
-                    'province'   => $prov ? $prov->description : null,
-                    'department' => $dep ? $dep->description : null,
-                ];
-            }
-        }
-
-        // QR que abre la página de estado rápido (el encargado escanea y marca
-        // preparando/listo/enviado). PNG base64 vía el helper del ERP.
-        $qrBase64 = null;
-        try {
-            $qrUrl = url('registro-envio/' . $shipment->id . '/estado-rapido');
-            $qrBase64 = (new \App\CoreFacturalo\Helpers\QrCode\QrCodeGenerate())->displayPNGBase64($qrUrl, 220, 'M');
-        } catch (\Throwable $e) {
-            // Si el generador de QR falla, el rótulo se imprime sin QR.
-        }
-
         return view('tenant.shipments.label', [
             'shipment' => $shipment,
             'company'  => $company,
-            'ubigeo'   => $ubigeo,
+            'ubigeo'   => $this->resolveUbigeo($shipment),
             'format'   => $format,
-            'qr'       => $qrBase64,
+            'qr'       => $this->makeQr($shipment),
         ]);
+    }
+
+    /** Impresión por lote: varios rótulos en una hoja A4. */
+    public function printBatch(Request $request)
+    {
+        $ids = collect(explode(',', (string) $request->query('ids', '')))
+            ->map(fn ($x) => (int) trim($x))->filter()->unique()->take(60)->values();
+
+        abort_if($ids->isEmpty(), 404);
+
+        $shipments = ShippingRequest::whereIn('id', $ids)->orderBy('id')->get();
+        $items = $shipments->map(fn ($s) => [
+            'shipment' => $s,
+            'ubigeo'   => $this->resolveUbigeo($s),
+            'qr'       => $this->makeQr($s),
+        ])->all();
+
+        return view('tenant.shipments.label-batch', [
+            'items'   => $items,
+            'company' => Company::first(),
+        ]);
+    }
+
+    /** Ubigeo completo (distrito/provincia/departamento) para el rótulo. */
+    private function resolveUbigeo(ShippingRequest $shipment): ?array
+    {
+        if (!$shipment->district_id) {
+            return null;
+        }
+        $dist = District::with('province.department')->find($shipment->district_id);
+        if (!$dist) {
+            return null;
+        }
+        $prov = $dist->province;
+        $dep  = $prov ? $prov->department : null;
+        return [
+            'district'   => $dist->description,
+            'province'   => $prov ? $prov->description : null,
+            'department' => $dep ? $dep->description : null,
+        ];
+    }
+
+    /** QR (PNG base64) que abre la página de estado rápido del envío. */
+    private function makeQr(ShippingRequest $shipment): ?string
+    {
+        try {
+            $url = url('registro-envio/' . $shipment->id . '/estado-rapido');
+            return (new \App\CoreFacturalo\Helpers\QrCode\QrCodeGenerate())->displayPNGBase64($url, 220, 'M');
+        } catch (\Throwable $e) {
+            return null;
+        }
     }
 
     /**
