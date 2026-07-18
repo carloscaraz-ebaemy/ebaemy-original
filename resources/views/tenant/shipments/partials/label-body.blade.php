@@ -5,6 +5,7 @@
         <div>
             <div class="section-title">N° Envío</div>
             <div class="env-code">{{ $shipment->shipment_code }}</div>
+            @if(!empty($barcode))<img class="barcode-img" src="data:image/png;base64,{{ $barcode }}" alt="{{ $shipment->shipment_code }}">@endif
         </div>
         <div style="text-align:right;">
             <div class="brand">{{ $company->title_web ?? $company->trade_name ?? $company->name ?? 'ebaemy' }}</div>
@@ -56,6 +57,10 @@
             </div>
         </div>
     </div>
+
+    @if($shipment->weight)
+        <div style="text-align:right;font-size:11px;margin-top:3px;"><strong>Peso:</strong> {{ rtrim(rtrim(number_format($shipment->weight, 2), '0'), '.') }} kg</div>
+    @endif
 
     @if($shipment->tracking_number)
         <div class="guide-box">

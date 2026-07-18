@@ -6,6 +6,9 @@
     .label { width: 10cm; background: #fff; border: 2px solid #000; padding: 12px; page-break-inside: avoid; }
 
     .qr-img { width: 2.4cm; height: 2.4cm; flex: 0 0 auto; }
+    .barcode-img { display: block; height: 1cm; margin-top: 4px; max-width: 100%; }
+    body.fmt-a5 .barcode-img { height: 1.2cm; }
+    body.fmt-a4 .barcode-img { height: 1.6cm; }
     .bulto-box { display: inline-block; flex: 1; height: .9cm; border: 2px solid #000; border-radius: 3px; background: #fff; }
     .bulto-total { font-weight: bold; font-size: 16px; }
     body.fmt-a5 .bulto-box { height: 1.1cm; } body.fmt-a5 .bulto-total { font-size: 20px; }

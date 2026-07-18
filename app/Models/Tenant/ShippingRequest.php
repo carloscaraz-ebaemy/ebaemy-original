@@ -44,6 +44,7 @@ class ShippingRequest extends Model
         'shipping_agency',
         'package_content',
         'package_count',
+        'weight',
         'notes',
         'tracking_number',
         'shipping_guide_path',
@@ -60,6 +61,7 @@ class ShippingRequest extends Model
         'order_id'       => 'integer',
         'created_by'     => 'integer',
         'package_count'  => 'integer',
+        'weight'         => 'decimal:2',
     ];
 
     // ── Estados del paquete ────────────────────────────────────────────────

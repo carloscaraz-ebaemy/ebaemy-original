@@ -261,6 +261,7 @@ class ShipmentController extends Controller
             'ubigeo'   => $this->resolveUbigeo($shipment),
             'format'   => $format,
             'qr'       => $this->makeQr($shipment),
+            'barcode'  => $this->makeBarcode($shipment),
         ]);
     }
 
@@ -277,6 +278,7 @@ class ShipmentController extends Controller
             'shipment' => $s,
             'ubigeo'   => $this->resolveUbigeo($s),
             'qr'       => $this->makeQr($s),
+            'barcode'  => $this->makeBarcode($s),
         ])->all();
 
         return view('tenant.shipments.label-batch', [
@@ -310,6 +312,17 @@ class ShipmentController extends Controller
         try {
             $url = url('registro-envio/' . $shipment->id . '/estado-rapido');
             return (new \App\CoreFacturalo\Helpers\QrCode\QrCodeGenerate())->displayPNGBase64($url, 220, 'M');
+        } catch (\Throwable $e) {
+            return null;
+        }
+    }
+
+    /** Código de barras Code128 (PNG base64) del código del envío. */
+    private function makeBarcode(ShippingRequest $shipment): ?string
+    {
+        try {
+            $gen = new \Picqer\Barcode\BarcodeGeneratorPNG();
+            return base64_encode($gen->getBarcode((string) $shipment->shipment_code, $gen::TYPE_CODE_128, 2, 45));
         } catch (\Throwable $e) {
             return null;
         }
@@ -432,6 +445,7 @@ class ShipmentController extends Controller
             'shipping_agency'      => 'nullable|string|max:120',
             'package_content'      => 'nullable|string|max:255',
             'package_count'        => 'nullable|integer|min:1|max:9999',
+            'weight'               => 'nullable|numeric|min:0|max:999999',
             'notes'                => 'nullable|string|max:255',
             'observation'          => 'nullable|string|max:255',
             'order_id'             => 'nullable|integer',

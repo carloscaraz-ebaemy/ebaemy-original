@@ -48,6 +48,7 @@ return new class extends Migration
             // Detalle del paquete
             $table->string('package_content', 255)->nullable();       // qué se envía
             $table->unsignedSmallInteger('package_count')->default(1); // N° de bultos
+            $table->decimal('weight', 8, 2)->nullable();              // peso aprox (kg)
             $table->string('notes', 255)->nullable();                 // información adicional
 
             // Datos que carga el encargado al despachar

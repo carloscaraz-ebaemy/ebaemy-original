@@ -182,6 +182,7 @@
                                                 data-shipping_agency="{{ $s->shipping_agency }}"
                                                 data-package_content="{{ $s->package_content }}"
                                                 data-package_count="{{ $s->package_count }}"
+                                                data-weight="{{ $s->weight }}"
                                                 data-notes="{{ $s->notes }}"
                                                 data-department_id="{{ $s->department_id }}"
                                                 data-province_id="{{ $s->province_id }}"
@@ -315,10 +316,12 @@
 
           <div class="sh-section"><i class="fas fa-box fa-fw me-1"></i> Paquete</div>
           <div class="row g-3">
-            <div class="col-md-8"><label class="form-label small mb-1">Contenido del paquete</label>
+            <div class="col-md-6"><label class="form-label small mb-1">Contenido del paquete</label>
               <input type="text" name="package_content" class="form-control" placeholder="Ej: 2 mantas, 1 juego de ollas"></div>
-            <div class="col-md-4"><label class="form-label small mb-1">N° de bultos</label>
+            <div class="col-md-3"><label class="form-label small mb-1">N° de bultos</label>
               <input type="number" name="package_count" class="form-control" value="1" min="1" max="9999"></div>
+            <div class="col-md-3"><label class="form-label small mb-1">Peso (kg)</label>
+              <input type="number" name="weight" class="form-control" step="0.01" min="0" placeholder="0"></div>
             <div class="col-12"><label class="form-label small mb-1">Información adicional</label>
               <input type="text" name="notes" class="form-control" placeholder="Referencia, indicaciones…"></div>
           </div>
@@ -380,10 +383,12 @@
 
           <div class="sh-section"><i class="fas fa-box fa-fw me-1"></i> Paquete</div>
           <div class="row g-3">
-            <div class="col-md-8"><label class="form-label small mb-1">Contenido del paquete</label>
+            <div class="col-md-6"><label class="form-label small mb-1">Contenido del paquete</label>
               <input type="text" name="package_content" id="ed_package_content" class="form-control"></div>
-            <div class="col-md-4"><label class="form-label small mb-1">N° de bultos</label>
+            <div class="col-md-3"><label class="form-label small mb-1">N° de bultos</label>
               <input type="number" name="package_count" id="ed_package_count" class="form-control" min="1" max="9999"></div>
+            <div class="col-md-3"><label class="form-label small mb-1">Peso (kg)</label>
+              <input type="number" name="weight" id="ed_weight" class="form-control" step="0.01" min="0"></div>
             <div class="col-12"><label class="form-label small mb-1">Información adicional</label>
               <input type="text" name="notes" id="ed_notes" class="form-control"></div>
           </div>
@@ -467,7 +472,7 @@
         var id = btn.getAttribute('data-id');
         var form = document.getElementById('formEditar');
         if (form) form.setAttribute('action', '{{ url("registro-envio") }}/' + id + '/editar');
-        ['full_name','dni','phone','shipping_destination','shipping_agency','package_content','package_count','notes'].forEach(function (f) {
+        ['full_name','dni','phone','shipping_destination','shipping_agency','package_content','package_count','weight','notes'].forEach(function (f) {
             var el = document.getElementById('ed_' + f);
             if (el) el.value = btn.getAttribute('data-' + f) || '';
         });
