@@ -114,19 +114,8 @@
                 <label>Agencia de envío (si la conoces)</label>
                 <input type="text" name="shipping_agency" value="{{ old('shipping_agency') }}" maxlength="120" placeholder="Shalom, Olva…">
 
-                <label>Contenido del paquete</label>
-                <input type="text" name="package_content" value="{{ old('package_content') }}" maxlength="255" placeholder="Ej: 2 mantas, 1 juego de ollas">
-
-                <div class="row">
-                    <div style="max-width:120px;">
-                        <label>N° de bultos</label>
-                        <input type="number" name="package_count" value="{{ old('package_count', 1) }}" min="1" max="9999" inputmode="numeric">
-                    </div>
-                    <div>
-                        <label>Información adicional</label>
-                        <input type="text" name="notes" value="{{ old('notes') }}" maxlength="255" placeholder="Referencia, indicaciones…">
-                    </div>
-                </div>
+                <label>Información adicional</label>
+                <input type="text" name="notes" value="{{ old('notes') }}" maxlength="255" placeholder="Referencia, indicaciones…">
 
                 <label class="terms">
                     <input type="checkbox" name="accepted_terms" value="1" {{ old('accepted_terms') ? 'checked' : '' }} required>
