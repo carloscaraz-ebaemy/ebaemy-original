@@ -125,6 +125,9 @@ class ShipmentController extends Controller
             'sent_at'             => now(),
         ]);
 
+        // Avisar al cliente por WhatsApp que su envío salió (async, best-effort).
+        $this->notifyClientShipped($shipment);
+
         return back()->with('success', "Guía {$shipment->tracking_number} cargada. Envío marcado como Enviado.");
     }
 
@@ -314,6 +317,37 @@ class ShipmentController extends Controller
             return (new \App\CoreFacturalo\Helpers\QrCode\QrCodeGenerate())->displayPNGBase64($url, 220, 'M');
         } catch (\Throwable $e) {
             return null;
+        }
+    }
+
+    /**
+     * Notifica al cliente por WhatsApp que su envío salió (guía + agencia +
+     * link de seguimiento). Async vía el job del ERP; best-effort (no rompe
+     * la subida de guía si WhatsApp no está configurado o falla).
+     */
+    private function notifyClientShipped(ShippingRequest $shipment): void
+    {
+        try {
+            $phone = preg_replace('/\D+/', '', (string) $shipment->phone);
+            if (strlen($phone) === 9 && $phone[0] === '9') {
+                $phone = '51' . $phone;
+            }
+            if (strlen($phone) < 11) {
+                return; // sin celular válido
+            }
+
+            $name     = \Illuminate\Support\Str::of($shipment->full_name)->before(' ');
+            $trackUrl = url('envio/seguimiento?code=' . $shipment->shipment_code);
+
+            $msg  = "¡Hola {$name}! 📦\n\nTu envío *{$shipment->shipment_code}* ya salió.\n";
+            if ($shipment->shipping_agency) $msg .= "🚚 Agencia: {$shipment->shipping_agency}\n";
+            if ($shipment->tracking_number) $msg .= "📄 Guía: {$shipment->tracking_number}\n";
+            if ($shipment->destination_city) $msg .= "📍 Destino: {$shipment->destination_city}\n";
+            $msg .= "\n🔎 Sigue tu envío aquí:\n{$trackUrl}\n\n¡Gracias por tu compra!";
+
+            dispatch(\App\Jobs\SendWhatsAppMessage::text($phone, $msg));
+        } catch (\Throwable $e) {
+            \Log::warning('[shipping] WhatsApp de envío no enviado: ' . $e->getMessage());
         }
     }
 
