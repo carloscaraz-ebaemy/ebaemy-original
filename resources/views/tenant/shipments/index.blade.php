@@ -265,17 +265,22 @@
         </div>
         <div class="modal-body">
           <div class="row g-2">
+            <div class="col-12">
+              <label class="form-label small mb-0">DNI / RUC</label>
+              <input type="text" name="dni" id="nv_dni" class="form-control js-doc-lookup"
+                     data-target-name="nv_full_name" data-target-address="nv_shipping_destination"
+                     inputmode="numeric" maxlength="11" autocomplete="off" placeholder="8 dígitos (DNI) u 11 (RUC)">
+              <small class="text-muted js-doc-status"></small>
+            </div>
             <div class="col-12"><label class="form-label small mb-0">Nombre completo *</label>
-              <input type="text" name="full_name" class="form-control" required></div>
-            <div class="col-6"><label class="form-label small mb-0">DNI</label>
-              <input type="text" name="dni" class="form-control"></div>
+              <input type="text" name="full_name" id="nv_full_name" class="form-control" required></div>
             <div class="col-6"><label class="form-label small mb-0">Teléfono *</label>
               <input type="text" name="phone" class="form-control" required></div>
-            <div class="col-12"><label class="form-label small mb-0">Destino (dirección)</label>
-              <input type="text" name="shipping_destination" class="form-control"></div>
             <div class="col-6"><label class="form-label small mb-0">Ciudad *</label>
               <input type="text" name="destination_city" class="form-control" required></div>
-            <div class="col-6"><label class="form-label small mb-0">Agencia</label>
+            <div class="col-12"><label class="form-label small mb-0">Destino (dirección)</label>
+              <input type="text" name="shipping_destination" id="nv_shipping_destination" class="form-control"></div>
+            <div class="col-12"><label class="form-label small mb-0">Agencia</label>
               <input type="text" name="shipping_agency" class="form-control" placeholder="Shalom, Olva…"></div>
             <div class="col-8"><label class="form-label small mb-0">Contenido del paquete</label>
               <input type="text" name="package_content" class="form-control" placeholder="Ej: 2 mantas, 1 juego de ollas"></div>
@@ -308,8 +313,11 @@
           <div class="row g-2">
             <div class="col-12"><label class="form-label small mb-0">Nombre completo *</label>
               <input type="text" name="full_name" id="ed_full_name" class="form-control" required></div>
-            <div class="col-6"><label class="form-label small mb-0">DNI</label>
-              <input type="text" name="dni" id="ed_dni" class="form-control"></div>
+            <div class="col-6"><label class="form-label small mb-0">DNI / RUC</label>
+              <input type="text" name="dni" id="ed_dni" class="form-control js-doc-lookup"
+                     data-target-name="ed_full_name" data-target-address="ed_shipping_destination"
+                     inputmode="numeric" maxlength="11" autocomplete="off">
+              <small class="text-muted js-doc-status"></small></div>
             <div class="col-6"><label class="form-label small mb-0">Teléfono *</label>
               <input type="text" name="phone" id="ed_phone" class="form-control" required></div>
             <div class="col-12"><label class="form-label small mb-0">Destino (dirección)</label>
@@ -383,6 +391,50 @@
         });
         var code = document.getElementById('edCode');
         if (code) code.textContent = btn.getAttribute('data-shipment_code') || '';
+    });
+
+    // Autocompletar por documento: 8 dígitos → DNI (RENIEC), 11 → RUC (SUNAT).
+    var docTimer = null;
+    document.addEventListener('input', function (ev) {
+        var inp = ev.target;
+        if (!inp.classList || !inp.classList.contains('js-doc-lookup')) return;
+
+        var status = inp.parentElement.querySelector('.js-doc-status');
+        var num = (inp.value || '').replace(/\D+/g, '');
+        clearTimeout(docTimer);
+
+        if (num.length !== 8 && num.length !== 11) {
+            if (status) status.textContent = '';
+            return;
+        }
+
+        var kind = num.length === 8 ? 'dni' : 'ruc';
+        if (status) { status.className = 'text-muted js-doc-status'; status.textContent = 'Consultando ' + kind.toUpperCase() + '…'; }
+
+        docTimer = setTimeout(function () {
+            fetch('{{ url("services") }}/' + kind + '/' + num, { headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' } })
+                .then(function (r) { return r.json(); })
+                .then(function (res) {
+                    if (!res || res.success === false || !res.data) {
+                        if (status) { status.className = 'text-danger js-doc-status'; status.textContent = (res && res.message) ? res.message : 'No se encontraron datos.'; }
+                        return;
+                    }
+                    var d = res.data;
+                    var full = d.name || [d.first_name, d.last_name].filter(Boolean).join(' ');
+                    var nameEl = document.getElementById(inp.getAttribute('data-target-name'));
+                    if (nameEl && full) nameEl.value = full;
+                    // RUC: si trae dirección y el destino está vacío, precargarla.
+                    var addrId = inp.getAttribute('data-target-address');
+                    if (addrId && d.address) {
+                        var addrEl = document.getElementById(addrId);
+                        if (addrEl && !addrEl.value) addrEl.value = d.address;
+                    }
+                    if (status) { status.className = 'text-success js-doc-status'; status.textContent = '✓ ' + (full || 'encontrado'); }
+                })
+                .catch(function () {
+                    if (status) { status.className = 'text-danger js-doc-status'; status.textContent = 'No se pudo consultar.'; }
+                });
+        }, 450);
     });
 
     // Input de archivo: mostrar nombre + drag&drop.
