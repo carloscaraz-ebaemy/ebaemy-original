@@ -99,7 +99,17 @@
                 <input type="text" name="shipping_destination" id="pub_shipping_destination" value="{{ old('shipping_destination') }}" maxlength="255">
 
                 <label>Agencia de envío (si la conoces)</label>
-                <input type="text" name="shipping_agency" value="{{ old('shipping_agency') }}" maxlength="120" placeholder="Shalom, Olva…">
+                <div class="agency-field">
+                    <select class="agency-select">
+                        <option value="">— Selecciona —</option>
+                        @foreach(\App\Models\Tenant\ShippingRequest::AGENCIES as $a)
+                            <option value="{{ $a }}">{{ $a }}</option>
+                        @endforeach
+                        <option value="__otra__">Otra…</option>
+                    </select>
+                    <input type="text" class="agency-input" name="shipping_agency" value="{{ old('shipping_agency') }}"
+                           maxlength="120" placeholder="Nombre de la agencia" style="display:none;margin-top:8px;">
+                </div>
 
                 <label>Información adicional</label>
                 <input type="text" name="notes" value="{{ old('notes') }}" maxlength="255" placeholder="Referencia, indicaciones…">
@@ -157,5 +167,6 @@
     })();
 </script>
 @include('tenant.shipments.partials.ubigeo-cascader-js')
+@include('tenant.shipments.partials.agency-select-js')
 </body>
 </html>

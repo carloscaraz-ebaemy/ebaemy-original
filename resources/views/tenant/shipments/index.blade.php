@@ -311,7 +311,14 @@
             <div class="col-md-7"><label class="form-label small mb-1">Dirección / referencia</label>
               <input type="text" name="shipping_destination" id="nv_shipping_destination" class="form-control"></div>
             <div class="col-md-5"><label class="form-label small mb-1">Agencia</label>
-              <input type="text" name="shipping_agency" class="form-control" placeholder="Shalom, Olva…"></div>
+              <div class="agency-field">
+                <select class="form-select agency-select">
+                  <option value="">— Selecciona —</option>
+                  @foreach(\App\Models\Tenant\ShippingRequest::AGENCIES as $a)<option value="{{ $a }}">{{ $a }}</option>@endforeach
+                  <option value="__otra__">Otra…</option>
+                </select>
+                <input type="text" name="shipping_agency" class="form-control agency-input mt-2" placeholder="Nombre de la agencia" style="display:none;">
+              </div></div>
           </div>
 
           <div class="sh-section"><i class="fas fa-box fa-fw me-1"></i> Paquete</div>
@@ -378,7 +385,14 @@
             <div class="col-md-7"><label class="form-label small mb-1">Dirección / referencia</label>
               <input type="text" name="shipping_destination" id="ed_shipping_destination" class="form-control"></div>
             <div class="col-md-5"><label class="form-label small mb-1">Agencia</label>
-              <input type="text" name="shipping_agency" id="ed_shipping_agency" class="form-control"></div>
+              <div class="agency-field">
+                <select class="form-select agency-select">
+                  <option value="">— Selecciona —</option>
+                  @foreach(\App\Models\Tenant\ShippingRequest::AGENCIES as $a)<option value="{{ $a }}">{{ $a }}</option>@endforeach
+                  <option value="__otra__">Otra…</option>
+                </select>
+                <input type="text" name="shipping_agency" id="ed_shipping_agency" class="form-control agency-input mt-2" style="display:none;">
+              </div></div>
           </div>
 
           <div class="sh-section"><i class="fas fa-box fa-fw me-1"></i> Paquete</div>
@@ -480,6 +494,8 @@
         if (code) code.textContent = btn.getAttribute('data-shipment_code') || '';
         // Precargar el ubigeo (dep → prov → dist) del envío.
         if (window.__ubPreset) window.__ubPreset('ed', btn.getAttribute('data-department_id'), btn.getAttribute('data-province_id'), btn.getAttribute('data-district_id'));
+        // Sincronizar el desplegable de agencia con el valor cargado.
+        if (window.__syncAgency) window.__syncAgency();
     });
 
     // Autocompletar por documento: 8 dígitos → DNI (RENIEC), 11 → RUC (SUNAT).
@@ -557,4 +573,5 @@
 })();
 </script>
 @include('tenant.shipments.partials.ubigeo-cascader-js')
+@include('tenant.shipments.partials.agency-select-js')
 @endpush

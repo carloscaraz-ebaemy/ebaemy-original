@@ -132,6 +132,12 @@ class ShippingRequest extends Model
                  ->whereDate('sent_at', now()->toDateString());
     }
 
+    /** Agencias de envío frecuentes en Perú (para el desplegable del form). */
+    public const AGENCIES = [
+        'Shalom', 'Olva Courier', 'Marvisur', 'Cruz del Sur Cargo', 'Móvil Tours',
+        'Tepsa', 'Civa', 'Flores', 'Transportes Línea', 'GH Bus', 'Ittsa', 'Oltursa',
+    ];
+
     /**
      * Genera el código legible del envío a partir del id (ENV-000125).
      */
