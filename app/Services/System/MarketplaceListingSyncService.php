@@ -1036,16 +1036,33 @@ class MarketplaceListingSyncService
         try {
             $company = DB::connection('tenant')->table('companies')->first();
             if ($company) {
-                $name = ($company->title_web ?? null)
-                    ?: ($company->name ?? null)
-                    ?: ($company->trade_name ?? null);
+                // "Título web" es el nombre público configurable, PERO su valor
+                // por defecto de fábrica es "Facturación Electrónica" (migración
+                // tenant_add_title_web_to_companies). Casi ningún tenant lo
+                // cambia, así que si sigue en ese genérico (o vacío) NO debe
+                // tapar el nombre real de la empresa.
+                $titleWeb = trim((string) ($company->title_web ?? ''));
+                $genericTitles = ['facturación electrónica', 'facturacion electronica'];
+                $customTitle = ($titleWeb !== '' && !in_array(mb_strtolower($titleWeb), $genericTitles, true))
+                    ? $titleWeb
+                    : null;
+
+                // Prioridad del nombre de tienda:
+                //  1) Título web propio (si el tenant lo personalizó)
+                //  2) Nombre comercial que registró el seller (clients.client_name)
+                //  3) Nombre comercial de la empresa (companies.trade_name)
+                //  4) Razón social (companies.name)
+                $name = $customTitle
+                    ?: ($client->client_name ?? null)
+                    ?: ($company->trade_name ?? null)
+                    ?: ($company->name ?? null);
                 $logoFile = $company->logo ?? null;
             }
         } catch (\Throwable $e) {
-            // Si la tabla companies no existe, caer al client->name
+            // Si la tabla companies no existe, caer al client
         }
 
-        $name = $name ?: ($client->name ?: $fqdn);
+        $name = $name ?: ($client->client_name ?? null) ?: ($client->name ?: $fqdn);
 
         $logoUrl = null;
         if ($logoFile) {

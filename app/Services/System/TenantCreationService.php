@@ -183,11 +183,19 @@ class TenantCreationService
     private function bootstrapTenantDatabase(array $payload): void
     {
         Log::info('Insertando company...');
+        // Nombre comercial del seller (viene en client_name). Lo usamos como
+        // trade_name (nombre comercial en el módulo de empresas) y como
+        // title_web (nombre público que ve el marketplace). Si no vino,
+        // caemos a la razón social. Antes se copiaba la razón social en
+        // trade_name y title_web quedaba en el default "Facturación
+        // Electrónica", tapando el nombre real del negocio.
+        $commercialName = !empty($payload['client_name']) ? $payload['client_name'] : $payload['name'];
         DB::connection('tenant')->table('companies')->insert([
             'identity_document_type_id' => '6',
             'number'       => $payload['number'],
             'name'         => $payload['name'],
-            'trade_name'   => $payload['name'],
+            'trade_name'   => $commercialName,
+            'title_web'    => $commercialName,
             'soap_type_id' => $payload['soap_type_id']   ?? null,
             'soap_send_id' => $payload['soap_send_id']   ?? null,
             'soap_username'=> $payload['soap_username']  ?? null,
