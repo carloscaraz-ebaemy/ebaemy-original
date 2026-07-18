@@ -142,7 +142,8 @@
             <div class="section-title">Bulto N° (escribir a mano)</div>
             <div style="display:flex;align-items:center;gap:8px;margin-top:2px;">
                 <span class="bulto-box"></span>
-                <span class="bulto-total">/ {{ (int) ($shipment->package_count ?: 1) }}</span>
+                <span class="bulto-total">/</span>
+                <span class="bulto-box"></span>
             </div>
         </div>
     </div>
