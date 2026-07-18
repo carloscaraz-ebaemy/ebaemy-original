@@ -412,7 +412,7 @@
         if (status) { status.className = 'text-muted js-doc-status'; status.textContent = 'Consultando ' + kind.toUpperCase() + '…'; }
 
         docTimer = setTimeout(function () {
-            fetch('{{ url("services") }}/' + kind + '/' + num, { headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' } })
+            fetch('{{ url("registro-envio/consulta") }}/' + kind + '/' + num, { headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' } })
                 .then(function (r) { return r.json(); })
                 .then(function (res) {
                     if (!res || res.success === false || !res.data) {

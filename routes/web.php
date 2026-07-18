@@ -118,6 +118,9 @@ if ($hostname) {
                      ->name('shipments.index');
                 Route::get('sin-guia', [\App\Http\Controllers\Tenant\ShipmentController::class, 'withoutGuide'])
                      ->name('shipments.without_guide');
+                Route::get('consulta/{type}/{number}', [\App\Http\Controllers\Tenant\ShipmentController::class, 'lookupDocument'])
+                     ->where('type', 'dni|ruc')->where('number', '[0-9]+')
+                     ->name('shipments.lookup');
                 Route::post('/', [\App\Http\Controllers\Tenant\ShipmentController::class, 'store'])
                      ->name('shipments.store');
                 Route::post('{shipment}/subir-guia', [\App\Http\Controllers\Tenant\ShipmentController::class, 'uploadGuide'])

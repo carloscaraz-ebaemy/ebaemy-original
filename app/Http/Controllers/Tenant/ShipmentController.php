@@ -141,6 +141,41 @@ class ShipmentController extends Controller
         return back()->with('success', "Estado actualizado a «{$shipment->status_label}».");
     }
 
+    /**
+     * Consulta RENIEC (dni) o SUNAT (ruc) vía ApiPeruDev usando el token del
+     * tenant. Reemplaza al deprecado services/dni (Jne) que reventaba con
+     * "Trying to access array offset on null" cuando la API libre fallaba.
+     * Devuelve {success, data:{name, address, ...}} o {success:false, message}.
+     */
+    public function lookupDocument(string $type, string $number)
+    {
+        $type   = strtolower($type);
+        $number = preg_replace('/\D+/', '', $number);
+
+        if (!in_array($type, ['dni', 'ruc'], true)) {
+            return response()->json(['success' => false, 'message' => 'Tipo de documento inválido.'], 200);
+        }
+        if (($type === 'dni' && strlen($number) !== 8) || ($type === 'ruc' && strlen($number) !== 11)) {
+            return response()->json(['success' => false, 'message' => 'Número de documento inválido.'], 200);
+        }
+
+        try {
+            $res = (new \Modules\ApiPeruDev\Data\ServiceData())->service($type, $number);
+            if (!is_array($res) || empty($res['success'])) {
+                return response()->json([
+                    'success' => false,
+                    'message' => is_array($res) && !empty($res['message']) ? $res['message'] : 'No se encontraron datos.',
+                ], 200);
+            }
+            return response()->json($res, 200);
+        } catch (\Throwable $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'No se pudo consultar (verifica el token de RENIEC/SUNAT).',
+            ], 200);
+        }
+    }
+
     /** Editar los datos de un envío (mismo set de reglas que el alta). */
     public function update(Request $request, ShippingRequest $shipment): RedirectResponse
     {
