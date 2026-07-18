@@ -1,13 +1,29 @@
+@php
+    $format = in_array($format ?? 'a5', ['sticker','a5','a4'], true) ? ($format ?? 'a5') : 'a5';
+    $pageSize   = ['sticker' => 'auto', 'a5' => 'A5', 'a4' => 'A4'][$format];
+    $pageMargin = $format === 'sticker' ? '4mm' : ($format === 'a5' ? '8mm' : '12mm');
+@endphp
 <!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Rótulo — {{ $shipment->shipment_code }}</title>
+    <title>Rótulo {{ strtoupper($format) }} — {{ $shipment->shipment_code }}</title>
     <style>
+        @page { size: {{ $pageSize }}; margin: {{ $pageMargin }}; }
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: Arial, sans-serif; font-size: 12px; background: #f5f5f5; display: flex; justify-content: center; padding: 20px; }
+        body { font-family: Arial, sans-serif; font-size: 12px; background: #f5f5f5; display: flex; justify-content: center; padding: 64px 20px 20px; }
         .label { width: 10cm; background: #fff; border: 2px solid #000; padding: 12px; page-break-inside: avoid; }
+
+        /* Formatos de papel */
+        body.fmt-a5 { font-size: 13px; }
+        body.fmt-a5 .label { width: 100%; max-width: 14cm; padding: 16px; }
+        body.fmt-a4 { font-size: 15px; }
+        body.fmt-a4 .label { width: 100%; max-width: 18cm; padding: 20px; }
+        @media print {
+            body { padding: 0; background: #fff; }
+            body.fmt-a5 .label, body.fmt-a4 .label { width: 100%; max-width: none; border-width: 2px; }
+        }
         .label-header { border-bottom: 2px solid #000; padding-bottom: 8px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: flex-start; }
         .brand { font-size: 13px; font-weight: bold; text-transform: uppercase; }
         .env-code { font-size: 20px; font-weight: bold; letter-spacing: 1px; }
@@ -30,11 +46,18 @@
         @media print { body { background: #fff; padding: 0; } .no-print { display: none !important; } }
     </style>
 </head>
-<body>
+<body class="fmt-{{ $format }}">
 
-<div class="no-print" style="position:fixed;top:15px;right:15px;z-index:999;">
-    <button onclick="window.print()" style="padding:10px 20px;background:#198754;color:#fff;border:none;border-radius:6px;font-size:14px;cursor:pointer;">🖨️ Imprimir rótulo</button>
-    <button onclick="window.close()" style="padding:10px 16px;background:#6c757d;color:#fff;border:none;border-radius:6px;font-size:14px;cursor:pointer;margin-left:8px;">✕ Cerrar</button>
+<div class="no-print" style="position:fixed;top:12px;left:0;right:0;z-index:999;display:flex;justify-content:center;gap:8px;flex-wrap:wrap;">
+    <div style="background:#fff;border:1px solid #dee2e6;border-radius:8px;padding:5px;display:inline-flex;gap:4px;align-items:center;box-shadow:0 6px 18px -6px rgba(0,0,0,.2);">
+        <span style="font-size:12px;color:#666;padding:0 6px;">Formato:</span>
+        @foreach(['sticker'=>'Sticker','a5'=>'A5','a4'=>'A4'] as $fk => $fl)
+            <a href="{{ route('shipments.print', $shipment->id) }}?format={{ $fk }}"
+               style="padding:6px 14px;border-radius:6px;font-size:13px;font-weight:600;text-decoration:none;{{ $format === $fk ? 'background:#4f46e5;color:#fff;' : 'background:#f1f3f5;color:#333;' }}">{{ $fl }}</a>
+        @endforeach
+    </div>
+    <button onclick="window.print()" style="padding:9px 18px;background:#198754;color:#fff;border:none;border-radius:8px;font-size:14px;cursor:pointer;box-shadow:0 6px 18px -6px rgba(0,0,0,.2);">🖨️ Imprimir</button>
+    <button onclick="window.close()" style="padding:9px 14px;background:#6c757d;color:#fff;border:none;border-radius:8px;font-size:14px;cursor:pointer;">✕</button>
 </div>
 
 <div class="label">
@@ -109,6 +132,16 @@
         </div>
     @endif
 
+    @if(!empty($qr))
+        <div style="display:flex;align-items:center;gap:10px;margin-top:8px;border-top:1px dashed #999;padding-top:8px;">
+            <img src="data:image/png;base64,{{ $qr }}" alt="QR estado del envío" style="width:2.4cm;height:2.4cm;flex:0 0 auto;">
+            <div style="font-size:11px;color:#222;line-height:1.35;">
+                <strong>Escanea el QR</strong><br>
+                para registrar el estado del paquete:<br>preparando · listo · enviado.
+            </div>
+        </div>
+    @endif
+
     @if($shipment->notes)
         <div class="section" style="margin-top:8px;">
             <div class="section-title">Información adicional</div>
@@ -128,10 +161,6 @@
     </div>
 
 </div>
-
-<script>
-window.addEventListener('load', function(){ if (window.top === window) window.print(); });
-</script>
 
 </body>
 </html>

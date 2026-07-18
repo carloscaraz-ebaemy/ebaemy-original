@@ -245,9 +245,15 @@ class ShipmentController extends Controller
     }
 
     /** Rótulo imprimible del envío (standalone, listo para imprimir/PDF). */
-    public function printLabel(ShippingRequest $shipment)
+    public function printLabel(Request $request, ShippingRequest $shipment)
     {
         $company = Company::first();
+
+        // Formato de impresión: sticker (10cm), A5 o A4.
+        $format = strtolower((string) $request->query('format', 'a5'));
+        if (!in_array($format, ['sticker', 'a5', 'a4'], true)) {
+            $format = 'a5';
+        }
 
         // Ubigeo completo (distrito, provincia, departamento) para el rótulo.
         $ubigeo = null;
@@ -264,10 +270,35 @@ class ShipmentController extends Controller
             }
         }
 
+        // QR que abre la página de estado rápido (el encargado escanea y marca
+        // preparando/listo/enviado). PNG base64 vía el helper del ERP.
+        $qrBase64 = null;
+        try {
+            $qrUrl = url('registro-envio/' . $shipment->id . '/estado-rapido');
+            $qrBase64 = (new \App\CoreFacturalo\Helpers\QrCode\QrCodeGenerate())->displayPNGBase64($qrUrl, 220, 'M');
+        } catch (\Throwable $e) {
+            // Si el generador de QR falla, el rótulo se imprime sin QR.
+        }
+
         return view('tenant.shipments.label', [
             'shipment' => $shipment,
             'company'  => $company,
             'ubigeo'   => $ubigeo,
+            'format'   => $format,
+            'qr'       => $qrBase64,
+        ]);
+    }
+
+    /**
+     * Página de estado rápido (la abre el QR del rótulo). Muestra el envío y
+     * botones grandes para marcar preparando / listo / enviado / entregado.
+     */
+    public function quickStatus(ShippingRequest $shipment)
+    {
+        return view('tenant.shipments.quick-status', [
+            'shipment' => $shipment,
+            'company'  => Company::first(),
+            'statuses' => ShippingRequest::STATUSES,
         ]);
     }
 

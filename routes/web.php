@@ -144,6 +144,8 @@ if ($hostname) {
                      ->name('shipments.status');
                 Route::get('{shipment}/imprimir', [\App\Http\Controllers\Tenant\ShipmentController::class, 'printLabel'])
                      ->name('shipments.print');
+                Route::get('{shipment}/estado-rapido', [\App\Http\Controllers\Tenant\ShipmentController::class, 'quickStatus'])
+                     ->name('shipments.quick_status');
                 Route::get('{shipment}/guia', [\App\Http\Controllers\Tenant\ShipmentController::class, 'downloadGuide'])
                      ->name('shipments.guide');
             });
