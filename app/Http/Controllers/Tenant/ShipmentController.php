@@ -236,6 +236,23 @@ class ShipmentController extends Controller
         $data['status']         = ShippingRequest::STATUS_PENDIENTE;
         $data['accepted_terms'] = true;
 
+        // Anti-duplicado: si el mismo teléfono ya registró a la misma ciudad en
+        // los últimos 10 min y sigue pendiente, reusamos ese registro en vez de
+        // crear otro. Cubre el doble clic y el "creo que no funcionó, reintento"
+        // sin bloquear un envío genuinamente distinto (otra ciudad o más tarde).
+        $recent = ShippingRequest::where('phone', $data['phone'])
+            ->where('destination_city', $data['destination_city'])
+            ->where('status', ShippingRequest::STATUS_PENDIENTE)
+            ->where('created_at', '>=', now()->subMinutes(10))
+            ->latest('id')
+            ->first();
+
+        if ($recent) {
+            return redirect()->route('shipments.public.form')
+                ->with('shipment_code', $recent->shipment_code)
+                ->with('duplicate', true);
+        }
+
         $shipment = ShippingRequest::create($data);
         $this->assignCode($shipment);
 

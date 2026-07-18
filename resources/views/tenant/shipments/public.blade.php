@@ -46,8 +46,13 @@
             {{-- Confirmación con el código --}}
             <div class="ok">
                 <div style="font-size:40px;">✅</div>
-                <h2 style="font-size:17px;margin:6px 0;">¡Registro recibido!</h2>
-                <p style="color:var(--muted);font-size:13px;margin:0;">Guarda tu código de envío:</p>
+                @if(session('duplicate'))
+                    <h2 style="font-size:17px;margin:6px 0;">Ya teníamos tu registro</h2>
+                    <p style="color:var(--muted);font-size:13px;margin:0;">Hace un momento registraste un envío igual. Este es tu código:</p>
+                @else
+                    <h2 style="font-size:17px;margin:6px 0;">¡Registro recibido!</h2>
+                    <p style="color:var(--muted);font-size:13px;margin:0;">Guarda tu código de envío:</p>
+                @endif
                 <div class="code">{{ $sent }}</div>
                 <p style="color:var(--muted);font-size:12.5px;">Nuestro equipo preparará tu paquete y te enviará la guía cuando salga.</p>
                 <a href="{{ route('shipments.public.form') }}" class="btn" style="display:inline-block;text-decoration:none;margin-top:6px;">Registrar otro envío</a>
@@ -113,5 +118,13 @@
         <div class="foot">Powered by ebaemy · Registro y Control de Envíos</div>
     </div>
 </div>
+<script>
+    // Evitar doble envío por doble clic: deshabilitar el botón al enviar.
+    var f = document.querySelector('form');
+    if (f) f.addEventListener('submit', function () {
+        var b = f.querySelector('button[type="submit"]');
+        if (b) { b.disabled = true; b.textContent = 'Enviando…'; }
+    });
+</script>
 </body>
 </html>
