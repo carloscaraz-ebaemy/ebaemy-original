@@ -71,6 +71,9 @@ class ShippingRequestsInstall extends Command
                     $table->string('phone', 20)->nullable();
                     $table->string('shipping_destination', 255)->nullable();
                     $table->string('destination_city', 120)->nullable();
+                    $table->string('department_id', 2)->nullable();
+                    $table->string('province_id', 4)->nullable();
+                    $table->string('district_id', 6)->nullable();
                     $table->string('shipping_agency', 120)->nullable();
                     $table->string('package_content', 255)->nullable();
                     $table->unsignedSmallInteger('package_count')->default(1);
@@ -111,7 +114,7 @@ class ShippingRequestsInstall extends Command
     }
 
     /** Columnas añadidas después del create original (para tenants ya creados). */
-    private const NEW_COLUMNS = ['package_content', 'package_count', 'notes'];
+    private const NEW_COLUMNS = ['package_content', 'package_count', 'notes', 'department_id', 'province_id', 'district_id'];
 
     /** Devuelve las columnas nuevas que aún faltan en la tabla. */
     private function missingColumns(): array
@@ -138,6 +141,15 @@ class ShippingRequestsInstall extends Command
             }
             if (in_array('notes', $missing, true)) {
                 $table->string('notes', 255)->nullable()->after('package_count');
+            }
+            if (in_array('department_id', $missing, true)) {
+                $table->string('department_id', 2)->nullable()->after('destination_city');
+            }
+            if (in_array('province_id', $missing, true)) {
+                $table->string('province_id', 4)->nullable()->after('department_id');
+            }
+            if (in_array('district_id', $missing, true)) {
+                $table->string('district_id', 6)->nullable()->after('province_id');
             }
         });
 

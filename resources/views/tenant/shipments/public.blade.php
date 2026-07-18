@@ -83,8 +83,25 @@
                     </div>
                 </div>
 
-                <label class="req">Ciudad de destino</label>
-                <input type="text" name="destination_city" value="{{ old('destination_city') }}" required maxlength="120" placeholder="Ej: Talara, Piura…">
+                <label class="req">Destino (ubigeo)</label>
+                <select class="js-ubigeo" data-ubigeo-group="pub" data-ubigeo-role="department" name="department_id">
+                    <option value="">Departamento…</option>
+                    @foreach($departments as $d)
+                        <option value="{{ $d->id }}" {{ old('department_id') == $d->id ? 'selected' : '' }}>{{ $d->description }}</option>
+                    @endforeach
+                </select>
+                <div class="row" style="margin-top:8px;">
+                    <div>
+                        <select class="js-ubigeo" data-ubigeo-group="pub" data-ubigeo-role="province" name="province_id">
+                            <option value="">Provincia…</option>
+                        </select>
+                    </div>
+                    <div>
+                        <select class="js-ubigeo" data-ubigeo-group="pub" data-ubigeo-role="district" name="district_id" required>
+                            <option value="">Distrito…</option>
+                        </select>
+                    </div>
+                </div>
 
                 <label>Dirección / referencia de destino</label>
                 <input type="text" name="shipping_destination" value="{{ old('shipping_destination') }}" maxlength="255">
@@ -124,6 +141,36 @@
     if (f) f.addEventListener('submit', function () {
         var b = f.querySelector('button[type="submit"]');
         if (b) { b.disabled = true; b.textContent = 'Enviando…'; }
+    });
+
+    // ── Cascada de ubigeo (Departamento → Provincia → Distrito) ──
+    var UB_PROV = '{{ url("envio/ubigeo/provincias") }}';
+    var UB_DIST = '{{ url("envio/ubigeo/distritos") }}';
+    function ubFetch(u){ return fetch(u,{headers:{'X-Requested-With':'XMLHttpRequest','Accept':'application/json'}}).then(function(r){return r.json();}); }
+    function ubFill(sel, items, ph, selected){
+        if(!sel) return;
+        sel.innerHTML = '<option value="">'+ph+'</option>';
+        (items||[]).forEach(function(it){
+            var o=document.createElement('option'); o.value=it.id; o.textContent=it.description;
+            if(selected && String(selected)===String(it.id)) o.selected=true;
+            sel.appendChild(o);
+        });
+    }
+    function ubSel(group, role){ return document.querySelector('[data-ubigeo-group="'+group+'"][data-ubigeo-role="'+role+'"]'); }
+    document.addEventListener('change', function(ev){
+        var el=ev.target;
+        if(!el.classList || !el.classList.contains('js-ubigeo')) return;
+        var g=el.getAttribute('data-ubigeo-group'), role=el.getAttribute('data-ubigeo-role');
+        if(role==='department'){
+            var prov=ubSel(g,'province'), dist=ubSel(g,'district');
+            ubFill(dist,[],'Distrito…',null);
+            if(!el.value){ ubFill(prov,[],'Provincia…',null); return; }
+            ubFetch(UB_PROV+'/'+el.value).then(function(items){ ubFill(prov,items,'Provincia…',null); });
+        } else if(role==='province'){
+            var dist2=ubSel(g,'district');
+            if(!el.value){ ubFill(dist2,[],'Distrito…',null); return; }
+            ubFetch(UB_DIST+'/'+el.value).then(function(items){ ubFill(dist2,items,'Distrito…',null); });
+        }
     });
 </script>
 </body>

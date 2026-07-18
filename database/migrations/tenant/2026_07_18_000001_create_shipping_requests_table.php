@@ -38,7 +38,11 @@ return new class extends Migration
             $table->string('dni', 15)->nullable();
             $table->string('phone', 20)->nullable();
             $table->string('shipping_destination', 255)->nullable(); // dirección/destino
-            $table->string('destination_city', 120)->nullable();
+            $table->string('destination_city', 120)->nullable();      // nombre del distrito (derivado del ubigeo)
+            // Ubigeo del destino (códigos: dep 2 · prov 4 · dist 6 dígitos)
+            $table->string('department_id', 2)->nullable();
+            $table->string('province_id', 4)->nullable();
+            $table->string('district_id', 6)->nullable();
             $table->string('shipping_agency', 120)->nullable();       // Shalom, Olva, etc.
 
             // Detalle del paquete

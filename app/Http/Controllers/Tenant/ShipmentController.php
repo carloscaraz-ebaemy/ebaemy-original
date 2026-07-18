@@ -3,6 +3,9 @@
 namespace App\Http\Controllers\Tenant;
 
 use App\Http\Controllers\Controller;
+use App\Models\Tenant\Catalogs\Department;
+use App\Models\Tenant\Catalogs\District;
+use App\Models\Tenant\Catalogs\Province;
 use App\Models\Tenant\Company;
 use App\Models\Tenant\ShippingRequest;
 use Hyn\Tenancy\Environment;
@@ -62,11 +65,12 @@ class ShipmentController extends Controller
         ];
 
         return view('tenant.shipments.index', [
-            'shipments' => $shipments,
-            'filter'    => $filter,
-            'counts'    => $counts,
-            'q'         => $q,
-            'statuses'  => ShippingRequest::STATUSES,
+            'shipments'   => $shipments,
+            'filter'      => $filter,
+            'counts'      => $counts,
+            'q'           => $q,
+            'statuses'    => ShippingRequest::STATUSES,
+            'departments' => Department::orderBy('description')->get(['id', 'description']),
         ]);
     }
 
@@ -176,6 +180,22 @@ class ShipmentController extends Controller
         }
     }
 
+    /** Ubigeo: provincias de un departamento (para la cascada). Público. */
+    public function provinces(string $department)
+    {
+        return response()->json(
+            Province::where('department_id', $department)->orderBy('description')->get(['id', 'description'])
+        );
+    }
+
+    /** Ubigeo: distritos de una provincia (para la cascada). Público. */
+    public function districts(string $province)
+    {
+        return response()->json(
+            District::where('province_id', $province)->orderBy('description')->get(['id', 'description'])
+        );
+    }
+
     /** Editar los datos de un envío (mismo set de reglas que el alta). */
     public function update(Request $request, ShippingRequest $shipment): RedirectResponse
     {
@@ -225,8 +245,9 @@ class ShipmentController extends Controller
         $company = Company::first();
 
         return view('tenant.shipments.public', [
-            'company' => $company,
-            'sent'    => session('shipment_code'),
+            'company'     => $company,
+            'sent'        => session('shipment_code'),
+            'departments' => Department::orderBy('description')->get(['id', 'description']),
         ]);
     }
 
@@ -274,7 +295,10 @@ class ShipmentController extends Controller
             'dni'                  => 'nullable|string|max:15',
             'phone'                => 'required|string|max:20',
             'shipping_destination' => 'nullable|string|max:255',
-            'destination_city'     => 'required|string|max:120',
+            'destination_city'     => 'nullable|string|max:120',
+            'department_id'        => 'nullable|string|max:2',
+            'province_id'          => 'nullable|string|max:4',
+            'district_id'          => 'required|string|max:6',
             'shipping_agency'      => 'nullable|string|max:120',
             'package_content'      => 'nullable|string|max:255',
             'package_count'        => 'nullable|integer|min:1|max:9999',
@@ -287,10 +311,10 @@ class ShipmentController extends Controller
         }
 
         $data = $request->validate($rules, [], [
-            'full_name'        => 'nombre completo',
-            'phone'            => 'teléfono',
-            'destination_city' => 'ciudad de destino',
-            'accepted_terms'   => 'aceptación de términos',
+            'full_name'      => 'nombre completo',
+            'phone'          => 'teléfono',
+            'district_id'    => 'distrito de destino',
+            'accepted_terms' => 'aceptación de términos',
         ]);
 
         // accepted_terms no es columna a asignar desde validación directa en
@@ -299,6 +323,18 @@ class ShipmentController extends Controller
 
         // N° de bultos: mínimo 1 (default) si no lo indicaron.
         $data['package_count'] = (int) ($request->input('package_count') ?: 1);
+
+        // Ubigeo autoritativo: derivar provincia, departamento y el nombre de
+        // ciudad (para el tablero/rótulo) a partir del distrito seleccionado.
+        if (!empty($data['district_id'])) {
+            $dist = District::find($data['district_id']);
+            if ($dist) {
+                $data['province_id']      = $dist->province_id;
+                $prov                     = Province::find($dist->province_id);
+                $data['department_id']    = $prov ? $prov->department_id : ($data['department_id'] ?? null);
+                $data['destination_city'] = $dist->description;
+            }
+        }
 
         return $data;
     }

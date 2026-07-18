@@ -173,6 +173,9 @@
                                                 data-package_content="{{ $s->package_content }}"
                                                 data-package_count="{{ $s->package_count }}"
                                                 data-notes="{{ $s->notes }}"
+                                                data-department_id="{{ $s->department_id }}"
+                                                data-province_id="{{ $s->province_id }}"
+                                                data-district_id="{{ $s->district_id }}"
                                                 data-shipment_code="{{ $s->shipment_code }}">
                                             <i class="fas fa-pen fa-fw me-2"></i> Editar
                                         </button>
@@ -268,16 +271,23 @@
             <div class="col-12">
               <label class="form-label small mb-0">DNI / RUC</label>
               <input type="text" name="dni" id="nv_dni" class="form-control js-doc-lookup"
-                     data-target-name="nv_full_name" data-target-address="nv_shipping_destination"
+                     data-target-name="nv_full_name" data-target-address="nv_shipping_destination" data-ubigeo-group="nv"
                      inputmode="numeric" maxlength="11" autocomplete="off" placeholder="8 dígitos (DNI) u 11 (RUC)">
               <small class="text-muted js-doc-status"></small>
             </div>
             <div class="col-12"><label class="form-label small mb-0">Nombre completo *</label>
               <input type="text" name="full_name" id="nv_full_name" class="form-control" required></div>
-            <div class="col-6"><label class="form-label small mb-0">Teléfono *</label>
+            <div class="col-12"><label class="form-label small mb-0">Teléfono *</label>
               <input type="text" name="phone" class="form-control" required></div>
-            <div class="col-6"><label class="form-label small mb-0">Ciudad *</label>
-              <input type="text" name="destination_city" class="form-control" required></div>
+            <div class="col-4"><label class="form-label small mb-0">Departamento *</label>
+              <select class="form-select js-ubigeo" data-ubigeo-group="nv" data-ubigeo-role="department" name="department_id">
+                <option value="">—</option>
+                @foreach($departments as $d)<option value="{{ $d->id }}">{{ $d->description }}</option>@endforeach
+              </select></div>
+            <div class="col-4"><label class="form-label small mb-0">Provincia *</label>
+              <select class="form-select js-ubigeo" data-ubigeo-group="nv" data-ubigeo-role="province" name="province_id"><option value="">—</option></select></div>
+            <div class="col-4"><label class="form-label small mb-0">Distrito *</label>
+              <select class="form-select js-ubigeo" data-ubigeo-group="nv" data-ubigeo-role="district" name="district_id" required><option value="">—</option></select></div>
             <div class="col-12"><label class="form-label small mb-0">Destino (dirección)</label>
               <input type="text" name="shipping_destination" id="nv_shipping_destination" class="form-control"></div>
             <div class="col-12"><label class="form-label small mb-0">Agencia</label>
@@ -315,15 +325,22 @@
               <input type="text" name="full_name" id="ed_full_name" class="form-control" required></div>
             <div class="col-6"><label class="form-label small mb-0">DNI / RUC</label>
               <input type="text" name="dni" id="ed_dni" class="form-control js-doc-lookup"
-                     data-target-name="ed_full_name" data-target-address="ed_shipping_destination"
+                     data-target-name="ed_full_name" data-target-address="ed_shipping_destination" data-ubigeo-group="ed"
                      inputmode="numeric" maxlength="11" autocomplete="off">
               <small class="text-muted js-doc-status"></small></div>
             <div class="col-6"><label class="form-label small mb-0">Teléfono *</label>
               <input type="text" name="phone" id="ed_phone" class="form-control" required></div>
+            <div class="col-4"><label class="form-label small mb-0">Departamento *</label>
+              <select class="form-select js-ubigeo" id="ed_department_id" data-ubigeo-group="ed" data-ubigeo-role="department" name="department_id">
+                <option value="">—</option>
+                @foreach($departments as $d)<option value="{{ $d->id }}">{{ $d->description }}</option>@endforeach
+              </select></div>
+            <div class="col-4"><label class="form-label small mb-0">Provincia *</label>
+              <select class="form-select js-ubigeo" id="ed_province_id" data-ubigeo-group="ed" data-ubigeo-role="province" name="province_id"><option value="">—</option></select></div>
+            <div class="col-4"><label class="form-label small mb-0">Distrito *</label>
+              <select class="form-select js-ubigeo" id="ed_district_id" data-ubigeo-group="ed" data-ubigeo-role="district" name="district_id" required><option value="">—</option></select></div>
             <div class="col-12"><label class="form-label small mb-0">Destino (dirección)</label>
               <input type="text" name="shipping_destination" id="ed_shipping_destination" class="form-control"></div>
-            <div class="col-6"><label class="form-label small mb-0">Ciudad *</label>
-              <input type="text" name="destination_city" id="ed_destination_city" class="form-control" required></div>
             <div class="col-6"><label class="form-label small mb-0">Agencia</label>
               <input type="text" name="shipping_agency" id="ed_shipping_agency" class="form-control"></div>
             <div class="col-8"><label class="form-label small mb-0">Contenido del paquete</label>
@@ -362,6 +379,47 @@
     }
     initDropdowns();
 
+    // ── Cascada de ubigeo (Departamento → Provincia → Distrito) ──
+    var UB_PROV = '{{ url("envio/ubigeo/provincias") }}';
+    var UB_DIST = '{{ url("envio/ubigeo/distritos") }}';
+    function ubFetch(u){ return fetch(u,{headers:{'X-Requested-With':'XMLHttpRequest','Accept':'application/json'}}).then(function(r){return r.json();}); }
+    function ubFill(sel, items, selected){
+        if(!sel) return;
+        sel.innerHTML = '<option value="">—</option>';
+        (items||[]).forEach(function(it){
+            var o=document.createElement('option'); o.value=it.id; o.textContent=it.description;
+            if(selected && String(selected)===String(it.id)) o.selected=true;
+            sel.appendChild(o);
+        });
+    }
+    function ubSel(group, role){ return document.querySelector('[data-ubigeo-group="'+group+'"][data-ubigeo-role="'+role+'"]'); }
+    function ubPreset(group, dep, prov, dist){
+        var d=ubSel(group,'department'), p=ubSel(group,'province'), t=ubSel(group,'district');
+        if(!d) return;
+        d.value = dep || '';
+        if(!dep){ ubFill(p,[],null); ubFill(t,[],null); return; }
+        ubFetch(UB_PROV+'/'+dep).then(function(items){
+            ubFill(p, items, prov);
+            if(!prov){ ubFill(t,[],null); return; }
+            ubFetch(UB_DIST+'/'+prov).then(function(items2){ ubFill(t, items2, dist); });
+        });
+    }
+    document.addEventListener('change', function(ev){
+        var el=ev.target;
+        if(!el.classList || !el.classList.contains('js-ubigeo')) return;
+        var g=el.getAttribute('data-ubigeo-group'), role=el.getAttribute('data-ubigeo-role');
+        if(role==='department'){
+            var prov=ubSel(g,'province'), dist=ubSel(g,'district');
+            ubFill(dist,[],null);
+            if(!el.value){ ubFill(prov,[],null); return; }
+            ubFetch(UB_PROV+'/'+el.value).then(function(items){ ubFill(prov,items,null); });
+        } else if(role==='province'){
+            var dist2=ubSel(g,'district');
+            if(!el.value){ ubFill(dist2,[],null); return; }
+            ubFetch(UB_DIST+'/'+el.value).then(function(items){ ubFill(dist2,items,null); });
+        }
+    });
+
     // Modal subir guía: precargar action + datos por delegación de clic.
     document.addEventListener('click', function (ev) {
         var btn = ev.target.closest('.js-upload-guide');
@@ -385,12 +443,14 @@
         var id = btn.getAttribute('data-id');
         var form = document.getElementById('formEditar');
         if (form) form.setAttribute('action', '{{ url("registro-envio") }}/' + id + '/editar');
-        ['full_name','dni','phone','shipping_destination','destination_city','shipping_agency','package_content','package_count','notes'].forEach(function (f) {
+        ['full_name','dni','phone','shipping_destination','shipping_agency','package_content','package_count','notes'].forEach(function (f) {
             var el = document.getElementById('ed_' + f);
             if (el) el.value = btn.getAttribute('data-' + f) || '';
         });
         var code = document.getElementById('edCode');
         if (code) code.textContent = btn.getAttribute('data-shipment_code') || '';
+        // Precargar el ubigeo (dep → prov → dist) del envío.
+        ubPreset('ed', btn.getAttribute('data-department_id'), btn.getAttribute('data-province_id'), btn.getAttribute('data-district_id'));
     });
 
     // Autocompletar por documento: 8 dígitos → DNI (RENIEC), 11 → RUC (SUNAT).
@@ -429,6 +489,13 @@
                         var addrEl = document.getElementById(addrId);
                         if (addrEl && !addrEl.value) addrEl.value = d.address;
                     }
+                    // Ubigeo devuelto por RENIEC/SUNAT → precargar la cascada.
+                    var loc = d.location_id;
+                    var uDep  = (loc && loc[0]) || d.department_id || '';
+                    var uProv = (loc && loc[1]) || d.province_id || '';
+                    var uDist = (loc && loc[2]) || d.district_id || '';
+                    var grp = inp.getAttribute('data-ubigeo-group');
+                    if (grp && (uDep || uDist)) ubPreset(grp, uDep, uProv, uDist);
                     if (status) { status.className = 'text-success js-doc-status'; status.textContent = '✓ ' + (full || 'encontrado'); }
                 })
                 .catch(function () {

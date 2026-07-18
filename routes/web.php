@@ -107,6 +107,11 @@ if ($hostname) {
         Route::post('envio/nuevo', [\App\Http\Controllers\Tenant\ShipmentController::class, 'publicStore'])
              ->name('shipments.public.store')
              ->middleware('throttle:20,1');
+        // Ubigeo en cascada (público: lo usa el formulario del cliente y el panel).
+        Route::get('envio/ubigeo/provincias/{department}', [\App\Http\Controllers\Tenant\ShipmentController::class, 'provinces'])
+             ->where('department', '[0-9]+')->name('shipments.ubigeo.provinces')->middleware('throttle:120,1');
+        Route::get('envio/ubigeo/distritos/{province}', [\App\Http\Controllers\Tenant\ShipmentController::class, 'districts'])
+             ->where('province', '[0-9]+')->name('shipments.ubigeo.districts')->middleware('throttle:120,1');
         // Route::get('/ecommerce/color-ecommerce', [\App\Http\Controllers\Tenant\ConfigurationController::class, 'getColorEcommerce']);
 
         Route::middleware(['auth', 'redirect.module', 'locked.tenant','check.email.verified'])->group(function () {
