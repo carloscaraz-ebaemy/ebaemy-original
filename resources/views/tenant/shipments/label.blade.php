@@ -15,14 +15,40 @@
         body { font-family: Arial, sans-serif; font-size: 12px; background: #f5f5f5; display: flex; justify-content: center; padding: 64px 20px 20px; }
         .label { width: 10cm; background: #fff; border: 2px solid #000; padding: 12px; page-break-inside: avoid; }
 
-        /* Formatos de papel */
-        body.fmt-a5 { font-size: 13px; }
-        body.fmt-a5 .label { width: 100%; max-width: 14cm; padding: 16px; }
-        body.fmt-a4 { font-size: 15px; }
-        body.fmt-a4 .label { width: 100%; max-width: 18cm; padding: 20px; }
+        .qr-img { width: 2.4cm; height: 2.4cm; flex: 0 0 auto; }
+
+        /* ── Formatos de papel: escalan el contenido para llenar la hoja ── */
+        body.fmt-a5 .label { width: 100%; max-width: 14cm; padding: 18px; }
+        body.fmt-a4 .label { width: 100%; max-width: 19cm; padding: 26px; }
+
+        /* A5 (~1.3x) */
+        body.fmt-a5 .env-code { font-size: 27px; }
+        body.fmt-a5 .brand { font-size: 16px; }
+        body.fmt-a5 .big-text { font-size: 19px; }
+        body.fmt-a5 .med-text { font-size: 14px; }
+        body.fmt-a5 .grid .box .v { font-size: 18px; }
+        body.fmt-a5 .status-chip { font-size: 15px; }
+        body.fmt-a5 .guide-box .n { font-size: 26px; }
+        body.fmt-a5 .qr-img { width: 3cm; height: 3cm; }
+        body.fmt-a5 .footer { font-size: 12px; }
+
+        /* A4 (~1.9x, ocupa la hoja) */
+        body.fmt-a4 .env-code { font-size: 42px; }
+        body.fmt-a4 .brand { font-size: 22px; }
+        body.fmt-a4 .section-title { font-size: 13px; }
+        body.fmt-a4 .big-text { font-size: 30px; }
+        body.fmt-a4 .med-text { font-size: 20px; }
+        body.fmt-a4 .grid .box .v { font-size: 27px; }
+        body.fmt-a4 .status-chip { font-size: 21px; padding: 7px 18px; }
+        body.fmt-a4 .guide-box .n { font-size: 42px; }
+        body.fmt-a4 .guide-box .l { font-size: 13px; }
+        body.fmt-a4 .qr-img { width: 4cm; height: 4cm; }
+        body.fmt-a4 .footer { font-size: 15px; }
+        body.fmt-a4 .label-header, body.fmt-a4 .section, body.fmt-a4 .grid { margin-bottom: 16px; }
+
         @media print {
             body { padding: 0; background: #fff; }
-            body.fmt-a5 .label, body.fmt-a4 .label { width: 100%; max-width: none; border-width: 2px; }
+            body.fmt-a5 .label, body.fmt-a4 .label { width: 100%; max-width: none; }
         }
         .label-header { border-bottom: 2px solid #000; padding-bottom: 8px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: flex-start; }
         .brand { font-size: 13px; font-weight: bold; text-transform: uppercase; }
@@ -134,7 +160,7 @@
 
     @if(!empty($qr))
         <div style="display:flex;align-items:center;gap:10px;margin-top:8px;border-top:1px dashed #999;padding-top:8px;">
-            <img src="data:image/png;base64,{{ $qr }}" alt="QR estado del envío" style="width:2.4cm;height:2.4cm;flex:0 0 auto;">
+            <img class="qr-img" src="data:image/png;base64,{{ $qr }}" alt="QR estado del envío">
             <div style="font-size:11px;color:#222;line-height:1.35;">
                 <strong>Escanea el QR</strong><br>
                 para registrar el estado del paquete:<br>preparando · listo · enviado.
