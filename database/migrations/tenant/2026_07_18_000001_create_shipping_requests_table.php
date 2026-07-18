@@ -41,6 +41,11 @@ return new class extends Migration
             $table->string('destination_city', 120)->nullable();
             $table->string('shipping_agency', 120)->nullable();       // Shalom, Olva, etc.
 
+            // Detalle del paquete
+            $table->string('package_content', 255)->nullable();       // qué se envía
+            $table->unsignedSmallInteger('package_count')->default(1); // N° de bultos
+            $table->string('notes', 255)->nullable();                 // información adicional
+
             // Datos que carga el encargado al despachar
             $table->string('tracking_number', 120)->nullable();       // N° de guía de la agencia
             $table->string('shipping_guide_path', 255)->nullable();   // archivo JPG/PNG/PDF

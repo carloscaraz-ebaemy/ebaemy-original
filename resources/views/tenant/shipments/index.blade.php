@@ -240,6 +240,12 @@
               <input type="text" name="destination_city" class="form-control" required></div>
             <div class="col-6"><label class="form-label small mb-0">Agencia</label>
               <input type="text" name="shipping_agency" class="form-control" placeholder="Shalom, Olva…"></div>
+            <div class="col-8"><label class="form-label small mb-0">Contenido del paquete</label>
+              <input type="text" name="package_content" class="form-control" placeholder="Ej: 2 mantas, 1 juego de ollas"></div>
+            <div class="col-4"><label class="form-label small mb-0">N° de bultos</label>
+              <input type="number" name="package_count" class="form-control" value="1" min="1" max="9999"></div>
+            <div class="col-12"><label class="form-label small mb-0">Información adicional</label>
+              <input type="text" name="notes" class="form-control" placeholder="Referencia, indicaciones…"></div>
           </div>
         </div>
         <div class="modal-footer">

@@ -50,7 +50,8 @@ class ShippingRequestsInstall extends Command
                 $tenancy->tenant($hn->website);
 
                 if (Schema::connection('tenant')->hasTable('shipping_requests')) {
-                    $this->line("  <fg=gray>=</> {$hn->fqdn}: ya existe");
+                    $added = $apply ? $this->ensureColumns() : $this->missingColumns();
+                    $this->line("  <fg=gray>=</> {$hn->fqdn}: ya existe" . (!empty($added) ? " (columnas: " . implode(', ', $added) . ")" : ""));
                     $this->registerMigrationIfMissing();
                     $summary['ok']++;
                     continue;
@@ -71,6 +72,9 @@ class ShippingRequestsInstall extends Command
                     $table->string('shipping_destination', 255)->nullable();
                     $table->string('destination_city', 120)->nullable();
                     $table->string('shipping_agency', 120)->nullable();
+                    $table->string('package_content', 255)->nullable();
+                    $table->unsignedSmallInteger('package_count')->default(1);
+                    $table->string('notes', 255)->nullable();
                     $table->string('tracking_number', 120)->nullable();
                     $table->string('shipping_guide_path', 255)->nullable();
                     $table->string('observation', 255)->nullable();
@@ -104,6 +108,40 @@ class ShippingRequestsInstall extends Command
         }
 
         return $summary['errors'] > 0 ? self::FAILURE : self::SUCCESS;
+    }
+
+    /** Columnas añadidas después del create original (para tenants ya creados). */
+    private const NEW_COLUMNS = ['package_content', 'package_count', 'notes'];
+
+    /** Devuelve las columnas nuevas que aún faltan en la tabla. */
+    private function missingColumns(): array
+    {
+        return array_values(array_filter(self::NEW_COLUMNS, function ($col) {
+            return !Schema::connection('tenant')->hasColumn('shipping_requests', $col);
+        }));
+    }
+
+    /** Agrega idempotentemente las columnas nuevas que falten. Devuelve las añadidas. */
+    private function ensureColumns(): array
+    {
+        $missing = $this->missingColumns();
+        if (empty($missing)) {
+            return [];
+        }
+
+        Schema::connection('tenant')->table('shipping_requests', function (Blueprint $table) use ($missing) {
+            if (in_array('package_content', $missing, true)) {
+                $table->string('package_content', 255)->nullable()->after('shipping_agency');
+            }
+            if (in_array('package_count', $missing, true)) {
+                $table->unsignedSmallInteger('package_count')->default(1)->after('package_content');
+            }
+            if (in_array('notes', $missing, true)) {
+                $table->string('notes', 255)->nullable()->after('package_count');
+            }
+        });
+
+        return $missing;
     }
 
     private function registerMigrationIfMissing(): void

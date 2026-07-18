@@ -39,6 +39,9 @@ class ShippingRequest extends Model
         'shipping_destination',
         'destination_city',
         'shipping_agency',
+        'package_content',
+        'package_count',
+        'notes',
         'tracking_number',
         'shipping_guide_path',
         'observation',
@@ -53,6 +56,7 @@ class ShippingRequest extends Model
         'sent_at'        => 'datetime',
         'order_id'       => 'integer',
         'created_by'     => 'integer',
+        'package_count'  => 'integer',
     ];
 
     // ── Estados del paquete ────────────────────────────────────────────────

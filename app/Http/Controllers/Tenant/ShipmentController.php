@@ -207,6 +207,9 @@ class ShipmentController extends Controller
             'shipping_destination' => 'nullable|string|max:255',
             'destination_city'     => 'required|string|max:120',
             'shipping_agency'      => 'nullable|string|max:120',
+            'package_content'      => 'nullable|string|max:255',
+            'package_count'        => 'nullable|integer|min:1|max:9999',
+            'notes'                => 'nullable|string|max:255',
             'observation'          => 'nullable|string|max:255',
             'order_id'             => 'nullable|integer',
         ];
@@ -224,6 +227,9 @@ class ShipmentController extends Controller
         // accepted_terms no es columna a asignar desde validación directa en
         // panel; se controla arriba. Quitarlo del payload común.
         unset($data['accepted_terms']);
+
+        // N° de bultos: mínimo 1 (default) si no lo indicaron.
+        $data['package_count'] = (int) ($request->input('package_count') ?: 1);
 
         return $data;
     }

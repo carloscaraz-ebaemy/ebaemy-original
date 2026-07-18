@@ -60,6 +60,16 @@
         @if($shipment->destination_city)<div class="med-text">{{ $shipment->destination_city }}</div>@endif
     </div>
 
+    @if($shipment->package_content || $shipment->package_count)
+        <div class="section">
+            <div class="section-title">Contenido del paquete</div>
+            <div class="med-text">
+                {{ $shipment->package_content ?: '—' }}
+                <span style="float:right;font-weight:bold;">{{ (int) ($shipment->package_count ?: 1) }} bulto{{ (int) ($shipment->package_count ?: 1) === 1 ? '' : 's' }}</span>
+            </div>
+        </div>
+    @endif
+
     <div class="divider"></div>
 
     {{-- Agencia / Estado / Guía --}}
@@ -86,6 +96,13 @@
         <div class="guide-box" style="border-style:dashed;">
             <div class="l">Guía</div>
             <div class="n" style="font-size:13px;letter-spacing:1px;color:#888;">PENDIENTE DE CARGAR</div>
+        </div>
+    @endif
+
+    @if($shipment->notes)
+        <div class="section" style="margin-top:8px;">
+            <div class="section-title">Información adicional</div>
+            <div class="med-text">{{ $shipment->notes }}</div>
         </div>
     @endif
 
