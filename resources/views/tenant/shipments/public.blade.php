@@ -31,6 +31,18 @@
         .ok { text-align:center; padding:10px 0; }
         .ok .code { font-size:26px; font-weight:800; letter-spacing:2px; color:var(--brand); background:#eff6ff; border:1px dashed var(--brand); border-radius:12px; padding:12px; margin:10px 0; }
         .foot { text-align:center; color:var(--muted); font-size:11.5px; margin-top:16px; }
+
+        /* ── Cascader de ubigeo (1 campo, popup 3 columnas) ── */
+        .ubigeo-field { position:relative; }
+        .ubigeo-display { border:1px solid var(--line); border-radius:10px; padding:11px 12px; cursor:pointer; background:#fff; color:var(--muted); font-size:15px; }
+        .ubigeo-display.has-value { color:var(--ink); font-weight:500; }
+        .ubigeo-pop { position:absolute; z-index:5000; top:calc(100% + 4px); left:0; right:0; background:#fff; border:1px solid var(--line); border-radius:10px; box-shadow:0 12px 32px -8px rgba(15,23,42,.25); display:flex; overflow:hidden; }
+        .ubigeo-col { flex:1; min-width:33%; max-height:240px; overflow-y:auto; border-right:1px solid #f1f5f9; }
+        .ubigeo-col:last-child { border-right:none; }
+        .ubigeo-item { padding:9px 10px; cursor:pointer; font-size:13px; border-bottom:1px solid #f8fafc; }
+        .ubigeo-item:hover, .ubigeo-item.active { background:#eff6ff; color:var(--brand); font-weight:600; }
+        .ubigeo-col:empty::before { content:'—'; display:block; text-align:center; color:#cbd5e1; padding:12px 0; font-size:12px; }
+        @media (max-width:520px){ .ubigeo-pop{ overflow-x:auto; } .ubigeo-col{ min-width:130px; } }
     </style>
 </head>
 <body>
@@ -84,22 +96,15 @@
                 </div>
 
                 <label class="req">Destino (ubigeo)</label>
-                <select class="js-ubigeo" data-ubigeo-group="pub" data-ubigeo-role="department" name="department_id">
-                    <option value="">Departamento…</option>
-                    @foreach($departments as $d)
-                        <option value="{{ $d->id }}" {{ old('department_id') == $d->id ? 'selected' : '' }}>{{ $d->description }}</option>
-                    @endforeach
-                </select>
-                <div class="row" style="margin-top:8px;">
-                    <div>
-                        <select class="js-ubigeo" data-ubigeo-group="pub" data-ubigeo-role="province" name="province_id">
-                            <option value="">Provincia…</option>
-                        </select>
-                    </div>
-                    <div>
-                        <select class="js-ubigeo" data-ubigeo-group="pub" data-ubigeo-role="district" name="district_id" required>
-                            <option value="">Distrito…</option>
-                        </select>
+                <div class="ubigeo-field" data-ubigeo-group="pub">
+                    <div class="ubigeo-display" tabindex="0">Seleccionar departamento / provincia / distrito…</div>
+                    <input type="hidden" name="department_id" data-ub="department">
+                    <input type="hidden" name="province_id"   data-ub="province">
+                    <input type="hidden" name="district_id"   data-ub="district">
+                    <div class="ubigeo-pop" hidden>
+                        <div class="ubigeo-col" data-col="dep"></div>
+                        <div class="ubigeo-col" data-col="prov"></div>
+                        <div class="ubigeo-col" data-col="dist"></div>
                     </div>
                 </div>
 
@@ -142,36 +147,7 @@
         var b = f.querySelector('button[type="submit"]');
         if (b) { b.disabled = true; b.textContent = 'Enviando…'; }
     });
-
-    // ── Cascada de ubigeo (Departamento → Provincia → Distrito) ──
-    var UB_PROV = '{{ url("envio/ubigeo/provincias") }}';
-    var UB_DIST = '{{ url("envio/ubigeo/distritos") }}';
-    function ubFetch(u){ return fetch(u,{headers:{'X-Requested-With':'XMLHttpRequest','Accept':'application/json'}}).then(function(r){return r.json();}); }
-    function ubFill(sel, items, ph, selected){
-        if(!sel) return;
-        sel.innerHTML = '<option value="">'+ph+'</option>';
-        (items||[]).forEach(function(it){
-            var o=document.createElement('option'); o.value=it.id; o.textContent=it.description;
-            if(selected && String(selected)===String(it.id)) o.selected=true;
-            sel.appendChild(o);
-        });
-    }
-    function ubSel(group, role){ return document.querySelector('[data-ubigeo-group="'+group+'"][data-ubigeo-role="'+role+'"]'); }
-    document.addEventListener('change', function(ev){
-        var el=ev.target;
-        if(!el.classList || !el.classList.contains('js-ubigeo')) return;
-        var g=el.getAttribute('data-ubigeo-group'), role=el.getAttribute('data-ubigeo-role');
-        if(role==='department'){
-            var prov=ubSel(g,'province'), dist=ubSel(g,'district');
-            ubFill(dist,[],'Distrito…',null);
-            if(!el.value){ ubFill(prov,[],'Provincia…',null); return; }
-            ubFetch(UB_PROV+'/'+el.value).then(function(items){ ubFill(prov,items,'Provincia…',null); });
-        } else if(role==='province'){
-            var dist2=ubSel(g,'district');
-            if(!el.value){ ubFill(dist2,[],'Distrito…',null); return; }
-            ubFetch(UB_DIST+'/'+el.value).then(function(items){ ubFill(dist2,items,'Distrito…',null); });
-        }
-    });
 </script>
+@include('tenant.shipments.partials.ubigeo-cascader-js')
 </body>
 </html>
