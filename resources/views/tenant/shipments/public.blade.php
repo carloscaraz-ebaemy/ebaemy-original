@@ -79,8 +79,9 @@
                 <label class="req">Nombre completo</label>
                 <input type="text" name="full_name" id="pub_full_name" value="{{ old('full_name') }}" required maxlength="160">
 
-                <label class="req">Teléfono</label>
-                <input type="tel" name="phone" value="{{ old('phone') }}" required maxlength="20" inputmode="tel">
+                <label class="req">Teléfono (celular)</label>
+                <input type="tel" name="phone" value="{{ old('phone') }}" required maxlength="9" inputmode="numeric" placeholder="999 999 999" class="js-phone-pe">
+                <small class="js-phone-err" style="color:#dc2626;display:block;font-size:12px;margin-top:2px;"></small>
 
                 <label class="req">Destino (ubigeo)</label>
                 <div class="ubigeo-field" data-ubigeo-group="pub">
@@ -168,5 +169,6 @@
 </script>
 @include('tenant.shipments.partials.ubigeo-cascader-js')
 @include('tenant.shipments.partials.agency-select-js')
+@include('tenant.shipments.partials.phone-validate-js')
 </body>
 </html>

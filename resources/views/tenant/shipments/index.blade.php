@@ -288,8 +288,9 @@
                      inputmode="numeric" maxlength="11" autocomplete="off" placeholder="8 dígitos (DNI) u 11 (RUC)">
               <small class="js-doc-status d-block mt-1"></small>
             </div>
-            <div class="col-md-6"><label class="form-label small mb-1">Teléfono *</label>
-              <input type="text" name="phone" class="form-control" required></div>
+            <div class="col-md-6"><label class="form-label small mb-1">Teléfono (celular) *</label>
+              <input type="text" name="phone" class="form-control js-phone-pe" required maxlength="9" inputmode="numeric" placeholder="999 999 999">
+              <small class="js-phone-err text-danger" style="font-size:12px;"></small></div>
             <div class="col-12"><label class="form-label small mb-1">Nombre completo *</label>
               <input type="text" name="full_name" id="nv_full_name" class="form-control" required></div>
           </div>
@@ -362,8 +363,9 @@
                      data-target-name="ed_full_name" data-target-address="ed_shipping_destination" data-ubigeo-group="ed"
                      inputmode="numeric" maxlength="11" autocomplete="off">
               <small class="js-doc-status d-block mt-1"></small></div>
-            <div class="col-md-6"><label class="form-label small mb-1">Teléfono *</label>
-              <input type="text" name="phone" id="ed_phone" class="form-control" required></div>
+            <div class="col-md-6"><label class="form-label small mb-1">Teléfono (celular) *</label>
+              <input type="text" name="phone" id="ed_phone" class="form-control js-phone-pe" required maxlength="9" inputmode="numeric" placeholder="999 999 999">
+              <small class="js-phone-err text-danger" style="font-size:12px;"></small></div>
             <div class="col-12"><label class="form-label small mb-1">Nombre completo *</label>
               <input type="text" name="full_name" id="ed_full_name" class="form-control" required></div>
           </div>
@@ -574,4 +576,5 @@
 </script>
 @include('tenant.shipments.partials.ubigeo-cascader-js')
 @include('tenant.shipments.partials.agency-select-js')
+@include('tenant.shipments.partials.phone-validate-js')
 @endpush
