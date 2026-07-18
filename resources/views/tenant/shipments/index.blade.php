@@ -122,23 +122,19 @@
                             @endif
                         </td>
                         <td>
-                            <div class="dropdown">
-                                <button class="btn btn-sm btn-{{ $badge }} dropdown-toggle py-0" data-bs-toggle="dropdown">
-                                    {{ $s->status_label }}
-                                </button>
-                                <ul class="dropdown-menu">
-                                    @foreach($statuses as $val => $lbl)
-                                        @if($val !== 'anulado')
-                                        <li>
-                                            <form method="POST" action="{{ route('shipments.status', $s->id) }}">
-                                                @csrf
-                                                <input type="hidden" name="status" value="{{ $val }}">
-                                                <button class="dropdown-item {{ $s->status === $val ? 'active' : '' }}" type="submit">{{ $lbl }}</button>
-                                            </form>
-                                        </li>
-                                        @endif
-                                    @endforeach
-                                </ul>
+                            <div class="d-flex align-items-center gap-1">
+                                <span class="badge bg-{{ $badge }}">&nbsp;</span>
+                                <form method="POST" action="{{ route('shipments.status', $s->id) }}" class="d-inline">
+                                    @csrf
+                                    <select name="status" class="form-select form-select-sm py-0" style="width:auto;display:inline-block;font-size:12px;"
+                                            onchange="this.form.submit()">
+                                        @foreach($statuses as $val => $lbl)
+                                            @if($val !== 'anulado' || $s->status === 'anulado')
+                                                <option value="{{ $val }}" {{ $s->status === $val ? 'selected' : '' }}>{{ $lbl }}</option>
+                                            @endif
+                                        @endforeach
+                                    </select>
+                                </form>
                             </div>
                         </td>
                         <td class="text-end text-nowrap">
@@ -157,39 +153,29 @@
                             <a href="{{ route('shipments.print', $s->id) }}" target="_blank" class="btn btn-sm btn-outline-secondary">
                                 <i class="fas fa-print me-1"></i> Imprimir
                             </a>
-                            <div class="dropdown d-inline-block">
-                                <button class="btn btn-sm btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown" aria-label="Más acciones"><i class="fas fa-ellipsis-v"></i></button>
-                                <ul class="dropdown-menu dropdown-menu-end">
-                                    <li>
-                                        <button type="button" class="dropdown-item btn-editar"
-                                                data-bs-toggle="modal" data-bs-target="#modalEditar"
-                                                data-id="{{ $s->id }}"
-                                                data-full_name="{{ $s->full_name }}"
-                                                data-dni="{{ $s->dni }}"
-                                                data-phone="{{ $s->phone }}"
-                                                data-shipping_destination="{{ $s->shipping_destination }}"
-                                                data-destination_city="{{ $s->destination_city }}"
-                                                data-shipping_agency="{{ $s->shipping_agency }}"
-                                                data-package_content="{{ $s->package_content }}"
-                                                data-package_count="{{ $s->package_count }}"
-                                                data-notes="{{ $s->notes }}">
-                                            <i class="fas fa-pen me-2"></i> Editar
-                                        </button>
-                                    </li>
-                                    @if(!$s->is_cancelled)
-                                    <li><hr class="dropdown-divider"></li>
-                                    <li>
-                                        <form method="POST" action="{{ route('shipments.cancel', $s->id) }}"
-                                              onsubmit="return confirm('¿Anular el envío {{ $s->shipment_code }}? Podrás reactivarlo cambiando su estado.');">
-                                            @csrf
-                                            <button type="submit" class="dropdown-item text-danger">
-                                                <i class="fas fa-ban me-2"></i> Anular
-                                            </button>
-                                        </form>
-                                    </li>
-                                    @endif
-                                </ul>
-                            </div>
+                            <button type="button" class="btn btn-sm btn-outline-secondary"
+                                    data-bs-toggle="modal" data-bs-target="#modalEditar"
+                                    data-id="{{ $s->id }}"
+                                    data-full_name="{{ $s->full_name }}"
+                                    data-dni="{{ $s->dni }}"
+                                    data-phone="{{ $s->phone }}"
+                                    data-shipping_destination="{{ $s->shipping_destination }}"
+                                    data-destination_city="{{ $s->destination_city }}"
+                                    data-shipping_agency="{{ $s->shipping_agency }}"
+                                    data-package_content="{{ $s->package_content }}"
+                                    data-package_count="{{ $s->package_count }}"
+                                    data-notes="{{ $s->notes }}">
+                                <i class="fas fa-pen me-1"></i> Editar
+                            </button>
+                            @if(!$s->is_cancelled)
+                            <form method="POST" action="{{ route('shipments.cancel', $s->id) }}" class="d-inline"
+                                  onsubmit="return confirm('¿Anular el envío {{ $s->shipment_code }}? Podrás reactivarlo cambiando su estado.');">
+                                @csrf
+                                <button type="submit" class="btn btn-sm btn-outline-danger">
+                                    <i class="fas fa-ban me-1"></i> Anular
+                                </button>
+                            </form>
+                            @endif
                         </td>
                     </tr>
                 @empty
