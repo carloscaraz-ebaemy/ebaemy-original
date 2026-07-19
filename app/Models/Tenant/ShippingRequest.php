@@ -174,10 +174,12 @@ class ShippingRequest extends Model
     ];
 
     /**
-     * Genera el código legible del envío a partir del id (ENV-000125).
+     * Genera el código legible del envío: ENV-AAAAMMDD-000015 (fecha + id).
+     * El número final es el id, garantizando unicidad global.
      */
-    public static function buildCode(int $id): string
+    public static function buildCode(int $id, ?string $date = null): string
     {
-        return 'ENV-' . str_pad((string) $id, 6, '0', STR_PAD_LEFT);
+        $date = $date ?: now()->format('Ymd');
+        return 'ENV-' . $date . '-' . str_pad((string) $id, 6, '0', STR_PAD_LEFT);
     }
 }

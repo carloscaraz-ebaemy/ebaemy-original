@@ -34,6 +34,12 @@
         .guide { margin-top:14px; padding:12px; background:#f0fdf4; border:1px solid #bbf7d0; border-radius:12px; text-align:center; }
         .guide .g { font-size:20px; font-weight:800; letter-spacing:1px; color:#15803d; }
         .cancel { margin-top:14px; padding:12px; background:#f3f4f6; border:1px solid #e5e7eb; border-radius:12px; text-align:center; color:#374151; font-weight:600; }
+        .guide-img-box { margin-top:14px; padding:14px; border:1px solid var(--line); border-radius:14px; background:#f8fafc; }
+        .gib-h { font-size:13px; font-weight:700; color:#334155; margin-bottom:8px; }
+        .gib-img { width:100%; border-radius:12px; border:1px solid var(--line); display:block; }
+        .gib-btns { display:flex; gap:8px; margin-top:10px; }
+        .gib-btn { flex:1; text-align:center; padding:10px; border-radius:10px; background:var(--brand); color:#fff; text-decoration:none; font-weight:700; font-size:13.5px; }
+        .gib-btn.ghost { background:#e2e8f0; color:#334155; }
         .foot { text-align:center; color:var(--muted); font-size:11.5px; margin-top:16px; }
     </style>
 </head>
@@ -95,6 +101,22 @@
                             <div style="font-size:11px;text-transform:uppercase;color:#16a34a;">N° de guía · {{ $shipment->shipping_agency }}</div>
                             <div class="g">{{ $shipment->tracking_number }}</div>
                             @if($shipment->sent_at)<div style="font-size:12px;color:#15803d;margin-top:2px;">Enviado el {{ \Carbon\Carbon::parse($shipment->sent_at)->format('d/m/Y') }}</div>@endif
+                        </div>
+                    @endif
+
+                    @if($shipment->has_guide)
+                        @php $gext = strtolower(pathinfo($shipment->shipping_guide_path, PATHINFO_EXTENSION)); @endphp
+                        <div class="guide-img-box">
+                            <div class="gib-h">📄 Guía de envío disponible</div>
+                            @if($gext !== 'pdf')
+                                <a href="{{ route('shipments.public.guide', ['code' => $shipment->shipment_code]) }}" target="_blank">
+                                    <img src="{{ route('shipments.public.guide', ['code' => $shipment->shipment_code]) }}" alt="Guía de envío" class="gib-img">
+                                </a>
+                            @endif
+                            <div class="gib-btns">
+                                <a class="gib-btn" href="{{ route('shipments.public.guide', ['code' => $shipment->shipment_code]) }}" target="_blank">👁 Ver imagen</a>
+                                <a class="gib-btn ghost" href="{{ route('shipments.public.guide', ['code' => $shipment->shipment_code, 'download' => 1]) }}">⬇ Descargar</a>
+                            </div>
                         </div>
                     @endif
                 @endif

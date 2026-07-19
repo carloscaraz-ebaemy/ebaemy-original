@@ -356,6 +356,28 @@ class ShipmentController extends Controller
         ]);
     }
 
+    /**
+     * Guía de envío pública, por código de envío (para el seguimiento del
+     * cliente). Muestra inline o descarga con ?download=1.
+     */
+    public function publicGuide(Request $request, string $code)
+    {
+        $shipment = ShippingRequest::where('shipment_code', $code)->first();
+        abort_unless(
+            $shipment && $shipment->shipping_guide_path && Storage::exists($shipment->shipping_guide_path),
+            404
+        );
+
+        $ext  = strtolower(pathinfo($shipment->shipping_guide_path, PATHINFO_EXTENSION));
+        $mime = $ext === 'pdf' ? 'application/pdf' : ($ext === 'png' ? 'image/png' : 'image/jpeg');
+        $disp = $request->boolean('download') ? 'attachment' : 'inline';
+
+        return response(Storage::get($shipment->shipping_guide_path), 200, [
+            'Content-Type'        => $mime,
+            'Content-Disposition' => $disp . '; filename="guia-' . ($shipment->tracking_number ?: $shipment->shipment_code) . '.' . $ext . '"',
+        ]);
+    }
+
     /** Normaliza un celular peruano a formato internacional (51XXXXXXXXX) o null. */
     private function waPhone($raw): ?string
     {
@@ -485,9 +507,9 @@ class ShipmentController extends Controller
         if ($code !== '') {
             $q = strtoupper($code);
             $shipment = ShippingRequest::where('shipment_code', $q)->first();
-            // Aceptar también que ingresen solo el número (ej. "5").
+            // Aceptar también que ingresen solo el número (el id del envío).
             if (!$shipment && ctype_digit($code)) {
-                $shipment = ShippingRequest::where('shipment_code', ShippingRequest::buildCode((int) $code))->first();
+                $shipment = ShippingRequest::find((int) $code);
             }
             $notFound = !$shipment;
         }
@@ -605,11 +627,14 @@ class ShipmentController extends Controller
         return $data;
     }
 
-    /** Asigna el código legible ENV-000XXX tras crear la fila. */
+    /** Asigna el código legible ENV-AAAAMMDD-000XXX tras crear la fila. */
     private function assignCode(ShippingRequest $shipment): void
     {
         if (!$shipment->shipment_code) {
-            $shipment->shipment_code = ShippingRequest::buildCode($shipment->id);
+            $shipment->shipment_code = ShippingRequest::buildCode(
+                $shipment->id,
+                optional($shipment->created_at)->format('Ymd')
+            );
             $shipment->save();
         }
     }
