@@ -321,6 +321,66 @@ class ShipmentController extends Controller
     }
 
     /**
+     * Cliente existente por documento: devuelve los datos del último envío con
+     * ese DNI/RUC para autocompletar (público, throttled).
+     */
+    public function findClient(string $document)
+    {
+        $doc = preg_replace('/\D+/', '', $document);
+        if (!in_array(strlen($doc), [8, 11], true)) {
+            return response()->json(['found' => false]);
+        }
+        $s = ShippingRequest::where('dni', $doc)->latest('id')->first();
+        if (!$s) {
+            return response()->json(['found' => false]);
+        }
+        return response()->json([
+            'found' => true,
+            'name'  => $s->full_name,
+            'data'  => [
+                'full_name'            => $s->full_name,
+                'phone'                => $s->phone,
+                'shipping_destination' => $s->shipping_destination,
+                'reference'            => $s->reference,
+                'department_id'        => $s->department_id,
+                'province_id'          => $s->province_id,
+                'district_id'          => $s->district_id,
+                'shipping_agency'      => $s->shipping_agency,
+            ],
+        ]);
+    }
+
+    /** Normaliza un celular peruano a formato internacional (51XXXXXXXXX) o null. */
+    private function waPhone($raw): ?string
+    {
+        $p = preg_replace('/\D+/', '', (string) $raw);
+        if (strlen($p) === 9 && $p[0] === '9') {
+            $p = '51' . $p;
+        }
+        return strlen($p) >= 11 ? $p : null;
+    }
+
+    /** WhatsApp "registro recibido" apenas el cliente registra su envío. */
+    private function notifyClientRegistered(ShippingRequest $shipment): void
+    {
+        try {
+            $phone = $this->waPhone($shipment->phone);
+            if (!$phone) {
+                return;
+            }
+            $name     = \Illuminate\Support\Str::of($shipment->full_name)->before(' ');
+            $trackUrl = url('envio/seguimiento?code=' . $shipment->shipment_code);
+            $msg  = "Hola {$name} 👋\n\nTus datos de envío fueron registrados correctamente.\n\n";
+            $msg .= "Código:\n*{$shipment->shipment_code}*\n\n";
+            $msg .= "Estado actual: *Registro recibido*.\nEn breve prepararemos tu pedido.\n\n";
+            $msg .= "🔎 Consulta tu seguimiento aquí:\n{$trackUrl}\n\n¡Gracias por tu compra!";
+            dispatch(\App\Jobs\SendWhatsAppMessage::text($phone, $msg));
+        } catch (\Throwable $e) {
+            \Log::warning('[shipping] WhatsApp de registro no enviado: ' . $e->getMessage());
+        }
+    }
+
+    /**
      * Notifica al cliente por WhatsApp que su envío salió (guía + agencia +
      * link de seguimiento). Async vía el job del ERP; best-effort (no rompe
      * la subida de guía si WhatsApp no está configurado o falla).
@@ -328,11 +388,8 @@ class ShipmentController extends Controller
     private function notifyClientShipped(ShippingRequest $shipment): void
     {
         try {
-            $phone = preg_replace('/\D+/', '', (string) $shipment->phone);
-            if (strlen($phone) === 9 && $phone[0] === '9') {
-                $phone = '51' . $phone;
-            }
-            if (strlen($phone) < 11) {
+            $phone = $this->waPhone($shipment->phone);
+            if (!$phone) {
                 return; // sin celular válido
             }
 
@@ -454,6 +511,9 @@ class ShipmentController extends Controller
         $shipment = ShippingRequest::create($data);
         $this->assignCode($shipment);
 
+        // WhatsApp "registro recibido" al cliente (async, best-effort).
+        $this->notifyClientRegistered($shipment);
+
         return redirect()->route('shipments.public.form')
             ->with('shipment_code', $shipment->shipment_code)
             ->with('success', 'Tus datos se registraron. Guarda tu código de envío: ' . $shipment->shipment_code);
@@ -472,6 +532,7 @@ class ShipmentController extends Controller
             'dni'                  => 'nullable|string|max:15',
             'phone'                => 'required|string|max:20',
             'shipping_destination' => 'nullable|string|max:255',
+            'reference'            => 'nullable|string|max:255',
             'destination_city'     => 'nullable|string|max:120',
             'department_id'        => 'nullable|string|max:2',
             'province_id'          => 'nullable|string|max:4',

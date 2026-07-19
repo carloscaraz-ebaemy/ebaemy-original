@@ -178,6 +178,7 @@
                                                 data-dni="{{ $s->dni }}"
                                                 data-phone="{{ $s->phone }}"
                                                 data-shipping_destination="{{ $s->shipping_destination }}"
+                                                data-reference="{{ $s->reference }}"
                                                 data-destination_city="{{ $s->destination_city }}"
                                                 data-shipping_agency="{{ $s->shipping_agency }}"
                                                 data-package_content="{{ $s->package_content }}"
@@ -309,9 +310,11 @@
                   <div class="ubigeo-col" data-col="dist"></div>
                 </div>
               </div></div>
-            <div class="col-md-7"><label class="form-label small mb-1">Dirección / referencia</label>
+            <div class="col-md-6"><label class="form-label small mb-1">Dirección</label>
               <input type="text" name="shipping_destination" id="nv_shipping_destination" class="form-control"></div>
-            <div class="col-md-5"><label class="form-label small mb-1">Agencia</label>
+            <div class="col-md-6"><label class="form-label small mb-1">Referencia</label>
+              <input type="text" name="reference" id="nv_reference" class="form-control" placeholder="Frente a…, cerca de…"></div>
+            <div class="col-12"><label class="form-label small mb-1">Agencia</label>
               <div class="agency-field">
                 <select class="form-select agency-select">
                   <option value="">— Selecciona —</option>
@@ -384,9 +387,11 @@
                   <div class="ubigeo-col" data-col="dist"></div>
                 </div>
               </div></div>
-            <div class="col-md-7"><label class="form-label small mb-1">Dirección / referencia</label>
+            <div class="col-md-6"><label class="form-label small mb-1">Dirección</label>
               <input type="text" name="shipping_destination" id="ed_shipping_destination" class="form-control"></div>
-            <div class="col-md-5"><label class="form-label small mb-1">Agencia</label>
+            <div class="col-md-6"><label class="form-label small mb-1">Referencia</label>
+              <input type="text" name="reference" id="ed_reference" class="form-control"></div>
+            <div class="col-12"><label class="form-label small mb-1">Agencia</label>
               <div class="agency-field">
                 <select class="form-select agency-select">
                   <option value="">— Selecciona —</option>
@@ -488,7 +493,7 @@
         var id = btn.getAttribute('data-id');
         var form = document.getElementById('formEditar');
         if (form) form.setAttribute('action', '{{ url("registro-envio") }}/' + id + '/editar');
-        ['full_name','dni','phone','shipping_destination','shipping_agency','package_content','package_count','weight','notes'].forEach(function (f) {
+        ['full_name','dni','phone','shipping_destination','reference','shipping_agency','package_content','package_count','weight','notes'].forEach(function (f) {
             var el = document.getElementById('ed_' + f);
             if (el) el.value = btn.getAttribute('data-' + f) || '';
         });

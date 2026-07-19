@@ -37,6 +37,7 @@ class ShippingRequest extends Model
         'dni',
         'phone',
         'shipping_destination',
+        'reference',
         'destination_city',
         'department_id',
         'province_id',

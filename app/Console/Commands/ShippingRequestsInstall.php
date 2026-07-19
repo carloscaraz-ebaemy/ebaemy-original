@@ -70,6 +70,7 @@ class ShippingRequestsInstall extends Command
                     $table->string('dni', 15)->nullable();
                     $table->string('phone', 20)->nullable();
                     $table->string('shipping_destination', 255)->nullable();
+                    $table->string('reference', 255)->nullable();
                     $table->string('destination_city', 120)->nullable();
                     $table->string('department_id', 2)->nullable();
                     $table->string('province_id', 4)->nullable();
@@ -115,7 +116,7 @@ class ShippingRequestsInstall extends Command
     }
 
     /** Columnas añadidas después del create original (para tenants ya creados). */
-    private const NEW_COLUMNS = ['package_content', 'package_count', 'notes', 'department_id', 'province_id', 'district_id', 'weight'];
+    private const NEW_COLUMNS = ['package_content', 'package_count', 'notes', 'department_id', 'province_id', 'district_id', 'weight', 'reference'];
 
     /** Devuelve las columnas nuevas que aún faltan en la tabla. */
     private function missingColumns(): array
@@ -154,6 +155,9 @@ class ShippingRequestsInstall extends Command
             }
             if (in_array('weight', $missing, true)) {
                 $table->decimal('weight', 8, 2)->nullable()->after('package_count');
+            }
+            if (in_array('reference', $missing, true)) {
+                $table->string('reference', 255)->nullable()->after('shipping_destination');
             }
         });
 

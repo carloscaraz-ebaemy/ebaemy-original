@@ -20,6 +20,7 @@
         @if($shipment->phone)<div class="med-text">Cel: {{ $shipment->phone }}</div>@endif
         @if($shipment->dni)<div class="med-text">DNI: {{ $shipment->dni }}</div>@endif
         @if($shipment->shipping_destination)<div class="med-text" style="font-weight:bold">{{ $shipment->shipping_destination }}</div>@endif
+        @if($shipment->reference)<div class="med-text">Ref: {{ $shipment->reference }}</div>@endif
         @php
             $ubigeoLine = null;
             if (!empty($ubigeo)) {
