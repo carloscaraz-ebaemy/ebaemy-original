@@ -97,6 +97,10 @@
             </div>
         @endif
 
+        <div style="text-align:center;margin-top:16px;padding-top:14px;border-top:1px solid var(--line);">
+            <a href="{{ route('shipments.public.form') }}" style="color:var(--brand);font-size:14px;text-decoration:none;font-weight:600;">📦 Registrar un nuevo envío</a>
+        </div>
+
         <div class="foot">Powered by ebaemy · Registro y Control de Envíos</div>
     </div>
 </div>
