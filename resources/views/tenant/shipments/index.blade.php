@@ -1,5 +1,17 @@
 @extends('tenant.layouts.app')
 
+@push('styles')
+<style>
+    .sh-metrics { display:grid; grid-template-columns:repeat(auto-fit, minmax(118px,1fr)); gap:10px; margin-bottom:16px; }
+    .sh-metric { display:block; text-decoration:none; background:#fff; border:1px solid #e9ecef; border-left:4px solid var(--mc); border-radius:14px; padding:12px 14px; color:#212529; transition:transform .15s, box-shadow .15s; box-shadow:0 1px 3px rgba(0,0,0,.05); }
+    .sh-metric:hover { transform:translateY(-2px); box-shadow:0 8px 18px -8px rgba(0,0,0,.22); }
+    .sh-metric.is-active { border-color:var(--mc); box-shadow:0 0 0 2px var(--mc) inset; }
+    .sh-metric .m-ic { color:var(--mc); font-size:16px; }
+    .sh-metric .m-v { font-size:26px; font-weight:800; line-height:1.05; margin-top:2px; }
+    .sh-metric .m-l { font-size:12px; color:#6c757d; font-weight:600; }
+</style>
+@endpush
+
 @section('content')
 <div class="container-fluid px-2 px-md-3 py-3" id="shipmentsApp">
 
@@ -12,6 +24,30 @@
         <button type="button" class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#modalNuevoEnvio">
             <i class="fas fa-plus me-1"></i> Registrar envío
         </button>
+    </div>
+
+    {{-- ── Panel de métricas por estado ── --}}
+    @php
+        $cards = [
+            ['k'=>null,         'l'=>'Total',         'c'=>'#4f46e5', 'i'=>'fa-boxes-stacked',  'v'=>$metrics['total']],
+            ['k'=>'confirmar',  'l'=>'Por confirmar', 'c'=>'#6b7280', 'i'=>'fa-clipboard-list', 'v'=>$metrics['confirmar']],
+            ['k'=>'embalaje',   'l'=>'Por embalar',   'c'=>'#f59e0b', 'i'=>'fa-box-open',       'v'=>$metrics['embalaje']],
+            ['k'=>'despacho',   'l'=>'Por despachar', 'c'=>'#0ea5e9', 'i'=>'fa-dolly',          'v'=>$metrics['despacho']],
+            ['k'=>'transito',   'l'=>'En tránsito',   'c'=>'#8b5cf6', 'i'=>'fa-truck-fast',     'v'=>$metrics['transito']],
+            ['k'=>'entregados', 'l'=>'Entregados',    'c'=>'#16a34a', 'i'=>'fa-circle-check',   'v'=>$metrics['entregados']],
+            ['k'=>'cancelados', 'l'=>'Cancelados',    'c'=>'#dc2626', 'i'=>'fa-ban',            'v'=>$metrics['cancelados']],
+        ];
+        $activeGroup = $group ?? null;
+    @endphp
+    <div class="sh-metrics">
+        @foreach($cards as $c)
+            <a href="{{ route('shipments.index', $c['k'] ? ['group'=>$c['k']] : []) }}"
+               class="sh-metric {{ ($activeGroup === $c['k']) ? 'is-active' : '' }}" style="--mc:{{ $c['c'] }};">
+                <div class="m-ic"><i class="fas {{ $c['i'] }}"></i></div>
+                <div class="m-v">{{ $c['v'] }}</div>
+                <div class="m-l">{{ $c['l'] }}</div>
+            </a>
+        @endforeach
     </div>
 
     {{-- Flash --}}

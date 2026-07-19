@@ -43,6 +43,20 @@ class ShipmentController extends Controller
             case 'enviados-hoy': $query->sentToday();     break;
         }
 
+        // Grupos de estado para las tarjetas de métricas (incluyen valores legados).
+        $groups = [
+            'confirmar'  => ['recibido', 'pendiente'],
+            'embalaje'   => ['confirmado', 'preparando'],
+            'despacho'   => ['embalando', 'despachado', 'listo'],
+            'transito'   => ['en_agencia', 'en_ruta', 'enviado'],
+            'entregados' => ['entregado'],
+            'cancelados' => ['anulado'],
+        ];
+        $group = $request->input('group');
+        if ($group && isset($groups[$group])) {
+            $query->whereIn('status', $groups[$group]);
+        }
+
         if ($q = trim((string) $request->input('q', ''))) {
             $query->where(function ($w) use ($q) {
                 $w->where('full_name', 'like', "%{$q}%")
@@ -64,10 +78,18 @@ class ShipmentController extends Controller
             'enviados-hoy' => ShippingRequest::sentToday()->count(),
         ];
 
+        // Métricas por grupo de estado para el panel de tarjetas.
+        $metrics = ['total' => ShippingRequest::count()];
+        foreach ($groups as $k => $sts) {
+            $metrics[$k] = ShippingRequest::whereIn('status', $sts)->count();
+        }
+
         return view('tenant.shipments.index', [
             'shipments'   => $shipments,
             'filter'      => $filter,
             'counts'      => $counts,
+            'metrics'     => $metrics,
+            'group'       => $group,
             'q'           => $q,
             'statuses'    => ShippingRequest::STATUSES,
             'departments' => Department::orderBy('description')->get(['id', 'description']),
