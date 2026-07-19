@@ -30,7 +30,11 @@
 <body>
 <div class="wrap">
     <div class="card">
-        <div class="brand">{{ $company->title_web ?? $company->trade_name ?? $company->name ?? 'ebaemy' }}</div>
+        @if(!empty($company->logo))
+            <img src="{{ asset('storage/uploads/logos/' . $company->logo) }}" alt="{{ $company->trade_name ?? '' }}" style="max-height:48px;max-width:70%;margin:0 auto 6px;display:block;object-fit:contain;">
+        @else
+            <div class="brand">{{ $company->title_web ?? $company->trade_name ?? $company->name ?? 'ebaemy' }}</div>
+        @endif
         <div class="code">{{ $shipment->shipment_code }}</div>
 
         @if(session('success'))

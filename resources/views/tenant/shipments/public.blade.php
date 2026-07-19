@@ -37,7 +37,11 @@
 <div class="wrap">
     <div class="card">
         <div class="head">
-            <div class="brand">{{ $company->title_web ?? $company->trade_name ?? $company->name ?? 'ebaemy' }}</div>
+            @if(!empty($company->logo))
+                <img src="{{ asset('storage/uploads/logos/' . $company->logo) }}" alt="{{ $company->trade_name ?? $company->name ?? '' }}" style="max-height:60px;max-width:75%;margin:0 auto 8px;display:block;object-fit:contain;">
+            @else
+                <div class="brand">{{ $company->title_web ?? $company->trade_name ?? $company->name ?? 'ebaemy' }}</div>
+            @endif
             <h1>📦 Registro de envío</h1>
             <p>Completa tus datos para preparar tu paquete.</p>
         </div>
