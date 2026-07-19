@@ -17,7 +17,8 @@
         .dest .m { font-size:13px; color:var(--muted); margin-top:2px; }
         .cur { text-align:center; margin-bottom:16px; }
         .chip { display:inline-block; padding:6px 14px; border-radius:999px; font-weight:700; font-size:14px; color:#fff; }
-        .b-pendiente{background:#6b7280;} .b-preparando{background:#f59e0b;} .b-listo{background:#0ea5e9;} .b-enviado{background:#16a34a;} .b-entregado{background:#4f46e5;} .b-anulado{background:#111827;}
+        .b-recibido{background:#6b7280;} .b-confirmado{background:#0ea5e9;} .b-preparando{background:#f59e0b;} .b-embalando{background:#f59e0b;} .b-despachado{background:#8b5cf6;} .b-en_agencia{background:#16a34a;} .b-en_ruta{background:#0ea5e9;} .b-entregado{background:#4f46e5;} .b-anulado{background:#111827;}
+        .b-pendiente{background:#6b7280;} .b-listo{background:#f59e0b;} .b-enviado{background:#16a34a;}
         .lbl { font-size:12px; color:var(--muted); text-transform:uppercase; letter-spacing:.5px; margin-bottom:8px; }
         .btn { display:block; width:100%; padding:15px; border:2px solid var(--line); border-radius:14px; background:#fff; font-size:16px; font-weight:700; color:var(--ink); cursor:pointer; margin-bottom:10px; text-align:center; }
         .btn.is-current { border-color:var(--brand); background:#eef2ff; color:var(--brand); }

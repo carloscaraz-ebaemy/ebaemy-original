@@ -61,8 +61,12 @@
 
         @if($shipment)
             @php
-                $order = ['pendiente','preparando','listo','enviado','entregado'];
-                $curIdx = array_search($shipment->status, $order);
+                $order = \App\Models\Tenant\ShippingRequest::STATUS_ORDER;
+                // Mapear valores legados al nuevo flujo para posicionar el paso.
+                $legacyMap = ['pendiente' => 'recibido', 'listo' => 'embalando', 'enviado' => 'en_agencia'];
+                $curStatus = $legacyMap[$shipment->status] ?? $shipment->status;
+                $curIdx = array_search($curStatus, $order);
+                if ($curIdx === false) $curIdx = 0;
                 $isCancelled = $shipment->status === 'anulado';
             @endphp
             <div class="res">

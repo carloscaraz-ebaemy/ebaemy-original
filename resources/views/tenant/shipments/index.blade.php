@@ -104,12 +104,16 @@
                 @forelse($shipments as $s)
                     @php
                         $badge = [
-                            'pendiente'  => 'secondary',
+                            'recibido'   => 'secondary',
+                            'confirmado' => 'info',
                             'preparando' => 'warning',
-                            'listo'      => 'info',
-                            'enviado'    => 'success',
+                            'embalando'  => 'warning',
+                            'despachado' => 'primary',
+                            'en_agencia' => 'success',
+                            'en_ruta'    => 'success',
                             'entregado'  => 'primary',
                             'anulado'    => 'dark',
+                            'pendiente'  => 'secondary', 'listo' => 'warning', 'enviado' => 'success',
                         ][$s->status] ?? 'secondary';
                     @endphp
                     <tr class="{{ $s->is_cancelled ? 'text-muted' : '' }}" style="{{ $s->is_cancelled ? 'opacity:.7' : '' }}">

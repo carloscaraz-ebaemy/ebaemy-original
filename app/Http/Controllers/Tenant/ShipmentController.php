@@ -85,7 +85,7 @@ class ShipmentController extends Controller
     public function store(Request $request): RedirectResponse
     {
         $data = $this->validateShipment($request);
-        $data['status']     = ShippingRequest::STATUS_PENDIENTE;
+        $data['status']     = ShippingRequest::STATUS_RECIBIDO;
         $data['created_by'] = auth()->id();
 
         $shipment = ShippingRequest::create($data);
@@ -121,7 +121,7 @@ class ShipmentController extends Controller
             'tracking_number'     => $request->tracking_number,
             'shipping_guide_path' => $path,
             'observation'         => $request->filled('observation') ? $request->observation : $shipment->observation,
-            'status'              => ShippingRequest::STATUS_ENVIADO,
+            'status'              => ShippingRequest::STATUS_EN_AGENCIA,
             'sent_at'             => now(),
         ]);
 
@@ -138,12 +138,18 @@ class ShipmentController extends Controller
             'status' => 'required|in:' . implode(',', array_keys(ShippingRequest::STATUSES)),
         ]);
 
+        $old = $shipment->status;
         $update = ['status' => $request->status];
-        // Si lo marcan enviado manualmente y no tenía fecha, sellarla.
-        if ($request->status === ShippingRequest::STATUS_ENVIADO && !$shipment->sent_at) {
+        // Al llegar a la agencia (o más allá) y sin fecha, sellar sent_at.
+        if (in_array($request->status, [ShippingRequest::STATUS_EN_AGENCIA, ShippingRequest::STATUS_EN_RUTA, ShippingRequest::STATUS_ENTREGADO], true) && !$shipment->sent_at) {
             $update['sent_at'] = now();
         }
         $shipment->update($update);
+
+        // WhatsApp automático al cliente por el cambio de estado.
+        if ($old !== $shipment->status) {
+            $this->notifyStatusChange($shipment);
+        }
 
         return back()->with('success', "Estado actualizado a «{$shipment->status_label}».");
     }
@@ -360,6 +366,27 @@ class ShipmentController extends Controller
         return strlen($p) >= 11 ? $p : null;
     }
 
+    /** WhatsApp automático al cliente cuando cambia el estado del envío. */
+    private function notifyStatusChange(ShippingRequest $shipment): void
+    {
+        try {
+            $body = ShippingRequest::statusWhatsappMessage($shipment->status);
+            if (!$body) {
+                return; // este estado no notifica
+            }
+            $phone = $this->waPhone($shipment->phone);
+            if (!$phone) {
+                return;
+            }
+            $name     = \Illuminate\Support\Str::of($shipment->full_name)->before(' ');
+            $trackUrl = url('envio/seguimiento?code=' . $shipment->shipment_code);
+            $msg = "Hola {$name} 👋\n\n{$body}\n\nCódigo: *{$shipment->shipment_code}*\n🔎 Seguimiento:\n{$trackUrl}";
+            dispatch(\App\Jobs\SendWhatsAppMessage::text($phone, $msg));
+        } catch (\Throwable $e) {
+            \Log::warning('[shipping] WhatsApp de estado no enviado: ' . $e->getMessage());
+        }
+    }
+
     /** WhatsApp "registro recibido" apenas el cliente registra su envío. */
     private function notifyClientRegistered(ShippingRequest $shipment): void
     {
@@ -488,7 +515,7 @@ class ShipmentController extends Controller
     public function publicStore(Request $request): RedirectResponse
     {
         $data = $this->validateShipment($request, true);
-        $data['status']         = ShippingRequest::STATUS_PENDIENTE;
+        $data['status']         = ShippingRequest::STATUS_RECIBIDO;
         $data['accepted_terms'] = true;
 
         // Anti-duplicado: si el mismo teléfono ya registró a la misma ciudad en
@@ -497,7 +524,7 @@ class ShipmentController extends Controller
         // sin bloquear un envío genuinamente distinto (otra ciudad o más tarde).
         $recent = ShippingRequest::where('phone', $data['phone'])
             ->where('destination_city', $data['destination_city'])
-            ->where('status', ShippingRequest::STATUS_PENDIENTE)
+            ->where('status', ShippingRequest::STATUS_RECIBIDO)
             ->where('created_at', '>=', now()->subMinutes(10))
             ->latest('id')
             ->first();

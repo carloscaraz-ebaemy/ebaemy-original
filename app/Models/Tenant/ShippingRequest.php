@@ -65,36 +65,65 @@ class ShippingRequest extends Model
         'weight'         => 'decimal:2',
     ];
 
-    // ── Estados del paquete ────────────────────────────────────────────────
-    public const STATUS_PENDIENTE  = 'pendiente';
+    // ── Estados del paquete (flujo completo) ───────────────────────────────
+    public const STATUS_RECIBIDO   = 'recibido';
+    public const STATUS_CONFIRMADO = 'confirmado';
     public const STATUS_PREPARANDO = 'preparando';
-    public const STATUS_LISTO      = 'listo';
-    public const STATUS_ENVIADO    = 'enviado';
+    public const STATUS_EMBALANDO  = 'embalando';
+    public const STATUS_DESPACHADO = 'despachado';
+    public const STATUS_EN_AGENCIA = 'en_agencia';
+    public const STATUS_EN_RUTA    = 'en_ruta';
     public const STATUS_ENTREGADO  = 'entregado';
     public const STATUS_ANULADO    = 'anulado';
 
     public const STATUSES = [
-        self::STATUS_PENDIENTE  => 'Pendiente',
-        self::STATUS_PREPARANDO => 'Preparando embalaje',
-        self::STATUS_LISTO      => 'Listo para envío',
-        self::STATUS_ENVIADO    => 'Enviado',
+        self::STATUS_RECIBIDO   => 'Registro recibido',
+        self::STATUS_CONFIRMADO => 'Confirmado',
+        self::STATUS_PREPARANDO => 'Preparando pedido',
+        self::STATUS_EMBALANDO  => 'Embalando',
+        self::STATUS_DESPACHADO => 'Despachado',
+        self::STATUS_EN_AGENCIA => 'Entregado a agencia',
+        self::STATUS_EN_RUTA    => 'En ruta',
         self::STATUS_ENTREGADO  => 'Entregado',
         self::STATUS_ANULADO    => 'Anulado',
     ];
 
-    /** Estados que el usuario puede elegir desde el dropdown (sin 'anulado', que tiene su propia acción). */
-    public const SELECTABLE_STATUSES = [
-        self::STATUS_PENDIENTE,
-        self::STATUS_PREPARANDO,
-        self::STATUS_LISTO,
-        self::STATUS_ENVIADO,
-        self::STATUS_ENTREGADO,
+    /** Secuencia del flujo (para la línea de tiempo del seguimiento). */
+    public const STATUS_ORDER = [
+        self::STATUS_RECIBIDO, self::STATUS_CONFIRMADO, self::STATUS_PREPARANDO,
+        self::STATUS_EMBALANDO, self::STATUS_DESPACHADO, self::STATUS_EN_AGENCIA,
+        self::STATUS_EN_RUTA, self::STATUS_ENTREGADO,
     ];
+
+    /** Estados elegibles desde el panel (sin 'anulado', que tiene su propia acción). */
+    public const SELECTABLE_STATUSES = self::STATUS_ORDER;
+
+    /** Etiquetas de valores legados (compatibilidad con envíos previos a Fase 2). */
+    public const LEGACY_LABELS = [
+        'pendiente' => 'Registro recibido',
+        'listo'     => 'Embalando',
+        'enviado'   => 'Entregado a agencia',
+    ];
+
+    /** Mensaje de WhatsApp por estado (o null si ese estado no notifica). */
+    public static function statusWhatsappMessage(string $status): ?string
+    {
+        $map = [
+            self::STATUS_CONFIRMADO => 'Tu pedido fue *confirmado*. En breve lo prepararemos. ✅',
+            self::STATUS_PREPARANDO => 'Estamos *preparando* tu pedido. 📦',
+            self::STATUS_EMBALANDO  => 'Tu pedido ya fue *embalado*. 📦✅',
+            self::STATUS_DESPACHADO => 'Tu pedido fue *despachado*. 🚚',
+            self::STATUS_EN_AGENCIA => 'Tu pedido fue *entregado a la agencia*. 🏢',
+            self::STATUS_EN_RUTA    => 'Tu pedido se encuentra *en ruta*. 🛣️',
+            self::STATUS_ENTREGADO  => 'Tu pedido fue *entregado correctamente*. 🎉',
+        ];
+        return $map[$status] ?? null;
+    }
 
     /** Etiqueta legible del estado actual. */
     public function getStatusLabelAttribute(): string
     {
-        return self::STATUSES[$this->status] ?? ucfirst($this->status);
+        return self::STATUSES[$this->status] ?? self::LEGACY_LABELS[$this->status] ?? ucfirst($this->status);
     }
 
     /** ¿Ya tiene la guía de envío cargada? */
@@ -124,12 +153,17 @@ class ShippingRequest extends Model
 
     public function scopePending($q)
     {
-        return $q->where('status', self::STATUS_PENDIENTE);
+        // "Pendientes" = aún no salió a la agencia (incluye valores legados).
+        return $q->whereIn('status', [
+            self::STATUS_RECIBIDO, self::STATUS_CONFIRMADO, self::STATUS_PREPARANDO,
+            self::STATUS_EMBALANDO, self::STATUS_DESPACHADO, 'pendiente', 'listo',
+        ]);
     }
 
     public function scopeSentToday($q)
     {
-        return $q->where('status', self::STATUS_ENVIADO)
+        // "Enviados hoy" = entregados a la agencia / en ruta / entregados hoy.
+        return $q->whereIn('status', [self::STATUS_EN_AGENCIA, self::STATUS_EN_RUTA, self::STATUS_ENTREGADO, 'enviado'])
                  ->whereDate('sent_at', now()->toDateString());
     }
 
