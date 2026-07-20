@@ -110,7 +110,7 @@ if ($hostname) {
         // Seguimiento público de envíos: el cliente consulta por su código ENV.
         Route::get('envio/seguimiento', [\App\Http\Controllers\Tenant\ShipmentController::class, 'publicTracking'])
              ->name('shipments.public.tracking')->middleware('throttle:60,1');
-        Route::get('envio/seguimiento/{code}/guia', [\App\Http\Controllers\Tenant\ShipmentController::class, 'publicGuide'])
+        Route::get('envio/guia/{code}', [\App\Http\Controllers\Tenant\ShipmentController::class, 'publicGuide'])
              ->where('code', '[A-Za-z0-9\-]+')->name('shipments.public.guide')->middleware('throttle:60,1');
 
         // Ubigeo en cascada (público: lo usa el formulario del cliente y el panel).
