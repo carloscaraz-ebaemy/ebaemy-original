@@ -189,7 +189,14 @@
                             @if($s->is_domicilio)
                                 <span class="badge" style="background:#f3e8ff;color:#7c3aed;">🏍️ Domicilio</span>
                                 @if($s->distance_km)<div><small class="fw-bold" style="color:#3730a3;">🛵 {{ $s->distance_text ?: ($s->distance_km.' km') }}@if($s->duration_text) · ~{{ $s->duration_text }}@endif</small></div>@endif
-                                @if($s->delivery_price)<div><small class="fw-bold text-success">💵 S/ {{ number_format($s->delivery_price, 2) }}</small></div>@endif
+                                <div>
+                                    <button type="button" class="btn btn-link btn-sm p-0 fw-bold text-success js-edit-price" style="text-decoration:none;font-size:.8rem;"
+                                            data-bs-toggle="modal" data-bs-target="#modalPrecio"
+                                            data-id="{{ $s->id }}" data-code="{{ $s->shipment_code }}" data-price="{{ $s->delivery_price }}">
+                                        💵 {{ $s->delivery_price ? 'S/ '.number_format($s->delivery_price, 2) : 'Poner precio' }}
+                                        <i class="fas fa-pen ms-1" style="font-size:.65rem;opacity:.6;"></i>
+                                    </button>
+                                </div>
                                 @if($s->maps_link)
                                     <div class="mt-1"><a href="{{ $s->maps_link }}" target="_blank" class="small text-decoration-none"><i class="fas fa-map-marker-alt me-1"></i>Ver ubicación</a></div>
                                 @endif
@@ -498,6 +505,34 @@
     </div>
   </div>
 </div>
+
+{{-- Modal: editar precio del envío a domicilio --}}
+<div class="modal fade" id="modalPrecio" tabindex="-1">
+  <div class="modal-dialog modal-sm modal-dialog-centered">
+    <div class="modal-content">
+      <form method="POST" id="formPrecio">
+        @csrf
+        <div class="modal-header">
+          <h5 class="modal-title">💵 Precio de envío</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <div class="text-muted small mb-2">Envío <span id="pr_code" class="fw-semibold"></span></div>
+          <label class="form-label small text-muted mb-1">Precio a cobrar (S/)</label>
+          <div class="input-group">
+            <span class="input-group-text">S/</span>
+            <input type="number" step="0.10" min="0" name="delivery_price" id="pr_price" class="form-control" placeholder="0.00" autofocus>
+          </div>
+          <div class="form-text">Déjalo vacío para quitar el precio.</div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+          <button type="submit" class="btn btn-primary"><i class="fas fa-save me-1"></i> Guardar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
 @endsection
 
 @push('scripts')
@@ -578,6 +613,19 @@
         if (window.__ubPreset) window.__ubPreset('ed', btn.getAttribute('data-department_id'), btn.getAttribute('data-province_id'), btn.getAttribute('data-district_id'));
         // Sincronizar el desplegable de agencia con el valor cargado.
         if (window.__syncAgency) window.__syncAgency();
+    });
+
+    // Modal precio: precargar el precio actual y apuntar el form al envío.
+    document.addEventListener('click', function (ev) {
+        var btn = ev.target.closest('.js-edit-price');
+        if (!btn) return;
+        var id = btn.getAttribute('data-id');
+        var form = document.getElementById('formPrecio');
+        if (form) form.setAttribute('action', '{{ url("registro-envio") }}/' + id + '/precio');
+        var pr = document.getElementById('pr_price');
+        if (pr) pr.value = btn.getAttribute('data-price') || '';
+        var code = document.getElementById('pr_code');
+        if (code) code.textContent = btn.getAttribute('data-code') || '';
     });
 
     // Autocompletar por documento: 8 dígitos → DNI (RENIEC), 11 → RUC (SUNAT).

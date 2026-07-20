@@ -294,6 +294,18 @@ class ShipmentController extends Controller
         return back()->with('success', "Envío {$shipment->shipment_code} actualizado.");
     }
 
+    /** Editar manualmente el precio del envío (el encargado ajusta la estimación). */
+    public function updatePrice(Request $request, ShippingRequest $shipment): RedirectResponse
+    {
+        $data = $request->validate([
+            'delivery_price' => 'nullable|numeric|min:0|max:99999',
+        ], [], ['delivery_price' => 'precio de envío']);
+
+        $shipment->update(['delivery_price' => $request->filled('delivery_price') ? $data['delivery_price'] : null]);
+
+        return back()->with('success', "Precio de envío actualizado ({$shipment->shipment_code}).");
+    }
+
     /** Anular un envío (queda en estado 'anulado', no se borra). */
     public function cancel(ShippingRequest $shipment): RedirectResponse
     {
