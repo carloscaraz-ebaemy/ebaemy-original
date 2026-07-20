@@ -270,6 +270,17 @@
                                                 data-department_id="{{ $s->department_id }}"
                                                 data-province_id="{{ $s->province_id }}"
                                                 data-district_id="{{ $s->district_id }}"
+                                                data-delivery_type="{{ $s->delivery_type }}"
+                                                data-latitude="{{ $s->latitude }}"
+                                                data-longitude="{{ $s->longitude }}"
+                                                data-formatted_address="{{ $s->formatted_address }}"
+                                                data-google_place_id="{{ $s->google_place_id }}"
+                                                data-google_maps_url="{{ $s->google_maps_url }}"
+                                                data-distance_km="{{ $s->distance_km }}"
+                                                data-distance_text="{{ $s->distance_text }}"
+                                                data-duration_text="{{ $s->duration_text }}"
+                                                data-delivery_price="{{ $s->delivery_price }}"
+                                                data-maps_link="{{ $s->maps_link }}"
                                                 data-shipment_code="{{ $s->shipment_code }}">
                                             <i class="fas fa-pen fa-fw me-2"></i> Editar
                                         </button>
@@ -455,8 +466,12 @@
               <input type="text" name="full_name" id="ed_full_name" class="form-control" required></div>
           </div>
 
+          <input type="hidden" name="delivery_type" id="ed_delivery_type" value="agencia">
+
           <div class="sh-section"><i class="fas fa-map-marker-alt fa-fw me-1"></i> Destino</div>
-          <div class="row g-3">
+
+          {{-- ── Rama AGENCIA ── --}}
+          <div class="row g-3 ed-agencia">
             <div class="col-12"><label class="form-label small mb-1">Ubigeo (Departamento / Provincia / Distrito) *</label>
               <div class="ubigeo-field" data-ubigeo-group="ed">
                 <div class="ubigeo-display" tabindex="0">Seleccionar departamento / provincia / distrito…</div>
@@ -469,10 +484,6 @@
                   <div class="ubigeo-col" data-col="dist"></div>
                 </div>
               </div></div>
-            <div class="col-md-6"><label class="form-label small mb-1">Dirección</label>
-              <input type="text" name="shipping_destination" id="ed_shipping_destination" class="form-control"></div>
-            <div class="col-md-6"><label class="form-label small mb-1">Referencia</label>
-              <input type="text" name="reference" id="ed_reference" class="form-control"></div>
             <div class="col-12"><label class="form-label small mb-1">Agencia</label>
               <div class="agency-field">
                 <select class="form-select agency-select">
@@ -482,6 +493,38 @@
                 </select>
                 <input type="text" name="shipping_agency" id="ed_shipping_agency" class="form-control agency-input mt-2" style="display:none;">
               </div></div>
+          </div>
+
+          {{-- ── Rama DOMICILIO (motorizado) ── --}}
+          <div class="row g-3 ed-domicilio" style="display:none;">
+            <div class="col-12">
+              <div class="alert alert-light border small mb-0 py-2">
+                🏍️ <b>Entrega a domicilio</b> — ubicación fijada por el cliente:
+                <div class="fw-semibold" id="ed_coords_display">—</div>
+                <a href="#" id="ed_maps_link" target="_blank" class="small text-decoration-none">📍 Ver en Google Maps</a>
+                <span id="ed_dist_display" class="text-muted ms-2"></span>
+              </div>
+            </div>
+            <div class="col-md-6"><label class="form-label small mb-1">Costo de envío (S/)</label>
+              <input type="number" step="0.10" min="0" name="delivery_price" id="ed_delivery_price" class="form-control" placeholder="0.00"></div>
+            {{-- Ocultos preservados (no se pierden al editar) --}}
+            <input type="hidden" name="latitude" id="ed_latitude">
+            <input type="hidden" name="longitude" id="ed_longitude">
+            <input type="hidden" name="formatted_address" id="ed_formatted_address">
+            <input type="hidden" name="google_place_id" id="ed_google_place_id">
+            <input type="hidden" name="google_maps_url" id="ed_google_maps_url">
+            <input type="hidden" name="destination_city" id="ed_destination_city">
+            <input type="hidden" name="distance_km" id="ed_distance_km">
+            <input type="hidden" name="distance_text" id="ed_distance_text">
+            <input type="hidden" name="duration_text" id="ed_duration_text">
+          </div>
+
+          {{-- Dirección + Referencia (común a ambos tipos) --}}
+          <div class="row g-3 mt-0">
+            <div class="col-md-6"><label class="form-label small mb-1">Dirección</label>
+              <input type="text" name="shipping_destination" id="ed_shipping_destination" class="form-control"></div>
+            <div class="col-md-6"><label class="form-label small mb-1">Referencia</label>
+              <input type="text" name="reference" id="ed_reference" class="form-control"></div>
           </div>
 
           <div class="sh-section"><i class="fas fa-box fa-fw me-1"></i> Paquete</div>
@@ -603,16 +646,40 @@
         var id = btn.getAttribute('data-id');
         var form = document.getElementById('formEditar');
         if (form) form.setAttribute('action', '{{ url("registro-envio") }}/' + id + '/editar');
-        ['full_name','dni','phone','shipping_destination','reference','shipping_agency','package_content','package_count','weight','notes'].forEach(function (f) {
+        var get = function (k) { return btn.getAttribute('data-' + k) || ''; };
+        ['full_name','dni','phone','shipping_destination','reference','shipping_agency','package_content','package_count','weight','notes',
+         'delivery_price','latitude','longitude','formatted_address','google_place_id','google_maps_url','destination_city','distance_km','distance_text','duration_text'].forEach(function (f) {
             var el = document.getElementById('ed_' + f);
-            if (el) el.value = btn.getAttribute('data-' + f) || '';
+            if (el) el.value = get(f);
         });
         var code = document.getElementById('edCode');
-        if (code) code.textContent = btn.getAttribute('data-shipment_code') || '';
-        // Precargar el ubigeo (dep → prov → dist) del envío.
-        if (window.__ubPreset) window.__ubPreset('ed', btn.getAttribute('data-department_id'), btn.getAttribute('data-province_id'), btn.getAttribute('data-district_id'));
-        // Sincronizar el desplegable de agencia con el valor cargado.
-        if (window.__syncAgency) window.__syncAgency();
+        if (code) code.textContent = get('shipment_code');
+
+        // Tipo de entrega: alternar la rama agencia/domicilio del modal.
+        var type = get('delivery_type') === 'domicilio' ? 'domicilio' : 'agencia';
+        var isDom = type === 'domicilio';
+        document.getElementById('ed_delivery_type').value = type;
+        var bAg = document.querySelector('#modalEditar .ed-agencia');
+        var bDom = document.querySelector('#modalEditar .ed-domicilio');
+        if (bAg) bAg.style.display = isDom ? 'none' : '';
+        if (bDom) bDom.style.display = isDom ? '' : 'none';
+        // Desactivar los inputs de la rama oculta para que NO se envíen.
+        if (bAg) bAg.querySelectorAll('input,select').forEach(function (el) { el.disabled = isDom; });
+        if (bDom) bDom.querySelectorAll('input').forEach(function (el) { el.disabled = !isDom; });
+
+        if (isDom) {
+            var lat = get('latitude'), lng = get('longitude');
+            var cd = document.getElementById('ed_coords_display');
+            if (cd) cd.textContent = get('formatted_address') || ((lat && lng) ? (parseFloat(lat).toFixed(5) + ', ' + parseFloat(lng).toFixed(5)) : '—');
+            var ml = document.getElementById('ed_maps_link');
+            if (ml) { var link = get('maps_link'); if (link) { ml.href = link; ml.style.display = ''; } else ml.style.display = 'none'; }
+            var dd = document.getElementById('ed_dist_display');
+            if (dd) dd.textContent = get('distance_text') ? ('🛵 ' + get('distance_text')) : '';
+        } else {
+            // Precargar el ubigeo (dep → prov → dist) del envío.
+            if (window.__ubPreset) window.__ubPreset('ed', get('department_id'), get('province_id'), get('district_id'));
+            if (window.__syncAgency) window.__syncAgency();
+        }
     });
 
     // Modal precio: precargar el precio actual y apuntar el form al envío.
