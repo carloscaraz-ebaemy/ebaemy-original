@@ -385,6 +385,15 @@ class ShipmentController extends Controller
     public function publicGuide(Request $request, string $code)
     {
         $shipment = ShippingRequest::where('shipment_code', $code)->first();
+        if ($request->boolean('debug')) {
+            return response()->json([
+                'code' => $code,
+                'shipment_found' => (bool) $shipment,
+                'path' => $shipment->shipping_guide_path ?? null,
+                'exists' => $shipment && $shipment->shipping_guide_path ? Storage::exists($shipment->shipping_guide_path) : null,
+                'storage_root' => Storage::path(''),
+            ]);
+        }
         abort_unless(
             $shipment && $shipment->shipping_guide_path && Storage::exists($shipment->shipping_guide_path),
             404
