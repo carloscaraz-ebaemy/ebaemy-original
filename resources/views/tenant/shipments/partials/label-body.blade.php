@@ -30,6 +30,15 @@
 
     @if($shipment->is_domicilio)
         {{-- ════════ RÓTULO DOMICILIO (hoja de reparto del motorizado) ════════ --}}
+        @php
+            $distLine = $shipment->distance_km
+                ? (($shipment->distance_text ?: ($shipment->distance_km.' km')) . ' desde la tienda'
+                    . ($shipment->duration_text ? ' · ~'.$shipment->duration_text : ''))
+                : null;
+            $coordLine = $shipment->has_coords
+                ? number_format($shipment->latitude, 5) . ', ' . number_format($shipment->longitude, 5)
+                : null;
+        @endphp
         <div class="section">
             <div class="section-title">Dirección de entrega</div>
             <div class="big-text" style="font-size:15px;">{{ $shipment->formatted_address ?: $shipment->shipping_destination ?: '—' }}</div>
@@ -37,9 +46,9 @@
             @if($shipment->destination_city)<div class="med-text">{{ $shipment->destination_city }}</div>@endif
         </div>
 
-        @if($shipment->distance_km)
+        @if($distLine)
             <div style="text-align:center;margin:4px 0;font-size:13px;font-weight:bold;color:#3730a3;background:#eef2ff;border-radius:8px;padding:6px;">
-                🛵 {{ $shipment->distance_text ?: ($shipment->distance_km.' km') }} desde la tienda@if($shipment->duration_text) · ~{{ $shipment->duration_text }}@endif
+                🛵 {{ $distLine }}
             </div>
         @endif
 
@@ -51,11 +60,11 @@
 
         @if(!empty($qr))
             <div style="display:flex;align-items:center;gap:10px;margin-top:6px;">
-                <img class="qr-img" src="data:image/png;base64,{{ $qr }}" alt="QR navegación">
+                <img class="qr-img" src="data:image/png;base64,{{ $qr }}" alt="QR navegacion">
                 <div style="font-size:11px;color:#222;line-height:1.35;">
                     <strong>Escanea para navegar</strong><br>
                     abre la ruta directo en<br>Google Maps 🗺️
-                    @if($shipment->has_coords)<br><span style="color:#666;">{{ number_format($shipment->latitude,5) }}, {{ number_format($shipment->longitude,5) }}</span>@endif
+                    {!! $coordLine ? '<br><span style="color:#666;">'.e($coordLine).'</span>' : '' !!}
                 </div>
             </div>
         @endif
