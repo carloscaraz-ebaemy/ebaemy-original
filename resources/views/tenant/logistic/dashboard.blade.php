@@ -345,7 +345,7 @@
                             </tr>
                         </thead>
                         <tbody>
-                            @forelse($stockCritico as $iw)
+                            @foreach($stockCritico as $iw)
                             <tr class="table-danger">
                                 <td><span class="stock-item-name d-block" title="{{ optional($iw->item)->description }}">{{ optional($iw->item)->description ?? '—' }}</span></td>
                                 <td><small class="text-muted">{{ optional($iw->warehouse)->description ?? '—' }}</small></td>
@@ -354,7 +354,7 @@
                                 <td class="text-center stock-zero">{{ $iw->stock_available ?? 0 }}</td>
                                 <td class="text-center"><span class="badge bg-danger">Agotado</span></td>
                             </tr>
-                            @endforelse
+                            @endforeach
                             @forelse($stockBajo as $iw)
                             <tr class="table-warning">
                                 <td><span class="stock-item-name d-block" title="{{ optional($iw->item)->description }}">{{ optional($iw->item)->description ?? '—' }}</span></td>
