@@ -140,6 +140,10 @@ if ($hostname) {
                      ->name('shipments.without_guide');
                 Route::get('motorizado', [\App\Http\Controllers\Tenant\ShipmentController::class, 'couriers'])
                      ->name('shipments.couriers');
+                Route::get('config-tienda', [\App\Http\Controllers\Tenant\ShipmentController::class, 'settings'])
+                     ->name('shipments.settings');
+                Route::post('config-tienda', [\App\Http\Controllers\Tenant\ShipmentController::class, 'saveSettings'])
+                     ->name('shipments.settings.save');
                 Route::get('consulta/{type}/{number}', [\App\Http\Controllers\Tenant\ShipmentController::class, 'lookupDocument'])
                      ->where('type', 'dni|ruc')->where('number', '[0-9]+')
                      ->name('shipments.lookup');

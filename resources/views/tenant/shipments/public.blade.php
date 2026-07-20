@@ -233,6 +233,12 @@
                         <input type="hidden" name="formatted_address" id="pub_formatted" value="{{ old('formatted_address') }}">
                         <input type="hidden" name="google_maps_url" id="pub_maps_url" value="{{ old('google_maps_url') }}">
                         <input type="hidden" name="destination_city" id="pub_city_domicilio" value="{{ old('destination_city') }}">
+                        <input type="hidden" name="distance_km" id="pub_dist_km" value="{{ old('distance_km') }}">
+                        <input type="hidden" name="distance_text" id="pub_dist_text" value="{{ old('distance_text') }}">
+                        <input type="hidden" name="duration_text" id="pub_dur_text" value="{{ old('duration_text') }}">
+                        <div id="distBox" style="display:none;margin-top:10px;padding:11px 14px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:12px;font-size:13.5px;color:#1d4ed8;font-weight:700;">
+                            🛵 <span id="distText">—</span> desde la tienda <span id="durText" style="color:#3730a3;font-weight:600;"></span>
+                        </div>
 
                         <label>Referencia</label>
                         <input type="text" name="reference" id="pub_reference_dom" value="{{ old('reference') }}" maxlength="255" placeholder="Casa blanca, frente al parque, portón negro…">
@@ -293,6 +299,7 @@
                             <div class="r"><span class="k">Referencia</span><span class="v" id="c_ref">—</span></div>
                             <div class="r" id="r_ag"><span class="k">Agencia</span><span class="v" id="c_ag">—</span></div>
                             <div class="r" id="r_coords"><span class="k">Ubicación GPS</span><span class="v" id="c_coords">—</span></div>
+                            <div class="r" id="r_dist"><span class="k">Distancia</span><span class="v" id="c_dist">—</span></div>
                             <div class="r"><span class="k">Observaciones</span><span class="v" id="c_obs">—</span></div>
                         </div>
                     </div>
@@ -487,10 +494,14 @@
             var lat = txt('pub_lat'), lng = txt('pub_lng');
             document.getElementById('r_coords').hidden = !(lat && lng);
             document.getElementById('c_coords').textContent = (lat && lng) ? (parseFloat(lat).toFixed(5) + ', ' + parseFloat(lng).toFixed(5)) : '—';
+            var dtext = txt('pub_dist_text'), dur = txt('pub_dur_text');
+            document.getElementById('r_dist').hidden = !dtext;
+            document.getElementById('c_dist').textContent = dtext ? (dtext + (dur ? ' · ~' + dur : '')) : '—';
         } else {
             document.getElementById('r_ubigeo').hidden = false;
             document.getElementById('r_ag').hidden = false;
             document.getElementById('r_coords').hidden = true;
+            document.getElementById('r_dist').hidden = true;
             var disp = document.querySelector('[data-ubigeo-group="pub"] .ubigeo-display');
             document.getElementById('c_ubigeo').textContent = (disp && disp.classList.contains('has-value')) ? disp.textContent.trim() : '—';
             document.getElementById('c_dir').textContent = txt('pub_addr_agencia') || '—';
@@ -525,7 +536,35 @@
     // ── Google Maps: Autocomplete + marcador arrastrable + geocoding ──
     (function () {
         var LIMA = { lat: -12.0464, lng: -77.0428 };
-        var map, marker, geocoder, ac, ready = false, pending = false;
+        @if(!empty($storeLat) && !empty($storeLng))
+        var STORE = { lat: {{ $storeLat }}, lng: {{ $storeLng }} };
+        @else
+        var STORE = null;
+        @endif
+        var map, marker, geocoder, ac, ready = false, pending = false, distSvc = null;
+
+        // Distancia de manejo tienda → cliente (Google Distance Matrix).
+        function computeDistance(lat, lng) {
+            if (!STORE) return;
+            try {
+                if (!distSvc) distSvc = new google.maps.DistanceMatrixService();
+                distSvc.getDistanceMatrix({
+                    origins: [STORE], destinations: [{ lat: lat, lng: lng }],
+                    travelMode: 'DRIVING', unitSystem: google.maps.UnitSystem.METRIC
+                }, function (res, status) {
+                    if (status !== 'OK') return;
+                    var el = res.rows[0] && res.rows[0].elements[0];
+                    if (!el || el.status !== 'OK') return;
+                    var km = (el.distance.value / 1000);
+                    document.getElementById('pub_dist_km').value = km.toFixed(2);
+                    document.getElementById('pub_dist_text').value = el.distance.text;
+                    document.getElementById('pub_dur_text').value = el.duration.text;
+                    var box = document.getElementById('distBox'); box.style.display = 'block';
+                    document.getElementById('distText').textContent = el.distance.text;
+                    document.getElementById('durText').textContent = '· ~' + el.duration.text + ' en moto';
+                });
+            } catch (e) {}
+        }
 
         function pickComponent(components, type) {
             for (var i = 0; i < components.length; i++) {
@@ -549,6 +588,7 @@
             if (formatted && !addrInput.value) addrInput.value = formatted;
             var box = document.getElementById('mapPicked');
             if (box) { box.classList.add('show'); document.getElementById('mp_addr').textContent = formatted || (lat + ', ' + lng); document.getElementById('mp_city').textContent = city || ''; }
+            computeDistance(lat, lng);
         }
         function reverse(latlng) {
             geocoder.geocode({ location: latlng }, function (results, status) {

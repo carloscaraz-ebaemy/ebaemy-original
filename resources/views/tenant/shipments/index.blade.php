@@ -21,7 +21,10 @@
             <h4 class="mb-0 fw-bold">📦 Registro y Control de Envíos</h4>
             <small class="text-muted">Tablero de despacho — sube la guía cuando el paquete llegue a la agencia.</small>
         </div>
-        <div class="d-flex gap-2">
+        <div class="d-flex gap-2 flex-wrap">
+            <a href="{{ route('shipments.settings') }}" class="btn btn-sm btn-outline-secondary">
+                <i class="fas fa-location-dot me-1"></i> Ubicación tienda
+            </a>
             <a href="{{ route('shipments.couriers') }}" class="btn btn-sm text-white" style="background:#7c3aed;">
                 <i class="fas fa-motorcycle me-1"></i> Motorizado
                 @if(($metrics['courier_active'] ?? 0) > 0)<span class="badge rounded-pill bg-light text-dark ms-1">{{ $metrics['courier_active'] }}</span>@endif
@@ -185,6 +188,7 @@
                         <td>
                             @if($s->is_domicilio)
                                 <span class="badge" style="background:#f3e8ff;color:#7c3aed;">🏍️ Domicilio</span>
+                                @if($s->distance_km)<div><small class="fw-bold" style="color:#3730a3;">🛵 {{ $s->distance_text ?: ($s->distance_km.' km') }}@if($s->duration_text) · ~{{ $s->duration_text }}@endif</small></div>@endif
                                 @if($s->maps_link)
                                     <div class="mt-1"><a href="{{ $s->maps_link }}" target="_blank" class="small text-decoration-none"><i class="fas fa-map-marker-alt me-1"></i>Ver ubicación</a></div>
                                 @endif

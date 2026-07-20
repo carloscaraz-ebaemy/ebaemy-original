@@ -8,6 +8,7 @@ use App\Models\Tenant\Catalogs\District;
 use App\Models\Tenant\Catalogs\Province;
 use App\Models\Tenant\Company;
 use App\Models\Tenant\ShippingRequest;
+use App\Models\Tenant\ShippingSetting;
 use Hyn\Tenancy\Environment;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -628,13 +629,45 @@ class ShipmentController extends Controller
     {
         $company = Company::first();
 
+        $store = ShippingSetting::current();
+
         return view('tenant.shipments.public', [
             'company'     => $company,
             'sent'        => session('shipment_code'),
             'sentType'    => session('shipment_type'),
             'departments' => Department::orderBy('description')->get(['id', 'description']),
             'mapsKey'     => config('services.google_maps.key'),
+            'storeLat'    => $store->store_latitude,
+            'storeLng'    => $store->store_longitude,
         ]);
+    }
+
+    /** Configuración del módulo: fijar la ubicación (origen) de la tienda. */
+    public function settings()
+    {
+        return view('tenant.shipments.settings', [
+            'company' => Company::first(),
+            'store'   => ShippingSetting::current(),
+            'mapsKey' => config('services.google_maps.key'),
+        ]);
+    }
+
+    /** Guarda la ubicación de la tienda (origen para el cálculo de distancia). */
+    public function saveSettings(Request $request): RedirectResponse
+    {
+        $data = $request->validate([
+            'store_latitude'  => 'required|numeric|between:-90,90',
+            'store_longitude' => 'required|numeric|between:-180,180',
+            'store_address'   => 'nullable|string|max:500',
+        ], [], [
+            'store_latitude'  => 'ubicación de la tienda',
+            'store_longitude' => 'ubicación de la tienda',
+        ]);
+
+        $store = ShippingSetting::current();
+        $store->update($data);
+
+        return back()->with('success', 'Ubicación de la tienda guardada. Ya se calculará la distancia a cada cliente.');
     }
 
     public function publicStore(Request $request): RedirectResponse
@@ -712,6 +745,9 @@ class ShipmentController extends Controller
                 'longitude'            => 'nullable|numeric|between:-180,180',
                 'google_place_id'      => 'nullable|string|max:255',
                 'google_maps_url'      => 'nullable|string|max:500',
+                'distance_km'          => 'nullable|numeric|min:0|max:9999',
+                'distance_text'        => 'nullable|string|max:40',
+                'duration_text'        => 'nullable|string|max:40',
             ];
         } else {
             // Envío por agencia: ubigeo obligatorio + agencia.
@@ -750,6 +786,18 @@ class ShipmentController extends Controller
             $data['longitude'] = $lng;
             if ($lat !== null && $lng !== null && empty($data['google_maps_url'])) {
                 $data['google_maps_url'] = 'https://www.google.com/maps/search/?api=1&query=' . $lat . ',' . $lng;
+            }
+            // Distancia tienda→cliente. Si el front no la trajo (Google Distance
+            // Matrix), calculamos la línea recta (haversine) desde el origen.
+            if (empty($data['distance_km']) && $lat !== null && $lng !== null) {
+                $store = ShippingSetting::current();
+                if ($store->has_origin) {
+                    $km = ShippingRequest::haversineKm(
+                        (float) $store->store_latitude, (float) $store->store_longitude, $lat, $lng
+                    );
+                    $data['distance_km']   = $km;
+                    $data['distance_text'] = $km . ' km aprox.';
+                }
             }
             // La ciudad para el tablero: locality de Google o el texto libre.
             if (empty($data['destination_city']) && !empty($data['formatted_address'])) {

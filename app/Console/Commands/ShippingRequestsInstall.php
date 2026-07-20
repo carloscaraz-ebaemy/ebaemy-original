@@ -31,6 +31,7 @@ class ShippingRequestsInstall extends Command
     /** Migraciones posteriores que este comando también deja registradas. */
     private const MIGRATIONS_EXTRA = [
         '2026_07_20_000001_add_delivery_type_to_shipping_requests',
+        '2026_07_20_000002_add_distance_and_settings_to_shipping',
     ];
 
     public function handle(): int
@@ -55,6 +56,7 @@ class ShippingRequestsInstall extends Command
 
                 if (Schema::connection('tenant')->hasTable('shipping_requests')) {
                     $added = $apply ? $this->ensureColumns() : $this->missingColumns();
+                    if ($apply) $this->ensureSettingsTable();
                     $this->line("  <fg=gray>=</> {$hn->fqdn}: ya existe" . (!empty($added) ? " (columnas: " . implode(', ', $added) . ")" : ""));
                     $this->registerMigrationIfMissing();
                     $summary['ok']++;
@@ -86,6 +88,9 @@ class ShippingRequestsInstall extends Command
                     $table->string('google_place_id', 255)->nullable();
                     $table->string('formatted_address', 500)->nullable();
                     $table->string('google_maps_url', 500)->nullable();
+                    $table->decimal('distance_km', 6, 2)->nullable();
+                    $table->string('distance_text', 40)->nullable();
+                    $table->string('duration_text', 40)->nullable();
                     $table->string('courier_name', 120)->nullable();
                     $table->string('courier_phone', 20)->nullable();
                     $table->string('shipping_agency', 120)->nullable();
@@ -106,6 +111,7 @@ class ShippingRequestsInstall extends Command
                     $table->index('created_at');
                 });
 
+                $this->ensureSettingsTable();
                 $this->registerMigrationIfMissing();
                 $this->line("  <fg=green>+</> {$hn->fqdn}: CREADA");
                 $summary['applied']++;
@@ -133,7 +139,24 @@ class ShippingRequestsInstall extends Command
         'package_content', 'package_count', 'notes', 'department_id', 'province_id', 'district_id', 'weight', 'reference',
         // Rediseño tipo de entrega + Google Maps (2026-07-20)
         'delivery_type', 'latitude', 'longitude', 'google_place_id', 'formatted_address', 'google_maps_url', 'courier_name', 'courier_phone',
+        // Distancia tienda→cliente (2026-07-20)
+        'distance_km', 'distance_text', 'duration_text',
     ];
+
+    /** Crea la tabla shipping_settings (origen de la tienda) si falta. */
+    private function ensureSettingsTable(): void
+    {
+        if (Schema::connection('tenant')->hasTable('shipping_settings')) {
+            return;
+        }
+        Schema::connection('tenant')->create('shipping_settings', function (Blueprint $table) {
+            $table->id();
+            $table->decimal('store_latitude', 10, 7)->nullable();
+            $table->decimal('store_longitude', 10, 7)->nullable();
+            $table->string('store_address', 500)->nullable();
+            $table->timestamps();
+        });
+    }
 
     /** Devuelve las columnas nuevas que aún faltan en la tabla. */
     private function missingColumns(): array
@@ -200,6 +223,15 @@ class ShippingRequestsInstall extends Command
             }
             if (in_array('courier_phone', $missing, true)) {
                 $table->string('courier_phone', 20)->nullable()->after('courier_name');
+            }
+            if (in_array('distance_km', $missing, true)) {
+                $table->decimal('distance_km', 6, 2)->nullable()->after('google_maps_url');
+            }
+            if (in_array('distance_text', $missing, true)) {
+                $table->string('distance_text', 40)->nullable()->after('distance_km');
+            }
+            if (in_array('duration_text', $missing, true)) {
+                $table->string('duration_text', 40)->nullable()->after('distance_text');
             }
         });
 

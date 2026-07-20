@@ -1,0 +1,113 @@
+@extends('tenant.layouts.app')
+
+@push('styles')
+<style>
+    .cfg-wrap { max-width:640px; }
+    #storeMap { width:100%; height:340px; border-radius:14px; border:1px solid #e5e7eb; background:#e5e7eb; margin-top:10px; }
+    .cfg-picked { margin-top:10px; padding:12px 14px; background:#eef2ff; border:1px solid #c7d2fe; border-radius:12px; font-size:14px; }
+    .cfg-picked b { color:#3730a3; }
+    .cfg-off { background:#fffbeb; border:1px solid #fde68a; border-radius:12px; padding:12px 14px; color:#92400e; font-size:13.5px; }
+</style>
+@endpush
+
+@section('content')
+<div class="container-fluid px-2 px-md-3 py-3 cfg-wrap">
+
+    <div class="d-flex align-items-center justify-content-between mb-3 gap-2">
+        <div>
+            <h4 class="mb-0 fw-bold">📍 Ubicación de la tienda</h4>
+            <small class="text-muted">Fija de dónde salen tus motorizados. Se usa para calcular la distancia a cada cliente.</small>
+        </div>
+        <a href="{{ route('shipments.index') }}" class="btn btn-outline-secondary btn-sm"><i class="fas fa-arrow-left me-1"></i> Volver</a>
+    </div>
+
+    @if(session('success'))
+        <div class="alert alert-success alert-dismissible fade show py-2">{{ session('success') }}<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>
+    @endif
+    @if($errors->any())
+        <div class="alert alert-danger py-2"><ul class="mb-0 ps-3">@foreach($errors->all() as $e)<li>{{ $e }}</li>@endforeach</ul></div>
+    @endif
+
+    <div class="card border-0 shadow-sm">
+        <div class="card-body">
+            @if(empty($mapsKey))
+                <div class="cfg-off"><i class="fas fa-triangle-exclamation me-1"></i> El mapa no está disponible (falta la API key de Google Maps). Puedes ingresar las coordenadas manualmente abajo.</div>
+            @endif
+
+            <form method="POST" action="{{ route('shipments.settings.save') }}" id="storeForm">
+                @csrf
+                <label class="form-label fw-semibold mt-2">Buscar mi tienda</label>
+                <input type="text" id="storeSearch" class="form-control" placeholder="Escribe la dirección de tu tienda…" autocomplete="off">
+
+                @if(!empty($mapsKey))
+                    <div id="storeMap"></div>
+                    <small class="text-muted d-block mt-1">Arrastra el marcador para ajustar la ubicación exacta de la tienda.</small>
+                @endif
+
+                <div class="cfg-picked mt-2" id="storePicked" style="{{ $store->has_origin ? '' : 'display:none;' }}">
+                    <b id="sp_addr">{{ $store->store_address ?: '—' }}</b>
+                    <div class="small text-muted" id="sp_coords">
+                        @if($store->has_origin){{ $store->store_latitude }}, {{ $store->store_longitude }}@endif
+                    </div>
+                </div>
+
+                <div class="row g-2 mt-2">
+                    <div class="col-6">
+                        <label class="form-label small text-muted mb-1">Latitud</label>
+                        <input type="text" name="store_latitude" id="store_lat" class="form-control form-control-sm" value="{{ old('store_latitude', $store->store_latitude) }}" required>
+                    </div>
+                    <div class="col-6">
+                        <label class="form-label small text-muted mb-1">Longitud</label>
+                        <input type="text" name="store_longitude" id="store_lng" class="form-control form-control-sm" value="{{ old('store_longitude', $store->store_longitude) }}" required>
+                    </div>
+                </div>
+                <input type="hidden" name="store_address" id="store_address" value="{{ old('store_address', $store->store_address) }}">
+
+                <button type="submit" class="btn btn-primary mt-3"><i class="fas fa-save me-1"></i> Guardar ubicación</button>
+            </form>
+        </div>
+    </div>
+</div>
+@endsection
+
+@if(!empty($mapsKey))
+@push('scripts')
+<script>
+(function () {
+    var START = { lat: {{ $store->store_latitude ?: -12.0464 }}, lng: {{ $store->store_longitude ?: -77.0428 }} };
+    var HAS = {{ $store->has_origin ? 'true' : 'false' }};
+    var map, marker, geocoder, ac;
+
+    function setFields(lat, lng, addr) {
+        document.getElementById('store_lat').value = lat;
+        document.getElementById('store_lng').value = lng;
+        if (addr !== null && addr !== undefined) document.getElementById('store_address').value = addr;
+        var box = document.getElementById('storePicked'); box.style.display = 'block';
+        if (addr) document.getElementById('sp_addr').textContent = addr;
+        document.getElementById('sp_coords').textContent = (+lat).toFixed(6) + ', ' + (+lng).toFixed(6);
+    }
+    function reverse(latlng) {
+        geocoder.geocode({ location: latlng }, function (res, status) {
+            setFields(latlng.lat(), latlng.lng(), (status === 'OK' && res[0]) ? res[0].formatted_address : null);
+        });
+    }
+    window.initStoreMap = function () {
+        geocoder = new google.maps.Geocoder();
+        map = new google.maps.Map(document.getElementById('storeMap'), { center: START, zoom: HAS ? 16 : 12, mapTypeControl:false, streetViewControl:false, fullscreenControl:false });
+        marker = new google.maps.Marker({ map: map, position: START, draggable: true });
+        marker.addListener('dragend', function () { reverse(marker.getPosition()); });
+        map.addListener('click', function (e) { marker.setPosition(e.latLng); reverse(e.latLng); });
+        var input = document.getElementById('storeSearch');
+        ac = new google.maps.places.Autocomplete(input, { componentRestrictions:{country:'pe'}, fields:['geometry','formatted_address'] });
+        ac.bindTo('bounds', map);
+        ac.addListener('place_changed', function () {
+            var p = ac.getPlace(); if (!p.geometry) return;
+            var loc = p.geometry.location; map.panTo(loc); map.setZoom(16); marker.setPosition(loc);
+            setFields(loc.lat(), loc.lng(), p.formatted_address);
+        });
+    };
+})();
+</script>
+<script async src="https://maps.googleapis.com/maps/api/js?key={{ $mapsKey }}&libraries=places&callback=initStoreMap&language=es&region=PE"></script>
+@endpush
+@endif

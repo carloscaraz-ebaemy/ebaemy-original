@@ -50,6 +50,9 @@ class ShippingRequest extends Model
         'google_place_id',
         'google_maps_url',
         'formatted_address',
+        'distance_km',
+        'distance_text',
+        'duration_text',
         'courier_name',
         'courier_phone',
         'package_content',
@@ -74,7 +77,22 @@ class ShippingRequest extends Model
         'weight'         => 'decimal:2',
         'latitude'       => 'decimal:7',
         'longitude'      => 'decimal:7',
+        'distance_km'    => 'decimal:2',
     ];
+
+    /**
+     * Distancia en línea recta (haversine) entre dos coordenadas, en km.
+     * Sirve de fallback cuando no hay distancia de manejo de Google.
+     */
+    public static function haversineKm(float $lat1, float $lng1, float $lat2, float $lng2): float
+    {
+        $r = 6371; // radio terrestre km
+        $dLat = deg2rad($lat2 - $lat1);
+        $dLng = deg2rad($lng2 - $lng1);
+        $a = sin($dLat / 2) ** 2
+           + cos(deg2rad($lat1)) * cos(deg2rad($lat2)) * sin($dLng / 2) ** 2;
+        return round($r * 2 * atan2(sqrt($a), sqrt(1 - $a)), 2);
+    }
 
     // ── Tipo de entrega ────────────────────────────────────────────────────
     /** Motorizado propio a domicilio (usa Google Maps + coordenadas). */
