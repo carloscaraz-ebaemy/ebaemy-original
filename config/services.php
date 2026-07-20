@@ -41,6 +41,15 @@ return [
         'redirect'      => env('GOOGLE_REDIRECT_URI', '/ecommerce/auth/google/callback'),
     ],
 
+    // Google Maps JavaScript API (Places Autocomplete + Geocoding) usado por el
+    // módulo de envíos para las entregas a domicilio (motorizado). Requiere una
+    // API key con Maps JavaScript API + Places API + Geocoding API habilitadas y
+    // facturación activa. Si está vacío, el formulario de domicilio degrada a
+    // ingreso manual de dirección (sin mapa ni coordenadas).
+    'google_maps' => [
+        'key' => env('GOOGLE_MAPS_API_KEY'),
+    ],
+
     // Validación de RUC contra SUNAT (usado por RucValidationService).
     // Sin url configurada, el service solo valida formato y marca las
     // solicitudes como requires_manual_review. Provider sugerido: apis.net.pe.

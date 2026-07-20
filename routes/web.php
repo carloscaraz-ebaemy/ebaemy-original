@@ -138,6 +138,8 @@ if ($hostname) {
                      ->name('shipments.index');
                 Route::get('sin-guia', [\App\Http\Controllers\Tenant\ShipmentController::class, 'withoutGuide'])
                      ->name('shipments.without_guide');
+                Route::get('motorizado', [\App\Http\Controllers\Tenant\ShipmentController::class, 'couriers'])
+                     ->name('shipments.couriers');
                 Route::get('consulta/{type}/{number}', [\App\Http\Controllers\Tenant\ShipmentController::class, 'lookupDocument'])
                      ->where('type', 'dni|ruc')->where('number', '[0-9]+')
                      ->name('shipments.lookup');

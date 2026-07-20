@@ -21,9 +21,15 @@
             <h4 class="mb-0 fw-bold">📦 Registro y Control de Envíos</h4>
             <small class="text-muted">Tablero de despacho — sube la guía cuando el paquete llegue a la agencia.</small>
         </div>
-        <button type="button" class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#modalNuevoEnvio">
-            <i class="fas fa-plus me-1"></i> Registrar envío
-        </button>
+        <div class="d-flex gap-2">
+            <a href="{{ route('shipments.couriers') }}" class="btn btn-sm text-white" style="background:#7c3aed;">
+                <i class="fas fa-motorcycle me-1"></i> Motorizado
+                @if(($metrics['courier_active'] ?? 0) > 0)<span class="badge rounded-pill bg-light text-dark ms-1">{{ $metrics['courier_active'] }}</span>@endif
+            </a>
+            <button type="button" class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#modalNuevoEnvio">
+                <i class="fas fa-plus me-1"></i> Registrar envío
+            </button>
+        </div>
     </div>
 
     {{-- ── Panel de métricas por estado ── --}}
@@ -93,6 +99,20 @@
         @endforeach
     </div>
 
+    {{-- Filtro por tipo de entrega --}}
+    <div class="d-flex flex-wrap gap-2 mb-3">
+        <a href="{{ route('shipments.index', array_filter(['filter'=>$filter,'group'=>$group])) }}"
+           class="btn btn-sm {{ empty($type) ? 'btn-dark' : 'btn-outline-dark' }}">Todos los tipos</a>
+        <a href="{{ route('shipments.index', array_filter(['filter'=>$filter,'group'=>$group,'type'=>'domicilio'])) }}"
+           class="btn btn-sm {{ ($type ?? '')==='domicilio' ? 'text-white' : '' }}" style="{{ ($type ?? '')==='domicilio' ? 'background:#7c3aed;' : 'border:1px solid #7c3aed;color:#7c3aed;' }}">
+            🏍️ A domicilio <span class="badge rounded-pill bg-light text-dark">{{ $metrics['domicilio'] ?? 0 }}</span>
+        </a>
+        <a href="{{ route('shipments.index', array_filter(['filter'=>$filter,'group'=>$group,'type'=>'agencia'])) }}"
+           class="btn btn-sm {{ ($type ?? '')==='agencia' ? 'btn-primary' : 'btn-outline-primary' }}">
+            📦 Por agencia <span class="badge rounded-pill bg-light text-dark">{{ $metrics['agencia'] ?? 0 }}</span>
+        </a>
+    </div>
+
     {{-- Aviso del filtro crítico --}}
     @if($filter === 'sin-guia' && $counts['sin-guia'] > 0)
         <div class="alert alert-warning py-2 d-flex align-items-center gap-2">
@@ -140,15 +160,17 @@
                 @forelse($shipments as $s)
                     @php
                         $badge = [
-                            'recibido'   => 'secondary',
-                            'confirmado' => 'info',
-                            'preparando' => 'warning',
-                            'embalando'  => 'warning',
-                            'despachado' => 'primary',
-                            'en_agencia' => 'success',
-                            'en_ruta'    => 'success',
-                            'entregado'  => 'primary',
-                            'anulado'    => 'dark',
+                            'recibido'            => 'secondary',
+                            'confirmado'          => 'info',
+                            'preparando'          => 'warning',
+                            'asignado_motorizado' => 'info',
+                            'en_camino'           => 'primary',
+                            'embalando'           => 'warning',
+                            'despachado'          => 'primary',
+                            'en_agencia'          => 'success',
+                            'en_ruta'             => 'success',
+                            'entregado'           => 'primary',
+                            'anulado'             => 'dark',
                             'pendiente'  => 'secondary', 'listo' => 'warning', 'enviado' => 'success',
                         ][$s->status] ?? 'secondary';
                     @endphp
@@ -160,7 +182,17 @@
                             <small class="text-muted">{{ $s->phone }}</small>
                         </td>
                         <td>{{ $s->destination_city ?: '—' }}</td>
-                        <td>{{ $s->shipping_agency ?: '—' }}</td>
+                        <td>
+                            @if($s->is_domicilio)
+                                <span class="badge" style="background:#f3e8ff;color:#7c3aed;">🏍️ Domicilio</span>
+                                @if($s->maps_link)
+                                    <div class="mt-1"><a href="{{ $s->maps_link }}" target="_blank" class="small text-decoration-none"><i class="fas fa-map-marker-alt me-1"></i>Ver ubicación</a></div>
+                                @endif
+                                @if($s->courier_name)<div><small class="text-muted"><i class="fas fa-motorcycle me-1"></i>{{ $s->courier_name }}</small></div>@endif
+                            @else
+                                {{ $s->shipping_agency ?: '—' }}
+                            @endif
+                        </td>
                         <td>
                             @if($s->has_guide)
                                 <a href="{{ route('shipments.guide', $s->id) }}" target="_blank" class="badge bg-success text-decoration-none">
@@ -177,16 +209,14 @@
                                     {{ $s->status_label }}
                                 </button>
                                 <ul class="dropdown-menu shadow-sm">
-                                    @foreach($statuses as $val => $lbl)
-                                        @if($val !== 'anulado')
+                                    @foreach($s->selectableStatuses() as $val)
                                         <li>
                                             <form method="POST" action="{{ route('shipments.status', $s->id) }}">
                                                 @csrf
                                                 <input type="hidden" name="status" value="{{ $val }}">
-                                                <button class="dropdown-item {{ $s->status === $val ? 'active' : '' }}" type="submit">{{ $lbl }}</button>
+                                                <button class="dropdown-item {{ $s->status === $val ? 'active' : '' }}" type="submit">{{ $statuses[$val] ?? $val }}</button>
                                             </form>
                                         </li>
-                                        @endif
                                     @endforeach
                                 </ul>
                             </div>

@@ -43,12 +43,19 @@ class ShipmentController extends Controller
             case 'enviados-hoy': $query->sentToday();     break;
         }
 
-        // Grupos de estado para las tarjetas de métricas (incluyen valores legados).
+        // Filtro por tipo de entrega (domicilio / agencia).
+        $type = $request->input('type');
+        if (in_array($type, [ShippingRequest::DELIVERY_DOMICILIO, ShippingRequest::DELIVERY_AGENCIA], true)) {
+            $query->where('delivery_type', $type);
+        }
+
+        // Grupos de estado para las tarjetas de métricas (incluyen valores legados
+        // y los estados del flujo de motorizado: asignado_motorizado, en_camino).
         $groups = [
             'confirmar'  => ['recibido', 'pendiente'],
             'embalaje'   => ['confirmado', 'preparando'],
-            'despacho'   => ['embalando', 'despachado', 'listo'],
-            'transito'   => ['en_agencia', 'en_ruta', 'enviado'],
+            'despacho'   => ['embalando', 'despachado', 'listo', 'asignado_motorizado'],
+            'transito'   => ['en_agencia', 'en_ruta', 'enviado', 'en_camino'],
             'entregados' => ['entregado'],
             'cancelados' => ['anulado'],
         ];
@@ -84,12 +91,18 @@ class ShipmentController extends Controller
             $metrics[$k] = ShippingRequest::whereIn('status', $sts)->count();
         }
 
+        // Conteo por tipo de entrega (para las pastillas del panel).
+        $metrics['domicilio'] = ShippingRequest::domicilio()->count();
+        $metrics['agencia']   = ShippingRequest::agencia()->count();
+        $metrics['courier_active'] = ShippingRequest::courierActive()->count();
+
         return view('tenant.shipments.index', [
             'shipments'   => $shipments,
             'filter'      => $filter,
             'counts'      => $counts,
             'metrics'     => $metrics,
             'group'       => $group,
+            'type'        => $type,
             'q'           => $q,
             'statuses'    => ShippingRequest::STATUSES,
             'departments' => Department::orderBy('description')->get(['id', 'description']),
@@ -157,13 +170,26 @@ class ShipmentController extends Controller
     public function updateStatus(Request $request, ShippingRequest $shipment): RedirectResponse
     {
         $request->validate([
-            'status' => 'required|in:' . implode(',', array_keys(ShippingRequest::STATUSES)),
+            'status'        => 'required|in:' . implode(',', array_keys(ShippingRequest::STATUSES)),
+            'courier_name'  => 'nullable|string|max:120',
+            'courier_phone' => 'nullable|string|max:20',
         ]);
 
         $old = $shipment->status;
         $update = ['status' => $request->status];
-        // Al llegar a la agencia (o más allá) y sin fecha, sellar sent_at.
-        if (in_array($request->status, [ShippingRequest::STATUS_EN_AGENCIA, ShippingRequest::STATUS_EN_RUTA, ShippingRequest::STATUS_ENTREGADO], true) && !$shipment->sent_at) {
+
+        // Datos del motorizado al asignarlo (entrega a domicilio).
+        if ($request->status === ShippingRequest::STATUS_ASIGNADO) {
+            if ($request->filled('courier_name'))  $update['courier_name']  = $request->courier_name;
+            if ($request->filled('courier_phone')) $update['courier_phone'] = $request->courier_phone;
+        }
+
+        // Sellar sent_at al "salir": agencia (a la agencia/tránsito) o motorizado (en camino).
+        $sealStatuses = [
+            ShippingRequest::STATUS_EN_AGENCIA, ShippingRequest::STATUS_EN_RUTA,
+            ShippingRequest::STATUS_EN_CAMINO, ShippingRequest::STATUS_ENTREGADO,
+        ];
+        if (in_array($request->status, $sealStatuses, true) && !$shipment->sent_at) {
             $update['sent_at'] = now();
         }
         $shipment->update($update);
@@ -414,7 +440,7 @@ class ShipmentController extends Controller
     private function notifyStatusChange(ShippingRequest $shipment): void
     {
         try {
-            $body = ShippingRequest::statusWhatsappMessage($shipment->status);
+            $body = ShippingRequest::statusWhatsappMessage($shipment->status, $shipment->delivery_type);
             if (!$body) {
                 return; // este estado no notifica
             }
@@ -441,10 +467,18 @@ class ShipmentController extends Controller
             }
             $name     = \Illuminate\Support\Str::of($shipment->full_name)->before(' ');
             $trackUrl = url('envio/seguimiento?code=' . $shipment->shipment_code);
-            $msg  = "Hola {$name} 👋\n\nTus datos de envío fueron registrados correctamente.\n\n";
+            $tienda   = optional(Company::first())->trade_name ?: 'la tienda';
+
+            $msg  = "Hola {$name} 👋\n\nTus datos fueron registrados correctamente.\n\n";
+            if ($shipment->is_domicilio) {
+                $msg .= "🏍️ Tu pedido será entregado por nuestro *motorizado* hasta tu dirección.\n\n";
+            } else {
+                $msg .= "📦 Tu pedido será enviado mediante *agencia de transporte*.\n";
+                $msg .= "Cuando sea despachado recibirás la guía de envío.\n\n";
+            }
             $msg .= "Código:\n*{$shipment->shipment_code}*\n\n";
-            $msg .= "Estado actual: *Registro recibido*.\nEn breve prepararemos tu pedido.\n\n";
-            $msg .= "🔎 Consulta tu seguimiento aquí:\n{$trackUrl}\n\n¡Gracias por tu compra!";
+            $msg .= "🔎 Consulta tu seguimiento aquí:\n{$trackUrl}\n\n";
+            $msg .= "Gracias por comprar en {$tienda}.";
             dispatch(\App\Jobs\SendWhatsAppMessage::text($phone, $msg));
         } catch (\Throwable $e) {
             \Log::warning('[shipping] WhatsApp de registro no enviado: ' . $e->getMessage());
@@ -503,6 +537,50 @@ class ShipmentController extends Controller
         ]);
     }
 
+    /**
+     * Tablero del MOTORIZADO: lista de entregas a domicilio con nombre, celular,
+     * dirección, mapa y botón "Abrir en Google Maps" (navegación directa).
+     */
+    public function couriers(Request $request)
+    {
+        $query = ShippingRequest::query()->domicilio()->latest('id');
+
+        $view = $request->input('view', 'activos');
+        if ($view === 'entregados') {
+            $query->where('status', ShippingRequest::STATUS_ENTREGADO)
+                  ->whereDate('sent_at', now()->toDateString());
+        } elseif ($view !== 'todos') {
+            $query->courierActive();
+            $view = 'activos';
+        }
+
+        $s = trim((string) $request->input('q', ''));
+        if ($s !== '') {
+            $query->where(function ($w) use ($s) {
+                $w->where('full_name', 'like', "%{$s}%")
+                  ->orWhere('shipment_code', 'like', "%{$s}%")
+                  ->orWhere('phone', 'like', "%{$s}%");
+            });
+        }
+
+        $shipments = $query->paginate(20)->withQueryString();
+
+        return view('tenant.shipments.couriers', [
+            'company'   => Company::first(),
+            'shipments' => $shipments,
+            'view'      => $view,
+            'q'         => $s,
+            'statuses'  => ShippingRequest::STATUSES,
+            'mapsKey'   => config('services.google_maps.key'),
+            'counts'    => [
+                'activos'    => ShippingRequest::courierActive()->count(),
+                'entregados' => ShippingRequest::domicilio()->where('status', ShippingRequest::STATUS_ENTREGADO)
+                                   ->whereDate('sent_at', now()->toDateString())->count(),
+                'todos'      => ShippingRequest::domicilio()->count(),
+            ],
+        ]);
+    }
+
     /** Descarga/streaming de la guía de envío (archivo privado del tenant). */
     public function downloadGuide(ShippingRequest $shipment)
     {
@@ -537,11 +615,12 @@ class ShipmentController extends Controller
         }
 
         return view('tenant.shipments.tracking', [
-            'company'  => Company::first(),
-            'code'     => $code,
-            'shipment' => $shipment,
-            'notFound' => $notFound,
-            'statuses' => ShippingRequest::STATUSES,
+            'company'     => Company::first(),
+            'code'        => $code,
+            'shipment'    => $shipment,
+            'notFound'    => $notFound,
+            'statuses'    => ShippingRequest::STATUSES,
+            'statusOrder' => ShippingRequest::statusOrderFor($shipment?->delivery_type),
         ]);
     }
 
@@ -552,7 +631,9 @@ class ShipmentController extends Controller
         return view('tenant.shipments.public', [
             'company'     => $company,
             'sent'        => session('shipment_code'),
+            'sentType'    => session('shipment_type'),
             'departments' => Department::orderBy('description')->get(['id', 'description']),
+            'mapsKey'     => config('services.google_maps.key'),
         ]);
     }
 
@@ -562,12 +643,12 @@ class ShipmentController extends Controller
         $data['status']         = ShippingRequest::STATUS_RECIBIDO;
         $data['accepted_terms'] = true;
 
-        // Anti-duplicado: si el mismo teléfono ya registró a la misma ciudad en
-        // los últimos 10 min y sigue pendiente, reusamos ese registro en vez de
-        // crear otro. Cubre el doble clic y el "creo que no funcionó, reintento"
-        // sin bloquear un envío genuinamente distinto (otra ciudad o más tarde).
+        // Anti-duplicado: si el mismo teléfono ya registró (mismo tipo de entrega)
+        // en los últimos 10 min y sigue en "recibido", reusamos ese registro en
+        // vez de crear otro. Cubre el doble clic y el "creo que no funcionó,
+        // reintento" sin bloquear un envío genuinamente distinto (más tarde).
         $recent = ShippingRequest::where('phone', $data['phone'])
-            ->where('destination_city', $data['destination_city'])
+            ->where('delivery_type', $data['delivery_type'])
             ->where('status', ShippingRequest::STATUS_RECIBIDO)
             ->where('created_at', '>=', now()->subMinutes(10))
             ->latest('id')
@@ -576,6 +657,7 @@ class ShipmentController extends Controller
         if ($recent) {
             return redirect()->route('shipments.public.form')
                 ->with('shipment_code', $recent->shipment_code)
+                ->with('shipment_type', $recent->delivery_type)
                 ->with('duplicate', true);
         }
 
@@ -587,6 +669,7 @@ class ShipmentController extends Controller
 
         return redirect()->route('shipments.public.form')
             ->with('shipment_code', $shipment->shipment_code)
+            ->with('shipment_type', $shipment->delivery_type)
             ->with('success', 'Tus datos se registraron. Guarda tu código de envío: ' . $shipment->shipment_code);
     }
 
@@ -598,17 +681,19 @@ class ShipmentController extends Controller
      */
     private function validateShipment(Request $request, bool $public = false): array
     {
+        // Discriminador de tipo de entrega. Por defecto, agencia (retrocompat).
+        $deliveryType = $request->input('delivery_type') === ShippingRequest::DELIVERY_DOMICILIO
+            ? ShippingRequest::DELIVERY_DOMICILIO
+            : ShippingRequest::DELIVERY_AGENCIA;
+        $isDomicilio = $deliveryType === ShippingRequest::DELIVERY_DOMICILIO;
+
+        // Reglas comunes a ambos tipos.
         $rules = [
+            'delivery_type'        => 'nullable|in:' . ShippingRequest::DELIVERY_DOMICILIO . ',' . ShippingRequest::DELIVERY_AGENCIA,
             'full_name'            => 'required|string|max:160',
             'dni'                  => 'nullable|string|max:15',
             'phone'                => 'required|string|max:20',
-            'shipping_destination' => 'nullable|string|max:255',
             'reference'            => 'nullable|string|max:255',
-            'destination_city'     => 'nullable|string|max:120',
-            'department_id'        => 'nullable|string|max:2',
-            'province_id'          => 'nullable|string|max:4',
-            'district_id'          => 'required|string|max:6',
-            'shipping_agency'      => 'nullable|string|max:120',
             'package_content'      => 'nullable|string|max:255',
             'package_count'        => 'nullable|integer|min:1|max:9999',
             'weight'               => 'nullable|numeric|min:0|max:999999',
@@ -616,33 +701,74 @@ class ShipmentController extends Controller
             'observation'          => 'nullable|string|max:255',
             'order_id'             => 'nullable|integer',
         ];
+
+        if ($isDomicilio) {
+            // Entrega a domicilio (motorizado): dirección + Google Maps.
+            $rules += [
+                'shipping_destination' => 'required|string|max:500',
+                'formatted_address'    => 'nullable|string|max:500',
+                'destination_city'     => 'nullable|string|max:120',
+                'latitude'             => 'nullable|numeric|between:-90,90',
+                'longitude'            => 'nullable|numeric|between:-180,180',
+                'google_place_id'      => 'nullable|string|max:255',
+                'google_maps_url'      => 'nullable|string|max:500',
+            ];
+        } else {
+            // Envío por agencia: ubigeo obligatorio + agencia.
+            $rules += [
+                'shipping_destination' => 'nullable|string|max:255',
+                'destination_city'     => 'nullable|string|max:120',
+                'department_id'        => 'nullable|string|max:2',
+                'province_id'          => 'nullable|string|max:4',
+                'district_id'          => 'required|string|max:6',
+                'shipping_agency'      => 'nullable|string|max:120',
+            ];
+        }
+
         if ($public) {
             $rules['accepted_terms'] = 'accepted';
         }
 
         $data = $request->validate($rules, [], [
-            'full_name'      => 'nombre completo',
-            'phone'          => 'teléfono',
-            'district_id'    => 'distrito de destino',
-            'accepted_terms' => 'aceptación de términos',
+            'full_name'            => 'nombre completo',
+            'phone'                => 'teléfono',
+            'district_id'          => 'distrito de destino',
+            'shipping_destination' => 'dirección de entrega',
+            'accepted_terms'       => 'aceptación de términos',
         ]);
 
-        // accepted_terms no es columna a asignar desde validación directa en
-        // panel; se controla arriba. Quitarlo del payload común.
         unset($data['accepted_terms']);
 
-        // N° de bultos: mínimo 1 (default) si no lo indicaron.
-        $data['package_count'] = (int) ($request->input('package_count') ?: 1);
+        $data['delivery_type']  = $deliveryType;
+        $data['package_count']  = (int) ($request->input('package_count') ?: 1);
 
-        // Ubigeo autoritativo: derivar provincia, departamento y el nombre de
-        // ciudad (para el tablero/rótulo) a partir del distrito seleccionado.
-        if (!empty($data['district_id'])) {
-            $dist = District::find($data['district_id']);
-            if ($dist) {
-                $data['province_id']      = $dist->province_id;
-                $prov                     = Province::find($dist->province_id);
-                $data['department_id']    = $prov ? $prov->department_id : ($data['department_id'] ?? null);
-                $data['destination_city'] = $dist->description;
+        if ($isDomicilio) {
+            // Normalizar coordenadas y construir la URL de Maps si falta.
+            $lat = $request->filled('latitude') ? (float) $request->input('latitude') : null;
+            $lng = $request->filled('longitude') ? (float) $request->input('longitude') : null;
+            $data['latitude']  = $lat;
+            $data['longitude'] = $lng;
+            if ($lat !== null && $lng !== null && empty($data['google_maps_url'])) {
+                $data['google_maps_url'] = 'https://www.google.com/maps/search/?api=1&query=' . $lat . ',' . $lng;
+            }
+            // La ciudad para el tablero: locality de Google o el texto libre.
+            if (empty($data['destination_city']) && !empty($data['formatted_address'])) {
+                $data['destination_city'] = \Illuminate\Support\Str::of($data['formatted_address'])->before(',')->limit(120, '');
+            }
+            // El ubigeo por agencia no aplica a domicilio: dejar nulo.
+            $data['district_id'] = null;
+            $data['province_id'] = null;
+            $data['department_id'] = null;
+        } else {
+            // Ubigeo autoritativo: derivar provincia/departamento/ciudad del distrito.
+            if (!empty($data['district_id'])) {
+                $dist = District::find($data['district_id']);
+                if ($dist) {
+                    $data['province_id']      = $dist->province_id;
+                    $prov                     = Province::find($dist->province_id);
+                    $data['department_id']    = $prov ? $prov->department_id : ($data['department_id'] ?? null);
+                    $data['destination_city'] = $dist->description;
+                }
             }
         }
 

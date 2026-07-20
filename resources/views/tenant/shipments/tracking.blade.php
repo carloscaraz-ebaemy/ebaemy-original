@@ -67,21 +67,33 @@
 
         @if($shipment)
             @php
-                $order = \App\Models\Tenant\ShippingRequest::STATUS_ORDER;
+                // Línea de tiempo según el TIPO de entrega del envío.
+                $order = $statusOrder ?? \App\Models\Tenant\ShippingRequest::statusOrderFor($shipment->delivery_type);
                 // Mapear valores legados al nuevo flujo para posicionar el paso.
                 $legacyMap = ['pendiente' => 'recibido', 'listo' => 'embalando', 'enviado' => 'en_agencia'];
                 $curStatus = $legacyMap[$shipment->status] ?? $shipment->status;
                 $curIdx = array_search($curStatus, $order);
                 if ($curIdx === false) $curIdx = 0;
                 $isCancelled = $shipment->status === 'anulado';
+                $isDom = $shipment->delivery_type === \App\Models\Tenant\ShippingRequest::DELIVERY_DOMICILIO;
             @endphp
             <div class="res">
                 <div class="code">{{ $shipment->shipment_code }}</div>
+                <div style="text-align:center;margin:2px 0 4px;">
+                    <span style="display:inline-block;font-size:11.5px;font-weight:700;padding:4px 11px;border-radius:999px;{{ $isDom ? 'background:#f3e8ff;color:#7c3aed;' : 'background:#dbeafe;color:#1d4ed8;' }}">
+                        {{ $isDom ? '🏍️ Entrega a domicilio' : '📦 Envío por agencia' }}
+                    </span>
+                </div>
                 <div class="meta">
                     {{ \Illuminate\Support\Str::of($shipment->full_name)->before(' ') }}
                     · {{ $shipment->destination_city ?: '—' }}
                     @if($shipment->shipping_agency) · {{ $shipment->shipping_agency }}@endif
                 </div>
+                @if($isDom && $shipment->maps_link)
+                    <div style="text-align:center;margin:8px 0 2px;">
+                        <a href="{{ $shipment->maps_link }}" target="_blank" style="font-size:13px;color:#7c3aed;font-weight:700;text-decoration:none;">📍 Ver mi ubicación en el mapa</a>
+                    </div>
+                @endif
 
                 @if($isCancelled)
                     <div class="cancel">🚫 Este envío fue anulado. Contacta con la tienda.</div>

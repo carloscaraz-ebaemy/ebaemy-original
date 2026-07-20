@@ -33,6 +33,7 @@ class ShippingRequest extends Model
     protected $fillable = [
         'shipment_code',
         'order_id',
+        'delivery_type',
         'full_name',
         'dni',
         'phone',
@@ -43,6 +44,14 @@ class ShippingRequest extends Model
         'province_id',
         'district_id',
         'shipping_agency',
+        // Google Maps (solo entregas a domicilio / motorizado)
+        'latitude',
+        'longitude',
+        'google_place_id',
+        'google_maps_url',
+        'formatted_address',
+        'courier_name',
+        'courier_phone',
         'package_content',
         'package_count',
         'weight',
@@ -63,6 +72,19 @@ class ShippingRequest extends Model
         'created_by'     => 'integer',
         'package_count'  => 'integer',
         'weight'         => 'decimal:2',
+        'latitude'       => 'decimal:7',
+        'longitude'      => 'decimal:7',
+    ];
+
+    // ── Tipo de entrega ────────────────────────────────────────────────────
+    /** Motorizado propio a domicilio (usa Google Maps + coordenadas). */
+    public const DELIVERY_DOMICILIO = 'domicilio';
+    /** Envío por agencia de transporte a provincia (usa ubigeo). */
+    public const DELIVERY_AGENCIA   = 'agencia';
+
+    public const DELIVERY_TYPES = [
+        self::DELIVERY_DOMICILIO => 'Entrega a domicilio (Motorizado)',
+        self::DELIVERY_AGENCIA   => 'Envío por agencia',
     ];
 
     // ── Estados del paquete (flujo completo) ───────────────────────────────
@@ -75,28 +97,57 @@ class ShippingRequest extends Model
     public const STATUS_EN_RUTA    = 'en_ruta';
     public const STATUS_ENTREGADO  = 'entregado';
     public const STATUS_ANULADO    = 'anulado';
+    // Estados exclusivos de la entrega a domicilio (motorizado).
+    public const STATUS_ASIGNADO   = 'asignado_motorizado';
+    public const STATUS_EN_CAMINO  = 'en_camino';
 
     public const STATUSES = [
         self::STATUS_RECIBIDO   => 'Registro recibido',
-        self::STATUS_CONFIRMADO => 'Confirmado',
+        self::STATUS_CONFIRMADO => 'Pedido confirmado',
         self::STATUS_PREPARANDO => 'Preparando pedido',
+        self::STATUS_ASIGNADO   => 'Asignado a motorizado',
+        self::STATUS_EN_CAMINO  => 'Motorizado en camino',
         self::STATUS_EMBALANDO  => 'Embalando',
         self::STATUS_DESPACHADO => 'Despachado',
         self::STATUS_EN_AGENCIA => 'Entregado a agencia',
-        self::STATUS_EN_RUTA    => 'En ruta',
+        self::STATUS_EN_RUTA    => 'En tránsito',
         self::STATUS_ENTREGADO  => 'Entregado',
         self::STATUS_ANULADO    => 'Anulado',
     ];
 
-    /** Secuencia del flujo (para la línea de tiempo del seguimiento). */
-    public const STATUS_ORDER = [
-        self::STATUS_RECIBIDO, self::STATUS_CONFIRMADO, self::STATUS_PREPARANDO,
-        self::STATUS_EMBALANDO, self::STATUS_DESPACHADO, self::STATUS_EN_AGENCIA,
-        self::STATUS_EN_RUTA, self::STATUS_ENTREGADO,
+    /**
+     * Secuencia del flujo por TIPO de entrega (para la línea de tiempo).
+     * Cada tipo tiene su propio recorrido de estados.
+     */
+    public const STATUS_FLOWS = [
+        self::DELIVERY_DOMICILIO => [
+            self::STATUS_RECIBIDO, self::STATUS_CONFIRMADO, self::STATUS_PREPARANDO,
+            self::STATUS_ASIGNADO, self::STATUS_EN_CAMINO, self::STATUS_ENTREGADO,
+        ],
+        self::DELIVERY_AGENCIA => [
+            self::STATUS_RECIBIDO, self::STATUS_PREPARANDO, self::STATUS_EMBALANDO,
+            self::STATUS_DESPACHADO, self::STATUS_EN_AGENCIA, self::STATUS_EN_RUTA,
+            self::STATUS_ENTREGADO,
+        ],
     ];
 
-    /** Estados elegibles desde el panel (sin 'anulado', que tiene su propia acción). */
-    public const SELECTABLE_STATUSES = self::STATUS_ORDER;
+    /** Secuencia por defecto (agencia) — se mantiene por compatibilidad. */
+    public const STATUS_ORDER = self::STATUS_FLOWS[self::DELIVERY_AGENCIA];
+
+    /**
+     * Secuencia de estados según el tipo de entrega del envío.
+     * @return string[]
+     */
+    public static function statusOrderFor(?string $deliveryType): array
+    {
+        return self::STATUS_FLOWS[$deliveryType] ?? self::STATUS_FLOWS[self::DELIVERY_AGENCIA];
+    }
+
+    /** Estados elegibles desde el panel para este envío (según su tipo, sin 'anulado'). */
+    public function selectableStatuses(): array
+    {
+        return self::statusOrderFor($this->delivery_type);
+    }
 
     /** Etiquetas de valores legados (compatibilidad con envíos previos a Fase 2). */
     public const LEGACY_LABELS = [
@@ -105,16 +156,21 @@ class ShippingRequest extends Model
         'enviado'   => 'Entregado a agencia',
     ];
 
-    /** Mensaje de WhatsApp por estado (o null si ese estado no notifica). */
-    public static function statusWhatsappMessage(string $status): ?string
+    /**
+     * Mensaje de WhatsApp por estado (o null si ese estado no notifica).
+     * El tipo de entrega ajusta el texto (motorizado vs agencia).
+     */
+    public static function statusWhatsappMessage(string $status, ?string $deliveryType = null): ?string
     {
         $map = [
             self::STATUS_CONFIRMADO => 'Tu pedido fue *confirmado*. En breve lo prepararemos. ✅',
             self::STATUS_PREPARANDO => 'Estamos *preparando* tu pedido. 📦',
+            self::STATUS_ASIGNADO   => 'Tu pedido fue *asignado a un motorizado* y saldrá pronto. 🏍️',
+            self::STATUS_EN_CAMINO  => 'Nuestro *motorizado está en camino* a tu dirección. 🏍️💨',
             self::STATUS_EMBALANDO  => 'Tu pedido ya fue *embalado*. 📦✅',
             self::STATUS_DESPACHADO => 'Tu pedido fue *despachado*. 🚚',
             self::STATUS_EN_AGENCIA => 'Tu pedido fue *entregado a la agencia*. 🏢',
-            self::STATUS_EN_RUTA    => 'Tu pedido se encuentra *en ruta*. 🛣️',
+            self::STATUS_EN_RUTA    => 'Tu pedido se encuentra *en tránsito*. 🛣️',
             self::STATUS_ENTREGADO  => 'Tu pedido fue *entregado correctamente*. 🎉',
         ];
         return $map[$status] ?? null;
@@ -136,6 +192,65 @@ class ShippingRequest extends Model
     public function getIsCancelledAttribute(): bool
     {
         return $this->status === self::STATUS_ANULADO;
+    }
+
+    /** ¿Es una entrega a domicilio (motorizado con Google Maps)? */
+    public function getIsDomicilioAttribute(): bool
+    {
+        return $this->delivery_type === self::DELIVERY_DOMICILIO;
+    }
+
+    /** Etiqueta legible del tipo de entrega. */
+    public function getDeliveryTypeLabelAttribute(): string
+    {
+        return self::DELIVERY_TYPES[$this->delivery_type] ?? 'Envío por agencia';
+    }
+
+    /** ¿Tiene coordenadas geográficas (para el mapa/motorizado)? */
+    public function getHasCoordsAttribute(): bool
+    {
+        return $this->latitude !== null && $this->longitude !== null;
+    }
+
+    /** Enlace a Google Maps para ver la ubicación (URL guardada o construida). */
+    public function getMapsLinkAttribute(): ?string
+    {
+        if ($this->google_maps_url) {
+            return $this->google_maps_url;
+        }
+        if ($this->has_coords) {
+            return 'https://www.google.com/maps/search/?api=1&query=' . $this->latitude . ',' . $this->longitude;
+        }
+        return null;
+    }
+
+    /** Enlace de NAVEGACIÓN para el motorizado (abre la ruta en Google Maps). */
+    public function getCourierDirectionsUrlAttribute(): ?string
+    {
+        if (!$this->has_coords) {
+            return null;
+        }
+        return 'https://www.google.com/maps/dir/?api=1&destination=' . $this->latitude . ',' . $this->longitude;
+    }
+
+    // ── Scopes por tipo de entrega ────────────────────────────────────────
+    public function scopeDomicilio($q)
+    {
+        return $q->where('delivery_type', self::DELIVERY_DOMICILIO);
+    }
+
+    public function scopeAgencia($q)
+    {
+        return $q->where('delivery_type', self::DELIVERY_AGENCIA);
+    }
+
+    /** Envíos a domicilio activos (para el tablero del motorizado). */
+    public function scopeCourierActive($q)
+    {
+        return $q->domicilio()->whereIn('status', [
+            self::STATUS_CONFIRMADO, self::STATUS_PREPARANDO,
+            self::STATUS_ASIGNADO, self::STATUS_EN_CAMINO,
+        ]);
     }
 
     // ── Scopes para los filtros del panel ─────────────────────────────────

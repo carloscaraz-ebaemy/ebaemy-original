@@ -27,7 +27,11 @@ class ShippingRequestsInstall extends Command
     protected $signature = 'shipping:install {--apply : Ejecutar la creación (sin esto solo reporta estado)}';
     protected $description = 'Crea shipping_requests en todos los tenants (módulo Registro y Control de Envíos)';
 
-    private const MIGRATION = '2026_07_18_000001_create_shipping_requests_table';
+    private const MIGRATION  = '2026_07_18_000001_create_shipping_requests_table';
+    /** Migraciones posteriores que este comando también deja registradas. */
+    private const MIGRATIONS_EXTRA = [
+        '2026_07_20_000001_add_delivery_type_to_shipping_requests',
+    ];
 
     public function handle(): int
     {
@@ -66,6 +70,7 @@ class ShippingRequestsInstall extends Command
                     $table->id();
                     $table->string('shipment_code', 20)->nullable()->unique();
                     $table->unsignedInteger('order_id')->nullable();
+                    $table->string('delivery_type', 20)->default('agencia')->index();
                     $table->string('full_name', 160);
                     $table->string('dni', 15)->nullable();
                     $table->string('phone', 20)->nullable();
@@ -75,6 +80,14 @@ class ShippingRequestsInstall extends Command
                     $table->string('department_id', 2)->nullable();
                     $table->string('province_id', 4)->nullable();
                     $table->string('district_id', 6)->nullable();
+                    // Google Maps (entregas a domicilio / motorizado)
+                    $table->decimal('latitude', 10, 7)->nullable();
+                    $table->decimal('longitude', 10, 7)->nullable();
+                    $table->string('google_place_id', 255)->nullable();
+                    $table->string('formatted_address', 500)->nullable();
+                    $table->string('google_maps_url', 500)->nullable();
+                    $table->string('courier_name', 120)->nullable();
+                    $table->string('courier_phone', 20)->nullable();
                     $table->string('shipping_agency', 120)->nullable();
                     $table->string('package_content', 255)->nullable();
                     $table->unsignedSmallInteger('package_count')->default(1);
@@ -116,7 +129,11 @@ class ShippingRequestsInstall extends Command
     }
 
     /** Columnas añadidas después del create original (para tenants ya creados). */
-    private const NEW_COLUMNS = ['package_content', 'package_count', 'notes', 'department_id', 'province_id', 'district_id', 'weight', 'reference'];
+    private const NEW_COLUMNS = [
+        'package_content', 'package_count', 'notes', 'department_id', 'province_id', 'district_id', 'weight', 'reference',
+        // Rediseño tipo de entrega + Google Maps (2026-07-20)
+        'delivery_type', 'latitude', 'longitude', 'google_place_id', 'formatted_address', 'google_maps_url', 'courier_name', 'courier_phone',
+    ];
 
     /** Devuelve las columnas nuevas que aún faltan en la tabla. */
     private function missingColumns(): array
@@ -159,6 +176,31 @@ class ShippingRequestsInstall extends Command
             if (in_array('reference', $missing, true)) {
                 $table->string('reference', 255)->nullable()->after('shipping_destination');
             }
+            // ── Rediseño tipo de entrega + Google Maps ──
+            if (in_array('delivery_type', $missing, true)) {
+                $table->string('delivery_type', 20)->default('agencia')->after('order_id')->index();
+            }
+            if (in_array('latitude', $missing, true)) {
+                $table->decimal('latitude', 10, 7)->nullable()->after('district_id');
+            }
+            if (in_array('longitude', $missing, true)) {
+                $table->decimal('longitude', 10, 7)->nullable()->after('latitude');
+            }
+            if (in_array('google_place_id', $missing, true)) {
+                $table->string('google_place_id', 255)->nullable()->after('longitude');
+            }
+            if (in_array('formatted_address', $missing, true)) {
+                $table->string('formatted_address', 500)->nullable()->after('google_place_id');
+            }
+            if (in_array('google_maps_url', $missing, true)) {
+                $table->string('google_maps_url', 500)->nullable()->after('formatted_address');
+            }
+            if (in_array('courier_name', $missing, true)) {
+                $table->string('courier_name', 120)->nullable()->after('google_maps_url');
+            }
+            if (in_array('courier_phone', $missing, true)) {
+                $table->string('courier_phone', 20)->nullable()->after('courier_name');
+            }
         });
 
         return $missing;
@@ -166,18 +208,17 @@ class ShippingRequestsInstall extends Command
 
     private function registerMigrationIfMissing(): void
     {
-        $exists = DB::connection('tenant')->table('migrations')
-            ->where('migration', self::MIGRATION)
-            ->exists();
-
-        if ($exists) {
-            return;
-        }
-
         $batch = (int) DB::connection('tenant')->table('migrations')->max('batch') + 1;
-        DB::connection('tenant')->table('migrations')->insert([
-            'migration' => self::MIGRATION,
-            'batch'     => $batch,
-        ]);
+
+        foreach (array_merge([self::MIGRATION], self::MIGRATIONS_EXTRA) as $mig) {
+            $exists = DB::connection('tenant')->table('migrations')
+                ->where('migration', $mig)->exists();
+            if (!$exists) {
+                DB::connection('tenant')->table('migrations')->insert([
+                    'migration' => $mig,
+                    'batch'     => $batch,
+                ]);
+            }
+        }
     }
 }
