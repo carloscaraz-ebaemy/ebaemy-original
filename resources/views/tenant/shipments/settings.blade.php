@@ -63,7 +63,26 @@
                 </div>
                 <input type="hidden" name="store_address" id="store_address" value="{{ old('store_address', $store->store_address) }}">
 
-                <button type="submit" class="btn btn-primary mt-3"><i class="fas fa-save me-1"></i> Guardar ubicación</button>
+                <hr class="my-4">
+                <h6 class="fw-bold mb-1">🛵 Tarifa del motorizado (cobro por km)</h6>
+                <p class="text-muted small mb-3">El cliente verá un <b>precio aproximado</b> al elegir su ubicación. Fórmula: <b>base + (km × tarifa)</b>, nunca menor al mínimo.</p>
+                <div class="row g-2">
+                    <div class="col-4">
+                        <label class="form-label small text-muted mb-1">Cobro base (S/)</label>
+                        <input type="number" step="0.10" min="0" name="base_price" class="form-control form-control-sm" value="{{ old('base_price', $store->base_price) }}" placeholder="0.00">
+                    </div>
+                    <div class="col-4">
+                        <label class="form-label small text-muted mb-1">Por km (S/)</label>
+                        <input type="number" step="0.10" min="0" name="price_per_km" class="form-control form-control-sm" value="{{ old('price_per_km', $store->price_per_km) }}" placeholder="Ej. 0.80">
+                    </div>
+                    <div class="col-4">
+                        <label class="form-label small text-muted mb-1">Mínimo (S/)</label>
+                        <input type="number" step="0.10" min="0" name="min_price" class="form-control form-control-sm" value="{{ old('min_price', $store->min_price) }}" placeholder="Ej. 5.00">
+                    </div>
+                </div>
+                <div class="small text-muted mt-2">Ejemplo: base <b>S/3</b> + <b>S/0.80</b>/km, mínimo <b>S/5</b> → un cliente a 4 km paga <b>S/6.20</b>. Deja la tarifa por km en blanco/0 si no quieres mostrar precio.</div>
+
+                <button type="submit" class="btn btn-primary mt-3"><i class="fas fa-save me-1"></i> Guardar configuración</button>
             </form>
         </div>
     </div>

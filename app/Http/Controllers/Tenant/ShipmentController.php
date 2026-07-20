@@ -646,6 +646,9 @@ class ShipmentController extends Controller
             'mapsKey'     => config('services.google_maps.key'),
             'storeLat'    => $store->store_latitude,
             'storeLng'    => $store->store_longitude,
+            'pricePerKm'  => $store->has_pricing ? (float) $store->price_per_km : null,
+            'basePrice'   => (float) $store->base_price,
+            'minPrice'    => (float) $store->min_price,
         ]);
     }
 
@@ -666,9 +669,13 @@ class ShipmentController extends Controller
             'store_latitude'  => 'required|numeric|between:-90,90',
             'store_longitude' => 'required|numeric|between:-180,180',
             'store_address'   => 'nullable|string|max:500',
+            'price_per_km'    => 'nullable|numeric|min:0|max:9999',
+            'base_price'      => 'nullable|numeric|min:0|max:9999',
+            'min_price'       => 'nullable|numeric|min:0|max:9999',
         ], [], [
             'store_latitude'  => 'ubicación de la tienda',
             'store_longitude' => 'ubicación de la tienda',
+            'price_per_km'    => 'tarifa por km',
         ]);
 
         $store = ShippingSetting::current();
@@ -755,6 +762,7 @@ class ShipmentController extends Controller
                 'distance_km'          => 'nullable|numeric|min:0|max:9999',
                 'distance_text'        => 'nullable|string|max:40',
                 'duration_text'        => 'nullable|string|max:40',
+                'delivery_price'       => 'nullable|numeric|min:0|max:99999',
             ];
         } else {
             // Envío por agencia: ubigeo obligatorio + agencia.
@@ -796,14 +804,20 @@ class ShipmentController extends Controller
             }
             // Distancia tienda→cliente. Si el front no la trajo (Google Distance
             // Matrix), calculamos la línea recta (haversine) desde el origen.
-            if (empty($data['distance_km']) && $lat !== null && $lng !== null) {
-                $store = ShippingSetting::current();
-                if ($store->has_origin) {
-                    $km = ShippingRequest::haversineKm(
-                        (float) $store->store_latitude, (float) $store->store_longitude, $lat, $lng
-                    );
-                    $data['distance_km']   = $km;
-                    $data['distance_text'] = $km . ' km aprox.';
+            $store = ShippingSetting::current();
+            if (empty($data['distance_km']) && $lat !== null && $lng !== null && $store->has_origin) {
+                $km = ShippingRequest::haversineKm(
+                    (float) $store->store_latitude, (float) $store->store_longitude, $lat, $lng
+                );
+                $data['distance_km']   = $km;
+                $data['distance_text'] = $km . ' km aprox.';
+            }
+            // Precio del servicio (base + km × tarifa, con mínimo). El front lo
+            // trae calculado; si falta, lo recalculamos con la config de tarifas.
+            if (empty($data['delivery_price']) && !empty($data['distance_km'])) {
+                $price = $store->quotePrice((float) $data['distance_km']);
+                if ($price !== null) {
+                    $data['delivery_price'] = $price;
                 }
             }
             // La ciudad para el tablero: locality de Google o el texto libre.

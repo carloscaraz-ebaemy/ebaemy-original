@@ -17,11 +17,17 @@ class ShippingSetting extends Model
         'store_latitude',
         'store_longitude',
         'store_address',
+        'price_per_km',
+        'base_price',
+        'min_price',
     ];
 
     protected $casts = [
         'store_latitude'  => 'decimal:7',
         'store_longitude' => 'decimal:7',
+        'price_per_km'    => 'decimal:2',
+        'base_price'      => 'decimal:2',
+        'min_price'       => 'decimal:2',
     ];
 
     /** Fila única de configuración (la crea si no existe). */
@@ -34,5 +40,25 @@ class ShippingSetting extends Model
     public function getHasOriginAttribute(): bool
     {
         return $this->store_latitude !== null && $this->store_longitude !== null;
+    }
+
+    /** ¿Hay una tarifa por km configurada (para cotizar el envío)? */
+    public function getHasPricingAttribute(): bool
+    {
+        return $this->price_per_km !== null && (float) $this->price_per_km > 0;
+    }
+
+    /**
+     * Cotiza el precio del envío a domicilio para una distancia en km:
+     * precio = base + km × tarifa, nunca menor al mínimo. Null si no hay tarifa.
+     */
+    public function quotePrice(?float $km): ?float
+    {
+        if (!$this->has_pricing || $km === null) {
+            return null;
+        }
+        $price = (float) $this->base_price + $km * (float) $this->price_per_km;
+        $price = max($price, (float) $this->min_price);
+        return round($price, 2);
     }
 }

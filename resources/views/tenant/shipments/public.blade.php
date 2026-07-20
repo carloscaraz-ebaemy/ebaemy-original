@@ -236,6 +236,11 @@
                         <input type="hidden" name="distance_km" id="pub_dist_km" value="{{ old('distance_km') }}">
                         <input type="hidden" name="distance_text" id="pub_dist_text" value="{{ old('distance_text') }}">
                         <input type="hidden" name="duration_text" id="pub_dur_text" value="{{ old('duration_text') }}">
+                        <input type="hidden" name="delivery_price" id="pub_delivery_price" value="{{ old('delivery_price') }}">
+                        <div id="priceBox" style="display:none;margin-top:10px;padding:12px 14px;background:#ecfdf5;border:1px solid #a7f3d0;border-radius:12px;font-size:14px;color:#065f46;">
+                            💵 Costo aproximado de envío a domicilio: <b style="font-size:16px;">S/ <span id="priceText">—</span></b>
+                            <div style="font-size:11.5px;color:#059669;margin-top:2px;">Es una estimación; se confirma al coordinar el despacho.</div>
+                        </div>
 
                         <label>Referencia</label>
                         <input type="text" name="reference" id="pub_reference_dom" value="{{ old('reference') }}" maxlength="255" placeholder="Casa blanca, frente al parque, portón negro…">
@@ -296,6 +301,7 @@
                             <div class="r"><span class="k">Referencia</span><span class="v" id="c_ref">—</span></div>
                             <div class="r" id="r_ag"><span class="k">Agencia</span><span class="v" id="c_ag">—</span></div>
                             <div class="r" id="r_coords"><span class="k">Ubicación GPS</span><span class="v" id="c_coords">—</span></div>
+                            <div class="r" id="r_price"><span class="k">Costo aprox. de envío</span><span class="v" id="c_price" style="color:#059669;">—</span></div>
                             <div class="r"><span class="k">Observaciones</span><span class="v" id="c_obs">—</span></div>
                         </div>
                     </div>
@@ -490,10 +496,14 @@
             var lat = txt('pub_lat'), lng = txt('pub_lng');
             document.getElementById('r_coords').hidden = !(lat && lng);
             document.getElementById('c_coords').textContent = (lat && lng) ? (parseFloat(lat).toFixed(5) + ', ' + parseFloat(lng).toFixed(5)) : '—';
+            var price = txt('pub_delivery_price');
+            document.getElementById('r_price').hidden = !price;
+            document.getElementById('c_price').textContent = price ? ('S/ ' + price) : '—';
         } else {
             document.getElementById('r_ubigeo').hidden = false;
             document.getElementById('r_ag').hidden = false;
             document.getElementById('r_coords').hidden = true;
+            document.getElementById('r_price').hidden = true;
             var disp = document.querySelector('[data-ubigeo-group="pub"] .ubigeo-display');
             document.getElementById('c_ubigeo').textContent = (disp && disp.classList.contains('has-value')) ? disp.textContent.trim() : '—';
             document.getElementById('c_dir').textContent = txt('pub_addr_agencia') || '—';
@@ -533,7 +543,23 @@
         @else
         var STORE = null;
         @endif
+        @if(!empty($pricePerKm))
+        var PRICE = { perKm: {{ $pricePerKm }}, base: {{ $basePrice ?? 0 }}, min: {{ $minPrice ?? 0 }} };
+        @else
+        var PRICE = null;
+        @endif
         var map, marker, geocoder, ac, ready = false, pending = false, distSvc = null;
+
+        // Cotiza el precio del envío según los km (base + km × tarifa, con mínimo).
+        function quotePrice(km) {
+            if (!PRICE) return;
+            var p = PRICE.base + km * PRICE.perKm;
+            if (p < PRICE.min) p = PRICE.min;
+            p = Math.round(p * 100) / 100;
+            document.getElementById('pub_delivery_price').value = p.toFixed(2);
+            var box = document.getElementById('priceBox');
+            if (box) { box.style.display = 'block'; document.getElementById('priceText').textContent = p.toFixed(2); }
+        }
 
         // Distancia de manejo tienda → cliente (Google Distance Matrix).
         function computeDistance(lat, lng) {
@@ -548,10 +574,12 @@
                     var el = res.rows[0] && res.rows[0].elements[0];
                     if (!el || el.status !== 'OK') return;
                     var km = (el.distance.value / 1000);
-                    // Solo se guarda (lo ven el motorizado y el panel, no el cliente).
+                    // La distancia se guarda (la ven motorizado y panel, no el cliente).
                     document.getElementById('pub_dist_km').value = km.toFixed(2);
                     document.getElementById('pub_dist_text').value = el.distance.text;
                     document.getElementById('pub_dur_text').value = el.duration.text;
+                    // El precio SÍ se le muestra al cliente.
+                    quotePrice(km);
                 });
             } catch (e) {}
         }

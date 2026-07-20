@@ -53,6 +53,7 @@ class ShippingRequest extends Model
         'distance_km',
         'distance_text',
         'duration_text',
+        'delivery_price',
         'courier_name',
         'courier_phone',
         'package_content',
@@ -78,6 +79,7 @@ class ShippingRequest extends Model
         'latitude'       => 'decimal:7',
         'longitude'      => 'decimal:7',
         'distance_km'    => 'decimal:2',
+        'delivery_price' => 'decimal:2',
     ];
 
     /**

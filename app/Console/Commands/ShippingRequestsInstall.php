@@ -32,6 +32,7 @@ class ShippingRequestsInstall extends Command
     private const MIGRATIONS_EXTRA = [
         '2026_07_20_000001_add_delivery_type_to_shipping_requests',
         '2026_07_20_000002_add_distance_and_settings_to_shipping',
+        '2026_07_20_000003_add_delivery_pricing_to_shipping',
     ];
 
     public function handle(): int
@@ -91,6 +92,7 @@ class ShippingRequestsInstall extends Command
                     $table->decimal('distance_km', 6, 2)->nullable();
                     $table->string('distance_text', 40)->nullable();
                     $table->string('duration_text', 40)->nullable();
+                    $table->decimal('delivery_price', 8, 2)->nullable();
                     $table->string('courier_name', 120)->nullable();
                     $table->string('courier_phone', 20)->nullable();
                     $table->string('shipping_agency', 120)->nullable();
@@ -141,20 +143,32 @@ class ShippingRequestsInstall extends Command
         'delivery_type', 'latitude', 'longitude', 'google_place_id', 'formatted_address', 'google_maps_url', 'courier_name', 'courier_phone',
         // Distancia tienda→cliente (2026-07-20)
         'distance_km', 'distance_text', 'duration_text',
+        // Precio del envío a domicilio (2026-07-20)
+        'delivery_price',
     ];
 
-    /** Crea la tabla shipping_settings (origen de la tienda) si falta. */
+    /** Crea/actualiza la tabla shipping_settings (origen + tarifas). */
     private function ensureSettingsTable(): void
     {
-        if (Schema::connection('tenant')->hasTable('shipping_settings')) {
+        if (!Schema::connection('tenant')->hasTable('shipping_settings')) {
+            Schema::connection('tenant')->create('shipping_settings', function (Blueprint $table) {
+                $table->id();
+                $table->decimal('store_latitude', 10, 7)->nullable();
+                $table->decimal('store_longitude', 10, 7)->nullable();
+                $table->string('store_address', 500)->nullable();
+                $table->decimal('price_per_km', 8, 2)->nullable();
+                $table->decimal('base_price', 8, 2)->nullable();
+                $table->decimal('min_price', 8, 2)->nullable();
+                $table->timestamps();
+            });
             return;
         }
-        Schema::connection('tenant')->create('shipping_settings', function (Blueprint $table) {
-            $table->id();
-            $table->decimal('store_latitude', 10, 7)->nullable();
-            $table->decimal('store_longitude', 10, 7)->nullable();
-            $table->string('store_address', 500)->nullable();
-            $table->timestamps();
+        // Tabla existente: agregar las columnas de tarifas si faltan.
+        Schema::connection('tenant')->table('shipping_settings', function (Blueprint $table) {
+            $has = fn ($c) => Schema::connection('tenant')->hasColumn('shipping_settings', $c);
+            if (!$has('price_per_km')) $table->decimal('price_per_km', 8, 2)->nullable()->after('store_address');
+            if (!$has('base_price'))   $table->decimal('base_price', 8, 2)->nullable()->after('price_per_km');
+            if (!$has('min_price'))    $table->decimal('min_price', 8, 2)->nullable()->after('base_price');
         });
     }
 
@@ -232,6 +246,9 @@ class ShippingRequestsInstall extends Command
             }
             if (in_array('duration_text', $missing, true)) {
                 $table->string('duration_text', 40)->nullable()->after('distance_text');
+            }
+            if (in_array('delivery_price', $missing, true)) {
+                $table->decimal('delivery_price', 8, 2)->nullable()->after('duration_text');
             }
         });
 
