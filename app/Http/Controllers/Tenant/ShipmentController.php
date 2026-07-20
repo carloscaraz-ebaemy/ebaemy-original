@@ -364,11 +364,18 @@ class ShipmentController extends Controller
         ];
     }
 
-    /** QR (PNG base64) que abre la página de estado rápido del envío. */
+    /**
+     * QR (PNG base64) del rótulo. En domicilio → abre la NAVEGACIÓN en Google
+     * Maps (para el motorizado). En agencia → la página de estado rápido.
+     */
     private function makeQr(ShippingRequest $shipment): ?string
     {
         try {
-            $url = url('registro-envio/' . $shipment->id . '/estado-rapido');
+            if ($shipment->is_domicilio && $shipment->has_coords) {
+                $url = $shipment->courier_directions_url;
+            } else {
+                $url = url('registro-envio/' . $shipment->id . '/estado-rapido');
+            }
             return (new \App\CoreFacturalo\Helpers\QrCode\QrCodeGenerate())->displayPNGBase64($url, 220, 'M');
         } catch (\Throwable $e) {
             return null;
