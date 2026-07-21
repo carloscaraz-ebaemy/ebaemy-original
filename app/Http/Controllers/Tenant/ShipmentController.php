@@ -487,7 +487,10 @@ class ShipmentController extends Controller
             }
             $name     = \Illuminate\Support\Str::of($shipment->full_name)->before(' ');
             $trackUrl = url('envio/seguimiento?code=' . $shipment->shipment_code);
-            $tienda   = optional(Company::first())->trade_name ?: 'la tienda';
+            // Nombre COMERCIAL de la tienda (marca), no el nombre legal/persona:
+            // title_web es la marca que configura cada tenant (ej. "Grupo Alasitas").
+            $c        = Company::first();
+            $tienda   = ($c->title_web ?? null) ?: ($c->trade_name ?? null) ?: ($c->name ?? null) ?: 'la tienda';
 
             $msg  = "Hola {$name} 👋\n\nTus datos fueron registrados correctamente.\n\n";
             if ($shipment->is_domicilio) {

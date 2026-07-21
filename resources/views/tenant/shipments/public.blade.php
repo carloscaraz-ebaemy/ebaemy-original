@@ -149,7 +149,8 @@
                 <div class="ok-btns">
                     <a href="{{ route('shipments.public.tracking', ['code' => $sent]) }}"><button type="button" class="btn">🔎 Ver seguimiento</button></a>
                     @php
-                        $waText = rawurlencode("Registré mi envío en " . ($company->trade_name ?? $company->name ?? 'la tienda') . ". Código: {$sent}. Seguimiento: " . route('shipments.public.tracking', ['code' => $sent]));
+                        $tiendaNombre = $company->title_web ?: ($company->trade_name ?: ($company->name ?: 'la tienda'));
+                        $waText = rawurlencode("Registré mi envío en " . $tiendaNombre . ". Código: {$sent}. Seguimiento: " . route('shipments.public.tracking', ['code' => $sent]));
                     @endphp
                     <a href="https://wa.me/?text={{ $waText }}" target="_blank"><button type="button" class="btn btn-wa">💬 Compartir por WhatsApp</button></a>
                     <a href="{{ route('shipments.public.form') }}"><button type="button" class="btn btn-ghost">Registrar otro envío</button></a>
