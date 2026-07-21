@@ -103,7 +103,8 @@
             'enviados-hoy' => ['Enviados hoy', 'info'],
         ];
     @endphp
-    <div class="d-flex flex-wrap gap-2 mb-3">
+    <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
+        {{-- Filtros de guía --}}
         @foreach($pills as $key => [$label, $color])
             <a href="{{ route('shipments.index', ['filter' => $key]) }}"
                class="btn btn-sm {{ $filter === $key ? "btn-$color" : "btn-outline-$color" }} d-flex align-items-center gap-1">
@@ -112,13 +113,10 @@
                 <span class="badge rounded-pill bg-{{ $filter === $key ? 'light text-dark' : $color }}">{{ $counts[$key] ?? 0 }}</span>
             </a>
         @endforeach
-        @if($filter !== 'todos')
-            <a href="{{ route('shipments.index') }}" class="btn btn-sm btn-link text-muted text-decoration-none">✕ Quitar filtro</a>
-        @endif
-    </div>
 
-    {{-- Filtro por tipo de entrega --}}
-    <div class="d-flex flex-wrap gap-2 mb-3">
+        <span class="vr mx-1 d-none d-md-inline"></span>
+
+        {{-- Filtro por tipo de entrega --}}
         <a href="{{ route('shipments.index', array_filter(['filter'=>$filter,'group'=>$group])) }}"
            class="btn btn-sm {{ empty($type) ? 'btn-dark' : 'btn-outline-dark' }}">Todos los tipos</a>
         <a href="{{ route('shipments.index', array_filter(['filter'=>$filter,'group'=>$group,'type'=>'domicilio'])) }}"
@@ -129,6 +127,22 @@
            class="btn btn-sm {{ ($type ?? '')==='agencia' ? 'btn-primary' : 'btn-outline-primary' }}">
             📦 Por agencia <span class="badge rounded-pill bg-light text-dark">{{ $metrics['agencia'] ?? 0 }}</span>
         </a>
+
+        @if($filter !== 'todos' || $type || $group)
+            <a href="{{ route('shipments.index') }}" class="btn btn-sm btn-link text-muted text-decoration-none p-1">✕ Quitar</a>
+        @endif
+
+        {{-- Buscador: empujado a la derecha para llenar el espacio en blanco --}}
+        <form method="GET" action="{{ route('shipments.index') }}" class="ms-auto mb-0" style="flex:1 1 220px;max-width:340px;">
+            <input type="hidden" name="filter" value="{{ $filter }}">
+            @if($type)<input type="hidden" name="type" value="{{ $type }}">@endif
+            @if($group)<input type="hidden" name="group" value="{{ $group }}">@endif
+            <div class="input-group input-group-sm">
+                <input type="text" name="q" value="{{ $q }}" class="form-control" placeholder="Buscar cliente, código, guía…">
+                <button class="btn btn-outline-secondary" type="submit"><i class="fas fa-search"></i></button>
+                @if($q)<a href="{{ route('shipments.index', ['filter' => $filter]) }}" class="btn btn-outline-secondary">✕</a>@endif
+            </div>
+        </form>
     </div>
 
     {{-- Aviso del filtro crítico --}}
@@ -138,17 +152,6 @@
             <span>Estos paquetes <strong>aún no tienen guía cargada</strong>. Súbela apenas los entregues a la agencia.</span>
         </div>
     @endif
-
-    {{-- Buscador --}}
-    <form method="GET" action="{{ route('shipments.index') }}" class="mb-3">
-        <input type="hidden" name="filter" value="{{ $filter }}">
-        <div class="input-group input-group-sm" style="max-width:420px;">
-            <input type="text" name="q" value="{{ $q }}" class="form-control"
-                   placeholder="Buscar por cliente, código, guía, ciudad o agencia…">
-            <button class="btn btn-outline-secondary" type="submit"><i class="fas fa-search"></i></button>
-            @if($q)<a href="{{ route('shipments.index', ['filter' => $filter]) }}" class="btn btn-outline-secondary">✕</a>@endif
-        </div>
-    </form>
 
     {{-- Barra de selección (impresión por lote) --}}
     <div id="shBulkBar" class="alert alert-primary d-none align-items-center justify-content-between py-2 mb-2">
