@@ -5,10 +5,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Rótulos ({{ count($items) }})</title>
     <style>
-        @page { size: A4; margin: 10mm; }
+        @page { size: A4; margin: 8mm; }
         body { background: #e5e7eb; padding: 64px 10px 20px; }
-        .batch { display: flex; flex-wrap: wrap; gap: 6mm; justify-content: center; align-content: flex-start; }
-        .batch .label { width: 8.8cm; }
+        /* Grid de 2 columnas: garantiza 2 rótulos por fila (el flex con ancho
+           fijo se apilaba al límite del ancho A4 y mandaba el 2° a otra página). */
+        .batch { display: grid; grid-template-columns: repeat(2, 1fr); gap: 6mm; align-items: start; }
+        .batch .label { width: 100%; page-break-inside: avoid; }
         @media print { body { background: #fff; padding: 0; } .batch { gap: 5mm; } }
     </style>
     @include('tenant.shipments.partials.label-styles')
