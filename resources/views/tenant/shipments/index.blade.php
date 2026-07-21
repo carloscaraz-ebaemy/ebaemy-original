@@ -2,13 +2,22 @@
 
 @push('styles')
 <style>
-    .sh-metrics { display:grid; grid-template-columns:repeat(auto-fit, minmax(118px,1fr)); gap:10px; margin-bottom:16px; }
-    .sh-metric { display:block; text-decoration:none; background:#fff; border:1px solid #e9ecef; border-left:4px solid var(--mc); border-radius:14px; padding:12px 14px; color:#212529; transition:transform .15s, box-shadow .15s; box-shadow:0 1px 3px rgba(0,0,0,.05); }
-    .sh-metric:hover { transform:translateY(-2px); box-shadow:0 8px 18px -8px rgba(0,0,0,.22); }
-    .sh-metric.is-active { border-color:var(--mc); box-shadow:0 0 0 2px var(--mc) inset; }
-    .sh-metric .m-ic { color:var(--mc); font-size:16px; }
-    .sh-metric .m-v { font-size:26px; font-weight:800; line-height:1.05; margin-top:2px; }
-    .sh-metric .m-l { font-size:12px; color:#6c757d; font-weight:600; }
+    .sh-metrics { display:grid; grid-template-columns:repeat(auto-fit, minmax(94px,1fr)); gap:7px; margin-bottom:9px; }
+    .sh-metric { position:relative; display:flex; align-items:center; gap:8px; text-decoration:none; background:#fff; border:1px solid #e9ecef; border-left:3px solid var(--mc); border-radius:10px; padding:7px 10px; color:#212529; transition:transform .16s, box-shadow .16s, background .16s; box-shadow:0 1px 3px rgba(0,0,0,.05); overflow:hidden; }
+    .sh-metric:hover { transform:translateY(-2px); box-shadow:0 8px 16px -8px rgba(0,0,0,.28); border-left-width:5px; }
+    .sh-metric:active { transform:scale(.98); }
+    /* Estado activo: la tarjeta se rellena con su color (más dinámico) */
+    .sh-metric.is-active { background:var(--mc); border-color:var(--mc); box-shadow:0 6px 16px -6px var(--mc); }
+    .sh-metric.is-active .m-ic, .sh-metric.is-active .m-v, .sh-metric.is-active .m-l { color:#fff; }
+    .sh-metric .m-ic { color:var(--mc); font-size:14px; }
+    .sh-metric .m-txt { display:flex; flex-direction:column; }
+    .sh-metric .m-v { font-size:19px; font-weight:800; line-height:1; }
+    .sh-metric .m-l { font-size:10.5px; color:#6c757d; font-weight:600; line-height:1.15; }
+    /* Filtros: más compactos y con feedback dinámico */
+    #shipmentsApp .btn-sm { padding-top:.22rem; padding-bottom:.22rem; transition:transform .12s ease, box-shadow .12s ease, background .12s ease; }
+    #shipmentsApp .btn-sm:hover { transform:translateY(-1px); box-shadow:0 4px 10px -5px rgba(0,0,0,.3); }
+    #shipmentsApp .btn-sm:active { transform:scale(.96); }
+    #shipmentsApp .mb-3 { margin-bottom:.55rem !important; }
 </style>
 @endpush
 
@@ -53,8 +62,10 @@
             <a href="{{ route('shipments.index', $c['k'] ? ['group'=>$c['k']] : []) }}"
                class="sh-metric {{ ($activeGroup === $c['k']) ? 'is-active' : '' }}" style="--mc:{{ $c['c'] }};">
                 <div class="m-ic"><i class="fas {{ $c['i'] }}"></i></div>
-                <div class="m-v">{{ $c['v'] }}</div>
-                <div class="m-l">{{ $c['l'] }}</div>
+                <div class="m-txt">
+                    <div class="m-v">{{ $c['v'] }}</div>
+                    <div class="m-l">{{ $c['l'] }}</div>
+                </div>
             </a>
         @endforeach
     </div>
