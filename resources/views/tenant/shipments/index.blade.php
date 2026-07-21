@@ -616,40 +616,7 @@
             });
         });
     }
-    initDropdowns();
-
-    // ── Selección para impresión por lote ──
-    (function () {
-        var checkAll = document.getElementById('shCheckAll');
-        var bar = document.getElementById('shBulkBar');
-        var countEl = document.getElementById('shSelCount');
-        var printBtn = document.getElementById('shPrintSel');
-        var clearBtn = document.getElementById('shClearSel');
-        function checks() { return Array.prototype.slice.call(document.querySelectorAll('.sh-check')); }
-        function refresh() {
-            var sel = checks().filter(function (c) { return c.checked; });
-            if (countEl) countEl.textContent = sel.length;
-            if (bar) bar.style.display = sel.length > 0 ? 'flex' : 'none';
-        }
-        // Enlace directo a cada checkbox (además de delegación) — robusto ante el CSS del theme.
-        checks().forEach(function (c) { c.addEventListener('change', refresh); });
-        document.addEventListener('change', function (ev) {
-            if (ev.target && ev.target.classList && ev.target.classList.contains('sh-check')) refresh();
-        });
-        if (clearBtn) clearBtn.addEventListener('click', function () {
-            checks().forEach(function (c) { c.checked = false; });
-            if (checkAll) checkAll.checked = false;
-            refresh();
-        });
-        if (checkAll) checkAll.addEventListener('change', function () {
-            checks().forEach(function (c) { c.checked = checkAll.checked; }); refresh();
-        });
-        if (printBtn) printBtn.addEventListener('click', function () {
-            var ids = checks().filter(function (c) { return c.checked; }).map(function (c) { return c.value; });
-            if (ids.length) window.open('{{ route("shipments.print_batch") }}?ids=' + ids.join(','), '_blank');
-        });
-        refresh();
-    })();
+    try { initDropdowns(); } catch (e) { /* no romper el resto del script si Popper/Bootstrap falla */ }
 
     // El widget cascader de ubigeo se define en el partial incluido abajo,
     // que expone window.__ubPreset(group, dep, prov, dist).
@@ -798,6 +765,40 @@
             }
         });
     }
+})();
+</script>
+
+{{-- Impresión por lote: script AISLADO (independiente del bloque de arriba, para
+     que un error ahí no impida seleccionar/imprimir). --}}
+<script>
+(function () {
+    function checks() { return Array.prototype.slice.call(document.querySelectorAll('.sh-check')); }
+    var bar = document.getElementById('shBulkBar');
+    var countEl = document.getElementById('shSelCount');
+    var checkAll = document.getElementById('shCheckAll');
+    function refresh() {
+        var sel = checks().filter(function (c) { return c.checked; });
+        if (countEl) countEl.textContent = sel.length;
+        if (bar) bar.style.display = sel.length > 0 ? 'flex' : 'none';
+    }
+    checks().forEach(function (c) { c.addEventListener('change', refresh); });
+    document.addEventListener('change', function (ev) {
+        if (ev.target && ev.target.classList && ev.target.classList.contains('sh-check')) refresh();
+    });
+    if (checkAll) checkAll.addEventListener('change', function () {
+        checks().forEach(function (c) { c.checked = checkAll.checked; }); refresh();
+    });
+    var clearBtn = document.getElementById('shClearSel');
+    if (clearBtn) clearBtn.addEventListener('click', function () {
+        checks().forEach(function (c) { c.checked = false; });
+        if (checkAll) checkAll.checked = false; refresh();
+    });
+    var printBtn = document.getElementById('shPrintSel');
+    if (printBtn) printBtn.addEventListener('click', function () {
+        var ids = checks().filter(function (c) { return c.checked; }).map(function (c) { return c.value; });
+        if (ids.length) window.open('{{ route("shipments.print_batch") }}?ids=' + ids.join(','), '_blank');
+    });
+    refresh();
 })();
 </script>
 @include('tenant.shipments.partials.ubigeo-cascader-js')
