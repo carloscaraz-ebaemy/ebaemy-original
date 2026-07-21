@@ -197,7 +197,7 @@
                             <!--<img :src="row.image_url_medium"  width="40" height="40" class="img-thumbail img-custom" /> -->
                         </td>
                         <td>
-                            {{ row.description }}
+                            <div class="ie-name-clamp" :title="row.description">{{ row.description }}</div>
                             <!-- Estado en Saga Falabella -->
                             <template v-if="row.saga_status">
                                 <span v-if="row.saga_status === 'error' || row.saga_qc === 'rejected'" class="ie-saga ie-saga--err" title="Saga Falabella: error / rechazado">🔴 Saga</span>
@@ -431,6 +431,13 @@
 @media (max-width:680px) {
     .mp-stats-grid { grid-template-columns:repeat(2,1fr); }
 }
+/* Nombre de producto: máx 2 líneas con "…" (el nombre completo va en el title).
+   Reduce el alto de fila para que entren más productos por pantalla. */
+.items_ecommerce .ie-name-clamp {
+    display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical;
+    overflow:hidden; line-height:1.35; max-height:2.7em; word-break:break-word;
+}
+.items_ecommerce table td { padding-top:7px; padding-bottom:7px; vertical-align:middle; }
 </style>
 <script>
 import ItemsForm from "./form.vue";
