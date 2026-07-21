@@ -153,12 +153,16 @@
         </div>
     @endif
 
-    {{-- Barra de selección (impresión por lote) --}}
-    <div id="shBulkBar" class="alert alert-primary d-none align-items-center justify-content-between py-2 mb-2">
-        <span><strong id="shSelCount">0</strong> seleccionados</span>
-        <button type="button" class="btn btn-sm btn-primary" id="shPrintSel">
-            <i class="fas fa-print me-1"></i> Imprimir rótulos seleccionados
-        </button>
+    {{-- Barra de selección (impresión por lote) — fija arriba y bien visible --}}
+    <div id="shBulkBar" class="d-none align-items-center justify-content-between py-2 px-3 mb-2"
+         style="position:sticky; top:8px; z-index:30; background:#4f46e5; color:#fff; border-radius:12px; box-shadow:0 10px 24px -8px rgba(79,70,229,.6);">
+        <span style="font-weight:600;">✅ <strong id="shSelCount">0</strong> envío(s) seleccionado(s)</span>
+        <div class="d-flex align-items-center gap-2">
+            <button type="button" class="btn btn-sm btn-light text-primary fw-bold" id="shClearSel">Quitar selección</button>
+            <button type="button" class="btn btn-sm btn-light fw-bold" id="shPrintSel" style="color:#4f46e5;">
+                <i class="fas fa-print me-1"></i> Imprimir los seleccionados
+            </button>
+        </div>
     </div>
 
     {{-- Tabla (scroll horizontal en móvil) --}}
@@ -620,12 +624,18 @@
         var bar = document.getElementById('shBulkBar');
         var countEl = document.getElementById('shSelCount');
         var printBtn = document.getElementById('shPrintSel');
+        var clearBtn = document.getElementById('shClearSel');
         function checks() { return Array.prototype.slice.call(document.querySelectorAll('.sh-check')); }
         function refresh() {
             var sel = checks().filter(function (c) { return c.checked; });
             if (countEl) countEl.textContent = sel.length;
             if (bar) { bar.classList.toggle('d-none', sel.length === 0); bar.classList.toggle('d-flex', sel.length > 0); }
         }
+        if (clearBtn) clearBtn.addEventListener('click', function () {
+            checks().forEach(function (c) { c.checked = false; });
+            if (checkAll) checkAll.checked = false;
+            refresh();
+        });
         if (checkAll) checkAll.addEventListener('change', function () {
             checks().forEach(function (c) { c.checked = checkAll.checked; }); refresh();
         });
