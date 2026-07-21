@@ -154,8 +154,8 @@
     @endif
 
     {{-- Barra de selección (impresión por lote) — fija arriba y bien visible --}}
-    <div id="shBulkBar" class="d-none align-items-center justify-content-between py-2 px-3 mb-2"
-         style="position:sticky; top:8px; z-index:30; background:#4f46e5; color:#fff; border-radius:12px; box-shadow:0 10px 24px -8px rgba(79,70,229,.6);">
+    <div id="shBulkBar" class="align-items-center justify-content-between py-2 px-3 mb-2"
+         style="display:none; position:sticky; top:8px; z-index:30; background:#4f46e5; color:#fff; border-radius:12px; box-shadow:0 10px 24px -8px rgba(79,70,229,.6);">
         <span style="font-weight:600;">✅ <strong id="shSelCount">0</strong> envío(s) seleccionado(s)</span>
         <div class="d-flex align-items-center gap-2">
             <button type="button" class="btn btn-sm btn-light text-primary fw-bold" id="shClearSel">Quitar selección</button>
@@ -629,8 +629,13 @@
         function refresh() {
             var sel = checks().filter(function (c) { return c.checked; });
             if (countEl) countEl.textContent = sel.length;
-            if (bar) { bar.classList.toggle('d-none', sel.length === 0); bar.classList.toggle('d-flex', sel.length > 0); }
+            if (bar) bar.style.display = sel.length > 0 ? 'flex' : 'none';
         }
+        // Enlace directo a cada checkbox (además de delegación) — robusto ante el CSS del theme.
+        checks().forEach(function (c) { c.addEventListener('change', refresh); });
+        document.addEventListener('change', function (ev) {
+            if (ev.target && ev.target.classList && ev.target.classList.contains('sh-check')) refresh();
+        });
         if (clearBtn) clearBtn.addEventListener('click', function () {
             checks().forEach(function (c) { c.checked = false; });
             if (checkAll) checkAll.checked = false;
@@ -639,13 +644,11 @@
         if (checkAll) checkAll.addEventListener('change', function () {
             checks().forEach(function (c) { c.checked = checkAll.checked; }); refresh();
         });
-        document.addEventListener('change', function (ev) {
-            if (ev.target && ev.target.classList && ev.target.classList.contains('sh-check')) refresh();
-        });
         if (printBtn) printBtn.addEventListener('click', function () {
             var ids = checks().filter(function (c) { return c.checked; }).map(function (c) { return c.value; });
             if (ids.length) window.open('{{ route("shipments.print_batch") }}?ids=' + ids.join(','), '_blank');
         });
+        refresh();
     })();
 
     // El widget cascader de ubigeo se define en el partial incluido abajo,
