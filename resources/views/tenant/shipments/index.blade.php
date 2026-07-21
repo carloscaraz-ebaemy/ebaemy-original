@@ -57,6 +57,8 @@
         ];
         $activeGroup = $group ?? null;
     @endphp
+    {{-- #shPanel: zona que se recarga por AJAX (sin recargar toda la página). --}}
+    <div id="shPanel">
     <div class="sh-metrics">
         @foreach($cards as $c)
             <a href="{{ route('shipments.index', $c['k'] ? ['group'=>$c['k']] : []) }}"
@@ -133,12 +135,12 @@
         @endif
 
         {{-- Buscador: empujado a la derecha para llenar el espacio en blanco --}}
-        <form method="GET" action="{{ route('shipments.index') }}" class="ms-auto mb-0" style="flex:1 1 220px;max-width:340px;">
+        <form method="GET" action="{{ route('shipments.index') }}" id="shSearchForm" class="ms-auto mb-0" style="flex:1 1 220px;max-width:340px;">
             <input type="hidden" name="filter" value="{{ $filter }}">
             @if($type)<input type="hidden" name="type" value="{{ $type }}">@endif
             @if($group)<input type="hidden" name="group" value="{{ $group }}">@endif
             <div class="input-group input-group-sm">
-                <input type="text" name="q" value="{{ $q }}" class="form-control" placeholder="Buscar cliente, código, guía…">
+                <input type="text" name="q" id="shSearchInput" value="{{ $q }}" class="form-control" placeholder="Buscar cliente, código, guía…" autocomplete="off">
                 <button class="btn btn-outline-secondary" type="submit"><i class="fas fa-search"></i></button>
                 @if($q)<a href="{{ route('shipments.index', ['filter' => $filter]) }}" class="btn btn-outline-secondary">✕</a>@endif
             </div>
@@ -337,6 +339,7 @@
     </div>
 
     <div class="mt-3">{{ $shipments->links() }}</div>
+    </div>{{-- /#shPanel --}}
 
 </div>
 
@@ -616,7 +619,8 @@
             });
         });
     }
-    try { initDropdowns(); } catch (e) { /* no romper el resto del script si Popper/Bootstrap falla */ }
+    window.__shInitDropdowns = function () { try { initDropdowns(); } catch (e) {} };
+    window.__shInitDropdowns();
 
     // El widget cascader de ubigeo se define en el partial incluido abajo,
     // que expone window.__ubPreset(group, dep, prov, dist).
@@ -815,9 +819,78 @@
     });
 
     // Estado inicial + reintento tras el montaje de Vue (que re-renderiza el DOM).
+    window.__shBulkRefresh = refresh;
     refresh();
     setTimeout(refresh, 400);
     setTimeout(refresh, 1200);
+})();
+</script>
+
+{{-- Filtrado DINÁMICO (AJAX): al tocar una tarjeta/pastilla/paginación o buscar,
+     se recarga solo #shPanel sin recargar toda la página. Delegación en document
+     (a prueba del re-render de Vue en #main-wrapper). --}}
+<script>
+(function () {
+    var BASE = '{{ url("registro-envio") }}';
+    var loading = false;
+
+    function swap(url, opts) {
+        opts = opts || {};
+        if (loading) return; loading = true;
+        var panel = document.getElementById('shPanel');
+        if (panel) panel.style.opacity = '0.55';
+        fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' }, credentials: 'same-origin' })
+            .then(function (r) { return r.text(); })
+            .then(function (html) {
+                var doc = new DOMParser().parseFromString(html, 'text/html');
+                var fresh = doc.getElementById('shPanel');
+                var cur = document.getElementById('shPanel');
+                if (fresh && cur) { cur.innerHTML = fresh.innerHTML; cur.style.opacity = ''; }
+                if (!opts.noPush) { try { history.pushState({ sh: 1 }, '', url); } catch (e) {} }
+                if (window.__shInitDropdowns) window.__shInitDropdowns();
+                if (window.__shBulkRefresh) window.__shBulkRefresh();
+                if (opts.focusSearch) {
+                    var s = document.getElementById('shSearchInput');
+                    if (s) { s.focus(); var v = s.value; s.value = ''; s.value = v; }
+                }
+            })
+            .catch(function () { window.location = url; })
+            .finally(function () { loading = false; var p = document.getElementById('shPanel'); if (p) p.style.opacity = ''; });
+    }
+
+    // Tarjetas / pastillas / paginación (links dentro de #shPanel hacia el índice).
+    document.addEventListener('click', function (ev) {
+        var a = ev.target.closest ? ev.target.closest('#shPanel a[href]') : null;
+        if (!a) return;
+        if (a.getAttribute('target') === '_blank') return;      // guía / imprimir / ver ubicación
+        var href = a.href;
+        if (!href || href.indexOf(BASE) !== 0) return;          // solo el índice de envíos
+        if (href.indexOf('/', BASE.length + 1) !== -1) return;  // no interceptar /registro-envio/{id}/...
+        ev.preventDefault();
+        swap(href);
+    });
+
+    // Buscador: submit + escritura en vivo (con debounce).
+    function searchUrl() {
+        var f = document.getElementById('shSearchForm');
+        if (!f) return null;
+        var qs = new URLSearchParams(new FormData(f)).toString();
+        return f.action + (qs ? ('?' + qs) : '');
+    }
+    document.addEventListener('submit', function (ev) {
+        if (!ev.target.closest || !ev.target.closest('#shSearchForm')) return;
+        ev.preventDefault();
+        var u = searchUrl(); if (u) swap(u, { focusSearch: true });
+    });
+    var st = null;
+    document.addEventListener('input', function (ev) {
+        if (ev.target.id !== 'shSearchInput') return;
+        clearTimeout(st);
+        st = setTimeout(function () { var u = searchUrl(); if (u) swap(u, { focusSearch: true }); }, 400);
+    });
+
+    // Botón atrás/adelante del navegador.
+    window.addEventListener('popstate', function () { swap(location.href, { noPush: true }); });
 })();
 </script>
 @include('tenant.shipments.partials.ubigeo-cascader-js')
