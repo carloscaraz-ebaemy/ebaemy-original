@@ -335,13 +335,19 @@ class ShipmentController extends Controller
         ]);
     }
 
-    /** Impresión por lote: varios rótulos en una hoja A4. */
+    /** Impresión por lote: un rótulo por hoja (A5 o A4), varios envíos seguidos. */
     public function printBatch(Request $request)
     {
         $ids = collect(explode(',', (string) $request->query('ids', '')))
             ->map(fn ($x) => (int) trim($x))->filter()->unique()->take(60)->values();
 
         abort_if($ids->isEmpty(), 404);
+
+        // Formato de impresión: A5 o A4 (un rótulo por hoja).
+        $format = strtolower((string) $request->query('format', 'a5'));
+        if (!in_array($format, ['a5', 'a4'], true)) {
+            $format = 'a5';
+        }
 
         $shipments = ShippingRequest::whereIn('id', $ids)->orderBy('id')->get();
         $items = $shipments->map(fn ($s) => [
@@ -354,6 +360,8 @@ class ShipmentController extends Controller
         return view('tenant.shipments.label-batch', [
             'items'   => $items,
             'company' => Company::first(),
+            'format'  => $format,
+            'ids'     => $ids->implode(','),
         ]);
     }
 
