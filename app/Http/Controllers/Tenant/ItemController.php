@@ -308,10 +308,12 @@ class ItemController extends Controller
                     $records->where('mp_status', 'rejected');
                     break;
                 case 'unpublished':
+                    // "Sin publicar" = NO visible en la tienda online (apply_store
+                    // 0/null), sin importar el marketplace. Antes exigía además no
+                    // estar en marketplace, lo que ocultaba productos que el usuario
+                    // sí considera "sin publicar en su tienda".
                     $records->where(function ($q) {
                         $q->where('apply_store', 0)->orWhereNull('apply_store');
-                    })->where(function ($q) {
-                        $q->where('marketplace_publishable', 0)->orWhereNull('marketplace_publishable');
                     });
                     break;
 
@@ -1878,7 +1880,7 @@ class ItemController extends Controller
                 SUM(CASE WHEN marketplace_publishable = 1 AND (mp_status IS NULL OR mp_status = 'pending') THEN 1 ELSE 0 END) AS pending_mp,
                 SUM(CASE WHEN marketplace_publishable = 1 AND mp_status = 'paused' THEN 1 ELSE 0 END) AS paused_mp,
                 SUM(CASE WHEN mp_status = 'rejected' THEN 1 ELSE 0 END) AS rejected_mp,
-                SUM(CASE WHEN (apply_store = 0 OR apply_store IS NULL) AND (marketplace_publishable = 0 OR marketplace_publishable IS NULL) THEN 1 ELSE 0 END) AS unpublished
+                SUM(CASE WHEN (apply_store = 0 OR apply_store IS NULL) THEN 1 ELSE 0 END) AS unpublished
             ")
             ->first();
 
