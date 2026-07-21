@@ -9,7 +9,7 @@
         </div>
         <div style="text-align:right;">
             <div class="brand">{{ $company->title_web ?? $company->trade_name ?? $company->name ?? 'ebaemy' }}</div>
-            <div style="font-size:10px;color:#555;">{{ now()->format('d/m/Y H:i') }}</div>
+            @if($shipment->created_at)<div style="font-size:10px;color:#555;">Registrado: {{ $shipment->created_at->format('d/m/Y H:i') }}</div>@endif
         </div>
     </div>
 

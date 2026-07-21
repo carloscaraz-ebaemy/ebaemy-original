@@ -89,6 +89,9 @@
                     · {{ $shipment->destination_city ?: '—' }}
                     @if($shipment->shipping_agency) · {{ $shipment->shipping_agency }}@endif
                 </div>
+                @if($shipment->created_at)
+                    <div class="meta" style="font-size:12px;">🗓️ Registrado el {{ \Carbon\Carbon::parse($shipment->created_at)->format('d/m/Y H:i') }}</div>
+                @endif
                 @if($isDom && $shipment->maps_link)
                     <div style="text-align:center;margin:8px 0 2px;">
                         <a href="{{ $shipment->maps_link }}" target="_blank" style="font-size:13px;color:#7c3aed;font-weight:700;text-decoration:none;">📍 Ver mi ubicación en el mapa</a>

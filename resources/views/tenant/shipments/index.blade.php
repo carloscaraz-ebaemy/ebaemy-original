@@ -203,7 +203,12 @@
                     @endphp
                     <tr class="{{ $s->is_cancelled ? 'text-muted' : '' }}" style="{{ $s->is_cancelled ? 'opacity:.7' : '' }}">
                         <td><input type="checkbox" class="form-check-input sh-check" value="{{ $s->id }}"></td>
-                        <td><span class="fw-semibold">{{ $s->shipment_code }}</span></td>
+                        <td>
+                            <span class="fw-semibold">{{ $s->shipment_code }}</span>
+                            @if($s->created_at)
+                                <div><small class="text-muted"><i class="far fa-clock me-1"></i>{{ $s->created_at->format('d/m/Y') }} · {{ $s->created_at->format('H:i') }}</small></div>
+                            @endif
+                        </td>
                         <td>
                             <div class="fw-semibold">{{ $s->full_name }}</div>
                             <small class="text-muted">{{ $s->phone }}</small>
