@@ -82,12 +82,13 @@
     @endif
 
     {{-- Filtros rápidos --}}
+    {{-- Filtros de guía (los de estado ya están en las tarjetas de arriba; aquí solo
+         lo que las tarjetas NO cubren: guía y enviados hoy). "Todos"/"Pendientes" se
+         quitaron por ser redundantes con las tarjetas "Total" y las de "por hacer". --}}
     @php
         $pills = [
-            'todos'        => ['Todos', 'secondary'],
             'sin-guia'     => ['Sin guía de envío', 'danger'],
             'con-guia'     => ['Con guía de envío', 'success'],
-            'pendientes'   => ['Pendientes', 'warning'],
             'enviados-hoy' => ['Enviados hoy', 'info'],
         ];
     @endphp
@@ -100,6 +101,9 @@
                 <span class="badge rounded-pill bg-{{ $filter === $key ? 'light text-dark' : $color }}">{{ $counts[$key] ?? 0 }}</span>
             </a>
         @endforeach
+        @if($filter !== 'todos')
+            <a href="{{ route('shipments.index') }}" class="btn btn-sm btn-link text-muted text-decoration-none">✕ Quitar filtro</a>
+        @endif
     </div>
 
     {{-- Filtro por tipo de entrega --}}
