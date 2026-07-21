@@ -768,37 +768,56 @@
 })();
 </script>
 
-{{-- Impresión por lote: script AISLADO (independiente del bloque de arriba, para
-     que un error ahí no impida seleccionar/imprimir). --}}
+{{-- Impresión por lote. IMPORTANTE: el ERP monta Vue en #main-wrapper (envuelve
+     este panel) y re-renderiza el DOM, así que NO se pueden capturar referencias
+     a nodos ni enlazar listeners directos (se pierden). Se usa SOLO delegación en
+     `document` + re-consulta fresca de los elementos en cada evento. --}}
 <script>
 (function () {
-    function checks() { return Array.prototype.slice.call(document.querySelectorAll('.sh-check')); }
-    var bar = document.getElementById('shBulkBar');
-    var countEl = document.getElementById('shSelCount');
-    var checkAll = document.getElementById('shCheckAll');
+    function $checks() { return Array.prototype.slice.call(document.querySelectorAll('.sh-check')); }
+    function $checked() { return $checks().filter(function (c) { return c.checked; }); }
     function refresh() {
-        var sel = checks().filter(function (c) { return c.checked; });
-        if (countEl) countEl.textContent = sel.length;
-        if (bar) bar.style.display = sel.length > 0 ? 'flex' : 'none';
+        var n = $checked().length;
+        var countEl = document.getElementById('shSelCount');
+        var bar = document.getElementById('shBulkBar');
+        if (countEl) countEl.textContent = n;
+        if (bar) bar.style.display = n > 0 ? 'flex' : 'none';
     }
-    checks().forEach(function (c) { c.addEventListener('change', refresh); });
+
+    // Cambios en los checkboxes (delegado — sobrevive al re-render de Vue).
     document.addEventListener('change', function (ev) {
-        if (ev.target && ev.target.classList && ev.target.classList.contains('sh-check')) refresh();
+        var t = ev.target;
+        if (!t) return;
+        if (t.id === 'shCheckAll') {
+            var on = t.checked;
+            $checks().forEach(function (c) { c.checked = on; });
+            refresh();
+        } else if (t.classList && t.classList.contains('sh-check')) {
+            refresh();
+        }
     });
-    if (checkAll) checkAll.addEventListener('change', function () {
-        checks().forEach(function (c) { c.checked = checkAll.checked; }); refresh();
+
+    // Clicks en los botones de la barra (delegado).
+    document.addEventListener('click', function (ev) {
+        var el = ev.target.closest ? ev.target : null;
+        var print = ev.target.closest && ev.target.closest('#shPrintSel');
+        var clear = ev.target.closest && ev.target.closest('#shClearSel');
+        if (print) {
+            ev.preventDefault();
+            var ids = $checked().map(function (c) { return c.value; });
+            if (ids.length) window.open('{{ route("shipments.print_batch") }}?ids=' + ids.join(','), '_blank');
+        } else if (clear) {
+            ev.preventDefault();
+            $checks().forEach(function (c) { c.checked = false; });
+            var ca = document.getElementById('shCheckAll'); if (ca) ca.checked = false;
+            refresh();
+        }
     });
-    var clearBtn = document.getElementById('shClearSel');
-    if (clearBtn) clearBtn.addEventListener('click', function () {
-        checks().forEach(function (c) { c.checked = false; });
-        if (checkAll) checkAll.checked = false; refresh();
-    });
-    var printBtn = document.getElementById('shPrintSel');
-    if (printBtn) printBtn.addEventListener('click', function () {
-        var ids = checks().filter(function (c) { return c.checked; }).map(function (c) { return c.value; });
-        if (ids.length) window.open('{{ route("shipments.print_batch") }}?ids=' + ids.join(','), '_blank');
-    });
+
+    // Estado inicial + reintento tras el montaje de Vue (que re-renderiza el DOM).
     refresh();
+    setTimeout(refresh, 400);
+    setTimeout(refresh, 1200);
 })();
 </script>
 @include('tenant.shipments.partials.ubigeo-cascader-js')
