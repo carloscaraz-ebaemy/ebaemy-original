@@ -35,13 +35,30 @@ class ShipmentController extends Controller
             $filter = 'todos';
         }
 
-        $query = ShippingRequest::query()->latest('id');
+        // Orden por fecha de registro: recientes (default) o antiguos primero.
+        $sort  = $request->input('sort') === 'oldest' ? 'oldest' : 'recent';
+        $query = ShippingRequest::query();
+        if ($sort === 'oldest') {
+            $query->orderBy('created_at')->orderBy('id');
+        } else {
+            $query->orderByDesc('created_at')->orderByDesc('id');
+        }
 
         switch ($filter) {
             case 'sin-guia':     $query->withoutGuide();  break;
             case 'con-guia':     $query->withGuide();     break;
             case 'pendientes':   $query->pending();       break;
             case 'enviados-hoy': $query->sentToday();     break;
+        }
+
+        // Filtro por rango de fecha de registro (desde / hasta).
+        $from = $request->input('from');
+        $to   = $request->input('to');
+        if ($from && strtotime($from)) {
+            $query->whereDate('created_at', '>=', date('Y-m-d', strtotime($from)));
+        }
+        if ($to && strtotime($to)) {
+            $query->whereDate('created_at', '<=', date('Y-m-d', strtotime($to)));
         }
 
         // Filtro por tipo de entrega (domicilio / agencia).
@@ -105,6 +122,9 @@ class ShipmentController extends Controller
             'group'       => $group,
             'type'        => $type,
             'q'           => $q,
+            'sort'        => $sort,
+            'from'        => $from,
+            'to'          => $to,
             'statuses'    => ShippingRequest::STATUSES,
             'departments' => Department::orderBy('description')->get(['id', 'description']),
         ]);

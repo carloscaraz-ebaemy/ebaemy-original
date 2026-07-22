@@ -56,12 +56,26 @@
             ['k'=>'cancelados', 'l'=>'Cancelados',    'c'=>'#dc2626', 'i'=>'fa-ban',            'v'=>$metrics['cancelados']],
         ];
         $activeGroup = $group ?? null;
+        // Parámetros activos (para que los filtros se combinen y preserven fecha/orden/búsqueda).
+        $curParams = array_filter([
+            'filter' => ($filter && $filter !== 'todos') ? $filter : null,
+            'type'   => $type ?: null,
+            'group'  => $group ?: null,
+            'q'      => $q ?: null,
+            'from'   => $from ?? null,
+            'to'     => $to ?? null,
+            'sort'   => (($sort ?? 'recent') !== 'recent') ? $sort : null,
+        ], fn ($v) => $v !== null && $v !== '');
+        $mk = function (array $override) use ($curParams) {
+            $p = array_filter(array_merge($curParams, $override), fn ($v) => $v !== null && $v !== '');
+            return route('shipments.index', $p);
+        };
     @endphp
     {{-- #shPanel: zona que se recarga por AJAX (sin recargar toda la página). --}}
     <div id="shPanel">
     <div class="sh-metrics">
         @foreach($cards as $c)
-            <a href="{{ route('shipments.index', $c['k'] ? ['group'=>$c['k']] : []) }}"
+            <a href="{{ $mk(['group' => $c['k']]) }}"
                class="sh-metric {{ ($activeGroup === $c['k']) ? 'is-active' : '' }}" style="--mc:{{ $c['c'] }};">
                 <div class="m-ic"><i class="fas {{ $c['i'] }}"></i></div>
                 <div class="m-txt">
@@ -108,7 +122,7 @@
     <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
         {{-- Filtros de guía --}}
         @foreach($pills as $key => [$label, $color])
-            <a href="{{ route('shipments.index', ['filter' => $key]) }}"
+            <a href="{{ $mk(['filter' => $key]) }}"
                class="btn btn-sm {{ $filter === $key ? "btn-$color" : "btn-outline-$color" }} d-flex align-items-center gap-1">
                 @if($key === 'sin-guia')<i class="fas fa-triangle-exclamation"></i>@endif
                 {{ $label }}
@@ -119,13 +133,13 @@
         <span class="vr mx-1 d-none d-md-inline"></span>
 
         {{-- Filtro por tipo de entrega --}}
-        <a href="{{ route('shipments.index', array_filter(['filter'=>$filter,'group'=>$group])) }}"
+        <a href="{{ $mk(['type' => null]) }}"
            class="btn btn-sm {{ empty($type) ? 'btn-dark' : 'btn-outline-dark' }}">Todos los tipos</a>
-        <a href="{{ route('shipments.index', array_filter(['filter'=>$filter,'group'=>$group,'type'=>'domicilio'])) }}"
+        <a href="{{ $mk(['type' => 'domicilio']) }}"
            class="btn btn-sm {{ ($type ?? '')==='domicilio' ? 'text-white' : '' }}" style="{{ ($type ?? '')==='domicilio' ? 'background:#7c3aed;' : 'border:1px solid #7c3aed;color:#7c3aed;' }}">
             🏍️ A domicilio <span class="badge rounded-pill bg-light text-dark">{{ $metrics['domicilio'] ?? 0 }}</span>
         </a>
-        <a href="{{ route('shipments.index', array_filter(['filter'=>$filter,'group'=>$group,'type'=>'agencia'])) }}"
+        <a href="{{ $mk(['type' => 'agencia']) }}"
            class="btn btn-sm {{ ($type ?? '')==='agencia' ? 'btn-primary' : 'btn-outline-primary' }}">
             📦 Por agencia <span class="badge rounded-pill bg-light text-dark">{{ $metrics['agencia'] ?? 0 }}</span>
         </a>
@@ -139,12 +153,24 @@
             <input type="hidden" name="filter" value="{{ $filter }}">
             @if($type)<input type="hidden" name="type" value="{{ $type }}">@endif
             @if($group)<input type="hidden" name="group" value="{{ $group }}">@endif
+            <input type="hidden" name="sort" value="{{ $sort ?? 'recent' }}">
             <div class="input-group input-group-sm">
                 <input type="text" name="q" id="shSearchInput" value="{{ $q }}" class="form-control" placeholder="Buscar cliente, código, guía…" autocomplete="off">
                 <button class="btn btn-outline-secondary" type="submit"><i class="fas fa-search"></i></button>
                 @if($q)<a href="{{ route('shipments.index', ['filter' => $filter]) }}" class="btn btn-outline-secondary">✕</a>@endif
             </div>
         </form>
+    </div>
+
+    {{-- Rango de fecha de registro (pertenece al buscador vía form="shSearchForm"). --}}
+    <div class="d-flex flex-wrap align-items-center gap-2 mb-2" style="font-size:.85rem;">
+        <span class="text-muted"><i class="far fa-calendar-alt me-1"></i>Registrado:</span>
+        <input type="date" name="from" id="shFrom" form="shSearchForm" value="{{ $from }}" class="form-control form-control-sm" style="max-width:160px;" title="Desde">
+        <span class="text-muted">→</span>
+        <input type="date" name="to" id="shTo" form="shSearchForm" value="{{ $to }}" class="form-control form-control-sm" style="max-width:160px;" title="Hasta">
+        @if($from || $to)
+            <a href="{{ $mk(['from' => null, 'to' => null]) }}" class="btn btn-sm btn-link text-muted text-decoration-none p-1">✕ fechas</a>
+        @endif
     </div>
 
     {{-- Aviso del filtro crítico --}}
@@ -170,7 +196,7 @@
     {{-- Tabla (scroll horizontal en móvil) --}}
     <div class="card">
         <div class="table-responsive">
-            <table class="table table-hover align-middle mb-0" style="min-width:860px;">
+            <table class="table table-hover align-middle mb-0" style="min-width:940px;">
                 <thead class="table-light">
                     <tr>
                         <th style="width:34px;"><input type="checkbox" class="form-check-input" id="shCheckAll" title="Seleccionar todos"></th>
@@ -180,6 +206,12 @@
                         <th>Agencia</th>
                         <th>Guía</th>
                         <th>Estado</th>
+                        <th class="text-nowrap">
+                            <a href="{{ $mk(['sort' => ($sort ?? 'recent') === 'oldest' ? 'recent' : 'oldest']) }}" class="text-decoration-none text-dark">
+                                Fecha
+                                @if(($sort ?? 'recent') === 'oldest')<i class="fas fa-arrow-up-short-wide ms-1"></i>@else<i class="fas fa-arrow-down-wide-short ms-1"></i>@endif
+                            </a>
+                        </th>
                         <th class="text-end">Acciones</th>
                     </tr>
                 </thead>
@@ -203,12 +235,7 @@
                     @endphp
                     <tr class="{{ $s->is_cancelled ? 'text-muted' : '' }}" style="{{ $s->is_cancelled ? 'opacity:.7' : '' }}">
                         <td><input type="checkbox" class="form-check-input sh-check" value="{{ $s->id }}"></td>
-                        <td>
-                            <span class="fw-semibold">{{ $s->shipment_code }}</span>
-                            @if($s->created_at)
-                                <div><small class="text-muted"><i class="far fa-clock me-1"></i>{{ $s->created_at->format('d/m/Y') }} · {{ $s->created_at->format('H:i') }}</small></div>
-                            @endif
-                        </td>
+                        <td><span class="fw-semibold">{{ $s->shipment_code }}</span></td>
                         <td>
                             <div class="fw-semibold">{{ $s->full_name }}</div>
                             <small class="text-muted">{{ $s->phone }}</small>
@@ -261,6 +288,14 @@
                                     @endforeach
                                 </ul>
                             </div>
+                        </td>
+                        <td class="text-nowrap">
+                            @if($s->created_at)
+                                <div class="small fw-semibold">{{ $s->created_at->format('d/m/Y') }}</div>
+                                <small class="text-muted">{{ $s->created_at->format('H:i') }}</small>
+                            @else
+                                <span class="text-muted">—</span>
+                            @endif
                         </td>
                         <td class="text-end text-nowrap">
                             <div class="btn-group">
@@ -332,7 +367,7 @@
                     </tr>
                 @empty
                     <tr>
-                        <td colspan="8" class="text-center text-muted py-4">
+                        <td colspan="9" class="text-center text-muted py-4">
                             <i class="fas fa-box-open fa-2x mb-2 d-block"></i>
                             No hay envíos {{ $filter !== 'todos' ? 'con este filtro' : 'registrados todavía' }}.
                         </td>
@@ -892,6 +927,12 @@
         if (ev.target.id !== 'shSearchInput') return;
         clearTimeout(st);
         st = setTimeout(function () { var u = searchUrl(); if (u) swap(u, { focusSearch: true }); }, 400);
+    });
+    // Rango de fechas: al elegir una fecha, recargar la lista.
+    document.addEventListener('change', function (ev) {
+        if (ev.target.id === 'shFrom' || ev.target.id === 'shTo') {
+            var u = searchUrl(); if (u) swap(u);
+        }
     });
 
     // Botón atrás/adelante del navegador.
