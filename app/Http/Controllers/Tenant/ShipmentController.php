@@ -537,6 +537,58 @@ class ShipmentController extends Controller
     }
 
     /**
+     * Aviso automático al NEGOCIO por WhatsApp con todos los datos del pedido
+     * recién registrado (al número configurado en la config de tienda). Así el
+     * encargado recibe el pedido sin depender de que el cliente lo reenvíe.
+     */
+    private function notifyStoreNewOrder(ShippingRequest $shipment): void
+    {
+        try {
+            $to = ShippingSetting::current()->orders_wa;
+            if (!$to) {
+                return; // no hay número de pedidos configurado
+            }
+            dispatch(\App\Jobs\SendWhatsAppMessage::text($to, $this->buildOrderSummary($shipment)));
+        } catch (\Throwable $e) {
+            \Log::warning('[shipping] WhatsApp de pedido al negocio no enviado: ' . $e->getMessage());
+        }
+    }
+
+    /** Resumen del pedido (para el aviso al negocio). Incluye datos internos. */
+    private function buildOrderSummary(ShippingRequest $s): string
+    {
+        $c      = Company::first();
+        $tienda = ($c->title_web ?? null) ?: ($c->trade_name ?? null) ?: ($c->name ?? null) ?: 'la tienda';
+        $L = [];
+        $L[] = "📦 *NUEVO PEDIDO* — {$tienda}";
+        $L[] = "Código: *{$s->shipment_code}*";
+        $L[] = "";
+        $L[] = "👤 Cliente: {$s->full_name}";
+        if ($s->dni)   $L[] = "🪪 DNI/RUC: {$s->dni}";
+        if ($s->phone) $L[] = "📱 Celular: {$s->phone}";
+        $L[] = "";
+        if ($s->is_domicilio) {
+            $L[] = "🏍️ *Entrega a domicilio*";
+            if ($s->formatted_address || $s->shipping_destination) $L[] = "📍 Dirección: " . ($s->formatted_address ?: $s->shipping_destination);
+            if ($s->reference)      $L[] = "📌 Referencia: {$s->reference}";
+            if ($s->maps_link)      $L[] = "🗺️ Ubicación: {$s->maps_link}";
+            if ($s->distance_km)    $L[] = "🛵 Distancia: " . ($s->distance_text ?: ($s->distance_km . ' km')) . ($s->duration_text ? " · ~{$s->duration_text}" : '');
+            if ($s->delivery_price) $L[] = "💵 Costo de envío: S/ " . number_format($s->delivery_price, 2);
+        } else {
+            $L[] = "📦 *Envío por agencia*";
+            if ($s->destination_city)     $L[] = "🏙️ Destino: {$s->destination_city}";
+            if ($s->shipping_agency)      $L[] = "🏢 Agencia: {$s->shipping_agency}";
+            if ($s->shipping_destination) $L[] = "📍 Dirección: {$s->shipping_destination}";
+            if ($s->reference)            $L[] = "📌 Referencia: {$s->reference}";
+        }
+        if ($s->package_content) $L[] = "📦 Contenido: {$s->package_content}";
+        if ($s->notes)           $L[] = "📝 Nota: {$s->notes}";
+        $L[] = "";
+        $L[] = "🔎 Seguimiento: " . url('envio/seguimiento?code=' . $s->shipment_code);
+        return implode("\n", $L);
+    }
+
+    /**
      * Notifica al cliente por WhatsApp que su envío salió (guía + agencia +
      * link de seguimiento). Async vía el job del ERP; best-effort (no rompe
      * la subida de guía si WhatsApp no está configurado o falla).
@@ -764,6 +816,8 @@ class ShipmentController extends Controller
 
         // WhatsApp "registro recibido" al cliente (async, best-effort).
         $this->notifyClientRegistered($shipment);
+        // Aviso automático al negocio con todos los datos del pedido (async).
+        $this->notifyStoreNewOrder($shipment);
 
         return redirect()->route('shipments.public.form')
             ->with('shipment_code', $shipment->shipment_code)
