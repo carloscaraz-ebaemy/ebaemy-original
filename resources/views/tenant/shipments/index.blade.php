@@ -171,6 +171,10 @@
         @if($from || $to)
             <a href="{{ $mk(['from' => null, 'to' => null]) }}" class="btn btn-sm btn-link text-muted text-decoration-none p-1">✕ fechas</a>
         @endif
+        @php $hoy = now()->format('Y-m-d'); @endphp
+        <a href="{{ $mk(['from' => $hoy, 'to' => $hoy]) }}" class="btn btn-sm btn-outline-secondary">Hoy</a>
+        <a href="{{ route('shipments.index', ['filter' => 'pendientes', 'from' => $hoy, 'to' => $hoy]) }}"
+           class="btn btn-sm btn-warning fw-semibold {{ ($filter === 'pendientes' && $from === $hoy && $to === $hoy) ? 'active' : '' }}">📋 Por alistar hoy</a>
     </div>
 
     {{-- Aviso del filtro crítico --}}
@@ -272,22 +276,22 @@
                             @endif
                         </td>
                         <td>
-                            <div class="dropdown">
-                                <button class="btn btn-sm btn-{{ $badge }} dropdown-toggle py-0" type="button" data-bs-toggle="dropdown" {{ $s->is_cancelled ? 'disabled' : '' }}>
-                                    {{ $s->status_label }}
-                                </button>
-                                <ul class="dropdown-menu shadow-sm">
-                                    @foreach($s->selectableStatuses() as $val)
-                                        <li>
-                                            <form method="POST" action="{{ route('shipments.status', $s->id) }}">
-                                                @csrf
-                                                <input type="hidden" name="status" value="{{ $val }}">
-                                                <button class="dropdown-item {{ $s->status === $val ? 'active' : '' }}" type="submit">{{ $statuses[$val] ?? $val }}</button>
-                                            </form>
-                                        </li>
-                                    @endforeach
-                                </ul>
-                            </div>
+                            @if($s->is_cancelled)
+                                <span class="badge bg-dark">Anulado</span>
+                            @else
+                                @php $flow = $s->selectableStatuses(); $curInFlow = in_array($s->status, $flow, true); @endphp
+                                <form method="POST" action="{{ route('shipments.status', $s->id) }}" class="d-inline m-0">
+                                    @csrf
+                                    <select name="status" class="form-select form-select-sm sh-status-select border-{{ $badge }} text-{{ $badge }}" style="min-width:150px;font-weight:600;">
+                                        @unless($curInFlow)
+                                            <option value="{{ $s->status }}" selected>{{ $s->status_label }}</option>
+                                        @endunless
+                                        @foreach($flow as $val)
+                                            <option value="{{ $val }}" {{ $s->status === $val ? 'selected' : '' }}>{{ $statuses[$val] ?? $val }}</option>
+                                        @endforeach
+                                    </select>
+                                </form>
+                            @endif
                         </td>
                         <td class="text-nowrap">
                             @if($s->created_at)
@@ -933,6 +937,19 @@
         if (ev.target.id === 'shFrom' || ev.target.id === 'shTo') {
             var u = searchUrl(); if (u) swap(u);
         }
+    });
+
+    // Cambio de estado (select nativo, no se recorta) → POST por AJAX + refresco.
+    document.addEventListener('change', function (ev) {
+        var sel = ev.target;
+        if (!sel.classList || !sel.classList.contains('sh-status-select')) return;
+        var form = sel.closest ? sel.closest('form') : null;
+        if (!form) return;
+        sel.disabled = true;
+        var panel = document.getElementById('shPanel'); if (panel) panel.style.opacity = '0.55';
+        fetch(form.action, { method: 'POST', body: new FormData(form), headers: { 'X-Requested-With': 'XMLHttpRequest' }, credentials: 'same-origin' })
+            .then(function () { swap(location.href, { noPush: true }); })
+            .catch(function () { form.submit(); });
     });
 
     // Botón atrás/adelante del navegador.
