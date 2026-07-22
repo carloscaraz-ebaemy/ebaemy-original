@@ -947,10 +947,10 @@ class ShipmentController extends Controller
                     $data['destination_city'] = $dist->description;
                 }
             }
-            // Costo del servicio tienda→agencia (por paquete), si está configurado.
+            // Costo del servicio tienda→agencia (fijo por envío), si está configurado.
             $fee = (float) ShippingSetting::current()->agency_fee;
             if ($fee > 0) {
-                $data['delivery_price'] = round($fee * (int) $data['package_count'], 2);
+                $data['delivery_price'] = round($fee, 2);
             }
         }
 

@@ -310,7 +310,7 @@
 
                         @if(!empty($agencyFee) && $agencyFee > 0)
                             <div style="margin-top:12px;padding:12px 14px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:12px;font-size:13.5px;color:#1e40af;">
-                                📦 Costo del servicio <b>tienda → agencia</b>: <b>S/ {{ number_format($agencyFee, 2) }} por paquete</b>.
+                                📦 Costo del servicio <b>tienda → agencia</b>: <b>S/ {{ number_format($agencyFee, 2) }}</b> (fijo).
                                 <div style="font-size:11.5px;color:#3b82f6;margin-top:2px;">Es lo que cobramos por llevar tu paquete hasta la agencia. El flete de la agencia hasta tu ciudad se paga aparte, según la agencia.</div>
                             </div>
                         @endif
@@ -546,7 +546,7 @@
             var af = {{ (float) ($agencyFee ?? 0) }};
             document.getElementById('r_price').hidden = !(af > 0);
             document.querySelector('#r_price .k').textContent = 'Servicio tienda→agencia';
-            document.getElementById('c_price').textContent = af > 0 ? ('S/ ' + af.toFixed(2) + ' x paquete') : '—';
+            document.getElementById('c_price').textContent = af > 0 ? ('S/ ' + af.toFixed(2)) : '—';
             var disp = document.querySelector('[data-ubigeo-group="pub"] .ubigeo-display');
             document.getElementById('c_ubigeo').textContent = (disp && disp.classList.contains('has-value')) ? disp.textContent.trim() : '—';
             document.getElementById('c_dir').textContent = txt('pub_addr_agencia') || '—';

@@ -84,11 +84,11 @@
 
                 <hr class="my-4">
                 <h6 class="fw-bold mb-1">📦 Envío por agencia (provincia)</h6>
-                <p class="text-muted small mb-2">Costo de llevar el paquete <b>desde tu tienda hasta la agencia</b>, por paquete (se multiplica por el N° de bultos). Ej. <b>S/ 20</b>.</p>
+                <p class="text-muted small mb-2">Costo <b>fijo</b> de llevar el paquete <b>desde tu tienda hasta la agencia</b> (por envío, sin importar la cantidad). Ej. <b>S/ 20</b>.</p>
                 <div class="input-group input-group-sm" style="max-width:220px;">
                     <span class="input-group-text">S/</span>
                     <input type="number" step="0.10" min="0" name="agency_fee" class="form-control" value="{{ $store->agency_fee }}" placeholder="Ej. 20.00">
-                    <span class="input-group-text">por paquete</span>
+                    <span class="input-group-text">por envío</span>
                 </div>
                 <div class="small text-muted mt-1">Déjalo vacío/0 si no cobras este servicio.</div>
 
