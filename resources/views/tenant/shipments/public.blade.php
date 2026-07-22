@@ -165,13 +165,14 @@
                                 if ($s->formatted_address || $s->shipping_destination) $L[] = "📍 Dirección: " . ($s->formatted_address ?: $s->shipping_destination);
                                 if ($s->reference)      $L[] = "📌 Referencia: {$s->reference}";
                                 if ($s->maps_link)      $L[] = "🗺️ Ubicación: {$s->maps_link}";
-                                if ($s->delivery_price) $L[] = "💵 Costo de envío: S/ " . number_format($s->delivery_price, 2);
+                                if ($s->delivery_price) $L[] = "💵 Costo aprox. de envío: S/ " . number_format($s->delivery_price, 2);
                             } else {
                                 $L[] = "📦 *Envío por agencia*";
                                 if ($s->destination_city)     $L[] = "🏙️ Destino: {$s->destination_city}";
                                 if ($s->shipping_agency)      $L[] = "🏢 Agencia: {$s->shipping_agency}";
                                 if ($s->shipping_destination) $L[] = "📍 Dirección: {$s->shipping_destination}";
                                 if ($s->reference)            $L[] = "📌 Referencia: {$s->reference}";
+                                if ($s->delivery_price)       $L[] = "💵 Servicio tienda→agencia: S/ " . number_format($s->delivery_price, 2);
                             }
                             if ($s->package_content) $L[] = "📦 Contenido: {$s->package_content}";
                             if ($s->notes)           $L[] = "📝 Nota: {$s->notes}";
@@ -268,8 +269,8 @@
                         <input type="hidden" name="duration_text" id="pub_dur_text" value="{{ old('duration_text') }}">
                         <input type="hidden" name="delivery_price" id="pub_delivery_price" value="{{ old('delivery_price') }}">
                         <div id="priceBox" style="display:none;margin-top:10px;padding:12px 14px;background:#ecfdf5;border:1px solid #a7f3d0;border-radius:12px;font-size:14px;color:#065f46;">
-                            💵 Costo aproximado de envío a domicilio: <b style="font-size:16px;">S/ <span id="priceText">—</span></b>
-                            <div style="font-size:11.5px;color:#059669;margin-top:2px;">Es una estimación; se confirma al coordinar el despacho.</div>
+                            💵 Costo <b>aproximado</b> del servicio de envío: <b style="font-size:16px;">S/ <span id="priceText">—</span></b>
+                            <div style="font-size:11.5px;color:#059669;margin-top:2px;">Es un <b>precio referencial</b> según la distancia. El costo final puede variar y se confirma al coordinar la entrega.</div>
                         </div>
 
                         <label>Referencia</label>
@@ -306,6 +307,13 @@
                             </select>
                             <input type="text" class="agency-input" name="shipping_agency" id="pub_shipping_agency" value="{{ old('shipping_agency') }}" maxlength="120" placeholder="Nombre de la agencia" style="display:none;margin-top:8px;">
                         </div>
+
+                        @if(!empty($agencyFee) && $agencyFee > 0)
+                            <div style="margin-top:12px;padding:12px 14px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:12px;font-size:13.5px;color:#1e40af;">
+                                📦 Costo del servicio <b>tienda → agencia</b>: <b>S/ {{ number_format($agencyFee, 2) }} por paquete</b>.
+                                <div style="font-size:11.5px;color:#3b82f6;margin-top:2px;">Es lo que cobramos por llevar tu paquete hasta la agencia. El flete de la agencia hasta tu ciudad se paga aparte, según la agencia.</div>
+                            </div>
+                        @endif
                     </div>
 
                     <label>Observaciones</label>
@@ -528,12 +536,17 @@
             document.getElementById('c_coords').textContent = (lat && lng) ? (parseFloat(lat).toFixed(5) + ', ' + parseFloat(lng).toFixed(5)) : '—';
             var price = txt('pub_delivery_price');
             document.getElementById('r_price').hidden = !price;
+            document.querySelector('#r_price .k').textContent = 'Costo aprox. de envío';
             document.getElementById('c_price').textContent = price ? ('S/ ' + price) : '—';
         } else {
             document.getElementById('r_ubigeo').hidden = false;
             document.getElementById('r_ag').hidden = false;
             document.getElementById('r_coords').hidden = true;
-            document.getElementById('r_price').hidden = true;
+            // Costo tienda→agencia (fijo por paquete), si está configurado.
+            var af = {{ (float) ($agencyFee ?? 0) }};
+            document.getElementById('r_price').hidden = !(af > 0);
+            document.querySelector('#r_price .k').textContent = 'Servicio tienda→agencia';
+            document.getElementById('c_price').textContent = af > 0 ? ('S/ ' + af.toFixed(2) + ' x paquete') : '—';
             var disp = document.querySelector('[data-ubigeo-group="pub"] .ubigeo-display');
             document.getElementById('c_ubigeo').textContent = (disp && disp.classList.contains('has-value')) ? disp.textContent.trim() : '—';
             document.getElementById('c_dir').textContent = txt('pub_addr_agencia') || '—';

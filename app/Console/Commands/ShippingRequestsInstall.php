@@ -34,6 +34,7 @@ class ShippingRequestsInstall extends Command
         '2026_07_20_000002_add_distance_and_settings_to_shipping',
         '2026_07_20_000003_add_delivery_pricing_to_shipping',
         '2026_07_21_000001_add_orders_whatsapp_to_shipping_settings',
+        '2026_07_21_000002_add_agency_fee_to_shipping_settings',
     ];
 
     public function handle(): int
@@ -161,6 +162,7 @@ class ShippingRequestsInstall extends Command
                 $table->decimal('base_price', 8, 2)->nullable();
                 $table->decimal('min_price', 8, 2)->nullable();
                 $table->string('orders_whatsapp', 20)->nullable();
+                $table->decimal('agency_fee', 8, 2)->nullable();
                 $table->timestamps();
             });
             return;
@@ -172,6 +174,7 @@ class ShippingRequestsInstall extends Command
             if (!$has('base_price'))      $table->decimal('base_price', 8, 2)->nullable()->after('price_per_km');
             if (!$has('min_price'))       $table->decimal('min_price', 8, 2)->nullable()->after('base_price');
             if (!$has('orders_whatsapp')) $table->string('orders_whatsapp', 20)->nullable()->after('min_price');
+            if (!$has('agency_fee'))      $table->decimal('agency_fee', 8, 2)->nullable()->after('orders_whatsapp');
         });
     }
 

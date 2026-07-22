@@ -21,6 +21,7 @@ class ShippingSetting extends Model
         'base_price',
         'min_price',
         'orders_whatsapp',
+        'agency_fee',
     ];
 
     protected $casts = [
@@ -29,6 +30,7 @@ class ShippingSetting extends Model
         'price_per_km'    => 'decimal:2',
         'base_price'      => 'decimal:2',
         'min_price'       => 'decimal:2',
+        'agency_fee'      => 'decimal:2',
     ];
 
     /** Fila única de configuración (la crea si no existe). */

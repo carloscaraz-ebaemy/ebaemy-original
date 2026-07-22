@@ -83,6 +83,16 @@
                 <div class="small text-muted mt-2">Ejemplo: base <b>S/3</b> + <b>S/0.80</b>/km, mínimo <b>S/5</b> → un cliente a 4 km paga <b>S/6.20</b>. Deja la tarifa por km en blanco/0 si no quieres mostrar precio.</div>
 
                 <hr class="my-4">
+                <h6 class="fw-bold mb-1">📦 Envío por agencia (provincia)</h6>
+                <p class="text-muted small mb-2">Costo de llevar el paquete <b>desde tu tienda hasta la agencia</b>, por paquete (se multiplica por el N° de bultos). Ej. <b>S/ 20</b>.</p>
+                <div class="input-group input-group-sm" style="max-width:220px;">
+                    <span class="input-group-text">S/</span>
+                    <input type="number" step="0.10" min="0" name="agency_fee" class="form-control" value="{{ $store->agency_fee }}" placeholder="Ej. 20.00">
+                    <span class="input-group-text">por paquete</span>
+                </div>
+                <div class="small text-muted mt-1">Déjalo vacío/0 si no cobras este servicio.</div>
+
+                <hr class="my-4">
                 <h6 class="fw-bold mb-1">💬 WhatsApp para recibir pedidos</h6>
                 <p class="text-muted small mb-2">Cuando el cliente termina de registrar, verá un botón <b>“Enviar mi pedido por WhatsApp”</b> con <b>todos sus datos</b>, que va <b>directo a este número</b>.</p>
                 <div class="input-group input-group-sm" style="max-width:280px;">

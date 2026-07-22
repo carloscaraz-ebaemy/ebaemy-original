@@ -573,13 +573,14 @@ class ShipmentController extends Controller
             if ($s->reference)      $L[] = "📌 Referencia: {$s->reference}";
             if ($s->maps_link)      $L[] = "🗺️ Ubicación: {$s->maps_link}";
             if ($s->distance_km)    $L[] = "🛵 Distancia: " . ($s->distance_text ?: ($s->distance_km . ' km')) . ($s->duration_text ? " · ~{$s->duration_text}" : '');
-            if ($s->delivery_price) $L[] = "💵 Costo de envío: S/ " . number_format($s->delivery_price, 2);
+            if ($s->delivery_price) $L[] = "💵 Costo aprox. de envío: S/ " . number_format($s->delivery_price, 2);
         } else {
             $L[] = "📦 *Envío por agencia*";
             if ($s->destination_city)     $L[] = "🏙️ Destino: {$s->destination_city}";
             if ($s->shipping_agency)      $L[] = "🏢 Agencia: {$s->shipping_agency}";
             if ($s->shipping_destination) $L[] = "📍 Dirección: {$s->shipping_destination}";
             if ($s->reference)            $L[] = "📌 Referencia: {$s->reference}";
+            if ($s->delivery_price)       $L[] = "💵 Servicio tienda→agencia: S/ " . number_format($s->delivery_price, 2);
         }
         if ($s->package_content) $L[] = "📦 Contenido: {$s->package_content}";
         if ($s->notes)           $L[] = "📝 Nota: {$s->notes}";
@@ -751,6 +752,7 @@ class ShipmentController extends Controller
             'pricePerKm'   => $store->has_pricing ? (float) $store->price_per_km : null,
             'basePrice'    => (float) $store->base_price,
             'minPrice'     => (float) $store->min_price,
+            'agencyFee'    => (float) $store->agency_fee,
         ]);
     }
 
@@ -775,6 +777,7 @@ class ShipmentController extends Controller
             'base_price'      => 'nullable|numeric|min:0|max:9999',
             'min_price'       => 'nullable|numeric|min:0|max:9999',
             'orders_whatsapp' => 'nullable|string|max:20',
+            'agency_fee'      => 'nullable|numeric|min:0|max:99999',
         ], [], [
             'store_latitude'  => 'ubicación de la tienda',
             'store_longitude' => 'ubicación de la tienda',
@@ -943,6 +946,11 @@ class ShipmentController extends Controller
                     $data['department_id']    = $prov ? $prov->department_id : ($data['department_id'] ?? null);
                     $data['destination_city'] = $dist->description;
                 }
+            }
+            // Costo del servicio tienda→agencia (por paquete), si está configurado.
+            $fee = (float) ShippingSetting::current()->agency_fee;
+            if ($fee > 0) {
+                $data['delivery_price'] = round($fee * (int) $data['package_count'], 2);
             }
         }
 
