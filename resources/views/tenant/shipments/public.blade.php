@@ -150,9 +150,38 @@
                     <a href="{{ route('shipments.public.tracking', ['code' => $sent]) }}"><button type="button" class="btn">🔎 Ver seguimiento</button></a>
                     @php
                         $tiendaNombre = $company->title_web ?: ($company->trade_name ?: ($company->name ?: 'la tienda'));
-                        $waText = rawurlencode("Registré mi envío en " . $tiendaNombre . ". Código: {$sent}. Seguimiento: " . route('shipments.public.tracking', ['code' => $sent]));
+                        $s = $sentShipment ?? null;
+                        $L = [];
+                        $L[] = "📦 *PEDIDO REGISTRADO* — {$tiendaNombre}";
+                        $L[] = "Código: *{$sent}*";
+                        if ($s) {
+                            $L[] = "";
+                            $L[] = "👤 Cliente: {$s->full_name}";
+                            if ($s->dni)   $L[] = "🪪 DNI/RUC: {$s->dni}";
+                            if ($s->phone) $L[] = "📱 Celular: {$s->phone}";
+                            $L[] = "";
+                            if ($s->is_domicilio) {
+                                $L[] = "🏍️ *Entrega a domicilio*";
+                                if ($s->formatted_address || $s->shipping_destination) $L[] = "📍 Dirección: " . ($s->formatted_address ?: $s->shipping_destination);
+                                if ($s->reference)      $L[] = "📌 Referencia: {$s->reference}";
+                                if ($s->maps_link)      $L[] = "🗺️ Ubicación: {$s->maps_link}";
+                                if ($s->delivery_price) $L[] = "💵 Costo de envío: S/ " . number_format($s->delivery_price, 2);
+                            } else {
+                                $L[] = "📦 *Envío por agencia*";
+                                if ($s->destination_city)     $L[] = "🏙️ Destino: {$s->destination_city}";
+                                if ($s->shipping_agency)      $L[] = "🏢 Agencia: {$s->shipping_agency}";
+                                if ($s->shipping_destination) $L[] = "📍 Dirección: {$s->shipping_destination}";
+                                if ($s->reference)            $L[] = "📌 Referencia: {$s->reference}";
+                            }
+                            if ($s->package_content) $L[] = "📦 Contenido: {$s->package_content}";
+                            if ($s->notes)           $L[] = "📝 Nota: {$s->notes}";
+                        }
+                        $L[] = "";
+                        $L[] = "🔎 Seguimiento: " . route('shipments.public.tracking', ['code' => $sent]);
+                        $waText = rawurlencode(implode("\n", $L));
+                        $waHref = !empty($ordersWa) ? "https://wa.me/{$ordersWa}?text={$waText}" : "https://wa.me/?text={$waText}";
                     @endphp
-                    <a href="https://wa.me/?text={{ $waText }}" target="_blank"><button type="button" class="btn btn-wa">💬 Compartir por WhatsApp</button></a>
+                    <a href="{{ $waHref }}" target="_blank"><button type="button" class="btn btn-wa">💬 Enviar mi pedido por WhatsApp</button></a>
                     <a href="{{ route('shipments.public.form') }}"><button type="button" class="btn btn-ghost">Registrar otro envío</button></a>
                 </div>
             </div>

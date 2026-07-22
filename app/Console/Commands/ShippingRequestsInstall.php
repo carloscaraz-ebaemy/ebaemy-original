@@ -33,6 +33,7 @@ class ShippingRequestsInstall extends Command
         '2026_07_20_000001_add_delivery_type_to_shipping_requests',
         '2026_07_20_000002_add_distance_and_settings_to_shipping',
         '2026_07_20_000003_add_delivery_pricing_to_shipping',
+        '2026_07_21_000001_add_orders_whatsapp_to_shipping_settings',
     ];
 
     public function handle(): int
@@ -159,16 +160,18 @@ class ShippingRequestsInstall extends Command
                 $table->decimal('price_per_km', 8, 2)->nullable();
                 $table->decimal('base_price', 8, 2)->nullable();
                 $table->decimal('min_price', 8, 2)->nullable();
+                $table->string('orders_whatsapp', 20)->nullable();
                 $table->timestamps();
             });
             return;
         }
-        // Tabla existente: agregar las columnas de tarifas si faltan.
+        // Tabla existente: agregar las columnas nuevas si faltan.
         Schema::connection('tenant')->table('shipping_settings', function (Blueprint $table) {
             $has = fn ($c) => Schema::connection('tenant')->hasColumn('shipping_settings', $c);
-            if (!$has('price_per_km')) $table->decimal('price_per_km', 8, 2)->nullable()->after('store_address');
-            if (!$has('base_price'))   $table->decimal('base_price', 8, 2)->nullable()->after('price_per_km');
-            if (!$has('min_price'))    $table->decimal('min_price', 8, 2)->nullable()->after('base_price');
+            if (!$has('price_per_km'))    $table->decimal('price_per_km', 8, 2)->nullable()->after('store_address');
+            if (!$has('base_price'))      $table->decimal('base_price', 8, 2)->nullable()->after('price_per_km');
+            if (!$has('min_price'))       $table->decimal('min_price', 8, 2)->nullable()->after('base_price');
+            if (!$has('orders_whatsapp')) $table->string('orders_whatsapp', 20)->nullable()->after('min_price');
         });
     }
 

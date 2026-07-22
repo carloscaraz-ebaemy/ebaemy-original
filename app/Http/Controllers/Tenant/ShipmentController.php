@@ -681,17 +681,24 @@ class ShipmentController extends Controller
 
         $store = ShippingSetting::current();
 
+        // En la pantalla de éxito, cargar el envío recién registrado para armar
+        // el mensaje de WhatsApp con TODOS los datos que reenvía el cliente.
+        $sent = session('shipment_code');
+        $sentShipment = $sent ? ShippingRequest::where('shipment_code', $sent)->first() : null;
+
         return view('tenant.shipments.public', [
-            'company'     => $company,
-            'sent'        => session('shipment_code'),
-            'sentType'    => session('shipment_type'),
-            'departments' => Department::orderBy('description')->get(['id', 'description']),
-            'mapsKey'     => config('services.google_maps.key'),
-            'storeLat'    => $store->store_latitude,
-            'storeLng'    => $store->store_longitude,
-            'pricePerKm'  => $store->has_pricing ? (float) $store->price_per_km : null,
-            'basePrice'   => (float) $store->base_price,
-            'minPrice'    => (float) $store->min_price,
+            'company'      => $company,
+            'sent'         => $sent,
+            'sentType'     => session('shipment_type'),
+            'sentShipment' => $sentShipment,
+            'ordersWa'     => $store->orders_wa,
+            'departments'  => Department::orderBy('description')->get(['id', 'description']),
+            'mapsKey'      => config('services.google_maps.key'),
+            'storeLat'     => $store->store_latitude,
+            'storeLng'     => $store->store_longitude,
+            'pricePerKm'   => $store->has_pricing ? (float) $store->price_per_km : null,
+            'basePrice'    => (float) $store->base_price,
+            'minPrice'     => (float) $store->min_price,
         ]);
     }
 
@@ -715,6 +722,7 @@ class ShipmentController extends Controller
             'price_per_km'    => 'nullable|numeric|min:0|max:9999',
             'base_price'      => 'nullable|numeric|min:0|max:9999',
             'min_price'       => 'nullable|numeric|min:0|max:9999',
+            'orders_whatsapp' => 'nullable|string|max:20',
         ], [], [
             'store_latitude'  => 'ubicación de la tienda',
             'store_longitude' => 'ubicación de la tienda',

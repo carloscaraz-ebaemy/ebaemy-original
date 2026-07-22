@@ -82,6 +82,15 @@
                 </div>
                 <div class="small text-muted mt-2">Ejemplo: base <b>S/3</b> + <b>S/0.80</b>/km, mínimo <b>S/5</b> → un cliente a 4 km paga <b>S/6.20</b>. Deja la tarifa por km en blanco/0 si no quieres mostrar precio.</div>
 
+                <hr class="my-4">
+                <h6 class="fw-bold mb-1">💬 WhatsApp para recibir pedidos</h6>
+                <p class="text-muted small mb-2">Cuando el cliente termina de registrar, verá un botón <b>“Enviar mi pedido por WhatsApp”</b> con <b>todos sus datos</b>, que va <b>directo a este número</b>.</p>
+                <div class="input-group input-group-sm" style="max-width:280px;">
+                    <span class="input-group-text">🇵🇪 +51</span>
+                    <input type="text" name="orders_whatsapp" class="form-control" value="{{ $store->orders_whatsapp }}" placeholder="9 dígitos (ej. 958183558)" maxlength="20">
+                </div>
+                <div class="small text-muted mt-1">Si lo dejas vacío, el cliente elegirá el contacto manualmente al compartir.</div>
+
                 <button type="submit" class="btn btn-primary mt-3"><i class="fas fa-save me-1"></i> Guardar configuración</button>
             </form>
         </div>

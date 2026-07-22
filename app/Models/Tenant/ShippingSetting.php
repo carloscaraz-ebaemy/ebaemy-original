@@ -20,6 +20,7 @@ class ShippingSetting extends Model
         'price_per_km',
         'base_price',
         'min_price',
+        'orders_whatsapp',
     ];
 
     protected $casts = [
@@ -40,6 +41,16 @@ class ShippingSetting extends Model
     public function getHasOriginAttribute(): bool
     {
         return $this->store_latitude !== null && $this->store_longitude !== null;
+    }
+
+    /** Número de WhatsApp de la tienda (51XXXXXXXXX) para recibir pedidos, o null. */
+    public function getOrdersWaAttribute(): ?string
+    {
+        $p = preg_replace('/\D+/', '', (string) $this->orders_whatsapp);
+        if (strlen($p) === 9 && $p[0] === '9') {
+            $p = '51' . $p;
+        }
+        return strlen($p) >= 11 ? $p : null;
     }
 
     /** ¿Hay una tarifa por km configurada (para cotizar el envío)? */
