@@ -205,8 +205,8 @@
         };
         $tabs = [
             ['k'=>'confirmar',  'l'=>'Nuevos',        'v'=>$metrics['confirmar']],
-            ['k'=>'preparar',   'l'=>'En preparación','v'=>$metrics['preparar'] ?? 0],
-            ['k'=>'transito',   'l'=>'En tránsito',   'v'=>$metrics['transito']],
+            ['k'=>'preparar',   'l'=>'Embalando',     'v'=>$metrics['preparar'] ?? 0],
+            ['k'=>'transito',   'l'=>'En agencia',    'v'=>$metrics['transito']],
             ['k'=>'entregados', 'l'=>'Entregados',    'v'=>$metrics['entregados']],
             ['k'=>'todos',      'l'=>'Todos',         'v'=>$metrics['total']],
         ];

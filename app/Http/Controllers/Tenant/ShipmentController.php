@@ -69,15 +69,18 @@ class ShipmentController extends Controller
 
         // Grupos de estado para las tarjetas de métricas (incluyen valores legados
         // y los estados del flujo de motorizado: asignado_motorizado, en_camino).
+        // Buckets del tablero, alineados al flujo REAL (recibido -> embalando ->
+        // en agencia / en camino -> entregado). Los estados que ya no se usan se
+        // mantienen mapeados para no perder envíos históricos.
         $groups = [
             'confirmar'  => ['recibido', 'pendiente'],
-            'embalaje'   => ['confirmado', 'preparando'],
-            'despacho'   => ['embalando', 'despachado', 'listo', 'asignado_motorizado'],
-            // Pestaña combinada del tablero: todo lo que está en preparación.
-            'preparar'   => ['confirmado', 'preparando', 'embalando', 'despachado', 'listo', 'asignado_motorizado'],
-            'transito'   => ['en_agencia', 'en_ruta', 'enviado', 'en_camino'],
+            'preparar'   => ['embalando', 'listo', 'confirmado', 'preparando', 'asignado_motorizado'],
+            'transito'   => ['en_agencia', 'enviado', 'despachado', 'en_ruta', 'en_camino'],
             'entregados' => ['entregado'],
             'cancelados' => ['anulado'],
+            // Claves antiguas (enlaces guardados) — no se muestran como pestaña.
+            'embalaje'   => ['confirmado', 'preparando', 'embalando'],
+            'despacho'   => ['embalando', 'despachado', 'listo', 'asignado_motorizado'],
         ];
         $group = $request->input('group');
 

@@ -145,14 +145,13 @@ class ShippingRequest extends Model
      * Cada tipo tiene su propio recorrido de estados.
      */
     public const STATUS_FLOWS = [
+        // Domicilio: el motorizado sale y entrega.
         self::DELIVERY_DOMICILIO => [
-            self::STATUS_RECIBIDO, self::STATUS_CONFIRMADO, self::STATUS_PREPARANDO,
-            self::STATUS_ASIGNADO, self::STATUS_EN_CAMINO, self::STATUS_ENTREGADO,
+            self::STATUS_RECIBIDO, self::STATUS_EN_CAMINO, self::STATUS_ENTREGADO,
         ],
+        // Agencia: el trabajo de la tienda termina al dejarlo en la agencia.
         self::DELIVERY_AGENCIA => [
-            self::STATUS_RECIBIDO, self::STATUS_PREPARANDO, self::STATUS_EMBALANDO,
-            self::STATUS_DESPACHADO, self::STATUS_EN_AGENCIA, self::STATUS_EN_RUTA,
-            self::STATUS_ENTREGADO,
+            self::STATUS_RECIBIDO, self::STATUS_EMBALANDO, self::STATUS_EN_AGENCIA,
         ],
     ];
 
