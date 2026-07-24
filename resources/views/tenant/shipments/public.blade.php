@@ -320,7 +320,7 @@
                              cliente lo recoge ahí y su dirección no la usa nadie.
                              Solo pedimos dirección si la agencia hace reparto. --}}
                         <label class="chk chk-inline">
-                            <input type="checkbox" id="pub_ag_home">
+                            <input type="checkbox" id="pub_ag_home" {{ old('delivery_type') === 'agencia' && old('shipping_destination') ? 'checked' : '' }}>
                             <span>La agencia lleva el paquete hasta mi domicilio</span>
                         </label>
                         <div id="agHomeWrap" hidden>
@@ -639,7 +639,7 @@
             document.getElementById('c_price').textContent = af > 0 ? ('S/ ' + af.toFixed(2)) : '—';
             var disp = document.querySelector('[data-ubigeo-group="pub"] .ubigeo-display');
             document.getElementById('c_ubigeo').textContent = (disp && disp.classList.contains('has-value')) ? disp.textContent.trim() : '—';
-            document.getElementById('c_dir').textContent = txt('pub_addr_agencia') || '—';
+            document.getElementById('c_dir').textContent = txt('pub_addr_agencia') || 'Recojo en la agencia';
             document.getElementById('c_ref').textContent = txt('pub_reference_ag') || '—';
             document.getElementById('c_ag').textContent = txt('pub_shipping_agency') || '—';
         }
@@ -787,4 +787,16 @@
                 applyPlace(loc.lat(), loc.lng(), p.formatted_address, p.address_components, p.place_id);
             });
             ready = true;
-            
+            if (pending) { google.maps.event.trigger(map, 'resize'); map.setCenter(marker.getPosition() || LIMA); }
+        };
+        // El mapa está oculto hasta elegir "domicilio": forzar resize al mostrarlo.
+        window.__initShipMapIfReady = function () {
+            if (ready && map) { setTimeout(function () { google.maps.event.trigger(map, 'resize'); map.setCenter(marker.getPosition() || LIMA); }, 120); }
+            else { pending = true; }
+        };
+    })();
+</script>
+<script async src="https://maps.googleapis.com/maps/api/js?key={{ $mapsKey }}&libraries=places&callback=initShipMap&language=es&region=PE"></script>
+@endif
+</body>
+</html>

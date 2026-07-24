@@ -82,7 +82,13 @@
     @else
         {{-- ════════ RÓTULO AGENCIA ════════ --}}
         <div class="section">
-            @if($shipment->shipping_destination)<div class="med-text" style="font-weight:bold">{{ $shipment->shipping_destination }}</div>@endif
+            {{-- Sin dirección = el cliente recoge en la agencia (es el caso normal).
+                 Se dice explícito para que el almacén no lo lea como dato faltante. --}}
+            @if($shipment->shipping_destination)
+                <div class="med-text" style="font-weight:bold">Reparto a domicilio: {{ $shipment->shipping_destination }}</div>
+            @else
+                <div class="med-text" style="font-weight:bold">RECOJO EN AGENCIA</div>
+            @endif
             @if($shipment->reference)<div class="med-text">Ref: {{ $shipment->reference }}</div>@endif
             @php
                 $ubigeoLine = null;
