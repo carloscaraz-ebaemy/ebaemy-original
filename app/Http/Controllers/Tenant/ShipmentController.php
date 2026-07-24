@@ -73,6 +73,8 @@ class ShipmentController extends Controller
             'confirmar'  => ['recibido', 'pendiente'],
             'embalaje'   => ['confirmado', 'preparando'],
             'despacho'   => ['embalando', 'despachado', 'listo', 'asignado_motorizado'],
+            // Pestaña combinada del tablero: todo lo que está en preparación.
+            'preparar'   => ['confirmado', 'preparando', 'embalando', 'despachado', 'listo', 'asignado_motorizado'],
             'transito'   => ['en_agencia', 'en_ruta', 'enviado', 'en_camino'],
             'entregados' => ['entregado'],
             'cancelados' => ['anulado'],

@@ -2,17 +2,67 @@
 
 @push('styles')
 <style>
-    .sh-metrics { display:grid; grid-template-columns:repeat(auto-fit, minmax(94px,1fr)); gap:7px; margin-bottom:9px; }
-    .sh-metric { position:relative; display:flex; align-items:center; gap:8px; text-decoration:none; background:#fff; border:1px solid #e9ecef; border-left:3px solid var(--mc); border-radius:10px; padding:7px 10px; color:#212529; transition:transform .16s, box-shadow .16s, background .16s; box-shadow:0 1px 3px rgba(0,0,0,.05); overflow:hidden; }
-    .sh-metric:hover { transform:translateY(-2px); box-shadow:0 8px 16px -8px rgba(0,0,0,.28); border-left-width:5px; }
-    .sh-metric:active { transform:scale(.98); }
-    /* Estado activo: la tarjeta se rellena con su color (más dinámico) */
-    .sh-metric.is-active { background:var(--mc); border-color:var(--mc); box-shadow:0 6px 16px -6px var(--mc); }
-    .sh-metric.is-active .m-ic, .sh-metric.is-active .m-v, .sh-metric.is-active .m-l { color:#fff; }
-    .sh-metric .m-ic { color:var(--mc); font-size:14px; }
-    .sh-metric .m-txt { display:flex; flex-direction:column; }
-    .sh-metric .m-v { font-size:19px; font-weight:800; line-height:1; }
-    .sh-metric .m-l { font-size:10.5px; color:#6c757d; font-weight:600; line-height:1.15; }
+    /* ── Pestañas de flujo (una sola dimensión de filtro) ── */
+    .sh-tabs { display:flex; gap:2px; align-items:center; border-bottom:1px solid #e8eaee;
+        margin-bottom:12px; overflow-x:auto; scrollbar-width:none; }
+    .sh-tabs::-webkit-scrollbar { display:none; }
+    .sh-tab { display:inline-flex; align-items:center; gap:7px; white-space:nowrap; text-decoration:none;
+        padding:.58rem .85rem; font-size:.825rem; font-weight:600; color:#6b7280;
+        border-bottom:2px solid transparent; margin-bottom:-1px;
+        transition:color .15s ease-out, border-color .15s ease-out; }
+    .sh-tab:hover { color:#111827; }
+    .sh-tab.is-on { color:#4f46e5; border-bottom-color:#4f46e5; }
+    .sh-tab__n { font-size:.69rem; font-weight:700; padding:.1rem .38rem; border-radius:5px;
+        background:#f1f3f5; color:#6b7280; font-variant-numeric:tabular-nums; }
+    .sh-tab.is-on .sh-tab__n { background:#eef2ff; color:#4f46e5; }
+
+    /* ── Barra de herramientas ── */
+    .sh-tools { display:flex; align-items:center; gap:8px; margin-bottom:10px; flex-wrap:wrap; }
+    .sh-search { position:relative; display:flex; align-items:center; flex:1 1 240px; max-width:380px; margin:0; }
+    .sh-search__ic { position:absolute; left:10px; font-size:.74rem; color:#9aa2af; pointer-events:none; }
+    .sh-search input { width:100%; padding:.42rem 1.7rem .42rem 1.95rem; font-size:.8rem; color:#111827;
+        background:#fff; border:1px solid #e5e7eb; border-radius:8px; box-shadow:0 1px 2px rgba(16,24,40,.04);
+        transition:border-color .15s ease-out, box-shadow .15s ease-out; }
+    .sh-search input:focus { outline:none; border-color:#a5b4fc; box-shadow:0 0 0 3px rgba(79,70,229,.1); }
+    .sh-search button { position:absolute; right:6px; border:0; background:none; color:#9aa2af;
+        font-size:.78rem; cursor:pointer; padding:2px 4px; line-height:1; }
+    .sh-search button:hover { color:#4b5563; }
+
+    /* ── Chips de filtro ── */
+    .sh-chip { display:inline-flex; align-items:center; gap:6px; white-space:nowrap; cursor:pointer; text-decoration:none;
+        padding:.42rem .68rem; font-size:.78rem; font-weight:600; color:#4b5563;
+        background:#fff; border:1px solid #e5e7eb; border-radius:8px; box-shadow:0 1px 2px rgba(16,24,40,.04);
+        transition:background .15s ease-out, border-color .15s ease-out, color .15s ease-out; }
+    .sh-chip:hover { background:#f9fafb; border-color:#d1d5db; color:#111827; }
+    .sh-chip b { font-size:.68rem; font-weight:700; padding:.06rem .34rem; border-radius:5px;
+        background:#f1f3f5; color:#6b7280; font-variant-numeric:tabular-nums; }
+    .sh-chip.is-on { background:#eef2ff; border-color:#c7d2fe; color:#3730a3; }
+    .sh-chip.is-on b { background:#4f46e5; color:#fff; }
+
+    /* ── Popover de filtros avanzados ── */
+    .sh-filters { min-width:300px; padding:12px; border:1px solid #e8eaee; border-radius:12px; }
+    .sh-filters__g { padding:6px 0; }
+    .sh-filters__g + .sh-filters__g { border-top:1px solid #f1f3f5; margin-top:4px; }
+    .sh-filters__t { display:block; font-size:.65rem; font-weight:600; letter-spacing:.06em;
+        text-transform:uppercase; color:#9aa2af; margin-bottom:6px; }
+    .sh-filters__r { display:flex; flex-wrap:wrap; gap:5px; }
+    .sh-mini { display:inline-flex; align-items:center; gap:5px; padding:.3rem .55rem; font-size:.75rem;
+        font-weight:600; color:#4b5563; text-decoration:none; background:#f8fafc;
+        border:1px solid #eceff3; border-radius:7px; }
+    .sh-mini:hover { background:#f1f5f9; color:#111827; }
+    .sh-mini.is-on { background:#eef2ff; border-color:#c7d2fe; color:#3730a3; }
+    .sh-mini b { font-size:.66rem; color:#9aa2af; font-variant-numeric:tabular-nums; }
+    .sh-mini.is-on b { color:#4f46e5; }
+    .sh-mini.is-clear { background:none; border-color:transparent; color:#9aa2af; }
+    .sh-filters__d { display:flex; align-items:center; gap:6px; }
+    .sh-filters__d input { flex:1; min-width:0; padding:.32rem .5rem; font-size:.76rem;
+        border:1px solid #e5e7eb; border-radius:7px; color:#374151; }
+    .sh-filters__d span { color:#9aa2af; font-size:.75rem; }
+    .sh-filters__clear { display:block; margin-top:10px; padding-top:9px; border-top:1px solid #f1f3f5;
+        font-size:.75rem; font-weight:600; color:#dc2626; text-decoration:none; text-align:center; }
+    .sh-filters__clear:hover { color:#b91c1c; }
+    @media (max-width:768px) { .sh-search { max-width:none; flex:1 1 100%; } }
+
     /* Filtros: más compactos y con feedback dinámico */
     #shipmentsApp .btn-sm { padding-top:.22rem; padding-bottom:.22rem; transition:transform .12s ease, box-shadow .12s ease, background .12s ease; }
     #shipmentsApp .btn-sm:hover { transform:translateY(-1px); box-shadow:0 4px 10px -5px rgba(0,0,0,.3); }
@@ -117,33 +167,28 @@
                 @endif
             </small>
         </div>
-        <div class="d-flex gap-2 flex-wrap">
-            <a href="{{ route('shipments.settings') }}" class="btn btn-sm btn-outline-secondary">
-                <i class="fas fa-map-marker-alt me-1"></i> Ubicación tienda
-            </a>
-            <a href="{{ route('shipments.couriers') }}" class="btn btn-sm text-white" style="background:#7c3aed;">
-                <i class="fas fa-motorcycle me-1"></i> Motorizado
-                @if(($metrics['courier_active'] ?? 0) > 0)<span class="badge rounded-pill bg-light text-dark ms-1">{{ $metrics['courier_active'] }}</span>@endif
-            </a>
+        <div class="d-flex gap-2 flex-wrap align-items-center">
+            <div class="dropdown">
+                <button class="sh-act sh-act--ghost" data-bs-toggle="dropdown" aria-label="Más opciones" title="Más opciones"><i class="fas fa-ellipsis-h"></i></button>
+                <ul class="dropdown-menu dropdown-menu-end shadow-sm">
+                    <li><a class="dropdown-item" href="{{ route('shipments.couriers') }}">
+                        <i class="fas fa-motorcycle fa-fw me-2 text-muted"></i> Reparto motorizado
+                        @if(($metrics['courier_active'] ?? 0) > 0)<span class="badge rounded-pill bg-primary ms-1">{{ $metrics['courier_active'] }}</span>@endif
+                    </a></li>
+                    <li><a class="dropdown-item" href="{{ route('shipments.settings') }}">
+                        <i class="fas fa-cog fa-fw me-2 text-muted"></i> Configuración de la tienda
+                    </a></li>
+                </ul>
+            </div>
             <button type="button" class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#modalNuevoEnvio">
                 <i class="fas fa-plus me-1"></i> Registrar envío
             </button>
         </div>
     </div>
 
-    {{-- ── Panel de métricas por estado ── --}}
+    {{-- ── Filtros: una sola dimensión visible (pestañas) + avanzados en popover ── --}}
     @php
-        $cards = [
-            ['k'=>'todos',      'l'=>'Total',         'c'=>'#4f46e5', 'i'=>'fa-boxes',  'v'=>$metrics['total']],
-            ['k'=>'confirmar',  'l'=>'Por confirmar', 'c'=>'#6b7280', 'i'=>'fa-clipboard-list', 'v'=>$metrics['confirmar']],
-            ['k'=>'embalaje',   'l'=>'Por embalar',   'c'=>'#f59e0b', 'i'=>'fa-box-open',       'v'=>$metrics['embalaje']],
-            ['k'=>'despacho',   'l'=>'Por despachar', 'c'=>'#0ea5e9', 'i'=>'fa-dolly',          'v'=>$metrics['despacho']],
-            ['k'=>'transito',   'l'=>'En tránsito',   'c'=>'#8b5cf6', 'i'=>'fa-shipping-fast',     'v'=>$metrics['transito']],
-            ['k'=>'entregados', 'l'=>'Entregados',    'c'=>'#16a34a', 'i'=>'fa-check-circle',   'v'=>$metrics['entregados']],
-            ['k'=>'cancelados', 'l'=>'Cancelados',    'c'=>'#dc2626', 'i'=>'fa-ban',            'v'=>$metrics['cancelados']],
-        ];
         $activeGroup = $group ?? null;
-        // Parámetros activos (para que los filtros se combinen y preserven fecha/orden/búsqueda).
         $curParams = array_filter([
             'filter' => ($filter && $filter !== 'todos') ? $filter : null,
             'type'   => $type ?: null,
@@ -158,111 +203,95 @@
             $p = array_filter(array_merge($curParams, $override), fn ($v) => $v !== null && $v !== '');
             return route('shipments.index', $p);
         };
+        $tabs = [
+            ['k'=>'confirmar',  'l'=>'Nuevos',        'v'=>$metrics['confirmar']],
+            ['k'=>'preparar',   'l'=>'En preparación','v'=>$metrics['preparar'] ?? 0],
+            ['k'=>'transito',   'l'=>'En tránsito',   'v'=>$metrics['transito']],
+            ['k'=>'entregados', 'l'=>'Entregados',    'v'=>$metrics['entregados']],
+            ['k'=>'todos',      'l'=>'Todos',         'v'=>$metrics['total']],
+        ];
+        $advN = (int) !empty($type)
+              + (int) in_array($filter, ['con-guia','enviados-hoy'], true)
+              + (int) (!empty($from) || !empty($to))
+              + (int) ($activeGroup === 'cancelados');
     @endphp
     {{-- #shPanel: zona que se recarga por AJAX (sin recargar toda la página). --}}
     <div id="shPanel">
-    <div class="sh-metrics">
-        @foreach($cards as $c)
-            <a href="{{ $mk(['group' => $c['k']]) }}"
-               class="sh-metric {{ ($activeGroup === $c['k']) ? 'is-active' : '' }}" style="--mc:{{ $c['c'] }};">
-                <div class="m-ic"><i class="fas {{ $c['i'] }}"></i></div>
-                <div class="m-txt">
-                    <div class="m-v">{{ $c['v'] }}</div>
-                    <div class="m-l">{{ $c['l'] }}</div>
-                </div>
+
+    <div class="sh-tabs">
+        @foreach($tabs as $t)
+            <a href="{{ $mk(['group' => $t['k']]) }}" class="sh-tab {{ $activeGroup === $t['k'] ? 'is-on' : '' }}">
+                {{ $t['l'] }}<span class="sh-tab__n">{{ number_format($t['v']) }}</span>
             </a>
         @endforeach
     </div>
 
-    {{-- Flash --}}
     @if(session('success'))
-        <div class="alert alert-success alert-dismissible fade show py-2">
-            {{ session('success') }}
-            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-        </div>
+        <div class="alert alert-success alert-dismissible fade show py-2">{{ session('success') }}<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>
     @endif
     @if(session('error'))
-        <div class="alert alert-danger alert-dismissible fade show py-2">
-            {{ session('error') }}
-            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-        </div>
+        <div class="alert alert-danger alert-dismissible fade show py-2">{{ session('error') }}<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>
     @endif
     @if($errors->any())
-        <div class="alert alert-danger alert-dismissible fade show py-2">
-            <ul class="mb-0 ps-3">
-                @foreach($errors->all() as $e)<li>{{ $e }}</li>@endforeach
-            </ul>
-            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-        </div>
+        <div class="alert alert-danger alert-dismissible fade show py-2"><ul class="mb-0 ps-3">@foreach($errors->all() as $e)<li>{{ $e }}</li>@endforeach</ul><button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>
     @endif
 
-    {{-- Filtros rápidos --}}
-    {{-- Filtros de guía (los de estado ya están en las tarjetas de arriba; aquí solo
-         lo que las tarjetas NO cubren: guía y enviados hoy). "Todos"/"Pendientes" se
-         quitaron por ser redundantes con las tarjetas "Total" y las de "por hacer". --}}
-    @php
-        $pills = [
-            'sin-guia'     => ['Sin guía de envío', 'danger'],
-            'con-guia'     => ['Con guía de envío', 'success'],
-            'enviados-hoy' => ['Enviados hoy', 'info'],
-        ];
-    @endphp
-    <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
-        {{-- Filtros de guía --}}
-        @foreach($pills as $key => [$label, $color])
-            <a href="{{ $mk(['filter' => $key]) }}"
-               class="btn btn-sm {{ $filter === $key ? "btn-$color" : "btn-outline-$color" }} d-flex align-items-center gap-1">
-                @if($key === 'sin-guia')<i class="fas fa-exclamation-triangle"></i>@endif
-                {{ $label }}
-                <span class="badge rounded-pill bg-{{ $filter === $key ? 'light text-dark' : $color }}">{{ $counts[$key] ?? 0 }}</span>
-            </a>
-        @endforeach
-
-        <span class="vr mx-1 d-none d-md-inline"></span>
-
-        {{-- Filtro por tipo de entrega --}}
-        <a href="{{ $mk(['type' => null]) }}"
-           class="btn btn-sm {{ empty($type) ? 'btn-dark' : 'btn-outline-dark' }}">Todos los tipos</a>
-        <a href="{{ $mk(['type' => 'domicilio']) }}"
-           class="btn btn-sm {{ ($type ?? '')==='domicilio' ? 'text-white' : '' }}" style="{{ ($type ?? '')==='domicilio' ? 'background:#7c3aed;' : 'border:1px solid #7c3aed;color:#7c3aed;' }}">
-            🏍️ A domicilio <span class="badge rounded-pill bg-light text-dark">{{ $metrics['domicilio'] ?? 0 }}</span>
-        </a>
-        <a href="{{ $mk(['type' => 'agencia']) }}"
-           class="btn btn-sm {{ ($type ?? '')==='agencia' ? 'btn-primary' : 'btn-outline-primary' }}">
-            📦 Por agencia <span class="badge rounded-pill bg-light text-dark">{{ $metrics['agencia'] ?? 0 }}</span>
-        </a>
-
-        @if($filter !== 'todos' || $type || $group)
-            <a href="{{ route('shipments.index') }}" class="btn btn-sm btn-link text-muted text-decoration-none p-1">✕ Quitar</a>
-        @endif
-
-        {{-- Buscador: empujado a la derecha para llenar el espacio en blanco --}}
-        <form method="GET" action="{{ route('shipments.index') }}" id="shSearchForm" class="ms-auto mb-0" style="flex:1 1 220px;max-width:340px;">
+    <div class="sh-tools">
+        <form method="GET" action="{{ route('shipments.index') }}" id="shSearchForm" class="sh-search">
             <input type="hidden" name="filter" value="{{ $filter }}">
             @if($type)<input type="hidden" name="type" value="{{ $type }}">@endif
             @if($group)<input type="hidden" name="group" value="{{ $group }}">@endif
             <input type="hidden" name="sort" value="{{ $sort ?? 'recent' }}">
-            <div class="input-group input-group-sm">
-                <input type="text" name="q" id="shSearchInput" value="{{ $q }}" class="form-control" placeholder="Buscar cliente, código, guía…" autocomplete="off">
-                <button class="btn btn-outline-secondary" type="submit"><i class="fas fa-search"></i></button>
-                <button class="btn btn-outline-secondary" type="button" id="shClearSearch" title="Limpiar búsqueda" style="{{ $q ? '' : 'display:none;' }}">✕</button>
-            </div>
+            <i class="fas fa-search sh-search__ic"></i>
+            <input type="text" name="q" id="shSearchInput" value="{{ $q }}" placeholder="Buscar cliente, código, guía…" autocomplete="off">
+            <button type="button" id="shClearSearch" title="Limpiar" style="{{ $q ? '' : 'display:none;' }}">✕</button>
         </form>
-    </div>
 
-    {{-- Rango de fecha de registro (pertenece al buscador vía form="shSearchForm"). --}}
-    <div class="d-flex flex-wrap align-items-center gap-2 mb-2" style="font-size:.85rem;">
-        <span class="text-muted"><i class="far fa-calendar-alt me-1"></i>Registrado:</span>
-        <input type="date" name="from" id="shFrom" form="shSearchForm" value="{{ $from }}" class="form-control form-control-sm" style="max-width:160px;" title="Desde">
-        <span class="text-muted">→</span>
-        <input type="date" name="to" id="shTo" form="shSearchForm" value="{{ $to }}" class="form-control form-control-sm" style="max-width:160px;" title="Hasta">
-        @if($from || $to)
-            <a href="{{ $mk(['from' => null, 'to' => null]) }}" class="btn btn-sm btn-link text-muted text-decoration-none p-1">✕ fechas</a>
-        @endif
-        @php $hoy = now()->format('Y-m-d'); @endphp
-        <a href="{{ $mk(['from' => $hoy, 'to' => $hoy]) }}" class="btn btn-sm btn-outline-secondary">Hoy</a>
-        <a href="{{ route('shipments.index', ['filter' => 'pendientes', 'from' => $hoy, 'to' => $hoy]) }}"
-           class="btn btn-sm btn-warning fw-semibold {{ ($filter === 'pendientes' && $from === $hoy && $to === $hoy) ? 'active' : '' }}">📋 Por alistar hoy</a>
+        <a href="{{ $mk(['filter' => $filter === 'sin-guia' ? null : 'sin-guia']) }}"
+           class="sh-chip {{ $filter === 'sin-guia' ? 'is-on' : '' }}">
+            Sin guía <b>{{ $counts['sin-guia'] ?? 0 }}</b>
+        </a>
+
+        <div class="dropdown">
+            <button type="button" class="sh-chip {{ $advN ? 'is-on' : '' }}" data-bs-toggle="dropdown" data-bs-auto-close="outside">
+                <i class="fas fa-sliders-h"></i> Filtros @if($advN)<b>{{ $advN }}</b>@endif
+            </button>
+            <div class="dropdown-menu dropdown-menu-end shadow sh-filters">
+                <div class="sh-filters__g">
+                    <span class="sh-filters__t">Tipo de entrega</span>
+                    <div class="sh-filters__r">
+                        <a href="{{ $mk(['type' => null]) }}" class="sh-mini {{ empty($type) ? 'is-on' : '' }}">Todos</a>
+                        <a href="{{ $mk(['type' => 'domicilio']) }}" class="sh-mini {{ ($type ?? '') === 'domicilio' ? 'is-on' : '' }}">Domicilio <b>{{ $metrics['domicilio'] ?? 0 }}</b></a>
+                        <a href="{{ $mk(['type' => 'agencia']) }}" class="sh-mini {{ ($type ?? '') === 'agencia' ? 'is-on' : '' }}">Agencia <b>{{ $metrics['agencia'] ?? 0 }}</b></a>
+                    </div>
+                </div>
+                <div class="sh-filters__g">
+                    <span class="sh-filters__t">Guía y despacho</span>
+                    <div class="sh-filters__r">
+                        <a href="{{ $mk(['filter' => $filter === 'con-guia' ? null : 'con-guia']) }}" class="sh-mini {{ $filter === 'con-guia' ? 'is-on' : '' }}">Con guía <b>{{ $counts['con-guia'] ?? 0 }}</b></a>
+                        <a href="{{ $mk(['filter' => $filter === 'enviados-hoy' ? null : 'enviados-hoy']) }}" class="sh-mini {{ $filter === 'enviados-hoy' ? 'is-on' : '' }}">Enviados hoy <b>{{ $counts['enviados-hoy'] ?? 0 }}</b></a>
+                        <a href="{{ $mk(['group' => 'cancelados']) }}" class="sh-mini {{ $activeGroup === 'cancelados' ? 'is-on' : '' }}">Cancelados <b>{{ $metrics['cancelados'] ?? 0 }}</b></a>
+                    </div>
+                </div>
+                <div class="sh-filters__g">
+                    <span class="sh-filters__t">Fecha de registro</span>
+                    <div class="sh-filters__d">
+                        <input type="date" name="from" id="shFrom" form="shSearchForm" value="{{ $from }}" title="Desde">
+                        <span>→</span>
+                        <input type="date" name="to" id="shTo" form="shSearchForm" value="{{ $to }}" title="Hasta">
+                    </div>
+                    @php $hoy = now()->format('Y-m-d'); @endphp
+                    <div class="sh-filters__r" style="margin-top:6px;">
+                        <a href="{{ $mk(['from' => $hoy, 'to' => $hoy]) }}" class="sh-mini">Hoy</a>
+                        <a href="{{ route('shipments.index', ['filter' => 'pendientes', 'from' => $hoy, 'to' => $hoy]) }}" class="sh-mini">Por alistar hoy</a>
+                        @if($from || $to)<a href="{{ $mk(['from' => null, 'to' => null]) }}" class="sh-mini is-clear">Quitar fechas</a>@endif
+                    </div>
+                </div>
+                @if($advN || $q || $filter !== 'todos')
+                    <a href="{{ route('shipments.index') }}" class="sh-filters__clear">Limpiar todos los filtros</a>
+                @endif
+            </div>
+        </div>
     </div>
 
     {{-- Aviso del filtro crítico --}}
