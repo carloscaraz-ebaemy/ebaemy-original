@@ -18,6 +18,16 @@
     #shipmentsApp .btn-sm:hover { transform:translateY(-1px); box-shadow:0 4px 10px -5px rgba(0,0,0,.3); }
     #shipmentsApp .btn-sm:active { transform:scale(.96); }
     #shipmentsApp .mb-3 { margin-bottom:.55rem !important; }
+    /* Puerta de pago: un solo control, tinte suave (el acento no debe gritar en cada fila) */
+    .sh-pay-gate { display:inline-flex; align-items:center; gap:6px; white-space:nowrap; cursor:pointer;
+        font-size:.76rem; font-weight:600; line-height:1; padding:.45rem .7rem; border-radius:7px;
+        color:#92400e; background:#fffbeb; border:1px solid #fde68a;
+        transition:background .15s ease-out, border-color .15s ease-out; }
+    .sh-pay-gate:hover { background:#fef3c7; border-color:#fcd34d; }
+    .sh-pay-gate:active { transform:scale(.98); }
+    .sh-paid { display:inline-flex; align-items:center; gap:4px; margin-top:3px; padding:0; border:0; background:none;
+        font-size:.67rem; color:#9ca3af; cursor:pointer; }
+    .sh-paid:hover { color:#6b7280; text-decoration:underline; }
 </style>
 @endpush
 
@@ -296,23 +306,15 @@
                                 <span class="badge bg-dark">Anulado</span>
                             @else
                                 @php $flow = $s->selectableStatuses(); $curInFlow = in_array($s->status, $flow, true); @endphp
-                                <div class="d-flex align-items-center gap-1">
-                                @if($requirePayment ?? false)
+                                @if($bloqueado)
+                                    {{-- Divulgación progresiva: mientras no se pueda usar el estado, no se muestra. --}}
                                     <form method="POST" action="{{ route('shipments.payment', $s->id) }}" class="m-0 js-pay-form">
                                         @csrf
-                                        @if($s->payment_confirmed)
-                                            <button type="submit" class="btn btn-sm btn-link p-0 text-success" style="line-height:1;font-size:1rem;"
-                                                    title="Pagado el {{ optional($s->payment_confirmed_at)->format('d/m/Y H:i') }} — clic para revertir">
-                                                <i class="fas fa-check-circle"></i>
-                                            </button>
-                                        @else
-                                            <button type="submit" class="btn btn-sm btn-warning px-2" style="line-height:1.5;"
-                                                    title="Pago pendiente — clic para confirmar y habilitar estado e impresión">
-                                                <i class="fas fa-lock"></i>
-                                            </button>
-                                        @endif
+                                        <button type="submit" class="sh-pay-gate" title="Confirmar el pago habilita el estado y la impresión">
+                                            <i class="fas fa-lock"></i> Confirmar pago
+                                        </button>
                                     </form>
-                                @endif
+                                @else
                                 <form method="POST" action="{{ route('shipments.status', $s->id) }}" class="d-inline m-0">
                                     @csrf
                                     <select name="status" class="form-select form-select-sm sh-status-select border-{{ $badge }} text-{{ $badge }}" style="min-width:150px;font-weight:600;" {{ $bloqueado ? 'disabled' : '' }} title="{{ $bloqueado ? 'Confirma el pago para habilitar' : '' }}">
@@ -324,7 +326,15 @@
                                         @endforeach
                                     </select>
                                 </form>
-                                </div>
+                                @if(($requirePayment ?? false) && $s->payment_confirmed)
+                                    <form method="POST" action="{{ route('shipments.payment', $s->id) }}" class="m-0 js-pay-form">
+                                        @csrf
+                                        <button type="submit" class="sh-paid" title="Clic para revertir la confirmación de pago">
+                                            <i class="fas fa-check"></i> Pagado {{ optional($s->payment_confirmed_at)->format('d/m H:i') }}
+                                        </button>
+                                    </form>
+                                @endif
+                                @endif
                             @endif
                         </td>
                         <td class="text-nowrap">
