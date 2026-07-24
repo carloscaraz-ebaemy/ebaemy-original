@@ -945,11 +945,17 @@
         if (!sel.classList || !sel.classList.contains('sh-status-select')) return;
         var form = sel.closest ? sel.closest('form') : null;
         if (!form) return;
+        // IMPORTANTE: serializar ANTES de deshabilitar. Los controles deshabilitados
+        // NO se incluyen en FormData, y el POST se iba sin el campo `status`.
+        var fd = new FormData(form);
         sel.disabled = true;
         var panel = document.getElementById('shPanel'); if (panel) panel.style.opacity = '0.55';
-        fetch(form.action, { method: 'POST', body: new FormData(form), headers: { 'X-Requested-With': 'XMLHttpRequest' }, credentials: 'same-origin' })
-            .then(function () { swap(location.href, { noPush: true }); })
-            .catch(function () { form.submit(); });
+        fetch(form.action, { method: 'POST', body: fd, headers: { 'X-Requested-With': 'XMLHttpRequest' }, credentials: 'same-origin' })
+            .then(function (r) {
+                if (r && !r.ok) { sel.disabled = false; if (panel) panel.style.opacity = ''; return; }
+                swap(location.href, { noPush: true });
+            })
+            .catch(function () { sel.disabled = false; form.submit(); });
     });
 
     // Botón atrás/adelante del navegador.
