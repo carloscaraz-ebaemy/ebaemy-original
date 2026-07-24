@@ -78,7 +78,18 @@ class ShipmentController extends Controller
             'cancelados' => ['anulado'],
         ];
         $group = $request->input('group');
-        if ($group && isset($groups[$group])) {
+
+        // Vista por defecto = "bandeja de entrada": solo los pedidos que entran
+        // (recién registrados). Solo se aplica si el usuario no pidió otra cosa;
+        // con la tarjeta "Total" (group=todos) se ve absolutamente todo.
+        $hasExplicit = $request->filled('group') || $request->filled('q')
+            || $request->filled('from') || $request->filled('to')
+            || $request->filled('type') || $filter !== 'todos';
+        if (!$hasExplicit) {
+            $group = 'confirmar';
+        }
+
+        if ($group && $group !== 'todos' && isset($groups[$group])) {
             $query->whereIn('status', $groups[$group]);
         }
 

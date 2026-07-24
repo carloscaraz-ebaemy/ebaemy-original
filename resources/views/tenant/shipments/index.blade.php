@@ -28,7 +28,13 @@
     <div class="d-flex flex-wrap align-items-center justify-content-between mb-3 gap-2">
         <div>
             <h4 class="mb-0 fw-bold">📦 Registro y Control de Envíos</h4>
-            <small class="text-muted">Tablero de despacho — sube la guía cuando el paquete llegue a la agencia.</small>
+            <small class="text-muted">
+                @if(($group ?? null) === 'confirmar')
+                    📥 <strong>Pedidos nuevos</strong> por atender — toca «Total» para ver todos.
+                @else
+                    Tablero de despacho — sube la guía cuando el paquete llegue a la agencia.
+                @endif
+            </small>
         </div>
         <div class="d-flex gap-2 flex-wrap">
             <a href="{{ route('shipments.settings') }}" class="btn btn-sm btn-outline-secondary">
@@ -47,7 +53,7 @@
     {{-- ── Panel de métricas por estado ── --}}
     @php
         $cards = [
-            ['k'=>null,         'l'=>'Total',         'c'=>'#4f46e5', 'i'=>'fa-boxes-stacked',  'v'=>$metrics['total']],
+            ['k'=>'todos',      'l'=>'Total',         'c'=>'#4f46e5', 'i'=>'fa-boxes-stacked',  'v'=>$metrics['total']],
             ['k'=>'confirmar',  'l'=>'Por confirmar', 'c'=>'#6b7280', 'i'=>'fa-clipboard-list', 'v'=>$metrics['confirmar']],
             ['k'=>'embalaje',   'l'=>'Por embalar',   'c'=>'#f59e0b', 'i'=>'fa-box-open',       'v'=>$metrics['embalaje']],
             ['k'=>'despacho',   'l'=>'Por despachar', 'c'=>'#0ea5e9', 'i'=>'fa-dolly',          'v'=>$metrics['despacho']],
@@ -375,10 +381,18 @@
                         </td>
                     </tr>
                 @empty
-                    @php $hayFiltros = ($q || $from || $to || $type || $group || $filter !== 'todos'); @endphp
+                    @php
+                        $esBandeja  = (($group ?? null) === 'confirmar' && !$q && !$from && !$to && !$type && $filter === 'todos');
+                        $hayFiltros = !$esBandeja && ($q || $from || $to || $type || $group || $filter !== 'todos');
+                    @endphp
                     <tr>
                         <td colspan="9" class="text-center text-muted py-5">
-                            @if($hayFiltros)
+                            @if($esBandeja)
+                                <i class="fas fa-circle-check fa-2x mb-2 d-block text-success opacity-75"></i>
+                                <strong>¡Todo al día!</strong> No hay pedidos nuevos por atender.
+                                <div class="small mt-1">Los nuevos registros del cliente aparecerán aquí.</div>
+                                <a href="{{ route('shipments.index', ['group' => 'todos']) }}" class="btn btn-sm btn-outline-secondary mt-2">Ver todos los envíos</a>
+                            @elseif($hayFiltros)
                                 <i class="fas fa-magnifying-glass fa-2x mb-2 d-block opacity-50"></i>
                                 @if($q)
                                     No se encontraron envíos para <strong>“{{ $q }}”</strong>.
