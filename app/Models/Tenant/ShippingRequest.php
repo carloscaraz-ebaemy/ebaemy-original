@@ -145,9 +145,10 @@ class ShippingRequest extends Model
      * Cada tipo tiene su propio recorrido de estados.
      */
     public const STATUS_FLOWS = [
-        // Domicilio: el motorizado sale y entrega.
+        // Domicilio (Lima): se embala igual, luego sale el motorizado y entrega.
         self::DELIVERY_DOMICILIO => [
-            self::STATUS_RECIBIDO, self::STATUS_EN_CAMINO, self::STATUS_ENTREGADO,
+            self::STATUS_RECIBIDO, self::STATUS_EMBALANDO,
+            self::STATUS_EN_CAMINO, self::STATUS_ENTREGADO,
         ],
         // Agencia: el trabajo de la tienda termina al dejarlo en la agencia.
         self::DELIVERY_AGENCIA => [
@@ -278,8 +279,9 @@ class ShippingRequest extends Model
     public function scopeCourierActive($q)
     {
         return $q->domicilio()->whereIn('status', [
-            self::STATUS_CONFIRMADO, self::STATUS_PREPARANDO,
-            self::STATUS_ASIGNADO, self::STATUS_EN_CAMINO,
+            self::STATUS_RECIBIDO, self::STATUS_EMBALANDO, self::STATUS_EN_CAMINO,
+            // legados, por si quedan envíos con el flujo anterior
+            self::STATUS_CONFIRMADO, self::STATUS_PREPARANDO, self::STATUS_ASIGNADO,
         ]);
     }
 
