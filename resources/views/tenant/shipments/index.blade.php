@@ -542,7 +542,7 @@
                                                 data-id="{{ $s->id }}"
                                                 data-full_name="{{ $s->full_name }}"
                                                 data-dni="{{ $s->dni }}"
-                                                data-document_type="{{ $s->document_type }}"
+                                                data-document_type="{{ $s->document_option }}"
                                                 data-phone="{{ $s->phone }}"
                                                 data-shipping_destination="{{ $s->shipping_destination }}"
                                                 data-reference="{{ $s->reference }}"

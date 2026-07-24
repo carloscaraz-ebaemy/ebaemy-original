@@ -80,10 +80,9 @@
         /* ── Google Maps ── */
         .map-search { position:relative; }
         #shipMap { width:100%; height:260px; border-radius:14px; border:1.5px solid var(--line); margin-top:10px; background:#e5e7eb; }
-        .map-picked { margin-top:10px; padding:12px 14px; background:#f0fdf4; border:1px solid #bbf7d0; border-radius:12px; font-size:13.5px; display:none; }
+        .map-picked { margin-top:8px; padding:9px 12px; background:#f0fdf4; border:1px solid #bbf7d0; border-radius:11px; font-size:13px; display:none; }
         .map-picked.show { display:block; }
-        .map-picked .a { font-weight:700; color:#15803d; word-break:break-word; }
-        .map-picked .c { color:#166534; font-size:12.5px; margin-top:2px; }
+        .map-picked .c { color:#15803d; font-weight:700; }
         .map-note { font-size:12px; color:var(--muted); margin-top:6px; }
         .map-off { background:#fffbeb; border:1px solid #fde68a; border-radius:12px; padding:12px 14px; font-size:13px; color:#92400e; margin-top:8px; }
 
@@ -99,6 +98,9 @@
         .terms-box { margin-top:16px; }
         .chk { display:flex; align-items:flex-start; gap:10px; background:#fffbeb; border:1px solid #fde68a; border-radius:12px; padding:12px; font-size:14px; font-weight:600; }
         .chk input { margin-top:3px; width:18px; height:18px; }
+        /* Casilla ligera dentro del formulario (no es el bloque de términos). */
+        .chk-inline { background:#f8fafc; border-color:var(--line); font-weight:600; font-size:13.5px; align-items:center; margin-top:14px; cursor:pointer; }
+        .chk-inline input { margin-top:0; }
         .cond { font-size:12px; color:var(--muted); margin-top:12px; line-height:1.5; background:#f8fafc; border:1px solid var(--line); border-radius:12px; padding:12px 14px; }
         .cond strong { color:#334155; }
         .cond ul { margin:6px 0 0; padding-left:18px; }
@@ -260,23 +262,24 @@
 
                     {{-- ─────── Rama DOMICILIO (Google Maps) ─────── --}}
                     <div class="branch-domicilio" hidden>
-                        <label class="req">Buscar dirección en el mapa</label>
+                        {{-- Un solo campo de dirección: es el buscador de Google Y el
+                             dato que se guarda. El cliente puede corregirlo a mano
+                             (número de puerta, dpto) sin perder el pin del mapa. --}}
+                        <label class="req">Dirección de entrega</label>
                         <div class="map-search">
-                            <input type="text" id="mapSearch" placeholder="Ej. Av. Arequipa 1234, Miraflores" autocomplete="off">
+                            <input type="text" name="shipping_destination" id="pub_addr_domicilio" value="{{ old('shipping_destination') }}"
+                                   maxlength="500" autocomplete="off" placeholder="Ej. Av. Arequipa 1234, Miraflores">
                         </div>
+                        <small class="hint">Escribe y elige tu dirección de la lista; luego ajusta el marcador si hace falta.</small>
                         @if(!empty($mapsKey))
                             <div id="shipMap"></div>
                             <div class="map-note">Arrastra el marcador para ajustar la ubicación exacta.</div>
                             <div class="map-picked" id="mapPicked">
-                                <div class="a" id="mp_addr">—</div>
                                 <div class="c" id="mp_city">—</div>
                             </div>
                         @else
-                            <div class="map-off">⚠️ El mapa no está disponible por ahora. Escribe tu dirección completa en el campo de abajo y una referencia clara.</div>
+                            <div class="map-off">⚠️ El mapa no está disponible por ahora. Escribe tu dirección completa y una referencia clara.</div>
                         @endif
-
-                        <label class="req">Dirección de entrega</label>
-                        <input type="text" name="shipping_destination" id="pub_addr_domicilio" value="{{ old('shipping_destination') }}" maxlength="500" placeholder="Av./Jr./Calle, número, urbanización">
 
                         {{-- Campos ocultos que llena Google Maps --}}
                         <input type="hidden" name="latitude" id="pub_lat" value="{{ old('latitude') }}">
@@ -294,8 +297,8 @@
                             <div style="font-size:11.5px;color:#059669;margin-top:2px;">Es un <b>precio referencial</b> según la distancia. El costo final puede variar y se confirma al coordinar la entrega.</div>
                         </div>
 
-                        <label>Referencia</label>
-                        <input type="text" name="reference" id="pub_reference_dom" value="{{ old('reference') }}" maxlength="255" placeholder="Casa blanca, frente al parque, portón negro…">
+                        <label>Referencia e indicaciones</label>
+                        <input type="text" name="reference" id="pub_reference_dom" value="{{ old('reference') }}" maxlength="255" placeholder="Dpto 302, portón negro, frente al parque…">
                     </div>
 
                     {{-- ─────── Rama AGENCIA (ubigeo) ─────── --}}
@@ -313,10 +316,19 @@
                             </div>
                         </div>
 
-                        <label>Dirección</label>
-                        <input type="text" name="shipping_destination" id="pub_addr_agencia" value="{{ old('shipping_destination') }}" maxlength="255" placeholder="Av./Jr./Calle y número">
+                        {{-- El paquete normalmente solo viaja hasta la agencia: el
+                             cliente lo recoge ahí y su dirección no la usa nadie.
+                             Solo pedimos dirección si la agencia hace reparto. --}}
+                        <label class="chk chk-inline">
+                            <input type="checkbox" id="pub_ag_home">
+                            <span>La agencia lleva el paquete hasta mi domicilio</span>
+                        </label>
+                        <div id="agHomeWrap" hidden>
+                            <label>Dirección de reparto</label>
+                            <input type="text" name="shipping_destination" id="pub_addr_agencia" value="{{ old('shipping_destination') }}" maxlength="255" placeholder="Av./Jr./Calle y número">
+                        </div>
 
-                        <label>Referencia</label>
+                        <label>Referencia e indicaciones</label>
                         <input type="text" name="reference" id="pub_reference_ag" value="{{ old('reference') }}" maxlength="255" placeholder="Frente a…, cerca de…">
 
                         <label>Agencia de transporte</label>
@@ -336,9 +348,6 @@
                             </div>
                         @endif
                     </div>
-
-                    <label>Observaciones</label>
-                    <input type="text" name="notes" id="pub_notes" value="{{ old('notes') }}" maxlength="255" placeholder="Indicaciones adicionales">
 
                     <div class="row-btns">
                         <button type="button" class="btn btn-ghost" id="backStep0">← Volver</button>
@@ -361,7 +370,6 @@
                             <div class="r" id="r_ag"><span class="k">Agencia</span><span class="v" id="c_ag">—</span></div>
                             <div class="r" id="r_coords"><span class="k">Ubicación GPS</span><span class="v" id="c_coords">—</span></div>
                             <div class="r" id="r_price"><span class="k">Costo aprox. de envío</span><span class="v" id="c_price" style="color:#059669;">—</span></div>
-                            <div class="r"><span class="k">Observaciones</span><span class="v" id="c_obs">—</span></div>
                         </div>
                     </div>
 
@@ -453,7 +461,21 @@
         // Desactivar los inputs de la rama oculta para que NO se envíen.
         branchDom.querySelectorAll('input,select,textarea').forEach(function(el){ el.disabled = !isDom; });
         branchAg.querySelectorAll('input,select,textarea').forEach(function(el){ el.disabled = isDom; });
+        syncAgHome();
     }
+
+    // Rama agencia: la dirección solo aparece si la agencia hace reparto. Si no,
+    // el paquete se queda en la agencia y no hay dirección que registrar.
+    var agHome = document.getElementById('pub_ag_home');
+    var agHomeWrap = document.getElementById('agHomeWrap');
+    function syncAgHome() {
+        if (!agHome || !agHomeWrap) return;
+        var on = agHome.checked && !agHome.disabled;
+        agHomeWrap.hidden = !on;
+        var a = document.getElementById('pub_addr_agencia');
+        if (a) { if (!on) a.value = ''; a.disabled = !on; }
+    }
+    if (agHome) agHome.addEventListener('change', syncAgHome);
 
     var back0 = document.getElementById('backStep0');
     if (back0) back0.addEventListener('click', function () { hide(step1); show(step0); setStep(1); });
@@ -489,11 +511,10 @@
         if (!dni) return;
         var tp = docType();
         var cfg = {
-            dni:       { ml: 8,  im: 'numeric', ph: '8 dígitos' },
-            ruc:       { ml: 11, im: 'numeric', ph: '11 dígitos' },
+            dni:       { ml: 11, im: 'numeric', ph: '8 dígitos (DNI) u 11 (RUC)' },
             ce:        { ml: 20, im: 'text',    ph: 'N° de carné de extranjería' },
             pasaporte: { ml: 20, im: 'text',    ph: 'N° de pasaporte' }
-        }[tp];
+        }[tp] || { ml: 11, im: 'numeric', ph: '8 dígitos (DNI) u 11 (RUC)' };
         dni.maxLength = cfg.ml;
         dni.setAttribute('inputmode', cfg.im);
         dni.placeholder = cfg.ph;
@@ -587,15 +608,18 @@
         document.getElementById('c_type').textContent = isDom ? '🏍️ Entrega a domicilio · LIMA' : '📦 Envío por agencia · PROVINCIA';
         document.getElementById('c_name').textContent = txt('pub_full_name') || '—';
         var dt = document.querySelector('input[name="document_type"]:checked');
-        var dtl = dt ? dt.parentNode.querySelector('span').textContent : '';
-        document.getElementById('c_doc').textContent = txt('pub_dni') ? (dtl + ' ' + txt('pub_dni')) : '—';
+        var dtv = dt ? dt.value : 'dni';
+        var dnum = txt('pub_dni');
+        var dtl = dtv === 'dni'
+            ? (dnum.replace(/\D+/g, '').length === 11 ? 'RUC' : 'DNI')
+            : (dt ? dt.parentNode.querySelector('span').textContent : '');
+        document.getElementById('c_doc').textContent = dnum ? (dtl + ' ' + dnum) : '—';
         document.getElementById('c_phone').textContent = txt('pub_phone') || '—';
-        document.getElementById('c_obs').textContent = txt('pub_notes') || '—';
 
         if (isDom) {
             document.getElementById('r_ubigeo').hidden = true;
             document.getElementById('r_ag').hidden = true;
-            document.getElementById('c_dir').textContent = txt('pub_formatted') || txt('pub_addr_domicilio') || '—';
+            document.getElementById('c_dir').textContent = txt('pub_addr_domicilio') || txt('pub_formatted') || '—';
             document.getElementById('c_ref').textContent = txt('pub_reference_dom') || '—';
             var lat = txt('pub_lat'), lng = txt('pub_lng');
             document.getElementById('r_coords').hidden = !(lat && lng);
@@ -658,6 +682,9 @@
         var PRICE = null;
         @endif
         var map, marker, geocoder, ac, ready = false, pending = false, distSvc = null;
+        // Última dirección que devolvió Google: sirve para saber si el cliente
+        // editó el campo a mano y no pisarle lo que escribió.
+        var lastFormatted = '';
 
         // Cotiza el precio del envío según los km (base + km × tarifa, con mínimo).
         function quotePrice(km) {
@@ -711,10 +738,20 @@
                        pickComponent(components, 'administrative_area_level_2') || pickComponent(components, 'administrative_area_level_1');
             }
             document.getElementById('pub_city_domicilio').value = city;
+            // El input de dirección es el mismo que el buscador: al mover el pin
+            // manda el pin, salvo que el cliente ya haya escrito algo distinto
+            // de la última dirección que devolvió Google (su número/dpto a mano).
             var addrInput = document.getElementById('pub_addr_domicilio');
-            if (formatted && !addrInput.value) addrInput.value = formatted;
+            if (formatted && (!addrInput.value.trim() || addrInput.value.trim() === lastFormatted)) {
+                addrInput.value = formatted;
+            }
+            lastFormatted = formatted || '';
+            addrInput.style.borderColor = '';
             var box = document.getElementById('mapPicked');
-            if (box) { box.classList.add('show'); document.getElementById('mp_addr').textContent = formatted || (lat + ', ' + lng); document.getElementById('mp_city').textContent = city || ''; }
+            if (box) {
+                box.classList.add('show');
+                document.getElementById('mp_city').textContent = '📍 Ubicación fijada' + (city ? ' · ' + city : '');
+            }
             computeDistance(lat, lng);
         }
         function reverse(latlng) {
@@ -737,7 +774,9 @@
             marker.addListener('dragend', function () { reverse(marker.getPosition()); });
             map.addListener('click', function (e) { placeMarker(e.latLng); reverse(e.latLng); });
 
-            var input = document.getElementById('mapSearch');
+            var input = document.getElementById('pub_addr_domicilio');
+            // Enter dentro del autocompletado no debe enviar el formulario.
+            input.addEventListener('keydown', function (e) { if (e.key === 'Enter') e.preventDefault(); });
             ac = new google.maps.places.Autocomplete(input, { componentRestrictions: { country: 'pe' }, fields: ['geometry', 'formatted_address', 'address_components', 'place_id'] });
             ac.bindTo('bounds', map);
             ac.addListener('place_changed', function () {
@@ -748,16 +787,4 @@
                 applyPlace(loc.lat(), loc.lng(), p.formatted_address, p.address_components, p.place_id);
             });
             ready = true;
-            if (pending) { google.maps.event.trigger(map, 'resize'); map.setCenter(marker.getPosition() || LIMA); }
-        };
-        // El mapa está oculto hasta elegir "domicilio": forzar resize al mostrarlo.
-        window.__initShipMapIfReady = function () {
-            if (ready && map) { setTimeout(function () { google.maps.event.trigger(map, 'resize'); map.setCenter(marker.getPosition() || LIMA); }, 120); }
-            else { pending = true; }
-        };
-    })();
-</script>
-<script async src="https://maps.googleapis.com/maps/api/js?key={{ $mapsKey }}&libraries=places&callback=initShipMap&language=es&region=PE"></script>
-@endif
-</body>
-</html>
+            

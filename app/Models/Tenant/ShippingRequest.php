@@ -222,16 +222,33 @@ class ShippingRequest extends Model
 
     /** Tipos de documento aceptados en el registro. */
     public const DOC_TYPES = [
-        'dni'       => 'DNI',
-        'ruc'       => 'RUC',
+        'dni'       => 'DNI / RUC',
         'ce'        => 'C. Extranjería',
         'pasaporte' => 'Pasaporte',
     ];
 
-    /** Etiqueta corta del documento (para rótulo y panel). */
+    /**
+     * Etiqueta corta del documento (para rótulo, panel y WhatsApp).
+     * DNI y RUC son una sola opción en el formulario porque se distinguen por
+     * la cantidad de dígitos, igual que la consulta a RENIEC/SUNAT.
+     */
     public function getDocumentLabelAttribute(): string
     {
-        return self::DOC_TYPES[$this->document_type] ?? 'Doc.';
+        $t = $this->document_type;
+        if ($t === null || $t === '' || $t === 'dni' || $t === 'ruc') {
+            $n = preg_replace('/\D+/', '', (string) $this->dni);
+            return strlen($n) === 11 ? 'RUC' : 'DNI';
+        }
+
+        return self::DOC_TYPES[$t] ?? 'Doc.';
+    }
+
+    /** Valor que debe quedar marcado en el selector (normaliza el legacy 'ruc'). */
+    public function getDocumentOptionAttribute(): string
+    {
+        $t = $this->document_type;
+
+        return isset(self::DOC_TYPES[$t]) ? $t : 'dni';
     }
 
     /** ¿El pago del envío ya fue confirmado por el encargado? */

@@ -41,7 +41,16 @@
         @endphp
         <div class="section">
             <div class="section-title">Dirección de entrega</div>
-            <div class="big-text" style="font-size:15px;">{{ $shipment->formatted_address ?: $shipment->shipping_destination ?: '—' }}</div>
+            {{-- Manda lo que escribió el cliente: ahí van el número de puerta,
+                 dpto o interior que el geocodificador de Google no devuelve.
+                 La dirección de Google va debajo solo si aporta algo distinto. --}}
+            @php
+                $addrMain = $shipment->shipping_destination ?: $shipment->formatted_address;
+                $addrAlt  = ($shipment->formatted_address && $shipment->formatted_address !== $addrMain)
+                    ? $shipment->formatted_address : null;
+            @endphp
+            <div class="big-text" style="font-size:15px;">{{ $addrMain ?: '—' }}</div>
+            @if($addrAlt)<div class="med-text" style="color:#555;">({{ $addrAlt }})</div>@endif
             @if($shipment->reference)<div class="med-text" style="font-weight:bold">Ref: {{ $shipment->reference }}</div>@endif
             @if($shipment->destination_city)<div class="med-text">{{ $shipment->destination_city }}</div>@endif
         </div>
