@@ -900,6 +900,9 @@
     function busy(on) {
         var box = document.getElementById('shResults');
         if (box) box.style.opacity = on ? '0.5' : '';
+        // Defensivo: limpiar cualquier atenuación previa del panel completo.
+        var panel = document.getElementById('shPanel');
+        if (panel && !on) panel.style.opacity = '';
         var ic = document.querySelector('#shSearchForm button[type="submit"] i');
         if (ic) ic.className = on ? 'fas fa-spinner fa-spin' : 'fas fa-search';
     }
@@ -1009,13 +1012,13 @@
         // NO se incluyen en FormData, y el POST se iba sin el campo `status`.
         var fd = new FormData(form);
         sel.disabled = true;
-        var panel = document.getElementById('shPanel'); if (panel) panel.style.opacity = '0.55';
+        busy(true);
         fetch(form.action, { method: 'POST', body: fd, headers: { 'X-Requested-With': 'XMLHttpRequest' }, credentials: 'same-origin' })
             .then(function (r) {
-                if (r && !r.ok) { sel.disabled = false; if (panel) panel.style.opacity = ''; return; }
-                swap(location.href, { noPush: true });
+                if (r && !r.ok) { sel.disabled = false; busy(false); return; }
+                swap(location.href, { noPush: true }); // al terminar hace busy(false)
             })
-            .catch(function () { sel.disabled = false; form.submit(); });
+            .catch(function () { sel.disabled = false; busy(false); form.submit(); });
     });
 
     // Botón atrás/adelante del navegador.
