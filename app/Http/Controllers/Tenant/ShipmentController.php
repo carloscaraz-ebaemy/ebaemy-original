@@ -369,6 +369,20 @@ class ShipmentController extends Controller
             : "Se quitó la confirmación de pago de {$shipment->shipment_code}.");
     }
 
+    /** Confirmar el pago de VARIOS envíos a la vez (barra de selección). */
+    public function confirmPaymentBulk(Request $request): RedirectResponse
+    {
+        $ids = collect(explode(',', (string) $request->input('ids', '')))
+            ->map(fn ($x) => (int) trim($x))->filter()->unique()->take(200)->values();
+        abort_if($ids->isEmpty(), 404);
+
+        $n = ShippingRequest::whereIn('id', $ids)
+            ->where('payment_confirmed', false)
+            ->update(['payment_confirmed' => true, 'payment_confirmed_at' => now()]);
+
+        return back()->with('success', "Pago confirmado en {$n} envío(s).");
+    }
+
     /** Anular un envío (queda en estado 'anulado', no se borra). */
     public function cancel(ShippingRequest $shipment): RedirectResponse
     {

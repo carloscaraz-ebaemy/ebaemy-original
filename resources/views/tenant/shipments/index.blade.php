@@ -201,6 +201,9 @@
          style="display:none; position:sticky; top:8px; z-index:30; background:#4f46e5; color:#fff; border-radius:12px; box-shadow:0 10px 24px -8px rgba(79,70,229,.6);">
         <span style="font-weight:600;">✅ <strong id="shSelCount">0</strong> envío(s) seleccionado(s)</span>
         <div class="d-flex align-items-center gap-2">
+            @if($requirePayment ?? false)
+                <button type="button" class="btn btn-sm btn-warning fw-bold" id="shPaySel"><i class="fas fa-lock-open me-1"></i> Confirmar pago</button>
+            @endif
             <button type="button" class="btn btn-sm btn-light text-primary fw-bold" id="shClearSel">Quitar selección</button>
             <button type="button" class="btn btn-sm btn-light fw-bold" id="shPrintSel" style="color:#4f46e5;">
                 <i class="fas fa-print me-1"></i> Imprimir los seleccionados
@@ -292,18 +295,24 @@
                             @if($s->is_cancelled)
                                 <span class="badge bg-dark">Anulado</span>
                             @else
-                                @if($requirePayment ?? false)
-                                    @if($s->payment_confirmed)
-                                        <div class="mb-1"><span class="badge bg-success-subtle text-success border border-success-subtle"
-                                              title="Pago confirmado {{ optional($s->payment_confirmed_at)->format('d/m/Y H:i') }}">✅ Pagado</span></div>
-                                    @else
-                                        <form method="POST" action="{{ route('shipments.payment', $s->id) }}" class="mb-1 m-0">
-                                            @csrf
-                                            <button type="submit" class="btn btn-sm btn-warning fw-semibold w-100 py-1" style="font-size:.78rem;" title="Haz clic para confirmar el pago y habilitar estado e impresión">💰 Pago por confirmar</button>
-                                        </form>
-                                    @endif
-                                @endif
                                 @php $flow = $s->selectableStatuses(); $curInFlow = in_array($s->status, $flow, true); @endphp
+                                <div class="d-flex align-items-center gap-1">
+                                @if($requirePayment ?? false)
+                                    <form method="POST" action="{{ route('shipments.payment', $s->id) }}" class="m-0 js-pay-form">
+                                        @csrf
+                                        @if($s->payment_confirmed)
+                                            <button type="submit" class="btn btn-sm btn-link p-0 text-success" style="line-height:1;font-size:1rem;"
+                                                    title="Pagado el {{ optional($s->payment_confirmed_at)->format('d/m/Y H:i') }} — clic para revertir">
+                                                <i class="fas fa-circle-check"></i>
+                                            </button>
+                                        @else
+                                            <button type="submit" class="btn btn-sm btn-warning px-2" style="line-height:1.5;"
+                                                    title="Pago pendiente — clic para confirmar y habilitar estado e impresión">
+                                                <i class="fas fa-lock"></i>
+                                            </button>
+                                        @endif
+                                    </form>
+                                @endif
                                 <form method="POST" action="{{ route('shipments.status', $s->id) }}" class="d-inline m-0">
                                     @csrf
                                     <select name="status" class="form-select form-select-sm sh-status-select border-{{ $badge }} text-{{ $badge }}" style="min-width:150px;font-weight:600;" {{ $bloqueado ? 'disabled' : '' }} title="{{ $bloqueado ? 'Confirma el pago para habilitar' : '' }}">
@@ -315,6 +324,7 @@
                                         @endforeach
                                     </select>
                                 </form>
+                                </div>
                             @endif
                         </td>
                         <td class="text-nowrap">
@@ -1031,6 +1041,33 @@
         if (ev.target.id === 'shFrom' || ev.target.id === 'shTo') {
             var u = searchUrl(); if (u) swap(u);
         }
+    });
+
+    // Confirmar/revertir pago (individual) por AJAX — sin recargar la página.
+    document.addEventListener('submit', function (ev) {
+        var f = ev.target.closest ? ev.target.closest('.js-pay-form') : null;
+        if (!f) return;
+        ev.preventDefault();
+        busy(true);
+        fetch(f.action, { method: 'POST', body: new FormData(f), headers: { 'X-Requested-With': 'XMLHttpRequest' }, credentials: 'same-origin' })
+            .then(function () { swap(location.href, { noPush: true }); })
+            .catch(function () { busy(false); f.submit(); });
+    });
+
+    // Confirmar pago de los SELECCIONADOS (por lote).
+    document.addEventListener('click', function (ev) {
+        if (!ev.target.closest || !ev.target.closest('#shPaySel')) return;
+        ev.preventDefault();
+        var ids = Array.prototype.slice.call(document.querySelectorAll('.sh-check'))
+            .filter(function (c) { return c.checked; }).map(function (c) { return c.value; });
+        if (!ids.length) return;
+        var fd = new FormData();
+        fd.append('_token', '{{ csrf_token() }}');
+        fd.append('ids', ids.join(','));
+        busy(true);
+        fetch('{{ route("shipments.payment_bulk") }}', { method: 'POST', body: fd, headers: { 'X-Requested-With': 'XMLHttpRequest' }, credentials: 'same-origin' })
+            .then(function () { swap(location.href, { noPush: true }); })
+            .catch(function () { busy(false); });
     });
 
     // Cambio de estado (select nativo, no se recorta) → POST por AJAX + refresco.
