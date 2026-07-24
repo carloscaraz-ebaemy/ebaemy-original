@@ -38,7 +38,7 @@
         </div>
         <div class="d-flex gap-2 flex-wrap">
             <a href="{{ route('shipments.settings') }}" class="btn btn-sm btn-outline-secondary">
-                <i class="fas fa-location-dot me-1"></i> Ubicación tienda
+                <i class="fas fa-map-marker-alt me-1"></i> Ubicación tienda
             </a>
             <a href="{{ route('shipments.couriers') }}" class="btn btn-sm text-white" style="background:#7c3aed;">
                 <i class="fas fa-motorcycle me-1"></i> Motorizado
@@ -53,12 +53,12 @@
     {{-- ── Panel de métricas por estado ── --}}
     @php
         $cards = [
-            ['k'=>'todos',      'l'=>'Total',         'c'=>'#4f46e5', 'i'=>'fa-boxes-stacked',  'v'=>$metrics['total']],
+            ['k'=>'todos',      'l'=>'Total',         'c'=>'#4f46e5', 'i'=>'fa-boxes',  'v'=>$metrics['total']],
             ['k'=>'confirmar',  'l'=>'Por confirmar', 'c'=>'#6b7280', 'i'=>'fa-clipboard-list', 'v'=>$metrics['confirmar']],
             ['k'=>'embalaje',   'l'=>'Por embalar',   'c'=>'#f59e0b', 'i'=>'fa-box-open',       'v'=>$metrics['embalaje']],
             ['k'=>'despacho',   'l'=>'Por despachar', 'c'=>'#0ea5e9', 'i'=>'fa-dolly',          'v'=>$metrics['despacho']],
-            ['k'=>'transito',   'l'=>'En tránsito',   'c'=>'#8b5cf6', 'i'=>'fa-truck-fast',     'v'=>$metrics['transito']],
-            ['k'=>'entregados', 'l'=>'Entregados',    'c'=>'#16a34a', 'i'=>'fa-circle-check',   'v'=>$metrics['entregados']],
+            ['k'=>'transito',   'l'=>'En tránsito',   'c'=>'#8b5cf6', 'i'=>'fa-shipping-fast',     'v'=>$metrics['transito']],
+            ['k'=>'entregados', 'l'=>'Entregados',    'c'=>'#16a34a', 'i'=>'fa-check-circle',   'v'=>$metrics['entregados']],
             ['k'=>'cancelados', 'l'=>'Cancelados',    'c'=>'#dc2626', 'i'=>'fa-ban',            'v'=>$metrics['cancelados']],
         ];
         $activeGroup = $group ?? null;
@@ -130,7 +130,7 @@
         @foreach($pills as $key => [$label, $color])
             <a href="{{ $mk(['filter' => $key]) }}"
                class="btn btn-sm {{ $filter === $key ? "btn-$color" : "btn-outline-$color" }} d-flex align-items-center gap-1">
-                @if($key === 'sin-guia')<i class="fas fa-triangle-exclamation"></i>@endif
+                @if($key === 'sin-guia')<i class="fas fa-exclamation-triangle"></i>@endif
                 {{ $label }}
                 <span class="badge rounded-pill bg-{{ $filter === $key ? 'light text-dark' : $color }}">{{ $counts[$key] ?? 0 }}</span>
             </a>
@@ -186,7 +186,7 @@
     {{-- Aviso del filtro crítico --}}
     @if($filter === 'sin-guia' && $counts['sin-guia'] > 0)
         <div class="alert alert-warning py-2 d-flex align-items-center gap-2">
-            <i class="fas fa-triangle-exclamation"></i>
+            <i class="fas fa-exclamation-triangle"></i>
             <span>Estos paquetes <strong>aún no tienen guía cargada</strong>. Súbela apenas los entregues a la agencia.</span>
         </div>
     @endif
@@ -227,7 +227,7 @@
                         <th class="text-nowrap">
                             <a href="{{ $mk(['sort' => ($sort ?? 'recent') === 'oldest' ? 'recent' : 'oldest']) }}" class="text-decoration-none text-dark">
                                 Fecha
-                                @if(($sort ?? 'recent') === 'oldest')<i class="fas fa-arrow-up-short-wide ms-1"></i>@else<i class="fas fa-arrow-down-wide-short ms-1"></i>@endif
+                                @if(($sort ?? 'recent') === 'oldest')<i class="fas fa-sort-amount-up ms-1"></i>@else<i class="fas fa-sort-amount-down ms-1"></i>@endif
                             </a>
                         </th>
                         <th class="text-end">Acciones</th>
@@ -303,7 +303,7 @@
                                         @if($s->payment_confirmed)
                                             <button type="submit" class="btn btn-sm btn-link p-0 text-success" style="line-height:1;font-size:1rem;"
                                                     title="Pagado el {{ optional($s->payment_confirmed_at)->format('d/m/Y H:i') }} — clic para revertir">
-                                                <i class="fas fa-circle-check"></i>
+                                                <i class="fas fa-check-circle"></i>
                                             </button>
                                         @else
                                             <button type="submit" class="btn btn-sm btn-warning px-2" style="line-height:1.5;"
@@ -415,12 +415,12 @@
                     <tr>
                         <td colspan="9" class="text-center text-muted py-5">
                             @if($esBandeja)
-                                <i class="fas fa-circle-check fa-2x mb-2 d-block text-success opacity-75"></i>
+                                <i class="fas fa-check-circle fa-2x mb-2 d-block text-success opacity-75"></i>
                                 <strong>¡Todo al día!</strong> No hay pedidos nuevos por atender.
                                 <div class="small mt-1">Los nuevos registros del cliente aparecerán aquí.</div>
                                 <a href="{{ route('shipments.index', ['group' => 'todos']) }}" class="btn btn-sm btn-outline-secondary mt-2">Ver todos los envíos</a>
                             @elseif($hayFiltros)
-                                <i class="fas fa-magnifying-glass fa-2x mb-2 d-block opacity-50"></i>
+                                <i class="fas fa-search fa-2x mb-2 d-block opacity-50"></i>
                                 @if($q)
                                     No se encontraron envíos para <strong>“{{ $q }}”</strong>.
                                 @else

@@ -31,7 +31,7 @@
     <div class="card border-0 shadow-sm">
         <div class="card-body">
             @if(empty($mapsKey))
-                <div class="cfg-off"><i class="fas fa-triangle-exclamation me-1"></i> El mapa no está disponible (falta la API key de Google Maps). Puedes ingresar las coordenadas manualmente abajo.</div>
+                <div class="cfg-off"><i class="fas fa-exclamation-triangle me-1"></i> El mapa no está disponible (falta la API key de Google Maps). Puedes ingresar las coordenadas manualmente abajo.</div>
             @endif
 
             <form method="POST" action="{{ route('shipments.settings.save') }}" id="storeForm">

@@ -96,7 +96,7 @@
 
             <div class="mz-actions">
                 @if($s->courier_directions_url)
-                    <a href="{{ $s->courier_directions_url }}" target="_blank" class="mz-btn mz-nav"><i class="fas fa-diamond-turn-right"></i> Abrir en Google Maps</a>
+                    <a href="{{ $s->courier_directions_url }}" target="_blank" class="mz-btn mz-nav"><i class="fas fa-directions"></i> Abrir en Google Maps</a>
                 @elseif($s->maps_link)
                     <a href="{{ $s->maps_link }}" target="_blank" class="mz-btn mz-nav"><i class="fas fa-map"></i> Ver ubicación</a>
                 @endif
@@ -107,7 +107,7 @@
             </div>
 
             @unless($s->has_coords)
-                <div class="mz-noloc"><i class="fas fa-triangle-exclamation me-1"></i>Sin coordenadas GPS: usa la dirección para ubicar al cliente.</div>
+                <div class="mz-noloc"><i class="fas fa-exclamation-triangle me-1"></i>Sin coordenadas GPS: usa la dirección para ubicar al cliente.</div>
             @endunless
 
             {{-- Avance de estado del motorizado --}}
