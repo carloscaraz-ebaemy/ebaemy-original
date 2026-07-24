@@ -40,19 +40,39 @@
     .sh-act--ghost { color:#9ca3af; background:transparent; border-color:#e5e7eb; padding:.45rem .58rem; }
     .sh-act--ghost:hover { background:#f3f4f6; color:#4b5563; }
     .sh-act[disabled], .sh-act.is-off { opacity:.4; pointer-events:none; }
-    /* Paginador */
-    .sh-pager { display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap;
-        margin-top:14px; padding-top:12px; border-top:1px solid #eef0f3; }
-    .sh-pager__info { font-size:.78rem; color:#6b7280; }
-    .sh-pager__info strong { color:#374151; font-weight:600; }
-    .sh-pager__nav { display:inline-flex; align-items:center; gap:4px; }
-    .sh-page { display:inline-flex; align-items:center; justify-content:center; min-width:32px; height:32px; padding:0 9px;
-        border-radius:7px; font-size:.78rem; font-weight:600; color:#4b5563; text-decoration:none;
-        border:1px solid #e5e7eb; background:#fff; transition:background .15s ease-out, border-color .15s ease-out; }
-    .sh-page:hover { background:#f3f4f6; color:#111827; }
-    .sh-page.is-current { background:#4f46e5; border-color:#4f46e5; color:#fff; }
-    .sh-page.is-off { opacity:.35; pointer-events:none; }
-    .sh-gap { padding:0 2px; color:#9ca3af; font-size:.78rem; }
+    /* ── Pie de tabla (paginación tipo ERP) ── */
+    .sh-foot { display:flex; align-items:center; justify-content:space-between; gap:16px; flex-wrap:wrap;
+        padding:11px 16px; border-top:1px solid #eef0f4; background:linear-gradient(180deg,#fcfcfd,#f8fafc);
+        border-radius:0 0 .5rem .5rem; font-size:.8rem; }
+    .sh-foot__info { color:#6b7280; display:inline-flex; align-items:baseline; gap:5px; }
+    .sh-foot__range, .sh-foot__total { color:#111827; font-weight:600; font-variant-numeric:tabular-nums; }
+    .sh-foot__of, .sh-foot__label { color:#9ca3af; }
+    .sh-foot__size { display:inline-flex; align-items:center; gap:8px; color:#6b7280; }
+    .sh-foot__size label { margin:0; font-weight:500; }
+    .sh-select { position:relative; display:inline-flex; align-items:center; }
+    .sh-select select { appearance:none; -webkit-appearance:none; padding:.34rem 1.7rem .34rem .6rem;
+        font-size:.78rem; font-weight:600; color:#374151; background:#fff; border:1px solid #e5e7eb;
+        border-radius:8px; box-shadow:0 1px 2px rgba(16,24,40,.04); cursor:pointer;
+        transition:border-color .15s ease-out, box-shadow .15s ease-out; }
+    .sh-select select:hover { border-color:#d1d5db; }
+    .sh-select select:focus { outline:none; border-color:#a5b4fc; box-shadow:0 0 0 3px rgba(79,70,229,.12); }
+    .sh-select i { position:absolute; right:.6rem; font-size:.6rem; color:#9ca3af; pointer-events:none; }
+    .sh-foot__nav { display:inline-flex; align-items:center; gap:4px; }
+    .sh-pg-nums { display:inline-flex; align-items:center; gap:4px; }
+    .sh-pg { display:inline-flex; align-items:center; justify-content:center; min-width:32px; height:32px; padding:0 8px;
+        border-radius:8px; font-size:.78rem; font-weight:600; font-variant-numeric:tabular-nums; color:#4b5563;
+        text-decoration:none; background:#fff; border:1px solid #e5e7eb; box-shadow:0 1px 2px rgba(16,24,40,.04);
+        transition:background .15s ease-out, border-color .15s ease-out, color .15s ease-out, transform .1s ease-out; }
+    .sh-pg:hover { background:#f9fafb; border-color:#d1d5db; color:#111827; }
+    .sh-pg:active { transform:translateY(1px); }
+    .sh-pg.is-current { background:#4f46e5; border-color:#4f46e5; color:#fff;
+        box-shadow:0 1px 2px rgba(79,70,229,.45), 0 2px 6px -2px rgba(79,70,229,.4); }
+    .sh-pg.is-off { opacity:.38; pointer-events:none; box-shadow:none; }
+    .sh-pg-gap { padding:0 2px; color:#d1d5db; letter-spacing:1px; font-size:.7rem; }
+    @media (max-width:768px) {
+        .sh-foot { justify-content:center; text-align:center; gap:10px; }
+        .sh-pg-nums .sh-pg:not(.is-current) { display:none; }
+    }
 </style>
 @endpush
 
@@ -106,6 +126,7 @@
             'from'   => $from ?? null,
             'to'     => $to ?? null,
             'sort'   => (($sort ?? 'recent') !== 'recent') ? $sort : null,
+            'per_page' => ((int) ($perPage ?? 20) !== 20) ? $perPage : null,
         ], fn ($v) => $v !== null && $v !== '');
         $mk = function (array $override) use ($curParams) {
             $p = array_filter(array_merge($curParams, $override), fn ($v) => $v !== null && $v !== '');
@@ -477,9 +498,8 @@
                 </tbody>
             </table>
         </div>
+        @include('tenant.shipments.partials.pagination')
     </div>
-
-    @include('tenant.shipments.partials.pagination')
 
     </div>{{-- /#shResults --}}
     </div>{{-- /#shPanel --}}
@@ -1075,6 +1095,12 @@
         ev.target.closest('#shClearSearch').style.display = 'none';
         var u = searchUrl(); if (u) swapResults(u);
     });
+    // Filas por página: cada opción lleva su URL completa.
+    document.addEventListener('change', function (ev) {
+        if (ev.target.id !== 'shPerPage') return;
+        if (ev.target.value) swap(ev.target.value);
+    });
+
     // Rango de fechas: al elegir una fecha, recargar la lista.
     document.addEventListener('change', function (ev) {
         if (ev.target.id === 'shFrom' || ev.target.id === 'shTo') {

@@ -103,7 +103,12 @@ class ShipmentController extends Controller
             });
         }
 
-        $shipments = $query->paginate(20)->withQueryString();
+        // Filas por página (selector del pie de tabla).
+        $perPage = (int) $request->input('per_page', 20);
+        if (!in_array($perPage, [10, 20, 50, 100], true)) {
+            $perPage = 20;
+        }
+        $shipments = $query->paginate($perPage)->withQueryString();
 
         // Contadores para las pastillas de filtro (una pasada por estado).
         $counts = [
@@ -134,6 +139,7 @@ class ShipmentController extends Controller
             'type'        => $type,
             'q'           => $q,
             'sort'        => $sort,
+            'perPage'     => $perPage,
             'from'        => $from,
             'to'          => $to,
             'statuses'    => ShippingRequest::STATUSES,
@@ -730,7 +736,12 @@ class ShipmentController extends Controller
             });
         }
 
-        $shipments = $query->paginate(20)->withQueryString();
+        // Filas por página (selector del pie de tabla).
+        $perPage = (int) $request->input('per_page', 20);
+        if (!in_array($perPage, [10, 20, 50, 100], true)) {
+            $perPage = 20;
+        }
+        $shipments = $query->paginate($perPage)->withQueryString();
 
         return view('tenant.shipments.couriers', [
             'company'   => Company::first(),
