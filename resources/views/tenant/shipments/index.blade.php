@@ -2,6 +2,38 @@
 
 @push('styles')
 <style>
+    /* ── Modales del módulo: secciones en tarjeta + footer fijo ── */
+    #modalEditar .modal-content, #modalNuevoEnvio .modal-content { border:0; border-radius:16px; overflow:hidden;
+        box-shadow:0 24px 60px -22px rgba(16,24,40,.4); }
+    #modalEditar .modal-header, #modalNuevoEnvio .modal-header { background:#fff; border-bottom:1px solid #eef0f4;
+        padding:.95rem 1.15rem; }
+    #modalEditar .modal-title, #modalNuevoEnvio .modal-title { font-size:.98rem; font-weight:700; color:#0f172a; }
+    #modalEditar .modal-body, #modalNuevoEnvio .modal-body { background:#f7f9fb; padding:.9rem 1.15rem;
+        max-height:calc(100vh - 230px); overflow-y:auto; }
+    #modalEditar .modal-footer, #modalNuevoEnvio .modal-footer { position:sticky; bottom:0; z-index:2;
+        background:#fff; border-top:1px solid #eef0f4; padding:.8rem 1.15rem; }
+    /* Sección en tarjeta */
+    .sh-fs { background:#fff; border:1px solid #eef0f4; border-radius:12px; padding:.85rem .95rem;
+        margin-bottom:.65rem; box-shadow:0 1px 2px rgba(16,24,40,.03); }
+    .sh-fs__h { display:flex; align-items:center; gap:7px; font-size:.66rem; font-weight:700; letter-spacing:.07em;
+        text-transform:uppercase; color:#8b93a1; margin-bottom:.7rem; }
+    .sh-fs__h i { color:#4f46e5; font-size:.8rem; }
+    /* Controles compactos */
+    #modalEditar .form-label, #modalNuevoEnvio .form-label { font-size:.72rem; font-weight:600; color:#6b7280; margin-bottom:.25rem; }
+    #modalEditar .form-control, #modalEditar .form-select, #modalEditar .ubigeo-display,
+    #modalNuevoEnvio .form-control, #modalNuevoEnvio .form-select, #modalNuevoEnvio .ubigeo-display {
+        font-size:.83rem; padding:.45rem .62rem; border-radius:9px; border-color:#e5e7eb; }
+    #modalEditar .form-control:focus, #modalEditar .form-select:focus,
+    #modalNuevoEnvio .form-control:focus, #modalNuevoEnvio .form-select:focus {
+        border-color:#a5b4fc; box-shadow:0 0 0 3px rgba(79,70,229,.1); }
+    /* Desplegable de opcionales */
+    .sh-more { display:flex; align-items:center; gap:8px; width:100%; padding:.6rem .9rem; background:#fff;
+        border:1px dashed #dfe3e8; border-radius:12px; font-size:.78rem; font-weight:600; color:#6b7280;
+        cursor:pointer; transition:border-color .15s ease-out, color .15s ease-out, background .15s ease-out; }
+    .sh-more:hover { border-color:#c7d2fe; color:#4f46e5; background:#fafbff; }
+    .sh-more .chev { margin-left:auto; font-size:.7rem; transition:transform .2s ease-out; }
+    .sh-more[aria-expanded="true"] .chev { transform:rotate(180deg); }
+
     /* ── Cabecera con presencia ── */
     .sh-head { display:flex; align-items:center; gap:12px; }
     .sh-head__ic { display:flex; align-items:center; justify-content:center; width:40px; height:40px;
@@ -661,7 +693,7 @@
 
           <div class="sh-section"><i class="fas fa-map-marker-alt fa-fw me-1"></i> Destino</div>
           <div class="row g-3">
-            <div class="col-12"><label class="form-label small mb-1">Ubigeo (Departamento / Provincia / Distrito) *</label>
+            <div class="col-12"><label class="form-label">Ubigeo (Departamento / Provincia / Distrito) <span class="text-danger">*</span></label>
               <div class="ubigeo-field" data-ubigeo-group="nv">
                 <div class="ubigeo-display" tabindex="0">Seleccionar departamento / provincia / distrito…</div>
                 <input type="hidden" name="department_id" data-ub="department">
@@ -673,11 +705,11 @@
                   <div class="ubigeo-col" data-col="dist"></div>
                 </div>
               </div></div>
-            <div class="col-md-6"><label class="form-label small mb-1">Dirección</label>
+            <div class="col-md-6"><label class="form-label">Dirección</label>
               <input type="text" name="shipping_destination" id="nv_shipping_destination" class="form-control"></div>
             <div class="col-md-6"><label class="form-label small mb-1">Referencia</label>
               <input type="text" name="reference" id="nv_reference" class="form-control" placeholder="Frente a…, cerca de…"></div>
-            <div class="col-12"><label class="form-label small mb-1">Agencia</label>
+            <div class="col-12"><label class="form-label">Agencia</label>
               <div class="agency-field">
                 <select class="form-select agency-select">
                   <option value="">— Selecciona —</option>
@@ -690,11 +722,11 @@
 
           <div class="sh-section"><i class="fas fa-box fa-fw me-1"></i> Paquete</div>
           <div class="row g-3">
-            <div class="col-md-6"><label class="form-label small mb-1">Contenido del paquete</label>
+            <div class="col-md-6"><label class="form-label">Contenido del paquete</label>
               <input type="text" name="package_content" class="form-control" placeholder="Ej: 2 mantas, 1 juego de ollas"></div>
-            <div class="col-md-3"><label class="form-label small mb-1">N° de bultos</label>
+            <div class="col-md-3"><label class="form-label">N° de bultos</label>
               <input type="number" name="package_count" class="form-control" value="1" min="1" max="9999"></div>
-            <div class="col-md-3"><label class="form-label small mb-1">Peso (kg)</label>
+            <div class="col-md-3"><label class="form-label">Peso (kg)</label>
               <input type="number" name="weight" class="form-control" step="0.01" min="0" placeholder="0"></div>
             <div class="col-12"><label class="form-label small mb-1">Información adicional</label>
               <input type="text" name="notes" class="form-control" placeholder="Referencia, indicaciones…"></div>
@@ -722,27 +754,30 @@
         </div>
         <div class="modal-body">
 
-          <div class="sh-section"><i class="fas fa-user fa-fw me-1"></i> Destinatario</div>
+          <div class="sh-fs">
+          <div class="sh-fs__h"><i class="fas fa-user"></i> Destinatario</div>
           <div class="row g-3">
-            <div class="col-md-6"><label class="form-label small mb-1">DNI / RUC <span class="text-muted">(autocompleta)</span></label>
+            <div class="col-md-5"><label class="form-label">DNI / RUC</label>
               <input type="text" name="dni" id="ed_dni" class="form-control js-doc-lookup"
                      data-target-name="ed_full_name" data-target-address="ed_shipping_destination" data-ubigeo-group="ed"
                      inputmode="numeric" maxlength="11" autocomplete="off">
               <small class="js-doc-status d-block mt-1"></small></div>
-            <div class="col-md-6"><label class="form-label small mb-1">Teléfono (celular) *</label>
+            <div class="col-md-4"><label class="form-label">Teléfono <span class="text-danger">*</span></label>
               <input type="text" name="phone" id="ed_phone" class="form-control js-phone-pe" required maxlength="9" inputmode="numeric" placeholder="999 999 999">
-              <small class="js-phone-err text-danger" style="font-size:12px;"></small></div>
-            <div class="col-12"><label class="form-label small mb-1">Nombre completo *</label>
+              <small class="js-phone-err text-danger" style="font-size:11px;"></small></div>
+            <div class="col-12"><label class="form-label">Nombre completo <span class="text-danger">*</span></label>
               <input type="text" name="full_name" id="ed_full_name" class="form-control" required></div>
+          </div>
           </div>
 
           <input type="hidden" name="delivery_type" id="ed_delivery_type" value="agencia">
 
-          <div class="sh-section"><i class="fas fa-map-marker-alt fa-fw me-1"></i> Destino</div>
+          <div class="sh-fs">
+          <div class="sh-fs__h"><i class="fas fa-map-marker-alt"></i> Destino</div>
 
           {{-- ── Rama AGENCIA ── --}}
           <div class="row g-3 ed-agencia">
-            <div class="col-12"><label class="form-label small mb-1">Ubigeo (Departamento / Provincia / Distrito) *</label>
+            <div class="col-12"><label class="form-label">Ubigeo (Departamento / Provincia / Distrito) <span class="text-danger">*</span></label>
               <div class="ubigeo-field" data-ubigeo-group="ed">
                 <div class="ubigeo-display" tabindex="0">Seleccionar departamento / provincia / distrito…</div>
                 <input type="hidden" name="department_id" data-ub="department">
@@ -754,7 +789,7 @@
                   <div class="ubigeo-col" data-col="dist"></div>
                 </div>
               </div></div>
-            <div class="col-12"><label class="form-label small mb-1">Agencia</label>
+            <div class="col-12"><label class="form-label">Agencia</label>
               <div class="agency-field">
                 <select class="form-select agency-select">
                   <option value="">— Selecciona —</option>
@@ -775,7 +810,7 @@
                 <span id="ed_dist_display" class="text-muted ms-2"></span>
               </div>
             </div>
-            <div class="col-md-6"><label class="form-label small mb-1">Costo de envío (S/)</label>
+            <div class="col-md-6"><label class="form-label">Costo de envío (S/)</label>
               <input type="number" step="0.10" min="0" name="delivery_price" id="ed_delivery_price" class="form-control" placeholder="0.00"></div>
             {{-- Ocultos preservados (no se pierden al editar) --}}
             <input type="hidden" name="latitude" id="ed_latitude">
@@ -791,22 +826,30 @@
 
           {{-- Dirección + Referencia (común a ambos tipos) --}}
           <div class="row g-3 mt-0">
-            <div class="col-md-6"><label class="form-label small mb-1">Dirección</label>
+            <div class="col-md-6"><label class="form-label">Dirección</label>
               <input type="text" name="shipping_destination" id="ed_shipping_destination" class="form-control"></div>
-            <div class="col-md-6"><label class="form-label small mb-1">Referencia</label>
+            <div class="col-md-6"><label class="form-label">Referencia</label>
               <input type="text" name="reference" id="ed_reference" class="form-control"></div>
           </div>
+          </div>
 
-          <div class="sh-section"><i class="fas fa-box fa-fw me-1"></i> Paquete</div>
+          <button class="sh-more" type="button" data-bs-toggle="collapse" data-bs-target="#edPaquete" aria-expanded="false">
+            <i class="fas fa-box"></i> Detalles del paquete <span class="fw-normal text-muted">(opcional)</span>
+            <i class="fas fa-chevron-down chev"></i>
+          </button>
+          <div class="collapse" id="edPaquete">
+          <div class="sh-fs" style="margin-top:.65rem;">
           <div class="row g-3">
-            <div class="col-md-6"><label class="form-label small mb-1">Contenido del paquete</label>
+            <div class="col-md-6"><label class="form-label">Contenido del paquete</label>
               <input type="text" name="package_content" id="ed_package_content" class="form-control"></div>
-            <div class="col-md-3"><label class="form-label small mb-1">N° de bultos</label>
+            <div class="col-md-3"><label class="form-label">N° de bultos</label>
               <input type="number" name="package_count" id="ed_package_count" class="form-control" min="1" max="9999"></div>
-            <div class="col-md-3"><label class="form-label small mb-1">Peso (kg)</label>
+            <div class="col-md-3"><label class="form-label">Peso (kg)</label>
               <input type="number" name="weight" id="ed_weight" class="form-control" step="0.01" min="0"></div>
-            <div class="col-12"><label class="form-label small mb-1">Información adicional</label>
+            <div class="col-12"><label class="form-label">Información adicional</label>
               <input type="text" name="notes" id="ed_notes" class="form-control"></div>
+          </div>
+          </div>
           </div>
 
         </div>
