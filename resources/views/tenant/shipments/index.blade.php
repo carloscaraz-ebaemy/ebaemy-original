@@ -157,7 +157,7 @@
             <div class="input-group input-group-sm">
                 <input type="text" name="q" id="shSearchInput" value="{{ $q }}" class="form-control" placeholder="Buscar cliente, código, guía…" autocomplete="off">
                 <button class="btn btn-outline-secondary" type="submit"><i class="fas fa-search"></i></button>
-                @if($q)<a href="{{ route('shipments.index', ['filter' => $filter]) }}" class="btn btn-outline-secondary">✕</a>@endif
+                <button class="btn btn-outline-secondary" type="button" id="shClearSearch" title="Limpiar búsqueda" style="{{ $q ? '' : 'display:none;' }}">✕</button>
             </div>
         </form>
     </div>
@@ -186,6 +186,11 @@
     @endif
 
     {{-- Barra de selección (impresión por lote) — fija arriba y bien visible --}}
+    {{-- #shResults: solo los RESULTADOS. Al escribir en el buscador se refresca
+         únicamente esto, así el input nunca se reemplaza (sin parpadeo ni pérdida
+         de foco). Los clics en filtros sí refrescan todo #shPanel. --}}
+    <div id="shResults">
+
     <div id="shBulkBar" class="align-items-center justify-content-between py-2 px-3 mb-2"
          style="display:none; position:sticky; top:8px; z-index:30; background:#4f46e5; color:#fff; border-radius:12px; box-shadow:0 10px 24px -8px rgba(79,70,229,.6);">
         <span style="font-weight:600;">✅ <strong id="shSelCount">0</strong> envío(s) seleccionado(s)</span>
@@ -370,10 +375,22 @@
                         </td>
                     </tr>
                 @empty
+                    @php $hayFiltros = ($q || $from || $to || $type || $group || $filter !== 'todos'); @endphp
                     <tr>
-                        <td colspan="9" class="text-center text-muted py-4">
-                            <i class="fas fa-box-open fa-2x mb-2 d-block"></i>
-                            No hay envíos {{ $filter !== 'todos' ? 'con este filtro' : 'registrados todavía' }}.
+                        <td colspan="9" class="text-center text-muted py-5">
+                            @if($hayFiltros)
+                                <i class="fas fa-magnifying-glass fa-2x mb-2 d-block opacity-50"></i>
+                                @if($q)
+                                    No se encontraron envíos para <strong>“{{ $q }}”</strong>.
+                                @else
+                                    No hay envíos con los filtros aplicados.
+                                @endif
+                                <div class="small mt-1">Prueba con otro texto o quita algún filtro.</div>
+                                <a href="{{ route('shipments.index') }}" class="btn btn-sm btn-outline-secondary mt-2">Limpiar filtros</a>
+                            @else
+                                <i class="fas fa-box-open fa-2x mb-2 d-block opacity-50"></i>
+                                No hay envíos registrados todavía.
+                            @endif
                         </td>
                     </tr>
                 @endforelse
@@ -383,6 +400,8 @@
     </div>
 
     <div class="mt-3">{{ $shipments->links() }}</div>
+
+    </div>{{-- /#shResults --}}
     </div>{{-- /#shPanel --}}
 
 </div>
@@ -876,30 +895,60 @@
 <script>
 (function () {
     var BASE = '{{ url("registro-envio") }}';
-    var loading = false;
+    var ctrl = null; // petición en vuelo (para cancelarla al seguir escribiendo)
 
+    function busy(on) {
+        var box = document.getElementById('shResults');
+        if (box) box.style.opacity = on ? '0.5' : '';
+        var ic = document.querySelector('#shSearchForm button[type="submit"] i');
+        if (ic) ic.className = on ? 'fas fa-spinner fa-spin' : 'fas fa-search';
+    }
+
+    function fetchDoc(url) {
+        if (ctrl) { try { ctrl.abort(); } catch (e) {} }
+        ctrl = ('AbortController' in window) ? new AbortController() : null;
+        return fetch(url, {
+            headers: { 'X-Requested-With': 'XMLHttpRequest' },
+            credentials: 'same-origin',
+            signal: ctrl ? ctrl.signal : undefined
+        }).then(function (r) { return r.text(); })
+          .then(function (html) { return new DOMParser().parseFromString(html, 'text/html'); });
+    }
+
+    function after(url, push) {
+        if (push) { try { history.pushState({ sh: 1 }, '', url); } catch (e) {} }
+        else      { try { history.replaceState({ sh: 1 }, '', url); } catch (e) {} }
+        if (window.__shInitDropdowns) window.__shInitDropdowns();
+        if (window.__shBulkRefresh) window.__shBulkRefresh();
+    }
+
+    /** Refresca SOLO los resultados (para escribir en el buscador: sin parpadeo). */
+    function swapResults(url) {
+        busy(true);
+        fetchDoc(url).then(function (doc) {
+            var fresh = doc.getElementById('shResults');
+            var cur = document.getElementById('shResults');
+            if (fresh && cur) cur.innerHTML = fresh.innerHTML;
+            after(url, false);
+            busy(false);
+        }).catch(function (e) {
+            if (!e || e.name !== 'AbortError') busy(false);
+        });
+    }
+
+    /** Refresca todo el panel (para clics en filtros: actualiza estados y contadores). */
     function swap(url, opts) {
         opts = opts || {};
-        if (loading) return; loading = true;
-        var panel = document.getElementById('shPanel');
-        if (panel) panel.style.opacity = '0.55';
-        fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' }, credentials: 'same-origin' })
-            .then(function (r) { return r.text(); })
-            .then(function (html) {
-                var doc = new DOMParser().parseFromString(html, 'text/html');
-                var fresh = doc.getElementById('shPanel');
-                var cur = document.getElementById('shPanel');
-                if (fresh && cur) { cur.innerHTML = fresh.innerHTML; cur.style.opacity = ''; }
-                if (!opts.noPush) { try { history.pushState({ sh: 1 }, '', url); } catch (e) {} }
-                if (window.__shInitDropdowns) window.__shInitDropdowns();
-                if (window.__shBulkRefresh) window.__shBulkRefresh();
-                if (opts.focusSearch) {
-                    var s = document.getElementById('shSearchInput');
-                    if (s) { s.focus(); var v = s.value; s.value = ''; s.value = v; }
-                }
-            })
-            .catch(function () { window.location = url; })
-            .finally(function () { loading = false; var p = document.getElementById('shPanel'); if (p) p.style.opacity = ''; });
+        busy(true);
+        fetchDoc(url).then(function (doc) {
+            var fresh = doc.getElementById('shPanel');
+            var cur = document.getElementById('shPanel');
+            if (fresh && cur) cur.innerHTML = fresh.innerHTML;
+            after(url, !opts.noPush);
+            busy(false);
+        }).catch(function (e) {
+            if (!e || e.name !== 'AbortError') { busy(false); window.location = url; }
+        });
     }
 
     // Tarjetas / pastillas / paginación (links dentro de #shPanel hacia el índice).
@@ -924,13 +973,24 @@
     document.addEventListener('submit', function (ev) {
         if (!ev.target.closest || !ev.target.closest('#shSearchForm')) return;
         ev.preventDefault();
-        var u = searchUrl(); if (u) swap(u, { focusSearch: true });
+        var u = searchUrl(); if (u) swapResults(u);   // solo resultados: no se pierde el foco
     });
     var st = null;
     document.addEventListener('input', function (ev) {
         if (ev.target.id !== 'shSearchInput') return;
+        var x = document.getElementById('shClearSearch');
+        if (x) x.style.display = ev.target.value ? '' : 'none';
         clearTimeout(st);
-        st = setTimeout(function () { var u = searchUrl(); if (u) swap(u, { focusSearch: true }); }, 400);
+        st = setTimeout(function () { var u = searchUrl(); if (u) swapResults(u); }, 300);
+    });
+    // ✕ limpiar búsqueda (sin recargar).
+    document.addEventListener('click', function (ev) {
+        if (!ev.target.closest || !ev.target.closest('#shClearSearch')) return;
+        ev.preventDefault();
+        var inp = document.getElementById('shSearchInput');
+        if (inp) { inp.value = ''; inp.focus(); }
+        ev.target.closest('#shClearSearch').style.display = 'none';
+        var u = searchUrl(); if (u) swapResults(u);
     });
     // Rango de fechas: al elegir una fecha, recargar la lista.
     document.addEventListener('change', function (ev) {
