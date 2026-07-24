@@ -35,6 +35,7 @@ class ShippingRequestsInstall extends Command
         '2026_07_20_000003_add_delivery_pricing_to_shipping',
         '2026_07_21_000001_add_orders_whatsapp_to_shipping_settings',
         '2026_07_21_000002_add_agency_fee_to_shipping_settings',
+        '2026_07_24_000001_add_payment_confirmation_to_shipping',
     ];
 
     public function handle(): int
@@ -145,6 +146,8 @@ class ShippingRequestsInstall extends Command
         'delivery_type', 'latitude', 'longitude', 'google_place_id', 'formatted_address', 'google_maps_url', 'courier_name', 'courier_phone',
         // Distancia tienda→cliente (2026-07-20)
         'distance_km', 'distance_text', 'duration_text',
+        // Confirmación de pago (2026-07-24)
+        'payment_confirmed', 'payment_confirmed_at', 'payment_note',
         // Precio del envío a domicilio (2026-07-20)
         'delivery_price',
     ];
@@ -163,6 +166,7 @@ class ShippingRequestsInstall extends Command
                 $table->decimal('min_price', 8, 2)->nullable();
                 $table->string('orders_whatsapp', 20)->nullable();
                 $table->decimal('agency_fee', 8, 2)->nullable();
+                $table->boolean('require_payment')->default(false);
                 $table->timestamps();
             });
             return;
@@ -175,6 +179,7 @@ class ShippingRequestsInstall extends Command
             if (!$has('min_price'))       $table->decimal('min_price', 8, 2)->nullable()->after('base_price');
             if (!$has('orders_whatsapp')) $table->string('orders_whatsapp', 20)->nullable()->after('min_price');
             if (!$has('agency_fee'))      $table->decimal('agency_fee', 8, 2)->nullable()->after('orders_whatsapp');
+            if (!$has('require_payment')) $table->boolean('require_payment')->default(false)->after('agency_fee');
         });
     }
 
@@ -255,6 +260,15 @@ class ShippingRequestsInstall extends Command
             }
             if (in_array('delivery_price', $missing, true)) {
                 $table->decimal('delivery_price', 8, 2)->nullable()->after('duration_text');
+            }
+            if (in_array('payment_confirmed', $missing, true)) {
+                $table->boolean('payment_confirmed')->default(false)->after('delivery_price');
+            }
+            if (in_array('payment_confirmed_at', $missing, true)) {
+                $table->timestamp('payment_confirmed_at')->nullable()->after('payment_confirmed');
+            }
+            if (in_array('payment_note', $missing, true)) {
+                $table->string('payment_note', 255)->nullable()->after('payment_confirmed_at');
             }
         });
 

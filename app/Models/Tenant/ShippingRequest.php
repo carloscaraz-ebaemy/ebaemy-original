@@ -54,6 +54,9 @@ class ShippingRequest extends Model
         'distance_text',
         'duration_text',
         'delivery_price',
+        'payment_confirmed',
+        'payment_confirmed_at',
+        'payment_note',
         'courier_name',
         'courier_phone',
         'package_content',
@@ -80,6 +83,8 @@ class ShippingRequest extends Model
         'longitude'      => 'decimal:7',
         'distance_km'    => 'decimal:2',
         'delivery_price' => 'decimal:2',
+        'payment_confirmed'    => 'boolean',
+        'payment_confirmed_at' => 'datetime',
     ];
 
     /**
@@ -212,6 +217,12 @@ class ShippingRequest extends Model
     public function getIsCancelledAttribute(): bool
     {
         return $this->status === self::STATUS_ANULADO;
+    }
+
+    /** ¿El pago del envío ya fue confirmado por el encargado? */
+    public function getIsPaidAttribute(): bool
+    {
+        return (bool) $this->payment_confirmed;
     }
 
     /** ¿Es una entrega a domicilio (motorizado con Google Maps)? */

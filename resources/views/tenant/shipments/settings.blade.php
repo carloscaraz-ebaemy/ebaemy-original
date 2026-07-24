@@ -101,6 +101,16 @@
                 </div>
                 <div class="small text-muted mt-1">Si lo dejas vacío, el cliente elegirá el contacto manualmente al compartir.</div>
 
+                <hr class="my-4">
+                <h6 class="fw-bold mb-1">💰 Confirmación de pago</h6>
+                <div class="form-check form-switch">
+                    <input class="form-check-input" type="checkbox" role="switch" id="require_payment" name="require_payment" value="1" {{ $store->require_payment ? 'checked' : '' }}>
+                    <label class="form-check-label" for="require_payment">
+                        Exigir <b>confirmar el pago</b> antes de procesar el envío
+                    </label>
+                </div>
+                <div class="small text-muted mt-1">Con esto activado, no se puede cambiar el estado ni subir la guía hasta que marques el pago como confirmado.</div>
+
                 <button type="submit" class="btn btn-primary mt-3"><i class="fas fa-save me-1"></i> Guardar configuración</button>
             </form>
         </div>

@@ -22,6 +22,7 @@ class ShippingSetting extends Model
         'min_price',
         'orders_whatsapp',
         'agency_fee',
+        'require_payment',
     ];
 
     protected $casts = [
@@ -31,6 +32,7 @@ class ShippingSetting extends Model
         'base_price'      => 'decimal:2',
         'min_price'       => 'decimal:2',
         'agency_fee'      => 'decimal:2',
+        'require_payment' => 'boolean',
     ];
 
     /** Fila única de configuración (la crea si no existe). */

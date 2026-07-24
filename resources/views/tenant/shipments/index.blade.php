@@ -247,6 +247,8 @@
                             'anulado'             => 'dark',
                             'pendiente'  => 'secondary', 'listo' => 'warning', 'enviado' => 'success',
                         ][$s->status] ?? 'secondary';
+                        // Flujo bloqueado hasta confirmar el pago (si la tienda lo exige).
+                        $bloqueado = ($requirePayment ?? false) && !$s->payment_confirmed && !$s->is_cancelled;
                     @endphp
                     <tr class="{{ $s->is_cancelled ? 'text-muted' : '' }}" style="{{ $s->is_cancelled ? 'opacity:.7' : '' }}">
                         <td><input type="checkbox" class="form-check-input sh-check" value="{{ $s->id }}"></td>
@@ -290,10 +292,21 @@
                             @if($s->is_cancelled)
                                 <span class="badge bg-dark">Anulado</span>
                             @else
+                                @if($requirePayment ?? false)
+                                    @if($s->payment_confirmed)
+                                        <div class="mb-1"><span class="badge bg-success-subtle text-success border border-success-subtle"
+                                              title="Pago confirmado {{ optional($s->payment_confirmed_at)->format('d/m/Y H:i') }}">✅ Pagado</span></div>
+                                    @else
+                                        <form method="POST" action="{{ route('shipments.payment', $s->id) }}" class="mb-1 m-0">
+                                            @csrf
+                                            <button type="submit" class="btn btn-sm btn-warning fw-semibold w-100 py-1" style="font-size:.78rem;">💰 Confirmar pago</button>
+                                        </form>
+                                    @endif
+                                @endif
                                 @php $flow = $s->selectableStatuses(); $curInFlow = in_array($s->status, $flow, true); @endphp
                                 <form method="POST" action="{{ route('shipments.status', $s->id) }}" class="d-inline m-0">
                                     @csrf
-                                    <select name="status" class="form-select form-select-sm sh-status-select border-{{ $badge }} text-{{ $badge }}" style="min-width:150px;font-weight:600;">
+                                    <select name="status" class="form-select form-select-sm sh-status-select border-{{ $badge }} text-{{ $badge }}" style="min-width:150px;font-weight:600;" {{ $bloqueado ? 'disabled' : '' }} title="{{ $bloqueado ? 'Confirma el pago para habilitar' : '' }}">
                                         @unless($curInFlow)
                                             <option value="{{ $s->status }}" selected>{{ $s->status_label }}</option>
                                         @endunless
@@ -320,6 +333,7 @@
                                     </a>
                                 @elseif(!$s->is_cancelled)
                                     <button type="button" class="btn btn-sm btn-primary js-upload-guide"
+                                            @if($bloqueado) disabled title="Confirma el pago para habilitar" @endif
                                             data-bs-toggle="modal" data-bs-target="#modalSubirGuia"
                                             data-id="{{ $s->id }}" data-cliente="{{ $s->full_name }}"
                                             data-agencia="{{ $s->shipping_agency }}" data-ciudad="{{ $s->destination_city }}">

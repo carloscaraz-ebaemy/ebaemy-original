@@ -161,6 +161,8 @@ if ($hostname) {
                      ->name('shipments.status');
                 Route::post('{shipment}/precio', [\App\Http\Controllers\Tenant\ShipmentController::class, 'updatePrice'])
                      ->name('shipments.price');
+                Route::post('{shipment}/pago', [\App\Http\Controllers\Tenant\ShipmentController::class, 'confirmPayment'])
+                     ->name('shipments.payment');
                 Route::get('{shipment}/imprimir', [\App\Http\Controllers\Tenant\ShipmentController::class, 'printLabel'])
                      ->name('shipments.print');
                 Route::get('{shipment}/estado-rapido', [\App\Http\Controllers\Tenant\ShipmentController::class, 'quickStatus'])

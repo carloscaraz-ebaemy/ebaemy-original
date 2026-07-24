@@ -137,6 +137,7 @@ class ShipmentController extends Controller
             'from'        => $from,
             'to'          => $to,
             'statuses'    => ShippingRequest::STATUSES,
+            'requirePayment' => ShippingSetting::current()->require_payment,
             'departments' => Department::orderBy('description')->get(['id', 'description']),
         ]);
     }
@@ -167,6 +168,10 @@ class ShipmentController extends Controller
      */
     public function uploadGuide(Request $request, ShippingRequest $shipment): RedirectResponse
     {
+        if ($this->paymentBlocks($shipment)) {
+            return back()->with('error', "Confirma primero el pago de {$shipment->shipment_code} para subir la guía.");
+        }
+
         $request->validate([
             'tracking_number' => 'required|string|max:120',
             'guide_file'      => 'required|file|mimes:jpg,jpeg,png,pdf|max:8192',
@@ -201,6 +206,10 @@ class ShipmentController extends Controller
     /** Cambiar el estado del paquete (preparando / listo / entregado / …). */
     public function updateStatus(Request $request, ShippingRequest $shipment): RedirectResponse
     {
+        if ($this->paymentBlocks($shipment)) {
+            return back()->with('error', "Confirma primero el pago de {$shipment->shipment_code} para cambiar su estado.");
+        }
+
         $request->validate([
             'status'        => 'required|in:' . implode(',', array_keys(ShippingRequest::STATUSES)),
             'courier_name'  => 'nullable|string|max:120',
@@ -335,6 +344,29 @@ class ShipmentController extends Controller
         $shipment->update(['delivery_price' => $request->filled('delivery_price') ? $data['delivery_price'] : null]);
 
         return back()->with('success', "Precio de envío actualizado ({$shipment->shipment_code}).");
+    }
+
+    /** ¿La tienda exige confirmar el pago y este envío aún no está pagado? */
+    private function paymentBlocks(ShippingRequest $shipment): bool
+    {
+        return ShippingSetting::current()->require_payment && !$shipment->payment_confirmed;
+    }
+
+    /** Confirmar (o revertir) el pago del envío. Habilita el resto del flujo. */
+    public function confirmPayment(Request $request, ShippingRequest $shipment): RedirectResponse
+    {
+        $request->validate(['payment_note' => 'nullable|string|max:255']);
+
+        $confirm = !$shipment->payment_confirmed; // toggle
+        $shipment->update([
+            'payment_confirmed'    => $confirm,
+            'payment_confirmed_at' => $confirm ? now() : null,
+            'payment_note'         => $confirm ? $request->input('payment_note') : null,
+        ]);
+
+        return back()->with('success', $confirm
+            ? "Pago confirmado — {$shipment->shipment_code} habilitado."
+            : "Se quitó la confirmación de pago de {$shipment->shipment_code}.");
     }
 
     /** Anular un envío (queda en estado 'anulado', no se borra). */
@@ -789,11 +821,14 @@ class ShipmentController extends Controller
             'min_price'       => 'nullable|numeric|min:0|max:9999',
             'orders_whatsapp' => 'nullable|string|max:20',
             'agency_fee'      => 'nullable|numeric|min:0|max:99999',
+            'require_payment' => 'nullable',
         ], [], [
             'store_latitude'  => 'ubicación de la tienda',
             'store_longitude' => 'ubicación de la tienda',
             'price_per_km'    => 'tarifa por km',
         ]);
+
+        $data['require_payment'] = $request->boolean('require_payment');
 
         $store = ShippingSetting::current();
         $store->update($data);
