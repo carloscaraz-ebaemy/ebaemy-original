@@ -200,12 +200,12 @@
                     <div class="dtype">
                         <button type="button" class="dcard moto" data-type="domicilio">
                             <div class="ic">🏍️</div>
-                            <div class="tx"><b>Entrega a domicilio</b><span>Un motorizado lleva tu pedido hasta tu dirección. Ubicación por mapa.</span></div>
+                            <div class="tx"><b>Entrega a domicilio &mdash; LIMA</b><span>Un motorizado lleva tu pedido hasta tu dirección. Ubicación por mapa.</span></div>
                             <div class="go">Elegir</div>
                         </button>
                         <button type="button" class="dcard ag" data-type="agencia">
                             <div class="ic">📦</div>
-                            <div class="tx"><b>Envío por agencia</b><span>Enviamos tu pedido por agencia de transporte a tu provincia.</span></div>
+                            <div class="tx"><b>Envío por agencia &mdash; PROVINCIA</b><span>Enviamos tu pedido por agencia de transporte a tu provincia.</span></div>
                             <div class="go">Elegir</div>
                         </button>
                     </div>
@@ -213,8 +213,8 @@
 
                 {{-- ══════════ PASO 1: Datos ══════════ --}}
                 <div class="step" data-step="1" hidden>
-                    <span class="tag moto" id="tag-moto" hidden>🏍️ Entrega a domicilio</span>
-                    <span class="tag ag" id="tag-ag" hidden>📦 Envío por agencia</span>
+                    <span class="tag moto" id="tag-moto" hidden>🏍️ Entrega a domicilio · LIMA</span>
+                    <span class="tag ag" id="tag-ag" hidden>📦 Envío por agencia · PROVINCIA</span>
 
                     <label>DNI / RUC</label>
                     <input type="text" name="dni" id="pub_dni" value="{{ old('dni') }}"
@@ -520,7 +520,7 @@
 
     function buildConfirm() {
         var isDom = selectedType === DTYPE.DOM;
-        document.getElementById('c_type').textContent = isDom ? '🏍️ Entrega a domicilio' : '📦 Envío por agencia';
+        document.getElementById('c_type').textContent = isDom ? '🏍️ Entrega a domicilio · LIMA' : '📦 Envío por agencia · PROVINCIA';
         document.getElementById('c_name').textContent = txt('pub_full_name') || '—';
         document.getElementById('c_doc').textContent = txt('pub_dni') || '—';
         document.getElementById('c_phone').textContent = txt('pub_phone') || '—';
