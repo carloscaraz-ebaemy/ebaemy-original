@@ -36,6 +36,7 @@ class ShippingRequestsInstall extends Command
         '2026_07_21_000001_add_orders_whatsapp_to_shipping_settings',
         '2026_07_21_000002_add_agency_fee_to_shipping_settings',
         '2026_07_24_000001_add_payment_confirmation_to_shipping',
+        '2026_07_24_000002_package_content_to_text',
     ];
 
     public function handle(): int

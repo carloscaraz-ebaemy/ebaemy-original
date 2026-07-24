@@ -59,7 +59,7 @@
         @endif
 
         @if($shipment->package_content)
-            <div class="section"><div class="section-title">Contenido</div><div class="med-text">{{ $shipment->package_content }}</div></div>
+            <div class="section"><div class="section-title">Contenido</div><div class="med-text" style="white-space:pre-line">{{ $shipment->package_content }}</div></div>
         @endif
 
         <div class="divider"></div>
@@ -95,7 +95,7 @@
         @if($shipment->package_content)
             <div class="section">
                 <div class="section-title">Contenido del paquete</div>
-                <div class="med-text">{{ $shipment->package_content }}</div>
+                <div class="med-text" style="white-space:pre-line">{{ $shipment->package_content }}</div>
             </div>
         @endif
 

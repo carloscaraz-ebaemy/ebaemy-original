@@ -26,6 +26,11 @@
     #modalEditar .form-control:focus, #modalEditar .form-select:focus,
     #modalNuevoEnvio .form-control:focus, #modalNuevoEnvio .form-select:focus {
         border-color:#a5b4fc; box-shadow:0 0 0 3px rgba(79,70,229,.1); }
+    .sh-fs__int { margin-left:auto; font-size:.6rem; font-weight:700; letter-spacing:.05em; text-transform:uppercase;
+        color:#92400e; background:#fffbeb; border:1px solid #fde68a; border-radius:5px; padding:.1rem .38rem; cursor:help; }
+    .sh-hint { margin-top:.35rem; font-size:.7rem; color:#9aa2af; }
+    #modalEditar textarea.form-control, #modalNuevoEnvio textarea.form-control { resize:vertical; min-height:74px; line-height:1.45; }
+
     /* Desplegable de opcionales */
     .sh-more { display:flex; align-items:center; gap:8px; width:100%; padding:.6rem .9rem; background:#fff;
         border:1px dashed #dfe3e8; border-radius:12px; font-size:.78rem; font-weight:600; color:#6b7280;
@@ -720,11 +725,18 @@
               </div></div>
           </div>
 
+          <div class="sh-fs">
+          <div class="sh-fs__h"><i class="fas fa-clipboard-list"></i> Detalle del producto
+            <span class="sh-fs__int" title="Solo lo ve tu equipo. El cliente nunca ve este campo.">interno</span>
+          </div>
+          <textarea name="package_content" class="form-control" rows="3"
+                    placeholder="Ej.&#10;1 maceta de cerámica blanca 30cm&#10;1 planta artificial BOA x18 hojas"></textarea>
+          <div class="sh-hint">Lo escribe el almacén. Se imprime en el rótulo para declarar el contenido en la agencia.</div>
+          </div>
+
           <div class="sh-section"><i class="fas fa-box fa-fw me-1"></i> Paquete</div>
           <div class="row g-3">
-            <div class="col-md-6"><label class="form-label">Contenido del paquete</label>
-              <input type="text" name="package_content" class="form-control" placeholder="Ej: 2 mantas, 1 juego de ollas"></div>
-            <div class="col-md-3"><label class="form-label">N° de bultos</label>
+            <div class="col-md-6"><label class="form-label">N° de bultos</label>
               <input type="number" name="package_count" class="form-control" value="1" min="1" max="9999"></div>
             <div class="col-md-3"><label class="form-label">Peso (kg)</label>
               <input type="number" name="weight" class="form-control" step="0.01" min="0" placeholder="0"></div>
@@ -833,6 +845,15 @@
           </div>
           </div>
 
+          <div class="sh-fs">
+          <div class="sh-fs__h"><i class="fas fa-clipboard-list"></i> Detalle del producto
+            <span class="sh-fs__int" title="Solo lo ve tu equipo. El cliente nunca ve este campo.">interno</span>
+          </div>
+          <textarea name="package_content" id="ed_package_content" class="form-control" rows="3"
+                    placeholder="Ej.&#10;1 maceta de cerámica blanca 30cm&#10;1 planta artificial BOA x18 hojas"></textarea>
+          <div class="sh-hint">Lo escribe el almacén. Se imprime en el rótulo para declarar el contenido en la agencia.</div>
+          </div>
+
           <button class="sh-more" type="button" data-bs-toggle="collapse" data-bs-target="#edPaquete" aria-expanded="false">
             <i class="fas fa-box"></i> Detalles del paquete <span class="fw-normal text-muted">(opcional)</span>
             <i class="fas fa-chevron-down chev"></i>
@@ -840,11 +861,9 @@
           <div class="collapse" id="edPaquete">
           <div class="sh-fs" style="margin-top:.65rem;">
           <div class="row g-3">
-            <div class="col-md-6"><label class="form-label">Contenido del paquete</label>
-              <input type="text" name="package_content" id="ed_package_content" class="form-control"></div>
-            <div class="col-md-3"><label class="form-label">N° de bultos</label>
+            <div class="col-md-6"><label class="form-label">N° de bultos</label>
               <input type="number" name="package_count" id="ed_package_count" class="form-control" min="1" max="9999"></div>
-            <div class="col-md-3"><label class="form-label">Peso (kg)</label>
+            <div class="col-md-6"><label class="form-label">Peso (kg)</label>
               <input type="number" name="weight" id="ed_weight" class="form-control" step="0.01" min="0"></div>
             <div class="col-12"><label class="form-label">Información adicional</label>
               <input type="text" name="notes" id="ed_notes" class="form-control"></div>

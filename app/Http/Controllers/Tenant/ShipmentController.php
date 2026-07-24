@@ -931,7 +931,7 @@ class ShipmentController extends Controller
             'dni'                  => 'nullable|string|max:15',
             'phone'                => 'required|string|max:20',
             'reference'            => 'nullable|string|max:255',
-            'package_content'      => 'nullable|string|max:255',
+            'package_content'      => 'nullable|string|max:2000',
             'package_count'        => 'nullable|integer|min:1|max:9999',
             'weight'               => 'nullable|numeric|min:0|max:999999',
             'notes'                => 'nullable|string|max:255',
@@ -979,6 +979,12 @@ class ShipmentController extends Controller
         ]);
 
         unset($data['accepted_terms']);
+
+        // "Detalle del producto" es interno del almacén: el cliente no puede
+        // enviarlo aunque manipule el formulario público.
+        if ($public) {
+            unset($data['package_content']);
+        }
 
         $data['delivery_type']  = $deliveryType;
         $data['package_count']  = (int) ($request->input('package_count') ?: 1);
