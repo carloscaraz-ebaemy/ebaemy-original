@@ -2,19 +2,31 @@
 
 @push('styles')
 <style>
+    /* ── Cabecera con presencia ── */
+    .sh-head { display:flex; align-items:center; gap:12px; }
+    .sh-head__ic { display:flex; align-items:center; justify-content:center; width:40px; height:40px;
+        border-radius:12px; font-size:1.05rem; color:#4f46e5;
+        background:linear-gradient(145deg,#eef2ff,#e0e7ff); box-shadow:inset 0 0 0 1px #e0e7ff; }
+    .sh-head__t { margin:0; font-size:1.06rem; font-weight:700; color:#0f172a; letter-spacing:-.015em; }
+
+    /* ── Avatar de cliente ── */
+    .sh-cli { display:flex; align-items:center; gap:9px; }
+    .sh-avt { display:flex; align-items:center; justify-content:center; flex:0 0 auto;
+        width:30px; height:30px; border-radius:9px; font-size:.7rem; font-weight:700; letter-spacing:.01em; }
+
     /* ── Pestañas de flujo (una sola dimensión de filtro) ── */
-    .sh-tabs { display:flex; gap:2px; align-items:center; border-bottom:1px solid #e8eaee;
-        margin-bottom:12px; overflow-x:auto; scrollbar-width:none; }
+    .sh-tabs { display:flex; gap:4px; align-items:center; margin-bottom:12px; padding:4px;
+        background:#f4f5f8; border-radius:11px; overflow-x:auto; scrollbar-width:none; }
     .sh-tabs::-webkit-scrollbar { display:none; }
     .sh-tab { display:inline-flex; align-items:center; gap:7px; white-space:nowrap; text-decoration:none;
-        padding:.58rem .85rem; font-size:.825rem; font-weight:600; color:#6b7280;
-        border-bottom:2px solid transparent; margin-bottom:-1px;
-        transition:color .15s ease-out, border-color .15s ease-out; }
-    .sh-tab:hover { color:#111827; }
-    .sh-tab.is-on { color:#4f46e5; border-bottom-color:#4f46e5; }
+        padding:.46rem .8rem; font-size:.815rem; font-weight:600; color:#6b7280; border-radius:8px;
+        transition:background .16s ease-out, color .16s ease-out, box-shadow .16s ease-out; }
+    .sh-tab:hover { color:#111827; background:rgba(255,255,255,.7); }
+    .sh-tab.is-on { color:#312e81; background:#fff;
+        box-shadow:0 1px 2px rgba(16,24,40,.06), 0 4px 10px -6px rgba(49,46,129,.35); }
     .sh-tab__n { font-size:.69rem; font-weight:700; padding:.1rem .38rem; border-radius:5px;
         background:#f1f3f5; color:#6b7280; font-variant-numeric:tabular-nums; }
-    .sh-tab.is-on .sh-tab__n { background:#eef2ff; color:#4f46e5; }
+    .sh-tab.is-on .sh-tab__n { background:#4f46e5; color:#fff; }
 
     /* ── Barra de herramientas ── */
     .sh-tools { display:flex; align-items:center; gap:8px; margin-bottom:10px; flex-wrap:wrap; }
@@ -91,21 +103,22 @@
     .sh-act--ghost:hover { background:#f3f4f6; color:#4b5563; }
     .sh-act[disabled], .sh-act.is-off { opacity:.4; pointer-events:none; }
     /* ── Tabla: acabado de producto, no Bootstrap por defecto ── */
-    #shipmentsApp .card { border:1px solid #e8eaee; border-radius:12px; overflow:hidden;
-        box-shadow:0 1px 2px rgba(16,24,40,.04), 0 12px 28px -20px rgba(16,24,40,.18); }
+    #shipmentsApp .card { border:1px solid #e9ebef; border-radius:14px; overflow:hidden;
+        box-shadow:0 1px 2px rgba(16,24,40,.04), 0 6px 14px -10px rgba(16,24,40,.14),
+                   0 26px 46px -32px rgba(16,24,40,.28); }
     #shipmentsApp .table { margin:0; }
     #shipmentsApp .table > thead > tr > th { background:#fbfcfd; color:#8b93a1;
         font-size:.655rem; font-weight:600; letter-spacing:.07em; text-transform:uppercase;
         padding:.72rem .75rem; border-bottom:1px solid #eceff3; white-space:nowrap; }
-    #shipmentsApp .table > tbody > tr > td { padding:.7rem .75rem; border-top:1px solid #f4f6f8;
+    #shipmentsApp .table > tbody > tr > td { padding:.82rem .75rem; border-top:1px solid #f4f6f8;
         vertical-align:middle; font-size:.815rem; color:#5b6472; }
     #shipmentsApp .table > tbody > tr:first-child > td { border-top:0; }
     #shipmentsApp .table > tbody > tr { transition:background .12s ease-out; }
-    #shipmentsApp .table > tbody > tr:hover > td { background:#fafbfc; }
+    #shipmentsApp .table > tbody > tr:hover > td { background:#f8fafd; }
     /* Jerarquía dentro de la fila */
     .sh-code { display:block; font-weight:650; color:#111827; font-size:.775rem;
         letter-spacing:-.015em; font-variant-numeric:tabular-nums; }
-    .sh-client { font-weight:600; color:#111827; font-size:.815rem; line-height:1.3; }
+    .sh-client { display:block; font-weight:600; color:#111827; font-size:.815rem; line-height:1.3; }
     .sh-phone { display:block; margin-top:1px; font-size:.71rem; color:#9aa2af; font-variant-numeric:tabular-nums; }
     .sh-date { font-weight:600; color:#374151; font-size:.775rem; font-variant-numeric:tabular-nums; }
     .sh-time { display:block; font-size:.7rem; color:#9aa2af; font-variant-numeric:tabular-nums; }
@@ -157,8 +170,10 @@
 
     {{-- Cabecera --}}
     <div class="d-flex flex-wrap align-items-center justify-content-between mb-3 gap-2">
-        <div>
-            <h4 class="mb-0 fw-bold">📦 Registro y Control de Envíos</h4>
+        <div class="sh-head">
+            <div class="sh-head__ic"><i class="fas fa-box-open"></i></div>
+            <div>
+            <h4 class="sh-head__t">Registro y Control de Envíos</h4>
             <small class="text-muted">
                 @if(($group ?? null) === 'confirmar')
                     📥 <strong>Pedidos nuevos</strong> por atender — toca «Total» para ver todos.
@@ -166,6 +181,7 @@
                     Tablero de despacho — sube la guía cuando el paquete llegue a la agencia.
                 @endif
             </small>
+            </div>
         </div>
         <div class="d-flex gap-2 flex-wrap align-items-center">
             <div class="dropdown">
@@ -368,8 +384,19 @@
                         <td><input type="checkbox" class="form-check-input sh-check" value="{{ $s->id }}"></td>
                         <td><span class="sh-code">{{ $s->shipment_code }}</span></td>
                         <td>
-                            <div class="sh-client">{{ $s->full_name }}</div>
-                            <span class="sh-phone">{{ $s->phone }}</span>
+                            @php
+                                $ini = collect(preg_split('/\s+/', trim($s->full_name)))
+                                    ->filter()->take(2)
+                                    ->map(fn ($w) => mb_strtoupper(mb_substr($w, 0, 1)))->implode('');
+                                $hue = crc32($s->full_name) % 360;
+                            @endphp
+                            <div class="sh-cli">
+                                <span class="sh-avt" style="background:hsl({{ $hue }} 62% 94%);color:hsl({{ $hue }} 42% 38%);">{{ $ini ?: '?' }}</span>
+                                <span>
+                                    <span class="sh-client">{{ $s->full_name }}</span>
+                                    <span class="sh-phone">{{ $s->phone }}</span>
+                                </span>
+                            </div>
                         </td>
                         <td>{{ $s->destination_city ?: '—' }}</td>
                         <td>
