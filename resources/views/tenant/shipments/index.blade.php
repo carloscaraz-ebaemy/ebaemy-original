@@ -28,6 +28,31 @@
     .sh-paid { display:inline-flex; align-items:center; gap:4px; margin-top:3px; padding:0; border:0; background:none;
         font-size:.67rem; color:#9ca3af; cursor:pointer; }
     .sh-paid:hover { color:#6b7280; text-decoration:underline; }
+    /* Acciones de fila: una principal + menú discreto (misma altura, tintes suaves) */
+    .sh-actions { display:inline-flex; align-items:center; gap:6px; justify-content:flex-end; }
+    .sh-act { display:inline-flex; align-items:center; gap:6px; white-space:nowrap; cursor:pointer; text-decoration:none;
+        font-size:.76rem; font-weight:600; line-height:1; padding:.45rem .7rem; border-radius:7px;
+        border:1px solid transparent; transition:background .15s ease-out, border-color .15s ease-out; }
+    .sh-act--primary { color:#3730a3; background:#eef2ff; border-color:#c7d2fe; }
+    .sh-act--primary:hover { background:#e0e7ff; color:#312e81; }
+    .sh-act--ok { color:#166534; background:#f0fdf4; border-color:#bbf7d0; }
+    .sh-act--ok:hover { background:#dcfce7; color:#14532d; }
+    .sh-act--ghost { color:#9ca3af; background:transparent; border-color:#e5e7eb; padding:.45rem .58rem; }
+    .sh-act--ghost:hover { background:#f3f4f6; color:#4b5563; }
+    .sh-act[disabled], .sh-act.is-off { opacity:.4; pointer-events:none; }
+    /* Paginador */
+    .sh-pager { display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap;
+        margin-top:14px; padding-top:12px; border-top:1px solid #eef0f3; }
+    .sh-pager__info { font-size:.78rem; color:#6b7280; }
+    .sh-pager__info strong { color:#374151; font-weight:600; }
+    .sh-pager__nav { display:inline-flex; align-items:center; gap:4px; }
+    .sh-page { display:inline-flex; align-items:center; justify-content:center; min-width:32px; height:32px; padding:0 9px;
+        border-radius:7px; font-size:.78rem; font-weight:600; color:#4b5563; text-decoration:none;
+        border:1px solid #e5e7eb; background:#fff; transition:background .15s ease-out, border-color .15s ease-out; }
+    .sh-page:hover { background:#f3f4f6; color:#111827; }
+    .sh-page.is-current { background:#4f46e5; border-color:#4f46e5; color:#fff; }
+    .sh-page.is-off { opacity:.35; pointer-events:none; }
+    .sh-gap { padding:0 2px; color:#9ca3af; font-size:.78rem; }
 </style>
 @endpush
 
@@ -346,28 +371,31 @@
                             @endif
                         </td>
                         <td class="text-end text-nowrap">
-                            <div class="btn-group">
+                            <div class="sh-actions">
                                 @if($s->has_guide)
-                                    <a href="{{ route('shipments.guide', $s->id) }}" target="_blank" class="btn btn-sm btn-outline-success">
-                                        <i class="fas fa-eye me-1"></i> Ver guía
+                                    <a href="{{ route('shipments.guide', $s->id) }}" target="_blank" class="sh-act sh-act--ok" title="Ver la guía cargada">
+                                        <i class="fas fa-eye"></i> Ver guía
                                     </a>
                                 @elseif(!$s->is_cancelled)
-                                    <button type="button" class="btn btn-sm btn-primary js-upload-guide"
+                                    <button type="button" class="sh-act sh-act--primary js-upload-guide {{ $bloqueado ? 'is-off' : '' }}"
                                             @if($bloqueado) disabled title="Confirma el pago para habilitar" @endif
                                             data-bs-toggle="modal" data-bs-target="#modalSubirGuia"
                                             data-id="{{ $s->id }}" data-cliente="{{ $s->full_name }}"
                                             data-agencia="{{ $s->shipping_agency }}" data-ciudad="{{ $s->destination_city }}">
-                                        <i class="fas fa-upload me-1"></i> Subir guía
+                                        <i class="fas fa-upload"></i> Subir guía
                                     </button>
                                 @endif
-                                <a href="{{ $bloqueado ? '#' : route('shipments.print', $s->id) }}"
-                                   @if(!$bloqueado) target="_blank" @endif
-                                   class="btn btn-sm btn-outline-secondary {{ $bloqueado ? 'disabled' : '' }}"
-                                   @if($bloqueado) tabindex="-1" aria-disabled="true" title="Confirma el pago para imprimir" @endif>
-                                    <i class="fas fa-print me-1"></i> Imprimir
-                                </a>
-                                <button type="button" class="btn btn-sm btn-outline-secondary dropdown-toggle dropdown-toggle-split" data-bs-toggle="dropdown" aria-label="Más acciones"></button>
+                                <div class="dropdown">
+                                <button type="button" class="sh-act sh-act--ghost" data-bs-toggle="dropdown" aria-label="Más acciones" title="Más acciones"><i class="fas fa-ellipsis-h"></i></button>
                                 <ul class="dropdown-menu dropdown-menu-end shadow-sm">
+                                    <li>
+                                        <a class="dropdown-item {{ $bloqueado ? 'disabled' : '' }}"
+                                           href="{{ $bloqueado ? '#' : route('shipments.print', $s->id) }}"
+                                           @if(!$bloqueado) target="_blank" @endif
+                                           @if($bloqueado) tabindex="-1" aria-disabled="true" @endif>
+                                            <i class="fas fa-print fa-fw me-2"></i> Imprimir rótulo
+                                        </a>
+                                    </li>
                                     <li>
                                         <button type="button" class="dropdown-item js-edit-shipment"
                                                 data-bs-toggle="modal" data-bs-target="#modalEditar"
@@ -414,6 +442,7 @@
                                     </li>
                                     @endif
                                 </ul>
+                                </div>
                             </div>
                         </td>
                     </tr>
@@ -450,7 +479,7 @@
         </div>
     </div>
 
-    <div class="mt-3">{{ $shipments->links() }}</div>
+    @include('tenant.shipments.partials.pagination')
 
     </div>{{-- /#shResults --}}
     </div>{{-- /#shPanel --}}
