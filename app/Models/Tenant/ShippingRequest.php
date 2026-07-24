@@ -36,6 +36,7 @@ class ShippingRequest extends Model
         'delivery_type',
         'full_name',
         'dni',
+        'document_type',
         'phone',
         'shipping_destination',
         'reference',
@@ -217,6 +218,20 @@ class ShippingRequest extends Model
     public function getIsCancelledAttribute(): bool
     {
         return $this->status === self::STATUS_ANULADO;
+    }
+
+    /** Tipos de documento aceptados en el registro. */
+    public const DOC_TYPES = [
+        'dni'       => 'DNI',
+        'ruc'       => 'RUC',
+        'ce'        => 'C. Extranjería',
+        'pasaporte' => 'Pasaporte',
+    ];
+
+    /** Etiqueta corta del documento (para rótulo y panel). */
+    public function getDocumentLabelAttribute(): string
+    {
+        return self::DOC_TYPES[$this->document_type] ?? 'Doc.';
     }
 
     /** ¿El pago del envío ya fue confirmado por el encargado? */

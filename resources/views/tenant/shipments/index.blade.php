@@ -542,6 +542,7 @@
                                                 data-id="{{ $s->id }}"
                                                 data-full_name="{{ $s->full_name }}"
                                                 data-dni="{{ $s->dni }}"
+                                                data-document_type="{{ $s->document_type }}"
                                                 data-phone="{{ $s->phone }}"
                                                 data-shipping_destination="{{ $s->shipping_destination }}"
                                                 data-reference="{{ $s->reference }}"
@@ -769,10 +770,14 @@
           <div class="sh-fs">
           <div class="sh-fs__h"><i class="fas fa-user"></i> Destinatario</div>
           <div class="row g-3">
-            <div class="col-md-5"><label class="form-label">DNI / RUC</label>
+            <div class="col-md-4"><label class="form-label">Tipo de documento</label>
+              <select name="document_type" id="ed_document_type" class="form-select">
+                @foreach(\App\Models\Tenant\ShippingRequest::DOC_TYPES as $dv => $dl)<option value="{{ $dv }}">{{ $dl }}</option>@endforeach
+              </select></div>
+            <div class="col-md-4"><label class="form-label">N° de documento</label>
               <input type="text" name="dni" id="ed_dni" class="form-control js-doc-lookup"
                      data-target-name="ed_full_name" data-target-address="ed_shipping_destination" data-ubigeo-group="ed"
-                     inputmode="numeric" maxlength="11" autocomplete="off">
+                     inputmode="numeric" maxlength="20" autocomplete="off">
               <small class="js-doc-status d-block mt-1"></small></div>
             <div class="col-md-4"><label class="form-label">Teléfono <span class="text-danger">*</span></label>
               <input type="text" name="phone" id="ed_phone" class="form-control js-phone-pe" required maxlength="9" inputmode="numeric" placeholder="999 999 999">
@@ -956,7 +961,7 @@
         var form = document.getElementById('formEditar');
         if (form) form.setAttribute('action', '{{ url("registro-envio") }}/' + id + '/editar');
         var get = function (k) { return btn.getAttribute('data-' + k) || ''; };
-        ['full_name','dni','phone','shipping_destination','reference','shipping_agency','package_content','package_count','weight','notes',
+        ['full_name','dni','document_type','phone','shipping_destination','reference','shipping_agency','package_content','package_count','weight','notes',
          'delivery_price','latitude','longitude','formatted_address','google_place_id','google_maps_url','destination_city','distance_km','distance_text','duration_text'].forEach(function (f) {
             var el = document.getElementById('ed_' + f);
             if (el) el.value = get(f);

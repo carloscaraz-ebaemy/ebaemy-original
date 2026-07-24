@@ -37,6 +37,7 @@ class ShippingRequestsInstall extends Command
         '2026_07_21_000002_add_agency_fee_to_shipping_settings',
         '2026_07_24_000001_add_payment_confirmation_to_shipping',
         '2026_07_24_000002_package_content_to_text',
+        '2026_07_24_000003_add_document_type_to_shipping',
     ];
 
     public function handle(): int
@@ -149,6 +150,8 @@ class ShippingRequestsInstall extends Command
         'distance_km', 'distance_text', 'duration_text',
         // Confirmación de pago (2026-07-24)
         'payment_confirmed', 'payment_confirmed_at', 'payment_note',
+        // Tipo de documento (2026-07-24)
+        'document_type',
         // Precio del envío a domicilio (2026-07-20)
         'delivery_price',
     ];
@@ -270,6 +273,9 @@ class ShippingRequestsInstall extends Command
             }
             if (in_array('payment_note', $missing, true)) {
                 $table->string('payment_note', 255)->nullable()->after('payment_confirmed_at');
+            }
+            if (in_array('document_type', $missing, true)) {
+                $table->string('document_type', 12)->nullable()->after('dni');
             }
         });
 

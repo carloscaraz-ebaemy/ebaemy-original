@@ -638,7 +638,7 @@ class ShipmentController extends Controller
         $L[] = "Código: *{$s->shipment_code}*";
         $L[] = "";
         $L[] = "👤 Cliente: {$s->full_name}";
-        if ($s->dni)   $L[] = "🪪 DNI/RUC: {$s->dni}";
+        if ($s->dni)   $L[] = "🪪 {$s->document_label}: {$s->dni}";
         if ($s->phone) $L[] = "📱 Celular: {$s->phone}";
         $L[] = "";
         if ($s->is_domicilio) {
@@ -928,7 +928,8 @@ class ShipmentController extends Controller
         $rules = [
             'delivery_type'        => 'nullable|in:' . ShippingRequest::DELIVERY_DOMICILIO . ',' . ShippingRequest::DELIVERY_AGENCIA,
             'full_name'            => 'required|string|max:160',
-            'dni'                  => 'nullable|string|max:15',
+            'dni'                  => 'nullable|string|max:20',
+            'document_type'        => 'nullable|in:dni,ruc,ce,pasaporte',
             'phone'                => 'required|string|max:20',
             'reference'            => 'nullable|string|max:255',
             'package_content'      => 'nullable|string|max:2000',

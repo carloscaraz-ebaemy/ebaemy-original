@@ -35,6 +35,18 @@
         }
         input:focus, select:focus, textarea:focus { outline:none; border-color:var(--brand); box-shadow:0 0 0 3px rgba(37,99,235,.12); }
         .hint { font-size:12px; color:var(--muted); margin-top:3px; display:block; }
+        /* Tipo de documento */
+        .doc-types { display:flex; flex-wrap:wrap; gap:8px; margin-bottom:8px; }
+        .doc-opt { position:relative; margin:0; }
+        .doc-opt input { position:absolute; opacity:0; width:0; height:0; }
+        .doc-opt span { display:inline-block; padding:8px 14px; border:1.5px solid var(--line); border-radius:11px;
+            font-size:13.5px; font-weight:600; color:#475569; background:#fff; cursor:pointer; transition:.15s; }
+        .doc-opt span:hover { border-color:#cbd5e1; }
+        .doc-opt input:checked + span { border-color:var(--brand); background:#eff6ff; color:var(--brand-d); }
+        .doc-opt input:focus-visible + span { box-shadow:0 0 0 3px rgba(37,99,235,.15); }
+        /* Campo que llena el sistema (no se escribe a mano) */
+        input.is-auto { background:#f8fafc; color:#0f172a; font-weight:600; cursor:not-allowed; }
+        input.is-auto:focus { border-color:var(--line); box-shadow:none; }
 
         .btn { width:100%; padding:14px; border:none; border-radius:14px; background:var(--brand); color:#fff; font-size:16px; font-weight:700; cursor:pointer; transition:.15s; }
         .btn:hover { background:var(--brand-d); } .btn:active { transform:scale(.99); }
@@ -157,7 +169,7 @@
                         if ($s) {
                             $L[] = "";
                             $L[] = "👤 Cliente: {$s->full_name}";
-                            if ($s->dni)   $L[] = "🪪 DNI/RUC: {$s->dni}";
+                            if ($s->dni)   $L[] = "🪪 {$s->document_label}: {$s->dni}";
                             if ($s->phone) $L[] = "📱 Celular: {$s->phone}";
                             $L[] = "";
                             if ($s->is_domicilio) {
@@ -216,9 +228,17 @@
                     <span class="tag moto" id="tag-moto" hidden>🏍️ Entrega a domicilio · LIMA</span>
                     <span class="tag ag" id="tag-ag" hidden>📦 Envío por agencia · PROVINCIA</span>
 
-                    <label>DNI / RUC</label>
+                    <label>Documento</label>
+                    <div class="doc-types">
+                        @foreach(\App\Models\Tenant\ShippingRequest::DOC_TYPES as $dv => $dl)
+                            <label class="doc-opt">
+                                <input type="radio" name="document_type" value="{{ $dv }}" {{ old('document_type', 'dni') === $dv ? 'checked' : '' }}>
+                                <span>{{ $dl }}</span>
+                            </label>
+                        @endforeach
+                    </div>
                     <input type="text" name="dni" id="pub_dni" value="{{ old('dni') }}"
-                           maxlength="11" inputmode="numeric" autocomplete="off" placeholder="8 dígitos (DNI) u 11 (RUC)">
+                           maxlength="11" inputmode="numeric" autocomplete="off" placeholder="8 dígitos">
                     <small class="js-doc-status hint"></small>
                     <div id="clientFound" class="found" hidden>
                         <div class="t">Cliente encontrado</div>
@@ -232,6 +252,7 @@
 
                     <label class="req">Nombre completo</label>
                     <input type="text" name="full_name" id="pub_full_name" value="{{ old('full_name') }}" required maxlength="160">
+                    <small class="hint" id="pub_name_hint">🔒 Se completa automáticamente al ingresar tu documento.</small>
 
                     <label class="req">Celular (WhatsApp)</label>
                     <input type="tel" name="phone" id="pub_phone" value="{{ old('phone') }}" required maxlength="9" inputmode="numeric" placeholder="999 999 999" class="js-phone-pe">
@@ -446,7 +467,9 @@
     function fillFromClient(d) {
         if (!d) return;
         var set = function (id, v) { var el = document.getElementById(id); if (el && v) el.value = v; };
-        set('pub_full_name', d.full_name); set('pub_phone', d.phone);
+        var nmEl = document.getElementById('pub_full_name');
+        if (nmEl && d.full_name) nmEl.value = d.full_name;
+        set('pub_phone', d.phone);
         // Dirección/referencia según la rama activa.
         if (selectedType === DTYPE.DOM) { set('pub_addr_domicilio', d.shipping_destination); set('pub_reference_dom', d.reference); }
         else {
@@ -457,11 +480,52 @@
         }
     }
 
+    // Tipo de documento: adapta el campo y decide si se puede consultar en línea.
+    function docType() {
+        var r = document.querySelector('input[name="document_type"]:checked');
+        return r ? r.value : 'dni';
+    }
+    function syncDocField() {
+        if (!dni) return;
+        var tp = docType();
+        var cfg = {
+            dni:       { ml: 8,  im: 'numeric', ph: '8 dígitos' },
+            ruc:       { ml: 11, im: 'numeric', ph: '11 dígitos' },
+            ce:        { ml: 20, im: 'text',    ph: 'N° de carné de extranjería' },
+            pasaporte: { ml: 20, im: 'text',    ph: 'N° de pasaporte' }
+        }[tp];
+        dni.maxLength = cfg.ml;
+        dni.setAttribute('inputmode', cfg.im);
+        dni.placeholder = cfg.ph;
+        var st = document.querySelector('.js-doc-status');
+        if (st) st.textContent = '';
+        if (found) found.hidden = true;
+
+        // Con DNI/RUC el nombre lo trae RENIEC/SUNAT: no se escribe a mano.
+        var auto = (tp === 'dni' || tp === 'ruc');
+        var nm = document.getElementById('pub_full_name');
+        var nh = document.getElementById('pub_name_hint');
+        if (nm) {
+            nm.readOnly = auto;
+            nm.classList.toggle('is-auto', auto);
+            nm.placeholder = auto ? 'Se completa con tu documento' : 'Escribe tu nombre completo';
+            if (auto) nm.value = '';
+        }
+        if (nh) nh.style.display = auto ? '' : 'none';
+    }
+    document.addEventListener('change', function (ev) {
+        if (ev.target && ev.target.name === 'document_type') syncDocField();
+    });
+    syncDocField();
+
     if (dni) dni.addEventListener('input', function () {
         var num = (dni.value || '').replace(/\D+/g, '');
         var status = document.querySelector('.js-doc-status');
         if (found) found.hidden = true;
         clearTimeout(t);
+        // Solo DNI y RUC se consultan contra RENIEC/SUNAT.
+        var tp = docType();
+        if (tp !== 'dni' && tp !== 'ruc') { if (status) status.textContent = ''; return; }
         if (num.length !== 8 && num.length !== 11) { if (status) status.textContent = ''; return; }
         var kind = num.length === 8 ? 'dni' : 'ruc';
         if (status) { status.style.color = '#6b7280'; status.textContent = 'Consultando ' + kind.toUpperCase() + '…'; }
@@ -480,7 +544,7 @@
                 .then(function (res) {
                     if (!res || res.success === false || !res.data) { if (status) { status.style.color = '#dc2626'; status.textContent = (res && res.message) ? res.message : 'No se encontraron datos.'; } return; }
                     var d = res.data, full = d.name || [d.first_name, d.last_name].filter(Boolean).join(' ');
-                    var nameEl = document.getElementById('pub_full_name'); if (nameEl && full && !nameEl.value) nameEl.value = full;
+                    var nameEl = document.getElementById('pub_full_name'); if (nameEl && full) nameEl.value = full;
                     if (d.address) {
                         var a = selectedType === DTYPE.DOM ? document.getElementById('pub_addr_domicilio') : document.getElementById('pub_addr_agencia');
                         if (a && !a.value) a.value = d.address;
@@ -522,7 +586,9 @@
         var isDom = selectedType === DTYPE.DOM;
         document.getElementById('c_type').textContent = isDom ? '🏍️ Entrega a domicilio · LIMA' : '📦 Envío por agencia · PROVINCIA';
         document.getElementById('c_name').textContent = txt('pub_full_name') || '—';
-        document.getElementById('c_doc').textContent = txt('pub_dni') || '—';
+        var dt = document.querySelector('input[name="document_type"]:checked');
+        var dtl = dt ? dt.parentNode.querySelector('span').textContent : '';
+        document.getElementById('c_doc').textContent = txt('pub_dni') ? (dtl + ' ' + txt('pub_dni')) : '—';
         document.getElementById('c_phone').textContent = txt('pub_phone') || '—';
         document.getElementById('c_obs').textContent = txt('pub_notes') || '—';
 
