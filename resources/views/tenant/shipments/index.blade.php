@@ -40,6 +40,32 @@
     .sh-act--ghost { color:#9ca3af; background:transparent; border-color:#e5e7eb; padding:.45rem .58rem; }
     .sh-act--ghost:hover { background:#f3f4f6; color:#4b5563; }
     .sh-act[disabled], .sh-act.is-off { opacity:.4; pointer-events:none; }
+    /* ── Tabla: acabado de producto, no Bootstrap por defecto ── */
+    #shipmentsApp .card { border:1px solid #e8eaee; border-radius:12px; overflow:hidden;
+        box-shadow:0 1px 2px rgba(16,24,40,.04), 0 12px 28px -20px rgba(16,24,40,.18); }
+    #shipmentsApp .table { margin:0; }
+    #shipmentsApp .table > thead > tr > th { background:#fbfcfd; color:#8b93a1;
+        font-size:.655rem; font-weight:600; letter-spacing:.07em; text-transform:uppercase;
+        padding:.72rem .75rem; border-bottom:1px solid #eceff3; white-space:nowrap; }
+    #shipmentsApp .table > tbody > tr > td { padding:.7rem .75rem; border-top:1px solid #f4f6f8;
+        vertical-align:middle; font-size:.815rem; color:#5b6472; }
+    #shipmentsApp .table > tbody > tr:first-child > td { border-top:0; }
+    #shipmentsApp .table > tbody > tr { transition:background .12s ease-out; }
+    #shipmentsApp .table > tbody > tr:hover > td { background:#fafbfc; }
+    /* Jerarquía dentro de la fila */
+    .sh-code { display:block; font-weight:650; color:#111827; font-size:.775rem;
+        letter-spacing:-.015em; font-variant-numeric:tabular-nums; }
+    .sh-client { font-weight:600; color:#111827; font-size:.815rem; line-height:1.3; }
+    .sh-phone { display:block; margin-top:1px; font-size:.71rem; color:#9aa2af; font-variant-numeric:tabular-nums; }
+    .sh-date { font-weight:600; color:#374151; font-size:.775rem; font-variant-numeric:tabular-nums; }
+    .sh-time { display:block; font-size:.7rem; color:#9aa2af; font-variant-numeric:tabular-nums; }
+    /* Etiquetas (reemplazan los badges genéricos) */
+    .sh-tag { display:inline-flex; align-items:center; gap:4px; font-size:.68rem; font-weight:600;
+        padding:.24rem .52rem; border-radius:6px; letter-spacing:.005em; text-decoration:none; white-space:nowrap; }
+    .sh-tag--danger { background:#fef2f2; color:#b42318; }
+    .sh-tag--ok { background:#ecfdf3; color:#067647; }
+    .sh-tag--ok:hover { background:#d1fadf; color:#05603a; }
+
     /* ── Pie de tabla (paginación tipo ERP) ── */
     .sh-foot { display:flex; align-items:center; justify-content:space-between; gap:16px; flex-wrap:wrap;
         padding:11px 16px; border-top:1px solid #eef0f4; background:linear-gradient(180deg,#fcfcfd,#f8fafc);
@@ -311,10 +337,10 @@
                     @endphp
                     <tr class="{{ $s->is_cancelled ? 'text-muted' : '' }}" style="{{ $s->is_cancelled ? 'opacity:.7' : '' }}">
                         <td><input type="checkbox" class="form-check-input sh-check" value="{{ $s->id }}"></td>
-                        <td><span class="fw-semibold">{{ $s->shipment_code }}</span></td>
+                        <td><span class="sh-code">{{ $s->shipment_code }}</span></td>
                         <td>
-                            <div class="fw-semibold">{{ $s->full_name }}</div>
-                            <small class="text-muted">{{ $s->phone }}</small>
+                            <div class="sh-client">{{ $s->full_name }}</div>
+                            <span class="sh-phone">{{ $s->phone }}</span>
                         </td>
                         <td>{{ $s->destination_city ?: '—' }}</td>
                         <td>
@@ -339,12 +365,12 @@
                         </td>
                         <td>
                             @if($s->has_guide)
-                                <a href="{{ route('shipments.guide', $s->id) }}" target="_blank" class="badge bg-success text-decoration-none">
+                                <a href="{{ route('shipments.guide', $s->id) }}" target="_blank" class="sh-tag sh-tag--ok">
                                     <i class="fas fa-paperclip"></i> Adjunta
                                 </a>
                                 @if($s->tracking_number)<div><small class="text-muted">{{ $s->tracking_number }}</small></div>@endif
                             @else
-                                <span class="badge bg-danger-subtle text-danger">Sin guía</span>
+                                <span class="sh-tag sh-tag--danger">Sin guía</span>
                             @endif
                         </td>
                         <td>
@@ -385,8 +411,8 @@
                         </td>
                         <td class="text-nowrap">
                             @if($s->created_at)
-                                <div class="small fw-semibold">{{ $s->created_at->format('d/m/Y') }}</div>
-                                <small class="text-muted">{{ $s->created_at->format('H:i') }}</small>
+                                <div class="sh-date">{{ $s->created_at->format('d/m/Y') }}</div>
+                                <span class="sh-time">{{ $s->created_at->format('H:i') }}</span>
                             @else
                                 <span class="text-muted">—</span>
                             @endif
