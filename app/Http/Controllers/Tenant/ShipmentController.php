@@ -380,6 +380,10 @@ class ShipmentController extends Controller
     /** Rótulo imprimible del envío (standalone, listo para imprimir/PDF). */
     public function printLabel(Request $request, ShippingRequest $shipment)
     {
+        if ($this->paymentBlocks($shipment)) {
+            return back()->with('error', "Confirma primero el pago de {$shipment->shipment_code} para imprimir su rótulo.");
+        }
+
         $company = Company::first();
 
         // Formato de impresión: sticker (10cm), A5 o A4.
@@ -412,7 +416,9 @@ class ShipmentController extends Controller
             $format = 'a5';
         }
 
-        $shipments = ShippingRequest::whereIn('id', $ids)->orderBy('id')->get();
+        $shipments = ShippingRequest::whereIn('id', $ids)->orderBy('id')->get()
+            ->reject(fn ($s) => $this->paymentBlocks($s))->values();
+        abort_if($shipments->isEmpty(), 404);
         $items = $shipments->map(fn ($s) => [
             'shipment' => $s,
             'ubigeo'   => $this->resolveUbigeo($s),

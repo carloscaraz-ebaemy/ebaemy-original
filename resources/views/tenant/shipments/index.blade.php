@@ -299,7 +299,7 @@
                                     @else
                                         <form method="POST" action="{{ route('shipments.payment', $s->id) }}" class="mb-1 m-0">
                                             @csrf
-                                            <button type="submit" class="btn btn-sm btn-warning fw-semibold w-100 py-1" style="font-size:.78rem;">💰 Confirmar pago</button>
+                                            <button type="submit" class="btn btn-sm btn-warning fw-semibold w-100 py-1" style="font-size:.78rem;" title="Haz clic para confirmar el pago y habilitar estado e impresión">💰 Pago por confirmar</button>
                                         </form>
                                     @endif
                                 @endif
@@ -340,7 +340,10 @@
                                         <i class="fas fa-upload me-1"></i> Subir guía
                                     </button>
                                 @endif
-                                <a href="{{ route('shipments.print', $s->id) }}" target="_blank" class="btn btn-sm btn-outline-secondary">
+                                <a href="{{ $bloqueado ? '#' : route('shipments.print', $s->id) }}"
+                                   @if(!$bloqueado) target="_blank" @endif
+                                   class="btn btn-sm btn-outline-secondary {{ $bloqueado ? 'disabled' : '' }}"
+                                   @if($bloqueado) tabindex="-1" aria-disabled="true" title="Confirma el pago para imprimir" @endif>
                                     <i class="fas fa-print me-1"></i> Imprimir
                                 </a>
                                 <button type="button" class="btn btn-sm btn-outline-secondary dropdown-toggle dropdown-toggle-split" data-bs-toggle="dropdown" aria-label="Más acciones"></button>
