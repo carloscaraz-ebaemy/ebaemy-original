@@ -58,10 +58,6 @@
             </div>
         @endif
 
-        @if($shipment->package_content)
-            <div class="section"><div class="section-title">Contenido</div><div class="med-text" style="white-space:pre-line">{{ $shipment->package_content }}</div></div>
-        @endif
-
         <div class="divider"></div>
 
         @if(!empty($qr))
@@ -142,6 +138,13 @@
                 </div>
             </div>
         @endif
+    @endif
+
+    @if($shipment->is_domicilio && $shipment->package_content)
+        <div class="section" style="margin-top:8px;">
+            <div class="section-title">Contenido</div>
+            <div class="med-text" style="white-space:pre-line">{{ $shipment->package_content }}</div>
+        </div>
     @endif
 
     @if($shipment->notes)
