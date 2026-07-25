@@ -89,7 +89,8 @@
             @else
                 <div class="med-text" style="font-weight:bold">RECOJO EN AGENCIA</div>
             @endif
-            @if($shipment->reference)<div class="med-text">Ref: {{ $shipment->reference }}</div>@endif
+            {{-- En agencia, `reference` guarda la oficina/local de recojo. --}}
+            @if($shipment->reference)<div class="med-text" style="font-weight:bold">Oficina: {{ $shipment->reference }}</div>@endif
             @php
                 $ubigeoLine = null;
                 if (!empty($ubigeo)) {

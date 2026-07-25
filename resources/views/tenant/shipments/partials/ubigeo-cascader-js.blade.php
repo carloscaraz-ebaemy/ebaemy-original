@@ -15,7 +15,9 @@
     .ubigeo-results { max-height: 260px; overflow-y: auto; }
     .ubigeo-item { padding: 9px 11px; cursor: pointer; font-size: 13px; border-bottom: 1px solid #f8f9fa; white-space: nowrap; }
     .ubigeo-item:hover, .ubigeo-item.active { background: #eef2ff; color: #4f46e5; font-weight: 600; }
-    .ubigeo-col:empty::before { content: '—'; display: block; text-align: center; color: #ced4da; padding: 12px 0; font-size: 12px; }
+    /* Columna vacía: en vez de un guion mudo, dice qué falta elegir. */
+    .ubigeo-col:empty::before { content: attr(data-empty); display: block; text-align: center; color: #adb5bd; padding: 16px 10px; font-size: 12px; line-height: 1.4; }
+    .ubigeo-hint { padding: 0 8px 8px; font-size: 11.5px; color: #adb5bd; }
     .ubigeo-empty { padding: 14px; text-align: center; color: #adb5bd; font-size: 13px; }
     @media (max-width: 520px) { .ubigeo-cols { overflow-x: auto; } .ubigeo-col { min-width: 130px; } }
 
@@ -56,9 +58,17 @@
 
         // Construir barra de búsqueda + envolver columnas + panel de resultados.
         var bar = document.createElement('div'); bar.className = 'ubigeo-bar';
-        var search = document.createElement('input'); search.type = 'text'; search.className = 'ubigeo-search'; search.placeholder = 'Escribe un distrito…'; search.autocomplete = 'off';
+        var search = document.createElement('input'); search.type = 'text'; search.className = 'ubigeo-search';
+        search.placeholder = 'Busca tu distrito… (ej. Chiclayo)'; search.autocomplete = 'off';
         bar.appendChild(search);
+        var hint = document.createElement('div'); hint.className = 'ubigeo-hint';
+        hint.textContent = 'Escribe el nombre de tu distrito, o elígelo en las columnas.';
+        bar.appendChild(hint);
         var cols = document.createElement('div'); cols.className = 'ubigeo-cols';
+        // Las columnas 2 y 3 se llenan al elegir la anterior: hasta entonces
+        // explican qué falta en vez de mostrar un guion.
+        cProv.setAttribute('data-empty', 'Elige un departamento');
+        cDist.setAttribute('data-empty', 'Elige una provincia');
         cols.appendChild(cDep); cols.appendChild(cProv); cols.appendChild(cDist);
         var results = document.createElement('div'); results.className = 'ubigeo-results'; results.hidden = true;
         pop.appendChild(bar); pop.appendChild(cols); pop.appendChild(results);

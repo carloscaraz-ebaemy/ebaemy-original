@@ -316,6 +316,24 @@
                             </div>
                         </div>
 
+                        <label>Agencia de transporte</label>
+                        <div class="agency-field">
+                            <select class="agency-select">
+                                <option value="">— Selecciona —</option>
+                                @foreach(\App\Models\Tenant\ShippingRequest::AGENCIES as $a)<option value="{{ $a }}">{{ $a }}</option>@endforeach
+                                <option value="__otra__">Otra…</option>
+                            </select>
+                            <input type="text" class="agency-input" name="shipping_agency" id="pub_shipping_agency" value="{{ old('shipping_agency') }}" maxlength="120" placeholder="Nombre de la agencia" style="display:none;margin-top:8px;">
+                        </div>
+
+                        {{-- Las agencias tienen varias oficinas por ciudad (Shalom
+                             tiene nombre por local): saber en cuál recoge el cliente
+                             es más útil que una referencia genérica. Reutiliza la
+                             columna `reference`, que en agencia significa "oficina". --}}
+                        <label id="pub_office_label">Oficina donde recogerás</label>
+                        <input type="text" name="reference" id="pub_reference_ag" value="{{ old('reference') }}" maxlength="255" placeholder="Ej. Terminal Terrestre, Av. Aviación 123…">
+                        <small class="hint" id="pub_office_hint">Escribe el nombre de la oficina/local donde vas a recoger el paquete.</small>
+
                         {{-- El paquete normalmente solo viaja hasta la agencia: el
                              cliente lo recoge ahí y su dirección no la usa nadie.
                              Solo pedimos dirección si la agencia hace reparto. --}}
@@ -326,19 +344,6 @@
                         <div id="agHomeWrap" hidden>
                             <label>Dirección de reparto</label>
                             <input type="text" name="shipping_destination" id="pub_addr_agencia" value="{{ old('shipping_destination') }}" maxlength="255" placeholder="Av./Jr./Calle y número">
-                        </div>
-
-                        <label>Referencia e indicaciones</label>
-                        <input type="text" name="reference" id="pub_reference_ag" value="{{ old('reference') }}" maxlength="255" placeholder="Frente a…, cerca de…">
-
-                        <label>Agencia de transporte</label>
-                        <div class="agency-field">
-                            <select class="agency-select">
-                                <option value="">— Selecciona —</option>
-                                @foreach(\App\Models\Tenant\ShippingRequest::AGENCIES as $a)<option value="{{ $a }}">{{ $a }}</option>@endforeach
-                                <option value="__otra__">Otra…</option>
-                            </select>
-                            <input type="text" class="agency-input" name="shipping_agency" id="pub_shipping_agency" value="{{ old('shipping_agency') }}" maxlength="120" placeholder="Nombre de la agencia" style="display:none;margin-top:8px;">
                         </div>
 
                         @if(!empty($agencyFee) && $agencyFee > 0)
@@ -366,7 +371,7 @@
                             <div class="r"><span class="k">Celular</span><span class="v" id="c_phone">—</span></div>
                             <div class="r" id="r_ubigeo"><span class="k">Ubigeo</span><span class="v" id="c_ubigeo">—</span></div>
                             <div class="r"><span class="k">Dirección</span><span class="v" id="c_dir">—</span></div>
-                            <div class="r"><span class="k">Referencia</span><span class="v" id="c_ref">—</span></div>
+                            <div class="r"><span class="k" id="k_ref">Referencia</span><span class="v" id="c_ref">—</span></div>
                             <div class="r" id="r_ag"><span class="k">Agencia</span><span class="v" id="c_ag">—</span></div>
                             <div class="r" id="r_coords"><span class="k">Ubicación GPS</span><span class="v" id="c_coords">—</span></div>
                             <div class="r" id="r_price"><span class="k">Costo aprox. de envío</span><span class="v" id="c_price" style="color:#059669;">—</span></div>
@@ -476,6 +481,27 @@
         if (a) { if (!on) a.value = ''; a.disabled = !on; }
     }
     if (agHome) agHome.addEventListener('change', syncAgHome);
+
+    // El campo "oficina" nombra la agencia elegida: "¿En qué oficina de Shalom…?".
+    // Las oficinas tienen nombre propio y es el dato que necesita el almacén.
+    function syncOfficeLabel() {
+        var lbl = document.getElementById('pub_office_label');
+        var inp = document.getElementById('pub_reference_ag');
+        if (!lbl || !inp) return;
+        var ag = txt('pub_shipping_agency');
+        lbl.textContent = ag ? ('Oficina de ' + ag + ' donde recogerás') : 'Oficina donde recogerás';
+        inp.placeholder = ag
+            ? ('Ej. ' + ag + ' Terminal Terrestre, Av. Aviación 123…')
+            : 'Ej. Terminal Terrestre, Av. Aviación 123…';
+    }
+    document.addEventListener('change', function (ev) {
+        if (ev.target && ev.target.classList && ev.target.classList.contains('agency-select')) {
+            setTimeout(syncOfficeLabel, 0);
+        }
+    });
+    var agInp = document.getElementById('pub_shipping_agency');
+    if (agInp) agInp.addEventListener('input', syncOfficeLabel);
+    syncOfficeLabel();
 
     var back0 = document.getElementById('backStep0');
     if (back0) back0.addEventListener('click', function () { hide(step1); show(step0); setStep(1); });
@@ -620,6 +646,7 @@
             document.getElementById('r_ubigeo').hidden = true;
             document.getElementById('r_ag').hidden = true;
             document.getElementById('c_dir').textContent = txt('pub_addr_domicilio') || txt('pub_formatted') || '—';
+            document.getElementById('k_ref').textContent = 'Referencia';
             document.getElementById('c_ref').textContent = txt('pub_reference_dom') || '—';
             var lat = txt('pub_lat'), lng = txt('pub_lng');
             document.getElementById('r_coords').hidden = !(lat && lng);
@@ -640,6 +667,7 @@
             var disp = document.querySelector('[data-ubigeo-group="pub"] .ubigeo-display');
             document.getElementById('c_ubigeo').textContent = (disp && disp.classList.contains('has-value')) ? disp.textContent.trim() : '—';
             document.getElementById('c_dir').textContent = txt('pub_addr_agencia') || 'Recojo en la agencia';
+            document.getElementById('k_ref').textContent = 'Oficina de recojo';
             document.getElementById('c_ref').textContent = txt('pub_reference_ag') || '—';
             document.getElementById('c_ag').textContent = txt('pub_shipping_agency') || '—';
         }
