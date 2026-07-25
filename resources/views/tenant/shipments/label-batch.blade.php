@@ -40,6 +40,14 @@
     <button onclick="window.close()" style="padding:10px 14px;background:#6c757d;color:#fff;border:none;border-radius:8px;font-size:14px;cursor:pointer;">✕ Cerrar</button>
 </div>
 
+@if(!empty($skipped) && count($skipped))
+    <div class="no-print" style="max-width:820px;margin:0 auto 14px;background:#fff8e1;border:1px solid #f6d365;border-radius:10px;padding:12px 16px;font-size:13px;color:#8a5a00;">
+        ⚠️ Se omitieron <b>{{ count($skipped) }}</b> envío(s) por <b>pago sin confirmar</b>:
+        {{ collect($skipped)->map(fn($s) => $s->shipment_code ?: ('#'.$s->id))->implode(', ') }}.
+        Confirma su pago para incluirlos en el rótulo.
+    </div>
+@endif
+
 <div class="batch">
     @foreach($items as $it)
         @include('tenant.shipments.partials.label-body', ['shipment' => $it['shipment'], 'ubigeo' => $it['ubigeo'], 'qr' => $it['qr'], 'barcode' => $it['barcode']])

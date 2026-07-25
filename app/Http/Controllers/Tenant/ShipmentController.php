@@ -441,10 +441,23 @@ class ShipmentController extends Controller
             $format = 'a5';
         }
 
-        $shipments = ShippingRequest::whereIn('id', $ids)->orderBy('id')->get()
-            ->reject(fn ($s) => $this->paymentBlocks($s))->values();
-        abort_if($shipments->isEmpty(), 404);
-        $items = $shipments->map(fn ($s) => [
+        $all = ShippingRequest::whereIn('id', $ids)->orderBy('id')->get();
+        abort_if($all->isEmpty(), 404);
+
+        // Los envíos con pago pendiente no se rotulan (regla `require_payment`).
+        // Antes se rechazaban en silencio y, si TODOS estaban bloqueados, el
+        // lote abortaba con un 404 mudo. Ahora los separamos: se explica cuáles
+        // faltan confirmar en vez de mostrar un "error" sin contexto.
+        [$blocked, $printable] = $all->partition(fn ($s) => $this->paymentBlocks($s));
+
+        if ($printable->isEmpty()) {
+            return response()->view('tenant.shipments.label-blocked', [
+                'blocked' => $blocked->values(),
+                'company' => Company::first(),
+            ]);
+        }
+
+        $items = $printable->values()->map(fn ($s) => [
             'shipment' => $s,
             'ubigeo'   => $this->resolveUbigeo($s),
             'qr'       => $this->makeQr($s),
@@ -455,7 +468,8 @@ class ShipmentController extends Controller
             'items'   => $items,
             'company' => Company::first(),
             'format'  => $format,
-            'ids'     => $ids->implode(','),
+            'ids'     => $printable->pluck('id')->implode(','),
+            'skipped' => $blocked->values(),
         ]);
     }
 
