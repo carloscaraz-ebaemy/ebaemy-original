@@ -63,9 +63,29 @@ class ShipmentController extends Controller
             case 'enviados-hoy': $query->sentToday();     break;
         }
 
-        // Filtro por rango de fecha de registro (desde / hasta).
-        $from = $request->input('from');
-        $to   = $request->input('to');
+        // Filtro por fecha de registro: un solo selector de RANGO (hoy, ayer,
+        // últimos 7/30 días, este mes, mes pasado) que se traduce a desde/hasta.
+        // Se conserva el soporte de from/to explícitos por compatibilidad.
+        $range = $request->input('range');
+        $from  = $request->input('from');
+        $to    = $request->input('to');
+        if (in_array($range, ['hoy', 'ayer', '7dias', '30dias', 'mes', 'mes_pasado'], true)) {
+            $hoy = now();
+            switch ($range) {
+                case 'hoy':        $from = $to = $hoy->toDateString(); break;
+                case 'ayer':       $from = $to = $hoy->copy()->subDay()->toDateString(); break;
+                case '7dias':      $from = $hoy->copy()->subDays(6)->toDateString();  $to = $hoy->toDateString(); break;
+                case '30dias':     $from = $hoy->copy()->subDays(29)->toDateString(); $to = $hoy->toDateString(); break;
+                case 'mes':        $from = $hoy->copy()->startOfMonth()->toDateString(); $to = $hoy->toDateString(); break;
+                case 'mes_pasado':
+                    $lm   = $hoy->copy()->subMonthNoOverflow();
+                    $from = $lm->copy()->startOfMonth()->toDateString();
+                    $to   = $lm->copy()->endOfMonth()->toDateString();
+                    break;
+            }
+        } else {
+            $range = null;
+        }
         if ($from && strtotime($from)) {
             $query->whereDate('created_at', '>=', date('Y-m-d', strtotime($from)));
         }
@@ -112,7 +132,7 @@ class ShipmentController extends Controller
         // (recién registrados). Solo se aplica si el usuario no pidió otra cosa;
         // con la tarjeta "Total" (group=todos) se ve absolutamente todo.
         $hasExplicit = $request->filled('group') || $request->filled('q')
-            || $request->filled('from') || $request->filled('to')
+            || $request->filled('from') || $request->filled('to') || $request->filled('range')
             || $request->filled('type') || $request->filled('pri') || $filter !== 'todos';
         if (!$hasExplicit) {
             $group = 'confirmar';
@@ -182,6 +202,7 @@ class ShipmentController extends Controller
             'perPage'     => $perPage,
             'from'        => $from,
             'to'          => $to,
+            'range'       => $range,
             'statuses'    => ShippingRequest::STATUSES,
             'requirePayment' => $setting->require_payment,
             'departments' => Department::orderBy('description')->get(['id', 'description']),

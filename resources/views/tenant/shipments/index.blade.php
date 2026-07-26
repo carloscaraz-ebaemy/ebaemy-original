@@ -130,10 +130,13 @@
     .sh-mini b { font-size:.66rem; color:#9aa2af; font-variant-numeric:tabular-nums; }
     .sh-mini.is-on b { color:#4f46e5; }
     .sh-mini.is-clear { background:none; border-color:transparent; color:#9aa2af; }
-    .sh-filters__d { display:flex; align-items:center; gap:6px; }
-    .sh-filters__d input { flex:1; min-width:0; padding:.32rem .5rem; font-size:.76rem;
-        border:1px solid #e5e7eb; border-radius:7px; color:#374151; }
-    .sh-filters__d span { color:#9aa2af; font-size:.75rem; }
+    /* Opciones del selector único de fecha (rangos, uno por línea) */
+    .sh-range { display:flex; flex-direction:column; gap:2px; }
+    .sh-range__opt { display:flex; align-items:center; padding:.42rem .6rem; font-size:.8rem; font-weight:600;
+        color:#4b5563; text-decoration:none; border-radius:8px; }
+    .sh-range__opt:hover { background:#f4f5f8; color:#111827; }
+    .sh-range__opt.is-on { background:#eef2ff; color:#3730a3; }
+    .sh-range__opt.is-on::after { content:'✓'; margin-left:auto; color:#4f46e5; font-weight:800; }
     .sh-filters__clear { display:block; margin-top:10px; padding-top:9px; border-top:1px solid #f1f3f5;
         font-size:.75rem; font-weight:600; color:#dc2626; text-decoration:none; text-align:center; }
     .sh-filters__clear:hover { color:#b91c1c; }
@@ -274,8 +277,11 @@
             'type'   => $type ?: null,
             'group'  => $group ?: null,
             'q'      => $q ?: null,
-            'from'   => $from ?? null,
-            'to'     => $to ?? null,
+            // El rango manda: si está activo, no arrastramos from/to (los calcula
+            // el controlador). Solo se conservan from/to sueltos si no hay rango.
+            'range'  => $range ?? null,
+            'from'   => ($range ?? null) ? null : ($from ?? null),
+            'to'     => ($range ?? null) ? null : ($to ?? null),
             'sort'   => (($sort ?? 'recent') !== 'recent') ? $sort : null,
             'pri'    => $pri ?? null,
             'per_page' => ((int) ($perPage ?? 20) !== 20) ? $perPage : null,
@@ -293,8 +299,18 @@
         ];
         $advN = (int) !empty($type)
               + (int) in_array($filter, ['con-guia','enviados-hoy'], true)
-              + (int) (!empty($from) || !empty($to))
               + (int) ($activeGroup === 'cancelados');
+        // Rangos de fecha para el selector único.
+        $rangeOpts = [
+            'hoy'        => 'Hoy',
+            'ayer'       => 'Ayer',
+            '7dias'      => 'Últimos 7 días',
+            '30dias'     => 'Últimos 30 días',
+            'mes'        => 'Este mes',
+            'mes_pasado' => 'Mes pasado',
+        ];
+        $rangeLabel = $rangeOpts[$range ?? ''] ?? (($from || $to) ? 'Fechas personalizadas' : 'Cualquier fecha');
+        $rangeOn = !empty($range) || !empty($from) || !empty($to);
     @endphp
     {{-- #shPanel: zona que se recarga por AJAX (sin recargar toda la página). --}}
     <div id="shPanel">
@@ -344,6 +360,8 @@
             @if($type)<input type="hidden" name="type" value="{{ $type }}">@endif
             @if($group)<input type="hidden" name="group" value="{{ $group }}">@endif
             <input type="hidden" name="sort" value="{{ $sort ?? 'recent' }}">
+            @if($range)<input type="hidden" name="range" value="{{ $range }}">@endif
+            @if($pri)<input type="hidden" name="pri" value="{{ $pri }}">@endif
             <i class="fas fa-search sh-search__ic"></i>
             <input type="text" name="q" id="shSearchInput" value="{{ $q }}" placeholder="Buscar cliente, código, guía…" autocomplete="off">
             <button type="button" id="shClearSearch" title="Limpiar" style="{{ $q ? '' : 'display:none;' }}">✕</button>
@@ -353,6 +371,26 @@
            class="sh-chip {{ $filter === 'sin-guia' ? 'is-on' : '' }}">
             Sin guía <b>{{ $counts['sin-guia'] ?? 0 }}</b>
         </a>
+
+        {{-- Selector ÚNICO de fecha: un chip que despliega los rangos a elegir. --}}
+        <div class="dropdown">
+            <button type="button" class="sh-chip {{ $rangeOn ? 'is-on' : '' }}" data-bs-toggle="dropdown" data-bs-auto-close="outside" title="Filtrar por fecha de registro">
+                <i class="far fa-calendar-alt"></i> {{ $rangeLabel }}
+            </button>
+            <div class="dropdown-menu shadow sh-filters" style="min-width:220px;">
+                <div class="sh-filters__g">
+                    <span class="sh-filters__t">Ver registros de…</span>
+                    <div class="sh-range">
+                        <a href="{{ $mk(['range' => null, 'from' => null, 'to' => null]) }}"
+                           class="sh-range__opt {{ !$rangeOn ? 'is-on' : '' }}">Cualquier fecha</a>
+                        @foreach($rangeOpts as $rk => $rl)
+                            <a href="{{ $mk(['range' => $rk, 'from' => null, 'to' => null]) }}"
+                               class="sh-range__opt {{ ($range ?? '') === $rk ? 'is-on' : '' }}">{{ $rl }}</a>
+                        @endforeach
+                    </div>
+                </div>
+            </div>
+        </div>
 
         <div class="dropdown">
             <button type="button" class="sh-chip {{ $advN ? 'is-on' : '' }}" data-bs-toggle="dropdown" data-bs-auto-close="outside">
@@ -375,21 +413,7 @@
                         <a href="{{ $mk(['group' => 'cancelados']) }}" class="sh-mini {{ $activeGroup === 'cancelados' ? 'is-on' : '' }}">Cancelados <b>{{ $metrics['cancelados'] ?? 0 }}</b></a>
                     </div>
                 </div>
-                <div class="sh-filters__g">
-                    <span class="sh-filters__t">Fecha de registro</span>
-                    <div class="sh-filters__d">
-                        <input type="date" name="from" id="shFrom" form="shSearchForm" value="{{ $from }}" title="Desde">
-                        <span>→</span>
-                        <input type="date" name="to" id="shTo" form="shSearchForm" value="{{ $to }}" title="Hasta">
-                    </div>
-                    @php $hoy = now()->format('Y-m-d'); @endphp
-                    <div class="sh-filters__r" style="margin-top:6px;">
-                        <a href="{{ $mk(['from' => $hoy, 'to' => $hoy]) }}" class="sh-mini">Hoy</a>
-                        <a href="{{ route('shipments.index', ['filter' => 'pendientes', 'from' => $hoy, 'to' => $hoy]) }}" class="sh-mini">Por alistar hoy</a>
-                        @if($from || $to)<a href="{{ $mk(['from' => null, 'to' => null]) }}" class="sh-mini is-clear">Quitar fechas</a>@endif
-                    </div>
-                </div>
-                @if($advN || $q || $filter !== 'todos')
+                @if($advN || $q || $filter !== 'todos' || $rangeOn)
                     <a href="{{ route('shipments.index') }}" class="sh-filters__clear">Limpiar todos los filtros</a>
                 @endif
             </div>
@@ -1308,13 +1332,6 @@
     document.addEventListener('change', function (ev) {
         if (ev.target.id !== 'shPerPage') return;
         if (ev.target.value) swap(ev.target.value);
-    });
-
-    // Rango de fechas: al elegir una fecha, recargar la lista.
-    document.addEventListener('change', function (ev) {
-        if (ev.target.id === 'shFrom' || ev.target.id === 'shTo') {
-            var u = searchUrl(); if (u) swap(u);
-        }
     });
 
     // Confirmar/revertir pago (individual) por AJAX — sin recargar la página.
