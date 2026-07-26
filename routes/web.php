@@ -149,6 +149,10 @@ if ($hostname) {
                      ->name('shipments.lookup');
                 Route::get('lote-imprimir', [\App\Http\Controllers\Tenant\ShipmentController::class, 'printBatch'])
                      ->name('shipments.print_batch');
+                Route::get('exportar', [\App\Http\Controllers\Tenant\ShipmentController::class, 'export'])
+                     ->name('shipments.export');
+                Route::post('estado-lote', [\App\Http\Controllers\Tenant\ShipmentController::class, 'statusBulk'])
+                     ->name('shipments.status_bulk');
                 Route::post('/', [\App\Http\Controllers\Tenant\ShipmentController::class, 'store'])
                      ->name('shipments.store');
                 Route::post('{shipment}/subir-guia', [\App\Http\Controllers\Tenant\ShipmentController::class, 'uploadGuide'])

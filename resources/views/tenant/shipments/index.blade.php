@@ -97,6 +97,20 @@
     .sh-pri__hint { font-size:.72rem; color:var(--sh-faint); margin-left:auto; }
     .sh-pri__hint b { color:var(--sh-muted); font-variant-numeric:tabular-nums; }
 
+    /* ── Aviso de vencidos (banner proactivo) ── */
+    .sh-overdue { display:flex; align-items:center; gap:12px; margin:0 0 14px; padding:11px 14px;
+        border:1px solid #f7cccc; background:#fdf0f0; border-radius:12px; text-decoration:none;
+        transition:background .15s, border-color .15s; }
+    .sh-overdue:hover { background:#fce4e4; border-color:#f2b8b8; }
+    .sh-overdue__ic { flex:0 0 auto; width:32px; height:32px; border-radius:9px; display:flex; align-items:center; justify-content:center;
+        background:#f8d4d4; color:#b91c1c; font-size:.9rem; }
+    .sh-overdue__tx { flex:1; font-size:.82rem; color:#7f1d1d; line-height:1.35; }
+    .sh-overdue__tx b { color:#b91c1c; }
+    .sh-overdue__cta { flex:0 0 auto; display:inline-flex; align-items:center; gap:6px; white-space:nowrap;
+        font-size:.78rem; font-weight:700; color:#fff; background:#dc2626; padding:.4rem .7rem; border-radius:8px; }
+    .sh-overdue:hover .sh-overdue__cta { background:#b91c1c; }
+    @media (max-width:640px) { .sh-overdue__cta span, .sh-overdue { } }
+
     /* ── Semáforo de antigüedad en la fila ── */
     .sh-age { display:inline-flex; align-items:center; gap:5px; margin-top:4px; padding:.12rem .44rem;
         font-size:.7rem; font-weight:700; border-radius:999px; white-space:nowrap; line-height:1.5;
@@ -202,7 +216,9 @@
     .sh-view__row { display:flex; gap:16px; padding:6px 0; font-size:.86rem; align-items:baseline; }
     .sh-view__row .k { flex:0 0 38%; color:var(--sh-muted); }
     .sh-view__row .v { flex:1; color:var(--sh-ink); font-weight:600; word-break:break-word; }
-    .sh-view__foot { border-top:1px solid var(--sh-line-soft); gap:8px; }
+    .sh-view__foot { border-top:1px solid var(--sh-line-soft); gap:8px; flex-wrap:wrap; }
+    .sh-view__wa { background:#25d366; border-color:#25d366; color:#fff; }
+    .sh-view__wa:hover { background:#1eb257; color:#fff; }
     @media (max-width:768px) { .sh-search { max-width:none; flex:1 1 100%; }
         .sh-view__row { flex-direction:column; gap:2px; } .sh-view__row .k { flex:none; } }
 
@@ -439,6 +455,17 @@
         <span class="sh-pri__hint">Plazo: <b>{{ $maxDays ?? 4 }}</b> días hábiles</span>
     </div>
 
+    {{-- Aviso proactivo: envíos que ya superaron el plazo (a menos que ya se esté filtrando por vencidos). --}}
+    @if(($metrics['vencidos'] ?? 0) > 0 && ($pri ?? '') !== 'vencidos')
+        <a href="{{ $mk(['pri' => 'vencidos']) }}" class="sh-overdue">
+            <span class="sh-overdue__ic"><i class="fas fa-triangle-exclamation"></i></span>
+            <span class="sh-overdue__tx">
+                <b>{{ $metrics['vencidos'] }}</b> envío(s) <b>vencido(s)</b> superaron los {{ $maxDays ?? 4 }} días hábiles y necesitan atención.
+            </span>
+            <span class="sh-overdue__cta">Ver vencidos <i class="fas fa-arrow-right"></i></span>
+        </a>
+    @endif
+
     @if(session('success'))
         <div class="alert alert-success alert-dismissible fade show py-2">{{ session('success') }}<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>
     @endif
@@ -521,6 +548,12 @@
                 @endif
             </div>
         </div>
+
+        {{-- Exportar la lista filtrada a Excel/CSV. target=_blank evita que el
+             interceptor AJAX del panel se lo trague (descarga directa). --}}
+        <a href="{{ route('shipments.export', $curParams) }}" target="_blank" class="sh-chip" title="Descargar la lista filtrada en Excel (CSV)">
+            <i class="fas fa-file-excel"></i> Exportar
+        </a>
     </div>
 
     {{-- Aviso del filtro crítico --}}
@@ -544,6 +577,16 @@
             @if($requirePayment ?? false)
                 <button type="button" class="btn btn-sm btn-warning fw-bold" id="shPaySel"><i class="fas fa-lock-open me-1"></i> Confirmar pago</button>
             @endif
+            <div class="dropdown">
+                <button type="button" class="btn btn-sm btn-light fw-bold" data-bs-toggle="dropdown" style="color:#4f46e5;">
+                    <i class="fas fa-exchange-alt me-1"></i> Cambiar estado
+                </button>
+                <ul class="dropdown-menu shadow-sm">
+                    @foreach(['embalando'=>'Embalando','despachado'=>'Despachado','en_agencia'=>'Entregado a agencia','en_camino'=>'Motorizado en camino','entregado'=>'Entregado'] as $sv => $sl)
+                        <li><button type="button" class="dropdown-item sh-bulk-status" data-status="{{ $sv }}"><i class="fas fa-arrow-right fa-fw me-2 text-muted"></i>{{ $sl }}</button></li>
+                    @endforeach
+                </ul>
+            </div>
             <button type="button" class="btn btn-sm btn-light text-primary fw-bold" id="shClearSel">Quitar selección</button>
             <button type="button" class="btn btn-sm btn-light fw-bold" id="shPrintSel" style="color:#4f46e5;">
                 <i class="fas fa-print me-1"></i> Imprimir los seleccionados
@@ -616,11 +659,15 @@
                             'Costo de envío' => $s->delivery_price ? ('S/ '.number_format($s->delivery_price, 2)) : null,
                             'Pago'           => ($requirePayment ?? false) ? ($s->payment_confirmed ? ('Confirmado'.($s->payment_confirmed_at ? ' · '.$s->payment_confirmed_at->format('d/m/Y H:i') : '')) : 'Pendiente') : null,
                         ]);
+                        $viewPhone = preg_replace('/\D+/', '', (string) $s->phone);
                         $viewData = [
                             'code' => $s->shipment_code ?: ('#'.$s->id),
                             'name' => $s->full_name,
                             'type' => $isDom ? 'Domicilio' : 'Agencia',
                             'maps' => $isDom ? $s->maps_link : null,
+                            'id'    => $s->id,
+                            'phone' => strlen($viewPhone) === 9 ? ('51'.$viewPhone) : $viewPhone,
+                            'print' => $bloqueado ? null : route('shipments.print', $s->id),
                             'sections' => array_filter([
                                 'Cliente' => array_filter([
                                     'Nombre'  => $s->full_name,
@@ -1167,10 +1214,22 @@
       </div>
       <div class="modal-body sh-view__body" id="vwBody"></div>
       <div class="modal-footer sh-view__foot">
-        <a href="#" id="vwMaps" target="_blank" rel="noopener" class="sh-act sh-act--primary" style="display:none;">
-          <i class="fas fa-map-marker-alt"></i> Ver ubicación
+        <a href="#" id="vwWa" target="_blank" rel="noopener" class="sh-act sh-view__wa" style="display:none;">
+          <i class="fab fa-whatsapp"></i> WhatsApp
         </a>
-        <button type="button" class="sh-act sh-act--ghost" data-bs-dismiss="modal" style="border-color:var(--sh-line);">Cerrar</button>
+        <a href="#" id="vwCall" class="sh-act sh-act--ghost" style="display:none;border-color:var(--sh-line);">
+          <i class="fas fa-phone"></i> Llamar
+        </a>
+        <a href="#" id="vwMaps" target="_blank" rel="noopener" class="sh-act sh-act--ghost" style="display:none;border-color:var(--sh-line);">
+          <i class="fas fa-map-marker-alt"></i> Ubicación
+        </a>
+        <a href="#" id="vwPrint" target="_blank" class="sh-act sh-act--ghost" style="display:none;border-color:var(--sh-line);">
+          <i class="fas fa-print"></i> Rótulo
+        </a>
+        <button type="button" id="vwEdit" class="sh-act sh-act--primary" style="display:none;">
+          <i class="fas fa-pen"></i> Editar
+        </button>
+        <button type="button" class="sh-act sh-act--ghost" data-bs-dismiss="modal" style="border-color:var(--sh-line);margin-left:auto;">Cerrar</button>
       </div>
     </div>
   </div>
@@ -1602,8 +1661,30 @@
                 body.appendChild(sec);
             });
         }
-        var maps = document.getElementById('vwMaps');
-        if (maps) { if (data.maps) { maps.href = data.maps; maps.style.display = ''; } else { maps.style.display = 'none'; } }
+        // Acciones del pie: mostrar solo las que aplican.
+        var setLink = function (id, href, show) {
+            var el = document.getElementById(id); if (!el) return;
+            if (show && href) { el.href = href; el.style.display = ''; } else { el.style.display = 'none'; }
+        };
+        setLink('vwMaps', data.maps, !!data.maps);
+        setLink('vwWa', data.phone ? ('https://wa.me/' + data.phone) : '', !!data.phone);
+        setLink('vwCall', data.phone ? ('tel:+' + data.phone) : '', !!data.phone);
+        setLink('vwPrint', data.print, !!data.print);
+        var modalEl = document.getElementById('modalVerEnvio');
+        if (modalEl) modalEl.setAttribute('data-current-id', data.id || '');
+        var editBtn = document.getElementById('vwEdit');
+        if (editBtn) editBtn.style.display = data.id ? '' : 'none';
+    });
+
+    // "Editar" desde el modal-ojo: cierra esta ficha y abre el modal de edición
+    // de la misma fila (reutiliza su botón, que ya trae todos los data-*).
+    document.addEventListener('click', function (ev) {
+        if (!ev.target.closest || !ev.target.closest('#vwEdit')) return;
+        var modalEl = document.getElementById('modalVerEnvio');
+        var id = modalEl ? modalEl.getAttribute('data-current-id') : '';
+        var rowBtn = id ? document.querySelector('.js-edit-shipment[data-id="' + id + '"]') : null;
+        try { bootstrap.Modal.getInstance(modalEl).hide(); } catch (e) {}
+        if (rowBtn) { setTimeout(function () { rowBtn.click(); }, 200); }
     });
 
     // ✕ limpiar búsqueda (sin recargar).
@@ -1630,6 +1711,26 @@
         fetch(f.action, { method: 'POST', body: new FormData(f), headers: { 'X-Requested-With': 'XMLHttpRequest' }, credentials: 'same-origin' })
             .then(function () { swap(location.href, { noPush: true }); })
             .catch(function () { busy(false); f.submit(); });
+    });
+
+    // Cambiar el ESTADO de los seleccionados (por lote) → confirma y avisa por WhatsApp.
+    document.addEventListener('click', function (ev) {
+        var opt = ev.target.closest && ev.target.closest('.sh-bulk-status');
+        if (!opt) return;
+        ev.preventDefault();
+        var ids = Array.prototype.slice.call(document.querySelectorAll('.sh-check'))
+            .filter(function (c) { return c.checked; }).map(function (c) { return c.value; });
+        if (!ids.length) return;
+        var label = opt.textContent.trim();
+        if (!window.confirm('¿Cambiar ' + ids.length + ' envío(s) a «' + label + '»? Se avisará a cada cliente por WhatsApp.')) return;
+        var fd = new FormData();
+        fd.append('_token', '{{ csrf_token() }}');
+        fd.append('ids', ids.join(','));
+        fd.append('status', opt.getAttribute('data-status'));
+        busy(true);
+        fetch('{{ route("shipments.status_bulk") }}', { method: 'POST', body: fd, headers: { 'X-Requested-With': 'XMLHttpRequest' }, credentials: 'same-origin' })
+            .then(function () { swap(location.href, { noPush: true }); })
+            .catch(function () { busy(false); });
     });
 
     // Confirmar pago de los SELECCIONADOS (por lote).

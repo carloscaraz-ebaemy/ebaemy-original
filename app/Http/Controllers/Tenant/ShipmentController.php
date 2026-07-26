@@ -28,7 +28,13 @@ class ShipmentController extends Controller
 
     // ── Panel del encargado ────────────────────────────────────────────────
 
-    public function index(Request $request)
+    /**
+     * Construye la consulta de la lista aplicando TODOS los filtros del panel
+     * (filtro, orden, fecha/rango, tipo, prioridad, grupo de estado, búsqueda).
+     * Rellena $ctx con las variables derivadas para que la reusen index() y
+     * export() sin duplicar la lógica.
+     */
+    private function buildListQuery(Request $request, array &$ctx): \Illuminate\Database\Eloquent\Builder
     {
         $filter = $request->input('filter', 'todos');
         if (!in_array($filter, self::FILTERS, true)) {
@@ -118,9 +124,6 @@ class ShipmentController extends Controller
 
         // Grupos de estado para las tarjetas de métricas (incluyen valores legados
         // y los estados del flujo de motorizado: asignado_motorizado, en_camino).
-        // Buckets del tablero, alineados al flujo REAL (recibido -> embalando ->
-        // en agencia / en camino -> entregado). Los estados que ya no se usan se
-        // mantienen mapeados para no perder envíos históricos.
         $groups = [
             'confirmar'  => ['recibido', 'pendiente'],
             'preparar'   => ['embalando', 'listo', 'confirmado', 'preparando', 'asignado_motorizado'],
@@ -134,8 +137,7 @@ class ShipmentController extends Controller
         $group = $request->input('group');
 
         // Vista por defecto = "bandeja de entrada": solo los pedidos que entran
-        // (recién registrados). Solo se aplica si el usuario no pidió otra cosa;
-        // con la tarjeta "Total" (group=todos) se ve absolutamente todo.
+        // (recién registrados). Solo se aplica si el usuario no pidió otra cosa.
         $hasExplicit = $request->filled('group') || $request->filled('q')
             || $request->filled('from') || $request->filled('to') || $request->filled('range')
             || $request->filled('type') || $request->filled('pri') || $filter !== 'todos';
@@ -147,7 +149,8 @@ class ShipmentController extends Controller
             $query->whereIn('status', $groups[$group]);
         }
 
-        if ($q = trim((string) $request->input('q', ''))) {
+        $q = trim((string) $request->input('q', ''));
+        if ($q !== '') {
             $query->where(function ($w) use ($q) {
                 $w->where('full_name', 'like', "%{$q}%")
                   ->orWhere('shipment_code', 'like', "%{$q}%")
@@ -156,6 +159,22 @@ class ShipmentController extends Controller
                   ->orWhere('shipping_agency', 'like', "%{$q}%");
             });
         }
+
+        $requirePayment = (bool) $setting->require_payment;
+        $ctx = compact('filter', 'sort', 'range', 'from', 'to', 'type', 'pri',
+            'group', 'groups', 'maxDays', 'skipHol', 'closed', 'q', 'requirePayment');
+
+        return $query;
+    }
+
+    public function index(Request $request)
+    {
+        $ctx   = [];
+        $query = $this->buildListQuery($request, $ctx);
+        [$filter, $sort, $range, $from, $to, $type, $pri, $group, $groups, $maxDays, $skipHol, $closed, $q] = [
+            $ctx['filter'], $ctx['sort'], $ctx['range'], $ctx['from'], $ctx['to'], $ctx['type'], $ctx['pri'],
+            $ctx['group'], $ctx['groups'], $ctx['maxDays'], $ctx['skipHol'], $ctx['closed'], $ctx['q'],
+        ];
 
         // Filas por página (selector del pie de tabla).
         $perPage = (int) $request->input('per_page', 20);
@@ -209,9 +228,107 @@ class ShipmentController extends Controller
             'to'          => $to,
             'range'       => $range,
             'statuses'    => ShippingRequest::STATUSES,
-            'requirePayment' => $setting->require_payment,
+            'requirePayment' => $ctx['requirePayment'],
             'departments' => Department::orderBy('description')->get(['id', 'description']),
         ]);
+    }
+
+    /**
+     * Exporta a CSV la lista con los MISMOS filtros del panel (Excel abre el
+     * archivo con acentos gracias al BOM UTF-8).
+     */
+    public function export(Request $request): \Symfony\Component\HttpFoundation\StreamedResponse
+    {
+        $ctx   = [];
+        $query = $this->buildListQuery($request, $ctx);
+        $maxDays = $ctx['maxDays'];
+        $skipHol = $ctx['skipHol'];
+
+        $filename = 'envios_' . now()->format('Ymd_His') . '.csv';
+        $headers = [
+            'Content-Type'        => 'text/csv; charset=UTF-8',
+            'Content-Disposition' => 'attachment; filename="' . $filename . '"',
+        ];
+
+        return response()->streamDownload(function () use ($query, $maxDays, $skipHol) {
+            $out = fopen('php://output', 'w');
+            fwrite($out, "\xEF\xBB\xBF"); // BOM para que Excel respete UTF-8
+            fputcsv($out, [
+                'Código', 'Cliente', 'Documento', 'N° documento', 'Celular',
+                'Tipo', 'Ciudad/Destino', 'Agencia', 'Oficina/Dirección', 'Referencia',
+                'Contenido', 'Bultos', 'Peso (kg)', 'Costo envío', 'Pago',
+                'Estado', 'Días hábiles', 'Registrado', 'Guía',
+            ]);
+            $query->chunk(500, function ($rows) use ($out, $maxDays, $skipHol) {
+                foreach ($rows as $s) {
+                    $age = $s->aging($maxDays, $skipHol);
+                    fputcsv($out, [
+                        $s->shipment_code ?: ('#' . $s->id),
+                        $s->full_name,
+                        $s->document_label,
+                        $s->dni,
+                        $s->phone,
+                        $s->is_domicilio ? 'Domicilio' : 'Agencia',
+                        $s->destination_city,
+                        $s->is_domicilio ? '' : $s->shipping_agency,
+                        $s->is_domicilio ? ($s->shipping_destination ?: $s->formatted_address) : ($s->reference ?: $s->shipping_destination),
+                        $s->is_domicilio ? $s->reference : '',
+                        $s->package_content,
+                        $s->package_count,
+                        $s->weight,
+                        $s->delivery_price ? number_format($s->delivery_price, 2, '.', '') : '',
+                        $s->payment_confirmed ? 'Confirmado' : '',
+                        $s->status_label,
+                        $age['days'] === null ? '' : $age['days'],
+                        optional($s->created_at)->format('d/m/Y H:i'),
+                        $s->has_guide ? 'Sí' : 'No',
+                    ]);
+                }
+            });
+            fclose($out);
+        }, $filename, $headers);
+    }
+
+    /**
+     * Cambia el estado de VARIOS envíos a la vez (barra de selección). Salta los
+     * bloqueados por pago y notifica a cada cliente por WhatsApp del cambio.
+     */
+    public function statusBulk(Request $request): RedirectResponse
+    {
+        $request->validate([
+            'status' => 'required|in:' . implode(',', array_keys(ShippingRequest::STATUSES)),
+        ]);
+        $ids = collect(explode(',', (string) $request->input('ids', '')))
+            ->map(fn ($x) => (int) trim($x))->filter()->unique()->take(200)->values();
+        abort_if($ids->isEmpty(), 404);
+
+        $status = $request->input('status');
+        $shipments = ShippingRequest::whereIn('id', $ids)->get();
+
+        $done = 0; $skipped = 0;
+        foreach ($shipments as $s) {
+            if ($this->paymentBlocks($s) || $s->is_cancelled) { $skipped++; continue; }
+            $old = $s->status;
+            $update = ['status' => $status];
+            $sealStatuses = [
+                ShippingRequest::STATUS_EN_AGENCIA, ShippingRequest::STATUS_EN_RUTA,
+                ShippingRequest::STATUS_EN_CAMINO, ShippingRequest::STATUS_ENTREGADO,
+            ];
+            if (in_array($status, $sealStatuses, true) && !$s->sent_at) {
+                $update['sent_at'] = now();
+            }
+            $s->update($update);
+            if ($old !== $s->status) {
+                $this->notifyStatusChange($s);
+                $done++;
+            }
+        }
+
+        $msg = "Estado cambiado en {$done} envío(s).";
+        if ($skipped > 0) {
+            $msg .= " {$skipped} se omitieron (pago pendiente o anulados).";
+        }
+        return back()->with('success', $msg);
     }
 
     /** Atajo /registro-envio/sin-guia → index filtrado (filtro crítico). */
