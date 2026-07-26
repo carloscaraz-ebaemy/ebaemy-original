@@ -41,10 +41,10 @@
 
     /* ── Cabecera con presencia ── */
     .sh-head { display:flex; align-items:center; gap:12px; }
-    .sh-head__ic { display:flex; align-items:center; justify-content:center; width:40px; height:40px;
-        border-radius:12px; font-size:1.05rem; color:#4f46e5;
-        background:linear-gradient(145deg,#eef2ff,#e0e7ff); box-shadow:inset 0 0 0 1px #e0e7ff; }
-    .sh-head__t { margin:0; font-size:1.06rem; font-weight:700; color:#0f172a; letter-spacing:-.015em; }
+    .sh-head__ic { display:flex; align-items:center; justify-content:center; width:42px; height:42px;
+        border-radius:13px; font-size:1.05rem; color:var(--sh-brand, #4f46e5);
+        background:linear-gradient(145deg,#eef1fe,#dfe4fb); box-shadow:inset 0 0 0 1px #dfe4fb; }
+    .sh-head__t { margin:0; font-size:1.08rem; font-weight:700; color:var(--sh-ink, #1f2430); letter-spacing:-.015em; }
 
     /* ── Avatar de cliente ── */
     .sh-cli { display:flex; align-items:center; gap:9px; }
@@ -102,8 +102,8 @@
         font-size:.7rem; font-weight:700; border-radius:999px; white-space:nowrap; line-height:1.5;
         font-variant-numeric:tabular-nums; }
     .sh-age__dot { width:7px; height:7px; border-radius:50%; background:currentColor; flex:0 0 auto; }
-    tr.sh-row--aged { position:relative; }
-    tr.sh-row--aged > td:first-child { box-shadow:inset 3px 0 0 0 var(--age-c, transparent); }
+    /* El resalte de fila por antigüedad vive en la sección de tabla (tinte
+       sutil, sin franja lateral). El badge de la columna Fecha lleva el detalle. */
 
     /* ── Barra de herramientas ── */
     .sh-tools { display:flex; align-items:center; gap:8px; margin-bottom:12px; flex-wrap:wrap; }
@@ -183,7 +183,28 @@
     .sh-filters__clear { display:block; margin-top:10px; padding-top:10px; border-top:1px solid var(--sh-line-soft);
         font-size:.75rem; font-weight:700; color:#dc2626; text-decoration:none; text-align:center; }
     .sh-filters__clear:hover { color:#b91c1c; }
-    @media (max-width:768px) { .sh-search { max-width:none; flex:1 1 100%; } }
+
+    /* ── Modal "ojo": ficha de lo que registró el cliente ── */
+    .sh-view { border:none; border-radius:18px; overflow:hidden; }
+    .sh-view__head { align-items:center; gap:12px; padding:16px 20px; border-bottom:1px solid var(--sh-line-soft);
+        background:linear-gradient(180deg,var(--sh-track),var(--sh-surface)); }
+    .sh-view__id { display:flex; flex-direction:column; gap:1px; margin-right:auto; }
+    .sh-view__code { font-size:.72rem; font-weight:700; letter-spacing:.02em; color:var(--sh-brand-ink);
+        font-variant-numeric:tabular-nums; }
+    .sh-view__name { font-size:1.02rem; font-weight:700; color:var(--sh-ink); }
+    .sh-view__type { font-size:.68rem; font-weight:700; padding:.24rem .6rem; border-radius:999px; white-space:nowrap; }
+    .sh-view__type.is-dom { background:#f3e8ff; color:#7c3aed; } .sh-view__type.is-ag { background:#dbeafe; color:#1d4ed8; }
+    .sh-view__body { padding:8px 20px 16px; }
+    .sh-view__sec { padding:14px 0 4px; }
+    .sh-view__sec + .sh-view__sec { border-top:1px solid var(--sh-line-soft); }
+    .sh-view__t { font-size:.64rem; font-weight:700; letter-spacing:.08em; text-transform:uppercase;
+        color:var(--sh-faint); margin-bottom:8px; }
+    .sh-view__row { display:flex; gap:16px; padding:6px 0; font-size:.86rem; align-items:baseline; }
+    .sh-view__row .k { flex:0 0 38%; color:var(--sh-muted); }
+    .sh-view__row .v { flex:1; color:var(--sh-ink); font-weight:600; word-break:break-word; }
+    .sh-view__foot { border-top:1px solid var(--sh-line-soft); gap:8px; }
+    @media (max-width:768px) { .sh-search { max-width:none; flex:1 1 100%; }
+        .sh-view__row { flex-direction:column; gap:2px; } .sh-view__row .k { flex:none; } }
 
     /* Filtros: más compactos y con feedback dinámico */
     #shipmentsApp .btn-sm { padding-top:.22rem; padding-bottom:.22rem; transition:transform .12s ease, box-shadow .12s ease, background .12s ease; }
@@ -205,69 +226,88 @@
     .sh-act { display:inline-flex; align-items:center; gap:6px; white-space:nowrap; cursor:pointer; text-decoration:none;
         font-size:.76rem; font-weight:600; line-height:1; padding:.45rem .7rem; border-radius:7px;
         border:1px solid transparent; transition:background .15s ease-out, border-color .15s ease-out; }
-    .sh-act--primary { color:#3730a3; background:#eef2ff; border-color:#c7d2fe; }
-    .sh-act--primary:hover { background:#e0e7ff; color:#312e81; }
-    .sh-act--ok { color:#166534; background:#f0fdf4; border-color:#bbf7d0; }
+    .sh-act--primary { color:var(--sh-brand-ink); background:var(--sh-brand-weak); border-color:var(--sh-brand-line); }
+    .sh-act--primary:hover { background:#e3e8fd; color:#312e81; }
+    .sh-act--ok { color:#166534; background:#eafaf0; border-color:#bbf7d0; }
     .sh-act--ok:hover { background:#dcfce7; color:#14532d; }
-    .sh-act--ghost { color:#9ca3af; background:transparent; border-color:#e5e7eb; padding:.45rem .58rem; }
-    .sh-act--ghost:hover { background:#f3f4f6; color:#4b5563; }
+    .sh-act--ghost { color:var(--sh-faint); background:transparent; border-color:var(--sh-line); padding:.45rem .58rem; }
+    .sh-act--ghost:hover { background:var(--sh-hover); color:var(--sh-muted); }
     .sh-act[disabled], .sh-act.is-off { opacity:.4; pointer-events:none; }
     /* ── Tabla: acabado de producto, no Bootstrap por defecto ── */
-    #shipmentsApp .card { border:1px solid #e9ebef; border-radius:14px; overflow:hidden;
-        box-shadow:0 1px 2px rgba(16,24,40,.04), 0 6px 14px -10px rgba(16,24,40,.14),
-                   0 26px 46px -32px rgba(16,24,40,.28); }
+    #shipmentsApp .card { border:1px solid var(--sh-line); border-radius:16px; overflow:hidden;
+        box-shadow:0 1px 2px rgba(31,36,64,.04), 0 8px 18px -12px rgba(31,36,64,.16),
+                   0 30px 50px -34px rgba(31,36,64,.3); }
     #shipmentsApp .table { margin:0; }
-    #shipmentsApp .table > thead > tr > th { background:#fbfcfd; color:#8b93a1;
-        font-size:.655rem; font-weight:600; letter-spacing:.07em; text-transform:uppercase;
-        padding:.72rem .75rem; border-bottom:1px solid #eceff3; white-space:nowrap; }
-    #shipmentsApp .table > tbody > tr > td { padding:.82rem .75rem; border-top:1px solid #f4f6f8;
-        vertical-align:middle; font-size:.815rem; color:#5b6472; }
+    #shipmentsApp .table > thead > tr > th { background:var(--sh-track); color:var(--sh-faint);
+        font-size:.655rem; font-weight:700; letter-spacing:.07em; text-transform:uppercase;
+        padding:.75rem .8rem; border-bottom:1px solid var(--sh-line-soft); white-space:nowrap; }
+    #shipmentsApp .table > tbody > tr > td { padding:.85rem .8rem; border-top:1px solid var(--sh-line-soft);
+        vertical-align:middle; font-size:.815rem; color:var(--sh-muted); }
     #shipmentsApp .table > tbody > tr:first-child > td { border-top:0; }
     #shipmentsApp .table > tbody > tr { transition:background .12s ease-out; }
-    #shipmentsApp .table > tbody > tr:hover > td { background:#f8fafd; }
+    #shipmentsApp .table > tbody > tr:hover > td { background:var(--sh-hover); }
+    /* Antigüedad crítica: tinte de fila sutil (sin franja lateral). Solo naranja
+       y rojo se resaltan; verde/amarillo se quedan neutros para no ser un arcoíris. */
+    #shipmentsApp .table > tbody > tr.sh-row--age3 > td { background:#fdf3f3; }
+    #shipmentsApp .table > tbody > tr.sh-row--age3:hover > td { background:#fbe9e9; }
+    #shipmentsApp .table > tbody > tr.sh-row--age2 > td { background:#fff8f1; }
+    #shipmentsApp .table > tbody > tr.sh-row--age2:hover > td { background:#fdefe0; }
     /* Jerarquía dentro de la fila */
-    .sh-code { display:block; font-weight:650; color:#111827; font-size:.775rem;
+    .sh-code { display:block; font-weight:650; color:var(--sh-ink); font-size:.775rem;
         letter-spacing:-.015em; font-variant-numeric:tabular-nums; }
-    .sh-client { display:block; font-weight:600; color:#111827; font-size:.815rem; line-height:1.3; }
-    .sh-phone { display:block; margin-top:1px; font-size:.71rem; color:#9aa2af; font-variant-numeric:tabular-nums; }
-    .sh-date { font-weight:600; color:#374151; font-size:.775rem; font-variant-numeric:tabular-nums; }
-    .sh-time { display:block; font-size:.7rem; color:#9aa2af; font-variant-numeric:tabular-nums; }
+    .sh-client { display:block; font-weight:600; color:var(--sh-ink); font-size:.815rem; line-height:1.3; }
+    .sh-phone { display:block; margin-top:1px; font-size:.71rem; color:var(--sh-faint); font-variant-numeric:tabular-nums; }
+    .sh-date { font-weight:600; color:var(--sh-ink); font-size:.775rem; font-variant-numeric:tabular-nums; }
+    .sh-time { display:block; font-size:.7rem; color:var(--sh-faint); font-variant-numeric:tabular-nums; }
     /* Etiquetas (reemplazan los badges genéricos) */
-    .sh-tag { display:inline-flex; align-items:center; gap:4px; font-size:.68rem; font-weight:600;
-        padding:.24rem .52rem; border-radius:6px; letter-spacing:.005em; text-decoration:none; white-space:nowrap; }
-    .sh-tag--danger { background:#fef2f2; color:#b42318; }
-    .sh-tag--ok { background:#ecfdf3; color:#067647; }
+    .sh-tag { display:inline-flex; align-items:center; gap:4px; font-size:.68rem; font-weight:700;
+        padding:.26rem .54rem; border-radius:999px; letter-spacing:.005em; text-decoration:none; white-space:nowrap; }
+    .sh-tag--danger { background:#fdecec; color:#b42318; }
+    .sh-tag--ok { background:#eafaf0; color:#067647; }
     .sh-tag--ok:hover { background:#d1fadf; color:#05603a; }
+    /* Selector de estado: suavizar los colores Bootstrap (evitar el cian/amarillo
+       chillón) y darle el mismo acabado tokenizado. El color del texto queda como
+       pista sutil del estado; el borde es neutro. */
+    #shipmentsApp .sh-status-select { border-radius:9px !important; font-weight:600;
+        background:var(--sh-surface); box-shadow:none; padding-block:.34rem;
+        border-color:var(--sh-line) !important; transition:border-color .15s, box-shadow .15s; }
+    #shipmentsApp .sh-status-select:focus { border-color:var(--sh-brand-line) !important; box-shadow:0 0 0 3px rgba(79,70,229,.12) !important; }
+    #shipmentsApp .sh-status-select.text-secondary { color:#647089 !important; }
+    #shipmentsApp .sh-status-select.text-info      { color:#0e7490 !important; }
+    #shipmentsApp .sh-status-select.text-warning   { color:#b45309 !important; }
+    #shipmentsApp .sh-status-select.text-primary   { color:var(--sh-brand) !important; }
+    #shipmentsApp .sh-status-select.text-success   { color:#15803d !important; }
+    #shipmentsApp .sh-status-select.text-dark      { color:var(--sh-ink) !important; }
 
     /* ── Pie de tabla (paginación tipo ERP) ── */
     .sh-foot { display:flex; align-items:center; justify-content:space-between; gap:16px; flex-wrap:wrap;
-        padding:11px 16px; border-top:1px solid #eef0f4; background:linear-gradient(180deg,#fcfcfd,#f8fafc);
-        border-radius:0 0 .5rem .5rem; font-size:.8rem; }
-    .sh-foot__info { color:#6b7280; display:inline-flex; align-items:baseline; gap:5px; }
-    .sh-foot__range, .sh-foot__total { color:#111827; font-weight:600; font-variant-numeric:tabular-nums; }
-    .sh-foot__of, .sh-foot__label { color:#9ca3af; }
-    .sh-foot__size { display:inline-flex; align-items:center; gap:8px; color:#6b7280; }
+        padding:11px 16px; border-top:1px solid var(--sh-line-soft); background:var(--sh-track);
+        font-size:.8rem; }
+    .sh-foot__info { color:var(--sh-muted); display:inline-flex; align-items:baseline; gap:5px; }
+    .sh-foot__range, .sh-foot__total { color:var(--sh-ink); font-weight:600; font-variant-numeric:tabular-nums; }
+    .sh-foot__of, .sh-foot__label { color:var(--sh-faint); }
+    .sh-foot__size { display:inline-flex; align-items:center; gap:8px; color:var(--sh-muted); }
     .sh-foot__size label { margin:0; font-weight:500; }
     .sh-select { position:relative; display:inline-flex; align-items:center; }
-    .sh-select select { appearance:none; -webkit-appearance:none; padding:.34rem 1.7rem .34rem .6rem;
-        font-size:.78rem; font-weight:600; color:#374151; background:#fff; border:1px solid #e5e7eb;
-        border-radius:8px; box-shadow:0 1px 2px rgba(16,24,40,.04); cursor:pointer;
+    .sh-select select { appearance:none; -webkit-appearance:none; padding:.36rem 1.7rem .36rem .6rem;
+        font-size:.78rem; font-weight:600; color:var(--sh-ink); background:var(--sh-surface); border:1px solid var(--sh-line);
+        border-radius:9px; cursor:pointer;
         transition:border-color .15s ease-out, box-shadow .15s ease-out; }
-    .sh-select select:hover { border-color:#d1d5db; }
-    .sh-select select:focus { outline:none; border-color:#a5b4fc; box-shadow:0 0 0 3px rgba(79,70,229,.12); }
-    .sh-select i { position:absolute; right:.6rem; font-size:.6rem; color:#9ca3af; pointer-events:none; }
+    .sh-select select:hover { border-color:#d5d9e6; }
+    .sh-select select:focus { outline:none; border-color:var(--sh-brand-line); box-shadow:0 0 0 3px rgba(79,70,229,.12); }
+    .sh-select i { position:absolute; right:.6rem; font-size:.6rem; color:var(--sh-faint); pointer-events:none; }
     .sh-foot__nav { display:inline-flex; align-items:center; gap:4px; }
     .sh-pg-nums { display:inline-flex; align-items:center; gap:4px; }
     .sh-pg { display:inline-flex; align-items:center; justify-content:center; min-width:32px; height:32px; padding:0 8px;
-        border-radius:8px; font-size:.78rem; font-weight:600; font-variant-numeric:tabular-nums; color:#4b5563;
-        text-decoration:none; background:#fff; border:1px solid #e5e7eb; box-shadow:0 1px 2px rgba(16,24,40,.04);
+        border-radius:9px; font-size:.78rem; font-weight:600; font-variant-numeric:tabular-nums; color:var(--sh-muted);
+        text-decoration:none; background:var(--sh-surface); border:1px solid var(--sh-line);
         transition:background .15s ease-out, border-color .15s ease-out, color .15s ease-out, transform .1s ease-out; }
-    .sh-pg:hover { background:#f9fafb; border-color:#d1d5db; color:#111827; }
+    .sh-pg:hover { background:var(--sh-hover); border-color:#d5d9e6; color:var(--sh-ink); }
     .sh-pg:active { transform:translateY(1px); }
-    .sh-pg.is-current { background:#4f46e5; border-color:#4f46e5; color:#fff;
-        box-shadow:0 1px 2px rgba(79,70,229,.45), 0 2px 6px -2px rgba(79,70,229,.4); }
+    .sh-pg.is-current { background:var(--sh-brand); border-color:var(--sh-brand); color:#fff;
+        box-shadow:0 2px 8px -2px rgba(79,70,229,.5); }
     .sh-pg.is-off { opacity:.38; pointer-events:none; box-shadow:none; }
-    .sh-pg-gap { padding:0 2px; color:#d1d5db; letter-spacing:1px; font-size:.7rem; }
+    .sh-pg-gap { padding:0 2px; color:var(--sh-faint); letter-spacing:1px; font-size:.7rem; }
     @media (max-width:768px) {
         .sh-foot { justify-content:center; text-align:center; gap:10px; }
         .sh-pg-nums .sh-pg:not(.is-current) { display:none; }
@@ -555,9 +595,56 @@
                         // Semáforo de antigüedad (solo envíos abiertos).
                         $age = $s->aging($maxDays ?? 4, $skipHolidays ?? true);
                         $ageMeta = $age['level'] !== null ? \App\Models\Tenant\ShippingRequest::AGING_META[$age['level']] : null;
+
+                        // Todo lo que registró el cliente, agrupado para el modal "ojo".
+                        $isDom = $s->is_domicilio;
+                        $secEntrega = $isDom
+                            ? array_filter([
+                                'Dirección'   => $s->shipping_destination ?: $s->formatted_address,
+                                'Referencia'  => $s->reference,
+                                'Ciudad'      => $s->destination_city,
+                                'Distancia'   => $s->distance_km ? ($s->distance_text ?: ($s->distance_km.' km')) : null,
+                                'Motorizado'  => $s->courier_name,
+                            ])
+                            : array_filter([
+                                'Agencia'            => $s->shipping_agency,
+                                'Oficina de recojo'  => $s->reference,
+                                'Dirección de reparto' => $s->shipping_destination,
+                                'Ciudad / destino'   => $s->destination_city,
+                            ]);
+                        $secCosto = array_filter([
+                            'Costo de envío' => $s->delivery_price ? ('S/ '.number_format($s->delivery_price, 2)) : null,
+                            'Pago'           => ($requirePayment ?? false) ? ($s->payment_confirmed ? ('Confirmado'.($s->payment_confirmed_at ? ' · '.$s->payment_confirmed_at->format('d/m/Y H:i') : '')) : 'Pendiente') : null,
+                        ]);
+                        $viewData = [
+                            'code' => $s->shipment_code ?: ('#'.$s->id),
+                            'name' => $s->full_name,
+                            'type' => $isDom ? 'Domicilio' : 'Agencia',
+                            'maps' => $isDom ? $s->maps_link : null,
+                            'sections' => array_filter([
+                                'Cliente' => array_filter([
+                                    'Nombre'  => $s->full_name,
+                                    $s->document_label => $s->dni,
+                                    'Celular' => $s->phone,
+                                ]),
+                                ($isDom ? 'Entrega a domicilio' : 'Envío por agencia') => $secEntrega,
+                                'Paquete' => array_filter([
+                                    'Contenido'     => $s->package_content,
+                                    'Bultos'        => $s->package_count,
+                                    'Peso'          => $s->weight ? ($s->weight.' kg') : null,
+                                    'Observaciones' => $s->notes,
+                                ]),
+                                'Costo' => $secCosto,
+                                'Seguimiento' => array_filter([
+                                    'Estado'     => $s->status_label,
+                                    'Registrado' => optional($s->created_at)->format('d/m/Y H:i'),
+                                    'Código'     => $s->shipment_code,
+                                ]),
+                            ]),
+                        ];
                     @endphp
-                    <tr class="{{ $s->is_cancelled ? 'text-muted' : '' }} {{ $ageMeta ? 'sh-row--aged' : '' }}"
-                        style="{{ $s->is_cancelled ? 'opacity:.7;' : '' }}{{ $ageMeta ? '--age-c:'.$ageMeta['color'].';' : '' }}">
+                    <tr class="{{ $s->is_cancelled ? 'text-muted' : '' }} {{ $ageMeta ? 'sh-row--age'.$age['level'] : '' }}"
+                        style="{{ $s->is_cancelled ? 'opacity:.7;' : '' }}">
                         <td><input type="checkbox" class="form-check-input sh-check" value="{{ $s->id }}"></td>
                         <td><span class="sh-code">{{ $s->shipment_code }}</span></td>
                         <td>
@@ -659,6 +746,11 @@
                         </td>
                         <td class="text-end text-nowrap">
                             <div class="sh-actions">
+                                <button type="button" class="sh-act sh-act--ghost js-view-shipment" title="Ver todo lo que registró el cliente"
+                                        data-bs-toggle="modal" data-bs-target="#modalVerEnvio"
+                                        data-view="{{ json_encode($viewData, JSON_UNESCAPED_UNICODE) }}">
+                                    <i class="fas fa-eye"></i>
+                                </button>
                                 @if($s->has_guide)
                                     <a href="{{ route('shipments.guide', $s->id) }}" target="_blank" class="sh-act sh-act--ok" title="Ver la guía cargada">
                                         <i class="fas fa-eye"></i> Ver guía
@@ -1060,6 +1152,29 @@
     </div>
   </div>
 </div>
+
+{{-- ── Modal "ojo": todo lo que registró el cliente (solo lectura) ── --}}
+<div class="modal fade" id="modalVerEnvio" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable">
+    <div class="modal-content sh-view">
+      <div class="modal-header sh-view__head">
+        <div class="sh-view__id">
+          <span class="sh-view__code" id="vwCode">—</span>
+          <span class="sh-view__name" id="vwName">—</span>
+        </div>
+        <span class="sh-view__type" id="vwType"></span>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+      </div>
+      <div class="modal-body sh-view__body" id="vwBody"></div>
+      <div class="modal-footer sh-view__foot">
+        <a href="#" id="vwMaps" target="_blank" rel="noopener" class="sh-act sh-act--primary" style="display:none;">
+          <i class="fas fa-map-marker-alt"></i> Ver ubicación
+        </a>
+        <button type="button" class="sh-act sh-act--ghost" data-bs-dismiss="modal" style="border-color:var(--sh-line);">Cerrar</button>
+      </div>
+    </div>
+  </div>
+</div>
 @endsection
 
 @push('scripts')
@@ -1458,6 +1573,37 @@
                 if (typeof swap === 'function') swap(url); else window.location.href = url;
             }
         }
+    });
+
+    // ── Modal "ojo": rellena la ficha con lo que registró el cliente ──
+    document.addEventListener('click', function (ev) {
+        var btn = ev.target.closest && ev.target.closest('.js-view-shipment');
+        if (!btn) return;
+        var data;
+        try { data = JSON.parse(btn.getAttribute('data-view') || '{}'); } catch (e) { return; }
+        var set = function (id, val) { var el = document.getElementById(id); if (el) el.textContent = val || '—'; };
+        set('vwCode', data.code); set('vwName', data.name);
+        var typeEl = document.getElementById('vwType');
+        if (typeEl) { typeEl.textContent = data.type || ''; typeEl.className = 'sh-view__type ' + (data.type === 'Domicilio' ? 'is-dom' : 'is-ag'); }
+        var body = document.getElementById('vwBody');
+        if (body) {
+            body.innerHTML = '';
+            var secs = data.sections || {};
+            Object.keys(secs).forEach(function (h) {
+                var rows = secs[h]; if (!rows || !Object.keys(rows).length) return;
+                var sec = document.createElement('div'); sec.className = 'sh-view__sec';
+                var t = document.createElement('div'); t.className = 'sh-view__t'; t.textContent = h; sec.appendChild(t);
+                Object.keys(rows).forEach(function (k) {
+                    var r = document.createElement('div'); r.className = 'sh-view__row';
+                    var ks = document.createElement('span'); ks.className = 'k'; ks.textContent = k;
+                    var vs = document.createElement('span'); vs.className = 'v'; vs.textContent = rows[k];
+                    r.appendChild(ks); r.appendChild(vs); sec.appendChild(r);
+                });
+                body.appendChild(sec);
+            });
+        }
+        var maps = document.getElementById('vwMaps');
+        if (maps) { if (data.maps) { maps.href = data.maps; maps.style.display = ''; } else { maps.style.display = 'none'; } }
     });
 
     // ✕ limpiar búsqueda (sin recargar).
