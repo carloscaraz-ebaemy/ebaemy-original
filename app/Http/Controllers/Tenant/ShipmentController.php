@@ -85,6 +85,11 @@ class ShipmentController extends Controller
             }
         } else {
             $range = null;
+            // Rango manual (del día X al día Y): si el usuario los eligió al
+            // revés, los ordenamos para que igual muestre el periodo esperado.
+            if ($from && $to && strtotime($from) && strtotime($to) && strtotime($from) > strtotime($to)) {
+                [$from, $to] = [$to, $from];
+            }
         }
         if ($from && strtotime($from)) {
             $query->whereDate('created_at', '>=', date('Y-m-d', strtotime($from)));

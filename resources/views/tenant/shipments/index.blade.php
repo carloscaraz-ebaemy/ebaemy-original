@@ -137,6 +137,17 @@
     .sh-range__opt:hover { background:#f4f5f8; color:#111827; }
     .sh-range__opt.is-on { background:#eef2ff; color:#3730a3; }
     .sh-range__opt.is-on::after { content:'✓'; margin-left:auto; color:#4f46e5; font-weight:800; }
+    /* Rango exacto de días (del X al Y) */
+    .sh-cal { display:flex; flex-direction:column; gap:8px; }
+    .sh-cal__row { display:flex; align-items:center; gap:7px; }
+    .sh-cal__in { flex:1; min-width:0; padding:.4rem .5rem; font-size:.78rem; color:#374151;
+        border:1px solid #e5e7eb; border-radius:8px; background:#fff; }
+    .sh-cal__in:focus { outline:none; border-color:#a5b4fc; box-shadow:0 0 0 3px rgba(79,70,229,.12); }
+    .sh-cal__sep { font-size:.75rem; color:#9aa2af; }
+    .sh-cal__apply { padding:.44rem .6rem; font-size:.78rem; font-weight:700; color:#fff; cursor:pointer;
+        background:#4f46e5; border:none; border-radius:8px; }
+    .sh-cal__apply:hover { background:#4338ca; }
+    .sh-cal__apply:disabled { background:#c7d2fe; cursor:default; }
     .sh-filters__clear { display:block; margin-top:10px; padding-top:9px; border-top:1px solid #f1f3f5;
         font-size:.75rem; font-weight:600; color:#dc2626; text-decoration:none; text-align:center; }
     .sh-filters__clear:hover { color:#b91c1c; }
@@ -309,8 +320,20 @@
             'mes'        => 'Este mes',
             'mes_pasado' => 'Mes pasado',
         ];
-        $rangeLabel = $rangeOpts[$range ?? ''] ?? (($from || $to) ? 'Fechas personalizadas' : 'Cualquier fecha');
+        $fmtD = fn ($d) => $d ? \Illuminate\Support\Carbon::parse($d)->format('d/m/y') : null;
+        if (!empty($range)) {
+            $rangeLabel = $rangeOpts[$range];
+        } elseif ($from && $to) {
+            $rangeLabel = $fmtD($from) . ' – ' . $fmtD($to);
+        } elseif ($from) {
+            $rangeLabel = 'Desde ' . $fmtD($from);
+        } elseif ($to) {
+            $rangeLabel = 'Hasta ' . $fmtD($to);
+        } else {
+            $rangeLabel = 'Cualquier fecha';
+        }
         $rangeOn = !empty($range) || !empty($from) || !empty($to);
+        $hoyStr  = now()->format('Y-m-d');
     @endphp
     {{-- #shPanel: zona que se recarga por AJAX (sin recargar toda la página). --}}
     <div id="shPanel">
@@ -377,9 +400,9 @@
             <button type="button" class="sh-chip {{ $rangeOn ? 'is-on' : '' }}" data-bs-toggle="dropdown" data-bs-auto-close="outside" title="Filtrar por fecha de registro">
                 <i class="far fa-calendar-alt"></i> {{ $rangeLabel }}
             </button>
-            <div class="dropdown-menu shadow sh-filters" style="min-width:220px;">
+            <div class="dropdown-menu shadow sh-filters" style="min-width:250px;">
                 <div class="sh-filters__g">
-                    <span class="sh-filters__t">Ver registros de…</span>
+                    <span class="sh-filters__t">Atajos</span>
                     <div class="sh-range">
                         <a href="{{ $mk(['range' => null, 'from' => null, 'to' => null]) }}"
                            class="sh-range__opt {{ !$rangeOn ? 'is-on' : '' }}">Cualquier fecha</a>
@@ -389,6 +412,28 @@
                         @endforeach
                     </div>
                 </div>
+                {{-- Rango exacto: elige el día de inicio y el día de fin. --}}
+                <div class="sh-filters__g">
+                    <span class="sh-filters__t">Del día… al día…</span>
+                    <form method="GET" action="{{ route('shipments.index') }}" class="sh-cal" id="shRangeForm">
+                        @if($filter && $filter !== 'todos')<input type="hidden" name="filter" value="{{ $filter }}">@endif
+                        @if($type)<input type="hidden" name="type" value="{{ $type }}">@endif
+                        @if($group)<input type="hidden" name="group" value="{{ $group }}">@endif
+                        @if(($sort ?? 'recent') !== 'recent')<input type="hidden" name="sort" value="{{ $sort }}">@endif
+                        @if($pri)<input type="hidden" name="pri" value="{{ $pri }}">@endif
+                        @if($q)<input type="hidden" name="q" value="{{ $q }}">@endif
+                        @if((int) ($perPage ?? 20) !== 20)<input type="hidden" name="per_page" value="{{ $perPage }}">@endif
+                        <div class="sh-cal__row">
+                            <input type="date" name="from" class="sh-cal__in" max="{{ $hoyStr }}" value="{{ $range ? '' : $from }}" aria-label="Día de inicio">
+                            <span class="sh-cal__sep">al</span>
+                            <input type="date" name="to" class="sh-cal__in" max="{{ $hoyStr }}" value="{{ $range ? '' : $to }}" aria-label="Día de fin">
+                        </div>
+                        <button type="submit" class="sh-cal__apply">Ver este rango</button>
+                    </form>
+                </div>
+                @if($rangeOn)
+                    <a href="{{ $mk(['range' => null, 'from' => null, 'to' => null]) }}" class="sh-filters__clear">Quitar filtro de fecha</a>
+                @endif
             </div>
         </div>
 
@@ -1319,6 +1364,21 @@
         clearTimeout(st);
         st = setTimeout(function () { var u = searchUrl(); if (u) swapResults(u); }, 300);
     });
+    // Rango exacto de días: el "fin" no puede ser anterior al "inicio", y al
+    // elegir ambos días se aplica el filtro automáticamente (delegado: sobrevive
+    // al re-render del panel).
+    document.addEventListener('change', function (ev) {
+        var form = ev.target.closest && ev.target.closest('#shRangeForm');
+        if (!form || ev.target.type !== 'date') return;
+        var from = form.querySelector('input[name="from"]');
+        var to   = form.querySelector('input[name="to"]');
+        if (from && to) {
+            if (from.value) to.min = from.value;
+            if (to.value)   from.max = to.value;
+            if (from.value && to.value) form.submit();
+        }
+    });
+
     // ✕ limpiar búsqueda (sin recargar).
     document.addEventListener('click', function (ev) {
         if (!ev.target.closest || !ev.target.closest('#shClearSearch')) return;
