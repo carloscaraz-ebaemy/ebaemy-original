@@ -171,6 +171,8 @@ class ShippingRequestsInstall extends Command
                 $table->string('orders_whatsapp', 20)->nullable();
                 $table->decimal('agency_fee', 8, 2)->nullable();
                 $table->boolean('require_payment')->default(false);
+                $table->unsignedTinyInteger('max_business_days')->default(4);
+                $table->boolean('aging_skip_holidays')->default(true);
                 $table->timestamps();
             });
             return;
@@ -184,6 +186,9 @@ class ShippingRequestsInstall extends Command
             if (!$has('orders_whatsapp')) $table->string('orders_whatsapp', 20)->nullable()->after('min_price');
             if (!$has('agency_fee'))      $table->decimal('agency_fee', 8, 2)->nullable()->after('orders_whatsapp');
             if (!$has('require_payment')) $table->boolean('require_payment')->default(false)->after('agency_fee');
+            // Semáforo de prioridad por días hábiles (2026-07-25).
+            if (!$has('max_business_days'))   $table->unsignedTinyInteger('max_business_days')->default(4)->after('require_payment');
+            if (!$has('aging_skip_holidays')) $table->boolean('aging_skip_holidays')->default(true)->after('max_business_days');
         });
     }
 

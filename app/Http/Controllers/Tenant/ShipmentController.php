@@ -35,10 +35,22 @@ class ShipmentController extends Controller
             $filter = 'todos';
         }
 
-        // Orden por fecha de registro: recientes (default) o antiguos primero.
-        $sort  = $request->input('sort') === 'oldest' ? 'oldest' : 'recent';
+        // Parámetros del semáforo de prioridad (plazo en días hábiles).
+        $setting  = ShippingSetting::current();
+        $maxDays  = $setting->max_days;
+        $skipHol  = (bool) ($setting->aging_skip_holidays ?? true);
+        $closed   = ShippingRequest::CLOSED_STATUSES;
+
+        // Orden: recientes (default), antiguos, o PRIORIDAD (más vencidos primero,
+        // empujando al final los ya despachados/entregados/anulados).
+        $sort  = in_array($request->input('sort'), ['oldest', 'priority'], true)
+            ? $request->input('sort') : 'recent';
         $query = ShippingRequest::query();
-        if ($sort === 'oldest') {
+        if ($sort === 'priority') {
+            $ph = implode(',', array_fill(0, count($closed), '?'));
+            $query->orderByRaw("CASE WHEN status IN ($ph) THEN 1 ELSE 0 END asc", $closed)
+                  ->orderBy('created_at')->orderBy('id');
+        } elseif ($sort === 'oldest') {
             $query->orderBy('created_at')->orderBy('id');
         } else {
             $query->orderByDesc('created_at')->orderByDesc('id');
@@ -67,6 +79,18 @@ class ShipmentController extends Controller
             $query->where('delivery_type', $type);
         }
 
+        // Filtro por prioridad (antigüedad en días hábiles): 'urgentes' = naranja
+        // + rojo (≥ max-1 días), 'vencidos' = rojo (≥ max días). Solo envíos
+        // abiertos. Se traduce a un corte de fecha de calendario (SQL-friendly).
+        $pri = in_array($request->input('pri'), ['urgentes', 'vencidos'], true)
+            ? $request->input('pri') : null;
+        if ($pri) {
+            $k = $pri === 'vencidos' ? $maxDays : max(1, $maxDays - 1);
+            $cutoff = ShippingRequest::businessDaysBefore($k, $skipHol)->toDateString();
+            $query->whereDate('created_at', '<=', $cutoff)
+                  ->whereNotIn('status', $closed);
+        }
+
         // Grupos de estado para las tarjetas de métricas (incluyen valores legados
         // y los estados del flujo de motorizado: asignado_motorizado, en_camino).
         // Buckets del tablero, alineados al flujo REAL (recibido -> embalando ->
@@ -89,7 +113,7 @@ class ShipmentController extends Controller
         // con la tarjeta "Total" (group=todos) se ve absolutamente todo.
         $hasExplicit = $request->filled('group') || $request->filled('q')
             || $request->filled('from') || $request->filled('to')
-            || $request->filled('type') || $filter !== 'todos';
+            || $request->filled('type') || $request->filled('pri') || $filter !== 'todos';
         if (!$hasExplicit) {
             $group = 'confirmar';
         }
@@ -135,6 +159,14 @@ class ShipmentController extends Controller
         $metrics['agencia']   = ShippingRequest::agencia()->count();
         $metrics['courier_active'] = ShippingRequest::courierActive()->count();
 
+        // Conteo por prioridad (envíos abiertos que ya cruzaron el umbral).
+        $cutU = ShippingRequest::businessDaysBefore(max(1, $maxDays - 1), $skipHol)->toDateString();
+        $cutV = ShippingRequest::businessDaysBefore($maxDays, $skipHol)->toDateString();
+        $metrics['urgentes'] = ShippingRequest::whereNotIn('status', $closed)
+            ->whereDate('created_at', '<=', $cutU)->count();
+        $metrics['vencidos'] = ShippingRequest::whereNotIn('status', $closed)
+            ->whereDate('created_at', '<=', $cutV)->count();
+
         return view('tenant.shipments.index', [
             'shipments'   => $shipments,
             'filter'      => $filter,
@@ -144,11 +176,14 @@ class ShipmentController extends Controller
             'type'        => $type,
             'q'           => $q,
             'sort'        => $sort,
+            'pri'         => $pri,
+            'maxDays'     => $maxDays,
+            'skipHolidays'=> $skipHol,
             'perPage'     => $perPage,
             'from'        => $from,
             'to'          => $to,
             'statuses'    => ShippingRequest::STATUSES,
-            'requirePayment' => ShippingSetting::current()->require_payment,
+            'requirePayment' => $setting->require_payment,
             'departments' => Department::orderBy('description')->get(['id', 'description']),
         ]);
     }
@@ -872,13 +907,18 @@ class ShipmentController extends Controller
             'orders_whatsapp' => 'nullable|string|max:20',
             'agency_fee'      => 'nullable|numeric|min:0|max:99999',
             'require_payment' => 'nullable',
+            'max_business_days'   => 'nullable|integer|min:1|max:60',
+            'aging_skip_holidays' => 'nullable',
         ], [], [
             'store_latitude'  => 'ubicación de la tienda',
             'store_longitude' => 'ubicación de la tienda',
             'price_per_km'    => 'tarifa por km',
+            'max_business_days' => 'plazo de atención',
         ]);
 
-        $data['require_payment'] = $request->boolean('require_payment');
+        $data['require_payment']     = $request->boolean('require_payment');
+        $data['max_business_days']   = (int) ($request->input('max_business_days') ?: 4);
+        $data['aging_skip_holidays'] = $request->boolean('aging_skip_holidays');
 
         $store = ShippingSetting::current();
         $store->update($data);

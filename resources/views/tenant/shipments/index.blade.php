@@ -65,6 +65,33 @@
         background:#f1f3f5; color:#6b7280; font-variant-numeric:tabular-nums; }
     .sh-tab.is-on .sh-tab__n { background:#4f46e5; color:#fff; }
 
+    /* ── Prioridad por antigüedad (semáforo) ── */
+    .sh-pri { display:flex; align-items:center; gap:7px; flex-wrap:wrap; margin:-4px 0 12px; }
+    .sh-pri__lbl { font-size:.74rem; font-weight:700; color:#6b7280; letter-spacing:.02em; }
+    .sh-pri__lbl i { color:#9aa2af; margin-right:2px; }
+    .sh-pri__chip { display:inline-flex; align-items:center; gap:6px; white-space:nowrap; text-decoration:none;
+        padding:.36rem .62rem; font-size:.76rem; font-weight:600; color:#4b5563;
+        background:#fff; border:1px solid #e5e7eb; border-radius:8px; box-shadow:0 1px 2px rgba(16,24,40,.04);
+        transition:background .15s, border-color .15s, color .15s; }
+    .sh-pri__chip:hover { background:#f9fafb; border-color:#d1d5db; color:#111827; }
+    .sh-pri__chip b { font-size:.67rem; font-weight:800; padding:.05rem .34rem; border-radius:999px;
+        background:#eef0f3; color:#4b5563; font-variant-numeric:tabular-nums; }
+    .sh-pri__chip.is-on { background:#eef2ff; border-color:#c7d2fe; color:#3730a3; }
+    .sh-pri__chip--warn.is-on { background:#ffedd5; border-color:#fed7aa; color:#c2410c; }
+    .sh-pri__chip--warn.is-on b { background:#c2410c; color:#fff; }
+    .sh-pri__chip--danger.is-on { background:#fee2e2; border-color:#fecaca; color:#b91c1c; }
+    .sh-pri__chip--danger.is-on b { background:#b91c1c; color:#fff; }
+    .sh-pri__hint { font-size:.72rem; color:#9aa2af; margin-left:auto; }
+    .sh-pri__hint b { color:#4b5563; font-variant-numeric:tabular-nums; }
+
+    /* ── Semáforo de antigüedad en la fila ── */
+    .sh-age { display:inline-flex; align-items:center; gap:5px; margin-top:4px; padding:.12rem .44rem;
+        font-size:.7rem; font-weight:700; border-radius:999px; white-space:nowrap; line-height:1.5;
+        font-variant-numeric:tabular-nums; }
+    .sh-age__dot { width:7px; height:7px; border-radius:50%; background:currentColor; flex:0 0 auto; }
+    tr.sh-row--aged { position:relative; }
+    tr.sh-row--aged > td:first-child { box-shadow:inset 3px 0 0 0 var(--age-c, transparent); }
+
     /* ── Barra de herramientas ── */
     .sh-tools { display:flex; align-items:center; gap:8px; margin-bottom:10px; flex-wrap:wrap; }
     .sh-search { position:relative; display:flex; align-items:center; flex:1 1 240px; max-width:380px; margin:0; }
@@ -250,6 +277,7 @@
             'from'   => $from ?? null,
             'to'     => $to ?? null,
             'sort'   => (($sort ?? 'recent') !== 'recent') ? $sort : null,
+            'pri'    => $pri ?? null,
             'per_page' => ((int) ($perPage ?? 20) !== 20) ? $perPage : null,
         ], fn ($v) => $v !== null && $v !== '');
         $mk = function (array $override) use ($curParams) {
@@ -277,6 +305,27 @@
                 {{ $t['l'] }}<span class="sh-tab__n">{{ number_format($t['v']) }}</span>
             </a>
         @endforeach
+    </div>
+
+    {{-- ── Prioridad por antigüedad (días hábiles) ── --}}
+    <div class="sh-pri">
+        <span class="sh-pri__lbl"><i class="fas fa-traffic-light"></i> Prioridad</span>
+        <a href="{{ $mk(['sort' => ($sort ?? '') === 'priority' ? null : 'priority', 'pri' => null]) }}"
+           class="sh-pri__chip {{ ($sort ?? '') === 'priority' ? 'is-on' : '' }}"
+           title="Ordena mostrando primero los más antiguos / por vencer">
+            <i class="fas fa-sort-amount-down-alt"></i> Más antiguos primero
+        </a>
+        <a href="{{ $mk(['pri' => ($pri ?? '') === 'urgentes' ? null : 'urgentes']) }}"
+           class="sh-pri__chip sh-pri__chip--warn {{ ($pri ?? '') === 'urgentes' ? 'is-on' : '' }}"
+           title="Envíos abiertos con ≥ {{ ($maxDays ?? 4) - 1 }} días hábiles">
+            🟠 Urgentes @if(($metrics['urgentes'] ?? 0) > 0)<b>{{ $metrics['urgentes'] }}</b>@endif
+        </a>
+        <a href="{{ $mk(['pri' => ($pri ?? '') === 'vencidos' ? null : 'vencidos']) }}"
+           class="sh-pri__chip sh-pri__chip--danger {{ ($pri ?? '') === 'vencidos' ? 'is-on' : '' }}"
+           title="Envíos abiertos que superaron los {{ $maxDays ?? 4 }} días hábiles">
+            🔴 Vencidos @if(($metrics['vencidos'] ?? 0) > 0)<b>{{ $metrics['vencidos'] }}</b>@endif
+        </a>
+        <span class="sh-pri__hint">Plazo: <b>{{ $maxDays ?? 4 }}</b> días hábiles</span>
     </div>
 
     @if(session('success'))
@@ -416,8 +465,12 @@
                         ][$s->status] ?? 'secondary';
                         // Flujo bloqueado hasta confirmar el pago (si la tienda lo exige).
                         $bloqueado = ($requirePayment ?? false) && !$s->payment_confirmed && !$s->is_cancelled;
+                        // Semáforo de antigüedad (solo envíos abiertos).
+                        $age = $s->aging($maxDays ?? 4, $skipHolidays ?? true);
+                        $ageMeta = $age['level'] !== null ? \App\Models\Tenant\ShippingRequest::AGING_META[$age['level']] : null;
                     @endphp
-                    <tr class="{{ $s->is_cancelled ? 'text-muted' : '' }}" style="{{ $s->is_cancelled ? 'opacity:.7' : '' }}">
+                    <tr class="{{ $s->is_cancelled ? 'text-muted' : '' }} {{ $ageMeta ? 'sh-row--aged' : '' }}"
+                        style="{{ $s->is_cancelled ? 'opacity:.7;' : '' }}{{ $ageMeta ? '--age-c:'.$ageMeta['color'].';' : '' }}">
                         <td><input type="checkbox" class="form-check-input sh-check" value="{{ $s->id }}"></td>
                         <td><span class="sh-code">{{ $s->shipment_code }}</span></td>
                         <td>
@@ -506,6 +559,13 @@
                             @if($s->created_at)
                                 <div class="sh-date">{{ $s->created_at->format('d/m/Y') }}</div>
                                 <span class="sh-time">{{ $s->created_at->format('H:i') }}</span>
+                                @if($ageMeta)
+                                    <div class="sh-age" style="color:{{ $ageMeta['color'] }};background:{{ $ageMeta['bg'] }};"
+                                         title="{{ $ageMeta['label'] }} · {{ $age['days'] }} día(s) hábil(es) desde el registro (plazo {{ $maxDays ?? 4 }})">
+                                        <span class="sh-age__dot"></span>
+                                        {{ $age['days'] }} d háb · {{ $ageMeta['label'] }}
+                                    </div>
+                                @endif
                             @else
                                 <span class="text-muted">—</span>
                             @endif

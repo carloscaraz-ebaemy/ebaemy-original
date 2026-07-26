@@ -317,6 +317,117 @@ class ShippingRequest extends Model
         ]);
     }
 
+    // ── Antigüedad / prioridad por días hábiles ───────────────────────────
+    /**
+     * Feriados nacionales de Perú que NO cuentan como día hábil. Fechas fijas +
+     * Jueves/Viernes Santo (movibles, precalculados). Mantener al día por año.
+     */
+    public const HOLIDAYS = [
+        // 2026 (Semana Santa: Pascua 5-abr → Jue/Vie Santo 2 y 3 de abril)
+        '2026-01-01', '2026-04-02', '2026-04-03', '2026-05-01', '2026-06-07',
+        '2026-06-29', '2026-07-23', '2026-07-28', '2026-07-29', '2026-08-06',
+        '2026-08-30', '2026-10-08', '2026-11-01', '2026-12-08', '2026-12-09',
+        '2026-12-25',
+        // 2027 (Semana Santa: Pascua 28-mar → Jue/Vie Santo 25 y 26 de marzo)
+        '2027-01-01', '2027-03-25', '2027-03-26', '2027-05-01', '2027-06-07',
+        '2027-06-29', '2027-07-23', '2027-07-28', '2027-07-29', '2027-08-06',
+        '2027-08-30', '2027-10-08', '2027-11-01', '2027-12-08', '2027-12-09',
+        '2027-12-25',
+    ];
+
+    /**
+     * Estados en los que el reloj de atención YA se detuvo: el paquete salió de
+     * la tienda o el caso se cerró. No se les calcula antigüedad (no "vencen").
+     */
+    public const CLOSED_STATUSES = [
+        self::STATUS_DESPACHADO, self::STATUS_EN_AGENCIA, self::STATUS_EN_RUTA,
+        self::STATUS_EN_CAMINO, self::STATUS_ENTREGADO, self::STATUS_ANULADO,
+        'enviado', // legado = entregado a agencia
+    ];
+
+    /** Metadatos visuales por nivel de antigüedad (0 verde … 3 rojo). */
+    public const AGING_META = [
+        0 => ['key' => 'verde',    'color' => '#15803d', 'bg' => '#dcfce7', 'label' => 'En plazo'],
+        1 => ['key' => 'amarillo', 'color' => '#a16207', 'bg' => '#fef9c3', 'label' => 'Por vencer'],
+        2 => ['key' => 'naranja',  'color' => '#c2410c', 'bg' => '#ffedd5', 'label' => 'Urgente'],
+        3 => ['key' => 'rojo',     'color' => '#b91c1c', 'bg' => '#fee2e2', 'label' => 'Vencido'],
+    ];
+
+    /** ¿El reloj de atención ya se detuvo para este envío? */
+    public function isClosedForAging(): bool
+    {
+        return in_array($this->status, self::CLOSED_STATUSES, true);
+    }
+
+    /**
+     * Días HÁBILES transcurridos desde el registro hasta hoy (sáb/dom fuera;
+     * feriados fuera si $skipHolidays). El día de registro cuenta como 0.
+     */
+    public function businessDaysElapsed(bool $skipHolidays = true, ?\Illuminate\Support\Carbon $now = null): int
+    {
+        if (!$this->created_at) {
+            return 0;
+        }
+        $start = $this->created_at->copy()->startOfDay();
+        $end   = ($now ?? now())->copy()->startOfDay();
+        if ($end->lessThanOrEqualTo($start)) {
+            return 0;
+        }
+        $holidays = $skipHolidays ? array_flip(self::HOLIDAYS) : [];
+        $days = 0;
+        $cursor = $start->copy();
+        while ($cursor->lessThan($end)) {
+            $cursor->addDay();
+            if ($cursor->isWeekend()) {
+                continue;
+            }
+            if (isset($holidays[$cursor->toDateString()])) {
+                continue;
+            }
+            $days++;
+        }
+        return $days;
+    }
+
+    /**
+     * Estado de antigüedad del envío según el plazo máximo (en días hábiles).
+     * Devuelve ['open'=>bool, 'days'=>?int, 'level'=>?int(0-3)]. Cerrado → level null.
+     */
+    public function aging(int $maxDays = 4, bool $skipHolidays = true): array
+    {
+        if ($this->isClosedForAging()) {
+            return ['open' => false, 'days' => null, 'level' => null];
+        }
+        $max = $maxDays >= 1 ? $maxDays : 4;
+        $d = $this->businessDaysElapsed($skipHolidays);
+        // Bandas: verde ≤ max-3 · amarillo = max-2 · naranja = max-1 · rojo ≥ max.
+        $level = $d >= $max ? 3 : ($d >= $max - 1 ? 2 : ($d >= $max - 2 ? 1 : 0));
+        return ['open' => true, 'days' => $d, 'level' => $level];
+    }
+
+    /**
+     * Fecha de calendario que está N días hábiles ANTES de $from (hoy por
+     * defecto). Sirve para filtrar por SQL: created_at ≤ este día ⟺ han pasado
+     * ≥ N días hábiles.
+     */
+    public static function businessDaysBefore(int $n, bool $skipHolidays = true, ?\Illuminate\Support\Carbon $from = null): \Illuminate\Support\Carbon
+    {
+        $d = ($from ?? now())->copy()->startOfDay();
+        $holidays = $skipHolidays ? array_flip(self::HOLIDAYS) : [];
+        $count = 0;
+        while ($count < max(0, $n)) {
+            $d->subDay();
+            if ($d->isWeekend()) {
+                continue;
+            }
+            if (isset($holidays[$d->toDateString()])) {
+                continue;
+            }
+            $count++;
+        }
+        return $d;
+    }
+
     // ── Scopes para los filtros del panel ─────────────────────────────────
     public function scopeWithoutGuide($q)
     {

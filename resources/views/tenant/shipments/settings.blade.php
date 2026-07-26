@@ -111,6 +111,24 @@
                 </div>
                 <div class="small text-muted mt-1">Con esto activado, no se puede cambiar el estado ni subir la guía hasta que marques el pago como confirmado.</div>
 
+                <hr class="my-4">
+                <h6 class="fw-bold mb-1">🚦 Prioridad por antigüedad</h6>
+                <p class="text-muted small mb-2">El panel colorea cada pedido según los <b>días hábiles</b> transcurridos desde el registro, para atender primero los más antiguos.</p>
+                <div class="d-flex align-items-center gap-2 flex-wrap">
+                    <label class="small mb-0" for="max_business_days">Plazo máximo de atención:</label>
+                    <div class="input-group input-group-sm" style="max-width:170px;">
+                        <input type="number" min="1" max="60" name="max_business_days" id="max_business_days" class="form-control" value="{{ $store->max_business_days ?: 4 }}">
+                        <span class="input-group-text">días hábiles</span>
+                    </div>
+                </div>
+                <div class="form-check form-switch mt-2">
+                    <input class="form-check-input" type="checkbox" role="switch" id="aging_skip_holidays" name="aging_skip_holidays" value="1" {{ ($store->aging_skip_holidays ?? true) ? 'checked' : '' }}>
+                    <label class="form-check-label" for="aging_skip_holidays">
+                        Excluir <b>feriados nacionales</b> del conteo (además de sábados y domingos)
+                    </label>
+                </div>
+                <div class="small text-muted mt-1">🟢 En plazo · 🟡 por vencer · 🟠 urgente · 🔴 vencido (superó el plazo). Los pedidos entregados, en agencia o anulados no cuentan.</div>
+
                 <button type="submit" class="btn btn-primary mt-3"><i class="fas fa-save me-1"></i> Guardar configuración</button>
             </form>
         </div>

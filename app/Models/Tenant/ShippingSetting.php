@@ -23,6 +23,8 @@ class ShippingSetting extends Model
         'orders_whatsapp',
         'agency_fee',
         'require_payment',
+        'max_business_days',
+        'aging_skip_holidays',
     ];
 
     protected $casts = [
@@ -33,7 +35,16 @@ class ShippingSetting extends Model
         'min_price'       => 'decimal:2',
         'agency_fee'      => 'decimal:2',
         'require_payment' => 'boolean',
+        'max_business_days'   => 'integer',
+        'aging_skip_holidays' => 'boolean',
     ];
+
+    /** Plazo máximo de atención en días hábiles (para el semáforo de prioridad). */
+    public function getMaxDaysAttribute(): int
+    {
+        $v = (int) ($this->max_business_days ?? 0);
+        return $v >= 1 ? $v : 4;
+    }
 
     /** Fila única de configuración (la crea si no existe). */
     public static function current(): self
