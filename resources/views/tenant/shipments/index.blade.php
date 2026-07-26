@@ -130,24 +130,35 @@
     .sh-mini b { font-size:.66rem; color:#9aa2af; font-variant-numeric:tabular-nums; }
     .sh-mini.is-on b { color:#4f46e5; }
     .sh-mini.is-clear { background:none; border-color:transparent; color:#9aa2af; }
-    /* Opciones del selector único de fecha (rangos, uno por línea) */
-    .sh-range { display:flex; flex-direction:column; gap:2px; }
-    .sh-range__opt { display:flex; align-items:center; padding:.42rem .6rem; font-size:.8rem; font-weight:600;
-        color:#4b5563; text-decoration:none; border-radius:8px; }
-    .sh-range__opt:hover { background:#f4f5f8; color:#111827; }
-    .sh-range__opt.is-on { background:#eef2ff; color:#3730a3; }
-    .sh-range__opt.is-on::after { content:'✓'; margin-left:auto; color:#4f46e5; font-weight:800; }
-    /* Rango exacto de días (del X al Y) */
-    .sh-cal { display:flex; flex-direction:column; gap:8px; }
-    .sh-cal__row { display:flex; align-items:center; gap:7px; }
-    .sh-cal__in { flex:1; min-width:0; padding:.4rem .5rem; font-size:.78rem; color:#374151;
-        border:1px solid #e5e7eb; border-radius:8px; background:#fff; }
-    .sh-cal__in:focus { outline:none; border-color:#a5b4fc; box-shadow:0 0 0 3px rgba(79,70,229,.12); }
-    .sh-cal__sep { font-size:.75rem; color:#9aa2af; }
-    .sh-cal__apply { padding:.44rem .6rem; font-size:.78rem; font-weight:700; color:#fff; cursor:pointer;
-        background:#4f46e5; border:none; border-radius:8px; }
-    .sh-cal__apply:hover { background:#4338ca; }
-    .sh-cal__apply:disabled { background:#c7d2fe; cursor:default; }
+    /* ── Calendario de rango (un solo campo: clic inicio → clic fin) ── */
+    .sh-cal-wrap { min-width:270px; padding:10px; }
+    .sh-cal { display:flex; flex-direction:column; gap:8px; user-select:none; }
+    .sh-cal__head { display:flex; align-items:center; justify-content:space-between; }
+    .sh-cal__title { font-size:.85rem; font-weight:700; color:#111827; text-transform:capitalize; }
+    .sh-cal__nav { width:28px; height:28px; border:1px solid #e5e7eb; background:#fff; border-radius:8px;
+        color:#4b5563; cursor:pointer; font-size:.7rem; display:flex; align-items:center; justify-content:center; }
+    .sh-cal__nav:hover { background:#f4f5f8; color:#111827; }
+    .sh-cal__dow { display:grid; grid-template-columns:repeat(7,1fr); gap:2px; }
+    .sh-cal__dow span { text-align:center; font-size:.62rem; font-weight:700; color:#9aa2af; text-transform:uppercase; padding:2px 0; }
+    .sh-cal__grid { display:grid; grid-template-columns:repeat(7,1fr); gap:2px; }
+    .sh-cal__d { display:flex; align-items:center; justify-content:center; height:30px; padding:0; font-size:.78rem;
+        font-weight:600; color:#374151; background:none; border:none; border-radius:7px; cursor:pointer;
+        font-variant-numeric:tabular-nums; }
+    button.sh-cal__d:hover { background:#eef2ff; color:#3730a3; }
+    .sh-cal__d.is-empty { visibility:hidden; }
+    .sh-cal__d.is-off { color:#cbd5e1; cursor:default; }
+    .sh-cal__d.is-today { box-shadow:inset 0 0 0 1px #c7d2fe; }
+    .sh-cal__d.is-in { background:#eef2ff; color:#3730a3; border-radius:0; }
+    .sh-cal__d.is-start, .sh-cal__d.is-end { background:#4f46e5; color:#fff; }
+    .sh-cal__d.is-start { border-radius:7px 0 0 7px; }
+    .sh-cal__d.is-end { border-radius:0 7px 7px 0; }
+    .sh-cal__d.is-start.is-end { border-radius:7px; }
+    button.sh-cal__d.is-start:hover, button.sh-cal__d.is-end:hover { background:#4338ca; color:#fff; }
+    .sh-cal__foot { display:flex; align-items:center; justify-content:space-between; gap:8px;
+        border-top:1px solid #f1f3f5; padding-top:8px; }
+    .sh-cal__hint { font-size:.72rem; color:#6b7280; }
+    .sh-cal__clear { font-size:.72rem; font-weight:700; color:#dc2626; text-decoration:none; white-space:nowrap; }
+    .sh-cal__clear:hover { color:#b91c1c; }
     .sh-filters__clear { display:block; margin-top:10px; padding-top:9px; border-top:1px solid #f1f3f5;
         font-size:.75rem; font-weight:600; color:#dc2626; text-decoration:none; text-align:center; }
     .sh-filters__clear:hover { color:#b91c1c; }
@@ -400,40 +411,26 @@
             <button type="button" class="sh-chip {{ $rangeOn ? 'is-on' : '' }}" data-bs-toggle="dropdown" data-bs-auto-close="outside" title="Filtrar por fecha de registro">
                 <i class="far fa-calendar-alt"></i> {{ $rangeLabel }}
             </button>
-            <div class="dropdown-menu shadow sh-filters" style="min-width:250px;">
-                <div class="sh-filters__g">
-                    <span class="sh-filters__t">Atajos</span>
-                    <div class="sh-range">
-                        <a href="{{ $mk(['range' => null, 'from' => null, 'to' => null]) }}"
-                           class="sh-range__opt {{ !$rangeOn ? 'is-on' : '' }}">Cualquier fecha</a>
-                        @foreach($rangeOpts as $rk => $rl)
-                            <a href="{{ $mk(['range' => $rk, 'from' => null, 'to' => null]) }}"
-                               class="sh-range__opt {{ ($range ?? '') === $rk ? 'is-on' : '' }}">{{ $rl }}</a>
-                        @endforeach
+            <div class="dropdown-menu shadow sh-filters sh-cal-wrap">
+                {{-- Un solo campo: calendario de rango. Clic en el día de inicio y
+                     clic en el día de fin (ej. del 1 al 10). Se aplica al 2º clic. --}}
+                <div class="sh-cal" id="shCal"
+                     data-today="{{ $hoyStr }}"
+                     data-sel-start="{{ $range ? '' : $from }}"
+                     data-sel-end="{{ $range ? '' : $to }}"
+                     data-base="{{ $mk(['range' => null, 'from' => null, 'to' => null]) }}">
+                    <div class="sh-cal__head">
+                        <button type="button" class="sh-cal__nav" data-cal="prev" aria-label="Mes anterior"><i class="fas fa-chevron-left"></i></button>
+                        <span class="sh-cal__title" data-cal="title">—</span>
+                        <button type="button" class="sh-cal__nav" data-cal="next" aria-label="Mes siguiente"><i class="fas fa-chevron-right"></i></button>
+                    </div>
+                    <div class="sh-cal__dow"><span>Lu</span><span>Ma</span><span>Mi</span><span>Ju</span><span>Vi</span><span>Sá</span><span>Do</span></div>
+                    <div class="sh-cal__grid" data-cal="grid"></div>
+                    <div class="sh-cal__foot">
+                        <span class="sh-cal__hint" data-cal="hint">Elige el día de inicio</span>
+                        @if($rangeOn)<a href="{{ $mk(['range' => null, 'from' => null, 'to' => null]) }}" class="sh-cal__clear">Quitar</a>@endif
                     </div>
                 </div>
-                {{-- Rango exacto: elige el día de inicio y el día de fin. --}}
-                <div class="sh-filters__g">
-                    <span class="sh-filters__t">Del día… al día…</span>
-                    <form method="GET" action="{{ route('shipments.index') }}" class="sh-cal" id="shRangeForm">
-                        @if($filter && $filter !== 'todos')<input type="hidden" name="filter" value="{{ $filter }}">@endif
-                        @if($type)<input type="hidden" name="type" value="{{ $type }}">@endif
-                        @if($group)<input type="hidden" name="group" value="{{ $group }}">@endif
-                        @if(($sort ?? 'recent') !== 'recent')<input type="hidden" name="sort" value="{{ $sort }}">@endif
-                        @if($pri)<input type="hidden" name="pri" value="{{ $pri }}">@endif
-                        @if($q)<input type="hidden" name="q" value="{{ $q }}">@endif
-                        @if((int) ($perPage ?? 20) !== 20)<input type="hidden" name="per_page" value="{{ $perPage }}">@endif
-                        <div class="sh-cal__row">
-                            <input type="date" name="from" class="sh-cal__in" max="{{ $hoyStr }}" value="{{ $range ? '' : $from }}" aria-label="Día de inicio">
-                            <span class="sh-cal__sep">al</span>
-                            <input type="date" name="to" class="sh-cal__in" max="{{ $hoyStr }}" value="{{ $range ? '' : $to }}" aria-label="Día de fin">
-                        </div>
-                        <button type="submit" class="sh-cal__apply">Ver este rango</button>
-                    </form>
-                </div>
-                @if($rangeOn)
-                    <a href="{{ $mk(['range' => null, 'from' => null, 'to' => null]) }}" class="sh-filters__clear">Quitar filtro de fecha</a>
-                @endif
             </div>
         </div>
 
@@ -1364,18 +1361,81 @@
         clearTimeout(st);
         st = setTimeout(function () { var u = searchUrl(); if (u) swapResults(u); }, 300);
     });
-    // Rango exacto de días: el "fin" no puede ser anterior al "inicio", y al
-    // elegir ambos días se aplica el filtro automáticamente (delegado: sobrevive
-    // al re-render del panel).
-    document.addEventListener('change', function (ev) {
-        var form = ev.target.closest && ev.target.closest('#shRangeForm');
-        if (!form || ev.target.type !== 'date') return;
-        var from = form.querySelector('input[name="from"]');
-        var to   = form.querySelector('input[name="to"]');
-        if (from && to) {
-            if (from.value) to.min = from.value;
-            if (to.value)   from.max = to.value;
-            if (from.value && to.value) form.submit();
+    // ── Calendario de rango (un solo campo) ──────────────────────────────
+    // El estado vive en el dataset de #shCal, así sobrevive al re-render AJAX
+    // del panel. Clic en el día de inicio y clic en el de fin → aplica.
+    var CAL_MONTHS = ['enero','febrero','marzo','abril','mayo','junio','julio',
+                      'agosto','septiembre','octubre','noviembre','diciembre'];
+    function calFmt(ds) { var p = ds.split('-'); return p[2] + '/' + p[1]; }
+    function calRender(el) {
+        if (!el) return;
+        var today = el.dataset.today;
+        var start = el.dataset.selStart || '';
+        var end   = el.dataset.selEnd || '';
+        var vy = parseInt(el.dataset.viewYear || '', 10);
+        var vm = parseInt(el.dataset.viewMonth || '', 10);
+        if (isNaN(vy) || isNaN(vm)) {
+            var d0 = new Date((start || today) + 'T00:00:00');
+            vy = d0.getFullYear(); vm = d0.getMonth();
+            el.dataset.viewYear = vy; el.dataset.viewMonth = vm;
+        }
+        el.querySelector('[data-cal="title"]').textContent = CAL_MONTHS[vm] + ' ' + vy;
+        var startDow = (new Date(vy, vm, 1).getDay() + 6) % 7; // lunes = 0
+        var dim = new Date(vy, vm + 1, 0).getDate();
+        var html = '';
+        for (var i = 0; i < startDow; i++) html += '<span class="sh-cal__d is-empty"></span>';
+        for (var day = 1; day <= dim; day++) {
+            var ds = vy + '-' + String(vm + 1).padStart(2, '0') + '-' + String(day).padStart(2, '0');
+            var c = 'sh-cal__d';
+            var future = ds > today;
+            if (future) c += ' is-off';
+            if (ds === today) c += ' is-today';
+            if (start && end && ds > start && ds < end) c += ' is-in';
+            if (ds === start) c += ' is-start';
+            if (ds === end) c += ' is-end';
+            html += future
+                ? '<span class="' + c + '">' + day + '</span>'
+                : '<button type="button" class="' + c + '" data-cal-day="' + ds + '">' + day + '</button>';
+        }
+        el.querySelector('[data-cal="grid"]').innerHTML = html;
+        var hint = el.querySelector('[data-cal="hint"]');
+        if (start && !end) hint.textContent = 'Ahora elige el día de fin';
+        else if (start && end) hint.textContent = 'Del ' + calFmt(start) + ' al ' + calFmt(end);
+        else hint.textContent = 'Elige el día de inicio';
+    }
+    // Render al abrir el desplegable (y si ya está en el DOM al cargar).
+    document.addEventListener('shown.bs.dropdown', function () {
+        var el = document.getElementById('shCal'); if (el) calRender(el);
+    });
+    (function () { var el = document.getElementById('shCal'); if (el) calRender(el); })();
+    // Navegación de mes + selección de días (delegado en document).
+    document.addEventListener('click', function (ev) {
+        var el = document.getElementById('shCal'); if (!el) return;
+        var nav = ev.target.closest && ev.target.closest('[data-cal="prev"],[data-cal="next"]');
+        if (nav) {
+            ev.preventDefault();
+            var vy = parseInt(el.dataset.viewYear, 10), vm = parseInt(el.dataset.viewMonth, 10);
+            vm += (nav.getAttribute('data-cal') === 'next' ? 1 : -1);
+            if (vm < 0) { vm = 11; vy--; } if (vm > 11) { vm = 0; vy++; }
+            el.dataset.viewYear = vy; el.dataset.viewMonth = vm; calRender(el);
+            return;
+        }
+        var dayBtn = ev.target.closest && ev.target.closest('[data-cal-day]');
+        if (dayBtn && el.contains(dayBtn)) {
+            ev.preventDefault();
+            var ds = dayBtn.getAttribute('data-cal-day');
+            var s = el.dataset.selStart || '', e = el.dataset.selEnd || '';
+            if (!s || (s && e)) {
+                // 1er clic (o reinicio): fija inicio, limpia fin.
+                el.dataset.selStart = ds; el.dataset.selEnd = ''; calRender(el);
+            } else {
+                // 2º clic: fija fin (ordena si es anterior) y APLICA.
+                var a = s, b = ds; if (b < a) { var t = a; a = b; b = t; }
+                el.dataset.selStart = a; el.dataset.selEnd = b; calRender(el);
+                var base = el.dataset.base;
+                var url = base + (base.indexOf('?') >= 0 ? '&' : '?') + 'from=' + a + '&to=' + b;
+                if (typeof swap === 'function') swap(url); else window.location.href = url;
+            }
         }
     });
 
