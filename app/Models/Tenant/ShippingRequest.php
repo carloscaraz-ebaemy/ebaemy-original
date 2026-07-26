@@ -360,23 +360,22 @@ class ShippingRequest extends Model
     }
 
     /**
-     * Días HÁBILES transcurridos desde el registro hasta hoy (sáb/dom fuera;
-     * feriados fuera si $skipHolidays). El día de registro cuenta como 0.
+     * Días HÁBILES en el intervalo (start, end]: cuenta los días laborables
+     * posteriores a $start hasta $end inclusive (sáb/dom fuera; feriados fuera
+     * si $skipHolidays). Primitiva única para el badge y el filtro (evita
+     * off-by-one entre ambos).
      */
-    public function businessDaysElapsed(bool $skipHolidays = true, ?\Illuminate\Support\Carbon $now = null): int
+    public static function businessDaysBetween(\Illuminate\Support\Carbon $start, \Illuminate\Support\Carbon $end, bool $skipHolidays = true): int
     {
-        if (!$this->created_at) {
-            return 0;
-        }
-        $start = $this->created_at->copy()->startOfDay();
-        $end   = ($now ?? now())->copy()->startOfDay();
-        if ($end->lessThanOrEqualTo($start)) {
+        $s = $start->copy()->startOfDay();
+        $e = $end->copy()->startOfDay();
+        if ($e->lessThanOrEqualTo($s)) {
             return 0;
         }
         $holidays = $skipHolidays ? array_flip(self::HOLIDAYS) : [];
         $days = 0;
-        $cursor = $start->copy();
-        while ($cursor->lessThan($end)) {
+        $cursor = $s->copy();
+        while ($cursor->lessThan($e)) {
             $cursor->addDay();
             if ($cursor->isWeekend()) {
                 continue;
@@ -387,6 +386,18 @@ class ShippingRequest extends Model
             $days++;
         }
         return $days;
+    }
+
+    /**
+     * Días HÁBILES transcurridos desde el registro hasta hoy. El día de
+     * registro cuenta como 0.
+     */
+    public function businessDaysElapsed(bool $skipHolidays = true, ?\Illuminate\Support\Carbon $now = null): int
+    {
+        if (!$this->created_at) {
+            return 0;
+        }
+        return self::businessDaysBetween($this->created_at, $now ?? now(), $skipHolidays);
     }
 
     /**
@@ -406,24 +417,19 @@ class ShippingRequest extends Model
     }
 
     /**
-     * Fecha de calendario que está N días hábiles ANTES de $from (hoy por
-     * defecto). Sirve para filtrar por SQL: created_at ≤ este día ⟺ han pasado
-     * ≥ N días hábiles.
+     * Fecha de corte para filtrar por antigüedad: la fecha de registro MÁS
+     * RECIENTE que ya acumula ≥ $k días hábiles a hoy. Filtrar
+     * `created_at ≤ corte` ⟺ badge con nivel de ese umbral o mayor. Camina
+     * hacia atrás usando la MISMA primitiva del badge, así nunca se desalinean
+     * (fines de semana / feriados / hoy no hábil incluidos).
      */
-    public static function businessDaysBefore(int $n, bool $skipHolidays = true, ?\Illuminate\Support\Carbon $from = null): \Illuminate\Support\Carbon
+    public static function agingCutoff(int $k, bool $skipHolidays = true, ?\Illuminate\Support\Carbon $today = null): \Illuminate\Support\Carbon
     {
-        $d = ($from ?? now())->copy()->startOfDay();
-        $holidays = $skipHolidays ? array_flip(self::HOLIDAYS) : [];
-        $count = 0;
-        while ($count < max(0, $n)) {
+        $end = ($today ?? now())->copy()->startOfDay();
+        $d = $end->copy();
+        $guard = 0;
+        while (self::businessDaysBetween($d, $end, $skipHolidays) < max(1, $k) && $guard++ < 400) {
             $d->subDay();
-            if ($d->isWeekend()) {
-                continue;
-            }
-            if (isset($holidays[$d->toDateString()])) {
-                continue;
-            }
-            $count++;
         }
         return $d;
     }

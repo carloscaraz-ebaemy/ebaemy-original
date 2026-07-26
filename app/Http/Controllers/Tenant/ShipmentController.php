@@ -86,7 +86,7 @@ class ShipmentController extends Controller
             ? $request->input('pri') : null;
         if ($pri) {
             $k = $pri === 'vencidos' ? $maxDays : max(1, $maxDays - 1);
-            $cutoff = ShippingRequest::businessDaysBefore($k, $skipHol)->toDateString();
+            $cutoff = ShippingRequest::agingCutoff($k, $skipHol)->toDateString();
             $query->whereDate('created_at', '<=', $cutoff)
                   ->whereNotIn('status', $closed);
         }
@@ -160,8 +160,8 @@ class ShipmentController extends Controller
         $metrics['courier_active'] = ShippingRequest::courierActive()->count();
 
         // Conteo por prioridad (envíos abiertos que ya cruzaron el umbral).
-        $cutU = ShippingRequest::businessDaysBefore(max(1, $maxDays - 1), $skipHol)->toDateString();
-        $cutV = ShippingRequest::businessDaysBefore($maxDays, $skipHol)->toDateString();
+        $cutU = ShippingRequest::agingCutoff(max(1, $maxDays - 1), $skipHol)->toDateString();
+        $cutV = ShippingRequest::agingCutoff($maxDays, $skipHol)->toDateString();
         $metrics['urgentes'] = ShippingRequest::whereNotIn('status', $closed)
             ->whereDate('created_at', '<=', $cutU)->count();
         $metrics['vencidos'] = ShippingRequest::whereNotIn('status', $closed)
