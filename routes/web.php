@@ -127,6 +127,19 @@ if ($hostname) {
         // Cliente existente por documento (autocompletar desde envíos previos).
         Route::get('envio/cliente/{document}', [\App\Http\Controllers\Tenant\ShipmentController::class, 'findClient'])
              ->where('document', '[0-9]+')->name('shipments.public.client')->middleware('throttle:30,1');
+        // ── Sorteos: enlace único de invitación del cliente ─────────────
+        // El cliente entra con su token, ve el premio y las bases, y acepta.
+        // Solo después de aceptar queda registrado como participante.
+        Route::get('sorteo/{token}', [\App\Http\Controllers\Tenant\RaffleController::class, 'publicShow'])
+             ->where('token', '[A-Za-z0-9]+')
+             ->name('raffles.public.show')->middleware('throttle:60,1');
+        Route::post('sorteo/{token}', [\App\Http\Controllers\Tenant\RaffleController::class, 'publicAccept'])
+             ->where('token', '[A-Za-z0-9]+')
+             ->name('raffles.public.accept')->middleware('throttle:20,1');
+        Route::post('sorteo/{token}/rechazar', [\App\Http\Controllers\Tenant\RaffleController::class, 'publicDecline'])
+             ->where('token', '[A-Za-z0-9]+')
+             ->name('raffles.public.decline')->middleware('throttle:20,1');
+
         // Route::get('/ecommerce/color-ecommerce', [\App\Http\Controllers\Tenant\ConfigurationController::class, 'getColorEcommerce']);
 
         Route::middleware(['auth', 'redirect.module', 'locked.tenant','check.email.verified'])->group(function () {
@@ -176,6 +189,42 @@ if ($hostname) {
                 Route::get('{shipment}/guia', [\App\Http\Controllers\Tenant\ShipmentController::class, 'downloadGuide'])
                      ->name('shipments.guide');
             });
+            // ─── Sorteos (panel del administrador) ──────────────────────────
+            Route::prefix('sorteos')->group(function () {
+                Route::get('/', [\App\Http\Controllers\Tenant\RaffleController::class, 'index'])
+                     ->name('raffles.index');
+                Route::get('crear', [\App\Http\Controllers\Tenant\RaffleController::class, 'create'])
+                     ->name('raffles.create');
+                Route::get('buscar-productos', [\App\Http\Controllers\Tenant\RaffleController::class, 'searchItems'])
+                     ->name('raffles.search_items');
+                Route::post('/', [\App\Http\Controllers\Tenant\RaffleController::class, 'store'])
+                     ->name('raffles.store');
+                Route::get('{raffle}', [\App\Http\Controllers\Tenant\RaffleController::class, 'show'])
+                     ->whereNumber('raffle')->name('raffles.show');
+                Route::get('{raffle}/editar', [\App\Http\Controllers\Tenant\RaffleController::class, 'edit'])
+                     ->whereNumber('raffle')->name('raffles.edit');
+                Route::post('{raffle}/editar', [\App\Http\Controllers\Tenant\RaffleController::class, 'update'])
+                     ->whereNumber('raffle')->name('raffles.update');
+                Route::get('{raffle}/elegibles', [\App\Http\Controllers\Tenant\RaffleController::class, 'preview'])
+                     ->whereNumber('raffle')->name('raffles.preview');
+                Route::post('{raffle}/participantes', [\App\Http\Controllers\Tenant\RaffleController::class, 'syncParticipants'])
+                     ->whereNumber('raffle')->name('raffles.sync');
+                Route::post('{raffle}/invitar', [\App\Http\Controllers\Tenant\RaffleController::class, 'invite'])
+                     ->whereNumber('raffle')->name('raffles.invite');
+                Route::post('{raffle}/participante/{participant}/invitado', [\App\Http\Controllers\Tenant\RaffleController::class, 'markInvited'])
+                     ->whereNumber('raffle')->whereNumber('participant')->name('raffles.mark_invited');
+                Route::post('{raffle}/sortear', [\App\Http\Controllers\Tenant\RaffleController::class, 'draw'])
+                     ->whereNumber('raffle')->name('raffles.draw');
+                Route::post('{raffle}/estado', [\App\Http\Controllers\Tenant\RaffleController::class, 'updateStatus'])
+                     ->whereNumber('raffle')->name('raffles.status');
+                Route::post('{raffle}/ganador/{winner}/entrega', [\App\Http\Controllers\Tenant\RaffleController::class, 'updateDelivery'])
+                     ->whereNumber('raffle')->whereNumber('winner')->name('raffles.delivery');
+                Route::get('{raffle}/exportar', [\App\Http\Controllers\Tenant\RaffleController::class, 'export'])
+                     ->whereNumber('raffle')->name('raffles.export');
+                Route::post('{raffle}/eliminar', [\App\Http\Controllers\Tenant\RaffleController::class, 'destroy'])
+                     ->whereNumber('raffle')->name('raffles.destroy');
+            });
+
             Route::get('list-reports', 'Tenant\SettingController@listReports');
             Route::get('list-extras', 'Tenant\SettingController@listExtras');
             Route::get('list-settings', 'Tenant\SettingController@indexSettings')->name('tenant.general_configuration.index');

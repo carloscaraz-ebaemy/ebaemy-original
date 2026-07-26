@@ -26,6 +26,35 @@
                     </div>
                 </div>
 
+                <!-- Insignias de sorteos ganados. Clic → ficha del premio. -->
+                <div class="raffle-badges" v-if="(data.raffle_wins || []).length > 0">
+                    <button
+                        v-for="win in data.raffle_wins"
+                        :key="win.id"
+                        type="button"
+                        class="raffle-badge"
+                        :class="{ 'is-open': openWin === win.id }"
+                        @click="openWin = (openWin === win.id ? null : win.id)"
+                    >
+                        🏆 Ganador del Sorteo "{{ win.raffle_name }}"
+                    </button>
+
+                    <div v-for="win in data.raffle_wins" :key="'d-' + win.id" v-show="openWin === win.id" class="raffle-detail">
+                        <img v-if="win.prize_image" :src="win.prize_image" class="raffle-detail__img" alt="">
+                        <div class="raffle-detail__body">
+                            <div class="raffle-detail__row"><span>Sorteo</span><strong>{{ win.raffle_name }} ({{ win.raffle_code }})</strong></div>
+                            <div class="raffle-detail__row"><span>Fecha</span><strong>{{ win.drawn_at || '—' }}</strong></div>
+                            <div class="raffle-detail__row"><span>Premio</span><strong>{{ win.prize_name || '—' }}</strong></div>
+                            <div class="raffle-detail__row">
+                                <span>Estado del premio</span>
+                                <strong :class="win.delivery_status === 'delivered' ? 'text-success' : 'text-warning'">
+                                    {{ win.delivery_label }}<template v-if="win.delivered_at"> · {{ win.delivered_at }}</template>
+                                </strong>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- KPIs -->
                 <div class="customer-360-kpis">
                     <div class="kpi-card kpi-blue">
@@ -166,6 +195,7 @@ export default {
             loading:   false,
             data:      null,
             activeTab: 'documents',
+            openWin:   null,   // id del sorteo ganado cuya ficha está desplegada
         }
     },
     methods: {
@@ -184,6 +214,7 @@ export default {
         reset() {
             this.data      = null
             this.activeTab = 'documents'
+            this.openWin   = null
             this.$emit('update:showDialog', false)
         },
         formatAmount(v) {
@@ -198,6 +229,57 @@ export default {
 </script>
 
 <style scoped>
+/* ── Insignias de sorteos ganados ─────────────────────────────── */
+.raffle-badges {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 10px;
+}
+.raffle-badge {
+    border: 1px solid #fde3b0;
+    background: linear-gradient(135deg, #fef6e7, #fffdf7);
+    color: #b45309;
+    font-size: 12px;
+    font-weight: 700;
+    border-radius: 999px;
+    padding: 5px 12px;
+    cursor: pointer;
+    transition: .15s;
+}
+.raffle-badge:hover, .raffle-badge.is-open {
+    background: #fdecc8;
+    border-color: #f5c775;
+}
+.raffle-detail {
+    flex: 0 0 100%;
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+    background: #fffdf7;
+    border: 1px solid #fde3b0;
+    border-radius: 10px;
+    padding: 10px 12px;
+}
+.raffle-detail__img {
+    width: 78px;
+    height: 78px;
+    object-fit: cover;
+    border-radius: 9px;
+    border: 1px solid #fde3b0;
+}
+.raffle-detail__body { flex: 1; min-width: 0; }
+.raffle-detail__row {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    font-size: 12px;
+    padding: 3px 0;
+    border-bottom: 1px solid #fdf3e0;
+}
+.raffle-detail__row:last-child { border-bottom: 0; }
+.raffle-detail__row span { color: #92764a; }
+
 .customer-360-header {
     display: flex;
     align-items: center;

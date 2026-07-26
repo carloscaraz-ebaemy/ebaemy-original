@@ -475,19 +475,21 @@ class PersonController extends Controller
                 'currency' => $sn->currency_type_id,
             ]);
 
-        // Pedidos ecommerce / marketplace (Order tiene person_id directo)
+        // Pedidos ecommerce / marketplace (Order tiene person_id directo).
+        // `orders` NO tiene date_of_issue / number / currency_type_id: la fecha
+        // es created_at y el correlativo es external_id / number_document.
         $orders = \App\Models\Tenant\Order::where('person_id', $person->id)
-            ->latest('date_of_issue')
+            ->latest('created_at')
             ->limit(30)
-            ->get(['id','number','date_of_issue','total','status_order_id','channel_id','currency_type_id'])
+            ->get(['id','external_id','number_document','created_at','total','status_order_id','channel_id'])
             ->map(fn($o) => [
                 'id'         => $o->id,
-                'number'     => $o->number,
-                'date'       => $o->date_of_issue,
+                'number'     => $o->number_document ?: $o->external_id,
+                'date'       => optional($o->created_at)->format('Y-m-d'),
                 'total'      => $o->total,
                 'status_id'  => $o->status_order_id,
                 'channel_id' => $o->channel_id,
-                'currency'   => $o->currency_type_id,
+                'currency'   => 'PEN',
             ]);
 
         // Devoluciones logísticas — vinculadas al cliente vía SaleNote
@@ -525,6 +527,39 @@ class PersonController extends Controller
                 'days_late'   => optional($d->date_of_due)->diffInDays(now()),
             ]);
 
+        // Sorteos ganados — alimenta la insignia 🏆 de la ficha del cliente.
+        // Se busca por person_id y, como respaldo, por documento (los
+        // participantes se congelan con su DNI/RUC al generar la lista).
+        $raffleWins = collect();
+        try {
+            $raffleWins = \App\Models\Tenant\RaffleWinner::query()
+                ->whereHas('participant', function ($q) use ($person) {
+                    $q->where('person_id', $person->id);
+                    if ($person->number) {
+                        $q->orWhere('document', $person->number);
+                    }
+                })
+                ->with(['raffle:id,code,name', 'participant:id,full_name'])
+                ->latest('drawn_at')
+                ->limit(20)
+                ->get()
+                ->map(fn ($w) => [
+                    'id'              => $w->id,
+                    'raffle_id'       => $w->raffle_id,
+                    'raffle_name'     => optional($w->raffle)->name,
+                    'raffle_code'     => optional($w->raffle)->code,
+                    'position'        => $w->position,
+                    'prize_name'      => $w->prize_name,
+                    'prize_image'     => $w->prizeImageUrl('small'),
+                    'drawn_at'        => optional($w->drawn_at)->format('Y-m-d H:i'),
+                    'delivery_status' => $w->delivery_status,
+                    'delivery_label'  => $w->delivery_label,
+                    'delivered_at'    => optional($w->delivered_at)->format('Y-m-d'),
+                ]);
+        } catch (\Throwable $e) {
+            // El módulo de Sorteos puede no estar instalado en este tenant.
+        }
+
         $docTotal   = $person->documents_where_customer()->sum('total');
         $snTotal    = $person->sale_notes_where_customer()->sum('total');
         $docCount   = $person->documents_where_customer()->count();
@@ -553,12 +588,14 @@ class PersonController extends Controller
                 'returns_count'     => $returns->count(),
                 'overdue_count'     => $overdueDocs->count(),
                 'overdue_amount'    => round($overdueDocs->sum('total'), 2),
+                'raffle_wins'       => $raffleWins->count(),
             ],
             'documents'    => $documents,
             'sale_notes'   => $saleNotes,
             'orders'       => $orders,
             'returns'      => $returns,
             'overdue_docs' => $overdueDocs,
+            'raffle_wins'  => $raffleWins,
         ]);
     }
 

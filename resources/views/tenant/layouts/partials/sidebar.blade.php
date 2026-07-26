@@ -1121,6 +1121,19 @@ $inventory_configuration = InventoryConfiguration::getSidebarPermissions();
                                     </a>
                                 </li>
 
+                                {{-- Sorteos (campañas sobre clientes con pedidos pagados) --}}
+                                @php
+                                    $rfActive = 0;
+                                    try { $rfActive = \App\Models\Tenant\Raffle::active()->count(); } catch (\Throwable $e) {}
+                                @endphp
+                                <li class="{{ request()->is('sorteos*') ? 'nav-active' : '' }}">
+                                    <a class="nav-link" href="{{ route('raffles.index') }}">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M3 8m0 1a1 1 0 0 1 1 -1h16a1 1 0 0 1 1 1v2a1 1 0 0 1 -1 1h-16a1 1 0 0 1 -1 -1z" /><path d="M12 8l0 13" /><path d="M19 12v7a2 2 0 0 1 -2 2h-10a2 2 0 0 1 -2 -2v-7" /><path d="M7.5 8a2.5 2.5 0 0 1 0 -5a4.8 8 0 0 1 4.5 5a4.8 8 0 0 1 4.5 -5a2.5 2.5 0 0 1 0 5" /></svg>
+                                        <span>Sorteos</span>
+                                        @if($rfActive > 0)<span class="badge bg-success ms-1" title="Sorteos activos">{{ $rfActive }}</span>@endif
+                                    </a>
+                                </li>
+
                                 {{-- WHATSAPP — Campañas + Configuración + Métricas --}}
                                 @php
                                     $_u_wa = auth()->user();
