@@ -71,6 +71,23 @@ class ShippingRequest extends Model
         'accepted_terms',
         'sent_at',
         'created_by',
+        // Arquitectura logística (lotes, prioridad, anulación/restauración)
+        'print_batch_id',
+        'priority',
+        'printed_at',
+        'print_count',
+        'ready_at',
+        'cancelled_at',
+        'cancelled_by',
+        'cancelled_by_name',
+        'cancel_reason',
+        'status_before_cancel',
+        'restored_at',
+        'restored_by',
+        'restored_by_name',
+        'restore_reason',
+        'picked_up_at',
+        'picked_up_by',
     ];
 
     protected $casts = [
@@ -86,7 +103,92 @@ class ShippingRequest extends Model
         'delivery_price' => 'decimal:2',
         'payment_confirmed'    => 'boolean',
         'payment_confirmed_at' => 'datetime',
+        'print_batch_id'       => 'integer',
+        'priority'             => 'integer',
+        'print_count'          => 'integer',
+        'printed_at'           => 'datetime',
+        'ready_at'             => 'datetime',
+        'cancelled_at'         => 'datetime',
+        'cancelled_by'         => 'integer',
+        'restored_at'          => 'datetime',
+        'restored_by'          => 'integer',
+        'picked_up_at'         => 'datetime',
     ];
+
+    // ── Relaciones logísticas ──────────────────────────────────────────────
+
+    public function printBatch()
+    {
+        return $this->belongsTo(ShippingPrintBatch::class, 'print_batch_id');
+    }
+
+    public function auditLogs()
+    {
+        return $this->hasMany(ShippingAuditLog::class, 'shipment_id')->latest('id');
+    }
+
+    public function printEvents()
+    {
+        return $this->hasMany(ShippingPrintEvent::class, 'shipment_id')->orderBy('id');
+    }
+
+    // ── Reglas de lote y modalidad ─────────────────────────────────────────
+
+    /**
+     * ¿El envío está bloqueado por pertenecer a un lote YA IMPRESO?
+     * Un lote abierto todavía admite cambios.
+     */
+    public function isLockedByBatch(): bool
+    {
+        if (!$this->print_batch_id) {
+            return false;
+        }
+
+        $batch = $this->relationLoaded('printBatch') ? $this->printBatch : $this->printBatch()->first();
+
+        return $batch ? $batch->isPrinted() : false;
+    }
+
+    /**
+     * ¿Se puede cambiar la modalidad ahora?
+     * @return array{0: bool, 1: string|null} [permitido, motivo del bloqueo]
+     */
+    public function canChangeModality(): array
+    {
+        if ($this->status === self::STATUS_ANULADO) {
+            return [false, 'El envío está anulado. Restáuralo antes de cambiar su modalidad.'];
+        }
+
+        if ($this->isLockedByBatch()) {
+            return [false, 'Este pedido ya pertenece a un lote de impresión. '
+                . 'Para modificar su modalidad deberá retirarlo del lote o generar un nuevo lote.'];
+        }
+
+        return [true, null];
+    }
+
+    /** ¿Está listo para entrar a un lote de impresión? */
+    public function isReadyToPrint(): bool
+    {
+        return !$this->print_batch_id
+            && $this->status !== self::STATUS_ANULADO
+            && $this->needsShippingLabel();
+    }
+
+    /** Etiqueta del lote para la tabla ("Sin lote" / "LOTE-000125"). */
+    public function getBatchLabelAttribute(): string
+    {
+        if (!$this->print_batch_id) {
+            return 'Sin lote';
+        }
+
+        return optional($this->printBatch)->code ?? ('Lote #' . $this->print_batch_id);
+    }
+
+    public function getPriorityLabelAttribute(): string
+    {
+        return self::PRIORITY_LABELS[$this->priority] ?? self::PRIORITY_LABELS[3];
+    }
 
     /**
      * Distancia en línea recta (haversine) entre dos coordenadas, en km.
@@ -102,16 +204,98 @@ class ShippingRequest extends Model
         return round($r * 2 * atan2(sqrt($a), sqrt(1 - $a)), 2);
     }
 
-    // ── Tipo de entrega ────────────────────────────────────────────────────
-    /** Motorizado propio a domicilio (usa Google Maps + coordenadas). */
+    // ── Modalidad de entrega ───────────────────────────────────────────────
+    // Los VALORES de BD se conservan ('domicilio', 'agencia') porque hay
+    // envíos vivos, rótulos, QR y seguimiento público apoyados en ellos;
+    // lo que cambió con el rediseño logístico son las etiquetas. Los alias
+    // LIMA/PROVINCIA existen para que el código nuevo se lea por su
+    // significado sin migrar datos.
+
+    /** Envío local Lima/Callao — motorizado o courier propio. */
     public const DELIVERY_DOMICILIO = 'domicilio';
-    /** Envío por agencia de transporte a provincia (usa ubigeo). */
+    public const DELIVERY_LIMA      = self::DELIVERY_DOMICILIO;
+
+    /** Envío a provincia — requiere agencia de transporte y guía. */
     public const DELIVERY_AGENCIA   = 'agencia';
+    public const DELIVERY_PROVINCIA = self::DELIVERY_AGENCIA;
+
+    /** Recojo en tienda — el cliente pasa por su pedido. */
+    public const DELIVERY_TIENDA    = 'tienda';
 
     public const DELIVERY_TYPES = [
-        self::DELIVERY_DOMICILIO => 'Entrega a domicilio (Motorizado)',
-        self::DELIVERY_AGENCIA   => 'Envío por agencia',
+        self::DELIVERY_AGENCIA   => 'Envío a Provincia',
+        self::DELIVERY_DOMICILIO => 'Envío Local (Lima / Callao)',
+        self::DELIVERY_TIENDA    => 'Recojo en Tienda',
     ];
+
+    /** Etiqueta corta para chips y rótulos. */
+    public const DELIVERY_SHORT = [
+        self::DELIVERY_AGENCIA   => 'Provincia',
+        self::DELIVERY_DOMICILIO => 'Lima',
+        self::DELIVERY_TIENDA    => 'Recojo',
+    ];
+
+    /** Color e ícono por modalidad (azul provincia, naranja Lima, verde recojo). */
+    public const DELIVERY_META = [
+        self::DELIVERY_AGENCIA   => ['color' => '#2563eb', 'bg' => '#eff6ff', 'line' => '#bfdbfe', 'icon' => '🔵', 'emoji' => '🚚'],
+        self::DELIVERY_DOMICILIO => ['color' => '#ea580c', 'bg' => '#fff7ed', 'line' => '#fed7aa', 'icon' => '🟠', 'emoji' => '🏍️'],
+        self::DELIVERY_TIENDA    => ['color' => '#16a34a', 'bg' => '#f0fdf4', 'line' => '#bbf7d0', 'icon' => '🟢', 'emoji' => '🏬'],
+    ];
+
+    // ── Prioridad logística (se deriva de la modalidad) ────────────────────
+    // 1 Lima      → despacho el mismo día o al siguiente.
+    // 2 Recojo    → preparar cuanto antes y avisar que está listo.
+    // 3 Provincia → dentro del plazo operativo (max_business_days).
+    public const PRIORITY_BY_DELIVERY = [
+        self::DELIVERY_DOMICILIO => 1,
+        self::DELIVERY_TIENDA    => 2,
+        self::DELIVERY_AGENCIA   => 3,
+    ];
+
+    public const PRIORITY_LABELS = [
+        1 => 'Prioridad 1 · Lima',
+        2 => 'Prioridad 2 · Recojo en tienda',
+        3 => 'Prioridad 3 · Provincia',
+    ];
+
+    /** Prioridad que corresponde a una modalidad. */
+    public static function priorityFor(?string $deliveryType): int
+    {
+        return self::PRIORITY_BY_DELIVERY[$deliveryType] ?? 3;
+    }
+
+    public function getDeliveryLabelAttribute(): string
+    {
+        return self::DELIVERY_TYPES[$this->delivery_type] ?? 'Envío';
+    }
+
+    public function getDeliveryShortAttribute(): string
+    {
+        return self::DELIVERY_SHORT[$this->delivery_type] ?? 'Envío';
+    }
+
+    public function getDeliveryMetaAttribute(): array
+    {
+        return self::DELIVERY_META[$this->delivery_type] ?? self::DELIVERY_META[self::DELIVERY_AGENCIA];
+    }
+
+    /** ¿El cliente recoge en tienda? No lleva agencia, guía ni manifiesto. */
+    public function getIsPickupAttribute(): bool
+    {
+        return $this->delivery_type === self::DELIVERY_TIENDA;
+    }
+
+    /** ¿Genera rótulo de transporte? El recojo en tienda no. */
+    public function needsShippingLabel(): bool
+    {
+        return !$this->is_pickup;
+    }
+
+    /** ¿Entra en el manifiesto de despacho? El recojo en tienda no se despacha. */
+    public function entersManifest(): bool
+    {
+        return !$this->is_pickup;
+    }
 
     // ── Estados del paquete (flujo completo) ───────────────────────────────
     public const STATUS_RECIBIDO   = 'recibido';
@@ -126,19 +310,25 @@ class ShippingRequest extends Model
     // Estados exclusivos de la entrega a domicilio (motorizado).
     public const STATUS_ASIGNADO   = 'asignado_motorizado';
     public const STATUS_EN_CAMINO  = 'en_camino';
+    /** Rótulo impreso (lo marca el cierre del lote de impresión). */
+    public const STATUS_IMPRESO    = 'impreso';
+    /** Recojo en tienda: preparado y esperando al cliente. */
+    public const STATUS_LISTO_RECOJO = 'listo_recojo';
 
     public const STATUSES = [
-        self::STATUS_RECIBIDO   => 'Registro recibido',
-        self::STATUS_CONFIRMADO => 'Pedido confirmado',
-        self::STATUS_PREPARANDO => 'Preparando pedido',
-        self::STATUS_ASIGNADO   => 'Asignado a motorizado',
-        self::STATUS_EN_CAMINO  => 'Motorizado en camino',
-        self::STATUS_EMBALANDO  => 'Embalando',
-        self::STATUS_DESPACHADO => 'Despachado',
-        self::STATUS_EN_AGENCIA => 'Entregado a agencia',
-        self::STATUS_EN_RUTA    => 'En tránsito',
-        self::STATUS_ENTREGADO  => 'Entregado',
-        self::STATUS_ANULADO    => 'Anulado',
+        self::STATUS_RECIBIDO     => 'Pendiente de revisión',
+        self::STATUS_CONFIRMADO   => 'Pedido confirmado',
+        self::STATUS_PREPARANDO   => 'Preparando pedido',
+        self::STATUS_IMPRESO      => 'Rótulo impreso',
+        self::STATUS_EMBALANDO    => 'Empacado',
+        self::STATUS_LISTO_RECOJO => 'Listo para recojo',
+        self::STATUS_ASIGNADO     => 'Asignado a motorizado',
+        self::STATUS_EN_CAMINO    => 'Motorizado en camino',
+        self::STATUS_DESPACHADO   => 'Despachado',
+        self::STATUS_EN_AGENCIA   => 'Entregado a agencia',
+        self::STATUS_EN_RUTA      => 'En tránsito',
+        self::STATUS_ENTREGADO    => 'Entregado',
+        self::STATUS_ANULADO      => 'Anulado',
     ];
 
     /**
@@ -146,22 +336,29 @@ class ShippingRequest extends Model
      * Cada tipo tiene su propio recorrido de estados.
      */
     public const STATUS_FLOWS = [
-        // Domicilio (Lima): se embala igual, luego sale el motorizado y entrega.
+        // Lima: se rotula, se empaca y sale el motorizado.
         self::DELIVERY_DOMICILIO => [
-            self::STATUS_RECIBIDO, self::STATUS_EMBALANDO,
-            self::STATUS_EN_CAMINO, self::STATUS_ENTREGADO,
+            self::STATUS_RECIBIDO, self::STATUS_PREPARANDO, self::STATUS_IMPRESO,
+            self::STATUS_EMBALANDO, self::STATUS_EN_CAMINO, self::STATUS_ENTREGADO,
         ],
-        // Agencia: el trabajo de la tienda termina al dejarlo en la agencia.
+        // Provincia: el trabajo de la tienda termina al dejarlo en la agencia.
         self::DELIVERY_AGENCIA => [
-            self::STATUS_RECIBIDO, self::STATUS_EMBALANDO, self::STATUS_EN_AGENCIA,
+            self::STATUS_RECIBIDO, self::STATUS_PREPARANDO, self::STATUS_IMPRESO,
+            self::STATUS_EMBALANDO, self::STATUS_DESPACHADO, self::STATUS_EN_AGENCIA,
+            self::STATUS_ENTREGADO,
+        ],
+        // Recojo en tienda: sin rótulo de transporte ni despacho.
+        self::DELIVERY_TIENDA => [
+            self::STATUS_RECIBIDO, self::STATUS_PREPARANDO,
+            self::STATUS_LISTO_RECOJO, self::STATUS_ENTREGADO,
         ],
     ];
 
-    /** Secuencia por defecto (agencia) — se mantiene por compatibilidad. */
+    /** Secuencia por defecto (provincia) — se mantiene por compatibilidad. */
     public const STATUS_ORDER = self::STATUS_FLOWS[self::DELIVERY_AGENCIA];
 
     /**
-     * Secuencia de estados según el tipo de entrega del envío.
+     * Secuencia de estados según la modalidad del envío.
      * @return string[]
      */
     public static function statusOrderFor(?string $deliveryType): array
@@ -169,10 +366,24 @@ class ShippingRequest extends Model
         return self::STATUS_FLOWS[$deliveryType] ?? self::STATUS_FLOWS[self::DELIVERY_AGENCIA];
     }
 
-    /** Estados elegibles desde el panel para este envío (según su tipo, sin 'anulado'). */
+    /**
+     * Estados elegibles desde el panel para este envío.
+     *
+     * Si el envío está en un estado que ya no forma parte del flujo de su
+     * modalidad (legados como 'confirmado' o 'asignado_motorizado', o porque
+     * le cambiaron la modalidad), se incluye igual para que el selector no
+     * aparezca vacío ni pierda el valor actual.
+     */
     public function selectableStatuses(): array
     {
-        return self::statusOrderFor($this->delivery_type);
+        $flow = self::statusOrderFor($this->delivery_type);
+
+        if ($this->status && !in_array($this->status, $flow, true)
+            && $this->status !== self::STATUS_ANULADO) {
+            array_unshift($flow, $this->status);
+        }
+
+        return array_values(array_unique($flow));
     }
 
     /** Etiquetas de valores legados (compatibilidad con envíos previos a Fase 2). */
@@ -188,6 +399,16 @@ class ShippingRequest extends Model
      */
     public static function statusWhatsappMessage(string $status, ?string $deliveryType = null): ?string
     {
+        // El recojo en tienda tiene su propio guion: no se despacha.
+        if ($deliveryType === self::DELIVERY_TIENDA) {
+            return [
+                self::STATUS_CONFIRMADO   => 'Tu pedido fue *confirmado*. Te avisamos cuando esté listo para recoger. ✅',
+                self::STATUS_PREPARANDO   => 'Estamos *preparando* tu pedido para que lo recojas. 📦',
+                self::STATUS_LISTO_RECOJO => '¡Tu pedido ya está *listo para recoger* en la tienda! 🏬 Acércate con tu documento.',
+                self::STATUS_ENTREGADO    => 'Tu pedido fue *entregado*. ¡Gracias por tu compra! 🎉',
+            ][$status] ?? null;
+        }
+
         $map = [
             self::STATUS_CONFIRMADO => 'Tu pedido fue *confirmado*. En breve lo prepararemos. ✅',
             self::STATUS_PREPARANDO => 'Estamos *preparando* tu pedido. 📦',
@@ -342,6 +563,9 @@ class ShippingRequest extends Model
     public const CLOSED_STATUSES = [
         self::STATUS_DESPACHADO, self::STATUS_EN_AGENCIA, self::STATUS_EN_RUTA,
         self::STATUS_EN_CAMINO, self::STATUS_ENTREGADO, self::STATUS_ANULADO,
+        // Recojo en tienda: el trabajo de la tienda termina cuando el pedido
+        // queda listo; a partir de ahí la pelota la tiene el cliente.
+        self::STATUS_LISTO_RECOJO,
         'enviado', // legado = entregado a agencia
     ];
 

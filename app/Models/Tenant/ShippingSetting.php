@@ -25,6 +25,7 @@ class ShippingSetting extends Model
         'require_payment',
         'max_business_days',
         'aging_skip_holidays',
+        'cutoff_time',
     ];
 
     protected $casts = [
@@ -44,6 +45,15 @@ class ShippingSetting extends Model
     {
         $v = (int) ($this->max_business_days ?? 0);
         return $v >= 1 ? $v : 4;
+    }
+
+    /**
+     * Hora de corte operativo en HH:MM, o null si no está configurada.
+     * MySQL devuelve TIME como "18:00:00"; el <input type="time"> quiere "18:00".
+     */
+    public function getCutoffHhmmAttribute(): ?string
+    {
+        return $this->cutoff_time ? substr((string) $this->cutoff_time, 0, 5) : null;
     }
 
     /** Fila única de configuración (la crea si no existe). */

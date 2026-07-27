@@ -149,6 +149,22 @@ if ($hostname) {
             Route::prefix('registro-envio')->group(function () {
                 Route::get('/', [\App\Http\Controllers\Tenant\ShipmentController::class, 'index'])
                      ->name('shipments.index');
+
+                // ── Arquitectura logística: dashboard, lotes y auditoría ──
+                Route::get('tablero', [\App\Http\Controllers\Tenant\ShipmentController::class, 'dashboard'])
+                     ->name('shipments.dashboard');
+                Route::get('lotes', [\App\Http\Controllers\Tenant\ShipmentController::class, 'batches'])
+                     ->name('shipments.batches');
+                Route::post('lotes', [\App\Http\Controllers\Tenant\ShipmentController::class, 'storeBatch'])
+                     ->name('shipments.batches.store');
+                Route::get('lotes/{batch}', [\App\Http\Controllers\Tenant\ShipmentController::class, 'showBatch'])
+                     ->whereNumber('batch')->name('shipments.batches.show');
+                Route::get('lotes/{batch}/imprimir', [\App\Http\Controllers\Tenant\ShipmentController::class, 'printBatchLabels'])
+                     ->whereNumber('batch')->name('shipments.batches.print');
+                Route::post('lotes/{batch}/cerrar', [\App\Http\Controllers\Tenant\ShipmentController::class, 'closeBatch'])
+                     ->whereNumber('batch')->name('shipments.batches.close');
+                Route::post('lotes/{batch}/descartar', [\App\Http\Controllers\Tenant\ShipmentController::class, 'discardBatch'])
+                     ->whereNumber('batch')->name('shipments.batches.discard');
                 Route::get('sin-guia', [\App\Http\Controllers\Tenant\ShipmentController::class, 'withoutGuide'])
                      ->name('shipments.without_guide');
                 Route::get('motorizado', [\App\Http\Controllers\Tenant\ShipmentController::class, 'couriers'])
@@ -174,6 +190,16 @@ if ($hostname) {
                      ->name('shipments.update');
                 Route::post('{shipment}/anular', [\App\Http\Controllers\Tenant\ShipmentController::class, 'cancel'])
                      ->name('shipments.cancel');
+                Route::post('{shipment}/restaurar', [\App\Http\Controllers\Tenant\ShipmentController::class, 'restore'])
+                     ->name('shipments.restore');
+                Route::post('{shipment}/modalidad', [\App\Http\Controllers\Tenant\ShipmentController::class, 'changeModality'])
+                     ->name('shipments.modality');
+                Route::post('{shipment}/quitar-lote', [\App\Http\Controllers\Tenant\ShipmentController::class, 'removeFromBatch'])
+                     ->name('shipments.batch_remove');
+                Route::get('{shipment}/bitacora', [\App\Http\Controllers\Tenant\ShipmentController::class, 'auditTrail'])
+                     ->name('shipments.audit');
+                Route::get('{shipment}/comprobante-recojo', [\App\Http\Controllers\Tenant\ShipmentController::class, 'pickupReceipt'])
+                     ->name('shipments.pickup_receipt');
                 Route::post('{shipment}/estado', [\App\Http\Controllers\Tenant\ShipmentController::class, 'updateStatus'])
                      ->name('shipments.status');
                 Route::post('{shipment}/precio', [\App\Http\Controllers\Tenant\ShipmentController::class, 'updatePrice'])

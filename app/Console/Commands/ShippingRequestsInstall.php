@@ -38,7 +38,16 @@ class ShippingRequestsInstall extends Command
         '2026_07_24_000001_add_payment_confirmation_to_shipping',
         '2026_07_24_000002_package_content_to_text',
         '2026_07_24_000003_add_document_type_to_shipping',
+        '2026_07_25_000001_add_aging_settings_to_shipping_settings',
+        '2026_07_26_000003_create_shipping_logistics_tables',
     ];
+
+    /**
+     * Migración del rediseño logístico (lotes, impresiones, auditoría).
+     * Es idempotente de por sí, así que en vez de duplicar aquí su schema se
+     * ejecuta su up() directamente.
+     */
+    private const LOGISTICS_MIGRATION_FILE = '2026_07_26_000003_create_shipping_logistics_tables.php';
 
     public function handle(): int
     {
@@ -62,7 +71,10 @@ class ShippingRequestsInstall extends Command
 
                 if (Schema::connection('tenant')->hasTable('shipping_requests')) {
                     $added = $apply ? $this->ensureColumns() : $this->missingColumns();
-                    if ($apply) $this->ensureSettingsTable();
+                    if ($apply) {
+                        $this->ensureSettingsTable();
+                        $this->ensureLogisticsTables();
+                    }
                     $this->line("  <fg=gray>=</> {$hn->fqdn}: ya existe" . (!empty($added) ? " (columnas: " . implode(', ', $added) . ")" : ""));
                     $this->registerMigrationIfMissing();
                     $summary['ok']++;
@@ -119,6 +131,7 @@ class ShippingRequestsInstall extends Command
                 });
 
                 $this->ensureSettingsTable();
+                $this->ensureLogisticsTables();
                 $this->registerMigrationIfMissing();
                 $this->line("  <fg=green>+</> {$hn->fqdn}: CREADA");
                 $summary['applied']++;
@@ -190,6 +203,33 @@ class ShippingRequestsInstall extends Command
             if (!$has('max_business_days'))   $table->unsignedTinyInteger('max_business_days')->default(4)->after('require_payment');
             if (!$has('aging_skip_holidays')) $table->boolean('aging_skip_holidays')->default(true)->after('max_business_days');
         });
+    }
+
+    /**
+     * Crea las tablas del rediseño logístico (lotes, impresiones, auditoría)
+     * y las columnas que las acompañan, ejecutando la migración idempotente.
+     */
+    private function ensureLogisticsTables(): void
+    {
+        $path = database_path('migrations/tenant/' . self::LOGISTICS_MIGRATION_FILE);
+
+        if (!is_file($path)) {
+            return;
+        }
+
+        // La migración usa el facade Schema sin conexión explícita (como el
+        // resto de migraciones de tenant). Al correrla desde este comando la
+        // conexión por defecto puede no ser la del tenant, así que se fija
+        // durante la ejecución y se restaura después.
+        $previous = config('database.default');
+        config(['database.default' => 'tenant']);
+
+        try {
+            $migration = require $path;
+            $migration->up();
+        } finally {
+            config(['database.default' => $previous]);
+        }
     }
 
     /** Devuelve las columnas nuevas que aún faltan en la tabla. */

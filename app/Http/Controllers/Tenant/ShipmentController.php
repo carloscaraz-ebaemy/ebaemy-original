@@ -7,12 +7,17 @@ use App\Models\Tenant\Catalogs\Department;
 use App\Models\Tenant\Catalogs\District;
 use App\Models\Tenant\Catalogs\Province;
 use App\Models\Tenant\Company;
+use App\Models\Tenant\ShippingAuditLog;
+use App\Models\Tenant\ShippingPrintBatch;
+use App\Models\Tenant\ShippingPrintEvent;
 use App\Models\Tenant\ShippingRequest;
 use App\Models\Tenant\ShippingSetting;
+use App\Services\Tenant\ShippingBatchService;
 use Hyn\Tenancy\Environment;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\Rule;
 
 /**
  * Registro y Control de Envíos (panel del tenant).
@@ -24,7 +29,26 @@ use Illuminate\Support\Facades\Storage;
 class ShipmentController extends Controller
 {
     /** Filtros rápidos del tablero. */
-    private const FILTERS = ['todos', 'sin-guia', 'con-guia', 'pendientes', 'enviados-hoy'];
+    private const FILTERS = [
+        'todos', 'sin-guia', 'con-guia', 'pendientes', 'enviados-hoy',
+        // Rediseño logístico: por modalidad y por etapa del ciclo.
+        'lima', 'provincias', 'recojo',
+        'listos-imprimir', 'impresos', 'despachados', 'entregados', 'anulados',
+    ];
+
+    /** Etiquetas de los filtros rápidos, en el orden en que se muestran. */
+    public const FILTER_LABELS = [
+        'todos'           => 'Todos',
+        'lima'            => 'Lima',
+        'provincias'      => 'Provincias',
+        'recojo'          => 'Recojo en tienda',
+        'pendientes'      => 'Pendientes',
+        'listos-imprimir' => 'Listos para imprimir',
+        'impresos'        => 'Impresos',
+        'despachados'     => 'Despachados',
+        'entregados'      => 'Entregados',
+        'anulados'        => 'Anulados',
+    ];
 
     // ── Panel del encargado ────────────────────────────────────────────────
 
@@ -67,6 +91,41 @@ class ShipmentController extends Controller
             case 'con-guia':     $query->withGuide();     break;
             case 'pendientes':   $query->pending();       break;
             case 'enviados-hoy': $query->sentToday();     break;
+
+            // ── Filtros rápidos del rediseño logístico ──────────────────
+            case 'lima':
+                $query->where('delivery_type', ShippingRequest::DELIVERY_DOMICILIO); break;
+            case 'provincias':
+                $query->where('delivery_type', ShippingRequest::DELIVERY_AGENCIA); break;
+            case 'recojo':
+                $query->where('delivery_type', ShippingRequest::DELIVERY_TIENDA); break;
+
+            case 'listos-imprimir':
+                // Sin lote, no anulados y que sí generen rótulo de transporte.
+                $query->whereNull('print_batch_id')
+                      ->where('status', '!=', ShippingRequest::STATUS_ANULADO)
+                      ->where('delivery_type', '!=', ShippingRequest::DELIVERY_TIENDA);
+                break;
+            case 'impresos':
+                $query->whereNotNull('printed_at'); break;
+            case 'despachados':
+                $query->whereIn('status', [
+                    ShippingRequest::STATUS_DESPACHADO,
+                    ShippingRequest::STATUS_EN_AGENCIA,
+                    ShippingRequest::STATUS_EN_RUTA,
+                    ShippingRequest::STATUS_EN_CAMINO,
+                    'enviado',
+                ]); break;
+            case 'entregados':
+                $query->where('status', ShippingRequest::STATUS_ENTREGADO); break;
+            case 'anulados':
+                $query->where('status', ShippingRequest::STATUS_ANULADO); break;
+        }
+
+        // Los anulados no aparecen mezclados con la operación viva salvo que
+        // se pidan expresamente (filtro 'anulados' o búsqueda por código).
+        if (!in_array($filter, ['anulados', 'todos'], true)) {
+            $query->where('status', '!=', ShippingRequest::STATUS_ANULADO);
         }
 
         // Filtro por fecha de registro: un solo selector de RANGO (hoy, ayer,
@@ -104,10 +163,15 @@ class ShipmentController extends Controller
             $query->whereDate('created_at', '<=', date('Y-m-d', strtotime($to)));
         }
 
-        // Filtro por tipo de entrega (domicilio / agencia).
+        // Filtro por modalidad de entrega (Lima / Provincia / Recojo en tienda).
         $type = $request->input('type');
-        if (in_array($type, [ShippingRequest::DELIVERY_DOMICILIO, ShippingRequest::DELIVERY_AGENCIA], true)) {
+        if (array_key_exists($type, ShippingRequest::DELIVERY_TYPES)) {
             $query->where('delivery_type', $type);
+        }
+
+        // Filtro por lote de impresión.
+        if ($batchId = $request->input('lote')) {
+            $query->where('print_batch_id', (int) $batchId);
         }
 
         // Filtro por prioridad (antigüedad en días hábiles): 'urgentes' = naranja
@@ -181,7 +245,8 @@ class ShipmentController extends Controller
         if (!in_array($perPage, [10, 20, 50, 100], true)) {
             $perPage = 20;
         }
-        $shipments = $query->paginate($perPage)->withQueryString();
+        // `printBatch` se precarga: la tabla muestra el lote de cada envío.
+        $shipments = $query->with('printBatch')->paginate($perPage)->withQueryString();
 
         // Contadores para las pastillas de filtro (una pasada por estado).
         $counts = [
@@ -201,6 +266,7 @@ class ShipmentController extends Controller
         // Conteo por tipo de entrega (para las pastillas del panel).
         $metrics['domicilio'] = ShippingRequest::domicilio()->count();
         $metrics['agencia']   = ShippingRequest::agencia()->count();
+        $metrics['tienda']    = ShippingRequest::where('delivery_type', ShippingRequest::DELIVERY_TIENDA)->count();
         $metrics['courier_active'] = ShippingRequest::courierActive()->count();
 
         // Conteo por prioridad (envíos abiertos que ya cruzaron el umbral).
@@ -347,6 +413,7 @@ class ShipmentController extends Controller
 
         $shipment = ShippingRequest::create($data);
         $this->assignCode($shipment);
+        $this->stampPriority($shipment);
 
         return back()->with('success', "Envío {$shipment->shipment_code} registrado.");
     }
@@ -422,14 +489,180 @@ class ShipmentController extends Controller
         if (in_array($request->status, $sealStatuses, true) && !$shipment->sent_at) {
             $update['sent_at'] = now();
         }
+        // Recojo en tienda: sellar la entrega en mano.
+        if ($request->status === ShippingRequest::STATUS_ENTREGADO && $shipment->is_pickup) {
+            $update['picked_up_at'] = now();
+            if ($request->filled('picked_up_by')) {
+                $update['picked_up_by'] = mb_substr($request->input('picked_up_by'), 0, 160);
+            }
+        }
+
         $shipment->update($update);
 
         // WhatsApp automático al cliente por el cambio de estado.
         if ($old !== $shipment->status) {
             $this->notifyStatusChange($shipment);
+
+            ShippingAuditLog::log(
+                $this->auditActionForStatus($request->status),
+                $shipment->id,
+                'status',
+                $old,
+                $shipment->status,
+                null,
+                $shipment->print_batch_id
+            );
         }
 
         return back()->with('success', "Estado actualizado a «{$shipment->status_label}».");
+    }
+
+    /** La bitácora distingue despacho / entrega / recojo de un cambio de estado común. */
+    private function auditActionForStatus(string $status): string
+    {
+        return match ($status) {
+            ShippingRequest::STATUS_DESPACHADO, ShippingRequest::STATUS_EN_AGENCIA => ShippingAuditLog::ACTION_DISPATCH,
+            ShippingRequest::STATUS_ENTREGADO     => ShippingAuditLog::ACTION_DELIVER,
+            ShippingRequest::STATUS_LISTO_RECOJO  => ShippingAuditLog::ACTION_PICKUP,
+            default => ShippingAuditLog::ACTION_STATUS,
+        };
+    }
+
+    // ── Modalidad de entrega ───────────────────────────────────────────────
+
+    /**
+     * Cambia la modalidad de entrega y arrastra todo lo que depende de ella:
+     * prioridad logística, agencia, guía, ubigeo, coordenadas y precio.
+     *
+     * Bloqueado si el envío ya está en un lote IMPRESO. Un usuario admin
+     * puede forzarlo marcando la excepción, que queda registrada como tal.
+     */
+    public function changeModality(Request $request, ShippingRequest $shipment): RedirectResponse
+    {
+        $request->validate([
+            'delivery_type' => ['required', Rule::in(array_keys(ShippingRequest::DELIVERY_TYPES))],
+            'reason'        => ['nullable', 'string', 'max:255'],
+            'force'         => ['nullable', 'boolean'],
+        ]);
+
+        $new = $request->input('delivery_type');
+        $old = $shipment->delivery_type;
+
+        if ($new === $old) {
+            return back()->with('error', 'El envío ya tiene esa modalidad.');
+        }
+
+        [$allowed, $blockReason] = $shipment->canChangeModality();
+        $isException = false;
+
+        if (!$allowed) {
+            // Excepción: solo admin, y queda marcada en la bitácora.
+            $isAdmin = (auth()->user()->type ?? '') === 'admin';
+
+            if (!$request->boolean('force') || !$isAdmin) {
+                return back()->with('error', $blockReason);
+            }
+
+            $isException = true;
+        }
+
+        [$changes, $cleared] = $this->modalityCascade($shipment, $new);
+
+        $shipment->forceFill($changes)->save();
+
+        ShippingAuditLog::log(
+            ShippingAuditLog::ACTION_MODALITY,
+            $shipment->id,
+            'delivery_type',
+            ShippingRequest::DELIVERY_TYPES[$old] ?? $old,
+            ShippingRequest::DELIVERY_TYPES[$new] ?? $new,
+            $request->input('reason') ?: ($isException ? 'Excepción sobre lote impreso' : null),
+            $shipment->print_batch_id,
+            $isException
+        );
+
+        ShippingAuditLog::log(
+            ShippingAuditLog::ACTION_PRIORITY,
+            $shipment->id,
+            'priority',
+            ShippingRequest::priorityFor($old),
+            ShippingRequest::priorityFor($new),
+            'Automático por cambio de modalidad',
+            $shipment->print_batch_id
+        );
+
+        $msg = "Modalidad cambiada a «" . ShippingRequest::DELIVERY_TYPES[$new] . "».";
+        if ($isException) {
+            $msg .= ' Se registró como EXCEPCIÓN sobre un lote impreso.';
+        }
+        if (!empty($cleared)) {
+            $msg .= ' Se limpiaron: ' . implode(', ', $cleared) . '.';
+        }
+
+        return back()->with('success', $msg);
+    }
+
+    /**
+     * Calcula qué cambia al mover un envío de modalidad.
+     *
+     * La regla es que no queden datos huérfanos: un recojo en tienda no puede
+     * conservar agencia ni guía, y un envío a provincia no debe arrastrar las
+     * coordenadas del motorizado.
+     *
+     * @return array{0: array<string, mixed>, 1: array<int, string>} [cambios, qué se limpió]
+     */
+    private function modalityCascade(ShippingRequest $shipment, string $new): array
+    {
+        $changes = [
+            'delivery_type' => $new,
+            'priority'      => ShippingRequest::priorityFor($new),
+        ];
+
+        $cleared = [];
+
+        if ($new === ShippingRequest::DELIVERY_TIENDA) {
+            // Recojo en tienda: sin agencia, sin guía, sin ruta, sin cobro de envío.
+            foreach (['shipping_agency', 'tracking_number', 'courier_name', 'courier_phone',
+                      'latitude', 'longitude', 'google_place_id', 'google_maps_url',
+                      'formatted_address', 'distance_km', 'distance_text', 'duration_text'] as $field) {
+                if ($shipment->{$field} !== null && $shipment->{$field} !== '') {
+                    $changes[$field] = null;
+                }
+            }
+            $changes['delivery_price'] = null;
+            $changes['print_batch_id'] = null;   // sale de la cola de rotulado
+            $cleared = ['agencia', 'datos de envío', 'cola de rotulado'];
+        }
+
+        if ($new === ShippingRequest::DELIVERY_AGENCIA) {
+            // Provincia: la ruta del motorizado deja de aplicar.
+            foreach (['latitude', 'longitude', 'google_place_id', 'google_maps_url',
+                      'distance_km', 'distance_text', 'duration_text', 'courier_name', 'courier_phone'] as $field) {
+                if ($shipment->{$field} !== null && $shipment->{$field} !== '') {
+                    $changes[$field] = null;
+                }
+            }
+            $cleared[] = 'ruta del motorizado';
+        }
+
+        if ($new === ShippingRequest::DELIVERY_DOMICILIO) {
+            // Lima: la agencia de provincia deja de aplicar.
+            if ($shipment->shipping_agency) {
+                $changes['shipping_agency'] = null;
+                $cleared[] = 'agencia de transporte';
+            }
+        }
+
+        // Si el estado actual no existe en el flujo de la modalidad nueva, se
+        // regresa al inicio del flujo para no dejar un estado imposible.
+        $flow = ShippingRequest::statusOrderFor($new);
+        if ($shipment->status !== ShippingRequest::STATUS_ANULADO
+            && !in_array($shipment->status, $flow, true)) {
+            $changes['status'] = ShippingRequest::STATUS_RECIBIDO;
+            $cleared[] = 'estado (vuelve a pendiente)';
+        }
+
+        return [$changes, array_values(array_unique($cleared))];
     }
 
     /**
@@ -518,7 +751,26 @@ class ShipmentController extends Controller
     public function update(Request $request, ShippingRequest $shipment): RedirectResponse
     {
         $data = $this->validateShipment($request);
+
+        // La modalidad NO se cambia por aquí: tiene su propio flujo con
+        // cascada, bloqueo por lote y auditoría (changeModality).
+        unset($data['delivery_type']);
+
+        $dirty = collect($data)->filter(fn ($v, $k) => (string) $shipment->{$k} !== (string) $v)->keys();
+
         $shipment->update($data);
+
+        if ($dirty->isNotEmpty()) {
+            ShippingAuditLog::log(
+                ShippingAuditLog::ACTION_EDIT,
+                $shipment->id,
+                null,
+                null,
+                null,
+                'Campos editados: ' . $dirty->implode(', '),
+                $shipment->print_batch_id
+            );
+        }
 
         return back()->with('success', "Envío {$shipment->shipment_code} actualizado.");
     }
@@ -553,6 +805,16 @@ class ShipmentController extends Controller
             'payment_note'         => $confirm ? $request->input('payment_note') : null,
         ]);
 
+        ShippingAuditLog::log(
+            ShippingAuditLog::ACTION_PAYMENT,
+            $shipment->id,
+            'payment_confirmed',
+            !$confirm,
+            $confirm,
+            $request->input('payment_note'),
+            $shipment->print_batch_id
+        );
+
         return back()->with('success', $confirm
             ? "Pago confirmado — {$shipment->shipment_code} habilitado."
             : "Se quitó la confirmación de pago de {$shipment->shipment_code}.");
@@ -573,11 +835,104 @@ class ShipmentController extends Controller
     }
 
     /** Anular un envío (queda en estado 'anulado', no se borra). */
-    public function cancel(ShippingRequest $shipment): RedirectResponse
+    /**
+     * Anula el envío. NUNCA se borra: cambia de estado, guarda quién, cuándo y
+     * por qué, recuerda el estado previo para poder restaurarlo y lo saca de
+     * la cola de rotulado si su lote sigue abierto.
+     */
+    public function cancel(Request $request, ShippingRequest $shipment): RedirectResponse
     {
-        $shipment->update(['status' => ShippingRequest::STATUS_ANULADO]);
+        if ($shipment->status === ShippingRequest::STATUS_ANULADO) {
+            return back()->with('error', 'El envío ya estaba anulado.');
+        }
 
-        return back()->with('success', "Envío {$shipment->shipment_code} anulado.");
+        $request->validate(['reason' => ['nullable', 'string', 'max:255']]);
+
+        $user = auth()->user();
+        $old  = $shipment->status;
+
+        $update = [
+            'status'               => ShippingRequest::STATUS_ANULADO,
+            'status_before_cancel' => $old,
+            'cancelled_at'         => now(),
+            'cancelled_by'         => $user?->id,
+            'cancelled_by_name'    => $user?->name,
+            'cancel_reason'        => $request->input('reason'),
+        ];
+
+        // Si estaba en un lote todavía abierto, se libera para no ensuciarlo.
+        $batchId = $shipment->print_batch_id;
+        if ($batchId && !$shipment->isLockedByBatch()) {
+            $update['print_batch_id'] = null;
+        }
+
+        $shipment->forceFill($update)->save();
+
+        ShippingAuditLog::log(
+            ShippingAuditLog::ACTION_CANCEL,
+            $shipment->id,
+            'status',
+            $old,
+            ShippingRequest::STATUS_ANULADO,
+            $request->input('reason'),
+            $batchId
+        );
+
+        return back()->with('success', "Envío {$shipment->shipment_code} anulado. Sigue en el historial y puede restaurarse.");
+    }
+
+    /**
+     * Restaura un envío anulado: recupera su información y vuelve al estado
+     * que tenía antes de anularse. Si su lote de entonces ya se imprimió, se
+     * devuelve sin lote para que pueda entrar a uno nuevo.
+     */
+    public function restore(Request $request, ShippingRequest $shipment): RedirectResponse
+    {
+        if ($shipment->status !== ShippingRequest::STATUS_ANULADO) {
+            return back()->with('error', 'Solo se pueden restaurar envíos anulados.');
+        }
+
+        $request->validate(['reason' => ['nullable', 'string', 'max:255']]);
+
+        $user = auth()->user();
+
+        // Vuelve a donde estaba; si el estado previo ya no aplica a su
+        // modalidad (o no se guardó), arranca de nuevo en pendiente.
+        $target = $shipment->status_before_cancel;
+        $flow   = ShippingRequest::statusOrderFor($shipment->delivery_type);
+
+        if (!$target || !in_array($target, $flow, true)) {
+            $target = ShippingRequest::STATUS_RECIBIDO;
+        }
+
+        $shipment->forceFill([
+            'status'          => $target,
+            'restored_at'     => now(),
+            'restored_by'     => $user?->id,
+            'restored_by_name' => $user?->name,
+            'restore_reason'  => $request->input('reason'),
+            'cancelled_at'    => null,
+            'cancelled_by'    => null,
+            'cancelled_by_name' => null,
+            'status_before_cancel' => null,
+        ])->save();
+
+        ShippingAuditLog::log(
+            ShippingAuditLog::ACTION_RESTORE,
+            $shipment->id,
+            'status',
+            ShippingRequest::STATUS_ANULADO,
+            $target,
+            $request->input('reason'),
+            $shipment->print_batch_id
+        );
+
+        $msg = "Envío {$shipment->shipment_code} restaurado a «{$shipment->status_label}».";
+        if (!$shipment->print_batch_id && $shipment->needsShippingLabel()) {
+            $msg .= ' Ya puede volver a imprimirse.';
+        }
+
+        return back()->with('success', $msg);
     }
 
     /** Rótulo imprimible del envío (standalone, listo para imprimir/PDF). */
@@ -587,6 +942,21 @@ class ShipmentController extends Controller
             return back()->with('error', "Confirma primero el pago de {$shipment->shipment_code} para imprimir su rótulo.");
         }
 
+        // El recojo en tienda no lleva rótulo de transporte: se le entrega un
+        // comprobante interno de entrega.
+        if ($shipment->is_pickup) {
+            return redirect()->route('shipments.pickup_receipt', $shipment);
+        }
+
+        // Reimpresión de un rótulo suelto: exige motivo y queda en el historial.
+        $reason = trim((string) $request->query('motivo'));
+
+        if ($shipment->print_count > 0 && $reason === '') {
+            return back()->with('error',
+                "El rótulo de {$shipment->shipment_code} ya se imprimió {$shipment->print_count} vez/veces. "
+                . 'Indica el motivo para reimprimirlo.');
+        }
+
         $company = Company::first();
 
         // Formato de impresión: sticker (10cm), A5 o A4.
@@ -594,6 +964,24 @@ class ShipmentController extends Controller
         if (!in_array($format, ['sticker', 'a5', 'a4'], true)) {
             $format = 'a5';
         }
+
+        // Historial de impresiones del rótulo suelto (nunca se sobrescribe).
+        $event = ShippingPrintEvent::record(null, $shipment->id, 1, $format, $reason ?: null);
+
+        $shipment->forceFill([
+            'print_count' => (int) $shipment->print_count + 1,
+            'printed_at'  => now(),
+        ])->save();
+
+        ShippingAuditLog::log(
+            $event->is_reprint ? ShippingAuditLog::ACTION_REPRINT : ShippingAuditLog::ACTION_PRINT,
+            $shipment->id,
+            'print_count',
+            $shipment->print_count - 1,
+            $shipment->print_count,
+            $reason ?: null,
+            $shipment->print_batch_id
+        );
 
         return view('tenant.shipments.label', [
             'shipment' => $shipment,
@@ -648,6 +1036,232 @@ class ShipmentController extends Controller
             'format'  => $format,
             'ids'     => $printable->pluck('id')->implode(','),
             'skipped' => $blocked->values(),
+        ]);
+    }
+
+    // ── Lotes de impresión ─────────────────────────────────────────────────
+
+    /** Listado de lotes con sus totales y el estado de la ventana de corte. */
+    public function batches(Request $request)
+    {
+        $service = new ShippingBatchService();
+
+        $status = $request->input('estado');
+        if (!array_key_exists($status, ShippingPrintBatch::STATUSES)) {
+            $status = null;
+        }
+
+        $batches = ShippingPrintBatch::query()
+            ->when($status, fn ($q) => $q->where('status', $status))
+            ->withCount('shipments')
+            ->orderByDesc('id')
+            ->paginate(20)
+            ->withQueryString();
+
+        $window = $service->currentWindow();
+
+        return view('tenant.shipments.batches', [
+            'batches'  => $batches,
+            'status'   => $status,
+            'window'   => $window,
+            'ready'    => $service->readyForCurrentBatch(),
+            'waiting'  => $service->waitingNextBatch(),
+            'openCount'=> ShippingPrintBatch::open()->count(),
+        ]);
+    }
+
+    /** Crea un lote con los envíos seleccionados en el panel. */
+    public function storeBatch(Request $request): RedirectResponse
+    {
+        $request->validate([
+            'ids'    => ['required'],
+            'format' => ['nullable', 'in:sticker,a5,a4'],
+            'notes'  => ['nullable', 'string', 'max:255'],
+        ]);
+
+        $ids = is_array($request->input('ids'))
+            ? $request->input('ids')
+            : explode(',', (string) $request->input('ids'));
+
+        $result = (new ShippingBatchService())->createBatch(
+            $ids,
+            $request->input('format', 'a5'),
+            $request->input('notes')
+        );
+
+        if (!$result['batch']) {
+            $detail = collect($result['skipped'])->map(fn ($why, $code) => "{$code}: {$why}")->implode(' · ');
+
+            return back()->with('error', 'No se pudo crear el lote. ' . ($detail ?: 'Ningún envío es elegible.'));
+        }
+
+        $msg = "Lote {$result['batch']->code} creado con {$result['added']} envío(s).";
+        if (!empty($result['skipped'])) {
+            $msg .= ' Quedaron fuera: '
+                  . collect($result['skipped'])->map(fn ($why, $code) => "{$code} ({$why})")->implode(', ');
+        }
+
+        return redirect()->route('shipments.batches.show', $result['batch'])->with('success', $msg);
+    }
+
+    /** Ficha del lote: envíos, historial de impresiones y bitácora. */
+    public function showBatch(ShippingPrintBatch $batch)
+    {
+        $batch->load(['shipments' => fn ($q) => $q->orderBy('priority')->orderBy('id')]);
+
+        return view('tenant.shipments.batch-show', [
+            'batch'   => $batch,
+            'events'  => $batch->printEvents()->get(),
+            'logs'    => $batch->auditLogs()->limit(100)->get(),
+            'company' => Company::first(),
+        ]);
+    }
+
+    /** Retira un envío de un lote todavía abierto. */
+    public function removeFromBatch(ShippingRequest $shipment): RedirectResponse
+    {
+        [$ok, $msg] = (new ShippingBatchService())->removeFromBatch($shipment);
+
+        return back()->with($ok ? 'success' : 'error', $msg);
+    }
+
+    /** Descarta un lote abierto y libera sus envíos. */
+    public function discardBatch(ShippingPrintBatch $batch): RedirectResponse
+    {
+        [$ok, $msg] = (new ShippingBatchService())->discardBatch($batch);
+
+        return $ok
+            ? redirect()->route('shipments.batches')->with('success', $msg)
+            : back()->with('error', $msg);
+    }
+
+    /** Cierra un lote ya despachado. */
+    public function closeBatch(ShippingPrintBatch $batch): RedirectResponse
+    {
+        [$ok, $msg] = (new ShippingBatchService())->closeBatch($batch);
+
+        return back()->with($ok ? 'success' : 'error', $msg);
+    }
+
+    /**
+     * Imprime el lote: devuelve los rótulos y, la primera vez, marca el lote
+     * como impreso (a partir de ahí sus envíos quedan bloqueados).
+     * Las siguientes veces exigen motivo y se registran como reimpresión.
+     */
+    public function printBatchLabels(Request $request, ShippingPrintBatch $batch)
+    {
+        $format = strtolower((string) $request->query('format', $batch->format ?: 'a5'));
+        if (!in_array($format, ['a5', 'a4'], true)) {
+            $format = 'a5';
+        }
+
+        $shipments = $batch->shipments()->orderBy('priority')->orderBy('id')->get();
+
+        if ($shipments->isEmpty()) {
+            return redirect()->route('shipments.batches.show', $batch)
+                             ->with('error', 'El lote no tiene envíos que rotular.');
+        }
+
+        $service = new ShippingBatchService();
+
+        if (!$batch->isPrinted()) {
+            $service->markPrinted($batch, $shipments->count(), $format);
+            $batch->refresh();
+        } else {
+            // Reimpresión: el motivo llega por query desde el modal del panel.
+            $reason = trim((string) $request->query('motivo'));
+
+            if ($reason === '') {
+                return redirect()->route('shipments.batches.show', $batch)
+                                 ->with('error', 'Indica el motivo de la reimpresión antes de volver a imprimir el lote.');
+            }
+
+            $service->registerReprint($batch, $reason, $format);
+        }
+
+        $items = $shipments->map(fn ($s) => [
+            'shipment' => $s,
+            'ubigeo'   => $this->resolveUbigeo($s),
+            'qr'       => $this->makeQr($s),
+            'barcode'  => $this->makeBarcode($s),
+        ])->all();
+
+        return view('tenant.shipments.label-batch', [
+            'items'   => $items,
+            'company' => Company::first(),
+            'format'  => $format,
+            'ids'     => $shipments->pluck('id')->implode(','),
+            'skipped' => collect(),
+            'batch'   => $batch->fresh(),
+        ]);
+    }
+
+    // ── Dashboard logístico ────────────────────────────────────────────────
+
+    /** Indicadores de la operación: revisión, impresión, lotes y modalidades. */
+    public function dashboard()
+    {
+        $service = new ShippingBatchService();
+        $setting = ShippingSetting::current();
+
+        $byType = ShippingRequest::where('status', '!=', ShippingRequest::STATUS_ANULADO)
+                                 ->selectRaw('delivery_type, count(*) c')
+                                 ->groupBy('delivery_type')
+                                 ->pluck('c', 'delivery_type');
+
+        $overdue = ShippingRequest::query()
+            ->whereNotIn('status', ShippingRequest::CLOSED_STATUSES)
+            ->where('created_at', '<=', ShippingRequest::agingCutoff($setting->max_days, (bool) $setting->aging_skip_holidays))
+            ->count();
+
+        $metrics = [
+            'pending_review'   => ShippingRequest::where('status', ShippingRequest::STATUS_RECIBIDO)->count(),
+            'pending_print'    => $service->readyForCurrentBatch()->count(),
+            'waiting_next'     => $service->waitingNextBatch()->count(),
+            'batches_open'     => ShippingPrintBatch::open()->count(),
+            'batches_today'    => ShippingPrintBatch::printedToday()->count(),
+            'lima'             => (int) ($byType[ShippingRequest::DELIVERY_DOMICILIO] ?? 0),
+            'provincia'        => (int) ($byType[ShippingRequest::DELIVERY_AGENCIA] ?? 0),
+            'tienda'           => (int) ($byType[ShippingRequest::DELIVERY_TIENDA] ?? 0),
+            'cancelled'        => ShippingRequest::where('status', ShippingRequest::STATUS_ANULADO)->count(),
+            'restored'         => ShippingRequest::whereNotNull('restored_at')->count(),
+            'overdue'          => $overdue,
+            'reprints'         => ShippingPrintEvent::reprints()->count(),
+        ];
+
+        return view('tenant.shipments.dashboard', [
+            'metrics'      => $metrics,
+            'window'       => $service->currentWindow(),
+            'recentBatches'=> ShippingPrintBatch::orderByDesc('id')->limit(8)->get(),
+            'recentLogs'   => ShippingAuditLog::orderByDesc('id')->limit(20)->get(),
+            'exceptions'   => ShippingAuditLog::where('is_exception', true)->orderByDesc('id')->limit(10)->get(),
+        ]);
+    }
+
+    /** Bitácora completa de un envío (modal del panel). */
+    public function auditTrail(ShippingRequest $shipment)
+    {
+        return response()->json([
+            'code' => $shipment->shipment_code,
+            'logs' => $shipment->auditLogs()->limit(100)->get()->map(fn ($l) => [
+                'action'    => $l->action_label,
+                'summary'   => $l->summary,
+                'notes'     => $l->notes,
+                'user'      => $l->user_name,
+                'exception' => $l->is_exception,
+                'at'        => optional($l->created_at)->format('d/m/Y H:i'),
+            ])->values(),
+        ]);
+    }
+
+    /** Comprobante interno de entrega para los recojos en tienda. */
+    public function pickupReceipt(ShippingRequest $shipment)
+    {
+        abort_unless($shipment->is_pickup, 404);
+
+        return view('tenant.shipments.pickup-receipt', [
+            'shipment' => $shipment,
+            'company'  => Company::first(),
         ]);
     }
 
@@ -1052,6 +1666,7 @@ class ShipmentController extends Controller
             'require_payment' => 'nullable',
             'max_business_days'   => 'nullable|integer|min:1|max:60',
             'aging_skip_holidays' => 'nullable',
+            'cutoff_time'         => 'nullable|date_format:H:i',
         ], [], [
             'store_latitude'  => 'ubicación de la tienda',
             'store_longitude' => 'ubicación de la tienda',
@@ -1062,6 +1677,8 @@ class ShipmentController extends Controller
         $data['require_payment']     = $request->boolean('require_payment');
         $data['max_business_days']   = (int) ($request->input('max_business_days') ?: 4);
         $data['aging_skip_holidays'] = $request->boolean('aging_skip_holidays');
+        // Hora de corte vacía = sin corte (la ventana pasa a ser el día calendario).
+        $data['cutoff_time'] = $request->filled('cutoff_time') ? $request->input('cutoff_time') : null;
 
         $store = ShippingSetting::current();
         $store->update($data);
@@ -1095,6 +1712,7 @@ class ShipmentController extends Controller
 
         $shipment = ShippingRequest::create($data);
         $this->assignCode($shipment);
+        $this->stampPriority($shipment);
 
         // WhatsApp "registro recibido" al cliente (async, best-effort).
         $this->notifyClientRegistered($shipment);
@@ -1253,5 +1871,28 @@ class ShipmentController extends Controller
             );
             $shipment->save();
         }
+    }
+
+    /**
+     * Sella la prioridad logística que corresponde a la modalidad y deja el
+     * alta registrada en la bitácora. Se llama al crear un envío, venga del
+     * panel o del formulario público.
+     */
+    private function stampPriority(ShippingRequest $shipment): void
+    {
+        $priority = ShippingRequest::priorityFor($shipment->delivery_type);
+
+        if ((int) $shipment->priority !== $priority) {
+            $shipment->forceFill(['priority' => $priority])->save();
+        }
+
+        ShippingAuditLog::log(
+            ShippingAuditLog::ACTION_STATUS,
+            $shipment->id,
+            'status',
+            null,
+            $shipment->status,
+            'Alta del envío · ' . $shipment->delivery_label . ' · ' . $shipment->priority_label
+        );
     }
 }

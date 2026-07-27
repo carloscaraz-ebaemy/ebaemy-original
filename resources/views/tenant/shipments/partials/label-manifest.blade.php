@@ -43,9 +43,25 @@
             <div class="sub">{{ $company->trade_name ?? $company->name ?? 'Registro y Control de Envíos' }}</div>
         </div>
         <div class="meta">
+            @php $bt = $batch ?? null; @endphp
+            @if($bt)
+                @if($bt->manifest_code)Manifiesto <b>{{ $bt->manifest_code }}</b><br>@endif
+                Lote <b>{{ $bt->code }}</b><br>
+            @endif
             Fecha de impresión<br>
             <b>{{ $printedAt->format('d/m/Y') }}</b> · {{ $printedAt->format('h:i a') }}<br>
+            @if($bt && $bt->printed_by_name)
+                Responsable: <b>{{ $bt->printed_by_name }}</b><br>
+            @endif
             Paquetes en esta tanda: <b>{{ count($items) }}</b>
+            @php
+                // Modalidad del manifiesto: la común a todos, o "Mixto".
+                $mods = collect($items)->map(fn ($it) => $it['shipment']->delivery_short)->unique()->values();
+            @endphp
+            <br>Modalidad: <b>{{ $mods->count() === 1 ? $mods->first() : 'Mixto' }}</b>
+            @if($bt && $bt->label_range)
+                <br><span style="font-size:10px">Etiquetas: {{ $bt->label_range }}</span>
+            @endif
         </div>
     </div>
 

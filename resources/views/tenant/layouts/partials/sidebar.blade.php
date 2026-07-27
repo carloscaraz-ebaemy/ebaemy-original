@@ -1078,6 +1078,24 @@ $inventory_configuration = InventoryConfiguration::getSidebarPermissions();
                                         @if($shipNoGuide > 0)<span class="badge bg-danger ms-1" title="Paquetes sin guía">{{ $shipNoGuide }}</span>@endif
                                     </a>
                                 </li>
+                                {{-- Lotes de impresión (rediseño logístico) --}}
+                                @php
+                                    $lotesAbiertos = 0;
+                                    try { $lotesAbiertos = \App\Models\Tenant\ShippingPrintBatch::open()->count(); } catch (\Throwable $e) {}
+                                @endphp
+                                <li class="{{ request()->is('registro-envio/lotes*') ? 'nav-active' : '' }}">
+                                    <a class="nav-link" href="{{ route('shipments.batches') }}">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M12 3l8 4.5v9l-8 4.5l-8 -4.5v-9z" /><path d="M12 12l8 -4.5" /><path d="M12 12v9" /><path d="M12 12l-8 -4.5" /></svg>
+                                        <span>Lotes de impresión</span>
+                                        @if($lotesAbiertos > 0)<span class="badge bg-warning text-dark ms-1" title="Lotes abiertos sin imprimir">{{ $lotesAbiertos }}</span>@endif
+                                    </a>
+                                </li>
+                                <li class="{{ request()->is('registro-envio/tablero') ? 'nav-active' : '' }}">
+                                    <a class="nav-link" href="{{ route('shipments.dashboard') }}">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M4 19v-10" /><path d="M10 19v-4" /><path d="M16 19v-7" /><path d="M22 19v-13" /></svg>
+                                        <span>Tablero logístico</span>
+                                    </a>
+                                </li>
                                 @endif
                                 @if(in_array('ecommerce_items', $vc_module_levels))
                                     <li class="{{ ($firstLevel === 'items_ecommerce') ? 'nav-active' : '' }}">

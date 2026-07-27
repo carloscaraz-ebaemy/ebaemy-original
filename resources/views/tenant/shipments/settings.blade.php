@@ -129,6 +129,19 @@
                 </div>
                 <div class="small text-muted mt-1">🟢 En plazo · 🟡 por vencer · 🟠 urgente · 🔴 vencido (superó el plazo). Los pedidos entregados, en agencia o anulados no cuentan.</div>
 
+                <hr class="my-4">
+                <h6 class="fw-bold mb-1">🕒 Corte operativo</h6>
+                <p class="text-muted small mb-2">
+                    Los pedidos registrados <b>antes</b> del corte entran al lote de impresión del día.
+                    Los posteriores quedan automáticamente para el lote siguiente, aunque sean del mismo día calendario.
+                </p>
+                <div class="d-flex align-items-center gap-2 flex-wrap">
+                    <label class="small mb-0" for="cutoff_time">Hora de corte:</label>
+                    <input type="time" name="cutoff_time" id="cutoff_time" class="form-control form-control-sm"
+                           style="max-width:130px;" value="{{ $store->cutoff_hhmm }}">
+                    <span class="small text-muted">Déjala vacía para usar el día calendario completo.</span>
+                </div>
+
                 <button type="submit" class="btn btn-primary mt-3"><i class="fas fa-save me-1"></i> Guardar configuración</button>
             </form>
         </div>

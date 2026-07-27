@@ -84,6 +84,23 @@
         background:var(--sh-surface); border:1px solid var(--sh-line); border-radius:9px;
         transition:background .16s ease-out, border-color .16s ease-out, color .16s ease-out, box-shadow .16s ease-out; }
     .sh-pri__chip:hover { background:var(--sh-hover); border-color:#d5d9e6; color:var(--sh-ink); }
+    /* Filtros rápidos por modalidad: azul provincia, naranja Lima, verde recojo. */
+    .sh-quick { flex-wrap:wrap; }
+    .sh-quick__dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; }
+    .sh-quick__dot--agencia   { background:#2563eb; }
+    .sh-quick__dot--domicilio { background:#ea580c; }
+    .sh-quick__dot--tienda    { background:#16a34a; }
+    .sh-quick--agencia.is-on   { background:#eff6ff; border-color:#bfdbfe; color:#1d4ed8; }
+    .sh-quick--domicilio.is-on { background:#fff7ed; border-color:#fed7aa; color:#c2410c; }
+    .sh-quick--tienda.is-on    { background:#f0fdf4; border-color:#bbf7d0; color:#15803d; }
+    /* Chip de modalidad dentro de la tabla. */
+    .sh-mod { display:inline-flex; align-items:center; gap:.28rem; font-size:.7rem; font-weight:700;
+        padding:.14rem .5rem; border-radius:999px; border:1px solid transparent; white-space:nowrap; }
+    .sh-mod--agencia   { background:#eff6ff; color:#2563eb; border-color:#bfdbfe; }
+    .sh-mod--domicilio { background:#fff7ed; color:#ea580c; border-color:#fed7aa; }
+    .sh-mod--tienda    { background:#f0fdf4; color:#16a34a; border-color:#bbf7d0; }
+    .sh-batch { font-size:.68rem; color:var(--sh-faint); font-weight:600; }
+    .sh-batch--on { color:var(--sh-brand-ink); }
     .sh-pri__chip b { font-size:.67rem; font-weight:800; padding:.06rem .4rem; border-radius:999px;
         background:var(--sh-count); color:var(--sh-muted); font-variant-numeric:tabular-nums; }
     .sh-pri__dot { width:9px; height:9px; border-radius:50%; flex:0 0 auto; }
@@ -434,6 +451,24 @@
         @endforeach
     </div>
 
+    {{-- ── Filtros rápidos por modalidad y etapa del ciclo logístico ── --}}
+    <div class="sh-pri sh-quick">
+        <span class="sh-pri__lbl"><i class="fas fa-filter"></i> Rápidos</span>
+        @foreach(\App\Http\Controllers\Tenant\ShipmentController::FILTER_LABELS as $fk => $fl)
+            @php
+                // El chip de modalidad se pinta con su color acordado.
+                $mod = ['lima' => 'domicilio', 'provincias' => 'agencia', 'recojo' => 'tienda'][$fk] ?? null;
+            @endphp
+            <a href="{{ $mk(['filter' => $fk === 'todos' ? null : $fk]) }}"
+               class="sh-pri__chip {{ $mod ? 'sh-quick--' . $mod : '' }} {{ ($filter ?? 'todos') === $fk ? 'is-on' : '' }}">
+                @if($mod)<span class="sh-quick__dot sh-quick__dot--{{ $mod }}"></span>@endif
+                {{ $fl }}
+            </a>
+        @endforeach
+        <a href="{{ route('shipments.batches') }}" class="sh-pri__chip"><i class="fas fa-boxes-stacked"></i> Lotes</a>
+        <a href="{{ route('shipments.dashboard') }}" class="sh-pri__chip"><i class="fas fa-chart-simple"></i> Tablero</a>
+    </div>
+
     {{-- ── Prioridad por antigüedad (días hábiles) ── --}}
     <div class="sh-pri">
         <span class="sh-pri__lbl"><i class="fas fa-traffic-light"></i> Prioridad</span>
@@ -726,9 +761,30 @@
                                     <div class="mt-1"><a href="{{ $s->maps_link }}" target="_blank" class="small text-decoration-none"><i class="fas fa-map-marker-alt me-1"></i>Ver ubicación</a></div>
                                 @endif
                                 @if($s->courier_name)<div><small class="text-muted"><i class="fas fa-motorcycle me-1"></i>{{ $s->courier_name }}</small></div>@endif
+                            @elseif($s->is_pickup)
+                                <a href="{{ route('shipments.pickup_receipt', $s->id) }}" target="_blank"
+                                   class="small text-decoration-none">
+                                    <i class="fas fa-receipt me-1"></i>Comprobante de entrega
+                                </a>
                             @else
                                 {{ $s->shipping_agency ?: '—' }}
                             @endif
+
+                            {{-- Modalidad + lote: los tres campos separados que pide la operación. --}}
+                            <div class="mt-1 d-flex flex-wrap gap-1 align-items-center">
+                                <span class="sh-mod sh-mod--{{ $s->delivery_type }}">
+                                    {{ $s->delivery_meta['icon'] }} {{ $s->delivery_short }}
+                                </span>
+                                <span class="sh-batch {{ $s->print_batch_id ? 'sh-batch--on' : '' }}">
+                                    @if($s->print_batch_id)
+                                        <a href="{{ route('shipments.batches.show', $s->print_batch_id) }}"
+                                           class="text-decoration-none">{{ $s->batch_label }}</a>
+                                        @if($s->isLockedByBatch())<i class="fas fa-lock ms-1" title="Lote impreso: bloqueado"></i>@endif
+                                    @else
+                                        Sin lote
+                                    @endif
+                                </span>
+                            </div>
                         </td>
                         <td>
                             @if($s->has_guide)
@@ -856,16 +912,66 @@
                                             <i class="fas fa-pen fa-fw me-2"></i> Editar
                                         </button>
                                     </li>
+                                    {{-- ── Modalidad de entrega: flujo propio con cascada y auditoría ── --}}
                                     @if(!$s->is_cancelled)
                                     <li><hr class="dropdown-divider"></li>
                                     <li>
-                                        <form method="POST" action="{{ route('shipments.cancel', $s->id) }}"
-                                              onsubmit="return confirm('¿Anular el envío {{ $s->shipment_code }}? Podrás reactivarlo cambiando su estado.');">
+                                        <button type="button" class="dropdown-item js-change-modality"
+                                                data-bs-toggle="modal" data-bs-target="#modalModalidad"
+                                                data-id="{{ $s->id }}"
+                                                data-code="{{ $s->shipment_code }}"
+                                                data-current="{{ $s->delivery_type }}"
+                                                data-locked="{{ $s->isLockedByBatch() ? '1' : '' }}"
+                                                data-batch="{{ $s->batch_label }}">
+                                            <i class="fas fa-shuffle fa-fw me-2"></i> Cambiar modalidad
+                                        </button>
+                                    </li>
+                                    @if($s->print_batch_id && !$s->isLockedByBatch())
+                                    <li>
+                                        <form method="POST" action="{{ route('shipments.batch_remove', $s->id) }}">
                                             @csrf
-                                            <button type="submit" class="dropdown-item text-danger">
-                                                <i class="fas fa-ban fa-fw me-2"></i> Anular
+                                            <button type="submit" class="dropdown-item">
+                                                <i class="fas fa-box-open fa-fw me-2"></i> Quitar del lote
                                             </button>
                                         </form>
+                                    </li>
+                                    @endif
+                                    <li>
+                                        <button type="button" class="dropdown-item js-audit-trail"
+                                                data-bs-toggle="modal" data-bs-target="#modalBitacora"
+                                                data-url="{{ route('shipments.audit', $s->id) }}"
+                                                data-code="{{ $s->shipment_code }}">
+                                            <i class="fas fa-clock-rotate-left fa-fw me-2"></i> Ver bitácora
+                                        </button>
+                                    </li>
+                                    <li><hr class="dropdown-divider"></li>
+                                    <li>
+                                        <button type="button" class="dropdown-item text-danger js-cancel-shipment"
+                                                data-bs-toggle="modal" data-bs-target="#modalAnular"
+                                                data-id="{{ $s->id }}" data-code="{{ $s->shipment_code }}">
+                                            <i class="fas fa-ban fa-fw me-2"></i> Anular
+                                        </button>
+                                    </li>
+                                    @else
+                                    {{-- Anulado: nunca se borra, se puede restaurar --}}
+                                    <li><hr class="dropdown-divider"></li>
+                                    <li>
+                                        <button type="button" class="dropdown-item js-audit-trail"
+                                                data-bs-toggle="modal" data-bs-target="#modalBitacora"
+                                                data-url="{{ route('shipments.audit', $s->id) }}"
+                                                data-code="{{ $s->shipment_code }}">
+                                            <i class="fas fa-clock-rotate-left fa-fw me-2"></i> Ver bitácora
+                                        </button>
+                                    </li>
+                                    <li>
+                                        <button type="button" class="dropdown-item text-success js-restore-shipment"
+                                                data-bs-toggle="modal" data-bs-target="#modalRestaurar"
+                                                data-id="{{ $s->id }}" data-code="{{ $s->shipment_code }}"
+                                                data-reason="{{ $s->cancel_reason }}"
+                                                data-by="{{ $s->cancelled_by_name }}"
+                                                data-at="{{ optional($s->cancelled_at)->format('d/m/Y H:i') }}">
+                                            <i class="fas fa-rotate-left fa-fw me-2"></i> Restaurar pedido
+                                        </button>
                                     </li>
                                     @endif
                                 </ul>
@@ -1230,6 +1336,136 @@
           <i class="fas fa-pen"></i> Editar
         </button>
         <button type="button" class="sh-act sh-act--ghost" data-bs-dismiss="modal" style="border-color:var(--sh-line);margin-left:auto;">Cerrar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+{{-- ══════════════════════════════════════════════════════════════════
+     MODALIDAD DE ENTREGA
+     Cambiar la modalidad arrastra agencia, guía, ruta y prioridad. Si el
+     envío ya está en un lote IMPRESO se bloquea; un admin puede forzarlo
+     marcando la excepción, que queda registrada como tal en la bitácora.
+     ══════════════════════════════════════════════════════════════════ --}}
+<div class="modal fade" id="modalModalidad" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <form class="modal-content" method="POST" id="formModalidad">
+      @csrf
+      <div class="modal-header">
+        <h5 class="modal-title">Cambiar modalidad — <span id="modCode"></span></h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div id="modLocked" class="alert alert-warning py-2 d-none" style="font-size:.85rem">
+          <strong>Este pedido ya pertenece a un lote de impresión (<span id="modBatch"></span>).</strong>
+          Para modificar su modalidad deberá retirarlo del lote o generar un nuevo lote.
+          @if((auth()->user()->type ?? '') === 'admin')
+            <label class="d-flex gap-2 align-items-start mt-2">
+              <input type="checkbox" name="force" value="1" class="mt-1">
+              <span>Forzar el cambio de todos modos. Quedará registrado como <strong>excepción</strong>.</span>
+            </label>
+          @endif
+        </div>
+
+        <div class="mb-3">
+          @foreach(\App\Models\Tenant\ShippingRequest::DELIVERY_TYPES as $key => $label)
+            @php $meta = \App\Models\Tenant\ShippingRequest::DELIVERY_META[$key]; @endphp
+            <label class="d-flex gap-2 align-items-start p-2 mb-1 rounded js-mod-option"
+                   style="border:1px solid {{ $meta['line'] }};background:{{ $meta['bg'] }};cursor:pointer;">
+              <input type="radio" name="delivery_type" value="{{ $key }}" class="mt-1" required>
+              <span>
+                <strong style="color:{{ $meta['color'] }}">{{ $meta['icon'] }} {{ $label }}</strong>
+                <div class="small text-muted">
+                  @if($key === 'agencia') Requiere agencia, genera guía y entra al manifiesto de despacho.
+                  @elseif($key === 'domicilio') Reparto propio con motorizado. Prioridad 1.
+                  @else Sin agencia ni guía: genera comprobante interno de entrega.
+                  @endif
+                </div>
+              </span>
+            </label>
+          @endforeach
+        </div>
+
+        <div>
+          <label class="form-label" for="modReason">Motivo del cambio (opcional)</label>
+          <input id="modReason" name="reason" class="form-control" maxlength="255"
+                 placeholder="Ej. el cliente pidió recogerlo en tienda">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="sh-act sh-act--ghost" data-bs-dismiss="modal">Cancelar</button>
+        <button type="submit" class="sh-act sh-act--primary">Cambiar modalidad</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+{{-- ── ANULAR (con motivo; el envío nunca se borra) ── --}}
+<div class="modal fade" id="modalAnular" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <form class="modal-content" method="POST" id="formAnular">
+      @csrf
+      <div class="modal-header">
+        <h5 class="modal-title">Anular envío — <span id="anuCode"></span></h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <p class="text-muted" style="font-size:.85rem">
+          El envío <strong>no se elimina</strong>: queda en el historial con la fecha, el usuario y
+          el motivo, y puede restaurarse después.
+        </p>
+        <label class="form-label" for="anuReason">Motivo de la anulación</label>
+        <input id="anuReason" name="reason" class="form-control" maxlength="255"
+               placeholder="Ej. el cliente canceló la compra">
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="sh-act sh-act--ghost" data-bs-dismiss="modal">Cancelar</button>
+        <button type="submit" class="sh-act sh-act--danger">Anular envío</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+{{-- ── RESTAURAR un envío anulado ── --}}
+<div class="modal fade" id="modalRestaurar" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <form class="modal-content" method="POST" id="formRestaurar">
+      @csrf
+      <div class="modal-header">
+        <h5 class="modal-title">Restaurar pedido — <span id="resCode"></span></h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div class="alert alert-secondary py-2" style="font-size:.82rem" id="resInfo"></div>
+        <p class="text-muted" style="font-size:.85rem">
+          Recupera toda su información y vuelve al estado que tenía antes de anularse.
+          Si no pertenece a un lote cerrado, podrá imprimirse de nuevo.
+        </p>
+        <label class="form-label" for="resReason">Motivo de la restauración</label>
+        <input id="resReason" name="reason" class="form-control" maxlength="255"
+               placeholder="Ej. el cliente retomó la compra">
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="sh-act sh-act--ghost" data-bs-dismiss="modal">Cancelar</button>
+        <button type="submit" class="sh-act sh-act--primary">Restaurar pedido</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+{{-- ── BITÁCORA del envío ── --}}
+<div class="modal fade" id="modalBitacora" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Bitácora — <span id="bitCode"></span></h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body" id="bitBody" style="max-height:60vh;overflow-y:auto">
+        <div class="text-muted">Cargando…</div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="sh-act sh-act--ghost" data-bs-dismiss="modal">Cerrar</button>
       </div>
     </div>
   </div>
@@ -1775,4 +2011,5 @@
 @include('tenant.shipments.partials.ubigeo-cascader-js')
 @include('tenant.shipments.partials.agency-select-js')
 @include('tenant.shipments.partials.phone-validate-js')
+@include('tenant.shipments.partials.logistics-js')
 @endpush
