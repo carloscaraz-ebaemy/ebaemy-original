@@ -43,11 +43,9 @@
         </div>
     @endif
 
-    @if($productFilterExcludesOrders)
-        <div class="alert alert-info py-2 mb-3">
-            El sorteo filtra por categoría o producto, así que los <strong>pedidos de tienda virtual</strong> quedan fuera
-            del universo (guardan sus ítems en un campo JSON y no son consultables por producto). Sus comprobantes y
-            notas de venta asociadas sí cuentan.
+    @if($statsFail)
+        <div class="alert alert-danger py-2 mb-3">
+            No se pudo calcular el universo de participantes: {{ $statsFail }}
         </div>
     @endif
 
@@ -56,7 +54,7 @@
         <div class="rf-kpi rf-kpi--brand">
             <div class="rf-kpi__label">Clientes elegibles</div>
             <div class="rf-kpi__value">{{ $metrics['eligible'] !== null ? $metrics['eligible'] : '—' }}</div>
-            <div class="rf-kpi__hint">según los criterios</div>
+            <div class="rf-kpi__hint">{{ $source->label() }}</div>
         </div>
         <div class="rf-kpi">
             <div class="rf-kpi__label">Invitaciones enviadas</div>
@@ -134,30 +132,30 @@
             </div>
 
             <div class="rf-card">
-                <div class="rf-card__head"><h2 class="rf-card__title">🎯 Criterios de elegibilidad</h2></div>
+                <div class="rf-card__head">
+                    <h2 class="rf-card__title">🎯 Origen de participantes</h2>
+                    <a href="{{ route('raffles.edit', $raffle) }}" class="rf-btn rf-btn--ghost">Cambiar</a>
+                </div>
                 <div class="rf-card__body">
+                    <div class="d-flex align-items-center gap-2 mb-2">
+                        <span style="font-size:1.4rem">{{ $source->icon() }}</span>
+                        <div>
+                            <div class="rf-strong">{{ $source->label() }}</div>
+                            <div class="rf-note">{{ $source->description() }}</div>
+                        </div>
+                    </div>
+
                     <table class="rf-table">
                         <tbody>
+                            @forelse($activeFilters as $f)
+                                <tr><td>{{ $f['label'] }}</td><td class="text-end rf-strong">{{ $f['value'] }}</td></tr>
+                            @empty
+                                <tr><td colspan="2" class="rf-note">Sin filtros: entra todo lo que el origen devuelva.</td></tr>
+                            @endforelse
                             <tr>
-                                <td>Origen</td>
-                                <td class="text-end rf-strong">
-                                    @php $srcs = $raffle->sources ?: ['documents','sale_notes']; @endphp
-                                    {{ collect($srcs)->map(fn ($s) => \App\Models\Tenant\Raffle::SOURCES[$s] ?? $s)->implode(', ') }}
-                                </td>
+                                <td>Monto acumulado mínimo</td>
+                                <td class="text-end rf-strong">{{ $raffle->min_amount ? 'S/ ' . number_format((float) $raffle->min_amount, 2) : '—' }}</td>
                             </tr>
-                            <tr><td>Pago confirmado</td><td class="text-end rf-strong">{{ $raffle->require_paid ? 'Sí' : 'No' }}</td></tr>
-                            <tr>
-                                <td>Rango de compra</td>
-                                <td class="text-end rf-strong">
-                                    {{ $raffle->purchase_from ? $raffle->purchase_from->format('d/m/Y') : 'Sin límite' }}
-                                    →
-                                    {{ $raffle->purchase_to ? $raffle->purchase_to->format('d/m/Y') : 'Sin límite' }}
-                                </td>
-                            </tr>
-                            <tr><td>Monto mínimo</td><td class="text-end rf-strong">{{ $raffle->min_amount ? 'S/ ' . number_format((float) $raffle->min_amount, 2) : '—' }}</td></tr>
-                            <tr><td>Sucursal</td><td class="text-end rf-strong">{{ optional($raffle->establishment)->description ?: 'Todas' }}</td></tr>
-                            <tr><td>Canal de venta</td><td class="text-end rf-strong">{{ optional($raffle->channel)->name ?: 'Todos' }}</td></tr>
-                            <tr><td>Categorías / productos</td><td class="text-end rf-strong">{{ count((array) $raffle->category_ids) }} cat. · {{ count((array) $raffle->item_ids) }} prod.</td></tr>
                         </tbody>
                     </table>
                 </div>
@@ -166,14 +164,91 @@
 
         {{-- ── Acciones y ganadores ────────────────────────────── --}}
         <div class="col-lg-7">
+            {{-- ── Vista previa del universo (paso 4) ──────────────── --}}
+            <div class="rf-card">
+                <div class="rf-card__head">
+                    <h2 class="rf-card__title">🔎 Vista previa del universo</h2>
+                    <button type="button" class="rf-btn" id="rfRefreshPreview">Recalcular</button>
+                </div>
+                <div class="rf-card__body">
+                    <div class="rf-preview" id="rfPreview">
+                        <div class="rf-stat">
+                            <div class="rf-stat__value">{{ $stats['found'] ?? '—' }}</div>
+                            <div class="rf-stat__label">Registros encontrados</div>
+                        </div>
+                        <div class="rf-stat">
+                            <div class="rf-stat__value">{{ $stats['unique'] ?? '—' }}</div>
+                            <div class="rf-stat__label">Clientes únicos</div>
+                        </div>
+                        <div class="rf-stat rf-stat--warn">
+                            <div class="rf-stat__value">{{ $stats['duplicates'] ?? '—' }}</div>
+                            <div class="rf-stat__label">Duplicados eliminados</div>
+                        </div>
+                        <div class="rf-stat rf-stat--warn">
+                            <div class="rf-stat__value">{{ $stats['rejected'] ?? '—' }}</div>
+                            <div class="rf-stat__label">No cumplen requisitos</div>
+                        </div>
+                        <div class="rf-stat rf-stat--ok">
+                            <div class="rf-stat__value">{{ $stats['eligible'] ?? '—' }}</div>
+                            <div class="rf-stat__label">Participantes elegibles</div>
+                        </div>
+                    </div>
+
+                    @if(!empty($stats['rejected']))
+                        <div class="rf-note mt-2">
+                            Descartados: {{ $stats['rejected_no_contact'] }} sin teléfono ni correo
+                            @if($stats['rejected_min_amount'])
+                                · {{ $stats['rejected_min_amount'] }} por no alcanzar el monto mínimo
+                            @endif
+                            .
+                        </div>
+                    @endif
+
+                    <div class="d-flex flex-wrap gap-2 mt-3">
+                        <form method="POST" action="{{ route('raffles.sync', $raffle) }}">
+                            @csrf
+                            @if($raffle->status === 'draft')
+                                <input type="hidden" name="activate" value="1">
+                            @endif
+                            <button class="rf-btn rf-btn--primary" type="submit">
+                                ✅ Confirmar participantes @if($raffle->status === 'draft') y activar @endif
+                            </button>
+                        </form>
+                        @if($raffle->participants_confirmed_at)
+                            <span class="rf-note align-self-center">
+                                Última confirmación: {{ $raffle->participants_confirmed_at->format('d/m/Y H:i') }}
+                            </span>
+                        @endif
+                    </div>
+
+                    <div class="rf-note mt-2">
+                        Confirmar es acumulativo: los participantes que ya existen conservan su enlace y su
+                        aceptación, y solo se agregan los clientes nuevos que cumplan los criterios.
+                    </div>
+                </div>
+            </div>
+
+            {{-- ── Enlace público (paso 5) ─────────────────────────── --}}
+            @if($raffle->status === 'active' && $metrics['invited'] > 0)
+                <div class="rf-card">
+                    <div class="rf-card__head"><h2 class="rf-card__title">🔗 Enlace de participación</h2></div>
+                    <div class="rf-card__body">
+                        <div class="rf-link">
+                            <code>{{ url('/sorteo') }}/<em>CÓDIGO-DE-CADA-CLIENTE</em></code>
+                        </div>
+                        <div class="rf-note mt-2">
+                            Cada cliente tiene su <strong>propio enlace</strong>: así el sistema sabe quién aceptó y
+                            evita que un tercero se inscriba. Envíalos con "Enviar invitaciones", o cópialos uno a uno
+                            desde la tabla de participantes.
+                        </div>
+                    </div>
+                </div>
+            @endif
+
             <div class="rf-card">
                 <div class="rf-card__head"><h2 class="rf-card__title">⚙️ Acciones</h2></div>
                 <div class="rf-card__body">
                     <div class="d-flex flex-wrap gap-2">
-                        <form method="POST" action="{{ route('raffles.sync', $raffle) }}">
-                            @csrf
-                            <button class="rf-btn rf-btn--primary" type="submit">Generar participantes</button>
-                        </form>
 
                         <form method="POST" action="{{ route('raffles.invite', $raffle) }}">
                             @csrf
@@ -210,8 +285,6 @@
                     </div>
 
                     <div class="rf-note mt-2">
-                        <strong>Generar participantes</strong> lee los pedidos que cumplen los criterios y crea una invitación
-                        por cliente (sin duplicados). Es acumulativo: los ya existentes conservan su enlace y su aceptación.
                         Solo entran al sorteo quienes <strong>aceptaron</strong> desde su enlace.
                     </div>
                 </div>
@@ -345,6 +418,33 @@
 
 @push('scripts')
 <script>
+/* Recalcular la vista previa sin recargar la ficha. */
+document.addEventListener('click', function (ev) {
+    var btn = ev.target.closest ? ev.target.closest('#rfRefreshPreview') : null;
+    if (!btn) return;
+    ev.preventDefault();
+
+    var prev = btn.textContent;
+    btn.textContent = 'Calculando…';
+    btn.disabled = true;
+
+    fetch({!! json_encode(route('raffles.preview', $raffle)) !!}, { headers: { 'Accept': 'application/json' } })
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+            if (!data.ok) throw new Error(data.message || 'Error');
+
+            var s = data.stats;
+            var order = ['found', 'unique', 'duplicates', 'rejected', 'eligible'];
+            var cells = document.querySelectorAll('#rfPreview .rf-stat__value');
+
+            order.forEach(function (k, i) {
+                if (cells[i]) cells[i].textContent = s[k];
+            });
+        })
+        .catch(function (e) { window.alert('No se pudo recalcular: ' + e.message); })
+        .finally(function () { btn.textContent = prev; btn.disabled = false; });
+});
+
 /* Copiar el enlace de invitación. Delegación en document (ver feedback_vue_mainwrapper_rerender). */
 document.addEventListener('click', function (ev) {
     var btn = ev.target.closest ? ev.target.closest('.js-rf-copy') : null;

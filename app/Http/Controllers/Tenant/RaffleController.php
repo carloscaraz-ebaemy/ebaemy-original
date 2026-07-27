@@ -13,6 +13,8 @@ use App\Models\Tenant\RaffleWinner;
 use App\Models\Tenant\SalesChannel;
 use App\Services\Tenant\ImageProcessingService;
 use App\Services\Tenant\RaffleEligibilityService;
+use App\Services\Tenant\Raffles\ParticipantSource;
+use App\Services\Tenant\Raffles\ParticipantSourceRegistry;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -133,14 +135,17 @@ class RaffleController extends Controller
     {
         $service = new RaffleEligibilityService();
 
-        $eligible = null;
+        $stats     = null;
+        $statsFail = null;
         try {
-            $eligible = $service->countEligible($raffle);
+            $stats = $service->analyze($raffle)['stats'];
         } catch (\Throwable $e) {
-            Log::warning('[Raffles] No se pudo calcular elegibles: ' . $e->getMessage());
+            $statsFail = $e->getMessage();
+            Log::warning('[Raffles] No se pudo calcular el universo: ' . $e->getMessage());
         }
 
-        $metrics = $raffle->metrics($eligible);
+        $metrics = $raffle->metrics($stats['eligible'] ?? null);
+        $source  = $service->sourceFor($raffle);
 
         $pStatus = $request->input('p');
         if (!array_key_exists($pStatus, RaffleParticipant::STATUSES)) {
@@ -169,22 +174,35 @@ class RaffleController extends Controller
 
         $winners = $raffle->winners()->with('participant')->get();
 
-        $productFilterExcludesOrders = $service->hasProductFilter($raffle)
-            && in_array(Raffle::SOURCE_ORDERS, (array) $raffle->sources, true);
+        $activeFilters = $this->describeFilters($source, $raffle);
 
         return view('tenant.raffles.show', compact(
-            'raffle', 'metrics', 'participants', 'winners', 'pStatus', 'productFilterExcludesOrders'
+            'raffle', 'metrics', 'participants', 'winners', 'pStatus',
+            'stats', 'statsFail', 'source', 'activeFilters'
         ));
     }
 
-    /** Vista previa del universo de clientes elegibles (sin crear nada). */
+    /**
+     * Vista previa del universo (paso 4): cuántos se encontraron, cuántos
+     * quedan tras deduplicar y cuántos se descartan, sin crear nada.
+     */
     public function preview(Raffle $raffle)
     {
-        $eligible = (new RaffleEligibilityService())->eligible($raffle);
+        try {
+            $analysis = (new RaffleEligibilityService())->analyze($raffle);
+        } catch (\Throwable $e) {
+            Log::warning('[Raffles] preview: ' . $e->getMessage());
+
+            return response()->json([
+                'ok'      => false,
+                'message' => 'No se pudo calcular el universo: ' . $e->getMessage(),
+            ], 422);
+        }
 
         return response()->json([
-            'total' => $eligible->count(),
-            'rows'  => $eligible->take(50)->map(fn ($r) => [
+            'ok'    => true,
+            'stats' => $analysis['stats'],
+            'rows'  => $analysis['rows']->take(50)->map(fn ($r) => [
                 'name'     => $r['full_name'],
                 'document' => $r['document'],
                 'email'    => $r['email'],
@@ -196,8 +214,12 @@ class RaffleController extends Controller
         ]);
     }
 
-    /** Genera (sincroniza) los participantes desde los pedidos elegibles. */
-    public function syncParticipants(Raffle $raffle)
+    /**
+     * Confirma los participantes (paso 4→5): crea la lista desde el origen
+     * configurado. Si el sorteo aún está en borrador, lo deja Activo para que
+     * el enlace público empiece a funcionar.
+     */
+    public function syncParticipants(Request $request, Raffle $raffle)
     {
         if (in_array($raffle->status, [Raffle::STATUS_FINISHED, Raffle::STATUS_CANCELLED], true)) {
             return back()->with('error', 'El sorteo ya está cerrado.');
@@ -210,11 +232,22 @@ class RaffleController extends Controller
             return back()->with('error', 'No se pudo generar la lista: ' . $e->getMessage());
         }
 
+        $stats = $result['stats'];
+
         $msg = $result['created'] > 0
-            ? "Se agregaron {$result['created']} clientes nuevos (total {$result['total']})."
+            ? "Se confirmaron {$result['created']} participantes nuevos (total {$result['total']})."
             : "No hay clientes nuevos que cumplan los criterios (total {$result['total']}).";
 
-        return back()->with('success', $msg);
+        $msg .= " Encontrados: {$stats['found']} · únicos: {$stats['unique']}"
+              . " · duplicados eliminados: {$stats['duplicates']} · descartados: {$stats['rejected']}.";
+
+        // Activar la campaña al confirmar, si el admin lo pidió y sigue en borrador.
+        if ($request->boolean('activate') && $raffle->status === Raffle::STATUS_DRAFT && $result['total'] > 0) {
+            $raffle->update(['status' => Raffle::STATUS_ACTIVE]);
+            $msg .= ' El sorteo quedó ACTIVO y el enlace público ya funciona.';
+        }
+
+        return back()->with($result['total'] > 0 ? 'success' : 'error', $msg);
     }
 
     /**
@@ -557,9 +590,12 @@ class RaffleController extends Controller
     private function formData(Raffle $raffle): array
     {
         // Los productos ya seleccionados se resuelven aquí para pintar los chips.
+        // Viven en el filtro `items` del origen (antes en la columna item_ids).
+        $selectedIds   = array_filter((array) ($raffle->source_filters['items'] ?? $raffle->item_ids ?? []));
         $selectedItems = collect();
-        if (!empty($raffle->item_ids)) {
-            $selectedItems = Item::whereIn('id', $raffle->item_ids)
+
+        if (!empty($selectedIds)) {
+            $selectedItems = Item::whereIn('id', $selectedIds)
                                  ->get(['id', 'description', 'internal_id'])
                                  ->map(fn ($i) => [
                                      'id'    => $i->id,
@@ -568,33 +604,77 @@ class RaffleController extends Controller
                                  ->values();
         }
 
+        $registry = (new RaffleEligibilityService())->registry();
+
         return [
-            'raffle'         => $raffle,
-            'establishments' => Establishment::orderBy('description')->get(['id', 'description']),
-            'channels'       => $this->channels(),
-            'categories'     => $this->categories(),
-            'selectedItems'  => $selectedItems,
+            'raffle'        => $raffle,
+            'sources'       => $registry->all(),
+            'filterOptions' => $this->filterOptions(),
+            'selectedItems' => $selectedItems,
         ];
     }
 
-    /** Categorías de producto (tabla opcional en tenants antiguos). */
-    private function categories()
+    /**
+     * Catálogos que los esquemas de filtros referencian por nombre
+     * (`'options' => 'categories'`), resueltos una sola vez por render.
+     */
+    private function filterOptions(): array
     {
-        try {
-            return Category::orderBy('name')->get(['id', 'name']);
-        } catch (\Throwable $e) {
-            return collect();
-        }
+        $safe = function (callable $fn) {
+            try {
+                return $fn();
+            } catch (\Throwable $e) {
+                return [];
+            }
+        };
+
+        return [
+            'establishments' => $safe(fn () => Establishment::orderBy('description')->pluck('description', 'id')->all()),
+            'categories'     => $safe(fn () => Category::orderBy('name')->pluck('name', 'id')->all()),
+            'channels'       => $safe(fn () => SalesChannel::orderBy('name')->pluck('name', 'id')->all()),
+            'marketplace_channels' => $safe(fn () => DB::connection('tenant')->table('marketplace_channels')
+                                                        ->orderBy('name')->pluck('name', 'id')->all()),
+            'marketplace_statuses' => $safe(function () {
+                $rows = DB::connection('tenant')->table('marketplace_orders')
+                          ->select('status')->distinct()->pluck('status')->filter()->all();
+                return array_combine($rows, $rows) ?: [];
+            }),
+        ];
     }
 
-    /** Canales de venta (tabla opcional: no todos los tenants la tienen). */
-    private function channels()
+    /**
+     * Filtros activos de un sorteo en texto legible, para mostrarlos en la
+     * ficha sin que el usuario tenga que abrir el formulario.
+     */
+    private function describeFilters(ParticipantSource $source, Raffle $raffle): array
     {
-        try {
-            return SalesChannel::orderBy('name')->get(['id', 'name']);
-        } catch (\Throwable $e) {
-            return collect();
+        $options = $this->filterOptions();
+        $out     = [];
+
+        foreach ($source->filters() as $filter) {
+            $value = $raffle->source_filters[$filter['key']] ?? null;
+
+            if ($value === null || $value === '' || $value === [] || $value === false || $value === '0') {
+                continue;
+            }
+
+            $catalog = is_string($filter['options'] ?? null)
+                ? ($options[$filter['options']] ?? [])
+                : ($filter['options'] ?? []);
+
+            $text = match ($filter['type']) {
+                'boolean'     => 'Sí',
+                'multiselect' => collect((array) $value)->map(fn ($v) => $catalog[$v] ?? $v)->implode(', '),
+                'select'      => $catalog[$value] ?? $value,
+                'items'       => count((array) $value) . ' producto(s)',
+                'textarea'    => substr_count(trim((string) $value), "\n") + 1 . ' línea(s)',
+                default       => (string) $value,
+            };
+
+            $out[] = ['label' => $filter['label'], 'value' => $text];
         }
+
+        return $out;
     }
 
     private function validateRaffle(Request $request, ?Raffle $raffle = null): array
@@ -619,23 +699,78 @@ class RaffleController extends Controller
             'draw_at'                => ['nullable', 'date', 'after_or_equal:registration_closes_at'],
             'winner_published_at'    => ['nullable', 'date'],
 
-            'sources'                => ['nullable', 'array'],
-            'sources.*'              => [Rule::in(array_keys(Raffle::SOURCES))],
-            'require_paid'           => ['nullable', 'boolean'],
-            'purchase_from'          => ['nullable', 'date'],
-            'purchase_to'            => ['nullable', 'date', 'after_or_equal:purchase_from'],
+            // Origen de participantes: la clave se valida contra el registro;
+            // los filtros se sanean por esquema en sanitizeFilters().
+            'source'                 => ['required', Rule::in((new ParticipantSourceRegistry())->keys())],
             'min_amount'             => ['nullable', 'numeric', 'min:0'],
-            'establishment_id'       => ['nullable', 'integer'],
-            'channel_id'             => ['nullable', 'integer'],
-            'category_ids'           => ['nullable', 'array'],
-            'category_ids.*'         => ['integer'],
-            'item_ids'               => ['nullable', 'array'],
-            'item_ids.*'             => ['integer'],
         ], [
             'registration_closes_at.after_or_equal' => 'El cierre de registro no puede ser anterior al inicio del sorteo.',
             'draw_at.after_or_equal'                => 'La fecha del sorteo no puede ser anterior al cierre de registro.',
-            'purchase_to.after_or_equal'            => 'La fecha final de compra no puede ser anterior a la inicial.',
+            'source.required'                       => 'Elige de dónde saldrán los participantes.',
+            'source.in'                             => 'El origen de participantes elegido no existe.',
         ]);
+    }
+
+    /**
+     * Convierte los filtros crudos del formulario a los tipos que declara el
+     * esquema del origen, descartando claves desconocidas. Así el JSON que se
+     * guarda siempre corresponde al origen elegido.
+     */
+    private function sanitizeFilters(ParticipantSource $source, Request $request): array
+    {
+        $raw = (array) $request->input('filters', []);
+        $out = [];
+
+        foreach ($source->filters() as $filter) {
+            $key   = $filter['key'];
+            $value = $raw[$key] ?? null;
+
+            switch ($filter['type']) {
+                case 'boolean':
+                    // Un checkbox desmarcado no se envía: la ausencia es "false".
+                    $out[$key] = filter_var($value, FILTER_VALIDATE_BOOLEAN);
+                    break;
+
+                case 'number':
+                    $out[$key] = ($value === null || $value === '') ? null : (float) $value;
+                    break;
+
+                case 'date':
+                    $out[$key] = $this->validDate($value);
+                    break;
+
+                case 'multiselect':
+                case 'items':
+                    $out[$key] = array_values(array_filter(
+                        (array) $value,
+                        fn ($v) => $v !== null && $v !== ''
+                    ));
+                    break;
+
+                case 'textarea':
+                    $out[$key] = $value !== null ? mb_substr((string) $value, 0, 200000) : null;
+                    break;
+
+                default: // select, text
+                    $out[$key] = ($value === null || $value === '') ? null : mb_substr((string) $value, 0, 255);
+            }
+        }
+
+        return array_filter($out, fn ($v) => $v !== null && $v !== [] && $v !== '');
+    }
+
+    /** Devuelve la fecha si es válida (Y-m-d), o null. */
+    private function validDate($value): ?string
+    {
+        if (!$value) {
+            return null;
+        }
+
+        try {
+            return \Carbon\Carbon::parse($value)->format('Y-m-d');
+        } catch (\Throwable $e) {
+            return null;
+        }
     }
 
     private function fillRaffle(Raffle $raffle, array $data, Request $request): void
@@ -653,16 +788,14 @@ class RaffleController extends Controller
             'registration_closes_at' => $data['registration_closes_at'] ?? null,
             'draw_at'                => $data['draw_at'] ?? null,
             'winner_published_at'    => $data['winner_published_at'] ?? null,
-            'sources'                => array_values($data['sources'] ?? []),
-            'require_paid'           => $request->boolean('require_paid'),
-            'purchase_from'          => $data['purchase_from'] ?? null,
-            'purchase_to'            => $data['purchase_to'] ?? null,
             'min_amount'             => $data['min_amount'] ?? null,
-            'establishment_id'       => $data['establishment_id'] ?? null,
-            'channel_id'             => $data['channel_id'] ?? null,
-            'category_ids'           => array_values(array_filter($data['category_ids'] ?? [])),
-            'item_ids'               => array_values(array_filter($data['item_ids'] ?? [])),
         ]);
+
+        // Origen de participantes + sus filtros propios.
+        $source = (new ParticipantSourceRegistry())->resolveOrDefault($data['source']);
+
+        $raffle->source         = $source->key();
+        $raffle->source_filters = $this->sanitizeFilters($source, $request);
 
         if (isset($data['code'])) {
             $raffle->code = $data['code'];

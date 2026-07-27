@@ -105,6 +105,39 @@
     #rfApp .rf-thumb label { position:absolute; inset:auto 0 0 0; background:rgba(17,24,39,.75); color:#fff;
         font-size:.62rem; text-align:center; padding:.1rem 0; border-radius:0 0 9px 9px; cursor:pointer; }
 
+    /* ── Selector de origen de participantes ────────────────────── */
+    #rfApp .rf-sources { display:grid; gap:.5rem; grid-template-columns:repeat(auto-fill, minmax(240px, 1fr)); }
+    #rfApp .rf-source { display:flex; gap:.6rem; align-items:flex-start; cursor:pointer; margin:0;
+        border:1px solid var(--rf-line); border-radius:12px; padding:.65rem .75rem; background:var(--rf-surface);
+        transition:.15s; }
+    #rfApp .rf-source:hover { border-color:var(--rf-brand-line); background:var(--rf-hover); }
+    #rfApp .rf-source input { margin-top:.2rem; flex-shrink:0; }
+    #rfApp .rf-source:has(input:checked) { border-color:var(--rf-brand); background:var(--rf-brand-weak);
+        box-shadow:0 0 0 3px var(--rf-brand-weak); }
+    #rfApp .rf-source__icon { font-size:1.15rem; line-height:1.2; }
+    #rfApp .rf-source__body { display:flex; flex-direction:column; gap:.1rem; min-width:0; }
+    #rfApp .rf-source__name { font-size:.85rem; font-weight:700; }
+    #rfApp .rf-source__desc { font-size:.73rem; color:var(--rf-muted); line-height:1.35; }
+    #rfApp .rf-source.is-disabled { opacity:.5; cursor:not-allowed; background:var(--rf-track); }
+    #rfApp .rf-source.is-disabled:hover { border-color:var(--rf-line); background:var(--rf-track); }
+
+    /* ── Vista previa del universo ──────────────────────────────── */
+    #rfApp .rf-preview { display:grid; gap:.5rem; grid-template-columns:repeat(auto-fill, minmax(135px, 1fr)); }
+    #rfApp .rf-stat { border:1px solid var(--rf-line); border-radius:11px; padding:.6rem .7rem; background:var(--rf-track); }
+    #rfApp .rf-stat__value { font-size:1.25rem; font-weight:700; line-height:1.15; }
+    #rfApp .rf-stat__label { font-size:.7rem; color:var(--rf-muted); font-weight:600; }
+    #rfApp .rf-stat--ok { background:#ecfdf5; border-color:#a7f3d0; }
+    #rfApp .rf-stat--ok .rf-stat__value { color:#047857; }
+    #rfApp .rf-stat--warn { background:#fffbeb; border-color:#fde68a; }
+    #rfApp .rf-stat--warn .rf-stat__value { color:#b45309; }
+
+    /* Enlace público copiable */
+    #rfApp .rf-link { display:flex; gap:.4rem; align-items:center; flex-wrap:wrap;
+        background:var(--rf-brand-weak); border:1px solid var(--rf-brand-line); border-radius:11px;
+        padding:.55rem .7rem; }
+    #rfApp .rf-link code { font-size:.78rem; color:var(--rf-brand-ink); background:transparent;
+        word-break:break-all; flex:1; min-width:180px; }
+
     /* ── Ganador ────────────────────────────────────────────────── */
     #rfApp .rf-winner { display:flex; gap:.85rem; align-items:center; flex-wrap:wrap;
         background:linear-gradient(135deg, var(--rf-gold-weak), #fffdf7);

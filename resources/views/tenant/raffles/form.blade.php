@@ -8,9 +8,6 @@
     $isNew   = !$raffle->exists;
     $action  = $isNew ? route('raffles.store') : route('raffles.update', $raffle);
     $dt      = fn ($v) => $v ? $v->format('Y-m-d\TH:i') : '';
-    $d       = fn ($v) => $v ? $v->format('Y-m-d') : '';
-    $sources = old('sources', $raffle->sources ?: [\App\Models\Tenant\Raffle::SOURCE_DOCUMENTS, \App\Models\Tenant\Raffle::SOURCE_SALE_NOTES]);
-    $cats    = old('category_ids', $raffle->category_ids ?? []);
     // Chips de productos: JSON pre-calculado (ver feedback_blade_json_parser_trap).
     $itemsJson = json_encode($selectedItems->all(), JSON_UNESCAPED_UNICODE);
     $searchUrl = route('raffles.search_items');
@@ -174,89 +171,7 @@
                             </div>
                         </div>
 
-                        <div class="rf-section">
-                            <div class="rf-section__label">Criterios de elegibilidad</div>
-                            <div class="rf-note mb-2">Definen qué pedidos hacen elegible a un cliente. Un cliente aparece una sola vez aunque tenga varios pedidos.</div>
-
-                            <div class="rf-field">
-                                <label>Origen de los pedidos</label>
-                                @foreach(\App\Models\Tenant\Raffle::SOURCES as $key => $label)
-                                    <label class="rf-check">
-                                        <input type="checkbox" name="sources[]" value="{{ $key }}" @checked(in_array($key, (array) $sources, true))>
-                                        <span>{{ $label }}</span>
-                                    </label>
-                                @endforeach
-                            </div>
-
-                            <label class="rf-check">
-                                <input type="checkbox" name="require_paid" value="1" @checked(old('require_paid', $raffle->require_paid ?? true))>
-                                <span>Solo pedidos con <strong>pago confirmado</strong></span>
-                            </label>
-
-                            <div class="row g-2 mt-1">
-                                <div class="col-6 rf-field">
-                                    <label for="rf_pfrom">Compras desde</label>
-                                    <input id="rf_pfrom" type="date" name="purchase_from" class="rf-input"
-                                           value="{{ old('purchase_from', $d($raffle->purchase_from)) }}">
-                                </div>
-                                <div class="col-6 rf-field">
-                                    <label for="rf_pto">Compras hasta</label>
-                                    <input id="rf_pto" type="date" name="purchase_to" class="rf-input"
-                                           value="{{ old('purchase_to', $d($raffle->purchase_to)) }}">
-                                </div>
-                            </div>
-
-                            <div class="rf-field">
-                                <label for="rf_min">Monto mínimo de compra (opcional)</label>
-                                <input id="rf_min" type="number" step="0.01" min="0" name="min_amount" class="rf-input"
-                                       value="{{ old('min_amount', $raffle->min_amount) }}" placeholder="Ej. 200.00">
-                                <div class="rf-note">Se evalúa sobre el <strong>acumulado</strong> del cliente en el periodo, no por pedido.</div>
-                            </div>
-
-                            <div class="rf-field">
-                                <label for="rf_estab">Sucursal (opcional)</label>
-                                <select id="rf_estab" name="establishment_id" class="rf-input">
-                                    <option value="">Todas</option>
-                                    @foreach($establishments as $e)
-                                        <option value="{{ $e->id }}" @selected((int) old('establishment_id', $raffle->establishment_id) === (int) $e->id)>{{ $e->description }}</option>
-                                    @endforeach
-                                </select>
-                                <div class="rf-note">Aplica a comprobantes y notas de venta.</div>
-                            </div>
-
-                            @if($channels->count())
-                                <div class="rf-field">
-                                    <label for="rf_channel">Canal de venta (opcional)</label>
-                                    <select id="rf_channel" name="channel_id" class="rf-input">
-                                        <option value="">Todos</option>
-                                        @foreach($channels as $c)
-                                            <option value="{{ $c->id }}" @selected((int) old('channel_id', $raffle->channel_id) === (int) $c->id)>{{ $c->name }}</option>
-                                        @endforeach
-                                    </select>
-                                    <div class="rf-note">Aplica a los pedidos de tienda virtual.</div>
-                                </div>
-                            @endif
-
-                            @if($categories->count())
-                                <div class="rf-field">
-                                    <label for="rf_cats">Categorías de producto (opcional)</label>
-                                    <select id="rf_cats" name="category_ids[]" class="rf-input" multiple size="5">
-                                        @foreach($categories as $cat)
-                                            <option value="{{ $cat->id }}" @selected(in_array($cat->id, (array) $cats))>{{ $cat->name }}</option>
-                                        @endforeach
-                                    </select>
-                                    <div class="rf-note">Ctrl/Cmd + clic para elegir varias.</div>
-                                </div>
-                            @endif
-
-                            <div class="rf-field">
-                                <label for="rf_item_search">Productos específicos (opcional)</label>
-                                <input id="rf_item_search" class="rf-input" placeholder="Escribe para buscar un producto…" autocomplete="off">
-                                <div id="rf_item_results" class="rf-note"></div>
-                                <div id="rf_item_chips" class="rf-thumbs"></div>
-                                <div class="rf-note">Con filtro por categoría o producto, los pedidos de tienda virtual quedan fuera (sus ítems no son consultables).</div>
-                            </div>
-                        </div>
+                        @include('tenant.raffles.partials.source-picker')
 
                         <button type="submit" class="rf-btn rf-btn--primary w-100">
                             {{ $isNew ? 'Crear sorteo' : 'Guardar cambios' }}
@@ -269,18 +184,25 @@
 </div>
 @endsection
 
+
 @push('scripts')
 <script>
 /*
- * Chips de productos del criterio de elegibilidad.
+ * Formulario de sorteo: alterna el panel de filtros según el origen elegido
+ * y gestiona los chips de productos de cada panel.
+ *
  * Delegación en `document` + re-consulta fresca de nodos: Vue monta en
  * #main-wrapper y re-renderiza el DOM, así que nunca guardamos referencias.
  * Ver feedback_vue_mainwrapper_rerender.
+ *
+ * Los paneles ocultos llevan sus inputs `disabled` para que el POST solo
+ * cargue los filtros del origen activo.
  */
 (function () {
-    var SEARCH_URL = {!! json_encode($searchUrl) !!};
-    var selected   = {!! $itemsJson !!} || [];
-    var timer      = null;
+    var SEARCH_URL   = {!! json_encode($searchUrl) !!};
+    var INITIAL_ITEMS = {!! $itemsJson !!} || [];
+    var chosen       = {};   // panel (origen) → productos elegidos
+    var timer        = null;
 
     function esc(s) {
         return String(s == null ? '' : s)
@@ -288,39 +210,74 @@
             .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
     }
 
-    function renderChips() {
-        var box = document.getElementById('rf_item_chips');
-        if (!box) return;
-        box.innerHTML = selected.map(function (it) {
-            return '<span class="rf-pill rf-pill--finished" style="cursor:pointer" data-rf-remove="' + it.id + '">'
-                 + esc(it.label) + ' ✕'
-                 + '<input type="hidden" name="item_ids[]" value="' + esc(it.id) + '"></span>';
-        }).join(' ');
+    function currentSource() {
+        var r = document.querySelector('input[name="source"]:checked');
+        return r ? r.value : null;
     }
 
-    function renderResults(rows) {
-        var box = document.getElementById('rf_item_results');
-        if (!box) return;
-        if (!rows.length) { box.innerHTML = 'Sin resultados.'; return; }
-        box.innerHTML = rows.map(function (r) {
-            return '<a href="#" class="d-block py-1" data-rf-add="' + esc(r.id) + '" data-rf-label="' + esc(r.label) + '">'
-                 + esc(r.label) + '</a>';
-        }).join('');
+    function panelOf(node) {
+        return node.closest ? node.closest('[data-rf-filters]') : null;
     }
+
+    // ── Paneles de filtros ────────────────────────────────────────────
+    function syncPanels() {
+        var active = currentSource();
+
+        document.querySelectorAll('[data-rf-filters]').forEach(function (panel) {
+            var on = panel.getAttribute('data-rf-filters') === active;
+            panel.style.display = on ? '' : 'none';
+            panel.querySelectorAll('input, select, textarea').forEach(function (el) {
+                el.disabled = !on;
+            });
+        });
+
+        renderChips();
+    }
+
+    // ── Chips de productos ────────────────────────────────────────────
+    function renderChips() {
+        document.querySelectorAll('.js-rf-item-chips').forEach(function (box) {
+            var panel = panelOf(box);
+            var key   = panel ? panel.getAttribute('data-rf-filters') : '_';
+            var name  = box.getAttribute('data-name') || 'filters[items][]';
+            var list  = chosen[key] || [];
+            var off   = panel && panel.style.display === 'none';
+
+            box.innerHTML = list.map(function (it) {
+                return '<span class="rf-pill rf-pill--finished" style="cursor:pointer" data-rf-remove="' + esc(it.id) + '">'
+                     + esc(it.label) + ' ✕'
+                     + '<input type="hidden" name="' + esc(name) + '" value="' + esc(it.id) + '"'
+                     + (off ? ' disabled' : '') + '></span>';
+            }).join(' ');
+        });
+    }
+
+    document.addEventListener('change', function (ev) {
+        if (ev.target && ev.target.name === 'source') syncPanels();
+    });
 
     document.addEventListener('input', function (ev) {
-        if (!ev.target || ev.target.id !== 'rf_item_search') return;
-        var term = ev.target.value.trim();
+        var input = ev.target;
+        if (!input || !input.classList || !input.classList.contains('js-rf-item-search')) return;
+
+        var panel   = panelOf(input);
+        var results = panel ? panel.querySelector('.js-rf-item-results') : null;
+        var term    = input.value.trim();
+
         clearTimeout(timer);
-        if (term.length < 2) {
-            var box = document.getElementById('rf_item_results');
-            if (box) box.innerHTML = '';
-            return;
-        }
+        if (term.length < 2) { if (results) results.innerHTML = ''; return; }
+
         timer = setTimeout(function () {
             fetch(SEARCH_URL + '?q=' + encodeURIComponent(term), { headers: { 'Accept': 'application/json' } })
                 .then(function (r) { return r.json(); })
-                .then(renderResults)
+                .then(function (rows) {
+                    if (!results) return;
+                    if (!rows.length) { results.innerHTML = 'Sin resultados.'; return; }
+                    results.innerHTML = rows.map(function (r) {
+                        return '<a href="#" class="d-block py-1" data-rf-add="' + esc(r.id)
+                             + '" data-rf-label="' + esc(r.label) + '">' + esc(r.label) + '</a>';
+                    }).join('');
+                })
                 .catch(function () {});
         }, 250);
     });
@@ -329,36 +286,48 @@
         var add = ev.target.closest ? ev.target.closest('[data-rf-add]') : null;
         if (add) {
             ev.preventDefault();
-            var id = parseInt(add.getAttribute('data-rf-add'), 10);
-            if (!selected.some(function (s) { return parseInt(s.id, 10) === id; })) {
-                selected.push({ id: id, label: add.getAttribute('data-rf-label') });
-                renderChips();
+            var panel = panelOf(add);
+            var key   = panel ? panel.getAttribute('data-rf-filters') : '_';
+            var id    = parseInt(add.getAttribute('data-rf-add'), 10);
+
+            chosen[key] = chosen[key] || [];
+            if (!chosen[key].some(function (s) { return parseInt(s.id, 10) === id; })) {
+                chosen[key].push({ id: id, label: add.getAttribute('data-rf-label') });
             }
-            var input = document.getElementById('rf_item_search');
-            var res   = document.getElementById('rf_item_results');
-            if (input) input.value = '';
-            if (res) res.innerHTML = '';
+
+            if (panel) {
+                var search = panel.querySelector('.js-rf-item-search');
+                var res    = panel.querySelector('.js-rf-item-results');
+                if (search) search.value = '';
+                if (res) res.innerHTML = '';
+            }
+            renderChips();
             return;
         }
 
         var rm = ev.target.closest ? ev.target.closest('[data-rf-remove]') : null;
         if (rm) {
             ev.preventDefault();
+            var p   = panelOf(rm);
+            var k   = p ? p.getAttribute('data-rf-filters') : '_';
             var rid = parseInt(rm.getAttribute('data-rf-remove'), 10);
-            selected = selected.filter(function (s) { return parseInt(s.id, 10) !== rid; });
+            chosen[k] = (chosen[k] || []).filter(function (s) { return parseInt(s.id, 10) !== rid; });
             renderChips();
         }
     });
 
-    renderChips();
+    // Hidratar los productos guardados en el origen actualmente elegido.
+    var initial = currentSource();
+    if (initial && INITIAL_ITEMS.length) chosen[initial] = INITIAL_ITEMS.slice();
 
-    // Si Vue re-renderiza #main-wrapper, el contenedor de chips vuelve vacío:
-    // lo repintamos. Barato porque solo actúa cuando falta contenido.
+    syncPanels();
+
+    // Si Vue re-renderiza #main-wrapper los paneles vuelven al estado del
+    // servidor: se reaplica. Barato porque solo actúa cuando algo desencaja.
     new MutationObserver(function () {
-        var box = document.getElementById('rf_item_chips');
-        if (box && selected.length && !box.querySelector('[data-rf-remove]')) {
-            renderChips();
-        }
+        var active = currentSource();
+        var panel  = active ? document.querySelector('[data-rf-filters="' + active + '"]') : null;
+        if (panel && panel.style.display === 'none') syncPanels();
     }).observe(document.body, { childList: true, subtree: true });
 })();
 </script>

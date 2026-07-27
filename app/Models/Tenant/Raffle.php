@@ -41,6 +41,9 @@ class Raffle extends Model
         'prize_quantity',
         'prize_value',
         'status',
+        'source',
+        'source_filters',
+        'participants_confirmed_at',
         'starts_at',
         'registration_closes_at',
         'draw_at',
@@ -59,6 +62,7 @@ class Raffle extends Model
 
     protected $casts = [
         'prize_gallery'          => 'array',
+        'source_filters'         => 'array',
         'sources'                => 'array',
         'category_ids'           => 'array',
         'item_ids'               => 'array',
@@ -69,6 +73,7 @@ class Raffle extends Model
         'establishment_id'       => 'integer',
         'channel_id'             => 'integer',
         'created_by'             => 'integer',
+        'participants_confirmed_at' => 'datetime',
         'starts_at'              => 'datetime',
         'registration_closes_at' => 'datetime',
         'draw_at'                => 'datetime',

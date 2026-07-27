@@ -30,7 +30,15 @@ class RafflesInstall extends Command
 
     private const MIGRATION = '2026_07_26_000001_create_raffles_tables';
 
+    /** Migraciones posteriores que este comando también deja registradas. */
+    private const MIGRATIONS_EXTRA = [
+        '2026_07_26_000002_add_source_to_raffles_table',
+    ];
+
     private const TABLES = ['raffles', 'raffle_participants', 'raffle_winners'];
+
+    /** Columnas añadidas después del create original (origen enchufable). */
+    private const NEW_COLUMNS = ['source', 'source_filters', 'participants_confirmed_at'];
 
     public function handle(): int
     {
@@ -58,7 +66,9 @@ class RafflesInstall extends Command
                 ));
 
                 if (empty($missing)) {
-                    $this->line("  <fg=gray>=</> {$hn->fqdn}: ya existe");
+                    $added = $apply ? $this->ensureColumns() : $this->missingColumns();
+                    $this->line("  <fg=gray>=</> {$hn->fqdn}: ya existe"
+                        . (!empty($added) ? ' (columnas: ' . implode(', ', $added) . ')' : ''));
                     if ($apply) {
                         $this->registerMigrationIfMissing();
                     }
@@ -72,6 +82,7 @@ class RafflesInstall extends Command
                 }
 
                 $this->createTables($missing);
+                $this->ensureColumns();
                 $this->registerMigrationIfMissing();
 
                 $this->line("  <fg=green>+</> {$hn->fqdn}: CREADAS (" . implode(', ', $missing) . ")");
@@ -196,25 +207,63 @@ class RafflesInstall extends Command
         }
     }
 
-    /** Deja la migración marcada como corrida para que tenancy:migrate no la repita. */
+    /** Devuelve las columnas nuevas que aún faltan en `raffles`. */
+    private function missingColumns(): array
+    {
+        if (!Schema::connection('tenant')->hasTable('raffles')) {
+            return [];
+        }
+
+        return array_values(array_filter(
+            self::NEW_COLUMNS,
+            fn ($c) => !Schema::connection('tenant')->hasColumn('raffles', $c)
+        ));
+    }
+
+    /** Agrega idempotentemente las columnas del origen enchufable. */
+    private function ensureColumns(): array
+    {
+        $missing = $this->missingColumns();
+
+        if (empty($missing)) {
+            return [];
+        }
+
+        Schema::connection('tenant')->table('raffles', function (Blueprint $table) use ($missing) {
+            if (in_array('source', $missing, true)) {
+                $table->string('source', 40)->default('orders_management')->after('status')->index();
+            }
+            if (in_array('source_filters', $missing, true)) {
+                $table->json('source_filters')->nullable()->after('status');
+            }
+            if (in_array('participants_confirmed_at', $missing, true)) {
+                $table->dateTime('participants_confirmed_at')->nullable()->after('status');
+            }
+        });
+
+        return $missing;
+    }
+
+    /** Deja las migraciones marcadas como corridas para que tenancy:migrate no las repita. */
     private function registerMigrationIfMissing(): void
     {
         if (!Schema::connection('tenant')->hasTable('migrations')) {
             return;
         }
 
-        $exists = DB::connection('tenant')->table('migrations')
-                    ->where('migration', self::MIGRATION)->exists();
-
-        if ($exists) {
-            return;
-        }
-
         $batch = (int) DB::connection('tenant')->table('migrations')->max('batch');
+        $batch = $batch > 0 ? $batch : 1;
 
-        DB::connection('tenant')->table('migrations')->insert([
-            'migration' => self::MIGRATION,
-            'batch'     => $batch > 0 ? $batch : 1,
-        ]);
+        foreach (array_merge([self::MIGRATION], self::MIGRATIONS_EXTRA) as $migration) {
+            $exists = DB::connection('tenant')->table('migrations')
+                        ->where('migration', $migration)->exists();
+
+            if (!$exists) {
+                DB::connection('tenant')->table('migrations')->insert([
+                    'migration' => $migration,
+                    'batch'     => $batch,
+                ]);
+            }
+        }
     }
 }
