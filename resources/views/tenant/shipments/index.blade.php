@@ -512,13 +512,16 @@
     @endif
 
     <div class="sh-tools">
+        {{-- El buscador reconstruye la URL SOLO con estos campos (searchUrl() usa
+             FormData), así que todo filtro activo tiene que viajar aquí o se
+             pierde al escribir. Se emite el MISMO juego que $curParams: con
+             rango preestablecido va `range`; con rango manual van `from`/`to`,
+             nunca los dos (el controlador le da prioridad a `range`). --}}
         <form method="GET" action="{{ route('shipments.index') }}" id="shSearchForm" class="sh-search">
-            <input type="hidden" name="filter" value="{{ $filter }}">
-            @if($type)<input type="hidden" name="type" value="{{ $type }}">@endif
-            @if($group)<input type="hidden" name="group" value="{{ $group }}">@endif
-            <input type="hidden" name="sort" value="{{ $sort ?? 'recent' }}">
-            @if($range)<input type="hidden" name="range" value="{{ $range }}">@endif
-            @if($pri)<input type="hidden" name="pri" value="{{ $pri }}">@endif
+            @foreach($curParams as $ck => $cv)
+                @continue($ck === 'q')
+                <input type="hidden" name="{{ $ck }}" value="{{ $cv }}">
+            @endforeach
             <i class="fas fa-search sh-search__ic"></i>
             <input type="text" name="q" id="shSearchInput" value="{{ $q }}" placeholder="Buscar cliente, código, guía…" autocomplete="off">
             <button type="button" id="shClearSearch" title="Limpiar" style="{{ $q ? '' : 'display:none;' }}">✕</button>

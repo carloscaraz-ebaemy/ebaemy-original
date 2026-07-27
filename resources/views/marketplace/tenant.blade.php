@@ -196,9 +196,13 @@
 
         <div class="mp-filter-group">
             <div class="mp-filter-label">🔎 Buscar</div>
+            {{-- Se reemiten TODOS los filtros activos (precio incluido) o se
+                 pierden al buscar. Mismo patrón que el selector de orden. --}}
             <form method="GET" action="{{ $tenantUrl }}">
-                @if($sort && $sort !== 'relevance') <input type="hidden" name="sort" value="{{ $sort }}"> @endif
-                @if(!empty($activeCategoryFullSlug)) <input type="hidden" name="category" value="{{ $activeCategoryFullSlug }}"> @endif
+                @foreach(request()->query() as $qk => $qv)
+                    @continue(in_array($qk, ['q', 'page'], true) || is_array($qv))
+                    <input type="hidden" name="{{ $qk }}" value="{{ $qv }}">
+                @endforeach
                 <input type="text" name="q" placeholder="Buscar en {{ \Illuminate\Support\Str::limit($store->name, 18) }}…"
                        value="{{ $q }}"
                        style="width:100%;padding:8px 10px;border:1px solid var(--mp-border,#e5e7eb);border-radius:8px">
