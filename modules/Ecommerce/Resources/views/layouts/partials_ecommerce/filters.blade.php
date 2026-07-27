@@ -49,6 +49,14 @@
           data-price-min="{{ $prMin }}"
           data-price-max="{{ $prMax }}">
 
+        {{-- El término de búsqueda vive fuera de este formulario. filter-ajax.js
+             lo rescata de la URL al armar la consulta, pero si el JS no corre el
+             submit nativo lo perdería: se reemite como hidden para que ambos
+             caminos conserven la búsqueda. --}}
+        @if(request()->filled('q'))
+            <input type="hidden" name="q" value="{{ request('q') }}">
+        @endif
+
         {{-- Ordenar por --}}
         <div class="ec-filter-group">
             <label for="ec-sort" class="ec-filter-label">Ordenar</label>
