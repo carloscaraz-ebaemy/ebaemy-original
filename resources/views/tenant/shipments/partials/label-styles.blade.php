@@ -47,6 +47,23 @@
     .big-text { font-size: 15px; font-weight: bold; }
     .med-text { font-size: 12px; }
     .divider { border-top: 1px dashed #aaa; margin: 8px 0; }
+
+    /* ── Contenido del paquete ──────────────────────────────────────────
+       El detalle lo escribe el cliente y suele ser una lista de ítems más
+       largos que el ancho del rótulo. Se pinta como lista con SANGRÍA
+       FRANCESA: al envolver, la continuación queda bajo el texto y no
+       invade la columna de las viñetas (que era lo que se veía desalineado).
+       `overflow-wrap` evita que un código largo sin espacios se salga del
+       marco del rótulo. */
+    .pkg-list { list-style: none; margin: 0; padding: 0; }
+    .pkg-list li { position: relative; padding-left: 11px; margin-bottom: 3px;
+                   line-height: 1.35; overflow-wrap: anywhere; word-break: break-word; }
+    .pkg-list li:last-child { margin-bottom: 0; }
+    .pkg-list li::before { content: "•"; position: absolute; left: 0; top: 0; font-weight: bold; }
+    .pkg-single { line-height: 1.35; overflow-wrap: anywhere; word-break: break-word; }
+
+    body.fmt-a5 .pkg-list li { padding-left: 13px; margin-bottom: 4px; }
+    body.fmt-a4 .pkg-list li { padding-left: 18px; margin-bottom: 6px; }
     .grid { display: flex; gap: 8px; }
     .grid .box { flex: 1; border: 1px solid #000; padding: 6px 8px; }
     .grid .box .v { font-size: 14px; font-weight: bold; }

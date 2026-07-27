@@ -711,7 +711,10 @@
                                 ]),
                                 ($isDom ? 'Entrega a domicilio' : 'Envío por agencia') => $secEntrega,
                                 'Paquete' => array_filter([
-                                    'Contenido'     => $s->package_content,
+                                    // Los saltos de línea se pierden al pintarlos en la ficha:
+                                    // se separan los ítems para que no se lean pegados.
+                                    // El textarea de edición sí conserva el texto crudo.
+                                    'Contenido'     => $s->contentInline(),
                                     'Bultos'        => $s->package_count,
                                     'Peso'          => $s->weight ? ($s->weight.' kg') : null,
                                     'Observaciones' => $s->notes,

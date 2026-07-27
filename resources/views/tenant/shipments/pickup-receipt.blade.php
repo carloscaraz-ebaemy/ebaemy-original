@@ -62,7 +62,23 @@
         <tr><td class="k">Cliente</td><td class="v">{{ $shipment->full_name }}</td></tr>
         <tr><td class="k">Documento</td><td class="v">{{ $shipment->dni ?: '—' }}</td></tr>
         <tr><td class="k">Teléfono</td><td class="v">{{ $shipment->phone ?: '—' }}</td></tr>
-        <tr><td class="k">Contenido</td><td class="v">{{ $shipment->package_content ?: '—' }}</td></tr>
+        <tr>
+            <td class="k">Contenido</td>
+            <td class="v">
+                @php $pkg = $shipment->contentLines(); @endphp
+                @if(count($pkg) > 1)
+                    <ul style="list-style:none;margin:0;padding:0">
+                        @foreach($pkg as $line)
+                            <li style="position:relative;padding-left:11px;margin-bottom:3px">
+                                <span style="position:absolute;left:0">•</span>{{ $line }}
+                            </li>
+                        @endforeach
+                    </ul>
+                @else
+                    {{ $pkg[0] ?? '—' }}
+                @endif
+            </td>
+        </tr>
         <tr><td class="k">Bultos</td><td class="v">{{ $shipment->package_count ?: 1 }}</td></tr>
         <tr><td class="k">Registrado</td><td class="v">{{ optional($shipment->created_at)->format('d/m/Y H:i') }}</td></tr>
         <tr><td class="k">Estado</td><td class="v">{{ $shipment->status_label }}</td></tr>

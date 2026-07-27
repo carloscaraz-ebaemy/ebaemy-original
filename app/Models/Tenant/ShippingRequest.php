@@ -429,6 +429,49 @@ class ShippingRequest extends Model
         return self::STATUSES[$this->status] ?? self::LEGACY_LABELS[$this->status] ?? ucfirst($this->status);
     }
 
+    /**
+     * Contenido del paquete normalizado como lista de ítems.
+     *
+     * El cliente escribe el detalle a mano y sale desparejo: líneas con
+     * espacios antes del guion, dobles espacios entre palabras y viñetas
+     * mezcladas (- – • *). Aquí se limpia todo eso y se devuelve una línea
+     * por ítem, sin la viñeta, para que el rótulo la pinte como lista real
+     * (con sangría francesa) en vez de como texto suelto que al envolver se
+     * mete en la columna de los guiones.
+     *
+     * @return array<int, string>
+     */
+    public function contentLines(): array
+    {
+        $raw = trim((string) $this->package_content);
+
+        if ($raw === '') {
+            return [];
+        }
+
+        $lines = [];
+
+        foreach (preg_split('/\r\n|\r|\n/', $raw) as $line) {
+            // Colapsa espacios/tabs repetidos y recorta los extremos.
+            $line = trim(preg_replace('/[ \t\x{00A0}]+/u', ' ', $line));
+            // Quita la viñeta inicial que escribió el cliente (la pone el rótulo).
+            $line = preg_replace('/^[-–—•*·]+\s*/u', '', $line);
+            $line = trim($line);
+
+            if ($line !== '') {
+                $lines[] = $line;
+            }
+        }
+
+        return $lines;
+    }
+
+    /** Contenido del paquete en una sola línea (manifiesto, tablas, CSV). */
+    public function contentInline(string $separator = ' · '): string
+    {
+        return implode($separator, $this->contentLines());
+    }
+
     /** ¿Ya tiene la guía de envío cargada? */
     public function getHasGuideAttribute(): bool
     {

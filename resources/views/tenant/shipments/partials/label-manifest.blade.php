@@ -101,7 +101,9 @@
                         <span class="tag">{{ $s->is_domicilio ? 'DOM' : 'AG' }}</span>{{ $dest }}
                         @if(!$s->is_domicilio && $s->reference)<br><span class="muted">Ofic: {{ $s->reference }}</span>@endif
                     </td>
-                    <td class="c-prod">{{ $s->package_content ?: '—' }}</td>
+                    {{-- Los saltos de línea del detalle se pierden en una celda:
+                         se separan los ítems con "·" para que no se peguen. --}}
+                    <td class="c-prod">{{ $s->contentInline() ?: '—' }}</td>
                     <td class="c-obs"></td>
                 </tr>
             @endforeach

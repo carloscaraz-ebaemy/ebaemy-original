@@ -104,12 +104,7 @@
             @if($ubigeoLine)<div class="med-text" style="font-weight:bold">{{ $ubigeoLine }}</div>@endif
         </div>
 
-        @if($shipment->package_content)
-            <div class="section">
-                <div class="section-title">Contenido del paquete</div>
-                <div class="med-text" style="white-space:pre-line">{{ $shipment->package_content }}</div>
-            </div>
-        @endif
+        @include('tenant.shipments.partials.package-content', ['shipment' => $shipment])
 
         <div class="divider"></div>
 
@@ -156,11 +151,11 @@
         @endif
     @endif
 
-    @if($shipment->is_domicilio && $shipment->package_content)
-        <div class="section" style="margin-top:8px;">
-            <div class="section-title">Contenido</div>
-            <div class="med-text" style="white-space:pre-line">{{ $shipment->package_content }}</div>
-        </div>
+    @if($shipment->is_domicilio)
+        @include('tenant.shipments.partials.package-content', [
+            'shipment' => $shipment,
+            'title'    => 'Contenido',
+        ])
     @endif
 
     @if($shipment->notes)
