@@ -9,8 +9,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Rótulos ({{ count($items) }}) — {{ strtoupper($format) }}</title>
+    {{-- La regla @page se reescribe al cambiar de formato (script del pie), sin
+         volver al servidor: así el cambio de tamaño no cuenta como reimpresión
+         del lote ni ensucia el historial con motivos falsos. --}}
+    <style id="pageStyle">@page { size: {{ $pageSize }}; margin: {{ $pageMargin }}; }</style>
     <style>
-        @page { size: {{ $pageSize }}; margin: {{ $pageMargin }}; }
         body { background: #e5e7eb; padding: 64px 10px 20px; }
         /* Un rótulo por hoja: salto de página después de cada uno. */
         .batch .label { margin: 0 auto 14px; page-break-after: always; break-after: page; }
@@ -28,18 +31,9 @@
 <div class="no-print" style="position:fixed;top:12px;left:0;right:0;z-index:999;display:flex;justify-content:center;gap:8px;flex-wrap:wrap;">
     <div style="background:#fff;border:1px solid #dee2e6;border-radius:8px;padding:5px;display:inline-flex;gap:4px;align-items:center;box-shadow:0 6px 18px -6px rgba(0,0,0,.2);">
         <span style="font-size:12px;color:#666;padding:0 6px;">Formato:</span>
-        @php
-            // Al imprimir un LOTE persistido los enlaces de formato apuntan al
-            // lote (así la reimpresión queda registrada); si es una selección
-            // suelta del panel, al endpoint por ids de siempre.
-            $batchRef = $batch ?? null;
-            $fmtBase  = $batchRef
-                ? route('shipments.batches.print', $batchRef) . '?motivo=' . rawurlencode('Cambio de formato de impresión') . '&format='
-                : route('shipments.print_batch') . '?ids=' . $ids . '&format=';
-        @endphp
         @foreach(['a5'=>'A5','a4'=>'A4'] as $fk => $fl)
-            <a href="{{ $fmtBase . $fk }}"
-               style="padding:6px 14px;border-radius:6px;font-size:13px;font-weight:600;text-decoration:none;{{ $format === $fk ? 'background:#4f46e5;color:#fff;' : 'background:#f1f3f5;color:#333;' }}">{{ $fl }}</a>
+            <button type="button" class="js-fmt" data-fmt="{{ $fk }}"
+                    style="border:none;cursor:pointer;padding:6px 14px;border-radius:6px;font-size:13px;font-weight:600;{{ $format === $fk ? 'background:#4f46e5;color:#fff;' : 'background:#f1f3f5;color:#333;' }}">{{ $fl }}</button>
         @endforeach
     </div>
     <label style="background:#fff;border:1px solid #dee2e6;border-radius:8px;padding:0 12px;display:inline-flex;gap:6px;align-items:center;font-size:13px;color:#333;box-shadow:0 6px 18px -6px rgba(0,0,0,.2);cursor:pointer;">
@@ -78,6 +72,37 @@
         ])
     </div>
 @endif
+
+<script>
+/* Cambio de formato del lote sin recargar: mismo criterio que el rótulo
+   individual. Antes recargaba el endpoint y, en un lote ya impreso, cada
+   cambio de tamaño quedaba en el historial como una "reimpresión". */
+(function () {
+    var PAGE = { a5: { size: 'A5', margin: '8mm' }, a4: { size: 'A4', margin: '12mm' } };
+
+    document.addEventListener('click', function (ev) {
+        var btn = ev.target.closest ? ev.target.closest('.js-fmt') : null;
+        if (!btn) return;
+
+        var fmt = btn.getAttribute('data-fmt');
+        var cfg = PAGE[fmt];
+        if (!cfg) return;
+
+        // Se conserva `no-manifest` (el toggle de la hoja de manifiesto).
+        var noManifest = document.body.classList.contains('no-manifest');
+        document.body.className = 'fmt-' + fmt + (noManifest ? ' no-manifest' : '');
+
+        var style = document.getElementById('pageStyle');
+        if (style) style.textContent = '@page { size: ' + cfg.size + '; margin: ' + cfg.margin + '; }';
+
+        document.querySelectorAll('.js-fmt').forEach(function (b) {
+            var on = b === btn;
+            b.style.background = on ? '#4f46e5' : '#f1f3f5';
+            b.style.color      = on ? '#fff' : '#333';
+        });
+    });
+})();
+</script>
 
 </body>
 </html>
