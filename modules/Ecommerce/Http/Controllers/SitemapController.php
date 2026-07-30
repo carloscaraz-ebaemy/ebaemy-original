@@ -11,6 +11,16 @@ class SitemapController extends Controller
 {
     public function index()
     {
+        // Este sitemap es el de la tienda de UN tenant. La ruta se registra sin
+        // restricción de dominio, así que también responde en el dominio central
+        // (ebaemy.com), donde no hay tenant resuelto: ahí la conexión `tenant`
+        // no existe y la primera consulta reventaba con un 500 que los bots
+        // estaban indexando. El marketplace tiene el suyo en
+        // /sitemap-marketplace.xml, así que aquí corresponde 404.
+        if (!app(\Hyn\Tenancy\Environment::class)->tenant()) {
+            abort(404);
+        }
+
         $seo = ConfigurationEcommerce::firstCached();
 
         if ($seo && !(bool) ($seo->indexable ?? true)) {
