@@ -880,22 +880,29 @@
                                 <div class="dropdown">
                                 <button type="button" class="sh-act sh-act--ghost" data-bs-toggle="dropdown" aria-label="Más acciones" title="Más acciones"><i class="fas fa-ellipsis-h"></i></button>
                                 <ul class="dropdown-menu dropdown-menu-end shadow-sm">
-                                    {{-- Si el rótulo ya se imprimió, el servidor exige motivo:
-                                         el JS abre el modal de reimpresión en vez de seguir el
-                                         enlace (que rebotaría con un error sin dónde escribirlo). --}}
+                                    {{-- Primera impresión: enlace directo. Reimpresión: el servidor
+                                         exige motivo, así que es un botón que ABRE EL MODAL con el
+                                         data-api de Bootstrap (declarativo). Nada de abrirlo por JS:
+                                         el bundle no expone `window.bootstrap`. --}}
                                     <li>
-                                        <a class="dropdown-item {{ $bloqueado ? 'disabled' : '' }} js-print-label"
-                                           href="{{ $bloqueado ? '#' : route('shipments.print', $s->id) }}"
-                                           data-count="{{ (int) $s->print_count }}"
-                                           data-code="{{ $s->shipment_code }}"
-                                           @if(!$bloqueado) target="_blank" @endif
-                                           @if($bloqueado) tabindex="-1" aria-disabled="true" @endif>
-                                            <i class="fas fa-print fa-fw me-2"></i>
-                                            {{ $s->print_count > 0 ? 'Reimprimir rótulo' : 'Imprimir rótulo' }}
-                                            @if($s->print_count > 0)
+                                        @if($s->print_count > 0 && !$bloqueado)
+                                            <button type="button" class="dropdown-item js-reprint"
+                                                    data-bs-toggle="modal" data-bs-target="#modalReimprimir"
+                                                    data-id="{{ $s->id }}"
+                                                    data-url="{{ route('shipments.print', $s->id) }}"
+                                                    data-count="{{ (int) $s->print_count }}"
+                                                    data-code="{{ $s->shipment_code }}">
+                                                <i class="fas fa-print fa-fw me-2"></i> Reimprimir rótulo
                                                 <span class="badge bg-light text-muted ms-1">{{ $s->print_count }}</span>
-                                            @endif
-                                        </a>
+                                            </button>
+                                        @else
+                                            <a class="dropdown-item {{ $bloqueado ? 'disabled' : '' }}"
+                                               href="{{ $bloqueado ? '#' : route('shipments.print', $s->id) }}"
+                                               @if(!$bloqueado) target="_blank" @endif
+                                               @if($bloqueado) tabindex="-1" aria-disabled="true" @endif>
+                                                <i class="fas fa-print fa-fw me-2"></i> Imprimir rótulo
+                                            </a>
+                                        @endif
                                     </li>
                                     <li>
                                         <button type="button" class="dropdown-item js-edit-shipment"
@@ -1519,6 +1526,9 @@
       </div>
       <div class="modal-footer">
         <button type="button" class="sh-act sh-act--ghost" data-bs-dismiss="modal">Cancelar</button>
+        {{-- Sin data-bs-dismiss: cerraría el modal aunque falte el motivo. El JS
+             valida y recién entonces dispara el botón de cerrar de la cabecera
+             (así no hace falta `window.bootstrap`, que el bundle no expone). --}}
         <button type="button" class="sh-act sh-act--primary" id="rpGo">
           <i class="fas fa-print"></i> Reimprimir
         </button>
@@ -1980,14 +1990,21 @@
         setLink('vwWa', data.phone ? ('https://wa.me/' + data.phone) : '', !!data.phone);
         setLink('vwCall', data.phone ? ('tel:+' + data.phone) : '', !!data.phone);
         setLink('vwPrint', data.print, !!data.print);
-        // El botón de rótulo hereda las mismas reglas que el del menú de la fila:
-        // con impresiones previas abre el modal de motivo en vez de imprimir.
+        // Con impresiones previas el rótulo exige motivo: el botón deja de ser
+        // un enlace directo y delega en el botón de la fila (que abre el modal
+        // por data-api). Sin impresiones previas imprime de una.
         var vwPrintEl = document.getElementById('vwPrint');
         if (vwPrintEl) {
-            vwPrintEl.classList.add('js-print-label');
-            vwPrintEl.setAttribute('data-count', data.print_count || 0);
-            vwPrintEl.setAttribute('data-code', data.code || '');
-            vwPrintEl.innerHTML = (data.print_count > 0)
+            var reprint = (data.print_count || 0) > 0;
+            vwPrintEl.classList.toggle('js-reprint-from-view', reprint);
+            vwPrintEl.setAttribute('data-id', data.id || '');
+            if (reprint) {
+                vwPrintEl.removeAttribute('target');
+                vwPrintEl.setAttribute('href', '#');
+            } else {
+                vwPrintEl.setAttribute('target', '_blank');
+            }
+            vwPrintEl.innerHTML = reprint
                 ? '<i class="fas fa-print"></i> Reimprimir'
                 : '<i class="fas fa-print"></i> Rótulo';
         }
@@ -2004,7 +2021,11 @@
         var modalEl = document.getElementById('modalVerEnvio');
         var id = modalEl ? modalEl.getAttribute('data-current-id') : '';
         var rowBtn = id ? document.querySelector('.js-edit-shipment[data-id="' + id + '"]') : null;
-        try { bootstrap.Modal.getInstance(modalEl).hide(); } catch (e) {}
+        // `bootstrap` no existe como global (Vite no lo expone), así que el
+        // hide programático fallaba en silencio y la ficha quedaba abierta
+        // detrás del modal de edición. Se cierra disparando su propio botón.
+        var closer = modalEl ? modalEl.querySelector('[data-bs-dismiss="modal"]') : null;
+        if (closer) closer.click();
         if (rowBtn) { setTimeout(function () { rowBtn.click(); }, 200); }
     });
 

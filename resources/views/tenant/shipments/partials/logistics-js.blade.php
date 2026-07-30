@@ -98,34 +98,39 @@
         }
 
         // ── Reimprimir rótulo individual ─────────────────────────────
-        // Con impresiones previas el servidor exige motivo, así que se abre el
-        // modal en vez de seguir el enlace (rebotaría con un error y sin campo
-        // donde escribirlo). La primera impresión pasa de largo.
-        var pr = t.closest('.js-print-label');
+        // El botón abre el modal por data-api de Bootstrap; aquí solo se
+        // rellenan sus campos. NO se usa `window.bootstrap`: el bundle de Vite
+        // no expone ese global, y con él se abría (o mejor dicho, NO se abría)
+        // el modal en silencio.
+        var pr = t.closest('.js-reprint');
         if (pr) {
-            var count = parseInt(pr.getAttribute('data-count') || '0', 10);
-            if (!count || pr.classList.contains('disabled')) return;   // 1ª vez: enlace normal
-
-            ev.preventDefault();
-
             var modalEl = document.getElementById('modalReimprimir');
             if (!modalEl) return;
 
-            modalEl.setAttribute('data-url', pr.getAttribute('href') || '');
+            modalEl.setAttribute('data-url', pr.getAttribute('data-url') || '');
             setText('rpCode', pr.getAttribute('data-code') || '');
-            setText('rpCount', String(count));
+            setText('rpCount', pr.getAttribute('data-count') || '1');
 
             var rr = document.getElementById('rpReason');
             if (rr) { rr.value = ''; rr.classList.remove('is-invalid'); }
+            return;
+        }
 
-            if (window.bootstrap && window.bootstrap.Modal) {
-                // Si se disparó desde la ficha "ojo", se cierra primero para no
-                // apilar dos modales (Bootstrap no lo maneja bien).
-                var over = pr.closest('#modalVerEnvio');
-                if (over) window.bootstrap.Modal.getOrCreateInstance(over).hide();
+        // Botón "Reimprimir" de la ficha "ojo": cierra la ficha y delega en el
+        // botón de la fila, que ya lleva el data-api del modal. Mismo recurso
+        // que usa "Editar" para no apilar dos modales.
+        var prView = t.closest('.js-reprint-from-view');
+        if (prView) {
+            ev.preventDefault();
+            var id   = prView.getAttribute('data-id');
+            var view = document.getElementById('modalVerEnvio');
+            var row  = id ? document.querySelector('.js-reprint[data-id="' + id + '"]') : null;
 
-                window.bootstrap.Modal.getOrCreateInstance(modalEl).show();
+            if (view) {
+                var closer = view.querySelector('[data-bs-dismiss="modal"]');
+                if (closer) closer.click();
             }
+            if (row) setTimeout(function () { row.click(); }, 200);
             return;
         }
 
@@ -162,9 +167,9 @@
 
             window.open(url, '_blank');
 
-            if (window.bootstrap && window.bootstrap.Modal) {
-                window.bootstrap.Modal.getOrCreateInstance(mEl).hide();
-            }
+            // Cerrar disparando el botón de cierre del propio modal.
+            var closeBtn = mEl.querySelector('[data-bs-dismiss="modal"]');
+            if (closeBtn) closeBtn.click();
             return;
         }
 
