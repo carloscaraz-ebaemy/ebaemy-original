@@ -706,6 +706,10 @@
                             'id'    => $s->id,
                             'phone' => strlen($viewPhone) === 9 ? ('51'.$viewPhone) : $viewPhone,
                             'print' => $bloqueado ? null : route('shipments.print', $s->id),
+                            // Nº de impresiones previas: si es > 0 el rótulo exige
+                            // motivo y el botón abre el modal de reimpresión.
+                            'print_count' => (int) $s->print_count,
+                            'code'        => $s->shipment_code,
                             'sections' => array_filter([
                                 'Cliente' => array_filter([
                                     'Nombre'  => $s->full_name,
@@ -876,12 +880,21 @@
                                 <div class="dropdown">
                                 <button type="button" class="sh-act sh-act--ghost" data-bs-toggle="dropdown" aria-label="Más acciones" title="Más acciones"><i class="fas fa-ellipsis-h"></i></button>
                                 <ul class="dropdown-menu dropdown-menu-end shadow-sm">
+                                    {{-- Si el rótulo ya se imprimió, el servidor exige motivo:
+                                         el JS abre el modal de reimpresión en vez de seguir el
+                                         enlace (que rebotaría con un error sin dónde escribirlo). --}}
                                     <li>
-                                        <a class="dropdown-item {{ $bloqueado ? 'disabled' : '' }}"
+                                        <a class="dropdown-item {{ $bloqueado ? 'disabled' : '' }} js-print-label"
                                            href="{{ $bloqueado ? '#' : route('shipments.print', $s->id) }}"
+                                           data-count="{{ (int) $s->print_count }}"
+                                           data-code="{{ $s->shipment_code }}"
                                            @if(!$bloqueado) target="_blank" @endif
                                            @if($bloqueado) tabindex="-1" aria-disabled="true" @endif>
-                                            <i class="fas fa-print fa-fw me-2"></i> Imprimir rótulo
+                                            <i class="fas fa-print fa-fw me-2"></i>
+                                            {{ $s->print_count > 0 ? 'Reimprimir rótulo' : 'Imprimir rótulo' }}
+                                            @if($s->print_count > 0)
+                                                <span class="badge bg-light text-muted ms-1">{{ $s->print_count }}</span>
+                                            @endif
                                         </a>
                                     </li>
                                     <li>
@@ -1459,6 +1472,61 @@
   </div>
 </div>
 
+{{-- ══════════════════════════════════════════════════════════════════
+     REIMPRIMIR RÓTULO (individual)
+     El servidor exige motivo cuando el rótulo ya se imprimió; aquí es donde
+     se escribe. Los motivos frecuentes están como atajos para no obligar a
+     teclear lo mismo cada vez, pero el campo admite texto libre.
+     ══════════════════════════════════════════════════════════════════ --}}
+<div class="modal fade" id="modalReimprimir" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Reimprimir rótulo — <span id="rpCode"></span></h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <p class="text-muted" style="font-size:.85rem">
+          Este rótulo ya se imprimió <strong id="rpCount">1</strong> vez/veces.
+          Cada reimpresión queda registrada con usuario, fecha y motivo; el historial
+          anterior no se modifica.
+        </p>
+
+        <label class="form-label" for="rpReason">Motivo de la reimpresión *</label>
+        <input id="rpReason" class="form-control" maxlength="255" required
+               placeholder="Ej. la impresora cortó mal la etiqueta">
+
+        <div class="d-flex flex-wrap gap-1 mt-2">
+          @foreach([
+            'La impresora falló o cortó mal',
+            'Etiqueta dañada o ilegible',
+            'Se corrigieron datos del envío',
+            'Se extravió el rótulo',
+            'Copia para el transportista',
+          ] as $motivo)
+            <button type="button" class="sh-act sh-act--ghost js-rp-quick" style="font-size:.75rem;border-color:var(--sh-line);">{{ $motivo }}</button>
+          @endforeach
+        </div>
+
+        <div class="mt-3">
+          <label class="form-label" for="rpFormat">Formato</label>
+          <select id="rpFormat" class="form-select">
+            <option value="a5">A5</option>
+            <option value="a4">A4</option>
+            <option value="sticker">Sticker 10 cm</option>
+          </select>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="sh-act sh-act--ghost" data-bs-dismiss="modal">Cancelar</button>
+        <button type="button" class="sh-act sh-act--primary" id="rpGo">
+          <i class="fas fa-print"></i> Reimprimir
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
 {{-- ── BITÁCORA del envío ── --}}
 <div class="modal fade" id="modalBitacora" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-dialog-centered modal-lg">
@@ -1912,6 +1980,17 @@
         setLink('vwWa', data.phone ? ('https://wa.me/' + data.phone) : '', !!data.phone);
         setLink('vwCall', data.phone ? ('tel:+' + data.phone) : '', !!data.phone);
         setLink('vwPrint', data.print, !!data.print);
+        // El botón de rótulo hereda las mismas reglas que el del menú de la fila:
+        // con impresiones previas abre el modal de motivo en vez de imprimir.
+        var vwPrintEl = document.getElementById('vwPrint');
+        if (vwPrintEl) {
+            vwPrintEl.classList.add('js-print-label');
+            vwPrintEl.setAttribute('data-count', data.print_count || 0);
+            vwPrintEl.setAttribute('data-code', data.code || '');
+            vwPrintEl.innerHTML = (data.print_count > 0)
+                ? '<i class="fas fa-print"></i> Reimprimir'
+                : '<i class="fas fa-print"></i> Rótulo';
+        }
         var modalEl = document.getElementById('modalVerEnvio');
         if (modalEl) modalEl.setAttribute('data-current-id', data.id || '');
         var editBtn = document.getElementById('vwEdit');

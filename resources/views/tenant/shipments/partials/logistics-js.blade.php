@@ -97,6 +97,77 @@
             return;
         }
 
+        // ── Reimprimir rótulo individual ─────────────────────────────
+        // Con impresiones previas el servidor exige motivo, así que se abre el
+        // modal en vez de seguir el enlace (rebotaría con un error y sin campo
+        // donde escribirlo). La primera impresión pasa de largo.
+        var pr = t.closest('.js-print-label');
+        if (pr) {
+            var count = parseInt(pr.getAttribute('data-count') || '0', 10);
+            if (!count || pr.classList.contains('disabled')) return;   // 1ª vez: enlace normal
+
+            ev.preventDefault();
+
+            var modalEl = document.getElementById('modalReimprimir');
+            if (!modalEl) return;
+
+            modalEl.setAttribute('data-url', pr.getAttribute('href') || '');
+            setText('rpCode', pr.getAttribute('data-code') || '');
+            setText('rpCount', String(count));
+
+            var rr = document.getElementById('rpReason');
+            if (rr) { rr.value = ''; rr.classList.remove('is-invalid'); }
+
+            if (window.bootstrap && window.bootstrap.Modal) {
+                // Si se disparó desde la ficha "ojo", se cierra primero para no
+                // apilar dos modales (Bootstrap no lo maneja bien).
+                var over = pr.closest('#modalVerEnvio');
+                if (over) window.bootstrap.Modal.getOrCreateInstance(over).hide();
+
+                window.bootstrap.Modal.getOrCreateInstance(modalEl).show();
+            }
+            return;
+        }
+
+        // Motivo frecuente: rellena el campo en vez de obligar a teclearlo.
+        var quick = t.closest('.js-rp-quick');
+        if (quick) {
+            ev.preventDefault();
+            var input = document.getElementById('rpReason');
+            if (input) { input.value = quick.textContent.trim(); input.focus(); }
+            return;
+        }
+
+        // Confirmar la reimpresión: abre el rótulo con el motivo en la URL.
+        var go = t.closest('#rpGo');
+        if (go) {
+            ev.preventDefault();
+            var mEl    = document.getElementById('modalReimprimir');
+            var reason = (document.getElementById('rpReason') || {}).value || '';
+            var fmt    = (document.getElementById('rpFormat') || {}).value || 'a5';
+
+            reason = reason.trim();
+            if (!reason) {
+                var f = document.getElementById('rpReason');
+                if (f) { f.focus(); f.classList.add('is-invalid'); }
+                return;
+            }
+
+            var base = mEl ? (mEl.getAttribute('data-url') || '') : '';
+            if (!base) return;
+
+            var url = base + (base.indexOf('?') === -1 ? '?' : '&')
+                    + 'motivo=' + encodeURIComponent(reason)
+                    + '&format=' + encodeURIComponent(fmt);
+
+            window.open(url, '_blank');
+
+            if (window.bootstrap && window.bootstrap.Modal) {
+                window.bootstrap.Modal.getOrCreateInstance(mEl).hide();
+            }
+            return;
+        }
+
         // ── Bitácora ─────────────────────────────────────────────────
         var audit = t.closest('.js-audit-trail');
         if (audit) {
