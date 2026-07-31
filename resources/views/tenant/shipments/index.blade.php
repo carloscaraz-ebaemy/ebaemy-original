@@ -1882,9 +1882,37 @@
     var CAL_MONTHS = ['enero','febrero','marzo','abril','mayo','junio','julio',
                       'agosto','septiembre','octubre','noviembre','diciembre'];
     function calFmt(ds) { var p = ds.split('-'); return p[2] + '/' + p[1]; }
+
+    /**
+     * "Hoy" recalculado EN CADA RENDER.
+     *
+     * `data-today` lo pinta el servidor al cargar la página, pero este panel
+     * es de operación y suele quedarse abierto de un día para otro: pasada la
+     * medianoche el atributo se queda en ayer, el calendario marca el día
+     * equivocado y el día actual queda deshabilitado como "futuro".
+     *
+     * Se toma el MAYOR entre la fecha del navegador y la del servidor: si la
+     * pestaña está vieja gana el navegador, y si el reloj del equipo está
+     * atrasado no se retrocede respecto a lo que dijo el servidor.
+     */
+    function calToday(el) {
+        var d = new Date();
+        var local = d.getFullYear() + '-'
+                  + String(d.getMonth() + 1).padStart(2, '0') + '-'
+                  + String(d.getDate()).padStart(2, '0');
+        var server = (el && el.dataset.today) || '';
+        return local > server ? local : server;
+    }
+
     function calRender(el) {
         if (!el) return;
-        var today = el.dataset.today;
+        var today = calToday(el);
+        // Si el día cambió con la pestaña abierta, se reabre el calendario en
+        // el mes vigente en vez de quedarse en el mes con el que se cargó.
+        if (el.dataset.today && el.dataset.today !== today) {
+            el.dataset.today = today;
+            if (!el.dataset.selStart) { delete el.dataset.viewYear; delete el.dataset.viewMonth; }
+        }
         var start = el.dataset.selStart || '';
         var end   = el.dataset.selEnd || '';
         var vy = parseInt(el.dataset.viewYear || '', 10);
