@@ -60,14 +60,24 @@
         .dcard:hover { border-color:var(--brand); transform:translateY(-2px); box-shadow:0 12px 28px -18px rgba(37,99,235,.5); }
         .dcard .ic { flex:0 0 auto; width:56px; height:56px; border-radius:16px; display:flex; align-items:center; justify-content:center; font-size:28px; }
         .dcard.moto .ic { background:#f3e8ff; } .dcard.ag .ic { background:#dbeafe; }
+        .dcard.tienda .ic { background:#dcfce7; }
         .dcard .tx { flex:1; }
         .dcard .tx b { display:block; font-size:16px; }
         .dcard .tx span { display:block; font-size:12.5px; color:var(--muted); margin-top:2px; line-height:1.35; }
         .dcard .go { flex:0 0 auto; font-size:13px; font-weight:800; color:var(--brand); border:1.5px solid var(--brand); border-radius:10px; padding:8px 12px; }
         .dcard.moto .go { color:var(--moto); border-color:var(--moto); }
+        .dcard.tienda .go { color:var(--ok); border-color:var(--ok); }
+        .dcard.tienda:hover { border-color:var(--ok); box-shadow:0 12px 28px -18px rgba(22,163,74,.5); }
 
         .tag { display:inline-flex; align-items:center; gap:6px; font-size:12px; font-weight:700; padding:5px 11px; border-radius:999px; margin-bottom:6px; }
         .tag.moto { background:#f3e8ff; color:var(--moto); } .tag.ag { background:#dbeafe; color:var(--brand-d); }
+        .tag.tienda { background:#dcfce7; color:#15803d; }
+
+        /* ── Recojo en tienda ── */
+        .pickup-box { background:#f0fdf4; border:1px solid #bbf7d0; border-radius:14px; padding:14px 15px; margin-bottom:14px; }
+        .pickup-box__t { font-size:14.5px; font-weight:800; color:#15803d; }
+        .pickup-box__addr { font-size:13.5px; color:var(--ink); margin-top:5px; font-weight:600; }
+        .pickup-box__s { font-size:12.5px; color:#166534; margin-top:6px; line-height:1.4; }
 
         /* ── Cliente encontrado ── */
         .found { background:#eff6ff; border:1px solid #bfdbfe; border-radius:14px; padding:12px 14px; margin-top:10px; }
@@ -148,12 +158,17 @@
 
         @if($sent)
             {{-- ══════════ PASO 4: Éxito ══════════ --}}
-            @php $isMoto = ($sentType === \App\Models\Tenant\ShippingRequest::DELIVERY_DOMICILIO); @endphp
+            @php
+                $isMoto   = ($sentType === \App\Models\Tenant\ShippingRequest::DELIVERY_DOMICILIO);
+                $isPickup = ($sentType === \App\Models\Tenant\ShippingRequest::DELIVERY_TIENDA);
+            @endphp
             <div class="ok-wrap fade-in">
                 <div class="ok-check">✓</div>
                 <h2>Registro realizado correctamente</h2>
                 <p style="color:var(--muted);font-size:14px;margin:2px 0;">
-                    @if($isMoto)
+                    @if($isPickup)
+                        Hemos recibido tus datos. Prepararemos tu pedido y te avisaremos por WhatsApp <b>apenas esté listo para recoger</b>.
+                    @elseif($isMoto)
                         Hemos recibido tus datos. Tu pedido será entregado por nuestro <b>motorizado</b> hasta tu dirección.
                     @else
                         Hemos recibido tus datos. Tu pedido será enviado mediante <b>agencia de transporte</b>. Cuando sea despachado recibirás la guía de envío.
@@ -174,7 +189,11 @@
                             if ($s->dni)   $L[] = "🪪 {$s->document_label}: {$s->dni}";
                             if ($s->phone) $L[] = "📱 Celular: {$s->phone}";
                             $L[] = "";
-                            if ($s->is_domicilio) {
+                            if ($s->is_pickup) {
+                                $L[] = "🏬 *Recojo en tienda*";
+                                if ($storeAddress) $L[] = "📍 Dirección de la tienda: {$storeAddress}";
+                                if ($s->reference) $L[] = "🕒 Piensa pasar: {$s->reference}";
+                            } elseif ($s->is_domicilio) {
                                 $L[] = "🏍️ *Entrega a domicilio*";
                                 if ($s->formatted_address || $s->shipping_destination) $L[] = "📍 Dirección: " . ($s->formatted_address ?: $s->shipping_destination);
                                 if ($s->reference)      $L[] = "📌 Referencia: {$s->reference}";
@@ -222,6 +241,11 @@
                             <div class="tx"><b>Envío por agencia &mdash; PROVINCIA</b><span>Enviamos tu pedido por agencia de transporte a tu provincia.</span></div>
                             <div class="go">Elegir</div>
                         </button>
+                        <button type="button" class="dcard tienda" data-type="tienda">
+                            <div class="ic">🏬</div>
+                            <div class="tx"><b>Recojo en tienda</b><span>Preparamos tu pedido y te avisamos cuando esté listo para recogerlo.</span></div>
+                            <div class="go">Elegir</div>
+                        </button>
                     </div>
                 </div>
 
@@ -229,6 +253,7 @@
                 <div class="step" data-step="1" hidden>
                     <span class="tag moto" id="tag-moto" hidden>🏍️ Entrega a domicilio · LIMA</span>
                     <span class="tag ag" id="tag-ag" hidden>📦 Envío por agencia · PROVINCIA</span>
+                    <span class="tag tienda" id="tag-tienda" hidden>🏬 Recojo en tienda</span>
 
                     <label>Documento</label>
                     <div class="doc-types">
@@ -354,6 +379,27 @@
                         @endif
                     </div>
 
+                    {{-- ─────── Rama RECOJO EN TIENDA ───────
+                         No viaja: sin dirección, sin agencia, sin ubigeo y sin
+                         cobro de envío. Solo hace falta saber a quién se le
+                         entrega y, si acaso, cuándo piensa pasar. --}}
+                    <div class="branch-tienda" hidden>
+                        <div class="pickup-box">
+                            <div class="pickup-box__t">🏬 Recogerás tu pedido en la tienda</div>
+                            @if(!empty($storeAddress))
+                                <div class="pickup-box__addr">{{ $storeAddress }}</div>
+                            @endif
+                            <div class="pickup-box__s">
+                                Te avisamos por WhatsApp apenas esté listo. Acércate con tu documento de identidad.
+                            </div>
+                        </div>
+
+                        <label>¿Cuándo piensas pasar? (opcional)</label>
+                        <input type="text" name="reference" id="pub_reference_tienda" value="{{ old('reference') }}"
+                               maxlength="255" placeholder="Ej. mañana por la tarde, el sábado…">
+                        <small class="hint">Nos ayuda a tenerlo listo a tiempo. No es un compromiso.</small>
+                    </div>
+
                     <div class="row-btns">
                         <button type="button" class="btn btn-ghost" id="backStep0">← Volver</button>
                         <button type="button" class="btn" id="toStep2">Continuar →</button>
@@ -423,7 +469,7 @@
 
 <script>
 (function () {
-    var DTYPE = { DOM: 'domicilio', AG: 'agencia' };
+    var DTYPE = { DOM: 'domicilio', AG: 'agencia', TIENDA: 'tienda' };
     var form = document.getElementById('shipForm');
     if (!form) return;
     var dtInput = document.getElementById('delivery_type');
@@ -433,6 +479,7 @@
     var step2 = document.querySelector('.step[data-step="2"]');
     var branchDom = document.querySelector('.branch-domicilio');
     var branchAg = document.querySelector('.branch-agencia');
+    var branchTienda = document.querySelector('.branch-tienda');
     var selectedType = null;
 
     function setStep(n) {
@@ -453,24 +500,38 @@
         c.addEventListener('click', function () {
             selectedType = c.getAttribute('data-type');
             dtInput.value = selectedType;
+
             var isDom = selectedType === DTYPE.DOM;
-            branchDom.hidden = !isDom; branchAg.hidden = isDom;
-            document.getElementById('tag-moto').hidden = !isDom;
-            document.getElementById('tag-ag').hidden = isDom;
+
+            // Tres modalidades: se muestra la rama elegida y se ocultan las otras.
+            branchDom.hidden    = selectedType !== DTYPE.DOM;
+            branchAg.hidden     = selectedType !== DTYPE.AG;
+            if (branchTienda) branchTienda.hidden = selectedType !== DTYPE.TIENDA;
+
+            document.getElementById('tag-moto').hidden = selectedType !== DTYPE.DOM;
+            document.getElementById('tag-ag').hidden   = selectedType !== DTYPE.AG;
+            var tagT = document.getElementById('tag-tienda');
+            if (tagT) tagT.hidden = selectedType !== DTYPE.TIENDA;
+
             // Evitar que campos ocultos "required" bloqueen el submit del navegador.
-            syncRequired(isDom);
+            syncRequired();
             hide(step0); show(step1); step1.classList.add('fade-in');
             setStep(2);
             if (isDom && window.__initShipMapIfReady) window.__initShipMapIfReady();
         });
     });
 
-    // Marca required solo en la rama visible (los name duplicados no molestan
-    // porque solo enviamos la rama activa; igual desactivamos la oculta).
-    function syncRequired(isDom) {
-        // Desactivar los inputs de la rama oculta para que NO se envíen.
-        branchDom.querySelectorAll('input,select,textarea').forEach(function(el){ el.disabled = !isDom; });
-        branchAg.querySelectorAll('input,select,textarea').forEach(function(el){ el.disabled = isDom; });
+    // Solo la rama VISIBLE envía datos: las ocultas se deshabilitan para que sus
+    // `required` no bloqueen el submit ni se manden campos de otra modalidad
+    // (hay names repetidos entre ramas, como shipping_destination y reference).
+    function syncRequired() {
+        [[branchDom, DTYPE.DOM], [branchAg, DTYPE.AG], [branchTienda, DTYPE.TIENDA]]
+            .forEach(function (pair) {
+                var el = pair[0], type = pair[1];
+                if (!el) return;
+                var off = selectedType !== type;
+                el.querySelectorAll('input,select,textarea').forEach(function (f) { f.disabled = off; });
+            });
         syncAgHome();
     }
 
@@ -623,6 +684,12 @@
         if (!name.value.trim()) { name.style.borderColor = '#dc2626'; ok = false; } else name.style.borderColor = '';
         if (!(pdig.length === 9 && pdig[0] === '9')) { phone.style.borderColor = '#dc2626'; var e = document.querySelector('.js-phone-err'); if (e) e.textContent = 'Ingresa un celular válido (9 dígitos).'; ok = false; } else phone.style.borderColor = '';
 
+        // El recojo en tienda no pide dirección ni ubigeo: con nombre y celular
+        // basta para tener el pedido listo y avisarle.
+        if (selectedType === DTYPE.TIENDA) {
+            return ok;
+        }
+
         if (selectedType === DTYPE.DOM) {
             var addr = document.getElementById('pub_addr_domicilio');
             if (!addr.value.trim()) { addr.style.borderColor = '#dc2626'; ok = false; } else addr.style.borderColor = '';
@@ -635,8 +702,12 @@
     }
 
     function buildConfirm() {
-        var isDom = selectedType === DTYPE.DOM;
-        document.getElementById('c_type').textContent = isDom ? '🏍️ Entrega a domicilio · LIMA' : '📦 Envío por agencia · PROVINCIA';
+        var isDom    = selectedType === DTYPE.DOM;
+        var isPickup = selectedType === DTYPE.TIENDA;
+
+        document.getElementById('c_type').textContent = isPickup
+            ? '🏬 Recojo en tienda'
+            : (isDom ? '🏍️ Entrega a domicilio · LIMA' : '📦 Envío por agencia · PROVINCIA');
         document.getElementById('c_name').textContent = txt('pub_full_name') || '—';
         var dt = document.querySelector('input[name="document_type"]:checked');
         var dtv = dt ? dt.value : 'dni';
@@ -647,7 +718,18 @@
         document.getElementById('c_doc').textContent = dnum ? (dtl + ' ' + dnum) : '—';
         document.getElementById('c_phone').textContent = txt('pub_phone') || '—';
 
-        if (isDom) {
+        if (isPickup) {
+            // Recojo: no hay ubigeo, agencia, coordenadas ni costo de envío.
+            document.getElementById('r_ubigeo').hidden = true;
+            document.getElementById('r_ag').hidden     = true;
+            document.getElementById('r_coords').hidden = true;
+            document.getElementById('r_price').hidden  = true;
+            {{-- json_encode y no @json(): el directive se rompe con ternarios
+                 (ver feedback_blade_json_parser_trap). --}}
+            document.getElementById('c_dir').textContent = {!! json_encode($storeAddress ?: 'Recojo en la tienda') !!};
+            document.getElementById('k_ref').textContent = 'Piensa pasar';
+            document.getElementById('c_ref').textContent = txt('pub_reference_tienda') || '—';
+        } else if (isDom) {
             document.getElementById('r_ubigeo').hidden = true;
             document.getElementById('r_ag').hidden = true;
             document.getElementById('c_dir').textContent = txt('pub_addr_domicilio') || txt('pub_formatted') || '—';

@@ -1641,6 +1641,9 @@ class ShipmentController extends Controller
             'basePrice'    => (float) $store->base_price,
             'minPrice'     => (float) $store->min_price,
             'agencyFee'    => (float) $store->agency_fee,
+            // Dirección de la tienda: se muestra en la rama de recojo para que
+            // el cliente sepa a dónde ir.
+            'storeAddress' => $store->store_address,
             'mpReel'       => $this->marketplaceReel(),
         ]);
     }
@@ -1796,15 +1799,17 @@ class ShipmentController extends Controller
      */
     private function validateShipment(Request $request, bool $public = false): array
     {
-        // Discriminador de tipo de entrega. Por defecto, agencia (retrocompat).
-        $deliveryType = $request->input('delivery_type') === ShippingRequest::DELIVERY_DOMICILIO
-            ? ShippingRequest::DELIVERY_DOMICILIO
+        // Discriminador de modalidad. Por defecto, agencia (retrocompat).
+        $deliveryType = array_key_exists($request->input('delivery_type'), ShippingRequest::DELIVERY_TYPES)
+            ? $request->input('delivery_type')
             : ShippingRequest::DELIVERY_AGENCIA;
-        $isDomicilio = $deliveryType === ShippingRequest::DELIVERY_DOMICILIO;
 
-        // Reglas comunes a ambos tipos.
+        $isDomicilio = $deliveryType === ShippingRequest::DELIVERY_DOMICILIO;
+        $isPickup    = $deliveryType === ShippingRequest::DELIVERY_TIENDA;
+
+        // Reglas comunes a las tres modalidades.
         $rules = [
-            'delivery_type'        => 'nullable|in:' . ShippingRequest::DELIVERY_DOMICILIO . ',' . ShippingRequest::DELIVERY_AGENCIA,
+            'delivery_type'        => 'nullable|in:' . implode(',', array_keys(ShippingRequest::DELIVERY_TYPES)),
             'full_name'            => 'required|string|max:160',
             'dni'                  => 'nullable|string|max:20',
             'document_type'        => 'nullable|in:dni,ruc,ce,pasaporte',
@@ -1818,7 +1823,14 @@ class ShipmentController extends Controller
             'order_id'             => 'nullable|integer',
         ];
 
-        if ($isDomicilio) {
+        if ($isPickup) {
+            // Recojo en tienda: el cliente pasa por su pedido, así que no hay
+            // dirección, agencia, ubigeo ni cobro de envío que validar.
+            $rules += [
+                'shipping_destination' => 'nullable|string|max:255',
+                'destination_city'     => 'nullable|string|max:120',
+            ];
+        } elseif ($isDomicilio) {
             // Entrega a domicilio (motorizado): dirección + Google Maps.
             $rules += [
                 'shipping_destination' => 'required|string|max:500',
@@ -1867,6 +1879,16 @@ class ShipmentController extends Controller
 
         $data['delivery_type']  = $deliveryType;
         $data['package_count']  = (int) ($request->input('package_count') ?: 1);
+        // La prioridad logística se deriva de la modalidad (1 Lima, 2 recojo,
+        // 3 provincia) — se sella aquí para que valga desde el alta.
+        $data['priority']       = ShippingRequest::priorityFor($deliveryType);
+
+        if ($isPickup) {
+            // El recojo no viaja: nada de agencia, guía, ruta ni cobro de envío.
+            $data['shipping_agency'] = null;
+            $data['delivery_price']  = null;
+            $data['destination_city'] = $data['destination_city'] ?? 'Recojo en tienda';
+        }
 
         if ($isDomicilio) {
             // Normalizar coordenadas y construir la URL de Maps si falta.
