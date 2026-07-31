@@ -410,6 +410,11 @@
 
         <div class="foot">Powered by ebaemy · Registro y Control de Envíos</div>
     </div>
+
+    {{-- Venta cruzada: los productos de la tienda en el marketplace. Va FUERA
+         de la tarjeta para que se vea igual mientras se llena el formulario y
+         en la pantalla de éxito. --}}
+    @include('tenant.shipments.partials.marketplace-reel')
 </div>
 
 @include('tenant.shipments.partials.ubigeo-cascader-js')

@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Tenant\Catalogs\Department;
 use App\Models\Tenant\Catalogs\District;
 use App\Models\Tenant\Catalogs\Province;
+use App\Models\System\MarketplaceListing;
 use App\Models\Tenant\Company;
 use App\Models\Tenant\ShippingAuditLog;
 use App\Models\Tenant\ShippingPrintBatch;
@@ -16,6 +17,8 @@ use App\Services\Tenant\ShippingBatchService;
 use Hyn\Tenancy\Environment;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 
@@ -1638,7 +1641,67 @@ class ShipmentController extends Controller
             'basePrice'    => (float) $store->base_price,
             'minPrice'     => (float) $store->min_price,
             'agencyFee'    => (float) $store->agency_fee,
+            'mpReel'       => $this->marketplaceReel(),
         ]);
+    }
+
+    /**
+     * Productos de ESTA tienda publicados en el marketplace, para el carrusel
+     * de venta cruzada del formulario público.
+     *
+     * Se priorizan los que tienen descuento REAL (precio anterior > precio
+     * actual). Ojo: hay listings marcados `is_on_offer` cuyo `original_price`
+     * quedó igual al `price`; para esos NO se pinta el tachado ni el % porque
+     * sería anunciar un descuento que el precio no refleja.
+     *
+     * @return \Illuminate\Support\Collection<int, array>
+     */
+    private function marketplaceReel()
+    {
+        try {
+            $hostnameId = optional(app(Environment::class)->hostname())->id;
+
+            if (!$hostnameId) {
+                return collect();
+            }
+
+            return Cache::remember("mp_reel_{$hostnameId}", now()->addMinutes(10), function () use ($hostnameId) {
+                // El marketplace vive en el dominio central: sus rutas no están
+                // registradas en el dominio del tenant, así que la URL se arma
+                // a mano en vez de con route()/url().
+                $base = rtrim(config('app.url') ?: ('https://' . env('APP_URL_BASE')), '/');
+
+                return MarketplaceListing::published()
+                    ->where('hostname_id', $hostnameId)
+                    ->orderByRaw('(original_price IS NOT NULL AND original_price > price) desc')
+                    ->orderByDesc('discount_pct')
+                    ->orderByDesc('is_featured')
+                    ->orderByDesc('sort_score')
+                    ->limit(12)
+                    ->get(['slug', 'title', 'image_url', 'price', 'mp_price', 'original_price', 'discount_pct'])
+                    ->map(function ($l) use ($base) {
+                        $price = $l->display_price;
+                        $antes = $l->original_price !== null ? (float) $l->original_price : null;
+                        // Solo es descuento mostrable si el precio bajó de verdad.
+                        $real  = $antes !== null && $antes > $price;
+
+                        return [
+                            'title'    => $l->title,
+                            'image'    => $l->image_url,
+                            'price'    => $price,
+                            'before'   => $real ? $antes : null,
+                            'discount' => $real ? (int) round((1 - $price / $antes) * 100) : null,
+                            'url'      => $base . '/marketplace/item/' . $l->slug,
+                        ];
+                    });
+            });
+        } catch (\Throwable $e) {
+            // El carrusel es un extra: si el marketplace no responde, el
+            // formulario de envíos tiene que seguir funcionando igual.
+            Log::warning('[Shipments] No se pudo cargar el carrusel del marketplace: ' . $e->getMessage());
+
+            return collect();
+        }
     }
 
     /** Configuración del módulo: fijar la ubicación (origen) de la tienda. */
