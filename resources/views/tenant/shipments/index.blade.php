@@ -1931,7 +1931,23 @@
             headers: { 'X-Requested-With': 'XMLHttpRequest' },
             credentials: 'same-origin'
         })
-        .then(function () {
+        .then(function (r) {
+            // IMPRESCINDIBLE reactivar el botón: los formularios de los modales
+            // viven FUERA de #shPanel, así que el refresco no los regenera y el
+            // botón se quedaría deshabilitado para siempre (a la segunda vez
+            // "Guardar cambios" ya no respondía).
+            if (btn) btn.disabled = false;
+
+            // El servidor rechazó (validación, permiso…): se deja el modal
+            // abierto con lo que el usuario escribió en vez de cerrarlo y
+            // perderlo. fetch solo falla por red, así que hay que mirar el
+            // status a mano.
+            if (r && !r.ok) {
+                busy(false);
+                window.alert('No se pudo guardar. Revisa los datos e inténtalo de nuevo.');
+                return;
+            }
+
             // Si la acción venía de un modal, se cierra por su propio botón
             // (el bundle no expone `window.bootstrap`).
             var modal = form.closest ? form.closest('.modal') : null;
