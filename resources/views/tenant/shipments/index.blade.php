@@ -99,6 +99,13 @@
     .sh-mod--agencia   { background:#eff6ff; color:#2563eb; border-color:#bfdbfe; }
     .sh-mod--domicilio { background:#fff7ed; color:#ea580c; border-color:#fed7aa; }
     .sh-mod--tienda    { background:#f0fdf4; color:#16a34a; border-color:#bbf7d0; }
+    /* Fila recién afectada: destello breve para reubicar la vista sin leer. */
+    #shipmentsApp .sh-row--just > td { animation: shJust 1.8s ease-out; }
+    @keyframes shJust {
+        0%   { background:var(--sh-brand-weak); box-shadow:inset 3px 0 0 var(--sh-brand); }
+        70%  { background:var(--sh-brand-weak); box-shadow:inset 3px 0 0 var(--sh-brand); }
+        100% { background:transparent; box-shadow:none; }
+    }
     .sh-batch { font-size:.68rem; color:var(--sh-faint); font-weight:600; }
     .sh-batch--on { color:var(--sh-brand-ink); }
     .sh-pri__chip b { font-size:.67rem; font-weight:800; padding:.06rem .4rem; border-radius:999px;
@@ -1829,20 +1836,119 @@
         });
     }
 
+    /* ── Conservar la posición al refrescar ──────────────────────────────
+       Las acciones del panel (estado, pago, anular, editar, modalidad…)
+       refrescan la lista. Sin esto la página vuelve arriba y el operador
+       pierde de vista justo la fila que acaba de tocar — más molesto cuanto
+       más abajo esté. Se ancla al envío afectado y, si no se puede, al
+       scroll previo. */
+
+    /** Id del envío al que apunta un control (fila que lo contiene o su URL). */
+    function anchorOf(el) {
+        var tr = el && el.closest ? el.closest('tr') : null;
+        var chk = tr ? tr.querySelector('.sh-check') : null;
+        if (chk && chk.value) return chk.value;
+
+        // Los formularios de los modales no están en la fila: el id sale de
+        // su action (/registro-envio/{id}/…).
+        var action = (el && el.getAttribute && el.getAttribute('action')) || (el && el.action) || '';
+        var m = String(action).match(/registro-envio\/(\d+)\//);
+        return m ? m[1] : null;
+    }
+
+    /** Devuelve la vista a la fila afectada (o al scroll previo) y la resalta. */
+    function restoreAnchor(id, y) {
+        var chk = id ? document.querySelector('.sh-check[value="' + id + '"]') : null;
+        var tr = chk && chk.closest ? chk.closest('tr') : null;
+
+        if (tr) {
+            var r = tr.getBoundingClientRect();
+            var visible = r.top >= 0 && r.bottom <= (window.innerHeight || document.documentElement.clientHeight);
+            if (!visible) tr.scrollIntoView({ block: 'center' });
+            tr.classList.add('sh-row--just');
+            setTimeout(function () { tr.classList.remove('sh-row--just'); }, 1800);
+            return;
+        }
+        // La fila ya no está en la lista (p. ej. se anuló y el filtro la saca):
+        // al menos no saltar al inicio.
+        if (typeof y === 'number') window.scrollTo(0, y);
+    }
+
     /** Refresca todo el panel (para clics en filtros: actualiza estados y contadores). */
     function swap(url, opts) {
         opts = opts || {};
+        var y = (typeof opts.scrollY === 'number') ? opts.scrollY : window.scrollY;
         busy(true);
         fetchDoc(url).then(function (doc) {
             var fresh = doc.getElementById('shPanel');
             var cur = document.getElementById('shPanel');
             if (fresh && cur) cur.innerHTML = fresh.innerHTML;
             after(url, !opts.noPush);
+            if (opts.keep) restoreAnchor(opts.anchor, y);
             busy(false);
         }).catch(function (e) {
             if (!e || e.name !== 'AbortError') { busy(false); window.location = url; }
         });
     }
+
+    /**
+     * Acciones del panel por AJAX.
+     *
+     * Antes cada formulario (pago, anular, restaurar, modalidad, editar,
+     * precio, quitar del lote…) hacía un submit nativo: recarga completa y
+     * vuelta al inicio de la lista. Ahora se envían por fetch y se refresca
+     * solo #shPanel, volviendo a la fila donde estaba el operador.
+     *
+     * Quedan fuera a propósito: el buscador (tiene su propio flujo, que no
+     * debe perder el foco) y los formularios con archivos (subir guía), que
+     * siguen con el submit nativo.
+     */
+    document.addEventListener('submit', function (ev) {
+        var form = ev.target;
+        if (!form || form.tagName !== 'FORM') return;
+        if (form.id === 'shSearchForm') return;
+        if (form.hasAttribute('data-no-ajax')) return;
+        if ((form.getAttribute('enctype') || '') === 'multipart/form-data') return;
+        if ((form.getAttribute('method') || 'get').toLowerCase() !== 'post') return;
+
+        // Solo el módulo de envíos. Se incluye el POST al índice, que es el
+        // alta de un envío nuevo desde el panel.
+        var action = form.action || '';
+        if (action.indexOf(BASE) !== 0) return;
+
+        ev.preventDefault();
+
+        var anchor = anchorOf(form);
+        var y      = window.scrollY;
+        var btn    = form.querySelector('[type="submit"]');
+        if (btn) btn.disabled = true;
+
+        busy(true);
+
+        fetch(action, {
+            method: 'POST',
+            body: new FormData(form),
+            headers: { 'X-Requested-With': 'XMLHttpRequest' },
+            credentials: 'same-origin'
+        })
+        .then(function () {
+            // Si la acción venía de un modal, se cierra por su propio botón
+            // (el bundle no expone `window.bootstrap`).
+            var modal = form.closest ? form.closest('.modal') : null;
+            if (modal) {
+                var closer = modal.querySelector('[data-bs-dismiss="modal"]');
+                if (closer) closer.click();
+            }
+            swap(location.href, { noPush: true, keep: true, anchor: anchor, scrollY: y });
+        })
+        .catch(function () {
+            // Si el AJAX falla, el submit nativo es el respaldo: la acción no
+            // se puede perder en silencio.
+            busy(false);
+            if (btn) btn.disabled = false;
+            form.submit();
+        });
+    });
 
     // Tarjetas / pastillas / paginación (links dentro de #shPanel hacia el índice).
     document.addEventListener('click', function (ev) {
@@ -2098,8 +2204,9 @@
         fd.append('ids', ids.join(','));
         fd.append('status', opt.getAttribute('data-status'));
         busy(true);
+        var y = window.scrollY;
         fetch('{{ route("shipments.status_bulk") }}', { method: 'POST', body: fd, headers: { 'X-Requested-With': 'XMLHttpRequest' }, credentials: 'same-origin' })
-            .then(function () { swap(location.href, { noPush: true }); })
+            .then(function () { swap(location.href, { noPush: true, keep: true, scrollY: y }); })
             .catch(function () { busy(false); });
     });
 
@@ -2114,8 +2221,9 @@
         fd.append('_token', '{{ csrf_token() }}');
         fd.append('ids', ids.join(','));
         busy(true);
+        var y2 = window.scrollY;
         fetch('{{ route("shipments.payment_bulk") }}', { method: 'POST', body: fd, headers: { 'X-Requested-With': 'XMLHttpRequest' }, credentials: 'same-origin' })
-            .then(function () { swap(location.href, { noPush: true }); })
+            .then(function () { swap(location.href, { noPush: true, keep: true, scrollY: y2 }); })
             .catch(function () { busy(false); });
     });
 
@@ -2128,12 +2236,14 @@
         // IMPORTANTE: serializar ANTES de deshabilitar. Los controles deshabilitados
         // NO se incluyen en FormData, y el POST se iba sin el campo `status`.
         var fd = new FormData(form);
+        var anchor = anchorOf(sel), y = window.scrollY;
         sel.disabled = true;
         busy(true);
         fetch(form.action, { method: 'POST', body: fd, headers: { 'X-Requested-With': 'XMLHttpRequest' }, credentials: 'same-origin' })
             .then(function (r) {
                 if (r && !r.ok) { sel.disabled = false; busy(false); return; }
-                swap(location.href, { noPush: true }); // al terminar hace busy(false)
+                // Vuelve a la fila que se acaba de cambiar. (busy(false) lo hace swap.)
+                swap(location.href, { noPush: true, keep: true, anchor: anchor, scrollY: y });
             })
             .catch(function () { sel.disabled = false; busy(false); form.submit(); });
     });
