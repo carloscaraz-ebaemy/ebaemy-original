@@ -36,6 +36,12 @@
     @if(session('error'))
         <div class="alert alert-danger alert-dismissible fade show py-2">{{ session('error') }}<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>
     @endif
+    {{-- Resultado del ENSAYO: se distingue del sorteo real a propósito. --}}
+    @if(session('simulation'))
+        <div class="alert alert-info alert-dismissible fade show py-2" style="border-left:4px solid var(--rf-brand)">
+            {{ session('simulation') }}<button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    @endif
 
     @if(!$open && $raffle->status !== 'finished')
         <div class="alert alert-warning py-2 mb-3">
@@ -280,13 +286,22 @@
                             <button class="rf-btn" type="submit" @disabled(!$open)>Enviar invitaciones (WhatsApp)</button>
                         </form>
 
+                        {{-- ENSAYO: elige al azar sin guardar nada. Sirve para
+                             probar el flujo con el sorteo en borrador. --}}
+                        <form method="POST" action="{{ route('raffles.simulate', $raffle) }}">
+                            @csrf
+                            <button class="rf-btn" type="submit" @disabled($metrics['invited'] < 1)>
+                                🎲 Simular sorteo (ensayo)
+                            </button>
+                        </form>
+
                         <form method="POST" action="{{ route('raffles.draw', $raffle) }}"
-                              onsubmit="return confirm('¿Realizar el sorteo? Se elegirá al azar entre quienes aceptaron participar. Esta acción queda registrada.');">
+                              onsubmit="return confirm('¿Realizar el sorteo REAL? Se elegirá al azar entre quienes aceptaron participar y quedará registrado. Esta acción no se puede deshacer.');">
                             @csrf
                             <input type="hidden" name="quantity" value="{{ max(1, $prizesLeft) }}">
                             <button class="rf-btn rf-btn--primary" type="submit"
                                     @disabled($raffle->status !== 'active' || $prizesLeft < 1 || $metrics['accepted'] < 1)>
-                                🎲 Realizar sorteo
+                                🏆 Realizar sorteo REAL
                             </button>
                         </form>
 
@@ -309,8 +324,34 @@
                         @endif
                     </div>
 
+                    {{-- Por qué el sorteo real está bloqueado: si no se dice, el
+                         botón gris no explica nada y el admin se queda atascado. --}}
+                    @php
+                        $faltan = [];
+                        if ($raffle->status !== 'active')   $faltan[] = 'poner la campaña en <strong>Activo</strong>';
+                        if ($metrics['accepted'] < 1)       $faltan[] = 'que <strong>al menos un cliente acepte</strong> desde su enlace';
+                        if ($prizesLeft < 1)                $faltan[] = 'que queden premios por asignar';
+                        [$openNow, $whyClosed] = $raffle->acceptanceWindow();
+                    @endphp
+
+                    @if($faltan)
+                        <div class="alert alert-warning py-2 mt-3 mb-0" style="font-size:.85rem">
+                            <strong>Para el sorteo REAL falta:</strong> {!! implode(' · ', $faltan) !!}.
+                            @if(!$openNow)
+                                <div class="mt-1">
+                                    ⚠️ Además, <strong>nadie puede aceptar ahora mismo</strong>: {{ $whyClosed }}
+                                    Edita las fechas del sorteo para reabrir el registro.
+                                </div>
+                            @endif
+                            <div class="mt-1">
+                                Mientras tanto puedes usar <strong>Simular sorteo</strong>: elige al azar igual que
+                                el real pero <strong>no guarda nada</strong>, y funciona con la campaña en borrador.
+                            </div>
+                        </div>
+                    @endif
+
                     <div class="rf-note mt-2">
-                        Solo entran al sorteo quienes <strong>aceptaron</strong> desde su enlace.
+                        Solo entran al sorteo real quienes <strong>aceptaron</strong> desde su enlace.
                     </div>
                 </div>
             </div>

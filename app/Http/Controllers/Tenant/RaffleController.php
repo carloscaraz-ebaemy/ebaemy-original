@@ -419,6 +419,44 @@ class RaffleController extends Controller
             . " — elegidos al azar entre {$result['pool']} participantes.");
     }
 
+    /**
+     * ENSAYO del sorteo: elige al azar como si fuera el sorteo real, pero
+     * NO guarda nada — ni ganador, ni marca al participante, ni cierra la
+     * campaña. Sirve para probar el flujo con el sorteo en borrador y ver
+     * cómo quedaría el resultado.
+     *
+     * Usa el mismo universo que el sorteo real (los que aceptaron). Si
+     * todavía no aceptó nadie, ensaya sobre TODOS los participantes y lo
+     * dice, que es el caso típico mientras se prepara la campaña.
+     */
+    public function simulateDraw(Request $request, Raffle $raffle)
+    {
+        $accepted = $raffle->participants()->accepted()->count();
+        $sobre    = $accepted > 0 ? 'aceptaron' : 'todos';
+
+        $pool = $raffle->participants()
+                       ->when($accepted > 0, fn ($q) => $q->accepted())
+                       ->get(['id', 'full_name', 'document', 'phone']);
+
+        if ($pool->isEmpty()) {
+            return back()->with('error', 'El sorteo todavía no tiene participantes para ensayar. Confirma participantes primero.');
+        }
+
+        $take   = max(1, min((int) $raffle->prize_quantity, $pool->count()));
+        $picked = $pool->shuffle()->take($take);
+
+        $nombres = $picked->map(fn ($p) => $p->full_name . ($p->document ? " ({$p->document})" : ''))->implode(', ');
+
+        $msg = "🎲 ENSAYO — no se guardó nada. Saldría(n): {$nombres}. "
+             . "Elegido(s) al azar entre {$pool->count()} "
+             . ($sobre === 'aceptaron'
+                 ? 'participante(s) que aceptaron.'
+                 : 'invitado(s) — todavía nadie aceptó, así que el ensayo se hizo sobre toda la lista.')
+             . ' Repite el ensayo las veces que quieras: cada vez sale distinto.';
+
+        return back()->with('simulation', $msg);
+    }
+
     /** Cambia el estado administrativo de la campaña. */
     public function updateStatus(Request $request, Raffle $raffle)
     {

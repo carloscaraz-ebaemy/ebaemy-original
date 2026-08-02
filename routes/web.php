@@ -241,6 +241,8 @@ if ($hostname) {
                      ->whereNumber('raffle')->whereNumber('participant')->name('raffles.mark_invited');
                 Route::post('{raffle}/sortear', [\App\Http\Controllers\Tenant\RaffleController::class, 'draw'])
                      ->whereNumber('raffle')->name('raffles.draw');
+                Route::post('{raffle}/simular', [\App\Http\Controllers\Tenant\RaffleController::class, 'simulateDraw'])
+                     ->whereNumber('raffle')->name('raffles.simulate');
                 Route::post('{raffle}/estado', [\App\Http\Controllers\Tenant\RaffleController::class, 'updateStatus'])
                      ->whereNumber('raffle')->name('raffles.status');
                 Route::post('{raffle}/ganador/{winner}/entrega', [\App\Http\Controllers\Tenant\RaffleController::class, 'updateDelivery'])
