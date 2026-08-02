@@ -181,6 +181,27 @@ class Raffle extends Model
         return $query->where('status', self::STATUS_ACTIVE);
     }
 
+    /**
+     * Sorteo vigente que se le puede ofrecer a un cliente en un formulario
+     * público (p. ej. al registrar un envío): activo y con la ventana de
+     * participación abierta. Si hay varios, el que sortea antes.
+     *
+     * Devuelve null sin reventar si el tenant todavía no tiene el módulo.
+     */
+    public static function publicActive(): ?self
+    {
+        try {
+            return static::active()
+                ->where(fn ($q) => $q->whereNull('starts_at')->orWhere('starts_at', '<=', now()))
+                ->where(fn ($q) => $q->whereNull('registration_closes_at')->orWhere('registration_closes_at', '>', now()))
+                ->where(fn ($q) => $q->whereNull('draw_at')->orWhere('draw_at', '>', now()))
+                ->orderByRaw('draw_at is null, draw_at')
+                ->first();
+        } catch (\Throwable $e) {
+            return null;
+        }
+    }
+
     // ── Estado / vigencia ──────────────────────────────────────────────────
 
     /**

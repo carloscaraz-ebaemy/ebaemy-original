@@ -7,6 +7,8 @@ use App\Models\Tenant\Catalogs\Department;
 use App\Models\Tenant\Catalogs\District;
 use App\Models\Tenant\Catalogs\Province;
 use App\Models\System\MarketplaceListing;
+use App\Models\Tenant\Raffle;
+use App\Models\Tenant\RaffleParticipant;
 use App\Models\Tenant\Company;
 use App\Models\Tenant\ShippingAuditLog;
 use App\Models\Tenant\ShippingPrintBatch;
@@ -1645,6 +1647,10 @@ class ShipmentController extends Controller
             // el cliente sepa a dónde ir.
             'storeAddress' => $store->store_address,
             'mpReel'       => $this->marketplaceReel(),
+            // Sorteo vigente: si lo hay, el cliente puede sumarse desde el
+            // mismo formulario sin recibir ningún enlace aparte.
+            'raffle'       => Raffle::publicActive(),
+            'maxDays'      => $store->max_days,
         ]);
     }
 
@@ -1785,10 +1791,76 @@ class ShipmentController extends Controller
         // Aviso automático al negocio con todos los datos del pedido (async).
         $this->notifyStoreNewOrder($shipment);
 
+        // Participación en el sorteo desde el propio formulario (opcional).
+        $joined = $this->joinRaffleFromShipment($request, $shipment);
+
         return redirect()->route('shipments.public.form')
             ->with('shipment_code', $shipment->shipment_code)
             ->with('shipment_type', $shipment->delivery_type)
+            ->with('joined_raffle', $joined)
             ->with('success', 'Tus datos se registraron. Guarda tu código de envío: ' . $shipment->shipment_code);
+    }
+
+    /**
+     * Inscribe al cliente en el sorteo vigente si marcó la casilla.
+     *
+     * Queda como participante ACEPTADO de una vez: marcó la casilla con las
+     * bases a la vista, que es el mismo consentimiento explícito que da quien
+     * entra por el enlace. Así no hace falta mandarle nada aparte.
+     *
+     * Nunca interrumpe el registro del envío: si algo falla, el envío ya está
+     * guardado y solo se pierde la inscripción, que se registra en el log.
+     *
+     * @return string|null Nombre del sorteo al que se sumó, o null.
+     */
+    private function joinRaffleFromShipment(Request $request, ShippingRequest $shipment): ?string
+    {
+        if (!$request->boolean('join_raffle')) {
+            return null;
+        }
+
+        try {
+            $raffle = Raffle::publicActive();
+
+            if (!$raffle || !$raffle->acceptsParticipation()) {
+                return null;
+            }
+
+            $key = RaffleParticipant::dedupeKeyFor($shipment->dni, null, $shipment->phone, null);
+
+            // Puede que ya estuviera invitado por el barrido del admin: en ese
+            // caso NO se duplica, solo se marca su aceptación.
+            $participant = $raffle->participants()->where('dedupe_key', $key)->first();
+
+            if (!$participant) {
+                $participant = new RaffleParticipant([
+                    'raffle_id'  => $raffle->id,
+                    'full_name'  => mb_substr($shipment->full_name ?: 'Cliente', 0, 200),
+                    'document'   => $shipment->dni,
+                    'phone'      => $shipment->phone,
+                    'dedupe_key' => $key,
+                    'token'      => RaffleParticipant::makeToken(),
+                ]);
+            }
+
+            if ($participant->status === RaffleParticipant::STATUS_ACCEPTED) {
+                return $raffle->name;   // ya estaba dentro
+            }
+
+            $participant->fill([
+                'status'            => RaffleParticipant::STATUS_ACCEPTED,
+                'accepted_at'       => now(),
+                'accept_ip'         => $request->ip(),
+                'accept_user_agent' => mb_substr((string) $request->userAgent(), 0, 255),
+                'invited_via'       => 'envio',
+                'invited_at'        => $participant->invited_at ?: now(),
+            ])->save();
+
+            return $raffle->name;
+        } catch (\Throwable $e) {
+            \Log::warning('[Shipments] No se pudo inscribir al sorteo: ' . $e->getMessage());
+            return null;
+        }
     }
 
     // ── Helpers ────────────────────────────────────────────────────────────

@@ -105,6 +105,37 @@
         .conf .r .k { color:var(--muted); flex:0 0 40%; }
         .conf .r .v { text-align:right; font-weight:600; word-break:break-word; }
         .conf .r[hidden] { display:none; }
+        /* ── Aviso de tiempos de despacho (destacado, por modalidad) ── */
+        .eta { display:flex; gap:10px; border-radius:14px; padding:13px 15px; margin-bottom:14px;
+               border:1px solid; align-items:flex-start; }
+        .eta__t { font-weight:800; font-size:14px; white-space:nowrap; }
+        .eta__b { font-size:13px; line-height:1.5; }
+        .eta__s { margin-top:5px; opacity:.85; }
+        .eta--prov   { background:#fffbeb; border-color:#fde68a; color:#92400e; }
+        .eta--lima   { background:#eff6ff; border-color:#bfdbfe; color:#1e40af; }
+        .eta--tienda { background:#f0fdf4; border-color:#bbf7d0; color:#166534; }
+        @media (max-width: 460px) { .eta { flex-direction:column; gap:4px; } }
+
+        /* ── Sorteo dentro del formulario de envío ── */
+        .rfz { border:1px solid #ddd2fb; background:linear-gradient(135deg,#faf7ff,#fff);
+               border-radius:16px; padding:14px; margin-top:14px; }
+        .rfz__head { display:flex; gap:11px; align-items:center; }
+        .rfz__img { width:62px; height:62px; object-fit:cover; border-radius:12px;
+                    border:1px solid #ddd2fb; flex-shrink:0; }
+        .rfz__tx { flex:1; min-width:0; }
+        .rfz__tag { font-size:10.5px; font-weight:800; letter-spacing:.04em; text-transform:uppercase; color:#7c3aed; }
+        .rfz__name { font-size:15px; font-weight:800; line-height:1.25; margin-top:1px; }
+        .rfz__prize { font-size:12.5px; color:var(--muted); margin-top:2px; }
+        .rfz__desc { font-size:12.5px; color:#475569; line-height:1.45; margin-top:9px; }
+        .rfz__dates { font-size:12px; color:#5b21b6; background:#f5f1ff; border-radius:9px;
+                      padding:6px 9px; margin-top:9px; }
+        .rfz__terms { margin-top:9px; font-size:12px; }
+        .rfz__terms summary { cursor:pointer; color:#7c3aed; font-weight:700; }
+        .rfz__terms div { margin-top:6px; max-height:170px; overflow-y:auto; background:#fff;
+                          border:1px solid var(--line); border-radius:10px; padding:9px;
+                          white-space:pre-line; color:#475569; line-height:1.5; }
+        .rfz__chk { margin-top:11px; background:#fff; border:1px solid #ddd2fb; border-radius:12px; padding:10px; }
+
         .terms-box { margin-top:16px; }
         .chk { display:flex; align-items:flex-start; gap:10px; background:#fffbeb; border:1px solid #fde68a; border-radius:12px; padding:12px; font-size:14px; font-weight:600; }
         .chk input { margin-top:3px; width:18px; height:18px; }
@@ -175,6 +206,18 @@
                     @endif
                 </p>
                 <div class="ok-code">{{ $sent }}</div>
+
+                {{-- Confirmación de que quedó dentro del sorteo, sin pasos extra. --}}
+                @if(session('joined_raffle'))
+                    <div class="rfz" style="text-align:left;margin-top:14px;">
+                        <div class="rfz__tag">🎁 Ya estás participando</div>
+                        <div class="rfz__name">{{ session('joined_raffle') }}</div>
+                        <div class="rfz__desc">
+                            Quedaste inscrito con los datos de este pedido. Si sales sorteado,
+                            te contactaremos al celular que registraste.
+                        </div>
+                    </div>
+                @endif
                 <div class="ok-btns">
                     <a href="{{ route('shipments.public.tracking', ['code' => $sent]) }}"><button type="button" class="btn">🔎 Ver seguimiento</button></a>
                     @php
@@ -424,6 +467,36 @@
                         </div>
                     </div>
 
+                    {{-- ── Tiempos de despacho: recuadro visible, uno por
+                         modalidad. Antes iba en letra chica dentro de las
+                         condiciones y la gente no lo leía. El JS muestra el
+                         que corresponde a la modalidad elegida. --}}
+                    <div class="eta eta--prov" id="eta-agencia" hidden>
+                        <div class="eta__t">⚠️ Importante</div>
+                        <div class="eta__b">
+                            Los pedidos con destino a <strong>provincia</strong> se preparan y despachan
+                            <strong>entre 2 y {{ max(2, (int) ($maxDays ?? 4)) }} días hábiles</strong>, según la
+                            disponibilidad de materiales de embalaje y el proceso logístico.
+                            <div class="eta__s">Agradecemos su comprensión.</div>
+                        </div>
+                    </div>
+
+                    <div class="eta eta--lima" id="eta-domicilio" hidden>
+                        <div class="eta__t">🚚 Entregas en Lima</div>
+                        <div class="eta__b">
+                            Los pedidos para Lima tienen <strong>prioridad logística</strong> y normalmente se
+                            preparan para despacho <strong>el mismo día o al siguiente día hábil</strong>.
+                        </div>
+                    </div>
+
+                    <div class="eta eta--tienda" id="eta-tienda" hidden>
+                        <div class="eta__t">🏬 Recojo en tienda</div>
+                        <div class="eta__b">
+                            Preparamos tu pedido cuanto antes y te avisamos por WhatsApp
+                            <strong>apenas esté listo para recoger</strong>.
+                        </div>
+                    </div>
+
                     <div class="terms-box">
                         <label class="chk">
                             <input type="checkbox" name="accepted_terms" id="pub_terms" value="1" required>
@@ -431,7 +504,7 @@
                         </label>
                         <div class="cond">
                             Autorizo el uso de mis datos únicamente para gestionar el envío de mi pedido.<br><br>
-                            Entiendo que el tiempo estimado de despacho es de <strong>2 a 4 días hábiles</strong>. Este tiempo puede variar dependiendo de:
+                            El tiempo de despacho puede variar dependiendo de:
                             <ul>
                                 <li>Disponibilidad del producto.</li>
                                 <li>Disponibilidad de materiales para embalaje.</li>
@@ -441,6 +514,55 @@
                             </ul>
                         </div>
                     </div>
+
+                    {{-- ── Participación en el sorteo, dentro del mismo flujo ──
+                         Solo aparece si hay una campaña vigente. Al marcar la
+                         casilla el cliente queda inscrito al confirmar, sin
+                         necesidad de recibir ningún enlace. --}}
+                    @if(!empty($raffle))
+                        <div class="rfz">
+                            <div class="rfz__head">
+                                @if($raffle->prizeImageUrl('small'))
+                                    <img class="rfz__img" src="{{ $raffle->prizeImageUrl('small') }}" alt="{{ $raffle->prize_name }}">
+                                @endif
+                                <div class="rfz__tx">
+                                    <div class="rfz__tag">🎁 Sorteo vigente</div>
+                                    <div class="rfz__name">{{ $raffle->name }}</div>
+                                    @if($raffle->prize_name)
+                                        <div class="rfz__prize">Premio: <strong>{{ $raffle->prize_name }}</strong></div>
+                                    @endif
+                                </div>
+                            </div>
+
+                            @if($raffle->description)
+                                <div class="rfz__desc">{{ \Illuminate\Support\Str::limit($raffle->description, 180) }}</div>
+                            @endif
+
+                            <div class="rfz__dates">
+                                @if($raffle->registration_closes_at)
+                                    Participa hasta el <strong>{{ $raffle->registration_closes_at->format('d/m/Y') }}</strong>
+                                @endif
+                                @if($raffle->draw_at)
+                                    · Sorteo el <strong>{{ $raffle->draw_at->format('d/m/Y') }}</strong>
+                                @endif
+                            </div>
+
+                            @if($raffle->terms)
+                                <details class="rfz__terms">
+                                    <summary>Ver bases y condiciones</summary>
+                                    <div>{{ $raffle->terms }}</div>
+                                </details>
+                            @endif
+
+                            <label class="chk rfz__chk">
+                                <input type="checkbox" name="join_raffle" id="pub_join_raffle" value="1">
+                                <span>
+                                    Deseo participar en el sorteo y autorizo el uso de los datos de este pedido
+                                    <strong>exclusivamente para esta campaña</strong>, de acuerdo con las bases y condiciones.
+                                </span>
+                            </label>
+                        </div>
+                    @endif
 
                     <div class="row-btns">
                         <button type="button" class="btn btn-ghost" id="backStep1">← Volver</button>
@@ -704,6 +826,13 @@
     function buildConfirm() {
         var isDom    = selectedType === DTYPE.DOM;
         var isPickup = selectedType === DTYPE.TIENDA;
+
+        // Aviso de tiempos: se muestra el de la modalidad elegida. Van los
+        // tres en el HTML y aquí se decide, igual que las ramas del paso 1.
+        ['domicilio', 'agencia', 'tienda'].forEach(function (t) {
+            var box = document.getElementById('eta-' + t);
+            if (box) box.hidden = (selectedType !== t);
+        });
 
         document.getElementById('c_type').textContent = isPickup
             ? '🏬 Recojo en tienda'
