@@ -787,6 +787,18 @@
                                 {{ $s->shipping_agency ?: '—' }}
                             @endif
 
+                            {{-- Sorteo: pidió participar y espera la confirmación del pago. --}}
+                            @if($s->raffle_opt_in_id)
+                                <div class="mt-1">
+                                    @if($s->raffle_joined_at)
+                                        <span class="sh-mod sh-mod--tienda" title="Participando en el sorteo">🎁 En el sorteo</span>
+                                    @else
+                                        <span class="sh-mod" style="background:#f5f1ff;color:#6d28d9;border-color:#ddd2fb;"
+                                              title="Pidió participar; entra al confirmar el pago">🎁 Espera pago</span>
+                                    @endif
+                                </div>
+                            @endif
+
                             {{-- Modalidad + lote: los tres campos separados que pide la operación. --}}
                             <div class="mt-1 d-flex flex-wrap gap-1 align-items-center">
                                 <span class="sh-mod sh-mod--{{ $s->delivery_type }}">

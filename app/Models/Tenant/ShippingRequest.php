@@ -88,6 +88,10 @@ class ShippingRequest extends Model
         'restore_reason',
         'picked_up_at',
         'picked_up_by',
+        // Intención de participar en el sorteo (se materializa al confirmar el pago)
+        'raffle_opt_in_id',
+        'raffle_opt_in_at',
+        'raffle_joined_at',
     ];
 
     protected $casts = [
@@ -113,6 +117,9 @@ class ShippingRequest extends Model
         'restored_at'          => 'datetime',
         'restored_by'          => 'integer',
         'picked_up_at'         => 'datetime',
+        'raffle_opt_in_id'     => 'integer',
+        'raffle_opt_in_at'     => 'datetime',
+        'raffle_joined_at'     => 'datetime',
     ];
 
     // ── Relaciones logísticas ──────────────────────────────────────────────

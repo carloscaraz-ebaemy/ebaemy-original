@@ -135,6 +135,7 @@
                           border:1px solid var(--line); border-radius:10px; padding:9px;
                           white-space:pre-line; color:#475569; line-height:1.5; }
         .rfz__chk { margin-top:11px; background:#fff; border:1px solid #ddd2fb; border-radius:12px; padding:10px; }
+        .rfz__cond { font-size:11.5px; color:#7c3aed; margin-top:6px; text-align:center; }
 
         .terms-box { margin-top:16px; }
         .chk { display:flex; align-items:flex-start; gap:10px; background:#fffbeb; border:1px solid #fde68a; border-radius:12px; padding:12px; font-size:14px; font-weight:600; }
@@ -207,13 +208,15 @@
                 </p>
                 <div class="ok-code">{{ $sent }}</div>
 
-                {{-- Confirmación de que quedó dentro del sorteo, sin pasos extra. --}}
+                {{-- Confirmación de la solicitud de participación. La inscripción
+                     se hace efectiva cuando la tienda valida el pago. --}}
                 @if(session('joined_raffle'))
                     <div class="rfz" style="text-align:left;margin-top:14px;">
-                        <div class="rfz__tag">🎁 Ya estás participando</div>
+                        <div class="rfz__tag">🎁 Solicitud registrada</div>
                         <div class="rfz__name">{{ session('joined_raffle') }}</div>
                         <div class="rfz__desc">
-                            Quedaste inscrito con los datos de este pedido. Si sales sorteado,
+                            Anotamos que quieres participar con este pedido. Tu inscripción
+                            <strong>queda confirmada cuando validemos el pago</strong>. Si sales sorteado,
                             te contactaremos al celular que registraste.
                         </div>
                     </div>
@@ -561,6 +564,9 @@
                                     <strong>exclusivamente para esta campaña</strong>, de acuerdo con las bases y condiciones.
                                 </span>
                             </label>
+                            <div class="rfz__cond">
+                                Tu participación queda confirmada cuando validemos el pago de este pedido.
+                            </div>
                         </div>
                     @endif
 

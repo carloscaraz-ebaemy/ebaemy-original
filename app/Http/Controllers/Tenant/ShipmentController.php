@@ -820,6 +820,15 @@ class ShipmentController extends Controller
             $shipment->print_batch_id
         );
 
+        // Con el pago confirmado se hace efectiva la participación que el
+        // cliente pidió al registrar su envío.
+        $joined = $confirm ? $this->materializeRaffleOptIn($shipment->fresh(), $request) : null;
+
+        if ($joined) {
+            return back()->with('success',
+                "Pago confirmado — {$shipment->shipment_code} habilitado. 🎁 Además quedó participando en «{$joined}».");
+        }
+
         return back()->with('success', $confirm
             ? "Pago confirmado — {$shipment->shipment_code} habilitado."
             : "Se quitó la confirmación de pago de {$shipment->shipment_code}.");
@@ -832,11 +841,27 @@ class ShipmentController extends Controller
             ->map(fn ($x) => (int) trim($x))->filter()->unique()->take(200)->values();
         abort_if($ids->isEmpty(), 404);
 
-        $n = ShippingRequest::whereIn('id', $ids)
+        $pendientes = ShippingRequest::whereIn('id', $ids)
             ->where('payment_confirmed', false)
+            ->get();
+
+        $n = ShippingRequest::whereIn('id', $pendientes->pluck('id'))
             ->update(['payment_confirmed' => true, 'payment_confirmed_at' => now()]);
 
-        return back()->with('success', "Pago confirmado en {$n} envío(s).");
+        // Los que habían pedido participar en el sorteo entran ahora.
+        $joined = 0;
+        foreach ($pendientes as $s) {
+            if ($this->materializeRaffleOptIn($s->fresh())) {
+                $joined++;
+            }
+        }
+
+        $msg = "Pago confirmado en {$n} envío(s).";
+        if ($joined > 0) {
+            $msg .= " 🎁 {$joined} de ellos quedaron participando en el sorteo.";
+        }
+
+        return back()->with('success', $msg);
     }
 
     /** Anular un envío (queda en estado 'anulado', no se borra). */
@@ -1802,16 +1827,17 @@ class ShipmentController extends Controller
     }
 
     /**
-     * Inscribe al cliente en el sorteo vigente si marcó la casilla.
+     * Registra la INTENCIÓN de participar en el sorteo.
      *
-     * Queda como participante ACEPTADO de una vez: marcó la casilla con las
-     * bases a la vista, que es el mismo consentimiento explícito que da quien
-     * entra por el enlace. Así no hace falta mandarle nada aparte.
+     * No lo inscribe todavía: al registrar el envío el pedido acaba de nacer
+     * y su pago aún no está confirmado, así que la participación se
+     * materializa después, cuando el encargado confirma el pago
+     * (`materializeRaffleOptIn`). Aquí solo se guarda qué sorteo eligió.
      *
      * Nunca interrumpe el registro del envío: si algo falla, el envío ya está
-     * guardado y solo se pierde la inscripción, que se registra en el log.
+     * guardado y solo se pierde la intención, que queda en el log.
      *
-     * @return string|null Nombre del sorteo al que se sumó, o null.
+     * @return string|null Nombre del sorteo elegido, o null.
      */
     private function joinRaffleFromShipment(Request $request, ShippingRequest $shipment): ?string
     {
@@ -1822,6 +1848,49 @@ class ShipmentController extends Controller
         try {
             $raffle = Raffle::publicActive();
 
+            if (!$raffle || !$raffle->acceptsParticipation()) {
+                return null;
+            }
+
+            $shipment->forceFill([
+                'raffle_opt_in_id' => $raffle->id,
+                'raffle_opt_in_at' => now(),
+            ])->save();
+
+            // Si la tienda no exige confirmar el pago, no habría un momento
+            // posterior donde materializarla: se inscribe de una vez.
+            if (!ShippingSetting::current()->require_payment) {
+                $this->materializeRaffleOptIn($shipment, $request);
+            }
+
+            return $raffle->name;
+        } catch (\Throwable $e) {
+            \Log::warning('[Shipments] No se pudo registrar la intención de sorteo: ' . $e->getMessage());
+            return null;
+        }
+    }
+
+    /**
+     * Convierte la intención en participación real. Se llama al confirmar el
+     * pago del envío.
+     *
+     * Es idempotente (`raffle_joined_at` lo garantiza) y no revierte nada si
+     * después se quita la confirmación de pago: una vez dentro del sorteo, el
+     * cliente se queda dentro.
+     *
+     * @return string|null Nombre del sorteo, o null si no aplicaba.
+     */
+    private function materializeRaffleOptIn(ShippingRequest $shipment, ?Request $request = null): ?string
+    {
+        if (!$shipment->raffle_opt_in_id || $shipment->raffle_joined_at) {
+            return null;
+        }
+
+        try {
+            $raffle = Raffle::find($shipment->raffle_opt_in_id);
+
+            // El sorteo pudo cerrarse entre el registro y la confirmación:
+            // en ese caso NO se le mete a la fuerza.
             if (!$raffle || !$raffle->acceptsParticipation()) {
                 return null;
             }
@@ -1843,22 +1912,22 @@ class ShipmentController extends Controller
                 ]);
             }
 
-            if ($participant->status === RaffleParticipant::STATUS_ACCEPTED) {
-                return $raffle->name;   // ya estaba dentro
+            if ($participant->status !== RaffleParticipant::STATUS_ACCEPTED) {
+                $participant->fill([
+                    'status'            => RaffleParticipant::STATUS_ACCEPTED,
+                    'accepted_at'       => now(),
+                    'accept_ip'         => $shipment->raffle_opt_in_at ? null : optional($request)->ip(),
+                    'accept_user_agent' => 'Registro de envío ' . $shipment->shipment_code,
+                    'invited_via'       => 'envio',
+                    'invited_at'        => $participant->invited_at ?: now(),
+                ])->save();
             }
 
-            $participant->fill([
-                'status'            => RaffleParticipant::STATUS_ACCEPTED,
-                'accepted_at'       => now(),
-                'accept_ip'         => $request->ip(),
-                'accept_user_agent' => mb_substr((string) $request->userAgent(), 0, 255),
-                'invited_via'       => 'envio',
-                'invited_at'        => $participant->invited_at ?: now(),
-            ])->save();
+            $shipment->forceFill(['raffle_joined_at' => now()])->save();
 
             return $raffle->name;
         } catch (\Throwable $e) {
-            \Log::warning('[Shipments] No se pudo inscribir al sorteo: ' . $e->getMessage());
+            \Log::warning('[Shipments] No se pudo materializar la participación: ' . $e->getMessage());
             return null;
         }
     }

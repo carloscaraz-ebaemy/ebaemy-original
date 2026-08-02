@@ -40,6 +40,7 @@ class ShippingRequestsInstall extends Command
         '2026_07_24_000003_add_document_type_to_shipping',
         '2026_07_25_000001_add_aging_settings_to_shipping_settings',
         '2026_07_26_000003_create_shipping_logistics_tables',
+        '2026_08_02_000002_add_raffle_optin_to_shipping_requests',
     ];
 
     /**
@@ -48,6 +49,11 @@ class ShippingRequestsInstall extends Command
      * ejecuta su up() directamente.
      */
     private const LOGISTICS_MIGRATION_FILE = '2026_07_26_000003_create_shipping_logistics_tables.php';
+
+    /** Migraciones posteriores, idempotentes, que este comando tambien ejecuta. */
+    private const EXTRA_MIGRATION_FILES = [
+        '2026_08_02_000002_add_raffle_optin_to_shipping_requests.php',
+    ];
 
     public function handle(): int
     {
@@ -227,6 +233,11 @@ class ShippingRequestsInstall extends Command
         try {
             $migration = require $path;
             $migration->up();
+
+            foreach (self::EXTRA_MIGRATION_FILES as $extra) {
+                $p = database_path('migrations/tenant/' . $extra);
+                if (is_file($p)) { (require $p)->up(); }
+            }
         } finally {
             config(['database.default' => $previous]);
         }
