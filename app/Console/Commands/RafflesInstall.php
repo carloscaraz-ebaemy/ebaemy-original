@@ -33,6 +33,15 @@ class RafflesInstall extends Command
     /** Migraciones posteriores que este comando también deja registradas. */
     private const MIGRATIONS_EXTRA = [
         '2026_07_26_000002_add_source_to_raffles_table',
+        '2026_08_02_000001_create_raffle_prize_options',
+    ];
+
+    /**
+     * Migraciones posteriores, idempotentes de por sí, que este comando
+     * ejecuta en vez de duplicar su schema.
+     */
+    private const EXTRA_MIGRATION_FILES = [
+        '2026_08_02_000001_create_raffle_prize_options.php',
     ];
 
     private const TABLES = ['raffles', 'raffle_participants', 'raffle_winners'];
@@ -70,6 +79,7 @@ class RafflesInstall extends Command
                     $this->line("  <fg=gray>=</> {$hn->fqdn}: ya existe"
                         . (!empty($added) ? ' (columnas: ' . implode(', ', $added) . ')' : ''));
                     if ($apply) {
+                        $this->runExtraMigrations();
                         $this->registerMigrationIfMissing();
                     }
                     $summary['ok']++;
@@ -83,6 +93,7 @@ class RafflesInstall extends Command
 
                 $this->createTables($missing);
                 $this->ensureColumns();
+                $this->runExtraMigrations();
                 $this->registerMigrationIfMissing();
 
                 $this->line("  <fg=green>+</> {$hn->fqdn}: CREADAS (" . implode(', ', $missing) . ")");
@@ -204,6 +215,28 @@ class RafflesInstall extends Command
                 $table->index(['raffle_id', 'position']);
                 $table->index('participant_id');
             });
+        }
+    }
+
+    /**
+     * Ejecuta las migraciones posteriores (opciones de premio). Son
+     * idempotentes; se les fija la conexión del tenant porque usan el facade
+     * Schema sin conexión explícita, como el resto de migraciones de tenant.
+     */
+    private function runExtraMigrations(): void
+    {
+        $previous = config('database.default');
+        config(['database.default' => 'tenant']);
+
+        try {
+            foreach (self::EXTRA_MIGRATION_FILES as $file) {
+                $path = database_path('migrations/tenant/' . $file);
+                if (is_file($path)) {
+                    (require $path)->up();
+                }
+            }
+        } finally {
+            config(['database.default' => $previous]);
         }
     }
 

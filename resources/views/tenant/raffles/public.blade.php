@@ -40,6 +40,24 @@
                  white-space:pre-line; }
         .gallery { display:grid; grid-template-columns:repeat(auto-fill, minmax(88px,1fr)); gap:.45rem; }
         .gallery img { width:100%; aspect-ratio:1; object-fit:cover; border-radius:10px; border:1px solid var(--line); }
+        /* ── Opciones de premio ── */
+        .opts { display:grid; gap:.5rem; }
+        .opt { display:block; cursor:pointer; }
+        .opt input { position:absolute; opacity:0; pointer-events:none; }
+        .opt__box { display:flex; gap:.6rem; align-items:center; border:2px solid var(--line);
+                    border-radius:14px; padding:.6rem; background:#fff; transition:.15s; }
+        .opt__box img { width:62px; height:62px; object-fit:cover; border-radius:10px; flex-shrink:0;
+                        border:1px solid var(--line); }
+        .opt__tx { flex:1; min-width:0; display:flex; flex-direction:column; gap:2px; }
+        .opt__tx b { font-size:.92rem; }
+        .opt__tx span { font-size:.78rem; color:var(--muted); line-height:1.35; }
+        .opt__check { flex:0 0 auto; width:24px; height:24px; border-radius:50%; border:2px solid var(--line);
+                      color:transparent; display:flex; align-items:center; justify-content:center;
+                      font-weight:800; font-size:13px; }
+        .opt input:checked + .opt__box { border-color:var(--brand); background:var(--brand-weak); }
+        .opt input:checked + .opt__box .opt__check { background:var(--brand); border-color:var(--brand); color:#fff; }
+        .opt input:focus-visible + .opt__box { box-shadow:0 0 0 3px var(--brand-weak); }
+
         .check { display:flex; gap:.55rem; align-items:flex-start; font-size:.86rem; line-height:1.45;
                  background:var(--brand-weak); border:1px solid #ddd2fb; border-radius:12px; padding:.7rem .8rem;
                  margin-bottom:.8rem; }
@@ -181,6 +199,31 @@
             @else
                 <form method="POST" action="{{ route('raffles.public.accept', $participant->token) }}" id="acceptForm">
                     @csrf
+
+                    {{-- Opciones de premio: si el sorteo ofrece varias, el
+                         cliente elige la que quiere antes de confirmar. --}}
+                    @if($raffle->hasPrizeOptions())
+                        <div class="sec">
+                            <h2>Elige tu premio</h2>
+                            <div class="opts">
+                                @foreach($raffle->prizeOptions()->active()->get() as $opt)
+                                    <label class="opt">
+                                        <input type="radio" name="prize_option_id" value="{{ $opt->id }}" required>
+                                        <span class="opt__box">
+                                            @if($opt->imageUrl('small'))
+                                                <img src="{{ $opt->imageUrl('small') }}" alt="{{ $opt->name }}">
+                                            @endif
+                                            <span class="opt__tx">
+                                                <b>{{ $opt->name }}</b>
+                                                @if($opt->description)<span>{{ $opt->description }}</span>@endif
+                                            </span>
+                                            <span class="opt__check">✓</span>
+                                        </span>
+                                    </label>
+                                @endforeach
+                            </div>
+                        </div>
+                    @endif
                     <label class="check">
                         <input type="checkbox" name="accept_terms" value="1" id="acceptTerms" required>
                         <span>He leído y acepto las bases y condiciones del sorteo, y autorizo el uso de mis datos para su ejecución.</span>

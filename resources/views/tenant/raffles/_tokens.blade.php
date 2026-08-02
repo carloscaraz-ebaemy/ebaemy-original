@@ -105,6 +105,26 @@
     #rfApp .rf-thumb label { position:absolute; inset:auto 0 0 0; background:rgba(17,24,39,.75); color:#fff;
         font-size:.62rem; text-align:center; padding:.1rem 0; border-radius:0 0 9px 9px; cursor:pointer; }
 
+    /* ── Vista previa de imagen (antes de guardar) ──────────────── */
+    #rfApp .rf-preview { margin-top:.5rem; display:flex; align-items:center; gap:.5rem; flex-wrap:wrap; }
+    #rfApp .rf-preview img { width:150px; height:150px; object-fit:cover; border-radius:12px;
+        border:1px solid var(--rf-line); background:var(--rf-track); }
+    #rfApp .rf-preview--sm img { width:74px; height:74px; border-radius:10px; }
+    #rfApp .rf-preview__tag { font-size:.7rem; color:var(--rf-muted); }
+    #rfApp .rf-preview__new { font-size:.7rem; font-weight:700; color:var(--rf-brand-ink);
+        background:var(--rf-brand-weak); border:1px solid var(--rf-brand-line);
+        border-radius:999px; padding:.1rem .5rem; }
+    #rfApp .rf-preview__err { font-size:.74rem; color:#b91c1c; }
+
+    /* ── Opciones de premio ─────────────────────────────────────── */
+    #rfApp .rf-opt { display:flex; gap:.6rem; align-items:flex-start; padding:.6rem;
+        border:1px solid var(--rf-line); border-radius:12px; margin-bottom:.5rem;
+        background:var(--rf-surface); }
+    #rfApp .rf-opt__img { flex:0 0 auto; width:120px; }
+    #rfApp .rf-opt__img .rf-input { font-size:.7rem; padding:.25rem; margin-top:.3rem; }
+    #rfApp .rf-opt__tx { flex:1; min-width:0; }
+    #rfApp .rf-opt .js-opt-del { flex:0 0 auto; padding:.3rem .55rem; }
+
     /* ── Selector de origen de participantes ────────────────────── */
     #rfApp .rf-sources { display:grid; gap:.5rem; grid-template-columns:repeat(auto-fill, minmax(240px, 1fr)); }
     #rfApp .rf-source { display:flex; gap:.6rem; align-items:flex-start; cursor:pointer; margin:0;

@@ -9,6 +9,7 @@ use App\Models\Tenant\Establishment;
 use App\Models\Tenant\Item;
 use App\Models\Tenant\Raffle;
 use App\Models\Tenant\RaffleParticipant;
+use App\Models\Tenant\RafflePrizeOption;
 use App\Models\Tenant\RaffleWinner;
 use App\Models\Tenant\SalesChannel;
 use App\Services\Tenant\ImageProcessingService;
@@ -111,8 +112,20 @@ class RaffleController extends Controller
         $this->fillRaffle($raffle, $data, $request);
         $raffle->save();
 
+        $this->syncPrizeOptions($raffle, $request);
+
         return redirect()->route('raffles.show', $raffle)
-                         ->with('success', "Sorteo {$raffle->code} creado.");
+                         ->with('success', "Sorteo {$raffle->code} creado." . $this->imageWarning());
+    }
+
+    /** Aviso de las imágenes que no se pudieron procesar, si las hubo. */
+    private function imageWarning(): string
+    {
+        if (empty($this->imageErrors)) {
+            return '';
+        }
+
+        return ' ⚠️ No se pudo procesar: ' . implode(' · ', $this->imageErrors);
     }
 
     public function update(Request $request, Raffle $raffle)
@@ -122,8 +135,10 @@ class RaffleController extends Controller
         $this->fillRaffle($raffle, $data, $request);
         $raffle->save();
 
+        $this->syncPrizeOptions($raffle, $request);
+
         return redirect()->route('raffles.show', $raffle)
-                         ->with('success', 'Sorteo actualizado.');
+                         ->with('success', 'Sorteo actualizado.' . $this->imageWarning());
     }
 
     /**
@@ -153,6 +168,9 @@ class RaffleController extends Controller
         }
 
         $participants = $raffle->participants()
+            // La tabla muestra la opción elegida: se precarga para no hacer
+            // una consulta por fila.
+            ->with('prizeOption:id,name')
             ->when($pStatus, fn ($q) => $q->where('status', $pStatus))
             ->when(trim((string) $request->input('q')), function ($q, $term) {
                 $q->where(function ($w) use ($term) {
@@ -342,7 +360,9 @@ class RaffleController extends Controller
                            ->accepted()
                            ->where('is_winner', false)
                            ->lockForUpdate()
-                           ->get(['id', 'full_name', 'document']);
+                           // prize_option_id va en el select o la relación se
+                           // carga vacía y el ganador perdería su elección.
+                           ->get(['id', 'full_name', 'document', 'prize_option_id']);
 
             if ($pool->isEmpty()) {
                 return ['ok' => false, 'message' => 'No hay participantes que hayan aceptado y estén disponibles.'];
@@ -364,6 +384,9 @@ class RaffleController extends Controller
                     'position'       => $position,
                     'prize_name'     => $raffle->prize_name ?: $raffle->name,
                     'prize_image'    => $raffle->prize_image,
+                    // Se congela la alternativa que eligió el ganador: la ficha
+                    // sigue siendo válida aunque después se edite la opción.
+                    'prize_option_name' => optional($participant->prizeOption)->name,
                     'drawn_at'       => now(),
                     'drawn_by'       => $user?->id,
                     'drawn_by_name'  => $user?->name,
@@ -529,7 +552,23 @@ class RaffleController extends Controller
                              ->with('error', 'Debes aceptar las bases y condiciones para participar.');
         }
 
+        // Elección del premio, si el sorteo ofrece alternativas. Se valida
+        // contra las opciones DE ESTE sorteo para que nadie mande otro id.
+        $optionId = null;
+
+        if ($raffle->hasPrizeOptions()) {
+            $optionId = $raffle->prizeOptions()->active()
+                               ->where('id', $request->input('prize_option_id'))
+                               ->value('id');
+
+            if (!$optionId) {
+                return redirect()->route('raffles.public.show', $token)
+                                 ->with('error', 'Elige cuál premio quieres antes de confirmar tu participación.');
+            }
+        }
+
         $participant->update([
+            'prize_option_id'   => $optionId,
             'status'            => RaffleParticipant::STATUS_ACCEPTED,
             'accepted_at'       => now(),
             'accept_ip'         => $request->ip(),
@@ -830,6 +869,69 @@ class RaffleController extends Controller
     }
 
     /**
+     * Guarda las alternativas de premio entre las que elige el cliente.
+     *
+     * Llega como arrays paralelos desde el formulario (`options[name][]`,
+     * `options[description][]`, `options[id][]` y los archivos
+     * `option_images[]`). Las existentes se actualizan conservando su imagen
+     * si no se subió una nueva; las que el admin quitó se eliminan.
+     */
+    private function syncPrizeOptions(Raffle $raffle, Request $request): void
+    {
+        $names  = (array) $request->input('options.name', []);
+        $descs  = (array) $request->input('options.description', []);
+        $ids    = (array) $request->input('options.id', []);
+        $files  = (array) $request->file('options.image', []);
+
+        $kept = [];
+
+        foreach ($names as $i => $name) {
+            $name = trim((string) $name);
+
+            if ($name === '') {
+                continue;   // fila vacía del formulario
+            }
+
+            $option = !empty($ids[$i])
+                ? $raffle->prizeOptions()->find($ids[$i])
+                : null;
+
+            if (!$option) {
+                $option = new RafflePrizeOption(['raffle_id' => $raffle->id]);
+            }
+
+            $option->raffle_id   = $raffle->id;
+            $option->name        = mb_substr($name, 0, 160);
+            $option->description = isset($descs[$i]) ? mb_substr(trim((string) $descs[$i]), 0, 500) : null;
+            $option->sort_order  = $i;
+            $option->is_active   = true;
+
+            if (!empty($files[$i])) {
+                $stored = $this->storeImage($files[$i], $name);
+                if ($stored) {
+                    $option->image = $stored;
+                }
+            }
+
+            $option->save();
+            $kept[] = $option->id;
+        }
+
+        // Las opciones que el admin quitó del formulario se eliminan, salvo
+        // que algún participante ya la haya elegido (se conserva su decisión).
+        $raffle->prizeOptions()
+               ->whereNotIn('id', $kept ?: [0])
+               ->get()
+               ->each(function ($option) {
+                   if ($option->participants()->exists()) {
+                       $option->update(['is_active' => false]);
+                   } else {
+                       $option->delete();
+                   }
+               });
+    }
+
+    /**
      * Procesa una imagen con el pipeline estándar (WEBP + 3 tamaños) y
      * devuelve el filename `main`. Nunca revienta el guardado del sorteo:
      * si la imagen falla, se registra y se continúa.
@@ -852,9 +954,15 @@ class RaffleController extends Controller
             return $result['main'] ?? null;
         } catch (\Throwable $e) {
             Log::warning("[Raffles] Imagen del premio ({$context}) no procesada: " . $e->getMessage());
+            // Se acumula para avisarle al admin: antes la imagen se perdía en
+            // silencio y el sorteo quedaba guardado sin foto sin explicación.
+            $this->imageErrors[] = ($file->getClientOriginalName() ?: 'la imagen') . ': ' . $e->getMessage();
             return null;
         }
     }
+
+    /** Fallos de imagen de la petición actual, para avisarlos al guardar. */
+    private array $imageErrors = [];
 
     private function invitationMessage(Raffle $raffle, RaffleParticipant $participant, string $store): string
     {

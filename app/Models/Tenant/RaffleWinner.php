@@ -29,6 +29,7 @@ class RaffleWinner extends Model
         'position',
         'prize_name',
         'prize_image',
+        'prize_option_name',
         'drawn_at',
         'drawn_by',
         'drawn_by_name',

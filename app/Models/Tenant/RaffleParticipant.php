@@ -35,6 +35,7 @@ class RaffleParticipant extends Model
         'document',
         'email',
         'phone',
+        'prize_option_id',
         'dedupe_key',
         'token',
         'status',
@@ -91,6 +92,12 @@ class RaffleParticipant extends Model
     public function winner()
     {
         return $this->hasOne(RaffleWinner::class, 'participant_id');
+    }
+
+    /** Alternativa de premio que eligió al aceptar (null si no había opciones). */
+    public function prizeOption()
+    {
+        return $this->belongsTo(RafflePrizeOption::class, 'prize_option_id');
     }
 
     // ── Scopes ─────────────────────────────────────────────────────────────

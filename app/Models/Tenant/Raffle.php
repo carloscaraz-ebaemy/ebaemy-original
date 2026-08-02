@@ -143,6 +143,27 @@ class Raffle extends Model
         return $this->hasMany(RaffleWinner::class, 'raffle_id')->orderBy('position');
     }
 
+    /** Alternativas de premio entre las que elige el cliente (puede no haber). */
+    public function prizeOptions()
+    {
+        return $this->hasMany(RafflePrizeOption::class, 'raffle_id')
+                    ->orderBy('sort_order')->orderBy('id');
+    }
+
+    /**
+     * ¿El sorteo ofrece varias alternativas de premio?
+     * Con una sola opción no tiene sentido pedirle que "elija".
+     */
+    public function hasPrizeOptions(): bool
+    {
+        try {
+            return $this->prizeOptions()->active()->count() > 1;
+        } catch (\Throwable $e) {
+            // Tenant sin la tabla todavía: se comporta como premio único.
+            return false;
+        }
+    }
+
     public function establishment()
     {
         return $this->belongsTo(Establishment::class, 'establishment_id');

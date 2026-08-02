@@ -107,6 +107,31 @@
                         </div>
                     </div>
 
+                    {{-- Reparto de preferencias: qué opción está eligiendo la gente. --}}
+                    @php $opts = $raffle->prizeOptions()->get(); @endphp
+                    @if($opts->count())
+                        <div class="rf-note mt-2 mb-1">Opciones que puede elegir el cliente:</div>
+                        <table class="rf-table">
+                            <tbody>
+                                @foreach($opts as $opt)
+                                    <tr>
+                                        <td style="width:52px">
+                                            @if($opt->imageUrl('small'))
+                                                <img src="{{ $opt->imageUrl('small') }}" alt=""
+                                                     style="width:44px;height:44px;object-fit:cover;border-radius:8px;border:1px solid var(--rf-line)">
+                                            @endif
+                                        </td>
+                                        <td>
+                                            <div class="rf-strong">{{ $opt->name }}</div>
+                                            @if(!$opt->is_active)<div class="rf-note">Retirada (se conserva por los que ya la eligieron)</div>@endif
+                                        </td>
+                                        <td class="text-end rf-strong">{{ $opt->chosen_count }}</td>
+                                    </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
+                    @endif
+
                     @if($raffle->galleryUrls('small'))
                         <div class="rf-thumbs">
                             @foreach($raffle->galleryUrls('small') as $url)
@@ -306,7 +331,11 @@
                                         {{ $p->document ?? '—' }} · {{ $p->phone ?? '—' }} · {{ $p->email ?? '—' }}
                                     </div>
                                     <div class="rf-winner__meta">
-                                        Premio: <strong>{{ $winner->prize_name }}</strong> ·
+                                        Premio: <strong>{{ $winner->prize_name }}</strong>
+                                        @if($winner->prize_option_name)
+                                            · Eligió: <strong>{{ $winner->prize_option_name }}</strong>
+                                        @endif
+                                        ·
                                         Sorteado el {{ optional($winner->drawn_at)->format('d/m/Y H:i') }}
                                         @if($winner->drawn_by_name) por {{ $winner->drawn_by_name }} @endif
                                         @if(!empty($winner->draw_snapshot['pool_size']))
@@ -381,6 +410,9 @@
                                 <td class="text-end">S/ {{ number_format((float) $p->total_amount, 2) }}</td>
                                 <td>
                                     <span class="rf-pill rf-pill--{{ $p->status }}">{{ $p->status_label }}</span>
+                                    @if($p->prize_option_id)
+                                        <div class="rf-kpi__hint">🎁 {{ optional($p->prizeOption)->name }}</div>
+                                    @endif
                                     @if($p->accepted_at)
                                         <div class="rf-kpi__hint">{{ $p->accepted_at->format('d/m/Y H:i') }}</div>
                                     @elseif($p->invited_at)

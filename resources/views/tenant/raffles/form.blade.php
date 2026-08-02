@@ -106,12 +106,21 @@
 
                             <div class="rf-field">
                                 <label for="rf_prize_image">Imagen principal del premio</label>
-                                <input id="rf_prize_image" type="file" name="prize_image_file" class="rf-input"
+                                {{-- `accept` explícito: sin él, el iPhone manda HEIC sin convertir
+                                     (ver feedback_upload_accept_heic). --}}
+                                <input id="rf_prize_image" type="file" name="prize_image_file" class="rf-input js-img-preview"
+                                       data-preview="rf_prize_preview"
                                        accept="image/jpeg,image/jpg,image/png,image/webp,image/gif,image/bmp,image/heic,image/heif">
-                                <div class="rf-note">Se muestra en el formulario de participación, en el enlace del cliente, en el historial y en la ficha del ganador.</div>
-                                @if($raffle->prize_image)
-                                    <img src="{{ $raffle->prizeImageUrl('medium') }}" alt="Premio" class="rf-prize__img mt-2">
-                                @endif
+                                <div class="rf-note">
+                                    Se muestra en el enlace del cliente, en el historial y en la ficha del ganador.
+                                    Máximo 15 MB; se recorta y comprime sola.
+                                </div>
+                                <div id="rf_prize_preview" class="rf-preview">
+                                    @if($raffle->prize_image)
+                                        <img src="{{ $raffle->prizeImageUrl('medium') }}" alt="Premio">
+                                        <span class="rf-preview__tag">Imagen actual</span>
+                                    @endif
+                                </div>
                             </div>
 
                             <div class="rf-field">
@@ -131,6 +140,50 @@
                                     </div>
                                 @endif
                             </div>
+                        </div>
+
+                        {{-- ── Opciones de premio ────────────────────────────
+                             Si cargas dos o más, el cliente elige cuál quiere
+                             al aceptar participar. Con una o ninguna, el sorteo
+                             usa el premio único de arriba. --}}
+                        <div class="rf-section">
+                            <div class="rf-section__label">Opciones de premio (el cliente elige)</div>
+                            <div class="rf-note mb-2">
+                                Carga <strong>dos o más</strong> alternativas y el cliente escogerá la
+                                que prefiere al confirmar su participación. Verás en el panel cuántos
+                                eligieron cada una. Si dejas esto vacío, se sortea el premio único.
+                            </div>
+
+                            <div id="rf_options">
+                                @php $opts = $raffle->exists ? $raffle->prizeOptions()->get() : collect(); @endphp
+                                @foreach($opts as $opt)
+                                    <div class="rf-opt">
+                                        <input type="hidden" name="options[id][]" value="{{ $opt->id }}">
+                                        <div class="rf-opt__img">
+                                            <div class="rf-preview rf-preview--sm" id="rf_opt_prev_{{ $opt->id }}">
+                                                @if($opt->image)
+                                                    <img src="{{ $opt->imageUrl('small') }}" alt="{{ $opt->name }}">
+                                                @endif
+                                            </div>
+                                            <input type="file" name="options[image][]" class="rf-input js-img-preview"
+                                                   data-preview="rf_opt_prev_{{ $opt->id }}"
+                                                   accept="image/jpeg,image/jpg,image/png,image/webp,image/gif,image/bmp,image/heic,image/heif">
+                                        </div>
+                                        <div class="rf-opt__tx">
+                                            <input type="text" name="options[name][]" class="rf-input" maxlength="160"
+                                                   value="{{ $opt->name }}" placeholder="Nombre de la opción">
+                                            <input type="text" name="options[description][]" class="rf-input mt-1" maxlength="500"
+                                                   value="{{ $opt->description }}" placeholder="Detalle (opcional)">
+                                            @if($opt->chosen_count)
+                                                <div class="rf-note">{{ $opt->chosen_count }} cliente(s) la eligieron</div>
+                                            @endif
+                                        </div>
+                                        <button type="button" class="rf-btn rf-btn--danger js-opt-del" title="Quitar">✕</button>
+                                    </div>
+                                @endforeach
+                            </div>
+
+                            <button type="button" class="rf-btn" id="rf_opt_add">+ Agregar opción de premio</button>
                         </div>
                     </div>
                 </div>
@@ -313,6 +366,88 @@
             var rid = parseInt(rm.getAttribute('data-rf-remove'), 10);
             chosen[k] = (chosen[k] || []).filter(function (s) { return parseInt(s.id, 10) !== rid; });
             renderChips();
+        }
+    });
+
+    /* ── Vista previa de la imagen ANTES de guardar ───────────────────
+       Antes se subía a ciegas: la foto solo se veía después de guardar y, si
+       el archivo no servía, el sorteo quedaba sin imagen sin explicación.
+       Aquí se valida tipo y tamaño en el navegador y se ve la miniatura al
+       instante. */
+    var MAX_MB = 15;
+
+    document.addEventListener('change', function (ev) {
+        var input = ev.target;
+        if (!input.classList || !input.classList.contains('js-img-preview')) return;
+
+        var box = document.getElementById(input.getAttribute('data-preview'));
+        if (!box) return;
+
+        var file = input.files && input.files[0];
+        if (!file) return;
+
+        var tooBig   = file.size > MAX_MB * 1024 * 1024;
+        // El iPhone a veces manda HEIC con type vacío: eso se acepta y lo
+        // convierte el servidor. Solo se rechaza lo que claramente no es imagen.
+        var notImage = file.type && file.type.indexOf('image/') !== 0;
+
+        if (tooBig || notImage) {
+            box.innerHTML = '<span class="rf-preview__err">'
+                + (tooBig ? 'Pesa ' + (file.size / 1048576).toFixed(1) + ' MB; el máximo es ' + MAX_MB + ' MB.'
+                          : 'Ese archivo no es una imagen.')
+                + '</span>';
+            input.value = '';
+            return;
+        }
+
+        // HEIC no se puede previsualizar en el navegador, pero sí subir.
+        if (/\.(heic|heif)$/i.test(file.name)) {
+            box.innerHTML = '<span class="rf-preview__tag">📷 ' + file.name + ' — se convertirá al guardar</span>';
+            return;
+        }
+
+        var url = URL.createObjectURL(file);
+        box.innerHTML = '<img src="' + url + '" alt=""><span class="rf-preview__new">Nueva imagen</span>';
+        var img = box.querySelector('img');
+        if (img) img.onload = function () { URL.revokeObjectURL(url); };
+    });
+
+    /* ── Opciones de premio: agregar y quitar filas ───────────────── */
+    document.addEventListener('click', function (ev) {
+        if (ev.target.closest && ev.target.closest('#rf_opt_add')) {
+            ev.preventDefault();
+            var box = document.getElementById('rf_options');
+            if (!box) return;
+
+            var uid = 'new' + Date.now();
+            var row = document.createElement('div');
+            row.className = 'rf-opt';
+            row.innerHTML =
+                '<input type="hidden" name="options[id][]" value="">' +
+                '<div class="rf-opt__img">' +
+                    '<div class="rf-preview rf-preview--sm" id="rf_opt_prev_' + uid + '"></div>' +
+                    '<input type="file" name="options[image][]" class="rf-input js-img-preview" ' +
+                        'data-preview="rf_opt_prev_' + uid + '" ' +
+                        'accept="image/jpeg,image/jpg,image/png,image/webp,image/gif,image/bmp,image/heic,image/heif">' +
+                '</div>' +
+                '<div class="rf-opt__tx">' +
+                    '<input type="text" name="options[name][]" class="rf-input" maxlength="160" placeholder="Nombre de la opción">' +
+                    '<input type="text" name="options[description][]" class="rf-input mt-1" maxlength="500" placeholder="Detalle (opcional)">' +
+                '</div>' +
+                '<button type="button" class="rf-btn rf-btn--danger js-opt-del" title="Quitar">✕</button>';
+            box.appendChild(row);
+            var first = row.querySelector('input[type="text"]');
+            if (first) first.focus();
+            return;
+        }
+
+        var del = ev.target.closest && ev.target.closest('.js-opt-del');
+        if (del) {
+            ev.preventDefault();
+            var row2 = del.closest('.rf-opt');
+            // Basta con quitar la fila: el servidor borra las opciones que ya
+            // no llegan y solo desactiva las que algún cliente ya eligió.
+            if (row2) row2.remove();
         }
     });
 
