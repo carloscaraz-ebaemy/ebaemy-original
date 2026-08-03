@@ -105,6 +105,18 @@
     #rfApp .rf-thumb label { position:absolute; inset:auto 0 0 0; background:rgba(17,24,39,.75); color:#fff;
         font-size:.62rem; text-align:center; padding:.1rem 0; border-radius:0 0 9px 9px; cursor:pointer; }
 
+    /* ── Atajos de duración + diagnóstico de fechas ─────────────── */
+    #rfApp .rf-quick { display:flex; flex-wrap:wrap; gap:.35rem; align-items:center; margin-bottom:.7rem; }
+    #rfApp .rf-quick__lbl { font-size:.74rem; font-weight:700; color:var(--rf-muted); margin-right:.15rem; }
+    #rfApp .rf-quick .rf-btn { padding:.28rem .6rem; font-size:.76rem; }
+    #rfApp .rf-quick .rf-note { flex:1 0 100%; margin-top:.1rem; }
+
+    #rfApp .rf-dates-msg { font-size:.78rem; line-height:1.4; border-radius:10px;
+        padding:.5rem .7rem; margin-bottom:.7rem; border:1px solid; }
+    #rfApp .rf-dates-msg--bad  { background:#fef2f2; color:#b91c1c; border-color:#fecaca; }
+    #rfApp .rf-dates-msg--warn { background:#fffbeb; color:#b45309; border-color:#fde68a; }
+    #rfApp .rf-dates-msg--ok   { background:#ecfdf5; color:#047857; border-color:#a7f3d0; }
+
     /* ── Vista previa de imagen (antes de guardar) ──────────────── */
     #rfApp .rf-preview { margin-top:.5rem; display:flex; align-items:center; gap:.5rem; flex-wrap:wrap; }
     #rfApp .rf-preview img { width:150px; height:150px; object-fit:cover; border-radius:12px;
@@ -126,18 +138,24 @@
     #rfApp .rf-opt .js-opt-del { flex:0 0 auto; padding:.3rem .55rem; }
 
     /* ── Selector de origen de participantes ────────────────────── */
-    #rfApp .rf-sources { display:grid; gap:.5rem; grid-template-columns:repeat(auto-fill, minmax(240px, 1fr)); }
-    #rfApp .rf-source { display:flex; gap:.6rem; align-items:flex-start; cursor:pointer; margin:0;
-        border:1px solid var(--rf-line); border-radius:12px; padding:.65rem .75rem; background:var(--rf-surface);
+    /* Rejilla compacta: en la columna estrecha del formulario, 8 orígenes en
+       tarjetas altas obligaban a un scroll largo. */
+    #rfApp .rf-sources { display:grid; gap:.4rem; grid-template-columns:repeat(auto-fill, minmax(215px, 1fr)); }
+    #rfApp .rf-source { display:flex; gap:.5rem; align-items:center; cursor:pointer; margin:0;
+        border:1px solid var(--rf-line); border-radius:11px; padding:.45rem .6rem; background:var(--rf-surface);
         transition:.15s; }
     #rfApp .rf-source:hover { border-color:var(--rf-brand-line); background:var(--rf-hover); }
     #rfApp .rf-source input { margin-top:.2rem; flex-shrink:0; }
     #rfApp .rf-source:has(input:checked) { border-color:var(--rf-brand); background:var(--rf-brand-weak);
         box-shadow:0 0 0 3px var(--rf-brand-weak); }
-    #rfApp .rf-source__icon { font-size:1.15rem; line-height:1.2; }
-    #rfApp .rf-source__body { display:flex; flex-direction:column; gap:.1rem; min-width:0; }
-    #rfApp .rf-source__name { font-size:.85rem; font-weight:700; }
-    #rfApp .rf-source__desc { font-size:.73rem; color:var(--rf-muted); line-height:1.35; }
+    #rfApp .rf-source__icon { font-size:1.05rem; line-height:1.2; }
+    #rfApp .rf-source__body { display:flex; flex-direction:column; gap:0; min-width:0; }
+    #rfApp .rf-source__name { font-size:.82rem; font-weight:700; line-height:1.25; }
+    /* La descripción solo estorba una vez que se conoce el módulo: se guarda
+       en el title y se muestra únicamente en la opción elegida. */
+    #rfApp .rf-source__desc { display:none; font-size:.71rem; color:var(--rf-muted); line-height:1.3;
+        margin-top:.12rem; }
+    #rfApp .rf-source:has(input:checked) .rf-source__desc { display:block; }
     #rfApp .rf-source.is-disabled { opacity:.5; cursor:not-allowed; background:var(--rf-track); }
     #rfApp .rf-source.is-disabled:hover { border-color:var(--rf-line); background:var(--rf-track); }
 

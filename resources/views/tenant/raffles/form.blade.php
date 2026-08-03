@@ -197,6 +197,20 @@
                         <div class="rf-section">
                             <div class="rf-section__label">Vigencia</div>
 
+                            {{-- Atajos: llenar 4 fechas a mano es tedioso y es donde
+                                 se cuelan los errores (dejar el cierre en el pasado
+                                 hace que nadie pueda participar). --}}
+                            <div class="rf-quick">
+                                <span class="rf-quick__lbl">Duración</span>
+                                @foreach([7 => '7 días', 15 => '15 días', 30 => '30 días'] as $d => $l)
+                                    <button type="button" class="rf-btn js-rf-dur" data-days="{{ $d }}">{{ $l }}</button>
+                                @endforeach
+                                <span class="rf-note">Empieza hoy · sorteo al día siguiente del cierre</span>
+                            </div>
+
+                            {{-- Diagnóstico en vivo del orden y de las fechas vencidas. --}}
+                            <div id="rf_dates_msg" class="rf-dates-msg" hidden></div>
+
                             <div class="rf-field">
                                 <label for="rf_starts_at">Fecha de inicio del sorteo</label>
                                 <input id="rf_starts_at" type="datetime-local" name="starts_at" class="rf-input"
@@ -450,6 +464,88 @@
             if (row2) row2.remove();
         }
     });
+
+    /* ── Fechas: atajos de duración + diagnóstico en vivo ─────────────
+       Llenar cuatro campos datetime a mano es tedioso y ahí se cuelan los
+       errores: basta dejar el cierre de registro en el pasado para que nadie
+       pueda participar y el sorteo quede bloqueado sin explicación. */
+    var D = { start: 'rf_starts_at', close: 'rf_reg_close', draw: 'rf_draw_at' };
+
+    function toLocalValue(d) {
+        var p = function (n) { return String(n).padStart(2, '0'); };
+        return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate())
+             + 'T' + p(d.getHours()) + ':' + p(d.getMinutes());
+    }
+    function val(id) {
+        var el = document.getElementById(id);
+        return el && el.value ? new Date(el.value) : null;
+    }
+    function setVal(id, d) {
+        var el = document.getElementById(id);
+        if (el) el.value = toLocalValue(d);
+    }
+
+    function checkDates() {
+        var box = document.getElementById('rf_dates_msg');
+        if (!box) return;
+
+        var s = val(D.start), c = val(D.close), w = val(D.draw), now = new Date();
+        var errores = [], avisos = [];
+
+        if (c && s && c < s) errores.push('El <b>cierre de registro</b> es anterior al inicio.');
+        if (w && c && w < c) errores.push('La <b>fecha del sorteo</b> es anterior al cierre de registro.');
+        if (c && c < now)    errores.push('El <b>cierre de registro ya pasó</b>: nadie podrá participar.');
+        if (w && w < now)    avisos.push('La fecha del sorteo ya pasó.');
+        if (s && s > now)    avisos.push('El sorteo aún no empieza: el enlace no aceptará participaciones hasta esa fecha.');
+
+        if (errores.length) {
+            box.className = 'rf-dates-msg rf-dates-msg--bad';
+            box.innerHTML = '⚠️ ' + errores.join('<br>⚠️ ');
+            box.hidden = false;
+            return;
+        }
+        if (avisos.length) {
+            box.className = 'rf-dates-msg rf-dates-msg--warn';
+            box.innerHTML = 'ℹ️ ' + avisos.join('<br>ℹ️ ');
+            box.hidden = false;
+            return;
+        }
+        if (s && c && w) {
+            var dias = Math.max(1, Math.round((c - s) / 86400000));
+            box.className = 'rf-dates-msg rf-dates-msg--ok';
+            box.innerHTML = '✓ Se puede participar durante <b>' + dias + ' día(s)</b>, y el sorteo se realiza el <b>'
+                          + w.toLocaleDateString('es-PE', { day: '2-digit', month: 'short' }) + '</b>.';
+            box.hidden = false;
+            return;
+        }
+        box.hidden = true;
+    }
+
+    document.addEventListener('click', function (ev) {
+        var b = ev.target.closest && ev.target.closest('.js-rf-dur');
+        if (!b) return;
+        ev.preventDefault();
+
+        var dias  = parseInt(b.getAttribute('data-days'), 10) || 7;
+        var ahora = new Date();
+        var cierre = new Date(ahora.getTime() + dias * 86400000);
+        // El sorteo, al día siguiente del cierre, a las 12:00.
+        var sorteo = new Date(cierre.getTime() + 86400000);
+        sorteo.setHours(12, 0, 0, 0);
+
+        setVal(D.start, ahora);
+        setVal(D.close, cierre);
+        setVal(D.draw, sorteo);
+        checkDates();
+    });
+
+    document.addEventListener('change', function (ev) {
+        if (ev.target && ['starts_at', 'registration_closes_at', 'draw_at'].indexOf(ev.target.name) !== -1) {
+            checkDates();
+        }
+    });
+
+    checkDates();
 
     // Hidratar los productos guardados en el origen actualmente elegido.
     var initial = currentSource();
