@@ -1920,6 +1920,10 @@
         if (!form || form.tagName !== 'FORM') return;
         if (form.id === 'shSearchForm') return;
         if (form.hasAttribute('data-no-ajax')) return;
+        // Si otro listener ya se hizo cargo de este submit, no repetirlo: dos
+        // envíos del mismo formulario se anulan entre sí cuando la acción es
+        // un toggle (fue lo que rompió la confirmación de pago).
+        if (ev.__shHandled) return;
         if ((form.getAttribute('enctype') || '') === 'multipart/form-data') return;
         if ((form.getAttribute('method') || 'get').toLowerCase() !== 'post') return;
 
@@ -1929,6 +1933,7 @@
         if (action.indexOf(BASE) !== 0) return;
 
         ev.preventDefault();
+        ev.__shHandled = true;   // marca para que nadie más lo reenvíe
 
         var anchor = anchorOf(form);
         var y      = window.scrollY;
@@ -2206,16 +2211,11 @@
         if (ev.target.value) swap(ev.target.value);
     });
 
-    // Confirmar/revertir pago (individual) por AJAX — sin recargar la página.
-    document.addEventListener('submit', function (ev) {
-        var f = ev.target.closest ? ev.target.closest('.js-pay-form') : null;
-        if (!f) return;
-        ev.preventDefault();
-        busy(true);
-        fetch(f.action, { method: 'POST', body: new FormData(f), headers: { 'X-Requested-With': 'XMLHttpRequest' }, credentials: 'same-origin' })
-            .then(function () { swap(location.href, { noPush: true }); })
-            .catch(function () { busy(false); f.submit(); });
-    });
+    // El pago individual (.js-pay-form) YA lo maneja el interceptor genérico de
+    // formularios del módulo, que además devuelve la vista a la fila. Tenía aquí
+    // su propio listener y, al convivir los dos, se mandaban DOS POST: como
+    // confirmar el pago es un toggle, el segundo deshacía al primero y el
+    // estado no cambiaba nunca.
 
     // Cambiar el ESTADO de los seleccionados (por lote) → confirma y avisa por WhatsApp.
     document.addEventListener('click', function (ev) {
