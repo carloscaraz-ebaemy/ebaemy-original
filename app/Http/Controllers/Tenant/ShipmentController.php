@@ -1284,22 +1284,43 @@ class ShipmentController extends Controller
             return response()->json([]);
         }
 
+        // Se busca por palabras y TODAS deben aparecer: "cerezo rojo" tiene que
+        // traer el cerezo rojo, no todo lo que sea cerezo o todo lo que sea rojo.
+        $words = array_slice(preg_split('/\s+/u', $term, -1, PREG_SPLIT_NO_EMPTY), 0, 4);
+
         try {
-            $rows = \App\Models\Tenant\Item::query()
-                ->where(function ($w) use ($term) {
-                    $w->where('description', 'like', "%{$term}%")
-                      ->orWhere('internal_id', 'like', "%{$term}%")
-                      ->orWhere('name', 'like', "%{$term}%");
-                })
-                ->orderBy('description')
-                ->limit(15)
-                ->get(['id', 'description', 'internal_id', 'stock']);
+            $q = \App\Models\Tenant\Item::query();
+
+            foreach ($words as $word) {
+                $like = '%' . $word . '%';
+                $q->where(function ($w) use ($like) {
+                    $w->where('description', 'like', $like)
+                      ->orWhere('internal_id', 'like', $like)
+                      ->orWhere('name', 'like', $like);
+                });
+            }
+
+            // Orden por relevancia. Sin esto, buscar "bo" devolvía primero todos
+            // los "Árbol..." (á-r-BO-l): coincidencias reales pero inservibles.
+            // Manda el código exacto, luego lo que EMPIEZA con lo tecleado, luego
+            // lo que lo tiene al inicio de una palabra, y al final el resto.
+            $q->orderByRaw(
+                'CASE WHEN internal_id = ? THEN 0'
+                . ' WHEN description LIKE ? THEN 1'
+                . ' WHEN internal_id LIKE ? THEN 2'
+                . ' WHEN description LIKE ? THEN 3'
+                . ' ELSE 4 END, active DESC, description',
+                [$term, $term . '%', $term . '%', '% ' . $term . '%']
+            );
+
+            $rows = $q->limit(15)->get(['id', 'description', 'internal_id', 'stock', 'active']);
 
             return response()->json($rows->map(fn ($i) => [
                 'id'    => $i->id,
                 'name'  => trim((string) $i->description) ?: 'Producto',
                 'code'  => $i->internal_id,
                 'stock' => $i->stock !== null ? (float) $i->stock : null,
+                'off'   => ! $i->active,
             ])->values());
         } catch (\Throwable $e) {
             Log::warning('[Shipments] Búsqueda de productos falló: ' . $e->getMessage());

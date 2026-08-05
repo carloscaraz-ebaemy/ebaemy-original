@@ -51,8 +51,10 @@
     .sh-avt { display:flex; align-items:center; justify-content:center; flex:0 0 auto;
         width:30px; height:30px; border-radius:9px; font-size:.7rem; font-weight:700; letter-spacing:.01em; }
 
-    /* ── Tokens del panel (neutros tintados hacia el índigo de marca) ── */
-    #shipmentsApp {
+    /* ── Tokens del panel (neutros tintados hacia el índigo de marca) ──
+       En :root y no en #shipmentsApp porque los modales de esta pantalla
+       viven FUERA de ese contenedor y necesitan los mismos colores. */
+    :root {
         --sh-brand:#4f46e5; --sh-brand-ink:#3730a3; --sh-brand-weak:#eef1fe; --sh-brand-line:#cdd4f8;
         --sh-ink:#1f2430; --sh-muted:#697084; --sh-faint:#9aa1b4;
         --sh-line:#e5e7f0; --sh-line-soft:#eef0f7; --sh-surface:#fff;
@@ -101,23 +103,40 @@
     .sh-mod--tienda    { background:#f0fdf4; color:#16a34a; border-color:#bbf7d0; }
     /* ── Buscador de productos del catálogo ─────────────────────────────
        Agrega al detalle el nombre exacto del sistema, en vez de tipearlo. */
-    #shipmentsApp .sh-pick { position:relative; margin-bottom:.5rem; }
-    #shipmentsApp .sh-pick__bar { display:flex; gap:.4rem; }
-    #shipmentsApp .sh-pick__qty { flex:0 0 68px; text-align:center; }
-    #shipmentsApp .sh-pick__q { flex:1; }
-    #shipmentsApp .sh-pick__res { position:absolute; z-index:20; left:0; right:0; top:100%;
-        margin-top:2px; background:#fff; border:1px solid var(--sh-line); border-radius:10px;
-        box-shadow:0 14px 32px -12px rgba(15,23,42,.3); max-height:230px; overflow-y:auto; }
-    #shipmentsApp .sh-pick__i { display:flex; gap:.5rem; align-items:center; width:100%;
-        text-align:left; border:0; background:none; padding:.45rem .6rem; font-size:.82rem;
-        cursor:pointer; border-bottom:1px solid var(--sh-line-soft); }
-    #shipmentsApp .sh-pick__i:last-child { border-bottom:0; }
-    #shipmentsApp .sh-pick__i:hover { background:var(--sh-brand-weak); }
-    #shipmentsApp .sh-pick__n { flex:1; min-width:0; }
-    #shipmentsApp .sh-pick__c { font-size:.68rem; color:var(--sh-faint); }
-    #shipmentsApp .sh-pick__s { font-size:.68rem; font-weight:700; white-space:nowrap; }
-    #shipmentsApp .sh-pick__s--no { color:#b91c1c; }
-    #shipmentsApp .sh-pick__empty { padding:.55rem .6rem; font-size:.78rem; color:var(--sh-muted); }
+    .sh-pick { position:relative; margin-bottom:.5rem; }
+    .sh-pick__bar { display:flex; gap:.4rem; align-items:stretch; }
+    .sh-pick__qty { flex:0 0 74px; text-align:center; font-weight:700; }
+    /* La lupa va dentro del campo para que se lea como buscador y no como
+       un input más del formulario. */
+    .sh-pick__field { position:relative; flex:1; min-width:0; }
+    .sh-pick__field::before { content:'⌕'; position:absolute; left:.6rem; top:50%;
+        transform:translateY(-52%); font-size:1.05rem; color:var(--sh-faint); pointer-events:none; }
+    .sh-pick__q { padding-left:1.85rem; }
+    /* Fija y no absoluta: el .modal-body tiene scroll propio y recortaría la
+       lista. La posición la calcula el JS a partir del campo. */
+    .sh-pick__res { position:fixed; z-index:1080;
+        background:var(--sh-surface); border:1px solid var(--sh-line);
+        border-radius:12px; box-shadow:0 18px 40px -14px rgba(15,23,42,.38);
+        max-height:264px; overflow-y:auto; overflow-x:hidden; padding:.25rem; }
+    .sh-pick__i { display:flex !important; gap:.6rem; align-items:center; width:100%;
+        text-align:left; border:0; background:none; padding:.45rem .55rem; border-radius:8px;
+        font-size:.82rem; line-height:1.25; color:var(--sh-ink); cursor:pointer; }
+    .sh-pick__i:hover, .sh-pick__i.is-on { background:var(--sh-brand-weak); }
+    .sh-pick__n { flex:1; min-width:0; }
+    /* Una sola línea: los nombres del catálogo son largos y si envuelven,
+       la lista deja de escanearse de un vistazo. */
+    .sh-pick__t { display:block; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+        font-weight:600; }
+    .sh-pick__i mark { background:#fde68a; color:inherit; padding:0; border-radius:2px; }
+    .sh-pick__c { display:block; font-size:.68rem; color:var(--sh-faint);
+        font-family:ui-monospace,SFMono-Regular,Menlo,monospace; margin-top:1px; }
+    .sh-pick__s { flex:0 0 auto; font-size:.68rem; font-weight:700; white-space:nowrap;
+        padding:.12rem .4rem; border-radius:99px; background:#f0fdf4; color:#15803d; }
+    .sh-pick__s--no { background:#fef2f2; color:#b91c1c; }
+    .sh-pick__i--off .sh-pick__t { color:var(--sh-muted); }
+    .sh-pick__empty { padding:.6rem .55rem; font-size:.78rem; color:var(--sh-muted); }
+    .sh-pick__hint { padding:.35rem .55rem .2rem; font-size:.66rem; color:var(--sh-faint);
+        text-transform:uppercase; letter-spacing:.04em; }
 
     /* ── Vista rápida del detalle de producto ────────────────────────────
        Al pasar el mouse por una fila se asoma su contenido, sin abrir el
@@ -1264,8 +1283,11 @@
             <div class="sh-pick__bar">
               <input type="number" class="form-control sh-pick__qty" value="1" min="1" max="999"
                      title="Cantidad" aria-label="Cantidad">
-              <input type="text" class="form-control sh-pick__q" autocomplete="off"
-                     placeholder="Buscar producto del catalogo y agregarlo…">
+              <div class="sh-pick__field">
+                <input type="text" class="form-control sh-pick__q" autocomplete="off"
+                       role="combobox" aria-expanded="false" aria-autocomplete="list"
+                       placeholder="Buscar producto del catalogo y agregarlo…">
+              </div>
             </div>
             <div class="sh-pick__res" hidden></div>
           </div>
@@ -1399,8 +1421,11 @@
             <div class="sh-pick__bar">
               <input type="number" class="form-control sh-pick__qty" value="1" min="1" max="999"
                      title="Cantidad" aria-label="Cantidad">
-              <input type="text" class="form-control sh-pick__q" autocomplete="off"
-                     placeholder="Buscar producto del catalogo y agregarlo…">
+              <div class="sh-pick__field">
+                <input type="text" class="form-control sh-pick__q" autocomplete="off"
+                       role="combobox" aria-expanded="false" aria-autocomplete="list"
+                       placeholder="Buscar producto del catalogo y agregarlo…">
+              </div>
             </div>
             <div class="sh-pick__res" hidden></div>
           </div>
