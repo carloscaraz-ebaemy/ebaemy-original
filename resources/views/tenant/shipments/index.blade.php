@@ -105,21 +105,43 @@
        dentro de .table-responsive quedaría recortada por el overflow. */
     #shipmentsApp .sh-peek-tag { font-size:.66rem; font-weight:700; color:var(--sh-brand-ink);
         background:var(--sh-brand-weak); border:1px solid var(--sh-brand-line);
-        border-radius:999px; padding:.05rem .4rem; display:inline-block; margin-top:.25rem; }
+        border-radius:999px; padding:.08rem .45rem; display:inline-flex; align-items:center; gap:.2rem;
+        margin-top:.25rem; white-space:nowrap; }   /* nowrap: en la columna angosta partía en dos líneas */
     #shipmentsApp tr[data-peek] { cursor:default; }
+    /* La fila que se está asomando se resalta: liga la tarjeta con su origen. */
+    #shipmentsApp tr.sh-peek-on > td { background:var(--sh-brand-weak) !important; }
 
-    .sh-peek { position:fixed; z-index:1080; max-width:320px; min-width:190px;
-        background:#fff; border:1px solid #e5e7eb; border-radius:12px; padding:.6rem .7rem;
-        box-shadow:0 18px 44px -14px rgba(15,23,42,.45); font-size:.78rem; color:#111827;
-        pointer-events:none; opacity:0; transform:translateY(4px); transition:opacity .12s, transform .12s; }
+    .sh-peek { position:fixed; z-index:1080; width:300px;
+        background:#fff; border:1px solid var(--sh-brand-line); border-radius:14px;
+        box-shadow:0 20px 48px -16px rgba(15,23,42,.4); font-size:.78rem; color:#111827;
+        pointer-events:none; opacity:0; transition:opacity .12s ease-out, transform .12s ease-out;
+        overflow:hidden; }
+    .sh-peek--from-right { transform:translateX(-6px); }
+    .sh-peek--from-left  { transform:translateX(6px); }
+    .sh-peek--from-below { transform:translateY(-6px); }
     .sh-peek.is-on { opacity:1; transform:none; }
-    .sh-peek__h { font-size:.66rem; font-weight:800; text-transform:uppercase; letter-spacing:.05em;
-        color:#9ca3af; margin-bottom:.35rem; display:flex; justify-content:space-between; gap:.5rem; }
-    .sh-peek ul { list-style:none; margin:0; padding:0; }
-    .sh-peek li { position:relative; padding-left:12px; margin-bottom:.22rem; line-height:1.35;
-        overflow-wrap:anywhere; }
+
+    .sh-peek__h { display:flex; justify-content:space-between; align-items:center; gap:.5rem;
+        background:var(--sh-brand-weak); border-bottom:1px solid var(--sh-brand-line);
+        padding:.45rem .7rem; }
+    .sh-peek__code { font-size:.72rem; font-weight:800; color:var(--sh-brand-ink); letter-spacing:.01em; }
+    .sh-peek__meta { font-size:.64rem; font-weight:700; color:var(--sh-muted); white-space:nowrap; }
+    .sh-peek__b { padding:.55rem .7rem; max-height:280px; overflow-y:auto; }
+    .sh-peek ol { list-style:none; margin:0; padding:0; counter-reset:pk; }
+    .sh-peek li { counter-increment:pk; position:relative; padding-left:1.35rem; margin-bottom:.3rem;
+        line-height:1.35; overflow-wrap:anywhere; }
     .sh-peek li:last-child { margin-bottom:0; }
-    .sh-peek li::before { content:"•"; position:absolute; left:0; color:#4f46e5; font-weight:800; }
+    /* Numerada: al embalar se cuentan ítems, y un número se sigue mejor que un punto. */
+    .sh-peek li::before { content:counter(pk); position:absolute; left:0; top:.05rem;
+        width:1rem; height:1rem; border-radius:50%; background:var(--sh-brand-weak);
+        color:var(--sh-brand-ink); font-size:.6rem; font-weight:800;
+        display:flex; align-items:center; justify-content:center; }
+
+    /* Punta que apunta a la fila de origen. Cuando va arriba/abajo se pinta
+       del color de la cabecera para que no corte el degradado. */
+    .sh-peek__arrow { position:absolute; width:10px; height:10px; background:#fff;
+        border:1px solid var(--sh-brand-line); transform:rotate(45deg); }
+    .sh-peek--below .sh-peek__arrow { background:var(--sh-brand-weak); }
 
     /* Fila recién afectada: destello breve para reubicar la vista sin leer. */
     #shipmentsApp .sh-row--just > td { animation: shJust 1.8s ease-out; }
