@@ -180,6 +180,8 @@ if ($hostname) {
                      ->name('shipments.print_batch');
                 Route::get('exportar', [\App\Http\Controllers\Tenant\ShipmentController::class, 'export'])
                      ->name('shipments.export');
+                Route::get('buscar-productos', [\App\Http\Controllers\Tenant\ShipmentController::class, 'searchItems'])
+                     ->name('shipments.search_items');
                 Route::post('estado-lote', [\App\Http\Controllers\Tenant\ShipmentController::class, 'statusBulk'])
                      ->name('shipments.status_bulk');
                 Route::post('/', [\App\Http\Controllers\Tenant\ShipmentController::class, 'store'])

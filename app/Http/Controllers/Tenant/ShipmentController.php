@@ -1268,6 +1268,45 @@ class ShipmentController extends Controller
         ]);
     }
 
+    /**
+     * Buscador de productos para armar el detalle del paquete.
+     *
+     * El detalle se escribía a mano, con las faltas de tipeo yendo derecho al
+     * rótulo. Esto permite tomar el nombre exacto del catálogo. Devuelve
+     * pocos campos y limita a 15 resultados: es un autocompletado, no un
+     * listado.
+     */
+    public function searchItems(Request $request)
+    {
+        $term = trim((string) $request->input('q'));
+
+        if (mb_strlen($term) < 2) {
+            return response()->json([]);
+        }
+
+        try {
+            $rows = \App\Models\Tenant\Item::query()
+                ->where(function ($w) use ($term) {
+                    $w->where('description', 'like', "%{$term}%")
+                      ->orWhere('internal_id', 'like', "%{$term}%")
+                      ->orWhere('name', 'like', "%{$term}%");
+                })
+                ->orderBy('description')
+                ->limit(15)
+                ->get(['id', 'description', 'internal_id', 'stock']);
+
+            return response()->json($rows->map(fn ($i) => [
+                'id'    => $i->id,
+                'name'  => trim((string) $i->description) ?: 'Producto',
+                'code'  => $i->internal_id,
+                'stock' => $i->stock !== null ? (float) $i->stock : null,
+            ])->values());
+        } catch (\Throwable $e) {
+            Log::warning('[Shipments] Búsqueda de productos falló: ' . $e->getMessage());
+            return response()->json([]);
+        }
+    }
+
     /** Bitácora completa de un envío (modal del panel). */
     public function auditTrail(ShippingRequest $shipment)
     {

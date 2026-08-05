@@ -99,6 +99,26 @@
     .sh-mod--agencia   { background:#eff6ff; color:#2563eb; border-color:#bfdbfe; }
     .sh-mod--domicilio { background:#fff7ed; color:#ea580c; border-color:#fed7aa; }
     .sh-mod--tienda    { background:#f0fdf4; color:#16a34a; border-color:#bbf7d0; }
+    /* ── Buscador de productos del catálogo ─────────────────────────────
+       Agrega al detalle el nombre exacto del sistema, en vez de tipearlo. */
+    #shipmentsApp .sh-pick { position:relative; margin-bottom:.5rem; }
+    #shipmentsApp .sh-pick__bar { display:flex; gap:.4rem; }
+    #shipmentsApp .sh-pick__qty { flex:0 0 68px; text-align:center; }
+    #shipmentsApp .sh-pick__q { flex:1; }
+    #shipmentsApp .sh-pick__res { position:absolute; z-index:20; left:0; right:0; top:100%;
+        margin-top:2px; background:#fff; border:1px solid var(--sh-line); border-radius:10px;
+        box-shadow:0 14px 32px -12px rgba(15,23,42,.3); max-height:230px; overflow-y:auto; }
+    #shipmentsApp .sh-pick__i { display:flex; gap:.5rem; align-items:center; width:100%;
+        text-align:left; border:0; background:none; padding:.45rem .6rem; font-size:.82rem;
+        cursor:pointer; border-bottom:1px solid var(--sh-line-soft); }
+    #shipmentsApp .sh-pick__i:last-child { border-bottom:0; }
+    #shipmentsApp .sh-pick__i:hover { background:var(--sh-brand-weak); }
+    #shipmentsApp .sh-pick__n { flex:1; min-width:0; }
+    #shipmentsApp .sh-pick__c { font-size:.68rem; color:var(--sh-faint); }
+    #shipmentsApp .sh-pick__s { font-size:.68rem; font-weight:700; white-space:nowrap; }
+    #shipmentsApp .sh-pick__s--no { color:#b91c1c; }
+    #shipmentsApp .sh-pick__empty { padding:.55rem .6rem; font-size:.78rem; color:var(--sh-muted); }
+
     /* ── Vista rápida del detalle de producto ────────────────────────────
        Al pasar el mouse por una fila se asoma su contenido, sin abrir el
        modal. La tarjeta se cuelga del <body> con position:fixed porque
@@ -1238,7 +1258,18 @@
           <div class="sh-fs__h"><i class="fas fa-clipboard-list"></i> Detalle del producto
             <span class="sh-fs__int" title="Solo lo ve tu equipo. El cliente nunca ve este campo.">interno</span>
           </div>
-          <textarea name="package_content" class="form-control" rows="3"
+          {{-- Buscador del catalogo: evita tipear a mano lo que ya existe
+               en el sistema (y que las faltas terminen en el rotulo). --}}
+          <div class="sh-pick" data-target="nv_package_content">
+            <div class="sh-pick__bar">
+              <input type="number" class="form-control sh-pick__qty" value="1" min="1" max="999"
+                     title="Cantidad" aria-label="Cantidad">
+              <input type="text" class="form-control sh-pick__q" autocomplete="off"
+                     placeholder="Buscar producto del catalogo y agregarlo…">
+            </div>
+            <div class="sh-pick__res" hidden></div>
+          </div>
+          <textarea name="package_content" id="nv_package_content" class="form-control" rows="3"
                     placeholder="Ej.&#10;1 maceta de cerámica blanca 30cm&#10;1 planta artificial BOA x18 hojas"></textarea>
           <div class="sh-hint">Lo escribe el almacén. Se imprime en el rótulo para declarar el contenido en la agencia.</div>
           </div>
@@ -1361,6 +1392,17 @@
           <div class="sh-fs">
           <div class="sh-fs__h"><i class="fas fa-clipboard-list"></i> Detalle del producto
             <span class="sh-fs__int" title="Solo lo ve tu equipo. El cliente nunca ve este campo.">interno</span>
+          </div>
+          {{-- Buscador del catalogo: evita tipear a mano lo que ya existe
+               en el sistema (y que las faltas terminen en el rotulo). --}}
+          <div class="sh-pick" data-target="ed_package_content">
+            <div class="sh-pick__bar">
+              <input type="number" class="form-control sh-pick__qty" value="1" min="1" max="999"
+                     title="Cantidad" aria-label="Cantidad">
+              <input type="text" class="form-control sh-pick__q" autocomplete="off"
+                     placeholder="Buscar producto del catalogo y agregarlo…">
+            </div>
+            <div class="sh-pick__res" hidden></div>
           </div>
           <textarea name="package_content" id="ed_package_content" class="form-control" rows="3"
                     placeholder="Ej.&#10;1 maceta de cerámica blanca 30cm&#10;1 planta artificial BOA x18 hojas"></textarea>
@@ -2373,4 +2415,5 @@
 @include('tenant.shipments.partials.phone-validate-js')
 @include('tenant.shipments.partials.logistics-js')
 @include('tenant.shipments.partials.peek-js')
+@include('tenant.shipments.partials.item-picker-js')
 @endpush
