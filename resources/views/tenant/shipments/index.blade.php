@@ -99,6 +99,28 @@
     .sh-mod--agencia   { background:#eff6ff; color:#2563eb; border-color:#bfdbfe; }
     .sh-mod--domicilio { background:#fff7ed; color:#ea580c; border-color:#fed7aa; }
     .sh-mod--tienda    { background:#f0fdf4; color:#16a34a; border-color:#bbf7d0; }
+    /* ── Vista rápida del detalle de producto ────────────────────────────
+       Al pasar el mouse por una fila se asoma su contenido, sin abrir el
+       modal. La tarjeta se cuelga del <body> con position:fixed porque
+       dentro de .table-responsive quedaría recortada por el overflow. */
+    #shipmentsApp .sh-peek-tag { font-size:.66rem; font-weight:700; color:var(--sh-brand-ink);
+        background:var(--sh-brand-weak); border:1px solid var(--sh-brand-line);
+        border-radius:999px; padding:.05rem .4rem; display:inline-block; margin-top:.25rem; }
+    #shipmentsApp tr[data-peek] { cursor:default; }
+
+    .sh-peek { position:fixed; z-index:1080; max-width:320px; min-width:190px;
+        background:#fff; border:1px solid #e5e7eb; border-radius:12px; padding:.6rem .7rem;
+        box-shadow:0 18px 44px -14px rgba(15,23,42,.45); font-size:.78rem; color:#111827;
+        pointer-events:none; opacity:0; transform:translateY(4px); transition:opacity .12s, transform .12s; }
+    .sh-peek.is-on { opacity:1; transform:none; }
+    .sh-peek__h { font-size:.66rem; font-weight:800; text-transform:uppercase; letter-spacing:.05em;
+        color:#9ca3af; margin-bottom:.35rem; display:flex; justify-content:space-between; gap:.5rem; }
+    .sh-peek ul { list-style:none; margin:0; padding:0; }
+    .sh-peek li { position:relative; padding-left:12px; margin-bottom:.22rem; line-height:1.35;
+        overflow-wrap:anywhere; }
+    .sh-peek li:last-child { margin-bottom:0; }
+    .sh-peek li::before { content:"•"; position:absolute; left:0; color:#4f46e5; font-weight:800; }
+
     /* Fila recién afectada: destello breve para reubicar la vista sin leer. */
     #shipmentsApp .sh-row--just > td { animation: shJust 1.8s ease-out; }
     @keyframes shJust {
@@ -742,10 +764,27 @@
                             ]),
                         ];
                     @endphp
+                    @php
+                        // Detalle de producto normalizado: alimenta la vista rápida
+                        // al pasar el mouse por la fila (sin abrir el modal).
+                        $peek = $s->contentLines();
+                    @endphp
                     <tr class="{{ $s->is_cancelled ? 'text-muted' : '' }} {{ $ageMeta ? 'sh-row--age'.$age['level'] : '' }}"
-                        style="{{ $s->is_cancelled ? 'opacity:.7;' : '' }}">
+                        style="{{ $s->is_cancelled ? 'opacity:.7;' : '' }}"
+                        @if($peek)
+                            data-peek="{{ json_encode($peek, JSON_UNESCAPED_UNICODE) }}"
+                            data-peek-code="{{ $s->shipment_code }}"
+                            data-peek-bultos="{{ $s->package_count ?: 1 }}"
+                        @endif>
                         <td><input type="checkbox" class="form-check-input sh-check" value="{{ $s->id }}"></td>
-                        <td><span class="sh-code">{{ $s->shipment_code }}</span></td>
+                        <td>
+                            <span class="sh-code">{{ $s->shipment_code }}</span>
+                            @if($peek)
+                                {{-- Señal de que la fila tiene detalle: si no, el
+                                     usuario tendría que pasar el mouse a ciegas. --}}
+                                <div class="sh-peek-tag">📦 {{ count($peek) }} {{ count($peek) === 1 ? 'ítem' : 'ítems' }}</div>
+                            @endif
+                        </td>
                         <td>
                             @php
                                 $ini = collect(preg_split('/\s+/', trim($s->full_name)))
@@ -2284,4 +2323,5 @@
 @include('tenant.shipments.partials.agency-select-js')
 @include('tenant.shipments.partials.phone-validate-js')
 @include('tenant.shipments.partials.logistics-js')
+@include('tenant.shipments.partials.peek-js')
 @endpush
