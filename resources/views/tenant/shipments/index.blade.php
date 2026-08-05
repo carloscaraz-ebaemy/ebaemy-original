@@ -284,6 +284,16 @@
     .sh-view__row { display:flex; gap:16px; padding:6px 0; font-size:.86rem; align-items:baseline; }
     .sh-view__row .k { flex:0 0 38%; color:var(--sh-muted); }
     .sh-view__row .v { flex:1; color:var(--sh-ink); font-weight:600; word-break:break-word; }
+    /* Contenido del paquete como lista numerada: con varios ítems, un párrafo
+       corrido separado por puntos era ilegible justo cuando más importa. */
+    .sh-view__list { list-style:none; margin:0; padding:0; counter-reset:vw; }
+    .sh-view__list li { counter-increment:vw; position:relative; padding-left:1.5rem;
+        margin-bottom:.35rem; line-height:1.4; font-weight:600; }
+    .sh-view__list li:last-child { margin-bottom:0; }
+    .sh-view__list li::before { content:counter(vw); position:absolute; left:0; top:.1rem;
+        width:1.1rem; height:1.1rem; border-radius:50%; background:var(--sh-brand-weak);
+        color:var(--sh-brand-ink); font-size:.64rem; font-weight:800;
+        display:flex; align-items:center; justify-content:center; }
     .sh-view__foot { border-top:1px solid var(--sh-line-soft); gap:8px; flex-wrap:wrap; }
     .sh-view__wa { background:#25d366; border-color:#25d366; color:#fff; }
     .sh-view__wa:hover { background:#1eb257; color:#fff; }
@@ -749,6 +759,10 @@
                             'Pago'           => ($requirePayment ?? false) ? ($s->payment_confirmed ? ('Confirmado'.($s->payment_confirmed_at ? ' · '.$s->payment_confirmed_at->format('d/m/Y H:i') : '')) : 'Pendiente') : null,
                         ]);
                         $viewPhone = preg_replace('/\D+/', '', (string) $s->phone);
+                        // Detalle de producto normalizado: lo usan la ficha
+                        // del ojo y la vista rapida de la fila.
+                        $peekContent = $s->contentLines();
+
                         $viewData = [
                             'code' => $s->shipment_code ?: ('#'.$s->id),
                             'name' => $s->full_name,
@@ -769,10 +783,11 @@
                                 ]),
                                 ($isDom ? 'Entrega a domicilio' : 'Envío por agencia') => $secEntrega,
                                 'Paquete' => array_filter([
-                                    // Los saltos de línea se pierden al pintarlos en la ficha:
-                                    // se separan los ítems para que no se lean pegados.
+                                    // Array → la ficha lo pinta como lista numerada.
+                                    // Antes iba en una sola línea separada por
+                                    // puntos y con 7 ítems era ilegible.
                                     // El textarea de edición sí conserva el texto crudo.
-                                    'Contenido'     => $s->contentInline(),
+                                    'Contenido'     => $peekContent ?: null,
                                     'Bultos'        => $s->package_count,
                                     'Peso'          => $s->weight ? ($s->weight.' kg') : null,
                                     'Observaciones' => $s->notes,
@@ -786,25 +801,20 @@
                             ]),
                         ];
                     @endphp
-                    @php
-                        // Detalle de producto normalizado: alimenta la vista rápida
-                        // al pasar el mouse por la fila (sin abrir el modal).
-                        $peek = $s->contentLines();
-                    @endphp
                     <tr class="{{ $s->is_cancelled ? 'text-muted' : '' }} {{ $ageMeta ? 'sh-row--age'.$age['level'] : '' }}"
                         style="{{ $s->is_cancelled ? 'opacity:.7;' : '' }}"
-                        @if($peek)
-                            data-peek="{{ json_encode($peek, JSON_UNESCAPED_UNICODE) }}"
+                        @if($peekContent)
+                            data-peek="{{ json_encode($peekContent, JSON_UNESCAPED_UNICODE) }}"
                             data-peek-code="{{ $s->shipment_code }}"
                             data-peek-bultos="{{ $s->package_count ?: 1 }}"
                         @endif>
                         <td><input type="checkbox" class="form-check-input sh-check" value="{{ $s->id }}"></td>
                         <td>
                             <span class="sh-code">{{ $s->shipment_code }}</span>
-                            @if($peek)
+                            @if($peekContent)
                                 {{-- Señal de que la fila tiene detalle: si no, el
                                      usuario tendría que pasar el mouse a ciegas. --}}
-                                <div class="sh-peek-tag">📦 {{ count($peek) }} {{ count($peek) === 1 ? 'ítem' : 'ítems' }}</div>
+                                <div class="sh-peek-tag">📦 {{ count($peekContent) }} {{ count($peekContent) === 1 ? 'ítem' : 'ítems' }}</div>
                             @endif
                         </td>
                         <td>
@@ -2203,7 +2213,24 @@
                 Object.keys(rows).forEach(function (k) {
                     var r = document.createElement('div'); r.className = 'sh-view__row';
                     var ks = document.createElement('span'); ks.className = 'k'; ks.textContent = k;
-                    var vs = document.createElement('span'); vs.className = 'v'; vs.textContent = rows[k];
+                    var vs = document.createElement('span'); vs.className = 'v';
+
+                    // Un ARRAY se pinta como lista numerada (el contenido del
+                    // paquete). Antes llegaba como un párrafo corrido separado
+                    // por puntos y era ilegible con muchos ítems.
+                    if (Array.isArray(rows[k])) {
+                        var ol = document.createElement('ol');
+                        ol.className = 'sh-view__list';
+                        rows[k].forEach(function (item) {
+                            var li = document.createElement('li');
+                            li.textContent = item;
+                            ol.appendChild(li);
+                        });
+                        vs.appendChild(ol);
+                    } else {
+                        vs.textContent = rows[k];
+                    }
+
                     r.appendChild(ks); r.appendChild(vs); sec.appendChild(r);
                 });
                 body.appendChild(sec);

@@ -16,17 +16,24 @@
 
 @if(count($pkgLines))
     <div class="section">
-        <div class="section-title">{{ $title ?? 'Contenido del paquete' }}</div>
+        <div class="section-title">
+            {{ $title ?? 'Contenido del paquete' }}
+            @if(count($pkgLines) > 1)
+                <span class="pkg-count">{{ count($pkgLines) }} ítems</span>
+            @endif
+        </div>
 
         @if(count($pkgLines) === 1)
-            {{-- Un solo ítem: no merece viñeta. --}}
+            {{-- Un solo ítem: no merece viñeta ni numeración. --}}
             <div class="med-text pkg-single">{{ $pkgLines[0] }}</div>
         @else
-            <ul class="pkg-list med-text">
+            {{-- NUMERADA: quien embala va contando, y un número se sigue mejor
+                 que una viñeta cuando hay que verificar que no falte nada. --}}
+            <ol class="pkg-list med-text">
                 @foreach($pkgLines as $line)
                     <li>{{ $line }}</li>
                 @endforeach
-            </ul>
+            </ol>
         @endif
     </div>
 @endif

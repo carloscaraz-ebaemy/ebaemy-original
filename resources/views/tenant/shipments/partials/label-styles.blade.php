@@ -55,15 +55,19 @@
        invade la columna de las viñetas (que era lo que se veía desalineado).
        `overflow-wrap` evita que un código largo sin espacios se salga del
        marco del rótulo. */
-    .pkg-list { list-style: none; margin: 0; padding: 0; }
-    .pkg-list li { position: relative; padding-left: 11px; margin-bottom: 3px;
+    .pkg-list { list-style: none; margin: 0; padding: 0; counter-reset: pkg; }
+    .pkg-list li { counter-increment: pkg; position: relative; padding-left: 16px; margin-bottom: 3px;
                    line-height: 1.35; overflow-wrap: anywhere; word-break: break-word; }
     .pkg-list li:last-child { margin-bottom: 0; }
-    .pkg-list li::before { content: "•"; position: absolute; left: 0; top: 0; font-weight: bold; }
+    /* Numerada: quien embala va contando los ítems para verificar que estén
+       todos, y un número se sigue mejor que una viñeta. */
+    .pkg-list li::before { content: counter(pkg) "."; position: absolute; left: 0; top: 0;
+                           font-weight: bold; }
     .pkg-single { line-height: 1.35; overflow-wrap: anywhere; word-break: break-word; }
+    .pkg-count { float: right; font-weight: bold; color: #000; }
 
-    body.fmt-a5 .pkg-list li { padding-left: 13px; margin-bottom: 4px; }
-    body.fmt-a4 .pkg-list li { padding-left: 18px; margin-bottom: 6px; }
+    body.fmt-a5 .pkg-list li { padding-left: 19px; margin-bottom: 4px; }
+    body.fmt-a4 .pkg-list li { padding-left: 26px; margin-bottom: 6px; }
     .grid { display: flex; gap: 8px; }
     .grid .box { flex: 1; border: 1px solid #000; padding: 6px 8px; }
     .grid .box .v { font-size: 14px; font-weight: bold; }
