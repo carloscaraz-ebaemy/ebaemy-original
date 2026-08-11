@@ -24,6 +24,9 @@ use Illuminate\Support\Facades\Log;
  */
 class WhatsAppService
 {
+    /** Estados que cuentan como entrega efectiva (ver downReason). */
+    public const ESTADOS_OK = ['sent', 'delivered', 'read'];
+
     protected WhatsAppDriverInterface $driver;
     protected ?string $vendorPhone = null;
 
@@ -54,6 +57,52 @@ class WhatsAppService
     public function driverName(): string
     {
         return $this->driver->name();
+    }
+
+    /**
+     * ¿El gateway está realmente entregando?
+     *
+     * `isConfigured()` solo mira que haya credenciales, así que devuelve true
+     * aunque el proveedor esté muerto. Eso hacía que las pantallas que envían
+     * en lote informaran "enviados: 75" sin que llegara ni uno.
+     *
+     * Aquí se usa la evidencia que ya tenemos: si los últimos intentos
+     * fallaron TODOS, el gateway no está entregando. Sin sondeo de red: es
+     * gratis, y un endpoint caído lo delata igual.
+     *
+     * @return string|null  Motivo si está caído; null si parece sano.
+     */
+    public function downReason(int $muestra = 15): ?string
+    {
+        if (!$this->driver->isConfigured()) {
+            return 'El canal de WhatsApp no está configurado.';
+        }
+
+        try {
+            $ultimos = WhatsAppMessageLog::orderByDesc('id')->limit($muestra)
+                                         ->get(['status', 'error_message']);
+        } catch (\Throwable $e) {
+            return null;   // Sin historial legible, no bloquear el envío.
+        }
+
+        // Sin intentos previos todavía no hay nada que reprochar.
+        if ($ultimos->count() < 5) {
+            return null;
+        }
+
+        if ($ultimos->contains(fn ($l) => in_array($l->status, self::ESTADOS_OK, true))) {
+            return null;
+        }
+
+        $error = trim((string) optional($ultimos->first())->error_message);
+
+        return 'Los últimos ' . $ultimos->count() . ' envíos de WhatsApp fallaron'
+             . ($error !== '' ? ': ' . \Illuminate\Support\Str::limit($error, 160) : '.');
+    }
+
+    public function isHealthy(): bool
+    {
+        return $this->downReason() === null;
     }
 
     public function send(string $phone, string $message, ?string $source = null, ?int $sourceId = null): bool

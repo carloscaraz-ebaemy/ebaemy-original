@@ -279,11 +279,26 @@
             <div class="rf-card">
                 <div class="rf-card__head"><h2 class="rf-card__title">⚙️ Acciones</h2></div>
                 <div class="rf-card__body">
+                    {{-- El envio masivo es por cola, asi que encolar "funciona"
+                         aunque el gateway este muerto. Se avisa aca para no
+                         descubrirlo despues de dar por invitados a todos. --}}
+                    @if (!empty($waDown))
+                        <div class="rf-warn">
+                            <strong>⚠️ WhatsApp no está entregando.</strong>
+                            {{ $waDown }}
+                            <div class="rf-warn__how">
+                                Puedes invitar igual: usa el botón <strong>WhatsApp</strong> de cada
+                                participante (abre tu propio WhatsApp con el enlace ya escrito) o
+                                <strong>Exportar CSV</strong>, que incluye el enlace único de cada uno.
+                            </div>
+                        </div>
+                    @endif
                     <div class="d-flex flex-wrap gap-2">
 
                         <form method="POST" action="{{ route('raffles.invite', $raffle) }}">
                             @csrf
-                            <button class="rf-btn" type="submit" @disabled(!$open)>Enviar invitaciones (WhatsApp)</button>
+                            <button class="rf-btn" type="submit"
+                                    @disabled(!$open || !empty($waDown))>Enviar invitaciones (WhatsApp)</button>
                         </form>
 
                         {{-- ENSAYO: elige al azar sin guardar nada. Sirve para

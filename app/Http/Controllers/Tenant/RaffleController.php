@@ -194,9 +194,12 @@ class RaffleController extends Controller
 
         $activeFilters = $this->describeFilters($source, $raffle);
 
+        // Avisar del canal caído ANTES de que intente el envío masivo.
+        $waDown = app(\App\Services\Tenant\WhatsAppService::class)->downReason();
+
         return view('tenant.raffles.show', compact(
             'raffle', 'metrics', 'participants', 'winners', 'pStatus',
-            'stats', 'statsFail', 'source', 'activeFilters'
+            'stats', 'statsFail', 'source', 'activeFilters', 'waDown'
         ));
     }
 
@@ -278,6 +281,17 @@ class RaffleController extends Controller
             return back()->with('error', 'El sorteo no está aceptando participaciones: ' . $raffle->acceptanceWindow()[1]);
         }
 
+        // El envío es por cola: encolar SIEMPRE funciona, aunque el gateway
+        // esté muerto. Sin esto la pantalla marcaba a los 75 como invitados y
+        // respondía "Invitaciones enviadas: 75" sin que llegara ninguna, y no
+        // había forma de darse cuenta salvo revisando la tabla de logs.
+        if ($motivo = app(\App\Services\Tenant\WhatsAppService::class)->downReason()) {
+            return back()->with('error',
+                $motivo . ' No se marcó a nadie como invitado. '
+                . 'Mientras tanto usa el botón WhatsApp de cada fila (abre tu propio '
+                . 'WhatsApp con el enlace listo) o exporta el CSV, que trae el enlace único.');
+        }
+
         $query = $raffle->participants()->where('status', RaffleParticipant::STATUS_INVITED);
 
         if ($id = $request->input('participant')) {
@@ -315,7 +329,9 @@ class RaffleController extends Controller
             }
         }
 
-        $msg = "Invitaciones enviadas: {$sent}.";
+        // "Encoladas" y no "enviadas": lo que se confirma aquí es que entraron
+        // a la cola. La entrega real la resuelve el worker.
+        $msg = "Invitaciones encoladas: {$sent}.";
         if ($skipped > 0) {
             $msg .= " Sin enviar (sin teléfono válido o error): {$skipped}.";
         }

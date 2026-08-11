@@ -21,6 +21,12 @@
     #rfApp .rf-sub { font-size:.82rem; color:var(--rf-muted); margin:.15rem 0 0; }
     #rfApp .rf-actions { display:flex; flex-wrap:wrap; gap:.4rem; }
 
+    /* ── Aviso de canal caído ───────────────────────────────────── */
+    #rfApp .rf-warn { border:1px solid #fcd34d; background:#fffbeb; color:#78350f;
+        border-radius:10px; padding:.65rem .8rem; margin-bottom:.75rem; font-size:.83rem;
+        line-height:1.45; }
+    #rfApp .rf-warn__how { margin-top:.35rem; color:#92400e; font-size:.79rem; }
+
     /* ── Botones ────────────────────────────────────────────────── */
     #rfApp .rf-btn { display:inline-flex; align-items:center; gap:.35rem; border:1px solid var(--rf-line);
         background:var(--rf-surface); color:var(--rf-ink); border-radius:9px; padding:.42rem .7rem;
