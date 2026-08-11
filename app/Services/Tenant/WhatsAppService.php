@@ -85,8 +85,9 @@ class WhatsAppService
             return null;   // Sin historial legible, no bloquear el envío.
         }
 
-        // Sin intentos previos todavía no hay nada que reprochar.
-        if ($ultimos->count() < 5) {
+        // Con uno o dos fallos puede ser un numero malo, no el canal; a partir
+        // de tres seguidos ya es el canal.
+        if ($ultimos->count() < 3) {
             return null;
         }
 
