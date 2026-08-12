@@ -19,7 +19,6 @@
     body.fmt-a4 .label { width: 100%; max-width: 19cm; padding: 26px; }
 
     body.fmt-a5 .env-code { font-size: 27px; }
-    body.fmt-a5 .brand { font-size: 16px; }
     body.fmt-a5 .big-text { font-size: 19px; }
     body.fmt-a5 .med-text { font-size: 14px; }
     body.fmt-a5 .grid .box .v { font-size: 18px; }
@@ -28,7 +27,6 @@
     body.fmt-a5 .footer { font-size: 12px; }
 
     body.fmt-a4 .env-code { font-size: 42px; }
-    body.fmt-a4 .brand { font-size: 22px; }
     body.fmt-a4 .section-title { font-size: 13px; }
     body.fmt-a4 .big-text { font-size: 30px; }
     body.fmt-a4 .med-text { font-size: 20px; }
@@ -39,16 +37,40 @@
     body.fmt-a4 .footer { font-size: 15px; }
     body.fmt-a4 .label-header, body.fmt-a4 .section, body.fmt-a4 .grid { margin-bottom: 16px; }
 
-    .label-header { border-bottom: 2px solid #000; padding-bottom: 8px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: flex-start; }
+    .label-header { border-bottom: 2px solid #000; padding-bottom: 8px; margin-bottom: 8px;
+                    display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
     .brand { font-size: 13px; font-weight: bold; text-transform: uppercase; }
-    /* Logo de la empresa. Alto acotado para que no le robe espacio al rótulo:
-       manda el código de envío, no la marca. `print-color-adjust` obliga al
-       navegador a imprimirlo aunque el usuario tenga desactivados los fondos. */
-    .brand-logo { display: block; margin: 0 0 3px auto; max-height: 1.1cm; max-width: 4cm;
+
+    /* ── Cabecera: el código manda ───────────────────────────────────────
+       El código de envío es el dato que se busca a un metro de distancia, y
+       la razón social larga lo estaba partiendo en dos renglones robándole
+       ancho. Ahora el código NO envuelve nunca y la marca cede el espacio. */
+    .hdr-code  { flex: 1 1 auto; min-width: 0; }
+    .hdr-brand { flex: 0 1 auto; text-align: right; max-width: 38%; }
+    .env-code  { white-space: nowrap; }
+    .hdr-date  { font-size: 10px; color: #555; margin-top: 2px; }
+
+    /* Logo de la empresa. `print-color-adjust` obliga al navegador a
+       imprimirlo aunque el usuario tenga desactivados los fondos. */
+    .brand-logo { display: block; margin: 0 0 3px auto; max-height: 1.1cm; max-width: 100%;
                   object-fit: contain; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-    body.fmt-a5 .brand-logo { max-height: 1.4cm; max-width: 5cm; }
-    body.fmt-a4 .brand-logo { max-height: 2cm;   max-width: 7cm; }
+    body.fmt-a5 .brand-logo { max-height: 1.5cm; }
+    body.fmt-a4 .brand-logo { max-height: 2.2cm; }
+
+    /* Con logo, el nombre pasa a ser pie de firma: la marca ya se ve, y
+       repetirla en mayúsculas y negrita compite con el propio logo. */
+    .label-header.has-logo .brand { font-size: 9px; font-weight: 600; text-transform: none;
+                                    color: #444; line-height: 1.25; letter-spacing: 0; }
+    body.fmt-a5 .label-header.has-logo .brand { font-size: 10.5px; }
+    body.fmt-a4 .label-header.has-logo .brand { font-size: 13px; }
+    /* Sin logo el nombre es lo único que identifica a la tienda: mantiene peso. */
+    body.fmt-a5 .label-header:not(.has-logo) .brand { font-size: 16px; }
+    body.fmt-a4 .label-header:not(.has-logo) .brand { font-size: 22px; }
     .env-code { font-size: 20px; font-weight: bold; letter-spacing: 1px; }
+    /* Con logo el codigo comparte fila con la marca; se baja un punto para
+       que siga entrando en una sola linea aun con codigos de 19 caracteres. */
+    body.fmt-a5 .has-logo .env-code { font-size: 24px; letter-spacing: .5px; }
+    body.fmt-a4 .has-logo .env-code { font-size: 36px; letter-spacing: .5px; }
     .section-title { font-size: 9px; text-transform: uppercase; color: #666; letter-spacing: 1px; margin-bottom: 2px; }
     .section { margin-bottom: 8px; }
     .big-text { font-size: 15px; font-weight: bold; }

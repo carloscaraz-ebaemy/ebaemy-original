@@ -220,12 +220,25 @@ class ShipmentController extends Controller
 
         $q = trim((string) $request->input('q', ''));
         if ($q !== '') {
-            $query->where(function ($w) use ($q) {
+            // El DNI/RUC y el celular son la forma natural de buscar a un
+            // cliente ("me llama el 987..., que tenia un envio"), y faltaban
+            // los dos. Se limpian los separadores para que "73.964.630" o
+            // "978 995 189" tambien encuentren.
+            $qNum = preg_replace('/\D+/', '', $q);
+
+            $query->where(function ($w) use ($q, $qNum) {
                 $w->where('full_name', 'like', "%{$q}%")
                   ->orWhere('shipment_code', 'like', "%{$q}%")
                   ->orWhere('tracking_number', 'like', "%{$q}%")
                   ->orWhere('destination_city', 'like', "%{$q}%")
-                  ->orWhere('shipping_agency', 'like', "%{$q}%");
+                  ->orWhere('shipping_agency', 'like', "%{$q}%")
+                  ->orWhere('dni', 'like', "%{$q}%")
+                  ->orWhere('phone', 'like', "%{$q}%");
+
+                if ($qNum !== '' && $qNum !== $q) {
+                    $w->orWhere('dni', 'like', "%{$qNum}%")
+                      ->orWhere('phone', 'like', "%{$qNum}%");
+                }
             });
         }
 
@@ -1632,10 +1645,18 @@ class ShipmentController extends Controller
 
         $s = trim((string) $request->input('q', ''));
         if ($s !== '') {
-            $query->where(function ($w) use ($s) {
+            $sNum = preg_replace('/\D+/', '', $s);
+
+            $query->where(function ($w) use ($s, $sNum) {
                 $w->where('full_name', 'like', "%{$s}%")
                   ->orWhere('shipment_code', 'like', "%{$s}%")
-                  ->orWhere('phone', 'like', "%{$s}%");
+                  ->orWhere('phone', 'like', "%{$s}%")
+                  ->orWhere('dni', 'like', "%{$s}%");
+
+                if ($sNum !== '' && $sNum !== $s) {
+                    $w->orWhere('dni', 'like', "%{$sNum}%")
+                      ->orWhere('phone', 'like', "%{$sNum}%");
+                }
             });
         }
 

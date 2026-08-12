@@ -445,6 +445,48 @@
         .sh-foot { justify-content:center; text-align:center; gap:10px; }
         .sh-pg-nums .sh-pg:not(.is-current) { display:none; }
     }
+
+    /* ══ Móvil: que la tabla se vea sin scrollear ══════════════════════════
+       Los filtros se apilaban en cinco franjas y empujaban la tabla fuera de
+       la pantalla, así que parecía que el panel no traía nada. En escritorio
+       no se toca: ahí sobra ancho y tenerlos a la vista es mejor. */
+    .sh-fold { display:none; }
+
+    @media (max-width:768px) {
+        #shipmentsApp { --sh-gap:8px; }
+
+        /* Botón que despliega los filtros secundarios. */
+        .sh-fold { display:inline-flex; align-items:center; gap:.4rem; width:100%;
+            justify-content:center; margin-bottom:10px; padding:.5rem .7rem;
+            border:1px solid var(--sh-line); background:var(--sh-surface);
+            border-radius:10px; font-size:.82rem; font-weight:600; color:var(--sh-ink); }
+        .sh-fold__n { background:var(--sh-brand); color:#fff; border-radius:99px;
+            min-width:18px; height:18px; display:inline-flex; align-items:center;
+            justify-content:center; font-size:.68rem; padding:0 5px; }
+        .sh-fold__c { margin-left:auto; transition:transform .18s; font-size:.7rem; opacity:.6; }
+        .sh-fold.is-open .sh-fold__c { transform:rotate(180deg); }
+        .sh-fold-wrap { display:none; }
+        .sh-fold-wrap.is-open { display:block; }
+
+        /* Tabs: una sola fila que se desplaza, sin envolver en tres renglones. */
+        .sh-tabs { margin-bottom:10px; padding:3px; gap:2px; overflow-x:auto;
+            flex-wrap:nowrap; -webkit-overflow-scrolling:touch; }
+        .sh-tabs .sh-tab { padding:.38rem .6rem; font-size:.76rem; white-space:nowrap; }
+
+        /* Chips y buscador más chicos: se toca igual y ocupan la mitad. */
+        .sh-pri { margin-bottom:8px; padding:6px; gap:4px; }
+        .sh-pri__chip { padding:.3rem .55rem; font-size:.75rem; }
+        .sh-pri__lbl, .sh-pri__hint { font-size:.7rem; }
+        .sh-tools { gap:6px; margin-bottom:10px; }
+        .sh-chip { padding:.34rem .6rem; font-size:.76rem; }
+        .sh-search input { font-size:.85rem; padding:.44rem .6rem; }
+
+        /* El aviso de vencidos SÍ se queda visible: es la razón por la que
+           alguien entra al panel con apuro. Solo se compacta. */
+        .sh-overdue { padding:.5rem .65rem; font-size:.78rem; margin-bottom:10px; }
+
+        .sh-head__t { font-size:1rem; }
+    }
 </style>
 @endpush
 
@@ -552,6 +594,28 @@
     </div>
 
     {{-- ── Filtros rápidos por modalidad y etapa del ciclo logístico ── --}}
+    @php
+        // Cuantos filtros secundarios estan puestos: en movil van plegados y el
+        // encargado tiene que poder ver de un vistazo si hay alguno activo,
+        // porque si no parece que la tabla "no trae nada".
+        $filtrosOn = collect([
+            ($filter ?? 'todos') !== 'todos',
+            ($pri ?? '') !== '',
+            ($sort ?? '') === 'priority',
+        ])->filter()->count();
+    @endphp
+
+    {{-- En movil estos filtros ocupaban cinco franjas y empujaban la tabla
+         fuera de pantalla. Se pliegan detras de un boton; en escritorio, donde
+         hay ancho de sobra, el CSS los deja siempre visibles. --}}
+    <button type="button" class="sh-fold" id="shFoldBtn"
+            aria-expanded="false" aria-controls="shFold">
+        <i class="fas fa-sliders"></i> Filtros
+        @if($filtrosOn)<span class="sh-fold__n">{{ $filtrosOn }}</span>@endif
+        <i class="fas fa-chevron-down sh-fold__c"></i>
+    </button>
+
+    <div class="sh-fold-wrap" id="shFold">
     <div class="sh-pri sh-quick">
         <span class="sh-pri__lbl"><i class="fas fa-filter"></i> Rápidos</span>
         @foreach(\App\Http\Controllers\Tenant\ShipmentController::FILTER_LABELS as $fk => $fl)
@@ -589,6 +653,7 @@
         </a>
         <span class="sh-pri__hint">Plazo: <b>{{ $maxDays ?? 4 }}</b> días hábiles</span>
     </div>
+    </div>{{-- /#shFold --}}
 
     {{-- Aviso proactivo: envíos que ya superaron el plazo (a menos que ya se esté filtrando por vencidos). --}}
     @if(($metrics['vencidos'] ?? 0) > 0 && ($pri ?? '') !== 'vencidos')
@@ -2441,4 +2506,5 @@
 @include('tenant.shipments.partials.logistics-js')
 @include('tenant.shipments.partials.peek-js')
 @include('tenant.shipments.partials.item-picker-js')
+@include('tenant.shipments.partials.mobile-fold-js')
 @endpush

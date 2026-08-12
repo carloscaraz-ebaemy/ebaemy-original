@@ -1,33 +1,59 @@
 {{-- Cuerpo del rótulo (una etiqueta). Espera: $shipment, $company, $ubigeo, $qr. --}}
 <div class="label">
 
-    <div class="label-header">
-        <div>
+    @php
+        // El logo de la empresa vive en storage/app/public/uploads/logos y se
+        // sirve por el symlink public/storage. Se resuelve ANTES de la cabecera
+        // porque su presencia cambia como se maqueta. Si el archivo no esta
+        // (tenant sin logo, o borrado a mano), cae al nombre en texto: el rotulo
+        // nunca debe salir con un recuadro de imagen rota.
+        $logoUrl = null;
+        if (!empty($company->logo)) {
+            $logoRel = 'uploads/logos/' . $company->logo;
+            if (\Illuminate\Support\Facades\Storage::disk('public')->exists($logoRel)) {
+                $logoUrl = asset('storage/' . $logoRel);
+            }
+        }
+
+        $marca = $company->title_web ?? $company->trade_name ?? $company->name ?? 'ebaemy';
+
+        // La razon social completa ocupa dos lineas y no aporta nada en un
+        // rotulo: "IMPORTACIONES DEYWA SOCIEDAD ANONIMA CERRADA" es la misma
+        // marca que ya dice el logo, con el tipo societario escrito largo.
+        // Se abrevia como se abrevia en la calle.
+        // Reemplazo literal y no regex: son cuatro formas fijas y asi no hay
+        // sutilezas de PCRE que hagan que no aplique sin avisar.
+        foreach ([
+            'SOCIEDAD ANONIMA CERRADA' => 'S.A.C.',
+            'SOCIEDAD ANÓNIMA CERRADA' => 'S.A.C.',
+            'EMPRESA INDIVIDUAL DE RESPONSABILIDAD LIMITADA' => 'E.I.R.L.',
+            'SOCIEDAD COMERCIAL DE RESPONSABILIDAD LIMITADA' => 'S.R.L.',
+            'SOCIEDAD DE RESPONSABILIDAD LIMITADA' => 'S.R.L.',
+            'SOCIEDAD ANONIMA' => 'S.A.',
+            'SOCIEDAD ANÓNIMA' => 'S.A.',
+        ] as $largo => $corto) {
+            $marca = str_ireplace($largo, $corto, $marca);
+        }
+        $marca = trim(preg_replace('/\s+/u', ' ', $marca));
+    @endphp
+
+    {{-- `has-logo` degrada el nombre a pie de firma: cuando hay logo la marca
+         ya la comunica la imagen, y el texto en grande solo compite con ella
+         y le roba ancho al codigo de envio, que es lo que de verdad manda. --}}
+    <div class="label-header{{ $logoUrl ? ' has-logo' : '' }}">
+        <div class="hdr-code">
             <div class="section-title">N° Envío</div>
             <div class="env-code">{{ $shipment->shipment_code }}</div>
             @if(!empty($barcode))<img class="barcode-img" src="data:image/png;base64,{{ $barcode }}" alt="{{ $shipment->shipment_code }}">@endif
         </div>
-        @php
-            // El logo de la empresa vive en storage/app/public/uploads/logos y se
-            // sirve por el symlink public/storage. Si el archivo no esta (tenant
-            // sin logo cargado, o borrado a mano), cae al nombre en texto: el
-            // rotulo nunca debe salir con un recuadro de imagen rota.
-            $logoUrl = null;
-            if (!empty($company->logo)) {
-                $logoRel = 'uploads/logos/' . $company->logo;
-                if (\Illuminate\Support\Facades\Storage::disk('public')->exists($logoRel)) {
-                    $logoUrl = asset('storage/' . $logoRel);
-                }
-            }
-            $marca = $company->title_web ?? $company->trade_name ?? $company->name ?? 'ebaemy';
-        @endphp
-        <div style="text-align:right;">
+        <div class="hdr-brand">
             @if($logoUrl)
                 <img class="brand-logo" src="{{ $logoUrl }}" alt="{{ $marca }}">
             @endif
             <div class="brand">{{ $marca }}</div>
-            @if($shipment->created_at)<div style="font-size:10px;color:#555;">Registrado: {{ $shipment->created_at->format('d/m/Y H:i') }}</div>@endif
+            @if($shipment->created_at)<div class="hdr-date">Registrado: {{ $shipment->created_at->format('d/m/Y H:i') }}</div>@endif
         </div>
+    </div>
     </div>
 
     {{-- Tipo de entrega --}}
