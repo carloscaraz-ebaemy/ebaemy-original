@@ -143,6 +143,14 @@
         /* Casilla ligera dentro del formulario (no es el bloque de términos). */
         .chk-inline { background:#f8fafc; border-color:var(--line); font-weight:600; font-size:13.5px; align-items:center; margin-top:14px; cursor:pointer; }
         .chk-inline input { margin-top:0; }
+        /* Aviso del recargo por reparto a domicilio de la agencia. Ambar y no
+           rojo: es una advertencia de costo, no un error del cliente. */
+        .ag-home-warn { display:flex; gap:9px; align-items:flex-start;
+            margin:12px 0 10px; padding:11px 13px; border-radius:12px;
+            background:#fffbeb; border:1px solid #fde68a; color:#78350f;
+            font-size:13px; line-height:1.45; }
+        .ag-home-warn__i { font-size:16px; line-height:1.2; flex:0 0 auto; }
+        .ag-home-warn__s { margin-top:3px; font-size:11.5px; color:#92400e; }
         .cond { font-size:12px; color:var(--muted); margin-top:12px; line-height:1.5; background:#f8fafc; border:1px solid var(--line); border-radius:12px; padding:12px 14px; }
         .cond strong { color:#334155; }
         .cond ul { margin:6px 0 0; padding-left:18px; }
@@ -413,6 +421,22 @@
                             <span>La agencia lleva el paquete hasta mi domicilio</span>
                         </label>
                         <div id="agHomeWrap" hidden>
+                            {{-- El reparto a domicilio SIEMPRE lo cobra la agencia
+                                 aparte, y mas caro que el recojo en oficina. No
+                                 ponemos monto: depende de la agencia, la ciudad y
+                                 el peso, y nosotros no lo cobramos ni lo fijamos.
+                                 Prometer una cifra que no controlamos termina en
+                                 reclamo contra la tienda. --}}
+                            <div class="ag-home-warn">
+                                <span class="ag-home-warn__i">🏠</span>
+                                <div>
+                                    El reparto hasta tu puerta lo hace <b>la agencia</b> y
+                                    <b>tiene un costo adicional</b> al del envío normal.
+                                    <div class="ag-home-warn__s">Lo cobra la agencia al entregarte,
+                                    y varía según la ciudad y el peso. Si prefieres evitarlo,
+                                    desmarca esta opción y recoges en su oficina.</div>
+                                </div>
+                            </div>
                             <label>Dirección de reparto</label>
                             <input type="text" name="shipping_destination" id="pub_addr_agencia" value="{{ old('shipping_destination') }}" maxlength="255" placeholder="Av./Jr./Calle y número">
                         </div>
@@ -475,6 +499,13 @@
                             <div class="r" id="r_ag"><span class="k">Agencia</span><span class="v" id="c_ag">—</span></div>
                             <div class="r" id="r_coords"><span class="k">Ubicación GPS</span><span class="v" id="c_coords">—</span></div>
                             <div class="r" id="r_price"><span class="k">Costo aprox. de envío</span><span class="v" id="c_price" style="color:#059669;">—</span></div>
+                        </div>
+                        {{-- Se repite aca a proposito: el paso 1 se llena rapido
+                             y este es el momento en que el cliente confirma. --}}
+                        <div class="ag-home-warn" id="r_home_extra" hidden>
+                            <span class="ag-home-warn__i">🏠</span>
+                            <div>Pediste <b>reparto a domicilio</b>: la agencia te cobrará
+                                <b>un adicional</b> por llevarlo hasta tu puerta.</div>
                         </div>
                     </div>
 
@@ -848,6 +879,11 @@
             if (box) box.hidden = (selectedType !== t);
         });
 
+        // Solo aplica a agencia con reparto pedido; se apaga por defecto para
+        // que no sobreviva al cambiar de modalidad.
+        var homeExtra = document.getElementById('r_home_extra');
+        if (homeExtra) homeExtra.hidden = true;
+
         document.getElementById('c_type').textContent = isPickup
             ? '🏬 Recojo en tienda'
             : (isDom ? '🏍️ Entrega a domicilio · LIMA' : '📦 Envío por agencia · PROVINCIA');
@@ -899,6 +935,8 @@
                 afFree ? '¡GRATIS!' : (af > 0 ? ('S/ ' + af.toFixed(2)) : '—');
             var disp = document.querySelector('[data-ubigeo-group="pub"] .ubigeo-display');
             document.getElementById('c_ubigeo').textContent = (disp && disp.classList.contains('has-value')) ? disp.textContent.trim() : '—';
+            var pidioReparto = !!(agHome && agHome.checked && txt('pub_addr_agencia'));
+            if (homeExtra) homeExtra.hidden = !pidioReparto;
             document.getElementById('c_dir').textContent = txt('pub_addr_agencia') || 'Recojo en la agencia';
             document.getElementById('k_ref').textContent = 'Oficina de recojo';
             document.getElementById('c_ref').textContent = txt('pub_reference_ag') || '—';
