@@ -22,6 +22,7 @@ class ShippingSetting extends Model
         'min_price',
         'orders_whatsapp',
         'agency_fee',
+        'agency_fee_mode',
         'require_payment',
         'max_business_days',
         'aging_skip_holidays',
@@ -39,6 +40,65 @@ class ShippingSetting extends Model
         'max_business_days'   => 'integer',
         'aging_skip_holidays' => 'boolean',
     ];
+
+    // ── Cobro del servicio tienda → agencia ────────────────────────────────
+    //
+    // Tres estados, porque el monto solo no alcanzaba: con un número, "0" y
+    // "vacío" se ven igual y el cliente no lee nada. Y no decir nada NO es
+    // decir gratis — el cliente asume que se lo cobrarán en la agencia.
+
+    public const FEE_AMOUNT = 'amount';   // Cobra un monto fijo
+    public const FEE_FREE   = 'free';     // Gratis, y se le muestra al cliente
+    public const FEE_HIDDEN = 'hidden';   // No mencionar el tema
+
+    public const FEE_MODES = [
+        self::FEE_AMOUNT => 'Cobro un monto fijo',
+        self::FEE_FREE   => 'Es gratis (mostrar “GRATIS” al cliente)',
+        self::FEE_HIDDEN => 'No mencionar nada en el formulario',
+    ];
+
+    public function getFeeModeAttribute(): string
+    {
+        $m = (string) ($this->agency_fee_mode ?? '');
+
+        // Tenants que aún no corrieron la migración: deducir del monto para
+        // que se sigan viendo como hasta ahora.
+        if (!array_key_exists($m, self::FEE_MODES)) {
+            return ((float) $this->agency_fee > 0) ? self::FEE_AMOUNT : self::FEE_HIDDEN;
+        }
+
+        // Coherencia: "cobro un monto" sin monto cargado no es cobrar nada.
+        if ($m === self::FEE_AMOUNT && (float) $this->agency_fee <= 0) {
+            return self::FEE_HIDDEN;
+        }
+
+        return $m;
+    }
+
+    /** ¿El envío tienda→agencia se regala (y hay que decirlo)? */
+    public function getAgencyIsFreeAttribute(): bool
+    {
+        return $this->fee_mode === self::FEE_FREE;
+    }
+
+    /** ¿Hay algo que mostrarle al cliente sobre este cobro? */
+    public function getShowsAgencyFeeAttribute(): bool
+    {
+        return $this->fee_mode !== self::FEE_HIDDEN;
+    }
+
+    /**
+     * Lo que se cobra por el servicio: 0.00 si es gratis, el monto si cobra,
+     * null si la tienda prefiere no fijar nada todavía.
+     */
+    public function getAgencyChargeAttribute(): ?float
+    {
+        return match ($this->fee_mode) {
+            self::FEE_FREE   => 0.0,
+            self::FEE_AMOUNT => round((float) $this->agency_fee, 2),
+            default          => null,
+        };
+    }
 
     /** Plazo máximo de atención en días hábiles (para el semáforo de prioridad). */
     public function getMaxDaysAttribute(): int

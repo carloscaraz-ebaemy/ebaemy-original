@@ -479,6 +479,32 @@ class ShippingRequest extends Model
         return implode($separator, $this->contentLines());
     }
 
+    /** ¿El envío se decidió regalar? (0.00 explícito, distinto de "sin fijar"). */
+    public function getIsFreeShippingAttribute(): bool
+    {
+        return $this->delivery_price !== null && (float) $this->delivery_price == 0.0;
+    }
+
+    /**
+     * Cómo se escribe el costo dondequiera que se muestre.
+     *
+     * Existe porque `if ($s->delivery_price)` es falso con 0.00 y hacía
+     * desaparecer los envíos gratis de rótulos, WhatsApp, panel y CSV — que es
+     * justo donde hay que decir GRATIS.
+     *
+     * @return string|null  null si aún no se fijó precio.
+     */
+    public function priceLabel(string $gratis = 'GRATIS'): ?string
+    {
+        if ($this->delivery_price === null) {
+            return null;
+        }
+
+        return $this->is_free_shipping
+            ? $gratis
+            : 'S/ ' . number_format((float) $this->delivery_price, 2);
+    }
+
     /** ¿Ya tiene la guía de envío cargada? */
     public function getHasGuideAttribute(): bool
     {

@@ -41,6 +41,7 @@ class ShippingRequestsInstall extends Command
         '2026_07_25_000001_add_aging_settings_to_shipping_settings',
         '2026_07_26_000003_create_shipping_logistics_tables',
         '2026_08_02_000002_add_raffle_optin_to_shipping_requests',
+        '2026_08_12_000001_add_agency_fee_mode_to_shipping_settings',
     ];
 
     /**
@@ -208,7 +209,17 @@ class ShippingRequestsInstall extends Command
             // Semáforo de prioridad por días hábiles (2026-07-25).
             if (!$has('max_business_days'))   $table->unsignedTinyInteger('max_business_days')->default(4)->after('require_payment');
             if (!$has('aging_skip_holidays')) $table->boolean('aging_skip_holidays')->default(true)->after('max_business_days');
+            // Modo del cobro tienda->agencia (2026-08-12): cobra / gratis / no mencionar.
+            if (!$has('agency_fee_mode'))     $table->string('agency_fee_mode', 10)->default('hidden')->after('agency_fee');
         });
+
+        // Quien ya cobraba sigue igual; nadie estrena "gratis" sin pedirlo.
+        if (Schema::connection('tenant')->hasColumn('shipping_settings', 'agency_fee_mode')) {
+            \Illuminate\Support\Facades\DB::connection('tenant')->table('shipping_settings')
+                ->where('agency_fee', '>', 0)
+                ->where('agency_fee_mode', 'hidden')
+                ->update(['agency_fee_mode' => 'amount']);
+        }
     }
 
     /**

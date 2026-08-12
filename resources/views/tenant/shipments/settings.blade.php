@@ -84,13 +84,30 @@
 
                 <hr class="my-4">
                 <h6 class="fw-bold mb-1">📦 Envío por agencia (provincia)</h6>
-                <p class="text-muted small mb-2">Costo <b>fijo</b> de llevar el paquete <b>desde tu tienda hasta la agencia</b> (por envío, sin importar la cantidad). Ej. <b>S/ 20</b>.</p>
-                <div class="input-group input-group-sm" style="max-width:220px;">
+                <p class="text-muted small mb-2">Qué cobras por llevar el paquete <b>desde tu tienda hasta la agencia</b> (por envío, sin importar la cantidad).</p>
+
+                @php $modo = $store->fee_mode; @endphp
+                <div class="mb-2">
+                    @foreach (\App\Models\Tenant\ShippingSetting::FEE_MODES as $val => $label)
+                        <div class="form-check">
+                            <input class="form-check-input js-fee-mode" type="radio" name="agency_fee_mode"
+                                   id="fm_{{ $val }}" value="{{ $val }}" @checked($modo === $val)>
+                            <label class="form-check-label small" for="fm_{{ $val }}">{!! $label !!}</label>
+                        </div>
+                    @endforeach
+                </div>
+
+                <div class="input-group input-group-sm" style="max-width:220px;" id="feeAmountWrap">
                     <span class="input-group-text">S/</span>
                     <input type="number" step="0.10" min="0" name="agency_fee" class="form-control" value="{{ $store->agency_fee }}" placeholder="Ej. 20.00">
                     <span class="input-group-text">por envío</span>
                 </div>
-                <div class="small text-muted mt-1">Déjalo vacío/0 si no cobras este servicio.</div>
+
+                <div class="small text-muted mt-1">
+                    <b>Gratis</b> se lo mostramos al cliente como un beneficio.
+                    <b>No mencionar</b> deja el formulario sin ninguna referencia al costo.
+                    En ambos casos el <b>flete de la agencia hasta su ciudad</b> lo sigue pagando el cliente allá.
+                </div>
 
                 <hr class="my-4">
                 <h6 class="fw-bold mb-1">💬 WhatsApp para recibir pedidos</h6>
@@ -152,6 +169,21 @@
 @if(!empty($mapsKey))
 @push('scripts')
 <script>
+/* El monto solo tiene sentido si se cobra: con "gratis" o "no mencionar"
+   sobra en pantalla y confunde sobre cual de los dos manda. */
+(function () {
+    function pintarModoTarifa() {
+        var sel  = document.querySelector('.js-fee-mode:checked');
+        var wrap = document.getElementById('feeAmountWrap');
+        if (!sel || !wrap) return;
+        wrap.hidden = (sel.value !== 'amount');
+    }
+    document.addEventListener('change', function (ev) {
+        if (ev.target.classList && ev.target.classList.contains('js-fee-mode')) pintarModoTarifa();
+    });
+    pintarModoTarifa();
+})();
+
 (function () {
     var START = { lat: {{ $store->store_latitude ?: -12.0464 }}, lng: {{ $store->store_longitude ?: -77.0428 }} };
     var HAS = {{ $store->has_origin ? 'true' : 'false' }};

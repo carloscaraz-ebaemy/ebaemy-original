@@ -61,9 +61,9 @@
             </div>
         @endif
 
-        @if($shipment->delivery_price)
+        @if($shipment->priceLabel())
             <div style="text-align:center;margin:4px 0;font-size:14px;font-weight:bold;color:#166534;background:#dcfce7;border-radius:8px;padding:6px;">
-                💵 Cobro de envío: S/ {{ number_format($shipment->delivery_price, 2) }}
+                💵 Cobro de envío: {{ $shipment->priceLabel() }}
             </div>
         @endif
 

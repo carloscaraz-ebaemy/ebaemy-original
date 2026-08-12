@@ -794,7 +794,7 @@
                                 'Ciudad / destino'   => $s->destination_city,
                             ]);
                         $secCosto = array_filter([
-                            'Costo de envío' => $s->delivery_price ? ('S/ '.number_format($s->delivery_price, 2)) : null,
+                            'Costo de envío' => $s->priceLabel(),
                             'Pago'           => ($requirePayment ?? false) ? ($s->payment_confirmed ? ('Confirmado'.($s->payment_confirmed_at ? ' · '.$s->payment_confirmed_at->format('d/m/Y H:i') : '')) : 'Pendiente') : null,
                         ]);
                         $viewPhone = preg_replace('/\D+/', '', (string) $s->phone);
@@ -880,7 +880,7 @@
                                     <button type="button" class="btn btn-link btn-sm p-0 fw-bold text-success js-edit-price" style="text-decoration:none;font-size:.8rem;"
                                             data-bs-toggle="modal" data-bs-target="#modalPrecio"
                                             data-id="{{ $s->id }}" data-code="{{ $s->shipment_code }}" data-price="{{ $s->delivery_price }}">
-                                        💵 {{ $s->delivery_price ? 'S/ '.number_format($s->delivery_price, 2) : 'Poner precio' }}
+                                        {{ $s->is_free_shipping ? '🎁' : '💵' }} {{ $s->priceLabel() ?: 'Poner precio' }}
                                         <i class="fas fa-pen ms-1" style="font-size:.65rem;opacity:.6;"></i>
                                     </button>
                                 </div>

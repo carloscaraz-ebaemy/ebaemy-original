@@ -87,8 +87,8 @@
                     @if($s->duration_text)<span style="font-weight:600;">· ~{{ $s->duration_text }}</span>@endif
                 </div>
             @endif
-            @if($s->delivery_price)
-                <div style="display:inline-block;margin:4px 0;font-size:13px;font-weight:800;color:#166534;background:#dcfce7;border-radius:999px;padding:4px 12px;">💵 S/ {{ number_format($s->delivery_price, 2) }}</div>
+            @if($s->priceLabel())
+                <div style="display:inline-block;margin:4px 0;font-size:13px;font-weight:800;color:#166534;background:#dcfce7;border-radius:999px;padding:4px 12px;">{{ $s->is_free_shipping ? '🎁' : '💵' }} {{ $s->priceLabel() }}</div>
             @endif
             <div class="mz-addr"><i class="fas fa-map-marker-alt text-danger me-1"></i>{{ $s->formatted_address ?: $s->shipping_destination ?: '—' }}</div>
             @if($s->reference)<div class="mz-ref"><i class="fas fa-info-circle me-1"></i>{{ $s->reference }}</div>@endif

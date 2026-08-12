@@ -347,7 +347,7 @@ class ShipmentController extends Controller
                         $s->package_content,
                         $s->package_count,
                         $s->weight,
-                        $s->delivery_price ? number_format($s->delivery_price, 2, '.', '') : '',
+                        $s->delivery_price !== null ? number_format($s->delivery_price, 2, '.', '') : '',
                         $s->payment_confirmed ? 'Confirmado' : '',
                         $s->status_label,
                         $age['days'] === null ? '' : $age['days'],
@@ -1543,14 +1543,14 @@ class ShipmentController extends Controller
             if ($s->reference)      $L[] = "📌 Referencia: {$s->reference}";
             if ($s->maps_link)      $L[] = "🗺️ Ubicación: {$s->maps_link}";
             if ($s->distance_km)    $L[] = "🛵 Distancia: " . ($s->distance_text ?: ($s->distance_km . ' km')) . ($s->duration_text ? " · ~{$s->duration_text}" : '');
-            if ($s->delivery_price) $L[] = "💵 Costo aprox. de envío: S/ " . number_format($s->delivery_price, 2);
+            if ($p = $s->priceLabel('GRATIS')) $L[] = "💵 Costo aprox. de envío: {$p}";
         } else {
             $L[] = "📦 *Envío por agencia*";
             if ($s->destination_city)     $L[] = "🏙️ Destino: {$s->destination_city}";
             if ($s->shipping_agency)      $L[] = "🏢 Agencia: {$s->shipping_agency}";
             if ($s->shipping_destination) $L[] = "📍 Dirección: {$s->shipping_destination}";
             if ($s->reference)            $L[] = "📌 Referencia: {$s->reference}";
-            if ($s->delivery_price)       $L[] = "💵 Servicio tienda→agencia: S/ " . number_format($s->delivery_price, 2);
+            if ($p = $s->priceLabel('🎁 GRATIS')) $L[] = "💵 Servicio tienda→agencia: {$p}";
         }
         if ($s->package_content) $L[] = "📦 Contenido: {$s->package_content}";
         if ($s->notes)           $L[] = "📝 Nota: {$s->notes}";
@@ -1728,6 +1728,11 @@ class ShipmentController extends Controller
             'basePrice'    => (float) $store->base_price,
             'minPrice'     => (float) $store->min_price,
             'agencyFee'    => (float) $store->agency_fee,
+            // El modo manda sobre el monto: sin esto "0" y "sin configurar"
+            // llegan iguales al formulario y no se puede decir GRATIS.
+            'agencyFeeMode' => $store->fee_mode,
+            'agencyFree'    => $store->agency_is_free,
+            'agencyShow'    => $store->shows_agency_fee,
             // Dirección de la tienda: se muestra en la rama de recojo para que
             // el cliente sepa a dónde ir.
             'storeAddress' => $store->store_address,
@@ -1820,6 +1825,7 @@ class ShipmentController extends Controller
             'min_price'       => 'nullable|numeric|min:0|max:9999',
             'orders_whatsapp' => 'nullable|string|max:20',
             'agency_fee'      => 'nullable|numeric|min:0|max:99999',
+            'agency_fee_mode' => 'nullable|in:amount,free,hidden',
             'require_payment' => 'nullable',
             'max_business_days'   => 'nullable|integer|min:1|max:60',
             'aging_skip_holidays' => 'nullable',
@@ -1830,6 +1836,22 @@ class ShipmentController extends Controller
             'price_per_km'    => 'tarifa por km',
             'max_business_days' => 'plazo de atención',
         ]);
+
+        // Modo del cobro tienda->agencia. "Cobro un monto" sin monto no cobra
+        // nada, asi que se corrige aca en vez de guardar un estado imposible
+        // que luego habria que interpretar en cada pantalla.
+        $modo = $request->input('agency_fee_mode', ShippingSetting::FEE_HIDDEN);
+        if (!array_key_exists($modo, ShippingSetting::FEE_MODES)) {
+            $modo = ShippingSetting::FEE_HIDDEN;
+        }
+        if ($modo === ShippingSetting::FEE_AMOUNT && (float) $request->input('agency_fee') <= 0) {
+            $modo = ShippingSetting::FEE_HIDDEN;
+        }
+        // El monto se conserva aunque el modo sea gratis/oculto: no se filtra a
+        // ningun lado (todo pasa por el modo) y borrarlo obligaria a retipearlo
+        // al volver a cobrar, con el agravante de que un campo vacio degrada el
+        // modo a "no mencionar" sin avisar.
+        $data['agency_fee_mode'] = $modo;
 
         $data['require_payment']     = $request->boolean('require_payment');
         $data['max_business_days']   = (int) ($request->input('max_business_days') ?: 4);
@@ -2137,10 +2159,13 @@ class ShipmentController extends Controller
                     $data['destination_city'] = $dist->description;
                 }
             }
-            // Costo del servicio tienda→agencia (fijo por envío), si está configurado.
-            $fee = (float) ShippingSetting::current()->agency_fee;
-            if ($fee > 0) {
-                $data['delivery_price'] = round($fee, 2);
+            // Costo del servicio tienda→agencia (fijo por envío).
+            // Gratis se guarda como 0.00 y NO como null: null es "todavía no
+            // se fijó precio" y el panel lo muestra como pendiente. Un 0
+            // explícito deja constancia de que se decidió regalarlo.
+            $charge = ShippingSetting::current()->agency_charge;
+            if ($charge !== null) {
+                $data['delivery_price'] = $charge;
             }
         }
 
