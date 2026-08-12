@@ -430,11 +430,12 @@
                             <div class="ag-home-warn">
                                 <span class="ag-home-warn__i">🏠</span>
                                 <div>
-                                    El reparto hasta tu puerta lo hace <b>la agencia</b> y
-                                    <b>tiene un costo adicional</b> al del envío normal.
-                                    <div class="ag-home-warn__s">Lo cobra la agencia al entregarte,
-                                    y varía según la ciudad y el peso. Si prefieres evitarlo,
-                                    desmarca esta opción y recoges en su oficina.</div>
+                                    Ten en cuenta: las agencias cobran <b>bastante más</b> por
+                                    llevarlo hasta tu domicilio que por dejarlo en su oficina
+                                    de provincia.
+                                    <div class="ag-home-warn__s">Ese cobro lo hace la agencia
+                                    al entregarte, y varía según la ciudad y el peso. Si quieres
+                                    pagar menos, desmarca esta opción y recógelo en su oficina.</div>
                                 </div>
                             </div>
                             <label>Dirección de reparto</label>
@@ -505,7 +506,7 @@
                         <div class="ag-home-warn" id="r_home_extra" hidden>
                             <span class="ag-home-warn__i">🏠</span>
                             <div>Pediste <b>reparto a domicilio</b>: la agencia te cobrará
-                                <b>un adicional</b> por llevarlo hasta tu puerta.</div>
+                                <b>bastante más</b> que si lo recogieras en su oficina.</div>
                         </div>
                     </div>
 
