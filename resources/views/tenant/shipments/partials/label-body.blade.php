@@ -7,8 +7,25 @@
             <div class="env-code">{{ $shipment->shipment_code }}</div>
             @if(!empty($barcode))<img class="barcode-img" src="data:image/png;base64,{{ $barcode }}" alt="{{ $shipment->shipment_code }}">@endif
         </div>
+        @php
+            // El logo de la empresa vive en storage/app/public/uploads/logos y se
+            // sirve por el symlink public/storage. Si el archivo no esta (tenant
+            // sin logo cargado, o borrado a mano), cae al nombre en texto: el
+            // rotulo nunca debe salir con un recuadro de imagen rota.
+            $logoUrl = null;
+            if (!empty($company->logo)) {
+                $logoRel = 'uploads/logos/' . $company->logo;
+                if (\Illuminate\Support\Facades\Storage::disk('public')->exists($logoRel)) {
+                    $logoUrl = asset('storage/' . $logoRel);
+                }
+            }
+            $marca = $company->title_web ?? $company->trade_name ?? $company->name ?? 'ebaemy';
+        @endphp
         <div style="text-align:right;">
-            <div class="brand">{{ $company->title_web ?? $company->trade_name ?? $company->name ?? 'ebaemy' }}</div>
+            @if($logoUrl)
+                <img class="brand-logo" src="{{ $logoUrl }}" alt="{{ $marca }}">
+            @endif
+            <div class="brand">{{ $marca }}</div>
             @if($shipment->created_at)<div style="font-size:10px;color:#555;">Registrado: {{ $shipment->created_at->format('d/m/Y H:i') }}</div>@endif
         </div>
     </div>

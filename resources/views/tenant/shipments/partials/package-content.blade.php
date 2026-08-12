@@ -29,7 +29,17 @@
         @else
             {{-- NUMERADA: quien embala va contando, y un número se sigue mejor
                  que una viñeta cuando hay que verificar que no falte nada. --}}
-            <ol class="pkg-list med-text">
+            @php
+                // Umbrales sobre datos reales: el envío más cargado tiene 9
+                // ítems y el promedio es 3. Con 6 se aprieta el interlineado y
+                // con 10 se pasa a dos columnas, antes de que el JS tenga que
+                // achicar la letra de todo el rótulo.
+                $n = count($pkgLines);
+                $pkgClass = 'pkg-list med-text'
+                    . ($n >= 6  ? ' pkg-list--dense' : '')
+                    . ($n >= 10 ? ' pkg-list--cols'  : '');
+            @endphp
+            <ol class="{{ $pkgClass }}">
                 @foreach($pkgLines as $line)
                     <li>{{ $line }}</li>
                 @endforeach

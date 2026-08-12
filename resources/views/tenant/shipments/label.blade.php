@@ -1,5 +1,5 @@
 @php
-    $format = in_array($format ?? 'a5', ['sticker','a5','a4'], true) ? ($format ?? 'a5') : 'a5';
+    $format = in_array($format ?? 'a4', ['sticker','a5','a4'], true) ? ($format ?? 'a4') : 'a4';
     $pageSize   = ['sticker' => 'auto', 'a5' => 'A5', 'a4' => 'A4'][$format];
     $pageMargin = $format === 'sticker' ? '4mm' : ($format === 'a5' ? '8mm' : '12mm');
 @endphp
@@ -60,6 +60,9 @@
 
         document.body.className = 'fmt-' + fmt;
 
+        // El alto util cambia con el formato: hay que recalcular el encogido.
+        if (window.ajustarRotulos) setTimeout(window.ajustarRotulos, 0);
+
         var style = document.getElementById('pageStyle');
         if (style) style.textContent = '@page { size: ' + cfg.size + '; margin: ' + cfg.margin + '; }';
 
@@ -73,6 +76,8 @@
     });
 })();
 </script>
+
+@include('tenant.shipments.partials.label-fit-js')
 
 </body>
 </html>

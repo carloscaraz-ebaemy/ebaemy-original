@@ -989,10 +989,12 @@ class ShipmentController extends Controller
 
         $company = Company::first();
 
-        // Formato de impresión: sticker (10cm), A5 o A4.
-        $format = strtolower((string) $request->query('format', 'a5'));
+        // Formato de impresión: sticker (10cm), A5 o A4. A4 por defecto: es el
+        // papel que la mayoría tiene cargado en la impresora, y en A5 el rótulo
+        // con muchos ítems se partía en dos hojas.
+        $format = strtolower((string) $request->query('format', 'a4'));
         if (!in_array($format, ['sticker', 'a5', 'a4'], true)) {
-            $format = 'a5';
+            $format = 'a4';
         }
 
         // Historial de impresiones del rótulo suelto (nunca se sobrescribe).
@@ -1032,9 +1034,9 @@ class ShipmentController extends Controller
         abort_if($ids->isEmpty(), 404);
 
         // Formato de impresión: A5 o A4 (un rótulo por hoja).
-        $format = strtolower((string) $request->query('format', 'a5'));
+        $format = strtolower((string) $request->query('format', 'a4'));
         if (!in_array($format, ['a5', 'a4'], true)) {
-            $format = 'a5';
+            $format = 'a4';
         }
 
         $all = ShippingRequest::whereIn('id', $ids)->orderBy('id')->get();
@@ -1115,7 +1117,7 @@ class ShipmentController extends Controller
 
         $result = (new ShippingBatchService())->createBatch(
             $ids,
-            $request->input('format', 'a5'),
+            $request->input('format', 'a4'),
             $request->input('notes')
         );
 
@@ -1180,9 +1182,9 @@ class ShipmentController extends Controller
      */
     public function printBatchLabels(Request $request, ShippingPrintBatch $batch)
     {
-        $format = strtolower((string) $request->query('format', $batch->format ?: 'a5'));
+        $format = strtolower((string) $request->query('format', $batch->format ?: 'a4'));
         if (!in_array($format, ['a5', 'a4'], true)) {
-            $format = 'a5';
+            $format = 'a4';
         }
 
         $shipments = $batch->shipments()->orderBy('priority')->orderBy('id')->get();

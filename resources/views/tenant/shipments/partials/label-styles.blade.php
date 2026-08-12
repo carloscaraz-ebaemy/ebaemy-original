@@ -41,6 +41,13 @@
 
     .label-header { border-bottom: 2px solid #000; padding-bottom: 8px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: flex-start; }
     .brand { font-size: 13px; font-weight: bold; text-transform: uppercase; }
+    /* Logo de la empresa. Alto acotado para que no le robe espacio al rótulo:
+       manda el código de envío, no la marca. `print-color-adjust` obliga al
+       navegador a imprimirlo aunque el usuario tenga desactivados los fondos. */
+    .brand-logo { display: block; margin: 0 0 3px auto; max-height: 1.1cm; max-width: 4cm;
+                  object-fit: contain; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    body.fmt-a5 .brand-logo { max-height: 1.4cm; max-width: 5cm; }
+    body.fmt-a4 .brand-logo { max-height: 2cm;   max-width: 7cm; }
     .env-code { font-size: 20px; font-weight: bold; letter-spacing: 1px; }
     .section-title { font-size: 9px; text-transform: uppercase; color: #666; letter-spacing: 1px; margin-bottom: 2px; }
     .section { margin-bottom: 8px; }
@@ -68,6 +75,19 @@
 
     body.fmt-a5 .pkg-list li { padding-left: 19px; margin-bottom: 4px; }
     body.fmt-a4 .pkg-list li { padding-left: 26px; margin-bottom: 6px; }
+
+    /* ── Listas largas ───────────────────────────────────────────────────
+       Cada ítem ocupa una línea entera aunque diga "02 maceta", así que una
+       lista larga estira el rótulo hasta partirlo en dos hojas. Antes de
+       achicar la letra de TODO el rótulo se aprovecha el ancho sobrante:
+       las líneas reales miden ~37 caracteres y entran de a dos por fila.
+       `break-inside` evita que un ítem quede cortado entre columnas. */
+    .pkg-list--dense li { margin-bottom: 1px !important; line-height: 1.25; }
+    .pkg-list--cols { column-count: 2; column-gap: 14px; }
+    .pkg-list--cols li { break-inside: avoid; page-break-inside: avoid; }
+    body.fmt-a4 .pkg-list--cols { column-gap: 22px; }
+    /* En sticker (10cm) no hay ancho para dos columnas. */
+    body.fmt-sticker .pkg-list--cols { column-count: 1; }
     .grid { display: flex; gap: 8px; }
     .grid .box { flex: 1; border: 1px solid #000; padding: 6px 8px; }
     .grid .box .v { font-size: 14px; font-weight: bold; }

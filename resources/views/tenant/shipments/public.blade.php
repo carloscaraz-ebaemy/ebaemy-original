@@ -232,6 +232,9 @@
                 <div class="ok-btns">
                     <a href="{{ route('shipments.public.tracking', ['code' => $sent]) }}"><button type="button" class="btn">🔎 Ver seguimiento</button></a>
                     @php
+                        // OJO: este armado es un duplicado del de
+                        // ShipmentController::waSummary(). Si tocas uno, toca el otro
+                        // (o unificalos): ya se desincronizaron una vez con el precio.
                         $tiendaNombre = $company->title_web ?: ($company->trade_name ?: ($company->name ?: 'la tienda'));
                         $s = $sentShipment ?? null;
                         $L = [];
@@ -252,14 +255,14 @@
                                 if ($s->formatted_address || $s->shipping_destination) $L[] = "📍 Dirección: " . ($s->formatted_address ?: $s->shipping_destination);
                                 if ($s->reference)      $L[] = "📌 Referencia: {$s->reference}";
                                 if ($s->maps_link)      $L[] = "🗺️ Ubicación: {$s->maps_link}";
-                                if ($s->delivery_price) $L[] = "💵 Costo aprox. de envío: S/ " . number_format($s->delivery_price, 2);
+                                if ($p = $s->priceLabel('GRATIS')) $L[] = "💵 Costo aprox. de envío: {$p}";
                             } else {
                                 $L[] = "📦 *Envío por agencia*";
                                 if ($s->destination_city)     $L[] = "🏙️ Destino: {$s->destination_city}";
                                 if ($s->shipping_agency)      $L[] = "🏢 Agencia: {$s->shipping_agency}";
                                 if ($s->shipping_destination) $L[] = "📍 Dirección: {$s->shipping_destination}";
                                 if ($s->reference)            $L[] = "📌 Referencia: {$s->reference}";
-                                if ($s->delivery_price)       $L[] = "💵 Servicio tienda→agencia: S/ " . number_format($s->delivery_price, 2);
+                                if ($p = $s->priceLabel('🎁 GRATIS')) $L[] = "💵 Servicio tienda→agencia: {$p}";
                             }
                             if ($s->package_content) $L[] = "📦 Contenido: {$s->package_content}";
                             if ($s->notes)           $L[] = "📝 Nota: {$s->notes}";
