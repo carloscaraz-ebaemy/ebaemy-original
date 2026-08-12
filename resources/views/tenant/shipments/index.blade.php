@@ -479,7 +479,11 @@
         .sh-pri__lbl, .sh-pri__hint { font-size:.7rem; }
         .sh-tools { gap:6px; margin-bottom:10px; }
         .sh-chip { padding:.34rem .6rem; font-size:.76rem; }
-        .sh-search input { font-size:.85rem; padding:.44rem .6rem; }
+        /* Solo se toca el padding VERTICAL. El horizontal reserva el sitio de
+           la lupa (izquierda) y del botón de limpiar (derecha), ambos en
+           position:absolute: al escribir un padding corto de dos valores se
+           les venían encima del texto. */
+        .sh-search input { font-size:.85rem; padding:.44rem 1.6rem .44rem 1.9rem; }
 
         /* El aviso de vencidos SÍ se queda visible: es la razón por la que
            alguien entra al panel con apuro. Solo se compacta. */
