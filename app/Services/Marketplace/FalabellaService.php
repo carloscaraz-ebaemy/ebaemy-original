@@ -1220,6 +1220,33 @@ class FalabellaService
         ];
     }
 
+    /**
+     * ¿Esta cuenta expone datos de comprobante en la API?
+     *
+     * En carolayimport NINGUN pedido devuelve InvoiceNumber ni
+     * InvoiceDocumentLink: los campos no vienen en la respuesta. Sin esto,
+     * getOrderInvoiceNumber() devuelve null SIEMPRE y cualquier
+     * reconciliacion "0 facturados" es un artefacto de medicion, no un
+     * hallazgo. Se sondea un pedido y se decide si la comparacion vale.
+     */
+    public function supportsInvoiceLookup(string $externalOrderId): bool
+    {
+        try {
+            $items = $this->getOrderItems($externalOrderId);
+        } catch (\Throwable $e) {
+            return false;
+        }
+
+        foreach ($items as $it) {
+            if (!is_array($it)) continue;
+            if (array_key_exists('InvoiceNumber', $it) || array_key_exists('InvoiceDocumentLink', $it)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     public function getOrderInvoiceNumber(string $externalOrderId): ?string
     {
         $items = $this->getOrderItems($externalOrderId);

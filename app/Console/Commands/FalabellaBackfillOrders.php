@@ -72,6 +72,18 @@ class FalabellaBackfillOrders extends Command
             ->when($limite > 0, fn ($q) => $q->limit($limite))
             ->get();
 
+        // Se sondea una vez: ¿esta cuenta devuelve datos de comprobante?
+        $soportaFacturas = false;
+        if (!$sinFact && $pedidos->isNotEmpty()) {
+            $soportaFacturas = $servicio->supportsInvoiceLookup($pedidos->first()->external_order_id);
+            if (!$soportaFacturas) {
+                $this->warn('   Esta cuenta de Saga NO expone comprobantes en la API '
+                          . '(no vienen InvoiceNumber ni InvoiceDocumentLink). '
+                          . 'No se puede saber por aqui cuales ya estan facturados; '
+                          . 'se omite esa comparacion en vez de reportar un numero falso.');
+            }
+        }
+
         $conDoc = 0; $sinDoc = 0; $completados = 0;
         $yaFacturados = 0; $porFacturar = 0; $errores = 0;
         $ejemplos = [];
@@ -107,7 +119,9 @@ class FalabellaBackfillOrders extends Command
             empty($datos['document']) ? $sinDoc++ : $conDoc++;
 
             // ── 2. ¿Ya tiene comprobante? ───────────────────────────────
-            if ($sinFact) {
+            // Solo si la cuenta expone el dato: si no, comparar da "ninguno
+            // facturado" siempre y seria un numero inventado.
+            if ($sinFact || $soportaFacturas === false) {
                 continue;
             }
 
@@ -137,9 +151,13 @@ class FalabellaBackfillOrders extends Command
             }
         }
 
+        $estadoFact = $soportaFacturas
+            ? [$yaFacturados, $porFacturar]
+            : ['no verificable', 'no verificable'];
+
         $this->table(
             ['Pedidos', 'Con documento', 'Sin documento', 'Completados ahora', 'Ya facturados', 'Faltan facturar', 'Errores'],
-            [[$pedidos->count(), $conDoc, $sinDoc, $completados, $yaFacturados, $porFacturar, $errores]]
+            [[$pedidos->count(), $conDoc, $sinDoc, $completados, $estadoFact[0], $estadoFact[1], $errores]]
         );
 
         foreach ($ejemplos as $e) {
