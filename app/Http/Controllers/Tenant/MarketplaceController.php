@@ -29,6 +29,73 @@ class MarketplaceController extends Controller
     }
 
     /**
+     * Homologacion de marcas ERP → Saga.
+     *
+     * `brand` es atributo OBLIGATORIO en toda categoria y no se puede mandar
+     * el nombre interno: Saga exige una marca de su catalogo (10.814). El
+     * backend existia sin pantalla y habia 0 marcas homologadas, asi que
+     * ningun producto podia publicarse aunque tuviera todo lo demas.
+     */
+    public function sagaBrandsPanel()
+    {
+        $channel = MarketplaceChannel::where('platform', 'falabella')
+                                     ->where('status', 'active')->first();
+
+        if (!$channel) {
+            return view('tenant.marketplace_orders.brands', [
+                'channel' => null, 'rows' => collect(), 'sagaBrands' => [], 'sugeridas' => 0,
+            ]);
+        }
+
+        $maps = SagaBrandMap::where('channel_id', $channel->id)->get()->keyBy('brand_id');
+
+        $sagaBrands = [];
+        $service = MarketplaceOrchestrator::resolveService($channel);
+        if ($service && method_exists($service, 'getBrands')) {
+            try {
+                $sagaBrands = $service->getBrands();
+            } catch (\Throwable $e) {
+                \Log::channel('payments')->warning('Saga: no se pudieron traer marcas', ['error' => $e->getMessage()]);
+            }
+        }
+
+        // Indice por nombre normalizado para proponer la coincidencia exacta.
+        // Con 10.814 marcas, buscar a mano una por una es media hora perdida
+        // cuando la mayoria coincide literal.
+        $norm = fn ($t) => preg_replace('/[^A-Z0-9]/', '',
+                    strtr(mb_strtoupper(trim((string) $t)), ['Á'=>'A','É'=>'E','Í'=>'I','Ó'=>'O','Ú'=>'U','Ñ'=>'N']));
+
+        $indice = [];
+        foreach ($sagaBrands as $sb) {
+            $k = $norm($sb['name'] ?? '');
+            if ($k !== '' && !isset($indice[$k])) {
+                $indice[$k] = $sb;
+            }
+        }
+
+        $sugeridas = 0;
+
+        $rows = Brand::orderBy('name')->get(['id', 'name'])->map(function ($b) use ($maps, $indice, $norm, &$sugeridas) {
+            $m = $maps->get($b->id);
+            $sug = (!$m && isset($indice[$norm($b->name)])) ? $indice[$norm($b->name)] : null;
+            if ($sug) {
+                $sugeridas++;
+            }
+
+            return (object) [
+                'brand_id'   => $b->id,
+                'name'       => $b->name,
+                'saga_id'    => $m->saga_brand_id ?? null,
+                'saga_name'  => $m->saga_brand_name ?? null,
+                'sug_id'     => $sug['id'] ?? null,
+                'sug_name'   => $sug['name'] ?? null,
+            ];
+        });
+
+        return view('tenant.marketplace_orders.brands', compact('channel', 'rows', 'sagaBrands', 'sugeridas'));
+    }
+
+    /**
      * Atributos obligatorios por producto (Registro sanitario, Cantidad neta,
      * Condicion, etc.).
      *

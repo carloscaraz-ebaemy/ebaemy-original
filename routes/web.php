@@ -686,6 +686,9 @@ if ($hostname) {
             Route::put('shipping-zones/{id}',         'Tenant\ShippingZoneController@update');
             Route::delete('shipping-zones/{id}',      'Tenant\ShippingZoneController@destroy');
 
+            // Homologacion de marcas (obligatoria: Saga solo acepta las suyas).
+            Route::get('marketplace/marcas-saga', 'Tenant\MarketplaceController@sagaBrandsPanel')->name('tenant.saga.brands_panel');
+
             // Atributos obligatorios por producto (varian por categoria).
             Route::get('marketplace/atributos-saga', 'Tenant\MarketplaceController@sagaAttributesPanel')->name('tenant.saga.attributes_panel');
 
