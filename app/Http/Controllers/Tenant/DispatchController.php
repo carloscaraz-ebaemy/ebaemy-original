@@ -444,6 +444,39 @@ class DispatchController extends Controller
             }
         }
 
+        // ── Enlace con el Registro de Envíos ──────────────────────────────
+        // Si la guía se abrió desde un envío, queda asociada a él. Va por
+        // sesión y no en el payload a proposito: `$request->all()` se lo pasa
+        // entero a Facturalo, que emite ante SUNAT, y no se le agregan claves
+        // que no espera. Best-effort: un fallo aca no puede tumbar una guia
+        // que YA se emitio.
+        try {
+            if ($shipmentId = session()->pull('sh_dispatch_for')) {
+                $shipment = \App\Models\Tenant\ShippingRequest::find($shipmentId);
+                if ($shipment && !$shipment->dispatch_id) {
+                    $numero = $document->series . '-' . $document->number;
+                    $shipment->forceFill([
+                        'dispatch_id'           => $document->id,
+                        'dispatch_number'       => $numero,
+                        'dispatch_generated_at' => now(),
+                    ])->save();
+
+                    \App\Models\Tenant\ShippingAuditLog::log(
+                        \App\Models\Tenant\ShippingAuditLog::ACTION_GUIDE_ISSUED,
+                        $shipment->id,
+                        'dispatch_number',
+                        null,
+                        $numero,
+                        'Guía de remisión emitida',
+                        $shipment->print_batch_id
+                    );
+                }
+            }
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::warning(
+                '[Shipments] No se pudo enlazar la guía con el envío: ' . $e->getMessage());
+        }
+
         $message = "Se creo la guía de remisión {$document->series}-{$document->number}";
 
         return [

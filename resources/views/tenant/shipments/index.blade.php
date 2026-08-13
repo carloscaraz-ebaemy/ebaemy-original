@@ -1078,6 +1078,34 @@
                                 <div class="dropdown">
                                 <button type="button" class="sh-act sh-act--ghost" data-bs-toggle="dropdown" aria-label="Más acciones" title="Más acciones"><i class="fas fa-ellipsis-h"></i></button>
                                 <ul class="dropdown-menu dropdown-menu-end shadow-sm">
+
+                                    {{-- ── Guía de Remisión (SUNAT) ──────────────────────
+                                         OJO: no es la misma "guía" del boton de arriba. Esa es
+                                         el PDF que da la agencia; esta es el documento
+                                         electronico que sustenta el traslado.
+                                         El recojo en tienda no lleva: no hay traslado a un
+                                         destinatario externo. --}}
+                                    @unless($s->is_pickup)
+                                        @if($s->dispatch_id)
+                                            <li>
+                                                <a class="dropdown-item" target="_blank"
+                                                   href="{{ url('dispatches?id=' . $s->dispatch_id) }}">
+                                                    <i class="fas fa-file-contract text-success"></i>
+                                                    Ver Guía de Remisión
+                                                    <small class="text-muted d-block ms-4">{{ $s->dispatch_number }}</small>
+                                                </a>
+                                            </li>
+                                        @elseif(!$s->is_cancelled)
+                                            <li>
+                                                <a class="dropdown-item"
+                                                   href="{{ route('shipments.dispatch_generate', $s->id) }}">
+                                                    <i class="fas fa-file-contract"></i> Generar Guía de Remisión
+                                                </a>
+                                            </li>
+                                        @endif
+                                        <li><hr class="dropdown-divider"></li>
+                                    @endunless
+
                                     {{-- Primera impresión: enlace directo. Reimpresión: el servidor
                                          exige motivo, así que es un botón que ABRE EL MODAL con el
                                          data-api de Bootstrap (declarativo). Nada de abrirlo por JS:

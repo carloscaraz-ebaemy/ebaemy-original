@@ -1291,6 +1291,96 @@ class ShipmentController extends Controller
      * pocos campos y limita a 15 resultados: es un autocompletado, no un
      * listado.
      */
+    // ══════════════════════════════════════════════════════════════════════
+    // GUÍA DE REMISIÓN
+    //
+    // El rótulo identifica el paquete; la guía sustenta el traslado. Son
+    // documentos distintos y el envío puede tener uno, otro o ambos.
+    // ══════════════════════════════════════════════════════════════════════
+
+    /**
+     * Abre el formulario de Guía de Remisión con los datos del envío ya
+     * cargados. NO emite nada: el formulario es la pantalla donde el operador
+     * valida y corrige antes de emitir, que es donde debe estar la decisión
+     * porque la guía va a SUNAT y no se deshace con un botón.
+     */
+    public function generateDispatch(Request $request, ShippingRequest $shipment)
+    {
+        // El recojo en tienda no genera traslado a un destinatario externo.
+        if ($shipment->is_pickup) {
+            return back()->with('error',
+                'El recojo en tienda no requiere Guía de Remisión: el paquete no viaja, '
+                . 'lo retira el propio cliente.');
+        }
+
+        if ($shipment->cancelled_at) {
+            return back()->with('error', 'El envío está anulado. Restáuralo antes de generar la guía.');
+        }
+
+        // Sin duplicados: si ya tiene guía se manda a verla.
+        if ($shipment->dispatch_id && !$request->boolean('forzar')) {
+            return back()->with('error',
+                'Este pedido ya tiene una Guía de Remisión'
+                . ($shipment->dispatch_number ? ' (' . $shipment->dispatch_number . ')' : '')
+                . '. Usa «Ver guía» para revisarla.');
+        }
+
+        $pre = new \App\Services\Tenant\ShipmentDispatchPrefill();
+
+        $persona       = $pre->persona($shipment);
+        $direccion     = $pre->direccionEntrega($shipment, $persona);
+        $dispatcher_id = $pre->transportista($shipment);
+        $items         = $pre->items($shipment);
+
+        // La agencia faltante es bloqueante en provincia: es el dato que
+        // define quién traslada, y emitir sin él obliga a anular la guía.
+        if (!$dispatcher_id && $shipment->is_agencia && !$request->boolean('sin_agencia')) {
+            return back()->with('error', implode(' ', $pre->avisos()));
+        }
+
+        // Se recuerda para qué envío es: al guardar, la guía se enlaza sola.
+        // Va por sesión y no en el payload para no tocar lo que Facturalo
+        // recibe, que es codigo legacy que emite ante SUNAT.
+        $request->session()->put('sh_dispatch_for', $shipment->id);
+
+        ShippingAuditLog::log(
+            ShippingAuditLog::ACTION_GUIDE_START,
+            $shipment->id,
+            'dispatch_id',
+            null,
+            null,
+            'Inicio de generación de guía',
+            $shipment->print_batch_id
+        );
+
+        // La vista de la guia NO usa $items: el componente Vue los lee de
+        // `document.items`. Se arma un documento minimo con esa forma, que es
+        // lo mismo que hace generate() para las notas de venta.
+        $document = [
+            'customer_id'  => $persona->id ?? null,
+            'customer'     => $persona ? $persona->toArray() : null,
+            'observations' => trim('Envio ' . $shipment->shipment_code
+                                   . ($shipment->destination_city ? ' - ' . $shipment->destination_city : '')),
+            'items'        => $items,
+        ];
+
+        return view('tenant.dispatches.form', [
+            'document'            => $document,
+            'type'                => null,
+            'dispatch'            => null,
+            'items'               => $items,
+            'sale_note'           => null,
+            'parentTable'         => null,
+            'parentId'            => null,
+            'shipping_address_id' => $direccion,
+            'dispatcher_id'       => $dispatcher_id,
+            // Contexto propio: la vista lo usa para el aviso y el volver.
+            'shipmentSource'      => $shipment,
+            'shipmentWarnings'    => $pre->avisos(),
+            'shipmentCustomerId'  => $persona->id ?? null,
+        ]);
+    }
+
     public function searchItems(Request $request)
     {
         $term = trim((string) $request->input('q'));

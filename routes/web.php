@@ -182,6 +182,10 @@ if ($hostname) {
                      ->name('shipments.export');
                 Route::get('buscar-productos', [\App\Http\Controllers\Tenant\ShipmentController::class, 'searchItems'])
                      ->name('shipments.search_items');
+                // Guía de Remisión precargada desde el envío (no emite: abre el
+                // formulario para validar y corregir antes de mandar a SUNAT).
+                Route::get('{shipment}/guia-remision', [\App\Http\Controllers\Tenant\ShipmentController::class, 'generateDispatch'])
+                     ->whereNumber('shipment')->name('shipments.dispatch_generate');
                 Route::post('estado-lote', [\App\Http\Controllers\Tenant\ShipmentController::class, 'statusBulk'])
                      ->name('shipments.status_bulk');
                 Route::post('/', [\App\Http\Controllers\Tenant\ShipmentController::class, 'store'])

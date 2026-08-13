@@ -42,6 +42,7 @@ class ShippingRequestsInstall extends Command
         '2026_07_26_000003_create_shipping_logistics_tables',
         '2026_08_02_000002_add_raffle_optin_to_shipping_requests',
         '2026_08_12_000001_add_agency_fee_mode_to_shipping_settings',
+        '2026_08_13_000001_add_dispatch_to_shipping_requests',
     ];
 
     /**
@@ -174,6 +175,8 @@ class ShippingRequestsInstall extends Command
         'document_type',
         // Precio del envío a domicilio (2026-07-20)
         'delivery_price',
+        // Enlace con la Guía de Remisión (2026-08-13)
+        'dispatch_id', 'dispatch_number', 'dispatch_generated_at',
     ];
 
     /** Crea/actualiza la tabla shipping_settings (origen + tarifas). */
@@ -328,6 +331,16 @@ class ShippingRequestsInstall extends Command
             }
             if (in_array('duration_text', $missing, true)) {
                 $table->string('duration_text', 40)->nullable()->after('distance_text');
+            }
+            // Enlace con la Guia de Remision (2026-08-13).
+            if (in_array('dispatch_id', $missing, true)) {
+                $table->unsignedInteger('dispatch_id')->nullable()->index();
+            }
+            if (in_array('dispatch_number', $missing, true)) {
+                $table->string('dispatch_number', 30)->nullable();
+            }
+            if (in_array('dispatch_generated_at', $missing, true)) {
+                $table->dateTime('dispatch_generated_at')->nullable();
             }
             if (in_array('delivery_price', $missing, true)) {
                 $table->decimal('delivery_price', 8, 2)->nullable()->after('duration_text');

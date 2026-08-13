@@ -55,6 +55,11 @@ class ShippingAuditLog extends Model
     public const ACTION_DISPATCH   = 'dispatch';
     public const ACTION_DELIVER    = 'deliver';
     public const ACTION_PICKUP     = 'pickup';
+    // Guía de Remisión: se audita el intento y la emisión por separado,
+    // porque entre uno y otro el operador puede corregir datos o desistir.
+    public const ACTION_GUIDE_START  = 'dispatch_start';
+    public const ACTION_GUIDE_ISSUED = 'dispatch_issued';
+
     public const ACTION_BATCH_OPEN = 'batch_open';
     public const ACTION_BATCH_ADD  = 'batch_add';
     public const ACTION_BATCH_PULL = 'batch_remove';

@@ -55,6 +55,9 @@ class ShippingRequest extends Model
         'distance_text',
         'duration_text',
         'delivery_price',
+        'dispatch_id',
+        'dispatch_number',
+        'dispatch_generated_at',
         'payment_confirmed',
         'payment_confirmed_at',
         'payment_note',
@@ -479,6 +482,61 @@ class ShippingRequest extends Model
         return implode($separator, $this->contentLines());
     }
 
+    // ── Guía de Remisión ───────────────────────────────────────────────────
+    //
+    // Rótulo y guía son cosas distintas: el rótulo identifica el paquete, la
+    // guía sustenta el traslado. Un envío puede tener una, la otra o ambas.
+
+    public function dispatch()
+    {
+        return $this->belongsTo(\App\Models\Tenant\Dispatch::class, 'dispatch_id');
+    }
+
+    /** ¿Ya se le emitió guía? */
+    public function getHasDispatchAttribute(): bool
+    {
+        return $this->dispatch_id !== null;
+    }
+
+    /**
+     * ¿Corresponde generar guía para este envío?
+     *
+     * El recojo en tienda NO lleva guía: el paquete no viaja a un destinatario
+     * externo, se lo lleva el propio cliente del mostrador.
+     */
+    public function canGenerateDispatch(): bool
+    {
+        if ($this->is_pickup || $this->cancelled_at) {
+            return false;
+        }
+
+        return !$this->has_dispatch;
+    }
+
+    /** Estado de la guía para pintar en el panel. */
+    public function dispatchState(): string
+    {
+        if ($this->is_pickup)      return 'no_aplica';
+        if (!$this->dispatch_id)   return 'sin_guia';
+
+        $d = $this->dispatch;
+        if (!$d)                   return 'sin_guia';   // se borró la guía
+        // state_type_id 11 = anulado en el ERP.
+        if ((string) $d->state_type_id === '11') return 'anulada';
+
+        return 'emitida';
+    }
+
+    public function dispatchLabel(): string
+    {
+        return [
+            'no_aplica' => 'No aplica',
+            'sin_guia'  => 'Sin guía',
+            'anulada'   => 'Anulada',
+            'emitida'   => 'Emitida',
+        ][$this->dispatchState()] ?? 'Sin guía';
+    }
+
     /** ¿El envío se decidió regalar? (0.00 explícito, distinto de "sin fijar"). */
     public function getIsFreeShippingAttribute(): bool
     {
@@ -558,6 +616,12 @@ class ShippingRequest extends Model
     public function getIsDomicilioAttribute(): bool
     {
         return $this->delivery_type === self::DELIVERY_DOMICILIO;
+    }
+
+    /** ¿Viaja por agencia de transporte (provincia)? */
+    public function getIsAgenciaAttribute(): bool
+    {
+        return $this->delivery_type === self::DELIVERY_AGENCIA;
     }
 
     /** Etiqueta legible del tipo de entrega. */
