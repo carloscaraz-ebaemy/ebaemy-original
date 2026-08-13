@@ -686,6 +686,18 @@ if ($hostname) {
             Route::put('shipping-zones/{id}',         'Tenant\ShippingZoneController@update');
             Route::delete('shipping-zones/{id}',      'Tenant\ShippingZoneController@destroy');
 
+            // ── Homologación Saga Falabella ────────────────────────────────
+            // Los métodos existían en MarketplaceController desde junio pero
+            // NUNCA se registraron rutas: el error de sincronización mandaba a
+            // "Marketplace → Categorías" y ese panel era inalcanzable, asi que
+            // los productos sin homologar no habia forma de arreglarlos.
+            Route::get('marketplace/saga/{channel}/categories',            'Tenant\MarketplaceController@sagaCategories')->whereNumber('channel')->name('tenant.saga.categories');
+            Route::get('marketplace/saga/{channel}/category-tree',         'Tenant\MarketplaceController@sagaCategoryTree')->whereNumber('channel')->name('tenant.saga.category_tree');
+            Route::post('marketplace/saga/{channel}/category',             'Tenant\MarketplaceController@saveSagaCategory')->whereNumber('channel')->name('tenant.saga.category_save');
+            Route::get('marketplace/saga/{channel}/category-attributes/{sagaCategoryId}', 'Tenant\MarketplaceController@sagaCategoryAttributes')->whereNumber('channel')->name('tenant.saga.category_attributes');
+            Route::get('marketplace/saga/{channel}/brands',                'Tenant\MarketplaceController@sagaBrands')->whereNumber('channel')->name('tenant.saga.brands');
+            Route::post('marketplace/saga/{channel}/brand',                'Tenant\MarketplaceController@saveSagaBrand')->whereNumber('channel')->name('tenant.saga.brand_save');
+
             // Categorías oficiales del marketplace (árbol desde system DB)
             Route::get('marketplace-categories/tree',         'Tenant\MarketplaceCategoryController@tree');
             Route::get('marketplace-categories/flat',         'Tenant\MarketplaceCategoryController@flat');
