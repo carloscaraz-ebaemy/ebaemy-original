@@ -256,7 +256,14 @@ class FalabellaService
     public function getCategoryAttributes(string $primaryCategory): array
     {
         $result = $this->call('GetCategoryAttributes', ['PrimaryCategory' => $primaryCategory]);
-        $attrs = data_get($result, 'Attributes.Attribute', []);
+
+        // Saga devuelve los atributos en la RAIZ como `Attribute`, no anidados
+        // bajo `Attributes.Attribute`. Con la ruta anidada esto devolvia SIEMPRE
+        // un array vacio: ninguna categoria parecia exigir atributos, la cache
+        // quedaba vacia y los productos se enviaban sin los obligatorios (que es
+        // lo que despues rechaza el control de calidad de Saga).
+        $attrs = data_get($result, 'Attributes.Attribute', null)
+              ?? data_get($result, 'Attribute', []);
         if (isset($attrs['Name']) || isset($attrs['Label'])) {
             $attrs = [$attrs];
         }
