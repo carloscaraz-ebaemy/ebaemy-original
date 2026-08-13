@@ -54,7 +54,6 @@
             @if($shipment->created_at)<div class="hdr-date">Registrado: {{ $shipment->created_at->format('d/m/Y H:i') }}</div>@endif
         </div>
     </div>
-    </div>
 
     {{-- Tipo de entrega --}}
     <div style="text-align:center;margin:2px 0 6px;">
