@@ -1195,7 +1195,17 @@ class FalabellaService
 
             // Lo que hace falta para el comprobante
             'document'       => $doc !== '' ? $doc : null,
-            'document_type'  => strlen($doc) === 11 ? '6' : (strlen($doc) === 8 ? '1' : null),
+            // Catalogo 06 de SUNAT: 1=DNI, 6=RUC, 4=Carnet de extranjeria.
+            // Saga vende a extranjeros y esos documentos no son de 8 digitos
+            // (visto: 006076365); sin tipo la boleta no se puede emitir a su
+            // nombre. Longitud desconocida => se deja nulo y lo decide quien
+            // emite, en vez de arriesgar un tipo equivocado.
+            'document_type'  => match (true) {
+                strlen($doc) === 8  => '1',
+                strlen($doc) === 11 => '6',
+                strlen($doc) >= 9   => '4',
+                default             => null,
+            },
             'invoice_required' => $pidioFactura,
             'legal_name'     => ($extra['ReceiverLegalName'] ?? '') ?: null,
 
