@@ -686,6 +686,9 @@ if ($hostname) {
             Route::put('shipping-zones/{id}',         'Tenant\ShippingZoneController@update');
             Route::delete('shipping-zones/{id}',      'Tenant\ShippingZoneController@destroy');
 
+            // Panel de pedidos del canal externo (pantalla del operador).
+            Route::get('marketplace/pedidos', 'Tenant\MarketplaceController@ordersPanel')->name('tenant.saga.orders_panel');
+
             // ── Panel de canales externos (Saga Falabella) ─────────────────
             // Todo este backend existia desde junio SIN RUTAS: por eso no se
             // podian facturar los pedidos ni corregir los productos en error.

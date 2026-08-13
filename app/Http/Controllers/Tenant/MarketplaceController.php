@@ -28,6 +28,56 @@ class MarketplaceController extends Controller
         return view('ecommerce::configuration.marketplace');
     }
 
+    /**
+     * Panel de pedidos del canal externo (Saga Falabella).
+     *
+     * Existia todo el backend de facturacion sin una pantalla desde donde
+     * usarlo. Se hace en Blade y no en Vue a proposito: no obliga a
+     * recompilar el bundle para desplegarlo.
+     */
+    public function ordersPanel(Request $request)
+    {
+        $channel = MarketplaceChannel::where('platform', 'falabella')
+                                     ->where('status', 'active')->first();
+
+        if (!$channel) {
+            return view('tenant.marketplace_orders.index', [
+                'channel' => null, 'orders' => collect(), 'metrics' => [], 'filter' => 'todos', 'q' => '',
+            ]);
+        }
+
+        $q      = trim((string) $request->input('q', ''));
+        $filter = $request->input('filter', 'todos');
+
+        $base = fn () => MarketplaceOrder::where('channel_id', $channel->id);
+
+        // "Facturado" = emitido desde EBAEMY. Lo marcado como externo se
+        // cuenta aparte: no es lo mismo tener el comprobante en el sistema
+        // que asumir que alguien lo hizo por fuera.
+        $metrics = [
+            'todos'     => $base()->count(),
+            'sin_doc'   => $base()->whereNull('document_id')->whereNull('invoice_uploaded_at')->count(),
+            'emitidos'  => $base()->whereNotNull('document_id')->count(),
+            'externos'  => $base()->whereNull('document_id')->whereNotNull('invoice_uploaded_at')->count(),
+        ];
+
+        $orders = $base()
+            ->when($filter === 'sin_doc',  fn ($x) => $x->whereNull('document_id')->whereNull('invoice_uploaded_at'))
+            ->when($filter === 'emitidos', fn ($x) => $x->whereNotNull('document_id'))
+            ->when($filter === 'externos', fn ($x) => $x->whereNull('document_id')->whereNotNull('invoice_uploaded_at'))
+            ->when($q !== '', function ($x) use ($q) {
+                $x->where(function ($w) use ($q) {
+                    $w->where('external_order_id', 'like', "%{$q}%")
+                      ->orWhere('customer_data', 'like', "%{$q}%");
+                });
+            })
+            ->orderByDesc('ordered_at')
+            ->paginate(30)
+            ->withQueryString();
+
+        return view('tenant.marketplace_orders.index', compact('channel', 'orders', 'metrics', 'filter', 'q'));
+    }
+
     public function productsByChannel()
     {
         return view('ecommerce::configuration.marketplace_products');
