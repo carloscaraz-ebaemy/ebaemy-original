@@ -1417,8 +1417,14 @@
 <div class="modal fade" id="modalEditar" tabindex="-1">
   <div class="modal-dialog modal-dialog-centered modal-lg">
     <div class="modal-content">
-      <form method="POST" action="#" id="formEditar">
+      {{-- El ID viaja DENTRO del formulario y la accion es fija.
+           Antes era action="#" y dependia de que el JS le pusiera la URL
+           con el id: cuando eso fallaba, el POST caia en la ruta de ALTA
+           y se creaba un envio nuevo en vez de actualizar (quedaban el
+           viejo y el nuevo). --}}
+      <form method="POST" action="{{ route('shipments.update_self') }}" id="formEditar">
         @csrf
+        <input type="hidden" name="shipment_id" id="ed_shipment_id">
         <div class="modal-header bg-light">
           <h5 class="modal-title"><i class="fas fa-pen text-primary me-2"></i>Editar envío <span id="edCode" class="text-muted small ms-1"></span></h5>
           <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
@@ -1853,8 +1859,9 @@
         var btn = ev.target.closest('.js-edit-shipment');
         if (!btn) return;
         var id = btn.getAttribute('data-id');
-        var form = document.getElementById('formEditar');
-        if (form) form.setAttribute('action', '{{ url("registro-envio") }}/' + id + '/editar');
+        // La accion del form es fija; aca solo viaja el id del registro.
+        var idEl = document.getElementById('ed_shipment_id');
+        if (idEl) idEl.value = id;
         var get = function (k) { return btn.getAttribute('data-' + k) || ''; };
         ['full_name','dni','document_type','phone','shipping_destination','reference','shipping_agency','package_content','package_count','weight','notes',
          'delivery_price','latitude','longitude','formatted_address','google_place_id','google_maps_url','destination_city','distance_km','distance_text','duration_text'].forEach(function (f) {

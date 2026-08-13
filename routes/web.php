@@ -194,6 +194,13 @@ if ($hostname) {
                      ->name('shipments.upload_guide');
                 Route::post('{shipment}/editar', [\App\Http\Controllers\Tenant\ShipmentController::class, 'update'])
                      ->name('shipments.update');
+                // Edicion que lleva el ID EN EL CUERPO. Existe porque el form
+                // del modal tenia action="#": si el JS no alcanzaba a fijar la
+                // URL, el POST caia en `store()` y CREABA un envio nuevo en vez
+                // de actualizar (quedaban el viejo y el nuevo). Con esta ruta el
+                // formulario ya no puede terminar en el alta ni por accidente.
+                Route::post('editar', [\App\Http\Controllers\Tenant\ShipmentController::class, 'updateSelf'])
+                     ->name('shipments.update_self');
                 Route::post('{shipment}/anular', [\App\Http\Controllers\Tenant\ShipmentController::class, 'cancel'])
                      ->name('shipments.cancel');
                 Route::post('{shipment}/restaurar', [\App\Http\Controllers\Tenant\ShipmentController::class, 'restore'])

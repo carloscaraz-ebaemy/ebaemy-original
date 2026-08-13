@@ -425,6 +425,28 @@ class ShipmentController extends Controller
     /** Alta manual desde el panel (el encargado registra un envío). */
     public function store(Request $request): RedirectResponse
     {
+        // ── Un envío NO se duplica al editarlo ────────────────────────────
+        // Si el formulario trae un ID, es una EDICIÓN aunque haya llegado a
+        // esta ruta: se actualiza ese registro. El dato del cliente (DNI,
+        // nombre, teléfono) es editable y jamás identifica al envío; el
+        // identificador es el id, y no cambia en toda su vida.
+        if ($id = $request->input('shipment_id')) {
+            $existente = ShippingRequest::find($id);
+            if ($existente) {
+                return $this->update($request, $existente);
+            }
+        }
+
+        // Un pedido no puede tener dos envíos vigentes: si ya tiene uno sin
+        // anular, esto es un realta accidental y se actualiza el que existe.
+        if ($orderId = $request->input('order_id')) {
+            $delPedido = ShippingRequest::where('order_id', $orderId)
+                                        ->whereNull('cancelled_at')->first();
+            if ($delPedido) {
+                return $this->update($request, $delPedido);
+            }
+        }
+
         $data = $this->validateShipment($request);
         $data['status']     = ShippingRequest::STATUS_RECIBIDO;
         $data['created_by'] = auth()->id();
@@ -766,6 +788,29 @@ class ShipmentController extends Controller
     }
 
     /** Editar los datos de un envío (mismo set de reglas que el alta). */
+    /**
+     * Edición tomando el ID del CUERPO del formulario.
+     *
+     * El modal de edición tenía `action="#"` y dependía de que un JS le
+     * pusiera la URL con el id. Cuando eso no ocurría, el POST caía en
+     * `store()` y nacía un envío nuevo: quedaban el viejo con el dato viejo y
+     * el nuevo con el corregido. Ahora el id viaja en el formulario.
+     */
+    public function updateSelf(Request $request): RedirectResponse
+    {
+        $id = $request->input('shipment_id');
+
+        $shipment = $id ? ShippingRequest::find($id) : null;
+
+        if (!$shipment) {
+            return back()->with('error',
+                'No se pudo identificar el envío que estabas editando. '
+                . 'Vuelve a abrirlo desde la tabla y guarda de nuevo.');
+        }
+
+        return $this->update($request, $shipment);
+    }
+
     public function update(Request $request, ShippingRequest $shipment): RedirectResponse
     {
         $data = $this->validateShipment($request);
@@ -774,23 +819,55 @@ class ShipmentController extends Controller
         // cascada, bloqueo por lote y auditoría (changeModality).
         unset($data['delivery_type']);
 
-        $dirty = collect($data)->filter(fn ($v, $k) => (string) $shipment->{$k} !== (string) $v)->keys();
+        // Se capturan los valores ANTES de guardar: la auditoría tiene que
+        // poder responder "el DNI decía X y ahora dice Y", no solo "se tocó
+        // el DNI". Es el historial que reemplaza al registro duplicado.
+        $cambios = [];
+        foreach ($data as $campo => $nuevo) {
+            $anterior = $shipment->{$campo};
+            if ((string) $anterior !== (string) $nuevo) {
+                $cambios[$campo] = [$anterior, $nuevo];
+            }
+        }
+
+        $yaImpreso = (int) $shipment->print_count > 0;
 
         $shipment->update($data);
 
-        if ($dirty->isNotEmpty()) {
+        // Una fila de bitácora POR CAMPO: agrupadas en un texto no se puede
+        // consultar después cuál valor tenía antes.
+        foreach ($cambios as $campo => [$anterior, $nuevo]) {
             ShippingAuditLog::log(
                 ShippingAuditLog::ACTION_EDIT,
                 $shipment->id,
-                null,
-                null,
-                null,
-                'Campos editados: ' . $dirty->implode(', '),
+                $campo,
+                $anterior,
+                $nuevo,
+                'Edición del registro',
                 $shipment->print_batch_id
             );
         }
 
-        return back()->with('success', "Envío {$shipment->shipment_code} actualizado.");
+        if (empty($cambios)) {
+            return back()->with('success', "Envío {$shipment->shipment_code} sin cambios.");
+        }
+
+        $msg = "Envío {$shipment->shipment_code} actualizado.";
+
+        // Datos que salen impresos en el rótulo: si cambian después de
+        // imprimir, el papel pegado en el paquete quedó desactualizado.
+        $enElRotulo = array_intersect(array_keys($cambios), [
+            'full_name', 'dni', 'phone', 'shipping_destination', 'reference',
+            'destination_city', 'shipping_agency', 'package_content',
+            'package_count', 'weight', 'district_id', 'province_id', 'department_id',
+        ]);
+
+        if ($yaImpreso && $enElRotulo) {
+            $msg .= ' ⚠️ Este rótulo ya se imprimió: los cambios requieren una '
+                  . 'nueva impresión. El historial de impresión se conserva.';
+        }
+
+        return back()->with('success', $msg);
     }
 
     /** Editar manualmente el precio del envío (el encargado ajusta la estimación). */
