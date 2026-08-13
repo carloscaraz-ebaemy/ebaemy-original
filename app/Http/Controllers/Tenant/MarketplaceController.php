@@ -29,6 +29,156 @@ class MarketplaceController extends Controller
     }
 
     /**
+     * Peso y medidas del paquete — el dato que frena mas publicaciones.
+     *
+     * Saga exige package_weight/length/width/height como obligatorios en toda
+     * categoria. Los campos ya existen en items y el payload ya sabe
+     * enviarlos: lo que falta es cargarlos. Son cientos de productos, asi que
+     * hay edicion en linea Y carga por CSV.
+     */
+    public function sagaDimensionsPanel(Request $request)
+    {
+        $soloFaltan = !$request->has('todos');
+
+        $items = Item::query()
+            ->when($soloFaltan, function ($q) {
+                // "Falta" = cualquiera de los cuatro sin valor. Saga los pide
+                // todos, asi que tener solo el peso no sirve de nada.
+                $q->where(function ($w) {
+                    foreach (['weight', 'length', 'width', 'height'] as $c) {
+                        $w->orWhereNull($c)->orWhere($c, '<=', 0);
+                    }
+                });
+            })
+            ->when($request->filled('q'), function ($q) use ($request) {
+                $t = trim($request->input('q'));
+                $q->where(function ($w) use ($t) {
+                    $w->where('description', 'like', "%{$t}%")
+                      ->orWhere('internal_id', 'like', "%{$t}%");
+                });
+            })
+            ->orderBy('description')
+            ->paginate(50)
+            ->withQueryString();
+
+        $completos = Item::where('weight', '>', 0)->where('length', '>', 0)
+                         ->where('width', '>', 0)->where('height', '>', 0)->count();
+
+        return view('tenant.marketplace_orders.dimensions', [
+            'items'      => $items,
+            'total'      => Item::count(),
+            'completos'  => $completos,
+            'soloFaltan' => $soloFaltan,
+            'q'          => $request->input('q', ''),
+        ]);
+    }
+
+    /** Guarda peso y medidas de un producto (edicion en linea). */
+    public function saveItemDimensions(Request $request)
+    {
+        $data = $request->validate([
+            'item_id' => 'required|integer',
+            'weight'  => 'nullable|numeric|min:0|max:9999',
+            'length'  => 'nullable|numeric|min:0|max:9999',
+            'width'   => 'nullable|numeric|min:0|max:9999',
+            'height'  => 'nullable|numeric|min:0|max:9999',
+        ]);
+
+        $item = Item::find($data['item_id']);
+        if (!$item) {
+            return response()->json(['error' => 'Producto no encontrado'], 404);
+        }
+
+        $item->update([
+            'weight' => $data['weight'] ?: null,
+            'length' => $data['length'] ?: null,
+            'width'  => $data['width']  ?: null,
+            'height' => $data['height'] ?: null,
+        ]);
+
+        $completo = $item->weight > 0 && $item->length > 0 && $item->width > 0 && $item->height > 0;
+
+        return response()->json(['success' => true, 'complete' => $completo]);
+    }
+
+    /** Exporta el CSV para llenar peso y medidas fuera del sistema. */
+    public function exportDimensions(Request $request)
+    {
+        $items = Item::orderBy('description')->get(['id', 'internal_id', 'description', 'weight', 'length', 'width', 'height']);
+
+        return response()->streamDownload(function () use ($items) {
+            $out = fopen('php://output', 'w');
+            // BOM real (3 bytes) para que Excel respete los acentos. Escrito
+            // con chr() y no con la secuencia literal: al pegarla como texto
+            // quedaban 6 bytes y Excel mostraba "ï»¿" en la primera celda.
+            fwrite($out, chr(0xEF) . chr(0xBB) . chr(0xBF));
+            fputcsv($out, ['id', 'codigo', 'producto', 'peso_kg', 'largo_cm', 'ancho_cm', 'alto_cm'], ';');
+            foreach ($items as $i) {
+                fputcsv($out, [$i->id, $i->internal_id, $i->description,
+                               $i->weight, $i->length, $i->width, $i->height], ';');
+            }
+            fclose($out);
+        }, 'peso-y-medidas.csv', ['Content-Type' => 'text/csv; charset=UTF-8']);
+    }
+
+    /**
+     * Importa el CSV. La columna `id` manda: el codigo puede repetirse o
+     * cambiar, el id no. Se informa fila por fila lo que no se pudo aplicar,
+     * en vez de fallar entero.
+     */
+    public function importDimensions(Request $request)
+    {
+        $request->validate(['archivo' => 'required|file|mimes:csv,txt|max:5120']);
+
+        $ruta = $request->file('archivo')->getRealPath();
+        $fh = fopen($ruta, 'r');
+        if (!$fh) {
+            return back()->with('error', 'No se pudo leer el archivo.');
+        }
+
+        $cabecera = fgetcsv($fh, 0, ';');
+        // Excel a veces guarda con coma: si la cabecera no se partio, reintentar.
+        $sep = (is_array($cabecera) && count($cabecera) > 1) ? ';' : ',';
+        if ($sep === ',') {
+            rewind($fh);
+            $cabecera = fgetcsv($fh, 0, ',');
+        }
+
+        $aplicados = 0; $saltados = 0; $avisos = [];
+
+        while (($fila = fgetcsv($fh, 0, $sep)) !== false) {
+            $id = (int) ($fila[0] ?? 0);
+            if ($id <= 0) { $saltados++; continue; }
+
+            $item = Item::find($id);
+            if (!$item) {
+                $saltados++;
+                if (count($avisos) < 5) $avisos[] = "id {$id}: no existe";
+                continue;
+            }
+
+            $num = function ($v) {
+                $v = str_replace(',', '.', trim((string) $v));   // 1,5 → 1.5
+                return is_numeric($v) && (float) $v > 0 ? (float) $v : null;
+            };
+
+            $item->update([
+                'weight' => $num($fila[3] ?? null),
+                'length' => $num($fila[4] ?? null),
+                'width'  => $num($fila[5] ?? null),
+                'height' => $num($fila[6] ?? null),
+            ]);
+            $aplicados++;
+        }
+        fclose($fh);
+
+        $msg = "Actualizados: {$aplicados}." . ($saltados ? " Sin aplicar: {$saltados}." : '');
+        if ($avisos) $msg .= ' ' . implode(' · ', $avisos);
+
+        return back()->with($aplicados ? 'success' : 'error', $msg);
+    }
+
+    /**
      * Pantalla de homologacion de categorias ERP → Saga.
      *
      * Saga no acepta el nombre de la categoria interna: exige el ID de su

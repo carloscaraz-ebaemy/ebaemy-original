@@ -686,6 +686,12 @@ if ($hostname) {
             Route::put('shipping-zones/{id}',         'Tenant\ShippingZoneController@update');
             Route::delete('shipping-zones/{id}',      'Tenant\ShippingZoneController@destroy');
 
+            // Peso y medidas: el dato que frena mas publicaciones en Saga.
+            Route::get('marketplace/peso-medidas',        'Tenant\MarketplaceController@sagaDimensionsPanel')->name('tenant.saga.dimensions_panel');
+            Route::post('marketplace/peso-medidas',       'Tenant\MarketplaceController@saveItemDimensions')->name('tenant.saga.dimensions_save');
+            Route::get('marketplace/peso-medidas/csv',    'Tenant\MarketplaceController@exportDimensions')->name('tenant.saga.dimensions_export');
+            Route::post('marketplace/peso-medidas/csv',   'Tenant\MarketplaceController@importDimensions')->name('tenant.saga.dimensions_import');
+
             // Pantalla de homologacion de categorias (destraba los productos
             // rechazados con "Categoria X sin homologar").
             Route::get('marketplace/categorias-saga', 'Tenant\MarketplaceController@sagaCategoriesPanel')->name('tenant.saga.categories_panel');
