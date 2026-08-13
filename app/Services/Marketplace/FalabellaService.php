@@ -702,11 +702,7 @@ class FalabellaService
                         'channel_id' => $this->channel->id,
                         'external_order_id' => $externalId,
                         'status' => 'pending',
-                        'customer_data' => [
-                            'name' => $orderData['CustomerFirstName'] . ' ' . ($orderData['CustomerLastName'] ?? ''),
-                            'email' => $orderData['CustomerEmail'] ?? null,
-                            'phone' => $orderData['CustomerPhone'] ?? null,
-                        ],
+                        'customer_data' => $this->buildCustomerData($orderData),
                         'items_data' => $orderItems,
                         'shipping_data' => [
                             'address' => $orderData['ShippingAddress'] ?? null,
@@ -1149,6 +1145,71 @@ class FalabellaService
      * duplicada cuando el pedido ya fue facturado en otro sistema.
      * Tolerante con el nombre del campo (InvoiceNumber / InvoiceDocumentLink).
      */
+    /**
+     * Datos del comprador para emitir el comprobante.
+     *
+     * Antes solo se guardaba nombre/email/telefono y el DNI se perdia, asi que
+     * las boletas salian sin identificar al cliente. Saga SI lo manda:
+     *   - NationalRegistrationNumber → DNI (8) o RUC (11) del comprador.
+     *   - InvoiceRequired            → true cuando pidio FACTURA.
+     *   - ExtraBillingAttributes     → LegalId (RUC) y razon social cuando la pidio.
+     *   - AddressBilling             → direccion fiscal + ubigeo (PostCode).
+     */
+    /**
+     * Trae la orden cruda desde Saga (GetOrder). Se usa para completar los
+     * pedidos viejos, que se guardaron sin el documento del comprador.
+     */
+    public function fetchRawOrder(string $externalOrderId): ?array
+    {
+        $res = $this->call('GetOrder', ['OrderId' => $externalOrderId]);
+
+        $o = $res['Orders']['Order'] ?? $res['Order'] ?? null;
+
+        // Con un solo resultado la API devuelve el objeto suelto.
+        if (is_array($o) && isset($o[0])) {
+            $o = $o[0];
+        }
+
+        return is_array($o) ? $o : null;
+    }
+
+    public function buildCustomerData(array $o): array
+    {
+        $billing = is_array($o['AddressBilling'] ?? null) ? $o['AddressBilling'] : [];
+        $extra   = is_array($o['ExtraBillingAttributes'] ?? null) ? $o['ExtraBillingAttributes'] : [];
+
+        $nombre = trim(($o['CustomerFirstName'] ?? '') . ' ' . ($o['CustomerLastName'] ?? ''));
+
+        // Documento: manda el LegalId de facturacion si el comprador pidio
+        // factura; si no, el registro nacional (que en Peru es el DNI).
+        $doc = preg_replace('/\D+/', '', (string) (
+            ($extra['LegalId'] ?? '') ?: ($o['NationalRegistrationNumber'] ?? '')
+        ));
+
+        $pidioFactura = filter_var($o['InvoiceRequired'] ?? false, FILTER_VALIDATE_BOOLEAN);
+
+        return [
+            'name'  => $nombre !== '' ? $nombre : 'Cliente',
+            'email' => ($o['CustomerEmail'] ?? null) ?: ($billing['CustomerEmail'] ?? null) ?: null,
+            'phone' => ($o['CustomerPhone'] ?? null) ?: ($billing['Phone'] ?? null) ?: null,
+
+            // Lo que hace falta para el comprobante
+            'document'       => $doc !== '' ? $doc : null,
+            'document_type'  => strlen($doc) === 11 ? '6' : (strlen($doc) === 8 ? '1' : null),
+            'invoice_required' => $pidioFactura,
+            'legal_name'     => ($extra['ReceiverLegalName'] ?? '') ?: null,
+
+            'billing' => array_filter([
+                'address'  => trim(($billing['Address1'] ?? '') . ' ' . ($billing['Address2'] ?? '')) ?: null,
+                'district' => $billing['Ward'] ?? null,
+                'province' => $billing['City'] ?? null,
+                'region'   => $billing['Region'] ?? null,
+                'postcode' => $billing['PostCode'] ?? null,   // ubigeo de 6 digitos
+                'country'  => $billing['Country'] ?? 'PE',
+            ], fn ($v) => $v !== null && $v !== ''),
+        ];
+    }
+
     public function getOrderInvoiceNumber(string $externalOrderId): ?string
     {
         $items = $this->getOrderItems($externalOrderId);
