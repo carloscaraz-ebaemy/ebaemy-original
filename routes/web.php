@@ -686,6 +686,10 @@ if ($hostname) {
             Route::put('shipping-zones/{id}',         'Tenant\ShippingZoneController@update');
             Route::delete('shipping-zones/{id}',      'Tenant\ShippingZoneController@destroy');
 
+            // Pantalla de homologacion de categorias (destraba los productos
+            // rechazados con "Categoria X sin homologar").
+            Route::get('marketplace/categorias-saga', 'Tenant\MarketplaceController@sagaCategoriesPanel')->name('tenant.saga.categories_panel');
+
             // Panel de pedidos del canal externo (pantalla del operador).
             Route::get('marketplace/pedidos', 'Tenant\MarketplaceController@ordersPanel')->name('tenant.saga.orders_panel');
 

@@ -29,6 +29,57 @@ class MarketplaceController extends Controller
     }
 
     /**
+     * Pantalla de homologacion de categorias ERP → Saga.
+     *
+     * Saga no acepta el nombre de la categoria interna: exige el ID de su
+     * propio arbol. Sin homologar, el producto se rechaza con "Categoria X
+     * sin homologar" y no hay forma de publicarlo. El backend existia; esta
+     * es la pantalla que faltaba.
+     */
+    public function sagaCategoriesPanel()
+    {
+        $channel = MarketplaceChannel::where('platform', 'falabella')
+                                     ->where('status', 'active')->first();
+
+        if (!$channel) {
+            return view('tenant.marketplace_orders.categories', [
+                'channel' => null, 'rows' => collect(), 'pendientes' => collect(), 'mapped' => 0,
+            ]);
+        }
+
+        $maps = SagaCategoryMap::where('channel_id', $channel->id)->get()->keyBy('category_id');
+
+        $rows = Category::orderBy('name')->get(['id', 'name'])->map(function ($c) use ($maps) {
+            $m = $maps->get($c->id);
+            return (object) [
+                'category_id' => $c->id,
+                'name'        => $c->name,
+                'saga_id'     => $m->saga_category_id ?? null,
+                'saga_name'   => $m->saga_category_name ?? null,
+                'saga_path'   => $m->saga_category_path ?? null,
+            ];
+        });
+
+        // Las categorias que estan frenando productos van primero: son las que
+        // de verdad urge homologar, y sin esto se pierden entre las demas.
+        $pendientes = MarketplaceProduct::where('channel_id', $channel->id)
+            ->where('sync_status', 'error')
+            ->pluck('last_error')
+            ->map(function ($e) {
+                preg_match('/Categor[ií]a "([^"]+)"/u', (string) $e, $m);
+                return $m[1] ?? null;
+            })
+            ->filter()->countBy()->sortDesc();
+
+        return view('tenant.marketplace_orders.categories', [
+            'channel'    => $channel,
+            'rows'       => $rows,
+            'pendientes' => $pendientes,
+            'mapped'     => $maps->count(),
+        ]);
+    }
+
+    /**
      * Panel de pedidos del canal externo (Saga Falabella).
      *
      * Existia todo el backend de facturacion sin una pantalla desde donde
