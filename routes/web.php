@@ -686,6 +686,9 @@ if ($hostname) {
             Route::put('shipping-zones/{id}',         'Tenant\ShippingZoneController@update');
             Route::delete('shipping-zones/{id}',      'Tenant\ShippingZoneController@destroy');
 
+            // Atributos obligatorios por producto (varian por categoria).
+            Route::get('marketplace/atributos-saga', 'Tenant\MarketplaceController@sagaAttributesPanel')->name('tenant.saga.attributes_panel');
+
             // Peso y medidas: el dato que frena mas publicaciones en Saga.
             Route::get('marketplace/peso-medidas',        'Tenant\MarketplaceController@sagaDimensionsPanel')->name('tenant.saga.dimensions_panel');
             Route::post('marketplace/peso-medidas',       'Tenant\MarketplaceController@saveItemDimensions')->name('tenant.saga.dimensions_save');

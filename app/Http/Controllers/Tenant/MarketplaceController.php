@@ -29,6 +29,75 @@ class MarketplaceController extends Controller
     }
 
     /**
+     * Atributos obligatorios por producto (Registro sanitario, Cantidad neta,
+     * Condicion, etc.).
+     *
+     * NO se agregan columnas a `items` para esto: son atributos que solo le
+     * importan a Saga, cambian POR CATEGORIA y algunos tienen lista cerrada de
+     * valores. Viven en marketplace_products.attributes, que es donde el
+     * editor y el constructor del payload ya los buscan.
+     */
+    public function sagaAttributesPanel(Request $request)
+    {
+        $channel = MarketplaceChannel::where('platform', 'falabella')
+                                     ->where('status', 'active')->first();
+
+        if (!$channel) {
+            return view('tenant.marketplace_orders.attributes', [
+                'channel' => null, 'rows' => collect(), 'sinHomologar' => 0,
+            ]);
+        }
+
+        $maps = SagaCategoryMap::where('channel_id', $channel->id)->get()->keyBy('category_id');
+
+        $productos = MarketplaceProduct::where('channel_id', $channel->id)
+            ->where('sync_status', '!=', 'excluded')
+            ->with('item')
+            ->when($request->filled('q'), function ($q) use ($request) {
+                $t = trim($request->input('q'));
+                $q->whereHas('item', fn ($w) => $w->where('description', 'like', "%{$t}%")
+                                                  ->orWhere('internal_id', 'like', "%{$t}%"));
+            })
+            ->get();
+
+        $sinHomologar = 0;
+        $rows = collect();
+
+        foreach ($productos as $p) {
+            if (!$p->item) {
+                continue;   // mapeo huerfano: el item se borro
+            }
+
+            $map = $maps->get($p->item->category_id);
+            if (!$map) {
+                $sinHomologar++;
+                continue;   // primero hay que homologar su categoria
+            }
+
+            $faltan = [];
+            try {
+                $faltan = (new \App\Services\Marketplace\SagaProductPayloadBuilder($channel, $p))
+                            ->missingMandatoryAttributes();
+            } catch (\Throwable $e) {
+                // Un producto raro no puede tumbar la pantalla entera.
+            }
+
+            $rows->push((object) [
+                'id'       => $p->id,
+                'nombre'   => $p->item->description,
+                'codigo'   => $p->item->internal_id,
+                'categoria'=> $map->saga_category_name ?: $map->saga_category_id,
+                'faltan'   => $faltan,
+            ]);
+        }
+
+        // Los que tienen faltantes primero: es lo unico accionable aqui.
+        $rows = $rows->sortByDesc(fn ($r) => count($r->faltan))->values();
+
+        return view('tenant.marketplace_orders.attributes', compact('channel', 'rows', 'sinHomologar'));
+    }
+
+    /**
      * Peso y medidas del paquete — el dato que frena mas publicaciones.
      *
      * Saga exige package_weight/length/width/height como obligatorios en toda
