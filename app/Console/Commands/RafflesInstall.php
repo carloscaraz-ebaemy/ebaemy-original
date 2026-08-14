@@ -34,6 +34,7 @@ class RafflesInstall extends Command
     private const MIGRATIONS_EXTRA = [
         '2026_07_26_000002_add_source_to_raffles_table',
         '2026_08_02_000001_create_raffle_prize_options',
+        '2026_08_14_000001_add_historical_mode_to_raffles',
     ];
 
     /**
@@ -47,7 +48,8 @@ class RafflesInstall extends Command
     private const TABLES = ['raffles', 'raffle_participants', 'raffle_winners'];
 
     /** Columnas añadidas después del create original (origen enchufable). */
-    private const NEW_COLUMNS = ['source', 'source_filters', 'participants_confirmed_at'];
+    private const NEW_COLUMNS = ['source', 'source_filters', 'participants_confirmed_at',
+                                 'eligibility_mode', 'exclude_past_winners'];
 
     public function handle(): int
     {
@@ -271,6 +273,13 @@ class RafflesInstall extends Command
             }
             if (in_array('participants_confirmed_at', $missing, true)) {
                 $table->dateTime('participants_confirmed_at')->nullable()->after('status');
+            }
+            // Campañas históricas + exclusión de ganadores previos (2026-08-14).
+            if (in_array('eligibility_mode', $missing, true)) {
+                $table->string('eligibility_mode', 20)->default('consent')->after('status');
+            }
+            if (in_array('exclude_past_winners', $missing, true)) {
+                $table->boolean('exclude_past_winners')->default(true)->after('status');
             }
         });
 

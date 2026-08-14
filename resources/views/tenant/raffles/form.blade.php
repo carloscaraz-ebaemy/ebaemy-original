@@ -74,6 +74,51 @@
                                 </select>
                                 <div class="rf-note">En <strong>Borrador</strong> los enlaces no aceptan participaciones. Ponlo en <strong>Activo</strong> para abrir el sorteo.</div>
                             </div>
+
+                            {{-- ── Quien puede salir sorteado ─────────────────
+                                 Las campañas de meses anteriores no pueden exigir
+                                 la aceptación: cuando ocurrieron esas compras el
+                                 sistema todavia no la pedia. La salida NO es
+                                 marcar el consentimiento a mano —seria inventar
+                                 uno que el cliente nunca dio— sino declarar que
+                                 la campaña usa criterios del negocio. --}}
+                            @php $modoElig = old('eligibility_mode', $raffle->eligibility_mode ?: \App\Models\Tenant\Raffle::ELIG_CONSENT); @endphp
+                            <div class="rf-field">
+                                <label>¿Quién entra al sorteo?</label>
+
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="eligibility_mode" id="elig_consent"
+                                           value="{{ \App\Models\Tenant\Raffle::ELIG_CONSENT }}"
+                                           @checked($modoElig === \App\Models\Tenant\Raffle::ELIG_CONSENT)>
+                                    <label class="form-check-label" for="elig_consent">
+                                        Solo quienes <strong>aceptaron</strong> desde su enlace
+                                        <small class="d-block text-muted">Lo normal. El cliente da su consentimiento expreso.</small>
+                                    </label>
+                                </div>
+
+                                <div class="form-check mt-1">
+                                    <input class="form-check-input" type="radio" name="eligibility_mode" id="elig_hist"
+                                           value="{{ \App\Models\Tenant\Raffle::ELIG_HISTORICAL }}"
+                                           @checked($modoElig === \App\Models\Tenant\Raffle::ELIG_HISTORICAL)>
+                                    <label class="form-check-label" for="elig_hist">
+                                        <strong>Campaña histórica</strong>: por criterios del negocio
+                                        <small class="d-block text-muted">Para meses en que el sistema aún no pedía la aceptación.
+                                        Entran los que cumplen los filtros del origen (pago confirmado, despacho, período).
+                                        No se modifica el consentimiento de nadie.</small>
+                                    </label>
+                                </div>
+                            </div>
+
+                            <div class="rf-field">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" name="exclude_past_winners" value="1"
+                                           id="rf_excl" @checked(old('exclude_past_winners', $raffle->exists ? $raffle->exclude_past_winners : true))>
+                                    <label class="form-check-label" for="rf_excl">
+                                        Excluir a quienes <strong>ya ganaron</strong> otro sorteo
+                                        <small class="d-block text-muted">Recomendado: reparte los premios entre más clientes.</small>
+                                    </label>
+                                </div>
+                            </div>
                         </div>
 
                         <div class="rf-section">

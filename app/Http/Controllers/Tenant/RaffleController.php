@@ -372,16 +372,42 @@ class RaffleController extends Controller
         $take = max(1, min($take, $remaining));
 
         $result = DB::connection('tenant')->transaction(function () use ($raffle, $take) {
-            $pool = $raffle->participants()
-                           ->accepted()
-                           ->where('is_winner', false)
-                           ->lockForUpdate()
-                           // prize_option_id va en el select o la relación se
-                           // carga vacía y el ganador perdería su elección.
-                           ->get(['id', 'full_name', 'document', 'prize_option_id']);
+            $q = $raffle->participants()->where('is_winner', false);
+
+            // En una campaña histórica no se puede exigir la aceptación: cuando
+            // ocurrieron esas compras el sistema no la pedía. Se sortea entre
+            // quienes cumplen los criterios del negocio.
+            if ($raffle->requiresAcceptance()) {
+                $q->accepted();
+            }
+
+            // Un cliente que ya gano otro sorteo no vuelve a entrar, salvo que
+            // el administrador lo habilite en la campaña.
+            if ($raffle->exclude_past_winners) {
+                $ganadores = DB::connection('tenant')->table('raffle_participants')
+                    ->where('is_winner', true)
+                    ->where('raffle_id', '!=', $raffle->id)
+                    ->whereNotNull('document')
+                    ->where('document', '!=', '')
+                    ->pluck('document')
+                    ->unique()->all();
+
+                if ($ganadores) {
+                    $q->where(function ($w) use ($ganadores) {
+                        $w->whereNull('document')->orWhereNotIn('document', $ganadores);
+                    });
+                }
+            }
+
+            $pool = $q->lockForUpdate()
+                      // prize_option_id va en el select o la relación se
+                      // carga vacía y el ganador perdería su elección.
+                      ->get(['id', 'full_name', 'document', 'prize_option_id']);
 
             if ($pool->isEmpty()) {
-                return ['ok' => false, 'message' => 'No hay participantes que hayan aceptado y estén disponibles.'];
+                return ['ok' => false, 'message' => $raffle->requiresAcceptance()
+                    ? 'No hay participantes que hayan aceptado y estén disponibles.'
+                    : 'No existen clientes elegibles para este sorteo con los criterios seleccionados.'];
             }
 
             $take   = min($take, $pool->count());
@@ -777,6 +803,8 @@ class RaffleController extends Controller
             'description'            => ['nullable', 'string', 'max:5000'],
             'terms'                  => ['nullable', 'string', 'max:20000'],
             'status'                 => ['required', Rule::in(array_keys(Raffle::STATUSES))],
+            'eligibility_mode'       => ['nullable', Rule::in([Raffle::ELIG_CONSENT, Raffle::ELIG_HISTORICAL])],
+            'exclude_past_winners'   => ['nullable'],
 
             'prize_name'             => ['nullable', 'string', 'max:160'],
             'prize_description'      => ['nullable', 'string', 'max:5000'],
@@ -868,6 +896,12 @@ class RaffleController extends Controller
 
     private function fillRaffle(Raffle $raffle, array $data, Request $request): void
     {
+        // Checkbox: ausente = false. Si no, desmarcarlo no guardaria nada.
+        $data['exclude_past_winners'] = $request->boolean('exclude_past_winners');
+        $data['eligibility_mode'] = in_array($request->input('eligibility_mode'), [Raffle::ELIG_CONSENT, Raffle::ELIG_HISTORICAL], true)
+            ? $request->input('eligibility_mode')
+            : Raffle::ELIG_CONSENT;
+
         $raffle->fill([
             'name'                   => $data['name'],
             'description'            => $data['description'] ?? null,

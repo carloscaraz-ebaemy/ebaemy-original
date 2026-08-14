@@ -43,6 +43,8 @@ class Raffle extends Model
         'status',
         'source',
         'source_filters',
+        'eligibility_mode',
+        'exclude_past_winners',
         'participants_confirmed_at',
         'starts_at',
         'registration_closes_at',
@@ -188,6 +190,58 @@ class Raffle extends Model
      *
      * Devuelve null sin reventar si el tenant todavía no tiene el módulo.
      */
+    // ── Modo de elegibilidad ───────────────────────────────────────────────
+
+    public const ELIG_CONSENT    = 'consent';
+    public const ELIG_HISTORICAL = 'historical';
+
+    /**
+     * ¿Hace falta que el participante haya aceptado?
+     *
+     * En las campañas históricas no: cuando ocurrieron esas compras el sistema
+     * todavía no pedía la aceptación, así que exigirla dejaria el sorteo vacio.
+     * Se sortea entre quienes cumplen los criterios del negocio y la campaña
+     * queda marcada como histórica — no se toca el consentimiento de nadie.
+     */
+    public function requiresAcceptance(): bool
+    {
+        return $this->eligibility_mode !== self::ELIG_HISTORICAL;
+    }
+
+    public function isHistorical(): bool
+    {
+        return $this->eligibility_mode === self::ELIG_HISTORICAL;
+    }
+
+    /** Criterios en texto, para que el admin pueda auditarlos antes de sortear. */
+    public function criteriaSummary(): array
+    {
+        $c = [];
+
+        if ($this->isHistorical()) {
+            $c[] = 'Campaña histórica: elegibilidad por criterios del negocio';
+        } else {
+            $c[] = 'El cliente aceptó participar desde su enlace';
+        }
+
+        if ($this->starts_at || $this->registration_closes_at) {
+            $c[] = 'Período: ' . (optional($this->starts_at)->format('d/m/Y') ?: '—')
+                 . ' a ' . (optional($this->registration_closes_at)->format('d/m/Y') ?: '—');
+        }
+
+        $f = is_array($this->source_filters) ? $this->source_filters : [];
+        if (!empty($f['paid']))      $c[] = 'Pago confirmado';
+        if (!empty($f['completed'])) $c[] = 'Pedido enviado o entregado';
+
+        $c[] = 'Un participante por cliente (sin duplicados)';
+
+        if ($this->exclude_past_winners) {
+            $c[] = 'Se excluye a quienes ya ganaron un sorteo';
+        }
+
+        return $c;
+    }
+
     public static function publicActive(): ?self
     {
         try {
