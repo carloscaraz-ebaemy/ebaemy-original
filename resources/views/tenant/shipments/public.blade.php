@@ -143,14 +143,35 @@
         /* Casilla ligera dentro del formulario (no es el bloque de términos). */
         .chk-inline { background:#f8fafc; border-color:var(--line); font-weight:600; font-size:13.5px; align-items:center; margin-top:14px; cursor:pointer; }
         .chk-inline input { margin-top:0; }
-        /* Aviso del recargo por reparto a domicilio de la agencia. Ambar y no
-           rojo: es una advertencia de costo, no un error del cliente. */
-        .ag-home-warn { display:flex; gap:9px; align-items:flex-start;
-            margin:12px 0 10px; padding:11px 13px; border-radius:12px;
-            background:#fffbeb; border:1px solid #fde68a; color:#78350f;
-            font-size:13px; line-height:1.45; }
-        .ag-home-warn__i { font-size:16px; line-height:1.2; flex:0 0 auto; }
-        .ag-home-warn__s { margin-top:3px; font-size:11.5px; color:#92400e; }
+        /* ── Resumen de costos del envio ───────────────────────────────
+           Una sola tarjeta con el recorrido del paquete. Reemplaza dos
+           recuadros de colores que competian entre si y repetian datos. */
+        .cost-box { margin:14px 0 4px; border:1px solid var(--line); border-radius:14px;
+            background:#fff; overflow:hidden; }
+        .cost-box__t { padding:10px 14px; background:#f8fafc; border-bottom:1px solid var(--line);
+            font-size:12.5px; font-weight:700; color:#0f172a; letter-spacing:.01em; }
+        .cost-row { display:flex; align-items:flex-start; gap:12px; padding:11px 14px;
+            border-bottom:1px solid #f1f5f9; }
+        .cost-row:last-child { border-bottom:0; }
+        .cost-row__l { flex:1; min-width:0; font-size:13px; color:#1e293b; line-height:1.4; }
+        .cost-row__l small { display:block; margin-top:2px; font-size:11.5px; color:#64748b;
+            line-height:1.45; font-weight:400; }
+        /* El monto no envuelve: es el dato que se busca de un vistazo. */
+        .cost-row__v { flex:0 0 auto; font-size:13.5px; font-weight:700; color:#0f172a;
+            white-space:nowrap; padding-top:1px; }
+        .cost-row__v.is-free { color:#15803d; }
+        .cost-row__v.is-soft { font-size:11.5px; font-weight:600; color:#64748b; }
+        .cost-row__v.is-warn { font-size:11.5px; font-weight:700; color:#b45309; }
+        /* El tramo a domicilio se destaca: es el unico que el cliente elige,
+           y el unico que puede evitar. */
+        .cost-row--extra { background:#fffbeb; }
+        .cost-row--extra .cost-row__l { color:#78350f; }
+        .cost-row--extra .cost-row__l small { color:#92400e; }
+
+        /* Recordatorio en el paso de confirmacion. */
+        .conf-warn { display:flex; gap:9px; align-items:flex-start; margin-top:10px;
+            padding:10px 12px; border-radius:10px; background:#fffbeb;
+            border:1px solid #fde68a; color:#78350f; font-size:12.5px; line-height:1.45; }
         .cond { font-size:12px; color:var(--muted); margin-top:12px; line-height:1.5; background:#f8fafc; border:1px solid var(--line); border-radius:12px; padding:12px 14px; }
         .cond strong { color:#334155; }
         .cond ul { margin:6px 0 0; padding-left:18px; }
@@ -424,41 +445,60 @@
                             <span>La agencia lleva el paquete hasta mi domicilio</span>
                         </label>
                         <div id="agHomeWrap" hidden>
-                            {{-- El reparto a domicilio SIEMPRE lo cobra la agencia
-                                 aparte, y mas caro que el recojo en oficina. No
-                                 ponemos monto: depende de la agencia, la ciudad y
-                                 el peso, y nosotros no lo cobramos ni lo fijamos.
-                                 Prometer una cifra que no controlamos termina en
-                                 reclamo contra la tienda. --}}
-                            <div class="ag-home-warn">
-                                <span class="ag-home-warn__i">🏠</span>
-                                <div>
-                                    Ten en cuenta: las agencias cobran <b>bastante más</b> por
-                                    llevarlo hasta tu domicilio que por dejarlo en su oficina
-                                    de provincia.
-                                    <div class="ag-home-warn__s">Ese cobro lo hace la agencia
-                                    al entregarte, y varía según la ciudad y el peso. Si quieres
-                                    pagar menos, desmarca esta opción y recógelo en su oficina.</div>
-                                </div>
-                            </div>
                             <label>Dirección de reparto</label>
                             <input type="text" name="shipping_destination" id="pub_addr_agencia" value="{{ old('shipping_destination') }}" maxlength="255" placeholder="Av./Jr./Calle y número">
                         </div>
 
-                        {{-- Gratis se anuncia en verde y con energia: es un
-                             beneficio, y callarlo hacia que el cliente asumiera
-                             que se lo cobrarian igual. --}}
-                        @if(!empty($agencyFree))
-                            <div style="margin-top:12px;padding:12px 14px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:12px;font-size:13.5px;color:#166534;">
-                                🎁 Servicio <b>tienda → agencia</b>: <b style="font-size:15px;">¡GRATIS!</b>
-                                <div style="font-size:11.5px;color:#15803d;margin-top:2px;">Nosotros llevamos tu paquete hasta la agencia sin costo. El flete de la agencia hasta tu ciudad se paga aparte, según la agencia.</div>
+                        {{-- ── Resumen de costos ────────────────────────────────
+                             Antes eran DOS recuadros sueltos: uno advertia del
+                             recargo a domicilio y otro informaba la tarifa
+                             tienda→agencia. Decian cosas que se pisaban ("el
+                             flete se paga aparte" en los dos) y el cliente tenia
+                             que armar el cuadro solo.
+
+                             Ahora es UNA tabla con el recorrido del paquete en
+                             orden, y en cada tramo QUIEN cobra. Esa es la
+                             confusion real: el cliente no distingue lo que nos
+                             paga a nosotros de lo que paga en la agencia. --}}
+                        @php
+                            $tramoTienda = !empty($agencyFree)
+                                ? 'GRATIS'
+                                : ((!empty($agencyShow) && !empty($agencyFee) && $agencyFee > 0)
+                                    ? 'S/ ' . number_format($agencyFee, 2)
+                                    : null);
+                        @endphp
+                        <div class="cost-box">
+                            <div class="cost-box__t">💰 Cómo se cobra tu envío</div>
+
+                            @if($tramoTienda)
+                                <div class="cost-row">
+                                    <div class="cost-row__l">
+                                        <b>1. De nuestra tienda a la agencia</b>
+                                        <small>Lo cobramos nosotros, al registrar el envío.</small>
+                                    </div>
+                                    <div class="cost-row__v {{ !empty($agencyFree) ? 'is-free' : '' }}">{{ $tramoTienda }}</div>
+                                </div>
+                            @endif
+
+                            <div class="cost-row">
+                                <div class="cost-row__l">
+                                    <b>{{ $tramoTienda ? '2.' : '1.' }} De la agencia a tu ciudad</b>
+                                    <small>Lo cobra la agencia. Depende del destino y del peso.</small>
+                                </div>
+                                <div class="cost-row__v is-soft">Lo pagas allá</div>
                             </div>
-                        @elseif(!empty($agencyShow) && !empty($agencyFee) && $agencyFee > 0)
-                            <div style="margin-top:12px;padding:12px 14px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:12px;font-size:13.5px;color:#1e40af;">
-                                📦 Costo del servicio <b>tienda → agencia</b>: <b>S/ {{ number_format($agencyFee, 2) }}</b> (fijo).
-                                <div style="font-size:11.5px;color:#3b82f6;margin-top:2px;">Es lo que cobramos por llevar tu paquete hasta la agencia. El flete de la agencia hasta tu ciudad se paga aparte, según la agencia.</div>
+
+                            {{-- Solo aparece si pidio reparto: si no, es ruido. --}}
+                            <div class="cost-row cost-row--extra" id="costHome" hidden>
+                                <div class="cost-row__l">
+                                    <b>{{ $tramoTienda ? '3.' : '2.' }} De la agencia hasta tu puerta</b>
+                                    <small>Cobro <b>adicional</b> de la agencia, bastante mayor que
+                                    recoger en su oficina. Si prefieres pagar menos, desmarca la opción
+                                    de reparto a domicilio.</small>
+                                </div>
+                                <div class="cost-row__v is-warn">Costo extra</div>
                             </div>
-                        @endif
+                        </div>
                     </div>
 
                     {{-- ─────── Rama RECOJO EN TIENDA ───────
@@ -506,10 +546,10 @@
                         </div>
                         {{-- Se repite aca a proposito: el paso 1 se llena rapido
                              y este es el momento en que el cliente confirma. --}}
-                        <div class="ag-home-warn" id="r_home_extra" hidden>
-                            <span class="ag-home-warn__i">🏠</span>
-                            <div>Pediste <b>reparto a domicilio</b>: la agencia te cobrará
-                                <b>bastante más</b> que si lo recogieras en su oficina.</div>
+                        <div class="conf-warn" id="r_home_extra" hidden>
+                            <span>🏠</span>
+                            <div>Pediste <b>reparto a domicilio</b>: la agencia te cobrará un
+                                <b>adicional</b> al entregarte, además del flete a tu ciudad.</div>
                         </div>
                     </div>
 
@@ -714,6 +754,10 @@
         if (!agHome || !agHomeWrap) return;
         var on = agHome.checked && !agHome.disabled;
         agHomeWrap.hidden = !on;
+        // La fila "hasta tu puerta" del resumen de costos aparece con el check:
+        // si no, el cliente ve un costo extra que no pidio.
+        var filaHome = document.getElementById('costHome');
+        if (filaHome) filaHome.hidden = !on;
         var a = document.getElementById('pub_addr_agencia');
         if (a) { if (!on) a.value = ''; a.disabled = !on; }
     }
