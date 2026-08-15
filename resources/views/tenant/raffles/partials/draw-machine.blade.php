@@ -15,6 +15,7 @@
                     && $prizesLeft > 0 && $pool > 0;
 @endphp
 
+@push('styles')
 <style>
     .dm-cta { display:flex; align-items:center; justify-content:center; gap:.6rem; width:100%;
         padding:1.05rem 1.2rem; border:0; border-radius:16px; cursor:pointer;
@@ -29,9 +30,12 @@
         backdrop-filter:blur(3px); display:none; align-items:center; justify-content:center; padding:16px; }
     .dm-back.is-on { display:flex; }
     .dm-box { background:#fff; border-radius:20px; width:100%; max-width:520px; overflow:hidden;
-        box-shadow:0 30px 70px -20px rgba(0,0,0,.5); }
+        box-shadow:0 30px 70px -20px rgba(0,0,0,.5);
+        animation:dmIn .22s cubic-bezier(.2,.9,.3,1); }
+    @keyframes dmIn { from { opacity:0; transform:translateY(14px) scale(.97); } }
     .dm-box__h { padding:1rem 1.2rem; background:linear-gradient(135deg,#4f46e5,#7c3aed);
-        color:#fff; font-weight:800; font-size:1rem; text-align:center; }
+        color:#fff; font-weight:800; font-size:1rem; text-align:center;
+        letter-spacing:.01em; }
     .dm-box__b { padding:1.1rem 1.2rem; }
     .dm-prize { display:block; max-width:100%; max-height:150px; margin:0 auto .8rem;
         border-radius:12px; object-fit:contain; }
@@ -77,7 +81,32 @@
     .dm-win__d { display:grid; grid-template-columns:1fr 1fr; gap:.4rem; text-align:left; margin-top:.7rem; }
     .dm-win__d div { background:#f8fafc; border-radius:9px; padding:.45rem .6rem; font-size:.82rem; }
     .dm-win__d span { display:block; font-size:.66rem; color:#697084; text-transform:uppercase; }
+
+    /* ── Detalles del resultado ──────────────────────────────────────── */
+    .dm-win__t { animation:dmPop .35s cubic-bezier(.2,1.5,.4,1); }
+    @keyframes dmPop { from { opacity:0; transform:scale(.7); } }
+    /* Cinta del premio bajo el nombre, para que el resultado se lea como
+       "quien gano QUE" y no solo como un nombre suelto. */
+    .dm-win__p { display:inline-block; margin-top:.15rem; padding:.25rem .7rem;
+        border-radius:99px; background:#fef3c7; color:#92400e;
+        font-size:.78rem; font-weight:700; }
+    .dm-spin { display:flex; align-items:center; justify-content:center; gap:.45rem;
+        font-size:.82rem; color:#697084; margin:0; }
+    .dm-spin__d { width:6px; height:6px; border-radius:50%; background:#7c3aed;
+        animation:dmBlink 1s infinite; }
+    .dm-spin__d:nth-child(2) { animation-delay:.15s; }
+    .dm-spin__d:nth-child(3) { animation-delay:.3s; }
+    @keyframes dmBlink { 0%,100% { opacity:.25; } 50% { opacity:1; } }
+
+    @media (max-width:576px) {
+        .dm-facts, .dm-win__d { grid-template-columns:1fr; }
+        .dm-win__n { font-size:1.25rem; }
+        .dm-reel { height:150px; }
+        .dm-reel__i { height:50px; }
+        .dm-reel__win { top:50px; height:50px; }
+    }
 </style>
+@endpush
 
 <button type="button" class="dm-cta" id="dmOpen" @disabled(!$puedeSortear)>
     🎰 REALIZAR SORTEO
@@ -129,7 +158,10 @@
                     {{-- Marco de la posicion ganadora, fijo sobre el rollo. --}}
                     <div class="dm-reel__win"></div>
                 </div>
-                <p class="text-center text-muted" style="font-size:.82rem;margin:0;">Eligiendo al azar…</p>
+                <p class="dm-spin">
+                    <span class="dm-spin__d"></span><span class="dm-spin__d"></span><span class="dm-spin__d"></span>
+                    Eligiendo al azar…
+                </p>
             </div>
 
             {{-- Paso 3: ganador --}}
@@ -140,6 +172,9 @@
                         <img class="dm-prize" src="{{ $raffle->prizeImageUrl('medium') }}" alt="Premio">
                     @endif
                     <div class="dm-win__n" id="dmWinName">—</div>
+                    @if($raffle->prize_name)
+                        <div class="dm-win__p">🎁 {{ $raffle->prize_name }}</div>
+                    @endif
                     <div class="dm-win__d" id="dmWinData"></div>
                     <button type="button" class="dm-btn dm-btn--go mt-3" id="dmClose"
                             style="width:100%">Ver el sorteo</button>
@@ -150,6 +185,7 @@
     </div>
 </div>
 
+@push('scripts')
 <script>
 /*
  * Máquina del sorteo.
@@ -326,3 +362,4 @@
     });
 })();
 </script>
+@endpush

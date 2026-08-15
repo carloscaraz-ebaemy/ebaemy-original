@@ -365,8 +365,16 @@ class RaffleController extends Controller
      */
     public function draw(Request $request, Raffle $raffle)
     {
+        // OJO: estas salidas tempranas TAMBIEN tienen que respetar JSON. Si
+        // devuelven un redirect, el fetch del carrete recibe HTML, r.json()
+        // revienta y el error sale disfrazado de "revisa tu conexion".
+        $json = fn (string $msg) => $request->expectsJson()
+            ? response()->json(['error' => $msg], 422)
+            : back()->with('error', $msg);
+
         if ($raffle->status !== Raffle::STATUS_ACTIVE) {
-            return back()->with('error', 'Solo se puede sortear una campaña en estado Activo.');
+            return $json('Solo se puede sortear una campaña en estado Activo. '
+                       . 'Esta está en "' . $raffle->status_label . '".');
         }
 
         $prizes    = max(1, (int) $raffle->prize_quantity);
@@ -374,7 +382,7 @@ class RaffleController extends Controller
         $remaining = $prizes - $assigned;
 
         if ($remaining < 1) {
-            return back()->with('error', 'Ya se asignaron todos los premios de este sorteo.');
+            return $json('Ya se asignaron todos los premios de este sorteo.');
         }
 
         // Cuántos sacar en esta ejecución (por defecto todos los que faltan).
