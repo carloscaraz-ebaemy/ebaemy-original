@@ -351,10 +351,14 @@
                                 size="mini"
                                 type="primary"
                                 icon="el-icon-document"
-                                title="Emitir la boleta de este pedido"
+                                :title="
+                                    invoiceIsRisky(row)
+                                        ? 'Enviado pero sin entrega confirmada: si lo rechazan, habria que anular con nota de credito'
+                                        : 'Emitir la boleta de este pedido entregado'
+                                "
                                 :loading="invoicing === row.mp_order_id"
                                 @click.prevent="generateInvoice(row)"
-                                >Boleta</el-button
+                                >{{ invoiceButtonLabel(row) }}</el-button
                             >
                             <el-button
                                 v-if="canDownloadLabel(row)"
@@ -840,12 +844,23 @@ export default {
             );
         },
         canGenerateInvoice(row) {
+            // Solo pedidos ENTREGADOS o en camino. Un cancelado/devuelto no se
+            // factura: en Peru esa boleta solo se deshace con nota de credito.
             return (
                 row.mp_order_id &&
                 row.mp_channel_id &&
                 !row.number_document &&
-                row.mp_invoice_state === "pending"
+                row.mp_invoice_state === "pending" &&
+                ["delivered", "shipped"].indexOf(row.mp_status) !== -1
             );
+        },
+        // 'shipped' = viajando: se puede facturar, pero el cliente todavia
+        // puede rechazar el paquete. Se avisa antes.
+        invoiceIsRisky(row) {
+            return row.mp_status === "shipped";
+        },
+        invoiceButtonLabel(row) {
+            return this.invoiceIsRisky(row) ? "Boleta ⚠" : "Boleta";
         },
         async generateInvoice(row) {
             // Es un comprobante ante SUNAT: se confirma con el monto a la vista
@@ -857,6 +872,9 @@ export default {
                         " por S/ " +
                         this.formatMoney(row.total) +
                         ". " +
+                        (this.invoiceIsRisky(row)
+                            ? "OJO: Saga todavia NO confirma la entrega. Si el cliente rechaza el paquete, la boleta quedaria emitida y habria que anularla con nota de credito. "
+                            : "") +
                         "Es un comprobante ante SUNAT y no se puede deshacer. ¿Continuar?"
                 )
             )
@@ -864,8 +882,11 @@ export default {
 
             this.invoicing = row.mp_order_id;
             try {
+                const extra = this.invoiceIsRisky(row)
+                    ? "?allow_undelivered=1"
+                    : "";
                 const { data } = await this.$http.post(
-                    `/ecommerce/marketplace/channels/${row.mp_channel_id}/orders/${row.mp_order_id}/invoice`
+                    `/ecommerce/marketplace/channels/${row.mp_channel_id}/orders/${row.mp_order_id}/invoice${extra}`
                 );
                 this.$message.success(data.message || "Boleta generada.");
                 this.$refs.ordersTable.getRecords();

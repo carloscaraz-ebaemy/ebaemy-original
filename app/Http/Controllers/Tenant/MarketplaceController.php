@@ -1198,8 +1198,44 @@ class MarketplaceController extends Controller
         $channel = MarketplaceChannel::findOrFail($channelId);
         $order = MarketplaceOrder::where('channel_id', $channelId)->findOrFail($orderId);
 
-        if (!in_array($order->status, ['ready_to_ship', 'shipped'], true)) {
-            return response()->json(['error' => 'Marca el pedido como "Listo para despacho" antes de generar la boleta.'], 422);
+        // ── Cuando SI se puede emitir ────────────────────────────────────
+        //
+        // El riesgo real es la boleta huerfana: si se emite antes de que el
+        // cliente reciba, y luego devuelve, en Peru esa boleta solo se deshace
+        // con NOTA DE CREDITO. Ojo con esto: reconcileReturns() trae de Saga
+        // los 'returned' y los guarda como 'canceled', asi que una devolucion
+        // termina siendo un pedido cancelado CON boleta emitida.
+        //
+        // Por eso el estado seguro es ENTREGADO. 'shipped' se permite pero
+        // exigiendo confirmacion explicita: el paquete viaja y todavia puede
+        // rechazarse.
+        $bloqueos = [
+            'pending'       => 'Este pedido reciEn ingreso y todavia no se despacha. Espera a que se entregue.',
+            'ready_to_ship' => 'El pedido aun no sale de tu almacen. Espera a que se entregue al cliente.',
+            'canceled'      => 'Este pedido esta CANCELADO o fue devuelto. Emitir una boleta aqui te obligaria a anularla con nota de credito.',
+            'returned'      => 'Este pedido fue DEVUELTO. No corresponde emitir boleta.',
+            'failed'        => 'Este pedido fallo en Saga. No corresponde emitir boleta.',
+        ];
+
+        if (isset($bloqueos[$order->status])) {
+            return response()->json(['error' => $bloqueos[$order->status]], 422);
+        }
+
+        // Enviado pero sin confirmar entrega: se deja pasar solo si el operador
+        // lo asume, porque el cliente todavia puede rechazar el paquete.
+        if ($order->status === 'shipped' && !request()->boolean('allow_undelivered')) {
+            return response()->json([
+                'error'   => 'El pedido esta ENVIADO pero Saga aun no confirma la entrega. '
+                           . 'Si el cliente lo rechaza, la boleta quedaria emitida y habria que anularla '
+                           . 'con nota de credito. Confirma que quieres emitirla igual.',
+                'confirm' => 'allow_undelivered',
+            ], 422);
+        }
+
+        if ($order->status !== 'delivered' && $order->status !== 'shipped') {
+            return response()->json([
+                'error' => 'Estado no apto para facturar: ' . $order->status,
+            ], 422);
         }
 
         // Guard anti-duplicado: si Saga YA tiene un comprobante de este pedido
