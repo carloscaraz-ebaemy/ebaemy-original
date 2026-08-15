@@ -116,7 +116,23 @@
                             />
                         </td>
                         <td data-label="Código">{{ row.order_id }}</td>
-                        <td data-label="Cliente">{{ row.customer }}</td>
+                        <td data-label="Cliente">
+                            {{ row.customer }}
+                            <!-- El documento decide a nombre de quien sale la
+                                 boleta. Sin verlo, un pedido que saldria como
+                                 "00000000" pasa desapercibido. -->
+                            <small
+                                v-if="row.customer_doc"
+                                class="ord-cust-doc"
+                                >{{ row.customer_doc }}</small
+                            >
+                            <small
+                                v-else-if="row.mp_order_id"
+                                class="ord-cust-doc ord-cust-doc-none"
+                                title="La boleta saldria como Cliente Final 00000000"
+                                >sin documento</small
+                            >
+                        </td>
                         <td class="text-center" data-label="Detalle">
                             <template>
                                 <el-popover
@@ -560,6 +576,16 @@
 .ord-doc-ok {
     background: #dcfce7;
     color: #166534;
+}
+.ord-cust-doc {
+    display: block;
+    font-size: 11px;
+    color: #64748b;
+    font-variant-numeric: tabular-nums;
+}
+.ord-cust-doc-none {
+    color: #b45309;
+    font-weight: 600;
 }
 .ord-doc-alert {
     background: #fef2f2;

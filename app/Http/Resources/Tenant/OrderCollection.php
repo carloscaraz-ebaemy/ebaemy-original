@@ -74,6 +74,24 @@ class OrderCollection extends ResourceCollection
                 'mp_status'            => optional($row->marketplaceOrder)->status,
                 'order_id'             => str_pad($row->id, 6, "0", STR_PAD_LEFT),
                 'customer'             => $customerName,
+                // Documento del comprador: es a quien se le va a emitir la
+                // boleta. Sin verlo, el operador no puede detectar que un
+                // pedido saldria como "Cliente Final 00000000".
+                'customer_doc'         => (function () use ($row, $customer) {
+                    $mp = $row->marketplaceOrder;
+                    if ($mp) {
+                        $cd = is_array($mp->customer_data) ? $mp->customer_data
+                            : (json_decode((string) $mp->customer_data, true) ?: []);
+                        $d = preg_replace('/\D+/', '', (string) ($cd['document'] ?? ''));
+                        if ($d !== '') {
+                            $t = strlen($d) === 11 ? 'RUC' : (strlen($d) === 8 ? 'DNI' : 'C.E.');
+                            return $t . ' ' . $d;
+                        }
+                        return null;   // el panel lo pinta como "sin documento"
+                    }
+                    $d = data_get($customer, 'numero_documento') ?? data_get($customer, 'document') ?? '';
+                    return $d !== '' ? (string) $d : null;
+                })(),
                 'customer_email'       => $customerEmail,
                 'customer_telefono'    => $customerPhone,
                 'customer_direccion'   => $customerAddress,

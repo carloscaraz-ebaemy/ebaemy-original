@@ -191,6 +191,42 @@ class MarketplaceInvoiceService
         $customer = is_array($mo->customer_data) ? $mo->customer_data : [];
         $customerName = trim($customer['name'] ?? '') ?: 'Cliente Final';
 
+        // ── Documento del comprador ──────────────────────────────────────
+        // Saga SI manda el documento (NationalRegistrationNumber) y se guarda
+        // en customer_data.document. Antes esto iba fijo en '00000000' y la
+        // boleta salia sin identificar al cliente aunque tuvieramos su DNI.
+        $doc     = preg_replace('/\D+/', '', (string) ($customer['document'] ?? ''));
+        $docTipo = (string) ($customer['document_type'] ?? '');
+
+        // Un RUC no va en boleta: corresponde FACTURA. Emitir igual dejaria un
+        // comprobante que no le sirve al cliente y que habria que anular.
+        if (strlen($doc) === 11) {
+            throw new \RuntimeException(
+                'El comprador dejó RUC (' . $doc . '): corresponde emitir FACTURA, no boleta. '
+                . 'Emítela desde el módulo de comprobantes.'
+            );
+        }
+
+        if ($doc === '' || !in_array($docTipo, ['1', '4'], true)) {
+            // Sin documento valido se usa el generico. Es legal en boletas por
+            // debajo de S/ 700; por encima SUNAT exige identificar.
+            $doc     = '00000000';
+            $docTipo = '1';
+
+            if ((float) $mo->total > 700) {
+                throw new \RuntimeException(
+                    'La boleta supera S/ 700 y el pedido no trae un documento válido del comprador. '
+                    . 'SUNAT exige identificarlo: completa el DNI antes de emitir.'
+                );
+            }
+        }
+
+        // Direccion fiscal de Saga cuando la manda; si no, la generica.
+        $billing  = is_array($customer['billing'] ?? null) ? $customer['billing'] : [];
+        $ubigeo   = preg_replace('/\D+/', '', (string) ($billing['postcode'] ?? ''));
+        $ubigeo   = strlen($ubigeo) === 6 ? $ubigeo : '150101';
+        $direccion = trim((string) ($billing['address'] ?? '')) ?: 'Cliente General';
+
         return [
             'serie_documento'       => $series->number,
             'numero_documento'      => '#', // autoincremento del core
@@ -204,12 +240,12 @@ class MarketplaceInvoiceService
             'codigo_nota_venta'     => $saleNoteId,
 
             'datos_del_cliente_o_receptor' => [
-                'codigo_tipo_documento_identidad' => '1', // DNI
-                'numero_documento'                => '00000000',
+                'codigo_tipo_documento_identidad' => $docTipo,   // 1=DNI, 4=C.E.
+                'numero_documento'                => $doc,
                 'apellidos_y_nombres_o_razon_social' => $customerName,
                 'codigo_pais'                     => 'PE',
-                'ubigeo'                          => '150101',
-                'direccion'                       => 'Cliente General',
+                'ubigeo'                          => $ubigeo,
+                'direccion'                       => mb_substr($direccion, 0, 100),
                 'correo_electronico'              => $customer['email'] ?? '',
                 'telefono'                        => $customer['phone'] ?? '',
             ],
