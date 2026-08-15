@@ -50,6 +50,13 @@ class OrderCollection extends ResourceCollection
                     if (!$mp) {
                         return null;
                     }
+                    // Facturado y despues devuelto/cancelado: es la excepcion
+                    // que hay que ver el mismo dia, no cuadrando a fin de mes.
+                    // Requiere Nota de Credito.
+                    if (($row->number_document || $mp->document_id)
+                        && in_array($mp->status, ['returned', 'canceled'], true)) {
+                        return 'alert';
+                    }
                     if ($row->number_document || $mp->document_id) {
                         return 'ebaemy';
                     }

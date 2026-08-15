@@ -1022,10 +1022,17 @@ class FalabellaService
 
                         if ($this->restoreOrderStock($mp)) {
                             $marked++;
-                            if ($mp->document_id && empty($mp->invoice_upload_error)) {
-                                $mp->invoice_upload_error = 'DEVOLUCIÓN/CANCELACIÓN: emitir Nota de Crédito de la boleta de este pedido.';
-                                $mp->save();
-                            }
+                        }
+
+                        // El aviso va FUERA del if del stock: antes solo se
+                        // escribia cuando la reposicion devolvia true, asi que
+                        // en un pedido ya repuesto (o si fallaba) la alerta
+                        // nunca se creaba — justo el caso que hay que ver.
+                        if ($mp->document_id && empty($mp->invoice_upload_error)) {
+                            $mp->invoice_upload_error = $sagaStatus === 'returned'
+                                ? 'DEVUELTO con boleta ya emitida: corresponde Nota de Crédito.'
+                                : 'CANCELADO con boleta ya emitida: corresponde Nota de Crédito.';
+                            $mp->save();
                         }
                     }
                 } catch (\Throwable $e) {

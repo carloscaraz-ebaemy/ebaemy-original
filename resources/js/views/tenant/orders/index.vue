@@ -297,7 +297,13 @@
                         </td>
                         <td class="text-center" data-label="Documento">
                             <span
-                                v-if="row.number_document"
+                                v-if="row.mp_invoice_state === 'alert'"
+                                class="ord-doc-badge ord-doc-alert"
+                                title="Boleta emitida y el pedido fue devuelto/cancelado en Saga: corresponde Nota de Crédito"
+                                >⚠ {{ row.number_document || "Facturado" }} · devuelto</span
+                            >
+                            <span
+                                v-else-if="row.number_document"
                                 class="ord-doc-badge ord-doc-ok"
                                 >{{ row.number_document }}</span
                             >
@@ -554,6 +560,12 @@
 .ord-doc-ok {
     background: #dcfce7;
     color: #166534;
+}
+.ord-doc-alert {
+    background: #fef2f2;
+    color: #b91c1c;
+    border: 1px solid #fecaca;
+    font-weight: 700;
 }
 .ord-doc-ext {
     background: #e0e7ff;
