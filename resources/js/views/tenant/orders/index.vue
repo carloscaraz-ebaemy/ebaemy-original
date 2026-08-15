@@ -342,54 +342,75 @@
                             <span v-else class="text-muted">—</span>
                         </td>
                         <td class="text-end" data-label="Opciones">
-                            <template v-if="row.document_type_id == '80'">
-                                <el-button
-                                    v-if="row.sale_note_id"
-                                    class="submit"
-                                    type="success"
-                                    icon="el-icon-tickets"
-                                    @click.prevent="
-                                        clickOptions(row.sale_note_id)
-                                    "
-                                ></el-button>
-                            </template>
-                            <template v-else>
-                                <el-button
-                                    v-if="row.document_external_id"
-                                    class="submit"
-                                    type="success"
-                                    icon="el-icon-tickets"
-                                    @click.prevent="
-                                        clickDownload(row.document_external_id)
-                                    "
-                                ></el-button>
-                            </template>
-                            <!-- Emitir la boleta del pedido de canal externo.
-                                 Solo aparece si el pedido es de marketplace y
-                                 todavia no tiene comprobante: si ya lo tiene,
-                                 ofrecerlo invitaria a duplicar. -->
-                            <el-button
-                                v-if="canGenerateInvoice(row)"
-                                size="mini"
-                                type="primary"
-                                icon="el-icon-document"
-                                :title="
-                                    invoiceIsRisky(row)
-                                        ? 'Enviado pero sin entrega confirmada: si lo rechazan, habria que anular con nota de credito'
-                                        : 'Emitir la boleta de este pedido entregado'
-                                "
-                                :loading="invoicing === row.mp_order_id"
-                                @click.prevent="generateInvoice(row)"
-                                >{{ invoiceButtonLabel(row) }}</el-button
+                            <!-- Todas las acciones en un menu: sueltas no
+                                 caben, y con el tiempo se fueron sumando
+                                 (boleta, rotulo, subir a Saga, PDF...). -->
+                            <el-dropdown
+                                trigger="click"
+                                @command="runAction($event, row)"
                             >
-                            <el-button
-                                v-if="canDownloadLabel(row)"
-                                size="mini"
-                                icon="el-icon-printer"
-                                title="Hoja de despacho de Saga"
-                                @click.prevent="downloadLabel(row)"
-                                >Rótulo</el-button
-                            >
+                                <el-button size="mini" class="ord-actions-btn">
+                                    <i class="fas fa-ellipsis-v"></i>
+                                </el-button>
+                                <el-dropdown-menu slot="dropdown">
+                                    <el-dropdown-item
+                                        v-if="canGenerateInvoice(row)"
+                                        command="invoice"
+                                    >
+                                        <i class="el-icon-document"></i>
+                                        {{
+                                            invoiceIsRisky(row)
+                                                ? "Generar boleta ⚠ (sin entrega confirmada)"
+                                                : "Generar boleta"
+                                        }}
+                                    </el-dropdown-item>
+
+                                    <!-- Emitida aqui pero todavia no esta en
+                                         Saga: es el paso que falta y antes no
+                                         se veia por ningun lado. -->
+                                    <el-dropdown-item
+                                        v-if="canUploadInvoice(row)"
+                                        command="upload"
+                                    >
+                                        <i class="el-icon-upload2"></i>
+                                        Subir boleta a Saga
+                                    </el-dropdown-item>
+
+                                    <el-dropdown-item
+                                        v-if="row.mp_order_id && row.mp_invoice_state === 'pending'"
+                                        command="markExternal"
+                                    >
+                                        <i class="el-icon-check"></i>
+                                        Marcar boleta hecha en Saga
+                                    </el-dropdown-item>
+
+                                    <el-dropdown-item
+                                        v-if="row.document_type_id == '80' && row.sale_note_id"
+                                        command="saleNote"
+                                        divided
+                                    >
+                                        <i class="el-icon-tickets"></i>
+                                        Nota de venta / convertir
+                                    </el-dropdown-item>
+
+                                    <el-dropdown-item
+                                        v-if="row.document_external_id"
+                                        command="document"
+                                        divided
+                                    >
+                                        <i class="el-icon-tickets"></i>
+                                        Ver comprobante
+                                    </el-dropdown-item>
+
+                                    <el-dropdown-item
+                                        v-if="canDownloadLabel(row)"
+                                        command="label"
+                                    >
+                                        <i class="el-icon-printer"></i>
+                                        Rótulo de Saga
+                                    </el-dropdown-item>
+                                </el-dropdown-menu>
+                            </el-dropdown>
                         </td>
                     </tr>
                 </data-table>
@@ -576,6 +597,9 @@
 .ord-doc-ok {
     background: #dcfce7;
     color: #166534;
+}
+.ord-actions-btn {
+    padding: 5px 9px;
 }
 .ord-cust-doc {
     display: block;
@@ -880,6 +904,54 @@ export default {
             return this.currentRecords.filter(r =>
                 this.selectedIds.includes(r.id)
             );
+        },
+        runAction(cmd, row) {
+            const acciones = {
+                invoice: () => this.generateInvoice(row),
+                upload: () => this.uploadInvoice(row),
+                markExternal: () => this.markOneExternal(row),
+                saleNote: () => this.clickOptions(row.sale_note_id),
+                document: () => this.clickDownload(row.document_external_id),
+                label: () => this.downloadLabel(row)
+            };
+            if (acciones[cmd]) acciones[cmd]();
+        },
+        // Emitida en EBAEMY pero aun no cargada en Saga: sin esto la boleta
+        // existe solo de nuestro lado y Saga la sigue esperando.
+        canUploadInvoice(row) {
+            return (
+                row.mp_order_id &&
+                row.mp_channel_id &&
+                row.mp_invoice_state === "ebaemy" &&
+                !row.mp_invoice_uploaded
+            );
+        },
+        async uploadInvoice(row) {
+            try {
+                const { data } = await this.$http.post(
+                    `/ecommerce/marketplace/channels/${row.mp_channel_id}/orders/${row.mp_order_id}/upload-invoice`
+                );
+                this.$message.success(data.message || "Boleta subida a Saga.");
+                this.$refs.ordersTable.getRecords();
+            } catch (e) {
+                const msg =
+                    (e.response && e.response.data && (e.response.data.error || e.response.data.message)) ||
+                    "No se pudo subir la boleta a Saga.";
+                this.$message({ type: "error", message: msg, duration: 8000 });
+            }
+        },
+        async markOneExternal(row) {
+            if (!confirm("¿Marcar este pedido como ya facturado en el sistema de Saga?")) return;
+            try {
+                await this.$http.post(
+                    `/ecommerce/marketplace/channels/${row.mp_channel_id}/orders/${row.mp_order_id}/mark-invoiced`
+                );
+                this.$message.success("Marcado.");
+                this.$refs.ordersTable.getRecords();
+                this.loadChipCounts();
+            } catch (e) {
+                this.$message.error("No se pudo marcar.");
+            }
         },
         canGenerateInvoice(row) {
             // Solo pedidos ENTREGADOS o en camino. Un cancelado/devuelto no se

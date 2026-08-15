@@ -66,6 +66,9 @@ class OrderCollection extends ResourceCollection
                     return 'pending';
                 })(),
                 // Datos del pedido de marketplace para descargar el rótulo (Saga).
+                // Se expone si la boleta YA se cargo en Saga: es lo que
+                // decide si falta el paso de subirla.
+                'mp_invoice_uploaded'  => (bool) optional($row->marketplaceOrder)->invoice_uploaded_at,
                 'mp_order_id'          => optional($row->marketplaceOrder)->id,
                 // N° del pedido en el canal: es el que el operador reconoce,
                 // el id interno no le dice nada al confirmar la emision.
