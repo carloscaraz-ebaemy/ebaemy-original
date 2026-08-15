@@ -10,9 +10,15 @@
      ══════════════════════════════════════════════════════════════════════ --}}
 @php
     $pool = $raffle->requiresAcceptance() ? ($metrics['accepted'] ?? 0) : ($metrics['invited'] ?? 0);
-    $prizesLeft = max(0, (int) $raffle->prize_quantity - $raffle->winners()->count());
+    $yaGanaron  = $raffle->winners()->count();
+    $prizesLeft = max(0, (int) $raffle->prize_quantity - $yaGanaron);
     $puedeSortear = $raffle->status === \App\Models\Tenant\Raffle::STATUS_ACTIVE
                     && $prizesLeft > 0 && $pool > 0;
+
+    // Ya sorteado: no es un error, es el estado normal despues de sortear.
+    // Se muestra QUIEN gano y que hacer si se quiere sortear otra vez, en vez
+    // de un boton apagado que no explica nada.
+    $ganador = $yaGanaron > 0 ? optional($raffle->winners()->with('participant')->first())->participant : null;
 @endphp
 
 @push('styles')
@@ -25,6 +31,14 @@
     .dm-cta:hover:not([disabled]) { transform:translateY(-1px); box-shadow:0 16px 34px -10px rgba(79,70,229,.75); }
     .dm-cta[disabled] { background:#e5e7f0; color:#9aa1b4; box-shadow:none; cursor:not-allowed; }
     .dm-cta__sub { display:block; font-size:.72rem; font-weight:600; opacity:.85; letter-spacing:0; }
+
+    /* Estado "ya sorteado" */
+    .dm-done { border:2px solid #fcd34d; background:linear-gradient(135deg,#fffbeb,#fef3c7);
+        border-radius:16px; padding:1rem 1.1rem; text-align:center; }
+    .dm-done__t { font-size:.78rem; font-weight:800; color:#92400e; letter-spacing:.04em;
+        text-transform:uppercase; }
+    .dm-done__n { font-size:1.2rem; font-weight:900; color:#0f172a; margin:.25rem 0 .35rem; line-height:1.2; }
+    .dm-done__h { font-size:.76rem; color:#78350f; line-height:1.45; }
 
     .dm-back { position:fixed; inset:0; z-index:2000; background:rgba(15,23,42,.72);
         backdrop-filter:blur(3px); display:none; align-items:center; justify-content:center; padding:16px; }
@@ -108,20 +122,36 @@
 </style>
 @endpush
 
-<button type="button" class="dm-cta" id="dmOpen" @disabled(!$puedeSortear)>
-    🎰 REALIZAR SORTEO
-    <span class="dm-cta__sub">
-        @if($puedeSortear)
-            {{ number_format($pool) }} participantes · {{ $prizesLeft }} premio(s)
-        @elseif($raffle->status !== \App\Models\Tenant\Raffle::STATUS_ACTIVE)
-            La campaña debe estar Activa
-        @elseif($prizesLeft < 1)
-            Ya se asignaron todos los premios
-        @else
-            No hay participantes elegibles
-        @endif
-    </span>
-</button>
+@if($prizesLeft < 1 && $ganador)
+    {{-- Estado "ya sorteado": lo que corresponde ver es el resultado, no un
+         boton muerto. Y se dice como sortear otra vez si hace falta. --}}
+    <div class="dm-done">
+        <div class="dm-done__t">🏆 Sorteo realizado</div>
+        <div class="dm-done__n">{{ $ganador->full_name }}</div>
+        <div class="dm-done__h">
+            {{ $yaGanaron }} de {{ $raffle->prize_quantity }} premio(s) asignado(s).
+            Para sortear otra vez: sube la cantidad de premios en <a href="{{ route('raffles.edit', $raffle) }}">Editar</a>,
+            o crea una campaña nueva.
+        </div>
+    </div>
+@else
+    <button type="button" class="dm-cta" id="dmOpen" @disabled(!$puedeSortear)>
+        🎰 REALIZAR SORTEO
+        <span class="dm-cta__sub">
+            @if($puedeSortear)
+                {{ number_format($pool) }} participantes · {{ $prizesLeft }} premio(s)
+            @elseif($raffle->status !== \App\Models\Tenant\Raffle::STATUS_ACTIVE)
+                Cambia el estado a «Activo» para poder sortear (ahora: {{ $raffle->status_label }})
+            @elseif($prizesLeft < 1)
+                Ya se asignaron los {{ $raffle->prize_quantity }} premio(s)
+            @elseif($raffle->requiresAcceptance())
+                Nadie aceptó participar todavía ({{ $raffle->participants()->count() }} invitados)
+            @else
+                No hay participantes elegibles con estos criterios
+            @endif
+        </span>
+    </button>
+@endif
 
 <div class="dm-back" id="dmBack">
     <div class="dm-box">
