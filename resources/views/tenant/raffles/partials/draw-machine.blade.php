@@ -49,16 +49,25 @@
     .dm-btn[disabled] { opacity:.55; cursor:not-allowed; }
 
     /* ── Carrete ─────────────────────────────────────────────────────────
-       Se mueve una tira con translateY y `overflow:hidden` deja ver una
-       sola fila. La desaceleracion la hace el JS variando el paso. */
-    .dm-reel { height:82px; overflow:hidden; position:relative; border-radius:14px;
+       Ventana de TRES filas: se ven los nombres de arriba y abajo, que es lo
+       que hace que parezca una tragamonedas de verdad. Antes se veia una
+       sola y el giro no se leia como tal.
+       La fila del medio es la que gana; las otras dos van atenuadas para que
+       el ojo sepa donde mirar. */
+    .dm-reel { height:186px; overflow:hidden; position:relative; border-radius:14px;
         background:#0f172a; border:2px solid #4f46e5; margin-bottom:.9rem; }
     .dm-reel__strip { position:absolute; left:0; right:0; top:0; }
-    .dm-reel__i { height:82px; display:flex; align-items:center; justify-content:center;
-        color:#fff; font-size:1rem; font-weight:700; text-align:center; padding:0 .8rem;
-        line-height:1.25; }
+    .dm-reel__i { height:62px; display:flex; align-items:center; justify-content:center;
+        color:#fff; font-size:.92rem; font-weight:700; text-align:center; padding:0 .8rem;
+        line-height:1.2; opacity:.32; transition:opacity .2s, transform .2s;
+        white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    /* La fila central: se marca con un marco fijo encima del rollo. */
+    .dm-reel__win { position:absolute; left:6px; right:6px; top:62px; height:62px; z-index:3;
+        border:2px solid #facc15; border-radius:10px; pointer-events:none;
+        box-shadow:0 0 0 9999px rgba(15,23,42,.35) inset; }
+    .dm-reel.is-done .dm-reel__i.is-center { opacity:1; font-size:1.05rem; transform:scale(1.04); color:#fde68a; }
     /* Sombras arriba y abajo: dan sensacion de rollo girando. */
-    .dm-reel::before, .dm-reel::after { content:''; position:absolute; left:0; right:0; height:26px; z-index:2; pointer-events:none; }
+    .dm-reel::before, .dm-reel::after { content:''; position:absolute; left:0; right:0; height:30px; z-index:2; pointer-events:none; }
     .dm-reel::before { top:0; background:linear-gradient(#0f172a,transparent); }
     .dm-reel::after { bottom:0; background:linear-gradient(transparent,#0f172a); }
 
@@ -115,7 +124,11 @@
 
             {{-- Paso 2: girando --}}
             <div id="dmStep2" hidden>
-                <div class="dm-reel"><div class="dm-reel__strip" id="dmStrip"></div></div>
+                <div class="dm-reel" id="dmReel">
+                    <div class="dm-reel__strip" id="dmStrip"></div>
+                    {{-- Marco de la posicion ganadora, fijo sobre el rollo. --}}
+                    <div class="dm-reel__win"></div>
+                </div>
                 <p class="text-center text-muted" style="font-size:.82rem;margin:0;">Eligiendo al azar…</p>
             </div>
 
@@ -172,44 +185,62 @@
         });
     }
 
-    /** Llena el carrete. Con pocos participantes se repiten para que gire. */
+    var ALTO = 62;      // alto de cada fila
+    var CENTRO = 1;     // la fila del medio de las tres visibles
+
+    /**
+     * Llena el carrete. La posicion ganadora queda con vecinos a los lados
+     * para que se vean "los posibles ganadores" arriba y abajo, como en una
+     * tragamonedas. Con pocos participantes los nombres se repiten.
+     */
     function llenarCarrete(ganador) {
         var base = NOMBRES.length ? NOMBRES.slice() : ['Participante'];
         var tira = [];
-        while (tira.length < 40) {
+        while (tira.length < 42) {
             tira = tira.concat(base);
         }
-        tira = tira.slice(0, 40);
-        tira.push(ganador);   // el ultimo es donde se detiene
+        tira = tira.slice(0, 42);
 
-        $('dmStrip').innerHTML = tira.map(function (n) {
-            return '<div class="dm-reel__i">' + esc(n) + '</div>';
+        // Indice donde se detiene. Se deja al menos una fila despues para que
+        // el vecino de abajo exista y no quede la ventana a medias.
+        var iGanador = tira.length - 2;
+        tira[iGanador] = ganador;
+
+        $('dmStrip').innerHTML = tira.map(function (n, i) {
+            return '<div class="dm-reel__i' + (i === iGanador ? ' is-center' : '') + '">'
+                 + esc(n) + '</div>';
         }).join('');
 
-        return tira.length;
+        return iGanador;
     }
 
     /**
-     * Gira y desacelera. El paso entre cuadros crece progresivamente, que es
-     * lo que da la sensación de frenado de una tragamonedas.
+     * Gira y desacelera hasta dejar `iGanador` en la fila CENTRAL. El paso
+     * entre cuadros crece progresivamente: eso es lo que se lee como frenado.
      */
-    function girar(total, alTerminar) {
+    function girar(iGanador, alTerminar) {
         var strip = $('dmStrip');
-        var alto = 82;
         var i = 0;
-        var espera = 45;
+        var espera = 42;
+
+        function ubicar(idx) {
+            // Se resta CENTRO para que la fila idx quede en el medio y no arriba.
+            strip.style.transform = 'translateY(' + (-(idx - CENTRO) * ALTO) + 'px)';
+        }
 
         (function paso_() {
-            strip.style.transform = 'translateY(' + (-i * alto) + 'px)';
+            ubicar(i);
 
-            if (i >= total - 1) {
-                strip.style.transition = 'transform .45s cubic-bezier(.2,.9,.3,1)';
-                return setTimeout(alTerminar, 550);
+            if (i >= iGanador) {
+                strip.style.transition = 'transform .4s cubic-bezier(.2,.9,.3,1)';
+                var reel = $('dmReel');
+                if (reel) reel.classList.add('is-done');
+                return setTimeout(alTerminar, 520);
             }
 
             i++;
-            // Los ultimos 12 cuadros frenan; antes va parejo y rapido.
-            if (i > total - 12) espera *= 1.28;
+            // Los ultimos 14 cuadros frenan; antes va parejo y rapido.
+            if (i > iGanador - 14) espera *= 1.26;
             setTimeout(paso_, espera);
         })();
     }
@@ -235,7 +266,13 @@
     document.addEventListener('click', function (ev) {
         var t = ev.target;
 
-        if (t.closest && t.closest('#dmOpen')) { paso(1); abrir(true); return; }
+        if (t.closest && t.closest('#dmOpen')) {
+            var reel = $('dmReel');
+            if (reel) reel.classList.remove('is-done');
+            var st = $('dmStrip');
+            if (st) { st.style.transition = ''; st.style.transform = ''; }
+            paso(1); abrir(true); return;
+        }
         if (t.closest && t.closest('#dmCancel')) { abrir(false); return; }
         // Al cerrar se recarga: la ficha tiene que mostrar al ganador ya guardado.
         if (t.closest && t.closest('#dmClose')) { window.location.reload(); return; }
@@ -246,13 +283,13 @@
         go.disabled = true;
 
         paso(2);
-        var total = llenarCarrete('…');
+        var iGanador = llenarCarrete('…');
         var respuesta = null;
         var giroListo = false;
 
         // Se lanza el giro y la petición a la vez: el carrete no espera al
         // servidor, así la animación no se ve trabada si la red demora.
-        girar(total, function () { giroListo = true; revelar(); });
+        girar(iGanador, function () { giroListo = true; revelar(); });
 
         function revelar() {
             if (!giroListo || !respuesta) return;
@@ -264,7 +301,8 @@
             }
             var w = (respuesta.winners || [])[0];
             if (!w) { window.location.reload(); return; }
-            $('dmStrip').lastElementChild.textContent = w.name;
+            var celda = $('dmStrip').querySelector('.is-center');
+            if (celda) celda.textContent = w.name;
             mostrarGanador(w);
         }
 
