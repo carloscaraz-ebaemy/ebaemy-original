@@ -1323,7 +1323,30 @@ class MarketplaceController extends Controller
         }
 
         try {
-            $pdfBase64 = base64_encode($this->getStorage($document->filename, 'pdf'));
+            // El PDF puede no existir aunque el comprobante si: en la primera
+            // boleta emitida desde aca las carpetas del tenant quedaron vacias
+            // (ni xml ni pdf) y esta subida habria fallado con un error de
+            // archivo no encontrado, sin decir que hacer. Se regenera.
+            try {
+                $pdfRaw = $this->getStorage($document->filename, 'pdf');
+            } catch (\Throwable $e) {
+                \Log::channel('payments')->warning('Saga: PDF ausente, regenerando', [
+                    'document_id' => $document->id, 'filename' => $document->filename,
+                ]);
+
+                (new \App\CoreFacturalo\Facturalo())->createPdf($document, 'invoice', 'a4');
+
+                try {
+                    $pdfRaw = $this->getStorage($document->filename, 'pdf');
+                } catch (\Throwable $e2) {
+                    return response()->json([
+                        'error' => 'No se pudo generar el PDF del comprobante ' . $document->number_full
+                                 . '. Abre el comprobante y descarga su PDF una vez; luego reintenta la subida.',
+                    ], 422);
+                }
+            }
+
+            $pdfBase64 = base64_encode($pdfRaw);
             $service->setInvoicePDF(
                 $ids,
                 $document->number_full,
