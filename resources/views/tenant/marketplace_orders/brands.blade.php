@@ -33,7 +33,7 @@
 @endpush
 
 <div class="container-fluid px-2 px-md-3 py-3" id="mrcApp"
-     @if($channel) data-save="{{ route('tenant.saga.brand_save', $channel->id) }}" @endif>
+     @if($channel) data-save="{{ url('ecommerce/marketplace/channels/' . $channel->id . '/saga-brands') }}" @endif>
 
     <div class="mrc-head">
         <div class="mrc-head__ic"><i class="fas fa-tags"></i></div>

@@ -705,42 +705,6 @@ if ($hostname) {
             // Panel de pedidos del canal externo (pantalla del operador).
             Route::get('marketplace/pedidos', 'Tenant\MarketplaceController@ordersPanel')->name('tenant.saga.orders_panel');
 
-            // ── Panel de canales externos (Saga Falabella) ─────────────────
-            // Todo este backend existia desde junio SIN RUTAS: por eso no se
-            // podian facturar los pedidos ni corregir los productos en error.
-            // Pedidos del canal
-            Route::post('marketplace/saga/{channel}/orders/{order}/invoice',      'Tenant\MarketplaceController@generateInvoice')->whereNumber(['channel','order'])->name('tenant.saga.order_invoice');
-            Route::post('marketplace/saga/{channel}/orders/{order}/mark-invoiced','Tenant\MarketplaceController@markInvoiced')->whereNumber(['channel','order'])->name('tenant.saga.order_mark_invoiced');
-            Route::post('marketplace/saga/{channel}/orders/{order}/upload-invoice','Tenant\MarketplaceController@uploadInvoice')->whereNumber(['channel','order'])->name('tenant.saga.order_upload_invoice');
-            Route::post('marketplace/saga/{channel}/orders/{order}/ready',        'Tenant\MarketplaceController@markOrderReady')->whereNumber(['channel','order'])->name('tenant.saga.order_ready');
-            Route::post('marketplace/saga/{channel}/orders/{order}/shipped',      'Tenant\MarketplaceController@markOrderShipped')->whereNumber(['channel','order'])->name('tenant.saga.order_shipped');
-            Route::get('marketplace/saga/{channel}/orders/{order}/document/{type}','Tenant\MarketplaceController@downloadDocument')->whereNumber(['channel','order'])->name('tenant.saga.order_document');
-            Route::post('marketplace/orders/{marketplaceOrder}/convert',          'Tenant\MarketplaceController@convertToOrder')->whereNumber('marketplaceOrder')->name('tenant.saga.order_convert');
-
-            // Productos del canal
-            Route::get('marketplace/saga/products',                               'Tenant\MarketplaceController@productsByChannel')->name('tenant.saga.products');
-            Route::post('marketplace/saga/{channel}/products',                    'Tenant\MarketplaceController@saveChannelProducts')->whereNumber('channel')->name('tenant.saga.products_save');
-            Route::post('marketplace/saga/{channel}/products/{product}/retry',    'Tenant\MarketplaceController@retryProduct')->whereNumber(['channel','product'])->name('tenant.saga.product_retry');
-            Route::get('marketplace/saga/{channel}/products/{product}/attributes','Tenant\MarketplaceController@productAttributes')->whereNumber(['channel','product'])->name('tenant.saga.product_attributes');
-            Route::post('marketplace/saga/{channel}/products/{product}/attributes','Tenant\MarketplaceController@saveProductAttributes')->whereNumber(['channel','product'])->name('tenant.saga.product_attributes_save');
-
-            // Canal
-            Route::post('marketplace/saga/{channel}/auto-publish',                'Tenant\MarketplaceController@toggleAutoPublish')->whereNumber('channel')->name('tenant.saga.auto_publish');
-            Route::post('marketplace/saga/{channel}/feed-status',                 'Tenant\MarketplaceController@syncFeedStatuses')->whereNumber('channel')->name('tenant.saga.feed_status');
-            Route::post('marketplace/saga/{channel}/import-catalog',              'Tenant\MarketplaceController@importCatalog')->whereNumber('channel')->name('tenant.saga.import_catalog');
-
-            // ── Homologación Saga Falabella ────────────────────────────────
-            // Los métodos existían en MarketplaceController desde junio pero
-            // NUNCA se registraron rutas: el error de sincronización mandaba a
-            // "Marketplace → Categorías" y ese panel era inalcanzable, asi que
-            // los productos sin homologar no habia forma de arreglarlos.
-            Route::get('marketplace/saga/{channel}/categories',            'Tenant\MarketplaceController@sagaCategories')->whereNumber('channel')->name('tenant.saga.categories');
-            Route::get('marketplace/saga/{channel}/category-tree',         'Tenant\MarketplaceController@sagaCategoryTree')->whereNumber('channel')->name('tenant.saga.category_tree');
-            Route::post('marketplace/saga/{channel}/category',             'Tenant\MarketplaceController@saveSagaCategory')->whereNumber('channel')->name('tenant.saga.category_save');
-            Route::get('marketplace/saga/{channel}/category-attributes/{sagaCategoryId}', 'Tenant\MarketplaceController@sagaCategoryAttributes')->whereNumber('channel')->name('tenant.saga.category_attributes');
-            Route::get('marketplace/saga/{channel}/brands',                'Tenant\MarketplaceController@sagaBrands')->whereNumber('channel')->name('tenant.saga.brands');
-            Route::post('marketplace/saga/{channel}/brand',                'Tenant\MarketplaceController@saveSagaBrand')->whereNumber('channel')->name('tenant.saga.brand_save');
-
             // Categorías oficiales del marketplace (árbol desde system DB)
             Route::get('marketplace-categories/tree',         'Tenant\MarketplaceCategoryController@tree');
             Route::get('marketplace-categories/flat',         'Tenant\MarketplaceCategoryController@flat');

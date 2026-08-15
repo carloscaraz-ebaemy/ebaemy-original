@@ -103,8 +103,8 @@
                         </td>
                         <td class="text-end">
                             <button type="button" class="atr-btn js-atr-open"
-                                    data-load="{{ route('tenant.saga.product_attributes', [$channel->id, $r->id]) }}"
-                                    data-save="{{ route('tenant.saga.product_attributes_save', [$channel->id, $r->id]) }}">
+                                    data-load="{{ url('ecommerce/marketplace/channels/' . $channel->id . '/products/' . $r->id . '/attributes') }}"
+                                    data-save="{{ url('ecommerce/marketplace/channels/' . $channel->id . '/products/' . $r->id . '/attributes') }}">
                                 Editar
                             </button>
                         </td>

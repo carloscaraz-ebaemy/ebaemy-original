@@ -342,6 +342,20 @@
                                     "
                                 ></el-button>
                             </template>
+                            <!-- Emitir la boleta del pedido de canal externo.
+                                 Solo aparece si el pedido es de marketplace y
+                                 todavia no tiene comprobante: si ya lo tiene,
+                                 ofrecerlo invitaria a duplicar. -->
+                            <el-button
+                                v-if="canGenerateInvoice(row)"
+                                size="mini"
+                                type="primary"
+                                icon="el-icon-document"
+                                title="Emitir la boleta de este pedido"
+                                :loading="invoicing === row.mp_order_id"
+                                @click.prevent="generateInvoice(row)"
+                                >Boleta</el-button
+                            >
                             <el-button
                                 v-if="canDownloadLabel(row)"
                                 size="mini"
@@ -779,6 +793,7 @@ export default {
             stocks: "",
             showDialogOptions: false,
             documentNewId: null,
+            invoicing: null,   // mp_order_id que se esta emitiendo
             statusDocument: {},
             resource_options: null,
             loading_submit: false,
@@ -824,6 +839,49 @@ export default {
                 this.selectedIds.includes(r.id)
             );
         },
+        canGenerateInvoice(row) {
+            return (
+                row.mp_order_id &&
+                row.mp_channel_id &&
+                !row.number_document &&
+                row.mp_invoice_state === "pending"
+            );
+        },
+        async generateInvoice(row) {
+            // Es un comprobante ante SUNAT: se confirma con el monto a la vista
+            // porque no se deshace con un boton.
+            if (
+                !confirm(
+                    "Se emitira la boleta del pedido " +
+                        (row.mp_external_order_id || row.mp_order_id) +
+                        " por S/ " +
+                        this.formatMoney(row.total) +
+                        ". " +
+                        "Es un comprobante ante SUNAT y no se puede deshacer. ¿Continuar?"
+                )
+            )
+                return;
+
+            this.invoicing = row.mp_order_id;
+            try {
+                const { data } = await this.$http.post(
+                    `/ecommerce/marketplace/channels/${row.mp_channel_id}/orders/${row.mp_order_id}/invoice`
+                );
+                this.$message.success(data.message || "Boleta generada.");
+                this.$refs.ordersTable.getRecords();
+                this.loadChipCounts();
+            } catch (e) {
+                // El motivo importa: casi siempre es un dato que falta (serie,
+                // documento del cliente). Tragarselo dejaria al operador sin
+                // saber que corregir.
+                const msg =
+                    (e.response && e.response.data && (e.response.data.error || e.response.data.message)) ||
+                    "No se pudo generar la boleta.";
+                this.$message({ type: "error", message: msg, duration: 8000 });
+            } finally {
+                this.invoicing = null;
+            }
+        },
         async bulkMarkInvoiced() {
             var rows = this.selectedRows().filter(
                 r => r.mp_order_id && r.mp_channel_id
@@ -841,14 +899,29 @@ export default {
                 )
             )
                 return;
+            // Antes el catch estaba vacio y SIEMPRE decia "Listo: N marcados",
+            // aunque fallaran todos. Se cuenta lo que de verdad se aplico.
+            let ok = 0;
+            let fallaron = 0;
             for (const r of rows) {
                 try {
                     await this.$http.post(
                         `/ecommerce/marketplace/channels/${r.mp_channel_id}/orders/${r.mp_order_id}/mark-invoiced`
                     );
-                } catch (e) {}
+                    ok++;
+                } catch (e) {
+                    fallaron++;
+                }
             }
-            this.$message.success("Listo: " + rows.length + " marcados.");
+            if (fallaron) {
+                this.$message({
+                    type: ok ? "warning" : "error",
+                    message: `Marcados: ${ok}. No se pudo con ${fallaron}.`,
+                    duration: 8000
+                });
+            } else {
+                this.$message.success("Listo: " + ok + " marcados.");
+            }
             this.selectedIds = [];
             this.$refs.ordersTable.getRecords();
         },

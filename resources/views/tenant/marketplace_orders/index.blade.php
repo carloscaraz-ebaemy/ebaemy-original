@@ -156,23 +156,23 @@
                         <td class="text-end text-nowrap">
                             @unless($emitido)
                                 <button type="button" class="mpo-btn mpo-btn--primary js-mpo"
-                                        data-url="{{ route('tenant.saga.order_invoice', [$channel->id, $o->id]) }}"
+                                        data-url="{{ url('ecommerce/marketplace/channels/' . $channel->id . '/orders/' . $o->id . '/invoice') }}"
                                         data-confirm="Se emitirá la boleta del pedido {{ $o->external_order_id }} por S/ {{ number_format((float) $o->total, 2) }}. Es un comprobante ante SUNAT y no se puede deshacer. ¿Continuar?">
                                     Generar boleta
                                 </button>
                                 @unless($externo)
                                     <button type="button" class="mpo-btn js-mpo"
-                                            data-url="{{ route('tenant.saga.order_mark_invoiced', [$channel->id, $o->id]) }}"
+                                            data-url="{{ url('ecommerce/marketplace/channels/' . $channel->id . '/orders/' . $o->id . '/mark-invoiced') }}"
                                             data-confirm="Marcar el pedido {{ $o->external_order_id }} como ya facturado FUERA del sistema. No se emite nada. ¿Continuar?">
                                         Ya facturado fuera
                                     </button>
                                 @endunless
                             @else
                                 <a class="mpo-btn" target="_blank"
-                                   href="{{ route('tenant.saga.order_document', [$channel->id, $o->id, 'pdf']) }}">PDF</a>
+                                   href="{{ url('ecommerce/marketplace/channels/' . $channel->id . '/orders/' . $o->id . '/document/pdf') }}">PDF</a>
                                 @unless($o->invoice_uploaded_at)
                                     <button type="button" class="mpo-btn js-mpo"
-                                            data-url="{{ route('tenant.saga.order_upload_invoice', [$channel->id, $o->id]) }}"
+                                            data-url="{{ url('ecommerce/marketplace/channels/' . $channel->id . '/orders/' . $o->id . '/upload-invoice') }}"
                                             data-confirm="Subir el PDF de la boleta al pedido {{ $o->external_order_id }} en Saga. ¿Continuar?">
                                         Subir a Saga
                                     </button>

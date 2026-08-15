@@ -60,6 +60,9 @@ class OrderCollection extends ResourceCollection
                 })(),
                 // Datos del pedido de marketplace para descargar el rótulo (Saga).
                 'mp_order_id'          => optional($row->marketplaceOrder)->id,
+                // N° del pedido en el canal: es el que el operador reconoce,
+                // el id interno no le dice nada al confirmar la emision.
+                'mp_external_order_id' => optional($row->marketplaceOrder)->external_order_id,
                 'mp_channel_id'        => optional($row->marketplaceOrder)->channel_id,
                 'mp_status'            => optional($row->marketplaceOrder)->status,
                 'order_id'             => str_pad($row->id, 6, "0", STR_PAD_LEFT),

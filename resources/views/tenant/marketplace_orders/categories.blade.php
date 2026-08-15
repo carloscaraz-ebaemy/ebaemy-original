@@ -36,8 +36,8 @@
 
 <div class="container-fluid px-2 px-md-3 py-3" id="sgcApp"
      @if($channel) data-channel="{{ $channel->id }}"
-     data-tree="{{ route('tenant.saga.category_tree', $channel->id) }}"
-     data-save="{{ route('tenant.saga.category_save', $channel->id) }}" @endif>
+     data-tree="{{ url('ecommerce/marketplace/channels/' . $channel->id . '/saga-category-tree') }}"
+     data-save="{{ url('ecommerce/marketplace/channels/' . $channel->id . '/saga-categories') }}" @endif>
 
     <div class="sgc-head">
         <div class="sgc-head__ic"><i class="fas fa-sitemap"></i></div>
