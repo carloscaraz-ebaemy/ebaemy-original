@@ -279,6 +279,11 @@
             <div class="rf-card">
                 <div class="rf-card__head"><h2 class="rf-card__title">⚙️ Acciones</h2></div>
                 <div class="rf-card__body">
+
+                    {{-- Botón principal del sorteo: confirmación, animación y
+                         revelación del ganador. El azar ocurre en el backend. --}}
+                    @include('tenant.raffles.partials.draw-machine')
+
                     {{-- El envio masivo es por cola, asi que encolar "funciona"
                          aunque el gateway este muerto. Se avisa aca para no
                          descubrirlo despues de dar por invitados a todos. --}}
@@ -310,15 +315,7 @@
                             </button>
                         </form>
 
-                        <form method="POST" action="{{ route('raffles.draw', $raffle) }}"
-                              onsubmit="return confirm('¿Realizar el sorteo REAL? Se elegirá al azar entre quienes aceptaron participar y quedará registrado. Esta acción no se puede deshacer.');">
-                            @csrf
-                            <input type="hidden" name="quantity" value="{{ max(1, $prizesLeft) }}">
-                            <button class="rf-btn rf-btn--primary" type="submit"
-                                    @disabled($raffle->status !== 'active' || $prizesLeft < 1 || $metrics['accepted'] < 1)>
-                                🏆 Realizar sorteo REAL
-                            </button>
-                        </form>
+
 
                         <form method="POST" action="{{ route('raffles.status', $raffle) }}" class="d-flex gap-1">
                             @csrf

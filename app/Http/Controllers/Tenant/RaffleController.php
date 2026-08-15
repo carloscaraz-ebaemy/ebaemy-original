@@ -197,9 +197,19 @@ class RaffleController extends Controller
         // Avisar del canal caído ANTES de que intente el envío masivo.
         $waDown = app(\App\Services\Tenant\WhatsAppService::class)->downReason();
 
+        // Nombres para el carrete de la animación. Se limitan a 120: el rollo
+        // gira tan rápido que nadie los lee, y traer miles solo pesaría la
+        // página. Si hay menos, el JS los repite para llenar el carrete.
+        $reelQ = $raffle->participants()->where('is_winner', false);
+        if ($raffle->requiresAcceptance()) {
+            $reelQ->accepted();
+        }
+        $reelNames = $reelQ->inRandomOrder()->limit(120)->pluck('full_name')
+                           ->filter()->values()->all();
+
         return view('tenant.raffles.show', compact(
             'raffle', 'metrics', 'participants', 'winners', 'pStatus',
-            'stats', 'statsFail', 'source', 'activeFilters', 'waDown'
+            'stats', 'statsFail', 'source', 'activeFilters', 'waDown', 'reelNames'
         ));
     }
 
@@ -416,6 +426,7 @@ class RaffleController extends Controller
             $position = $raffle->winners()->max('position') ?? 0;
             $user     = auth()->user();
             $names    = [];
+            $ids      = [];
 
             foreach ($picked as $participant) {
                 $position++;
@@ -443,18 +454,44 @@ class RaffleController extends Controller
 
                 $participant->update(['is_winner' => true]);
                 $names[] = $participant->full_name;
+                $ids[]   = $participant->id;
             }
 
-            return ['ok' => true, 'names' => $names, 'pool' => $pool->count()];
+            return ['ok' => true, 'names' => $names, 'ids' => $ids, 'pool' => $pool->count()];
         });
 
         if (!$result['ok']) {
-            return back()->with('error', $result['message']);
+            return $request->expectsJson()
+                ? response()->json(['error' => $result['message']], 422)
+                : back()->with('error', $result['message']);
         }
 
         // Si ya no quedan premios por asignar, la campaña se cierra sola.
         if ($raffle->winners()->count() >= $prizes) {
             $raffle->update(['status' => Raffle::STATUS_FINISHED]);
+        }
+
+        // La animación necesita al ganador YA elegido: gira, desacelera y se
+        // detiene en él. El azar ocurrió arriba, en el servidor y dentro de la
+        // transacción — el navegador solo lo dibuja.
+        if ($request->expectsJson()) {
+            $ganadores = RaffleParticipant::whereIn('id', $result['ids'] ?? [])->get();
+
+            return response()->json([
+                'ok'      => true,
+                'pool'    => $result['pool'],
+                'winners' => $ganadores->map(fn ($p) => [
+                    'id'       => $p->id,
+                    'name'     => $p->full_name,
+                    'document' => $p->document,
+                    'phone'    => $p->phone,
+                    'email'    => $p->email,
+                    'city'     => $p->city ?? null,
+                    'orders'   => $p->orders_count,
+                    'amount'   => (float) $p->total_amount,
+                    'last_at'  => optional($p->last_purchase_at)->format('d/m/Y'),
+                ])->values(),
+            ]);
         }
 
         return back()->with('success', '🏆 Ganador(es): ' . implode(', ', $result['names'])
