@@ -1008,8 +1008,14 @@ class FalabellaService
                             ->first();
                         if (!$mp) continue; // no lo importamos → no descontamos su stock
 
-                        if ($mp->status !== 'canceled') {
-                            $mp->status = 'canceled';
+                        // Se conserva el estado REAL de Saga. Antes todo se
+                        // guardaba como 'canceled' y se perdia la diferencia:
+                        // cancelado = el pedido nunca llego al cliente;
+                        // devuelto  = llego y lo devolvio. Para decidir sobre
+                        // la boleta no es lo mismo, y ademas hacia imposible
+                        // saber cuantas devoluciones reales hay.
+                        if ($mp->status !== $sagaStatus) {
+                            $mp->status = $sagaStatus;
                             $mp->save();
                             $mp->syncErpOrderStatus();
                         }

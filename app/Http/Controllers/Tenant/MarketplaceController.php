@@ -1200,15 +1200,18 @@ class MarketplaceController extends Controller
 
         // ── Cuando SI se puede emitir ────────────────────────────────────
         //
-        // El riesgo real es la boleta huerfana: si se emite antes de que el
-        // cliente reciba, y luego devuelve, en Peru esa boleta solo se deshace
-        // con NOTA DE CREDITO. Ojo con esto: reconcileReturns() trae de Saga
-        // los 'returned' y los guarda como 'canceled', asi que una devolucion
-        // termina siendo un pedido cancelado CON boleta emitida.
+        // Saga NO emite la boleta: verificado contra su API — GetDocument
+        // devuelve la hoja de despacho pero el documento 'invoice' viene
+        // VACIO. La boleta la pone el vendedor y se le sube con SetInvoicePDF.
         //
-        // Por eso el estado seguro es ENTREGADO. 'shipped' se permite pero
-        // exigiendo confirmacion explicita: el paquete viaja y todavia puede
-        // rechazarse.
+        // Y tampoco expone una señal de "ya toca facturar": InvoiceRequired
+        // viene en false en el 100% de los pedidos (indica que el comprador
+        // pidio FACTURA con RUC, no que haya que emitir). El aviso de Saga
+        // llega por su panel/correo, no por la API.
+        //
+        // Por eso la regla la define el estado del pedido: el punto seguro es
+        // ENTREGADO. 'shipped' se permite exigiendo confirmacion explicita
+        // porque el paquete viaja y todavia puede rechazarse.
         $bloqueos = [
             'pending'       => 'Este pedido reciEn ingreso y todavia no se despacha. Espera a que se entregue.',
             'ready_to_ship' => 'El pedido aun no sale de tu almacen. Espera a que se entregue al cliente.',
