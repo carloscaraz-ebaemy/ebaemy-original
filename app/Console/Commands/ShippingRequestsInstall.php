@@ -45,6 +45,8 @@ class ShippingRequestsInstall extends Command
         '2026_08_13_000001_add_dispatch_to_shipping_requests',
         '2026_08_28_000001_add_payment_code_to_shipping_requests',
         '2026_08_28_000002_add_require_payment_code_to_shipping_settings',
+        '2026_08_28_000003_create_shipping_payments_table',
+        '2026_08_28_000004_add_pickup_person_to_shipping_requests',
     ];
 
     /**
@@ -57,6 +59,8 @@ class ShippingRequestsInstall extends Command
     /** Migraciones posteriores, idempotentes, que este comando tambien ejecuta. */
     private const EXTRA_MIGRATION_FILES = [
         '2026_08_02_000002_add_raffle_optin_to_shipping_requests.php',
+        // Multipago: tabla de pagos por envío (con backfill del código previo).
+        '2026_08_28_000003_create_shipping_payments_table.php',
     ];
 
     public function handle(): int
@@ -181,6 +185,8 @@ class ShippingRequestsInstall extends Command
         'dispatch_id', 'dispatch_number', 'dispatch_generated_at',
         // Código de pago con control de duplicados (2026-08-28)
         'payment_code', 'payment_code_normalized',
+        // Persona que recoge (obligatoria cuando el cliente es empresa/RUC)
+        'pickup_person_name', 'pickup_person_dni', 'pickup_person_phone',
     ];
 
     /** Crea/actualiza la tabla shipping_settings (origen + tarifas). */
@@ -369,6 +375,15 @@ class ShippingRequestsInstall extends Command
             }
             if (in_array('payment_code_normalized', $missing, true)) {
                 $table->string('payment_code_normalized', 60)->nullable()->index();
+            }
+            if (in_array('pickup_person_name', $missing, true)) {
+                $table->string('pickup_person_name', 160)->nullable();
+            }
+            if (in_array('pickup_person_dni', $missing, true)) {
+                $table->string('pickup_person_dni', 20)->nullable();
+            }
+            if (in_array('pickup_person_phone', $missing, true)) {
+                $table->string('pickup_person_phone', 20)->nullable();
             }
         });
 

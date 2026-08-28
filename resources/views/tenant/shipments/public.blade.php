@@ -363,6 +363,38 @@
                     <input type="tel" name="phone" id="pub_phone" value="{{ old('phone') }}" required maxlength="9" inputmode="numeric" placeholder="999 999 999" class="js-phone-pe">
                     <small class="js-phone-err" style="color:#dc2626;display:block;font-size:12px;margin-top:2px;"></small>
 
+                    {{-- Cliente EMPRESA (RUC): la agencia no le entrega el paquete a
+                         una razón social, pide el DNI y el nombre de una persona.
+                         Este bloque aparece solo cuando el documento tiene 11
+                         dígitos, que es como se distingue el RUC en este formulario. --}}
+                    <div id="pub_pickup_box" hidden
+                         style="margin-top:14px;padding:12px 14px;border:1px solid #bfdbfe;background:#f8fbff;border-radius:12px;">
+                        <div style="font-weight:700;font-size:14px;color:#1e3a8a;margin-bottom:2px;">
+                            🧾 ¿Quién recoge el paquete?
+                        </div>
+                        <div style="font-size:12.5px;color:#475569;margin-bottom:10px;">
+                            Registraste un <b>RUC</b>. La agencia de transporte entrega solo a una
+                            <b>persona con DNI</b>, así que necesitamos sus datos.
+                        </div>
+
+                        <label class="req">Nombre de quien recoge</label>
+                        <input type="text" name="pickup_person_name" id="pub_pickup_name"
+                               value="{{ old('pickup_person_name') }}" maxlength="160"
+                               placeholder="Nombre y apellidos de la persona">
+
+                        <label class="req">DNI de quien recoge</label>
+                        <input type="text" name="pickup_person_dni" id="pub_pickup_dni"
+                               value="{{ old('pickup_person_dni') }}" maxlength="20"
+                               inputmode="numeric" placeholder="8 dígitos">
+
+                        <label>Celular de quien recoge <span style="color:#94a3b8;font-weight:400;">(opcional)</span></label>
+                        <input type="tel" name="pickup_person_phone" id="pub_pickup_phone"
+                               value="{{ old('pickup_person_phone') }}" maxlength="9"
+                               inputmode="numeric" placeholder="999 999 999">
+
+                        <small class="hint" id="pub_pickup_err" hidden style="color:#dc2626;"></small>
+                    </div>
+
                     {{-- ─────── Rama DOMICILIO (Google Maps) ─────── --}}
                     <div class="branch-domicilio" hidden>
                         {{-- Un solo campo de dirección: es el buscador de Google Y el
@@ -541,6 +573,7 @@
                             <div class="r"><span class="k">Nombre</span><span class="v" id="c_name">—</span></div>
                             <div class="r"><span class="k">Documento</span><span class="v" id="c_doc">—</span></div>
                             <div class="r"><span class="k">Celular</span><span class="v" id="c_phone">—</span></div>
+                            <div class="r" id="r_pickup"><span class="k">Recoge</span><span class="v" id="c_pickup">—</span></div>
                             <div class="r" id="r_ubigeo"><span class="k">Ubigeo</span><span class="v" id="c_ubigeo">—</span></div>
                             <div class="r"><span class="k">Dirección</span><span class="v" id="c_dir">—</span></div>
                             <div class="r"><span class="k" id="k_ref">Referencia</span><span class="v" id="c_ref">—</span></div>
@@ -850,6 +883,33 @@
     });
     syncDocField();
 
+    /* Empresa (RUC = 11 digitos) -> hay que decir QUIEN recoge. En este
+       formulario DNI y RUC comparten opcion, asi que se distingue por la
+       cantidad de digitos, igual que lo hace el servidor. */
+    function esRuc() {
+        var tp = docType();
+        if (tp !== 'dni') return false;                 // CE/pasaporte no son empresa
+        return (txt('pub_dni').replace(/\D+/g, '')).length === 11;
+    }
+    function syncPickupBox() {
+        var box = document.getElementById('pub_pickup_box');
+        if (!box) return;
+        var on = esRuc();
+        box.hidden = !on;
+        // Los campos ocultos no deben viajar con datos de un cliente anterior.
+        if (!on) {
+            ['pub_pickup_name', 'pub_pickup_dni', 'pub_pickup_phone'].forEach(function (id) {
+                var el = document.getElementById(id); if (el) el.value = '';
+            });
+            var err = document.getElementById('pub_pickup_err'); if (err) err.hidden = true;
+        }
+    }
+    if (dni) dni.addEventListener('input', syncPickupBox);
+    document.addEventListener('change', function (ev) {
+        if (ev.target && ev.target.name === 'document_type') syncPickupBox();
+    });
+    syncPickupBox();
+
     if (dni) dni.addEventListener('input', function () {
         var num = (dni.value || '').replace(/\D+/g, '');
         var status = document.querySelector('.js-doc-status');
@@ -902,6 +962,28 @@
         var pdig = (phone.value || '').replace(/\D+/g, '');
         if (!name.value.trim()) { name.style.borderColor = '#dc2626'; ok = false; } else name.style.borderColor = '';
         if (!(pdig.length === 9 && pdig[0] === '9')) { phone.style.borderColor = '#dc2626'; var e = document.querySelector('.js-phone-err'); if (e) e.textContent = 'Ingresa un celular válido (9 dígitos).'; ok = false; } else phone.style.borderColor = '';
+
+        // Empresa: sin la persona que recoge, la agencia no entrega el paquete.
+        if (esRuc()) {
+            var pn = document.getElementById('pub_pickup_name');
+            var pd = document.getElementById('pub_pickup_dni');
+            var pe = document.getElementById('pub_pickup_err');
+            var pdig2 = pd ? (pd.value || '').replace(/\D+/g, '') : '';
+            var falta = [];
+            if (!pn || !pn.value.trim()) { if (pn) pn.style.borderColor = '#dc2626'; falta.push('el nombre'); }
+            else if (pn) pn.style.borderColor = '';
+            if (pdig2.length < 8) { if (pd) pd.style.borderColor = '#dc2626'; falta.push('el DNI'); }
+            else if (pd) pd.style.borderColor = '';
+            if (falta.length) {
+                if (pe) {
+                    pe.textContent = 'Falta ' + falta.join(' y ') + ' de la persona que recoge el paquete.';
+                    pe.hidden = false;
+                }
+                ok = false;
+            } else if (pe) {
+                pe.hidden = true;
+            }
+        }
 
         // El recojo en tienda no pide dirección ni ubigeo: con nombre y celular
         // basta para tener el pedido listo y avisarle.
@@ -986,6 +1068,16 @@
             ? (dnum.replace(/\D+/g, '').length === 11 ? 'RUC' : 'DNI')
             : (dt ? dt.parentNode.querySelector('span').textContent : '');
         document.getElementById('c_doc').textContent = dnum ? (dtl + ' ' + dnum) : '—';
+
+        // Empresa: se confirma tambien quien recoge, que es a quien la agencia
+        // le va a entregar el paquete.
+        var rp = document.getElementById('r_pickup');
+        if (rp) {
+            var pnom = txt('pub_pickup_name'), pdoc = txt('pub_pickup_dni');
+            rp.hidden = !esRuc();
+            document.getElementById('c_pickup').textContent =
+                (pnom || pdoc) ? (pnom + (pdoc ? ' · DNI ' + pdoc : '')) : '—';
+        }
         document.getElementById('c_phone').textContent = txt('pub_phone') || '—';
 
         if (isPickup) {

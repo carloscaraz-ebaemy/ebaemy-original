@@ -63,12 +63,27 @@
     </div>
 
     {{-- Destinatario --}}
+    @php
+        // Cliente EMPRESA: la agencia no le entrega a un RUC, entrega a la
+        // persona designada. Se imprime destacada para que el counter la vea.
+        $recoge = $shipment->is_company ? trim((string) $shipment->pickup_person_name) : '';
+        $recogeDni = $shipment->is_company ? trim((string) $shipment->pickup_person_dni) : '';
+    @endphp
     <div class="section">
         <div class="section-title">Destinatario</div>
         <div class="big-text">{{ $shipment->full_name }}</div>
         @if($shipment->phone)<div class="med-text">Cel: {{ $shipment->phone }}</div>@endif
         @if($shipment->dni)<div class="med-text">{{ $shipment->document_label }}: {{ $shipment->dni }}</div>@endif
     </div>
+
+    @if($recoge !== '' || $recogeDni !== '')
+        <div class="section">
+            <div class="section-title">Recoge</div>
+            <div class="big-text">{{ $recoge ?: '—' }}</div>
+            @if($recogeDni !== '')<div class="med-text">DNI: {{ $recogeDni }}</div>@endif
+            @if($shipment->pickup_person_phone)<div class="med-text">Cel: {{ $shipment->pickup_person_phone }}</div>@endif
+        </div>
+    @endif
 
     @if($shipment->is_domicilio)
         {{-- ════════ RÓTULO DOMICILIO (hoja de reparto del motorizado) ════════ --}}

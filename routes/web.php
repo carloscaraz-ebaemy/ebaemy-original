@@ -185,6 +185,13 @@ if ($hostname) {
                 // Verifica un código de pago antes de confirmar (anti-duplicados).
                 Route::get('verificar-pago', [\App\Http\Controllers\Tenant\ShipmentController::class, 'checkPaymentCode'])
                      ->name('shipments.check_payment_code');
+                // Multipago: un envío acumula varios cobros (monto + código).
+                Route::get('{shipment}/pagos', [\App\Http\Controllers\Tenant\ShipmentController::class, 'listPayments'])
+                     ->whereNumber('shipment')->name('shipments.payments');
+                Route::post('{shipment}/pagos', [\App\Http\Controllers\Tenant\ShipmentController::class, 'storePayment'])
+                     ->whereNumber('shipment')->name('shipments.payments.store');
+                Route::post('{shipment}/pagos/{payment}/eliminar', [\App\Http\Controllers\Tenant\ShipmentController::class, 'destroyPayment'])
+                     ->whereNumber('shipment')->whereNumber('payment')->name('shipments.payments.destroy');
                 // Guía de Remisión precargada desde el envío (no emite: abre el
                 // formulario para validar y corregir antes de mandar a SUNAT).
                 Route::get('{shipment}/guia-remision', [\App\Http\Controllers\Tenant\ShipmentController::class, 'generateDispatch'])

@@ -1088,12 +1088,28 @@
                                     </select>
                                 </form>
                                 @if(($requirePayment ?? false) && $s->payment_confirmed)
-                                    <form method="POST" action="{{ route('shipments.payment', $s->id) }}" class="m-0 js-pay-form">
-                                        @csrf
-                                        <button type="submit" class="sh-paid" title="Clic para revertir la confirmación de pago">
-                                            <i class="fas fa-check"></i> Pagado {{ optional($s->payment_confirmed_at)->format('d/m H:i') }}
+                                    @if($requirePaymentCode ?? false)
+                                        {{-- Con multipago el envío puede tener varios cobros:
+                                             el botón abre la ficha de pagos (ver, agregar otro
+                                             o eliminar uno mal cargado) en vez de desconfirmar. --}}
+                                        @php $pagado = $s->paid_total; @endphp
+                                        <button type="button" class="sh-paid js-pay-open"
+                                                data-bs-toggle="modal" data-bs-target="#modalPagoCodigo"
+                                                data-id="{{ $s->id }}"
+                                                data-code="{{ $s->shipment_code }}"
+                                                data-client="{{ $s->full_name }}"
+                                                title="Ver los pagos del envío o agregar otro">
+                                            <i class="fas fa-check"></i> Pagado
+                                            @if($pagado > 0) S/ {{ number_format($pagado, 2) }} @endif
                                         </button>
-                                    </form>
+                                    @else
+                                        <form method="POST" action="{{ route('shipments.payment', $s->id) }}" class="m-0 js-pay-form">
+                                            @csrf
+                                            <button type="submit" class="sh-paid" title="Clic para revertir la confirmación de pago">
+                                                <i class="fas fa-check"></i> Pagado {{ optional($s->payment_confirmed_at)->format('d/m H:i') }}
+                                            </button>
+                                        </form>
+                                    @endif
                                 @endif
                                 @endif
                             @endif
@@ -1200,6 +1216,9 @@
                                                 data-reference="{{ $s->reference }}"
                                                 data-destination_city="{{ $s->destination_city }}"
                                                 data-shipping_agency="{{ $s->shipping_agency }}"
+                                                data-pickup_person_name="{{ $s->pickup_person_name }}"
+                                                data-pickup_person_dni="{{ $s->pickup_person_dni }}"
+                                                data-pickup_person_phone="{{ $s->pickup_person_phone }}"
                                                 data-package_content="{{ $s->package_content }}"
                                                 data-package_count="{{ $s->package_count }}"
                                                 data-weight="{{ $s->weight }}"
@@ -1399,6 +1418,23 @@
               <input type="text" name="full_name" id="nv_full_name" class="form-control" required></div>
           </div>
 
+
+          {{-- Cliente EMPRESA (RUC): la agencia entrega solo a una persona con
+               DNI. Se muestra al escribir 11 digitos en el documento. --}}
+          <div class="row g-3 mt-0 js-pickup-box" data-prefix="nv" style="display:none;">
+            <div class="col-12">
+              <div class="alert alert-primary py-2 px-3 small mb-0">
+                🧾 <b>Cliente con RUC.</b> La agencia no entrega a una razón social:
+                indica quién recoge el paquete.
+              </div>
+            </div>
+            <div class="col-md-6"><label class="form-label">Nombre de quien recoge <span class="text-danger">*</span></label>
+              <input type="text" name="pickup_person_name" id="nv_pickup_person_name" class="form-control" maxlength="160"></div>
+            <div class="col-md-3"><label class="form-label">DNI <span class="text-danger">*</span></label>
+              <input type="text" name="pickup_person_dni" id="nv_pickup_person_dni" class="form-control" maxlength="20" inputmode="numeric"></div>
+            <div class="col-md-3"><label class="form-label">Celular</label>
+              <input type="text" name="pickup_person_phone" id="nv_pickup_person_phone" class="form-control" maxlength="20" inputmode="numeric"></div>
+          </div>
           <div class="sh-section"><i class="fas fa-truck fa-fw me-1"></i> Modalidad de entrega</div>
           {{-- El alta manual solo ofrecía provincia (agencia): un pedido de Lima o
                un recojo en tienda quedaban registrados como agencia y pedían
@@ -1543,6 +1579,23 @@
           </div>
           </div>
 
+
+          {{-- Cliente EMPRESA (RUC): la agencia entrega solo a una persona con
+               DNI. Se muestra al escribir 11 digitos en el documento. --}}
+          <div class="row g-3 mt-0 js-pickup-box" data-prefix="ed" style="display:none;">
+            <div class="col-12">
+              <div class="alert alert-primary py-2 px-3 small mb-0">
+                🧾 <b>Cliente con RUC.</b> La agencia no entrega a una razón social:
+                indica quién recoge el paquete.
+              </div>
+            </div>
+            <div class="col-md-6"><label class="form-label">Nombre de quien recoge <span class="text-danger">*</span></label>
+              <input type="text" name="pickup_person_name" id="ed_pickup_person_name" class="form-control" maxlength="160"></div>
+            <div class="col-md-3"><label class="form-label">DNI <span class="text-danger">*</span></label>
+              <input type="text" name="pickup_person_dni" id="ed_pickup_person_dni" class="form-control" maxlength="20" inputmode="numeric"></div>
+            <div class="col-md-3"><label class="form-label">Celular</label>
+              <input type="text" name="pickup_person_phone" id="ed_pickup_person_phone" class="form-control" maxlength="20" inputmode="numeric"></div>
+          </div>
           <input type="hidden" name="delivery_type" id="ed_delivery_type" value="agencia">
 
           <div class="sh-fs">
@@ -1901,49 +1954,91 @@
   </div>
 </div>
 
-{{-- ══════════════ Modal: confirmar pago con código ══════════════ --}}
+{{-- ══════════════ Modal: pagos del envío (multipago) ══════════════ --}}
 @if($requirePaymentCode ?? false)
 <div class="modal fade" id="modalPagoCodigo" tabindex="-1" aria-hidden="true">
-  <div class="modal-dialog modal-dialog-centered">
+  <div class="modal-dialog modal-dialog-centered modal-lg">
     <div class="modal-content">
-      {{-- data-no-ajax: este formulario lo envía su propio JS después de
-           verificar el código; el interceptor genérico lo mandaría antes. --}}
-      <form method="POST" action="#" id="formPagoCodigo" data-no-ajax>
-        @csrf
-        <input type="hidden" name="payment_code_force" id="pcForce" value="0">
-        <div class="modal-header">
-          <h5 class="modal-title">Confirmar pago — <span id="pcCode"></span></h5>
-          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-        </div>
-        <div class="modal-body">
-          <p class="text-muted" style="font-size:.85rem">
-            Cliente: <strong id="pcClient"></strong>. Escribe el <strong>código de la
-            operación</strong> (Yape, Plin, transferencia o número de voucher). El sistema
-            avisa si ese pago ya se registró en otro envío.
-          </p>
+      <div class="modal-header">
+        <h5 class="modal-title">Pagos del envío — <span id="pcCode"></span></h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <p class="text-muted" style="font-size:.85rem">
+          Cliente: <strong id="pcClient"></strong>. Un pedido puede cobrarse en
+          <b>varias operaciones</b>: agrega un pago por cada una, con su monto y su
+          código. Ningún código puede repetirse en la tienda.
+        </p>
 
-          <label class="form-label" for="pcInput">Código de pago *</label>
-          <input id="pcInput" name="payment_code" class="form-control" maxlength="60"
-                 autocomplete="off" placeholder="Ej. 01234567">
+        {{-- Pagos ya registrados. Lo pinta el JS desde el endpoint de pagos. --}}
+        <div class="table-responsive">
+          <table class="table table-sm align-middle mb-1">
+            <thead class="table-light">
+              <tr>
+                <th>Fecha</th><th>Código</th><th class="text-end">Monto</th>
+                <th>Medio</th><th style="width:36px;"></th>
+              </tr>
+            </thead>
+            <tbody id="pcList">
+              <tr><td colspan="5" class="text-muted text-center py-3">Sin pagos registrados.</td></tr>
+            </tbody>
+            <tfoot>
+              <tr>
+                <th colspan="2" class="text-end">Total cobrado</th>
+                <th class="text-end" id="pcTotal">S/ 0.00</th>
+                <th colspan="2"></th>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+
+        <hr class="my-3">
+
+        {{-- data-no-ajax: este formulario lo envía su propio JS después de
+             verificar el código; el interceptor genérico lo mandaría antes. --}}
+        <form method="POST" action="#" id="formPagoCodigo" data-no-ajax>
+          @csrf
+          <input type="hidden" name="payment_code_force" id="pcForce" value="0">
+          <div class="row g-2">
+            <div class="col-md-3">
+              <label class="form-label" for="pcAmount">Monto (S/) *</label>
+              <input id="pcAmount" name="amount" type="number" step="0.10" min="0.01"
+                     class="form-control" placeholder="0.00">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label" for="pcInput">Código de pago *</label>
+              <input id="pcInput" name="payment_code" class="form-control" maxlength="60"
+                     autocomplete="off" placeholder="Ej. 01234567">
+            </div>
+            <div class="col-md-2">
+              <label class="form-label" for="pcMethod">Medio</label>
+              <select id="pcMethod" name="method" class="form-select">
+                <option value="">—</option>
+                @foreach(\App\Models\Tenant\ShippingPayment::METHODS as $mv => $ml)
+                  <option value="{{ $mv }}">{{ $ml }}</option>
+                @endforeach
+              </select>
+            </div>
+            <div class="col-md-3">
+              <label class="form-label" for="pcNote">Nota</label>
+              <input id="pcNote" name="note" class="form-control" maxlength="255"
+                     placeholder="Opcional">
+            </div>
+          </div>
 
           <div id="pcAlert" class="mt-2" style="display:none;background:#fef2f2;border:1px solid #fecaca;color:#991b1b;border-radius:10px;padding:10px 12px;font-size:.83rem;"></div>
           <div id="pcOk" class="mt-2" style="display:none;background:#f0fdf4;border:1px solid #bbf7d0;color:#166534;border-radius:10px;padding:8px 12px;font-size:.83rem;">
             Código disponible.
           </div>
 
-          <div class="mt-3">
-            <label class="form-label" for="pcNote">Nota (opcional)</label>
-            <input id="pcNote" name="payment_note" class="form-control" maxlength="255"
-                   placeholder="Ej. pagó por Yape a las 10:15">
+          <div class="text-end mt-3">
+            <button type="button" class="sh-act sh-act--ghost" data-bs-dismiss="modal">Cerrar</button>
+            <button type="submit" class="sh-act sh-act--primary" id="pcGo">
+              <i class="fas fa-plus"></i> Agregar pago
+            </button>
           </div>
-        </div>
-        <div class="modal-footer">
-          <button type="button" class="sh-act sh-act--ghost" data-bs-dismiss="modal">Cancelar</button>
-          <button type="submit" class="sh-act sh-act--primary" id="pcGo">
-            <i class="fas fa-check"></i> Confirmar pago
-          </button>
-        </div>
-      </form>
+        </form>
+      </div>
     </div>
   </div>
 </div>
@@ -2015,7 +2110,8 @@
         var idEl = document.getElementById('ed_shipment_id');
         if (idEl) idEl.value = id;
         var get = function (k) { return btn.getAttribute('data-' + k) || ''; };
-        ['full_name','dni','document_type','phone','shipping_destination','reference','shipping_agency','package_content','package_count','weight','notes',
+        ['full_name','dni','document_type','phone','pickup_person_name','pickup_person_dni','pickup_person_phone',
+         'shipping_destination','reference','shipping_agency','package_content','package_count','weight','notes',
          'delivery_price','latitude','longitude','formatted_address','google_place_id','google_maps_url','destination_city','distance_km','distance_text','duration_text'].forEach(function (f) {
             var el = document.getElementById('ed_' + f);
             if (el) el.value = get(f);
@@ -2130,6 +2226,31 @@
         if (pr) pr.value = btn.getAttribute('data-price') || '';
         var code = document.getElementById('pr_code');
         if (code) code.textContent = btn.getAttribute('data-code') || '';
+    });
+
+    /* Cliente EMPRESA: con 11 digitos (RUC) hay que registrar quien recoge,
+       porque la agencia no entrega a una razon social. El bloque se muestra
+       segun lo escrito en el documento del modal correspondiente. */
+    function syncPickupBox(scope) {
+        var box = scope ? scope.querySelector('.js-pickup-box') : null;
+        if (!box) return;
+        var doc = scope.querySelector('.js-doc-lookup');
+        var num = doc ? (doc.value || '').replace(/\D+/g, '') : '';
+        var on = num.length === 11;
+        box.style.display = on ? '' : 'none';
+        if (!on) {
+            box.querySelectorAll('input').forEach(function (el) { el.value = ''; });
+        }
+    }
+    document.addEventListener('input', function (ev) {
+        if (!ev.target.classList || !ev.target.classList.contains('js-doc-lookup')) return;
+        syncPickupBox(ev.target.closest('.modal') || document);
+    });
+    document.addEventListener('click', function (ev) {
+        var b = ev.target.closest && ev.target.closest('[data-bs-target="#modalNuevoEnvio"], .js-edit-shipment');
+        if (b) setTimeout(function () {
+            document.querySelectorAll('#modalNuevoEnvio, #modalEditar').forEach(syncPickupBox);
+        }, 60);
     });
 
     // Autocompletar por documento: 8 dígitos → DNI (RENIEC), 11 → RUC (SUNAT).
@@ -2822,21 +2943,22 @@
             .catch(function () { busy(false); });
     });
 
-    /* ── Confirmar pago con CÓDIGO (anti-duplicados) ────────────────────
+    /* ── Pagos del envío (multipago, anti-duplicados) ────────────────────
        El botón de la fila abre el modal (declarativo) y aquí solo se rellenan
-       los campos. Al escribir se consulta el código contra los envíos ya
-       confirmados; si está repetido se muestra quién lo usó y no se envía,
+       los campos y se pinta la lista. Al escribir el código se consulta contra
+       toda la tienda; si está repetido se muestra quién lo usó y no se envía,
        salvo que el operador insista (queda como excepción en la bitácora). */
-    var pcDup = false, pcTimer = null, pcLast = '';
+    var pcDup = false, pcTimer = null, pcLast = '', pcShipment = null;
 
     function pcEls() {
         return {
-            form:  document.getElementById('formPagoCodigo'),
-            input: document.getElementById('pcInput'),
-            alert: document.getElementById('pcAlert'),
-            ok:    document.getElementById('pcOk'),
-            force: document.getElementById('pcForce'),
-            go:    document.getElementById('pcGo')
+            form:   document.getElementById('formPagoCodigo'),
+            input:  document.getElementById('pcInput'),
+            amount: document.getElementById('pcAmount'),
+            alert:  document.getElementById('pcAlert'),
+            ok:     document.getElementById('pcOk'),
+            force:  document.getElementById('pcForce'),
+            go:     document.getElementById('pcGo')
         };
     }
 
@@ -2846,7 +2968,42 @@
         if (e.alert) { e.alert.style.display = 'none'; e.alert.innerHTML = ''; }
         if (e.ok) e.ok.style.display = 'none';
         if (e.force) e.force.value = '0';
-        if (e.go) e.go.innerHTML = '<i class="fas fa-check"></i> Confirmar pago';
+        if (e.go) e.go.innerHTML = '<i class="fas fa-plus"></i> Agregar pago';
+    }
+
+    /** Repinta la tabla de pagos del envío abierto. */
+    function pcLoad(id) {
+        var body = document.getElementById('pcList');
+        var tot  = document.getElementById('pcTotal');
+        if (!body) return;
+        body.innerHTML = '<tr><td colspan="5" class="text-muted text-center py-3">Cargando…</td></tr>';
+
+        fetch('{{ url("registro-envio") }}/' + id + '/pagos',
+              { headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' },
+                credentials: 'same-origin' })
+            .then(function (r) { return r.ok ? r.json() : null; })
+            .then(function (d) {
+                if (!d) { body.innerHTML = '<tr><td colspan="5" class="text-danger text-center py-3">No se pudieron cargar los pagos.</td></tr>'; return; }
+                if (tot) tot.textContent = 'S/ ' + Number(d.total || 0).toFixed(2);
+                if (!d.payments.length) {
+                    body.innerHTML = '<tr><td colspan="5" class="text-muted text-center py-3">Sin pagos registrados.</td></tr>';
+                    return;
+                }
+                body.innerHTML = d.payments.map(function (p) {
+                    var nota = p.note ? ('<div class="small text-muted">' + p.note + '</div>') : '';
+                    return '<tr>'
+                        + '<td class="small">' + (p.date || '') + (p.user ? '<div class="text-muted">' + p.user + '</div>' : '') + '</td>'
+                        + '<td><code>' + (p.code || '') + '</code>' + nota + '</td>'
+                        + '<td class="text-end fw-semibold">S/ ' + p.amount + '</td>'
+                        + '<td class="small">' + (p.method || '—') + '</td>'
+                        + '<td><button type="button" class="btn btn-sm btn-link text-danger p-0 js-pc-del" '
+                        +     'data-id="' + p.id + '" title="Eliminar este pago"><i class="fas fa-trash"></i></button></td>'
+                        + '</tr>';
+                }).join('');
+            })
+            .catch(function () {
+                body.innerHTML = '<tr><td colspan="5" class="text-danger text-center py-3">No se pudieron cargar los pagos.</td></tr>';
+            });
     }
 
     document.addEventListener('click', function (ev) {
@@ -2854,16 +3011,33 @@
         if (!b) return;
         var e = pcEls();
         if (!e.form) return;
-        e.form.setAttribute('action', b.getAttribute('data-action') || '#');
+        pcShipment = b.getAttribute('data-id') || '';
+        e.form.setAttribute('action', '{{ url("registro-envio") }}/' + pcShipment + '/pagos');
+        e.form.setAttribute('data-shipment', pcShipment);
         var code = document.getElementById('pcCode');
         var cli  = document.getElementById('pcClient');
         if (code) code.textContent = b.getAttribute('data-code') || '';
         if (cli)  cli.textContent  = b.getAttribute('data-client') || '';
-        e.form.setAttribute('data-shipment', b.getAttribute('data-id') || '');
-        if (e.input) e.input.value = '';
+        if (e.input)  e.input.value = '';
+        if (e.amount) e.amount.value = '';
         var note = document.getElementById('pcNote'); if (note) note.value = '';
         pcReset();
-        setTimeout(function () { if (e.input) e.input.focus(); }, 350);
+        pcLoad(pcShipment);
+        setTimeout(function () { if (e.amount) e.amount.focus(); }, 350);
+    });
+
+    // Eliminar un pago mal cargado (libera su código).
+    document.addEventListener('click', function (ev) {
+        var del = ev.target.closest && ev.target.closest('.js-pc-del');
+        if (!del || !pcShipment) return;
+        ev.preventDefault();
+        if (!window.confirm('¿Eliminar este pago? Su código volverá a quedar disponible.')) return;
+        var fd = new FormData();
+        fd.append('_token', '{{ csrf_token() }}');
+        fetch('{{ url("registro-envio") }}/' + pcShipment + '/pagos/' + del.getAttribute('data-id') + '/eliminar',
+              { method: 'POST', body: fd, headers: { 'X-Requested-With': 'XMLHttpRequest' }, credentials: 'same-origin' })
+            .then(function () { pcLoad(pcShipment); })
+            .catch(function () { window.alert('No se pudo eliminar el pago.'); });
     });
 
     document.addEventListener('input', function (ev) {
@@ -2885,7 +3059,7 @@
                 credentials: 'same-origin' })
             .then(function (r) { return r.ok ? r.json() : null; })
             .then(function (d) {
-                if (!d || pcLast !== val) return;   // llegó tarde: el operador siguió escribiendo
+                if (!d || pcLast !== val) return;   // llegó tarde: siguió escribiendo
                 if (!d.duplicate) {
                     pcDup = false;
                     if (e.ok) e.ok.style.display = 'block';
@@ -2897,7 +3071,8 @@
                         '<strong>El código de pago ingresado ya se encuentra registrado.</strong><br>'
                         + 'Cliente: <strong>' + (d.other.client || '—') + '</strong><br>'
                         + 'Fecha de registro: ' + (d.other.date || '—') + '<br>'
-                        + 'Código de pago: ' + (d.other.code || '—') + '<br>'
+                        + 'Código de pago: ' + (d.other.code || '—')
+                        + (d.other.amount ? '<br>Monto: S/ ' + d.other.amount : '') + '<br>'
                         + 'Envío: ' + (d.other.shipment || '—') + ' (' + (d.other.status || '') + ')';
                     e.alert.style.display = 'block';
                 }
@@ -2911,10 +3086,16 @@
         if (!f || f.id !== 'formPagoCodigo') return;
         var e = pcEls();
         var val = e.input ? e.input.value.trim() : '';
+        var amt = e.amount ? parseFloat(e.amount.value) : 0;
 
+        if (!(amt > 0)) {
+            ev.preventDefault();
+            window.alert('Indica el monto del pago.');
+            return;
+        }
         if (!val) {
             ev.preventDefault();
-            window.alert('Escribe el código de pago para confirmar.');
+            window.alert('Escribe el código de pago.');
             return;
         }
         if (pcDup && e.force && e.force.value !== '1') {

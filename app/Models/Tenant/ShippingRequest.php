@@ -37,6 +37,9 @@ class ShippingRequest extends Model
         'full_name',
         'dni',
         'document_type',
+        'pickup_person_name',
+        'pickup_person_dni',
+        'pickup_person_phone',
         'phone',
         'shipping_destination',
         'reference',
@@ -132,6 +135,17 @@ class ShippingRequest extends Model
     public function printBatch()
     {
         return $this->belongsTo(ShippingPrintBatch::class, 'print_batch_id');
+    }
+
+    public function payments()
+    {
+        return $this->hasMany(ShippingPayment::class, 'shipment_id')->orderBy('id');
+    }
+
+    /** Suma de lo cobrado hasta ahora (multipago). */
+    public function getPaidTotalAttribute(): float
+    {
+        return (float) $this->payments()->sum('amount');
     }
 
     public function auditLogs()
@@ -711,6 +725,39 @@ class ShippingRequest extends Model
         'enviado', // legado = entregado a agencia
     ];
 
+    // ── Persona que recoge (clientes con RUC) ──────────────────────────────
+
+    /**
+     * ¿El cliente es una EMPRESA? Las agencias no le entregan el paquete a un
+     * RUC: piden el DNI y el nombre de una persona natural, así que en ese caso
+     * "quién recoge" es obligatorio.
+     */
+    public function getIsCompanyAttribute(): bool
+    {
+        return self::documentIsRuc($this->document_type, $this->dni);
+    }
+
+    /** Un RUC se reconoce por el tipo elegido o por sus 11 dígitos. */
+    public static function documentIsRuc(?string $documentType, ?string $number): bool
+    {
+        if (mb_strtolower(trim((string) $documentType)) === 'ruc') {
+            return true;
+        }
+
+        return strlen(preg_replace('/\D+/', '', (string) $number)) === 11;
+    }
+
+    /** Quién recoge: la persona indicada o, si no es empresa, el propio cliente. */
+    public function getReceiverNameAttribute(): string
+    {
+        return trim((string) $this->pickup_person_name) ?: (string) $this->full_name;
+    }
+
+    public function getReceiverDniAttribute(): string
+    {
+        return trim((string) $this->pickup_person_dni) ?: (string) $this->dni;
+    }
+
     // ── Código de pago (control de duplicados) ─────────────────────────────
 
     /**
@@ -727,7 +774,13 @@ class ShippingRequest extends Model
 
     /**
      * Envío que YA registró este código de pago (o null si está libre).
-     * $exceptId permite reconfirmar el mismo envío sin chocar consigo mismo.
+     *
+     * Busca en los pagos (multipago) y también en el campo `payment_code` del
+     * propio envío, que es donde vivían los códigos antes de la tabla de pagos.
+     *
+     * $exceptId excluye un envío (para no chocar consigo mismo al agregarle
+     * otro pago); el duplicado DENTRO del mismo envío se valida aparte, porque
+     * ahí sí es un error (el mismo voucher cargado dos veces).
      */
     public static function findByPaymentCode(?string $raw, ?int $exceptId = null): ?self
     {
@@ -739,9 +792,29 @@ class ShippingRequest extends Model
         // Solo bloquea un registro VÁLIDO: si el envío que usó ese código se
         // anuló, el código vuelve a estar disponible (el cobro se deshizo).
         return self::query()
-            ->where('payment_code_normalized', $norm)
             ->where('status', '!=', self::STATUS_ANULADO)
+            ->where(function ($w) use ($norm) {
+                $w->where('payment_code_normalized', $norm)
+                  ->orWhereHas('payments', fn ($p) => $p->where('payment_code_normalized', $norm));
+            })
             ->when($exceptId, fn ($q) => $q->where('id', '!=', $exceptId))
+            ->orderBy('id')
+            ->first();
+    }
+
+    /** El pago concreto que usó ese código (para detallar la alerta). */
+    public static function findPaymentByCode(?string $raw, ?int $exceptPaymentId = null): ?ShippingPayment
+    {
+        $norm = self::normalizePaymentCode($raw);
+        if ($norm === '') {
+            return null;
+        }
+
+        return ShippingPayment::query()
+            ->where('payment_code_normalized', $norm)
+            ->when($exceptPaymentId, fn ($q) => $q->where('id', '!=', $exceptPaymentId))
+            ->whereHas('shipment', fn ($s) => $s->where('status', '!=', self::STATUS_ANULADO))
+            ->with('shipment')
             ->orderBy('id')
             ->first();
     }

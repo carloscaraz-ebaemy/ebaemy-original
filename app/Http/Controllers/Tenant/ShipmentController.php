@@ -13,6 +13,7 @@ use App\Models\Tenant\Company;
 use App\Models\Tenant\ShippingAuditLog;
 use App\Models\Tenant\ShippingPrintBatch;
 use App\Models\Tenant\ShippingPrintEvent;
+use App\Models\Tenant\ShippingPayment;
 use App\Models\Tenant\ShippingRequest;
 use App\Models\Tenant\ShippingSetting;
 use App\Services\Tenant\ShippingBatchService;
@@ -370,6 +371,7 @@ class ShipmentController extends Controller
             fwrite($out, "\xEF\xBB\xBF"); // BOM para que Excel respete UTF-8
             fputcsv($out, [
                 'Código', 'Cliente', 'Documento', 'N° documento', 'Celular',
+                'Recoge', 'DNI de quien recoge',
                 'Tipo', 'Ciudad/Destino', 'Agencia', 'Oficina/Dirección', 'Referencia',
                 'Contenido', 'Bultos', 'Peso (kg)', 'Costo envío', 'Pago', 'Código de pago',
                 'Estado', 'Días hábiles', 'Registrado', 'Guía',
@@ -383,6 +385,8 @@ class ShipmentController extends Controller
                         $s->document_label,
                         $s->dni,
                         $s->phone,
+                        $s->is_company ? $s->pickup_person_name : '',
+                        $s->is_company ? $s->pickup_person_dni : '',
                         $s->is_domicilio ? 'Domicilio' : 'Agencia',
                         $s->destination_city,
                         $s->is_domicilio ? '' : $s->shipping_agency,
@@ -1027,15 +1031,162 @@ class ShipmentController extends Controller
             : "Se quitó la confirmación de pago de {$shipment->shipment_code}.");
     }
 
-    /** Texto de la alerta de código de pago repetido (mismo dato en panel y API). */
-    private function duplicatePaymentMessage(ShippingRequest $other, string $code): string
+    // -- Multipago: varios cobros por envío, cada uno con monto y código ----
+
+    /**
+     * Agrega un pago al envío. Un pedido se cobra en varias operaciones (el
+     * cliente paga, agrega otro producto y vuelve a pagar), así que en vez de
+     * un único código el envío acumula pagos.
+     *
+     * El código se valida contra TODA la tienda: ni en otro envío ni repetido
+     * dentro de este. La validación del navegador es solo un aviso temprano;
+     * la que manda es esta.
+     */
+    public function storePayment(Request $request, ShippingRequest $shipment): RedirectResponse
     {
-        $fecha = optional($other->payment_confirmed_at ?: $other->created_at)->format('d/m/Y');
+        $data = $request->validate([
+            'amount'       => 'required|numeric|min:0.01|max:999999',
+            'payment_code' => 'required|string|max:60',
+            'method'       => 'nullable|string|max:30',
+            'note'         => 'nullable|string|max:255',
+        ], [
+            'amount.required'       => 'Indica el monto del pago.',
+            'amount.min'            => 'El monto debe ser mayor que cero.',
+            'payment_code.required' => 'Indica el código de la operación.',
+        ], [
+            'amount'       => 'monto',
+            'payment_code' => 'código de pago',
+            'note'         => 'nota',
+        ]);
+
+        abort_if($shipment->is_cancelled, 422, 'El envío está anulado.');
+
+        $code  = trim($data['payment_code']);
+        $force = $request->boolean('payment_code_force');
+
+        // Duplicado dentro del MISMO envío: siempre es un error de carga, no se
+        // puede forzar (sería contar dos veces el mismo voucher en un pedido).
+        $mismo = $shipment->payments()
+            ->where('payment_code_normalized', ShippingRequest::normalizePaymentCode($code))
+            ->first();
+        if ($mismo) {
+            return back()->with('error',
+                'Ese código ya está cargado en este mismo envío (pago de S/ '
+                . number_format((float) $mismo->amount, 2) . ').');
+        }
+
+        $dupPago  = ShippingRequest::findPaymentByCode($code);
+        $dupEnvio = $dupPago ? $dupPago->shipment : ShippingRequest::findByPaymentCode($code, $shipment->id);
+
+        if ($dupEnvio && !$force) {
+            return back()->with('error', $this->duplicatePaymentMessage($dupEnvio, $code, $dupPago));
+        }
+
+        $user = auth()->user();
+        $payment = $shipment->payments()->create([
+            'amount'          => $data['amount'],
+            'payment_code'    => $code,
+            'method'          => $data['method'] ?? null,
+            'note'            => $data['note'] ?? null,
+            'paid_at'         => now(),
+            'created_by'      => $user ? $user->id : null,
+            'created_by_name' => $user ? $user->name : null,
+        ]);
+
+        if ($dupEnvio && $force) {
+            // Excepción administrativa: se permite, pero queda registrada.
+            ShippingAuditLog::log(
+                ShippingAuditLog::ACTION_PAYMENT, $shipment->id, 'payment_code_duplicado',
+                $dupEnvio->shipment_code ?: ('#' . $dupEnvio->id), $code,
+                'Se forzó un código de pago ya registrado.', $shipment->print_batch_id, true
+            );
+        }
+
+        $this->syncPaymentState($shipment);
+
+        ShippingAuditLog::log(
+            ShippingAuditLog::ACTION_PAYMENT, $shipment->id, 'pago_agregado',
+            null, 'S/ ' . number_format((float) $payment->amount, 2) . ' · ' . $code,
+            $data['note'] ?? null, $shipment->print_batch_id
+        );
+
+        $total = number_format($shipment->fresh()->paid_total, 2);
+
+        return back()->with('success',
+            'Pago registrado (S/ ' . number_format((float) $payment->amount, 2) . " · {$code}). "
+            . "Total cobrado: S/ {$total}.");
+    }
+
+    /** Elimina un pago mal cargado. Libera su código para volver a usarlo. */
+    public function destroyPayment(ShippingRequest $shipment, ShippingPayment $payment): RedirectResponse
+    {
+        abort_if($payment->shipment_id !== $shipment->id, 404);
+
+        $detalle = 'S/ ' . number_format((float) $payment->amount, 2) . ' · ' . $payment->payment_code;
+        $payment->delete();
+
+        $this->syncPaymentState($shipment);
+
+        ShippingAuditLog::log(
+            ShippingAuditLog::ACTION_PAYMENT, $shipment->id, 'pago_eliminado',
+            $detalle, null, 'El código vuelve a quedar disponible.', $shipment->print_batch_id
+        );
+
+        return back()->with('success', "Pago eliminado ({$detalle}).");
+    }
+
+    /**
+     * Mantiene el estado del envío alineado con sus pagos: con al menos un pago
+     * queda confirmado; sin ninguno, vuelve a pendiente. `payment_code` conserva
+     * el PRIMER código para que el rótulo, el CSV y las vistas viejas sigan
+     * funcionando sin conocer la tabla de pagos.
+     */
+    private function syncPaymentState(ShippingRequest $shipment): void
+    {
+        $first = $shipment->payments()->orderBy('id')->first();
+
+        $shipment->forceFill([
+            'payment_confirmed'       => (bool) $first,
+            'payment_confirmed_at'    => $first ? ($first->paid_at ?: $first->created_at) : null,
+            'payment_code'            => $first ? $first->payment_code : null,
+            'payment_code_normalized' => $first ? $first->payment_code_normalized : null,
+        ])->save();
+    }
+
+    /** Pagos del envío en JSON (el modal los repinta sin recargar el panel). */
+    public function listPayments(ShippingRequest $shipment)
+    {
+        return response()->json([
+            'shipment' => $shipment->shipment_code ?: ('#' . $shipment->id),
+            'client'   => $shipment->full_name,
+            'total'    => round($shipment->paid_total, 2),
+            'payments' => $shipment->payments->map(function ($p) {
+                return [
+                    'id'     => $p->id,
+                    'amount' => number_format((float) $p->amount, 2, '.', ''),
+                    'code'   => $p->payment_code,
+                    'method' => $p->method_label,
+                    'note'   => $p->note,
+                    'date'   => optional($p->paid_at ?: $p->created_at)->format('d/m/Y H:i'),
+                    'user'   => $p->created_by_name,
+                ];
+            })->values(),
+        ]);
+    }
+
+    /** Texto de la alerta de código de pago repetido (mismo dato en panel y API). */
+    private function duplicatePaymentMessage(ShippingRequest $other, string $code, ?ShippingPayment $payment = null): string
+    {
+        $cuando = $payment
+            ? ($payment->paid_at ?: $payment->created_at)
+            : ($other->payment_confirmed_at ?: $other->created_at);
+        $fecha = optional($cuando)->format('d/m/Y H:i');
         $ref   = $other->shipment_code ?: ('#' . $other->id);
+        $monto = $payment ? (' · Monto: S/ ' . number_format((float) $payment->amount, 2)) : '';
 
         return "El código de pago ingresado ya se encuentra registrado. "
             . "Cliente: {$other->full_name} · Fecha de registro: {$fecha} · "
-            . "Código de pago: {$code} · Envío: {$ref}.";
+            . "Código de pago: {$code}{$monto} · Envío: {$ref}.";
     }
 
     /**
@@ -1056,7 +1207,19 @@ class ShipmentController extends Controller
             return response()->json(['duplicate' => false]);
         }
 
-        $dup = ShippingRequest::findByPaymentCode($code, $exceptId ?: null);
+        // El pago concreto da el dato más útil de la alerta (monto y fecha del
+        // cobro); si el código viene de un envío previo a la tabla de pagos,
+        // se cae al envío.
+        $dupPago = ShippingRequest::findPaymentByCode($code);
+        $dup = $dupPago ? $dupPago->shipment : ShippingRequest::findByPaymentCode($code, $exceptId ?: null);
+
+        // Otro pago del MISMO envío también es duplicado: es el mismo voucher
+        // cargado dos veces en el pedido.
+        if ($dupPago && $exceptId && $dupPago->shipment_id === $exceptId) {
+            $dup = $dupPago->shipment;
+        } elseif ($dup && $exceptId && $dup->id === $exceptId && !$dupPago) {
+            $dup = null;
+        }
 
         if (!$dup) {
             return response()->json(['duplicate' => false]);
@@ -1064,13 +1227,17 @@ class ShipmentController extends Controller
 
         return response()->json([
             'duplicate' => true,
-            'message'   => $this->duplicatePaymentMessage($dup, $code),
+            'message'   => $this->duplicatePaymentMessage($dup, $code, $dupPago),
             'other'     => [
                 'shipment' => $dup->shipment_code ?: ('#' . $dup->id),
                 'client'   => $dup->full_name,
-                'date'     => optional($dup->payment_confirmed_at ?: $dup->created_at)->format('d/m/Y H:i'),
-                'code'     => $dup->payment_code,
+                'date'     => optional($dupPago
+                                ? ($dupPago->paid_at ?: $dupPago->created_at)
+                                : ($dup->payment_confirmed_at ?: $dup->created_at))->format('d/m/Y H:i'),
+                'code'     => $dupPago ? $dupPago->payment_code : $dup->payment_code,
+                'amount'   => $dupPago ? number_format((float) $dupPago->amount, 2, '.', '') : null,
                 'status'   => $dup->status_label,
+                'same'     => $exceptId && $dup->id === $exceptId,
             ],
         ]);
     }
@@ -2414,12 +2581,23 @@ class ShipmentController extends Controller
         $isDomicilio = $deliveryType === ShippingRequest::DELIVERY_DOMICILIO;
         $isPickup    = $deliveryType === ShippingRequest::DELIVERY_TIENDA;
 
+        // Cliente EMPRESA (RUC): la agencia no entrega a un RUC, pide el DNI y
+        // el nombre de quien recoge. Sin esto salían rótulos a nombre de una
+        // razón social, sin nadie a quien entregarle el paquete.
+        $esEmpresa = ShippingRequest::documentIsRuc(
+            $this->strParam($request, 'document_type'),
+            $this->strParam($request, 'dni')
+        );
+
         // Reglas comunes a las tres modalidades.
         $rules = [
             'delivery_type'        => 'nullable|in:' . implode(',', array_keys(ShippingRequest::DELIVERY_TYPES)),
             'full_name'            => 'required|string|max:160',
             'dni'                  => 'nullable|string|max:20',
             'document_type'        => 'nullable|in:dni,ruc,ce,pasaporte',
+            'pickup_person_name'   => ($esEmpresa ? 'required' : 'nullable') . '|string|max:160',
+            'pickup_person_dni'    => ($esEmpresa ? 'required' : 'nullable') . '|string|min:8|max:20',
+            'pickup_person_phone'  => 'nullable|string|max:20',
             'phone'                => 'required|string|max:20',
             'reference'            => 'nullable|string|max:255',
             'package_content'      => 'nullable|string|max:2000',
@@ -2476,6 +2654,9 @@ class ShipmentController extends Controller
         }
 
         $data = $request->validate($rules, [
+            'pickup_person_name.required'          => 'Indica quién recoge el paquete: la agencia necesita una persona, no la empresa.',
+            'pickup_person_dni.required'           => 'Indica el DNI de la persona que recoge el paquete.',
+            'pickup_person_dni.min'                => 'El DNI de quien recoge debe tener al menos 8 dígitos.',
             'shipping_agency.required'             => 'Elige la agencia de transporte: sin agencia no se puede rotular el envío a provincia.',
             'reference.required_without'           => 'Indica la oficina donde recogerás el paquete (o marca que la agencia lo lleve a tu dirección).',
             'shipping_destination.required_without'=> 'Indica la dirección de entrega o la oficina de recojo.',
@@ -2486,6 +2667,8 @@ class ShipmentController extends Controller
             'shipping_destination' => 'dirección de entrega',
             'shipping_agency'      => 'agencia de transporte',
             'reference'            => 'oficina de recojo',
+            'pickup_person_name'   => 'persona que recoge',
+            'pickup_person_dni'    => 'DNI de quien recoge',
             'accepted_terms'       => 'aceptación de términos',
         ]);
 
@@ -2495,6 +2678,14 @@ class ShipmentController extends Controller
         // enviarlo aunque manipule el formulario público.
         if ($public) {
             unset($data['package_content']);
+        }
+
+        // Si el cliente NO es empresa, "quién recoge" es él mismo: no se guardan
+        // datos sueltos que luego contradigan al destinatario del rótulo.
+        if (!$esEmpresa) {
+            $data['pickup_person_name']  = null;
+            $data['pickup_person_dni']   = null;
+            $data['pickup_person_phone'] = null;
         }
 
         $data['delivery_type']  = $deliveryType;
