@@ -85,6 +85,40 @@ class ShipmentController extends Controller
         return is_scalar($value) ? trim((string) $value) : $default;
     }
 
+    /**
+     * Normaliza los campos de dinero del request antes de validarlos.
+     *
+     * El operador escribe "20", "20.00", "S/ 20" o "20,50" según el teclado y
+     * la costumbre. `numeric` rechaza la coma y el símbolo, y el mensaje que
+     * llega ("no es un número") no ayuda a entender que solo sobraba un signo.
+     */
+    private function normalizeMoneyInput(Request $request, array $keys): void
+    {
+        foreach ($keys as $key) {
+            if (!$request->has($key)) {
+                continue;
+            }
+
+            $raw = $this->strParam($request, $key);
+            if ($raw === '') {
+                continue;
+            }
+
+            // Fuera el símbolo de moneda y los espacios (incluido el duro).
+            $clean = str_replace(['S/', 's/', ' ', "\xc2\xa0"], '', $raw);
+
+            // Una sola coma y sin puntos = separador decimal ("20,50").
+            // En cualquier otro caso las comas son separadores de miles.
+            if (substr_count($clean, ',') === 1 && strpos($clean, '.') === false) {
+                $clean = str_replace(',', '.', $clean);
+            } else {
+                $clean = str_replace(',', '', $clean);
+            }
+
+            $request->merge([$key => $clean]);
+        }
+    }
+
     private function buildListQuery(Request $request, array &$ctx): \Illuminate\Database\Eloquent\Builder
     {
         $filter = $this->strParam($request, 'filter', 'todos');
@@ -930,6 +964,8 @@ class ShipmentController extends Controller
     /** Editar manualmente el precio del envío (el encargado ajusta la estimación). */
     public function updatePrice(Request $request, ShippingRequest $shipment): RedirectResponse
     {
+        $this->normalizeMoneyInput($request, ['delivery_price']);
+
         $data = $request->validate([
             'delivery_price' => 'nullable|numeric|min:0|max:99999',
         ], [], ['delivery_price' => 'precio de envío']);
@@ -1044,6 +1080,8 @@ class ShipmentController extends Controller
      */
     public function storePayment(Request $request, ShippingRequest $shipment): RedirectResponse
     {
+        $this->normalizeMoneyInput($request, ['amount']);
+
         $data = $request->validate([
             'amount'       => 'required|numeric|min:0.01|max:999999',
             'payment_code' => 'required|string|max:60',
@@ -1051,6 +1089,7 @@ class ShipmentController extends Controller
             'note'         => 'nullable|string|max:255',
         ], [
             'amount.required'       => 'Indica el monto del pago.',
+            'amount.numeric'        => 'El monto debe ser un número: escribe 20 o 20.50, sin letras ni símbolos.',
             'amount.min'            => 'El monto debe ser mayor que cero.',
             'payment_code.required' => 'Indica el código de la operación.',
         ], [
@@ -2363,6 +2402,8 @@ class ShipmentController extends Controller
     /** Guarda la ubicación de la tienda (origen para el cálculo de distancia). */
     public function saveSettings(Request $request): RedirectResponse
     {
+        $this->normalizeMoneyInput($request, ['price_per_km', 'base_price', 'min_price', 'agency_fee']);
+
         $data = $request->validate([
             'store_latitude'  => 'required|numeric|between:-90,90',
             'store_longitude' => 'required|numeric|between:-180,180',

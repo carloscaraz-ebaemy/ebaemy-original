@@ -69,15 +69,15 @@
                 <div class="row g-2">
                     <div class="col-4">
                         <label class="form-label small text-muted mb-1">Cobro base (S/)</label>
-                        <input type="number" step="0.10" min="0" name="base_price" class="form-control form-control-sm" value="{{ old('base_price', $store->base_price) }}" placeholder="0.00">
+                        <input type="number" step="any" min="0" inputmode="decimal" name="base_price" class="form-control form-control-sm" value="{{ old('base_price', $store->base_price) }}" placeholder="0.00">
                     </div>
                     <div class="col-4">
                         <label class="form-label small text-muted mb-1">Por km (S/)</label>
-                        <input type="number" step="0.10" min="0" name="price_per_km" class="form-control form-control-sm" value="{{ old('price_per_km', $store->price_per_km) }}" placeholder="Ej. 0.80">
+                        <input type="number" step="any" min="0" inputmode="decimal" name="price_per_km" class="form-control form-control-sm" value="{{ old('price_per_km', $store->price_per_km) }}" placeholder="Ej. 0.80">
                     </div>
                     <div class="col-4">
                         <label class="form-label small text-muted mb-1">Mínimo (S/)</label>
-                        <input type="number" step="0.10" min="0" name="min_price" class="form-control form-control-sm" value="{{ old('min_price', $store->min_price) }}" placeholder="Ej. 5.00">
+                        <input type="number" step="any" min="0" inputmode="decimal" name="min_price" class="form-control form-control-sm" value="{{ old('min_price', $store->min_price) }}" placeholder="Ej. 5.00">
                     </div>
                 </div>
                 <div class="small text-muted mt-2">Ejemplo: base <b>S/3</b> + <b>S/0.80</b>/km, mínimo <b>S/5</b> → un cliente a 4 km paga <b>S/6.20</b>. Deja la tarifa por km en blanco/0 si no quieres mostrar precio.</div>
@@ -99,7 +99,7 @@
 
                 <div class="input-group input-group-sm" style="max-width:220px;" id="feeAmountWrap">
                     <span class="input-group-text">S/</span>
-                    <input type="number" step="0.10" min="0" name="agency_fee" class="form-control" value="{{ $store->agency_fee }}" placeholder="Ej. 20.00">
+                    <input type="number" step="any" min="0" inputmode="decimal" name="agency_fee" class="form-control" value="{{ $store->agency_fee }}" placeholder="Ej. 20.00">
                     <span class="input-group-text">por envío</span>
                 </div>
 

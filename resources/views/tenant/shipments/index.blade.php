@@ -1637,7 +1637,7 @@
               </div>
             </div>
             <div class="col-md-6"><label class="form-label">Costo de envío (S/)</label>
-              <input type="number" step="0.10" min="0" name="delivery_price" id="ed_delivery_price" class="form-control" placeholder="0.00"></div>
+              <input type="number" step="any" min="0" inputmode="decimal" name="delivery_price" id="ed_delivery_price" class="form-control" placeholder="0.00"></div>
             {{-- Ocultos preservados (no se pierden al editar) --}}
             <input type="hidden" name="latitude" id="ed_latitude">
             <input type="hidden" name="longitude" id="ed_longitude">
@@ -1736,7 +1736,7 @@
           <label class="form-label small text-muted mb-1">Precio a cobrar (S/)</label>
           <div class="input-group">
             <span class="input-group-text">S/</span>
-            <input type="number" step="0.10" min="0" name="delivery_price" id="pr_price" class="form-control" placeholder="0.00" autofocus>
+            <input type="number" step="any" min="0" inputmode="decimal" name="delivery_price" id="pr_price" class="form-control" placeholder="0.00" autofocus>
           </div>
           <div class="form-text">Déjalo vacío para quitar el precio.</div>
         </div>
@@ -2002,8 +2002,12 @@
           <div class="row g-2">
             <div class="col-md-3">
               <label class="form-label" for="pcAmount">Monto (S/) *</label>
-              <input id="pcAmount" name="amount" type="number" step="0.10" min="0.01"
-                     class="form-control" placeholder="0.00">
+              {{-- step="any": con step="0.10" y min="0.01" los unicos valores
+                   validos para el navegador eran 0.01, 0.11, 0.21... asi que
+                   escribir 20 daba "Introduzca un valor valido" y no dejaba
+                   guardar. El monto lo valida el servidor (numeric, > 0). --}}
+              <input id="pcAmount" name="amount" type="number" step="any" min="0.01"
+                     inputmode="decimal" class="form-control" placeholder="0.00">
             </div>
             <div class="col-md-4">
               <label class="form-label" for="pcInput">Código de pago *</label>
@@ -3086,11 +3090,15 @@
         if (!f || f.id !== 'formPagoCodigo') return;
         var e = pcEls();
         var val = e.input ? e.input.value.trim() : '';
-        var amt = e.amount ? parseFloat(e.amount.value) : 0;
+        // Se acepta 20, 20.00 y 20,50: la coma decimal es normal en el teclado
+        // del celular y el servidor tambien la entiende.
+        var rawAmt = e.amount ? String(e.amount.value).trim().replace(/\s|S\/?/gi, '') : '';
+        var amt = parseFloat(rawAmt.replace(',', '.'));
 
-        if (!(amt > 0)) {
+        if (!rawAmt || isNaN(amt) || amt <= 0) {
             ev.preventDefault();
-            window.alert('Indica el monto del pago.');
+            window.alert('Indica el monto del pago (por ejemplo 20 o 20.50).');
+            if (e.amount) e.amount.focus();
             return;
         }
         if (!val) {
