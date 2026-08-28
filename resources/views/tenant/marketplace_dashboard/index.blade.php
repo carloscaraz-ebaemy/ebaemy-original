@@ -21,6 +21,11 @@
     </div>
 
     <div id="mpDashContent" style="display:none">
+        {{-- Alerta: productos publicados que el marketplace OCULTA por no
+             tener ninguna imagen (ni la del producto ni la de sus variantes).
+             Se llena desde data.no_image en el fetch de abajo. --}}
+        <div id="mpDashNoImage" class="mpd-noimg" style="display:none"></div>
+
         {{-- ═══════════════════════ KPI CARDS ═══════════════════════ --}}
         <div class="mpd-kpi-grid">
             <div class="mpd-kpi">
@@ -163,6 +168,20 @@
 .mpd-top-list .metric {
     font-size: 13px; font-weight: 700; color: #1f2937;
 }
+/* Alerta de productos sin imagen (ocultos del marketplace) */
+.mpd-noimg {
+    background: #fffbeb; border: 1px solid #fde68a; border-left: 4px solid #f59e0b;
+    border-radius: 10px; padding: 12px 16px; margin-bottom: 14px;
+}
+.mpd-noimg__title { font-size: 13.5px; color: #78350f; line-height: 1.45; }
+.mpd-noimg__list { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.mpd-noimg__chip {
+    background: #fff; border: 1px solid #fcd34d; color: #92400e;
+    border-radius: 999px; padding: 2px 10px; font-size: 11.5px;
+    max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.mpd-noimg__hint { margin-top: 8px; font-size: 11.5px; color: #a16207; }
+@media (max-width: 576px) { .mpd-noimg { padding: 10px 12px; } }
 </style>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
@@ -214,6 +233,29 @@
             </li>`).join('');
     }
 
+    function renderNoImage(ni) {
+        const box = document.getElementById('mpDashNoImage');
+        if (!ni || !ni.count) { box.style.display = 'none'; return; }
+        const n     = ni.count;
+        const items = ni.items || [];
+        const resto = n - items.length;
+        box.innerHTML = `
+            <div class="mpd-noimg__title">
+                ⚠️ <strong>${fmtNum(n)}</strong>
+                ${n === 1 ? 'producto no se está mostrando' : 'productos no se están mostrando'}
+                en el marketplace porque no ${n === 1 ? 'tiene' : 'tienen'} imagen.
+            </div>
+            <div class="mpd-noimg__list">
+                ${items.map(p => `<span class="mpd-noimg__chip" title="${esc(p.title)}">${esc(p.title)}</span>`).join('')}
+                ${resto > 0 ? `<span class="mpd-noimg__chip">y ${fmtNum(resto)} más…</span>` : ''}
+            </div>
+            <div class="mpd-noimg__hint">
+                Sube una foto al producto (o a alguna de sus variantes) desde
+                <a href="/items_ecommerce">Productos de tienda</a> y volverá a aparecer.
+            </div>`;
+        box.style.display = 'block';
+    }
+
     function renderChart(daily) {
         const ctx = document.getElementById('mpDashChart').getContext('2d');
         new Chart(ctx, {
@@ -260,6 +302,7 @@
             document.querySelector('[data-delta="revenue"]').innerHTML = deltaHtml(k.revenue_delta_pct);
             document.querySelector('[data-delta="leads"]').innerHTML   = deltaHtml(k.leads_delta_pct);
 
+            renderNoImage(data.no_image);
             renderFunnel(data.funnel);
             renderTopList('mpDashTopViews',  data.top.views,  'view_count');
             renderTopList('mpDashTopClicks', data.top.clicks, 'click_count');

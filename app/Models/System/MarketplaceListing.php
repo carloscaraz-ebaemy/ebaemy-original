@@ -140,7 +140,37 @@ class MarketplaceListing extends Model
     {
         return $query->where('is_active', true)
                      ->where('status', 'active')
-                     ->where('stock', '>', 0);
+                     ->where('stock', '>', 0)
+                     ->hasImage();
+    }
+
+    /**
+     * Solo listings con alguna imagen mostrable. Un producto sin foto rompe
+     * la card del marketplace (queda el bloque "Sin imagen") y no vende, asi
+     * que se oculta del listado publico hasta que el seller suba una foto.
+     *
+     * "Tiene imagen" = la del producto padre O la de al menos una variante
+     * activa (los productos con variantes suelen no tener foto propia, la
+     * card hereda primary_image_url de la variante principal — ver
+     * MarketplaceController::decorateListingsWithVariantData).
+     *
+     * El seller ve los productos ocultos por esta regla en el panel:
+     * ItemController::marketplaceStats() -> no_image / no_image_titles.
+     */
+    public function scopeHasImage($query)
+    {
+        return $query->where(function ($q) {
+            $q->where(function ($w) {
+                $w->whereNotNull('image_url')->where('image_url', '<>', '');
+            })->orWhereExists(function ($sub) {
+                $sub->select(\DB::raw(1))
+                    ->from('marketplace_listing_variants as lvimg')
+                    ->whereColumn('lvimg.listing_id', 'marketplace_listings.id')
+                    ->where('lvimg.is_active', true)
+                    ->whereNotNull('lvimg.image_url')
+                    ->where('lvimg.image_url', '<>', '');
+            });
+        });
     }
 
     /**

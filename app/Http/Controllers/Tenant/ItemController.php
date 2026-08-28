@@ -1961,15 +1961,52 @@ class ItemController extends Controller
         $hasSaga = \App\Models\Tenant\MarketplaceChannel::where('platform', 'falabella')
             ->where('status', 'active')->exists();
 
+        $noImage = $this->marketplaceListingsWithoutImage($hostnameId);
+
         return [
-            'published'   => (int) ($row->published ?? 0),
-            'views'       => (int) ($row->views ?? 0),
-            'clicks'      => (int) ($row->clicks ?? 0),
-            'leads_total' => (int) ($row->leads_total ?? 0),
-            'leads_30d'   => $leads30d,
-            'top'         => $top,
-            'has_saga'    => $hasSaga,
+            'published'        => (int) ($row->published ?? 0),
+            'views'            => (int) ($row->views ?? 0),
+            'clicks'           => (int) ($row->clicks ?? 0),
+            'leads_total'      => (int) ($row->leads_total ?? 0),
+            'leads_30d'        => $leads30d,
+            'top'              => $top,
+            'has_saga'         => $hasSaga,
+            // Productos publicados que el marketplace NO muestra por no tener
+            // ninguna foto (ni el padre ni sus variantes). Ver scopeHasImage.
+            'no_image'         => $noImage->count(),
+            'no_image_items'   => $noImage->take(8)->values(),
         ];
+    }
+
+    /**
+     * Listings del tenant que están publicados y con stock pero que el
+     * marketplace oculta porque no tienen ninguna imagen — ni la del producto
+     * padre ni la de alguna variante activa. Es el complemento exacto de
+     * MarketplaceListing::scopeHasImage(): si esa condición cambia, cambiar
+     * las dos juntas o la alerta mentirá.
+     *
+     * Devuelve id remoto del item en el tenant (remote_item_id) para poder
+     * enlazar directo al producto desde el panel.
+     */
+    private function marketplaceListingsWithoutImage(int $hostnameId)
+    {
+        return \App\Models\System\MarketplaceListing::where('hostname_id', $hostnameId)
+            ->where('is_active', true)
+            ->where('status', 'active')
+            ->where('stock', '>', 0)
+            ->whereNotExists(function ($sub) {
+                $sub->select(\DB::raw(1))
+                    ->from('marketplace_listing_variants as lvimg')
+                    ->whereColumn('lvimg.listing_id', 'marketplace_listings.id')
+                    ->where('lvimg.is_active', true)
+                    ->whereNotNull('lvimg.image_url')
+                    ->where('lvimg.image_url', '<>', '');
+            })
+            ->where(function ($q) {
+                $q->whereNull('image_url')->orWhere('image_url', '');
+            })
+            ->orderBy('title')
+            ->get(['id', 'remote_item_id', 'title', 'has_variants']);
     }
 
     /**
@@ -2106,11 +2143,18 @@ class ItemController extends Controller
             return $row;
         })->values();
 
+        // ── Productos ocultos por falta de imagen ─────────────────────────
+        $noImage = $this->marketplaceListingsWithoutImage($hostnameId);
+
         return response()->json([
             'kpi'    => $kpi,
             'funnel' => $funnel,
             'top'    => $top,
             'daily'  => $daily,
+            'no_image' => [
+                'count' => $noImage->count(),
+                'items' => $noImage->take(10)->values(),
+            ],
         ]);
     }
 

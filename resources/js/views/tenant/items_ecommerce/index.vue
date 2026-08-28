@@ -114,6 +114,38 @@
             </div>
         </div>
 
+        <!-- ── Alerta: publicados en marketplace pero OCULTOS por no tener foto ──
+             El marketplace filtra los listings sin ninguna imagen (ni del
+             producto ni de sus variantes) porque la card sale vacia y no
+             vende. Aqui el seller se entera y puede arreglarlo de un clic. -->
+        <div v-if="mpStats.no_image > 0" class="mp-noimg-card">
+            <div class="mp-noimg-head">
+                <span class="mp-noimg-icon">⚠️</span>
+                <span>
+                    <strong>{{ mpStats.no_image }}</strong>
+                    {{ mpStats.no_image === 1 ? 'producto no se está mostrando' : 'productos no se están mostrando' }}
+                    en <strong>ebaemy.com/marketplace</strong> porque no
+                    {{ mpStats.no_image === 1 ? 'tiene' : 'tienen' }} imagen.
+                </span>
+            </div>
+            <div class="mp-noimg-list">
+                <button v-for="it in mpStats.no_image_items"
+                        :key="it.id"
+                        type="button"
+                        class="mp-noimg-chip"
+                        @click.prevent="clickCreate(it.remote_item_id)">
+                    {{ it.title }}
+                    <small v-if="it.has_variants">(variantes)</small>
+                </button>
+                <span v-if="mpStats.no_image > mpStats.no_image_items.length" class="mp-noimg-more">
+                    y {{ mpStats.no_image - mpStats.no_image_items.length }} más…
+                </span>
+            </div>
+            <div class="mp-noimg-hint">
+                Sube una foto al producto (o a una de sus variantes) y volverá a aparecer en el siguiente sync.
+            </div>
+        </div>
+
         <!-- ── Marketplace stats (solo si tenant tiene listings publicados) ── -->
         <div v-if="mpStats.published > 0" class="mp-stats-card">
             <div class="mp-stats-head">
@@ -402,6 +434,28 @@
     }
 }
 
+/* ── Alerta productos sin imagen (ocultos en marketplace) ───────────── */
+.mp-noimg-card {
+    background:#fffbeb;
+    border:1px solid #fde68a;
+    border-left:4px solid #f59e0b;
+    border-radius:10px;
+    padding:10px 14px;
+    margin:0 0 10px;
+}
+.mp-noimg-head { display:flex; align-items:flex-start; gap:8px; font-size:13px; color:#78350f; line-height:1.4; }
+.mp-noimg-icon { flex:0 0 auto; }
+.mp-noimg-list { display:flex; flex-wrap:wrap; gap:6px; margin-top:8px; }
+.mp-noimg-chip {
+    background:#fff; border:1px solid #fcd34d; color:#92400e;
+    border-radius:999px; padding:2px 10px; font-size:11.5px; cursor:pointer;
+    max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+}
+.mp-noimg-chip:hover { background:#fef3c7; }
+.mp-noimg-chip small { color:#b45309; }
+.mp-noimg-more { font-size:11.5px; color:#92400e; align-self:center; }
+.mp-noimg-hint { margin-top:7px; font-size:11.5px; color:#a16207; }
+
 /* ── Marketplace stats card ─────────────────────────────────────────── */
 .mp-stats-card {
     background: linear-gradient(135deg,#faf5ff 0%,#f3e8ff 100%);
@@ -462,7 +516,7 @@ export default {
             ecommerce: true,
             sortField: localStorage.getItem('itemSortField') || 'id',
             sortDirection: localStorage.getItem('itemSortDirection') || 'desc',
-            mpStats: { published: 0, views: 0, clicks: 0, leads_total: 0, leads_30d: 0, top: [], has_saga: false },
+            mpStats: { published: 0, views: 0, clicks: 0, leads_total: 0, leads_30d: 0, top: [], has_saga: false, no_image: 0, no_image_items: [] },
             publishingAll: false,
             // id de la fila cuyo switch de Saga está procesando (spinner en el switch)
             sagaLoading: null,

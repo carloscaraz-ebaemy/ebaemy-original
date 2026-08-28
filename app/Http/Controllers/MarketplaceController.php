@@ -764,12 +764,19 @@ class MarketplaceController extends Controller
 
             if (!empty($l->has_variants) && $variants && $variants->count() >= 2 && $inStock->isNotEmpty()) {
                 foreach ($inStock->take(6) as $v) {
+                    // Sin foto no hay card: ni la variante ni el padre tienen
+                    // imagen -> la card saldria con el bloque "Sin imagen".
+                    // El seller lo ve como alerta en su panel de productos.
+                    $cardImg = $v->image_url ?: ($l->primary_image_url ?? $l->image_url);
+                    if (!$cardImg) {
+                        continue;
+                    }
                     $unit = (float) ($v->price ?: $l->display_price);
                     $card = clone $l;
                     $card->variant_card_id     = $v->id;                       // marca: card de variante concreta
                     $card->has_variants        = false;                        // precio exacto, sin "Desde", sin dots
                     $card->title               = $v->display_name ? ($l->title . ' - ' . $v->display_name) : $l->title;
-                    $card->primary_image_url   = $v->image_url ?: ($l->primary_image_url ?? $l->image_url);
+                    $card->primary_image_url   = $cardImg;
                     $card->image_url           = $v->image_url ?: $l->image_url;
                     $card->secondary_image_url = null;
                     // display_price es accessor (lee mp_price/price) → seteamos
