@@ -2677,17 +2677,18 @@ class ShipmentController extends Controller
             // sin agencia: el almacén no sabía dónde dejar el paquete.
             // Además hace falta un destino concreto: la oficina de recojo
             // (`reference`) o, si la agencia reparte, la dirección de casa.
+            // La OFICINA de recojo (`reference`) y la dirección son opcionales:
+            // muchos clientes no saben en qué local les toca recoger hasta que
+            // la agencia les avisa, y exigirlo les trababa el registro.
+            // Lo que sí es obligatorio es la agencia y el ubigeo.
             $rules += [
-                'shipping_destination' => 'nullable|string|max:255|required_without:reference',
+                'shipping_destination' => 'nullable|string|max:255',
                 'destination_city'     => 'nullable|string|max:120',
                 'department_id'        => 'nullable|string|max:2',
                 'province_id'          => 'nullable|string|max:4',
                 'district_id'          => 'required|string|max:6',
                 'shipping_agency'      => 'required|string|max:120',
             ];
-            // OJO: `+=` no pisa claves ya presentes y 'reference' viene de las
-            // reglas comunes. Se asigna aparte o la regla se perdería en silencio.
-            $rules['reference'] = 'nullable|string|max:255|required_without:shipping_destination';
         }
 
         if ($public) {
@@ -2699,8 +2700,6 @@ class ShipmentController extends Controller
             'pickup_person_dni.required'           => 'Indica el DNI de la persona que recoge el paquete.',
             'pickup_person_dni.min'                => 'El DNI de quien recoge debe tener al menos 8 dígitos.',
             'shipping_agency.required'             => 'Elige la agencia de transporte: sin agencia no se puede rotular el envío a provincia.',
-            'reference.required_without'           => 'Indica la oficina donde recogerás el paquete (o marca que la agencia lo lleve a tu dirección).',
-            'shipping_destination.required_without'=> 'Indica la dirección de entrega o la oficina de recojo.',
         ], [
             'full_name'            => 'nombre completo',
             'phone'                => 'teléfono',

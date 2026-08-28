@@ -468,9 +468,9 @@
                              tiene nombre por local): saber en cuál recoge el cliente
                              es más útil que una referencia genérica. Reutiliza la
                              columna `reference`, que en agencia significa "oficina". --}}
-                        <label id="pub_office_label">Oficina donde recogerás</label>
+                        <label id="pub_office_label">Oficina donde recogerás <span style="color:#94a3b8;font-weight:400;">(opcional)</span></label>
                         <input type="text" name="reference" id="pub_reference_ag" value="{{ old('reference') }}" maxlength="255" placeholder="Ej. Terminal Terrestre, Av. Aviación 123…">
-                        <small class="hint" id="pub_office_hint">Escribe el nombre de la oficina/local donde vas a recoger el paquete.</small>
+                        <small class="hint" id="pub_office_hint">Si ya sabes en qué local vas a recoger, escríbelo. Si no, déjalo en blanco: la agencia te lo indicará.</small>
                         <small class="hint" id="pub_dest_err" hidden style="color:#dc2626;"></small>
 
                         {{-- El paquete normalmente solo viaja hasta la agencia: el
@@ -807,7 +807,10 @@
         var inp = document.getElementById('pub_reference_ag');
         if (!lbl || !inp) return;
         var ag = txt('pub_shipping_agency');
-        lbl.textContent = ag ? ('Oficina de ' + ag + ' donde recogerás') : 'Oficina donde recogerás';
+        // El "(opcional)" se reescribe junto con el nombre de la agencia: si se
+        // pierde, el campo vuelve a parecer obligatorio.
+        lbl.innerHTML = (ag ? ('Oficina de ' + ag + ' donde recogerás') : 'Oficina donde recogerás')
+            + ' <span style="color:#94a3b8;font-weight:400;">(opcional)</span>';
         inp.placeholder = ag
             ? ('Ej. ' + ag + ' Terminal Terrestre, Av. Aviación 123…')
             : 'Ej. Terminal Terrestre, Av. Aviación 123…';
@@ -1013,28 +1016,21 @@
                 if (agErr) agErr.hidden = true;
             }
 
-            // Y un destino concreto: la oficina donde recoge o, si pidió reparto,
-            // la dirección de su casa.
-            var ofi  = document.getElementById('pub_reference_ag');
+            // La OFICINA de recojo es OPCIONAL: el cliente muchas veces no sabe
+            // en qué local le toca recoger hasta que la agencia le avisa.
+            // Solo se exige la dirección si pidió expresamente que la agencia
+            // le lleve el paquete a su casa (si no, ese dato no significa nada).
             var casa = document.getElementById('pub_addr_agencia');
-            var pidioReparto = !!(agHome && agHome.checked);
-            var destOk = pidioReparto
-                ? !!(casa && casa.value.trim())
-                : !!(ofi && ofi.value.trim());
-            var destEl = pidioReparto ? casa : ofi;
-            if (!destOk) {
-                if (destEl) destEl.style.borderColor = '#dc2626';
-                var destErr = document.getElementById('pub_dest_err');
-                if (destErr) {
-                    destErr.textContent = pidioReparto
-                        ? 'Escribe la dirección donde la agencia debe entregar el paquete.'
-                        : 'Escribe la oficina de la agencia donde vas a recoger el paquete.';
-                    destErr.hidden = false;
+            var de   = document.getElementById('pub_dest_err');
+            if (agHome && agHome.checked && !(casa && casa.value.trim())) {
+                if (casa) casa.style.borderColor = '#dc2626';
+                if (de) {
+                    de.textContent = 'Escribe la dirección donde la agencia debe entregar el paquete.';
+                    de.hidden = false;
                 }
                 ok = false;
             } else {
-                if (destEl) destEl.style.borderColor = '';
-                var de = document.getElementById('pub_dest_err');
+                if (casa) casa.style.borderColor = '';
                 if (de) de.hidden = true;
             }
         }
