@@ -60,6 +60,8 @@ class ShippingRequest extends Model
         'dispatch_generated_at',
         'payment_confirmed',
         'payment_confirmed_at',
+        'payment_code',
+        'payment_code_normalized',
         'payment_note',
         'courier_name',
         'courier_phone',
@@ -708,6 +710,96 @@ class ShippingRequest extends Model
         self::STATUS_LISTO_RECOJO,
         'enviado', // legado = entregado a agencia
     ];
+
+    // ── Código de pago (control de duplicados) ─────────────────────────────
+
+    /**
+     * Normaliza un código de pago para compararlo: los operadores lo copian a
+     * mano desde Yape/Plin/el voucher y llega con espacios, guiones, puntos o
+     * en minúsculas. Sin normalizar, "yp-123 456" y "YP123456" pasarían como
+     * dos pagos distintos.
+     */
+    public static function normalizePaymentCode(?string $raw): string
+    {
+        $clean = mb_strtoupper(trim((string) $raw));
+        return preg_replace('/[^A-Z0-9]/u', '', $clean) ?? '';
+    }
+
+    /**
+     * Envío que YA registró este código de pago (o null si está libre).
+     * $exceptId permite reconfirmar el mismo envío sin chocar consigo mismo.
+     */
+    public static function findByPaymentCode(?string $raw, ?int $exceptId = null): ?self
+    {
+        $norm = self::normalizePaymentCode($raw);
+        if ($norm === '') {
+            return null;
+        }
+
+        return self::query()
+            ->where('payment_code_normalized', $norm)
+            ->when($exceptId, fn ($q) => $q->where('id', '!=', $exceptId))
+            ->orderBy('id')
+            ->first();
+    }
+
+    // ── Elegibilidad para imprimir el rótulo ───────────────────────────────
+
+    /**
+     * Estados en los que el rótulo YA cumplió su función: el paquete salió de
+     * la tienda o el pedido se cerró. Volver a imprimirlo genera etiquetas
+     * duplicadas circulando, así que la impresión MASIVA los excluye siempre.
+     */
+    public const LABEL_LOCKED_STATUSES = [
+        self::STATUS_DESPACHADO, self::STATUS_EN_AGENCIA, self::STATUS_EN_RUTA,
+        self::STATUS_EN_CAMINO, self::STATUS_ENTREGADO, self::STATUS_LISTO_RECOJO,
+        self::STATUS_ANULADO,
+        'enviado', // legado = entregado a agencia
+    ];
+
+    /**
+     * Motivo por el que este envío NO debe entrar a una impresión de rótulos,
+     * o null si sí es elegible. Es la ÚNICA definición de la regla: la usan el
+     * panel (para no dejar seleccionarlo), la impresión por lote y la
+     * individual. No cubre el pago pendiente, que depende de la configuración
+     * de la tienda (ver ShipmentController::paymentBlocks).
+     *
+     * @param bool $bulk true = selección masiva (nunca reimprime). En la
+     *                   impresión individual sí existe la reimpresión con
+     *                   motivo, salvo para los anulados.
+     */
+    public function labelBlockReason(bool $bulk = true): ?string
+    {
+        if ($this->status === self::STATUS_ANULADO) {
+            return 'Anulado';
+        }
+
+        if ($this->delivery_type === self::DELIVERY_TIENDA) {
+            return 'Recojo en tienda (no lleva rótulo, se imprime su comprobante)';
+        }
+
+        if ($bulk && in_array($this->status, self::LABEL_LOCKED_STATUSES, true)) {
+            return 'Ya ' . mb_strtolower($this->status_label) . ' — requiere reimpresión con motivo';
+        }
+
+        return null;
+    }
+
+    /** ¿Se puede imprimir su rótulo en una selección masiva? */
+    public function isLabelPrintable(): bool
+    {
+        return $this->labelBlockReason(true) === null;
+    }
+
+    /**
+     * Envíos elegibles para rotular (mismo criterio que labelBlockReason, en
+     * SQL). Sirve para contar y para el "seleccionar todo" del panel.
+     */
+    public function scopePrintableLabel($query)
+    {
+        return $query->where('delivery_type', '!=', self::DELIVERY_TIENDA)
+                     ->whereNotIn('status', self::LABEL_LOCKED_STATUSES);
+    }
 
     /** Metadatos visuales por nivel de antigüedad (0 verde … 3 rojo). */
     public const AGING_META = [

@@ -788,9 +788,33 @@
                 <button type="button" class="btn btn-sm btn-light fw-bold" data-bs-toggle="dropdown" style="color:#4f46e5;">
                     <i class="fas fa-exchange-alt me-1"></i> Cambiar estado
                 </button>
-                <ul class="dropdown-menu shadow-sm">
-                    @foreach(['embalando'=>'Embalando','despachado'=>'Despachado','en_agencia'=>'Entregado a agencia','en_camino'=>'Motorizado en camino','entregado'=>'Entregado'] as $sv => $sl)
-                        <li><button type="button" class="dropdown-item sh-bulk-status" data-status="{{ $sv }}"><i class="fas fa-arrow-right fa-fw me-2 text-muted"></i>{{ $sl }}</button></li>
+                <ul class="dropdown-menu shadow-sm" id="shBulkStatusMenu">
+                    @php
+                        // Cada estado pertenece al flujo de una o varias modalidades:
+                        // "Entregado a agencia" es de provincia y "Motorizado en
+                        // camino" de Lima. Antes se ofrecían los cinco a la vez y se
+                        // podía dejar un envío en un estado que su flujo no tiene.
+                        $bulkStatuses = [
+                            \App\Models\Tenant\ShippingRequest::STATUS_EMBALANDO,
+                            \App\Models\Tenant\ShippingRequest::STATUS_LISTO_RECOJO,
+                            \App\Models\Tenant\ShippingRequest::STATUS_EN_CAMINO,
+                            \App\Models\Tenant\ShippingRequest::STATUS_DESPACHADO,
+                            \App\Models\Tenant\ShippingRequest::STATUS_EN_AGENCIA,
+                            \App\Models\Tenant\ShippingRequest::STATUS_ENTREGADO,
+                        ];
+                        $flows = \App\Models\Tenant\ShippingRequest::STATUS_FLOWS;
+                    @endphp
+                    @foreach($bulkStatuses as $sv)
+                        @php
+                            $tipos = [];
+                            foreach ($flows as $dt => $seq) {
+                                if (in_array($sv, $seq, true)) { $tipos[] = $dt; }
+                            }
+                            $label = \App\Models\Tenant\ShippingRequest::STATUSES[$sv] ?? $sv;
+                        @endphp
+                        <li><button type="button" class="dropdown-item sh-bulk-status"
+                                    data-status="{{ $sv }}"
+                                    data-types="{{ implode(',', $tipos) }}"><i class="fas fa-arrow-right fa-fw me-2 text-muted"></i>{{ $label }}</button></li>
                     @endforeach
                 </ul>
             </div>
@@ -916,7 +940,21 @@
                             data-peek-code="{{ $s->shipment_code }}"
                             data-peek-bultos="{{ $s->package_count ?: 1 }}"
                         @endif>
-                        <td><input type="checkbox" class="form-check-input sh-check" value="{{ $s->id }}"></td>
+                        @php
+                            // Elegibilidad para rotular: la regla vive en el modelo y el
+                            // pago depende de la config de la tienda. Se expone en el DOM
+                            // para que "seleccionar todos" e "imprimir" no arrastren
+                            // anulados, ya despachados ni recojos en tienda.
+                            // El pago pendiente se marca aparte: esos SI deben poder
+                            // seleccionarse (para confirmarlos en lote), solo no se rotulan.
+                            $labelWhy = $s->labelBlockReason(true);
+                            $payPend  = ($requirePayment ?? false) && !$s->payment_confirmed;
+                        @endphp
+                        <td><input type="checkbox" class="form-check-input sh-check" value="{{ $s->id }}"
+                                   data-printable="{{ $labelWhy === null ? '1' : '0' }}"
+                                   data-paypend="{{ $payPend ? '1' : '0' }}"
+                                   data-dtype="{{ $s->delivery_type ?: \App\Models\Tenant\ShippingRequest::DELIVERY_AGENCIA }}"
+                                   @if($labelWhy !== null) data-why="{{ $labelWhy }}" @endif></td>
                         <td>
                             <span class="sh-code">{{ $s->shipment_code }}</span>
                             @if($peekContent)
@@ -1011,12 +1049,20 @@
                                 @php $flow = $s->selectableStatuses(); $curInFlow = in_array($s->status, $flow, true); @endphp
                                 @if($bloqueado)
                                     {{-- Divulgación progresiva: mientras no se pueda usar el estado, no se muestra. --}}
-                                    <form method="POST" action="{{ route('shipments.payment', $s->id) }}" class="m-0 js-pay-form">
-                                        @csrf
-                                        <button type="submit" class="sh-pay-gate" title="Confirmar el pago habilita el estado y la impresión">
-                                            <i class="fas fa-lock"></i> Confirmar pago
-                                        </button>
-                                    </form>
+                                    {{-- Confirmar el pago pide el CODIGO de la operacion:
+                                         es lo que permite detectar el mismo pago
+                                         usado en dos envios. El modal se abre de
+                                         forma declarativa (el bundle no expone
+                                         `window.bootstrap`). --}}
+                                    <button type="button" class="sh-pay-gate js-pay-open"
+                                            data-bs-toggle="modal" data-bs-target="#modalPagoCodigo"
+                                            data-id="{{ $s->id }}"
+                                            data-code="{{ $s->shipment_code }}"
+                                            data-client="{{ $s->full_name }}"
+                                            data-action="{{ route('shipments.payment', $s->id) }}"
+                                            title="Confirmar el pago habilita el estado y la impresión">
+                                        <i class="fas fa-lock"></i> Confirmar pago
+                                    </button>
                                 @else
                                 <form method="POST" action="{{ route('shipments.status', $s->id) }}" class="d-inline m-0">
                                     @csrf
@@ -1341,8 +1387,28 @@
               <input type="text" name="full_name" id="nv_full_name" class="form-control" required></div>
           </div>
 
+          <div class="sh-section"><i class="fas fa-truck fa-fw me-1"></i> Modalidad de entrega</div>
+          {{-- El alta manual solo ofrecía provincia (agencia): un pedido de Lima o
+               un recojo en tienda quedaban registrados como agencia y pedían
+               ubigeo que no existe. Ahora la modalidad se elige aquí y cada una
+               muestra SOLO sus campos. --}}
+          <div class="row g-2" id="nvTypeCards">
+            @foreach(\App\Models\Tenant\ShippingRequest::DELIVERY_TYPES as $dtKey => $dtLabel)
+              <div class="col-md-4">
+                <label class="w-100 mb-0" style="cursor:pointer;">
+                  <input type="radio" name="delivery_type" value="{{ $dtKey }}" class="js-nv-type"
+                         {{ $dtKey === \App\Models\Tenant\ShippingRequest::DELIVERY_AGENCIA ? 'checked' : '' }}
+                         style="margin-right:6px;">
+                  <span style="font-weight:600;font-size:13px;">
+                    {{ \App\Models\Tenant\ShippingRequest::DELIVERY_META[$dtKey]['emoji'] ?? '' }} {{ $dtLabel }}
+                  </span>
+                </label>
+              </div>
+            @endforeach
+          </div>
+
           <div class="sh-section"><i class="fas fa-map-marker-alt fa-fw me-1"></i> Destino</div>
-          <div class="row g-3">
+          <div class="row g-3 nv-agencia">
             <div class="col-12"><label class="form-label">Ubigeo (Departamento / Provincia / Distrito) <span class="text-danger">*</span></label>
               <div class="ubigeo-field" data-ubigeo-group="nv">
                 <div class="ubigeo-display" tabindex="0">Seleccionar departamento / provincia / distrito…</div>
@@ -1355,11 +1421,7 @@
                   <div class="ubigeo-col" data-col="dist"></div>
                 </div>
               </div></div>
-            <div class="col-md-6"><label class="form-label">Dirección</label>
-              <input type="text" name="shipping_destination" id="nv_shipping_destination" class="form-control"></div>
-            <div class="col-md-6"><label class="form-label small mb-1">Referencia</label>
-              <input type="text" name="reference" id="nv_reference" class="form-control" placeholder="Frente a…, cerca de…"></div>
-            <div class="col-12"><label class="form-label">Agencia</label>
+            <div class="col-12"><label class="form-label">Agencia <span class="text-danger">*</span></label>
               <div class="agency-field">
                 <select class="form-select agency-select">
                   <option value="">— Selecciona —</option>
@@ -1367,7 +1429,25 @@
                   <option value="__otra__">Otra…</option>
                 </select>
                 <input type="text" name="shipping_agency" class="form-control agency-input mt-2" placeholder="Nombre de la agencia" style="display:none;">
-              </div></div>
+              </div>
+              <div class="sh-hint">Sin agencia no se puede rotular el envío a provincia.</div>
+            </div>
+          </div>
+
+          <div class="row g-3 nv-tienda" style="display:none;">
+            <div class="col-12">
+              <div class="alert alert-light border small mb-0 py-2">
+                🏬 <b>Recojo en tienda</b> — el cliente pasa por su pedido: no lleva
+                ubigeo, agencia ni dirección de destino.
+              </div>
+            </div>
+          </div>
+
+          <div class="row g-3 mt-0" id="nvDestBox">
+            <div class="col-md-6" id="nvDirWrap"><label class="form-label" id="nv_dir_label">Dirección</label>
+              <input type="text" name="shipping_destination" id="nv_shipping_destination" class="form-control"></div>
+            <div class="col-md-6"><label class="form-label small mb-1" id="nv_ref_label">Referencia</label>
+              <input type="text" name="reference" id="nv_reference" class="form-control" placeholder="Frente a…, cerca de…"></div>
           </div>
 
           <div class="sh-fs">
@@ -1505,11 +1585,23 @@
             <input type="hidden" name="duration_text" id="ed_duration_text">
           </div>
 
-          {{-- Dirección + Referencia (común a ambos tipos) --}}
-          <div class="row g-3 mt-0">
-            <div class="col-md-6"><label class="form-label">Dirección</label>
+          {{-- ── Rama RECOJO EN TIENDA ── --}}
+          <div class="row g-3 ed-tienda" style="display:none;">
+            <div class="col-12">
+              <div class="alert alert-light border small mb-0 py-2">
+                🏬 <b>Recojo en tienda</b> — el cliente pasa por su pedido.
+                No lleva agencia, ubigeo ni dirección de destino.
+              </div>
+            </div>
+          </div>
+
+          {{-- Dirección + Referencia. El significado cambia por modalidad, así que
+               las etiquetas se reescriben desde el JS (en agencia `reference` es la
+               oficina de recojo; en tienda, cuándo piensa pasar). --}}
+          <div class="row g-3 mt-0" id="edDestBox">
+            <div class="col-md-6" id="edDirWrap"><label class="form-label" id="ed_dir_label">Dirección</label>
               <input type="text" name="shipping_destination" id="ed_shipping_destination" class="form-control"></div>
-            <div class="col-md-6"><label class="form-label">Referencia</label>
+            <div class="col-md-6"><label class="form-label" id="ed_ref_label">Referencia</label>
               <input type="text" name="reference" id="ed_reference" class="form-control"></div>
           </div>
           </div>
@@ -1797,6 +1889,52 @@
   </div>
 </div>
 
+{{-- ══════════════ Modal: confirmar pago con código ══════════════ --}}
+<div class="modal fade" id="modalPagoCodigo" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      {{-- data-no-ajax: este formulario lo envía su propio JS después de
+           verificar el código; el interceptor genérico lo mandaría antes. --}}
+      <form method="POST" action="#" id="formPagoCodigo" data-no-ajax>
+        @csrf
+        <input type="hidden" name="payment_code_force" id="pcForce" value="0">
+        <div class="modal-header">
+          <h5 class="modal-title">Confirmar pago — <span id="pcCode"></span></h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <p class="text-muted" style="font-size:.85rem">
+            Cliente: <strong id="pcClient"></strong>. Escribe el <strong>código de la
+            operación</strong> (Yape, Plin, transferencia o número de voucher). El sistema
+            avisa si ese pago ya se registró en otro envío.
+          </p>
+
+          <label class="form-label" for="pcInput">Código de pago *</label>
+          <input id="pcInput" name="payment_code" class="form-control" maxlength="60"
+                 autocomplete="off" placeholder="Ej. 01234567">
+
+          <div id="pcAlert" class="mt-2" style="display:none;background:#fef2f2;border:1px solid #fecaca;color:#991b1b;border-radius:10px;padding:10px 12px;font-size:.83rem;"></div>
+          <div id="pcOk" class="mt-2" style="display:none;background:#f0fdf4;border:1px solid #bbf7d0;color:#166534;border-radius:10px;padding:8px 12px;font-size:.83rem;">
+            Código disponible.
+          </div>
+
+          <div class="mt-3">
+            <label class="form-label" for="pcNote">Nota (opcional)</label>
+            <input id="pcNote" name="payment_note" class="form-control" maxlength="255"
+                   placeholder="Ej. pagó por Yape a las 10:15">
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="sh-act sh-act--ghost" data-bs-dismiss="modal">Cancelar</button>
+          <button type="submit" class="sh-act sh-act--primary" id="pcGo">
+            <i class="fas fa-check"></i> Confirmar pago
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
 {{-- ── BITÁCORA del envío ── --}}
 <div class="modal fade" id="modalBitacora" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-dialog-centered modal-lg">
@@ -1871,17 +2009,45 @@
         var code = document.getElementById('edCode');
         if (code) code.textContent = get('shipment_code');
 
-        // Tipo de entrega: alternar la rama agencia/domicilio del modal.
-        var type = get('delivery_type') === 'domicilio' ? 'domicilio' : 'agencia';
-        var isDom = type === 'domicilio';
+        // Tipo de entrega: TRES modalidades. Antes era binario (`=== 'domicilio'
+        // ? domicilio : agencia`), así que al editar un RECOJO EN TIENDA se
+        // guardaba como agencia y el formulario exigía ubigeo que no existe.
+        var raw = get('delivery_type');
+        var type = (raw === 'domicilio' || raw === 'tienda') ? raw : 'agencia';
+        var isDom  = type === 'domicilio';
+        var isPick = type === 'tienda';
         document.getElementById('ed_delivery_type').value = type;
-        var bAg = document.querySelector('#modalEditar .ed-agencia');
+        var bAg  = document.querySelector('#modalEditar .ed-agencia');
         var bDom = document.querySelector('#modalEditar .ed-domicilio');
-        if (bAg) bAg.style.display = isDom ? 'none' : '';
-        if (bDom) bDom.style.display = isDom ? '' : 'none';
-        // Desactivar los inputs de la rama oculta para que NO se envíen.
-        if (bAg) bAg.querySelectorAll('input,select').forEach(function (el) { el.disabled = isDom; });
+        var bTie = document.querySelector('#modalEditar .ed-tienda');
+        if (bAg)  bAg.style.display  = (type === 'agencia') ? '' : 'none';
+        if (bDom) bDom.style.display = isDom  ? '' : 'none';
+        if (bTie) bTie.style.display = isPick ? '' : 'none';
+        // Desactivar los inputs de las ramas ocultas para que NO se envíen
+        // (hay `name` repetidos entre ramas).
+        if (bAg)  bAg.querySelectorAll('input,select').forEach(function (el) { el.disabled = (type !== 'agencia'); });
         if (bDom) bDom.querySelectorAll('input').forEach(function (el) { el.disabled = !isDom; });
+
+        // Etiquetas y campos del bloque destino según la modalidad.
+        var dirLbl = document.getElementById('ed_dir_label');
+        var refLbl = document.getElementById('ed_ref_label');
+        var dirWrap = document.getElementById('edDirWrap');
+        if (dirLbl && refLbl) {
+            if (isPick) {
+                dirLbl.textContent = 'Dirección';
+                refLbl.textContent = 'Cuándo piensa pasar';
+            } else if (isDom) {
+                dirLbl.textContent = 'Dirección de entrega';
+                refLbl.textContent = 'Referencia';
+            } else {
+                dirLbl.textContent = 'Dirección (solo si la agencia reparte a domicilio)';
+                refLbl.textContent = 'Oficina de recojo';
+            }
+        }
+        // En recojo no hay dirección de destino que registrar.
+        if (dirWrap) dirWrap.style.display = isPick ? 'none' : '';
+        var dirInput = document.getElementById('ed_shipping_destination');
+        if (dirInput) dirInput.disabled = isPick;
 
         if (isDom) {
             var lat = get('latitude'), lng = get('longitude');
@@ -1891,11 +2057,52 @@
             if (ml) { var link = get('maps_link'); if (link) { ml.href = link; ml.style.display = ''; } else ml.style.display = 'none'; }
             var dd = document.getElementById('ed_dist_display');
             if (dd) dd.textContent = get('distance_text') ? ('🛵 ' + get('distance_text')) : '';
-        } else {
+        } else if (!isPick) {
             // Precargar el ubigeo (dep → prov → dist) del envío.
             if (window.__ubPreset) window.__ubPreset('ed', get('department_id'), get('province_id'), get('district_id'));
             if (window.__syncAgency) window.__syncAgency();
         }
+    });
+
+    /* ── Alta manual: mostrar SOLO los campos de la modalidad elegida ──────
+       Los `name` se repiten entre ramas (shipping_destination, reference), así
+       que las ocultas se deshabilitan: si no, se manda el campo de otra
+       modalidad y el registro queda mezclado. */
+    function nvSyncType() {
+        var sel = document.querySelector('#modalNuevoEnvio .js-nv-type:checked');
+        var type = sel ? sel.value : 'agencia';
+        var isAg = type === 'agencia', isPick = type === 'tienda';
+
+        var bAg  = document.querySelector('#modalNuevoEnvio .nv-agencia');
+        var bTie = document.querySelector('#modalNuevoEnvio .nv-tienda');
+        if (bAg)  bAg.style.display  = isAg ? '' : 'none';
+        if (bTie) bTie.style.display = isPick ? '' : 'none';
+        if (bAg)  bAg.querySelectorAll('input,select').forEach(function (el) { el.disabled = !isAg; });
+
+        var dirLbl = document.getElementById('nv_dir_label');
+        var refLbl = document.getElementById('nv_ref_label');
+        var dirWrap = document.getElementById('nvDirWrap');
+        var dirInp = document.getElementById('nv_shipping_destination');
+        if (dirLbl && refLbl) {
+            if (isPick) {
+                refLbl.textContent = 'Cuándo piensa pasar';
+            } else if (isAg) {
+                dirLbl.textContent = 'Dirección (solo si la agencia reparte a domicilio)';
+                refLbl.textContent = 'Oficina de recojo';
+            } else {
+                dirLbl.textContent = 'Dirección de entrega';
+                refLbl.textContent = 'Referencia';
+            }
+        }
+        if (dirWrap) dirWrap.style.display = isPick ? 'none' : '';
+        if (dirInp)  dirInp.disabled = isPick;
+    }
+    document.addEventListener('change', function (ev) {
+        if (ev.target && ev.target.classList && ev.target.classList.contains('js-nv-type')) nvSyncType();
+    });
+    document.addEventListener('click', function (ev) {
+        var b = ev.target.closest && ev.target.closest('[data-bs-target="#modalNuevoEnvio"]');
+        if (b) setTimeout(nvSyncType, 50);
     });
 
     // Modal precio: precargar el precio actual y apuntar el form al envío.
@@ -1995,11 +2202,33 @@
     function $checks() { return Array.prototype.slice.call(document.querySelectorAll('.sh-check')); }
     function $checked() { return $checks().filter(function (c) { return c.checked; }); }
     function refresh() {
-        var n = $checked().length;
+        var sel = $checked();
+        var n = sel.length;
         var countEl = document.getElementById('shSelCount');
         var bar = document.getElementById('shBulkBar');
         if (countEl) countEl.textContent = n;
         if (bar) bar.style.display = n > 0 ? 'flex' : 'none';
+        syncBulkStatusMenu(sel);
+    }
+
+    /* Solo se ofrecen los estados que existen en el flujo de TODAS las
+       modalidades seleccionadas: "Entregado a agencia" no aplica a un envío de
+       Lima ni a un recojo en tienda. Los demás quedan visibles pero apagados,
+       para que se entienda por qué no están. */
+    function syncBulkStatusMenu(sel) {
+        var menu = document.getElementById('shBulkStatusMenu');
+        if (!menu) return;
+        var types = {};
+        sel.forEach(function (c) { types[c.getAttribute('data-dtype') || 'agencia'] = true; });
+        var picked = Object.keys(types);
+
+        menu.querySelectorAll('.sh-bulk-status').forEach(function (b) {
+            var allowed = (b.getAttribute('data-types') || '').split(',');
+            var ok = picked.length > 0 && picked.every(function (t) { return allowed.indexOf(t) !== -1; });
+            b.disabled = !ok;
+            b.style.opacity = ok ? '' : '.45';
+            b.title = ok ? '' : 'No aplica a la modalidad de los envíos seleccionados';
+        });
     }
 
     // Cambios en los checkboxes (delegado — sobrevive al re-render de Vue).
@@ -2007,8 +2236,13 @@
         var t = ev.target;
         if (!t) return;
         if (t.id === 'shCheckAll') {
+            // "Seleccionar todos" marca SOLO los elegibles para rotular: con el
+            // filtro "Todos" la lista trae anulados y ya despachados, y antes
+            // entraban a la impresion masiva.
             var on = t.checked;
-            $checks().forEach(function (c) { c.checked = on; });
+            $checks().forEach(function (c) {
+                c.checked = on && c.getAttribute('data-printable') !== '0';
+            });
             refresh();
         } else if (t.classList && t.classList.contains('sh-check')) {
             refresh();
@@ -2022,8 +2256,25 @@
         var clear = ev.target.closest && ev.target.closest('#shClearSel');
         if (print) {
             ev.preventDefault();
-            var ids = $checked().map(function (c) { return c.value; });
-            if (ids.length) window.open('{{ route("shipments.print_batch") }}?ids=' + ids.join(','), '_blank');
+            var sel  = $checked();
+            var okEl = sel.filter(function (c) {
+                return c.getAttribute('data-printable') !== '0'
+                    && c.getAttribute('data-paypend') !== '1';
+            });
+            var bad  = sel.length - okEl.length;
+
+            if (!okEl.length) {
+                window.alert('Ninguno de los ' + sel.length + ' envio(s) seleccionados se puede rotular '
+                    + '(anulados, ya despachados, recojo en tienda o pago sin confirmar).');
+                return;
+            }
+            if (bad > 0 && !window.confirm('Se imprimiran ' + okEl.length + ' rotulo(s). '
+                    + bad + ' quedaron fuera por no ser elegibles (anulado, ya despachado, '
+                    + 'recojo en tienda o pago pendiente). Continuar?')) {
+                return;
+            }
+            var ids = okEl.map(function (c) { return c.value; });
+            window.open('{{ route("shipments.print_batch") }}?ids=' + ids.join(','), '_blank');
         } else if (clear) {
             ev.preventDefault();
             $checks().forEach(function (c) { c.checked = false; });
@@ -2058,6 +2309,27 @@
         if (ic) ic.className = on ? 'fas fa-spinner fa-spin' : 'fas fa-search';
     }
 
+    /**
+     * Sesion caida: el servidor responde el LOGIN con 200, asi que el panel se
+     * quedaba mudo (el filtro "no hacia nada") y el siguiente clic llevaba al
+     * login sin explicacion — de ahi la sensacion de que "se cierra la sesion".
+     * Se detecta por el redirect y por el formulario de login del HTML.
+     */
+    function isLoginDoc(doc, res) {
+        try {
+            if (res && res.redirected && /\/login(\?|$)/.test(res.url || '')) return true;
+            if (!doc) return false;
+            if (doc.getElementById('shPanel')) return false;
+            return !!doc.querySelector('input[name="password"], form[action*="login"]');
+        } catch (e) { return false; }
+    }
+
+    function sessionLost() {
+        window.alert('Tu sesion expiro. Vamos a la pantalla de acceso para que vuelvas a entrar; '
+            + 'los filtros que tenias puestos se conservan en la direccion.');
+        window.location = '{{ url("login") }}';
+    }
+
     function fetchDoc(url) {
         if (ctrl) { try { ctrl.abort(); } catch (e) {} }
         ctrl = ('AbortController' in window) ? new AbortController() : null;
@@ -2065,8 +2337,11 @@
             headers: { 'X-Requested-With': 'XMLHttpRequest' },
             credentials: 'same-origin',
             signal: ctrl ? ctrl.signal : undefined
-        }).then(function (r) { return r.text(); })
-          .then(function (html) { return new DOMParser().parseFromString(html, 'text/html'); });
+        }).then(function (r) {
+            return r.text().then(function (html) {
+                return { res: r, doc: new DOMParser().parseFromString(html, 'text/html') };
+            });
+        });
     }
 
     function after(url, push) {
@@ -2079,11 +2354,21 @@
     /** Refresca SOLO los resultados (para escribir en el buscador: sin parpadeo). */
     function swapResults(url) {
         busy(true);
-        fetchDoc(url).then(function (doc) {
-            var fresh = doc.getElementById('shResults');
+        fetchDoc(url).then(function (out) {
+            if (isLoginDoc(out.doc, out.res)) { busy(false); sessionLost(); return; }
+            var fresh = out.doc.getElementById('shResults');
             var cur = document.getElementById('shResults');
-            if (fresh && cur) cur.innerHTML = fresh.innerHTML;
-            after(url, false);
+            if (fresh && cur) {
+                cur.innerHTML = fresh.innerHTML;
+                after(url, false);
+            } else {
+                // El servidor respondio algo que no es el panel (error 500 o
+                // pagina de error): no dejarlo en silencio.
+                window.alert('No se pudo aplicar la busqueda (el servidor respondio con un error). '
+                    + 'Se recargara la pagina con los filtros actuales.');
+                window.location = url;
+                return;
+            }
             busy(false);
         }).catch(function (e) {
             if (!e || e.name !== 'AbortError') busy(false);
@@ -2133,10 +2418,19 @@
         opts = opts || {};
         var y = (typeof opts.scrollY === 'number') ? opts.scrollY : window.scrollY;
         busy(true);
-        fetchDoc(url).then(function (doc) {
-            var fresh = doc.getElementById('shPanel');
+        fetchDoc(url).then(function (out) {
+            if (isLoginDoc(out.doc, out.res)) { busy(false); sessionLost(); return; }
+            var fresh = out.doc.getElementById('shPanel');
             var cur = document.getElementById('shPanel');
-            if (fresh && cur) cur.innerHTML = fresh.innerHTML;
+            if (!fresh || !cur) {
+                // Sin panel en la respuesta no hay nada que intercambiar: el
+                // filtro fallo en el servidor. Recargar deja ver el error real
+                // en vez de dejar la lista congelada.
+                busy(false);
+                window.location = url;
+                return;
+            }
+            cur.innerHTML = fresh.innerHTML;
             after(url, !opts.noPush);
             if (opts.keep) restoreAnchor(opts.anchor, y);
             busy(false);
@@ -2201,9 +2495,21 @@
             // abierto con lo que el usuario escribió en vez de cerrarlo y
             // perderlo. fetch solo falla por red, así que hay que mirar el
             // status a mano.
+            if (r && (r.status === 401 || r.status === 419)) {
+                busy(false);
+                sessionLost();
+                return;
+            }
+            if (r && r.redirected && /\/login(\?|$)/.test(r.url || '')) {
+                busy(false);
+                sessionLost();
+                return;
+            }
             if (r && !r.ok) {
                 busy(false);
-                window.alert('No se pudo guardar. Revisa los datos e inténtalo de nuevo.');
+                window.alert(r.status === 422
+                    ? 'Faltan datos o hay un dato inválido. Revisa el formulario.'
+                    : 'No se pudo guardar (error ' + r.status + '). Inténtalo de nuevo.');
                 return;
             }
 
@@ -2481,6 +2787,11 @@
         var opt = ev.target.closest && ev.target.closest('.sh-bulk-status');
         if (!opt) return;
         ev.preventDefault();
+        if (opt.disabled) {
+            window.alert('Ese estado no pertenece al flujo de los envíos seleccionados. '
+                + 'Separa la selección por modalidad (Lima, Provincia o Recojo en tienda).');
+            return;
+        }
         var ids = Array.prototype.slice.call(document.querySelectorAll('.sh-check'))
             .filter(function (c) { return c.checked; }).map(function (c) { return c.value; });
         if (!ids.length) return;
@@ -2495,6 +2806,112 @@
         fetch('{{ route("shipments.status_bulk") }}', { method: 'POST', body: fd, headers: { 'X-Requested-With': 'XMLHttpRequest' }, credentials: 'same-origin' })
             .then(function () { swap(location.href, { noPush: true, keep: true, scrollY: y }); })
             .catch(function () { busy(false); });
+    });
+
+    /* ── Confirmar pago con CÓDIGO (anti-duplicados) ────────────────────
+       El botón de la fila abre el modal (declarativo) y aquí solo se rellenan
+       los campos. Al escribir se consulta el código contra los envíos ya
+       confirmados; si está repetido se muestra quién lo usó y no se envía,
+       salvo que el operador insista (queda como excepción en la bitácora). */
+    var pcDup = false, pcTimer = null, pcLast = '';
+
+    function pcEls() {
+        return {
+            form:  document.getElementById('formPagoCodigo'),
+            input: document.getElementById('pcInput'),
+            alert: document.getElementById('pcAlert'),
+            ok:    document.getElementById('pcOk'),
+            force: document.getElementById('pcForce'),
+            go:    document.getElementById('pcGo')
+        };
+    }
+
+    function pcReset() {
+        var e = pcEls();
+        pcDup = false; pcLast = '';
+        if (e.alert) { e.alert.style.display = 'none'; e.alert.innerHTML = ''; }
+        if (e.ok) e.ok.style.display = 'none';
+        if (e.force) e.force.value = '0';
+        if (e.go) e.go.innerHTML = '<i class="fas fa-check"></i> Confirmar pago';
+    }
+
+    document.addEventListener('click', function (ev) {
+        var b = ev.target.closest && ev.target.closest('.js-pay-open');
+        if (!b) return;
+        var e = pcEls();
+        if (!e.form) return;
+        e.form.setAttribute('action', b.getAttribute('data-action') || '#');
+        var code = document.getElementById('pcCode');
+        var cli  = document.getElementById('pcClient');
+        if (code) code.textContent = b.getAttribute('data-code') || '';
+        if (cli)  cli.textContent  = b.getAttribute('data-client') || '';
+        e.form.setAttribute('data-shipment', b.getAttribute('data-id') || '');
+        if (e.input) e.input.value = '';
+        var note = document.getElementById('pcNote'); if (note) note.value = '';
+        pcReset();
+        setTimeout(function () { if (e.input) e.input.focus(); }, 350);
+    });
+
+    document.addEventListener('input', function (ev) {
+        if (ev.target.id !== 'pcInput') return;
+        var val = ev.target.value.trim();
+        pcReset();
+        if (val.length < 3) return;
+        clearTimeout(pcTimer);
+        pcTimer = setTimeout(function () { pcCheck(val); }, 350);
+    });
+
+    function pcCheck(val) {
+        var e = pcEls();
+        var sid = e.form ? (e.form.getAttribute('data-shipment') || '') : '';
+        pcLast = val;
+        fetch('{{ route("shipments.check_payment_code") }}?code=' + encodeURIComponent(val)
+                + '&shipment_id=' + encodeURIComponent(sid),
+              { headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' },
+                credentials: 'same-origin' })
+            .then(function (r) { return r.ok ? r.json() : null; })
+            .then(function (d) {
+                if (!d || pcLast !== val) return;   // llegó tarde: el operador siguió escribiendo
+                if (!d.duplicate) {
+                    pcDup = false;
+                    if (e.ok) e.ok.style.display = 'block';
+                    return;
+                }
+                pcDup = true;
+                if (e.alert) {
+                    e.alert.innerHTML =
+                        '<strong>El código de pago ingresado ya se encuentra registrado.</strong><br>'
+                        + 'Cliente: <strong>' + (d.other.client || '—') + '</strong><br>'
+                        + 'Fecha de registro: ' + (d.other.date || '—') + '<br>'
+                        + 'Código de pago: ' + (d.other.code || '—') + '<br>'
+                        + 'Envío: ' + (d.other.shipment || '—') + ' (' + (d.other.status || '') + ')';
+                    e.alert.style.display = 'block';
+                }
+                if (e.go) e.go.innerHTML = '<i class="fas fa-exclamation-triangle"></i> Registrar de todos modos';
+            })
+            .catch(function () { /* sin conexión: valida el servidor al enviar */ });
+    }
+
+    document.addEventListener('submit', function (ev) {
+        var f = ev.target;
+        if (!f || f.id !== 'formPagoCodigo') return;
+        var e = pcEls();
+        var val = e.input ? e.input.value.trim() : '';
+
+        if (!val) {
+            ev.preventDefault();
+            window.alert('Escribe el código de pago para confirmar.');
+            return;
+        }
+        if (pcDup && e.force && e.force.value !== '1') {
+            ev.preventDefault();
+            if (!window.confirm('Ese código de pago ya está registrado en otro envío. '
+                    + '¿Registrarlo igual? Quedará marcado como excepción en la bitácora.')) {
+                return;
+            }
+            e.force.value = '1';
+            f.submit();   // envío nativo: este formulario está fuera del interceptor
+        }
     });
 
     // Confirmar pago de los SELECCIONADOS (por lote).

@@ -546,6 +546,10 @@ class EcommerceController extends Controller
             'category'                    => $row->category,
             'stock'                       => $totalStock,
             'technical_specifications'    => $row->technical_specifications,
+            // Descripcion larga del producto (editor). Sin esta clave la ficha
+            // solo podia mostrar el nombre y la descripcion escrita al
+            // registrar el producto no aparecia nunca en la tienda.
+            'mp_notes'                    => $row->mp_notes,
             'name'                        => $row->name,
             'second_name'                 => $row->second_name,
             'sale_unit_price'             => ($row->currency_type_id === 'PEN') ? $finalPrice : ($finalPrice * $exchange_rate_sale),

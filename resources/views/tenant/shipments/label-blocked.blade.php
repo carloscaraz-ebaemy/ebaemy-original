@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Pago pendiente — no se puede rotular</title>
+    <title>No se pudo imprimir el rótulo</title>
     <style>
         * { box-sizing: border-box; }
         body { margin: 0; font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; background: #f1f5f9; color: #0f172a; }
@@ -26,27 +26,29 @@
 <body>
 <div class="wrap">
     <div class="card">
-        <div class="ic">💳</div>
-        <h1>Estos envíos aún no se pueden rotular</h1>
+        <div class="ic">🚫</div>
+        <h1>Ninguno de estos envíos se puede rotular</h1>
         <p>
-            Tienes activada la regla <b>confirmar pago antes de imprimir</b>. Los
-            {{ count($blocked) }} envío(s) que seleccionaste tienen el <b>pago sin confirmar</b>,
-            por eso no se generó ningún rótulo.
+            Los {{ count($blocked) }} envío(s) que seleccionaste no son elegibles para
+            imprimir su rótulo. Abajo está el motivo de cada uno.
         </p>
 
         <ul>
             @foreach($blocked as $s)
                 <li>
                     <b>{{ $s->shipment_code ?: ('#'.$s->id) }}</b>
-                    <span>{{ $s->full_name }}</span>
+                    <span>{{ $s->full_name }} — {{ ($reasons ?? [])[$s->id] ?? 'No elegible' }}</span>
                 </li>
             @endforeach
         </ul>
 
         <div class="tip">
-            Confirma el pago de cada envío (o selecciónalos y usa <b>“Confirmar pago”</b>
-            en la barra de selección) y vuelve a imprimir. Si no cobras por adelantado,
-            puedes desactivar esta regla en <b>Configuración de la tienda → Requerir pago</b>.
+            Si el motivo es <b>pago sin confirmar</b>, confírmalo (o selecciónalos y usa
+            <b>“Confirmar pago”</b> en la barra de selección) y vuelve a imprimir; también
+            puedes desactivar la regla en <b>Configuración de la tienda → Requerir pago</b>.
+            Los <b>anulados</b> y los que <b>ya salieron de la tienda</b> se excluyen a
+            propósito: para volver a rotular uno, ábrelo y usa <b>Reimprimir</b> indicando
+            el motivo. El <b>recojo en tienda</b> no lleva rótulo, se imprime su comprobante.
         </div>
 
         <div class="btns">

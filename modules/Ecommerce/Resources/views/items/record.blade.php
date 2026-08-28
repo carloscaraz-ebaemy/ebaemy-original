@@ -1155,8 +1155,7 @@
         <div class="tab-pane fade show active" id="product-desc-content" role="tabpanel"
             aria-labelledby="product-tab-desc">
             <div class="product-desc-content">
-                <p> {{ $record->description}} </p>
-                <p> {{ $record->name}} </p>
+                @include('ecommerce::items.partials.description', ['record' => $record])
             </div><!-- End .product-desc-content -->
         </div><!-- End .tab-pane -->
 

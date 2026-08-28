@@ -692,11 +692,30 @@
                                             </div>
                                         </div>
 
-                                        <div style="margin-top:10px">
-                                            <label style="display:block;font-size:12px;color:#6b21a8;margin-bottom:4px;font-weight:500">Notas / descripción marketplace (opcional)</label>
-                                            <el-input v-model="form.mp_notes" type="textarea" :rows="2" size="mini"
-                                                placeholder="Descripción extendida que verán los compradores en ebaemy.com…"></el-input>
-                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Descripcion visible al comprador (tienda online + marketplace).
+                             Antes vivia dentro del panel de marketplace, asi que quien solo
+                             usaba su tienda virtual no tenia donde escribirla. -->
+                        <div v-if="form.apply_store || form.marketplace_publishable"
+                             class="col-md-12"
+                             style="margin-bottom:16px;padding:14px 16px;background:#fff;border:1px solid #e5e7eb;border-radius:10px">
+                            <div style="display:flex;align-items:flex-start;gap:10px">
+                                <div style="font-size:22px;line-height:1">📝</div>
+                                <div style="flex:1">
+                                    <div style="font-weight:600;font-size:14px;color:#111827">Descripción del producto</div>
+                                    <div style="font-size:12px;color:#6b7280;margin-top:2px">
+                                        Es el texto que el comprador lee en la ficha del producto, tanto en tu
+                                        tienda online como en el marketplace. Puedes usar varias líneas.
+                                    </div>
+                                    <el-input v-model="form.mp_notes" type="textarea" :rows="5"
+                                              style="margin-top:10px"
+                                              placeholder="Ej: Planta cebra de 40 cm en maceta de cerámica. Incluye instrucciones de riego…"></el-input>
+                                    <div style="font-size:11px;color:#9ca3af;margin-top:4px">
+                                        Si lo dejas vacío se mostrará el campo “Descripción” de la pestaña de datos generales.
                                     </div>
                                 </div>
                             </div>

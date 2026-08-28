@@ -120,7 +120,7 @@
                 }
                 ?>
                 </p>
-                    <p>{{ $record->name }}</p>
+                    @include('ecommerce::items.partials.description', ['record' => $record])
                 </div><!-- End .product-desc -->
 
 

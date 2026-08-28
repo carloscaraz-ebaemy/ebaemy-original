@@ -45,9 +45,18 @@
 
 @if(!empty($skipped) && count($skipped))
     <div class="no-print" style="max-width:820px;margin:0 auto 14px;background:#fff8e1;border:1px solid #f6d365;border-radius:10px;padding:12px 16px;font-size:13px;color:#8a5a00;">
-        ⚠️ Se omitieron <b>{{ count($skipped) }}</b> envío(s) por <b>pago sin confirmar</b>:
-        {{ collect($skipped)->map(fn($s) => $s->shipment_code ?: ('#'.$s->id))->implode(', ') }}.
-        Confirma su pago para incluirlos en el rótulo.
+        @php
+            // Motivo por envio: pago pendiente, anulado, ya despachado o recojo en tienda.
+            $reasonMap = isset($reasons) && is_array($reasons) ? $reasons : [];
+            $skipList = collect($skipped)->map(function ($s) use ($reasonMap) {
+                $code = $s->shipment_code ?: ('#' . $s->id);
+                $why  = $reasonMap[$s->id] ?? 'No elegible';
+                return $code . ' (' . $why . ')';
+            })->implode(', ');
+        @endphp
+        ⚠️ Se omitieron <b>{{ count($skipped) }}</b> envío(s) que no son elegibles para rotular:
+        {{ $skipList }}.
+        Los anulados y los que ya salieron de la tienda se excluyen siempre de la impresión masiva.
     </div>
 @endif
 

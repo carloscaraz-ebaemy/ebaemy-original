@@ -63,9 +63,30 @@ class ShipmentController extends Controller
      * Rellena $ctx con las variables derivadas para que la reusen index() y
      * export() sin duplicar la lógica.
      */
+    /**
+     * Lee un parámetro del panel SIEMPRE como texto.
+     *
+     * Los filtros llegan por querystring y basta con que alguien recorte mal
+     * una URL (o el navegador reenvíe `type[]=`) para que un array llegue a
+     * `strtotime()` / `array_key_exists()` y reviente con un 500. El panel se
+     * refresca por AJAX y ese 500 se veía como "el filtro no hace nada" o,
+     * tras el reintento, como una salida de sesión.
+     */
+    private function strParam(Request $request, string $key, string $default = ''): string
+    {
+        $value = $request->input($key, $default);
+        if (is_array($value)) {
+            $value = reset($value);
+        }
+        if (is_bool($value) || is_null($value)) {
+            return $default;
+        }
+        return is_scalar($value) ? trim((string) $value) : $default;
+    }
+
     private function buildListQuery(Request $request, array &$ctx): \Illuminate\Database\Eloquent\Builder
     {
-        $filter = $request->input('filter', 'todos');
+        $filter = $this->strParam($request, 'filter', 'todos');
         if (!in_array($filter, self::FILTERS, true)) {
             $filter = 'todos';
         }
@@ -78,8 +99,8 @@ class ShipmentController extends Controller
 
         // Orden: recientes (default), antiguos, o PRIORIDAD (más vencidos primero,
         // empujando al final los ya despachados/entregados/anulados).
-        $sort  = in_array($request->input('sort'), ['oldest', 'priority'], true)
-            ? $request->input('sort') : 'recent';
+        $sortIn = $this->strParam($request, 'sort');
+        $sort   = in_array($sortIn, ['oldest', 'priority'], true) ? $sortIn : 'recent';
         $query = ShippingRequest::query();
         if ($sort === 'priority') {
             $ph = implode(',', array_fill(0, count($closed), '?'));
@@ -136,9 +157,9 @@ class ShipmentController extends Controller
         // Filtro por fecha de registro: un solo selector de RANGO (hoy, ayer,
         // últimos 7/30 días, este mes, mes pasado) que se traduce a desde/hasta.
         // Se conserva el soporte de from/to explícitos por compatibilidad.
-        $range = $request->input('range');
-        $from  = $request->input('from');
-        $to    = $request->input('to');
+        $range = $this->strParam($request, 'range');
+        $from  = $this->strParam($request, 'from');
+        $to    = $this->strParam($request, 'to');
         if (in_array($range, ['hoy', 'ayer', '7dias', '30dias', 'mes', 'mes_pasado'], true)) {
             $hoy = now();
             switch ($range) {
@@ -169,21 +190,22 @@ class ShipmentController extends Controller
         }
 
         // Filtro por modalidad de entrega (Lima / Provincia / Recojo en tienda).
-        $type = $request->input('type');
-        if (array_key_exists($type, ShippingRequest::DELIVERY_TYPES)) {
+        $type = $this->strParam($request, 'type');
+        if ($type !== '' && array_key_exists($type, ShippingRequest::DELIVERY_TYPES)) {
             $query->where('delivery_type', $type);
         }
 
         // Filtro por lote de impresión.
-        if ($batchId = $request->input('lote')) {
-            $query->where('print_batch_id', (int) $batchId);
+        $batchId = (int) $this->strParam($request, 'lote');
+        if ($batchId > 0) {
+            $query->where('print_batch_id', $batchId);
         }
 
         // Filtro por prioridad (antigüedad en días hábiles): 'urgentes' = naranja
         // + rojo (≥ max-1 días), 'vencidos' = rojo (≥ max días). Solo envíos
         // abiertos. Se traduce a un corte de fecha de calendario (SQL-friendly).
-        $pri = in_array($request->input('pri'), ['urgentes', 'vencidos'], true)
-            ? $request->input('pri') : null;
+        $priIn = $this->strParam($request, 'pri');
+        $pri   = in_array($priIn, ['urgentes', 'vencidos'], true) ? $priIn : null;
         if ($pri) {
             $k = $pri === 'vencidos' ? $maxDays : max(1, $maxDays - 1);
             $cutoff = ShippingRequest::agingCutoff($k, $skipHol)->toDateString();
@@ -203,7 +225,7 @@ class ShipmentController extends Controller
             'embalaje'   => ['confirmado', 'preparando', 'embalando'],
             'despacho'   => ['embalando', 'despachado', 'listo', 'asignado_motorizado'],
         ];
-        $group = $request->input('group');
+        $group = $this->strParam($request, 'group');
 
         // Vista por defecto = "bandeja de entrada": solo los pedidos que entran
         // (recién registrados). Solo se aplica si el usuario no pidió otra cosa.
@@ -218,7 +240,7 @@ class ShipmentController extends Controller
             $query->whereIn('status', $groups[$group]);
         }
 
-        $q = trim((string) $request->input('q', ''));
+        $q = $this->strParam($request, 'q');
         if ($q !== '') {
             // El DNI/RUC y el celular son la forma natural de buscar a un
             // cliente ("me llama el 987..., que tenia un envio"), y faltaban
@@ -242,6 +264,12 @@ class ShipmentController extends Controller
             });
         }
 
+        // Normalizar a null lo que la vista usa para pintar chips activos.
+        $type  = ($type !== '' && array_key_exists($type, ShippingRequest::DELIVERY_TYPES)) ? $type : null;
+        $group = $group !== '' ? $group : null;
+        $from  = $from !== '' ? $from : null;
+        $to    = $to !== '' ? $to : null;
+
         $requirePayment = (bool) $setting->require_payment;
         $ctx = compact('filter', 'sort', 'range', 'from', 'to', 'type', 'pri',
             'group', 'groups', 'maxDays', 'skipHol', 'closed', 'q', 'requirePayment');
@@ -259,7 +287,7 @@ class ShipmentController extends Controller
         ];
 
         // Filas por página (selector del pie de tabla).
-        $perPage = (int) $request->input('per_page', 20);
+        $perPage = (int) $this->strParam($request, 'per_page', '20');
         if (!in_array($perPage, [10, 20, 50, 100], true)) {
             $perPage = 20;
         }
@@ -340,7 +368,7 @@ class ShipmentController extends Controller
             fputcsv($out, [
                 'Código', 'Cliente', 'Documento', 'N° documento', 'Celular',
                 'Tipo', 'Ciudad/Destino', 'Agencia', 'Oficina/Dirección', 'Referencia',
-                'Contenido', 'Bultos', 'Peso (kg)', 'Costo envío', 'Pago',
+                'Contenido', 'Bultos', 'Peso (kg)', 'Costo envío', 'Pago', 'Código de pago',
                 'Estado', 'Días hábiles', 'Registrado', 'Guía',
             ]);
             $query->chunk(500, function ($rows) use ($out, $maxDays, $skipHol) {
@@ -362,6 +390,7 @@ class ShipmentController extends Controller
                         $s->weight,
                         $s->delivery_price !== null ? number_format($s->delivery_price, 2, '.', '') : '',
                         $s->payment_confirmed ? 'Confirmado' : '',
+                        $s->payment_code,
                         $s->status_label,
                         $age['days'] === null ? '' : $age['days'],
                         optional($s->created_at)->format('d/m/Y H:i'),
@@ -389,9 +418,17 @@ class ShipmentController extends Controller
         $status = $request->input('status');
         $shipments = ShippingRequest::whereIn('id', $ids)->get();
 
-        $done = 0; $skipped = 0;
+        $done = 0; $skipped = 0; $wrongFlow = 0;
         foreach ($shipments as $s) {
             if ($this->paymentBlocks($s) || $s->is_cancelled) { $skipped++; continue; }
+
+            // El estado debe pertenecer al flujo de SU modalidad: "entregado a
+            // agencia" no existe para un envío de Lima ni para un recojo en
+            // tienda. Sin esta guarda el tablero mostraba estados imposibles.
+            if (!in_array($status, ShippingRequest::statusOrderFor($s->delivery_type), true)) {
+                $wrongFlow++;
+                continue;
+            }
             $old = $s->status;
             $update = ['status' => $status];
             $sealStatuses = [
@@ -412,7 +449,10 @@ class ShipmentController extends Controller
         if ($skipped > 0) {
             $msg .= " {$skipped} se omitieron (pago pendiente o anulados).";
         }
-        return back()->with('success', $msg);
+        if ($wrongFlow > 0) {
+            $msg .= " {$wrongFlow} se omitieron porque ese estado no pertenece a su modalidad de entrega.";
+        }
+        return back()->with($done > 0 ? 'success' : 'error', $msg);
     }
 
     /** Atajo /registro-envio/sin-guia → index filtrado (filtro crítico). */
@@ -511,6 +551,16 @@ class ShipmentController extends Controller
             'courier_name'  => 'nullable|string|max:120',
             'courier_phone' => 'nullable|string|max:20',
         ]);
+
+        // El estado tiene que existir en el flujo de SU modalidad. El select del
+        // panel ya lo respeta, pero un POST directo (o una pestaña vieja con
+        // otra modalidad) podía dejar un recojo en tienda "entregado a agencia".
+        $flow = ShippingRequest::statusOrderFor($shipment->delivery_type);
+        if (!in_array($request->status, $flow, true) && $request->status !== $shipment->status) {
+            $modalidad = ShippingRequest::DELIVERY_SHORT[$shipment->delivery_type] ?? 'este envío';
+            return back()->with('error',
+                'Ese estado no pertenece al flujo de ' . $modalidad . '. Elige uno de su modalidad.');
+        }
 
         $old = $shipment->status;
         $update = ['status' => $request->status];
@@ -891,13 +941,59 @@ class ShipmentController extends Controller
     /** Confirmar (o revertir) el pago del envío. Habilita el resto del flujo. */
     public function confirmPayment(Request $request, ShippingRequest $shipment): RedirectResponse
     {
-        $request->validate(['payment_note' => 'nullable|string|max:255']);
+        $request->validate([
+            'payment_note'  => 'nullable|string|max:255',
+            'payment_code'  => 'nullable|string|max:60',
+        ], [], ['payment_code' => 'código de pago']);
 
         $confirm = !$shipment->payment_confirmed; // toggle
+        $code    = $this->strParam($request, 'payment_code');
+        $force   = $request->boolean('payment_code_force');
+
+        if ($confirm) {
+            // El código de pago identifica la operación (Yape/Plin/voucher). Si
+            // ya se usó en otro envío, es el MISMO pago cobrado dos veces.
+            if ($code === '' && ShippingSetting::current()->require_payment) {
+                return back()->with('error',
+                    'Indica el código de pago para confirmar ' . $shipment->shipment_code . '.');
+            }
+
+            $dup = ShippingRequest::findByPaymentCode($code, $shipment->id);
+            if ($dup && !$force) {
+                return back()->with('error', $this->duplicatePaymentMessage($dup, $code))
+                             ->with('payment_duplicate', [
+                                 'shipment_id' => $shipment->id,
+                                 'code'        => $code,
+                                 'other'       => [
+                                     'code'     => $dup->shipment_code ?: ('#' . $dup->id),
+                                     'client'   => $dup->full_name,
+                                     'date'     => optional($dup->payment_confirmed_at ?: $dup->created_at)->format('d/m/Y H:i'),
+                                     'payment'  => $dup->payment_code,
+                                 ],
+                             ]);
+            }
+
+            if ($dup && $force) {
+                // Excepción administrativa: se permite, pero queda registrada.
+                ShippingAuditLog::log(
+                    ShippingAuditLog::ACTION_PAYMENT,
+                    $shipment->id,
+                    'payment_code_duplicado',
+                    $dup->shipment_code ?: ('#' . $dup->id),
+                    $code,
+                    'Se forzó un código de pago ya registrado.',
+                    $shipment->print_batch_id,
+                    true
+                );
+            }
+        }
+
         $shipment->update([
-            'payment_confirmed'    => $confirm,
-            'payment_confirmed_at' => $confirm ? now() : null,
-            'payment_note'         => $confirm ? $request->input('payment_note') : null,
+            'payment_confirmed'       => $confirm,
+            'payment_confirmed_at'    => $confirm ? now() : null,
+            'payment_code'            => $confirm ? ($code ?: null) : null,
+            'payment_code_normalized' => $confirm ? (ShippingRequest::normalizePaymentCode($code) ?: null) : null,
+            'payment_note'            => $confirm ? $request->input('payment_note') : null,
         ]);
 
         ShippingAuditLog::log(
@@ -920,8 +1016,51 @@ class ShipmentController extends Controller
         }
 
         return back()->with('success', $confirm
-            ? "Pago confirmado — {$shipment->shipment_code} habilitado."
+            ? "Pago confirmado — {$shipment->shipment_code} habilitado." . ($code !== '' ? " (código {$code})" : '')
             : "Se quitó la confirmación de pago de {$shipment->shipment_code}.");
+    }
+
+    /** Texto de la alerta de código de pago repetido (mismo dato en panel y API). */
+    private function duplicatePaymentMessage(ShippingRequest $other, string $code): string
+    {
+        $fecha = optional($other->payment_confirmed_at ?: $other->created_at)->format('d/m/Y');
+        $ref   = $other->shipment_code ?: ('#' . $other->id);
+
+        return "El código de pago ingresado ya se encuentra registrado. "
+            . "Cliente: {$other->full_name} · Fecha de registro: {$fecha} · "
+            . "Código de pago: {$code} · Envío: {$ref}.";
+    }
+
+    /**
+     * Comprueba un código de pago SIN confirmar nada (lo llama el modal antes
+     * de habilitar el botón). Devuelve el envío que ya lo usó, si existe.
+     */
+    public function checkPaymentCode(Request $request)
+    {
+        $code = $this->strParam($request, 'code');
+        $exceptId = (int) $this->strParam($request, 'shipment_id');
+
+        if (ShippingRequest::normalizePaymentCode($code) === '') {
+            return response()->json(['duplicate' => false]);
+        }
+
+        $dup = ShippingRequest::findByPaymentCode($code, $exceptId ?: null);
+
+        if (!$dup) {
+            return response()->json(['duplicate' => false]);
+        }
+
+        return response()->json([
+            'duplicate' => true,
+            'message'   => $this->duplicatePaymentMessage($dup, $code),
+            'other'     => [
+                'shipment' => $dup->shipment_code ?: ('#' . $dup->id),
+                'client'   => $dup->full_name,
+                'date'     => optional($dup->payment_confirmed_at ?: $dup->created_at)->format('d/m/Y H:i'),
+                'code'     => $dup->payment_code,
+                'status'   => $dup->status_label,
+            ],
+        ]);
     }
 
     /** Confirmar el pago de VARIOS envíos a la vez (barra de selección). */
@@ -941,6 +1080,19 @@ class ShipmentController extends Controller
         // Los que habían pedido participar en el sorteo entran ahora.
         $joined = 0;
         foreach ($pendientes as $s) {
+            // La confirmación EN LOTE no captura el código de pago (cada pago
+            // tiene el suyo). Queda registrado para poder auditar después qué
+            // pagos entraron sin código.
+            ShippingAuditLog::log(
+                ShippingAuditLog::ACTION_PAYMENT,
+                $s->id,
+                'payment_confirmed',
+                false,
+                true,
+                'Confirmación en lote (sin código de pago).',
+                $s->print_batch_id
+            );
+
             if ($this->materializeRaffleOptIn($s->fresh())) {
                 $joined++;
             }
@@ -1071,6 +1223,20 @@ class ShipmentController extends Controller
         // Reimpresión de un rótulo suelto: exige motivo y queda en el historial.
         $reason = trim((string) $request->query('motivo'));
 
+        // Un anulado no se rotula nunca, ni con motivo.
+        if ($shipment->status === ShippingRequest::STATUS_ANULADO) {
+            return back()->with('error',
+                "{$shipment->shipment_code} está anulado: su rótulo ya no se puede imprimir. "
+                . 'Restaura el envío si fue un error.');
+        }
+
+        // Ya salió de la tienda: solo con una reimpresión explícita y motivada.
+        if ($reason === '' && in_array($shipment->status, ShippingRequest::LABEL_LOCKED_STATUSES, true)) {
+            return back()->with('error',
+                "{$shipment->shipment_code} figura como \"{$shipment->status_label}\": ya fue despachado. "
+                . 'Si necesitas el rótulo otra vez, usa Reimprimir e indica el motivo.');
+        }
+
         if ($shipment->print_count > 0 && $reason === '') {
             return back()->with('error',
                 "El rótulo de {$shipment->shipment_code} ya se imprimió {$shipment->print_count} vez/veces. "
@@ -1132,15 +1298,26 @@ class ShipmentController extends Controller
         $all = ShippingRequest::whereIn('id', $ids)->orderBy('id')->get();
         abort_if($all->isEmpty(), 404);
 
-        // Los envíos con pago pendiente no se rotulan (regla `require_payment`).
-        // Antes se rechazaban en silencio y, si TODOS estaban bloqueados, el
-        // lote abortaba con un 404 mudo. Ahora los separamos: se explica cuáles
-        // faltan confirmar en vez de mostrar un "error" sin contexto.
-        [$blocked, $printable] = $all->partition(fn ($s) => $this->paymentBlocks($s));
+        // Qué se descarta de una impresión MASIVA y por qué:
+        //  - pago sin confirmar (regla `require_payment` de la tienda);
+        //  - estado no apto: anulado, ya despachado/entregado, recojo en tienda.
+        // Antes solo se miraba el pago, así que al "seleccionar todo" desde el
+        // filtro Todos se colaban rótulos de pedidos enviados o anulados.
+        $reasons = [];
+        [$blocked, $printable] = $all->partition(function ($s) use (&$reasons) {
+            $reason = $this->paymentBlocks($s)
+                ? 'Pago sin confirmar'
+                : $s->labelBlockReason(true);
+            if ($reason !== null) {
+                $reasons[$s->id] = $reason;
+            }
+            return $reason !== null;
+        });
 
         if ($printable->isEmpty()) {
             return response()->view('tenant.shipments.label-blocked', [
                 'blocked' => $blocked->values(),
+                'reasons' => $reasons,
                 'company' => Company::first(),
             ]);
         }
@@ -1158,6 +1335,7 @@ class ShipmentController extends Controller
             'format'  => $format,
             'ids'     => $printable->pluck('id')->implode(','),
             'skipped' => $blocked->values(),
+            'reasons' => $reasons,
         ]);
     }
 
@@ -1168,7 +1346,7 @@ class ShipmentController extends Controller
     {
         $service = new ShippingBatchService();
 
-        $status = $request->input('estado');
+        $status = $this->strParam($request, 'estado');
         if (!array_key_exists($status, ShippingPrintBatch::STATUSES)) {
             $status = null;
         }
@@ -1460,7 +1638,7 @@ class ShipmentController extends Controller
 
     public function searchItems(Request $request)
     {
-        $term = trim((string) $request->input('q'));
+        $term = $this->strParam($request, 'q');
 
         if (mb_strlen($term) < 2) {
             return response()->json([]);
@@ -2213,8 +2391,9 @@ class ShipmentController extends Controller
     private function validateShipment(Request $request, bool $public = false): array
     {
         // Discriminador de modalidad. Por defecto, agencia (retrocompat).
-        $deliveryType = array_key_exists($request->input('delivery_type'), ShippingRequest::DELIVERY_TYPES)
-            ? $request->input('delivery_type')
+        $typeIn = $this->strParam($request, 'delivery_type');
+        $deliveryType = array_key_exists($typeIn, ShippingRequest::DELIVERY_TYPES)
+            ? $typeIn
             : ShippingRequest::DELIVERY_AGENCIA;
 
         $isDomicilio = $deliveryType === ShippingRequest::DELIVERY_DOMICILIO;
@@ -2259,26 +2438,39 @@ class ShipmentController extends Controller
                 'delivery_price'       => 'nullable|numeric|min:0|max:99999',
             ];
         } else {
-            // Envío por agencia: ubigeo obligatorio + agencia.
+            // Envío por agencia (provincia): ubigeo Y agencia son obligatorios.
+            // La agencia era `nullable` y por eso salían rótulos de provincia
+            // sin agencia: el almacén no sabía dónde dejar el paquete.
+            // Además hace falta un destino concreto: la oficina de recojo
+            // (`reference`) o, si la agencia reparte, la dirección de casa.
             $rules += [
-                'shipping_destination' => 'nullable|string|max:255',
+                'shipping_destination' => 'nullable|string|max:255|required_without:reference',
                 'destination_city'     => 'nullable|string|max:120',
                 'department_id'        => 'nullable|string|max:2',
                 'province_id'          => 'nullable|string|max:4',
                 'district_id'          => 'required|string|max:6',
-                'shipping_agency'      => 'nullable|string|max:120',
+                'shipping_agency'      => 'required|string|max:120',
             ];
+            // OJO: `+=` no pisa claves ya presentes y 'reference' viene de las
+            // reglas comunes. Se asigna aparte o la regla se perdería en silencio.
+            $rules['reference'] = 'nullable|string|max:255|required_without:shipping_destination';
         }
 
         if ($public) {
             $rules['accepted_terms'] = 'accepted';
         }
 
-        $data = $request->validate($rules, [], [
+        $data = $request->validate($rules, [
+            'shipping_agency.required'             => 'Elige la agencia de transporte: sin agencia no se puede rotular el envío a provincia.',
+            'reference.required_without'           => 'Indica la oficina donde recogerás el paquete (o marca que la agencia lo lleve a tu dirección).',
+            'shipping_destination.required_without'=> 'Indica la dirección de entrega o la oficina de recojo.',
+        ], [
             'full_name'            => 'nombre completo',
             'phone'                => 'teléfono',
             'district_id'          => 'distrito de destino',
             'shipping_destination' => 'dirección de entrega',
+            'shipping_agency'      => 'agencia de transporte',
+            'reference'            => 'oficina de recojo',
             'accepted_terms'       => 'aceptación de términos',
         ]);
 

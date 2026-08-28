@@ -43,6 +43,7 @@ class ShippingRequestsInstall extends Command
         '2026_08_02_000002_add_raffle_optin_to_shipping_requests',
         '2026_08_12_000001_add_agency_fee_mode_to_shipping_settings',
         '2026_08_13_000001_add_dispatch_to_shipping_requests',
+        '2026_08_28_000001_add_payment_code_to_shipping_requests',
     ];
 
     /**
@@ -177,6 +178,8 @@ class ShippingRequestsInstall extends Command
         'delivery_price',
         // Enlace con la Guía de Remisión (2026-08-13)
         'dispatch_id', 'dispatch_number', 'dispatch_generated_at',
+        // Código de pago con control de duplicados (2026-08-28)
+        'payment_code', 'payment_code_normalized',
     ];
 
     /** Crea/actualiza la tabla shipping_settings (origen + tarifas). */
@@ -356,6 +359,12 @@ class ShippingRequestsInstall extends Command
             }
             if (in_array('document_type', $missing, true)) {
                 $table->string('document_type', 12)->nullable()->after('dni');
+            }
+            if (in_array('payment_code', $missing, true)) {
+                $table->string('payment_code', 60)->nullable()->after('payment_confirmed_at');
+            }
+            if (in_array('payment_code_normalized', $missing, true)) {
+                $table->string('payment_code_normalized', 60)->nullable()->index();
             }
         });
 

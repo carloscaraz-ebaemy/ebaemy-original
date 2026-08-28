@@ -113,6 +113,12 @@ class ShippingBatchService
             return 'Es recojo en tienda: no genera rótulo de transporte.';
         }
 
+        // Ya salió de la tienda (despachado, en agencia, en ruta, entregado): su
+        // rótulo ya cumplió. Volver a meterlo a un lote duplica etiquetas.
+        if (in_array($shipment->status, ShippingRequest::LABEL_LOCKED_STATUSES, true)) {
+            return 'Ya figura como "' . $shipment->status_label . '": no entra a un lote nuevo.';
+        }
+
         if ($shipment->print_batch_id) {
             $batch = $shipment->printBatch;
 
@@ -388,7 +394,7 @@ class ShippingBatchService
 
         return ShippingRequest::query()
             ->whereNull('print_batch_id')
-            ->where('status', '!=', ShippingRequest::STATUS_ANULADO)
+            ->whereNotIn('status', ShippingRequest::LABEL_LOCKED_STATUSES)
             ->where('delivery_type', '!=', ShippingRequest::DELIVERY_TIENDA)
             ->where('created_at', '<', $window['to'])
             ->orderBy('priority')
@@ -407,7 +413,7 @@ class ShippingBatchService
 
         return ShippingRequest::query()
             ->whereNull('print_batch_id')
-            ->where('status', '!=', ShippingRequest::STATUS_ANULADO)
+            ->whereNotIn('status', ShippingRequest::LABEL_LOCKED_STATUSES)
             ->where('delivery_type', '!=', ShippingRequest::DELIVERY_TIENDA)
             ->where('created_at', '>=', $window['to'])
             ->orderBy('created_at')

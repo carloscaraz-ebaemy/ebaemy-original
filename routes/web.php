@@ -182,6 +182,9 @@ if ($hostname) {
                      ->name('shipments.export');
                 Route::get('buscar-productos', [\App\Http\Controllers\Tenant\ShipmentController::class, 'searchItems'])
                      ->name('shipments.search_items');
+                // Verifica un código de pago antes de confirmar (anti-duplicados).
+                Route::get('verificar-pago', [\App\Http\Controllers\Tenant\ShipmentController::class, 'checkPaymentCode'])
+                     ->name('shipments.check_payment_code');
                 // Guía de Remisión precargada desde el envío (no emite: abre el
                 // formulario para validar y corregir antes de mandar a SUNAT).
                 Route::get('{shipment}/guia-remision', [\App\Http\Controllers\Tenant\ShipmentController::class, 'generateDispatch'])

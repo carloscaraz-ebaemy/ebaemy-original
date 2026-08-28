@@ -419,7 +419,7 @@
                             </div>
                         </div>
 
-                        <label>Agencia de transporte</label>
+                        <label>Agencia de transporte <span style="color:#dc2626;">*</span></label>
                         <div class="agency-field">
                             <select class="agency-select">
                                 <option value="">— Selecciona —</option>
@@ -428,6 +428,9 @@
                             </select>
                             <input type="text" class="agency-input" name="shipping_agency" id="pub_shipping_agency" value="{{ old('shipping_agency') }}" maxlength="120" placeholder="Nombre de la agencia" style="display:none;margin-top:8px;">
                         </div>
+                        <small class="hint" id="pub_agency_err" hidden style="color:#dc2626;">
+                            Elige la agencia de transporte: es obligatoria para los envíos a provincia.
+                        </small>
 
                         {{-- Las agencias tienen varias oficinas por ciudad (Shalom
                              tiene nombre por local): saber en cuál recoge el cliente
@@ -436,6 +439,7 @@
                         <label id="pub_office_label">Oficina donde recogerás</label>
                         <input type="text" name="reference" id="pub_reference_ag" value="{{ old('reference') }}" maxlength="255" placeholder="Ej. Terminal Terrestre, Av. Aviación 123…">
                         <small class="hint" id="pub_office_hint">Escribe el nombre de la oficina/local donde vas a recoger el paquete.</small>
+                        <small class="hint" id="pub_dest_err" hidden style="color:#dc2626;"></small>
 
                         {{-- El paquete normalmente solo viaja hasta la agencia: el
                              cliente lo recoge ahí y su dirección no la usa nadie.
@@ -912,6 +916,45 @@
             var dist = document.querySelector('[data-ubigeo-group="pub"] [data-ub="district"]');
             if (!dist || !dist.value) { var disp = document.querySelector('[data-ubigeo-group="pub"] .ubigeo-display'); if (disp) disp.style.borderColor = '#dc2626'; ok = false; }
             else { var d2 = document.querySelector('[data-ubigeo-group="pub"] .ubigeo-display'); if (d2) d2.style.borderColor = ''; }
+
+            // La AGENCIA es obligatoria: sin ella el almacén no sabe dónde dejar
+            // el paquete y salía un rótulo de provincia sin destino.
+            var agSel = document.querySelector('.branch-agencia .agency-select');
+            var agVal = txt('pub_shipping_agency');
+            var agErr = document.getElementById('pub_agency_err');
+            if (!agVal) {
+                if (agSel) agSel.style.borderColor = '#dc2626';
+                if (agErr) agErr.hidden = false;
+                ok = false;
+            } else {
+                if (agSel) agSel.style.borderColor = '';
+                if (agErr) agErr.hidden = true;
+            }
+
+            // Y un destino concreto: la oficina donde recoge o, si pidió reparto,
+            // la dirección de su casa.
+            var ofi  = document.getElementById('pub_reference_ag');
+            var casa = document.getElementById('pub_addr_agencia');
+            var pidioReparto = !!(agHome && agHome.checked);
+            var destOk = pidioReparto
+                ? !!(casa && casa.value.trim())
+                : !!(ofi && ofi.value.trim());
+            var destEl = pidioReparto ? casa : ofi;
+            if (!destOk) {
+                if (destEl) destEl.style.borderColor = '#dc2626';
+                var destErr = document.getElementById('pub_dest_err');
+                if (destErr) {
+                    destErr.textContent = pidioReparto
+                        ? 'Escribe la dirección donde la agencia debe entregar el paquete.'
+                        : 'Escribe la oficina de la agencia donde vas a recoger el paquete.';
+                    destErr.hidden = false;
+                }
+                ok = false;
+            } else {
+                if (destEl) destEl.style.borderColor = '';
+                var de = document.getElementById('pub_dest_err');
+                if (de) de.hidden = true;
+            }
         }
         return ok;
     }
