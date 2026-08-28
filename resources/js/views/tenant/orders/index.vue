@@ -69,6 +69,29 @@
                         >
                     </button>
                 </div>
+                <div class="ord-date-filter">
+                    <div>
+                        <strong>Gestión de pedidos para facturar</strong>
+                        <small>Filtra por la fecha en que Saga registró el pedido.</small>
+                    </div>
+                    <div class="ord-date-filter-controls">
+                        <el-select v-model="orderSource" @change="applyOrderSource">
+                            <el-option label="Todos los pedidos" value="all"></el-option>
+                            <el-option label="Solo Saga Falabella" value="saga"></el-option>
+                            <el-option label="Otros pedidos" value="other"></el-option>
+                        </el-select>
+                        <el-date-picker
+                            v-model="invoiceDateRange"
+                            type="daterange"
+                            range-separator="hasta"
+                            start-placeholder="Desde"
+                            end-placeholder="Hasta"
+                            value-format="yyyy-MM-dd"
+                            :clearable="true"
+                            @change="applyInvoiceDateRange"
+                        ></el-date-picker>
+                    </div>
+                </div>
                 <div v-if="selectedIds.length" class="ord-bulkbar">
                     <span class="ord-bulk-count"
                         >{{ selectedIds.length }} seleccionado(s)</span
@@ -100,7 +123,7 @@
                         <th>Cliente</th>
                         <th class="text-center">Detalle Productos</th>
                         <th class="text-end">Total</th>
-                        <th>Fecha Emision</th>
+                        <th>Fecha del pedido</th>
                         <th>Medio Pago</th>
                         <th>Estatus del Pedido</th>
                         <th class="text-center">Documento</th>
@@ -118,6 +141,12 @@
                         <td data-label="Código">{{ row.order_id }}</td>
                         <td data-label="Cliente">
                             {{ row.customer }}
+                            <small v-if="row.customer_telefono" class="ord-cust-contact">
+                                <i class="fas fa-phone"></i> {{ row.customer_telefono }}
+                            </small>
+                            <small v-if="row.customer_direccion" class="ord-cust-contact">
+                                <i class="fas fa-map-marker-alt"></i> {{ row.customer_direccion }}
+                            </small>
                             <!-- El documento decide a nombre de quien sale la
                                  boleta. Sin verlo, un pedido que saldria como
                                  "00000000" pasa desapercibido. -->
@@ -226,7 +255,7 @@
                             </template>
                         </td>
                         <td class="text-end" data-label="Total">S/ {{ row.total }}</td>
-                        <td data-label="Fecha">{{ formatDate(row.created_at) }}</td>
+                        <td data-label="Fecha del pedido">{{ formatDate(row.created_at) }}</td>
                         <td data-label="Medio pago">
                             <span
                                 v-if="isMarketplace(row)"
@@ -274,7 +303,7 @@
                                         {{ statusLabel(row.status_order_id) }}
                                     </div>
                                 </template>
-                                <div class="ord-status-editbar">
+                                <div v-if="!isMarketplace(row)" class="ord-status-editbar">
                                     <template
                                         v-if="editingStatusId === row.id"
                                     >
@@ -309,6 +338,9 @@
                                         <i class="fas fa-lock"></i> Cambiar
                                     </button>
                                 </div>
+                                <small v-else class="ord-saga-status">
+                                    Sincronizado desde Saga
+                                </small>
                             </div>
                         </td>
                         <td class="text-center" data-label="Documento">
@@ -377,7 +409,7 @@
                                     </el-dropdown-item>
 
                                     <el-dropdown-item
-                                        v-if="row.mp_order_id && row.mp_invoice_state === 'pending'"
+                                        v-if="isSagaOrder(row) && row.mp_invoice_state === 'pending'"
                                         command="markExternal"
                                     >
                                         <i class="el-icon-check"></i>
@@ -611,6 +643,14 @@
     color: #b45309;
     font-weight: 600;
 }
+.ord-cust-contact {
+    display: block;
+    color: #64748b;
+    font-size: 11px;
+    line-height: 1.35;
+    margin-top: 2px;
+}
+.ord-cust-contact i { width: 13px; }
 .ord-doc-alert {
     background: #fef2f2;
     color: #b91c1c;
@@ -664,6 +704,23 @@
 .ord-chip.active .ord-chip-n {
     background: rgba(255, 255, 255, 0.25);
 }
+.ord-date-filter {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 10px;
+    padding: 10px 12px;
+    margin-bottom: 14px;
+    border: 1px solid #dbeafe;
+    border-radius: 10px;
+    background: #f8fbff;
+}
+.ord-date-filter strong,
+.ord-date-filter small { display: block; }
+.ord-date-filter strong { color: #1e3a8a; font-size: 13px; }
+.ord-date-filter small { color: #64748b; font-size: 12px; margin-top: 2px; }
+.ord-date-filter .el-date-editor { max-width: 330px; }
 /* KPIs */
 .ord-kpis {
     display: grid;
@@ -772,6 +829,12 @@
     gap: 4px;
     margin-top: 4px;
 }
+.ord-saga-status {
+    display: block;
+    color: #64748b;
+    font-size: 11px;
+    margin-top: 5px;
+}
 .ord-lock-btn {
     border: 1px solid #e2e8f0;
     background: #fff;
@@ -831,6 +894,10 @@ export default {
             editingStatusId: null,
             // Chips de filtro rápido (estilo Saga).
             mpFilter: "all",
+            // Evita mezclar la cola de facturacion de Saga con pedidos propios.
+            orderSource: "all",
+            // Rango que se usa para seleccionar el lote de pedidos a facturar.
+            invoiceDateRange: [],
             chipCounts: {},
             stats: {},
             selectedIds: [],
@@ -920,8 +987,7 @@ export default {
         // existe solo de nuestro lado y Saga la sigue esperando.
         canUploadInvoice(row) {
             return (
-                row.mp_order_id &&
-                row.mp_channel_id &&
+                this.isSagaOrder(row) &&
                 row.mp_invoice_state === "ebaemy" &&
                 !row.mp_invoice_uploaded
             );
@@ -957,8 +1023,7 @@ export default {
             // Solo pedidos ENTREGADOS o en camino. Un cancelado/devuelto no se
             // factura: en Peru esa boleta solo se deshace con nota de credito.
             return (
-                row.mp_order_id &&
-                row.mp_channel_id &&
+                this.isSagaOrder(row) &&
                 !row.number_document &&
                 row.mp_invoice_state === "pending" &&
                 ["delivered", "shipped"].indexOf(row.mp_status) !== -1
@@ -1014,9 +1079,7 @@ export default {
             }
         },
         async bulkMarkInvoiced() {
-            var rows = this.selectedRows().filter(
-                r => r.mp_order_id && r.mp_channel_id
-            );
+            var rows = this.selectedRows().filter(r => this.isSagaOrder(r));
             if (!rows.length) {
                 return this.$message.warning(
                     "Selecciona pedidos de marketplace."
@@ -1067,7 +1130,7 @@ export default {
         },
         loadChipCounts() {
             this.$http
-                .get(`/orders/status-counts`)
+                .get(`/orders/status-counts`, { params: this.invoiceDateParams() })
                 .then(response => {
                     this.chipCounts = response.data || {};
                 })
@@ -1075,7 +1138,7 @@ export default {
         },
         loadStats() {
             this.$http
-                .get(`/orders/stats`)
+                .get(`/orders/stats`, { params: this.invoiceDateParams() })
                 .then(response => {
                     this.stats = response.data || {};
                 })
@@ -1132,11 +1195,40 @@ export default {
             dt.pagination.current_page = 1;
             dt.getRecords();
         },
+        invoiceDateParams() {
+            return {
+                date_from: (this.invoiceDateRange && this.invoiceDateRange[0]) || null,
+                date_to: (this.invoiceDateRange && this.invoiceDateRange[1]) || null,
+                order_source: this.orderSource,
+            };
+        },
+        applyInvoiceDateRange() {
+            const dt = this.$refs.ordersTable;
+            if (!dt) return;
+
+            const dates = this.invoiceDateParams();
+            dt.search.date_from = dates.date_from;
+            dt.search.date_to = dates.date_to;
+            dt.search.order_source = dates.order_source;
+            dt.pagination.current_page = 1;
+            dt.getRecords();
+            this.loadChipCounts();
+            this.loadStats();
+        },
+        applyOrderSource() {
+            const dt = this.$refs.ordersTable;
+            if (!dt) return;
+
+            dt.search.order_source = this.orderSource;
+            dt.pagination.current_page = 1;
+            dt.getRecords();
+            this.loadChipCounts();
+            this.loadStats();
+        },
         canDownloadLabel(row) {
             // Solo pedidos de Saga ya despachables tienen rótulo en Saga.
             return (
-                row.mp_order_id &&
-                row.mp_channel_id &&
+                this.isSagaOrder(row) &&
                 ["ready_to_ship", "shipped", "delivered"].indexOf(
                     row.mp_status
                 ) !== -1

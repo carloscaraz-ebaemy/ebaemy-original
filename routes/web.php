@@ -1335,6 +1335,12 @@ if ($hostname) {
                 Route::post('/channels/{channelId}/sync/products', 'MarketplaceController@syncProducts');
                 Route::post('/channels/{channelId}/sync/stock', 'MarketplaceController@syncStock');
                 Route::post('/channels/{channelId}/fetch/orders', 'MarketplaceController@fetchOrders');
+                // Comprobantes de pedidos externos: se emiten en EBAEMY y se
+                // cargan a Saga/Falabella en un segundo paso (SetInvoicePDF).
+                // Estas rutas son las que consume la pantalla Pedidos.
+                Route::post('/channels/{channelId}/orders/{orderId}/invoice', 'MarketplaceController@generateInvoice');
+                Route::post('/channels/{channelId}/orders/{orderId}/upload-invoice', 'MarketplaceController@uploadInvoice');
+                Route::post('/channels/{channelId}/orders/{orderId}/mark-invoiced', 'MarketplaceController@markInvoiced');
                 Route::post('/channels/{channelId}/generate-feed', 'MarketplaceController@generateFeed');
                 Route::get('/orders', 'MarketplaceController@orders');
                 Route::get('/logs', 'MarketplaceController@logs');

@@ -104,7 +104,17 @@ class OrderController extends Controller
     {
         $allowedColumns = ['date_of_issue', 'id', 'shipping_address', 'reference_payment', 'total'];
         $column = in_array($request->column, $allowedColumns) ? $request->column : 'id';
-        $query = Order::with(['channel', 'marketplaceOrder:id,order_id,channel_id,status,invoice_uploaded_at,document_id'])->latest();
+        $query = Order::with([
+            'channel',
+            // Los datos de Saga son la fuente de verdad para cliente y entrega.
+            // Sin estos campos el recurso solo podia mostrar los fallbacks del
+            // pedido ERP (por ejemplo, la direccion literal "Marketplace").
+            'marketplaceOrder:id,order_id,channel_id,external_order_id,status,customer_data,shipping_data,invoice_uploaded_at,document_id',
+            'marketplaceOrder.channel:id,platform,name',
+        ])->latest();
+
+        $this->applyOrderDateRange($query, $request);
+        $this->applyOrderSource($query, $request);
 
         if ($request->value) {
             $query->where($column, 'like', "%{$request->value}%");
@@ -150,38 +160,43 @@ class OrderController extends Controller
     /**
      * Conteos por chip de filtro (para los badges estilo Saga).
      */
-    public function statusCounts()
+    public function statusCounts(Request $request)
     {
+        $orders = $this->applyOrderDateRange(Order::query(), $request);
+        $this->applyOrderSource($orders, $request);
+
         return response()->json([
-            'all'        => Order::count(),
-            'todispatch' => Order::whereIn('status_order_id', [1, 2, 3])->count(),
-            'shipped'    => Order::where('status_order_id', 4)->count(),
-            'delivered'  => Order::where('status_order_id', 6)->count(),
-            'canceled'   => Order::where('status_order_id', 5)->count(),
-            'no_invoice' => Order::whereNull('number_document')
+            'all'        => (clone $orders)->count(),
+            'todispatch' => (clone $orders)->whereIn('status_order_id', [1, 2, 3])->count(),
+            'shipped'    => (clone $orders)->where('status_order_id', 4)->count(),
+            'delivered'  => (clone $orders)->where('status_order_id', 6)->count(),
+            'canceled'   => (clone $orders)->where('status_order_id', 5)->count(),
+            'no_invoice' => (clone $orders)->whereNull('number_document')
                 ->whereHas('marketplaceOrder', function ($q) {
                     $q->whereNull('invoice_uploaded_at')->whereNull('document_id');
                 })->count(),
         ]);
     }
 
-    public function stats()
+    public function stats(Request $request)
     {
         $today      = now()->toDateString();
         $monthStart = now()->startOfMonth()->toDateString();
+        $orders = $this->applyOrderDateRange(Order::query(), $request);
+        $this->applyOrderSource($orders, $request);
 
-        $total        = Order::count();
-        $pending      = Order::where('status_order_id', 1)->count();
-        $verified     = Order::where('status_order_id', 2)->count();
-        $dispatched   = Order::where('status_order_id', 3)->count();
-        $revenueMonth = Order::whereDate('created_at', '>=', $monthStart)
+        $total        = (clone $orders)->count();
+        $pending      = (clone $orders)->where('status_order_id', 1)->count();
+        $verified     = (clone $orders)->where('status_order_id', 2)->count();
+        $dispatched   = (clone $orders)->where('status_order_id', 3)->count();
+        $revenueMonth = (clone $orders)->when(!$request->date_from && !$request->date_to, fn($q) => $q->whereDate('created_at', '>=', $monthStart))
                              ->whereNotIn('status_order_id', [5])
                              ->sum('total');
-        $revenueToday = Order::whereDate('created_at', $today)->sum('total');
+        $revenueToday = (clone $orders)->whereDate('created_at', $today)->sum('total');
 
         // Desglose por canal (para el dashboard)
-        $byChannel = Order::selectRaw('channel_id, COUNT(*) as count, SUM(total) as revenue')
-                          ->whereDate('created_at', '>=', $monthStart)
+        $byChannel = (clone $orders)->selectRaw('channel_id, COUNT(*) as count, SUM(total) as revenue')
+                          ->when(!$request->date_from && !$request->date_to, fn($q) => $q->whereDate('created_at', '>=', $monthStart))
                           ->whereNotIn('status_order_id', [5])
                           ->groupBy('channel_id')
                           ->with('channel:id,name,type,code')
@@ -195,6 +210,47 @@ class OrderController extends Controller
                           ]);
 
         return response()->json(compact('total', 'pending', 'verified', 'dispatched', 'revenueMonth', 'revenueToday', 'byChannel'));
+    }
+
+    /** Aplica el periodo de pedidos para facturacion y evita fechas invalidas. */
+    private function applyOrderDateRange($query, Request $request)
+    {
+        $dates = $request->validate([
+            'date_from' => ['nullable', 'date_format:Y-m-d'],
+            'date_to'   => ['nullable', 'date_format:Y-m-d', 'after_or_equal:date_from'],
+        ]);
+
+        if (!empty($dates['date_from'])) {
+            $query->whereDate('created_at', '>=', $dates['date_from']);
+        }
+        if (!empty($dates['date_to'])) {
+            $query->whereDate('created_at', '<=', $dates['date_to']);
+        }
+
+        return $query;
+    }
+
+    /** Delimita el tablero al canal que el operador está gestionando. */
+    private function applyOrderSource($query, Request $request)
+    {
+        $source = $request->input('order_source', 'all');
+        if (!in_array($source, ['all', 'saga', 'other'], true)) {
+            abort(422, 'Origen de pedido inválido.');
+        }
+
+        if ($source === 'saga') {
+            $query->whereHas('marketplaceOrder.channel', function ($marketplaceChannel) {
+                $marketplaceChannel->where('platform', 'falabella');
+            });
+        }
+
+        if ($source === 'other') {
+            $query->whereDoesntHave('marketplaceOrder.channel', function ($marketplaceChannel) {
+                $marketplaceChannel->where('platform', 'falabella');
+            });
+        }
+
+        return $query;
     }
 
     /**

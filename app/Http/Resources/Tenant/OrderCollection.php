@@ -21,19 +21,38 @@ class OrderCollection extends ResourceCollection
                 $customer = (array) $customer;
             }
 
-            $customerName = data_get($customer, 'apellidos_y_nombres_o_razon_social')
+            // En pedidos de Saga, customer_data y shipping_data provienen del
+            // marketplace y contienen mejor informacion que los placeholders
+            // del pedido ERP creado para trazabilidad.
+            $marketplaceCustomer = is_array(optional($row->marketplaceOrder)->customer_data)
+                ? $row->marketplaceOrder->customer_data : [];
+            $marketplaceShipping = is_array(optional($row->marketplaceOrder)->shipping_data)
+                ? $row->marketplaceOrder->shipping_data : [];
+
+            $customerName = data_get($marketplaceCustomer, 'name')
+                ?? data_get($customer, 'apellidos_y_nombres_o_razon_social')
                 ?? data_get($customer, 'name')
                 ?? 'Invitado';
-            $customerEmail = data_get($customer, 'correo_electronico')
+            $customerEmail = data_get($marketplaceCustomer, 'email')
+                ?? data_get($customer, 'correo_electronico')
                 ?? data_get($customer, 'email')
                 ?? '';
-            $customerPhone = data_get($customer, 'telefono')
+            $customerPhone = data_get($marketplaceCustomer, 'phone')
+                ?? data_get($customer, 'telefono')
                 ?? data_get($customer, 'phone')
                 ?? data_get($customer, 'telephone')
                 ?? '';
-            $customerAddress = data_get($customer, 'direccion')
+            $customerAddress = data_get($marketplaceShipping, 'address')
+                ?? data_get($marketplaceCustomer, 'billing.address')
+                ?? data_get($customer, 'direccion')
                 ?? data_get($customer, 'address')
                 ?? ($row->shipping_address ?? '');
+
+            // No presentar el placeholder interno como si fuera una direccion
+            // real. Saga no siempre entrega el telefono/direccion por API.
+            if (mb_strtolower(trim((string) $customerAddress)) === 'marketplace') {
+                $customerAddress = '';
+            }
 
             $items    = is_array($row->items) ? $row->items : (array)($row->items ?? []);
             return [
@@ -74,6 +93,7 @@ class OrderCollection extends ResourceCollection
                 // el id interno no le dice nada al confirmar la emision.
                 'mp_external_order_id' => optional($row->marketplaceOrder)->external_order_id,
                 'mp_channel_id'        => optional($row->marketplaceOrder)->channel_id,
+                'mp_platform'          => optional(optional($row->marketplaceOrder)->channel)->platform,
                 'mp_status'            => optional($row->marketplaceOrder)->status,
                 'order_id'             => str_pad($row->id, 6, "0", STR_PAD_LEFT),
                 'customer'             => $customerName,
