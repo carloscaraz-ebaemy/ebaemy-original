@@ -119,7 +119,7 @@
                 <div class="small text-muted mt-1">Si lo dejas vacío, el cliente elegirá el contacto manualmente al compartir.</div>
 
                 <hr class="my-4">
-                <h6 class="fw-bold mb-1">💰 Confirmación de pago</h6>
+                <h6 class="fw-bold mb-1">💰 Registro de pagos</h6>
                 <div class="form-check form-switch">
                     <input class="form-check-input" type="checkbox" role="switch" id="require_payment" name="require_payment" value="1" {{ $store->require_payment ? 'checked' : '' }}>
                     <label class="form-check-label" for="require_payment">
@@ -127,6 +127,27 @@
                     </label>
                 </div>
                 <div class="small text-muted mt-1">Con esto activado, no se puede cambiar el estado ni subir la guía hasta que marques el pago como confirmado.</div>
+
+                {{-- Interruptor independiente: hay tiendas que confirman el pago
+                     "a ojo" y otras que llevan el numero de operacion. Cada tenant
+                     decide, y por defecto viene apagado. --}}
+                <div class="form-check form-switch mt-3">
+                    <input class="form-check-input" type="checkbox" role="switch" id="require_payment_code" name="require_payment_code" value="1" {{ ($store->require_payment_code ?? false) ? 'checked' : '' }}>
+                    <label class="form-check-label" for="require_payment_code">
+                        Validar <b>código de pago</b> al confirmar el registro
+                    </label>
+                </div>
+                <div class="small text-muted mt-1">
+                    Al activar esta opción, el sistema solicitará un código de pago al confirmar un
+                    registro y evitará que el mismo código sea utilizado más de una vez. Si el código
+                    ya existe se muestra el cliente, la fecha y el envío que lo usó, y no deja continuar.
+                </div>
+                @if(!$store->require_payment)
+                    <div class="alert alert-warning py-2 px-3 small mt-2 mb-0">
+                        Esta opción actúa sobre la <b>confirmación de pago</b>, que hoy está desactivada:
+                        actívala arriba para que el botón «Confirmar pago» aparezca en el panel.
+                    </div>
+                @endif
 
                 <hr class="my-4">
                 <h6 class="fw-bold mb-1">🚦 Prioridad por antigüedad</h6>

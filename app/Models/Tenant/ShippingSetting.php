@@ -24,6 +24,7 @@ class ShippingSetting extends Model
         'agency_fee',
         'agency_fee_mode',
         'require_payment',
+        'require_payment_code',
         'max_business_days',
         'aging_skip_holidays',
         'cutoff_time',
@@ -37,6 +38,7 @@ class ShippingSetting extends Model
         'min_price'       => 'decimal:2',
         'agency_fee'      => 'decimal:2',
         'require_payment' => 'boolean',
+        'require_payment_code' => 'boolean',
         'max_business_days'   => 'integer',
         'aging_skip_holidays' => 'boolean',
     ];

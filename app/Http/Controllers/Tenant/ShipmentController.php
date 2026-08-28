@@ -270,9 +270,11 @@ class ShipmentController extends Controller
         $from  = $from !== '' ? $from : null;
         $to    = $to !== '' ? $to : null;
 
-        $requirePayment = (bool) $setting->require_payment;
+        $requirePayment     = (bool) $setting->require_payment;
+        $requirePaymentCode = (bool) $setting->require_payment_code;
         $ctx = compact('filter', 'sort', 'range', 'from', 'to', 'type', 'pri',
-            'group', 'groups', 'maxDays', 'skipHol', 'closed', 'q', 'requirePayment');
+            'group', 'groups', 'maxDays', 'skipHol', 'closed', 'q',
+            'requirePayment', 'requirePaymentCode');
 
         return $query;
     }
@@ -340,7 +342,8 @@ class ShipmentController extends Controller
             'to'          => $to,
             'range'       => $range,
             'statuses'    => ShippingRequest::STATUSES,
-            'requirePayment' => $ctx['requirePayment'],
+            'requirePayment'     => $ctx['requirePayment'],
+            'requirePaymentCode' => $ctx['requirePaymentCode'],
             'departments' => Department::orderBy('description')->get(['id', 'description']),
         ]);
     }
@@ -950,10 +953,14 @@ class ShipmentController extends Controller
         $code    = $this->strParam($request, 'payment_code');
         $force   = $request->boolean('payment_code_force');
 
-        if ($confirm) {
+        // El control de códigos es OPCIONAL y lo decide cada tienda. Apagado,
+        // el flujo de confirmación queda exactamente como estaba.
+        $requireCode = (bool) ShippingSetting::current()->require_payment_code;
+
+        if ($confirm && $requireCode) {
             // El código de pago identifica la operación (Yape/Plin/voucher). Si
             // ya se usó en otro envío, es el MISMO pago cobrado dos veces.
-            if ($code === '' && ShippingSetting::current()->require_payment) {
+            if ($code === '') {
                 return back()->with('error',
                     'Indica el código de pago para confirmar ' . $shipment->shipment_code . '.');
             }
@@ -1039,6 +1046,11 @@ class ShipmentController extends Controller
     {
         $code = $this->strParam($request, 'code');
         $exceptId = (int) $this->strParam($request, 'shipment_id');
+
+        // Si la tienda no usa códigos, no hay nada que validar.
+        if (!ShippingSetting::current()->require_payment_code) {
+            return response()->json(['duplicate' => false, 'disabled' => true]);
+        }
 
         if (ShippingRequest::normalizePaymentCode($code) === '') {
             return response()->json(['duplicate' => false]);
@@ -2195,6 +2207,7 @@ class ShipmentController extends Controller
             'agency_fee'      => 'nullable|numeric|min:0|max:99999',
             'agency_fee_mode' => 'nullable|in:amount,free,hidden',
             'require_payment' => 'nullable',
+            'require_payment_code' => 'nullable',
             'max_business_days'   => 'nullable|integer|min:1|max:60',
             'aging_skip_holidays' => 'nullable',
             'cutoff_time'         => 'nullable|date_format:H:i',
@@ -2221,7 +2234,9 @@ class ShipmentController extends Controller
         // modo a "no mencionar" sin avisar.
         $data['agency_fee_mode'] = $modo;
 
-        $data['require_payment']     = $request->boolean('require_payment');
+        $data['require_payment']      = $request->boolean('require_payment');
+        // Control de códigos de pago: interruptor propio de cada tienda.
+        $data['require_payment_code'] = $request->boolean('require_payment_code');
         $data['max_business_days']   = (int) ($request->input('max_business_days') ?: 4);
         $data['aging_skip_holidays'] = $request->boolean('aging_skip_holidays');
         // Hora de corte vacía = sin corte (la ventana pasa a ser el día calendario).

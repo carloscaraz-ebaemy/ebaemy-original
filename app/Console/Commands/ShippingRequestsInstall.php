@@ -44,6 +44,7 @@ class ShippingRequestsInstall extends Command
         '2026_08_12_000001_add_agency_fee_mode_to_shipping_settings',
         '2026_08_13_000001_add_dispatch_to_shipping_requests',
         '2026_08_28_000001_add_payment_code_to_shipping_requests',
+        '2026_08_28_000002_add_require_payment_code_to_shipping_settings',
     ];
 
     /**
@@ -197,6 +198,7 @@ class ShippingRequestsInstall extends Command
                 $table->string('orders_whatsapp', 20)->nullable();
                 $table->decimal('agency_fee', 8, 2)->nullable();
                 $table->boolean('require_payment')->default(false);
+                $table->boolean('require_payment_code')->default(false);
                 $table->unsignedTinyInteger('max_business_days')->default(4);
                 $table->boolean('aging_skip_holidays')->default(true);
                 $table->timestamps();
@@ -217,6 +219,8 @@ class ShippingRequestsInstall extends Command
             if (!$has('aging_skip_holidays')) $table->boolean('aging_skip_holidays')->default(true)->after('max_business_days');
             // Modo del cobro tienda->agencia (2026-08-12): cobra / gratis / no mencionar.
             if (!$has('agency_fee_mode'))     $table->string('agency_fee_mode', 10)->default('hidden')->after('agency_fee');
+            // Codigo de pago al confirmar, opcional por tienda (2026-08-28).
+            if (!$has('require_payment_code')) $table->boolean('require_payment_code')->default(false)->after('require_payment');
         });
 
         // Quien ya cobraba sigue igual; nadie estrena "gratis" sin pedirlo.

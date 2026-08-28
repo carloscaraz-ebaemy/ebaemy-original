@@ -736,8 +736,11 @@ class ShippingRequest extends Model
             return null;
         }
 
+        // Solo bloquea un registro VÁLIDO: si el envío que usó ese código se
+        // anuló, el código vuelve a estar disponible (el cobro se deshizo).
         return self::query()
             ->where('payment_code_normalized', $norm)
+            ->where('status', '!=', self::STATUS_ANULADO)
             ->when($exceptId, fn ($q) => $q->where('id', '!=', $exceptId))
             ->orderBy('id')
             ->first();

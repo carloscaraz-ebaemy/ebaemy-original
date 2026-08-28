@@ -1049,20 +1049,32 @@
                                 @php $flow = $s->selectableStatuses(); $curInFlow = in_array($s->status, $flow, true); @endphp
                                 @if($bloqueado)
                                     {{-- Divulgación progresiva: mientras no se pueda usar el estado, no se muestra. --}}
-                                    {{-- Confirmar el pago pide el CODIGO de la operacion:
-                                         es lo que permite detectar el mismo pago
-                                         usado en dos envios. El modal se abre de
-                                         forma declarativa (el bundle no expone
-                                         `window.bootstrap`). --}}
-                                    <button type="button" class="sh-pay-gate js-pay-open"
-                                            data-bs-toggle="modal" data-bs-target="#modalPagoCodigo"
-                                            data-id="{{ $s->id }}"
-                                            data-code="{{ $s->shipment_code }}"
-                                            data-client="{{ $s->full_name }}"
-                                            data-action="{{ route('shipments.payment', $s->id) }}"
-                                            title="Confirmar el pago habilita el estado y la impresión">
-                                        <i class="fas fa-lock"></i> Confirmar pago
-                                    </button>
+                                    @if($requirePaymentCode ?? false)
+                                        {{-- La tienda lleva control de códigos: confirmar
+                                             pide el CODIGO de la operacion, que es lo que
+                                             permite detectar el mismo pago usado dos veces.
+                                             El modal se abre de forma declarativa (el bundle
+                                             no expone `window.bootstrap`), y por eso la
+                                             decision modal-vs-submit se toma aqui en Blade. --}}
+                                        <button type="button" class="sh-pay-gate js-pay-open"
+                                                data-bs-toggle="modal" data-bs-target="#modalPagoCodigo"
+                                                data-id="{{ $s->id }}"
+                                                data-code="{{ $s->shipment_code }}"
+                                                data-client="{{ $s->full_name }}"
+                                                data-action="{{ route('shipments.payment', $s->id) }}"
+                                                title="Confirmar el pago habilita el estado y la impresión">
+                                            <i class="fas fa-lock"></i> Confirmar pago
+                                        </button>
+                                    @else
+                                        {{-- Sin control de códigos: confirmación directa,
+                                             igual que antes de agregar la opción. --}}
+                                        <form method="POST" action="{{ route('shipments.payment', $s->id) }}" class="m-0 js-pay-form">
+                                            @csrf
+                                            <button type="submit" class="sh-pay-gate" title="Confirmar el pago habilita el estado y la impresión">
+                                                <i class="fas fa-lock"></i> Confirmar pago
+                                            </button>
+                                        </form>
+                                    @endif
                                 @else
                                 <form method="POST" action="{{ route('shipments.status', $s->id) }}" class="d-inline m-0">
                                     @csrf
@@ -1890,6 +1902,7 @@
 </div>
 
 {{-- ══════════════ Modal: confirmar pago con código ══════════════ --}}
+@if($requirePaymentCode ?? false)
 <div class="modal fade" id="modalPagoCodigo" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-dialog-centered">
     <div class="modal-content">
@@ -1934,6 +1947,7 @@
     </div>
   </div>
 </div>
+@endif
 
 {{-- ── BITÁCORA del envío ── --}}
 <div class="modal fade" id="modalBitacora" tabindex="-1" aria-hidden="true">
