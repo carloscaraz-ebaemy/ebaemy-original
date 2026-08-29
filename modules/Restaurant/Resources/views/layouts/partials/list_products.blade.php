@@ -76,19 +76,19 @@
 
 <?php
 
+    // Guarda contra "Cannot redeclare": el partial del ecommerce declara una
+    // stock() con el mismo nombre y una pagina puede cargar los dos.
     if (!function_exists('stock')) {
-
-    function stock($item, $config)
-    {
-        if($config) {
-            $stock=0;
-            foreach ($item->warehouses as $key => $value) {
-                $stock += $value->stock;
+        function stock($item, $config)
+        {
+            if($config) {
+                $stock=0;
+                foreach ($item->warehouses as $key => $value) {
+                    $stock += $value->stock;
+                }
+                return ($stock > 0) ? false : true;
             }
-            return ($stock > 0) ? false : true;
         }
-    }
-
     }
 ?>
 

@@ -1,22 +1,25 @@
 @php
     $configuration = \App\Models\Tenant\Configuration::first();
 
+    // Guardas contra "Cannot redeclare": una pagina puede incluir este listado
+    // mas de una vez (grilla + rail de relacionados) y la segunda declaracion
+    // aborta el request con un fatal. Cada funcion se guarda por separado:
+    // los themes de nicho declaran stock() por su cuenta, asi que stockCount()
+    // puede seguir haciendo falta aunque stock() ya exista.
     if (!function_exists('stock')) {
-
-    function stock($item, $config) {
-        if (!$config) return false;
-           if (!function_exists('stockCount')) {
- return stockCount($item) <= 0;
-    }
-
-    }
-    function stockCount($item) {
-        $total = 0;
-        foreach ($item->warehouses as $wh) {
-            $total += (float) $wh->stock;
+        function stock($item, $config) {
+            if (!$config) return false;
+            return stockCount($item) <= 0;
         }
-        return $total;
     }
+    if (!function_exists('stockCount')) {
+        function stockCount($item) {
+            $total = 0;
+            foreach ($item->warehouses as $wh) {
+                $total += (float) $wh->stock;
+            }
+            return $total;
+        }
     }
 
     // Ratings de TODA la página en una sola query. Preguntar por producto
