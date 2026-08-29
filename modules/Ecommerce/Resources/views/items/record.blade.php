@@ -1137,6 +1137,34 @@
     </div><!-- End .row -->
 </div><!-- End .product-single-container -->
 
+@php
+    // Especificaciones tecnicas: el texto libre del ERP mas los atributos
+    // estructurados del producto. Antes la solapa se dibujaba siempre, asi
+    // que un producto sin specs mostraba una pestana vacia.
+    $allowedTags = '<p><br><b><strong><i><em><ul><ol><li><table><thead><tbody><tr><th><td><h1><h2><h3><h4><h5><h6><span><div>';
+    $safeSpecs = strip_tags($record->technical_specifications ?? '', $allowedTags);
+    // Remover atributos on* (onclick, onmouseover, etc.) y javascript: en href/src
+    $safeSpecs = preg_replace('/\s+on\w+\s*=\s*(?:"[^"]*"|\'[^\']*\'|[^\s>]*)/i', '', $safeSpecs);
+    $safeSpecs = preg_replace('/\s+(?:href|src|action)\s*=\s*["\']?\s*javascript:[^"\'>\s]*/i', '', $safeSpecs);
+    $safeSpecs = trim($safeSpecs);
+
+    // Atributos como filas de la tabla. Los que tienen varios valores
+    // separados por coma son selectores de variante, no especificaciones:
+    // ya se muestran arriba como chips y repetirlos confunde.
+    $specRows = [];
+    if ($record->attributes && count($record->attributes)) {
+        foreach ($record->attributes as $__at) {
+            $__label = trim((string) ($__at->description ?? ''));
+            $__value = trim((string) ($__at->value ?? ''));
+            if ($__label === '' || $__value === '') continue;
+            if (str_contains($__value, ',')) continue;
+            $specRows[$__label] = $__value;
+        }
+    }
+
+    $hasSpecs = $safeSpecs !== '' || !empty($specRows);
+@endphp
+
 <div class="product-single-tabs">
     <ul class="nav nav-tabs" role="tablist">
         <li class="nav-item">
@@ -1147,9 +1175,11 @@
             <a class="nav-link" onclick="getRating('{{ $record->id}}')" id="product-tab-reviews" data-toggle="tab" href="#product-reviews-content" role="tab"
                 aria-controls="product-reviews-content" aria-selected="false">Reviews</a>
         </li>
+        @if($hasSpecs)
         <li class="nav-item">
-            <a class="nav-link" id="product-tab-especTecn" data-toggle="tab" href="#product-especTecn-content" role="tab" aria-controls="product-especTecn-content" aria-selected="true">Especificaciones Técnicas</a>
+            <a class="nav-link" id="product-tab-especTecn" data-toggle="tab" href="#product-especTecn-content" role="tab" aria-controls="product-especTecn-content" aria-selected="false">Especificaciones Técnicas</a>
         </li>
+        @endif
     </ul>
     <div class="tab-content">
         <div class="tab-pane fade show active" id="product-desc-content" role="tabpanel"
@@ -1231,19 +1261,18 @@
             </div>
         </div>
 
+        @if($hasSpecs)
         <div class="tab-pane fade" id="product-especTecn-content" role="tabpanel" aria-labelledby="product-tab-especTecn">
             <div class="product-especTecn-content">
-                @php
-                    // Sanitizar HTML: permitir solo etiquetas seguras y eliminar atributos de eventos
-                    $allowedTags = '<p><br><b><strong><i><em><ul><ol><li><table><thead><tbody><tr><th><td><h1><h2><h3><h4><h5><h6><span><div>';
-                    $safeSpecs = strip_tags($record->technical_specifications ?? '', $allowedTags);
-                    // Remover atributos on* (onclick, onmouseover, etc.) y javascript: en href/src
-                    $safeSpecs = preg_replace('/\s+on\w+\s*=\s*(?:"[^"]*"|\'[^\']*\'|[^\s>]*)/i', '', $safeSpecs);
-                    $safeSpecs = preg_replace('/\s+(?:href|src|action)\s*=\s*["\']?\s*javascript:[^"\'>\s]*/i', '', $safeSpecs);
-                @endphp
-                <div class="specs-content">{!! $safeSpecs !!}</div>
+                @if(!empty($specRows))
+                    @include('ecommerce::layouts.partials_ecommerce.spec_table', ['specs' => $specRows])
+                @endif
+                @if($safeSpecs !== '')
+                    <div class="specs-content">{!! $safeSpecs !!}</div>
+                @endif
             </div>
         </div><!-- End .tab-pane -->
+        @endif
     </div>
 </div>
 

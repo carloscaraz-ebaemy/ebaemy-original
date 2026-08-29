@@ -149,3 +149,26 @@ h1, h2, h3, .ec-section-title {
     .pcard__wish { opacity: 0; transition: opacity .2s; }
     .pcard:hover .pcard__wish { opacity: 1; }
 }
+
+/* ── Ficha de producto ────────────────────────────────────────────────
+   En tecnologia la decision de compra pasa por las especificaciones, no
+   por la descripcion: la tabla se destaca y la galeria muestra el
+   producto completo en vez de recortarlo. */
+.ec-spec-table {
+    border-radius: var(--theme-card-radius) !important;
+    font-size: 13px !important;
+}
+.ec-spec-table th {
+    text-transform: uppercase;
+    letter-spacing: .03em;
+    font-size: 11.5px !important;
+}
+.product-single-tabs .nav-link.active {
+    border-bottom-color: var(--theme-primary, hsl(var(--primary-h), var(--primary-s), var(--primary-l))) !important;
+    color: var(--theme-primary, hsl(var(--primary-h), var(--primary-s), var(--primary-l))) !important;
+}
+.product-single-image,
+.product-single-gallery img {
+    object-fit: contain !important;
+    background: var(--theme-surface, #f9fafb);
+}
