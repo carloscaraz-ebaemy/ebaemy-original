@@ -1,9 +1,14 @@
 @php
     $configuration = \App\Models\Tenant\Configuration::first();
 
+    if (!function_exists('stock')) {
+
     function stock($item, $config) {
         if (!$config) return false;
-        return stockCount($item) <= 0;
+           if (!function_exists('stockCount')) {
+ return stockCount($item) <= 0;
+    }
+
     }
     function stockCount($item) {
         $total = 0;
@@ -11,6 +16,7 @@
             $total += (float) $wh->stock;
         }
         return $total;
+    }
     }
 
     // Ratings de TODA la página en una sola query. Preguntar por producto

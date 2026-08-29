@@ -76,6 +76,8 @@
 
 <?php
 
+    if (!function_exists('stock')) {
+
     function stock($item, $config)
     {
         if($config) {
@@ -85,6 +87,8 @@
             }
             return ($stock > 0) ? false : true;
         }
+    }
+
     }
 ?>
 
