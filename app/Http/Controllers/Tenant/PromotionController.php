@@ -18,6 +18,9 @@ use Modules\Finance\Helpers\UploadFileHelper;
 
 class PromotionController extends Controller
 {
+    /** Maximo de banners del slider por tenant. */
+    private const MAX_BANNERS = 10;
+
     public function index()
     {
         return view('tenant.promotion.index');
@@ -96,11 +99,15 @@ class PromotionController extends Controller
                     ->orWhereNull('type');
                 })
                 ->count();
-            if($count > 2)
+            // El tope era 3, de cuando el slider no tenia orden ni vigencia.
+            // Con banners programados por temporada 3 obliga a borrar los
+            // viejos para cargar los nuevos; 10 alcanza sin que el carrusel
+            // se vuelva pesado.
+            if($count >= self::MAX_BANNERS)
             {
                 return [
                     'success' => false,
-                    'message' => 'Solo esta permitido 3 Banners',
+                    'message' => 'Solo se permiten ' . self::MAX_BANNERS . ' banners. Elimina uno o programa su vigencia para reutilizarlo.',
                 ];
             }
         }
