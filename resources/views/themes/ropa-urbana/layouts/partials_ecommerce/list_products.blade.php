@@ -16,10 +16,15 @@
     $hoverImage = null;
     if ($item->relationLoaded('images') && $item->images->isNotEmpty()) { $f = $item->images->first(); if ($f && $f->image && $f->image !== 'imagen-no-disponible.jpg') $hoverImage = asset('storage/uploads/items/' . $f->image); }
     $productUrl = route('tenant.ecommerce.item', ['slug' => $item->slug ?: $item->id]);
-    $symbol = $item->currency_type['symbol'] ?? 'S/'; $price = number_format($item->sale_unit_price, 2);
+    // Precio efectivo: flash sale, pack u oferta vigente. El calculo vive en
+    // App\Services\EcommerceItemPricing para que ningun theme tenga su propia
+    // idea de cuanto cuesta un producto.
+    $pricing = \App\Services\EcommerceItemPricing::for($item, \App\Services\EcommerceItemPricing::flashPrices());
+    $symbol  = $pricing->symbol;
+    $price   = $pricing->formatted();
 @endphp
 <div class="col-6 col-md-4 col-lg-3 mb-3 product-col-item">
-    <article class="urb-card{{ $outOfStock ? ' urb-card--oos' : '' }}">
+    <article itemscope itemtype="https://schema.org/Product" class="urb-card{{ $outOfStock ? ' urb-card--oos' : '' }}">
         <div class="urb-card__media">
             <a href="{{ $productUrl }}" class="urb-card__link">
                 @if($hasRealImage)<img src="{{ asset('porto-ecommerce/assets/images/placeholder.svg') }}" data-src="{{ $imagePath }}" alt="{{ $item->description }}" loading="lazy" class="urb-card__img urb-card__img--main ec-img-lazy">
@@ -39,8 +44,11 @@
         </div>
         <div class="urb-card__info">
             @if($item->category)<span class="urb-card__cat">{{ $item->category->name }}</span>@endif
-            <h2 class="urb-card__title"><a href="{{ $productUrl }}">{{ \Illuminate\Support\Str::limit($item->description, 45) }}</a></h2>
-            <div class="urb-card__price"><span class="urb-card__now">{{ $symbol }} {{ $price }}</span></div>
+            <h2 itemprop="name" class="urb-card__title"><a href="{{ $productUrl }}">{{ \Illuminate\Support\Str::limit($item->description, 45) }}</a></h2>
+            @include('ecommerce::layouts.partials_ecommerce.card_price', [
+                'pricing' => $pricing, 'priceClass' => 'urb-card__now',
+                'productUrl' => $productUrl, 'outOfStock' => $outOfStock,
+            ])
         </div>
     </article>
 </div>

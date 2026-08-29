@@ -49,15 +49,19 @@
     }
     $productUrl   = route('tenant.ecommerce.item', ['slug' => $item->slug ?: $item->id]);
     $altText      = $item->description;
-    $symbol       = $item->currency_type['symbol'] ?? 'S/';
-    $price        = number_format($item->sale_unit_price, 2);
+    // Precio efectivo: flash sale, pack u oferta vigente. El calculo vive en
+    // App\Services\EcommerceItemPricing para que ningun theme tenga su propia
+    // idea de cuanto cuesta un producto.
+    $pricing = \App\Services\EcommerceItemPricing::for($item, \App\Services\EcommerceItemPricing::flashPrices());
+    $symbol  = $pricing->symbol;
+    $price   = $pricing->formatted();
     $delay        = min($loop->iteration * 40, 400);
 @endphp
 
 <div class="col-6 col-md-4 col-lg-3 mb-4 product-col-item"
      style="animation-delay: {{ $delay }}ms">
 
-    <article class="ropa-card{{ $outOfStock ? ' ropa-card--oos' : '' }}">
+    <article itemscope itemtype="https://schema.org/Product" class="ropa-card{{ $outOfStock ? ' ropa-card--oos' : '' }}">
 
         {{-- ── IMAGEN ── --}}
         <div class="ropa-card__media">
@@ -122,12 +126,15 @@
             <span class="ropa-card__cat">{{ strtoupper($item->category->name) }}</span>
             @endif
 
-            <h2 class="ropa-card__title">
+            <h2 itemprop="name" class="ropa-card__title">
                 <a href="{{ $productUrl }}">{{ $item->description }}</a>
             </h2>
 
             <div class="ropa-card__price">
-                <span class="ropa-card__price-current">{{ $symbol }} {{ $price }}</span>
+                @include('ecommerce::layouts.partials_ecommerce.card_price', [
+                    'pricing' => $pricing, 'priceClass' => 'ropa-card__price-current',
+                    'productUrl' => $productUrl, 'outOfStock' => $outOfStock,
+                ])
             </div>
 
             @if($item->has_variants && !$outOfStock)

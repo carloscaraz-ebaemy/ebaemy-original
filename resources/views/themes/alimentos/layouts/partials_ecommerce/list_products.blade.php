@@ -23,12 +23,16 @@
     $hasRealImage = $item->image && $item->image !== 'imagen-no-disponible.jpg';
     $imagePath = $hasRealImage ? asset('storage/uploads/items/' . $item->image) : $defaultPath;
     $productUrl = route('tenant.ecommerce.item', ['slug' => $item->slug ?: $item->id]);
-    $symbol = $item->currency_type['symbol'] ?? 'S/';
-    $price = number_format($item->sale_unit_price, 2);
+    // Precio efectivo: flash sale, pack u oferta vigente. El calculo vive en
+    // App\Services\EcommerceItemPricing para que ningun theme tenga su propia
+    // idea de cuanto cuesta un producto.
+    $pricing = \App\Services\EcommerceItemPricing::for($item, \App\Services\EcommerceItemPricing::flashPrices());
+    $symbol  = $pricing->symbol;
+    $price   = $pricing->formatted();
 @endphp
 
 <div class="col-6 col-md-4 col-lg-3 mb-4 product-col-item">
-    <article class="food-card{{ $outOfStock ? ' food-card--oos' : '' }}">
+    <article itemscope itemtype="https://schema.org/Product" class="food-card{{ $outOfStock ? ' food-card--oos' : '' }}">
         <div class="food-card__media">
             <a href="{{ $productUrl }}">
                 @if($hasRealImage)
@@ -42,9 +46,12 @@
         </div>
         <div class="food-card__body">
             @if($item->category)<span class="food-card__cat">{{ $item->category->name }}</span>@endif
-            <h2 class="food-card__title"><a href="{{ $productUrl }}">{{ $item->description }}</a></h2>
+            <h2 itemprop="name" class="food-card__title"><a href="{{ $productUrl }}">{{ $item->description }}</a></h2>
             <div class="food-card__bottom">
-                <span class="food-card__price">{{ $symbol }} {{ $price }}</span>
+                @include('ecommerce::layouts.partials_ecommerce.card_price', [
+                    'pricing' => $pricing, 'priceClass' => 'food-card__price',
+                    'productUrl' => $productUrl, 'outOfStock' => $outOfStock,
+                ])
                 @if(!$outOfStock)
                     @if($item->has_variants)
                     <a href="{{ $productUrl }}" class="food-card__add" title="Ver opciones">

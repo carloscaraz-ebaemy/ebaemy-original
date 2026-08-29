@@ -9124,6 +9124,17 @@ li.open > .ec-mmenu__sub { display: block; }
 /* ── Tarjeta: elementos configurables (marca, rating, % descuento) ──────
    Ver App\Services\EcommerceCardOptions. Cada uno se renderiza solo si el
    tenant lo activo, asi que estas reglas no afectan a quien no los usa. */
+/* Precio anterior tachado en las tarjetas de los themes de nicho.
+   Ver partials_ecommerce/card_price.blade.php */
+.ec-card-old-price {
+    text-decoration: line-through;
+    color: var(--theme-text-secondary, #9ca3af);
+    font-size: .78em;
+    font-weight: 400;
+    margin-right: 5px;
+}
+.ec-card-price--sale { color: var(--theme-offer, #e53e3e); }
+
 .pbadge--discount {
     background: var(--theme-offer, #dc2626);
     color: var(--theme-offer-contrast, #fff);

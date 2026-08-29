@@ -25,13 +25,17 @@
         if ($first && $first->image && $first->image !== 'imagen-no-disponible.jpg') $hoverImage = asset('storage/uploads/items/' . $first->image);
     }
     $productUrl = route('tenant.ecommerce.item', ['slug' => $item->slug ?: $item->id]);
-    $symbol = $item->currency_type['symbol'] ?? 'S/';
-    $price = number_format($item->sale_unit_price, 2);
+    // Precio efectivo: flash sale, pack u oferta vigente. El calculo vive en
+    // App\Services\EcommerceItemPricing para que ningun theme tenga su propia
+    // idea de cuanto cuesta un producto.
+    $pricing = \App\Services\EcommerceItemPricing::for($item, \App\Services\EcommerceItemPricing::flashPrices());
+    $symbol  = $pricing->symbol;
+    $price   = $pricing->formatted();
     $delay = min($loop->iteration * 40, 400);
 @endphp
 
 <div class="col-6 col-md-4 col-lg-3 mb-4 product-col-item" style="animation-delay:{{ $delay }}ms">
-    <article class="sport-card{{ $outOfStock ? ' sport-card--oos' : '' }}">
+    <article itemscope itemtype="https://schema.org/Product" class="sport-card{{ $outOfStock ? ' sport-card--oos' : '' }}">
         <div class="sport-card__media">
             <a href="{{ $productUrl }}" class="sport-card__img-link">
                 @if($hasRealImage)
@@ -52,8 +56,11 @@
         </div>
         <div class="sport-card__body">
             @if($item->category)<span class="sport-card__cat">{{ $item->category->name }}</span>@endif
-            <h2 class="sport-card__title"><a href="{{ $productUrl }}">{{ $item->description }}</a></h2>
-            <div class="sport-card__price">{{ $symbol }} {{ $price }}</div>
+            <h2 itemprop="name" class="sport-card__title"><a href="{{ $productUrl }}">{{ $item->description }}</a></h2>
+            @include('ecommerce::layouts.partials_ecommerce.card_price', [
+                'pricing' => $pricing, 'priceClass' => 'sport-card__price',
+                'productUrl' => $productUrl, 'outOfStock' => $outOfStock,
+            ])
             @if(!$outOfStock)
                 @if($item->has_variants)
                 <a href="{{ $productUrl }}" class="sport-card__cta">Elegir opciones</a>

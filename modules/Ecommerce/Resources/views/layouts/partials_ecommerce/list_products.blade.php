@@ -32,19 +32,6 @@
         }
     }
 
-    // Flash sale activa: mapear item_id => flash_price
-    if (!isset($__flashPricesLoaded)) {
-        $__flashPricesLoaded = true;
-        $__flashPrices = [];
-        try {
-            $__fs = \App\Models\Tenant\FlashSale::active()->with('items')->first();
-            if ($__fs) {
-                foreach ($__fs->items as $__fi) {
-                    $__flashPrices[$__fi->id] = (float) $__fi->pivot->flash_price;
-                }
-            }
-        } catch (\Exception $e) {}
-    }
 @endphp
 
 @foreach ($dataPaginate as $item)
@@ -78,30 +65,15 @@
     $productUrl   = route('tenant.ecommerce.item', ['slug' => $item->slug ?: $item->id]);
     $altText      = $item->description . ($item->category ? ' — ' . $item->category->name : '');
     $symbol       = $item->currency_type['symbol'] ?? 'S/';
-    // Flash sale / pack price
-    $originalPrice = (float) $item->sale_unit_price;
-    $displayPrice  = $originalPrice;
-    if ($item->is_set && $item->sale_unit_price_set) {
-        $displayPrice = (float) $item->sale_unit_price_set;
-    }
-    $hasFlash = isset($__flashPrices[$item->id]) && $__flashPrices[$item->id] < $displayPrice;
-    if ($hasFlash) {
-        $originalPrice = $displayPrice;
-        $displayPrice  = $__flashPrices[$item->id];
-    } elseif ($displayPrice < $originalPrice) {
-        // pack discount
-    } elseif ($item->compare_at_price && (float) $item->compare_at_price > $displayPrice
-              && (empty($item->compare_at_from)  || $item->compare_at_from->startOfDay()->lte(now()))
-              && (empty($item->compare_at_until) || $item->compare_at_until->endOfDay()->gte(now()))) {
-        // Oferta tipo Saga: precio regular tachado vía compare_at_price (mientras esté vigente)
-        $originalPrice = (float) $item->compare_at_price;
-    } else {
-        $originalPrice = 0; // no discount
-    }
-    $price = number_format($displayPrice, 2);
-    $hasDiscount = $originalPrice > 0 && $originalPrice > $displayPrice;
-    $discountPct = $hasDiscount ? (int) round((1 - $displayPrice / $originalPrice) * 100) : 0;
-    $rating      = $__ratings[$item->id] ?? null;
+    // Precio efectivo: flash sale, pack u oferta vigente. Una sola
+    // definicion, compartida con las tarjetas de los themes de nicho.
+    $pricing       = \App\Services\EcommerceItemPricing::for($item, \App\Services\EcommerceItemPricing::flashPrices());
+    $displayPrice  = $pricing->display;
+    $originalPrice = $pricing->original;
+    $hasDiscount   = $pricing->hasDiscount;
+    $discountPct   = $pricing->discountPct;
+    $price         = $pricing->formatted();
+    $rating        = $__ratings[$item->id] ?? null;
     // Stagger delay (1-based position in the page)
     $loop_i       = $loop->iteration;
     $delay        = min($loop_i * 40, 400);

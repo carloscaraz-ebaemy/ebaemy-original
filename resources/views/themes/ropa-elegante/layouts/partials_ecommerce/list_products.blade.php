@@ -13,10 +13,15 @@
     $hasRealImage = $item->image && $item->image !== 'imagen-no-disponible.jpg';
     $imagePath = $hasRealImage ? asset('storage/uploads/items/' . $item->image) : $defaultPath;
     $productUrl = route('tenant.ecommerce.item', ['slug' => $item->slug ?: $item->id]);
-    $symbol = $item->currency_type['symbol'] ?? 'S/'; $price = number_format($item->sale_unit_price, 2);
+    // Precio efectivo: flash sale, pack u oferta vigente. El calculo vive en
+    // App\Services\EcommerceItemPricing para que ningun theme tenga su propia
+    // idea de cuanto cuesta un producto.
+    $pricing = \App\Services\EcommerceItemPricing::for($item, \App\Services\EcommerceItemPricing::flashPrices());
+    $symbol  = $pricing->symbol;
+    $price   = $pricing->formatted();
 @endphp
 <div class="col-6 col-md-4 col-lg-3 mb-5 product-col-item">
-    <article class="eleg-card{{ $outOfStock ? ' eleg-card--oos' : '' }}">
+    <article itemscope itemtype="https://schema.org/Product" class="eleg-card{{ $outOfStock ? ' eleg-card--oos' : '' }}">
         <div class="eleg-card__media">
             <a href="{{ $productUrl }}">
                 @if($hasRealImage)<img src="{{ asset('porto-ecommerce/assets/images/placeholder.svg') }}" data-src="{{ $imagePath }}" alt="{{ $item->description }}" loading="lazy" class="eleg-card__img ec-img-lazy">
@@ -29,8 +34,11 @@
             @endif
         </div>
         <div class="eleg-card__info">
-            <h2 class="eleg-card__title"><a href="{{ $productUrl }}">{{ $item->description }}</a></h2>
-            <span class="eleg-card__price">{{ $symbol }} {{ $price }}</span>
+            <h2 itemprop="name" class="eleg-card__title"><a href="{{ $productUrl }}">{{ $item->description }}</a></h2>
+            @include('ecommerce::layouts.partials_ecommerce.card_price', [
+                'pricing' => $pricing, 'priceClass' => 'eleg-card__price',
+                'productUrl' => $productUrl, 'outOfStock' => $outOfStock,
+            ])
         </div>
     </article>
 </div>
