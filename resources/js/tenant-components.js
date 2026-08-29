@@ -283,6 +283,7 @@ Vue.component('tenant-ecommerce-configuration-newsletter', () => import('../../m
 Vue.component('tenant-ecommerce-configuration-pixels', () => import('../../modules/Ecommerce/Resources/assets/js/views/configuration_pixels/index.vue'))
 Vue.component('tenant-ecommerce-configuration-links', () => import('../../modules/Ecommerce/Resources/assets/js/views/configuration_links/index.vue'))
 Vue.component('tenant-ecommerce-configuration-color', () => import('../../modules/Ecommerce/Resources/assets/js/views/configuration_color/index.vue'))
+Vue.component('tenant-ecommerce-configuration-sections', () => import('../../modules/Ecommerce/Resources/assets/js/views/configuration_sections/index.vue'))
 Vue.component('tenant-ecommerce-configuration-marketplaces', () => import('../../modules/Ecommerce/Resources/assets/js/views/configuration_marketplaces/index.vue'))
 Vue.component('tenant-ecommerce-item-sets-index', () => import('../../modules/Ecommerce/Resources/assets/js/views/item_sets/index.vue'))
 Vue.component('tenant-ecommerce-flash-sales', () => import('../../modules/Ecommerce/Resources/assets/js/views/flash_sales/index.vue'))

@@ -521,6 +521,43 @@ public function uploadFile(Request $request)
     }
 
     /**
+     * Secciones del home con su orden y estado actual, para la pantalla de
+     * configuración.
+     */
+    public function home_sections()
+    {
+        return response()->json([
+            'sections' => \App\Services\EcommerceHomeSections::forEditor(),
+        ]);
+    }
+
+    /**
+     * Guarda el orden y el encendido de las secciones del home.
+     * El payload se normaliza contra el catálogo: claves desconocidas se
+     * descartan y el catálogo de productos nunca se puede apagar.
+     */
+    public function store_home_sections(Request $request)
+    {
+        $configuration = $this->resolveConfig($request->input('id'));
+
+        $clean = \App\Services\EcommerceHomeSections::sanitize([
+            'order'    => $request->input('order', []),
+            'disabled' => $request->input('disabled', []),
+        ]);
+
+        $configuration->preferences = $this->mergePreferences($configuration, [
+            \App\Services\EcommerceHomeSections::PREF_KEY => $clean,
+        ]);
+        $configuration->save();
+
+        return [
+            'success'  => true,
+            'message'  => 'Secciones del home actualizadas',
+            'sections' => \App\Services\EcommerceHomeSections::forEditor($configuration),
+        ];
+    }
+
+    /**
      * Paleta actual del tenant + presets, para la pantalla de colores.
      * Devuelve la paleta ya resuelta (defaults incluidos) para que la vista
      * previa arranque mostrando exactamente lo que ve el comprador.
