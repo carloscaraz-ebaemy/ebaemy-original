@@ -521,6 +521,39 @@ public function uploadFile(Request $request)
     }
 
     /**
+     * Opciones de la tarjeta de producto, agrupadas para la pantalla.
+     */
+    public function card_options()
+    {
+        return response()->json([
+            'groups' => \App\Services\EcommerceCardOptions::forEditor(),
+        ]);
+    }
+
+    /**
+     * Guarda las opciones de la tarjeta. Solo se persisten las que difieren
+     * del default, para poder cambiar un default más adelante sin que cada
+     * tenant quede con una copia del valor viejo.
+     */
+    public function store_card_options(Request $request)
+    {
+        $configuration = $this->resolveConfig($request->input('id'));
+
+        $configuration->preferences = $this->mergePreferences($configuration, [
+            \App\Services\EcommerceCardOptions::PREF_KEY =>
+                \App\Services\EcommerceCardOptions::sanitize((array) $request->input('options', [])),
+        ]);
+        $configuration->save();
+        \App\Services\EcommerceCardOptions::flush();
+
+        return [
+            'success' => true,
+            'message' => 'Tarjeta de producto actualizada',
+            'groups'  => \App\Services\EcommerceCardOptions::forEditor($configuration),
+        ];
+    }
+
+    /**
      * Secciones del home con su orden y estado actual, para la pantalla de
      * configuración.
      */

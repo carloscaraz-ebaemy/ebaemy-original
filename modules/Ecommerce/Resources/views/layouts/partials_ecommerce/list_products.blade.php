@@ -13,6 +13,25 @@
         return $total;
     }
 
+    // Ratings de TODA la página en una sola query. Preguntar por producto
+    // seria un N+1 de 24 consultas; el listado solo necesita promedio y conteo.
+    // Solo se calcula si la tarjeta muestra rating.
+    if (!isset($__ratingsLoaded)) {
+        $__ratingsLoaded = true;
+        $__ratings = [];
+        if (\App\Services\EcommerceCardOptions::enabled('rating')) {
+            try {
+                $__ratings = \App\Models\Tenant\ProductReview::approved()
+                    ->whereIn('item_id', collect($dataPaginate->items())->pluck('id'))
+                    ->groupBy('item_id')
+                    ->selectRaw('item_id, AVG(rating) as avg_rating, COUNT(*) as total')
+                    ->get()
+                    ->keyBy('item_id')
+                    ->all();
+            } catch (\Exception $e) {}
+        }
+    }
+
     // Flash sale activa: mapear item_id => flash_price
     if (!isset($__flashPricesLoaded)) {
         $__flashPricesLoaded = true;
@@ -80,6 +99,9 @@
         $originalPrice = 0; // no discount
     }
     $price = number_format($displayPrice, 2);
+    $hasDiscount = $originalPrice > 0 && $originalPrice > $displayPrice;
+    $discountPct = $hasDiscount ? (int) round((1 - $displayPrice / $originalPrice) * 100) : 0;
+    $rating      = $__ratings[$item->id] ?? null;
     // Stagger delay (1-based position in the page)
     $loop_i       = $loop->iteration;
     $delay        = min($loop_i * 40, 400);
@@ -96,22 +118,32 @@
 
             {{-- Badges top-left --}}
             <div class="pcard__badges">
+                {{-- "Agotado" no es configurable: ocultarlo haria creer al
+                     comprador que puede comprar algo que no hay. --}}
                 @if($outOfStock)
                     <span class="pbadge pbadge--oos">Agotado</span>
-                @elseif($isLowStock && !$item->has_variants)
+                @elseif($isLowStock && !$item->has_variants && \App\Services\EcommerceCardOptions::enabled('badge_stock'))
                     <span class="pbadge pbadge--hot">
                         <svg xmlns="http://www.w3.org/2000/svg" width="9" height="9" viewBox="0 0 24 24" fill="currentColor"><path d="M13 2L3 14h9l-1 8 10-12h-9z"/></svg>
                         Últimas {{ $totalStock }}
                     </span>
-                @elseif($isNew)
+                @elseif($isNew && \App\Services\EcommerceCardOptions::enabled('badge_new'))
                     <span class="pbadge pbadge--new">Nuevo</span>
                 @endif
+                @if($hasDiscount && $discountPct > 0)
+                    @cardOption('discount_pct')
+                    <span class="pbadge pbadge--discount">-{{ $discountPct }}%</span>
+                    @endcardOption
+                @endif
                 @if($item->has_variants)
+                    @cardOption('badge_variants')
                     <span class="pbadge pbadge--variants">Variantes</span>
+                    @endcardOption
                 @endif
             </div>
 
             {{-- Wishlist (top-right, glassmorphism) --}}
+            @cardOption('wishlist')
             <button type="button"
                     class="pcard__wish ec-btn-wishlist"
                     data-wishlist-id="{{ $item->id }}"
@@ -124,6 +156,7 @@
                     <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
                 </svg>
             </button>
+            @endcardOption
 
             {{-- Product image --}}
             <a href="{{ $productUrl }}"
@@ -149,9 +182,16 @@
                 @endif
             </a>
 
-            {{-- Hover overlay with quick view --}}
-            @if(!$outOfStock)
+            {{-- Hover overlay: si el tenant apaga las dos acciones no se
+                 renderiza, para no dejar una capa vacia que igual intercepta
+                 el hover sobre la imagen. --}}
+            @php
+                $showQuickView = \App\Services\EcommerceCardOptions::enabled('quickview');
+                $showCompare   = \App\Services\EcommerceCardOptions::enabled('compare');
+            @endphp
+            @if(!$outOfStock && ($showQuickView || $showCompare))
             <div class="pcard__overlay">
+                @if($showQuickView)
                 <button type="button"
                         class="pcard__quickview ec-btn-quickview"
                         data-item-id="{{ $item->id }}"
@@ -164,6 +204,8 @@
                     </svg>
                     Vista rápida
                 </button>
+                @endif
+                @if($showCompare)
                 <button type="button"
                         class="pcard__compare-mini ec-btn-compare"
                         data-compare-id="{{ $item->id }}"
@@ -177,6 +219,7 @@
                         <polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/>
                     </svg>
                 </button>
+                @endif
             </div>
             @endif
 
@@ -185,15 +228,45 @@
         {{-- ── BODY ────────────────────────────────────────── --}}
         <div class="pcard__body">
 
+            {{-- Marca: la pide el rubro tecnologia (Samsung, Logitech...).
+                 Apagada por defecto porque no todos los tenants la cargan. --}}
+            @cardOption('brand')
+                @if($item->relationLoaded('brand') && $item->brand)
+                <span class="pcard__brand" itemprop="brand">{{ $item->brand->name }}</span>
+                @endif
+            @endcardOption
+
             {{-- Category label --}}
-            @if($item->category)
-            <span class="pcard__cat" itemprop="category">{{ $item->category->name }}</span>
-            @endif
+            @cardOption('category')
+                @if($item->category)
+                <span class="pcard__cat" itemprop="category">{{ $item->category->name }}</span>
+                @endif
+            @endcardOption
 
             {{-- Title --}}
             <h2 class="pcard__title" itemprop="name">
                 <a href="{{ $productUrl }}">{{ $item->description }}</a>
             </h2>
+
+            {{-- Rating: solo si el producto tiene resenas aprobadas. Sin
+                 resenas no se muestran 5 estrellas vacias, que se leen como
+                 producto mal calificado. --}}
+            @if($rating)
+            <div class="pcard__rating" itemprop="aggregateRating" itemscope itemtype="https://schema.org/AggregateRating">
+                <meta itemprop="ratingValue" content="{{ round($rating->avg_rating, 1) }}">
+                <meta itemprop="reviewCount" content="{{ $rating->total }}">
+                <span class="pcard__stars" aria-label="{{ round($rating->avg_rating, 1) }} de 5 estrellas">
+                    @for($i = 1; $i <= 5; $i++)
+                    <svg width="12" height="12" viewBox="0 0 24 24" aria-hidden="true"
+                         fill="{{ $i <= round($rating->avg_rating) ? 'currentColor' : 'none' }}"
+                         stroke="currentColor" stroke-width="1.5">
+                        <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+                    </svg>
+                    @endfor
+                </span>
+                <span class="pcard__rating-count">({{ $rating->total }})</span>
+            </div>
+            @endif
 
             {{-- Short desc --}}
             @if(isset($preferences['show_description']) && $preferences['show_description'] == 1 && $item->name)
@@ -225,10 +298,12 @@
                 @else
                     <link itemprop="availability" href="https://schema.org/InStock">
                 @endif
-                @if($originalPrice > 0 && $originalPrice > $displayPrice)
-                <span style="text-decoration:line-through;color:#9ca3af;font-size:12px;margin-right:4px">{{ $symbol }} {{ number_format($originalPrice, 2) }}</span>
+                @if($hasDiscount)
+                    @cardOption('old_price')
+                    <span style="text-decoration:line-through;color:#9ca3af;font-size:12px;margin-right:4px">{{ $symbol }} {{ number_format($originalPrice, 2) }}</span>
+                    @endcardOption
                 @endif
-                <span class="pcard__price-current" style="{{ ($originalPrice > 0 && $originalPrice > $displayPrice) ? 'color:#e53e3e' : '' }}">{{ $symbol }} {{ $price }}</span>
+                <span class="pcard__price-current" style="{{ $hasDiscount ? 'color:#e53e3e' : '' }}">{{ $symbol }} {{ $price }}</span>
             </div>
 
             {{-- CTA --}}
@@ -244,6 +319,13 @@
                         <polyline points="12 8 16 12 12 16"/><line x1="8" y1="12" x2="16" y2="12"/>
                     </svg>
                     <span class="pcard__cta-text">Elegir opciones</span>
+                </a>
+            @elseif(!$outOfStock && !\App\Services\EcommerceCardOptions::enabled('add_to_cart'))
+                {{-- Sin carrito rapido: la tarjeta lleva a la ficha, donde el
+                     comprador elige cantidad y ve el detalle. --}}
+                <a href="{{ $productUrl }}" class="pcard__cta pcard__cta--variants"
+                   aria-label="Ver {{ $item->description }}">
+                    <span class="pcard__cta-text">Ver producto</span>
                 </a>
             @elseif(!$outOfStock)
                 <button type="button"

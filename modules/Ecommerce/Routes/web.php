@@ -175,6 +175,8 @@ Route::middleware(['check.permission', 'locked.tenant', 'check.email.verified', 
         Route::post('configuration_tags', 'ConfigurationController@store_configuration_tag');
         Route::post('configuration_color', 'ConfigurationController@store_configuration_color');
         Route::get('theme_colors', 'ConfigurationController@theme_colors');
+        Route::get('card_options', 'ConfigurationController@card_options');
+        Route::post('card_options', 'ConfigurationController@store_card_options');
         Route::get('home_sections', 'ConfigurationController@home_sections');
         Route::post('home_sections', 'ConfigurationController@store_home_sections');
         Route::get('configuration_themes', 'ConfigurationController@available_themes');

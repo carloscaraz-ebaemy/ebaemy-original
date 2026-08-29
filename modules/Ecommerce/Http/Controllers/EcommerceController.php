@@ -106,6 +106,11 @@ class EcommerceController extends Controller
             ->with([
                 'currency_type',
                 'category',
+                // warehouses lo consume stockCount() en la tarjeta. Sin eager
+                // load eran 24 queries extra por pagina (una por producto).
+                'warehouses',
+                // brand: la tarjeta la muestra si el tenant activo la opcion.
+                'brand',
                 'images'   => fn($q) => $q->select(['item_id','image'])->orderBy('id'),
                 'variants' => fn($q) => $q->select(['id','item_id','stock']),
             ]);

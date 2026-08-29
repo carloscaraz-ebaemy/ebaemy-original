@@ -189,7 +189,10 @@
     <script src="{{ asset('porto-ecommerce/assets/js/vue.min.js') }}"></script>
     <script src="{{ asset('porto-ecommerce/assets/js/axios.min.js') }}"></script>
 
-    {{-- Ocultar comparador de productos en móvil --}}
+    {{-- Comparador en móvil: oculto salvo que el tenant lo active.
+         Antes era un display:none incondicional, así que el toggle de la
+         tarjeta no habría tenido efecto en celular. --}}
+    @unless(\App\Services\EcommerceCardOptions::enabled('compare_mobile'))
     <style>
     @media (max-width: 767px) {
         .ec-btn-compare,
@@ -200,6 +203,10 @@
         .ec-compare-toast,
         [data-compare-id] { display: none !important; }
     }
+    </style>
+    @endunless
+
+    <style>
 
     /* E-commerce: en todas las variantes de cards, cubrir completamente el bloque de imagen */
     .pcard__img,

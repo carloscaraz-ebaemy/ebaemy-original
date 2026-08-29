@@ -9120,6 +9120,41 @@ li.open > .ec-mmenu__sub { display: block; }
     box-shadow: 0 2px 8px rgba(0,0,0,.15);
 }
 .pbadge--new      { background: rgba(16,185,129,.88); color: #fff; }
+
+/* ── Tarjeta: elementos configurables (marca, rating, % descuento) ──────
+   Ver App\Services\EcommerceCardOptions. Cada uno se renderiza solo si el
+   tenant lo activo, asi que estas reglas no afectan a quien no los usa. */
+.pbadge--discount {
+    background: var(--theme-offer, #dc2626);
+    color: var(--theme-offer-contrast, #fff);
+    font-weight: 700;
+}
+.pcard__brand {
+    display: block;
+    font-size: 10.5px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .05em;
+    color: var(--theme-text-secondary, #94a3b8);
+    margin-bottom: 2px;
+}
+.pcard__rating {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    margin: 3px 0 2px;
+}
+.pcard__stars {
+    display: inline-flex;
+    gap: 1px;
+    color: #f59e0b;
+    line-height: 0;
+}
+.pcard__rating-count {
+    font-size: 11px;
+    color: var(--theme-text-secondary, #94a3b8);
+    font-variant-numeric: tabular-nums;
+}
 .pbadge--hot      { background: rgba(239,68,68,.92); color: #fff; animation: badge-pulse 2.5s ease infinite; }
 .pbadge--oos      { background: rgba(100,116,139,.82); color: #fff; }
 .pbadge--variants { background: rgba(99,102,241,.88); color: #fff; }

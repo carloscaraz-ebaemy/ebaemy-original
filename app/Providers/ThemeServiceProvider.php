@@ -18,6 +18,7 @@ use Illuminate\Support\ServiceProvider;
  *   @themeAsset('css/custom.css') → URL del asset del theme
  *   @hasFeature('ecommerce')      → Condicional por feature gate
  *   @isTheme('ropa')              → Condicional por theme
+ *   @cardOption('compare')        → Condicional por opción de la tarjeta
  */
 class ThemeServiceProvider extends ServiceProvider
 {
@@ -85,6 +86,12 @@ class ThemeServiceProvider extends ServiceProvider
         // @isDefaultTheme ... @endisDefaultTheme
         Blade::if('isDefaultTheme', function () {
             return app(ThemeManager::class)->isDefault();
+        });
+
+        // @cardOption('compare') ... @endcardOption
+        // Qué muestra la tarjeta de producto, configurable por tenant.
+        Blade::if('cardOption', function (string $key) {
+            return \App\Services\EcommerceCardOptions::enabled($key);
         });
     }
 

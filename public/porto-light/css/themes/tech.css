@@ -87,3 +87,65 @@ h1, h2, h3, .ec-section-title {
         padding-right: 6px !important;
     }
 }
+
+/* ═══════════════════════════════════════════════════════════════
+   IDENTIDAD DE LA TARJETA — portada desde el fork del theme
+   ═══════════════════════════════════════════════════════════════
+   El theme tenia su propio list_products.blade.php que se salteaba
+   los precios de flash sale, las ofertas (compare_at_price), los
+   precios de pack, el schema.org, la vista rapida y el comparador.
+   Se elimino el fork: ahora el theme usa la tarjeta del modulo y
+   aporta solo su identidad visual desde aqui. Misma data, mismo
+   comportamiento, mismo look.
+   ═══════════════════════════════════════════════════════════════ */
+
+/* Imagen contenida sobre fondo neutro: en tecnologia el producto se
+   fotografia recortado y "cover" le corta los bordes al equipo. */
+.pcard__media {
+    background: var(--theme-surface, #f9fafb);
+}
+.pcard__img {
+    object-fit: contain !important;
+    padding: 12px !important;
+}
+
+/* Categoria como etiqueta tecnica */
+.pcard__cat {
+    color: var(--theme-primary, hsl(var(--primary-h), var(--primary-s), var(--primary-l))) !important;
+    font-weight: 600 !important;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+}
+
+/* Titulo a dos lineas exactas: la grilla queda alineada aunque los
+   nombres de producto tengan largos muy distintos. */
+.pcard__title {
+    font-size: 13px !important;
+    font-weight: 500 !important;
+    line-height: 1.3 !important;
+    min-height: 2.6em;
+}
+
+.pcard__price-current {
+    color: var(--theme-primary, hsl(var(--primary-h), var(--primary-s), var(--primary-l)));
+}
+
+/* CTA de ancho completo, estilo tienda de electronica */
+.pcard__cta {
+    background: var(--theme-primary, hsl(var(--primary-h), var(--primary-s), var(--primary-l))) !important;
+    color: var(--theme-primary-contrast, #fff) !important;
+    border: none !important;
+    border-radius: var(--theme-btn-radius) !important;
+    font-weight: 600 !important;
+}
+.pcard__cta:hover {
+    filter: brightness(.92);
+    color: var(--theme-primary-contrast, #fff) !important;
+}
+
+/* Favoritos solo al hover en desktop; en tactil siempre visible,
+   porque ahi no hay hover y el boton quedaria inalcanzable. */
+@media (hover: hover) {
+    .pcard__wish { opacity: 0; transition: opacity .2s; }
+    .pcard:hover .pcard__wish { opacity: 1; }
+}
