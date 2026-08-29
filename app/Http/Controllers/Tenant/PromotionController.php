@@ -36,7 +36,11 @@ class PromotionController extends Controller
     {
        
         $items = Item::where('apply_store', 1)->get();
-        return compact('items');
+
+        // Categorías del tenant: destino "categoría" del banner.
+        $categories = \Modules\Item\Models\Category::orderBy('name')->get(['id', 'name']);
+
+        return compact('items', 'categories');
     }
 
 
@@ -122,6 +126,9 @@ class PromotionController extends Controller
             $item->image = 'imagen-no-disponible.jpg';
         }
 
+        $this->storeMobileImage($request, $item);
+        $this->normalizeSliderFields($request, $item);
+
         $item->save();
         $this->clearEcommerceCache();
 
@@ -130,6 +137,62 @@ class PromotionController extends Controller
             'message' => ($id)?'Banner editado con éxito':'Banner registrado con éxito',
             'id' => $item->id
         ];
+    }
+
+    /**
+     * Guarda la imagen vertical del banner. Mismo flujo que la de desktop
+     * pero con su propio temp_path, para poder subir una sin tocar la otra.
+     */
+    private function storeMobileImage(Request $request, Promotion $item): void
+    {
+        $temp_path = $request->input('temp_path_mobile');
+        if (!$temp_path) {
+            // Quitar la imagen mobile es explícito: el front manda la clave
+            // en null. Si no viene, se conserva la que ya estaba.
+            if ($request->exists('image_mobile') && !$request->input('image_mobile')) {
+                $item->image_mobile = null;
+            }
+            return;
+        }
+
+        UploadFileHelper::checkIfValidFile($request->input('image_mobile'), $temp_path, true);
+
+        $directory = 'public'.DIRECTORY_SEPARATOR.'uploads'.DIRECTORY_SEPARATOR.'promotions'.DIRECTORY_SEPARATOR;
+        $original  = explode('.', $request->input('image_mobile'));
+        $file_name = Str::slug($item->description ?: 'banner').'-mobile-'.date('YmdHis').'.'.end($original);
+
+        Storage::put($directory.$file_name, file_get_contents($temp_path));
+        $item->image_mobile = $file_name;
+    }
+
+    /**
+     * Normaliza los campos del slider antes de guardar.
+     *
+     * link_type manda: si el tenant elige "producto" se limpia la URL y la
+     * categoría, y viceversa. Sin esto quedan destinos huérfanos y el banner
+     * apunta a donde no debe (Promotion::getLinkHrefAttribute prioriza por
+     * link_type, pero los datos viejos quedarían inconsistentes).
+     */
+    private function normalizeSliderFields(Request $request, Promotion $item): void
+    {
+        $type = $request->input('link_type');
+        if (in_array($type, ['product', 'url', 'category', 'none'], true)) {
+            $item->link_type = $type;
+
+            if ($type !== 'product')  $item->item_id = null;
+            if ($type !== 'url')      $item->banner_url = null;
+            if ($type !== 'category') $item->link_category_id = null;
+        }
+
+        $item->sort_order = (int) $request->input('sort_order', 0);
+        $item->starts_at  = $request->input('starts_at') ?: null;
+        $item->ends_at    = $request->input('ends_at') ?: null;
+
+        // Rango invertido: se ignora la fecha de fin en vez de dejar el banner
+        // permanentemente oculto sin que el tenant entienda por qué.
+        if ($item->starts_at && $item->ends_at && $item->ends_at < $item->starts_at) {
+            $item->ends_at = null;
+        }
     }
 
     public function storePromotionList(PromotionRequest $request) {
