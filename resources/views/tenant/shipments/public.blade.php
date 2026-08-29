@@ -1016,22 +1016,20 @@
                 if (agErr) agErr.hidden = true;
             }
 
-            // La OFICINA de recojo es OPCIONAL: el cliente muchas veces no sabe
-            // en qué local le toca recoger hasta que la agencia le avisa.
-            // Solo se exige la dirección si pidió expresamente que la agencia
-            // le lleve el paquete a su casa (si no, ese dato no significa nada).
+            // En provincia lo único obligatorio es la AGENCIA y el ubigeo. Ni la
+            // oficina de recojo ni la dirección bloquean el registro: son datos
+            // que el cliente muchas veces no tiene todavía y que el encargado
+            // completa después. Se avisa, pero se deja continuar.
             var casa = document.getElementById('pub_addr_agencia');
             var de   = document.getElementById('pub_dest_err');
-            if (agHome && agHome.checked && !(casa && casa.value.trim())) {
-                if (casa) casa.style.borderColor = '#dc2626';
-                if (de) {
-                    de.textContent = 'Escribe la dirección donde la agencia debe entregar el paquete.';
-                    de.hidden = false;
-                }
-                ok = false;
-            } else {
-                if (casa) casa.style.borderColor = '';
-                if (de) de.hidden = true;
+            if (casa) casa.style.borderColor = '';
+            if (de) {
+                var faltaDir = agHome && agHome.checked && !(casa && casa.value.trim());
+                de.style.color = '#a16207';
+                de.textContent = faltaDir
+                    ? 'Pediste que la agencia lleve el paquete a tu domicilio pero no escribiste la dirección; podrás indicarla después.'
+                    : '';
+                de.hidden = !faltaDir;
             }
         }
         return ok;
