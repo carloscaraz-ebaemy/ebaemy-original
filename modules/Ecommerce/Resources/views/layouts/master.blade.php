@@ -184,30 +184,7 @@
     @endif
 
     {{-- ── Color primario del cliente: inyectado server-side para evitar flash ── --}}
-    @php
-        $__hex = $seo->color_ecommerce ?? '#ff8000';
-        $__hex = ltrim($__hex, '#');
-        if (strlen($__hex) === 3) {
-            $__hex = $__hex[0].$__hex[0].$__hex[1].$__hex[1].$__hex[2].$__hex[2];
-        }
-        $__r = hexdec(substr($__hex,0,2))/255;
-        $__g = hexdec(substr($__hex,2,2))/255;
-        $__b = hexdec(substr($__hex,4,2))/255;
-        $__max = max($__r,$__g,$__b); $__min = min($__r,$__g,$__b);
-        $__l = ($__max+$__min)/2;
-        if ($__max == $__min) { $__h = $__s = 0; } else {
-            $__d = $__max-$__min;
-            $__s = $__l > 0.5 ? $__d/(2-$__max-$__min) : $__d/($__max+$__min);
-            if ($__max==$__r)      $__h = ($__g-$__b)/$__d + ($__g<$__b?6:0);
-            elseif ($__max==$__g)  $__h = ($__b-$__r)/$__d + 2;
-            else                   $__h = ($__r-$__g)/$__d + 4;
-            $__h /= 6;
-        }
-        $__pH = round($__h*360);
-        $__pS = round($__s*100).'%';
-        $__pL = round($__l*100).'%';
-    @endphp
-    <style>:root{--primary-h:{{ $__pH }};--primary-s:{{ $__pS }};--primary-l:{{ $__pL }};}</style>
+    @include('ecommerce::layouts.partials_ecommerce.theme_tokens', ['config' => $seo])
     <!-- Vue debe cargarse ANTES del header (que usa new Vue) -->
     <script src="{{ asset('porto-ecommerce/assets/js/vue.min.js') }}"></script>
     <script src="{{ asset('porto-ecommerce/assets/js/axios.min.js') }}"></script>

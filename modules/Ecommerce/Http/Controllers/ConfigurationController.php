@@ -471,20 +471,67 @@ public function uploadFile(Request $request)
         $configuration = $this->resolveConfig($request->input('id'));
         $configuration->color_ecommerce = $request->input('color_ecommerce');
 
-        // Guardar preferencias (el cast a array maneja automáticamente el json_encode)
-        $configuration->preferences = [
+        $prefs = [
             'show_description' => (int) $request->input('show_description', 1),
             'show_stock' => (int) $request->input('show_stock', 0),
             'only_available_products' => (int) $request->input('only_available_products', 0),
             'full_width_banner' => (int) $request->input('full_width_banner', 0),
         ];
 
-        $configuration->save();
+        // Paleta completa del theme. Solo se guardan los colores que difieren
+        // del default y que son hex válidos: así el default puede evolucionar
+        // sin que cada tenant quede congelado con una copia vieja.
+        $colors = $request->input('theme_colors');
+        if (is_array($colors)) {
+            $clean = [];
+            foreach (\App\Services\EcommerceThemeTokens::DEFAULTS as $key => $default) {
+                $hex = \App\Services\EcommerceThemeTokens::normalizeHex($colors[$key] ?? null);
+                if ($hex && $hex !== $default) {
+                    $clean[$key] = $hex;
+                }
+            }
+            $prefs['theme_colors'] = $clean;
+        }
+
+        $configuration->preferences = $this->mergePreferences($configuration, $prefs);
+        $configuration->save(); // el hook saved() del modelo ya limpia la caché
 
         return [
             'success' => true,
             'message' => 'Configuración de color y preferencias actualizadas correctamente'
         ];
+    }
+
+    /**
+     * Merge de preferences en vez de reemplazo.
+     *
+     * preferences es un JSON compartido por varias pantallas de la Tienda
+     * Virtual. Asignarlo entero (como se hacía antes) borra en silencio todo
+     * lo que guardó otra pantalla — al tocar los colores se perdían las
+     * preferencias del theme, y viceversa.
+     */
+    private function mergePreferences($configuration, array $new): array
+    {
+        $current = $configuration->preferences ?? [];
+        if (!is_array($current)) {
+            $current = [];
+        }
+
+        return array_replace($current, $new);
+    }
+
+    /**
+     * Paleta actual del tenant + presets, para la pantalla de colores.
+     * Devuelve la paleta ya resuelta (defaults incluidos) para que la vista
+     * previa arranque mostrando exactamente lo que ve el comprador.
+     */
+    public function theme_colors()
+    {
+        return response()->json([
+            'palette'  => \App\Services\EcommerceThemeTokens::palette(),
+            'defaults' => \App\Services\EcommerceThemeTokens::DEFAULTS,
+            'presets'  => \App\Services\EcommerceThemeTokens::PRESETS,
+        ]);
     }
 
 

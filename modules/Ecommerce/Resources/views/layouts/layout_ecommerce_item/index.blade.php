@@ -33,23 +33,7 @@
     @if (file_exists(public_path('theme/custom_styles_ecommerce.css')))
         <link rel="stylesheet" href="{{ asset('theme/custom_styles_ecommerce.css') }}" />
     @endif
-    @php
-        $__seo = \App\Models\Tenant\ConfigurationEcommerce::first();
-        $__hex = ($__seo->color_ecommerce ?? '#ff8000');
-        $__hex = ltrim($__hex, '#');
-        if (strlen($__hex) === 3) { $__hex = $__hex[0].$__hex[0].$__hex[1].$__hex[1].$__hex[2].$__hex[2]; }
-        $__r = hexdec(substr($__hex,0,2))/255; $__g = hexdec(substr($__hex,2,2))/255; $__b = hexdec(substr($__hex,4,2))/255;
-        $__max = max($__r,$__g,$__b); $__min = min($__r,$__g,$__b); $__l = ($__max+$__min)/2;
-        if ($__max == $__min) { $__h = $__s = 0; } else {
-            $__d = $__max-$__min;
-            $__s = $__l > 0.5 ? $__d/(2-$__max-$__min) : $__d/($__max+$__min);
-            if ($__max==$__r) $__h = ($__g-$__b)/$__d + ($__g<$__b?6:0);
-            elseif ($__max==$__g) $__h = ($__b-$__r)/$__d + 2;
-            else $__h = ($__r-$__g)/$__d + 4;
-            $__h /= 6;
-        }
-    @endphp
-    <style>:root{--primary-h:{{ round($__h*360) }};--primary-s:{{ round($__s*100) }}%;--primary-l:{{ round($__l*100) }}%;}</style>
+    @include('ecommerce::layouts.partials_ecommerce.theme_tokens')
 
     <!-- Vue + Axios deben cargarse ANTES del header (que usa new Vue) -->
     <script src="{{ asset('porto-ecommerce/assets/js/vue.min.js') }}"></script>

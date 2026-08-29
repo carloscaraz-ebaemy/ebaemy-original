@@ -174,6 +174,7 @@ Route::middleware(['check.permission', 'locked.tenant', 'check.email.verified', 
         Route::post('configuration_social', 'ConfigurationController@store_configuration_social');
         Route::post('configuration_tags', 'ConfigurationController@store_configuration_tag');
         Route::post('configuration_color', 'ConfigurationController@store_configuration_color');
+        Route::get('theme_colors', 'ConfigurationController@theme_colors');
         Route::get('configuration_themes', 'ConfigurationController@available_themes');
         Route::post('configuration_theme', 'ConfigurationController@store_theme');
         Route::get('themes', 'ConfigurationController@themesGallery')->name('tenant.ecommerce.themes');

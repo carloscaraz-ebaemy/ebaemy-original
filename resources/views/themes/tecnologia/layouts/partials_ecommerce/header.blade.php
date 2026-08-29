@@ -4,25 +4,31 @@
     $econfig = \App\Models\Tenant\ConfigurationEcommerce::firstCached();
     $logo = ($company && $company->logo) ? asset('storage/uploads/logos/'.$company->logo) : asset('porto-ecommerce/assets/images/logo-black.png');
     $categories = \Modules\Item\Models\Category::whereHas('items', fn($q) => $q->where('apply_store', 1))->orderBy('name')->take(10)->get();
+
+    // El logo se invierte a blanco solo si el header es oscuro. Con la paleta
+    // configurable un tenant puede poner header claro, y el invert fijo dejaba
+    // el logo blanco sobre blanco: invisible.
+    $__headerHex  = \App\Services\EcommerceThemeTokens::palette($econfig)['header'];
+    $__headerDark = \App\Services\EcommerceThemeTokens::readableOn($__headerHex) === '#ffffff';
 @endphp
 
 <style>
-.tech-header { background:#0f172a; color:#fff; position:sticky; top:0; z-index:100; }
+.tech-header { background:var(--theme-header,#0f172a); color:var(--theme-header-text,#fff); position:sticky; top:0; z-index:100; }
 .tech-header__top { display:flex; align-items:center; justify-content:space-between; padding:10px 24px; max-width:1400px; margin:0 auto; }
-.tech-header__logo img { height:36px; filter:brightness(0) invert(1); }
+.tech-header__logo img { height:36px; {{ $__headerDark ? 'filter:brightness(0) invert(1);' : '' }} }
 .tech-header__search { flex:1; max-width:500px; margin:0 2rem; position:relative; }
-.tech-header__search input { width:100%; padding:9px 16px 9px 38px; border:none; border-radius:6px; background:#1e293b; color:#e2e8f0; font-size:13px; outline:none; }
-.tech-header__search input::placeholder { color:#64748b; }
-.tech-header__search input:focus { background:#334155; }
-.tech-header__search-icon { position:absolute; left:12px; top:50%; transform:translateY(-50%); color:#64748b; }
+.tech-header__search input { width:100%; padding:9px 16px 9px 38px; border:none; border-radius:6px; background:var(--theme-header-soft-2,#1e293b); color:var(--theme-header-text,#e2e8f0); font-size:13px; outline:none; }
+.tech-header__search input::placeholder { color:var(--theme-header-text,#64748b); opacity:.55; }
+.tech-header__search input:focus { background:var(--theme-header-line,#334155); }
+.tech-header__search-icon { position:absolute; left:12px; top:50%; transform:translateY(-50%); color:var(--theme-header-text,#64748b); opacity:.6; }
 .tech-header__actions { display:flex; align-items:center; gap:1rem; }
-.tech-header__action { color:#cbd5e1; text-decoration:none; display:flex; align-items:center; gap:.3rem; font-size:12px; position:relative; background:none; border:none; cursor:pointer; }
-.tech-header__action:hover { color:hsl(var(--primary-h),var(--primary-s),var(--primary-l)); text-decoration:none; }
-.tech-header__badge { position:absolute; top:-6px; right:-8px; background:hsl(var(--primary-h),var(--primary-s),var(--primary-l)); color:#fff; font-size:9px; font-weight:700; min-width:16px; height:16px; border-radius:8px; display:flex; align-items:center; justify-content:center; }
-.tech-header__nav { background:#1e293b; }
+.tech-header__action { color:var(--theme-header-text,#cbd5e1); opacity:.85; text-decoration:none; display:flex; align-items:center; gap:.3rem; font-size:12px; position:relative; background:none; border:none; cursor:pointer; }
+.tech-header__action:hover { color:var(--theme-primary,hsl(var(--primary-h),var(--primary-s),var(--primary-l))); opacity:1; text-decoration:none; }
+.tech-header__badge { position:absolute; top:-6px; right:-8px; background:var(--theme-primary,hsl(var(--primary-h),var(--primary-s),var(--primary-l))); color:var(--theme-primary-contrast,#fff); font-size:9px; font-weight:700; min-width:16px; height:16px; border-radius:8px; display:flex; align-items:center; justify-content:center; }
+.tech-header__nav { background:var(--theme-header-soft,#1e293b); }
 .tech-header__nav-inner { display:flex; align-items:center; gap:.25rem; padding:6px 24px; max-width:1400px; margin:0 auto; overflow-x:auto; }
-.tech-header__nav-link { font-size:12px; font-weight:600; color:#94a3b8; padding:5px 12px; border-radius:4px; text-decoration:none; white-space:nowrap; transition:all .15s; }
-.tech-header__nav-link:hover,.tech-header__nav-link--active { background:hsl(var(--primary-h),var(--primary-s),var(--primary-l)); color:#fff; text-decoration:none; }
+.tech-header__nav-link { font-size:12px; font-weight:600; color:var(--theme-header-text,#94a3b8); opacity:.75; padding:5px 12px; border-radius:4px; text-decoration:none; white-space:nowrap; transition:all .15s; }
+.tech-header__nav-link:hover,.tech-header__nav-link--active { background:var(--theme-primary,hsl(var(--primary-h),var(--primary-s),var(--primary-l))); color:var(--theme-primary-contrast,#fff); opacity:1; text-decoration:none; }
 @media(max-width:767px) { .tech-header__search{display:none;} .tech-header__action span{display:none;} }
 </style>
 
