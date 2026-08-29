@@ -65,6 +65,13 @@ class EcommerceHomeSections
             'zone'             => self::ZONE_MAIN,
             'hide_on_category' => true,
         ],
+        'featured_categories' => [
+            'label'   => 'Categorías destacadas',
+            'hint'    => 'Tarjetas con imagen. Se oculta sola si no elegiste ninguna.',
+            'partial' => 'ecommerce::layouts.partials_ecommerce.home_featured_categories',
+            'zone'    => self::ZONE_MAIN,
+            'hide_on_category' => true,
+        ],
         'products' => [
             'label'   => 'Catálogo de productos',
             'hint'    => 'La grilla con filtros. No se puede ocultar.',
@@ -84,6 +91,13 @@ class EcommerceHomeSections
             'hint'    => 'Envío, compra segura, devoluciones, atención',
             'partial' => 'ecommerce::layouts.partials_ecommerce.home_trust_badges',
             'zone'    => self::ZONE_WIDE,
+        ],
+        'brands' => [
+            'label'   => 'Marcas',
+            'hint'    => 'Franja con los logos. Se oculta sola si no elegiste ninguna.',
+            'partial' => 'ecommerce::layouts.partials_ecommerce.home_brands',
+            'zone'    => self::ZONE_MAIN,
+            'hide_on_category' => true,
         ],
         'testimonials' => [
             'label'   => 'Opiniones de clientes',

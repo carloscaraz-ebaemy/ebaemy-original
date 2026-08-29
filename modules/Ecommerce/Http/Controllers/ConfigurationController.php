@@ -521,6 +521,72 @@ public function uploadFile(Request $request)
     }
 
     /**
+     * Contenido editable del home (garantías, categorías destacadas, marcas)
+     * más los catálogos para elegir.
+     */
+    public function home_content()
+    {
+        return response()->json(array_merge(
+            \App\Services\EcommerceHomeContent::forEditor(),
+            [
+                'available_categories' => \Modules\Item\Models\Category::orderBy('name')->get(['id', 'name']),
+                'available_brands'     => \Modules\Item\Models\Brand::orderBy('name')->get(['id', 'name']),
+            ]
+        ));
+    }
+
+    public function store_home_content(Request $request)
+    {
+        $configuration = $this->resolveConfig($request->input('id'));
+
+        $configuration->preferences = $this->mergePreferences($configuration, [
+            \App\Services\EcommerceHomeContent::PREF_KEY =>
+                \App\Services\EcommerceHomeContent::sanitize((array) $request->all()),
+        ]);
+        $configuration->save();
+
+        return [
+            'success' => true,
+            'message' => 'Contenido del home actualizado',
+            'data'    => \App\Services\EcommerceHomeContent::forEditor($configuration),
+        ];
+    }
+
+    /**
+     * Logo de una marca para la franja del home. Se guarda en
+     * storage/uploads/brands y solo se devuelve el nombre del archivo: la
+     * configuración guarda el basename, nunca una ruta del cliente.
+     */
+    public function upload_brand_logo(Request $request)
+    {
+        $request->validate([
+            'file' => 'required|image|mimes:jpeg,jpg,png,webp,svg|max:1024',
+        ], [
+            'file.image' => 'El archivo debe ser una imagen.',
+            'file.max'   => 'El logo no puede pesar más de 1 MB.',
+        ]);
+
+        $file = $request->file('file');
+        $name = \Illuminate\Support\Str::slug(
+            pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME)
+        ) . '-' . date('YmdHis') . '.' . $file->getClientOriginalExtension();
+
+        \Illuminate\Support\Facades\Storage::putFileAs(
+            'public' . DIRECTORY_SEPARATOR . 'uploads' . DIRECTORY_SEPARATOR . 'brands',
+            $file,
+            $name
+        );
+
+        return [
+            'success' => true,
+            'data'    => [
+                'filename' => $name,
+                'url'      => asset('storage/uploads/brands/' . $name),
+            ],
+        ];
+    }
+
+    /**
      * Opciones de la tarjeta de producto, agrupadas para la pantalla.
      */
     public function card_options()
