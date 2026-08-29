@@ -58,10 +58,18 @@ class ConsultCdrService extends BaseSunat
             }
             $document = $response->{$resultName} ?? null;
 
-            if ($document) {
-                if ($resultName === 'statusCdr') {
-                    $document = $document->content;
+            if ($document && $resultName === 'statusCdr') {
+                // SUNAT solo adjunta `content` cuando el CDR existe. Si el
+                // comprobante no llego a registrarse informa el motivo en
+                // statusCode/statusMessage (ej. 0004 - no existe comprobante).
+                if (!isset($document->content)) {
+                    return $result->setError($this->buildStatusError($document));
                 }
+
+                $document = $document->content;
+            }
+
+            if ($document) {
                 $result->setCdrZip($document);
                 $cdrResponse = $this->extractResponse($document);
                 $code = $cdrResponse->getCode();
@@ -77,6 +85,7 @@ class ConsultCdrService extends BaseSunat
                 }
             } else {
                 \Log::warning('No se recibió un documento válido desde el servicio SOAP');
+                $result->setError($this->getErrorByCode('', 'SUNAT no devolvió el comprobante consultado'));
             }
 
             // $statusCdr = $response->{$resultName};
@@ -100,5 +109,26 @@ class ConsultCdrService extends BaseSunat
         }
 
         return $result;
+    }
+
+    /**
+     * Construye el Error a partir del statusCode/statusMessage que devuelve
+     * SUNAT cuando la consulta no trae CDR.
+     *
+     * @param  \stdClass $status
+     * @return \App\CoreFacturalo\WS\Response\Error
+     */
+    private function buildStatusError($status)
+    {
+        $code = isset($status->statusCode) ? (string) $status->statusCode : '';
+        $message = isset($status->statusMessage) ? (string) $status->statusMessage : '';
+
+        $error = $this->getErrorByCode($code, $message);
+
+        if (empty($error->getMessage())) {
+            $error->setMessage($message !== '' ? $message : 'SUNAT no devolvió el CDR del comprobante');
+        }
+
+        return $error;
     }
 }

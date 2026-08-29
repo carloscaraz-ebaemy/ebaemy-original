@@ -81,7 +81,7 @@ class X509Certificate
      */
     public function getValidFrom()
     {
-        $value = $this->getSubjectValue('validTo_time_t');
+        $value = $this->getSubjectValue('validFrom_time_t');
         if ($value) {
             return (new \DateTime())->setTimestamp($value);
         }
@@ -90,13 +90,13 @@ class X509Certificate
     }
 
     /**
-     * .
+     * Certificate is valid until this date.
      *
      * @return \DateTime|null
      */
     public function getExpiration()
     {
-        $value = $this->getSubjectValue('validFrom_time_t');
+        $value = $this->getSubjectValue('validTo_time_t');
         if ($value) {
             return (new \DateTime())->setTimestamp($value);
         }
