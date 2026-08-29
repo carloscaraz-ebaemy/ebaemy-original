@@ -4,7 +4,13 @@ namespace App\Exceptions;
 
 use Illuminate\Foundation\Exceptions\Handler as ExceptionHandler;
 use App\Exceptions\InvalidOrderTransitionException;
-use Http\Client\Exception\HttpException;
+// OJO: la de Symfony, que es la que lanza abort(). Estaba importada la de
+// php-http/httplug, asi que `instanceof HttpException` nunca se cumplia y
+// toda la rama de abajo (incluidas las vistas 500/503 del ecommerce)
+// estuvo muerta: cualquier abort() terminaba en el catch-all que
+// responde 500. Un tenant bloqueado (abort 403) mostraba
+// "Error del servidor" con status 500.
+use Symfony\Component\HttpKernel\Exception\HttpException;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Auth\AuthenticationException;
 use Illuminate\Http\Request;
@@ -129,11 +135,15 @@ class Handler extends ExceptionHandler
         if($exception instanceof HttpException)
         {
             $statusCode = $exception->getStatusCode();
+
             if ($request->is('ecommerce*') && !$request->expectsJson()) {
-                $ecView = match($statusCode) {
-                    503 => 'ecommerce::errors.503',
-                    500 => 'ecommerce::errors.500',
-                    default => null,
+                // match(true) y no match($statusCode): asi un 502 o un 504
+                // tambien caen en la pagina de error en vez de escaparse.
+                $ecView = match(true) {
+                    $statusCode === 503 => 'ecommerce::errors.503',
+                    $statusCode === 404 => 'ecommerce::errors.404',
+                    $statusCode >= 500  => 'ecommerce::errors.500',
+                    default             => null,
                 };
                 if ($ecView) {
                     try {
@@ -141,7 +151,15 @@ class Handler extends ExceptionHandler
                     } catch (\Throwable $e) {}
                 }
             }
-            return $this->errorResponse('', '', $exception);
+
+            if ($request->expectsJson()) {
+                return $this->errorResponse('', $statusCode, $exception);
+            }
+
+            // Sin vista propia, la pagina de error estandar de Laravel. Antes
+            // devolvia JSON con el codigo de la excepcion (normalmente 0), que
+            // no es un status HTTP valido.
+            return parent::render($request, $exception);
         }
 
 
@@ -192,6 +210,11 @@ class Handler extends ExceptionHandler
     {
         $message = ($message === '')?$exception->getMessage():$message;
         $code = ($code === '')?$exception->getCode():$code;
+
+        // getCode() de una excepcion no es un status HTTP: suele ser 0, y
+        // response()->json(..., 0) revienta. Ante cualquier valor fuera de
+        // rango se responde 500.
+        $code = (is_numeric($code) && $code >= 100 && $code <= 599) ? (int) $code : 500;
 
         $response = ['success' => false, 'message' => $message];
 

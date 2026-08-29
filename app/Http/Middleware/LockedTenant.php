@@ -43,7 +43,11 @@ class LockedTenant
         }
 
         if($configuration->isLockedTenant()){
-            abort(403);
+            // En el storefront el visitante no tiene nada que ver con el
+            // bloqueo: 503 le muestra la pagina "volvemos pronto" y le dice a
+            // Google que reintente en vez de desindexar la tienda. En el panel
+            // sigue siendo 403, que es lo correcto para quien si tiene cuenta.
+            abort($request->is('ecommerce*') ? 503 : 403);
         }
 
         UserControlHelper::checkActiveUser();
