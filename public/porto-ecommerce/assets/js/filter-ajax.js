@@ -461,16 +461,86 @@
     window.EcFilterChips = { render: renderChips };
 }());
 
-// ── Mobile Filter Toggle ──────────────────────────────────────────────────
+// ── Drawer de filtros en movil ────────────────────────────────────────────
+// Antes era un acordeon con max-height fijo: con muchos filtros los de abajo
+// quedaban recortados. Ahora el mismo nodo es una hoja inferior que scrollea.
+// El DOM no cambia, asi que el filtrado por AJAX de arriba sigue igual.
 (function () {
-    var toggle = document.getElementById('ec-filter-mob-toggle');
-    var wrap   = document.getElementById('ec-filter-form-wrap');
+    var toggle   = document.getElementById('ec-filter-mob-toggle');
+    var wrap     = document.getElementById('ec-filter-form-wrap');
+    var backdrop = document.getElementById('ec-filter-backdrop');
+    var closeBtn = document.getElementById('ec-filter-drawer-close');
+    var applyBtn = document.getElementById('ec-filter-drawer-apply');
     if (!toggle || !wrap) return;
 
-    toggle.addEventListener('click', function () {
-        var isOpen = wrap.classList.toggle('ec-filter-form-wrap--open');
-        toggle.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
-        toggle.classList.toggle('ec-filter-mob-toggle--open', isOpen);
+    var lastFocus = null;
+
+    function isOpen() {
+        return wrap.classList.contains('ec-filter-form-wrap--open');
+    }
+
+    // "Ver 24 productos" en vez de "Ver productos": el comprador sabe si vale
+    // la pena aplicar antes de cerrar el drawer. El total se lee del contador
+    // que ya renderiza products_grid.
+    function syncApplyLabel() {
+        if (!applyBtn) return;
+        var el = document.querySelector('#ec-results-count strong');
+        var n  = el ? parseInt(el.textContent.replace(/[^0-9]/g, ''), 10) : NaN;
+        applyBtn.textContent = isNaN(n)
+            ? 'Ver productos'
+            : 'Ver ' + n + (n === 1 ? ' producto' : ' productos');
+    }
+
+    // El listado se reemplaza por AJAX al cambiar un filtro; mientras el
+    // drawer este abierto el boton tiene que seguir el total.
+    var results = document.getElementById('ec-filter-results');
+    if (results && window.MutationObserver) {
+        new MutationObserver(function () {
+            if (isOpen()) syncApplyLabel();
+        }).observe(results, { childList: true, subtree: true });
+    }
+
+    function open() {
+        lastFocus = document.activeElement;
+        syncApplyLabel();
+        wrap.classList.add('ec-filter-form-wrap--open');
+        if (backdrop) {
+            backdrop.hidden = false;
+            // Un frame de espera: sin esto el navegador aplica la clase junto
+            // con el hidden=false y la transicion de opacidad no corre.
+            requestAnimationFrame(function () { backdrop.classList.add('ec-filter-backdrop--open'); });
+        }
+        document.body.classList.add('ec-filter-drawer-open');
+        toggle.setAttribute('aria-expanded', 'true');
+        toggle.classList.add('ec-filter-mob-toggle--open');
+        if (closeBtn) closeBtn.focus();
+    }
+
+    function close() {
+        wrap.classList.remove('ec-filter-form-wrap--open');
+        if (backdrop) {
+            backdrop.classList.remove('ec-filter-backdrop--open');
+            setTimeout(function () { if (!isOpen()) backdrop.hidden = true; }, 260);
+        }
+        document.body.classList.remove('ec-filter-drawer-open');
+        toggle.setAttribute('aria-expanded', 'false');
+        toggle.classList.remove('ec-filter-mob-toggle--open');
+        if (lastFocus && lastFocus.focus) lastFocus.focus();
+    }
+
+    toggle.addEventListener('click', function () { isOpen() ? close() : open(); });
+    if (closeBtn) closeBtn.addEventListener('click', close);
+    if (backdrop) backdrop.addEventListener('click', close);
+    if (applyBtn) applyBtn.addEventListener('click', close);
+
+    document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape' && isOpen()) close();
+    });
+
+    // Al pasar a escritorio el drawer deja de tener sentido: se cierra para
+    // no dejar el body bloqueado ni el fondo oscurecido.
+    window.addEventListener('resize', function () {
+        if (window.innerWidth > 767 && isOpen()) close();
     });
 }());
 

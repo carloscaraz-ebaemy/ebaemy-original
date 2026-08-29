@@ -42,8 +42,26 @@
     </svg>
 </button>
 
-{{-- ── Filter form (colapsable en móvil) ─────────────────────────── --}}
-<div id="ec-filter-form-wrap" class="ec-filter-form-wrap">
+{{-- Fondo del drawer de móvil. En escritorio no existe visualmente. --}}
+<div class="ec-filter-backdrop" id="ec-filter-backdrop" hidden></div>
+
+{{-- ── Filter form ────────────────────────────────────────────────
+     En escritorio es una barra inline. En móvil el mismo nodo se
+     convierte en un drawer inferior: mismo DOM, así el JS de filtrado
+     por AJAX sigue funcionando sin cambios. --}}
+<div id="ec-filter-form-wrap" class="ec-filter-form-wrap" role="dialog" aria-modal="true" aria-labelledby="ec-filter-drawer-title">
+
+    {{-- Encabezado y pie: solo se ven cuando el wrap es drawer. --}}
+    <div class="ec-filter-drawer-head">
+        <span id="ec-filter-drawer-title">Filtros</span>
+        <button type="button" class="ec-filter-drawer-close" id="ec-filter-drawer-close" aria-label="Cerrar filtros">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24"
+                 fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true">
+                <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+            </svg>
+        </button>
+    </div>
+
     <form method="GET" action="{{ $baseUrl }}" id="ec-filter-form" class="ec-filters"
           data-ajax-url="{{ $baseUrl }}"
           data-price-min="{{ $prMin }}"
@@ -124,6 +142,13 @@
         </div>
 
     </form>
+
+    <div class="ec-filter-drawer-foot">
+        <a href="{{ $baseUrl }}" class="ec-filter-drawer-clear">Limpiar</a>
+        <button type="button" class="ec-filter-drawer-apply" id="ec-filter-drawer-apply">
+            Ver productos
+        </button>
+    </div>
 </div>
 
 {{-- ── Active filter chips (JS-rendered) ─────────────────────────── --}}

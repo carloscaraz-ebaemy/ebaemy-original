@@ -8832,21 +8832,105 @@ li.open > .ec-mmenu__sub { display: block; }
 /* ── Filter form wrapper (colapsable en móvil) ──────── */
 .ec-filter-form-wrap { /* desktop: always visible */ }
 
+/* Chrome del drawer: solo existe en movil. */
+.ec-filter-drawer-head,
+.ec-filter-drawer-foot,
+.ec-filter-backdrop { display: none; }
+
 @media (max-width: 767px) {
     .ec-filter-mob-toggle { display: flex; }
+
+    /* Antes era un acordeon con max-height:300px y overflow:hidden: con
+       muchos filtros los de abajo quedaban recortados e inalcanzables.
+       Ahora es una hoja inferior que scrollea y llega hasta 85vh. */
     .ec-filter-form-wrap {
-        max-height: 0;
-        overflow: hidden;
-        transition: max-height .28s cubic-bezier(.4,0,.2,1);
+        position: fixed;
+        left: 0; right: 0; bottom: 0;
+        z-index: 1050;
+        max-height: 85vh;
+        display: flex;
+        flex-direction: column;
+        background: var(--theme-background, #fff);
+        border-radius: 18px 18px 0 0;
+        box-shadow: 0 -8px 32px rgba(0,0,0,.18);
+        transform: translateY(100%);
+        transition: transform .3s cubic-bezier(.32,.72,0,1);
+        /* No intercepta toques mientras esta cerrado. */
+        visibility: hidden;
     }
     .ec-filter-form-wrap--open {
-        max-height: 300px;
+        transform: translateY(0);
+        visibility: visible;
     }
+
+    .ec-filter-backdrop {
+        display: block;
+        position: fixed;
+        inset: 0;
+        z-index: 1049;
+        background: rgba(15,23,42,.45);
+        opacity: 0;
+        transition: opacity .25s ease;
+        pointer-events: none;
+    }
+    .ec-filter-backdrop--open { opacity: 1; pointer-events: auto; }
+
+    .ec-filter-drawer-head {
+        position: relative;   /* ancla del asa de arrastre */
+        display: flex; align-items: center; justify-content: space-between;
+        padding: 14px 18px 10px;
+        font-size: 15px; font-weight: 700;
+        color: var(--theme-text-primary, #1e293b);
+        border-bottom: 1px solid var(--theme-border, #f1f5f9);
+        flex: 0 0 auto;
+    }
+    /* Asa de arrastre: le dice al pulgar que esto se puede bajar. */
+    .ec-filter-drawer-head::before {
+        content: '';
+        position: absolute; top: 7px; left: 50%; transform: translateX(-50%);
+        width: 38px; height: 4px; border-radius: 2px;
+        background: var(--theme-border, #e2e8f0);
+    }
+    .ec-filter-drawer-close {
+        background: none; border: 0; padding: 4px; line-height: 0; cursor: pointer;
+        color: var(--theme-text-secondary, #94a3b8);
+    }
+
+    /* El formulario es lo unico que scrollea. */
     .ec-filters {
         flex-wrap: wrap;
-        padding: 10px 0 4px;
+        padding: 14px 18px;
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+        flex: 1 1 auto;
+        min-height: 0;
     }
     .ec-filter-group--price { flex-wrap: wrap; }
+
+    .ec-filter-drawer-foot {
+        display: flex; align-items: center; gap: 10px;
+        padding: 12px 18px;
+        padding-bottom: calc(12px + env(safe-area-inset-bottom));
+        border-top: 1px solid var(--theme-border, #f1f5f9);
+        background: var(--theme-background, #fff);
+        flex: 0 0 auto;
+    }
+    .ec-filter-drawer-clear {
+        font-size: 13px; font-weight: 600;
+        color: var(--theme-text-secondary, #64748b);
+        text-decoration: none; padding: 10px 4px;
+    }
+    .ec-filter-drawer-apply {
+        flex: 1;
+        background: var(--theme-primary, hsl(var(--primary-h), var(--primary-s), var(--primary-l)));
+        color: var(--theme-primary-contrast, #fff);
+        border: 0; border-radius: 10px;
+        padding: 12px; font-size: 14px; font-weight: 700;
+        cursor: pointer;
+    }
+
+    /* Con el drawer abierto el fondo no debe scrollear detras. */
+    body.ec-filter-drawer-open { overflow: hidden; }
 }
 
 /* ── Active filter chips ────────────────────────────── */
