@@ -11,7 +11,9 @@ description: Procedimiento exacto para desplegar ebaemy-original a producción (
 - **OS**: Ubuntu 24.04 LTS · **PHP**: 8.3 (servicio `php8.3-fpm.service`) · **Web**: nginx + apache2 (raro setup; reload con `sudo systemctl reload nginx`)
 - **Path proyecto**: `/home/ebaemy/ebaemy/laravel/`
 - **RAM**: 3.82 GiB (insuficiente para `npm run build` → OOM)
-- **11 tenants productivos**: alasitas, makingroup, mitienda, talara, myka, torneo, calixto, gabito, torneoperu, ycre, charitzi
+- **17 tenants productivos** (verificado 2026-08-28): alasitas, makingroup, mitienda, talara, myka, torneo,
+  calixto, gabito, torneoperu, ycre, charitzi, motalvan, floristeriapetaloencanto, carolayimport,
+  valentinaimportaciones, uniformespatty, importacionesdeywa
 - **Webmin**: https://ebaemy.com:10000 (timeout en sesión, mata foreground)
 
 ## Antes de empezar — checks obligatorios
@@ -64,9 +66,22 @@ php artisan migrate --force                  # idempotente; "Nothing to migrate"
 ```
 
 ⚠ **CRÍTICO post-`composer install`: reaplicar permisos del tmp de mPDF.** Composer regenera `vendor/` con dueño `ebaemy`; si el tmp de mPDF no es escribible por `www-data`, **TODOS los documentos (cotización/NV/boleta/factura) fallan con "Ocurrió un error"** porque mPDF no puede crear el PDF temporal (`Cache.php: Temporary files directory is not writable`). Diagnosticado y resuelto 2026-06-03.
+⚠ **NO usar `chown -R www-data:www-data storage`.** Deja al usuario CLI (`ebaemy`) sin escritura y
+el siguiente `php artisan view:cache` / `config:cache` muere con `Permission denied` sobre
+`storage/logs/laravel.log` y `storage/framework/cache`. Diagnosticado 2026-08-28.
+
+El dueño correcto es `ebaemy` con grupo `www-data`: la CLI escribe como dueño, php-fpm
+(que corre como `www-data`) escribe por grupo. El setgid hace que los archivos nuevos
+hereden el grupo.
 ```bash
-sudo chown -R www-data:www-data vendor/mpdf/mpdf/tmp storage bootstrap/cache
+sudo chown -R ebaemy:www-data vendor/mpdf/mpdf/tmp storage bootstrap/cache
 sudo chmod -R 0775 vendor/mpdf/mpdf/tmp storage bootstrap/cache
+sudo find storage bootstrap/cache vendor/mpdf/mpdf/tmp -type d -exec chmod g+s {} \;
+```
+Verificar que ambos escriben:
+```bash
+sudo -u www-data test -w storage/logs/laravel.log && echo "www-data OK"
+test -w storage/logs/laravel.log && echo "CLI OK"
 ```
 
 Si hay migraciones tenant a aplicar a los 11:
@@ -90,7 +105,17 @@ curl -sI https://ebaemy.com/precios
 curl -sI https://alasitas.ebaemy.com/        # un tenant cualquiera
 curl -sI https://ebaemy.com/feeds/meta-catalog.xml
 ```
-Todos deben dar `HTTP/2 200`. Si dan 404 con `Content-Type: application/json` → problema de permisos `/home/ebaemy/` (debe ser 755, no 711):
+Todos deben dar `HTTP/2 200`.
+
+**Además, barrer TODOS los tenants** — los 4 endpoints públicos pueden dar 200 con storefronts caídos:
+```bash
+for t in alasitas makingroup mitienda talara myka torneo calixto gabito torneoperu ycre          charitzi motalvan carolayimport uniformespatty importacionesdeywa; do
+  printf "%s %s
+" "$(curl -s -o /dev/null -w '%{http_code}' --max-time 20 https://$t.ebaemy.com/ecommerce)" "$t"
+done
+```
+Guardar el resultado **ANTES** de desplegar: sin línea base no se puede distinguir una regresión
+del deploy de una falla que ya venía. Si dan 404 con `Content-Type: application/json` → problema de permisos `/home/ebaemy/` (debe ser 755, no 711):
 ```bash
 sudo chmod 755 /home/ebaemy /home/ebaemy/ebaemy
 ```
@@ -106,6 +131,10 @@ sudo chmod 755 /home/ebaemy /home/ebaemy/ebaemy
 | `php artisan migrate` "Nothing to migrate" | Idempotencia con `Schema::hasTable/hasColumn` | OK, es esperado al re-correr |
 | Comandos interactivos pegados con `>` rompen | bash interactivo del server interpreta literal `>` | Pegar comandos UNO POR UNO |
 | `module 'full_suscription' not found` en logs | Workaround histórico: saltar `view:cache` | Resuelto 2026-04-28; ya no es necesario saltar |
+| `view:cache` muere con `Permission denied` | `chown www-data:www-data storage` deja sin escritura al usuario CLI | `chown ebaemy:www-data` + `0775` + setgid (ver paso 5) |
+| Storefront 500 **sin nada en `laravel.log`** | La rama `HttpException` del Handler renderiza `ecommerce::errors.500`, y Laravel nunca reporta `HttpException` (`internalDontReport`) | Para ver la traza real, comentar temporalmente esa rama en `app/Exceptions/Handler.php` y dejar que caiga a `parent::render()` |
+| Fatales de PHP que no aparecen en ningún log | FPM no tiene `error_log` en `/etc/php/8.3/fpm/php.ini` y `catch_workers_output` está apagado | Setear `error_log` temporalmente, reproducir, y **restaurar el php.ini** (no dejarlo: no hay logrotate para ese archivo) |
+| Contar 500s del `access.log` para atribuir culpa a un deploy | El formato de nginx **no incluye el vhost**: no se puede saber qué tenant falló | Comparar por tenant con `curl` antes y después, o revisar `laravel.log` que sí tiene contexto |
 
 ## Reglas duras (Master Skill)
 
