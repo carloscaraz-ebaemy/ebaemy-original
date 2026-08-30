@@ -280,18 +280,26 @@ class OrderController extends Controller
         // Antigüedad en días HÁBILES. Se traduce a un corte de fecha calendario
         // con la MISMA primitiva que pinta el semáforo, para que el filtro y el
         // badge no se desalineen (fines de semana y feriados incluidos).
-        $aging   = $request->input('aging');
-        $setting = in_array($aging, ['urgentes', 'vencidos'], true)
-            ? ShippingSetting::currentOrNull()
-            : null;
-        if ($setting) {
-            $maxDays = $setting->max_days;
-            $k = $aging === 'vencidos' ? $maxDays : max(1, $maxDays - 1);
-            $cutoff = ShippingRequest::agingCutoff($k, (bool) ($setting->aging_skip_holidays ?? true))->toDateString();
+        $aging = $request->input('aging');
+        if (in_array($aging, ['urgentes', 'vencidos'], true)) {
+            $setting = ShippingSetting::currentOrNull();
 
-            $this->whereShipment($query, fn($s) => $s
-                ->whereDate('created_at', '<=', $cutoff)
-                ->whereNotIn('status', ShippingRequest::CLOSED_STATUSES));
+            if (!$setting) {
+                // Sin el módulo de Envíos no hay antigüedad que medir, y la
+                // respuesta honesta es "ningún pedido", igual que el resto de
+                // filtros logísticos. Antes se ignoraba el filtro en silencio y
+                // "vencidos" devolvía TODOS los pedidos, que es justo lo
+                // contrario de lo que se preguntó.
+                $this->whereShipment($query, fn($s) => $s);
+            } else {
+                $maxDays = $setting->max_days;
+                $k = $aging === 'vencidos' ? $maxDays : max(1, $maxDays - 1);
+                $cutoff = ShippingRequest::agingCutoff($k, (bool) ($setting->aging_skip_holidays ?? true))->toDateString();
+
+                $this->whereShipment($query, fn($s) => $s
+                    ->whereDate('created_at', '<=', $cutoff)
+                    ->whereNotIn('status', ShippingRequest::CLOSED_STATUSES));
+            }
         }
 
         return $query;
