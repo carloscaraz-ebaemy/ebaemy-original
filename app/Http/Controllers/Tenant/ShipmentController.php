@@ -2547,10 +2547,18 @@ class ShipmentController extends Controller
             return redirect()->route('shipments.public.tracking', ['code' => $shipment->shipment_code]);
         }
 
+        // La lista blanca se aplica a las DOS ramas. Sin esto, el alta mandaba
+        // el prellenado entero —nombre del comprador incluido— a una página
+        // pública que ni siquiera puede usar esos campos.
+        $campos  = $this->publicPrefillFields();
+        $prefill = $shipment
+            ? $shipment->only($campos)
+            : array_intersect_key($linker->prefill($order), array_flip($campos));
+
         return $this->publicForm([
             'order'    => $order,
             'shipment' => $shipment,
-            'prefill'  => $shipment ? $shipment->only($this->publicPrefillFields()) : $linker->prefill($order),
+            'prefill'  => $prefill,
         ]);
     }
 
@@ -2608,16 +2616,18 @@ class ShipmentController extends Controller
         return $order;
     }
 
-    /** Campos del formulario público que se pueden prellenar. */
+    /**
+     * Campos que el formulario público sabe prellenar.
+     *
+     * Corta: el formulario NO tiene campos de paquete (contenido, bultos,
+     * peso, notas) —esos los carga el encargado desde el panel— y el nombre lo
+     * gobierna la consulta a RENIEC/SUNAT. Mandar lo que la vista no puede
+     * usar solo engorda el payload y hace creer que se prellena más de lo que
+     * se prellena.
+     */
     private function publicPrefillFields(): array
     {
-        return [
-            'delivery_type', 'full_name', 'dni', 'document_type', 'phone',
-            'shipping_destination', 'reference', 'destination_city',
-            'department_id', 'province_id', 'district_id', 'shipping_agency',
-            'package_content', 'package_count', 'weight', 'notes',
-            'pickup_person_name', 'pickup_person_dni', 'pickup_person_phone',
-        ];
+        return ['dni', 'document_type', 'phone', 'shipping_destination', 'reference'];
     }
 
     /**

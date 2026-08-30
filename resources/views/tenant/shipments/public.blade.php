@@ -315,7 +315,7 @@
             @if(!empty($order))
                 <div class="order-ctx">
                     <b>Pedido #{{ str_pad($order->id, 6, '0', STR_PAD_LEFT) }}</b>
-                    <span>Completa aqui los datos de entrega de tu compra.</span>
+                    <span>Completa aquí los datos de entrega de tu compra.</span>
                 </div>
             @endif
 
@@ -1300,31 +1300,41 @@
         (function () {
             var prefill = {!! $shipPrefillJson !!} || {};
 
-            // Solo campos de texto simples. La modalidad y el ubigeo se dejan
-            // fuera a proposito: la modalidad gobierna los pasos del formulario
-            // y los selectores de ubigeo se llenan por JS en cascada, asi que
-            // asignarlos aqui no pintaria nada y solo daria falsa sensacion de
-            // "ya esta completo".
-            var omitir = { delivery_type: 1, department_id: 1, province_id: 1, district_id: 1 };
+            function set(id, value) {
+                if (value === null || value === undefined || value === '') return null;
+                var el = document.getElementById(id);
+                // Nunca pisar lo que el cliente ya escribio, ni el old() que
+                // vuelve tras un error de validacion.
+                if (!el || el.value) return null;
+                el.value = value;
+                return el;
+            }
 
             document.addEventListener('DOMContentLoaded', function () {
-                Object.keys(prefill).forEach(function (name) {
-                    if (omitir[name]) return;
+                set('pub_phone', prefill.phone);
 
-                    var value = prefill[name];
-                    if (value === null || value === '') return;
+                // La direccion del checkout sirve a las dos ramas (Lima y
+                // agencia) y cada una tiene su propio campo con el MISMO
+                // name: hay que fijar los dos por id, o el dato acaba en la
+                // rama que el cliente no eligio.
+                set('pub_addr_domicilio', prefill.shipping_destination);
+                set('pub_addr_agencia',   prefill.shipping_destination);
 
-                    var field = document.querySelector(
-                        'input[name="' + name + '"], textarea[name="' + name + '"]'
-                    );
-                    if (!field) return;
-
-                    // Nunca pisar lo que el cliente ya escribio, ni el old()
-                    // que vuelve tras un error de validacion.
-                    if (field.value) return;
-
-                    field.value = value;
-                });
+                // El NOMBRE no se prellena: cuando el documento es DNI/RUC el
+                // formulario lo pone en solo lectura y lo trae de
+                // RENIEC/SUNAT, que es la fuente valida. Escribirlo aqui
+                // metia en un campo bloqueado un nombre sin verificar.
+                //
+                // En su lugar se rellena el documento y se AVISA al
+                // formulario con un evento 'input', que es lo que dispara su
+                // consulta: asi el nombre, la direccion y el ubigeo los
+                // completa el como si el cliente lo hubiera tecleado. Sin el
+                // evento, el documento quedaba puesto pero el nombre vacio y
+                // bloqueado, y el cliente no podia avanzar.
+                var doc = set('pub_dni', prefill.dni);
+                if (doc) {
+                    doc.dispatchEvent(new Event('input', { bubbles: true }));
+                }
             });
         })();
     </script>
