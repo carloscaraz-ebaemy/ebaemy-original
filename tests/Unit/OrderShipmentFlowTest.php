@@ -219,6 +219,33 @@ class OrderShipmentFlowTest extends TestCase
         }
     }
 
+    /**
+     * El buscador de la tabla manda `column` + `value`. La búsqueda unificada
+     * —la que alcanza código ENV, tracking, agencia, DNI y teléfono— sólo se
+     * activa con la columna `search`; sin ese puente el parámetro `q` existía
+     * en el backend pero ninguna pantalla lo usaba.
+     *
+     * @test
+     */
+    public function el_buscador_de_la_tabla_activa_la_busqueda_unificada()
+    {
+        $controller = new OrderController();
+        $columnas   = $controller->columns();
+
+        // Primera clave = criterio por defecto del DataTable.
+        $this->assertSame('search', array_key_first($columnas));
+
+        // Con `search` el texto NO se aplica como LIKE sobre una columna.
+        $sql = $this->sqlFor(['column' => 'search', 'value' => 'SHL-998']);
+        $this->assertStringContainsString('customer', $sql);
+
+        // Con una columna concreta se mantiene el comportamiento de siempre.
+        $this->assertStringContainsString(
+            '"id" like',
+            str_replace('`', '"', $this->sqlFor(['column' => 'id', 'value' => '125']))
+        );
+    }
+
     /** @test */
     public function la_busqueda_no_toca_la_tabla_de_envios_sin_modulo()
     {

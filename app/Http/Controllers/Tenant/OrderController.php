@@ -42,10 +42,19 @@ class OrderController extends Controller
         return view('tenant.orders.index');
     }
 
+    /**
+     * Opciones del buscador de la tabla.
+     *
+     * `search` va PRIMERA a propósito: el DataTable toma la primera clave como
+     * criterio por defecto, así que al abrir Pedidos se busca en todo. Antes el
+     * default era el código, y para encontrar a un cliente que llama por
+     * teléfono había que saber de antemano su número de pedido.
+     */
     public function columns()
     {
         return [
-            'id' => 'Codigo de Pedido',
+            'search'          => 'Buscar en todo (cliente, DNI, teléfono, envío, tracking)',
+            'id'              => 'Codigo de Pedido',
             'number_document' => 'Comprobante Electronico',
         ];
     }
@@ -165,14 +174,22 @@ class OrderController extends Controller
         $allowedColumns = ['date_of_issue', 'id', 'shipping_address', 'reference_payment', 'total'];
         $column = in_array($request->column, $allowedColumns) ? $request->column : 'id';
 
-        if ($request->value) {
+        // El buscador de la tabla manda `column` + `value`. Con la columna
+        // `search` ese texto alimenta la búsqueda unificada en vez de un LIKE
+        // sobre una sola columna: es lo que conecta el buscador de la pantalla
+        // con los datos del envío.
+        $esBusquedaUnificada = $request->input('column') === 'search';
+
+        if ($request->value && !$esBusquedaUnificada) {
             $query->where($column, 'like', "%{$request->value}%");
         }
 
         // Búsqueda unificada: el operador escribe lo que tiene a mano — el N° de
         // pedido, el código ENV, el DNI o el teléfono del cliente que llama, o
         // el tracking de la agencia— y debe encontrar el pedido con cualquiera.
-        if ($q = trim((string) $request->input('q', ''))) {
+        $termino = $esBusquedaUnificada ? $request->input('value', '') : $request->input('q', '');
+
+        if ($q = trim((string) $termino)) {
             $qNum = preg_replace('/\D+/', '', $q);
             $hasShipping = ShippingRequest::moduleInstalled();
 
