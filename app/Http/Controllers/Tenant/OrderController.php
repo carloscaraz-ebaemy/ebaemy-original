@@ -479,24 +479,115 @@ class OrderController extends Controller
     {
         $base = $this->buildOrdersQuery($request, false, false);
 
-        $chips = [
-            // Comerciales heredados (el panel de Saga los sigue usando).
-            'todispatch', 'shipped', 'canceled', 'no_invoice',
-            // Operativos unificados.
-            'por_confirmar', 'por_preparar', 'por_imprimir', 'por_embalar',
-            'por_despachar', 'en_transito', 'listos_recojo', 'entregados',
-            'anulados', 'sin_envio',
+        // Dos consultas agregadas en vez de una por chip.
+        //
+        // La versión anterior hacía 15 COUNT, y seis de ellos eran EXISTS
+        // correlacionados contra `shipping_requests` sobre TODA la tabla de
+        // pedidos. En local, con 13 filas, era instantáneo; en un tenant con
+        // volumen real es la diferencia entre responder y agotar el tiempo —y
+        // este endpoint se llama en cada carga y en cada cambio de página.
+
+        // 1. Todo lo que depende solo del estado comercial.
+        // `reorder()` es obligatorio: buildOrdersQuery arrastra `latest()`, y un
+        // ORDER BY por una columna que no está en el GROUP BY revienta bajo
+        // ONLY_FULL_GROUP_BY (el modo por defecto de MySQL 8).
+        $porEstado = (clone $base)->reorder()
+            ->selectRaw('status_order_id, COUNT(*) as total')
+            ->groupBy('status_order_id')
+            ->pluck('total', 'status_order_id');
+
+        $enEstados = fn(array $ids) => (int) collect($ids)
+            ->sum(fn($id) => (int) ($porEstado[$id] ?? 0));
+
+        $counts = [
+            'all'           => (int) $porEstado->sum(),
+            'todispatch'    => $enEstados([1, 2, 3]),
+            'shipped'       => $enEstados([4]),
+            'canceled'      => $enEstados([5]),
+            'por_confirmar' => $enEstados([1]),
+            'entregados'    => $enEstados([6]),
+            'anulados'      => $enEstados([5]),
         ];
 
-        $counts = ['all' => (clone $base)->count()];
-        foreach ($chips as $chip) {
-            $counts[$chip] = $this->applyOperationalChip(clone $base, $request, $chip)->count();
-        }
+        // 2. Todo lo que depende del envío vigente, en UNA pasada.
+        $counts += $this->shipmentStageCounts($base, $enEstados([2, 3]));
+
+        // 3. Los dos que no encajan en ninguna de las dos anteriores.
+        $counts['no_invoice'] = (clone $base)->whereNull('number_document')
+            ->whereHas('marketplaceOrder', fn($q) => $q->whereNull('invoice_uploaded_at')->whereNull('document_id'))
+            ->count();
 
         // Alias histórico: el Vue actual lee `delivered`.
         $counts['delivered'] = $counts['entregados'];
 
         return response()->json($counts);
+    }
+
+    /**
+     * Conteos por etapa logística, resueltos con UN agregado sobre el envío
+     * vigente en vez de un EXISTS por chip.
+     *
+     * @param int $pagados Pedidos con pago validado (2 y 3), para calcular
+     *                     "por preparar" restando los que ya avanzaron.
+     * @return array<string, int>
+     */
+    private function shipmentStageCounts($base, int $pagados): array
+    {
+        $totalPedidos = (clone $base)->reorder()->count();
+
+        $vacio = [
+            'por_preparar' => $pagados, 'por_imprimir' => 0, 'por_embalar' => 0,
+            'por_despachar' => 0, 'en_transito' => 0, 'listos_recojo' => 0,
+            'sin_envio' => $totalPedidos,
+        ];
+
+        // Sin el módulo no hay etapas: todo pedido está "sin envío" y todo
+        // pedido pagado está por preparar.
+        if (!ShippingRequest::moduleInstalled()) {
+            return $vacio;
+        }
+
+        // Subconsulta y no JOIN: `created_at` existe en las DOS tablas, así que
+        // cualquier filtro de fecha del listado quedaba ambiguo y reventaba.
+        $idsFiltrados = (clone $base)->reorder()->select('orders.id');
+
+        $conEnvio = ShippingRequest::query()
+            ->whereNull('cancelled_at')
+            ->whereIn('order_id', $idsFiltrados)
+            ->selectRaw('status as estado, delivery_type as modalidad,
+                         COUNT(DISTINCT order_id) as total,
+                         COUNT(DISTINCT CASE WHEN printed_at IS NULL THEN order_id END) as sin_imprimir')
+            ->groupBy('status', 'delivery_type')
+            ->get();
+
+        $sumar = fn(callable $filtro) => (int) $conEnvio->filter($filtro)->sum('total');
+
+        $enPreparacion = [
+            ShippingRequest::STATUS_RECIBIDO, ShippingRequest::STATUS_CONFIRMADO,
+            ShippingRequest::STATUS_PREPARANDO, 'pendiente',
+        ];
+
+        $conEnvioTotal = (int) $conEnvio->sum('total');
+
+        return [
+            // "Por preparar" incluye los pedidos pagados que aún no tienen
+            // envío configurado: son trabajo pendiente, no pedidos sin estado.
+            'por_preparar'  => max(0, $pagados - $conEnvioTotal)
+                             + $sumar(fn($r) => in_array($r->estado, $enPreparacion, true)),
+            'por_imprimir'  => (int) $conEnvio
+                ->filter(fn($r) => $r->modalidad !== ShippingRequest::DELIVERY_TIENDA
+                    && !in_array($r->estado, ShippingRequest::LABEL_LOCKED_STATUSES, true))
+                ->sum('sin_imprimir'),
+            'por_embalar'   => $sumar(fn($r) => $r->estado === ShippingRequest::STATUS_IMPRESO),
+            'por_despachar' => $sumar(fn($r) => $r->estado === ShippingRequest::STATUS_EMBALANDO),
+            'en_transito'   => $sumar(fn($r) => in_array($r->estado, [
+                ShippingRequest::STATUS_EN_CAMINO, ShippingRequest::STATUS_DESPACHADO,
+                ShippingRequest::STATUS_EN_AGENCIA, ShippingRequest::STATUS_EN_RUTA, 'enviado',
+            ], true)),
+            'listos_recojo' => $sumar(fn($r) => $r->modalidad === ShippingRequest::DELIVERY_TIENDA
+                                && $r->estado === ShippingRequest::STATUS_LISTO_RECOJO),
+            'sin_envio'     => max(0, $totalPedidos - $conEnvioTotal),
+        ];
     }
 
     public function stats(Request $request)
@@ -516,8 +607,15 @@ class OrderController extends Controller
                              ->sum('total');
         $revenueToday = (clone $orders)->whereDate('created_at', $today)->sum('total');
 
-        // Desglose por canal (para el dashboard)
-        $byChannel = (clone $orders)->selectRaw('channel_id, COUNT(*) as count, SUM(total) as revenue')
+        // Desglose por canal (para el dashboard).
+        //
+        // `reorder()` NO es opcional: `buildOrdersQuery` arrastra `latest()`, y
+        // un ORDER BY por `created_at` junto a un GROUP BY por `channel_id`
+        // revienta con el error 1055 de MySQL (ONLY_FULL_GROUP_BY, el modo por
+        // defecto). El endpoint devolvía 500 y el `catch` vacío del Vue lo
+        // convertía en "los indicadores salen vacíos", sin rastro visible.
+        $byChannel = (clone $orders)->reorder()
+                          ->selectRaw('channel_id, COUNT(*) as count, SUM(total) as revenue')
                           ->when(!$request->date_from && !$request->date_to, fn($q) => $q->whereDate('created_at', '>=', $monthStart))
                           ->whereNotIn('status_order_id', [5])
                           ->groupBy('channel_id')

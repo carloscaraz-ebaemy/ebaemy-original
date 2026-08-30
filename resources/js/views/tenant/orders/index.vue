@@ -53,6 +53,11 @@
                         </div>
                     </div>
                 </div>
+                <div v-if="countsError" class="ord-counts-error">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    No se pudieron cargar los contadores: {{ countsError }}
+                    <button class="ord-counts-retry" @click="loadChipCounts">Reintentar</button>
+                </div>
                 <div class="ord-chips">
                     <button
                         v-for="chip in orderChips"
@@ -69,17 +74,41 @@
                         >
                     </button>
                 </div>
-                <div class="ord-date-filter">
-                    <div>
-                        <strong>Gestión de pedidos para facturar</strong>
-                        <small>Filtra por la fecha en que Saga registró el pedido.</small>
-                    </div>
-                    <div class="ord-date-filter-controls">
-                        <el-select v-model="orderSource" @change="applyOrderSource">
-                            <el-option label="Todos los pedidos" value="all"></el-option>
-                            <el-option label="Solo Saga Falabella" value="saga"></el-option>
-                            <el-option label="Otros pedidos" value="other"></el-option>
+                <!-- Barra de filtros. Antes era una caja titulada "Gestión de
+                     pedidos para facturar" (de Saga) con los controles
+                     logísticos metidos dentro: se leían como si filtraran la
+                     facturación. Ahora cada control lleva su etiqueta y van en
+                     una rejilla que se apila sola en móvil. -->
+                <div class="ord-filters">
+                    <div class="ord-filter">
+                        <label>Periodo</label>
+                        <el-select v-model="dateRange" @change="applyDateFilters">
+                            <el-option
+                                v-for="opt in rangeOptions"
+                                :key="opt.value"
+                                :label="opt.label"
+                                :value="opt.value"
+                            ></el-option>
                         </el-select>
+                    </div>
+
+                    <div class="ord-filter">
+                        <label>Fecha a considerar</label>
+                        <el-select v-model="dateType" @change="applyDateFilters">
+                            <el-option
+                                v-for="opt in dateTypeOptions"
+                                :key="opt.value"
+                                :label="opt.label"
+                                :value="opt.value"
+                            ></el-option>
+                        </el-select>
+                    </div>
+
+                    <!-- El selector de fechas concretas solo aparece cuando el
+                         periodo es "personalizado": si no, compite con el
+                         rango rápido y no se sabe cuál manda. -->
+                    <div v-if="dateRange === 'custom'" class="ord-filter ord-filter-wide">
+                        <label>Desde / hasta</label>
                         <el-date-picker
                             v-model="invoiceDateRange"
                             type="daterange"
@@ -88,15 +117,13 @@
                             end-placeholder="Hasta"
                             value-format="yyyy-MM-dd"
                             :clearable="true"
-                            @change="applyInvoiceDateRange"
+                            @change="applyDateFilters"
                         ></el-date-picker>
-                        <!-- Filtros logísticos: la operación diaria se ordena
-                             por modalidad (rutas distintas) y por antigüedad
-                             (qué se está venciendo). -->
-                        <el-select
-                            v-model="deliveryTypeFilter"
-                            @change="applyLogisticFilters"
-                        >
+                    </div>
+
+                    <div class="ord-filter">
+                        <label>Modalidad de entrega</label>
+                        <el-select v-model="deliveryTypeFilter" @change="applyLogisticFilters">
                             <el-option
                                 v-for="opt in deliveryTypeOptions"
                                 :key="opt.value"
@@ -104,10 +131,11 @@
                                 :value="opt.value"
                             ></el-option>
                         </el-select>
-                        <el-select
-                            v-model="agingFilter"
-                            @change="applyLogisticFilters"
-                        >
+                    </div>
+
+                    <div class="ord-filter">
+                        <label>Antigüedad</label>
+                        <el-select v-model="agingFilter" @change="applyLogisticFilters">
                             <el-option
                                 v-for="opt in agingOptions"
                                 :key="opt.value"
@@ -116,7 +144,27 @@
                             ></el-option>
                         </el-select>
                     </div>
+
+                    <div class="ord-filter">
+                        <label>Origen del pedido</label>
+                        <el-select v-model="orderSource" @change="applyOrderSource">
+                            <el-option label="Todos los pedidos" value="all"></el-option>
+                            <el-option label="Solo Saga Falabella" value="saga"></el-option>
+                            <el-option label="Otros pedidos" value="other"></el-option>
+                        </el-select>
+                    </div>
+
+                    <div class="ord-filter ord-filter-reset">
+                        <button
+                            v-if="hasActiveFilters"
+                            class="ord-filter-clear"
+                            @click="clearFilters"
+                        >
+                            Limpiar filtros
+                        </button>
+                    </div>
                 </div>
+
                 <div v-if="selectedIds.length" class="ord-bulkbar">
                     <span class="ord-bulk-count"
                         >{{ selectedIds.length }} seleccionado(s)</span
@@ -836,6 +884,28 @@
     background: #e0e7ff;
 }
 
+.ord-counts-error {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: #fef2f2;
+    border: 1px solid #fecaca;
+    color: #b91c1c;
+    border-radius: 10px;
+    padding: 8px 12px;
+    font-size: 13px;
+    margin-bottom: 10px;
+}
+.ord-counts-retry {
+    margin-left: auto;
+    border: 1px solid #fecaca;
+    background: #fff;
+    color: #b91c1c;
+    border-radius: 8px;
+    padding: 3px 10px;
+    font-size: 12px;
+    cursor: pointer;
+}
 .ord-chips {
     display: flex;
     flex-wrap: wrap;
@@ -875,23 +945,65 @@
 .ord-chip.active .ord-chip-n {
     background: rgba(255, 255, 255, 0.25);
 }
-.ord-date-filter {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    flex-wrap: wrap;
-    gap: 10px;
-    padding: 10px 12px;
+.ord-filters {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+    gap: 10px 12px;
+    padding: 12px;
     margin-bottom: 14px;
-    border: 1px solid #dbeafe;
+    border: 1px solid #e2e8f0;
     border-radius: 10px;
-    background: #f8fbff;
+    background: #fbfcfe;
 }
-.ord-date-filter strong,
-.ord-date-filter small { display: block; }
-.ord-date-filter strong { color: #1e3a8a; font-size: 13px; }
-.ord-date-filter small { color: #64748b; font-size: 12px; margin-top: 2px; }
-.ord-date-filter .el-date-editor { max-width: 330px; }
+.ord-filter {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0;
+}
+/* Cada control lleva su etiqueta: sin ella, cuatro desplegables seguidos no
+   dicen qué filtran y la barra se lee como piezas sueltas. */
+.ord-filter label {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: #64748b;
+    margin: 0;
+}
+.ord-filter .el-select,
+.ord-filter .el-date-editor {
+    width: 100%;
+}
+.ord-filter-wide {
+    grid-column: span 2;
+}
+.ord-filter-reset {
+    justify-content: flex-end;
+}
+.ord-filter-clear {
+    border: 1px solid #e2e8f0;
+    background: #fff;
+    color: #475569;
+    border-radius: 8px;
+    padding: 6px 12px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+}
+.ord-filter-clear:hover {
+    border-color: #c7d2fe;
+    color: #4f46e5;
+}
+
+@media (max-width: 640px) {
+    .ord-filters {
+        grid-template-columns: 1fr;
+    }
+    .ord-filter-wide {
+        grid-column: span 1;
+    }
+}
 /* KPIs */
 .ord-kpis {
     display: grid;
@@ -1079,6 +1191,7 @@ export default {
             // Rango que se usa para seleccionar el lote de pedidos a facturar.
             invoiceDateRange: [],
             chipCounts: {},
+            countsError: null,
             stats: {},
             selectedIds: [],
             currentRecords: [],
@@ -1108,6 +1221,31 @@ export default {
             // Filtros logísticos de la barra superior.
             deliveryTypeFilter: "",
             agingFilter: "",
+            // Periodo y fecha a considerar. Existían en el backend (`range` y
+            // `date_type`) desde el primer commit, pero ninguna pantalla los
+            // ofrecía: por eso Pedidos no filtraba como Registro de Envíos.
+            dateRange: "",
+            dateType: "order",
+            rangeOptions: [
+                { value: "", label: "Todo el histórico" },
+                { value: "hoy", label: "Hoy" },
+                { value: "ayer", label: "Ayer" },
+                { value: "7dias", label: "Últimos 7 días" },
+                { value: "30dias", label: "Últimos 30 días" },
+                { value: "mes", label: "Este mes" },
+                { value: "mes_pasado", label: "Mes pasado" },
+                { value: "custom", label: "Personalizado…" },
+            ],
+            // Deben coincidir con OrderController::DATE_FIELDS.
+            dateTypeOptions: [
+                { value: "order", label: "Fecha del pedido" },
+                { value: "paid", label: "Fecha de pago" },
+                { value: "prepared", label: "Fecha de preparación" },
+                { value: "printed", label: "Fecha de impresión" },
+                { value: "dispatched", label: "Fecha de despacho" },
+                { value: "delivered", label: "Fecha de entrega" },
+                { value: "pickup", label: "Fecha de recojo" },
+            ],
             deliveryTypeOptions: [
                 { value: "", label: "Toda modalidad" },
                 { value: "domicilio", label: "Lima / Callao" },
@@ -1154,6 +1292,15 @@ export default {
         this.events();
     },
     computed: {
+        hasActiveFilters() {
+            return (
+                !!this.dateRange ||
+                this.dateType !== "order" ||
+                !!this.deliveryTypeFilter ||
+                !!this.agingFilter ||
+                this.orderSource !== "all"
+            );
+        },
         allSelected() {
             return (
                 this.currentRecords.length > 0 &&
@@ -1344,8 +1491,17 @@ export default {
                 .get(`/orders/status-counts`, { params: this.invoiceDateParams() })
                 .then(response => {
                     this.chipCounts = response.data || {};
+                    this.countsError = null;
                 })
-                .catch(() => {});
+                .catch(error => {
+                    // El `catch` vacío que había aquí convertía cualquier fallo
+                    // en "los chips salen sin número", que es indistinguible de
+                    // "no hay nada que contar". Se perdía media hora antes de
+                    // saber siquiera que la petición se estaba cayendo.
+                    this.chipCounts = {};
+                    this.countsError = this.describeError(error);
+                    console.error("[pedidos] fallo al cargar los contadores", error);
+                });
         },
         loadStats() {
             this.$http
@@ -1353,7 +1509,19 @@ export default {
                 .then(response => {
                     this.stats = response.data || {};
                 })
-                .catch(() => {});
+                .catch(error => {
+                    console.error("[pedidos] fallo al cargar los indicadores", error);
+                });
+        },
+        /** Mensaje corto y accionable a partir de un error de axios. */
+        describeError(error) {
+            const res = error && error.response;
+            if (!res) return "Sin respuesta del servidor (¿se cortó la conexión?).";
+            if (res.status === 419) return "La sesión expiró. Recarga la página.";
+            if (res.status === 403) return "No tienes permiso para ver estos contadores.";
+            if (res.status === 500) return "Error del servidor al calcular los contadores.";
+            if (res.status === 504) return "El cálculo de los contadores tardó demasiado.";
+            return "El servidor respondió " + res.status + ".";
         },
         formatMoney(v) {
             return Number(v || 0).toLocaleString("es-PE", {
@@ -1415,14 +1583,7 @@ export default {
          * Se recalculan los contadores porque acotan la base de los chips.
          */
         applyLogisticFilters() {
-            const dt = this.$refs.ordersTable;
-            if (!dt) return;
-
-            dt.search.delivery_type = this.deliveryTypeFilter || null;
-            dt.search.aging = this.agingFilter || null;
-            dt.pagination.current_page = 1;
-            dt.getRecords();
-            this.loadChipCounts();
+            this.pushFilters();
         },
 
         /**
@@ -1519,35 +1680,55 @@ export default {
             if (!s) return "";
             return s.destination || "—";
         },
+        /**
+         * Parámetros de periodo que comparten la tabla, los chips y los KPIs.
+         * Si no comparten exactamente los mismos, el número del chip deja de
+         * ser lo que se ve al pulsarlo.
+         */
         invoiceDateParams() {
+            const custom = this.dateRange === "custom";
             return {
-                date_from: (this.invoiceDateRange && this.invoiceDateRange[0]) || null,
-                date_to: (this.invoiceDateRange && this.invoiceDateRange[1]) || null,
+                range: custom ? null : this.dateRange || null,
+                date_type: this.dateType,
+                date_from: custom ? (this.invoiceDateRange || [])[0] || null : null,
+                date_to: custom ? (this.invoiceDateRange || [])[1] || null : null,
                 order_source: this.orderSource,
+                delivery_type: this.deliveryTypeFilter || null,
+                aging: this.agingFilter || null,
             };
         },
-        applyInvoiceDateRange() {
+
+        /** Vuelca los filtros actuales en la tabla y recarga todo. */
+        pushFilters() {
             const dt = this.$refs.ordersTable;
             if (!dt) return;
 
-            const dates = this.invoiceDateParams();
-            dt.search.date_from = dates.date_from;
-            dt.search.date_to = dates.date_to;
-            dt.search.order_source = dates.order_source;
+            Object.assign(dt.search, this.invoiceDateParams());
             dt.pagination.current_page = 1;
             dt.getRecords();
             this.loadChipCounts();
             this.loadStats();
         },
-        applyOrderSource() {
-            const dt = this.$refs.ordersTable;
-            if (!dt) return;
 
-            dt.search.order_source = this.orderSource;
-            dt.pagination.current_page = 1;
-            dt.getRecords();
-            this.loadChipCounts();
-            this.loadStats();
+        applyDateFilters() {
+            // Al elegir "personalizado" todavía no hay fechas: no se recarga
+            // hasta que el usuario elija el rango, o se perdería el filtro
+            // anterior mostrando el histórico completo sin haberlo pedido.
+            if (this.dateRange === "custom" && !(this.invoiceDateRange || []).length) return;
+            this.pushFilters();
+        },
+
+        clearFilters() {
+            this.dateRange = "";
+            this.dateType = "order";
+            this.invoiceDateRange = [];
+            this.deliveryTypeFilter = "";
+            this.agingFilter = "";
+            this.orderSource = "all";
+            this.pushFilters();
+        },
+        applyOrderSource() {
+            this.pushFilters();
         },
         canDownloadLabel(row) {
             // Solo pedidos de Saga ya despachables tienen rótulo en Saga.

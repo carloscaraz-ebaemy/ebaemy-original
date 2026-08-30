@@ -277,6 +277,38 @@ class OrderShipmentFlowTest extends TestCase
         );
     }
 
+    /**
+     * REGRESIÓN: `buildOrdersQuery` arrastra `latest()`, y cualquier consulta
+     * agregada que agrupe hereda ese ORDER BY. Con GROUP BY eso revienta con
+     * el error 1055 de MySQL (ONLY_FULL_GROUP_BY, el modo por defecto), y
+     * `/orders/stats` devolvía 500 en producción.
+     *
+     * Se comprueba sobre el SQL: si alguien vuelve a agrupar sin `reorder()`,
+     * este test lo caza antes de llegar al servidor.
+     *
+     * @test
+     */
+    public function las_consultas_agregadas_no_arrastran_el_order_by()
+    {
+        $controller = new OrderController();
+        $method = new \ReflectionMethod($controller, 'buildOrdersQuery');
+        $method->setAccessible(true);
+
+        $base = $method->invoke($controller, Request::create('/', 'GET'), false, false);
+
+        // Tal cual sale, la consulta SÍ ordena: por eso hay que quitar el orden
+        // antes de agrupar.
+        $this->assertStringContainsString('order by', $base->toSql());
+
+        $agrupada = (clone $base)->reorder()
+            ->selectRaw('channel_id, COUNT(*) as total')
+            ->groupBy('channel_id');
+
+        $sql = $agrupada->toSql();
+        $this->assertStringContainsString('group by', $sql);
+        $this->assertStringNotContainsString('order by', $sql);
+    }
+
     /** @test */
     public function el_pedido_expone_las_fechas_de_negocio()
     {
