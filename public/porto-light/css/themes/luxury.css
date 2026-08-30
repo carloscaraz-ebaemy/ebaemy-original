@@ -163,3 +163,36 @@ footer h4, footer h5, .footer-title {
     font-weight: 400 !important;
     font-size: 28px !important;
 }
+
+
+/* ═══════════════════════════════════════════════════════════════
+   THEME LUJO — identidad de la tarjeta
+   ═══════════════════════════════════════════════════════════════
+   Portada desde el list_products.blade.php propio del theme, que era
+   un fork del markup: por eso no tenia vista rapida, comparador,
+   badges configurables, marca ni rating. Ahora usa la tarjeta del
+   modulo y aporta solo su identidad visual.
+
+   Acotado a [data-ec-theme="lujo"]: consistencia con los demas themes que comparten archivo.
+   ═══════════════════════════════════════════════════════════════ */
+
+/* Todo centrado y sin marcos: la pieza se presenta, no se vende */
+[data-ec-theme="lujo"] .pcard { border: 0; border-radius: 0; box-shadow: none; background: transparent; text-align: center; }
+[data-ec-theme="lujo"] .pcard:hover { box-shadow: none; transform: none; }
+[data-ec-theme="lujo"] .pcard__media { aspect-ratio: 3 / 4; background: #f5f0eb; border-radius: 0; }
+[data-ec-theme="lujo"] .pcard__img { object-fit: cover !important; padding: 0 !important; transition: transform .6s ease; }
+[data-ec-theme="lujo"] .pcard:hover .pcard__img--primary { transform: scale(1.04); }
+[data-ec-theme="lujo"] .pbadge { border-radius: 0; font-family: 'Playfair Display', Georgia, serif; font-size: 11px; font-weight: 500; letter-spacing: .08em; text-transform: none; padding: 4px 12px; }
+[data-ec-theme="lujo"] .pbadge--oos { background: rgba(12,10,9,.7); color: #a18248; }
+[data-ec-theme="lujo"] .pcard__body { padding: 1rem .5rem; }
+[data-ec-theme="lujo"] .pcard__cat { color: #a8a29e; letter-spacing: .1em; }
+[data-ec-theme="lujo"] .pcard__title { font-family: 'Playfair Display', Georgia, serif; font-size: 14px; font-weight: 500; letter-spacing: .03em; line-height: 1.4; min-height: 0; }
+[data-ec-theme="lujo"] .pcard__title a { color: #292524; }
+[data-ec-theme="lujo"] .pcard__title a:hover { color: #a18248; }
+[data-ec-theme="lujo"] .pcard__price-current { font-size: 14px; font-weight: 400; color: #78716c; letter-spacing: .03em; }
+/* Negro con filete dorado, el par de color del theme */
+[data-ec-theme="lujo"] .pcard__cta { border-radius: 0; background: #0c0a09; color: #a18248; border: 1px solid #a18248; font-family: 'Playfair Display', Georgia, serif; font-size: 12px; font-weight: 500; letter-spacing: .15em; text-transform: uppercase; padding: 12px; }
+[data-ec-theme="lujo"] .pcard__cta:hover { background: #a18248; color: #0c0a09; }
+[data-ec-theme="lujo"] .pcard__cta svg { display: none; }
+[data-ec-theme="lujo"] .pcard--oos .pcard__media { opacity: .5; }
+[data-ec-theme="lujo"] .pcard--oos .pcard__price-current { color: #d6d3d1; }

@@ -106,3 +106,36 @@ footer, .footer {
     border-radius: 20px;
     margin: 0 16px;
 }
+
+
+/* ═══════════════════════════════════════════════════════════════
+   THEME ALIMENTOS — identidad de la tarjeta
+   ═══════════════════════════════════════════════════════════════
+   Portada desde el list_products.blade.php propio del theme, que era
+   un fork del markup: por eso no tenia vista rapida, comparador,
+   badges configurables, marca ni rating. Ahora usa la tarjeta del
+   modulo y aporta solo su identidad visual.
+
+   Acotado a [data-ec-theme="alimentos"]: consistencia con los demas themes que comparten archivo.
+   ═══════════════════════════════════════════════════════════════ */
+
+/* Tarjeta redondeada que se levanta: lenguaje de delivery, no de catalogo */
+[data-ec-theme="alimentos"] .pcard { border-radius: 16px; border: 0; box-shadow: 0 1px 4px rgba(0,0,0,.06); }
+[data-ec-theme="alimentos"] .pcard:hover { transform: translateY(-3px); box-shadow: 0 6px 20px rgba(0,0,0,.1); }
+/* Fondo calido y foto recortada: el plato tiene que llenar el cuadro */
+[data-ec-theme="alimentos"] .pcard__media { aspect-ratio: 1; background: #fef7ed; border-radius: 0; }
+[data-ec-theme="alimentos"] .pcard__img { object-fit: cover !important; padding: 0 !important; }
+[data-ec-theme="alimentos"] .pbadge { border-radius: 12px; padding: 3px 10px; font-size: 10px; font-weight: 700; }
+[data-ec-theme="alimentos"] .pbadge--new { background: var(--theme-primary, hsl(var(--primary-h), var(--primary-s), var(--primary-l))); color: var(--theme-primary-contrast, #fff); }
+[data-ec-theme="alimentos"] .pbadge--oos { background: rgba(0,0,0,.6); color: #fff; }
+[data-ec-theme="alimentos"] .pcard__body { padding: .75rem; }
+[data-ec-theme="alimentos"] .pcard__cat { font-size: 10px; font-weight: 600; color: #9ca3af; text-transform: uppercase; }
+[data-ec-theme="alimentos"] .pcard__title { font-size: 14px; font-weight: 600; min-height: 0; }
+[data-ec-theme="alimentos"] .pcard__title a { color: #1f2937; }
+[data-ec-theme="alimentos"] .pcard__price-current { font-size: 16px; font-weight: 700; color: #1f2937; }
+/* El fork tenia un boton circular al lado del precio; en la tarjeta del
+   modulo el CTA es de ancho completo, asi que se conserva el redondeo
+   total como guino a ese boton. */
+[data-ec-theme="alimentos"] .pcard__cta { border-radius: 999px; background: var(--theme-primary, hsl(var(--primary-h), var(--primary-s), var(--primary-l))); color: var(--theme-primary-contrast, #fff); border: 0; font-weight: 700; }
+[data-ec-theme="alimentos"] .pcard--oos .pcard__media { opacity: .5; }
+[data-ec-theme="alimentos"] .pcard--oos .pcard__price-current { color: #9ca3af; }

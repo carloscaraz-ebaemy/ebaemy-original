@@ -104,3 +104,35 @@ h1, h2, h3, .ec-section-title {
     font-family: var(--theme-font-body) !important;
     text-transform: uppercase !important;
 }
+
+
+/* ═══════════════════════════════════════════════════════════════
+   THEME DEPORTES — identidad de la tarjeta
+   ═══════════════════════════════════════════════════════════════
+   Portada desde el list_products.blade.php propio del theme, que era
+   un fork del markup: por eso no tenia vista rapida, comparador,
+   badges configurables, marca ni rating. Ahora usa la tarjeta del
+   modulo y aporta solo su identidad visual.
+
+   Acotado a [data-ec-theme="deportes"]: consistencia con los demas themes que comparten archivo.
+   ═══════════════════════════════════════════════════════════════ */
+
+/* Sin redondeos y con empuje al hover: lenguaje de marca deportiva */
+[data-ec-theme="deportes"] .pcard { border-radius: 0; border: 0; box-shadow: none; }
+[data-ec-theme="deportes"] .pcard:hover { transform: translateY(-4px); box-shadow: none; }
+[data-ec-theme="deportes"] .pcard__media { aspect-ratio: 1; background: #f5f5f5; border-radius: 0; }
+[data-ec-theme="deportes"] .pcard__img { object-fit: cover !important; padding: 0 !important; }
+[data-ec-theme="deportes"] .pbadge { border-radius: 0; font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: .06em; padding: 4px 10px; }
+[data-ec-theme="deportes"] .pbadge--new { background: var(--theme-primary, hsl(var(--primary-h), var(--primary-s), var(--primary-l))); color: var(--theme-primary-contrast, #fff); }
+[data-ec-theme="deportes"] .pbadge--oos { background: #000; color: #fff; }
+[data-ec-theme="deportes"] .pcard__body { padding: .75rem .5rem; }
+[data-ec-theme="deportes"] .pcard__cat { font-size: 10px; font-weight: 700; color: var(--theme-primary, hsl(var(--primary-h), var(--primary-s), var(--primary-l))); text-transform: uppercase; letter-spacing: .04em; }
+[data-ec-theme="deportes"] .pcard__title { font-size: 14px; font-weight: 700; min-height: 0; }
+[data-ec-theme="deportes"] .pcard__title a { color: #111; }
+[data-ec-theme="deportes"] .pcard__price-current { font-size: 16px; font-weight: 800; color: #111; }
+/* Negro por defecto y color de marca al pasar el mouse */
+[data-ec-theme="deportes"] .pcard__cta { border-radius: 0; background: #111; color: #fff; border: 0; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .1em; padding: 10px; }
+[data-ec-theme="deportes"] .pcard__cta:hover { background: var(--theme-primary, hsl(var(--primary-h), var(--primary-s), var(--primary-l))); color: var(--theme-primary-contrast, #fff); }
+[data-ec-theme="deportes"] .pcard__cta svg { display: none; }
+[data-ec-theme="deportes"] .pcard--oos .pcard__media { opacity: .4; }
+[data-ec-theme="deportes"] .pcard--oos .pcard__price-current { color: #999; }
