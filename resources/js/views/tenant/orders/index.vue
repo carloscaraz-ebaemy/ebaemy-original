@@ -537,6 +537,11 @@
                                         <i class="el-icon-link"></i>
                                         Copiar enlace de datos de envío
                                     </el-dropdown-item>
+
+                                    <el-dropdown-item command="timeline">
+                                        <i class="el-icon-time"></i>
+                                        Ver historial
+                                    </el-dropdown-item>
                                 </el-dropdown-menu>
                             </el-dropdown>
                         </td>
@@ -551,6 +556,12 @@
             :order-id="shipmentOrderId"
             @saved="onShipmentSaved"
         ></shipment-form>
+
+        <!-- Historial: estados del pedido + bitácora del envío + impresiones. -->
+        <order-timeline
+            :visible.sync="showTimelineDialog"
+            :order-id="timelineOrderId"
+        ></order-timeline>
 
         <el-dialog
             title="Stock en almacén"
@@ -1038,11 +1049,19 @@ import OptionsForm from "../pos/partials/options.vue";
 import DocumentForm from "./partials/document_form.vue";
 import SaleNoteForm from "./partials/sale_note_form.vue";
 import ShipmentForm from "./partials/shipment_form.vue";
+import OrderTimeline from "./partials/order_timeline.vue";
 
 export default {
     props: ["user"],
 
-    components: { DataTable, OptionsForm, DocumentForm, SaleNoteForm, ShipmentForm },
+    components: {
+        DataTable,
+        OptionsForm,
+        DocumentForm,
+        SaleNoteForm,
+        ShipmentForm,
+        OrderTimeline,
+    },
     data() {
         return {
             showDialog: false,
@@ -1066,6 +1085,9 @@ export default {
             // Envío del pedido (pestaña logística unificada).
             showShipmentDialog: false,
             shipmentOrderId: null,
+            // Historial unificado (comercial + logístico).
+            showTimelineDialog: false,
+            timelineOrderId: null,
             // Chips = preguntas de trabajo, en el orden del flujo real:
             // confirmar → preparar → imprimir → embalar → despachar → tránsito
             // → entregar. Los tres últimos son de control, no de cola.
@@ -1167,7 +1189,8 @@ export default {
                 saleNote: () => this.clickOptions(row.sale_note_id),
                 document: () => this.clickDownload(row.document_external_id),
                 label: () => this.downloadLabel(row),
-                shippingLink: () => this.copyShippingLink(row)
+                shippingLink: () => this.copyShippingLink(row),
+                timeline: () => this.openTimeline(row)
             };
             if (acciones[cmd]) acciones[cmd]();
         },
@@ -1469,6 +1492,12 @@ export default {
                     confirmButtonText: "Cerrar",
                 });
             }
+        },
+
+        /** Abre el historial unificado del pedido. */
+        openTimeline(row) {
+            this.timelineOrderId = row.id;
+            this.showTimelineDialog = true;
         },
 
         /** Abre la pestaña de envío del pedido. */
