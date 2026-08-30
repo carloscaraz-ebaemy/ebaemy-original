@@ -389,6 +389,21 @@ if ($hostname) {
 
             Route::get('orders/records', 'Tenant\OrderController@records');
             Route::get('orders/record/{order}', 'Tenant\OrderController@record');
+
+            // ── Envío del pedido (Gestión de Pedidos unificada) ──────────────
+            // El detalle logístico se consulta y se configura DESDE el pedido.
+            // Reusan ShipmentController para no duplicar validación ni bitácora.
+            Route::get('orders/{order}/envio', [\App\Http\Controllers\Tenant\ShipmentController::class, 'orderShipmentShow'])
+                 ->whereNumber('order')->name('orders.shipment.show');
+            Route::post('orders/{order}/envio', [\App\Http\Controllers\Tenant\ShipmentController::class, 'orderShipmentStore'])
+                 ->whereNumber('order')->name('orders.shipment.store');
+            // Lote de impresión desde una selección de PEDIDOS. Las tablas de
+            // lotes/impresiones no cambian: cambia desde dónde se inicia.
+            Route::post('orders/print-batch', [\App\Http\Controllers\Tenant\ShipmentController::class, 'orderPrintBatch'])
+                 ->name('orders.print_batch');
+            // Subpantalla de lotes: deja de ser un módulo suelto del menú.
+            Route::get('orders/print-batches', [\App\Http\Controllers\Tenant\ShipmentController::class, 'batches'])
+                 ->name('orders.print_batches');
             Route::get('orders/{order}/status-logs', 'Tenant\OrderController@statusLogs')->where('order', '[0-9]+');
             Route::get('orders/payment-catalogs', 'Tenant\OrderController@paymentCatalogs');
 

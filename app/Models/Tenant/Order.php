@@ -43,6 +43,11 @@
             'prepared_at',
             'dispatched_at',
             'delivered_at',
+            // Fechas comerciales (ver migration add_business_dates_to_orders_table).
+            // Nullable en pedidos históricos: no se inventan hacia atrás.
+            'paid_at',
+            'confirmed_at',
+            'cancelled_at',
             // Shipping calculator
             'shipping_cost',
             'shipping_zone_id',
@@ -56,11 +61,50 @@
             'prepared_at' => 'datetime',
             'dispatched_at' => 'datetime',
             'delivered_at' => 'datetime',
+            'paid_at' => 'datetime',
+            'confirmed_at' => 'datetime',
+            'cancelled_at' => 'datetime',
         ];
 
         public function status_order()
         {
             return $this->belongsTo(StatusOrder::class);
+        }
+
+        /**
+         * Detalle logístico del pedido (Registro y Control de Envíos).
+         *
+         * El pedido es la entidad principal; `shipping_requests` deja de ser un
+         * pedido paralelo y pasa a ser el detalle de entrega de ESTE pedido.
+         *
+         * Regla operativa: 1 pedido = 1 registro logístico. La columna todavía
+         * NO lleva UNIQUE porque existen envíos históricos sin `order_id` y
+         * podrían existir duplicados; hasta conciliarlos (`shipments:reconcile`)
+         * se resuelve con `latestOfMany()`, que se queda con el más reciente en
+         * vez de devolver una fila arbitraria.
+         */
+        public function shipment()
+        {
+            return $this->hasOne(ShippingRequest::class, 'order_id')->latestOfMany();
+        }
+
+        /**
+         * El envío VIGENTE del pedido: ignora los anulados.
+         *
+         * Es el que manda para "¿este pedido ya tiene envío configurado?" —
+         * anular un envío debe permitir volver a configurarlo sin arrastrar el
+         * registro anulado, que se conserva por auditoría.
+         */
+        public function activeShipment()
+        {
+            return $this->hasOne(ShippingRequest::class, 'order_id')
+                        ->ofMany(['id' => 'max'], fn($q) => $q->whereNull('cancelled_at'));
+        }
+
+        /** Todos los registros logísticos, incluidos los anulados (historial). */
+        public function shipments()
+        {
+            return $this->hasMany(ShippingRequest::class, 'order_id');
         }
 
         public function sale_note()

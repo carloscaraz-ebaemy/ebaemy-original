@@ -14,8 +14,16 @@ class OrderCollection extends ResourceCollection
      */
     public function toArray($request)
     {
+        // Parámetros del semáforo de antigüedad. Se leen UNA vez para toda la
+        // página: son iguales para todas las filas y consultarlos por fila
+        // convertía el listado en una tormenta de queries.
+        // `currentOrNull` y no `current`: en un tenant sin el módulo de Envíos
+        // esto es un listado de pedidos normal, no un error.
+        $shippingSetting = \App\Models\Tenant\ShippingSetting::currentOrNull();
+        $maxDays         = $shippingSetting ? $shippingSetting->max_days : 4;
+        $skipHolidays    = (bool) ($shippingSetting->aging_skip_holidays ?? true);
 
-        return $this->collection->transform(function($row, $key) {
+        return $this->collection->transform(function($row, $key) use ($maxDays, $skipHolidays) {
             $customer = $row->customer ?? [];
             if (is_object($customer)) {
                 $customer = (array) $customer;
@@ -142,9 +150,80 @@ class OrderCollection extends ResourceCollection
                 // Almacén asignado
                 'warehouse_id'         => $row->warehouse_id,
                 'warehouse_description'=> optional($row->warehouse)->description ?? null,
+                // Fechas de negocio (nullable en pedidos históricos).
+                'paid_at'              => optional($row->paid_at)->format('Y-m-d H:i:s'),
+                'prepared_at'          => optional($row->prepared_at)->format('Y-m-d H:i:s'),
+                'dispatched_at'        => optional($row->dispatched_at)->format('Y-m-d H:i:s'),
+                'delivered_at'         => optional($row->delivered_at)->format('Y-m-d H:i:s'),
+                'payment_status'       => $row->payment_status,
+                // ── Detalle logístico (Registro de Envíos) ────────────────
+                // `shipment` es null cuando el pedido todavía no tiene envío
+                // configurado: la tabla lo pinta como "Sin envío" y ofrece el
+                // botón de configurarlo. NO es un error de datos.
+                'shipment'             => $this->shipmentPayload($row, $maxDays, $skipHolidays),
             ];
         });
 
+    }
+
+    /**
+     * Resumen logístico del pedido para la tabla unificada.
+     *
+     * Se envía RESUELTO desde PHP (etiquetas, colores, semáforo) para cumplir la
+     * regla de no duplicar la lógica de negocio en Vue: los días hábiles y los
+     * feriados se calculan en un solo sitio, `ShippingRequest`.
+     *
+     * @return array<string, mixed>|null
+     */
+    private function shipmentPayload($row, int $maxDays, bool $skipHolidays): ?array
+    {
+        // Solo si la relación vino EAGER LOADED. En un tenant sin el módulo de
+        // Envíos no se precarga, y tocarla aquí dispararía una consulta contra
+        // una tabla que no existe — una fila por pedido.
+        if (!$row->relationLoaded('shipment')) {
+            return null;
+        }
+
+        $s = $row->shipment;
+
+        // Un envío anulado no representa la entrega vigente del pedido: para el
+        // listado el pedido vuelve a estar "sin envío configurado".
+        if (!$s || $s->cancelled_at) {
+            return null;
+        }
+
+        $aging = $s->aging($maxDays, $skipHolidays);
+
+        return [
+            'id'               => $s->id,
+            'code'             => $s->shipment_code,
+            'delivery_type'    => $s->delivery_type,
+            'delivery_short'   => $s->delivery_short,
+            'delivery_label'   => $s->delivery_label,
+            'delivery_meta'    => $s->delivery_meta,
+            'status'           => $s->status,
+            'status_label'     => \App\Models\Tenant\ShippingRequest::STATUSES[$s->status] ?? $s->status,
+            // Destino resumido: la agencia manda en provincia, la dirección en
+            // Lima. Es lo que el operador necesita leer de un vistazo.
+            'destination'      => $s->shipping_agency ?: ($s->destination_city ?: $s->shipping_destination),
+            'tracking_number'  => $s->tracking_number,
+            'has_guide'        => (bool) $s->shipping_guide_path,
+            'batch_id'         => $s->print_batch_id,
+            'batch_label'      => $s->batch_label,
+            'printed_at'       => optional($s->printed_at)->format('Y-m-d H:i:s'),
+            'sent_at'          => optional($s->sent_at)->format('Y-m-d H:i:s'),
+            'picked_up_at'     => optional($s->picked_up_at)->format('Y-m-d H:i:s'),
+            'priority'         => (int) $s->priority,
+            'priority_label'   => $s->priority_label,
+            'is_pickup'        => $s->is_pickup,
+            'payment_confirmed'=> (bool) $s->payment_confirmed,
+            // Semáforo de antigüedad: level null = el reloj ya se detuvo.
+            'aging_days'       => $aging['days'],
+            'aging_level'      => $aging['level'],
+            'aging_meta'       => $aging['level'] !== null
+                ? \App\Models\Tenant\ShippingRequest::AGING_META[$aging['level']]
+                : null,
+        ];
     }
 }
 

@@ -90,6 +90,31 @@
                             :clearable="true"
                             @change="applyInvoiceDateRange"
                         ></el-date-picker>
+                        <!-- Filtros logísticos: la operación diaria se ordena
+                             por modalidad (rutas distintas) y por antigüedad
+                             (qué se está venciendo). -->
+                        <el-select
+                            v-model="deliveryTypeFilter"
+                            @change="applyLogisticFilters"
+                        >
+                            <el-option
+                                v-for="opt in deliveryTypeOptions"
+                                :key="opt.value"
+                                :label="opt.label"
+                                :value="opt.value"
+                            ></el-option>
+                        </el-select>
+                        <el-select
+                            v-model="agingFilter"
+                            @change="applyLogisticFilters"
+                        >
+                            <el-option
+                                v-for="opt in agingOptions"
+                                :key="opt.value"
+                                :label="opt.label"
+                                :value="opt.value"
+                            ></el-option>
+                        </el-select>
                     </div>
                 </div>
                 <div v-if="selectedIds.length" class="ord-bulkbar">
@@ -101,6 +126,12 @@
                     </button>
                     <button class="ord-bulk-btn" @click="bulkDownloadLabels">
                         <i class="fas fa-printer"></i> Descargar rótulos
+                    </button>
+                    <!-- Lote de impresión desde los pedidos seleccionados: es
+                         la operación que antes obligaba a saltar al módulo de
+                         Registro de Envíos. -->
+                    <button class="ord-bulk-btn" @click="bulkCreatePrintBatch">
+                        <i class="fas fa-layer-group"></i> Crear lote de impresión
                     </button>
                     <button class="ord-bulk-btn ghost" @click="selectedIds = []">
                         Limpiar
@@ -126,6 +157,7 @@
                         <th>Fecha del pedido</th>
                         <th>Medio Pago</th>
                         <th>Estatus del Pedido</th>
+                        <th>Entrega</th>
                         <th class="text-center">Documento</th>
                         <th class="text-end">Opciones</th>
                     </tr>
@@ -343,6 +375,61 @@
                                 </small>
                             </div>
                         </td>
+                        <!-- Entrega: modalidad, estado logístico y semáforo de
+                             antigüedad. Es la columna que hace innecesario
+                             abrir el módulo de Registro de Envíos. -->
+                        <td data-label="Entrega">
+                            <template v-if="row.shipment">
+                                <div class="ord-ship-cell">
+                                    <span
+                                        class="ord-ship-tag"
+                                        :style="{
+                                            color: row.shipment.delivery_meta.color,
+                                            background: row.shipment.delivery_meta.bg,
+                                            borderColor: row.shipment.delivery_meta.line
+                                        }"
+                                        >{{ row.shipment.delivery_short }}</span
+                                    >
+                                    <span
+                                        v-if="row.shipment.aging_meta"
+                                        class="ord-ship-dot"
+                                        :style="{ background: row.shipment.aging_meta.color }"
+                                        :title="
+                                            row.shipment.aging_meta.label +
+                                            ' · ' +
+                                            row.shipment.aging_days +
+                                            ' día(s) hábil(es)'
+                                        "
+                                    ></span>
+                                </div>
+                                <div class="ord-ship-sub">
+                                    {{ row.shipment.status_label }}
+                                </div>
+                                <div class="ord-ship-dest" :title="shipmentDestination(row)">
+                                    {{ shipmentDestination(row) }}
+                                </div>
+                                <div
+                                    v-if="row.shipment.tracking_number"
+                                    class="ord-ship-track"
+                                >
+                                    {{ row.shipment.tracking_number }}
+                                </div>
+                                <a
+                                    class="ord-ship-link"
+                                    href="#"
+                                    @click.prevent="openShipment(row)"
+                                    >Ver envío</a
+                                >
+                            </template>
+                            <template v-else>
+                                <button
+                                    class="ord-ship-cta"
+                                    @click="openShipment(row)"
+                                >
+                                    <i class="fas fa-truck"></i> Configurar envío
+                                </button>
+                            </template>
+                        </td>
                         <td class="text-center" data-label="Documento">
                             <span
                                 v-if="row.mp_invoice_state === 'alert'"
@@ -448,6 +535,13 @@
                 </data-table>
             </div>
         </div>
+
+        <!-- Envío del pedido: el detalle logístico vive DENTRO del pedido. -->
+        <shipment-form
+            :visible.sync="showShipmentDialog"
+            :order-id="shipmentOrderId"
+            @saved="onShipmentSaved"
+        ></shipment-form>
 
         <el-dialog
             title="Stock en almacén"
@@ -665,6 +759,63 @@
     background: #fef3c7;
     color: #92400e;
 }
+/* ── Columna "Entrega" ───────────────────────────────────────────────── */
+.ord-ship-cell {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+.ord-ship-tag {
+    border: 1px solid transparent;
+    border-radius: 999px;
+    padding: 1px 8px;
+    font-size: 11px;
+    font-weight: 700;
+}
+/* Punto del semáforo de antigüedad: el color lo decide PHP, no el Vue. */
+.ord-ship-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    display: inline-block;
+    flex: 0 0 auto;
+}
+.ord-ship-sub {
+    font-size: 12px;
+    color: #334155;
+    margin-top: 2px;
+}
+.ord-ship-dest,
+.ord-ship-track {
+    font-size: 11px;
+    color: #64748b;
+    max-width: 180px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.ord-ship-track {
+    font-family: monospace;
+}
+.ord-ship-link {
+    font-size: 11px;
+    color: #4f46e5;
+}
+.ord-ship-cta {
+    border: 1px dashed #c7d2fe;
+    background: #eef2ff;
+    color: #4338ca;
+    border-radius: 8px;
+    padding: 5px 10px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+}
+.ord-ship-cta:hover {
+    background: #e0e7ff;
+}
+
 .ord-chips {
     display: flex;
     flex-wrap: wrap;
@@ -877,11 +1028,12 @@ import queryString from "query-string";
 import OptionsForm from "../pos/partials/options.vue";
 import DocumentForm from "./partials/document_form.vue";
 import SaleNoteForm from "./partials/sale_note_form.vue";
+import ShipmentForm from "./partials/shipment_form.vue";
 
 export default {
     props: ["user"],
 
-    components: { DataTable, OptionsForm, DocumentForm, SaleNoteForm },
+    components: { DataTable, OptionsForm, DocumentForm, SaleNoteForm, ShipmentForm },
     data() {
         return {
             showDialog: false,
@@ -902,13 +1054,39 @@ export default {
             stats: {},
             selectedIds: [],
             currentRecords: [],
+            // Envío del pedido (pestaña logística unificada).
+            showShipmentDialog: false,
+            shipmentOrderId: null,
+            // Chips = preguntas de trabajo, en el orden del flujo real:
+            // confirmar → preparar → imprimir → embalar → despachar → tránsito
+            // → entregar. Los tres últimos son de control, no de cola.
             orderChips: [
                 { key: "all", label: "Todos" },
-                { key: "todispatch", label: "Por despachar" },
-                { key: "shipped", label: "Enviados" },
-                { key: "delivered", label: "Entregados" },
-                { key: "canceled", label: "Cancelados / Devoluciones" },
+                { key: "por_confirmar", label: "Por confirmar" },
+                { key: "por_preparar", label: "Por preparar" },
+                { key: "por_imprimir", label: "Por imprimir" },
+                { key: "por_embalar", label: "Por embalar" },
+                { key: "por_despachar", label: "Por despachar" },
+                { key: "en_transito", label: "En tránsito" },
+                { key: "listos_recojo", label: "Listos para recojo" },
+                { key: "entregados", label: "Entregados" },
+                { key: "anulados", label: "Anulados" },
+                { key: "sin_envio", label: "Sin envío" },
                 { key: "no_invoice", label: "Sin boleta" },
+            ],
+            // Filtros logísticos de la barra superior.
+            deliveryTypeFilter: "",
+            agingFilter: "",
+            deliveryTypeOptions: [
+                { value: "", label: "Toda modalidad" },
+                { value: "domicilio", label: "Lima / Callao" },
+                { value: "agencia", label: "Provincia" },
+                { value: "tienda", label: "Recojo en tienda" },
+            ],
+            agingOptions: [
+                { value: "", label: "Cualquier antigüedad" },
+                { value: "urgentes", label: "Urgentes" },
+                { value: "vencidos", label: "Vencidos" },
             ],
             // Ruta lineal del pedido para el stepper (Cancelado=5 va aparte).
             statusSteps: [
@@ -1191,9 +1369,84 @@ export default {
             if (!dt) return;
             // Inyecta el filtro en la consulta del DataTable (se hace spread de
             // search en getQueryParameters) y recarga desde el server.
-            dt.search.mp_filter = key === "all" ? null : key;
+            // `chip` es el parámetro unificado; `mp_filter` se limpia para que
+            // un chip antiguo guardado no se quede aplicado por debajo.
+            dt.search.chip = key === "all" ? null : key;
+            dt.search.mp_filter = null;
             dt.pagination.current_page = 1;
             dt.getRecords();
+        },
+
+        /**
+         * Filtros logísticos (modalidad y antigüedad).
+         * Se recalculan los contadores porque acotan la base de los chips.
+         */
+        applyLogisticFilters() {
+            const dt = this.$refs.ordersTable;
+            if (!dt) return;
+
+            dt.search.delivery_type = this.deliveryTypeFilter || null;
+            dt.search.aging = this.agingFilter || null;
+            dt.pagination.current_page = 1;
+            dt.getRecords();
+            this.loadChipCounts();
+        },
+
+        /**
+         * Crea un lote de impresión con los pedidos seleccionados.
+         *
+         * El backend traduce pedidos → envíos y descarta los que no son
+         * elegibles; aquí solo se informa el resultado, incluido qué pedidos
+         * quedaron fuera por no tener envío configurado (que es accionable:
+         * hay que configurárselo).
+         */
+        async bulkCreatePrintBatch() {
+            if (!this.selectedIds.length) return;
+
+            try {
+                const { data } = await this.$http.post("/orders/print-batch", {
+                    order_ids: this.selectedIds,
+                    format: "a4",
+                });
+
+                let message = data.message;
+                if (data.orders_without_shipment && data.orders_without_shipment.length) {
+                    message +=
+                        " Sin envío configurado: " +
+                        data.orders_without_shipment.length +
+                        " pedido(s).";
+                }
+                this.$message.success(message);
+
+                this.selectedIds = [];
+                this.$refs.ordersTable.getRecords();
+                this.loadChipCounts();
+
+                if (data.print_url) window.open(data.print_url, "_blank");
+            } catch (e) {
+                const body = e.response && e.response.data;
+                this.$message.error((body && body.message) || "No se pudo crear el lote.");
+            }
+        },
+
+        /** Abre la pestaña de envío del pedido. */
+        openShipment(row) {
+            this.shipmentOrderId = row.id;
+            this.showShipmentDialog = true;
+        },
+
+        /** Tras configurar el envío, la fila debe reflejarlo sin recargar. */
+        onShipmentSaved() {
+            const dt = this.$refs.ordersTable;
+            if (dt) dt.getRecords();
+            this.loadChipCounts();
+        },
+
+        /** Texto del destino para la columna de entrega. */
+        shipmentDestination(row) {
+            const s = row.shipment;
+            if (!s) return "";
+            return s.destination || "—";
         },
         invoiceDateParams() {
             return {

@@ -1057,10 +1057,20 @@ $inventory_configuration = InventoryConfiguration::getSidebarPermissions();
                                 {{-- GESTIÓN --}}
                                 <span class="sb-group-label">Gestión</span>
                                 @if(in_array('ecommerce_orders', $vc_module_levels))
+                                    {{-- Gestión de Pedidos: entrada principal de
+                                         la operación tras la unificación. El
+                                         contador de paquetes sin guía se muestra
+                                         AQUÍ porque ese trabajo ya se resuelve
+                                         desde el pedido. --}}
+                                    @php
+                                        $ordersPendingShipping = 0;
+                                        try { $ordersPendingShipping = \App\Models\Tenant\ShippingRequest::withoutGuide()->count(); } catch (\Throwable $e) {}
+                                    @endphp
                                     <li class="{{ ($firstLevel === 'orders') ? 'nav-active' : '' }}">
                                         <a class="nav-link" href="{{route('tenant_orders_index')}}">
                                             <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M6 19m-2 0a2 2 0 1 0 4 0a2 2 0 1 0 -4 0" /><path d="M17 19m-2 0a2 2 0 1 0 4 0a2 2 0 1 0 -4 0" /><path d="M17 17h-11v-14h-2" /><path d="M6 5l14 1l-1 7h-13" /></svg>
                                             <span>Pedidos</span>
+                                            @if($ordersPendingShipping > 0)<span class="badge bg-danger ms-1" title="Paquetes sin guía">{{ $ordersPendingShipping }}</span>@endif
                                         </a>
                                     </li>
                                 @endif

@@ -124,6 +124,27 @@ class ShippingSetting extends Model
         return static::query()->firstOrCreate([]);
     }
 
+    /**
+     * La configuración si el tenant tiene el módulo de Envíos, o null.
+     *
+     * `current()` hace `firstOrCreate`: en un tenant sin el módulo revienta, y
+     * además ESCRIBE. Gestión de Pedidos la consulta en cada listado —un camino
+     * de solo lectura que ningún tenant puede permitirse que falle—, así que
+     * usa esta variante.
+     */
+    public static function currentOrNull(): ?self
+    {
+        if (!ShippingRequest::moduleInstalled()) {
+            return null;
+        }
+
+        try {
+            return static::current();
+        } catch (\Throwable $e) {
+            return null;
+        }
+    }
+
     /** ¿Ya está fijada la ubicación de la tienda? */
     public function getHasOriginAttribute(): bool
     {

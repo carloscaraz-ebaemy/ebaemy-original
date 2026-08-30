@@ -24,6 +24,8 @@ use App\Models\Tenant\OrderStatusLog;
 use App\Models\Tenant\OrderPayment;
 use App\Models\Tenant\PaymentMethodType;
 use App\Models\Tenant\CardBrand;
+use App\Models\Tenant\ShippingRequest;
+use App\Models\Tenant\ShippingSetting;
 use Illuminate\Support\Facades\DB;
 use Modules\Finance\Traits\FinanceTrait;
 
@@ -102,46 +104,254 @@ class OrderController extends Controller
 
     public function records(Request $request)
     {
-        $allowedColumns = ['date_of_issue', 'id', 'shipping_address', 'reference_payment', 'total'];
-        $column = in_array($request->column, $allowedColumns) ? $request->column : 'id';
-        $query = Order::with([
-            'channel',
-            // Los datos de Saga son la fuente de verdad para cliente y entrega.
-            // Sin estos campos el recurso solo podia mostrar los fallbacks del
-            // pedido ERP (por ejemplo, la direccion literal "Marketplace").
-            'marketplaceOrder:id,order_id,channel_id,external_order_id,status,customer_data,shipping_data,invoice_uploaded_at,document_id',
-            'marketplaceOrder.channel:id,platform,name',
-        ])->latest();
+        $query = $this->buildOrdersQuery($request);
+
+        return new OrderCollection($query->paginate(config('tenant.items_per_page')));
+    }
+
+    /**
+     * Consulta ÚNICA de Gestión de Pedidos: comercial + logística.
+     *
+     * Unifica lo que antes vivía en dos pantallas — los filtros de
+     * `OrderController::records()` y los de `ShipmentController::buildListQuery()`.
+     * La comparten records(), statusCounts() y stats() para que el número del
+     * chip y las filas de la tabla no puedan discrepar.
+     */
+    private function buildOrdersQuery(Request $request, bool $withRelations = true, bool $withChip = true)
+    {
+        $query = Order::query()->latest();
+
+        if ($withRelations) {
+            $query->with([
+                'channel',
+                // Los datos de Saga son la fuente de verdad para cliente y entrega.
+                // Sin estos campos el recurso solo podia mostrar los fallbacks del
+                // pedido ERP (por ejemplo, la direccion literal "Marketplace").
+                'marketplaceOrder:id,order_id,channel_id,external_order_id,status,customer_data,shipping_data,invoice_uploaded_at,document_id',
+                'marketplaceOrder.channel:id,platform,name',
+                // Estas tres las consumía OrderCollection SIN precargar: eran
+                // 3 consultas extra por fila (60 por página de 20).
+                'status_order:id,description',
+                // Sin recorte de columnas: `number_full` es un accesor que se
+                // arma con varias de ellas y un select parcial lo dejaría vacío.
+                'sale_note',
+                'warehouse:id,description',
+            ]);
+
+            // Detalle logístico. Eager loading obligatorio: sin esto la columna
+            // "Entrega" dispara una consulta por fila (N+1).
+            // Condicionado a que el tenant tenga el módulo: sin la tabla, el
+            // eager loading tumbaría la pantalla de pedidos entera.
+            if (ShippingRequest::moduleInstalled()) {
+                $query->with(['shipment', 'shipment.printBatch:id,code,status']);
+            }
+        }
 
         $this->applyOrderDateRange($query, $request);
         $this->applyOrderSource($query, $request);
+        $this->applyCommercialFilters($query, $request);
+        $this->applyLogisticFilters($query, $request);
+
+        if ($withChip) {
+            $this->applyOperationalChip($query, $request);
+        }
+
+        return $query;
+    }
+
+    /** Filtros del lado comercial del pedido. */
+    private function applyCommercialFilters($query, Request $request)
+    {
+        $allowedColumns = ['date_of_issue', 'id', 'shipping_address', 'reference_payment', 'total'];
+        $column = in_array($request->column, $allowedColumns) ? $request->column : 'id';
 
         if ($request->value) {
             $query->where($column, 'like', "%{$request->value}%");
+        }
+
+        // Búsqueda unificada: el operador escribe lo que tiene a mano — el N° de
+        // pedido, el código ENV, el DNI o el teléfono del cliente que llama, o
+        // el tracking de la agencia— y debe encontrar el pedido con cualquiera.
+        if ($q = trim((string) $request->input('q', ''))) {
+            $qNum = preg_replace('/\D+/', '', $q);
+            $hasShipping = ShippingRequest::moduleInstalled();
+
+            $query->where(function ($w) use ($q, $qNum, $hasShipping) {
+                $w->where('id', 'like', "%{$q}%")
+                  ->orWhere('external_order_ref', 'like', "%{$q}%")
+                  ->orWhere('number_document', 'like', "%{$q}%")
+                  ->orWhere('shipping_address', 'like', "%{$q}%")
+                  // customer es JSON: el LIKE sobre el texto crudo cubre nombre,
+                  // documento y telefono sin depender del motor JSON de MySQL.
+                  ->orWhere('customer', 'like', "%{$q}%");
+
+                if ($qNum !== '' && $qNum !== $q) {
+                    $w->orWhere('customer', 'like', "%{$qNum}%");
+                }
+
+                // El OR sobre envios solo si el tenant tiene el modulo: sin la
+                // tabla, buscar un pedido devolveria un error de SQL.
+                if ($hasShipping) {
+                    $w->orWhereHas('shipments', function ($s) use ($q, $qNum) {
+                        $s->where('shipment_code', 'like', "%{$q}%")
+                          ->orWhere('full_name', 'like', "%{$q}%")
+                          ->orWhere('tracking_number', 'like', "%{$q}%")
+                          ->orWhere('destination_city', 'like', "%{$q}%")
+                          ->orWhere('shipping_agency', 'like', "%{$q}%")
+                          ->orWhere('dni', 'like', "%{$q}%")
+                          ->orWhere('phone', 'like', "%{$q}%");
+
+                        if ($qNum !== '' && $qNum !== $q) {
+                            $s->orWhere('dni', 'like', "%{$qNum}%")
+                              ->orWhere('phone', 'like', "%{$qNum}%");
+                        }
+                    });
+                }
+            });
         }
 
         if ($request->status_order_id) {
             $query->where('status_order_id', $request->status_order_id);
         }
 
+        if ($request->payment_status) {
+            $query->where('payment_status', $request->payment_status);
+        }
+
         if ($request->channel_id) {
             $query->where('channel_id', $request->channel_id);
+        }
+
+        if ($request->warehouse_id) {
+            $query->where('warehouse_id', $request->warehouse_id);
         }
 
         if ($request->channel_type) {
             $query->whereHas('channel', fn($q) => $q->where('type', $request->channel_type));
         }
 
-        // Chips estilo Saga: filtro rápido por etapa / cumplimiento.
-        switch ($request->mp_filter) {
+        return $query;
+    }
+
+    /**
+     * Filtros que viven en el registro logístico del pedido.
+     *
+     * Siempre sobre el envío VIGENTE (`cancelled_at IS NULL`): un envío anulado
+     * no debe hacer que su pedido aparezca en "por despachar".
+     */
+    private function applyLogisticFilters($query, Request $request)
+    {
+        // Modalidad de entrega (domicilio = Lima · agencia = Provincia · tienda).
+        if (($type = $request->delivery_type) && array_key_exists($type, ShippingRequest::DELIVERY_TYPES)) {
+            $this->whereShipment($query, fn($s) => $s->where('delivery_type', $type));
+        }
+
+        // Estado logístico (independiente del estado comercial del pedido).
+        if ($status = $request->shipping_status) {
+            $list = is_array($status) ? $status : explode(',', (string) $status);
+            $list = array_values(array_filter($list, fn($v) => isset(ShippingRequest::STATUSES[$v])));
+            if ($list) {
+                $this->whereShipment($query, fn($s) => $s->whereIn('status', $list));
+            }
+        }
+
+        if ($batchId = (int) $request->batch_id) {
+            $this->whereShipment($query, fn($s) => $s->where('print_batch_id', $batchId));
+        }
+
+        if ($priority = (int) $request->priority) {
+            $this->whereShipment($query, fn($s) => $s->where('priority', $priority));
+        }
+
+        if ($request->boolean('with_shipping_guide')) {
+            $this->whereShipment($query, fn($s) => $s->whereNotNull('shipping_guide_path'));
+        }
+
+        if ($request->boolean('without_shipping_guide')) {
+            $this->whereShipment($query, fn($s) => $s->whereNull('shipping_guide_path'));
+        }
+
+        // Pedidos que todavía no tienen envío configurado — la cola real de
+        // trabajo del encargado tras la unificación.
+        if ($request->boolean('without_shipment')) {
+            $this->whereWithoutShipment($query);
+        }
+
+        // Antigüedad en días HÁBILES. Se traduce a un corte de fecha calendario
+        // con la MISMA primitiva que pinta el semáforo, para que el filtro y el
+        // badge no se desalineen (fines de semana y feriados incluidos).
+        $aging   = $request->input('aging');
+        $setting = in_array($aging, ['urgentes', 'vencidos'], true)
+            ? ShippingSetting::currentOrNull()
+            : null;
+        if ($setting) {
+            $maxDays = $setting->max_days;
+            $k = $aging === 'vencidos' ? $maxDays : max(1, $maxDays - 1);
+            $cutoff = ShippingRequest::agingCutoff($k, (bool) ($setting->aging_skip_holidays ?? true))->toDateString();
+
+            $this->whereShipment($query, fn($s) => $s
+                ->whereDate('created_at', '<=', $cutoff)
+                ->whereNotIn('status', ShippingRequest::CLOSED_STATUSES));
+        }
+
+        return $query;
+    }
+
+    /**
+     * EXISTS sobre el envío vigente del pedido.
+     *
+     * Se usa la relación `shipments` (hasMany) y no `shipment` (one-of-many)
+     * a propósito: `whereHas` sobre una relación con `ofMany()` arrastra la
+     * subconsulta de agregación al WHERE y deja de ser un EXISTS aprovechable
+     * por el índice de `order_id`.
+     */
+    private function whereShipment($query, callable $constraint)
+    {
+        // Sin el módulo instalado no hay envíos: cualquier filtro logístico
+        // devuelve vacío, que es la respuesta correcta (y no un error de SQL).
+        if (!ShippingRequest::moduleInstalled()) {
+            return $query->whereRaw('1 = 0');
+        }
+
+        return $query->whereHas('shipments', function ($s) use ($constraint) {
+            $s->whereNull('cancelled_at');
+            $constraint($s);
+        });
+    }
+
+    /**
+     * Pedidos SIN envío vigente.
+     * Sin el módulo instalado la respuesta correcta es "todos", no un error:
+     * en ese tenant ningún pedido tiene envío configurado.
+     */
+    private function whereWithoutShipment($query)
+    {
+        if (!ShippingRequest::moduleInstalled()) {
+            return $query;
+        }
+
+        return $query->whereDoesntHave('shipments', fn($s) => $s->whereNull('cancelled_at'));
+    }
+
+    /**
+     * Chips operativos de la pantalla unificada.
+     *
+     * Cada chip es una PREGUNTA DE TRABAJO ("¿qué me toca hacer ahora?"), no un
+     * estado suelto: por eso combinan estado comercial y estado logístico.
+     * Se conservan las claves antiguas (`mp_filter`) porque hay enlaces
+     * guardados y el panel de Saga las sigue usando.
+     */
+    private function applyOperationalChip($query, Request $request, ?string $chip = null)
+    {
+        $chip = $chip ?: ($request->input('chip') ?: $request->input('mp_filter'));
+
+        switch ($chip) {
+            // ── Chips comerciales heredados (Saga) ────────────────────────
             case 'todispatch': // Por despachar (pendiente/verificado/preparación)
                 $query->whereIn('status_order_id', [1, 2, 3]);
                 break;
             case 'shipped':    // Enviados (despachado)
                 $query->where('status_order_id', 4);
-                break;
-            case 'delivered':  // Entregados
-                $query->where('status_order_id', 6);
                 break;
             case 'canceled':   // Cancelados / Devoluciones
                 $query->where('status_order_id', 5);
@@ -152,38 +362,125 @@ class OrderController extends Controller
                         $q->whereNull('invoice_uploaded_at')->whereNull('document_id');
                     });
                 break;
+
+            // ── Chips operativos unificados ───────────────────────────────
+            case 'por_confirmar':
+                // Pago aún no validado: nada de logística arranca hasta aquí.
+                $query->where('status_order_id', 1);
+                break;
+
+            case 'por_preparar':
+                // Pago OK y todavía sin cerrar logísticamente. Incluye los
+                // pedidos que ni siquiera tienen envío configurado: son
+                // trabajo pendiente, no pedidos "sin estado".
+                $query->whereIn('status_order_id', [2, 3]);
+
+                // Sin el modulo de Envios, "por preparar" es sencillamente todo
+                // pedido pagado: no hay estado logistico que lo descarte.
+                if (ShippingRequest::moduleInstalled()) {
+                    $query->where(function ($w) {
+                        $w->whereDoesntHave('shipments', fn($s) => $s->whereNull('cancelled_at'))
+                          ->orWhereHas('shipments', fn($s) => $s->whereNull('cancelled_at')
+                              ->whereIn('status', [
+                                  ShippingRequest::STATUS_RECIBIDO,
+                                  ShippingRequest::STATUS_CONFIRMADO,
+                                  ShippingRequest::STATUS_PREPARANDO,
+                                  'pendiente',
+                              ]));
+                    });
+                }
+                break;
+
+            case 'por_imprimir':
+                // Requiere rótulo (el recojo en tienda no) y aún no se imprimió.
+                $this->whereShipment($query, fn($s) => $s
+                    ->whereNull('printed_at')
+                    ->printableLabel());
+                break;
+
+            case 'por_embalar':
+                $this->whereShipment($query, fn($s) => $s->where('status', ShippingRequest::STATUS_IMPRESO));
+                break;
+
+            case 'por_despachar':
+                $this->whereShipment($query, fn($s) => $s->where('status', ShippingRequest::STATUS_EMBALANDO));
+                break;
+
+            case 'en_transito':
+                // Lima: en camino · Provincia: despachado / en agencia / en ruta.
+                $this->whereShipment($query, fn($s) => $s->whereIn('status', [
+                    ShippingRequest::STATUS_EN_CAMINO,
+                    ShippingRequest::STATUS_DESPACHADO,
+                    ShippingRequest::STATUS_EN_AGENCIA,
+                    ShippingRequest::STATUS_EN_RUTA,
+                    'enviado', // legado = entregado a agencia
+                ]));
+                break;
+
+            case 'listos_recojo':
+                $this->whereShipment($query, fn($s) => $s
+                    ->where('delivery_type', ShippingRequest::DELIVERY_TIENDA)
+                    ->where('status', ShippingRequest::STATUS_LISTO_RECOJO));
+                break;
+
+            case 'delivered':
+            case 'entregados':
+                $query->where('status_order_id', 6);
+                break;
+
+            case 'anulados':
+                $query->where('status_order_id', 5);
+                break;
+
+            case 'sin_envio':
+                $this->whereWithoutShipment($query);
+                break;
         }
 
-        return new OrderCollection($query->paginate(config('tenant.items_per_page')));
+        return $query;
     }
 
     /**
      * Conteos por chip de filtro (para los badges estilo Saga).
      */
+    /**
+     * Conteo de cada chip de la pantalla unificada.
+     *
+     * Se calculan sobre la MISMA consulta base que la tabla (mismos filtros de
+     * fecha, canal, búsqueda…) pero sin el chip activo: el número de un chip
+     * debe ser lo que verás al pulsarlo, no un total global.
+     */
     public function statusCounts(Request $request)
     {
-        $orders = $this->applyOrderDateRange(Order::query(), $request);
-        $this->applyOrderSource($orders, $request);
+        $base = $this->buildOrdersQuery($request, false, false);
 
-        return response()->json([
-            'all'        => (clone $orders)->count(),
-            'todispatch' => (clone $orders)->whereIn('status_order_id', [1, 2, 3])->count(),
-            'shipped'    => (clone $orders)->where('status_order_id', 4)->count(),
-            'delivered'  => (clone $orders)->where('status_order_id', 6)->count(),
-            'canceled'   => (clone $orders)->where('status_order_id', 5)->count(),
-            'no_invoice' => (clone $orders)->whereNull('number_document')
-                ->whereHas('marketplaceOrder', function ($q) {
-                    $q->whereNull('invoice_uploaded_at')->whereNull('document_id');
-                })->count(),
-        ]);
+        $chips = [
+            // Comerciales heredados (el panel de Saga los sigue usando).
+            'todispatch', 'shipped', 'canceled', 'no_invoice',
+            // Operativos unificados.
+            'por_confirmar', 'por_preparar', 'por_imprimir', 'por_embalar',
+            'por_despachar', 'en_transito', 'listos_recojo', 'entregados',
+            'anulados', 'sin_envio',
+        ];
+
+        $counts = ['all' => (clone $base)->count()];
+        foreach ($chips as $chip) {
+            $counts[$chip] = $this->applyOperationalChip(clone $base, $request, $chip)->count();
+        }
+
+        // Alias histórico: el Vue actual lee `delivered`.
+        $counts['delivered'] = $counts['entregados'];
+
+        return response()->json($counts);
     }
 
     public function stats(Request $request)
     {
         $today      = now()->toDateString();
         $monthStart = now()->startOfMonth()->toDateString();
-        $orders = $this->applyOrderDateRange(Order::query(), $request);
-        $this->applyOrderSource($orders, $request);
+        // Sin relaciones ni chip: son agregados, y el chip activo no debe
+        // recortar los KPIs de cabecera.
+        $orders = $this->buildOrdersQuery($request, false, false);
 
         $total        = (clone $orders)->count();
         $pending      = (clone $orders)->where('status_order_id', 1)->count();
@@ -212,7 +509,35 @@ class OrderController extends Controller
         return response()->json(compact('total', 'pending', 'verified', 'dispatched', 'revenueMonth', 'revenueToday', 'byChannel'));
     }
 
-    /** Aplica el periodo de pedidos para facturacion y evita fechas invalidas. */
+    /**
+     * Fechas por las que se puede filtrar y dónde vive cada una.
+     *
+     * `shipment:` marca las que están en el registro logístico: se filtran con
+     * un EXISTS sobre el envío vigente, no con una columna de `orders`.
+     * Deliberadamente NO se ofrece `updated_at`: no es una fecha de negocio y
+     * cualquier edición la mueve.
+     */
+    private const DATE_FIELDS = [
+        'order'      => 'created_at',
+        'paid'       => 'paid_at',
+        'confirmed'  => 'confirmed_at',
+        'prepared'   => 'prepared_at',
+        'dispatched' => 'dispatched_at',
+        'delivered'  => 'delivered_at',
+        'cancelled'  => 'cancelled_at',
+        'printed'    => 'shipment:printed_at',
+        'ready'      => 'shipment:ready_at',
+        'sent'       => 'shipment:sent_at',
+        'pickup'     => 'shipment:picked_up_at',
+    ];
+
+    /**
+     * Periodo del listado. Acepta un rango rápido (`range`) o fechas explícitas
+     * (`date_from`/`date_to`), y elige POR QUÉ fecha filtrar (`date_type`).
+     *
+     * El default sigue siendo la fecha del pedido, que es lo que hacía antes:
+     * las llamadas existentes del Vue no cambian de comportamiento.
+     */
     private function applyOrderDateRange($query, Request $request)
     {
         $dates = $request->validate([
@@ -220,14 +545,62 @@ class OrderController extends Controller
             'date_to'   => ['nullable', 'date_format:Y-m-d', 'after_or_equal:date_from'],
         ]);
 
-        if (!empty($dates['date_from'])) {
-            $query->whereDate('created_at', '>=', $dates['date_from']);
-        }
-        if (!empty($dates['date_to'])) {
-            $query->whereDate('created_at', '<=', $dates['date_to']);
+        $from = $dates['date_from'] ?? null;
+        $to   = $dates['date_to'] ?? null;
+
+        // Rango rápido: pisa a las fechas sueltas porque es lo que el usuario
+        // acaba de elegir en el selector.
+        [$rangeFrom, $rangeTo] = $this->resolveQuickRange((string) $request->input('range', ''));
+        if ($rangeFrom) {
+            [$from, $to] = [$rangeFrom, $rangeTo];
         }
 
+        if (!$from && !$to) {
+            return $query;
+        }
+
+        $type  = (string) $request->input('date_type', 'order');
+        $field = self::DATE_FIELDS[$type] ?? self::DATE_FIELDS['order'];
+
+        if (str_starts_with($field, 'shipment:')) {
+            $column = substr($field, strlen('shipment:'));
+            return $this->whereShipment($query, function ($s) use ($column, $from, $to) {
+                if ($from) $s->whereDate($column, '>=', $from);
+                if ($to)   $s->whereDate($column, '<=', $to);
+            });
+        }
+
+        if ($from) $query->whereDate($field, '>=', $from);
+        if ($to)   $query->whereDate($field, '<=', $to);
+
         return $query;
+    }
+
+    /**
+     * Traduce un rango rápido a [desde, hasta].
+     * Mismas claves que el panel de envíos, para que el operador no tenga que
+     * aprender dos vocabularios.
+     *
+     * @return array{0: ?string, 1: ?string}
+     */
+    private function resolveQuickRange(string $range): array
+    {
+        $hoy = now();
+
+        switch ($range) {
+            case 'hoy':    return [$hoy->toDateString(), $hoy->toDateString()];
+            case 'ayer':
+                $d = $hoy->copy()->subDay()->toDateString();
+                return [$d, $d];
+            case '7dias':  return [$hoy->copy()->subDays(6)->toDateString(), $hoy->toDateString()];
+            case '30dias': return [$hoy->copy()->subDays(29)->toDateString(), $hoy->toDateString()];
+            case 'mes':    return [$hoy->copy()->startOfMonth()->toDateString(), $hoy->toDateString()];
+            case 'mes_pasado':
+                $lm = $hoy->copy()->subMonthNoOverflow();
+                return [$lm->copy()->startOfMonth()->toDateString(), $lm->copy()->endOfMonth()->toDateString()];
+        }
+
+        return [null, null];
     }
 
     /** Delimita el tablero al canal que el operador está gestionando. */
@@ -643,12 +1016,92 @@ class OrderController extends Controller
             ],
             'payment_status' => $order->payment_status,
             'phases' => [
+                'paid_at'       => optional($order->paid_at)->format('Y-m-d H:i:s'),
                 'prepared_at'   => optional($order->prepared_at)->format('Y-m-d H:i:s'),
                 'dispatched_at' => optional($order->dispatched_at)->format('Y-m-d H:i:s'),
                 'delivered_at'  => optional($order->delivered_at)->format('Y-m-d H:i:s'),
             ],
             'logs' => $logs,
+            // Historial UNIFICADO: una sola línea de tiempo con lo comercial y
+            // lo logístico. Las tablas siguen separadas —fusionarlas sería una
+            // migración destructiva— y se unifica solo la lectura.
+            'timeline' => $this->buildOrderTimeline($order, $logs, $labels),
         ]);
+    }
+
+    /**
+     * Línea de tiempo del pedido: estados, envío, impresiones y bitácora.
+     *
+     * Ordenada por fecha real del hecho. Cada entrada lleva `source` para que la
+     * interfaz pueda distinguir de dónde salió sin volver a preguntar.
+     */
+    private function buildOrderTimeline(Order $order, $logs, array $labels): array
+    {
+        $events = [];
+
+        // 1. Nacimiento del pedido.
+        $events[] = [
+            'at'     => optional($order->created_at)->format('Y-m-d H:i:s'),
+            'source' => 'order',
+            'icon'   => 'cart',
+            'title'  => 'Pedido creado',
+            'detail' => $order->channel ? ('Canal: ' . $order->channel->name) : null,
+        ];
+
+        // 2. Cambios de estado comercial.
+        foreach ($logs as $log) {
+            $events[] = [
+                'at'     => $log['created_at'],
+                'source' => ($log['payload']['source'] ?? null) === 'shipment' ? 'sync' : 'order',
+                'icon'   => 'status',
+                'title'  => 'Pedido: ' . ($log['to_label'] ?? $log['to_status']),
+                'detail' => $log['actor']['name'] ?? (($log['payload']['source'] ?? null) === 'shipment'
+                    ? 'Automático desde el envío ' . ($log['payload']['shipment_code'] ?? '')
+                    : null),
+            ];
+        }
+
+        // 3. Bitácora logística + impresiones del envío.
+        $shipment = ShippingRequest::moduleInstalled() ? $order->shipment : null;
+        if ($shipment) {
+            $events[] = [
+                'at'     => optional($shipment->created_at)->format('Y-m-d H:i:s'),
+                'source' => 'shipment',
+                'icon'   => 'truck',
+                'title'  => 'Envío configurado · ' . $shipment->delivery_label,
+                'detail' => $shipment->shipment_code,
+            ];
+
+            foreach ($shipment->auditLogs as $entry) {
+                $events[] = [
+                    'at'     => optional($entry->created_at)->format('Y-m-d H:i:s'),
+                    'source' => 'shipment',
+                    'icon'   => $entry->action,
+                    'title'  => \App\Models\Tenant\ShippingAuditLog::ACTION_LABELS[$entry->action] ?? $entry->action,
+                    'detail' => $entry->notes ?: trim(($entry->old_value ?? '') . ' → ' . ($entry->new_value ?? ''), ' →'),
+                    'actor'  => $entry->user_name,
+                ];
+            }
+
+            foreach ($shipment->printEvents as $print) {
+                $events[] = [
+                    'at'     => optional($print->created_at)->format('Y-m-d H:i:s'),
+                    'source' => 'print',
+                    'icon'   => $print->is_reprint ? 'reprint' : 'print',
+                    'title'  => $print->is_reprint
+                        ? "Reimpresión #{$print->sequence}"
+                        : 'Rótulo impreso',
+                    'detail' => $print->reason,
+                    'actor'  => $print->user_name,
+                ];
+            }
+        }
+
+        // Los eventos sin fecha van al final: no se pueden ordenar y ponerlos
+        // al principio daría una cronología falsa.
+        usort($events, fn($a, $b) => ($a['at'] ?? '9999') <=> ($b['at'] ?? '9999'));
+
+        return $events;
     }
 
     /**

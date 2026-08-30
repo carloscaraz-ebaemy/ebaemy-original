@@ -56,6 +56,211 @@ class ShipmentController extends Controller
         'anulados'        => 'Anulados',
     ];
 
+    // ── Envío DENTRO del pedido (Gestión de Pedidos unificada) ─────────────
+    //
+    // El pedido es la entidad principal: estos dos endpoints son los que usa la
+    // pestaña "Envío" del detalle del pedido. Reutilizan la misma validación
+    // por modalidad que el panel clásico — un envío creado desde el pedido y
+    // uno creado desde /registro-envio quedan idénticos salvo por `order_id`.
+
+    /**
+     * Estado logístico del pedido: el envío si ya existe, o el prellenado con
+     * los datos que el pedido ya conoce si todavía no.
+     *
+     * GET /orders/{order}/envio
+     */
+    public function orderShipmentShow(\App\Models\Tenant\Order $order)
+    {
+        // El tenant puede no tener el módulo instalado (`shipping:install`):
+        // se responde con un mensaje accionable, no con un error de SQL.
+        if (!ShippingRequest::moduleInstalled()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Este negocio no tiene activado el módulo de Envíos.',
+            ], 422);
+        }
+
+        $linker   = app(\App\Services\Tenant\OrderShipmentLinker::class);
+        $shipment = $linker->current($order);
+        $setting  = ShippingSetting::current();
+
+        return response()->json([
+            'order' => [
+                'id'            => $order->id,
+                'code'          => $linker->orderCode($order),
+                'total'         => (float) $order->total,
+                'shipping_cost' => $order->shipping_cost !== null ? (float) $order->shipping_cost : null,
+                'status_order_id' => $order->status_order_id,
+                'channel'       => optional($order->channel)->name,
+            ],
+            // `exists` distingue "hay que crearlo" de "hay que editarlo": es lo
+            // que decide si el botón dice "Configurar envío" o "Editar envío".
+            'exists'   => (bool) $shipment,
+            'shipment' => $shipment ? $this->orderShipmentPayload($shipment, $setting) : null,
+            'prefill'  => $shipment ? null : $linker->prefill($order),
+            'catalogs' => [
+                'delivery_types' => ShippingRequest::DELIVERY_TYPES,
+                'statuses'       => ShippingRequest::STATUSES,
+                'agencies'       => ShippingRequest::AGENCIES,
+                'doc_types'      => ShippingRequest::DOC_TYPES,
+                'departments'    => Department::orderBy('description')->get(['id', 'description']),
+            ],
+        ]);
+    }
+
+    /**
+     * Crea o actualiza el envío del pedido.
+     *
+     * POST /orders/{order}/envio
+     *
+     * Idempotente por diseño: si el pedido ya tiene envío vigente se ACTUALIZA
+     * ese, nunca se crea un segundo. Es la misma regla que ya aplicaba
+     * `store()`, ahora servida desde el pedido.
+     */
+    public function orderShipmentStore(Request $request, \App\Models\Tenant\Order $order)
+    {
+        if (!ShippingRequest::moduleInstalled()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Este negocio no tiene activado el módulo de Envíos.',
+            ], 422);
+        }
+
+        $linker = app(\App\Services\Tenant\OrderShipmentLinker::class);
+        $data   = $this->validateShipment($request);
+
+        // El pedido de la URL manda: un `order_id` en el cuerpo no puede
+        // reasignar el envío a otro pedido.
+        unset($data['order_id']);
+
+        $existing = $linker->current($order);
+        $shipment = $linker->ensure($order, $data);
+
+        if ($existing) {
+            ShippingAuditLog::log(
+                ShippingAuditLog::ACTION_EDIT,
+                $shipment->id,
+                null,
+                null,
+                null,
+                'Datos de envío actualizados desde el pedido #' . $linker->orderCode($order)
+            );
+        }
+
+        return response()->json([
+            'success'  => true,
+            'created'  => !$existing,
+            'message'  => $existing
+                ? "Envío {$shipment->shipment_code} actualizado."
+                : "Envío {$shipment->shipment_code} configurado para el pedido #" . $linker->orderCode($order),
+            'shipment' => $this->orderShipmentPayload($shipment->fresh(), ShippingSetting::current()),
+        ]);
+    }
+
+    /**
+     * Serialización del envío para la pestaña del pedido.
+     * Incluye lo derivado (etiquetas, antigüedad, bloqueos) para que el Vue no
+     * tenga que reimplementar reglas que ya viven en PHP.
+     */
+    private function orderShipmentPayload(ShippingRequest $s, ShippingSetting $setting): array
+    {
+        $aging = $s->aging($setting->max_days, (bool) ($setting->aging_skip_holidays ?? true));
+
+        return array_merge($s->toArray(), [
+            'delivery_label'  => $s->delivery_label,
+            'delivery_short'  => $s->delivery_short,
+            'delivery_meta'   => $s->delivery_meta,
+            'status_label'    => ShippingRequest::STATUSES[$s->status] ?? $s->status,
+            'status_flow'     => ShippingRequest::statusOrderFor($s->delivery_type),
+            'batch_label'     => $s->batch_label,
+            'priority_label'  => $s->priority_label,
+            'is_pickup'       => $s->is_pickup,
+            'is_paid'         => $s->is_paid,
+            'paid_total'      => $s->paid_total,
+            'aging'           => $aging,
+            'aging_meta'      => $aging['level'] !== null ? ShippingRequest::AGING_META[$aging['level']] : null,
+            'locked_by_batch' => $s->isLockedByBatch(),
+            'guide_url'       => $s->shipping_guide_path ? url('registro-envio/' . $s->id . '/guia') : null,
+        ]);
+    }
+
+    /**
+     * Crea un lote de impresión a partir de una selección de PEDIDOS.
+     *
+     * POST /orders/print-batch
+     *
+     * El operador selecciona pedidos —que es lo que ve en su pantalla— y aquí
+     * se traducen a sus envíos vigentes antes de llamar al mismo servicio de
+     * lotes de siempre. Las tablas `shipping_print_batches` /
+     * `shipping_print_events` no cambian: cambia únicamente desde dónde se
+     * inicia la operación.
+     */
+    public function orderPrintBatch(Request $request)
+    {
+        if (!ShippingRequest::moduleInstalled()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Este negocio no tiene activado el módulo de Envíos.',
+            ], 422);
+        }
+
+        $request->validate([
+            'order_ids' => ['required'],
+            'format'    => ['nullable', 'in:sticker,a5,a4'],
+            'notes'     => ['nullable', 'string', 'max:255'],
+        ]);
+
+        $orderIds = is_array($request->input('order_ids'))
+            ? $request->input('order_ids')
+            : explode(',', (string) $request->input('order_ids'));
+
+        $orderIds = collect($orderIds)->map(fn($x) => (int) trim($x))->filter()->unique()->take(200);
+
+        $shipments = ShippingRequest::whereIn('order_id', $orderIds)
+            ->whereNull('cancelled_at')
+            ->pluck('id', 'order_id');
+
+        // Los pedidos sin envío no pueden entrar a un lote: no hay a qué
+        // ponerle rótulo. Se informan por separado para que el operador sepa
+        // qué le falta configurar, en vez de ver un lote más corto sin motivo.
+        $withoutShipment = $orderIds->diff($shipments->keys())->values();
+
+        if ($shipments->isEmpty()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Ninguno de los pedidos seleccionados tiene envío configurado.',
+                'orders_without_shipment' => $withoutShipment,
+            ], 422);
+        }
+
+        $result = (new ShippingBatchService())->createBatch(
+            $shipments->values()->all(),
+            $request->input('format', 'a4'),
+            $request->input('notes')
+        );
+
+        if (!$result['batch']) {
+            $detail = collect($result['skipped'])->map(fn($why, $code) => "{$code}: {$why}")->implode(' · ');
+
+            return response()->json([
+                'success' => false,
+                'message' => 'No se pudo crear el lote. ' . ($detail ?: 'Ningún envío es elegible.'),
+                'orders_without_shipment' => $withoutShipment,
+            ], 422);
+        }
+
+        return response()->json([
+            'success'   => true,
+            'batch_id'  => $result['batch']->id,
+            'batch_code'=> $result['batch']->code,
+            'added'     => $result['added'],
+            'skipped'   => $result['skipped'],
+            'orders_without_shipment' => $withoutShipment,
+            'print_url' => route('shipments.batches.print', $result['batch']),
+            'message'   => "Lote {$result['batch']->code} creado con {$result['added']} envío(s).",
+        ]);
+    }
+
     // ── Panel del encargado ────────────────────────────────────────────────
 
     /**
@@ -482,6 +687,10 @@ class ShipmentController extends Controller
             $s->update($update);
             if ($old !== $s->status) {
                 $this->notifyStatusChange($s);
+                // Los cambios masivos son el camino habitual del despacho:
+                // sin esto el pedido se quedaría atrás justo en el día de más
+                // volumen.
+                $this->syncOrder($s);
                 $done++;
             }
         }
@@ -577,6 +786,9 @@ class ShipmentController extends Controller
         // Avisar al cliente por WhatsApp que su envío salió (async, best-effort).
         $this->notifyClientShipped($shipment);
 
+        // Subir la guía ES el despacho: el pedido pasa a "Enviado".
+        $this->syncOrder($shipment);
+
         return back()->with('success', "Guía {$shipment->tracking_number} cargada. Envío marcado como Enviado.");
     }
 
@@ -643,9 +855,30 @@ class ShipmentController extends Controller
                 null,
                 $shipment->print_batch_id
             );
+
+            // Unificación: el pedido refleja el hito logístico (salió / llegó).
+            // Best-effort — el envío ya se guardó y no puede caerse por esto.
+            $this->syncOrder($shipment);
         }
 
         return back()->with('success', "Estado actualizado a «{$shipment->status_label}».");
+    }
+
+    /**
+     * Propaga al pedido el hito logístico del envío.
+     * Aislado en try/catch: es un efecto secundario, no parte de la operación.
+     */
+    private function syncOrder(ShippingRequest $shipment): void
+    {
+        try {
+            app(\App\Services\Tenant\OrderShipmentLinker::class)->syncOrderFromShipment($shipment);
+        } catch (\Throwable $e) {
+            Log::warning('No se pudo sincronizar el pedido desde el envío', [
+                'shipment_id' => $shipment->id,
+                'order_id'    => $shipment->order_id,
+                'error'       => $e->getMessage(),
+            ]);
+        }
     }
 
     /** La bitácora distingue despacho / entrega / recojo de un cambio de estado común. */
@@ -2800,7 +3033,14 @@ class ShipmentController extends Controller
         return $data;
     }
 
-    /** Asigna el código legible ENV-AAAAMMDD-000XXX tras crear la fila. */
+    /**
+     * Cierre del alta: código legible, prioridad y asiento en bitácora.
+     *
+     * La lógica vive en OrderShipmentLinker porque ahora hay tres puertas de
+     * entrada (panel, formulario público y pedido) y las tres deben dejar el
+     * registro idéntico. Aquí quedan los dos nombres históricos para no tocar
+     * los ~6 puntos de llamada del controlador.
+     */
     private function assignCode(ShippingRequest $shipment): void
     {
         if (!$shipment->shipment_code) {
@@ -2812,26 +3052,8 @@ class ShipmentController extends Controller
         }
     }
 
-    /**
-     * Sella la prioridad logística que corresponde a la modalidad y deja el
-     * alta registrada en la bitácora. Se llama al crear un envío, venga del
-     * panel o del formulario público.
-     */
     private function stampPriority(ShippingRequest $shipment): void
     {
-        $priority = ShippingRequest::priorityFor($shipment->delivery_type);
-
-        if ((int) $shipment->priority !== $priority) {
-            $shipment->forceFill(['priority' => $priority])->save();
-        }
-
-        ShippingAuditLog::log(
-            ShippingAuditLog::ACTION_STATUS,
-            $shipment->id,
-            'status',
-            null,
-            $shipment->status,
-            'Alta del envío · ' . $shipment->delivery_label . ' · ' . $shipment->priority_label
-        );
+        app(\App\Services\Tenant\OrderShipmentLinker::class)->finalizeCreation($shipment);
     }
 }

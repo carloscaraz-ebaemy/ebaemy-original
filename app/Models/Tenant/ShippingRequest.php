@@ -130,7 +130,64 @@ class ShippingRequest extends Model
         'raffle_joined_at'     => 'datetime',
     ];
 
+    /**
+     * ¿Este tenant tiene instalado el módulo de Envíos?
+     *
+     * No todos lo tienen: la tabla se crea con `shipping:install` y hay tenants
+     * que nunca lo corrieron. Gestión de Pedidos consulta el detalle logístico
+     * en cada listado, así que sin esta guarda un tenant sin el módulo recibiría
+     * un error de SQL —"table doesn't exist"— y se quedaría sin pantalla de
+     * pedidos, que es su operación principal.
+     *
+     * Memorizado por request: `hasTable` consulta el information_schema y aquí
+     * se llama una vez por fila del listado.
+     */
+    public static function moduleInstalled(): bool
+    {
+        // La memo se indexa por BASE DE DATOS, no por proceso: un worker de cola
+        // atiende varios tenants seguidos y una memo global le daría la
+        // respuesta del tenant anterior.
+        static $installed = [];
+
+        try {
+            $schema   = \Illuminate\Support\Facades\Schema::connection('tenant');
+            $database = $schema->getConnection()->getDatabaseName();
+
+            if (!array_key_exists($database, $installed)) {
+                $installed[$database] = $schema->hasTable('shipping_requests');
+            }
+
+            return $installed[$database];
+        } catch (\Throwable $e) {
+            return false;
+        }
+    }
+
     // ── Relaciones logísticas ──────────────────────────────────────────────
+
+    /**
+     * Pedido dueño de este registro logístico.
+     *
+     * Nullable a propósito: los envíos registrados antes de la unificación —y
+     * los que entran por el formulario público sin pedido— no tienen pedido.
+     * Todo envío NUEVO creado desde Gestión de Pedidos sí lo lleva.
+     */
+    public function order()
+    {
+        return $this->belongsTo(Order::class, 'order_id');
+    }
+
+    /** ¿Es un envío suelto, sin pedido asociado (histórico o registro directo)? */
+    public function getIsOrphanAttribute(): bool
+    {
+        return empty($this->order_id);
+    }
+
+    /** Envíos sin pedido asociado — cola de conciliación. */
+    public function scopeOrphan($q)
+    {
+        return $q->whereNull('order_id');
+    }
 
     public function printBatch()
     {
