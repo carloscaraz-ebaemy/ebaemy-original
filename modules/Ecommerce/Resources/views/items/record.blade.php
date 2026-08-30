@@ -1040,7 +1040,10 @@
                 </style>
                 @endif
 
-                {{-- Comparar --}}
+                {{-- Comparar. Respeta la misma opcion que la tarjeta del
+                     listado: si el tenant apaga el comparador tiene que
+                     desaparecer de todas partes, no solo de la grilla. --}}
+                @cardOption('compare')
                 <div class="mt-2">
                     <button type="button"
                             class="ec-btn-compare ec-btn-compare--detail"
@@ -1057,6 +1060,7 @@
                         Agregar a comparación
                     </button>
                 </div>
+                @endcardOption
 
                 {{-- Compartir --}}
                 <div class="product-single-share mt-3">
