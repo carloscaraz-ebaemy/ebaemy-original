@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="es" data-theme="light">
+<html lang="es" data-theme="light" data-ec-theme="{{ config('app.active_theme', 'default') }}">
 
 <head>
     <meta charset="UTF-8">
