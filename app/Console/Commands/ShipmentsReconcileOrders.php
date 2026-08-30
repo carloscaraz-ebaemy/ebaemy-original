@@ -53,7 +53,13 @@ class ShipmentsReconcileOrders extends Command
         $original  = $tenancy->tenant();
         $hostnames = Hostname::with('website')->get();
 
-        $totals = ['orphans' => 0, 'linked' => 0, 'ambiguous' => 0, 'duplicates' => 0];
+        $totals = ['orphans' => 0, 'linked' => 0, 'ambiguous' => 0, 'duplicates' => 0, 'dangling' => 0];
+
+        // Un mismo tenant puede tener VARIOS hostnames apuntando a la misma
+        // base (dominio + localhost, o un alias). Sin esto cada envio se
+        // contaba una vez por hostname y los totales salian inflados, que es
+        // justo el numero con el que se decide si ya se puede poner la FK.
+        $seenWebsites = [];
 
         foreach ($hostnames as $hn) {
             if (!$hn->website) {
@@ -62,6 +68,10 @@ class ShipmentsReconcileOrders extends Command
             if ($onlyFqdn && $hn->fqdn !== $onlyFqdn) {
                 continue;
             }
+            if (isset($seenWebsites[$hn->website->id])) {
+                continue;
+            }
+            $seenWebsites[$hn->website->id] = true;
 
             try {
                 $tenancy->tenant($hn->website);
@@ -89,10 +99,14 @@ class ShipmentsReconcileOrders extends Command
         $this->line("  Vinculados             : {$totals['linked']}");
         $this->line("  Ambiguos (revisar)     : {$totals['ambiguous']}");
         $this->line("  Pedidos con duplicados : {$totals['duplicates']}");
+        $this->line("  Pedido inexistente     : {$totals['dangling']}");
         $this->line('');
 
         if ($totals['orphans'] - $totals['linked'] > 0) {
             $this->comment('Quedan envíos sin pedido: NO se puede aplicar order_id NOT NULL todavía.');
+        }
+        if ($totals['dangling'] > 0) {
+            $this->comment('Hay envíos apuntando a pedidos inexistentes: NO se puede aplicar la FK todavía.');
         }
         if ($totals['duplicates'] > 0) {
             $this->comment('Hay pedidos con más de un envío vigente: NO se puede aplicar UNIQUE(order_id) todavía.');
@@ -102,11 +116,11 @@ class ShipmentsReconcileOrders extends Command
     }
 
     /**
-     * @return array{orphans:int, linked:int, ambiguous:int, duplicates:int}
+     * @return array{orphans:int, linked:int, ambiguous:int, duplicates:int, dangling:int}
      */
     private function reconcileTenant(bool $link, int $days): array
     {
-        $stats = ['orphans' => 0, 'linked' => 0, 'ambiguous' => 0, 'duplicates' => 0];
+        $stats = ['orphans' => 0, 'linked' => 0, 'ambiguous' => 0, 'duplicates' => 0, 'dangling' => 0];
 
         // ── 1. Pedidos con más de un envío vigente ──────────────────────
         // Bloquean el UNIQUE. Se listan para que alguien decida cuál vale;
@@ -131,12 +145,31 @@ class ShipmentsReconcileOrders extends Command
             $this->line("  <fg=red>x</> Pedido #{$dup->order_id} tiene {$dup->total} envíos vigentes: {$codes}");
         }
 
-        // ── 2. Envíos sin pedido ────────────────────────────────────────
+        // ── 2. Envíos que apuntan a un pedido inexistente ───────────────
+        // Tan bloqueantes para la FK como los huérfanos, y mucho más difíciles
+        // de ver: la columna trae un número, así que a simple vista el envío
+        // parece correctamente vinculado. Aparecen por pedidos borrados o por
+        // datos de prueba cargados a mano.
+        $dangling = ShippingRequest::query()
+            ->whereNotNull('order_id')
+            ->whereDoesntHave('order')
+            ->orderBy('id')
+            ->get();
+
+        $stats['dangling'] = $dangling->count();
+
+        foreach ($dangling as $shipment) {
+            $this->line("  <fg=red>x</> {$this->label($shipment)} apunta al pedido #{$shipment->order_id}, que no existe");
+        }
+
+        // ── 3. Envíos sin pedido ────────────────────────────────────────
         $orphans = ShippingRequest::orphan()->orderBy('id')->get();
         $stats['orphans'] = $orphans->count();
 
         if ($orphans->isEmpty()) {
-            $this->line('  <fg=green>=</> Sin envíos huérfanos.');
+            if ($dangling->isEmpty() && $duplicates->isEmpty()) {
+                $this->line('  <fg=green>=</> Sin envíos huérfanos.');
+            }
             return $stats;
         }
 

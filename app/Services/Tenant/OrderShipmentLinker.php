@@ -302,14 +302,33 @@ class OrderShipmentLinker
         return mb_substr(implode(' · ', $parts), 0, 255);
     }
 
-    /** Nombre del comprador, con la misma prelación que usa OrderCollection. */
-    private function customerName(Order $order, array $customer): string
+    /**
+     * Nombre del comprador, o null.
+     *
+     * Devuelve NULL —y no un "Cliente" de relleno— cuando el pedido no lo
+     * sabe: el checkout guarda `apellidos_y_nombres_o_razon_social` en null
+     * mas a menudo de lo que parece. Un placeholder prellenado es peor que un
+     * campo vacio: el operador no lo nota y la agencia recibe un rotulo a
+     * nombre de "Cliente", que no le sirve para entregar. Vacio obliga a
+     * escribirlo, que es lo correcto (el formulario ya lo exige).
+     *
+     * Se consulta tambien la ficha del cliente (`person_id`): es la fuente de
+     * verdad del nombre cuando el JSON del pedido viene incompleto.
+     */
+    private function customerName(Order $order, array $customer): ?string
     {
-        return (string) ($this->firstFilled([
+        $name = $this->firstFilled([
             data_get($this->marketplaceCustomer($order), 'name'),
             data_get($customer, 'apellidos_y_nombres_o_razon_social'),
             data_get($customer, 'name'),
-        ]) ?? 'Cliente');
+            data_get($customer, 'razon_social'),
+        ]);
+
+        if ($name === null && $order->person_id) {
+            $name = \App\Models\Tenant\Person::whereKey($order->person_id)->value('name');
+        }
+
+        return $name !== null ? (string) $name : null;
     }
 
     private function customerData(Order $order): array

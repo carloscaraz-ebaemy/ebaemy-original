@@ -1042,6 +1042,7 @@ class OrderController extends Controller
         // 1. Nacimiento del pedido.
         $events[] = [
             'at'     => optional($order->created_at)->format('Y-m-d H:i:s'),
+            'rank'   => 0,
             'source' => 'order',
             'icon'   => 'cart',
             'title'  => 'Pedido creado',
@@ -1050,9 +1051,15 @@ class OrderController extends Controller
 
         // 2. Cambios de estado comercial.
         foreach ($logs as $log) {
+            $esSync = ($log['payload']['source'] ?? null) === 'shipment';
             $events[] = [
                 'at'     => $log['created_at'],
-                'source' => ($log['payload']['source'] ?? null) === 'shipment' ? 'sync' : 'order',
+                // Un cambio disparado por logistica es CONSECUENCIA del evento
+                // del envio: en un empate de segundo tiene que ir despues, o la
+                // historia se lee al reves ("Despachado" antes de "Envio
+                // configurado").
+                'rank'   => $esSync ? 4 : 1,
+                'source' => $esSync ? 'sync' : 'order',
                 'icon'   => 'status',
                 'title'  => 'Pedido: ' . ($log['to_label'] ?? $log['to_status']),
                 'detail' => $log['actor']['name'] ?? (($log['payload']['source'] ?? null) === 'shipment'
@@ -1066,6 +1073,7 @@ class OrderController extends Controller
         if ($shipment) {
             $events[] = [
                 'at'     => optional($shipment->created_at)->format('Y-m-d H:i:s'),
+                'rank'   => 2,
                 'source' => 'shipment',
                 'icon'   => 'truck',
                 'title'  => 'Envío configurado · ' . $shipment->delivery_label,
@@ -1075,6 +1083,7 @@ class OrderController extends Controller
             foreach ($shipment->auditLogs as $entry) {
                 $events[] = [
                     'at'     => optional($entry->created_at)->format('Y-m-d H:i:s'),
+                    'rank'   => 3,
                     'source' => 'shipment',
                     'icon'   => $entry->action,
                     'title'  => \App\Models\Tenant\ShippingAuditLog::ACTION_LABELS[$entry->action] ?? $entry->action,
@@ -1086,6 +1095,7 @@ class OrderController extends Controller
             foreach ($shipment->printEvents as $print) {
                 $events[] = [
                     'at'     => optional($print->created_at)->format('Y-m-d H:i:s'),
+                    'rank'   => 3,
                     'source' => 'print',
                     'icon'   => $print->is_reprint ? 'reprint' : 'print',
                     'title'  => $print->is_reprint
@@ -1099,7 +1109,12 @@ class OrderController extends Controller
 
         // Los eventos sin fecha van al final: no se pueden ordenar y ponerlos
         // al principio daría una cronología falsa.
-        usort($events, fn($a, $b) => ($a['at'] ?? '9999') <=> ($b['at'] ?? '9999'));
+        //
+        // El desempate por `rank` importa de verdad: configurar un envío y su
+        // primer asiento caen en el MISMO segundo, y sin él la línea de tiempo
+        // los mezclaba en el orden en que se leyeron las tablas.
+        usort($events, fn($a, $b) =>
+            [($a['at'] ?? '9999'), $a['rank']] <=> [($b['at'] ?? '9999'), $b['rank']]);
 
         return $events;
     }
