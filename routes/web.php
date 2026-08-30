@@ -107,6 +107,17 @@ if ($hostname) {
         Route::post('envio/nuevo', [\App\Http\Controllers\Tenant\ShipmentController::class, 'publicStore'])
              ->name('shipments.public.store')
              ->middleware('throttle:20,1');
+        // ── Datos de entrega de un PEDIDO existente ─────────────────────
+        // Unificación: el enlace que se le manda al cliente completa la
+        // logística de SU pedido; nunca crea un pedido nuevo. El token es el
+        // `external_id` del pedido (UUID no enumerable).
+        Route::get('pedido/{external_id}/datos-envio', [\App\Http\Controllers\Tenant\ShipmentController::class, 'publicOrderForm'])
+             ->where('external_id', '[A-Za-z0-9\-]{36}')
+             ->name('shipments.public.order_form')->middleware('throttle:60,1');
+        Route::post('pedido/{external_id}/datos-envio', [\App\Http\Controllers\Tenant\ShipmentController::class, 'publicOrderStore'])
+             ->where('external_id', '[A-Za-z0-9\-]{36}')
+             ->name('shipments.public.order_store')->middleware('throttle:20,1');
+
         // Seguimiento público de envíos: el cliente consulta por su código ENV.
         Route::get('envio/seguimiento', [\App\Http\Controllers\Tenant\ShipmentController::class, 'publicTracking'])
              ->name('shipments.public.tracking')->middleware('throttle:60,1');

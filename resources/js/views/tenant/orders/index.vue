@@ -528,6 +528,15 @@
                                         <i class="el-icon-printer"></i>
                                         Rótulo de Saga
                                     </el-dropdown-item>
+
+                                    <!-- Enlace para que el CLIENTE complete sus
+                                         datos de entrega. Reemplaza al
+                                         formulario público suelto: llega al
+                                         pedido, no crea uno nuevo. -->
+                                    <el-dropdown-item command="shippingLink" divided>
+                                        <i class="el-icon-link"></i>
+                                        Copiar enlace de datos de envío
+                                    </el-dropdown-item>
                                 </el-dropdown-menu>
                             </el-dropdown>
                         </td>
@@ -1157,7 +1166,8 @@ export default {
                 markExternal: () => this.markOneExternal(row),
                 saleNote: () => this.clickOptions(row.sale_note_id),
                 document: () => this.clickDownload(row.document_external_id),
-                label: () => this.downloadLabel(row)
+                label: () => this.downloadLabel(row),
+                shippingLink: () => this.copyShippingLink(row)
             };
             if (acciones[cmd]) acciones[cmd]();
         },
@@ -1426,6 +1436,38 @@ export default {
             } catch (e) {
                 const body = e.response && e.response.data;
                 this.$message.error((body && body.message) || "No se pudo crear el lote.");
+            }
+        },
+
+        /**
+         * Copia el enlace público para que el cliente complete sus datos de
+         * entrega. El token es el `external_id` del pedido, así que el enlace
+         * cae SIEMPRE sobre ese pedido y no puede crear uno nuevo.
+         */
+        async copyShippingLink(row) {
+            const url =
+                window.location.origin + "/pedido/" + row.external_id + "/datos-envio";
+
+            try {
+                // `clipboard` no existe fuera de HTTPS/localhost: sin el
+                // fallback el operador se queda sin enlace y sin explicación.
+                if (navigator.clipboard && window.isSecureContext) {
+                    await navigator.clipboard.writeText(url);
+                } else {
+                    const helper = document.createElement("textarea");
+                    helper.value = url;
+                    helper.style.position = "fixed";
+                    helper.style.opacity = "0";
+                    document.body.appendChild(helper);
+                    helper.select();
+                    document.execCommand("copy");
+                    document.body.removeChild(helper);
+                }
+                this.$message.success("Enlace copiado. Envíaselo al cliente.");
+            } catch (e) {
+                this.$alert(url, "Enlace de datos de envío", {
+                    confirmButtonText: "Cerrar",
+                });
             }
         },
 

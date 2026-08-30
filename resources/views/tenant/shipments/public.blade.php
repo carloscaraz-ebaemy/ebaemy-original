@@ -191,6 +191,11 @@
         .fade-in { animation:fade .25s ease; }
         @keyframes fade { from{ opacity:0; transform:translateY(6px);} to{ opacity:1; transform:none;} }
         .alert-err { background:#fef2f2; color:#b91c1c; border:1px solid #fecaca; padding:11px 13px; border-radius:12px; font-size:13.5px; margin-bottom:14px; }
+        /* Banner del pedido: solo aparece cuando el formulario se abre desde
+           el enlace de una compra concreta. */
+        .order-ctx { background:#eef2ff; border:1px solid #c7d2fe; color:#3730a3; padding:11px 13px; border-radius:12px; margin-bottom:14px; }
+        .order-ctx b { display:block; font-size:15px; }
+        .order-ctx span { font-size:13px; opacity:.85; }
     </style>
 </head>
 <body>
@@ -294,7 +299,9 @@
                         $waHref = !empty($ordersWa) ? "https://wa.me/{$ordersWa}?text={$waText}" : "https://wa.me/?text={$waText}";
                     @endphp
                     <a href="{{ $waHref }}" target="_blank"><button type="button" class="btn btn-wa">💬 Enviar mi pedido por WhatsApp</button></a>
-                    <a href="{{ route('shipments.public.form') }}"><button type="button" class="btn btn-ghost">Registrar otro envío</button></a>
+                    @if(empty($order))
+                        <a href="{{ route('shipments.public.form') }}"><button type="button" class="btn btn-ghost">Registrar otro envío</button></a>
+                    @endif
                 </div>
             </div>
         @else
@@ -302,7 +309,17 @@
                 <div class="alert-err"><ul style="margin:0;padding-left:18px;">@foreach($errors->all() as $e)<li>{{ $e }}</li>@endforeach</ul></div>
             @endif
 
-            <form method="POST" action="{{ route('shipments.public.store') }}" id="shipForm">
+            {{-- Cuando el formulario se abre desde el enlace de un pedido, el
+                 cliente tiene que ver DE QUE compra estamos hablando: sin esto
+                 el enlace parece un registro suelto mas y no lo asocia. --}}
+            @if(!empty($order))
+                <div class="order-ctx">
+                    <b>Pedido #{{ str_pad($order->id, 6, '0', STR_PAD_LEFT) }}</b>
+                    <span>Completa aqui los datos de entrega de tu compra.</span>
+                </div>
+            @endif
+
+            <form method="POST" action="{{ $formAction }}" id="shipForm">
                 @csrf
                 <input type="hidden" name="delivery_type" id="delivery_type" value="{{ old('delivery_type') }}">
 
@@ -1273,6 +1290,44 @@
     })();
 </script>
 <script async src="https://maps.googleapis.com/maps/api/js?key={{ $mapsKey }}&libraries=places&callback=initShipMap&language=es&region=PE"></script>
+@endif
+
+{{-- Prellenado desde el pedido. json_encode y NO @json: la directiva se rompe
+     con las comas anidadas de los valores. --}}
+@if(!empty($orderPrefill))
+    @php $shipPrefillJson = json_encode($orderPrefill, JSON_UNESCAPED_UNICODE); @endphp
+    <script>
+        (function () {
+            var prefill = {!! $shipPrefillJson !!} || {};
+
+            // Solo campos de texto simples. La modalidad y el ubigeo se dejan
+            // fuera a proposito: la modalidad gobierna los pasos del formulario
+            // y los selectores de ubigeo se llenan por JS en cascada, asi que
+            // asignarlos aqui no pintaria nada y solo daria falsa sensacion de
+            // "ya esta completo".
+            var omitir = { delivery_type: 1, department_id: 1, province_id: 1, district_id: 1 };
+
+            document.addEventListener('DOMContentLoaded', function () {
+                Object.keys(prefill).forEach(function (name) {
+                    if (omitir[name]) return;
+
+                    var value = prefill[name];
+                    if (value === null || value === '') return;
+
+                    var field = document.querySelector(
+                        'input[name="' + name + '"], textarea[name="' + name + '"]'
+                    );
+                    if (!field) return;
+
+                    // Nunca pisar lo que el cliente ya escribio, ni el old()
+                    // que vuelve tras un error de validacion.
+                    if (field.value) return;
+
+                    field.value = value;
+                });
+            });
+        })();
+    </script>
 @endif
 </body>
 </html>

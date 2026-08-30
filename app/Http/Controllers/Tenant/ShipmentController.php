@@ -2522,7 +2522,110 @@ class ShipmentController extends Controller
         ]);
     }
 
-    public function publicForm()
+    /**
+     * Formulario público de datos de entrega de un PEDIDO existente.
+     *
+     * GET /pedido/{external_id}/datos-envio
+     *
+     * Es el reemplazo del alta suelta: el cliente ya compró, y aquí solo
+     * completa a dónde le llega. Nunca se crea un `Order` desde el público.
+     *
+     * El token es el `external_id` del pedido: un UUID que ya existe, no se
+     * expone en ninguna pantalla pública y no es enumerable. No hace falta una
+     * columna nueva ni un token paralelo que caducar y mantener.
+     */
+    public function publicOrderForm(string $externalId)
+    {
+        $order = $this->resolvePublicOrder($externalId);
+
+        $linker   = app(\App\Services\Tenant\OrderShipmentLinker::class);
+        $shipment = $linker->current($order);
+
+        // Si ya completó sus datos, no se le pide todo otra vez: se le muestra
+        // el seguimiento de lo que ya registró.
+        if ($shipment && $shipment->status !== ShippingRequest::STATUS_RECIBIDO) {
+            return redirect()->route('shipments.public.tracking', ['code' => $shipment->shipment_code]);
+        }
+
+        return $this->publicForm([
+            'order'    => $order,
+            'shipment' => $shipment,
+            'prefill'  => $shipment ? $shipment->only($this->publicPrefillFields()) : $linker->prefill($order),
+        ]);
+    }
+
+    /**
+     * Guarda los datos de entrega que el cliente completó para SU pedido.
+     *
+     * POST /pedido/{external_id}/datos-envio
+     *
+     * Nunca crea un pedido y nunca crea un segundo envío: delega en
+     * OrderShipmentLinker::ensure(), que resuelve ambas cosas.
+     */
+    public function publicOrderStore(Request $request, string $externalId): RedirectResponse
+    {
+        $order  = $this->resolvePublicOrder($externalId);
+        $linker = app(\App\Services\Tenant\OrderShipmentLinker::class);
+
+        $data = $this->validateShipment($request, true);
+        unset($data['order_id']);   // el pedido lo fija la URL, no el cuerpo
+
+        $data['accepted_terms'] = true;
+
+        $existed  = (bool) $linker->current($order);
+        $shipment = $linker->ensure($order, $data);
+
+        // Los avisos solo en el ALTA: reenviarlos cada vez que el cliente
+        // corrige un dígito del teléfono seria spam para él y para la tienda.
+        if (!$existed) {
+            $this->notifyClientRegistered($shipment);
+            $this->notifyStoreNewOrder($shipment);
+        }
+
+        $joined = $this->joinRaffleFromShipment($request, $shipment);
+
+        return redirect()->route('shipments.public.order_form', ['external_id' => $externalId])
+            ->with('shipment_code', $shipment->shipment_code)
+            ->with('shipment_type', $shipment->delivery_type)
+            ->with('joined_raffle', $joined)
+            ->with('success', 'Registramos los datos de entrega de tu pedido.');
+    }
+
+    /**
+     * Pedido del enlace público, o 404.
+     *
+     * Un pedido cancelado no admite datos de entrega: dejar que el cliente los
+     * complete le haría creer que su compra sigue viva.
+     */
+    private function resolvePublicOrder(string $externalId): \App\Models\Tenant\Order
+    {
+        abort_unless(ShippingRequest::moduleInstalled(), 404);
+
+        $order = \App\Models\Tenant\Order::where('external_id', $externalId)->first();
+
+        abort_if(!$order || (int) $order->status_order_id === 5, 404);
+
+        return $order;
+    }
+
+    /** Campos del formulario público que se pueden prellenar. */
+    private function publicPrefillFields(): array
+    {
+        return [
+            'delivery_type', 'full_name', 'dni', 'document_type', 'phone',
+            'shipping_destination', 'reference', 'destination_city',
+            'department_id', 'province_id', 'district_id', 'shipping_agency',
+            'package_content', 'package_count', 'weight', 'notes',
+            'pickup_person_name', 'pickup_person_dni', 'pickup_person_phone',
+        ];
+    }
+
+    /**
+     * @param array $orderContext Contexto del pedido cuando el formulario se
+     *                            abre desde su enlace. Vacío = alta suelta
+     *                            clásica, que sigue funcionando igual.
+     */
+    public function publicForm(array $orderContext = [])
     {
         $company = Company::first();
 
@@ -2560,6 +2663,13 @@ class ShipmentController extends Controller
             // mismo formulario sin recibir ningún enlace aparte.
             'raffle'       => Raffle::publicActive(),
             'maxDays'      => $store->max_days,
+            // Contexto de pedido. Por defecto null / ruta clásica: el
+            // formulario suelto no cambia en nada.
+            'order'        => $orderContext['order'] ?? null,
+            'orderPrefill' => $orderContext['prefill'] ?? [],
+            'formAction'   => isset($orderContext['order'])
+                ? route('shipments.public.order_store', ['external_id' => $orderContext['order']->external_id])
+                : route('shipments.public.store'),
         ]);
     }
 
