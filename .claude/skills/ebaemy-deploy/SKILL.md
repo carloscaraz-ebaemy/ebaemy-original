@@ -133,7 +133,7 @@ sudo chmod 755 /home/ebaemy /home/ebaemy/ebaemy
 | `module 'full_suscription' not found` en logs | Workaround histórico: saltar `view:cache` | Resuelto 2026-04-28; ya no es necesario saltar |
 | `view:cache` muere con `Permission denied` | `chown www-data:www-data storage` deja sin escritura al usuario CLI | `chown ebaemy:www-data` + `0775` + setgid (ver paso 5) |
 | Storefront 500 **sin nada en `laravel.log`** | La rama `HttpException` del Handler renderiza `ecommerce::errors.500`, y Laravel nunca reporta `HttpException` (`internalDontReport`) | Para ver la traza real, comentar temporalmente esa rama en `app/Exceptions/Handler.php` y dejar que caiga a `parent::render()` |
-| Fatales de PHP que no aparecen en ningún log | FPM no tiene `error_log` en `/etc/php/8.3/fpm/php.ini` y `catch_workers_output` está apagado | Setear `error_log` temporalmente, reproducir, y **restaurar el php.ini** (no dejarlo: no hay logrotate para ese archivo) |
+| Fatales de PHP que no aparecen en ningún log | **Resuelto 2026-08-30**: el pool no tenía `error_log`. Ahora va a `/var/log/php-app/errors.log` (`php_admin_value[error_log]` en `pool.d/www.conf`), con logrotate propio en `/etc/logrotate.d/php-app-errors`. `display_errors` sigue en Off. | Si un fatal no aparece, revisar que el archivo siga siendo de `www-data`: los workers no pueden escribir un log de `root` (por eso no servía `/var/log/php8.3-fpm.log`) |
 | Contar 500s del `access.log` para atribuir culpa a un deploy | El formato de nginx **no incluye el vhost**: no se puede saber qué tenant falló | Comparar por tenant con `curl` antes y después, o revisar `laravel.log` que sí tiene contexto |
 
 ## Reglas duras (Master Skill)
