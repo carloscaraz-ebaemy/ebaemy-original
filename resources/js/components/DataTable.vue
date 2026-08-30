@@ -543,7 +543,17 @@ export default {
 
                     this.$emit('records-changed', this.records);
                 })
-                .catch(error => {})
+                .catch(error => {
+                    // Un catch vacío deja la tabla en blanco sin distinguir
+                    // "no hay resultados" de "la consulta se cayó". Es lo que
+                    // hizo invisible un 500 en Pedidos durante todo un deploy.
+                    this.records = [];
+                    console.error(
+                        `[data-table] fallo al cargar /${this.resource}/records`,
+                        error && error.response ? error.response.status : error,
+                        error && error.response ? error.response.data : null
+                    );
+                })
                 .then(() => {
                     this.loading_submit = false;
                 });
