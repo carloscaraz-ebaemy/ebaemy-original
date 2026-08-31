@@ -612,6 +612,7 @@
 
         <!-- Pagos del pedido: mismo panel que usa Nota de Venta. -->
         <record-payments
+            v-if="showPaymentsDialog"
             :showDialog.sync="showPaymentsDialog"
             :recordId="paymentsOrderId"
             resource="order_payments"

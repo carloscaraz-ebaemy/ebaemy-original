@@ -221,7 +221,10 @@ export default {
   },
   data() {
     return {
-      headers: headers_token,
+      // headers_token es un global que bootstrap.js define SOLO si existe el
+      // meta CSRF. Referenciarlo suelto tira ReferenceError dentro de data() y
+      // eso rompe el render del componente padre entero, no solo este.
+      headers: (typeof headers_token !== 'undefined') ? headers_token : {},
       loading: true,
       saving: false,
       savingAmount: false,

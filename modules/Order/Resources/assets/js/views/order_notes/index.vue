@@ -382,6 +382,7 @@
         </div>
     
         <record-payments
+            v-if="showPaymentsDialog"
             :showDialog.sync="showPaymentsDialog"
             :recordId="paymentsRecordId"
             resource="order_note_payments"
