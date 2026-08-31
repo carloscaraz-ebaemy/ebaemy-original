@@ -309,6 +309,31 @@ class OrderShipmentFlowTest extends TestCase
         $this->assertStringNotContainsString('order by', $sql);
     }
 
+    /**
+     * REGRESIÓN: las fechas comerciales llegaron en una migración posterior al
+     * código. Entre el deploy y `tenancy:migrate` la columna no existe, y
+     * filtrar por ella devolvía un 1054 que el operador veía como la pantalla
+     * en blanco. Sin la columna, ningún pedido tiene esa fecha: la respuesta
+     * honesta es "ninguno", no un error.
+     *
+     * Aquí no hay conexión, así que `orderHasColumn()` responde false para
+     * todas — que es justo el escenario del tenant sin migrar.
+     *
+     * @test
+     */
+    public function filtrar_por_una_fecha_que_no_existe_no_revienta()
+    {
+        // Solo las tres de la migración nueva: las demás columnas existen desde
+        // antes y guardarlas arriesgaría vaciar la vista por defecto.
+        foreach (['paid', 'confirmed', 'cancelled'] as $tipo) {
+            $this->assertStringContainsString(
+                '1 = 0',
+                $this->sqlFor(['date_type' => $tipo, 'range' => 'mes']),
+                "date_type={$tipo} sin la columna debe devolver vacío, no un error"
+            );
+        }
+    }
+
     /** @test */
     public function el_pedido_expone_las_fechas_de_negocio()
     {

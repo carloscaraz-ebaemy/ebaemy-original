@@ -693,10 +693,61 @@ class OrderController extends Controller
             });
         }
 
+        // Las fechas comerciales llegaron en una migración posterior al código.
+        // Entre el deploy y `tenancy:migrate` —o si la migración falla en un
+        // tenant— la columna no existe, y filtrar por ella devolvía un 1054 que
+        // el usuario veía como la pantalla en blanco. Sin la columna ningún
+        // pedido tiene esa fecha, así que la respuesta honesta es "ninguno",
+        // igual que con el resto de filtros que no se pueden resolver.
+        if (in_array($field, self::DATE_FIELDS_NUEVAS, true) && !$this->orderHasColumn($field)) {
+            \Illuminate\Support\Facades\Log::warning(
+                "Filtro por «{$type}» pedido en un tenant sin la columna orders.{$field}; "
+                . 'falta correr tenancy:migrate.'
+            );
+
+            return $query->whereRaw('1 = 0');
+        }
+
         if ($from) $query->whereDate($field, '>=', $from);
         if ($to)   $query->whereDate($field, '<=', $to);
 
         return $query;
+    }
+
+    /**
+     * Columnas de fecha que llegaron DESPUÉS del código que las usa
+     * (migración `add_business_dates_to_orders_table`) y que, por tanto,
+     * pueden no existir todavía en un tenant.
+     *
+     * Solo estas se comprueban. Guardar también `created_at` sería peor que el
+     * problema: si la lectura del esquema falla por cualquier motivo, la vista
+     * por defecto —que filtra por fecha de pedido— se quedaría en cero filas
+     * sin explicación.
+     */
+    private const DATE_FIELDS_NUEVAS = ['paid_at', 'confirmed_at', 'cancelled_at'];
+
+    /**
+     * ¿La tabla `orders` de ESTE tenant tiene la columna?
+     *
+     * Memorizado por base de datos: un worker de cola atiende varios tenants
+     * seguidos y una memo global le daría la respuesta del anterior.
+     */
+    private function orderHasColumn(string $column): bool
+    {
+        static $cache = [];
+
+        try {
+            $schema = \Illuminate\Support\Facades\Schema::connection('tenant');
+            $clave  = $schema->getConnection()->getDatabaseName() . '|' . $column;
+
+            if (!array_key_exists($clave, $cache)) {
+                $cache[$clave] = $schema->hasColumn('orders', $column);
+            }
+
+            return $cache[$clave];
+        } catch (\Throwable $e) {
+            return false;
+        }
     }
 
     /**
