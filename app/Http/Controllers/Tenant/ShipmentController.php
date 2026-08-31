@@ -1384,6 +1384,9 @@ class ShipmentController extends Controller
             'note'         => 'nullable|string|max:255',
             // Nuevos, opcionales: los pagos ya cargados no los tienen y el
             // formulario viejo sigue funcionando sin mandarlos.
+            // La fecha la elige el operador: un pago que entro ayer y se carga
+            // hoy tiene que quedar con la fecha real, no con la de la carga.
+            'date_of_payment'        => 'nullable|date',
             'payment_method_type_id' => 'nullable|string|max:2',
             'payment_destination_id' => 'nullable|string|max:50',
             'filename'               => 'nullable|string|max:191',
@@ -1431,7 +1434,9 @@ class ShipmentController extends Controller
             'payment_method_type_id' => $data['payment_method_type_id'] ?? null,
             'payment_destination_id' => $data['payment_destination_id'] ?? null,
             'note'            => $data['note'] ?? null,
-            'paid_at'         => now(),
+            'paid_at'         => !empty($data['date_of_payment'])
+                ? \Illuminate\Support\Carbon::parse($data['date_of_payment'])
+                : now(),
             'created_by'      => $user ? $user->id : null,
             'created_by_name' => $user ? $user->name : null,
         ]);

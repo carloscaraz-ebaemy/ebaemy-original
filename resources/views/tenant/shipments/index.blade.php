@@ -1356,6 +1356,7 @@
                 </tbody>
             </table>
         </div>
+        </form>
         @include('tenant.shipments.partials.pagination')
     </div>
 
@@ -1981,13 +1982,35 @@
         <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
       </div>
       <div class="modal-body">
-        <p class="text-muted" style="font-size:.85rem">
-          Cliente: <strong id="pcClient"></strong>. Un pedido puede cobrarse en
-          <b>varias operaciones</b>: agrega un pago por cada una, con su monto y su
-          código. Ningún código puede repetirse en la tienda.
-        </p>
+        <p class="pc-client">Cliente: <strong id="pcClient"></strong></p>
 
         <style>
+          /* El modal de Nota de Venta se lee bien porque respira: cabeceras en
+             versalitas y gris, filas altas y el pie separado del cuerpo. */
+          #modalPagoCodigo .modal-body { padding: 1.25rem 1.5rem; }
+          .pc-client { font-size: .85rem; color: #6b7280; margin-bottom: .85rem; }
+
+          #pcTable { margin-bottom: 0; }
+          #pcTable > thead > tr > th {
+            font-size: .7rem; font-weight: 600; letter-spacing: .04em;
+            text-transform: uppercase; color: #9ca3af;
+            background: #f9fafb; border-bottom: 1px solid #e5e7eb;
+            padding: .6rem .75rem; white-space: nowrap;
+          }
+          #pcTable > tbody > tr > td { padding: .7rem .75rem; border-color: #f3f4f6; }
+          #pcTable > tfoot > tr > td {
+            padding: .55rem .75rem; border: 0; font-weight: 600; color: #374151;
+          }
+          #pcTable > tfoot > tr:first-child > td { border-top: 1px solid #e5e7eb; }
+          #pcTable code { font-size: .82rem; }
+
+          /* Fila de alta: los controles no deben verse mas altos que las filas
+             ya cargadas, o la tabla salta al abrirla. */
+          #pcNewRow .form-control, #pcNewRow .form-select { font-size: .82rem; padding: .3rem .5rem; }
+          #pcNewRow td { background: #fbfdff; vertical-align: middle; }
+
+          .pc-new-wrap { text-align: center; padding-top: .9rem; }
+
           .pc-amount {
             display: flex; flex-wrap: wrap; gap: 10px 16px;
             align-items: center; justify-content: space-between;
@@ -2023,122 +2046,122 @@
           </div>
         </div>
 
-        {{-- Pagos ya registrados. Lo pinta el JS desde el endpoint de pagos. --}}
+        {{-- Pagos ya registrados. Lo pinta el JS desde el endpoint de pagos.
+             El form envuelve la tabla porque la fila de alta vive dentro de
+             ella, igual que en Nota de Venta. data-no-ajax: lo manda su propio
+             JS despues de verificar el codigo. --}}
+        <form method="POST" action="#" id="formPagoCodigo" data-no-ajax>
+          @csrf
+          <input type="hidden" name="payment_code_force" id="pcForce" value="0">
         <div class="table-responsive">
-          <table class="table table-sm align-middle mb-1">
-            <thead class="table-light">
+          <table class="table table-sm align-middle mb-1" id="pcTable">
+            <thead>
               <tr>
-                <th>Fecha</th><th>Código</th><th class="text-end">Monto</th>
-                <th>Medio</th><th>Destino</th><th class="text-center">Archivo</th>
+                <th>#</th>
+                <th>Fecha de pago</th>
+                <th>Método de pago</th>
+                <th>Destino</th>
+                <th>Referencia</th>
+                <th class="text-center">Archivo</th>
+                <th class="text-end">Monto</th>
                 <th style="width:36px;"></th>
               </tr>
             </thead>
             <tbody id="pcList">
-              <tr><td colspan="7" class="text-muted text-center py-3">Sin pagos registrados.</td></tr>
+              <tr><td colspan="8" class="text-muted text-center py-3">Sin pagos registrados.</td></tr>
+            <tr id="pcNewRow" style="display:none">
+              <td class="text-muted small">—</td>
+              <td>
+                <input type="date" id="pcDate" name="date_of_payment" class="form-control form-control-sm">
+              </td>
+              <td>
+                <select id="pcMethodType" name="payment_method_type_id" class="form-select form-select-sm">
+                  <option value="">—</option>
+                  @foreach(($paymentMethodTypes ?? []) as $pm)
+                    <option value="{{ $pm->id }}">{{ $pm->description }}</option>
+                  @endforeach
+                </select>
+                {{-- Medio heredado: la lista corta que ya se usaba antes del
+                     catalogo. Se conserva para no perder ese dato. --}}
+                <select id="pcMethod" name="method" class="form-select form-select-sm mt-1">
+                  <option value="">Medio —</option>
+                  @foreach(\App\Models\Tenant\ShippingPayment::METHODS as $mv => $ml)
+                    <option value="{{ $mv }}">{{ $ml }}</option>
+                  @endforeach
+                </select>
+              </td>
+              <td>
+                <select id="pcDestination" name="payment_destination_id" class="form-select form-select-sm">
+                  <option value="">—</option>
+                  @foreach(($paymentDestinations ?? []) as $pd)
+                    <option value="{{ $pd['id'] }}">{{ $pd['description'] }}</option>
+                  @endforeach
+                </select>
+              </td>
+              <td>
+                {{-- El codigo de operacion es obligatorio y unico en toda la
+                     tienda: el JS lo verifica mientras se escribe. --}}
+                <input id="pcInput" name="payment_code" class="form-control form-control-sm"
+                       maxlength="60" autocomplete="off" placeholder="Código de pago *">
+                <input id="pcNote" name="note" class="form-control form-control-sm mt-1"
+                       maxlength="255" placeholder="Nota">
+              </td>
+              <td class="text-center">
+                <input type="file" id="pcFile" class="form-control form-control-sm"
+                       accept="image/jpeg,image/jpg,image/png,image/gif,application/pdf">
+                <input type="hidden" name="filename"  id="pcFilename">
+                <input type="hidden" name="temp_path" id="pcTempPath">
+                <small class="text-muted d-block" id="pcFileHint" style="font-size:.7rem"></small>
+              </td>
+              <td>
+                <input id="pcAmount" name="amount" type="number" step="any" min="0.01"
+                       inputmode="decimal" class="form-control form-control-sm text-end"
+                       placeholder="0.00">
+              </td>
+              <td class="text-end" style="white-space:nowrap">
+                <button type="submit" class="btn btn-sm btn-info px-2" id="pcGo" title="Guardar el pago">
+                  <i class="fa fa-check"></i>
+                </button>
+                <button type="button" class="btn btn-sm btn-danger px-2" id="pcCancelRow" title="Cancelar">
+                  <i class="fa fa-times"></i>
+                </button>
+              </td>
+            </tr>
             </tbody>
             <tfoot>
               <tr>
-                <th colspan="2" class="text-end">Monto a cobrar</th>
-                <th class="text-end" id="pcDue">—</th>
-                <th colspan="3"></th>
+                <td colspan="6" class="text-end">TOTAL PAGADO</td>
+                <td class="text-end" id="pcTotal">S/ 0.00</td>
+                <td></td>
               </tr>
               <tr>
-                <th colspan="2" class="text-end">Cobrado</th>
-                <th class="text-end text-success" id="pcTotal">S/ 0.00</th>
-                <th colspan="3"></th>
+                <td colspan="6" class="text-end">TOTAL A PAGAR</td>
+                <td class="text-end" id="pcDue">—</td>
+                <td></td>
               </tr>
               <tr>
-                <th colspan="2" class="text-end">Resta pagar</th>
-                <th class="text-end" id="pcPending">—</th>
-                <th colspan="3"></th>
+                <td colspan="6" class="text-end">PENDIENTE DE PAGO</td>
+                <td class="text-end" id="pcPending">—</td>
+                <td></td>
               </tr>
             </tfoot>
           </table>
         </div>
 
-        <hr class="my-3">
+        <div id="pcAlert" class="mt-2" style="display:none;background:#fef2f2;border:1px solid #fecaca;color:#991b1b;border-radius:10px;padding:10px 12px;font-size:.83rem;"></div>
+        <div id="pcOk" class="mt-2" style="display:none;background:#f0fdf4;border:1px solid #bbf7d0;color:#166534;border-radius:10px;padding:8px 12px;font-size:.83rem;">
+          Código disponible.
+        </div>
 
-        {{-- data-no-ajax: este formulario lo envía su propio JS después de
-             verificar el código; el interceptor genérico lo mandaría antes. --}}
-        <form method="POST" action="#" id="formPagoCodigo" data-no-ajax>
-          @csrf
-          <input type="hidden" name="payment_code_force" id="pcForce" value="0">
-          <div class="row g-2">
-            <div class="col-md-3">
-              <label class="form-label" for="pcAmount">Monto (S/) *</label>
-              {{-- step="any": con step="0.10" y min="0.01" los unicos valores
-                   validos para el navegador eran 0.01, 0.11, 0.21... asi que
-                   escribir 20 daba "Introduzca un valor valido" y no dejaba
-                   guardar. El monto lo valida el servidor (numeric, > 0). --}}
-              <input id="pcAmount" name="amount" type="number" step="any" min="0.01"
-                     inputmode="decimal" class="form-control" placeholder="0.00">
-            </div>
-            <div class="col-md-4">
-              <label class="form-label" for="pcInput">Código de pago *</label>
-              <input id="pcInput" name="payment_code" class="form-control" maxlength="60"
-                     autocomplete="off" placeholder="Ej. 01234567">
-            </div>
-            <div class="col-md-2">
-              <label class="form-label" for="pcMethod">Medio</label>
-              <select id="pcMethod" name="method" class="form-select">
-                <option value="">—</option>
-                @foreach(\App\Models\Tenant\ShippingPayment::METHODS as $mv => $ml)
-                  <option value="{{ $mv }}">{{ $ml }}</option>
-                @endforeach
-              </select>
-            </div>
-            <div class="col-md-3">
-              <label class="form-label" for="pcNote">Nota</label>
-              <input id="pcNote" name="note" class="form-control" maxlength="255"
-                     placeholder="Opcional">
-            </div>
-          </div>
+        <div class="pc-new-wrap">
+          <button type="button" class="sh-act sh-act--primary" id="pcNew">
+            <i class="fas fa-plus"></i> Nuevo
+          </button>
+        </div>
 
-          {{-- Método del catálogo, destino y voucher: lo mismo que registra una
-               Nota de Venta, para que el cobro del envío se pueda cuadrar
-               contra caja. Los tres son opcionales: los pagos que ya existen no
-               los tienen y el flujo de siempre sigue funcionando sin ellos. --}}
-          <div class="row g-2 mt-1">
-            <div class="col-md-4">
-              <label class="form-label" for="pcMethodType">Método de pago</label>
-              <select id="pcMethodType" name="payment_method_type_id" class="form-select">
-                <option value="">—</option>
-                @foreach(($paymentMethodTypes ?? []) as $pm)
-                  <option value="{{ $pm->id }}">{{ $pm->description }}</option>
-                @endforeach
-              </select>
-            </div>
-            <div class="col-md-4">
-              <label class="form-label" for="pcDestination">Destino</label>
-              <select id="pcDestination" name="payment_destination_id" class="form-select">
-                <option value="">—</option>
-                @foreach(($paymentDestinations ?? []) as $pd)
-                  <option value="{{ $pd['id'] }}">{{ $pd['description'] }}</option>
-                @endforeach
-              </select>
-            </div>
-            <div class="col-md-4">
-              <label class="form-label" for="pcFile">Archivo (voucher)</label>
-              <input type="file" id="pcFile" class="form-control"
-                     accept="image/jpeg,image/jpg,image/png,image/gif,application/pdf">
-              <input type="hidden" name="filename"  id="pcFilename">
-              <input type="hidden" name="temp_path" id="pcTempPath">
-              <small class="text-muted" id="pcFileHint" style="font-size:.75rem"></small>
-            </div>
-          </div>
-
-          <div id="pcAlert" class="mt-2" style="display:none;background:#fef2f2;border:1px solid #fecaca;color:#991b1b;border-radius:10px;padding:10px 12px;font-size:.83rem;"></div>
-          <div id="pcOk" class="mt-2" style="display:none;background:#f0fdf4;border:1px solid #bbf7d0;color:#166534;border-radius:10px;padding:8px 12px;font-size:.83rem;">
-            Código disponible.
-          </div>
-
-          <div class="text-end mt-3">
-            <button type="button" class="sh-act sh-act--ghost" data-bs-dismiss="modal">Cerrar</button>
-            <button type="submit" class="sh-act sh-act--primary" id="pcGo">
-              <i class="fas fa-plus"></i> Agregar pago
-            </button>
-          </div>
-        </form>
+        <div class="text-end mt-3">
+          <button type="button" class="sh-act sh-act--ghost" data-bs-dismiss="modal">Cerrar</button>
+        </div>
       </div>
     </div>
   </div>
@@ -3072,6 +3095,45 @@
         if (e.go) e.go.innerHTML = '<i class="fas fa-plus"></i> Agregar pago';
     }
 
+    /**
+     * Devuelve la fila de alta al tbody despues de repintar.
+     *
+     * pcLoad() reescribe body.innerHTML y eso se lleva puesta la fila con el
+     * formulario. Se la guarda aparte y se vuelve a colgar al final.
+     */
+    var pcNewRowEl = null;
+    function pcKeepNewRow(body) {
+        if (!pcNewRowEl) pcNewRowEl = document.getElementById('pcNewRow');
+        if (pcNewRowEl && body) body.appendChild(pcNewRowEl);
+    }
+
+    /** Muestra u oculta la fila de alta y el boton "Nuevo". */
+    function pcToggleNewRow(mostrar) {
+        if (!pcNewRowEl) pcNewRowEl = document.getElementById('pcNewRow');
+        var btn = document.getElementById('pcNew');
+        if (pcNewRowEl) pcNewRowEl.style.display = mostrar ? '' : 'none';
+        if (btn) btn.style.display = mostrar ? 'none' : '';
+        if (mostrar) {
+            var d = document.getElementById('pcDate');
+            // Fecha de hoy por defecto: es la que se carga en el 99% de los casos.
+            if (d && !d.value) d.value = new Date().toISOString().slice(0, 10);
+            var a = document.getElementById('pcAmount');
+            if (a) a.focus();
+        }
+    }
+
+    document.addEventListener('click', function (ev) {
+        if (ev.target.closest && ev.target.closest('#pcNew')) {
+            ev.preventDefault();
+            pcToggleNewRow(true);
+        }
+        if (ev.target.closest && ev.target.closest('#pcCancelRow')) {
+            ev.preventDefault();
+            pcClearForm();
+            pcToggleNewRow(false);
+        }
+    });
+
     /** Repinta la tabla de pagos del envío abierto. */
     function pcLoad(id) {
         var body = document.getElementById('pcList');
@@ -3084,7 +3146,7 @@
                 credentials: 'same-origin' })
             .then(function (r) { return r.ok ? r.json() : null; })
             .then(function (d) {
-                if (!d) { body.innerHTML = '<tr><td colspan="7" class="text-danger text-center py-3">No se pudieron cargar los pagos.</td></tr>'; return; }
+                if (!d) { body.innerHTML = '<tr><td colspan="8" class="text-danger text-center py-3">No se pudieron cargar los pagos.</td></tr>'; return; }
                 if (tot) tot.textContent = 'S/ ' + Number(d.total || 0).toFixed(2);
 
                 // Monto a cobrar y saldo: es lo que el operador necesita para
@@ -3130,7 +3192,8 @@
                 }
 
                 if (!d.payments.length) {
-                    body.innerHTML = '<tr><td colspan="7" class="text-muted text-center py-3">Sin pagos registrados.</td></tr>';
+                    body.innerHTML = '<tr><td colspan="8" class="text-muted text-center py-3">Sin pagos registrados.</td></tr>';
+                    pcKeepNewRow(body);
                     return;
                 }
                 body.innerHTML = d.payments.map(function (p) {
@@ -3139,19 +3202,21 @@
                         ? '<a href="' + p.file + '" target="_blank" class="btn btn-sm btn-link p-0" title="Ver el voucher"><i class="fas fa-file-download"></i></a>'
                         : '<span class="text-muted">—</span>';
                     return '<tr>'
+                        + '<td class="small text-muted">PAGO-' + p.id + '</td>'
                         + '<td class="small">' + (p.date || '') + (p.user ? '<div class="text-muted">' + p.user + '</div>' : '') + '</td>'
-                        + '<td><code>' + (p.code || '') + '</code>' + nota + '</td>'
-                        + '<td class="text-end fw-semibold">S/ ' + p.amount + '</td>'
                         + '<td class="small">' + (p.method || '—') + '</td>'
                         + '<td class="small">' + (p.destination || '—') + '</td>'
+                        + '<td><code>' + (p.code || '') + '</code>' + nota + '</td>'
                         + '<td class="text-center">' + arch + '</td>'
-                        + '<td><button type="button" class="btn btn-sm btn-link text-danger p-0 js-pc-del" '
+                        + '<td class="text-end fw-semibold">S/ ' + p.amount + '</td>'
+                        + '<td class="text-end"><button type="button" class="btn btn-sm btn-link text-danger p-0 js-pc-del" '
                         +     'data-id="' + p.id + '" title="Eliminar este pago"><i class="fas fa-trash"></i></button></td>'
                         + '</tr>';
                 }).join('');
+                pcKeepNewRow(body);
             })
             .catch(function () {
-                body.innerHTML = '<tr><td colspan="7" class="text-danger text-center py-3">No se pudieron cargar los pagos.</td></tr>';
+                body.innerHTML = '<tr><td colspan="8" class="text-danger text-center py-3">No se pudieron cargar los pagos.</td></tr>';
             });
     }
 
@@ -3196,6 +3261,7 @@
         pcShipment = b.getAttribute('data-id') || '';
         e.form.setAttribute('action', '{{ url("registro-envio") }}/' + pcShipment + '/pagos');
         e.form.setAttribute('data-shipment', pcShipment);
+        pcToggleNewRow(false);
         var code = document.getElementById('pcCode');
         var cli  = document.getElementById('pcClient');
         if (code) code.textContent = b.getAttribute('data-code') || '';
@@ -3379,6 +3445,7 @@
             // del listado que hay detrás.
             pcLoad(pcShipment);
             pcClearForm();
+            pcToggleNewRow(false);
             pcUpdateRow(pcShipment, res.d);
         })
         .catch(function () {
@@ -3392,7 +3459,7 @@
 
     /** Deja el formulario listo para cargar el pago siguiente. */
     function pcClearForm() {
-        ['pcAmount', 'pcInput', 'pcNote', 'pcFilename', 'pcTempPath'].forEach(function (id) {
+        ['pcAmount', 'pcInput', 'pcNote', 'pcFilename', 'pcTempPath', 'pcDate'].forEach(function (id) {
             var el = document.getElementById(id);
             if (el) el.value = '';
         });
