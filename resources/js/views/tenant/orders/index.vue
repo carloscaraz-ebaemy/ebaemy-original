@@ -1574,10 +1574,11 @@ export default {
             this.paymentsOrderId = orderId;
             this.showPaymentsDialog = true;
         },
-        // El saldo cambio: se refresca el listado para que la columna de
-        // pagos del pedido quede al dia sin recargar la pagina.
+        // El saldo cambio: se refresca la fila y tambien los contadores, que
+        // dependen del estado de pago (un pedido que se salda deja de estar
+        // "por confirmar").
         onPaymentsUpdated() {
-            this.$eventHub.$emit('reloadData');
+            this.refreshAfterPayment();
         },
         clickOptions(recordId) {
             this.documentNewId = recordId;
@@ -1877,7 +1878,31 @@ export default {
                 .post(`/statusOrder/update`, { record: this.record })
                 .then(response => {
                     this.$message.success(response.data.message);
+                    // Verificar el pago registra los pagos y genera la nota de
+                    // venta, pero antes no se refrescaba nada: la fila seguia
+                    // mostrando el estado viejo y habia que recargar la pagina
+                    // a mano para verlo.
+                    this.refreshAfterPayment();
+                })
+                .catch(error => {
+                    // Sin este catch, un fallo se veia igual que un exito: no
+                    // pasaba nada en pantalla y el pago quedaba sin registrar.
+                    this.$message.error(this.describeError(error) || 'No se pudo actualizar el pedido');
                 });
+        },
+
+        /**
+         * Refresca solo lo que cambia al registrar un pago: la fila del
+         * listado, los contadores de los chips y las metricas de arriba.
+         *
+         * getRecords() conserva la pagina, el orden, la busqueda y los filtros
+         * activos, asi que el operador no pierde el contexto.
+         */
+        refreshAfterPayment() {
+            const dt = this.$refs.ordersTable;
+            if (dt) dt.getRecords();
+            this.loadChipCounts();
+            this.loadStats();
         },
         async save() {
             var save = [];
@@ -1899,6 +1924,10 @@ export default {
                 .then(response => {
                     this.$message.success(response.data.message);
                     this.close();
+                    this.refreshAfterPayment();
+                })
+                .catch(error => {
+                    this.$message.error(this.describeError(error) || 'No se pudo guardar el pedido');
                 });
         },
         close() {
