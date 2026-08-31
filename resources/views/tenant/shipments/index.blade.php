@@ -353,6 +353,10 @@
     .sh-pay-gate:active { transform:scale(.98); }
     .sh-paid { display:inline-flex; align-items:center; gap:4px; margin-top:3px; padding:0; border:0; background:none;
         font-size:.67rem; color:#9ca3af; cursor:pointer; }
+    /* Saldo pendiente junto al "Pagado": el operador tiene que ver de un
+       vistazo a quien todavia hay que cobrarle antes de despachar. */
+    .sh-owed { margin-left:5px; padding:0 6px; border-radius:999px;
+               background:#fee2e2; color:#b91c1c; font-size:11px; font-weight:700; }
     .sh-paid:hover { color:#6b7280; text-decoration:underline; }
     /* Acciones de fila: una principal + menú discreto (misma altura, tintes suaves) */
     .sh-actions { display:inline-flex; align-items:center; gap:6px; justify-content:flex-end; }
@@ -1092,7 +1096,15 @@
                                         {{-- Con multipago el envío puede tener varios cobros:
                                              el botón abre la ficha de pagos (ver, agregar otro
                                              o eliminar uno mal cargado) en vez de desconfirmar. --}}
-                                        @php $pagado = $s->paid_total; @endphp
+                                        @php
+                                            $pagado = $s->paid_total;
+                                            // El saldo se calcula con el total ya traido: usar
+                                            // $s->pending_total dispararia una segunda consulta
+                                            // de suma POR FILA.
+                                            $falta = $s->amount_due !== null
+                                                ? round(max(0, (float) $s->amount_due - $pagado), 2)
+                                                : null;
+                                        @endphp
                                         <button type="button" class="sh-paid js-pay-open"
                                                 data-bs-toggle="modal" data-bs-target="#modalPagoCodigo"
                                                 data-id="{{ $s->id }}"
@@ -1101,6 +1113,11 @@
                                                 title="Ver los pagos del envío o agregar otro">
                                             <i class="fas fa-check"></i> Pagado
                                             @if($pagado > 0) S/ {{ number_format($pagado, 2) }} @endif
+                                            {{-- Saldo a la vista: es lo que decide si al cliente
+                                                 todavia hay que cobrarle antes de despachar. --}}
+                                            @if($falta !== null && $falta > 0)
+                                                <span class="sh-owed">falta S/ {{ number_format($falta, 2) }}</span>
+                                            @endif
                                         </button>
                                     @else
                                         <form method="POST" action="{{ route('shipments.payment', $s->id) }}" class="m-0 js-pay-form">
@@ -1970,6 +1987,42 @@
           código. Ningún código puede repetirse en la tienda.
         </p>
 
+        <style>
+          .pc-amount {
+            display: flex; flex-wrap: wrap; gap: 10px 16px;
+            align-items: center; justify-content: space-between;
+            border: 1px solid #dbeafe; background: #f8fbff;
+            border-radius: 10px; padding: 10px 12px; margin-bottom: 12px;
+          }
+          .pc-amount-head label { font-weight: 600; font-size: .9rem; display: block; }
+          .pc-amount-head small { font-size: .78rem; }
+          .pc-amount-controls { min-width: 260px; }
+          .pc-amount-controls small { display: block; margin-top: 4px; font-size: .78rem; }
+          @media (max-width: 575px) {
+            .pc-amount { flex-direction: column; align-items: stretch; }
+            .pc-amount-controls { min-width: 0; }
+          }
+        </style>
+
+        {{-- Monto total a cobrar. Sin esto los pagos parciales no tienen contra
+             que restar: el panel cobraba contra la tarifa de envio (S/ 20) y
+             daba por saldado un pedido de S/ 120. --}}
+        <div class="pc-amount">
+          <div class="pc-amount-head">
+            <label for="pcAmountInput" class="mb-0">Monto total a cobrar</label>
+            <small class="text-muted">Mercadería + envío, todo incluido.</small>
+          </div>
+          <div class="pc-amount-controls">
+            <div class="input-group input-group-sm">
+              <span class="input-group-text">S/</span>
+              <input type="number" step="0.01" min="0" class="form-control"
+                     id="pcAmountInput" placeholder="0.00" autocomplete="off">
+              <button class="btn btn-outline-primary" type="button" id="pcAmountSave">Guardar</button>
+            </div>
+            <small class="text-muted" id="pcAmountHint"></small>
+          </div>
+        </div>
+
         {{-- Pagos ya registrados. Lo pinta el JS desde el endpoint de pagos. --}}
         <div class="table-responsive">
           <table class="table table-sm align-middle mb-1">
@@ -1986,7 +2039,7 @@
             <tfoot>
               <tr>
                 <th colspan="2" class="text-end">Monto a cobrar</th>
-                <th class="text-end" id="pcDue">S/ 0.00</th>
+                <th class="text-end" id="pcDue">—</th>
                 <th colspan="3"></th>
               </tr>
               <tr>
@@ -1996,7 +2049,7 @@
               </tr>
               <tr>
                 <th colspan="2" class="text-end">Resta pagar</th>
-                <th class="text-end" id="pcPending">S/ 0.00</th>
+                <th class="text-end" id="pcPending">—</th>
                 <th colspan="3"></th>
               </tr>
             </tfoot>
@@ -3036,13 +3089,44 @@
 
                 // Monto a cobrar y saldo: es lo que el operador necesita para
                 // saber si el envio quedo saldado o falta cobrar.
+                //
+                // Sin monto cargado NO se pinta un cero: se muestra un guion.
+                // Decir "resta pagar S/ 0.00" cuando nadie cargo el importe es
+                // afirmar que esta saldado sin saberlo, y los envios anteriores
+                // a esta pantalla no tienen importe.
                 var due  = document.getElementById('pcDue');
                 var pend = document.getElementById('pcPending');
-                if (due)  due.textContent  = 'S/ ' + Number(d.due || 0).toFixed(2);
+                var inp  = document.getElementById('pcAmountInput');
+                var hint = document.getElementById('pcAmountHint');
+
+                if (due) due.textContent = d.has_amount
+                    ? 'S/ ' + Number(d.due).toFixed(2) : '—';
+
                 if (pend) {
-                    var resta = Number(d.pending || 0);
-                    pend.textContent = 'S/ ' + resta.toFixed(2);
-                    pend.className = 'text-end ' + (resta > 0 ? 'text-danger' : 'text-success');
+                    if (!d.has_amount) {
+                        pend.textContent = '—';
+                        pend.className = 'text-end text-muted';
+                    } else {
+                        var resta = Number(d.pending || 0);
+                        pend.textContent = 'S/ ' + resta.toFixed(2);
+                        pend.className = 'text-end ' + (resta > 0 ? 'text-danger' : 'text-success');
+                    }
+                }
+
+                if (inp) inp.value = d.has_amount ? Number(d.due).toFixed(2) : '';
+
+                if (hint) {
+                    if (!d.has_amount) {
+                        hint.textContent = 'Aún sin monto: carga cuánto debe pagar el cliente para llevar el saldo.';
+                        hint.className = 'text-warning';
+                    } else if (d.delivery_price) {
+                        // La tarifa se muestra como referencia, NO se suma:
+                        // el monto que se escribe ya la incluye.
+                        hint.textContent = 'Incluye el envío de S/ ' + Number(d.delivery_price).toFixed(2) + '.';
+                        hint.className = 'text-muted';
+                    } else {
+                        hint.textContent = '';
+                    }
                 }
 
                 if (!d.payments.length) {
@@ -3122,6 +3206,54 @@
         pcReset();
         pcLoad(pcShipment);
         setTimeout(function () { if (e.amount) e.amount.focus(); }, 350);
+    });
+
+    // Guardar el monto total a cobrar. Delegado en document: el modal se
+    // repinta y un listener atado al boton se perderia.
+    document.addEventListener('click', function (ev) {
+        var b = ev.target.closest && ev.target.closest('#pcAmountSave');
+        if (!b || !pcShipment) return;
+
+        var inp  = document.getElementById('pcAmountInput');
+        var hint = document.getElementById('pcAmountHint');
+        if (!inp) return;
+
+        var crudo = (inp.value || '').trim();
+        if (crudo !== '' && !(Number(crudo) >= 0)) {
+            if (hint) { hint.textContent = 'Escribe un monto válido.'; hint.className = 'text-danger'; }
+            return;
+        }
+
+        b.disabled = true;
+        if (hint) { hint.textContent = 'Guardando…'; hint.className = 'text-muted'; }
+
+        var fd = new FormData();
+        // Vacio = borrar el monto, no cero: son cosas distintas.
+        fd.append('amount_due', crudo);
+
+        fetch('{{ url("registro-envio") }}/' + pcShipment + '/monto', {
+            method: 'POST', body: fd, credentials: 'same-origin',
+            headers: { 'X-CSRF-TOKEN': (document.querySelector('meta[name=\"csrf-token\"]') || {}).content || '',
+                       'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' }
+        })
+        .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
+        .then(function (res) {
+            b.disabled = false;
+            if (!res.ok) {
+                var msg = (res.d && res.d.errors && res.d.errors.amount_due)
+                    ? res.d.errors.amount_due[0]
+                    : ((res.d && res.d.message) || 'No se pudo guardar el monto.');
+                if (hint) { hint.textContent = msg; hint.className = 'text-danger'; }
+                return;
+            }
+            // Se recarga el panel entero para que el saldo y la lista salgan
+            // del servidor y no de una cuenta hecha aqui.
+            pcLoad(pcShipment);
+        })
+        .catch(function () {
+            b.disabled = false;
+            if (hint) { hint.textContent = 'No se pudo guardar el monto.'; hint.className = 'text-danger'; }
+        });
     });
 
     // Eliminar un pago mal cargado (libera su código).

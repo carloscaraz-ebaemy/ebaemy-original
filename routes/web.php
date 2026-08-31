@@ -199,6 +199,10 @@ if ($hostname) {
                 // Multipago: un envío acumula varios cobros (monto + código).
                 Route::get('{shipment}/pagos', [\App\Http\Controllers\Tenant\ShipmentController::class, 'listPayments'])
                      ->whereNumber('shipment')->name('shipments.payments');
+                // Monto total a cobrar del envio (mercaderia + envio). Sin el,
+                // los pagos parciales no tienen contra que restar.
+                Route::post('{shipment}/monto', [\App\Http\Controllers\Tenant\ShipmentController::class, 'updateAmountDue'])
+                     ->whereNumber('shipment')->name('shipments.amount_due');
                 Route::post('{shipment}/pagos', [\App\Http\Controllers\Tenant\ShipmentController::class, 'storePayment'])
                      ->whereNumber('shipment')->name('shipments.payments.store');
                 Route::post('{shipment}/pagos/{payment}/eliminar', [\App\Http\Controllers\Tenant\ShipmentController::class, 'destroyPayment'])

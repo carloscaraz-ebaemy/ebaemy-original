@@ -182,6 +182,11 @@ class ShipmentController extends Controller
             'is_pickup'       => $s->is_pickup,
             'is_paid'         => $s->is_paid,
             'paid_total'      => $s->paid_total,
+            // Cobro: el mismo concepto que en el panel de Envios, para que las
+            // dos pantallas no cuenten cosas distintas.
+            'amount_due'      => $s->amount_to_collect,
+            'pending_total'   => $s->pending_total,
+            'is_fully_paid'   => $s->is_fully_paid,
             'aging'           => $aging,
             'aging_meta'      => $aging['level'] !== null ? ShippingRequest::AGING_META[$aging['level']] : null,
             'locked_by_batch' => $s->isLockedByBatch(),
@@ -1321,6 +1326,53 @@ class ShipmentController extends Controller
      * dentro de este. La validación del navegador es solo un aviso temprano;
      * la que manda es esta.
      */
+    /**
+     * Carga o corrige el monto total a cobrar del envío.
+     *
+     * POST /registro-envio/{shipment}/monto
+     *
+     * Es lo que permite cobrar en varias partes: sin un total contra el que
+     * restar, cada pago quedaba suelto y el panel no podía decir cuánto
+     * faltaba.
+     */
+    public function updateAmountDue(Request $request, ShippingRequest $shipment)
+    {
+        $data = $request->validate([
+            'amount_due' => ['present', 'nullable', 'numeric', 'min:0', 'max:9999999'],
+        ], [], ['amount_due' => 'monto a cobrar']);
+
+        $anterior = $shipment->amount_due;
+        $nuevo    = $data['amount_due'] === null || $data['amount_due'] === ''
+            ? null
+            : round((float) $data['amount_due'], 2);
+
+        $shipment->forceFill(['amount_due' => $nuevo])->save();
+
+        // Queda en la bitácora: cambiar cuánto debe un cliente es una decisión
+        // de dinero y tiene que poder rastrearse a quién y cuándo.
+        ShippingAuditLog::log(
+            ShippingAuditLog::ACTION_EDIT,
+            $shipment->id,
+            'amount_due',
+            $anterior !== null ? (string) $anterior : null,
+            $nuevo !== null ? (string) $nuevo : null,
+            'Monto a cobrar actualizado'
+        );
+
+        $shipment->refresh();
+
+        return response()->json([
+            'success'    => true,
+            'has_amount' => $shipment->has_amount,
+            'due'        => $shipment->amount_to_collect,
+            'paid'       => round($shipment->paid_total, 2),
+            'pending'    => $shipment->pending_total,
+            'message'    => $nuevo === null
+                ? 'Monto a cobrar borrado.'
+                : 'Monto a cobrar actualizado a S/ ' . number_format($nuevo, 2),
+        ]);
+    }
+
     public function storePayment(Request $request, ShippingRequest $shipment): RedirectResponse
     {
         $this->normalizeMoneyInput($request, ['amount']);
@@ -1481,10 +1533,16 @@ class ShipmentController extends Controller
             'shipment' => $shipment->shipment_code ?: ('#' . $shipment->id),
             'client'   => $shipment->full_name,
             'total'    => round($shipment->paid_total, 2),
-            // Monto a cobrar y saldo: el operador necesita ver si falta cobrar,
-            // no solo cuanto lleva cobrado.
-            'due'      => round((float) ($shipment->delivery_price ?? 0), 2),
-            'pending'  => $shipment->pending_total,
+            // Monto a cobrar y saldo. Ambos pueden venir NULL: sin monto
+            // cargado no se puede decir cuanto falta, y mostrar un saldo
+            // inventado en los envios historicos seria peor que no mostrarlo.
+            'has_amount' => $shipment->has_amount,
+            'due'        => $shipment->amount_to_collect,
+            'pending'    => $shipment->pending_total,
+            // La tarifa del servicio se manda aparte, como referencia: va
+            // INCLUIDA en `due`, no se suma.
+            'delivery_price' => $shipment->delivery_price !== null
+                ? round((float) $shipment->delivery_price, 2) : null,
             'payments' => $shipment->payments->load('payment_file', 'payment_method_type')->map(function ($p) {
                 return [
                     'id'     => $p->id,

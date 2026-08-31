@@ -58,6 +58,7 @@ class ShippingRequest extends Model
         'distance_text',
         'duration_text',
         'delivery_price',
+        'amount_due',
         'dispatch_id',
         'dispatch_number',
         'dispatch_generated_at',
@@ -113,6 +114,7 @@ class ShippingRequest extends Model
         'longitude'      => 'decimal:7',
         'distance_km'    => 'decimal:2',
         'delivery_price' => 'decimal:2',
+        'amount_due'     => 'decimal:2',
         'payment_confirmed'    => 'boolean',
         'payment_confirmed_at' => 'datetime',
         'print_batch_id'       => 'integer',
@@ -206,18 +208,47 @@ class ShippingRequest extends Model
     }
 
     /**
-     * Cuánto falta cobrar. Nunca negativo: si se cobró de más, el saldo es
-     * cero y la diferencia se ve comparando cobrado contra el precio.
+     * Monto total a cobrar al cliente, o null si nadie lo cargó.
+     *
+     * Se compara contra null y no con empty(): un monto de 0 es una decisión
+     * válida (envío de cortesía) y empty() lo trataría como "sin cargar".
+     *
+     * NO cae de vuelta a `delivery_price`. Esa tarifa es solo el servicio
+     * tienda→agencia; usarla como monto a cobrar era el error que daba por
+     * saldado un envío de S/ 120 contra una tarifa de S/ 20.
      */
-    public function getPendingTotalAttribute(): float
+    public function getAmountToCollectAttribute(): ?float
     {
-        return round(max(0, (float) ($this->delivery_price ?? 0) - $this->paid_total), 2);
+        return $this->amount_due !== null ? (float) $this->amount_due : null;
     }
 
-    /** ¿Ya está todo cobrado? Sin precio cargado no se puede afirmar que sí. */
+    /** ¿Alguien cargó el monto, o el envío sigue sin importe conocido? */
+    public function getHasAmountAttribute(): bool
+    {
+        return $this->amount_due !== null;
+    }
+
+    /**
+     * Cuánto falta cobrar, o null si no hay monto cargado.
+     *
+     * Null y no cero: sin saber cuánto se debe, no se puede afirmar que no
+     * falta nada. Los envíos históricos mostrarían una deuda inventada.
+     * Nunca negativo: si se cobró de más, el saldo es cero y la diferencia se
+     * ve comparando cobrado contra el monto.
+     */
+    public function getPendingTotalAttribute(): ?float
+    {
+        if (!$this->has_amount) {
+            return null;
+        }
+
+        return round(max(0, $this->amount_to_collect - $this->paid_total), 2);
+    }
+
+    /** ¿Ya está saldado? Sin monto cargado no se puede afirmar que sí. */
     public function getIsFullyPaidAttribute(): bool
     {
-        return (float) ($this->delivery_price ?? 0) > 0 && $this->pending_total <= 0;
+        return $this->has_amount && $this->pending_total <= 0;
     }
 
     public function auditLogs()
