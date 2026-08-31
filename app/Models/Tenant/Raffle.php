@@ -45,6 +45,7 @@ class Raffle extends Model
         'source_filters',
         'eligibility_mode',
         'exclude_past_winners',
+        'draw_animation',
         'participants_confirmed_at',
         'starts_at',
         'registration_closes_at',
@@ -95,6 +96,17 @@ class Raffle extends Model
         self::STATUS_ACTIVE    => 'Activo',
         self::STATUS_FINISHED  => 'Finalizado',
         self::STATUS_CANCELLED => 'Cancelado',
+    ];
+
+    // ── Animacion del sorteo ───────────────────────────────────────────────
+    // Solo decide COMO se dibuja el resultado. El ganador lo elige el
+    // servidor en RaffleController@draw; cambiar esto no altera el azar.
+    public const ANIMATION_WHEEL = 'wheel';
+    public const ANIMATION_REEL  = 'reel';
+
+    public const ANIMATIONS = [
+        self::ANIMATION_WHEEL => 'Ruleta giratoria',
+        self::ANIMATION_REEL  => 'Carrete clásico',
     ];
 
     /** Color de badge por estado (clases Bootstrap del panel). */

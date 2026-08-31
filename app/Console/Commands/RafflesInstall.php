@@ -35,6 +35,7 @@ class RafflesInstall extends Command
         '2026_07_26_000002_add_source_to_raffles_table',
         '2026_08_02_000001_create_raffle_prize_options',
         '2026_08_14_000001_add_historical_mode_to_raffles',
+        '2026_08_31_000001_add_draw_animation_to_raffles',
     ];
 
     /**
@@ -49,7 +50,8 @@ class RafflesInstall extends Command
 
     /** Columnas añadidas después del create original (origen enchufable). */
     private const NEW_COLUMNS = ['source', 'source_filters', 'participants_confirmed_at',
-                                 'eligibility_mode', 'exclude_past_winners'];
+                                 'eligibility_mode', 'exclude_past_winners',
+                                 'draw_animation'];
 
     public function handle(): int
     {
@@ -280,6 +282,11 @@ class RafflesInstall extends Command
             }
             if (in_array('exclude_past_winners', $missing, true)) {
                 $table->boolean('exclude_past_winners')->default(true)->after('status');
+            }
+            // Estilo de animacion del sorteo: ruleta o carrete (2026-08-31).
+            // Solo afecta el dibujo; el ganador lo sigue eligiendo el servidor.
+            if (in_array('draw_animation', $missing, true)) {
+                $table->string('draw_animation', 20)->default('wheel')->after('status');
             }
         });
 

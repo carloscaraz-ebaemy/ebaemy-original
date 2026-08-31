@@ -145,6 +145,22 @@
                             <div class="rf-note mb-2">La cantidad define cuántos ganadores se pueden sortear en total.</div>
 
                             <div class="rf-field">
+                                <label for="rf_draw_animation">Animación del sorteo</label>
+                                <select id="rf_draw_animation" name="draw_animation" class="rf-input">
+                                    @foreach(\App\Models\Tenant\Raffle::ANIMATIONS as $anim => $label)
+                                        <option value="{{ $anim }}"
+                                            @selected(old('draw_animation', $raffle->draw_animation ?: \App\Models\Tenant\Raffle::ANIMATION_WHEEL) === $anim)>
+                                            {{ $label }}
+                                        </option>
+                                    @endforeach
+                                </select>
+                            </div>
+                            <div class="rf-note mb-2">
+                                Solo cambia cómo se muestra el sorteo en pantalla. El ganador siempre lo elige
+                                el servidor al azar, con la misma auditoría.
+                            </div>
+
+                            <div class="rf-field">
                                 <label for="rf_prize_description">Descripción del premio</label>
                                 <textarea id="rf_prize_description" name="prize_description" class="rf-input" rows="2">{{ old('prize_description', $raffle->prize_description) }}</textarea>
                             </div>
