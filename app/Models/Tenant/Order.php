@@ -9,6 +9,8 @@
 
     class Order extends ModelTenant
     {
+    use \App\Traits\HasAmountDuePayments;
+
         use SoftDeletes;
 
         protected $fillable = [
@@ -18,6 +20,7 @@
             'shipping_address',
             'items',
             'total',
+            'amount_due',
             'subtotal',
             'total_discount',
             'coupon_code',

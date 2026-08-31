@@ -1199,6 +1199,24 @@ if ($hostname) {
             Route::post('sale-notes/items', 'Tenant\SaleNoteController@getItemsFromNotes');
             Route::get('sale-notes/config-group-items', 'Tenant\SaleNoteController@getConfigGroupItems');
 
+            // ── Pagos de pedidos ────────────────────────────────────────────
+            // Mismo contrato que sale_note_payments para que la pantalla de
+            // pagos sea un solo componente Vue para las tres.
+            // Ver App\Http\Controllers\Tenant\Concerns\ManagesRecordPayments.
+            Route::get('order_note_payments/tables',              'Tenant\OrderNotePaymentController@tables');
+            Route::get('order_note_payments/summary/{order_note}','Tenant\OrderNotePaymentController@summary');
+            Route::get('order_note_payments/records/{order_note}','Tenant\OrderNotePaymentController@records');
+            Route::post('order_note_payments',                    'Tenant\OrderNotePaymentController@store');
+            Route::post('order_note_payments/amount-due/{order_note}', 'Tenant\OrderNotePaymentController@storeAmountDue');
+            Route::delete('order_note_payments/{payment}',        'Tenant\OrderNotePaymentController@destroy');
+
+            Route::get('order_payments/tables',          'Tenant\OrderPaymentController@tables');
+            Route::get('order_payments/summary/{order}', 'Tenant\OrderPaymentController@summary');
+            Route::get('order_payments/records/{order}', 'Tenant\OrderPaymentController@records');
+            Route::post('order_payments',                'Tenant\OrderPaymentController@store');
+            Route::post('order_payments/amount-due/{order}', 'Tenant\OrderPaymentController@storeAmountDue');
+            Route::delete('order_payments/{payment}',    'Tenant\OrderPaymentController@destroy');
+
             Route::get('sale_note_payments/records/{sale_note}', 'Tenant\SaleNotePaymentController@records');
             Route::get('sale_note_payments/document/{sale_note}', 'Tenant\SaleNotePaymentController@document');
             Route::get('sale_note_payments/tables', 'Tenant\SaleNotePaymentController@tables');

@@ -4,23 +4,25 @@ namespace App\Models\Tenant;
 
 use Modules\Finance\Models\GlobalPayment;
 use Modules\Finance\Models\PaymentFile;
+use Modules\Order\Models\OrderNote;
 
 /**
- * OrderPayment — Pago asociado a un pedido ecommerce (Order).
+ * OrderNotePayment — Pago de un Pedido del ERP (order_notes).
  *
- * Estructura paralela a `SaleNotePayment`: al verificar el pago (1→2) el admin
- * registra uno o varios pagos. Luego al generar la Nota de Venta desde este
- * pedido, los `OrderPayment` se copian a `SaleNotePayment`.
+ * Mismos campos que SaleNotePayment y OrderPayment, para que las tres pantallas
+ * de pagos se comporten igual. Antes order_notes solo tenía un
+ * `payment_method_type_id` en la cabecera: no admitía pagos parciales ni varios
+ * pagos, y no había forma de saber el saldo.
  *
- * Un OrderPayment puede tener un GlobalPayment asociado (relación polimórfica)
- * cuando el pago va a una caja o cuenta bancaria específica.
+ * El archivo del pago va por `payment_file` (morph a payment_files) y el asiento
+ * contable por `global_payment`, igual que en nota de venta.
  */
-class OrderPayment extends ModelTenant
+class OrderNotePayment extends ModelTenant
 {
     protected $with = ['payment_method_type'];
 
     protected $fillable = [
-        'order_id',
+        'order_note_id',
         'date_of_payment',
         'payment_method_type_id',
         'has_card',
@@ -38,9 +40,18 @@ class OrderPayment extends ModelTenant
         'payment'         => 'decimal:2',
     ];
 
-    public function order()
+    public function order_note()
     {
-        return $this->belongsTo(Order::class);
+        return $this->belongsTo(OrderNote::class, 'order_note_id');
+    }
+
+    /**
+     * Alias que espera FinanceTrait/FilePaymentTrait para llegar al registro
+     * origen del pago sin saber de qué tipo es.
+     */
+    public function associated_record_payment()
+    {
+        return $this->belongsTo(OrderNote::class, 'order_note_id');
     }
 
     public function payment_method_type()
@@ -58,16 +69,6 @@ class OrderPayment extends ModelTenant
         return $this->morphOne(GlobalPayment::class, 'payment');
     }
 
-    /**
-     * Alias que esperan FinanceTrait/FilePaymentTrait para llegar al registro
-     * origen sin saber de que tipo de pago se trata.
-     */
-    public function associated_record_payment()
-    {
-        return $this->belongsTo(Order::class, 'order_id');
-    }
-
-    /** Comprobante adjunto del pago. Faltaba: el voucher solo se podia ver en nota de venta. */
     public function payment_file()
     {
         return $this->morphOne(PaymentFile::class, 'payment');
@@ -75,6 +76,6 @@ class OrderPayment extends ModelTenant
 
     public function getPaymentFileUrl()
     {
-        return optional($this->payment_file)->getFileUrl('orders');
+        return optional($this->payment_file)->getFileUrl('order_notes');
     }
 }

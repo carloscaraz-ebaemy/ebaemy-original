@@ -112,6 +112,8 @@
      */
     class OrderNote extends ModelTenant
     {
+        use \App\Traits\HasAmountDuePayments;
+
         protected $with = [
             'user',
             'soap_type',
@@ -154,6 +156,7 @@
             'total_taxes',
             'total_value',
             'total',
+            'amount_due',
             'charges',
             'discounts',
             'prepayments',
@@ -367,6 +370,15 @@
         public function items()
         {
             return $this->hasMany(OrderNoteItem::class);
+        }
+
+        /**
+         * Pagos del pedido. Antes solo existia payment_method_type_id en la
+         * cabecera: no admitia pagos parciales ni varios pagos.
+         */
+        public function payments()
+        {
+            return $this->hasMany(\App\Models\Tenant\OrderNotePayment::class, 'order_note_id');
         }
 
         /**
