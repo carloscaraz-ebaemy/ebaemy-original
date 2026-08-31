@@ -312,6 +312,10 @@
                                         <svg xmlns="http://www.w3.org/2000/svg" class="me-2" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"></path><path d="M14 3v4a1 1 0 0 0 1 1h4"></path><path d="M19 12v7a1.78 1.78 0 0 1 -3.1 1.4a1.65 1.65 0 0 0 -2.6 0a1.65 1.65 0 0 1 -2.6 0a1.65 1.65 0 0 0 -2.6 0a1.78 1.78 0 0 1 -3.1 -1.4v-14a2 2 0 0 1 2 -2h7l5 5v4.25"></path></svg> 
                                         Generar comprobante
                                     </el-dropdown-item>
+                                    <el-dropdown-item :command="{action: 'payments', id: row.id}">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="me-2"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M17 8v-3a1 1 0 0 0 -1 -1h-10a2 2 0 0 0 0 4h12a1 1 0 0 1 1 1v3m0 4v3a1 1 0 0 1 -1 1h-12a2 2 0 0 1 -2 -2v-12"/><path d="M20 12v4h-4a2 2 0 0 1 0 -4h4"/></svg>
+                                        Pagos del pedido
+                                    </el-dropdown-item>
                                     <el-dropdown-item 
                                         v-if="cantEdited(row)" 
                                         :command="{action: 'edit', id: row.id}">
@@ -376,7 +380,17 @@
                 :showDialog.sync="showMiTiendaPeDialog"
             ></mi-tienda-pe>
         </div>
-    </div>
+    
+        <record-payments
+            :showDialog.sync="showPaymentsDialog"
+            :recordId="paymentsRecordId"
+            resource="order_note_payments"
+            foreignKey="order_note_id"
+            fileType="order_notes"
+            title="Pagos del pedido"
+            @updated="$eventHub.$emit('reloadData')"
+        ></record-payments>
+</div>
 </template>
 <style scoped>
 .anulate_color {
@@ -384,6 +398,8 @@
 }
 </style>
 <script>
+import RecordPayments from "../../../../../../../resources/js/views/tenant/partials/record_payments.vue";
+
 import QuotationOptions from "./partials/options.vue";
 import QuotationOptionsPdf from "./partials/options_pdf.vue";
 import MiTiendaPe from "./mi_tienda_pe.vue";
@@ -398,6 +414,7 @@ export default {
     props: ["typeUser", "soapCompany", "configuration"],
     mixins: [deletable],
     components: {
+            RecordPayments,
         DataTable,
         QuotationOptions,
         MiTiendaPe,
@@ -415,6 +432,10 @@ export default {
     },
     data() {
         return {
+                // Panel de pagos: mismo componente que usan los pedidos del
+                // ecommerce y la nota de venta.
+                showPaymentsDialog: false,
+                paymentsRecordId: null,
             resource: "order-notes",
             recordId: null,
             showMiTiendaPeDialog: false,
@@ -613,6 +634,10 @@ export default {
             switch(command.action) {
                 case 'generateDocument':
                     this.clickOptions(command.id);
+                    break;
+                case 'payments':
+                    this.paymentsRecordId = command.id;
+                    this.showPaymentsDialog = true;
                     break;
                 case 'edit':
                     window.location.href = `/${this.resource}/edit/${command.id}`;

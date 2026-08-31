@@ -535,6 +535,11 @@
                                     <!-- Emitida aqui pero todavia no esta en
                                          Saga: es el paso que falta y antes no
                                          se veia por ningun lado. -->
+                                    <el-dropdown-item command="payments">
+                                        <i class="el-icon-wallet"></i>
+                                        Pagos del pedido
+                                    </el-dropdown-item>
+
                                     <el-dropdown-item
                                         v-if="canUploadInvoice(row)"
                                         command="upload"
@@ -604,6 +609,17 @@
             :order-id="shipmentOrderId"
             @saved="onShipmentSaved"
         ></shipment-form>
+
+        <!-- Pagos del pedido: mismo panel que usa Nota de Venta. -->
+        <record-payments
+            :showDialog.sync="showPaymentsDialog"
+            :recordId="paymentsOrderId"
+            resource="order_payments"
+            foreignKey="order_id"
+            fileType="orders"
+            title="Pagos del pedido"
+            @updated="onPaymentsUpdated"
+        ></record-payments>
 
         <!-- Historial: estados del pedido + bitácora del envío + impresiones. -->
         <order-timeline
@@ -1162,6 +1178,7 @@ import DocumentForm from "./partials/document_form.vue";
 import SaleNoteForm from "./partials/sale_note_form.vue";
 import ShipmentForm from "./partials/shipment_form.vue";
 import OrderTimeline from "./partials/order_timeline.vue";
+import RecordPayments from "../partials/record_payments.vue";
 
 export default {
     props: ["user"],
@@ -1173,6 +1190,7 @@ export default {
         SaleNoteForm,
         ShipmentForm,
         OrderTimeline,
+        RecordPayments,
     },
     data() {
         return {
@@ -1280,7 +1298,9 @@ export default {
             document_types: [],
             order_id: null,
             dataSaleNote: {},
-            showDialogSaleNote: false
+            showDialogSaleNote: false,
+            showPaymentsDialog: false,
+            paymentsOrderId: null
         };
     },
     async created() {
@@ -1337,7 +1357,8 @@ export default {
                 document: () => this.clickDownload(row.document_external_id),
                 label: () => this.downloadLabel(row),
                 shippingLink: () => this.copyShippingLink(row),
-                timeline: () => this.openTimeline(row)
+                timeline: () => this.openTimeline(row),
+                payments: () => this.clickPayments(row.id)
             };
             if (acciones[cmd]) acciones[cmd]();
         },
@@ -1547,6 +1568,15 @@ export default {
             return parsedDate.isValid()
                 ? parsedDate.format("DD-MM-YYYY h:mmA")
                 : null;
+        },
+        clickPayments(orderId) {
+            this.paymentsOrderId = orderId;
+            this.showPaymentsDialog = true;
+        },
+        // El saldo cambio: se refresca el listado para que la columna de
+        // pagos del pedido quede al dia sin recargar la pagina.
+        onPaymentsUpdated() {
+            this.$eventHub.$emit('reloadData');
         },
         clickOptions(recordId) {
             this.documentNewId = recordId;
