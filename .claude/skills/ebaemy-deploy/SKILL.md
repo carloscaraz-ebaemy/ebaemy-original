@@ -84,9 +84,26 @@ sudo -u www-data test -w storage/logs/laravel.log && echo "www-data OK"
 test -w storage/logs/laravel.log && echo "CLI OK"
 ```
 
-Si hay migraciones tenant a aplicar a los 11:
+Si hay migraciones tenant (`database/migrations/tenant/`):
 ```bash
-php artisan tinker --execute="\$ws = \Hyn\Tenancy\Models\Website::all(); foreach (\$ws as \$w) { app(\Hyn\Tenancy\Environment::class)->tenant(\$w); echo \$w->uuid . PHP_EOL; \Artisan::call('migrate', ['--force' => true]); echo \Artisan::output(); }"
+php artisan tenancy:migrate --force
+```
+
+⚠ **NO usar `Artisan::call('migrate')` dentro de un loop de tenants.** `migrate` a
+secas corre el path del SISTEMA (`database/migrations/`), no el de tenants, así que
+responde **"Nothing to migrate"** y deja las tablas sin crear — sin ningún error que
+lo delate. Diagnosticado 2026-08-30: el deploy dio por migrados 17 tenants que no
+lo estaban.
+
+Verificar SIEMPRE que la columna o tabla exista de verdad, no confiar en la salida:
+```bash
+php artisan tinker --execute="\$ws = \Hyn\Tenancy\Models\Website::all(); \$ok=0; \$falta=[];
+foreach (\$ws as \$w) {
+  app(\Hyn\Tenancy\Environment::class)->tenant(\$w);
+  \$s = \Illuminate\Support\Facades\Schema::connection('tenant');
+  if (\$s->hasColumn('TABLA','COLUMNA')) \$ok++; else \$falta[] = \$w->uuid;
+}
+echo \$ok.'/'.\$ws->count().PHP_EOL; if (\$falta) echo implode(', ', \$falta).PHP_EOL;"
 ```
 
 ### 6. Cache + restart
@@ -128,7 +145,7 @@ sudo chmod 755 /home/ebaemy /home/ebaemy/ebaemy
 | Assets 404 con `Content-Type: application/json` | Permisos `/home/ebaemy/` = 711 (nginx no puede leer) | `sudo chmod 755 /home/ebaemy /home/ebaemy/ebaemy` |
 | `git pull` deja `public/build/` inconsistente | Residuos de build fallido previo + checkout sobrescribe parcial | `rm -rf public/build/ && git checkout HEAD -- public/build/` |
 | `view:cache` falla con `DirectoryNotFoundException` | Faltaban 36 carpetas `resources/views/modules/{slug}/` | Ya resuelto 2026-04-28 con `.gitkeep` (incluido en repo) |
-| `php artisan migrate` "Nothing to migrate" | Idempotencia con `Schema::hasTable/hasColumn` | OK, es esperado al re-correr |
+| `php artisan migrate` "Nothing to migrate" | Idempotencia con `Schema::hasTable/hasColumn` | OK al re-correr. **Pero si es una migración TENANT, es que estás usando el comando equivocado**: `migrate` mira `database/migrations/`, no `database/migrations/tenant/`. Usar `tenancy:migrate` |
 | Comandos interactivos pegados con `>` rompen | bash interactivo del server interpreta literal `>` | Pegar comandos UNO POR UNO |
 | `module 'full_suscription' not found` en logs | Workaround histórico: saltar `view:cache` | Resuelto 2026-04-28; ya no es necesario saltar |
 | `view:cache` muere con `Permission denied` | `chown www-data:www-data storage` deja sin escritura al usuario CLI | `chown ebaemy:www-data` + `0775` + setgid (ver paso 5) |
