@@ -1373,7 +1373,7 @@ class ShipmentController extends Controller
         ]);
     }
 
-    public function storePayment(Request $request, ShippingRequest $shipment): RedirectResponse
+    public function storePayment(Request $request, ShippingRequest $shipment)
     {
         $this->normalizeMoneyInput($request, ['amount']);
 
@@ -1410,7 +1410,7 @@ class ShipmentController extends Controller
             ->where('payment_code_normalized', ShippingRequest::normalizePaymentCode($code))
             ->first();
         if ($mismo) {
-            return back()->with('error',
+            return $this->paymentResponse($request, $shipment, false,
                 'Ese código ya está cargado en este mismo envío (pago de S/ '
                 . number_format((float) $mismo->amount, 2) . ').');
         }
@@ -1419,7 +1419,8 @@ class ShipmentController extends Controller
         $dupEnvio = $dupPago ? $dupPago->shipment : ShippingRequest::findByPaymentCode($code, $shipment->id);
 
         if ($dupEnvio && !$force) {
-            return back()->with('error', $this->duplicatePaymentMessage($dupEnvio, $code, $dupPago));
+            return $this->paymentResponse($request, $shipment, false,
+                $this->duplicatePaymentMessage($dupEnvio, $code, $dupPago));
         }
 
         $user = auth()->user();
@@ -1458,7 +1459,7 @@ class ShipmentController extends Controller
 
         $total = number_format($shipment->fresh()->paid_total, 2);
 
-        return back()->with('success',
+        return $this->paymentResponse($request, $shipment, true,
             'Pago registrado (S/ ' . number_format((float) $payment->amount, 2) . " · {$code}). "
             . "Total cobrado: S/ {$total}.");
     }
@@ -1473,9 +1474,18 @@ class ShipmentController extends Controller
     private function registerShipmentPaymentInFinance(ShippingPayment $payment, Request $request): void
     {
         try {
-            if ($request->filled('payment_destination_id')) {
-                $this->createGlobalPayment($payment, [
-                    'payment_destination_id' => $request->input('payment_destination_id'),
+            $destino = $request->input('payment_destination_id');
+
+            // Sin caja abierta getCash() devuelve null y el asiento se grababa
+            // con destino nulo: basura en el arqueo y un warning que nadie ve.
+            $destinoValido = $destino
+                && ($destino !== 'cash' || !empty($this->getCash()['cash_id'] ?? null));
+
+            if ($destinoValido) {
+                $this->createGlobalPayment($payment, ['payment_destination_id' => $destino]);
+            } elseif ($destino === 'cash') {
+                \Log::info('Pago de envío a caja sin caja abierta: no se generó el asiento.', [
+                    'shipping_payment_id' => $payment->id,
                 ]);
             }
 
@@ -1559,6 +1569,31 @@ class ShipmentController extends Controller
                 ];
             })->values(),
         ]);
+    }
+
+    /**
+     * Responde al alta de pago segun quien pregunta.
+     *
+     * Desde el modal (AJAX) devuelve JSON con el estado ya recalculado, para
+     * que la pantalla actualice solo lo que cambio. El redirect se conserva
+     * para el envio nativo del formulario, que es el camino sin JS.
+     */
+    private function paymentResponse(Request $request, ShippingRequest $shipment, bool $ok, string $message)
+    {
+        if ($request->ajax() || $request->wantsJson()) {
+            $fresh = $shipment->fresh();
+
+            return response()->json([
+                'success' => $ok,
+                'message' => $message,
+                'due'     => $fresh->amount_to_collect,
+                'total'   => round($fresh->paid_total, 2),
+                'pending' => $fresh->pending_total,
+                'paid'    => $fresh->is_fully_paid,
+            ], $ok ? 200 : 422);
+        }
+
+        return $ok ? back()->with('success', $message) : back()->with('error', $message);
     }
 
     /** "Caja" o el nombre de la cuenta bancaria donde entró el cobro. */

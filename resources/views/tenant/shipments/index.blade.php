@@ -3314,6 +3314,13 @@
     document.addEventListener('submit', function (ev) {
         var f = ev.target;
         if (!f || f.id !== 'formPagoCodigo') return;
+
+        // Este formulario SIEMPRE se manda por fetch: recargar la pagina entera
+        // hacia perder los filtros, la pagina y la posicion del scroll, y el
+        // operador tenia que volver a buscar el envio para cargar el pago
+        // siguiente.
+        ev.preventDefault();
+
         var e = pcEls();
         var val = e.input ? e.input.value.trim() : '';
         // Se acepta 20, 20.00 y 20,50: la coma decimal es normal en el teclado
@@ -3322,26 +3329,97 @@
         var amt = parseFloat(rawAmt.replace(',', '.'));
 
         if (!rawAmt || isNaN(amt) || amt <= 0) {
-            ev.preventDefault();
             window.alert('Indica el monto del pago (por ejemplo 20 o 20.50).');
             if (e.amount) e.amount.focus();
             return;
         }
         if (!val) {
-            ev.preventDefault();
             window.alert('Escribe el código de pago.');
             return;
         }
         if (pcDup && e.force && e.force.value !== '1') {
-            ev.preventDefault();
             if (!window.confirm('Ese código de pago ya está registrado en otro envío. '
                     + '¿Registrarlo igual? Quedará marcado como excepción en la bitácora.')) {
                 return;
             }
             e.force.value = '1';
-            f.submit();   // envío nativo: este formulario está fuera del interceptor
         }
+
+        pcSubmit(f, e);
     });
+
+    /** Registra el pago sin recargar la pantalla. */
+    function pcSubmit(form, e) {
+        if (e.go) { e.go.disabled = true; e.go.innerHTML = 'Guardando…'; }
+        if (e.alert) { e.alert.style.display = 'none'; e.alert.innerHTML = ''; }
+
+        fetch(form.getAttribute('action'), {
+            method: 'POST',
+            body: new FormData(form),
+            headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' },
+            credentials: 'same-origin'
+        })
+        .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
+        .then(function (res) {
+            if (e.go) { e.go.disabled = false; e.go.innerHTML = '<i class="fas fa-plus"></i> Agregar pago'; }
+
+            if (!res.ok || !res.d.success) {
+                // El error se muestra DENTRO del modal: sacarlo por alert()
+                // obligaba a cerrar y volver a abrir para corregir el dato.
+                if (e.alert) {
+                    e.alert.innerHTML = res.d.message || 'No se pudo registrar el pago.';
+                    e.alert.style.display = 'block';
+                } else {
+                    window.alert(res.d.message || 'No se pudo registrar el pago.');
+                }
+                return;
+            }
+
+            // Solo lo que cambió: la grilla del modal, los totales y la fila
+            // del listado que hay detrás.
+            pcLoad(pcShipment);
+            pcClearForm();
+            pcUpdateRow(pcShipment, res.d);
+        })
+        .catch(function () {
+            if (e.go) { e.go.disabled = false; e.go.innerHTML = '<i class="fas fa-plus"></i> Agregar pago'; }
+            if (e.alert) {
+                e.alert.innerHTML = 'No se pudo conectar con el servidor. Revisa tu conexión e intenta de nuevo.';
+                e.alert.style.display = 'block';
+            }
+        });
+    }
+
+    /** Deja el formulario listo para cargar el pago siguiente. */
+    function pcClearForm() {
+        ['pcAmount', 'pcInput', 'pcNote', 'pcFilename', 'pcTempPath'].forEach(function (id) {
+            var el = document.getElementById(id);
+            if (el) el.value = '';
+        });
+        var file = document.getElementById('pcFile');
+        if (file) file.value = '';
+        var hint = document.getElementById('pcFileHint');
+        if (hint) { hint.textContent = ''; hint.className = 'text-muted'; }
+        pcReset();
+        var amount = document.getElementById('pcAmount');
+        if (amount) amount.focus();
+    }
+
+    /**
+     * Actualiza el botón "Pagado" de la fila sin tocar el resto del listado,
+     * para que el importe cobrado quede al día sin recargar.
+     */
+    function pcUpdateRow(shipmentId, data) {
+        var btn = document.querySelector('.js-pay-open[data-id="' + shipmentId + '"]');
+        if (!btn) return;
+
+        var monto = Number(data.total || 0);
+        btn.innerHTML = '<i class="fas fa-check"></i> Pagado'
+            + (monto > 0 ? ' S/ ' + monto.toFixed(2) : '');
+        btn.setAttribute('title', data.pending > 0
+            ? 'Cobrado S/ ' + monto.toFixed(2) + ' · resta S/ ' + Number(data.pending).toFixed(2)
+            : 'Envío totalmente cobrado');
+    }
 
     // Confirmar pago de los SELECCIONADOS (por lote).
     document.addEventListener('click', function (ev) {
