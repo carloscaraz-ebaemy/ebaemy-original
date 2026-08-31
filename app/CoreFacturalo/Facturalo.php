@@ -338,8 +338,15 @@ class Facturalo
         // Si SUNAT ya respondio, el documento deja de estar "por regularizar".
         // Sin esto el listado sigue mostrando el error viejo ("Por regularizar:
         // 0111 - ...") sobre un comprobante que en realidad ya fue aceptado.
+        //
+        // Solo se borra cuando hay una respuesta NUEVA que ocupe su lugar. Hay
+        // comprobantes rechazados cuyo unico rastro del motivo vive en
+        // response_regularize_shipping (soap_shipping_response quedo vacio):
+        // limpiarlos ahi seria borrar la unica explicacion que tiene el usuario.
+        //
         // Summary/Voided no tienen estas columnas, de ahi el chequeo previo.
         if ($state_type_id !== self::REGISTERED
+            && isset($this->response['sent'])
             && array_key_exists('regularize_shipping', $this->document->getAttributes())) {
             $values['regularize_shipping'] = false;
             $values['response_regularize_shipping'] = null;
