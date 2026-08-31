@@ -330,10 +330,22 @@ class Facturalo
             $state_type_id = '01';
         }
 
-        $this->document->update([
+        $values = [
             'state_type_id' => $state_type_id,
             'soap_shipping_response' => isset($this->response['sent']) ? $this->response:null
-        ]);
+        ];
+
+        // Si SUNAT ya respondio, el documento deja de estar "por regularizar".
+        // Sin esto el listado sigue mostrando el error viejo ("Por regularizar:
+        // 0111 - ...") sobre un comprobante que en realidad ya fue aceptado.
+        // Summary/Voided no tienen estas columnas, de ahi el chequeo previo.
+        if ($state_type_id !== self::REGISTERED
+            && array_key_exists('regularize_shipping', $this->document->getAttributes())) {
+            $values['regularize_shipping'] = false;
+            $values['response_regularize_shipping'] = null;
+        }
+
+        $this->document->update($values);
 
     }
 
