@@ -1976,17 +1976,28 @@
             <thead class="table-light">
               <tr>
                 <th>Fecha</th><th>Código</th><th class="text-end">Monto</th>
-                <th>Medio</th><th style="width:36px;"></th>
+                <th>Medio</th><th>Destino</th><th class="text-center">Archivo</th>
+                <th style="width:36px;"></th>
               </tr>
             </thead>
             <tbody id="pcList">
-              <tr><td colspan="5" class="text-muted text-center py-3">Sin pagos registrados.</td></tr>
+              <tr><td colspan="7" class="text-muted text-center py-3">Sin pagos registrados.</td></tr>
             </tbody>
             <tfoot>
               <tr>
-                <th colspan="2" class="text-end">Total cobrado</th>
-                <th class="text-end" id="pcTotal">S/ 0.00</th>
-                <th colspan="2"></th>
+                <th colspan="2" class="text-end">Monto a cobrar</th>
+                <th class="text-end" id="pcDue">S/ 0.00</th>
+                <th colspan="3"></th>
+              </tr>
+              <tr>
+                <th colspan="2" class="text-end">Cobrado</th>
+                <th class="text-end text-success" id="pcTotal">S/ 0.00</th>
+                <th colspan="3"></th>
+              </tr>
+              <tr>
+                <th colspan="2" class="text-end">Resta pagar</th>
+                <th class="text-end" id="pcPending">S/ 0.00</th>
+                <th colspan="3"></th>
               </tr>
             </tfoot>
           </table>
@@ -2027,6 +2038,39 @@
               <label class="form-label" for="pcNote">Nota</label>
               <input id="pcNote" name="note" class="form-control" maxlength="255"
                      placeholder="Opcional">
+            </div>
+          </div>
+
+          {{-- Método del catálogo, destino y voucher: lo mismo que registra una
+               Nota de Venta, para que el cobro del envío se pueda cuadrar
+               contra caja. Los tres son opcionales: los pagos que ya existen no
+               los tienen y el flujo de siempre sigue funcionando sin ellos. --}}
+          <div class="row g-2 mt-1">
+            <div class="col-md-4">
+              <label class="form-label" for="pcMethodType">Método de pago</label>
+              <select id="pcMethodType" name="payment_method_type_id" class="form-select">
+                <option value="">—</option>
+                @foreach(($paymentMethodTypes ?? []) as $pm)
+                  <option value="{{ $pm->id }}">{{ $pm->description }}</option>
+                @endforeach
+              </select>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label" for="pcDestination">Destino</label>
+              <select id="pcDestination" name="payment_destination_id" class="form-select">
+                <option value="">—</option>
+                @foreach(($paymentDestinations ?? []) as $pd)
+                  <option value="{{ $pd['id'] }}">{{ $pd['description'] }}</option>
+                @endforeach
+              </select>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label" for="pcFile">Archivo (voucher)</label>
+              <input type="file" id="pcFile" class="form-control"
+                     accept="image/jpeg,image/jpg,image/png,image/gif,application/pdf">
+              <input type="hidden" name="filename"  id="pcFilename">
+              <input type="hidden" name="temp_path" id="pcTempPath">
+              <small class="text-muted" id="pcFileHint" style="font-size:.75rem"></small>
             </div>
           </div>
 
@@ -2987,28 +3031,78 @@
                 credentials: 'same-origin' })
             .then(function (r) { return r.ok ? r.json() : null; })
             .then(function (d) {
-                if (!d) { body.innerHTML = '<tr><td colspan="5" class="text-danger text-center py-3">No se pudieron cargar los pagos.</td></tr>'; return; }
+                if (!d) { body.innerHTML = '<tr><td colspan="7" class="text-danger text-center py-3">No se pudieron cargar los pagos.</td></tr>'; return; }
                 if (tot) tot.textContent = 'S/ ' + Number(d.total || 0).toFixed(2);
+
+                // Monto a cobrar y saldo: es lo que el operador necesita para
+                // saber si el envio quedo saldado o falta cobrar.
+                var due  = document.getElementById('pcDue');
+                var pend = document.getElementById('pcPending');
+                if (due)  due.textContent  = 'S/ ' + Number(d.due || 0).toFixed(2);
+                if (pend) {
+                    var resta = Number(d.pending || 0);
+                    pend.textContent = 'S/ ' + resta.toFixed(2);
+                    pend.className = 'text-end ' + (resta > 0 ? 'text-danger' : 'text-success');
+                }
+
                 if (!d.payments.length) {
-                    body.innerHTML = '<tr><td colspan="5" class="text-muted text-center py-3">Sin pagos registrados.</td></tr>';
+                    body.innerHTML = '<tr><td colspan="7" class="text-muted text-center py-3">Sin pagos registrados.</td></tr>';
                     return;
                 }
                 body.innerHTML = d.payments.map(function (p) {
                     var nota = p.note ? ('<div class="small text-muted">' + p.note + '</div>') : '';
+                    var arch = p.file
+                        ? '<a href="' + p.file + '" target="_blank" class="btn btn-sm btn-link p-0" title="Ver el voucher"><i class="fas fa-file-download"></i></a>'
+                        : '<span class="text-muted">—</span>';
                     return '<tr>'
                         + '<td class="small">' + (p.date || '') + (p.user ? '<div class="text-muted">' + p.user + '</div>' : '') + '</td>'
                         + '<td><code>' + (p.code || '') + '</code>' + nota + '</td>'
                         + '<td class="text-end fw-semibold">S/ ' + p.amount + '</td>'
                         + '<td class="small">' + (p.method || '—') + '</td>'
+                        + '<td class="small">' + (p.destination || '—') + '</td>'
+                        + '<td class="text-center">' + arch + '</td>'
                         + '<td><button type="button" class="btn btn-sm btn-link text-danger p-0 js-pc-del" '
                         +     'data-id="' + p.id + '" title="Eliminar este pago"><i class="fas fa-trash"></i></button></td>'
                         + '</tr>';
                 }).join('');
             })
             .catch(function () {
-                body.innerHTML = '<tr><td colspan="5" class="text-danger text-center py-3">No se pudieron cargar los pagos.</td></tr>';
+                body.innerHTML = '<tr><td colspan="7" class="text-danger text-center py-3">No se pudieron cargar los pagos.</td></tr>';
             });
     }
+
+    // El voucher se sube apenas se elige: el POST del pago viaja despues con
+    // filename + temp_path, igual que en nota de venta.
+    document.addEventListener('change', function (ev) {
+        var input = ev.target;
+        if (!input || input.id !== 'pcFile' || !input.files || !input.files.length) return;
+
+        var hint = document.getElementById('pcFileHint');
+        var fd = new FormData();
+        fd.append('file', input.files[0]);
+        if (hint) { hint.textContent = 'Subiendo…'; hint.className = 'text-muted'; }
+
+        fetch('/finances/payment-file/upload', {
+            method: 'POST', body: fd, credentials: 'same-origin',
+            headers: { 'X-CSRF-TOKEN': (document.querySelector('meta[name=\"csrf-token\"]') || {}).content || '',
+                       'X-Requested-With': 'XMLHttpRequest' }
+        })
+        .then(function (r) { return r.json(); })
+        .then(function (d) {
+            if (d && d.success) {
+                document.getElementById('pcFilename').value = d.data.filename;
+                document.getElementById('pcTempPath').value = d.data.temp_path;
+                if (hint) { hint.textContent = 'Listo: ' + d.data.filename; hint.className = 'text-success'; }
+            } else {
+                if (hint) { hint.textContent = (d && d.message) || 'No se pudo subir el archivo'; hint.className = 'text-danger'; }
+                input.value = '';
+            }
+        })
+        .catch(function () {
+            if (hint) { hint.textContent = 'No se pudo subir el archivo'; hint.className = 'text-danger'; }
+            input.value = '';
+        });
+    });
 
     document.addEventListener('click', function (ev) {
         var b = ev.target.closest && ev.target.closest('.js-pay-open');

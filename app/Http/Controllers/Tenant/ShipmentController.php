@@ -34,6 +34,11 @@ use Illuminate\Validation\Rule;
  */
 class ShipmentController extends Controller
 {
+    // Los mismos traits que usa SaleNotePaymentController: destinos de pago,
+    // asiento en Finanzas y adjunto del voucher.
+    use \Modules\Finance\Traits\FinanceTrait;
+    use \Modules\Finance\Traits\FilePaymentTrait;
+
     /** Filtros rápidos del tablero. */
     private const FILTERS = [
         'todos', 'sin-guia', 'con-guia', 'pendientes', 'enviados-hoy',
@@ -585,6 +590,11 @@ class ShipmentController extends Controller
             'requirePayment'     => $ctx['requirePayment'],
             'requirePaymentCode' => $ctx['requirePaymentCode'],
             'departments' => Department::orderBy('description')->get(['id', 'description']),
+            // Catálogo de métodos y destinos, los mismos que usa Nota de Venta:
+            // el cobro del envío tiene que poder cuadrarse contra caja igual
+            // que cualquier otro.
+            'paymentMethodTypes' => \App\Models\Tenant\PaymentMethodType::all(['id', 'description']),
+            'paymentDestinations' => $this->getPaymentDestinations(),
         ]);
     }
 
@@ -1320,6 +1330,12 @@ class ShipmentController extends Controller
             'payment_code' => 'required|string|max:60',
             'method'       => 'nullable|string|max:30',
             'note'         => 'nullable|string|max:255',
+            // Nuevos, opcionales: los pagos ya cargados no los tienen y el
+            // formulario viejo sigue funcionando sin mandarlos.
+            'payment_method_type_id' => 'nullable|string|max:2',
+            'payment_destination_id' => 'nullable|string|max:50',
+            'filename'               => 'nullable|string|max:191',
+            'temp_path'              => 'nullable|string|max:255',
         ], [
             'amount.required'       => 'Indica el monto del pago.',
             'amount.numeric'        => 'El monto debe ser un número: escribe 20 o 20.50, sin letras ni símbolos.',
@@ -1359,11 +1375,17 @@ class ShipmentController extends Controller
             'amount'          => $data['amount'],
             'payment_code'    => $code,
             'method'          => $data['method'] ?? null,
+            'payment_method_type_id' => $data['payment_method_type_id'] ?? null,
+            'payment_destination_id' => $data['payment_destination_id'] ?? null,
             'note'            => $data['note'] ?? null,
             'paid_at'         => now(),
             'created_by'      => $user ? $user->id : null,
             'created_by_name' => $user ? $user->name : null,
         ]);
+
+        // El cobro entra a caja y el voucher queda adjunto, igual que en nota
+        // de venta. Antes la plata del envio no llegaba a Finanzas.
+        $this->registerShipmentPaymentInFinance($payment, $request);
 
         if ($dupEnvio && $force) {
             // Excepción administrativa: se permite, pero queda registrada.
@@ -1387,6 +1409,33 @@ class ShipmentController extends Controller
         return back()->with('success',
             'Pago registrado (S/ ' . number_format((float) $payment->amount, 2) . " · {$code}). "
             . "Total cobrado: S/ {$total}.");
+    }
+
+    /**
+     * Lleva el pago del envío a Finanzas y le adjunta el voucher.
+     *
+     * Va en try/catch a propósito: si Finanzas falla (no hay caja abierta, por
+     * ejemplo) el pago del envío ya está registrado y no se puede perder. Se
+     * deja constancia en el log y el operador puede cuadrarlo después.
+     */
+    private function registerShipmentPaymentInFinance(ShippingPayment $payment, Request $request): void
+    {
+        try {
+            if ($request->filled('payment_destination_id')) {
+                $this->createGlobalPayment($payment, [
+                    'payment_destination_id' => $request->input('payment_destination_id'),
+                ]);
+            }
+
+            if ($request->filled('temp_path')) {
+                $this->saveFiles($payment, $request, 'shipments');
+            }
+        } catch (\Throwable $e) {
+            \Log::warning('Pago de envío registrado pero no llegó a Finanzas', [
+                'shipping_payment_id' => $payment->id,
+                'error' => $e->getMessage(),
+            ]);
+        }
     }
 
     /** Elimina un pago mal cargado. Libera su código para volver a usarlo. */
@@ -1432,18 +1481,40 @@ class ShipmentController extends Controller
             'shipment' => $shipment->shipment_code ?: ('#' . $shipment->id),
             'client'   => $shipment->full_name,
             'total'    => round($shipment->paid_total, 2),
-            'payments' => $shipment->payments->map(function ($p) {
+            // Monto a cobrar y saldo: el operador necesita ver si falta cobrar,
+            // no solo cuanto lleva cobrado.
+            'due'      => round((float) ($shipment->delivery_price ?? 0), 2),
+            'pending'  => $shipment->pending_total,
+            'payments' => $shipment->payments->load('payment_file', 'payment_method_type')->map(function ($p) {
                 return [
                     'id'     => $p->id,
                     'amount' => number_format((float) $p->amount, 2, '.', ''),
                     'code'   => $p->payment_code,
                     'method' => $p->method_label,
+                    'destination' => $this->describeShipmentDestination($p->payment_destination_id),
+                    'file'   => $p->payment_file
+                        ? url('/finances/payment-file/download-file/' . $p->payment_file->filename . '/shipments')
+                        : null,
                     'note'   => $p->note,
                     'date'   => optional($p->paid_at ?: $p->created_at)->format('d/m/Y H:i'),
                     'user'   => $p->created_by_name,
                 ];
             })->values(),
         ]);
+    }
+
+    /** "Caja" o el nombre de la cuenta bancaria donde entró el cobro. */
+    private function describeShipmentDestination($destinationId): ?string
+    {
+        if ($destinationId === null || $destinationId === '') return null;
+        if ($destinationId === 'cash') return 'Caja';
+
+        static $cache = null;
+        if ($cache === null) {
+            $cache = collect($this->getPaymentDestinations())->keyBy('id');
+        }
+
+        return optional($cache->get($destinationId))['description'] ?? null;
     }
 
     /** Texto de la alerta de código de pago repetido (mismo dato en panel y API). */

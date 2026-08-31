@@ -205,6 +205,21 @@ class ShippingRequest extends Model
         return (float) $this->payments()->sum('amount');
     }
 
+    /**
+     * Cuánto falta cobrar. Nunca negativo: si se cobró de más, el saldo es
+     * cero y la diferencia se ve comparando cobrado contra el precio.
+     */
+    public function getPendingTotalAttribute(): float
+    {
+        return round(max(0, (float) ($this->delivery_price ?? 0) - $this->paid_total), 2);
+    }
+
+    /** ¿Ya está todo cobrado? Sin precio cargado no se puede afirmar que sí. */
+    public function getIsFullyPaidAttribute(): bool
+    {
+        return (float) ($this->delivery_price ?? 0) > 0 && $this->pending_total <= 0;
+    }
+
     public function auditLogs()
     {
         return $this->hasMany(ShippingAuditLog::class, 'shipment_id')->latest('id');
