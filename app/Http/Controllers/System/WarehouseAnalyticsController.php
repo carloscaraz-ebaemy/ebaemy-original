@@ -66,7 +66,10 @@ class WarehouseAnalyticsController extends Controller
         $to   = $request->input('to',   now()->toDateString());
 
         $rows = DB::connection(self::DW)->table('dw_daily_sales')
-            ->selectRaw('sale_date, SUM(net_amount) as total, SUM(cnt) as documents')
+            // La columna se llama `count` y va entre backticks porque choca con la
+            // funcion SQL del mismo nombre. El commit 6141b475 renombro el alias
+            // cnt -> count en el ETL y en la migracion, pero no aca.
+            ->selectRaw('sale_date, SUM(net_amount) as total, SUM(`count`) as documents')
             ->whereBetween('sale_date', [$from, $to])
             ->groupBy('sale_date')
             ->orderBy('sale_date')
@@ -111,7 +114,7 @@ class WarehouseAnalyticsController extends Controller
         $ago30 = now()->subDays(30)->toDateString();
 
         $rows = DB::connection(self::DW)->table('dw_daily_sales')
-            ->selectRaw('document_type, SUM(net_amount) as total, SUM(cnt) as documents')
+            ->selectRaw('document_type, SUM(net_amount) as total, SUM(`count`) as documents')
             ->where('sale_date', '>=', $ago30)
             ->groupBy('document_type')
             ->orderByDesc('total')
