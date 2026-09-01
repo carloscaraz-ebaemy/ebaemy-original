@@ -235,9 +235,17 @@ class WarehouseEtl
         $totalCustomers = DB::connection('tenant')->table('persons')->where('type', 'customers')->count();
         $activeEcom = DB::connection('tenant')->table('items')->where('apply_store', true)->count();
 
-        $lastSale = DB::connection('tenant')->table('sale_notes')
+        // La ultima venta es la mas reciente entre notas de venta Y comprobantes.
+        // Mirando solo sale_notes, un tenant que factura pero no emite notas
+        // quedaba con last_sale_at vacio y el panel lo contaba como INACTIVO.
+        // Paso con calixto: 1 comprobante en 30 dias, 0 notas.
+        $lastSaleNote = DB::connection('tenant')->table('sale_notes')
             ->orderByDesc('date_of_issue')
             ->value('date_of_issue');
+        $lastDocument = DB::connection('tenant')->table('documents')
+            ->orderByDesc('date_of_issue')
+            ->value('date_of_issue');
+        $lastSale = max($lastSaleNote, $lastDocument) ?: null;
 
         // Detectar módulos activos inspeccionando datos del tenant
         $hasEcommerce  = $activeEcom > 0;
