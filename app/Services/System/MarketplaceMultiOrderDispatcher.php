@@ -169,10 +169,13 @@ class MarketplaceMultiOrderDispatcher
             ])));
 
             // El pago lo cobra la central (MercadoPago) antes de despachar; en
-            // el modo legacy sin pasarela el pedido llega por cobrar. Se
-            // propaga solo cuando el padre ya está pagado, para no inventar un
-            // vocabulario nuevo en `payment_status` (ver A-03 de la auditoria).
-            $pagado = $order->payment_status === 'paid';
+            // el modo legacy sin pasarela el pedido llega por cobrar.
+            //
+            // Aqui SI hubo pasarela, asi que `payment_status` se rellena con el
+            // vocabulario de pasarela; sin ella queda NULL, que significa "este
+            // cobro no paso por una pasarela" y no "sin pagar". Ver el bloque
+            // «Estado del pago» en App\Models\Tenant\Order.
+            $pagado = $order->payment_status === 'paid';   // 'paid' es del pedido PADRE (system)
 
             // Eloquent y NO `insertGetId()`: con el insert crudo ningun campo
             // nuevo de `orders` llegaba jamas a los pedidos del marketplace a
@@ -200,7 +203,7 @@ class MarketplaceMultiOrderDispatcher
                 'total_discount'    => round((float) ($sub->discount_amount ?? 0), 2),
                 'reference_payment' => 'marketplace',
                 'status_order_id'   => 1, // Pendiente
-                'payment_status'    => $pagado ? 'paid' : null,
+                'payment_status'    => $pagado ? TenantOrder::PAYMENT_CAPTURED : null,
                 'paid_at'           => $pagado ? ($order->payment_paid_at ?? now()) : null,
                 'channel_id'        => $channel->id,
                 'warehouse_id'      => $channel->warehouse_id,
@@ -209,7 +212,7 @@ class MarketplaceMultiOrderDispatcher
                 'external_order_ref'=> $order->order_number,
             ];
 
-            $orderId = TenantOrder::create($this->soloColumnasExistentes($payload))->id;
+            $orderId = TenantOrder::crearTolerandoEsquemaViejo($payload)->id;
 
             // Si se usó cupón, incrementar used_count en el tenant. PromotionEngine
             // en preview no toca contadores; lo hacemos aquí cuando el subpedido se
@@ -339,49 +342,6 @@ class MarketplaceMultiOrderDispatcher
         } finally {
             // Restaurar el tenant que estaba activo antes (si lo había)
             $tenancy->tenant($previousTenant ?: null);
-        }
-    }
-
-    /**
-     * Recorta el payload a las columnas que la tabla `orders` de ESTE tenant
-     * tiene de verdad.
-     *
-     * Con `insertGetId()` el problema no existia porque el array nunca crecia;
-     * al pasar a Eloquent, una columna reciente que un tenant todavia no haya
-     * migrado (`paid_at`, `payment_status`) convertiria el INSERT en un 1054 y
-     * perderiamos una venta ya cobrada por un desfase de esquema. Preferimos
-     * grabar el pedido sin ese dato y dejar constancia.
-     *
-     * La lista de columnas se memoriza por base de datos: un mismo proceso
-     * despacha subpedidos de varios tenants seguidos.
-     */
-    private function soloColumnasExistentes(array $payload): array
-    {
-        static $columnas = [];
-
-        try {
-            $schema = \Illuminate\Support\Facades\Schema::connection('tenant');
-            $db     = $schema->getConnection()->getDatabaseName();
-
-            if (!array_key_exists($db, $columnas)) {
-                $columnas[$db] = array_flip($schema->getColumnListing('orders'));
-            }
-
-            $recortado = array_intersect_key($payload, $columnas[$db]);
-
-            if ($faltan = array_keys(array_diff_key($payload, $columnas[$db]))) {
-                Log::warning('marketplace dispatch: la tabla orders del tenant no tiene estas columnas', [
-                    'database' => $db,
-                    'columnas' => $faltan,
-                    'accion'   => 'el pedido se crea sin ellas; falta correr tenancy:migrate',
-                ]);
-            }
-
-            return $recortado;
-        } catch (\Throwable $e) {
-            // Si no se puede leer el esquema, mejor intentar el insert completo
-            // que abortar el pedido por una comprobacion auxiliar.
-            return $payload;
         }
     }
 

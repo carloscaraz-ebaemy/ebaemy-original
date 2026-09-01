@@ -198,8 +198,48 @@ class OrderShipmentFlowTest extends TestCase
     public function los_filtros_comerciales_siguen_funcionando_sin_modulo()
     {
         $this->assertStringContainsString('status_order_id', $this->sqlFor(['status_order_id' => 2]));
-        $this->assertStringContainsString('payment_status',  $this->sqlFor(['payment_status' => 'paid']));
         $this->assertStringContainsString('channel_id',      $this->sqlFor(['channel_id' => 7]));
+        $this->assertStringContainsString(
+            'payment_status',
+            $this->sqlFor(['payment_status' => Order::PAYMENT_CAPTURED])
+        );
+    }
+
+    /**
+     * `payment_status` describe el estado de la PASARELA y tiene un vocabulario
+     * cerrado (A-03). Aceptar cualquier cadena devolvia cero filas sin decir por
+     * que — la misma trampa silenciosa que dejo el panel entero vacio (A-01).
+     *
+     * `paid` esta aqui a proposito: es el valor que escribian Saga y el
+     * dispatcher para decir «ya esta pagado», que es lo que le toca decir a
+     * `status_order_id`. Si alguien lo reintroduce, este test lo para.
+     *
+     * @test
+     */
+    public function un_estado_de_pago_inventado_se_rechaza_en_vez_de_devolver_vacio()
+    {
+        foreach (['paid', 'pagado', 'PENDING_CAPTURE'] as $inventado) {
+            try {
+                $this->sqlFor(['payment_status' => $inventado]);
+                $this->fail("«{$inventado}» no es un estado de pasarela y debe rechazarse");
+            } catch (\Symfony\Component\HttpKernel\Exception\HttpException $e) {
+                $this->assertSame(422, $e->getStatusCode());
+            }
+        }
+
+        // Vacio no es un valor invalido: significa "sin filtrar".
+        $this->assertStringNotContainsString('payment_status', $this->sqlFor(['payment_status' => '']));
+    }
+
+    /** @test */
+    public function el_vocabulario_del_pago_no_incluye_paid()
+    {
+        $this->assertNotContains('paid', Order::PAYMENT_STATUSES);
+        $this->assertSame(
+            ['pending_capture', 'captured', 'capture_failed'],
+            Order::PAYMENT_STATUSES,
+            'el vocabulario de pasarela es cerrado: Culqi y MercadoPago, nada mas'
+        );
     }
 
     /** @test */

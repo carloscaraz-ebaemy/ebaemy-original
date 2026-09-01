@@ -239,7 +239,15 @@ class OrderController extends Controller
             $query->where('status_order_id', $request->status_order_id);
         }
 
-        if ($request->payment_status) {
+        // Estado de la PASARELA, no «esta pagado» — eso lo dice status_order_id
+        // (ver el bloque «Estado del pago» en el modelo Order). Se valida contra
+        // el vocabulario cerrado en vez de aceptar cualquier cadena: un valor
+        // inexistente devolvia cero filas sin decir por que, que es exactamente
+        // como el panel entero estuvo vacio durante un ciclo completo (A-01).
+        if ($request->filled('payment_status')) {
+            if (!in_array($request->payment_status, Order::PAYMENT_STATUSES, true)) {
+                abort(422, 'Estado de pago inválido. Valores: ' . implode(', ', Order::PAYMENT_STATUSES) . '.');
+            }
             $query->where('payment_status', $request->payment_status);
         }
 

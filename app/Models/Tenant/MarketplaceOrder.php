@@ -93,14 +93,20 @@ class MarketplaceOrder extends Model
         $warehouseId = $salesChannel?->warehouse_id
             ?: optional(\Modules\Inventory\Models\Warehouse::first())->id;
 
-        $order = Order::create([
+        $order = Order::crearTolerandoEsquemaViejo([
             'external_id'        => (string) \Illuminate\Support\Str::uuid(),
             'customer'           => $this->customer_data ?? [],
             'items'              => $this->normalizedItems(),
             'total'              => $this->total,
             'shipping_address'   => $this->shipping_data['address'] ?? 'Marketplace',
             'status_order_id'    => $this->erpStatusId(),
-            'payment_status'     => 'paid', // En Saga el cliente ya pagó (Falabella cobra y liquida)
+            // En Saga el cliente ya pagó, pero NO por una pasarela nuestra:
+            // Falabella cobra y liquida fuera del sistema. Ese hecho vive en
+            // `status_order_id` (2 = pago verificado) y en `paid_at`, no en
+            // `payment_status`, que ahora solo describe la pasarela. Ver el
+            // bloque «Estado del pago» en App\Models\Tenant\Order.
+            'payment_status'     => null,
+            'paid_at'            => $this->ordered_at ?: now(),
             'reference_payment'  => 'marketplace_' . ($channel->platform ?? 'unknown'),
             'channel_id'         => $salesChannel?->id,
             'warehouse_id'       => $warehouseId,
@@ -217,9 +223,14 @@ class MarketplaceOrder extends Model
             return;
         }
         $order->status_order_id = $this->erpStatusId();
-        if (empty($order->payment_status)) {
-            $order->payment_status = 'paid';
+
+        // Antes esto rellenaba `payment_status = 'paid'`. Saga no pasa por una
+        // pasarela nuestra, asi que lo que corresponde es dejar constancia de
+        // CUANDO se cobro, no inventar un estado de pasarela que no existio.
+        if (empty($order->paid_at) && $this->ordered_at) {
+            $order->paid_at = $this->ordered_at;
         }
+
         $order->save();
     }
 }

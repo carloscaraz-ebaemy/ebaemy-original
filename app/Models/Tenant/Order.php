@@ -69,6 +69,89 @@
             'cancelled_at' => 'datetime',
         ];
 
+        // ── Estado del pago ───────────────────────────────────────────────────
+        //
+        // A-03 de la auditoria de Pedidos. Habia DOS fuentes de verdad para el
+        // mismo hecho y cuatro vocabularios entre seis escritores. Decision:
+        //
+        //   `status_order_id`  → estado COMERCIAL del pago y del pedido. Es el
+        //                        que manda: 1 = pago pendiente, 2 = verificado,
+        //                        y de ahi en adelante la operacion. Lo usa todo
+        //                        el ERP y es lo que ve el operador.
+        //
+        //   `payment_status`   → estado del cobro EN LA PASARELA, y nada mas.
+        //                        NULL significa "este cobro no paso por una
+        //                        pasarela" (efectivo, contra entrega, Saga —
+        //                        donde Falabella cobra fuera del sistema), NO
+        //                        significa "sin pagar": eso lo dice el estado
+        //                        comercial.
+        //
+        // Por eso desaparecio el valor `paid`: lo escribian Saga y el dispatcher
+        // del marketplace para decir "ya esta pagado", que es justo lo que le
+        // toca decir a `status_order_id`. Nadie lo leia nunca.
+
+        /** Cobro autorizado por la pasarela, pendiente de captura (Culqi). */
+        public const PAYMENT_PENDING_CAPTURE = 'pending_capture';
+
+        /** La pasarela cobro correctamente. */
+        public const PAYMENT_CAPTURED = 'captured';
+
+        /** La captura fallo: hay autorizacion pero no dinero. */
+        public const PAYMENT_CAPTURE_FAILED = 'capture_failed';
+
+        /**
+         * Vocabulario CERRADO de `payment_status`. Cualquier otro valor es un
+         * error de escritura, y filtrar por uno inexistente devuelve cero filas
+         * sin decir por que — la misma trampa que vacio el panel entero (A-01).
+         */
+        public const PAYMENT_STATUSES = [
+            self::PAYMENT_PENDING_CAPTURE,
+            self::PAYMENT_CAPTURED,
+            self::PAYMENT_CAPTURE_FAILED,
+        ];
+
+        /**
+         * Crea el pedido descartando las columnas que la tabla `orders` de ESTE
+         * tenant todavia no tenga.
+         *
+         * Los caminos que crean pedidos desde fuera del tenant (dispatchers del
+         * marketplace, importacion de Saga) escribian antes con `insertGetId()`,
+         * y el array nunca crecia. Al pasar a Eloquent, una columna reciente que
+         * un tenant no haya migrado (`paid_at`, `payment_status`) convierte el
+         * INSERT en un 1054 y se pierde una venta YA COBRADA por un desfase de
+         * esquema. Preferimos grabar el pedido sin ese dato y dejar constancia.
+         *
+         * Las columnas se memorizan por base de datos: un mismo proceso crea
+         * pedidos de varios tenants seguidos.
+         */
+        public static function crearTolerandoEsquemaViejo(array $payload): self
+        {
+            static $columnas = [];
+
+            try {
+                $schema = \Illuminate\Support\Facades\Schema::connection('tenant');
+                $db     = $schema->getConnection()->getDatabaseName();
+
+                if (!array_key_exists($db, $columnas)) {
+                    $columnas[$db] = array_flip($schema->getColumnListing('orders'));
+                }
+
+                if ($faltan = array_keys(array_diff_key($payload, $columnas[$db]))) {
+                    \Illuminate\Support\Facades\Log::warning(
+                        'orders: el tenant no tiene estas columnas; el pedido se crea sin ellas',
+                        ['database' => $db, 'columnas' => $faltan, 'accion' => 'falta tenancy:migrate']
+                    );
+                }
+
+                $payload = array_intersect_key($payload, $columnas[$db]);
+            } catch (\Throwable $e) {
+                // Si no se puede leer el esquema, mejor intentar el insert
+                // completo que abortar el pedido por una comprobacion auxiliar.
+            }
+
+            return static::create($payload);
+        }
+
         public function status_order()
         {
             return $this->belongsTo(StatusOrder::class);
