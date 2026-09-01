@@ -1977,7 +1977,7 @@
 {{-- ══════════════ Modal: pagos del envío (multipago) ══════════════ --}}
 @if($requirePaymentCode ?? false)
 <div class="modal fade" id="modalPagoCodigo" tabindex="-1" aria-hidden="true">
-  <div class="modal-dialog modal-dialog-centered modal-lg">
+  <div class="modal-dialog modal-dialog-centered modal-xl">
     <div class="modal-content">
       <div class="modal-header">
         <h5 class="modal-title">Pagos del envío — <span id="pcCode"></span></h5>
@@ -2006,10 +2006,36 @@
           #pcTable > tfoot > tr:first-child > td { border-top: 1px solid #e5e7eb; }
           #pcTable code { font-size: .82rem; }
 
-          /* Fila de alta: los controles no deben verse mas altos que las filas
-             ya cargadas, o la tabla salta al abrirla. */
-          #pcNewRow .form-control, #pcNewRow .form-select { font-size: .82rem; padding: .3rem .5rem; }
-          #pcNewRow td { background: #fbfdff; vertical-align: middle; }
+          /* Panel de alta: grilla de 12 con la etiqueta arriba de cada campo,
+             que es lo unico que se lee bien al ancho de un modal y en telefono. */
+          .pc-form {
+            border: 1px solid #dbeafe; background: #f8fbff;
+            border-radius: 12px; padding: 14px 16px; margin-top: 14px;
+          }
+          .pc-form__title {
+            font-size: .7rem; font-weight: 700; letter-spacing: .06em;
+            text-transform: uppercase; color: #4f46e5; margin-bottom: 10px;
+          }
+          .pc-form__grid { display: grid; grid-template-columns: repeat(12, 1fr); gap: 12px 14px; }
+          .pc-f { display: flex; flex-direction: column; min-width: 0; }
+          .pc-f label { font-size: .75rem; font-weight: 600; color: #374151; margin-bottom: 4px; }
+          .pc-f--3 { grid-column: span 3; }
+          .pc-f--6 { grid-column: span 6; }
+          .pc-f--12 { grid-column: span 12; }
+          .pc-req { color: #dc2626; }
+          .pc-opt { font-weight: 400; color: #9ca3af; }
+          #pcFileHint { font-size: .72rem; margin-top: 4px; }
+          .pc-form__actions {
+            display: flex; justify-content: flex-end; gap: 8px; margin-top: 14px;
+          }
+          /* En pantallas medianas cuatro campos por fila quedan estrechos. */
+          @media (max-width: 991px) { .pc-f--3 { grid-column: span 6; } }
+          @media (max-width: 575px) {
+            .pc-form { padding: 12px; }
+            .pc-f--3, .pc-f--6 { grid-column: span 12; }
+            .pc-form__actions { flex-direction: column-reverse; }
+            .pc-form__actions .btn { width: 100%; }
+          }
 
           .pc-new-wrap { text-align: center; padding-top: .9rem; }
 
@@ -2071,64 +2097,6 @@
             </thead>
             <tbody id="pcList">
               <tr><td colspan="8" class="text-muted text-center py-3">Sin pagos registrados.</td></tr>
-            <tr id="pcNewRow" style="display:none">
-              <td class="text-muted small">—</td>
-              <td>
-                <input type="date" id="pcDate" name="date_of_payment" class="form-control form-control-sm">
-              </td>
-              <td>
-                <select id="pcMethodType" name="payment_method_type_id" class="form-select form-select-sm">
-                  <option value="">—</option>
-                  @foreach(($paymentMethodTypes ?? []) as $pm)
-                    <option value="{{ $pm->id }}">{{ $pm->description }}</option>
-                  @endforeach
-                </select>
-                {{-- Medio heredado: la lista corta que ya se usaba antes del
-                     catalogo. Se conserva para no perder ese dato. --}}
-                <select id="pcMethod" name="method" class="form-select form-select-sm mt-1">
-                  <option value="">Medio —</option>
-                  @foreach(\App\Models\Tenant\ShippingPayment::METHODS as $mv => $ml)
-                    <option value="{{ $mv }}">{{ $ml }}</option>
-                  @endforeach
-                </select>
-              </td>
-              <td>
-                <select id="pcDestination" name="payment_destination_id" class="form-select form-select-sm">
-                  <option value="">—</option>
-                  @foreach(($paymentDestinations ?? []) as $pd)
-                    <option value="{{ $pd['id'] }}">{{ $pd['description'] }}</option>
-                  @endforeach
-                </select>
-              </td>
-              <td>
-                {{-- El codigo de operacion es obligatorio y unico en toda la
-                     tienda: el JS lo verifica mientras se escribe. --}}
-                <input id="pcInput" name="payment_code" class="form-control form-control-sm"
-                       maxlength="60" autocomplete="off" placeholder="Código de pago *">
-                <input id="pcNote" name="note" class="form-control form-control-sm mt-1"
-                       maxlength="255" placeholder="Nota">
-              </td>
-              <td class="text-center">
-                <input type="file" id="pcFile" class="form-control form-control-sm"
-                       accept="image/jpeg,image/jpg,image/png,image/gif,application/pdf">
-                <input type="hidden" name="filename"  id="pcFilename">
-                <input type="hidden" name="temp_path" id="pcTempPath">
-                <small class="text-muted d-block" id="pcFileHint" style="font-size:.7rem"></small>
-              </td>
-              <td>
-                <input id="pcAmount" name="amount" type="number" step="any" min="0.01"
-                       inputmode="decimal" class="form-control form-control-sm text-end"
-                       placeholder="0.00">
-              </td>
-              <td class="text-end" style="white-space:nowrap">
-                <button type="submit" class="btn btn-sm btn-info px-2" id="pcGo" title="Guardar el pago">
-                  <i class="fa fa-check"></i>
-                </button>
-                <button type="button" class="btn btn-sm btn-danger px-2" id="pcCancelRow" title="Cancelar">
-                  <i class="fa fa-times"></i>
-                </button>
-              </td>
-            </tr>
             </tbody>
             <tfoot>
               <tr>
@@ -2148,6 +2116,73 @@
               </tr>
             </tfoot>
           </table>
+        </div>
+
+        {{-- Alta de un pago. Va FUERA de la tabla a proposito: ocho columnas de
+             inputs dentro de un modal dejan cada control sin ancho (el selector
+             de archivo se leia "Selecc") y en un telefono queda inusable. Aca
+             cada campo tiene su etiqueta y la grilla se reordena sola.
+             Los ids son los mismos: el JS arma el envio leyendo por id. --}}
+        <div id="pcNewRow" class="pc-form" style="display:none">
+          <div class="pc-form__title">Registrar un pago</div>
+          <div class="pc-form__grid">
+            <div class="pc-f pc-f--3">
+              <label for="pcDate">Fecha de pago</label>
+              <input type="date" id="pcDate" name="date_of_payment" class="form-control form-control-sm">
+            </div>
+            <div class="pc-f pc-f--3">
+              <label for="pcMethodType">Método de pago</label>
+              <select id="pcMethodType" name="payment_method_type_id" class="form-select form-select-sm">
+                <option value="">— Selecciona —</option>
+                @foreach(($paymentMethodTypes ?? []) as $pm)
+                  <option value="{{ $pm->id }}">{{ $pm->description }}</option>
+                @endforeach
+              </select>
+            </div>
+            <div class="pc-f pc-f--3">
+              <label for="pcDestination">Destino</label>
+              <select id="pcDestination" name="payment_destination_id" class="form-select form-select-sm">
+                <option value="">— Selecciona —</option>
+                @foreach(($paymentDestinations ?? []) as $pd)
+                  <option value="{{ $pd['id'] }}">{{ $pd['description'] }}</option>
+                @endforeach
+              </select>
+            </div>
+            <div class="pc-f pc-f--3">
+              <label for="pcAmount">Monto <span class="pc-req">*</span></label>
+              <div class="input-group input-group-sm">
+                <span class="input-group-text">S/</span>
+                <input id="pcAmount" name="amount" type="number" step="any" min="0.01"
+                       inputmode="decimal" class="form-control text-end" placeholder="0.00">
+              </div>
+            </div>
+            <div class="pc-f pc-f--6">
+              {{-- Obligatorio y unico en toda la tienda: el JS lo verifica
+                   mientras se escribe. --}}
+              <label for="pcInput">Código de operación <span class="pc-req">*</span></label>
+              <input id="pcInput" name="payment_code" class="form-control form-control-sm"
+                     maxlength="60" autocomplete="off" placeholder="N.° de operación del voucher">
+            </div>
+            <div class="pc-f pc-f--6">
+              <label for="pcFile">Comprobante <span class="pc-opt">(opcional)</span></label>
+              <input type="file" id="pcFile" class="form-control form-control-sm"
+                     accept="image/jpeg,image/jpg,image/png,image/gif,application/pdf">
+              <input type="hidden" name="filename"  id="pcFilename">
+              <input type="hidden" name="temp_path" id="pcTempPath">
+              <small class="text-muted d-block" id="pcFileHint"></small>
+            </div>
+            <div class="pc-f pc-f--12">
+              <label for="pcNote">Nota <span class="pc-opt">(opcional)</span></label>
+              <input id="pcNote" name="note" class="form-control form-control-sm"
+                     maxlength="255" placeholder="Referencia interna, observación…">
+            </div>
+          </div>
+          <div class="pc-form__actions">
+            <button type="button" class="btn btn-sm btn-light" id="pcCancelRow">Cancelar</button>
+            <button type="submit" class="btn btn-sm btn-primary" id="pcGo">
+              <i class="fas fa-plus"></i> Agregar pago
+            </button>
+          </div>
         </div>
         </form>
 
@@ -3105,10 +3140,12 @@
      * formulario. Se la guarda aparte y se vuelve a colgar al final.
      */
     var pcNewRowEl = null;
-    function pcKeepNewRow(body) {
-        if (!pcNewRowEl) pcNewRowEl = document.getElementById('pcNewRow');
-        if (pcNewRowEl && body) body.appendChild(pcNewRowEl);
-    }
+    /**
+     * Quedo sin trabajo: el panel de alta salio de la tabla, asi que repintar
+     * el listado ya no puede pisarlo. Se conserva vacia para no tocar los
+     * llamados, y para dejar dicho por que no hace nada.
+     */
+    function pcKeepNewRow() {}
 
     /** Muestra u oculta la fila de alta y el boton "Nuevo". */
     function pcToggleNewRow(mostrar) {
