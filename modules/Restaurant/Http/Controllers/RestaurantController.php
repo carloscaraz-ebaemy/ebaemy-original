@@ -257,15 +257,30 @@ class RestaurantController extends Controller
                 }
 
                 $user = auth('ecommerce')->user();
+
+                // A-04 de la auditoria de Pedidos: este era el unico creador de
+                // pedidos que no paso por el refactor de canales de venta, asi
+                // que sus pedidos salian sin canal ni almacen y en el panel
+                // unificado aparecian como "sin canal".
+                //
+                // Se les asigna el canal ecommerce y no uno propio porque el
+                // pedido entra por la tienda online (auth('ecommerce')): lo que
+                // los distingue de una venta normal es `apply_restaurant`, que
+                // ya se graba abajo.
+                $ecomChannel = \App\Models\Tenant\SalesChannel::ecommerceChannel();
+
                 $order = Order::create([
                     'external_id' => Str::uuid()->toString(),
                     'customer' =>  $request->customer,
                     'shipping_address' => 'direccion 1',
                     'items' =>  $request->items,
                     'total' => $request->precio_culqi,
+                    'subtotal' => $request->precio_culqi,
                     'reference_payment' => 'efectivo',
                     'status_order_id' => 1,
                     'purchase' => $request->purchase,
+                    'channel_id' => $ecomChannel->id,
+                    'warehouse_id' => $ecomChannel->warehouse_id,
                     'apply_restaurant' => 1
                 ]);
 

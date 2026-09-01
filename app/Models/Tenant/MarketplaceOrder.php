@@ -81,12 +81,17 @@ class MarketplaceOrder extends Model
         }
 
         $channel = $this->channel;
-        $salesChannel = SalesChannel::where('type', 'marketplace')
-            ->where('name', 'LIKE', '%' . ($channel->platform ?? $channel->name) . '%')
-            ->first();
 
-        $warehouseId = $salesChannel->warehouse_id
-            ?? optional(\Modules\Inventory\Models\Warehouse::first())->id;
+        // Antes esto era un `name LIKE '%falabella%'` que no encontraba nada:
+        // ningun canal sembrado se llama asi, y los pedidos de Saga entraban con
+        // `channel_id` NULL — fuera de todo filtro y de `channelReport()`.
+        $salesChannel = SalesChannel::marketplacePlatformChannel(
+            $channel->platform ?? null,
+            $channel->name ?? null
+        );
+
+        $warehouseId = $salesChannel?->warehouse_id
+            ?: optional(\Modules\Inventory\Models\Warehouse::first())->id;
 
         $order = Order::create([
             'external_id'        => (string) \Illuminate\Support\Str::uuid(),
@@ -97,7 +102,7 @@ class MarketplaceOrder extends Model
             'status_order_id'    => $this->erpStatusId(),
             'payment_status'     => 'paid', // En Saga el cliente ya pagó (Falabella cobra y liquida)
             'reference_payment'  => 'marketplace_' . ($channel->platform ?? 'unknown'),
-            'channel_id'         => $salesChannel->id ?? null,
+            'channel_id'         => $salesChannel?->id,
             'warehouse_id'       => $warehouseId,
             'external_order_ref' => $this->external_order_id,
             'marketplace_notes'  => 'Pedido externo #' . $this->external_order_id . ' de ' . ($channel->name ?? $channel->platform),

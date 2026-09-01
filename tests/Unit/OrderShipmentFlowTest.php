@@ -4,6 +4,7 @@ namespace Tests\Unit;
 
 use App\Http\Controllers\Tenant\OrderController;
 use App\Models\Tenant\Order;
+use App\Models\Tenant\SalesChannel;
 use App\Models\Tenant\ShippingRequest;
 use Illuminate\Http\Request;
 use Tests\TestCase;
@@ -386,6 +387,42 @@ class OrderShipmentFlowTest extends TestCase
             'warehouse_id',
             $this->sqlFor(['warehouse_id' => '3']),
             'un id real si debe filtrar por almacen'
+        );
+    }
+
+    /**
+     * El codigo del canal de un marketplace externo lo calculan DOS sitios: el
+     * alta en vivo (`marketplacePlatformChannel`) y la migracion de backfill.
+     * Si divergen, cada uno crea un canal distinto para la misma tienda y el
+     * reporte de ventas queda partido en dos — por eso la formula vive en una
+     * sola funcion pura y por eso se fija aqui.
+     *
+     * @test
+     */
+    public function el_codigo_de_canal_de_una_plataforma_es_estable()
+    {
+        $casos = [
+            'falabella'      => 'MKP_FALABELLA',
+            'FALABELLA'      => 'MKP_FALABELLA',
+            '  Falabella  '  => 'MKP_FALABELLA',
+            'mercado-libre'  => 'MKP_MERCADOLIBRE',
+            'tik tok'        => 'MKP_TIKTOK',
+        ];
+
+        foreach ($casos as $plataforma => $esperado) {
+            $this->assertSame(
+                $esperado,
+                SalesChannel::platformCode($plataforma),
+                "«{$plataforma}» debe resolver siempre al mismo codigo"
+            );
+        }
+
+        // La columna `sales_channels.code` es varchar(20) y UNIQUE: pasarse
+        // reventaria el alta del canal justo al recibir el primer pedido.
+        $this->assertLessThanOrEqual(
+            20,
+            strlen(SalesChannel::platformCode('una-plataforma-con-nombre-larguisimo')),
+            'el codigo no puede exceder el varchar(20) de la columna'
         );
     }
 

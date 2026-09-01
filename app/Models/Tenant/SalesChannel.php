@@ -84,6 +84,71 @@ class SalesChannel extends ModelTenant
     }
 
     /**
+     * Canal de venta de un marketplace externo (Saga, MercadoLibre…), creándolo
+     * si el tenant todavía no lo tiene.
+     *
+     * Sustituye al `where('name','LIKE','%'.$platform.'%')` que usaba
+     * `MarketplaceOrder::createErpOrder()`: las migraciones solo siembran
+     * «Marketplace ebaemy» (MKP01), ningún nombre contiene «falabella», y la
+     * búsqueda no encontraba nada nunca. El resultado eran pedidos de Saga con
+     * `channel_id` NULL — invisibles para el filtro de canal y para el reporte
+     * de ventas por canal. En producción eran los 630 de carolayimport.
+     *
+     * El código se deriva de la plataforma (`MKP_FALABELLA`) para que una
+     * integración nueva no necesite migración: se autoprovisiona al primer
+     * pedido. Se crea INACTIVO a propósito — el canal existe para clasificar
+     * pedidos que ya entran solos, no para ofrecerse en el alta manual.
+     */
+    /**
+     * Código de canal para una plataforma externa: `falabella` → `MKP_FALABELLA`.
+     *
+     * Vive aparte y sin tocar la base de datos porque la migración de backfill
+     * necesita EXACTAMENTE el mismo código: si las dos implementaciones
+     * divergen, el backfill crea un canal y el alta en vivo crea otro, y las
+     * ventas de la misma tienda quedan partidas en dos en el reporte.
+     */
+    public static function platformCode(string $platform): string
+    {
+        return substr(
+            'MKP_' . strtoupper(preg_replace('/[^a-z0-9]/', '', strtolower(trim($platform)))),
+            0,
+            20
+        );
+    }
+
+    public static function marketplacePlatformChannel(?string $platform, ?string $nombre = null): ?self
+    {
+        $platform = strtolower(trim((string) $platform));
+        if ($platform === '') {
+            return null;
+        }
+
+        $code = static::platformCode($platform);
+
+        if ($canal = static::where('code', $code)->first()) {
+            return $canal;
+        }
+
+        // Compatibilidad: si alguien ya lo creó a mano con otro código pero un
+        // nombre reconocible, se reutiliza en vez de duplicar el canal.
+        $canal = static::where('type', 'marketplace')
+                       ->where('name', 'LIKE', '%' . $platform . '%')
+                       ->first();
+        if ($canal) {
+            return $canal;
+        }
+
+        return static::create([
+            'name'         => substr($nombre ?: ucfirst($platform), 0, 60),
+            'type'         => 'marketplace',
+            'code'         => $code,
+            'warehouse_id' => \Modules\Inventory\Models\Warehouse::value('id'),
+            'is_active'    => false,
+            'settings'     => ['icon' => '🛍️', 'color' => '#0ea5e9', 'platform' => $platform],
+        ]);
+    }
+
+    /**
      * Resumen de ventas de este canal en un rango de fechas.
      *
      * @param string $from  Y-m-d
