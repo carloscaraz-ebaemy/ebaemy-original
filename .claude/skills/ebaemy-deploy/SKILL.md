@@ -199,7 +199,13 @@ Estas no son deploy de cada release; son configuración inicial. Mencionar al us
 - **Tenant snapshot**: `php artisan tenant:snapshot` después de cada deploy con migraciones nuevas (provisión de tenant nuevo = segundos en vez de 1027 migraciones)
 - **Read replica**: `TENANT_REPLICA_HOST=host.replica` en `.env`
 - **Queue worker** (CapturePaymentJob async): `php artisan queue:work` con supervisor
-- **Data warehouse**: crear BD `ebaemy_warehouse` + `DW_DATABASE` en `.env` + `php artisan migrate --database=warehouse --path=database/migrations/warehouse`
+- **Data warehouse** (aprovisionado en produccion el 2026-09-01): **NO** hacen falta variables `DW_*` en `.env` — `config/database.php` ya cae por defecto en `ebaemy_warehouse` y hereda `DB_USERNAME`/`DB_PASSWORD`. Lo que si hace falta, porque ninguna migracion lo hace (Laravel necesita conectarse antes de migrar) y el path no lo recorre `migrate`:
+  ```bash
+  php artisan tinker --execute="DB::connection('system')->statement('CREATE DATABASE IF NOT EXISTS \`ebaemy_warehouse\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci');"
+  php artisan migrate --database=warehouse --path=database/migrations/warehouse --force
+  php artisan warehouse:sync-etl --from=<hace 12 meses> --to=<hoy> --with-items   # carga historica
+  ```
+  Sin esto, el job de las 02:30 falla cada noche (`1049 Unknown database`) y la pantalla `/analytics` del SuperAdmin queda caida. El ETL solo LEE de los tenants y es idempotente.
 - **WhatsApp webhook STOP**: `WHATSAPP_WEBHOOK_VERIFY_TOKEN=...` en `.env` + configurar URL `https://ebaemy.com/webhooks/marketing/inbound` en Meta Business Manager
 
 ## Pendientes de seguridad (alta prioridad)
