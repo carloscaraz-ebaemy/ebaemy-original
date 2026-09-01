@@ -1404,6 +1404,22 @@ class ShipmentController extends Controller
 
         abort_if($shipment->is_cancelled, 422, 'El envío está anulado.');
 
+        // El pago no puede superar lo que falta cobrar. Igual que en Pedidos,
+        // se compara contra el saldo REAL del envio y no contra lo que mande
+        // el formulario: uno manipulado no puede sobrepagar.
+        //
+        // Solo aplica si el monto esta cargado. Un envio sin `amount_due` (los
+        // historicos, y los que todavia no se tarifaron) no tiene saldo contra
+        // el cual medir: ahi bloquear seria impedir cobrar.
+        if ($shipment->has_amount) {
+            $saldo = (float) $shipment->pending_total;
+            if (round((float) $data['amount'], 2) > round($saldo, 2) + 0.001) {
+                return $this->paymentResponse($request, $shipment, false,
+                    'El pago (S/ ' . number_format((float) $data['amount'], 2) . ') supera el saldo pendiente (S/ '
+                    . number_format($saldo, 2) . ').');
+            }
+        }
+
         $code  = trim($data['payment_code']);
         $force = $request->boolean('payment_code_force');
 
