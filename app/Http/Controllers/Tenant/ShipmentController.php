@@ -600,7 +600,7 @@ class ShipmentController extends Controller
             // que cualquier otro.
             'paymentMethodTypes' => \App\Models\Tenant\PaymentMethodType::all(['id', 'description']),
             'paymentDestinations' => $this->getPaymentDestinations(),
-        ]);
+        ] + $this->shipmentFormData());
     }
 
     /**
@@ -2797,6 +2797,35 @@ class ShipmentController extends Controller
     private function publicPrefillFields(): array
     {
         return ['dni', 'document_type', 'phone', 'shipping_destination', 'reference'];
+    }
+
+    /**
+     * Variables que necesita la ficha de envío (partials shipment-form-*).
+     *
+     * La comparten el formulario público y el modal del panel. Vive en un
+     * solo lugar a proposito: cuando el panel empezo a usar la misma ficha,
+     * le faltaban storeAddress, agencyFee y agencyFree y la pantalla entera
+     * tiraba 500.
+     */
+    private function shipmentFormData(): array
+    {
+        $store = ShippingSetting::current();
+
+        return [
+            'departments'   => Department::orderBy('description')->get(['id', 'description']),
+            'mapsKey'       => config('services.google_maps.key'),
+            'storeLat'      => $store->store_latitude,
+            'storeLng'      => $store->store_longitude,
+            'storeAddress'  => $store->store_address,
+            'pricePerKm'    => $store->has_pricing ? (float) $store->price_per_km : null,
+            'basePrice'     => (float) $store->base_price,
+            'minPrice'      => (float) $store->min_price,
+            'agencyFee'     => (float) $store->agency_fee,
+            'agencyFeeMode' => $store->fee_mode,
+            'agencyFree'    => $store->agency_is_free,
+            'agencyShow'    => $store->shows_agency_fee,
+            'maxDays'       => $store->max_days,
+        ];
     }
 
     /**
