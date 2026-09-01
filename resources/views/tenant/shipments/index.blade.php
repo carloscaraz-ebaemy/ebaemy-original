@@ -1975,238 +1975,308 @@
 </div>
 
 {{-- ══════════════ Modal: pagos del envío (multipago) ══════════════ --}}
+@push('styles')
+<style>
+  /* Gestion de pagos: tres areas separadas por aire, no por bordes. El
+     recuadro anterior encerraba cada campo y la vista quedaba plana. */
+  .pc-modal { border: 0; border-radius: 14px; }
+  .pc-head { align-items: flex-start; padding: 1rem 1.25rem; border-bottom: 1px solid #eef0f4; }
+  .pc-head__title { font-size: 1.05rem; font-weight: 700; color: #111827; margin: 0; }
+  .pc-head__sub { font-size: .82rem; color: #6b7280; margin-top: 2px; }
+  .pc-head__sub strong { color: #374151; font-weight: 600; }
+  .pc-head__dot { margin: 0 .35rem; color: #d1d5db; }
+  .pc-body { padding: 1.15rem 1.25rem; background: #fafbfc; }
+
+  /* Resumen financiero */
+  .pc-cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 1.35rem; }
+  .pc-card {
+    display: flex; flex-direction: column; gap: 3px;
+    background: #fff; border: 1px solid #eef0f4; border-radius: 12px; padding: 12px 14px;
+  }
+  .pc-card__label { font-size: .68rem; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: #9ca3af; }
+  .pc-card__value { font-size: 1.35rem; font-weight: 700; color: #111827; line-height: 1.2; }
+  .pc-card__value--ok { color: #16a34a; }
+  .pc-card__state { font-size: .72rem; font-weight: 600; }
+  /* El pendiente lleva acento porque es el dato que decide el despacho. */
+  .pc-card--main { border-color: #fecaca; background: #fff7f7; }
+  .pc-card--main .pc-card__value { color: #dc2626; }
+  .pc-card--main .pc-card__state { color: #b91c1c; }
+  .pc-card--done { border-color: #bbf7d0; background: #f2fdf6; }
+  .pc-card--done .pc-card__value { color: #16a34a; }
+  .pc-card--done .pc-card__state { color: #15803d; }
+  .pc-card--none { border-color: #eef0f4; background: #fff; }
+  .pc-card--none .pc-card__value { color: #9ca3af; }
+  .pc-card--none .pc-card__state { color: #9ca3af; }
+
+  /* Secciones */
+  .pc-sec { margin-bottom: 1.35rem; }
+  .pc-sec__head { display: flex; align-items: center; justify-content: space-between; margin-bottom: .5rem; }
+  .pc-sec__title {
+    font-size: .7rem; font-weight: 700; letter-spacing: .06em;
+    text-transform: uppercase; color: #6b7280; margin: 0;
+  }
+  .pc-count { font-size: .75rem; color: #9ca3af; font-weight: 600; }
+  .pc-sec__box { background: #fff; border: 1px solid #eef0f4; border-radius: 12px; padding: 14px 16px; }
+  .pc-sec__box--flush { padding: 0; overflow: hidden; }
+
+  /* Detalle del cobro */
+  .pc-detail { margin-bottom: .9rem; }
+  .pc-detail__row { display: flex; justify-content: space-between; font-size: .85rem; color: #4b5563; padding: 3px 0; }
+  .pc-detail__row--total {
+    border-top: 1px solid #eef0f4; margin-top: 6px; padding-top: 8px;
+    font-weight: 700; color: #111827;
+  }
+  .pc-amount-row { display: flex; gap: 8px; align-items: stretch; }
+  .pc-amount-row .input-group { flex: 1; }
+  .pc-hint { display: block; font-size: .76rem; color: #6b7280; margin-top: 6px; }
+
+  /* Historial */
+  #pcTable > thead > tr > th {
+    font-size: .68rem; font-weight: 700; letter-spacing: .05em; text-transform: uppercase;
+    color: #9ca3af; background: #fafbfc; border-bottom: 1px solid #eef0f4;
+    padding: .65rem .9rem; white-space: nowrap;
+  }
+  #pcTable > tbody > tr > td { padding: .7rem .9rem; border-color: #f3f4f6; font-size: .85rem; }
+  #pcTable > tbody > tr:last-child > td { border-bottom: 0; }
+  .pc-empty { text-align: center; color: #9ca3af; padding: 1.8rem 1rem !important; font-size: .85rem; }
+
+  /* Alta */
+  .pc-grid { display: grid; grid-template-columns: repeat(12, 1fr); gap: 12px 14px; }
+  .pc-f { display: flex; flex-direction: column; min-width: 0; }
+  .pc-f--6 { grid-column: span 6; }
+  .pc-f--12 { grid-column: span 12; }
+  .pc-lbl { font-size: .76rem; font-weight: 600; color: #374151; margin-bottom: 5px; }
+  .pc-req { color: #dc2626; }
+  .pc-opt { font-weight: 400; color: #9ca3af; }
+  /* El error va debajo de SU campo, no en un cartel arriba. */
+  .pc-err { display: none; font-size: .74rem; color: #dc2626; margin-top: 4px; }
+  .pc-err.is-on { display: block; }
+  .is-invalid-field { border-color: #fca5a5 !important; }
+  #pcFileHint { font-size: .74rem; margin-top: 4px; }
+
+  .pc-msg { border-radius: 10px; padding: 10px 12px; font-size: .83rem; margin-top: .25rem; }
+  .pc-msg--err { background: #fef2f2; border: 1px solid #fecaca; color: #991b1b; }
+  .pc-msg--ok  { background: #f0fdf4; border: 1px solid #bbf7d0; color: #166534; }
+
+  /* Pie */
+  .pc-foot { border-top: 1px solid #eef0f4; padding: .85rem 1.25rem; }
+  .pc-foot__grp { display: flex; gap: 8px; justify-content: flex-end; width: 100%; }
+  .pc-foot .btn { min-width: 120px; }
+
+  @media (max-width: 767px) {
+    .pc-cards { grid-template-columns: 1fr; gap: 8px; }
+    .pc-f--6 { grid-column: span 12; }
+    .pc-body { padding: 1rem; }
+    .pc-amount-row { flex-direction: column; }
+    .pc-foot__grp { flex-direction: column-reverse; }
+    .pc-foot .btn { width: 100%; }
+  }
+</style>
+@endpush
 @if($requirePaymentCode ?? false)
 <div class="modal fade" id="modalPagoCodigo" tabindex="-1" aria-hidden="true">
-  <div class="modal-dialog modal-dialog-centered modal-xl">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title">Pagos del envío — <span id="pcCode"></span></h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-      </div>
-      <div class="modal-body">
-        <p class="pc-client">Cliente: <strong id="pcClient"></strong></p>
+  <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable modal-xl">
+    <div class="modal-content pc-modal">
 
-        <style>
-          /* El modal de Nota de Venta se lee bien porque respira: cabeceras en
-             versalitas y gris, filas altas y el pie separado del cuerpo. */
-          #modalPagoCodigo .modal-body { padding: 1.25rem 1.5rem; }
-          .pc-client { font-size: .85rem; color: #6b7280; margin-bottom: .85rem; }
-
-          #pcTable { margin-bottom: 0; }
-          #pcTable > thead > tr > th {
-            font-size: .7rem; font-weight: 600; letter-spacing: .04em;
-            text-transform: uppercase; color: #9ca3af;
-            background: #f9fafb; border-bottom: 1px solid #e5e7eb;
-            padding: .6rem .75rem; white-space: nowrap;
-          }
-          #pcTable > tbody > tr > td { padding: .7rem .75rem; border-color: #f3f4f6; }
-          #pcTable > tfoot > tr > td {
-            padding: .55rem .75rem; border: 0; font-weight: 600; color: #374151;
-          }
-          #pcTable > tfoot > tr:first-child > td { border-top: 1px solid #e5e7eb; }
-          #pcTable code { font-size: .82rem; }
-
-          /* Panel de alta: grilla de 12 con la etiqueta arriba de cada campo,
-             que es lo unico que se lee bien al ancho de un modal y en telefono. */
-          .pc-form {
-            border: 1px solid #dbeafe; background: #f8fbff;
-            border-radius: 12px; padding: 14px 16px; margin-top: 14px;
-          }
-          .pc-form__title {
-            font-size: .7rem; font-weight: 700; letter-spacing: .06em;
-            text-transform: uppercase; color: #4f46e5; margin-bottom: 10px;
-          }
-          .pc-form__grid { display: grid; grid-template-columns: repeat(12, 1fr); gap: 12px 14px; }
-          .pc-f { display: flex; flex-direction: column; min-width: 0; }
-          .pc-f label { font-size: .75rem; font-weight: 600; color: #374151; margin-bottom: 4px; }
-          .pc-f--3 { grid-column: span 3; }
-          .pc-f--6 { grid-column: span 6; }
-          .pc-f--12 { grid-column: span 12; }
-          .pc-req { color: #dc2626; }
-          .pc-opt { font-weight: 400; color: #9ca3af; }
-          #pcFileHint { font-size: .72rem; margin-top: 4px; }
-          .pc-form__actions {
-            display: flex; justify-content: flex-end; gap: 8px; margin-top: 14px;
-          }
-          /* En pantallas medianas cuatro campos por fila quedan estrechos. */
-          @media (max-width: 991px) { .pc-f--3 { grid-column: span 6; } }
-          @media (max-width: 575px) {
-            .pc-form { padding: 12px; }
-            .pc-f--3, .pc-f--6 { grid-column: span 12; }
-            .pc-form__actions { flex-direction: column-reverse; }
-            .pc-form__actions .btn { width: 100%; }
-          }
-
-          .pc-new-wrap { text-align: center; padding-top: .9rem; }
-
-          .pc-amount {
-            display: flex; flex-wrap: wrap; gap: 10px 16px;
-            align-items: center; justify-content: space-between;
-            border: 1px solid #dbeafe; background: #f8fbff;
-            border-radius: 10px; padding: 10px 12px; margin-bottom: 12px;
-          }
-          .pc-amount-head label { font-weight: 600; font-size: .9rem; display: block; }
-          .pc-amount-head small { font-size: .78rem; }
-          .pc-amount-controls { min-width: 260px; }
-          .pc-amount-controls small { display: block; margin-top: 4px; font-size: .78rem; }
-          @media (max-width: 575px) {
-            .pc-amount { flex-direction: column; align-items: stretch; }
-            .pc-amount-controls { min-width: 0; }
-          }
-        </style>
-
-        {{-- Monto total a cobrar. Sin esto los pagos parciales no tienen contra
-             que restar: el panel cobraba contra la tarifa de envio (S/ 20) y
-             daba por saldado un pedido de S/ 120. --}}
-        <div class="pc-amount">
-          <div class="pc-amount-head">
-            <label for="pcAmountInput" class="mb-0">Monto total a cobrar</label>
-            <small class="text-muted">Mercadería + envío, todo incluido.</small>
+      {{-- ── Cabecera: que se esta haciendo, sobre que envio y de quien ── --}}
+      <div class="modal-header pc-head">
+        <div>
+          <h5 class="modal-title pc-head__title">Gestion de pagos</h5>
+          <div class="pc-head__sub">
+            Envio <strong id="pcCode"></strong>
+            <span class="pc-head__dot">&middot;</span>
+            Cliente: <strong id="pcClient"></strong>
           </div>
-          <div class="pc-amount-controls">
-            <div class="input-group input-group-sm">
-              <span class="input-group-text">S/</span>
-              <input type="number" step="0.01" min="0" class="form-control"
-                     id="pcAmountInput" placeholder="0.00" autocomplete="off">
-              <button class="btn btn-outline-primary" type="button" id="pcAmountSave">Guardar</button>
-            </div>
-            <small class="text-muted" id="pcAmountHint"></small>
+        </div>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+      </div>
+
+      <div class="modal-body pc-body">
+
+        {{-- ── 1. Resumen financiero ──────────────────────────────────────
+             Arriba y en tarjetas: es lo primero que el operador necesita
+             saber. Antes vivia en el pie de la tabla, con el mismo peso
+             visual que una fila cualquiera. --}}
+        <div class="pc-cards">
+          <div class="pc-card">
+            <span class="pc-card__label">Total a pagar</span>
+            <span class="pc-card__value" id="pcDue">&mdash;</span>
+          </div>
+          <div class="pc-card">
+            <span class="pc-card__label">Total pagado</span>
+            <span class="pc-card__value pc-card__value--ok" id="pcTotal">S/ 0.00</span>
+          </div>
+          {{-- El pendiente es el dato que decide si se despacha o no, asi que
+               es el unico con acento de color. --}}
+          <div class="pc-card pc-card--main" id="pcPendCard">
+            <span class="pc-card__label">Pendiente de pago</span>
+            <span class="pc-card__value" id="pcPending">&mdash;</span>
+            <span class="pc-card__state" id="pcPendState"></span>
           </div>
         </div>
 
-        {{-- Pagos ya registrados. Lo pinta el JS desde el endpoint de pagos.
-             El form envuelve la tabla porque la fila de alta vive dentro de
-             ella, igual que en Nota de Venta. data-no-ajax: lo manda su propio
-             JS despues de verificar el codigo. --}}
+        {{-- ── 2. Detalle del cobro ─────────────────────────────────────── --}}
+        <section class="pc-sec">
+          <div class="pc-sec__head">
+            <h6 class="pc-sec__title">Detalle del cobro</h6>
+          </div>
+          <div class="pc-sec__box">
+            {{-- El desglose solo aparece si hay de donde sacarlo: sin monto
+                 cargado inventar "mercaderia S/ 0" seria mentir. --}}
+            <div class="pc-detail" id="pcDetail" style="display:none">
+              <div class="pc-detail__row">
+                <span>Mercaderia</span><span id="pcMerch">&mdash;</span>
+              </div>
+              <div class="pc-detail__row">
+                <span>Envio</span><span id="pcShip">&mdash;</span>
+              </div>
+              <div class="pc-detail__row pc-detail__row--total">
+                <span>Total a cobrar</span><span id="pcDetailTotal">&mdash;</span>
+              </div>
+            </div>
+
+            <label class="pc-lbl" for="pcAmountInput">Monto total a cobrar</label>
+            <div class="pc-amount-row">
+              <div class="input-group">
+                <span class="input-group-text">S/</span>
+                <input type="number" step="0.01" min="0" class="form-control"
+                       id="pcAmountInput" placeholder="0.00" autocomplete="off">
+              </div>
+              <button class="btn btn-outline-primary" type="button" id="pcAmountSave">Guardar</button>
+            </div>
+            <small class="pc-hint" id="pcAmountHint"></small>
+          </div>
+        </section>
+
+        {{-- ── 3. Historial de pagos ────────────────────────────────────── --}}
+        <section class="pc-sec">
+          <div class="pc-sec__head">
+            <h6 class="pc-sec__title">Historial de pagos</h6>
+            <span class="pc-count" id="pcCount">0 pagos</span>
+          </div>
+          <div class="pc-sec__box pc-sec__box--flush">
+            <div class="table-responsive">
+              <table class="table align-middle mb-0" id="pcTable">
+                <thead>
+                  <tr>
+                    <th>#</th>
+                    <th>Fecha de pago</th>
+                    <th>Metodo de pago</th>
+                    <th>Destino</th>
+                    <th>Referencia</th>
+                    <th class="text-center">Archivo</th>
+                    <th class="text-end">Monto</th>
+                    <th style="width:36px;"></th>
+                  </tr>
+                </thead>
+                <tbody id="pcList">
+                  <tr><td colspan="8" class="pc-empty">Sin pagos registrados todavia.</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        {{-- ── 4. Alta de un pago ───────────────────────────────────────── --}}
         <form method="POST" action="#" id="formPagoCodigo" data-no-ajax>
           @csrf
           <input type="hidden" name="payment_code_force" id="pcForce" value="0">
-        <div class="table-responsive">
-          <table class="table table-sm align-middle mb-1" id="pcTable">
-            <thead>
-              <tr>
-                <th>#</th>
-                <th>Fecha de pago</th>
-                <th>Método de pago</th>
-                <th>Destino</th>
-                <th>Referencia</th>
-                <th class="text-center">Archivo</th>
-                <th class="text-end">Monto</th>
-                <th style="width:36px;"></th>
-              </tr>
-            </thead>
-            <tbody id="pcList">
-              <tr><td colspan="8" class="text-muted text-center py-3">Sin pagos registrados.</td></tr>
-            </tbody>
-            <tfoot>
-              <tr>
-                <td colspan="6" class="text-end">TOTAL PAGADO</td>
-                <td class="text-end" id="pcTotal">S/ 0.00</td>
-                <td></td>
-              </tr>
-              <tr>
-                <td colspan="6" class="text-end">TOTAL A PAGAR</td>
-                <td class="text-end" id="pcDue">—</td>
-                <td></td>
-              </tr>
-              <tr>
-                <td colspan="6" class="text-end">PENDIENTE DE PAGO</td>
-                <td class="text-end" id="pcPending">—</td>
-                <td></td>
-              </tr>
-            </tfoot>
-          </table>
-        </div>
 
-        {{-- Alta de un pago. Va FUERA de la tabla a proposito: ocho columnas de
-             inputs dentro de un modal dejan cada control sin ancho (el selector
-             de archivo se leia "Selecc") y en un telefono queda inusable. Aca
-             cada campo tiene su etiqueta y la grilla se reordena sola.
-             Los ids son los mismos: el JS arma el envio leyendo por id. --}}
-        <div id="pcNewRow" class="pc-form" style="display:none">
-          <div class="pc-form__title">Registrar un pago</div>
-          <div class="pc-form__grid">
-            <div class="pc-f pc-f--3">
-              <label for="pcDate">Fecha de pago</label>
-              <input type="date" id="pcDate" name="date_of_payment" class="form-control form-control-sm">
+          {{-- Oculto hasta que se pide: con cero pagos lo primero que se ve
+               debe ser el saldo, no un formulario en blanco.
+               Los ids son los de siempre: el JS arma el envio leyendo por id. --}}
+          <section class="pc-sec" id="pcNewRow" style="display:none">
+            <div class="pc-sec__head">
+              <h6 class="pc-sec__title">Registrar nuevo pago</h6>
             </div>
-            <div class="pc-f pc-f--3">
-              <label for="pcMethodType">Método de pago</label>
-              <select id="pcMethodType" name="payment_method_type_id" class="form-select form-select-sm">
-                <option value="">— Selecciona —</option>
-                @foreach(($paymentMethodTypes ?? []) as $pm)
-                  <option value="{{ $pm->id }}">{{ $pm->description }}</option>
-                @endforeach
-              </select>
-            </div>
-            <div class="pc-f pc-f--3">
-              <label for="pcDestination">Destino</label>
-              <select id="pcDestination" name="payment_destination_id" class="form-select form-select-sm">
-                <option value="">— Selecciona —</option>
-                @foreach(($paymentDestinations ?? []) as $pd)
-                  <option value="{{ $pd['id'] }}">{{ $pd['description'] }}</option>
-                @endforeach
-              </select>
-            </div>
-            <div class="pc-f pc-f--3">
-              <label for="pcAmount">Monto <span class="pc-req">*</span></label>
-              <div class="input-group input-group-sm">
-                <span class="input-group-text">S/</span>
-                <input id="pcAmount" name="amount" type="number" step="any" min="0.01"
-                       inputmode="decimal" class="form-control text-end" placeholder="0.00">
+            <div class="pc-sec__box">
+              <div class="pc-grid">
+                <div class="pc-f pc-f--6">
+                  <label class="pc-lbl" for="pcDate">Fecha de pago</label>
+                  <input type="date" id="pcDate" name="date_of_payment" class="form-control">
+                </div>
+                <div class="pc-f pc-f--6">
+                  <label class="pc-lbl" for="pcMethodType">Metodo de pago</label>
+                  <select id="pcMethodType" name="payment_method_type_id" class="form-select">
+                    <option value="">Seleccionar</option>
+                    @foreach(($paymentMethodTypes ?? []) as $pm)
+                      <option value="{{ $pm->id }}">{{ $pm->description }}</option>
+                    @endforeach
+                  </select>
+                </div>
+                <div class="pc-f pc-f--6">
+                  <label class="pc-lbl" for="pcDestination">Destino</label>
+                  <select id="pcDestination" name="payment_destination_id" class="form-select">
+                    <option value="">Seleccionar</option>
+                    @foreach(($paymentDestinations ?? []) as $pd)
+                      <option value="{{ $pd['id'] }}">{{ $pd['description'] }}</option>
+                    @endforeach
+                  </select>
+                </div>
+                <div class="pc-f pc-f--6">
+                  <label class="pc-lbl" for="pcAmount">Monto <span class="pc-req">*</span></label>
+                  <div class="input-group">
+                    <span class="input-group-text">S/</span>
+                    <input id="pcAmount" name="amount" type="number" step="any" min="0.01"
+                           inputmode="decimal" class="form-control text-end" placeholder="0.00">
+                  </div>
+                  <small class="pc-err" id="pcErrAmount"></small>
+                </div>
+                <div class="pc-f pc-f--12">
+                  {{-- Obligatorio y unico en toda la tienda: el JS lo verifica
+                       mientras se escribe. --}}
+                  <label class="pc-lbl" for="pcInput">Codigo de operacion <span class="pc-req">*</span></label>
+                  <input id="pcInput" name="payment_code" class="form-control"
+                         maxlength="60" autocomplete="off" placeholder="Ej. 123456789">
+                  <small class="pc-err" id="pcErrCode"></small>
+                </div>
+                <div class="pc-f pc-f--12">
+                  <label class="pc-lbl" for="pcFile">Comprobante <span class="pc-opt">(opcional)</span></label>
+                  <input type="file" id="pcFile" class="form-control"
+                         accept="image/jpeg,image/jpg,image/png,image/gif,application/pdf">
+                  <input type="hidden" name="filename"  id="pcFilename">
+                  <input type="hidden" name="temp_path" id="pcTempPath">
+                  <small class="text-muted d-block" id="pcFileHint"></small>
+                </div>
+                <div class="pc-f pc-f--12">
+                  <label class="pc-lbl" for="pcNote">Nota <span class="pc-opt">(opcional)</span></label>
+                  <input id="pcNote" name="note" class="form-control"
+                         maxlength="255" placeholder="Agregar una observacion sobre este pago...">
+                </div>
               </div>
             </div>
-            <div class="pc-f pc-f--6">
-              {{-- Obligatorio y unico en toda la tienda: el JS lo verifica
-                   mientras se escribe. --}}
-              <label for="pcInput">Código de operación <span class="pc-req">*</span></label>
-              <input id="pcInput" name="payment_code" class="form-control form-control-sm"
-                     maxlength="60" autocomplete="off" placeholder="N.° de operación del voucher">
-            </div>
-            <div class="pc-f pc-f--6">
-              <label for="pcFile">Comprobante <span class="pc-opt">(opcional)</span></label>
-              <input type="file" id="pcFile" class="form-control form-control-sm"
-                     accept="image/jpeg,image/jpg,image/png,image/gif,application/pdf">
-              <input type="hidden" name="filename"  id="pcFilename">
-              <input type="hidden" name="temp_path" id="pcTempPath">
-              <small class="text-muted d-block" id="pcFileHint"></small>
-            </div>
-            <div class="pc-f pc-f--12">
-              <label for="pcNote">Nota <span class="pc-opt">(opcional)</span></label>
-              <input id="pcNote" name="note" class="form-control form-control-sm"
-                     maxlength="255" placeholder="Referencia interna, observación…">
-            </div>
-          </div>
-          <div class="pc-form__actions">
-            <button type="button" class="btn btn-sm btn-light" id="pcCancelRow">Cancelar</button>
-            <button type="submit" class="btn btn-sm btn-primary" id="pcGo">
-              <i class="fas fa-plus"></i> Agregar pago
-            </button>
-          </div>
-        </div>
+          </section>
         </form>
 
-        <div id="pcAlert" class="mt-2" style="display:none;background:#fef2f2;border:1px solid #fecaca;color:#991b1b;border-radius:10px;padding:10px 12px;font-size:.83rem;"></div>
-        <div id="pcOk" class="mt-2" style="display:none;background:#f0fdf4;border:1px solid #bbf7d0;color:#166534;border-radius:10px;padding:8px 12px;font-size:.83rem;">
-          Código disponible.
-        </div>
+        <div id="pcAlert" class="pc-msg pc-msg--err" style="display:none"></div>
+        <div id="pcOk" class="pc-msg pc-msg--ok" style="display:none">Codigo disponible.</div>
+      </div>
 
-        <div class="pc-new-wrap">
-          <button type="button" class="sh-act sh-act--primary" id="pcNew">
-            <i class="fas fa-plus"></i> Nuevo
+      {{-- ── Pie fijo: la accion principal siempre en el mismo lugar ────── --}}
+      <div class="modal-footer pc-foot">
+        <div class="pc-foot__grp" id="pcFootIdle">
+          <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cerrar</button>
+          <button type="button" class="btn btn-primary" id="pcNew">
+            <i class="fas fa-plus"></i> Registrar un pago
           </button>
         </div>
-
-        <div class="text-end mt-3">
-          <button type="button" class="sh-act sh-act--ghost" data-bs-dismiss="modal">Cerrar</button>
+        {{-- El submit vive fuera del formulario y se ata con el atributo
+             `form=`: asi el pie queda fijo sin mover el formulario de lugar.
+             (Sin escribir la etiqueta aqui: aparecer en un comentario
+             desbalanceaba el conteo de apertura y cierre.) --}}
+        <div class="pc-foot__grp" id="pcFootForm" style="display:none">
+          <button type="button" class="btn btn-light" id="pcCancelRow">Cancelar</button>
+          <button type="submit" form="formPagoCodigo" class="btn btn-primary" id="pcGo">
+            <i class="fas fa-plus"></i> Registrar pago
+          </button>
         </div>
       </div>
+
     </div>
   </div>
 </div>
 @endif
 
-{{-- ── BITÁCORA del envío ── --}}
 <div class="modal fade" id="modalBitacora" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-dialog-centered modal-lg">
     <div class="modal-content">
@@ -3130,7 +3200,7 @@
         if (e.alert) { e.alert.style.display = 'none'; e.alert.innerHTML = ''; }
         if (e.ok) e.ok.style.display = 'none';
         if (e.force) e.force.value = '0';
-        if (e.go) e.go.innerHTML = '<i class="fas fa-plus"></i> Agregar pago';
+        if (e.go) e.go.innerHTML = '<i class="fas fa-plus"></i> Registrar pago';
     }
 
     /**
@@ -3139,6 +3209,25 @@
      * pcLoad() reescribe body.innerHTML y eso se lleva puesta la fila con el
      * formulario. Se la guarda aparte y se vuelve a colgar al final.
      */
+    /**
+     * Errores de validacion pegados a SU campo. Un alert() tapa el formulario
+     * y obliga a leer, aceptar y recien ahi corregir; ademas no dice cual de
+     * los campos esta mal cuando hay mas de uno.
+     */
+    function pcError(idCampo, idError, mensaje) {
+        var campo = document.getElementById(idCampo);
+        var caja  = document.getElementById(idError);
+        if (caja) { caja.textContent = mensaje || ''; caja.className = 'pc-err' + (mensaje ? ' is-on' : ''); }
+        if (campo) {
+            campo.classList.toggle('is-invalid-field', !!mensaje);
+            if (mensaje) campo.focus();
+        }
+    }
+    function pcLimpiarErrores() {
+        pcError('pcAmount', 'pcErrAmount', '');
+        pcError('pcInput',  'pcErrCode',   '');
+    }
+
     var pcNewRowEl = null;
     /**
      * Quedo sin trabajo: el panel de alta salio de la tabla, asi que repintar
@@ -3150,9 +3239,14 @@
     /** Muestra u oculta la fila de alta y el boton "Nuevo". */
     function pcToggleNewRow(mostrar) {
         if (!pcNewRowEl) pcNewRowEl = document.getElementById('pcNewRow');
-        var btn = document.getElementById('pcNew');
         if (pcNewRowEl) pcNewRowEl.style.display = mostrar ? '' : 'none';
-        if (btn) btn.style.display = mostrar ? 'none' : '';
+        // El pie tiene dos juegos de botones: uno para mirar y otro para
+        // cargar. Asi la accion principal esta siempre en el mismo lugar.
+        var idle = document.getElementById('pcFootIdle');
+        var form = document.getElementById('pcFootForm');
+        if (idle) idle.style.display = mostrar ? 'none' : '';
+        if (form) form.style.display = mostrar ? '' : 'none';
+        pcLimpiarErrores();
         if (mostrar) {
             var d = document.getElementById('pcDate');
             // Fecha de hoy por defecto: es la que se carga en el 99% de los casos.
@@ -3179,7 +3273,7 @@
         var body = document.getElementById('pcList');
         var tot  = document.getElementById('pcTotal');
         if (!body) return;
-        body.innerHTML = '<tr><td colspan="5" class="text-muted text-center py-3">Cargando…</td></tr>';
+        body.innerHTML = '<tr><td colspan="8" class="pc-empty">Cargando…</td></tr>';
 
         fetch('{{ url("registro-envio") }}/' + id + '/pagos',
               { headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' },
@@ -3198,6 +3292,8 @@
                 // a esta pantalla no tienen importe.
                 var due  = document.getElementById('pcDue');
                 var pend = document.getElementById('pcPending');
+                var card = document.getElementById('pcPendCard');
+                var est  = document.getElementById('pcPendState');
                 var inp  = document.getElementById('pcAmountInput');
                 var hint = document.getElementById('pcAmountHint');
 
@@ -3206,13 +3302,44 @@
 
                 if (pend) {
                     if (!d.has_amount) {
+                        // Sin monto cargado no se puede afirmar que falta cero.
                         pend.textContent = '—';
-                        pend.className = 'text-end text-muted';
+                        if (est)  est.textContent = 'Falta cargar el monto';
+                        if (card) card.className = 'pc-card pc-card--none';
                     } else {
                         var resta = Number(d.pending || 0);
                         pend.textContent = 'S/ ' + resta.toFixed(2);
-                        pend.className = 'text-end ' + (resta > 0 ? 'text-danger' : 'text-success');
+                        if (resta > 0) {
+                            if (est)  est.textContent = 'Pendiente';
+                            if (card) card.className = 'pc-card pc-card--main';
+                        } else {
+                            if (est)  est.textContent = '✓ Pago completado';
+                            if (card) card.className = 'pc-card pc-card--done';
+                        }
                     }
+                }
+
+                // Desglose: la mercaderia es lo que queda al restarle el envio
+                // al total. Solo se muestra si hay ambos datos; con uno solo
+                // seria una cuenta inventada.
+                var det = document.getElementById('pcDetail');
+                if (det) {
+                    var envio = d.delivery_price !== null ? Number(d.delivery_price) : null;
+                    if (d.has_amount && envio !== null) {
+                        var total = Number(d.due || 0);
+                        document.getElementById('pcMerch').textContent = 'S/ ' + Math.max(0, total - envio).toFixed(2);
+                        document.getElementById('pcShip').textContent  = 'S/ ' + envio.toFixed(2);
+                        document.getElementById('pcDetailTotal').textContent = 'S/ ' + total.toFixed(2);
+                        det.style.display = '';
+                    } else {
+                        det.style.display = 'none';
+                    }
+                }
+
+                var cnt = document.getElementById('pcCount');
+                if (cnt) {
+                    var n = d.payments.length;
+                    cnt.textContent = n === 1 ? '1 pago' : (n + ' pagos');
                 }
 
                 if (inp) inp.value = d.has_amount ? Number(d.due).toFixed(2) : '';
@@ -3232,7 +3359,7 @@
                 }
 
                 if (!d.payments.length) {
-                    body.innerHTML = '<tr><td colspan="8" class="text-muted text-center py-3">Sin pagos registrados.</td></tr>';
+                    body.innerHTML = '<tr><td colspan="8" class="pc-empty">No se han registrado pagos todavía.</td></tr>';
                     pcKeepNewRow(body);
                     return;
                 }
@@ -3434,13 +3561,13 @@
         var rawAmt = e.amount ? String(e.amount.value).trim().replace(/\s|S\/?/gi, '') : '';
         var amt = parseFloat(rawAmt.replace(',', '.'));
 
+        pcLimpiarErrores();
         if (!rawAmt || isNaN(amt) || amt <= 0) {
-            window.alert('Indica el monto del pago (por ejemplo 20 o 20.50).');
-            if (e.amount) e.amount.focus();
+            pcError('pcAmount', 'pcErrAmount', 'Indica el monto del pago (por ejemplo 20 o 20.50).');
             return;
         }
         if (!val) {
-            window.alert('Escribe el código de pago.');
+            pcError('pcInput', 'pcErrCode', 'Escribe el código de la operación.');
             return;
         }
         if (pcDup && e.force && e.force.value !== '1') {
@@ -3467,7 +3594,7 @@
         })
         .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
         .then(function (res) {
-            if (e.go) { e.go.disabled = false; e.go.innerHTML = '<i class="fas fa-plus"></i> Agregar pago'; }
+            if (e.go) { e.go.disabled = false; e.go.innerHTML = '<i class="fas fa-plus"></i> Registrar pago'; }
 
             if (!res.ok || !res.d.success) {
                 // El error se muestra DENTRO del modal: sacarlo por alert()
@@ -3489,7 +3616,7 @@
             pcUpdateRow(pcShipment, res.d);
         })
         .catch(function () {
-            if (e.go) { e.go.disabled = false; e.go.innerHTML = '<i class="fas fa-plus"></i> Agregar pago'; }
+            if (e.go) { e.go.disabled = false; e.go.innerHTML = '<i class="fas fa-plus"></i> Registrar pago'; }
             if (e.alert) {
                 e.alert.innerHTML = 'No se pudo conectar con el servidor. Revisa tu conexión e intenta de nuevo.';
                 e.alert.style.display = 'block';
