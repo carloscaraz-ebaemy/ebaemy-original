@@ -84,6 +84,33 @@ class SalesChannel extends ModelTenant
     }
 
     /**
+     * Canal de los encargos que entran por «Registro y Control de Envíos».
+     *
+     * No es una tienda: es la puerta por la que entra trabajo logístico sin
+     * venta detrás («lleva este paquete a esta persona»). Tiene canal propio
+     * —y de tipo `other`, no `ecommerce`— para que se pueda filtrar en el panel
+     * y para que no se cuele en las métricas de venta como si fueran pedidos de
+     * una tienda: sus importes son cero por definición.
+     */
+    public static function shipmentChannel(): self
+    {
+        $canal = static::where('code', 'ENV01')->first();
+
+        if (!$canal) {
+            $canal = static::create([
+                'name'         => 'Registro de Envíos',
+                'type'         => 'other',
+                'code'         => 'ENV01',
+                'warehouse_id' => \Modules\Inventory\Models\Warehouse::value('id'),
+                'is_active'    => true,
+                'settings'     => ['icon' => '📦', 'color' => '#0f766e'],
+            ]);
+        }
+
+        return $canal;
+    }
+
+    /**
      * Canal de venta de un marketplace externo (Saga, MercadoLibre…), creándolo
      * si el tenant todavía no lo tiene.
      *

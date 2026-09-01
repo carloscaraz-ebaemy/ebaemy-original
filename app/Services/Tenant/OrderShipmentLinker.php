@@ -65,6 +65,77 @@ class OrderShipmentLinker
     }
 
     /**
+     * El camino INVERSO: da de alta el pedido de un envío que naciera suelto.
+     *
+     * `/registro-envio` no es un módulo residual, es la puerta de entrada real
+     * de la logística en varios tenants: el 2026-09-01 había 268 envíos en
+     * producción y NINGUNO tenía pedido — 267 ni siquiera tenían un pedido
+     * candidato al que enlazarse. Mientras eso siga así, la mitad logística del
+     * panel unificado está vacía por construcción, porque sus filtros cuelgan
+     * todos de `whereHas('shipments')`.
+     *
+     * Decisión tomada: el encargo logístico ES un pedido, aunque no lleve
+     * productos ni importe. Un pedido de cero líneas y total cero es la
+     * representación honesta de «lleva este paquete a esta persona», y hace que
+     * ese trabajo aparezca en la única pantalla donde el operador lo busca.
+     *
+     * Idempotente: si el envío ya tiene pedido, devuelve el que hay.
+     */
+    public function ensureOrderFor(ShippingRequest $shipment): Order
+    {
+        if ($shipment->order_id && ($existente = Order::find($shipment->order_id))) {
+            return $existente;
+        }
+
+        $canal = \App\Models\Tenant\SalesChannel::shipmentChannel();
+
+        $destino = trim(implode(', ', array_filter([
+            $shipment->shipping_destination,
+            $shipment->destination_city,
+        ])));
+
+        $order = Order::crearTolerandoEsquemaViejo([
+            'external_id'      => (string) \Illuminate\Support\Str::uuid(),
+            'customer'         => [
+                'apellidos_y_nombres_o_razon_social' => $shipment->full_name,
+                'numero'                             => $shipment->dni,
+                'telefono'                           => $shipment->phone,
+                'direccion'                          => $destino,
+                'source'                             => 'registro_envio',
+            ],
+            'shipping_address' => $destino ?: 'Por definir',
+            // Sin lineas y sin importe: no hay venta, hay un encargo. Ver el
+            // comentario de arriba — es una decision, no un dato que falte.
+            'items'            => [],
+            'total'            => 0,
+            'subtotal'         => 0,
+            // No hay nada que cobrar, asi que el pedido no puede quedarse en
+            // «pago pendiente»: eso lo dejaria fuera de la cola de trabajo. Con
+            // «pago verificado» entra directo en «por preparar», que es
+            // exactamente donde el operador lo espera.
+            'status_order_id'  => 2,
+            'payment_status'   => null,   // no hubo pasarela; ver Order, «Estado del pago»
+            'reference_payment'=> 'registro_envio',
+            'channel_id'       => $canal->id,
+            'warehouse_id'     => $canal->warehouse_id,
+            'marketplace_notes'=> $shipment->package_content
+                ? 'Encargo: ' . $shipment->package_content
+                : null,
+        ]);
+
+        // La fecha del pedido es la del encargo, no la de este alta: si no, un
+        // backfill amontonaria 268 pedidos en el dia que se corrio.
+        if ($shipment->created_at) {
+            $order->created_at = $shipment->created_at;
+            $order->save();
+        }
+
+        $shipment->forceFill(['order_id' => $order->id])->save();
+
+        return $order;
+    }
+
+    /**
      * Cierre del alta de un envío: código legible, prioridad por modalidad y
      * asiento en la bitácora.
      *

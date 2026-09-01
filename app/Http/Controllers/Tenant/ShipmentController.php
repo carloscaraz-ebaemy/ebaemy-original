@@ -759,8 +759,34 @@ class ShipmentController extends Controller
         $shipment = ShippingRequest::create($data);
         $this->assignCode($shipment);
         $this->stampPriority($shipment);
+        $this->ensureOrderForShipment($shipment);
 
         return back()->with('success', "Envío {$shipment->shipment_code} registrado.");
+    }
+
+    /**
+     * Da de alta el pedido del encargo recien registrado.
+     *
+     * Las dos puertas de `/registro-envio` (panel y formulario publico) creaban
+     * envios sueltos: en produccion habia 268 sin un solo pedido detras, y por
+     * eso toda la mitad logistica del panel unificado salia a cero. El encargo
+     * es un pedido aunque no lleve productos — ver `OrderShipmentLinker`.
+     *
+     * Best-effort A PROPOSITO: si esto falla, el envio ya esta registrado y el
+     * cliente ya tiene su codigo. Tumbar el alta por no poder crear el pedido
+     * espejo seria cambiar un problema de visibilidad por uno de servicio.
+     */
+    private function ensureOrderForShipment(ShippingRequest $shipment): void
+    {
+        try {
+            app(\App\Services\Tenant\OrderShipmentLinker::class)->ensureOrderFor($shipment);
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::error('No se pudo crear el pedido del envio', [
+                'shipment_id'   => $shipment->id,
+                'shipment_code' => $shipment->shipment_code,
+                'error'         => $e->getMessage(),
+            ]);
+        }
     }
 
     /**
@@ -3050,6 +3076,7 @@ class ShipmentController extends Controller
         $shipment = ShippingRequest::create($data);
         $this->assignCode($shipment);
         $this->stampPriority($shipment);
+        $this->ensureOrderForShipment($shipment);
 
         // WhatsApp "registro recibido" al cliente (async, best-effort).
         $this->notifyClientRegistered($shipment);
