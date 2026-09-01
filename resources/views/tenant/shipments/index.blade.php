@@ -1403,48 +1403,154 @@
   </div>
 </div>
 
+{{-- NOTA: este modal volvio a su version propia a proposito.
+     El intento de reusar la ficha publica (partials/shipment-form-*) trajo el
+     markup y el JS pero NO el CSS, que sigue dentro de public.blade.php: la
+     ficha es un asistente de 4 pasos y sin sus estilos el modal salia crudo,
+     con las tres modalidades apiladas y el texto pegado.
+     Para retomarlo hay que extraer tambien el CSS y decidir como convive un
+     asistente por pasos dentro de un modal. --}}
 {{-- ══════════════ Modal: Registrar envío (manual) ══════════════ --}}
-{{-- Usa la MISMA ficha que el formulario público (envio/nuevo). Antes eran
-     dos formularios distintos para el mismo trámite: el del panel no tenía
-     selector de dirección con Google Maps, ni monto a cobrar, ni ciudad de
-     destino. El operador cargaba un envío más pobre que el que carga el
-     propio cliente.
-
-     Ver partials/shipment-form-body.blade.php. El prefijo adm_ evita que los
-     ids choquen con los del formulario público. --}}
 <div class="modal fade" id="modalNuevoEnvio" tabindex="-1">
-  <div class="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable">
+  <div class="modal-dialog modal-dialog-centered modal-lg">
     <div class="modal-content">
       <form method="POST" action="{{ route('shipments.store') }}">
+        @csrf
         <div class="modal-header bg-light">
           <h5 class="modal-title"><i class="fas fa-dolly text-primary me-2"></i>Registrar envío</h5>
           <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
         </div>
         <div class="modal-body">
-          @include('tenant.shipments.partials.shipment-form-body', [
-              'p' => 'adm_', 'context' => 'admin', 'ubGroup' => 'adm',
-          ])
 
-          {{-- Detalle interno: solo lo ve el equipo, el cliente nunca. --}}
-          <div class="sh-section"><i class="fas fa-clipboard-list fa-fw me-1"></i> Detalle del producto</div>
+          <div class="sh-section"><i class="fas fa-user fa-fw me-1"></i> Destinatario</div>
           <div class="row g-3">
             <div class="col-md-6">
-              <label class="form-label">Contenido del paquete</label>
-              <input type="text" name="package_content" class="form-control" placeholder="Qué va dentro">
+              <label class="form-label small mb-1">DNI / RUC <span class="text-muted">(autocompleta)</span></label>
+              <input type="text" name="dni" id="nv_dni" class="form-control js-doc-lookup"
+                     data-target-name="nv_full_name" data-target-address="nv_shipping_destination" data-ubigeo-group="nv"
+                     inputmode="numeric" maxlength="11" autocomplete="off" placeholder="8 dígitos (DNI) u 11 (RUC)">
+              <small class="js-doc-status d-block mt-1"></small>
             </div>
-            <div class="col-md-3">
-              <label class="form-label">Bultos</label>
-              <input type="number" name="package_count" class="form-control" min="1" placeholder="1">
-            </div>
-            <div class="col-md-3">
-              <label class="form-label">Peso (kg)</label>
-              <input type="number" step="any" min="0" name="weight" class="form-control" placeholder="0.00">
-            </div>
+            <div class="col-md-6"><label class="form-label small mb-1">Teléfono (celular) *</label>
+              <input type="text" name="phone" class="form-control js-phone-pe" required maxlength="9" inputmode="numeric" placeholder="999 999 999">
+              <small class="js-phone-err text-danger" style="font-size:12px;"></small></div>
+            <div class="col-12"><label class="form-label small mb-1">Nombre completo *</label>
+              <input type="text" name="full_name" id="nv_full_name" class="form-control" required></div>
+          </div>
+
+
+          {{-- Cliente EMPRESA (RUC): la agencia entrega solo a una persona con
+               DNI. Se muestra al escribir 11 digitos en el documento. --}}
+          <div class="row g-3 mt-0 js-pickup-box" data-prefix="nv" style="display:none;">
             <div class="col-12">
-              <label class="form-label">Notas internas</label>
-              <input type="text" name="notes" class="form-control" placeholder="Referencia, indicaciones…">
+              <div class="alert alert-primary py-2 px-3 small mb-0">
+                🧾 <b>Cliente con RUC.</b> La agencia no entrega a una razón social:
+                indica quién recoge el paquete.
+              </div>
+            </div>
+            <div class="col-md-6"><label class="form-label">Nombre de quien recoge <span class="text-danger">*</span></label>
+              <input type="text" name="pickup_person_name" id="nv_pickup_person_name" class="form-control" maxlength="160"></div>
+            <div class="col-md-3"><label class="form-label">DNI <span class="text-danger">*</span></label>
+              <input type="text" name="pickup_person_dni" id="nv_pickup_person_dni" class="form-control" maxlength="20" inputmode="numeric"></div>
+            <div class="col-md-3"><label class="form-label">Celular</label>
+              <input type="text" name="pickup_person_phone" id="nv_pickup_person_phone" class="form-control" maxlength="20" inputmode="numeric"></div>
+          </div>
+          <div class="sh-section"><i class="fas fa-truck fa-fw me-1"></i> Modalidad de entrega</div>
+          {{-- El alta manual solo ofrecía provincia (agencia): un pedido de Lima o
+               un recojo en tienda quedaban registrados como agencia y pedían
+               ubigeo que no existe. Ahora la modalidad se elige aquí y cada una
+               muestra SOLO sus campos. --}}
+          <div class="row g-2" id="nvTypeCards">
+            @foreach(\App\Models\Tenant\ShippingRequest::DELIVERY_TYPES as $dtKey => $dtLabel)
+              <div class="col-md-4">
+                <label class="w-100 mb-0" style="cursor:pointer;">
+                  <input type="radio" name="delivery_type" value="{{ $dtKey }}" class="js-nv-type"
+                         {{ $dtKey === \App\Models\Tenant\ShippingRequest::DELIVERY_AGENCIA ? 'checked' : '' }}
+                         style="margin-right:6px;">
+                  <span style="font-weight:600;font-size:13px;">
+                    {{ \App\Models\Tenant\ShippingRequest::DELIVERY_META[$dtKey]['emoji'] ?? '' }} {{ $dtLabel }}
+                  </span>
+                </label>
+              </div>
+            @endforeach
+          </div>
+
+          <div class="sh-section"><i class="fas fa-map-marker-alt fa-fw me-1"></i> Destino</div>
+          <div class="row g-3 nv-agencia">
+            <div class="col-12"><label class="form-label">Ubigeo (Departamento / Provincia / Distrito) <span class="text-danger">*</span></label>
+              <div class="ubigeo-field" data-ubigeo-group="nv">
+                <div class="ubigeo-display" tabindex="0">Seleccionar departamento / provincia / distrito…</div>
+                <input type="hidden" name="department_id" data-ub="department">
+                <input type="hidden" name="province_id"   data-ub="province">
+                <input type="hidden" name="district_id"   data-ub="district">
+                <div class="ubigeo-pop" hidden>
+                  <div class="ubigeo-col" data-col="dep"></div>
+                  <div class="ubigeo-col" data-col="prov"></div>
+                  <div class="ubigeo-col" data-col="dist"></div>
+                </div>
+              </div></div>
+            <div class="col-12"><label class="form-label">Agencia <span class="text-danger">*</span></label>
+              <div class="agency-field">
+                <select class="form-select agency-select">
+                  <option value="">— Selecciona —</option>
+                  @foreach(\App\Models\Tenant\ShippingRequest::AGENCIES as $a)<option value="{{ $a }}">{{ $a }}</option>@endforeach
+                  <option value="__otra__">Otra…</option>
+                </select>
+                <input type="text" name="shipping_agency" class="form-control agency-input mt-2" placeholder="Nombre de la agencia" style="display:none;">
+              </div>
+              <div class="sh-hint">Sin agencia no se puede rotular el envío a provincia.</div>
             </div>
           </div>
+
+          <div class="row g-3 nv-tienda" style="display:none;">
+            <div class="col-12">
+              <div class="alert alert-light border small mb-0 py-2">
+                🏬 <b>Recojo en tienda</b> — el cliente pasa por su pedido: no lleva
+                ubigeo, agencia ni dirección de destino.
+              </div>
+            </div>
+          </div>
+
+          <div class="row g-3 mt-0" id="nvDestBox">
+            <div class="col-md-6" id="nvDirWrap"><label class="form-label" id="nv_dir_label">Dirección</label>
+              <input type="text" name="shipping_destination" id="nv_shipping_destination" class="form-control"></div>
+            <div class="col-md-6"><label class="form-label small mb-1" id="nv_ref_label">Referencia</label>
+              <input type="text" name="reference" id="nv_reference" class="form-control" placeholder="Frente a…, cerca de…"></div>
+          </div>
+
+          <div class="sh-fs">
+          <div class="sh-fs__h"><i class="fas fa-clipboard-list"></i> Detalle del producto
+            <span class="sh-fs__int" title="Solo lo ve tu equipo. El cliente nunca ve este campo.">interno</span>
+          </div>
+          {{-- Buscador del catalogo: evita tipear a mano lo que ya existe
+               en el sistema (y que las faltas terminen en el rotulo). --}}
+          <div class="sh-pick" data-target="nv_package_content">
+            <div class="sh-pick__bar">
+              <input type="number" class="form-control sh-pick__qty" value="1" min="1" max="999"
+                     title="Cantidad" aria-label="Cantidad">
+              <div class="sh-pick__field">
+                <input type="text" class="form-control sh-pick__q" autocomplete="off"
+                       role="combobox" aria-expanded="false" aria-autocomplete="list"
+                       placeholder="Buscar producto del catalogo y agregarlo…">
+              </div>
+            </div>
+            <div class="sh-pick__res" hidden></div>
+          </div>
+          <textarea name="package_content" id="nv_package_content" class="form-control" rows="3"
+                    placeholder="Ej.&#10;1 maceta de cerámica blanca 30cm&#10;1 planta artificial BOA x18 hojas"></textarea>
+          <div class="sh-hint">Lo escribe el almacén. Se imprime en el rótulo para declarar el contenido en la agencia.</div>
+          </div>
+
+          <div class="sh-section"><i class="fas fa-box fa-fw me-1"></i> Paquete</div>
+          <div class="row g-3">
+            <div class="col-md-6"><label class="form-label">N° de bultos</label>
+              <input type="number" name="package_count" class="form-control" value="1" min="1" max="9999"></div>
+            <div class="col-md-3"><label class="form-label">Peso (kg)</label>
+              <input type="number" name="weight" class="form-control" step="0.01" min="0" placeholder="0"></div>
+            <div class="col-12"><label class="form-label small mb-1">Información adicional</label>
+              <input type="text" name="notes" class="form-control" placeholder="Referencia, indicaciones…"></div>
+          </div>
+
         </div>
         <div class="modal-footer bg-light">
           <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
@@ -3428,7 +3534,6 @@
 })();
 </script>
 @include('tenant.shipments.partials.ubigeo-cascader-js')
-@include('tenant.shipments.partials.shipment-form-js', ['p' => 'adm_'])
 @include('tenant.shipments.partials.agency-select-js')
 @include('tenant.shipments.partials.phone-validate-js')
 @include('tenant.shipments.partials.logistics-js')
