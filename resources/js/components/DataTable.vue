@@ -439,12 +439,23 @@ export default {
     },
     async mounted() {
         let column_resource = _.split(this.resource, "/");
-        await this.$http
-            .get(`/${_.head(column_resource)}/columns`)
-            .then(response => {
-                this.columns = response.data;
-                this.search.column = _.head(Object.keys(this.columns));
-            });
+        // Sin catch, si /columns fallaba mounted() cortaba aca y getRecords()
+        // no llegaba a correr NUNCA: la tabla quedaba vacia para siempre y sin
+        // una sola linea en consola. Las columnas solo alimentan el selector de
+        // busqueda, asi que su fallo no puede costar las filas.
+        try {
+            const response = await this.$http.get(
+                `/${_.head(column_resource)}/columns`
+            );
+            this.columns = response.data || {};
+            this.search.column = _.head(Object.keys(this.columns));
+        } catch (error) {
+            this.columns = {};
+            console.error(
+                `[data-table] fallo al cargar /${_.head(column_resource)}/columns`,
+                error && error.response ? error.response.status : error
+            );
+        }
         
         // Cargar almacenes si debe mostrar el filtro de almacén
         if (this.resource === 'inventory' && window.location.pathname === '/inventory') {
