@@ -1356,7 +1356,6 @@
                 </tbody>
             </table>
         </div>
-        </form>
         @include('tenant.shipments.partials.pagination')
     </div>
 
@@ -2147,6 +2146,7 @@
             </tfoot>
           </table>
         </div>
+        </form>
 
         <div id="pcAlert" class="mt-2" style="display:none;background:#fef2f2;border:1px solid #fecaca;color:#991b1b;border-radius:10px;padding:10px 12px;font-size:.83rem;"></div>
         <div id="pcOk" class="mt-2" style="display:none;background:#f0fdf4;border:1px solid #bbf7d0;color:#166534;border-radius:10px;padding:8px 12px;font-size:.83rem;">
