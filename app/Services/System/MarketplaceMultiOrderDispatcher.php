@@ -6,6 +6,7 @@ use App\Models\System\Client;
 use App\Models\System\MarketplaceOrder;
 use App\Models\System\MarketplaceOrderItem;
 use App\Models\System\TenantMarketplaceOrder;
+use App\Models\Tenant\Order as TenantOrder;
 use Hyn\Tenancy\Environment;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -167,18 +168,29 @@ class MarketplaceMultiOrderDispatcher
                 $order->delivery_department,
             ])));
 
-            $orderId = DB::connection('tenant')->table('orders')->insertGetId([
+            // El pago lo cobra la central (MercadoPago) antes de despachar; en
+            // el modo legacy sin pasarela el pedido llega por cobrar. Se
+            // propaga solo cuando el padre ya está pagado, para no inventar un
+            // vocabulario nuevo en `payment_status` (ver A-03 de la auditoria).
+            $pagado = $order->payment_status === 'paid';
+
+            // Eloquent y NO `insertGetId()`: con el insert crudo ningun campo
+            // nuevo de `orders` llegaba jamas a los pedidos del marketplace a
+            // menos que alguien recordara editar este array a mano — asi se
+            // quedaron fuera `payment_status` y las fechas de negocio. El modelo
+            // aplica los casts (customer/items son JSON) y los timestamps.
+            $payload = [
                 'external_id'       => $externalId,
-                'customer'          => json_encode([
+                'customer'          => [
                     'apellidos_y_nombres_o_razon_social' => $order->customer_name,
                     'numero'                             => $order->customer_doc_number,
                     'tipo_documento'                     => $order->customer_doc_type,
                     'telefono'                           => $order->customer_phone,
                     'correo_electronico'                 => $order->customer_email,
                     'source'                             => 'marketplace_ebaemy',
-                ]),
+                ],
                 'shipping_address'  => $deliveryAddr ?: 'Por definir',
-                'items'             => json_encode($jsonItems),
+                'items'             => $jsonItems,
                 // Si el cliente aplicó cupón en checkout del marketplace, el
                 // descuento ya se calculó en TenantMarketplaceOrder.discount_amount.
                 // Aquí lo propagamos al Order del tenant para que su contabilidad,
@@ -188,14 +200,16 @@ class MarketplaceMultiOrderDispatcher
                 'total_discount'    => round((float) ($sub->discount_amount ?? 0), 2),
                 'reference_payment' => 'marketplace',
                 'status_order_id'   => 1, // Pendiente
+                'payment_status'    => $pagado ? 'paid' : null,
+                'paid_at'           => $pagado ? ($order->payment_paid_at ?? now()) : null,
                 'channel_id'        => $channel->id,
                 'warehouse_id'      => $channel->warehouse_id,
                 'seller_id'         => null,
                 'marketplace_notes' => "Marketplace pedido {$order->order_number} — " . ($order->delivery_notes ?? '-'),
                 'external_order_ref'=> $order->order_number,
-                'created_at'        => now(),
-                'updated_at'        => now(),
-            ]);
+            ];
+
+            $orderId = TenantOrder::create($this->soloColumnasExistentes($payload))->id;
 
             // Si se usó cupón, incrementar used_count en el tenant. PromotionEngine
             // en preview no toca contadores; lo hacemos aquí cuando el subpedido se
@@ -300,15 +314,74 @@ class MarketplaceMultiOrderDispatcher
                 'hostname_id' => $sub->hostname_id,
                 'error'       => $e->getMessage(),
             ]);
+            $intentos = $sub->retry_count + 1;
             $sub->update([
                 'status'      => TenantMarketplaceOrder::STATUS_FAILED,
                 'sync_error'  => Str::limit($e->getMessage(), 480),
-                'retry_count' => $sub->retry_count + 1,
+                'retry_count' => $intentos,
             ]);
+
+            // Agotados los reintentos, el scheduler ya no vuelve a tocarlo: es
+            // una venta cobrada que el seller no va a ver nunca si nadie entra
+            // al panel. Ese caso merece `critical`, no el `error` de un fallo
+            // transitorio que se resolvera solo en 15 minutos.
+            if ($intentos >= TenantMarketplaceOrder::MAX_DISPATCH_RETRIES) {
+                Log::critical('marketplace: subpedido agotó los reintentos, requiere intervención manual', [
+                    'order_number' => $order->order_number,
+                    'tenant_fqdn'  => $sub->tenant_fqdn,
+                    'sub_id'       => $sub->id,
+                    'intentos'     => $intentos,
+                    'error'        => Str::limit($e->getMessage(), 200),
+                ]);
+            }
+
             return ['success' => false, 'error' => $e->getMessage()];
         } finally {
             // Restaurar el tenant que estaba activo antes (si lo había)
             $tenancy->tenant($previousTenant ?: null);
+        }
+    }
+
+    /**
+     * Recorta el payload a las columnas que la tabla `orders` de ESTE tenant
+     * tiene de verdad.
+     *
+     * Con `insertGetId()` el problema no existia porque el array nunca crecia;
+     * al pasar a Eloquent, una columna reciente que un tenant todavia no haya
+     * migrado (`paid_at`, `payment_status`) convertiria el INSERT en un 1054 y
+     * perderiamos una venta ya cobrada por un desfase de esquema. Preferimos
+     * grabar el pedido sin ese dato y dejar constancia.
+     *
+     * La lista de columnas se memoriza por base de datos: un mismo proceso
+     * despacha subpedidos de varios tenants seguidos.
+     */
+    private function soloColumnasExistentes(array $payload): array
+    {
+        static $columnas = [];
+
+        try {
+            $schema = \Illuminate\Support\Facades\Schema::connection('tenant');
+            $db     = $schema->getConnection()->getDatabaseName();
+
+            if (!array_key_exists($db, $columnas)) {
+                $columnas[$db] = array_flip($schema->getColumnListing('orders'));
+            }
+
+            $recortado = array_intersect_key($payload, $columnas[$db]);
+
+            if ($faltan = array_keys(array_diff_key($payload, $columnas[$db]))) {
+                Log::warning('marketplace dispatch: la tabla orders del tenant no tiene estas columnas', [
+                    'database' => $db,
+                    'columnas' => $faltan,
+                    'accion'   => 'el pedido se crea sin ellas; falta correr tenancy:migrate',
+                ]);
+            }
+
+            return $recortado;
+        } catch (\Throwable $e) {
+            // Si no se puede leer el esquema, mejor intentar el insert completo
+            // que abortar el pedido por una comprobacion auxiliar.
+            return $payload;
         }
     }
 

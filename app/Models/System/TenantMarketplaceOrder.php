@@ -55,6 +55,23 @@ class TenantMarketplaceOrder extends Model
     public const STATUS_CANCELLED  = 'cancelled';
     public const STATUS_DELIVERED  = 'delivered';
 
+    /**
+     * Reintentos de dispatch antes de dar el subpedido por muerto.
+     *
+     * Vive aqui y no en la opcion del comando porque tres sitios necesitan la
+     * MISMA cifra: el reintento programado, el contador del panel SuperAdmin y
+     * el aviso de agotamiento. Con el numero suelto en cada uno, un subpedido
+     * podia quedar fuera del reintento y a la vez no contarse como muerto.
+     */
+    public const MAX_DISPATCH_RETRIES = 3;
+
+    /** Subpedidos que fallaron y ya no se van a reintentar solos. */
+    public function scopeDead($q)
+    {
+        return $q->where('status', self::STATUS_FAILED)
+                 ->where('retry_count', '>=', self::MAX_DISPATCH_RETRIES);
+    }
+
     public function marketplaceOrder()
     {
         return $this->belongsTo(MarketplaceOrder::class, 'marketplace_order_id');

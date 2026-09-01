@@ -335,6 +335,35 @@ class OrderShipmentFlowTest extends TestCase
     }
 
     /**
+     * La relacion con el marketplace externo (Saga) necesita la misma guarda
+     * que los envios: `Gestion de Pedidos` hace eager loading y `whereHas`
+     * sobre `marketplace_orders`, y en un tenant sin esa tabla el listado
+     * ENTERO se caia con un 1146 en vez de mostrar los pedidos que si tiene.
+     *
+     * Aqui no hay tenant activo, asi que `moduleInstalled()` responde false —
+     * justo el escenario que se quiere cubrir.
+     *
+     * @test
+     */
+    public function el_listado_no_consulta_el_marketplace_externo_sin_la_tabla()
+    {
+        // Ni el listado normal ni el chip que depende de la boleta.
+        foreach ([[], ['chip' => 'no_invoice'], ['order_source' => 'saga'],
+                  ['order_source' => 'other']] as $params) {
+            $this->assertStringNotContainsString(
+                'marketplace_orders',
+                $this->sqlFor($params),
+                'params ' . json_encode($params) . ' no puede tocar marketplace_orders'
+            );
+        }
+
+        // «saga» sin la tabla es "ninguno"; «otros» es "todos".
+        $this->assertStringContainsString('1 = 0', $this->sqlFor(['order_source' => 'saga']));
+        $this->assertStringContainsString('1 = 0', $this->sqlFor(['chip' => 'no_invoice']));
+        $this->assertStringNotContainsString('1 = 0', $this->sqlFor(['order_source' => 'other']));
+    }
+
+    /**
      * El `DataTable` manda SIEMPRE `warehouse_id`, y su valor por defecto es la
      * cadena 'all' (el selector solo se dibuja en /inventory). Al tratarla como
      * un id, MySQL la casteaba a 0 contra una columna entera y el listado

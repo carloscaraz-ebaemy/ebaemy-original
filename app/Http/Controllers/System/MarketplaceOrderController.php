@@ -30,6 +30,10 @@ class MarketplaceOrderController extends Controller
             'partially_cancelled'  => MarketplaceOrder::where('status', 'partially_cancelled')->count(),
             'cancelled'            => MarketplaceOrder::where('status', 'cancelled')->count(),
             'failed_dispatches'    => TenantMarketplaceOrder::where('status', 'failed')->count(),
+            // Los que ya agotaron los reintentos automaticos: sin esta cifra
+            // aparte, un subpedido muerto se escondia entre los transitorios
+            // que el scheduler todavia iba a resolver solo.
+            'dead_dispatches'      => TenantMarketplaceOrder::dead()->count(),
             'last_24h'             => MarketplaceOrder::where('created_at', '>=', now()->subDay())->count(),
         ];
 

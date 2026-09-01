@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
+use App\Models\Tenant\Order as TenantOrder;
 
 /**
  * Toma un lead del marketplace central y crea una Order en la BD del tenant
@@ -64,23 +65,26 @@ class MarketplaceOrderDispatcher
 
             $externalId = (string) Str::uuid();
 
-            $orderId = DB::connection('tenant')->table('orders')->insertGetId([
+            // Eloquent y NO `insertGetId()`: con el insert crudo, cada columna
+            // nueva de `orders` habia que acordarse de anadirla aqui a mano.
+            // El modelo aplica los casts (customer/items son JSON) y timestamps.
+            $orderId = TenantOrder::create([
                 'external_id'       => $externalId,
-                'customer'          => json_encode([
+                'customer'          => [
                     'apellidos_y_nombres_o_razon_social' => $lead->customer_name,
                     'telefono'                           => $lead->customer_phone,
                     'correo_electronico'                 => $lead->customer_email,
                     'source'                             => 'marketplace_ebaemy',
-                ]),
+                ],
                 'shipping_address'  => 'Por definir (pedido marketplace)',
-                'items'             => json_encode([[
+                'items'             => [[
                     'id'              => $item->id,
                     'description'     => $item->description,
                     'sale_unit_price' => $price,
                     'quantity'        => $qty,
                     'subtotal'        => $total,
                     'unit_price'      => $price,
-                ]]),
+                ]],
                 'total'             => $total,
                 'subtotal'          => $total,
                 'total_discount'    => 0,
@@ -90,9 +94,7 @@ class MarketplaceOrderDispatcher
                 'warehouse_id'      => $channel->warehouse_id,
                 'seller_id'         => null,
                 'marketplace_notes' => "Lead #{$lead->id} vía ebaemy.com/marketplace. Mensaje: " . ($lead->message ?? '-'),
-                'created_at'        => now(),
-                'updated_at'        => now(),
-            ]);
+            ])->id;
 
             Log::info('marketplace lead converted to tenant order', [
                 'lead_id'  => $lead->id,

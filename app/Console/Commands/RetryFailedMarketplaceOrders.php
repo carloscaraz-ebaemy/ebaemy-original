@@ -21,14 +21,14 @@ use Illuminate\Console\Command;
 class RetryFailedMarketplaceOrders extends Command
 {
     protected $signature = 'marketplace:retry-failed-orders
-        {--max-retries=3 : No reintentar subpedidos con retry_count >= este valor}
+        {--max-retries= : No reintentar subpedidos con retry_count >= este valor (por defecto, TenantMarketplaceOrder::MAX_DISPATCH_RETRIES)}
         {--limit=50 : Cantidad máxima de pedidos a procesar en esta corrida}';
 
     protected $description = 'Reintenta el dispatch de subpedidos del marketplace que fallaron previamente';
 
     public function handle(MarketplaceMultiOrderDispatcher $dispatcher): int
     {
-        $maxRetries = max(1, (int) $this->option('max-retries'));
+        $maxRetries = max(1, (int) ($this->option('max-retries') ?: TenantMarketplaceOrder::MAX_DISPATCH_RETRIES));
         $limit      = max(1, (int) $this->option('limit'));
 
         $orderIds = TenantMarketplaceOrder::query()

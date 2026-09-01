@@ -123,6 +123,7 @@ export default {
                 partially_cancelled: 0,
                 cancelled: 0,
                 failed_dispatches: 0,
+                dead_dispatches: 0,
                 last_24h: 0,
             }),
         },
@@ -146,7 +147,12 @@ export default {
                 { label: 'Confirmados',           value: s.confirmed ?? 0,                                      color: 'success' },
                 { label: 'Parcialmente confirmados', value: s.partially_confirmed ?? 0,                         color: 'info' },
                 { label: 'Cancelados',            value: (s.cancelled ?? 0) + (s.partially_cancelled ?? 0),     color: 'danger' },
+                // «Fallidos» incluye los transitorios que el scheduler
+                // reintenta cada 15 min; «sin reintentos» son los que ya se
+                // rindieron y solo salen de ahí a mano. Mezclarlos escondía una
+                // venta cobrada que el seller nunca iba a ver.
                 { label: 'Subpedidos fallidos',   value: s.failed_dispatches ?? 0,                              color: 'dark' },
+                { label: 'Sin reintentos',        value: s.dead_dispatches ?? 0,                                color: 'danger' },
                 { label: 'Últimas 24h',           value: s.last_24h ?? 0,                                       color: 'primary' },
             ];
         },

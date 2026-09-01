@@ -24,6 +24,7 @@ use App\Models\Tenant\OrderStatusLog;
 use App\Models\Tenant\OrderPayment;
 use App\Models\Tenant\PaymentMethodType;
 use App\Models\Tenant\CardBrand;
+use App\Models\Tenant\MarketplaceOrder;
 use App\Models\Tenant\ShippingRequest;
 use App\Models\Tenant\ShippingSetting;
 use Illuminate\Support\Facades\DB;
@@ -133,11 +134,6 @@ class OrderController extends Controller
         if ($withRelations) {
             $query->with([
                 'channel',
-                // Los datos de Saga son la fuente de verdad para cliente y entrega.
-                // Sin estos campos el recurso solo podia mostrar los fallbacks del
-                // pedido ERP (por ejemplo, la direccion literal "Marketplace").
-                'marketplaceOrder:id,order_id,channel_id,external_order_id,status,customer_data,shipping_data,invoice_uploaded_at,document_id',
-                'marketplaceOrder.channel:id,platform,name',
                 // Estas tres las consumía OrderCollection SIN precargar: eran
                 // 3 consultas extra por fila (60 por página de 20).
                 'status_order:id,description',
@@ -146,6 +142,18 @@ class OrderController extends Controller
                 'sale_note',
                 'warehouse:id,description',
             ]);
+
+            // Los datos de Saga son la fuente de verdad para cliente y entrega.
+            // Sin estos campos el recurso solo podia mostrar los fallbacks del
+            // pedido ERP (por ejemplo, la direccion literal "Marketplace").
+            // Condicionado igual que los envíos: sin la tabla, el eager loading
+            // tumbaría la pantalla entera con un 1146.
+            if (MarketplaceOrder::moduleInstalled()) {
+                $query->with([
+                    'marketplaceOrder:id,order_id,channel_id,external_order_id,status,customer_data,shipping_data,invoice_uploaded_at,document_id',
+                    'marketplaceOrder.channel:id,platform,name',
+                ]);
+            }
 
             // Detalle logístico. Eager loading obligatorio: sin esto la columna
             // "Entrega" dispara una consulta por fila (N+1).
@@ -388,6 +396,12 @@ class OrderController extends Controller
                 $query->where('status_order_id', 5);
                 break;
             case 'no_invoice': // Pedidos de marketplace SIN boleta
+                // Sin la tabla no hay pedidos de marketplace externo, y la
+                // respuesta correcta es "ninguno", no un error de SQL.
+                if (!MarketplaceOrder::moduleInstalled()) {
+                    $query->whereRaw('1 = 0');
+                    break;
+                }
                 $query->whereNull('number_document')
                     ->whereHas('marketplaceOrder', function ($q) {
                         $q->whereNull('invoice_uploaded_at')->whereNull('document_id');
@@ -519,9 +533,11 @@ class OrderController extends Controller
         $counts += $this->shipmentStageCounts($base, $enEstados([2, 3]));
 
         // 3. Los dos que no encajan en ninguna de las dos anteriores.
-        $counts['no_invoice'] = (clone $base)->whereNull('number_document')
-            ->whereHas('marketplaceOrder', fn($q) => $q->whereNull('invoice_uploaded_at')->whereNull('document_id'))
-            ->count();
+        $counts['no_invoice'] = MarketplaceOrder::moduleInstalled()
+            ? (clone $base)->whereNull('number_document')
+                ->whereHas('marketplaceOrder', fn($q) => $q->whereNull('invoice_uploaded_at')->whereNull('document_id'))
+                ->count()
+            : 0;
 
         // Alias histórico: el Vue actual lee `delivered`.
         $counts['delivered'] = $counts['entregados'];
@@ -789,6 +805,13 @@ class OrderController extends Controller
         $source = $request->input('order_source', 'all');
         if (!in_array($source, ['all', 'saga', 'other'], true)) {
             abort(422, 'Origen de pedido inválido.');
+        }
+
+        // Sin la tabla, ningún pedido es de Saga: «saga» no devuelve nada y
+        // «otros» los devuelve todos. Cualquiera de los dos `whereHas` sobre una
+        // tabla inexistente tumbaría el listado con un 1146.
+        if (!MarketplaceOrder::moduleInstalled()) {
+            return $source === 'saga' ? $query->whereRaw('1 = 0') : $query;
         }
 
         if ($source === 'saga') {

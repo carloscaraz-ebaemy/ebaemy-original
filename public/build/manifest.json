@@ -4007,7 +4007,7 @@
       "resources/js/views/system/payments/index.vue",
       "resources/js/views/system/analytics/index.vue"
     ],
-    "file": "assets/system-6750d057.js",
+    "file": "assets/system-9aeafe02.js",
     "imports": [
       "_vue-clipboard-bd378cdb.js"
     ],
@@ -4188,7 +4188,7 @@
     "src": "resources/js/views/system/configuration/token_ruc_dni.vue"
   },
   "resources/js/views/system/marketplace_orders/index.vue": {
-    "file": "assets/index-2a078be2.js",
+    "file": "assets/index-a09e7c8d.js",
     "imports": [
       "_vue-clipboard-bd378cdb.js"
     ],

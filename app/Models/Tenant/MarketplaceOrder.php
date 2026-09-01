@@ -35,6 +35,37 @@ class MarketplaceOrder extends Model
     public function scopePending($q) { return $q->where('status', 'pending'); }
 
     /**
+     * ¿Este tenant tiene la tabla de pedidos de marketplace externo?
+     *
+     * Misma guarda que `ShippingRequest::moduleInstalled()`, y por la misma
+     * razon: `Gestion de Pedidos` hace eager loading y `whereHas` sobre esta
+     * relacion, de modo que en un tenant donde la tabla no exista —migracion
+     * caida, tenant recien creado desde un snapshot viejo— el listado ENTERO
+     * se cae con un 1146 en vez de mostrar los pedidos que si tiene.
+     *
+     * Memorizado por BASE DE DATOS, no por proceso: un worker de cola atiende
+     * varios tenants seguidos y una memo global le daria la respuesta del
+     * anterior.
+     */
+    public static function moduleInstalled(): bool
+    {
+        static $installed = [];
+
+        try {
+            $schema   = \Illuminate\Support\Facades\Schema::connection('tenant');
+            $database = $schema->getConnection()->getDatabaseName();
+
+            if (!array_key_exists($database, $installed)) {
+                $installed[$database] = $schema->hasTable('marketplace_orders');
+            }
+
+            return $installed[$database];
+        } catch (\Throwable $e) {
+            return false;
+        }
+    }
+
+    /**
      * Crea (o devuelve) el Order interno enlazado a este pedido de marketplace.
      * Idempotente: si ya está enlazado, devuelve el existente.
      *
