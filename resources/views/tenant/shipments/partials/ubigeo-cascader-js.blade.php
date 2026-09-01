@@ -59,6 +59,14 @@
         var hDep = field.querySelector('[data-ub="department"]'), hProv = field.querySelector('[data-ub="province"]'), hDist = field.querySelector('[data-ub="district"]');
         var PH = 'Seleccionar departamento / provincia / distrito…';
 
+        // Vue toma su plantilla del DOM VIVO al montar, o sea del markup que
+        // esta init ya modifico. Al re-renderizar reproduce la barra y el
+        // contenedor de columnas, y como el nodo es nuevo (sin la marca _ub)
+        // volvemos a entrar aca: sin esta limpieza el campo sale DUPLICADO.
+        // Las tres columnas se conservan por referencia y se re-insertan abajo.
+        pop.querySelectorAll('.ubigeo-bar, .ubigeo-cols, .ubigeo-results').forEach(function (el) { el.remove(); });
+        [cDep, cProv, cDist].forEach(function (c) { c.innerHTML = ''; });
+
         // Construir barra de búsqueda + envolver columnas + panel de resultados.
         var bar = document.createElement('div'); bar.className = 'ubigeo-bar';
         var search = document.createElement('input'); search.type = 'text'; search.className = 'ubigeo-search';
