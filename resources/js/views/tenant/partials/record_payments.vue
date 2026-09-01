@@ -1,6 +1,6 @@
 <template>
   <el-dialog :title="title" :visible="showDialog" @close="close" @open="load"
-             width="70%" custom-class="rp-dialog"
+             width="65%" custom-class="rp-dialog"
              :close-on-click-modal="false" :close-on-press-escape="false">
 
     <div v-if="loading" class="text-center text-muted py-4">Cargando…</div>
@@ -35,28 +35,12 @@
         </div>
       </div>
 
-      <!-- ── Resumen ───────────────────────────────────────────────── -->
-      <div class="rp-summary">
-        <div class="rp-summary__cell">
-          <span>A cobrar</span><strong>{{ money(summary.amount_to_collect) }}</strong>
-        </div>
-        <div class="rp-summary__cell">
-          <span>Pagado</span><strong class="rp-ok">{{ money(summary.total_paid) }}</strong>
-        </div>
-        <div class="rp-summary__cell">
-          <span>Resta pagar</span>
-          <strong :class="summary.total_difference > 0 ? 'rp-due' : 'rp-ok'">
-            {{ money(summary.total_difference) }}
-          </strong>
-        </div>
-      </div>
-
       <!-- ── Pagos registrados ─────────────────────────────────────── -->
       <div class="table-responsive">
         <table class="table rp-table">
           <thead>
             <tr>
-              <th>#</th><th>Fecha</th><th>Método</th><th>Destino</th>
+              <th>#</th><th>Fecha de pago</th><th>Método de pago</th><th>Destino</th>
               <th>Referencia</th><th>Archivo</th>
               <th class="text-right">Monto</th><th></th>
             </tr>
@@ -64,8 +48,8 @@
           <tbody>
             <tr v-for="row in records" :key="row.id">
               <td data-label="#">{{ row.code }}</td>
-              <td data-label="Fecha">{{ row.date_of_payment }}</td>
-              <td data-label="Método">{{ row.payment_method_type_description }}</td>
+              <td data-label="Fecha de pago">{{ row.date_of_payment }}</td>
+              <td data-label="Método de pago">{{ row.payment_method_type_description }}</td>
               <td data-label="Destino">{{ row.destination_description || '—' }}</td>
               <td data-label="Referencia">{{ row.reference || '—' }}</td>
               <td data-label="Archivo">
@@ -85,11 +69,11 @@
             <!-- Fila de alta -->
             <tr v-if="newRow">
               <td data-label="#"></td>
-              <td data-label="Fecha">
+              <td data-label="Fecha de pago">
                 <el-date-picker v-model="newRow.date_of_payment" type="date" :clearable="false"
                                 format="dd/MM/yyyy" value-format="yyyy-MM-dd" size="small"></el-date-picker>
               </td>
-              <td data-label="Método">
+              <td data-label="Método de pago">
                 <el-select v-model="newRow.payment_method_type_id" size="small">
                   <el-option v-for="o in paymentMethodTypes" v-show="o.id != '09'"
                              :key="o.id" :value="o.id" :label="o.description"></el-option>
@@ -120,7 +104,7 @@
                 <button type="button" class="btn btn-xs btn-info" :disabled="saving"
                         @click.prevent="submit"><i class="fa fa-check"></i></button>
                 <button type="button" class="btn btn-xs btn-danger"
-                        @click.prevent="newRow = null"><i class="fa fa-times"></i></button>
+                        @click.prevent="newRow = null"><i class="fa fa-trash"></i></button>
               </td>
             </tr>
 
@@ -130,6 +114,28 @@
               </td>
             </tr>
           </tbody>
+
+          <!-- Los totales viven en el pie de la tabla, con las mismas
+               etiquetas y el mismo colspan que en Nota de Venta. -->
+          <tfoot>
+            <tr>
+              <td colspan="6" class="text-right">TOTAL PAGADO</td>
+              <td class="text-right rp-ok">{{ money(summary.total_paid) }}</td>
+              <td></td>
+            </tr>
+            <tr>
+              <td colspan="6" class="text-right">TOTAL A PAGAR</td>
+              <td class="text-right">{{ money(summary.amount_to_collect) }}</td>
+              <td></td>
+            </tr>
+            <tr>
+              <td colspan="6" class="text-right">PENDIENTE DE PAGO</td>
+              <td class="text-right" :class="summary.total_difference > 0 ? 'rp-due' : 'rp-ok'">
+                {{ money(summary.total_difference) }}
+              </td>
+              <td></td>
+            </tr>
+          </tfoot>
         </table>
       </div>
 
@@ -163,13 +169,9 @@
 .rp-amount__edit { display: flex; gap: 6px; align-items: center; }
 .rp-amount__edit .el-input { width: 150px; }
 
-.rp-summary { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 14px; }
-.rp-summary__cell {
-    background: #fff; border: 1px solid #e5e7eb; border-radius: 8px;
-    padding: 10px 12px; text-align: center;
-}
-.rp-summary__cell span { display: block; font-size: 11px; color: #6b7280; text-transform: uppercase; letter-spacing: .04em; }
-.rp-summary__cell strong { font-size: 18px; font-variant-numeric: tabular-nums; }
+.rp-table tfoot td { border: 0; padding: 6px 10px; font-weight: 600; color: #374151; }
+.rp-table tfoot tr:first-child td { border-top: 1px solid #e5e7eb; }
+.rp-table tfoot td.text-right { font-variant-numeric: tabular-nums; }
 .rp-ok { color: #16a34a; }
 .rp-due { color: #dc2626; }
 
@@ -183,14 +185,18 @@
     .rp-dialog { width: 96% !important; }
     .rp-amount__row, .rp-amount__row--edit { flex-direction: column; align-items: stretch; }
     .rp-amount__edit .el-input { width: auto; flex: 1; }
-    .rp-summary { grid-template-columns: 1fr; gap: 6px; }
-    .rp-summary__cell { display: flex; align-items: baseline; justify-content: space-between; text-align: left; }
-
     .rp-table thead { display: none; }
     .rp-table, .rp-table tbody, .rp-table tr, .rp-table td { display: block; width: 100%; }
-    .rp-table tr { border: 1px solid #e5e7eb; border-radius: 8px; margin-bottom: 10px; padding: 6px 10px; }
-    .rp-table td { border: 0; padding: 5px 0; display: flex; justify-content: space-between; gap: 10px; text-align: right; }
-    .rp-table td::before { content: attr(data-label); font-weight: 600; color: #6b7280; text-align: left; }
+    .rp-table tbody tr { border: 1px solid #e5e7eb; border-radius: 8px; margin-bottom: 10px; padding: 6px 10px; }
+    .rp-table tbody td { border: 0; padding: 5px 0; display: flex; justify-content: space-between; gap: 10px; text-align: right; }
+    .rp-table tbody td::before { content: attr(data-label); font-weight: 600; color: #6b7280; text-align: left; }
+
+    /* El pie no se apila como las filas: cada total es una linea de
+       etiqueta y monto. La celda vacia del final sobra en el celular. */
+    .rp-table tfoot { display: block; }
+    .rp-table tfoot tr { display: flex; justify-content: space-between; gap: 10px; padding: 4px 10px; }
+    .rp-table tfoot td { display: block; width: auto; padding: 0; }
+    .rp-table tfoot td:last-child { display: none; }
 }
 </style>
 
