@@ -12,6 +12,10 @@
 @php
     $p = $p ?? 'pub_';
     $context = $context ?? 'public';
+    // El cascader identifica cada formulario por grupo: compartirlo haria que
+    // el del panel escribiera en los campos ocultos del publico.
+    $ubGroup = $ubGroup ?? rtrim($p, '_');
+    $esPublico = $context === 'public';
 @endphp
                 @csrf
                 <input type="hidden" name="delivery_type" id="delivery_type" value="{{ old('delivery_type') }}">
@@ -149,7 +153,7 @@
                     {{-- ─────── Rama AGENCIA (ubigeo) ─────── --}}
                     <div class="branch-agencia" hidden>
                         <label class="req">Destino (Departamento / Provincia / Distrito)</label>
-                        <div class="ubigeo-field" data-ubigeo-group="pub">
+                        <div class="ubigeo-field" data-ubigeo-group="{{ $ubGroup }}">
                             <div class="ubigeo-display" tabindex="0">Seleccionar departamento / provincia / distrito…</div>
                             <input type="hidden" name="department_id" data-ub="department">
                             <input type="hidden" name="province_id"   data-ub="province">
@@ -330,6 +334,10 @@
                         </div>
                     </div>
 
+                    {{-- Términos y sorteo los declara el CLIENTE. En el panel
+                         los carga un operador: no firma términos en nombre de
+                         nadie ni inscribe a un sorteo sin su consentimiento. --}}
+                    @if($esPublico)
                     <div class="terms-box">
                         <label class="chk">
                             <input type="checkbox" name="accepted_terms" id="{{ $p }}terms" value="1" required>
@@ -398,6 +406,7 @@
                                 Tu participación queda confirmada cuando validemos el pago de este pedido.
                             </div>
                         </div>
+                    @endif
                     @endif
 
                     <div class="row-btns">
