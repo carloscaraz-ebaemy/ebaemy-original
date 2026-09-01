@@ -334,6 +334,32 @@ class OrderShipmentFlowTest extends TestCase
         }
     }
 
+    /**
+     * El `DataTable` manda SIEMPRE `warehouse_id`, y su valor por defecto es la
+     * cadena 'all' (el selector solo se dibuja en /inventory). Al tratarla como
+     * un id, MySQL la casteaba a 0 contra una columna entera y el listado
+     * devolvia CERO filas con HTTP 200: la pantalla de Pedidos aparecia vacia
+     * sin un solo error en el log ni en consola.
+     *
+     * @test
+     */
+    public function el_almacen_solo_filtra_cuando_es_un_id_de_verdad()
+    {
+        foreach (['all', '', 'todos'] as $noEsUnId) {
+            $this->assertStringNotContainsString(
+                'warehouse_id',
+                $this->sqlFor(['warehouse_id' => $noEsUnId]),
+                "«{$noEsUnId}» no es un almacen: no puede convertirse en un WHERE"
+            );
+        }
+
+        $this->assertStringContainsString(
+            'warehouse_id',
+            $this->sqlFor(['warehouse_id' => '3']),
+            'un id real si debe filtrar por almacen'
+        );
+    }
+
     /** @test */
     public function el_pedido_expone_las_fechas_de_negocio()
     {

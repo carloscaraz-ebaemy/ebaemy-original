@@ -239,8 +239,14 @@ class OrderController extends Controller
             $query->where('channel_id', $request->channel_id);
         }
 
-        if ($request->warehouse_id) {
-            $query->where('warehouse_id', $request->warehouse_id);
+        // El DataTable manda SIEMPRE `warehouse_id`, y por defecto vale la
+        // cadena 'all': el selector solo se dibuja en /inventory, asi que aqui
+        // viaja invisible. Un `if ($request->warehouse_id)` la daba por buena y
+        // MySQL casteaba 'all' a 0 contra una columna entera, de modo que la
+        // consulta devolvia CERO filas con HTTP 200 y sin una linea en el log.
+        // Solo un id real filtra; cualquier otra cosa es "todos los almacenes".
+        if (is_numeric($request->warehouse_id)) {
+            $query->where('warehouse_id', (int) $request->warehouse_id);
         }
 
         if ($request->channel_type) {

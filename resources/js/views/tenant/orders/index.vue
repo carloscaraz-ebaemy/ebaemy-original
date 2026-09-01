@@ -1335,7 +1335,11 @@ export default {
         onRecordsChanged(records) {
             this.currentRecords = records || [];
             this.selectedIds = []; // limpia selección al cambiar de página/filtro
+            // Chips y KPI se recalculan CADA vez que la tabla se recarga, no
+            // solo desde pushFilters(): la busqueda del DataTable recarga por
+            // su cuenta y antes dejaba los tres numeros desincronizados.
             this.loadChipCounts();
+            this.loadStats();
         },
         toggleAll(e) {
             if (e.target.checked) {
@@ -1510,7 +1514,7 @@ export default {
         },
         loadChipCounts() {
             this.$http
-                .get(`/orders/status-counts`, { params: this.invoiceDateParams() })
+                .get(`/orders/status-counts`, { params: this.countsParams() })
                 .then(response => {
                     this.chipCounts = response.data || {};
                     this.countsError = null;
@@ -1527,7 +1531,7 @@ export default {
         },
         loadStats() {
             this.$http
-                .get(`/orders/stats`, { params: this.invoiceDateParams() })
+                .get(`/orders/stats`, { params: this.countsParams() })
                 .then(response => {
                     this.stats = response.data || {};
                 })
@@ -1713,9 +1717,9 @@ export default {
             return s.destination || "—";
         },
         /**
-         * Parámetros de periodo que comparten la tabla, los chips y los KPIs.
-         * Si no comparten exactamente los mismos, el número del chip deja de
-         * ser lo que se ve al pulsarlo.
+         * Filtros que POSEE esta pantalla: periodo, origen y logistica. Son los
+         * que pushFilters() vuelca sobre `dt.search`. Los chips y los KPI NO
+         * los consumen directamente — para eso esta countsParams().
          */
         invoiceDateParams() {
             const custom = this.dateRange === "custom";
@@ -1728,6 +1732,34 @@ export default {
                 delivery_type: this.deliveryTypeFilter || null,
                 aging: this.agingFilter || null,
             };
+        },
+
+        /**
+         * Filtros de los chips y los KPI: EXACTAMENTE los de la tabla, menos el
+         * chip activo (el numero de un chip debe ser lo que veras al pulsarlo).
+         *
+         * Se leen de `dt.search`, que es donde vive el estado real de la
+         * consulta, y no solo de los filtros de esta pantalla: la busqueda del
+         * DataTable tambien acota la tabla, y contarla aparte hacia que los
+         * chips siguieran mostrando el histórico completo mientras la tabla
+         * mostraba un cliente.
+         *
+         * `chip`/`mp_filter` se excluyen a proposito. `warehouse_id` viaja
+         * porque la tabla lo manda: si los dos no mandan lo mismo, el numero
+         * del chip vuelve a mentir.
+         */
+        countsParams() {
+            const dt = this.$refs.ordersTable;
+            const propios = this.invoiceDateParams();
+            if (!dt) return propios;
+
+            const heredados = Object.assign({}, dt.search);
+            delete heredados.chip;
+            delete heredados.mp_filter;
+
+            return Object.assign(heredados, propios, {
+                warehouse_id: dt.warehouse_id,
+            });
         },
 
         /** Vuelca los filtros actuales en la tabla y recarga todo. */
