@@ -32,6 +32,9 @@
     var UB_DIST   = '{{ url("envio/ubigeo/distritos") }}';
     var UB_SEARCH = '{{ url("envio/ubigeo/buscar") }}';
 
+    function ubCerrarTodos() {
+        document.querySelectorAll('.ubigeo-pop').forEach(function (p) { p.hidden = true; });
+    }
     function ubJSON(u) {
         return fetch(u, { headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' } }).then(function (r) { return r.json(); });
     }
@@ -92,7 +95,6 @@
 
         // Buscador por texto (distrito) → resultados planos.
         var st = null;
-        search.addEventListener('click', function (e) { e.stopPropagation(); });
         search.addEventListener('input', function () {
             clearTimeout(st);
             var q = search.value.trim();
@@ -115,18 +117,17 @@
             }, 300);
         });
 
-        disp.addEventListener('click', function (e) {
-            e.stopPropagation();
+        // Abrir/cerrar NO se ata al nodo: lo llama la delegacion de abajo.
+        field._toggle = function () {
             var wasOpen = !pop.hidden;
-            document.querySelectorAll('.ubigeo-pop').forEach(function (p) { p.hidden = true; });
+            ubCerrarTodos();
             if (!wasOpen) {
                 pop.hidden = false;
                 search.value = ''; results.hidden = true; cols.style.display = '';
                 ubRender(cDep, UB_DEPTS, pickDep, sel.dep);
                 setTimeout(function () { search.focus(); }, 30);
             }
-        });
-        pop.addEventListener('click', function (e) { e.stopPropagation(); });
+        };
 
         // Preset (edición o autocompletado por DNI/RUC).
         field._preset = function (dep, prov, dist) {
@@ -151,9 +152,30 @@
     window.__ubInitAll = function () { document.querySelectorAll('.ubigeo-field').forEach(ubInit); };
     window.__ubPreset  = function (group, dep, prov, dist) {
         var f = document.querySelector('.ubigeo-field[data-ubigeo-group="' + group + '"]');
-        if (f) { if (!f._ub) ubInit(f); if (f._preset) f._preset(dep, prov, dist); }
+        if (f) { ubInit(f); if (f._preset) f._preset(dep, prov, dist); }
     };
-    document.addEventListener('click', function () { document.querySelectorAll('.ubigeo-pop').forEach(function (p) { p.hidden = true; }); });
+
+    // ── Un solo listener en `document`, y la inicializacion es perezosa ──────
+    //
+    // En el PANEL el ERP monta Vue sobre #main-wrapper, que envuelve toda la
+    // pagina, y al re-renderizar reemplaza estos nodos: un listener atado al
+    // .ubigeo-display se pierde y el campo queda mudo. Por eso el ubigeo
+    // funcionaba en la ficha publica (otro layout, sin Vue) y no en el modal
+    // "Registrar envio". Delegando en `document` y llamando a ubInit() al
+    // abrir, el campo revive solo despues de cada re-render.
+    // Mismo motivo que en logistics-js y mobile-fold-js.
+    document.addEventListener('click', function (e) {
+        var t = e.target;
+        if (!t || !t.closest) return;
+        // Dentro del popup manda el widget (elegir, buscar): no tocar nada.
+        if (t.closest('.ubigeo-pop')) return;
+        var disp = t.closest('.ubigeo-display');
+        if (!disp) { ubCerrarTodos(); return; }
+        var field = disp.closest('.ubigeo-field');
+        if (!field) return;
+        ubInit(field);                       // idempotente: se salta si ya vive
+        if (field._toggle) field._toggle();
+    });
     window.__ubInitAll();
 })();
 </script>
