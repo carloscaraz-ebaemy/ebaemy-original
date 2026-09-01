@@ -96,8 +96,15 @@ class SalesChannel extends ModelTenant
      *
      * El código se deriva de la plataforma (`MKP_FALABELLA`) para que una
      * integración nueva no necesite migración: se autoprovisiona al primer
-     * pedido. Se crea INACTIVO a propósito — el canal existe para clasificar
-     * pedidos que ya entran solos, no para ofrecerse en el alta manual.
+     * pedido.
+     *
+     * Se crea ACTIVO. Parecía más prudente lo contrario, pero `is_active` no
+     * significa aquí «ofrecer en el alta manual»: es lo que filtran
+     * `OrderController::channels()` y `channelReport()`. Un canal inactivo con
+     * pedidos dentro no se puede elegir en el filtro del panel ni aparece en el
+     * reporte de ventas por canal — exactamente el problema que este método
+     * viene a resolver. Si el canal existe es porque acaba de llegar un pedido
+     * suyo: está en uso por definición.
      */
     /**
      * Código de canal para una plataforma externa: `falabella` → `MKP_FALABELLA`.
@@ -143,7 +150,7 @@ class SalesChannel extends ModelTenant
             'type'         => 'marketplace',
             'code'         => $code,
             'warehouse_id' => \Modules\Inventory\Models\Warehouse::value('id'),
-            'is_active'    => false,
+            'is_active'    => true,
             'settings'     => ['icon' => '🛍️', 'color' => '#0ea5e9', 'platform' => $platform],
         ]);
     }
