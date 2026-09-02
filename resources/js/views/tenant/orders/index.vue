@@ -1555,6 +1555,30 @@ export default {
                 maximumFractionDigits: 2,
             });
         },
+        /**
+         * ¿Este pedido viene de Saga/Falabella?
+         *
+         * Se llamaba desde cinco sitios —el menu de acciones de la fila,
+         * `canGenerateInvoice`, `canUploadInvoice`, `canDownloadLabel` y el
+         * marcado masivo— y NUNCA estuvo definida: entro asi en `0aee854e`.
+         * No se notaba porque la tabla no llegaba a pintar ni una fila (el
+         * filtro fantasma de almacen la dejaba siempre vacia), de modo que la
+         * plantilla de fila jamas se ejecutaba. Al arreglar los datos, el
+         * `TypeError` tumbaba el render y la pantalla se quedaba en la mascara
+         * de carga: un bug tapaba al otro.
+         *
+         * Se exige la plataforma `falabella` y no solo «tiene pedido de
+         * marketplace externo» porque estas acciones dicen literalmente «Subir
+         * boleta a Saga» y «Marcar boleta hecha en Saga». Un pedido de otro
+         * canal externo no debe verlas: el endpoint las rechazaria igual, pero
+         * el operador ya habria leido una etiqueta que le miente. Cuando entre
+         * en produccion una segunda plataforma habra que generalizar los
+         * textos, y entonces esta condicion, no antes.
+         */
+        isSagaOrder(row) {
+            return !!row.mp_order_id
+                && String(row.mp_platform || "").toLowerCase() === "falabella";
+        },
         isMarketplace(row) {
             const ref = (row.reference_payment || "").toUpperCase();
             return ref.startsWith("MARKETPLACE") || row.channel_type === "marketplace";
