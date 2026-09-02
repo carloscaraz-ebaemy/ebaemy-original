@@ -334,7 +334,29 @@
                                 </el-popover>
                             </template>
                         </td>
-                        <td class="text-end" data-label="Total">S/ {{ row.total }}</td>
+                        <td class="text-end" data-label="Total">
+                            <template v-if="pagoEnElEnvio(row)">
+                                <!-- El importe del encargo vive en el envío y se
+                                     lee DERIVADO: el operador puede cargarlo
+                                     después del alta, y una copia en el pedido
+                                     se quedaría vieja sin avisar. -->
+                                <template v-if="row.shipment.has_amount">
+                                    S/ {{ formatMoney(row.shipment.amount_to_collect) }}
+                                    <div
+                                        v-if="row.shipment.pending_total > 0"
+                                        class="ord-pay-pend"
+                                        :title="'Cobrado S/ ' + formatMoney(row.shipment.paid_total)"
+                                    >
+                                        debe S/ {{ formatMoney(row.shipment.pending_total) }}
+                                    </div>
+                                    <div v-else class="ord-pay-ok">pagado</div>
+                                </template>
+                                <span v-else class="text-muted" title="Nadie cargó el monto del encargo">
+                                    sin monto
+                                </span>
+                            </template>
+                            <template v-else>S/ {{ row.total }}</template>
+                        </td>
                         <td data-label="Fecha del pedido">{{ formatDate(row.created_at) }}</td>
                         <td data-label="Medio pago">
                             <span
@@ -342,7 +364,10 @@
                                 class="mp-pay-badge"
                                 >{{ marketplaceLabel(row) }}</span
                             >
-                            <template v-else>{{ row.reference_payment }}</template>
+                            <template v-else-if="row.reference_payment">{{
+                                row.reference_payment
+                            }}</template>
+                            <span v-else class="text-muted">—</span>
                         </td>
                         <td data-label="Estado">
                             <div class="ord-status-cell">
@@ -808,6 +833,21 @@
 .ord-doc-ok {
     background: #dcfce7;
     color: #166534;
+}
+/* Saldo del encargo logistico. Su dinero vive en el envio, asi que la celda
+   de Total muestra el importe a cobrar y, debajo, lo que falta. En rojo solo
+   cuando queda deuda: es la unica parte que pide accion. */
+.ord-pay-pend {
+    font-size: 11.5px;
+    font-weight: 600;
+    color: #b91c1c;
+    white-space: nowrap;
+}
+.ord-pay-ok {
+    font-size: 11.5px;
+    font-weight: 600;
+    color: #166534;
+    white-space: nowrap;
 }
 .ord-actions-btn {
     padding: 5px 9px;
@@ -1598,7 +1638,41 @@ export default {
                 ? parsedDate.format("DD-MM-YYYY h:mmA")
                 : null;
         },
+        /**
+         * ¿El dinero de este pedido vive en el envío y no en el pedido?
+         *
+         * Los encargos de `/registro-envio` se espejan como pedido sin líneas y
+         * sin importe: su monto (`amount_due`) y sus cobros viven en el ENVÍO,
+         * en `shipping_payments`, que es el módulo de pagos bueno. Abrirles el
+         * panel de `order_payments` mostraba un formulario vacío mientras había
+         * cobros reales del otro lado.
+         */
+        pagoEnElEnvio(row) {
+            return !!(row.shipment && row.shipment.id)
+                && (!row.items || !row.items.length)
+                && Number(row.total || 0) === 0;
+        },
         clickPayments(orderId) {
+            const row = (this.currentRecords || []).find(r => r.id === orderId);
+
+            // Delegar, no clonar: el módulo de pagos de Envíos es un modal
+            // Blade + JS, no un componente Vue, así que incrustarlo aquí exige
+            // arrastrar su CSS y sobrevivir al re-render de Vue sobre
+            // #main-wrapper — el mismo intento que ya obligó a un revert. Se
+            // abre su pantalla, que es la que el operador ya conoce.
+            if (row && this.pagoEnElEnvio(row)) {
+                // `q` acota el listado a ese envio (el boton de pagos solo
+                // existe si su fila esta en pantalla) y `pagos` dispara la
+                // apertura de la ficha. Ver el partial
+                // shipments/partials/open-payments-from-url-js.
+                const q = encodeURIComponent(row.shipment.code || "");
+                window.open(
+                    `/registro-envio?q=${q}&pagos=${row.shipment.id}`,
+                    "_blank"
+                );
+                return;
+            }
+
             this.paymentsOrderId = orderId;
             this.showPaymentsDialog = true;
         },

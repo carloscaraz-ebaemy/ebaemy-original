@@ -3584,4 +3584,5 @@
 @include('tenant.shipments.partials.peek-js')
 @include('tenant.shipments.partials.item-picker-js')
 @include('tenant.shipments.partials.mobile-fold-js')
+@include('tenant.shipments.partials.open-payments-from-url-js')
 @endpush

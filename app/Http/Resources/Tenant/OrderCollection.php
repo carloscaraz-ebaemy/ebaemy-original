@@ -217,6 +217,17 @@ class OrderCollection extends ResourceCollection
             'priority_label'   => $s->priority_label,
             'is_pickup'        => $s->is_pickup,
             'payment_confirmed'=> (bool) $s->payment_confirmed,
+            // El dinero del encargo vive en el ENVIO (`amount_due` +
+            // `shipping_payments`), no en el pedido: el pedido espejo se creo
+            // con total 0 y la pantalla mostraba S/ 0 mientras habia cobros
+            // reales del otro lado. Se expone DERIVADO y no copiado: el
+            // operador puede cargar el monto despues del alta, y una copia en
+            // `orders.total` se quedaria vieja sin que nadie lo note.
+            'has_amount'       => $s->has_amount,
+            'amount_to_collect'=> $s->amount_to_collect,
+            'paid_total'       => (float) $s->paid_total,
+            'pending_total'    => $s->pending_total,
+            'is_fully_paid'    => $s->is_fully_paid,
             // Semáforo de antigüedad: level null = el reloj ya se detuvo.
             'aging_days'       => $aging['days'],
             'aging_level'      => $aging['level'],

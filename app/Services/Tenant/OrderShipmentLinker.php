@@ -115,7 +115,12 @@ class OrderShipmentLinker
             // exactamente donde el operador lo espera.
             'status_order_id'  => 2,
             'payment_status'   => null,   // no hubo pasarela; ver Order, «Estado del pago»
-            'reference_payment'=> 'registro_envio',
+            // VACIO a proposito. La columna «Medio pago» del panel pinta este
+            // campo en crudo, y meterle el ORIGEN del pedido hacia que 205
+            // filas dijeran «registro_envio» como si fuera una forma de cobro.
+            // El origen ya consta en `channel_id` (ENV01) y en customer.source;
+            // el medio de pago real, cuando lo haya, vive en el envio.
+            'reference_payment'=> '',
             'channel_id'       => $canal->id,
             'warehouse_id'     => $canal->warehouse_id,
             'marketplace_notes'=> $shipment->package_content
