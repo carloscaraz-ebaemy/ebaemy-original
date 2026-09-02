@@ -565,6 +565,18 @@
                                         Pagos del pedido
                                     </el-dropdown-item>
 
+                                    <!-- Rotulado. Se ofrece solo si el pedido
+                                         tiene envio: el rotulo es del envio, no
+                                         del pedido. -->
+                                    <el-dropdown-item
+                                        v-if="row.shipment"
+                                        command="label"
+                                        :disabled="!!row.shipment.print_block"
+                                    >
+                                        <i class="el-icon-printer"></i>
+                                        {{ labelActionText(row) }}
+                                    </el-dropdown-item>
+
                                     <el-dropdown-item
                                         v-if="canUploadInvoice(row)"
                                         command="upload"
@@ -1403,7 +1415,8 @@ export default {
                 label: () => this.downloadLabel(row),
                 shippingLink: () => this.copyShippingLink(row),
                 timeline: () => this.openTimeline(row),
-                payments: () => this.clickPayments(row.id)
+                payments: () => this.clickPayments(row.id),
+                label: () => this.printLabel(row)
             };
             if (acciones[cmd]) acciones[cmd]();
         },
@@ -1652,6 +1665,66 @@ export default {
                 && (!row.items || !row.items.length)
                 && Number(row.total || 0) === 0;
         },
+        /**
+         * Texto de la accion de rotulado: dice lo que va a pasar de verdad.
+         *
+         * Un recojo en tienda no lleva rotulo —el servidor redirige al
+         * comprobante de entrega— y una segunda impresion es una reimpresion
+         * que va a pedir motivo. Llamarlas todas «Imprimir rotulo» hacia que el
+         * operador descubriera la diferencia despues de abrir la pestaña.
+         */
+        labelActionText(row) {
+            const s = row.shipment || {};
+            if (s.print_block) return "Rótulo no disponible";
+            if (s.label_kind === "receipt") return "Comprobante de recojo";
+            return s.needs_reason
+                ? `Reimprimir rótulo (${s.print_count})`
+                : "Imprimir rótulo";
+        },
+
+        /**
+         * Imprime el rotulo del envio del pedido.
+         *
+         * Reutiliza `printLabel` del modulo de Envios en vez de duplicarlo: ahi
+         * viven el conteo de impresiones, el historial, la bitacora, el bloqueo
+         * por estado y los formatos. Aqui solo se decide que URL abrir.
+         */
+        printLabel(row) {
+            const s = row.shipment;
+            if (!s) return;
+
+            if (s.print_block) {
+                this.$message.warning(s.print_block);
+                return;
+            }
+
+            let url = `/registro-envio/${s.id}/imprimir`;
+
+            // La reimpresion exige motivo y queda en el historial. Se pide
+            // ANTES de abrir la pestaña: el servidor lo rechazaria igual, pero
+            // el operador se encontraria el error en una ventana nueva.
+            if (s.needs_reason) {
+                const motivo = window.prompt(
+                    `El rótulo de ${s.code} ya se imprimió ${s.print_count} vez/veces.
+` +
+                    `Indica el motivo de la reimpresión (queda registrado):`
+                );
+                if (motivo === null) return;
+                if (!motivo.trim()) {
+                    this.$message.warning("Sin motivo no se puede reimprimir.");
+                    return;
+                }
+                url += `?motivo=${encodeURIComponent(motivo.trim())}`;
+            }
+
+            window.open(url, "_blank");
+
+            // El conteo de impresiones cambia del lado del servidor: sin
+            // refrescar, el siguiente clic seguiria creyendo que es la primera.
+            const dt = this.$refs.ordersTable;
+            if (dt) dt.getRecords();
+        },
+
         clickPayments(orderId) {
             const row = (this.currentRecords || []).find(r => r.id === orderId);
 

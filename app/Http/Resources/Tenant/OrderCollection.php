@@ -23,7 +23,11 @@ class OrderCollection extends ResourceCollection
         $maxDays         = $shippingSetting ? $shippingSetting->max_days : 4;
         $skipHolidays    = (bool) ($shippingSetting->aging_skip_holidays ?? true);
 
-        return $this->collection->transform(function($row, $key) use ($maxDays, $skipHolidays) {
+        // Si la tienda exige cobrar antes de rotular. Se lee una vez para toda
+        // la pagina, igual que el resto de la configuracion.
+        $requirePayment  = (bool) ($shippingSetting->require_payment ?? false);
+
+        return $this->collection->transform(function($row, $key) use ($maxDays, $skipHolidays, $requirePayment) {
             $customer = $row->customer ?? [];
             if (is_object($customer)) {
                 $customer = (array) $customer;
@@ -160,7 +164,7 @@ class OrderCollection extends ResourceCollection
                 // `shipment` es null cuando el pedido todavía no tiene envío
                 // configurado: la tabla lo pinta como "Sin envío" y ofrece el
                 // botón de configurarlo. NO es un error de datos.
-                'shipment'             => $this->shipmentPayload($row, $maxDays, $skipHolidays),
+                'shipment'             => $this->shipmentPayload($row, $maxDays, $skipHolidays, $requirePayment),
             ];
         });
 
@@ -175,7 +179,29 @@ class OrderCollection extends ResourceCollection
      *
      * @return array<string, mixed>|null
      */
-    private function shipmentPayload($row, int $maxDays, bool $skipHolidays): ?array
+    /**
+     * Por que NO se puede imprimir ahora mismo, o null si se puede.
+     *
+     * Refleja las guardas de `ShipmentController::printLabel()`, que es quien
+     * manda. Se queda solo con las que no tienen salida: un anulado no se
+     * rotula nunca, y sin cobrar tampoco cuando la tienda lo exige. Un envio ya
+     * despachado SI se puede reimprimir indicando el motivo — eso no es un
+     * bloqueo sino un paso mas, y lo cubre `needs_reason`.
+     */
+    private function printBlockReason($s, bool $requirePayment): ?string
+    {
+        if ($s->status === \App\Models\Tenant\ShippingRequest::STATUS_ANULADO) {
+            return 'El envio esta anulado.';
+        }
+
+        if ($requirePayment && !$s->payment_confirmed) {
+            return 'Falta confirmar el pago del envio.';
+        }
+
+        return null;
+    }
+
+    private function shipmentPayload($row, int $maxDays, bool $skipHolidays, bool $requirePayment = false): ?array
     {
         // Solo si la relación vino EAGER LOADED. En un tenant sin el módulo de
         // Envíos no se precarga, y tocarla aquí dispararía una consulta contra
@@ -211,6 +237,19 @@ class OrderCollection extends ResourceCollection
             'batch_id'         => $s->print_batch_id,
             'batch_label'      => $s->batch_label,
             'printed_at'       => optional($s->printed_at)->format('Y-m-d H:i:s'),
+            // Rotulado. Pedidos NO reimplementa la impresion: llama al
+            // `printLabel` del envio, que es donde viven el conteo, la
+            // reimpresion con motivo, el bloqueo por estado, los formatos y la
+            // bitacora. Aqui se expone lo justo para no ofrecer una accion
+            // condenada a fallar; el servidor lo comprueba todo otra vez.
+            'print_count'      => (int) $s->print_count,
+            // Reimprimir exige motivo. Sin avisar antes, el operador se comia
+            // el error DESPUES de abrir la pestaña.
+            'needs_reason'     => (int) $s->print_count > 0,
+            // Recojo en tienda no lleva rotulo: printLabel redirige al
+            // comprobante de entrega, asi que la accion cambia de nombre.
+            'label_kind'       => $s->is_pickup ? 'receipt' : 'label',
+            'print_block'      => $this->printBlockReason($s, $requirePayment),
             'sent_at'          => optional($s->sent_at)->format('Y-m-d H:i:s'),
             'picked_up_at'     => optional($s->picked_up_at)->format('Y-m-d H:i:s'),
             'priority'         => (int) $s->priority,
