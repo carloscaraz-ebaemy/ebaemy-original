@@ -1209,7 +1209,12 @@
                                                 <span class="badge bg-light text-muted ms-1">{{ $s->print_count }}</span>
                                             </button>
                                         @else
-                                            <a class="dropdown-item {{ $bloqueado ? 'disabled' : '' }}"
+                                            {{-- `js-print-label` es el ancla que usa pcUnlockRow()
+                                                 para habilitar la impresion tras cobrar, sin
+                                                 recargar. Con un selector generico bastaba un
+                                                 dropdown-item deshabilitado mas en la fila para
+                                                 desbloquear el que no era. --}}
+                                            <a class="dropdown-item js-print-label {{ $bloqueado ? 'disabled' : '' }}"
                                                href="{{ $bloqueado ? '#' : route('shipments.print', $s->id) }}"
                                                @if(!$bloqueado) target="_blank" @endif
                                                @if($bloqueado) tabindex="-1" aria-disabled="true" @endif>
@@ -3585,7 +3590,7 @@
         }
 
         // 4. Imprimir rotulo: el enlace estaba con href="#" y disabled.
-        var imprimir = fila.querySelector('.dropdown-item.disabled[href="#"]');
+        var imprimir = fila.querySelector('.js-print-label.disabled');
         if (imprimir) {
             imprimir.classList.remove('disabled');
             imprimir.setAttribute('href', '{{ url("registro-envio") }}/' + shipmentId + '/imprimir');
