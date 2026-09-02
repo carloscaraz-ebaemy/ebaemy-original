@@ -1221,6 +1221,17 @@ if ($hostname) {
             Route::post('order_payments/amount-due/{order}', 'Tenant\OrderPaymentController@storeAmountDue');
             Route::delete('order_payments/{payment}',    'Tenant\OrderPaymentController@destroy');
 
+            // Pagos de un ENVIO con el mismo contrato que el panel de Nota de
+            // Venta, para poder gestionarlos desde Pedidos sin salir del
+            // listado. Es un adaptador: las reglas de cobro siguen viviendo en
+            // ShipmentController. Ver ShipmentPaymentController.
+            Route::get('shipment_payments/tables',              'Tenant\ShipmentPaymentController@tables');
+            Route::get('shipment_payments/summary/{shipment}',  'Tenant\ShipmentPaymentController@summary')->whereNumber('shipment');
+            Route::get('shipment_payments/records/{shipment}',  'Tenant\ShipmentPaymentController@records')->whereNumber('shipment');
+            Route::post('shipment_payments',                    'Tenant\ShipmentPaymentController@store');
+            Route::post('shipment_payments/amount-due/{shipment}', 'Tenant\ShipmentPaymentController@storeAmountDue')->whereNumber('shipment');
+            Route::delete('shipment_payments/{payment}',        'Tenant\ShipmentPaymentController@destroy')->whereNumber('payment');
+
             Route::get('sale_note_payments/records/{sale_note}', 'Tenant\SaleNotePaymentController@records');
             Route::get('sale_note_payments/document/{sale_note}', 'Tenant\SaleNotePaymentController@document');
             Route::get('sale_note_payments/tables', 'Tenant\SaleNotePaymentController@tables');

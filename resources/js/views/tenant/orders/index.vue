@@ -647,15 +647,18 @@
             @saved="onShipmentSaved"
         ></shipment-form>
 
-        <!-- Pagos del pedido: mismo panel que usa Nota de Venta. -->
+        <!-- Pagos: el MISMO panel que usa Nota de Venta, apuntando al pedido
+             o al envío segun donde viva el dinero. El componente ya es
+             generico (se parametriza con `resource`), asi que no hay una
+             segunda pantalla de pagos: hay una, con dos destinos. -->
         <record-payments
             v-if="showPaymentsDialog"
             :showDialog.sync="showPaymentsDialog"
-            :recordId="paymentsOrderId"
-            resource="order_payments"
-            foreignKey="order_id"
-            fileType="orders"
-            title="Pagos del pedido"
+            :recordId="paymentsRecordId"
+            :resource="paymentsResource"
+            :foreignKey="paymentsForeignKey"
+            :fileType="paymentsFileType"
+            :title="paymentsTitle"
             @updated="onPaymentsUpdated"
         ></record-payments>
 
@@ -1353,7 +1356,14 @@ export default {
             dataSaleNote: {},
             showDialogSaleNote: false,
             showPaymentsDialog: false,
-            paymentsOrderId: null
+            paymentsOrderId: null,
+            // A donde apunta el panel de pagos. Un encargo logistico cobra
+            // contra su ENVIO (shipping_payments); el resto, contra el pedido.
+            paymentsResource: "order_payments",
+            paymentsForeignKey: "order_id",
+            paymentsFileType: "orders",
+            paymentsRecordId: null,
+            paymentsTitle: "Pagos del pedido"
         };
     },
     async created() {
@@ -1728,25 +1738,31 @@ export default {
         clickPayments(orderId) {
             const row = (this.currentRecords || []).find(r => r.id === orderId);
 
-            // Delegar, no clonar: el módulo de pagos de Envíos es un modal
-            // Blade + JS, no un componente Vue, así que incrustarlo aquí exige
-            // arrastrar su CSS y sobrevivir al re-render de Vue sobre
-            // #main-wrapper — el mismo intento que ya obligó a un revert. Se
-            // abre su pantalla, que es la que el operador ya conoce.
+            // Antes esto abria la pantalla de Envios en otra pestaña. Era
+            // correcto en cuanto a la fuente de verdad —el dinero del encargo
+            // vive en shipping_payments— pero sacaba al operador del listado y
+            // le hacia perder filtros, pagina y posicion.
+            //
+            // Ahora se queda aqui: el panel es el mismo, solo cambia a donde
+            // apunta. Detras, `shipment_payments` es un ADAPTADOR que reenvia
+            // al modulo de Envios, asi que las reglas de cobro —codigo de
+            // operacion, duplicados, tope contra el saldo, Finanzas— siguen
+            // estando en un unico sitio.
             if (row && this.pagoEnElEnvio(row)) {
-                // `q` acota el listado a ese envio (el boton de pagos solo
-                // existe si su fila esta en pantalla) y `pagos` dispara la
-                // apertura de la ficha. Ver el partial
-                // shipments/partials/open-payments-from-url-js.
-                const q = encodeURIComponent(row.shipment.code || "");
-                window.open(
-                    `/registro-envio?q=${q}&pagos=${row.shipment.id}`,
-                    "_blank"
-                );
-                return;
+                this.paymentsResource   = "shipment_payments";
+                this.paymentsForeignKey = "shipment_id";
+                this.paymentsFileType   = "shipments";
+                this.paymentsRecordId   = row.shipment.id;
+                this.paymentsTitle      = `Pagos del encargo ${row.shipment.code || ""}`.trim();
+            } else {
+                this.paymentsResource   = "order_payments";
+                this.paymentsForeignKey = "order_id";
+                this.paymentsFileType   = "orders";
+                this.paymentsRecordId   = orderId;
+                this.paymentsTitle      = "Pagos del pedido";
             }
 
-            this.paymentsOrderId = orderId;
+            this.paymentsOrderId    = orderId;
             this.showPaymentsDialog = true;
         },
         // El saldo cambio: se refresca la fila y tambien los contadores, que
