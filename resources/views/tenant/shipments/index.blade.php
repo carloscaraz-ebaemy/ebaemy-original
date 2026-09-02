@@ -3528,11 +3528,79 @@
         if (!btn) return;
 
         var monto = Number(data.total || 0);
+        var falta = data.pending === null || data.pending === undefined
+            ? null
+            : Number(data.pending);
+
+        // El saldo va DENTRO del boton, igual que lo pinta Blade: antes se
+        // reescribia el innerHTML entero y se perdia el «falta S/ X» hasta
+        // recargar, justo cuando un pago parcial es cuando mas importa verlo.
         btn.innerHTML = '<i class="fas fa-check"></i> Pagado'
-            + (monto > 0 ? ' S/ ' + monto.toFixed(2) : '');
-        btn.setAttribute('title', data.pending > 0
-            ? 'Cobrado S/ ' + monto.toFixed(2) + ' · resta S/ ' + Number(data.pending).toFixed(2)
+            + (monto > 0 ? ' S/ ' + monto.toFixed(2) : '')
+            + (falta !== null && falta > 0
+                ? ' <span class="sh-owed">falta S/ ' + falta.toFixed(2) + '</span>'
+                : '');
+        btn.setAttribute('title', falta !== null && falta > 0
+            ? 'Cobrado S/ ' + monto.toFixed(2) + ' · resta S/ ' + falta.toFixed(2)
             : 'Envío totalmente cobrado');
+
+        pcUnlockRow(shipmentId, btn);
+    }
+
+    /**
+     * Levanta el bloqueo por pago de una fila, sin recargar.
+     *
+     * `$bloqueado` en Blade apaga SEIS cosas de la fila cuando la tienda exige
+     * pago y este no esta confirmado. Al registrar el primer pago el servidor
+     * ya pone `payment_confirmed` (ver ShipmentController::syncPaymentState),
+     * pero el DOM seguia mostrandolo todo bloqueado: habia que recargar para
+     * cambiar el estado y para poder imprimir el rotulo.
+     *
+     * Si se toca la lista de elementos que `$bloqueado` apaga en Blade, hay que
+     * tocarla tambien aqui. Son estas seis, en el mismo orden:
+     *   1. checkbox data-paypend   4. enlace «Imprimir rotulo»
+     *   2. selector de estado      5. boton «Reimprimir» (no aplica: solo sale
+     *   3. boton «Subir guia»         si ya hubo impresion, y ahi no habia bloqueo)
+     *   6. la propia puerta de pago (`sh-pay-gate`), que deja de ser una puerta
+     */
+    function pcUnlockRow(shipmentId, btn) {
+        var fila = btn.closest ? btn.closest('tr') : null;
+        if (!fila) return;
+
+        // 1. Deja de contar como «pago pendiente» para imprimir en lote.
+        var check = fila.querySelector('.sh-check');
+        if (check) check.setAttribute('data-paypend', '0');
+
+        // 2. El estado vuelve a ser editable: es lo que el operador busca
+        //    inmediatamente despues de cobrar.
+        var estado = fila.querySelector('.sh-status-select');
+        if (estado) { estado.disabled = false; estado.removeAttribute('title'); }
+
+        // 3. Subir guia.
+        var guia = fila.querySelector('.js-upload-guide');
+        if (guia) {
+            guia.disabled = false;
+            guia.classList.remove('is-off');
+            guia.removeAttribute('title');
+        }
+
+        // 4. Imprimir rotulo: el enlace estaba con href="#" y disabled.
+        var imprimir = fila.querySelector('.dropdown-item.disabled[href="#"]');
+        if (imprimir) {
+            imprimir.classList.remove('disabled');
+            imprimir.setAttribute('href', '{{ url("registro-envio") }}/' + shipmentId + '/imprimir');
+            imprimir.setAttribute('target', '_blank');
+            imprimir.removeAttribute('tabindex');
+            imprimir.removeAttribute('aria-disabled');
+        }
+
+        // 6. La puerta de pago ya no es una puerta: pasa al aspecto de cobrado.
+        //    Conserva `js-pay-open`, que es lo que permite volver a abrir la
+        //    ficha para agregar otro pago.
+        if (btn.classList.contains('sh-pay-gate')) {
+            btn.classList.remove('sh-pay-gate');
+            btn.classList.add('sh-paid');
+        }
     }
 
     // Confirmar pago de los SELECCIONADOS (por lote).
