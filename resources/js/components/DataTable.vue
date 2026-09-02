@@ -552,7 +552,20 @@ export default {
                         response.data.meta.per_page
                     );
 
-                    this.$emit('records-changed', this.records);
+                    // El emit va AISLADO: es codigo del componente padre y no
+                    // tiene por que ser correcto. Sin este try/catch, cualquier
+                    // excepcion de un listener rechazaba la promesa, el .catch
+                    // de abajo hacia `records = []` y BORRABA unas filas que ya
+                    // habian cargado bien — con un mensaje que ademas culpaba a
+                    // la peticion, que habia ido perfecta.
+                    try {
+                        this.$emit('records-changed', this.records);
+                    } catch (e) {
+                        console.error(
+                            `[data-table] un listener de records-changed falló ` +
+                            `(las filas SI cargaron; el fallo es del padre)`, e
+                        );
+                    }
                 })
                 .catch(error => {
                     // Un catch vacío deja la tabla en blanco sin distinguir
