@@ -38,6 +38,28 @@ class OrderController extends Controller
 
   protected $company;
 
+    /**
+     * Gestión de Pedidos.
+     *
+     * ── QUÉ ES UN PEDIDO AQUÍ (perímetro del módulo, decidido el 2026-09-01) ──
+     *
+     * Pedidos es **la venta que requiere entrega**. Todo lo que entra tiene algo
+     * pendiente de hacer: preparar, imprimir el rótulo, embalar, despachar,
+     * entregar. Por eso conviven en la misma pantalla el pedido del ecommerce,
+     * el del marketplace, el de Saga y el encargo logístico suelto — que no
+     * lleva productos ni importe, pero sí trabajo.
+     *
+     * Lo que NO entra: la venta de mostrador. Un ticket de POS ya está entregado
+     * en el momento en que ocurre, así que meterlo aquí llenaría la cola de
+     * trabajo con filas que nacen terminadas. Vive en `documents` / `sale_notes`
+     * y no genera `Order`. El canal `POS01` existe en el catálogo pero se
+     * desactiva cuando no tiene pedidos, para no ofrecer en el filtro un origen
+     * que nunca va a producir ninguno.
+     *
+     * Si algún día el mostrador necesita reservar o entregar más tarde, ESE caso
+     * sí es un pedido y debe crear su `Order` — pero entonces ya no es una venta
+     * de mostrador, es una venta con entrega.
+     */
     public function index()
     {
         return view('tenant.orders.index');
