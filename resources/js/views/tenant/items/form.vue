@@ -83,9 +83,13 @@
                         <div class="col-md-6">
                             <div :class="{'has-danger': errors.name}"
                                  class="form-group">
-                                <label class="control-label">Descripción</label>
+                                <label class="control-label">Descripción corta</label>
                                 <el-input v-model="form.name"
                                           dusk="name"></el-input>
+                                <small class="form-text text-muted" style="font-size:11px">
+                                    Texto breve para comprobantes y listados. La descripción que ve
+                                    el comprador se edita abajo, en “Descripción del producto”.
+                                </small>
                                 <small v-if="errors.name"
                                        class="form-control-feedback"
                                        v-text="errors.name[0]"></small>
@@ -700,8 +704,7 @@
                         <!-- Descripcion visible al comprador (tienda online + marketplace).
                              Antes vivia dentro del panel de marketplace, asi que quien solo
                              usaba su tienda virtual no tenia donde escribirla. -->
-                        <div v-if="form.apply_store || form.marketplace_publishable"
-                             class="col-md-12"
+                        <div class="col-md-12"
                              style="margin-bottom:16px;padding:14px 16px;background:#fff;border:1px solid #e5e7eb;border-radius:10px">
                             <div style="display:flex;align-items:flex-start;gap:10px">
                                 <div style="font-size:22px;line-height:1">📝</div>
@@ -711,11 +714,14 @@
                                         Es el texto que el comprador lee en la ficha del producto, tanto en tu
                                         tienda online como en el marketplace. Puedes usar varias líneas.
                                     </div>
-                                    <el-input v-model="form.mp_notes" type="textarea" :rows="5"
-                                              style="margin-top:10px"
-                                              placeholder="Ej: Planta cebra de 40 cm en maceta de cerámica. Incluye instrucciones de riego…"></el-input>
+                                    <div style="margin-top:10px">
+                                        <vue-ckeditor v-model="form.mp_notes"
+                                                      :editors="editors"
+                                                      type="classic"></vue-ckeditor>
+                                    </div>
                                     <div style="font-size:11px;color:#9ca3af;margin-top:4px">
-                                        Si lo dejas vacío se mostrará el campo “Descripción” de la pestaña de datos generales.
+                                        Es el MISMO campo que edita Tienda Virtual → Productos: lo que
+                                        escribas aquí se ve allá y en la ficha del producto.
                                     </div>
                                 </div>
                             </div>
@@ -1497,6 +1503,10 @@ import ExtraInfo from './partials/extra_info.vue'
 import VariantsTab from './partials/variants-tab.vue'
 import {mapActions, mapState} from "vuex";
 import {ItemOptionDescription, ItemSlotTooltip} from "../../../helpers/modal_item";
+// Mismo editor que items_ecommerce/form.vue: la descripcion del producto es
+// un unico campo (items.mp_notes) y debe editarse igual en los dos modulos.
+import ClassicEditor from '@ckeditor/ckeditor5-build-classic';
+import VueCkeditor from 'vue-ckeditor5';
 
 
 export default {
@@ -1513,6 +1523,7 @@ export default {
         LotsForm,
         ExtraInfo,
         VariantsTab,
+        'vue-ckeditor': VueCkeditor.component,
     },
     computed: {
         forOnlyShowAllDetails()
@@ -1640,6 +1651,9 @@ export default {
 
             },
             attribute_types: [],
+            editors: {
+                classic: ClassicEditor
+            },
             activeName: 'first',
             fromPharmacy: false,
             inventory_configuration: null,
@@ -2177,6 +2191,29 @@ this.activeName =  'first'
             this.form.item_warehouse_prices = _.orderBy(this.form.item_warehouse_prices, ['warehouse_id'])
 
         },
+
+        // El ERP tiene DOS columnas que historicamente se rotularon "Descripcion":
+        //   items.name     -> texto corto legacy (comprobantes, listados)
+        //   items.mp_notes -> descripcion rica que ve el comprador (canonica)
+        // Los productos viejos tienen el texto en `name` y el editor de mp_notes
+        // salia vacio, asi que parecia que la descripcion "se perdia" al pasar de
+        // un modulo al otro. Sembramos el editor con el texto legacy cuando esta
+        // vacio: no se pierde nada (name queda intacto) y al guardar la descripcion
+        // queda ya en el campo canonico, sin que el usuario reescriba nada.
+        seedDescriptionFromLegacy() {
+            const legacy = (this.form.name || '').toString().trim()
+            const current = (this.form.mp_notes || '').toString().trim()
+            if (current !== '' || legacy === '') return
+            // Si `name` solo repite el nombre del producto no aporta descripcion.
+            const title = (this.form.description || '').toString().trim()
+            if (title !== '' && legacy.toLowerCase() === title.toLowerCase()) return
+            const escape = (t) => t
+                .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+            this.form.mp_notes = legacy
+                .split(/\r?\n\s*\r?\n/)
+                .map(block => `<p>${escape(block).replace(/\r?\n/g, '<br>')}</p>`)
+                .join('')
+        },
         loadRecord() {
             if (this.recordId) {
                 // Cargar tree + record en paralelo (mismo patrón que
@@ -2197,6 +2234,7 @@ this.activeName =  'first'
                     this.hydrateMpCategoryPath()
                     this.changeAffectationIgvType()
                     this.changePurchaseAffectationIgvType()
+                    this.seedDescriptionFromLegacy()
                 })
             }
         },

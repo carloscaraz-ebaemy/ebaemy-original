@@ -489,7 +489,7 @@
                                         <span class="ie-collapse__chev">▼</span>
                                         <strong>Descripción</strong>
                                         <span class="ie-collapse__hint">
-                                            (visible en la página del producto en el marketplace)
+                                            (la misma que se edita en Productos y Servicios)
                                         </span>
                                         <span v-if="form.mp_notes" class="ie-collapse__badge">✓ con texto</span>
                                     </summary>
@@ -2561,6 +2561,29 @@ export default {
                 this.galleryImages = []
             }
         },
+
+        // El ERP tiene DOS columnas que historicamente se rotularon "Descripcion":
+        //   items.name     -> texto corto legacy (comprobantes, listados)
+        //   items.mp_notes -> descripcion rica que ve el comprador (canonica)
+        // Los productos viejos tienen el texto en `name` y el editor de mp_notes
+        // salia vacio, asi que parecia que la descripcion "se perdia" al pasar de
+        // un modulo al otro. Sembramos el editor con el texto legacy cuando esta
+        // vacio: no se pierde nada (name queda intacto) y al guardar la descripcion
+        // queda ya en el campo canonico, sin que el usuario reescriba nada.
+        seedDescriptionFromLegacy() {
+            const legacy = (this.form.name || '').toString().trim()
+            const current = (this.form.mp_notes || '').toString().trim()
+            if (current !== '' || legacy === '') return
+            // Si `name` solo repite el nombre del producto no aporta descripcion.
+            const title = (this.form.description || '').toString().trim()
+            if (title !== '' && legacy.toLowerCase() === title.toLowerCase()) return
+            const escape = (t) => t
+                .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+            this.form.mp_notes = legacy
+                .split(/\r?\n\s*\r?\n/)
+                .map(block => `<p>${escape(block).replace(/\r?\n/g, '<br>')}</p>`)
+                .join('')
+        },
         loadRecord() {
             if (this.recordId) {
                 Promise.all([
@@ -2583,6 +2606,7 @@ export default {
                     // Si ya hay descripción, arrancar colapsado para no comer
                     // espacio vertical — el usuario expande con el chevron
                     // si quiere editarla.
+                    this.seedDescriptionFromLegacy()
                     this.mpDescOpen = !this.form.mp_notes
                     // Variantes: abrir si el producto ya tiene variantes
                     this.variantsSectionOpen = !!this.form.has_variants
