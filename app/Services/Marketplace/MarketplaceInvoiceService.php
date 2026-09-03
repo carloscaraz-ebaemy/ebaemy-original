@@ -20,9 +20,19 @@ use Illuminate\Support\Facades\Log;
  * marketplace (Saga), reutilizando exactamente el pipeline de la UI:
  * DocumentTransform → DocumentValidation → DocumentInput → Facturalo.
  *
- * Boleta GENÉRICA: los pedidos de Saga no traen DNI/RUC → cliente "varios"
- * (tipo doc 1, número 00000000). El total de la boleta cuadra con el total
- * cobrado por Saga (marketplace_orders.total).
+ * El comprador va IDENTIFICADO: Saga manda su documento y se emite con el
+ * DNI, el nombre y la direccion reales. Solo cae al generico (tipo 1,
+ * 00000000) cuando el pedido no trae documento valido, y en ese caso se
+ * rechaza la emision si supera S/ 700, que es donde SUNAT exige identificar.
+ * Un RUC tampoco se acepta: corresponde FACTURA, no boleta.
+ *
+ * (Hasta el commit e48eebd1 esto SI salia siempre como cliente "varios". El
+ * comentario quedo desactualizado y llevo a concluir de nuevo, en 2026-09-02,
+ * que la boleta seguia sin identificar al cliente. Si cambia el
+ * comportamiento, actualizar tambien este bloque.)
+ *
+ * El total de la boleta cuadra con el total cobrado por Saga
+ * (marketplace_orders.total).
  *
  * Idempotente: si el pedido ya tiene comprobante, no re-emite.
  */
