@@ -918,7 +918,33 @@ class OrderController extends Controller
             'items.*.quantity' => 'required|integer|min:1',
         ]);
 
-        $channel = SalesChannel::findOrFail($request->channel_id);
+        $channel     = SalesChannel::findOrFail($request->channel_id);
+        $warehouseId = $request->warehouse_id ?? $channel->warehouse_id;
+
+        // Stock. Hasta ahora este alta NO lo miraba: se podia vender por
+        // telefono lo que el ecommerce acababa de vender, y no se descubria
+        // hasta preparar el pedido.
+        //
+        // Se comprueban TODAS las lineas antes de crear nada y se avisa de
+        // todas juntas: corregir un pedido de ocho productos de uno en uno es
+        // la forma mas lenta de hacerlo.
+        $lineas = collect($request->items)->map(fn ($i) => [
+            'item_id'    => (int) ($i['item_id'] ?? 0),
+            'variant_id' => $i['variant_id'] ?? null,
+            'quantity'   => (float) ($i['quantity'] ?? 0),
+        ])->all();
+
+        $stock = app(\App\Services\Tenant\StockReservation::class);
+
+        if ($problemas = $stock->problemas($lineas, $warehouseId)) {
+            return response()->json([
+                'success'  => false,
+                'message'  => count($problemas) === 1
+                    ? $problemas[0]
+                    : 'No se puede crear el pedido con el stock actual.',
+                'problemas' => $problemas,
+            ], 422);
+        }
 
         // Calcular total
         $total = 0;
@@ -976,9 +1002,13 @@ class OrderController extends Controller
             'channel_id' => $channel->id,
             'external_order_ref' => $request->external_order_ref, // Nro pedido Saga/ML
             'marketplace_notes' => $request->marketplace_notes,
-            'warehouse_id' => $request->warehouse_id ?? $channel->warehouse_id,
+            'warehouse_id' => $warehouseId,
             'seller_id' => auth()->id(),
         ]);
+
+        // Reservar DESPUES de crear el pedido: si la creacion falla, no queda
+        // stock comprometido contra un pedido que no existe.
+        $stock->reservar($lineas, $warehouseId);
 
         return response()->json([
             'success' => true,
