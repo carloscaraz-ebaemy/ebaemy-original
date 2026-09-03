@@ -942,8 +942,26 @@ class OrderController extends Controller
             ];
         }
 
+        // El cliente se ENLAZA a la cartera del ERP, no se queda solo como
+        // texto dentro del JSON. Misma resolucion que usan la Guia de Remision
+        // y el espejo del encargo logistico: una sola implementacion.
+        //
+        // Sin documento devuelve null y el pedido se crea igual: obligar al
+        // documento aqui impediria registrar el pedido de un cliente que llama
+        // por telefono y todavia no lo dio.
+        $persona = \App\Models\Tenant\Person::resolveCustomer(
+            $request->customer['document_number'] ?? null,
+            $request->customer['name'] ?? null,
+            [
+                'telephone' => $request->customer['phone'] ?? null,
+                'email'     => $request->customer['email'] ?? null,
+                'address'   => $request->customer['address'] ?? null,
+            ]
+        );
+
         $order = Order::create([
             'external_id' => \Illuminate\Support\Str::uuid(),
+            'person_id' => $persona?->id,
             'customer' => [
                 'apellidos_y_nombres_o_razon_social' => $request->customer['name'],
                 'correo_electronico' => $request->customer['email'] ?? null,
@@ -966,6 +984,9 @@ class OrderController extends Controller
             'success' => true,
             'message' => "Pedido #{$order->id} creado desde {$channel->name}",
             'order' => $order,
+            // Para que la pantalla pueda decir si el cliente quedo enlazado a
+            // la cartera o el pedido nacio suelto por falta de documento.
+            'person' => $persona ? ['id' => $persona->id, 'name' => $persona->name] : null,
         ]);
     }
 

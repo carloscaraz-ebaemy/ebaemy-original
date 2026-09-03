@@ -5,6 +5,7 @@ namespace App\Services\Tenant;
 use App\Models\Tenant\Order;
 use App\Models\Tenant\ShippingAuditLog;
 use App\Models\Tenant\ShippingRequest;
+use App\Services\Tenant\ShipmentDispatchPrefill;
 
 /**
  * Puente entre un Pedido y su detalle logístico (Registro de Envíos).
@@ -89,6 +90,16 @@ class OrderShipmentLinker
 
         $canal = \App\Models\Tenant\SalesChannel::shipmentChannel();
 
+        // El cliente del pedido se ENLAZA a la cartera del ERP (`persons`), no
+        // se queda solo como texto dentro del JSON.
+        //
+        // Se reutiliza el resolutor que ya existe para la Guia de Remision
+        // —busca por documento y crea si no esta, con el mapeo DNI/RUC
+        // correcto— en vez de escribir un segundo. Sin documento devuelve null
+        // y no inventa una persona: una cartera llena de «CLIENTE» sin numero
+        // es peor que un pedido sin enlazar.
+        $persona = app(ShipmentDispatchPrefill::class)->persona($shipment);
+
         $destino = trim(implode(', ', array_filter([
             $shipment->shipping_destination,
             $shipment->destination_city,
@@ -96,6 +107,9 @@ class OrderShipmentLinker
 
         $order = Order::crearTolerandoEsquemaViejo([
             'external_id'      => (string) \Illuminate\Support\Str::uuid(),
+            'person_id'        => $persona?->id,
+            // El JSON se conserva: es la foto de lo que el cliente escribio en
+            // ese momento. `person_id` es el enlace vivo; los dos hacen falta.
             'customer'         => [
                 'apellidos_y_nombres_o_razon_social' => $shipment->full_name,
                 'numero'                             => $shipment->dni,

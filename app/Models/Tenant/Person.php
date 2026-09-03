@@ -116,6 +116,59 @@ use Illuminate\Support\Facades\DB;
             'district'
         ];
 
+        /**
+         * Cliente de la cartera para un documento, creandolo si no existe.
+         *
+         * UNICA implementacion de "resolver el cliente" en el sistema. La usan
+         * la Guia de Remision (ShipmentDispatchPrefill), el espejo del encargo
+         * logistico y el alta manual de pedidos. Antes vivia suelta dentro del
+         * prefill de la guia; se movio aqui al decidir que el cliente del
+         * pedido se enlaza a `persons` y no se queda como texto en un JSON.
+         *
+         * Sin documento devuelve NULL y no crea nada: SUNAT lo exige para
+         * emitir, y una cartera llena de «CLIENTE» sin numero es peor que un
+         * pedido sin enlazar. Quien llame decide que hacer con el null.
+         *
+         * @param array<string, mixed> $extra Datos opcionales para el alta
+         *        (telefono, direccion, ubigeo, email). Nunca pisan los de una
+         *        persona que ya existia: su ficha manda sobre lo que escribio
+         *        el cliente en un formulario.
+         */
+        public static function resolveCustomer(?string $documento, ?string $nombre, array $extra = []): ?self
+        {
+            $doc = preg_replace('/\D+/', '', (string) $documento);
+
+            if ($doc === '') {
+                return null;
+            }
+
+            try {
+                $existente = static::where('number', $doc)->where('type', 'customers')->first();
+
+                if ($existente) {
+                    return $existente;
+                }
+
+                // 6 = RUC, 1 = DNI. Es el mismo mapeo que usa la guia.
+                $tipo = strlen($doc) === 11 ? '6' : '1';
+
+                return static::create(array_merge([
+                    'type'                      => 'customers',
+                    'identity_document_type_id' => $tipo,
+                    'number'                    => $doc,
+                    'name'                      => trim((string) $nombre) ?: 'CLIENTE',
+                    'country_id'                => 'PE',
+                    'state'                     => true,
+                ], array_filter($extra, fn ($v) => $v !== null && $v !== '')));
+            } catch (\Throwable $e) {
+                \Illuminate\Support\Facades\Log::warning(
+                    'No se pudo resolver el cliente ' . $doc . ': ' . $e->getMessage()
+                );
+
+                return null;
+            }
+        }
+
         protected $fillable = [
             'type',
             'identity_document_type_id',

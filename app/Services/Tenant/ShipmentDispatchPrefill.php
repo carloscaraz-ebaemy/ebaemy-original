@@ -45,33 +45,23 @@ class ShipmentDispatchPrefill
             return null;
         }
 
-        $tipo = strlen($doc) === 11 ? '6' : '1';   // 6 = RUC, 1 = DNI
+        // La resolucion vive en Person::resolveCustomer(): es la misma que usan
+        // el espejo del encargo logistico y el alta manual de pedidos. Aqui
+        // solo se aportan los datos del envio y se traduce el fallo a un aviso
+        // para el operador, que es lo propio de esta pantalla.
+        $persona = Person::resolveCustomer($doc, $s->full_name, [
+            'district_id'   => $s->district_id,
+            'province_id'   => $s->province_id,
+            'department_id' => $s->department_id,
+            'address'       => $s->shipping_destination ?: $s->formatted_address,
+            'telephone'     => $s->phone,
+        ]);
 
-        try {
-            $persona = Person::where('number', $doc)->where('type', 'customers')->first();
-
-            if ($persona) {
-                return $persona;
-            }
-
-            return Person::create([
-                'type'                       => 'customers',
-                'identity_document_type_id'  => $tipo,
-                'number'                     => $doc,
-                'name'                       => trim((string) $s->full_name) ?: 'CLIENTE',
-                'country_id'                 => 'PE',
-                'district_id'                => $s->district_id,
-                'province_id'                => $s->province_id,
-                'department_id'              => $s->department_id,
-                'address'                    => $s->shipping_destination ?: $s->formatted_address,
-                'telephone'                  => $s->phone,
-                'state'                      => true,
-            ]);
-        } catch (\Throwable $e) {
-            Log::warning('[Shipments] No se pudo resolver la persona para la guía: ' . $e->getMessage());
+        if (!$persona) {
             $this->avisos[] = 'No se pudo crear el cliente automáticamente. Selecciónalo a mano.';
-            return null;
         }
+
+        return $persona;
     }
 
     // ── Dirección de entrega ───────────────────────────────────────────────
