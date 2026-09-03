@@ -39,7 +39,7 @@
                         <div class="ord-kpi-val">{{ chipCounts.todispatch || 0 }}</div>
                     </div>
                     <div class="ord-kpi ord-kpi-warn">
-                        <div class="ord-kpi-label">Sin boleta</div>
+                        <div class="ord-kpi-label">Falta emitir</div>
                         <div class="ord-kpi-val">{{ chipCounts.no_invoice || 0 }}</div>
                     </div>
                     <div class="ord-kpi ord-kpi-ok">
@@ -507,7 +507,7 @@
                             <span
                                 v-if="row.mp_invoice_state === 'alert'"
                                 class="ord-doc-badge ord-doc-alert"
-                                title="Boleta emitida y el pedido fue devuelto/cancelado en Saga: corresponde Nota de Crédito"
+                                title="La boleta está emitida pero Saga devolvió o canceló el pedido: hay que emitir una Nota de Crédito."
                                 >⚠ {{ row.number_document || "Facturado" }} · devuelto</span
                             >
                             <span
@@ -522,14 +522,14 @@
                             <span
                                 v-else-if="row.mp_invoice_state === 'external'"
                                 class="ord-doc-badge ord-doc-ext"
-                                title="Boleta emitida fuera de EBAEMY"
-                                >Boleta externa</span
+                                title="El comprobante lo emitió el vendedor en el portal de Saga, fuera de EBAEMY. No hay nada pendiente."
+                                >Emitida en Saga</span
                             >
                             <span
                                 v-else-if="row.mp_invoice_state === 'pending'"
                                 class="ord-doc-badge ord-doc-pend"
-                                title="Pedido de marketplace sin boleta"
-                                >Sin boleta</span
+                                title="Este pedido todavía no tiene comprobante. Emítelo desde el menú de acciones y se sube a Saga."
+                                >Falta emitir</span
                             >
                             <span v-else class="text-muted">—</span>
                         </td>
@@ -590,7 +590,7 @@
                                         command="markExternal"
                                     >
                                         <i class="el-icon-check"></i>
-                                        Marcar boleta hecha en Saga
+                                        Ya la emití en Saga
                                     </el-dropdown-item>
 
                                     <el-dropdown-item
@@ -1290,7 +1290,7 @@ export default {
                 { key: "entregados", label: "Entregados" },
                 { key: "anulados", label: "Anulados" },
                 { key: "sin_envio", label: "Sin envío" },
-                { key: "no_invoice", label: "Sin boleta" },
+                { key: "no_invoice", label: "Falta emitir" },
             ],
             // Filtros logísticos de la barra superior.
             deliveryTypeFilter: "",
