@@ -297,6 +297,55 @@ class ShippingRequest extends Model
     }
 
     /** ¿Está listo para entrar a un lote de impresión? */
+    /**
+     * Que datos le faltan a este envio para poder rotularlo, en lenguaje del
+     * operador. Vacio = esta completo.
+     *
+     * Espeja las reglas por modalidad de
+     * `ShipmentController::validateShipment()`, que es donde se exigen al dar
+     * de alta. Vive aqui, y no en el controlador, porque ahora lo preguntan dos
+     * pantallas: el panel de Envios y la fila de Pedidos.
+     *
+     * IMPORTANTE: si cambian las reglas de validateShipment, cambian aqui. Son
+     * dos sitios que describen el mismo requisito, y separarlos fue lo que dejo
+     * pasar rotulos de provincia SIN agencia cuando `shipping_agency` todavia
+     * era nullable — el almacen no sabia donde dejar el paquete.
+     *
+     * @return array<int, string>
+     */
+    public function missingLabelData(): array
+    {
+        $faltan = [];
+
+        if (trim((string) $this->full_name) === '') $faltan[] = 'nombre del destinatario';
+        if (trim((string) $this->phone) === '')     $faltan[] = 'telefono';
+
+        if ($this->is_pickup) {
+            // Recojo en tienda: no lleva rotulo de transporte, asi que no se le
+            // exige destino. Lo que se imprime es el comprobante de entrega.
+            return $faltan;
+        }
+
+        if ($this->is_domicilio) {
+            if (trim((string) $this->shipping_destination) === '') {
+                $faltan[] = 'direccion de entrega';
+            }
+        } else {
+            // Agencia (provincia). Sin estos dos el rotulo sale inservible.
+            if (trim((string) $this->shipping_agency) === '') $faltan[] = 'agencia de transporte';
+            if (trim((string) $this->district_id) === '')     $faltan[] = 'distrito de destino';
+        }
+
+        // Cliente empresa: la agencia no le entrega a un RUC, necesita una
+        // persona con nombre y DNI.
+        if (self::documentIsRuc($this->document_type, $this->dni)) {
+            if (trim((string) $this->pickup_person_name) === '') $faltan[] = 'quien recoge (nombre)';
+            if (trim((string) $this->pickup_person_dni) === '')  $faltan[] = 'quien recoge (DNI)';
+        }
+
+        return $faltan;
+    }
+
     public function isReadyToPrint(): bool
     {
         return !$this->print_batch_id

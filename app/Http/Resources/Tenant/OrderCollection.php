@@ -250,6 +250,11 @@ class OrderCollection extends ResourceCollection
             // comprobante de entrega, asi que la accion cambia de nombre.
             'label_kind'       => $s->is_pickup ? 'receipt' : 'label',
             'print_block'      => $this->printBlockReason($s, $requirePayment),
+            // Que le falta al envio para poder rotularlo. El servidor imprime
+            // igual —no es un error, es un rotulo malo— asi que avisar aqui es
+            // la unica forma de que el operador se entere ANTES y no cuando el
+            // paquete ya esta en la agencia sin saber a que oficina va.
+            'missing_data'     => $s->missingLabelData(),
             'sent_at'          => optional($s->sent_at)->format('Y-m-d H:i:s'),
             'picked_up_at'     => optional($s->picked_up_at)->format('Y-m-d H:i:s'),
             'priority'         => (int) $s->priority,

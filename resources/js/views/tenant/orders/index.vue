@@ -463,6 +463,15 @@
                                         }"
                                         >{{ row.shipment.delivery_short }}</span
                                     >
+                                    <!-- Datos incompletos: el servidor imprime
+                                         igual, asi que si no se avisa aqui el
+                                         rotulo malo se descubre en la agencia. -->
+                                    <span
+                                        v-if="row.shipment.missing_data && row.shipment.missing_data.length"
+                                        class="ord-ship-missing"
+                                        :title="'Faltan datos para rotular: ' + row.shipment.missing_data.join(', ')"
+                                        >⚠ faltan datos</span
+                                    >
                                     <span
                                         v-if="row.shipment.aging_meta"
                                         class="ord-ship-dot"
@@ -852,6 +861,16 @@
 /* Saldo del encargo logistico. Su dinero vive en el envio, asi que la celda
    de Total muestra el importe a cobrar y, debajo, lo que falta. En rojo solo
    cuando queda deuda: es la unica parte que pide accion. */
+.ord-ship-missing {
+    display: inline-block;
+    font-size: 11px;
+    font-weight: 600;
+    color: #b45309;
+    background: #fef3c7;
+    padding: 1px 7px;
+    border-radius: 999px;
+    white-space: nowrap;
+}
 .ord-pay-pend {
     font-size: 11.5px;
     font-weight: 600;
@@ -1706,6 +1725,20 @@ export default {
             if (s.print_block) {
                 this.$message.warning(s.print_block);
                 return;
+            }
+
+            // El servidor NO bloquea por datos incompletos: imprime un rotulo
+            // igualmente. Por eso se avisa aqui, que es el ultimo momento util
+            // — despues el paquete ya sale con una etiqueta sin destino.
+            if (s.missing_data && s.missing_data.length) {
+                // El mensaje se arma por lineas y se une con un salto real:
+                // asi no depende de secuencias de escape, que es donde se
+                // rompio la primera version de este aviso.
+                const lineas = ["Al envio " + s.code + " le faltan datos para rotular:", ""]
+                    .concat(s.missing_data.map(d => "  · " + d))
+                    .concat(["", "El rotulo se imprimira igual, pero saldra incompleto. ¿Continuar?"]);
+
+                if (!window.confirm(lineas.join(String.fromCharCode(10)))) return;
             }
 
             let url = `/registro-envio/${s.id}/imprimir`;
