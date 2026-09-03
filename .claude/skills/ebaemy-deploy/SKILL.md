@@ -126,10 +126,22 @@ Todos deben dar `HTTP/2 200`.
 
 **Además, barrer TODOS los tenants** — los 4 endpoints públicos pueden dar 200 con storefronts caídos:
 ```bash
-for t in alasitas makingroup mitienda talara myka torneo calixto gabito torneoperu ycre          charitzi motalvan carolayimport uniformespatty importacionesdeywa; do
+for t in alasitas makingroup mitienda talara myka torneo calixto gabito torneoperu ycre charitzi motalvan floristeriapetaloencanto carolayimport valentinaimportaciones uniformespatty importacionesdeywa; do
   printf "%s %s
 " "$(curl -s -o /dev/null -w '%{http_code}' --max-time 20 https://$t.ebaemy.com/ecommerce)" "$t"
 done
+```
+
+**Un 503 en el storefront NO es una caida: es un tenant bloqueado.** `LockedTenant` responde
+503 (pagina "volvemos pronto", para que Google reintente en vez de desindexar) cuando
+`configuration.locked_tenant = 1`, y `laravel.log` no registra nada porque `HttpException`
+esta en el `internalDontReport` de Laravel. Verificado 2026-09-02: los 8 tenants en 503 eran
+exactamente los 8 bloqueados. Para confirmar en vez de suponer:
+```bash
+php artisan tinker --execute="\$ws = \Hyn\Tenancy\Models\Website::all();
+foreach (\$ws as \$w) { app(\Hyn\Tenancy\Environment::class)->tenant(\$w);
+  \$c = \App\Models\Tenant\Configuration::first();
+  echo str_pad(\$w->uuid, 32).((\$c && \$c->locked_tenant) ? 'BLOQUEADO' : 'activo').PHP_EOL; }"
 ```
 Guardar el resultado **ANTES** de desplegar: sin línea base no se puede distinguir una regresión
 del deploy de una falla que ya venía. Si dan 404 con `Content-Type: application/json` → problema de permisos `/home/ebaemy/` (debe ser 755, no 711):
