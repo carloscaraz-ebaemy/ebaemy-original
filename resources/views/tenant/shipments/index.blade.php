@@ -1040,8 +1040,25 @@
                                 <span class="badge bg-dark">Anulado</span>
                             @else
                                 @php $flow = $s->selectableStatuses(); $curInFlow = in_array($s->status, $flow, true); @endphp
+                                {{-- El selector se renderiza SIEMPRE, deshabilitado mientras
+                                     falte el pago, igual que «Subir guia» e «Imprimir rotulo».
+                                     Antes vivia en la rama alternativa y NO existia en el DOM
+                                     la fila estaba bloqueada: al cobrar sin recargar,
+                                     `pcUnlockRow` buscaba un `.sh-status-select` que nunca se
+                                     habia pintado, y la fila quedaba mostrando solo
+                                     «Pagado S/ X» sin forma de mover el estado. --}}
+                                <form method="POST" action="{{ route('shipments.status', $s->id) }}" class="d-inline m-0">
+                                    @csrf
+                                    <select name="status" class="form-select form-select-sm sh-status-select border-{{ $badge }} text-{{ $badge }}" style="min-width:150px;font-weight:600;" {{ $bloqueado ? 'disabled' : '' }} title="{{ $bloqueado ? 'Confirma el pago para habilitar' : '' }}">
+                                        @unless($curInFlow)
+                                            <option value="{{ $s->status }}" selected>{{ $s->status_label }}</option>
+                                        @endunless
+                                        @foreach($flow as $val)
+                                            <option value="{{ $val }}" {{ $s->status === $val ? 'selected' : '' }}>{{ $statuses[$val] ?? $val }}</option>
+                                        @endforeach
+                                    </select>
+                                </form>
                                 @if($bloqueado)
-                                    {{-- Divulgación progresiva: mientras no se pueda usar el estado, no se muestra. --}}
                                     @if($requirePaymentCode ?? false)
                                         {{-- La tienda lleva control de códigos: confirmar
                                              pide el CODIGO de la operacion, que es lo que
@@ -1068,19 +1085,7 @@
                                             </button>
                                         </form>
                                     @endif
-                                @else
-                                <form method="POST" action="{{ route('shipments.status', $s->id) }}" class="d-inline m-0">
-                                    @csrf
-                                    <select name="status" class="form-select form-select-sm sh-status-select border-{{ $badge }} text-{{ $badge }}" style="min-width:150px;font-weight:600;" {{ $bloqueado ? 'disabled' : '' }} title="{{ $bloqueado ? 'Confirma el pago para habilitar' : '' }}">
-                                        @unless($curInFlow)
-                                            <option value="{{ $s->status }}" selected>{{ $s->status_label }}</option>
-                                        @endunless
-                                        @foreach($flow as $val)
-                                            <option value="{{ $val }}" {{ $s->status === $val ? 'selected' : '' }}>{{ $statuses[$val] ?? $val }}</option>
-                                        @endforeach
-                                    </select>
-                                </form>
-                                @if(($requirePayment ?? false) && $s->payment_confirmed)
+                                @elseif(($requirePayment ?? false) && $s->payment_confirmed)
                                     @if($requirePaymentCode ?? false)
                                         {{-- Con multipago el envío puede tener varios cobros:
                                              el botón abre la ficha de pagos (ver, agregar otro
@@ -1116,7 +1121,6 @@
                                             </button>
                                         </form>
                                     @endif
-                                @endif
                                 @endif
                             @endif
                         </td>
