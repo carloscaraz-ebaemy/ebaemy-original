@@ -114,7 +114,17 @@
                             <el-input-number v-model="l.quantity" :min="1" :step="1" size="mini" controls-position="right"></el-input-number>
                         </td>
                         <td class="num">
-                            <el-input-number v-model="l.unit_price" :min="0" :precision="2" size="mini" controls-position="right"></el-input-number>
+                            <el-input-number
+                                v-if="puedeEditarPrecio"
+                                v-model="l.unit_price"
+                                :min="0"
+                                :precision="2"
+                                size="mini"
+                                controls-position="right"
+                            ></el-input-number>
+                            <span v-else :title="'No tienes permiso para cambiar precios: se cobra el del catálogo.'">
+                                {{ money(l.unit_price) }}
+                            </span>
                         </td>
                         <td class="num mo-sub">S/ {{ money(l.quantity * l.unit_price) }}</td>
                         <td class="num">
@@ -179,6 +189,8 @@ export default {
     data() {
         return {
             canales: [],
+            // El servidor decide; esto solo evita ofrecer algo que va a ignorar.
+            puedeEditarPrecio: false,
             opciones: [],
             buscado: null,
             buscando: false,
@@ -224,7 +236,9 @@ export default {
             this.buscado = null;
 
             this.$http.get("/orders/channels").then(r => {
-                this.canales = r.data || [];
+                const d = r.data || {};
+                this.canales = d.channels || [];
+                this.puedeEditarPrecio = !!d.can_edit_prices;
                 // Un solo canal activo: no tiene sentido preguntar.
                 if (!this.editando && this.canales.length === 1) {
                     this.form.channel_id = this.canales[0].id;

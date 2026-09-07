@@ -924,9 +924,41 @@ class OrderController extends Controller
      */
     public function channels()
     {
-        return response()->json(
-            SalesChannel::active()->get(['id', 'name', 'type', 'code'])
-        );
+        return response()->json([
+            'channels' => SalesChannel::active()->get(['id', 'name', 'type', 'code']),
+            // El alta manual deja escribir el precio, y no todo el mundo deberia
+            // poder. Se reutiliza el permiso que ya existe en el ERP en vez de
+            // inventar uno nuevo. Esto es solo para que la pantalla lo refleje:
+            // quien manda es la comprobacion del servidor al guardar.
+            'can_edit_prices' => (bool) optional(auth()->user())->permission_edit_item_prices,
+        ]);
+    }
+
+    /**
+     * Precio que de verdad se va a cobrar por una linea.
+     *
+     * Sin permiso, el precio que llegue del formulario se IGNORA y manda el del
+     * catalogo. Deshabilitar el campo en pantalla no es un control: una peticion
+     * a mano se lo salta, y aqui se esta fijando lo que se cobra.
+     */
+    private function precioDeLinea(Item $item, array $fila): float
+    {
+        $delCatalogo = (float) ($item->is_set
+            ? ($item->sale_unit_price_set ?: $item->sale_unit_price)
+            : $item->sale_unit_price);
+
+        if (!empty($fila['variant_id'])) {
+            $variante = \App\Models\Tenant\ItemVariant::find($fila['variant_id']);
+            if ($variante) {
+                $delCatalogo = (float) ($variante->sale_unit_price ?: $delCatalogo);
+            }
+        }
+
+        if (!optional(auth()->user())->permission_edit_item_prices) {
+            return $delCatalogo;
+        }
+
+        return isset($fila['unit_price']) ? (float) $fila['unit_price'] : $delCatalogo;
     }
 
     /**
@@ -1047,7 +1079,7 @@ class OrderController extends Controller
         $orderItems = [];
         foreach ($request->items as $itemData) {
             $item = Item::findOrFail($itemData['item_id']);
-            $price = $itemData['unit_price'] ?? $item->sale_unit_price;
+            $price = $this->precioDeLinea($item, $itemData);
             $qty = $itemData['quantity'];
             $subtotal = round($price * $qty, 2);
             $total += $subtotal;
@@ -1246,7 +1278,7 @@ class OrderController extends Controller
                 foreach ($request->items as $fila) {
                     $item = Item::findOrFail($fila['item_id']);
                     $cantidad = (float) $fila['quantity'];
-                    $precio   = (float) ($fila['unit_price'] ?? $item->sale_unit_price);
+                    $precio   = $this->precioDeLinea($item, $fila);
                     $subtotal = round($precio * $cantidad, 2);
                     $total   += $subtotal;
 
