@@ -640,33 +640,84 @@ class OrderService
 
             if (!$itemId) continue;
 
+            // Un PACK no tiene stock propio: lo que se reservo fueron sus
+            // componentes. Buscar la fila de almacen del pack no encuentra
+            // nada, y la reserva de los componentes se quedaba comprometida
+            // para siempre — disponible que se encoge sin que nadie sepa por
+            // que. Afecta por igual al checkout y al alta manual, porque los
+            // dos reservan componentes.
+            $producto = \App\Models\Tenant\Item::find($itemId);
+
+            if ($producto && $producto->is_set) {
+                foreach (\App\Models\Tenant\ItemSet::where('item_id', $producto->id)->get() as $componente) {
+                    $porPack = (float) $componente->quantity;
+                    if ($porPack <= 0) {
+                        continue;
+                    }
+
+                    $this->releaseCommittedForItem(
+                        (int) $componente->individual_item_id,
+                        $qty * $porPack,
+                        $order,
+                        'Liberación de componente por cancelación pedido #' . $order->id
+                    );
+                }
+
+                continue;
+            }
+
+            $this->releaseCommittedForItem(
+                (int) $itemId,
+                $qty,
+                $order,
+                "Liberación por cancelación pedido #{$order->id}"
+            );
+        }
+    }
+
+    /**
+     * Devuelve al disponible lo comprometido de UN producto.
+     *
+     * Conservador a proposito: libera como mucho lo que hay comprometido, para
+     * no dejar `stock_committed` en negativo si la reserva ya se solto por otro
+     * camino. Prefiere el almacen del pedido y, si ahi no hay reserva, toma
+     * cualquiera que la tenga.
+     */
+    private function releaseCommittedForItem(int $itemId, float $cantidad, Order $order, string $motivo): void
+    {
+        if ($cantidad <= 0) {
+            return;
+        }
+
+        $iw = ItemWarehouse::where('item_id', $itemId)
+            ->where('warehouse_id', $order->warehouse_id)
+            ->where('stock_committed', '>', 0)
+            ->lockForUpdate()
+            ->first();
+
+        if (!$iw) {
             $iw = ItemWarehouse::where('item_id', $itemId)
-                ->where('warehouse_id', $order->warehouse_id)
                 ->where('stock_committed', '>', 0)
                 ->lockForUpdate()
                 ->first();
+        }
 
-            if (!$iw) {
-                $iw = ItemWarehouse::where('item_id', $itemId)
-                    ->where('stock_committed', '>', 0)
-                    ->lockForUpdate()
-                    ->first();
-            }
+        if (!$iw) {
+            return;
+        }
 
-            if ($iw) {
-                $release = min((float)$iw->stock_committed, $qty);
-                if ($release > 0) {
-                    $iw->applyStockMovement(StockMovementTypeEnum::ECOMMERCE_CANCEL, $release);
-                    StockMovement::record(
-                        $iw,
-                        StockMovementTypeEnum::ECOMMERCE_CANCEL,
-                        $release,
-                        auth()->id(),
-                        $order,
-                        "Liberación por cancelación pedido #{$order->id}"
-                    );
-                }
-            }
+        $release = min((float) $iw->stock_committed, $cantidad);
+
+        if ($release > 0) {
+            $iw->applyStockMovement(StockMovementTypeEnum::ECOMMERCE_CANCEL, $release);
+            StockMovement::record(
+                $iw,
+                StockMovementTypeEnum::ECOMMERCE_CANCEL,
+                $release,
+                auth()->id(),
+                $order,
+                $motivo
+            );
         }
     }
 
