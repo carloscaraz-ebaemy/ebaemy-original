@@ -326,6 +326,57 @@ class OrderDocumentsTest extends TestCase
     }
 
     /** @test */
+    public function sin_detalle_del_paquete_no_hay_guia()
+    {
+        // SUNAT exige el detalle de lo que viaja, y el envío lo guarda como
+        // texto libre en `package_content` — que muchas veces llega vacío. Sin
+        // este corte, el menú ofrecía la guía, abría una pestaña y el
+        // formulario la rechazaba allí.
+        $envio = new ShippingRequest([
+            'delivery_type'    => ShippingRequest::DELIVERY_DOMICILIO,
+            'full_name'        => 'Cliente',
+            'phone'            => '999999999',
+            'dni'              => '44556677',
+            'district_id'      => '150101',
+            'shipping_destination' => 'Av. Siempre Viva 742',
+            'package_content'  => '',
+        ]);
+        $order = $this->pedidoDeVenta();
+        $order->setRelation('shipment', $envio);
+
+        $guia = $this->docs($order)[OrderDocuments::GUIA];
+
+        $this->assertNotNull($guia);
+        $this->assertStringContainsString('detalle de lo que se traslada', $guia['bloqueo']);
+    }
+
+    /** @test */
+    public function en_agencia_sin_agencia_configurada_la_guia_se_bloquea()
+    {
+        // `generateDispatch()` ni abre el formulario sin transportista. Decirlo
+        // en la fila evita mandar al operador a una pestaña que rebota.
+        $envio = new ShippingRequest([
+            'delivery_type'   => ShippingRequest::DELIVERY_AGENCIA,
+            'full_name'       => 'Cliente',
+            'phone'           => '999999999',
+            'dni'             => '44556677',
+            'district_id'     => '150101',
+            'shipping_agency' => '',
+            'shipping_destination' => 'Agencia centro',
+            'destination_city' => 'Trujillo',
+            'package_content' => '1 caja de zapatos',
+        ]);
+        $order = $this->pedidoDeVenta();
+        $order->setRelation('shipment', $envio);
+
+        $guia = $this->docs($order)[OrderDocuments::GUIA];
+
+        $this->assertNotNull($guia['bloqueo']);
+        $this->assertNotSame('', trim($guia['bloqueo']));
+        $this->assertStringContainsString('agencia', $guia['bloqueo']);
+    }
+
+    /** @test */
     public function la_guia_avisa_de_los_datos_que_le_faltan_al_envio()
     {
         $envio = new ShippingRequest([

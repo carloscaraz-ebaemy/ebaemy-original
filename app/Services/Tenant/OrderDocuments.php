@@ -345,6 +345,39 @@ class OrderDocuments
             return 'Faltan datos del envío: ' . implode(', ', $faltan) . '.';
         }
 
+        // Una guía sin ítems no existe: SUNAT exige el detalle de lo que viaja.
+        // El envío lo guarda como TEXTO LIBRE en `package_content`, que muchas
+        // veces llega vacío — en alasitas son 113 de 237. Sin este corte, el
+        // menú ofrecía «Generar guía», abría una pestaña y el formulario la
+        // rechazaba allí; el operador descubría el problema después de cambiar
+        // de pantalla en vez de antes de salir de la fila.
+        //
+        // Se mira `contentLines()`, la MISMA función que parte el texto para el
+        // prefill: contar líneas útiles no es lo mismo que «el campo no está
+        // vacío», y dos criterios distintos darían dos respuestas distintas.
+        if (!count($envio->contentLines())) {
+            return 'El envío no tiene el detalle de lo que se traslada. '
+                 . 'Complétalo en el envío: la guía necesita al menos un ítem.';
+        }
+
+        // En agencia, el transportista es bloqueante: `generateDispatch()` ni
+        // siquiera abre el formulario sin él. Antes eso se descubría en la
+        // pestaña nueva; ahora se dice en la fila, con el mismo texto y la misma
+        // lógica de emparejado — se consulta `ShipmentDispatchPrefill`, no se
+        // reimplementa. La lista de transportistas se lee una vez por petición.
+        if ($envio->is_agencia) {
+            $pre = new ShipmentDispatchPrefill();
+
+            if (!$pre->transportista($envio)) {
+                // `transportista()` sale sin aviso cuando la tabla no existe
+                // (tenant sin el módulo de guías). Un bloqueo con el texto vacío
+                // se vería como un chip apagado sin explicación, que es peor que
+                // no ofrecerlo: mejor una frase genérica que un hueco.
+                return implode(' ', $pre->avisos())
+                    ?: 'No se pudo resolver el transportista del envío.';
+            }
+        }
+
         return null;
     }
 

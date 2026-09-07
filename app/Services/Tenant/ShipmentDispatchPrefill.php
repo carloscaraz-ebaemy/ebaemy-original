@@ -145,10 +145,9 @@ class ShipmentDispatchPrefill
             return null;
         }
 
-        try {
-            $registrados = \DB::connection('tenant')->table('dispatchers')
-                              ->where('is_active', 1)->get(['id', 'name']);
-        } catch (\Throwable $e) {
+        $registrados = self::transportistasRegistrados();
+
+        if ($registrados === null) {
             return null;
         }
 
@@ -172,6 +171,41 @@ class ShipmentDispatchPrefill
                         . 'Selecciónala en el formulario o créala en Transportistas.';
 
         return null;
+    }
+
+    /**
+     * Los transportistas activos del tenant, leídos UNA vez por petición.
+     *
+     * Antes se consultaban en cada llamada, que era correcto cuando el único
+     * consumidor era el formulario de la guía: una vez por pantalla. Desde que
+     * la tabla de Pedidos pregunta «¿esta fila puede generar guía?», la misma
+     * consulta se repetiría 20 veces por página. El listado es la razón del
+     * memo; el resultado no cambia dentro de una petición.
+     *
+     * Devuelve null —y no un arreglo vacío— cuando la tabla no existe, para
+     * distinguir «este tenant no tiene el módulo» de «no hay transportistas».
+     */
+    private static ?array $memoTransportistas = null;
+
+    private static function transportistasRegistrados(): ?array
+    {
+        if (self::$memoTransportistas !== null) {
+            return self::$memoTransportistas;
+        }
+
+        try {
+            return self::$memoTransportistas = \DB::connection('tenant')
+                ->table('dispatchers')->where('is_active', 1)
+                ->get(['id', 'name'])->all();
+        } catch (\Throwable $e) {
+            return null;
+        }
+    }
+
+    /** Para las pruebas y para los comandos que cambian de tenant. */
+    public static function olvidarTransportistas(): void
+    {
+        self::$memoTransportistas = null;
     }
 
     private function normalizar(string $t): string
