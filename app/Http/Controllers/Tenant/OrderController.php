@@ -1108,6 +1108,84 @@ class OrderController extends Controller
         }));
     }
 
+    /**
+     * Resuelve los datos del cliente a partir del documento, para el alta manual.
+     *
+     * Primero la cartera y SOLO despues el servicio externo, por dos razones:
+     * el cliente propio trae telefono y correo -que es justo lo que el alta
+     * necesita y RENIEC no da-, y cada consulta externa se paga.
+     *
+     * La busqueda en cartera usa la MISMA regla que `Person::resolveCustomer()`
+     * (numero en digitos, tipo customers). Si buscara de otra forma, la pantalla
+     * mostraria un cliente y el guardado enlazaria otro.
+     *
+     * No encontrar nada NO es un error: el cliente nuevo es el caso normal.
+     */
+    public function searchCustomer(Request $request)
+    {
+        $doc = preg_replace('/\D+/', '', (string) $request->input('document_number', ''));
+
+        if ($doc === '') {
+            return response()->json(['found' => false]);
+        }
+
+        $persona = \App\Models\Tenant\Person::where('number', $doc)
+            ->where('type', 'customers')
+            ->first();
+
+        if ($persona) {
+            return response()->json([
+                'found'    => true,
+                'source'   => 'cartera',
+                'customer' => [
+                    'name'  => $persona->name,
+                    'phone' => $persona->telephone,
+                    'email' => $persona->email,
+                ],
+            ]);
+        }
+
+        // 8 = DNI, 11 = RUC. Otra longitud no es consultable y preguntar por
+        // ella solo gasta una llamada de la API.
+        $tipo = strlen($doc) === 11 ? 'ruc' : (strlen($doc) === 8 ? 'dni' : null);
+
+        if (!$tipo) {
+            return response()->json(['found' => false]);
+        }
+
+        try {
+            $res = (new \Modules\ApiPeruDev\Data\ServiceData())->service($tipo, $doc);
+        } catch (\Throwable $e) {
+            // Sin token, sin red o servicio caido. El alta sigue siendo manual:
+            // se avisa, pero no se bloquea al operador.
+            \Illuminate\Support\Facades\Log::warning(
+                'Consulta ' . $tipo . ' ' . $doc . ' fallida: ' . $e->getMessage()
+            );
+
+            return response()->json([
+                'found'   => false,
+                'message' => 'No se pudo consultar ' . strtoupper($tipo) . '. Escribe los datos a mano.',
+            ]);
+        }
+
+        if (empty($res['success'])) {
+            return response()->json([
+                'found'   => false,
+                'message' => $res['message'] ?? null,
+            ]);
+        }
+
+        return response()->json([
+            'found'    => true,
+            'source'   => $tipo,
+            'customer' => [
+                'name'  => $res['data']['name'] ?? null,
+                'phone' => null,
+                'email' => null,
+            ],
+        ]);
+    }
+
     public function storeManual(Request $request)
     {
         $request->validate([
@@ -1148,6 +1226,19 @@ class OrderController extends Controller
         }
 
         $calculo = $this->construirLineas($request->items);
+
+        // Enlazar el pedido a la cartera. Faltaba: `$persona` se usaba mas
+        // abajo sin existir, asi que TODO pedido manual nacia con
+        // `person_id` null y el aviso de «no quedo enlazado» saltaba aunque
+        // el operador hubiera escrito el documento.
+        $persona = \App\Models\Tenant\Person::resolveCustomer(
+            $request->customer['document_number'] ?? null,
+            $request->customer['name'] ?? null,
+            [
+                'telephone' => $request->customer['phone'] ?? null,
+                'email'     => $request->customer['email'] ?? null,
+            ]
+        );
 
         $order = Order::create([
             'external_id' => \Illuminate\Support\Str::uuid(),

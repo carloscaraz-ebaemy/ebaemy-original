@@ -36,8 +36,22 @@
         <div class="mo-row">
             <div class="mo-field mo-sm">
                 <label>Documento</label>
-                <el-input v-model="form.customer.document_number" placeholder="DNI o RUC" maxlength="11"></el-input>
-                <small class="mo-hint">
+                <el-input
+                    v-model="form.customer.document_number"
+                    placeholder="DNI o RUC"
+                    maxlength="11"
+                    @input="alEscribirDocumento"
+                    @keyup.enter.native="buscarCliente(true)"
+                >
+                    <el-button
+                        slot="append"
+                        icon="el-icon-search"
+                        :loading="buscandoCliente"
+                        @click="buscarCliente(true)"
+                    ></el-button>
+                </el-input>
+                <small class="mo-hint" v-if="origenCliente">{{ origenCliente }}</small>
+                <small class="mo-hint" v-else>
                     Con documento, el pedido queda enlazado al cliente en tu cartera.
                     Sin él se crea igual, pero suelto.
                 </small>
@@ -211,6 +225,9 @@ export default {
             guardando: false,
             cargando: false,
             problemas: [],
+            buscandoCliente: false,
+            origenCliente: "",
+            timerDoc: null,
             form: this.formVacio(),
         };
     },
@@ -251,6 +268,7 @@ export default {
             this.opciones = [];
             this.problemas = [];
             this.buscado = null;
+            this.origenCliente = "";
 
             this.$http.get("/orders/channels").then(r => {
                 const d = r.data || {};
@@ -308,6 +326,80 @@ export default {
         },
         cerrar() {
             this.$emit("update:showDialog", false);
+        },
+
+        // ── Cliente ───────────────────────────────────────────────────
+        /**
+         * Busca sola en cuanto el documento alcanza largo de DNI (8) o RUC (11).
+         *
+         * Con espera porque el operador teclea: sin ella, escribir un RUC
+         * dispararia once consultas y las diez primeras se pagan para nada.
+         */
+        alEscribirDocumento() {
+            this.origenCliente = "";
+            clearTimeout(this.timerDoc);
+
+            const doc = (this.form.customer.document_number || "").replace(/\D+/g, "");
+            if (doc.length !== 8 && doc.length !== 11) return;
+
+            this.timerDoc = setTimeout(() => this.buscarCliente(false), 450);
+        },
+        /**
+         * `manual` = lo pidió el operador con el botón, y entonces sí se le
+         * responde aunque no haya nada. En la búsqueda automática se calla:
+         * el cliente nuevo es un caso normal, no un error que avisar.
+         */
+        buscarCliente(manual) {
+            const doc = (this.form.customer.document_number || "").replace(/\D+/g, "");
+
+            if (!doc) {
+                if (manual) this.$message.warning("Ingresa el documento a buscar.");
+                return;
+            }
+
+            this.buscandoCliente = true;
+            this.$http
+                .get("/orders/search-customer", { params: { document_number: doc } })
+                .then(r => {
+                    const d = r.data || {};
+
+                    if (!d.found) {
+                        this.origenCliente = "";
+                        if (manual) {
+                            this.$message.info(
+                                d.message || "Sin datos para ese documento: escríbelos a mano."
+                            );
+                        }
+                        return;
+                    }
+
+                    this.aplicarCliente(d);
+                })
+                .catch(() => {
+                    if (manual) this.$message.error("No se pudo consultar el documento.");
+                })
+                .then(() => {
+                    this.buscandoCliente = false;
+                });
+        },
+        /**
+         * Nunca pisa lo que el operador ya escribió: si corrigió el nombre que
+         * devuelve el servicio, esa corrección vale más que el servicio.
+         */
+        aplicarCliente(d) {
+            const c = d.customer || {};
+
+            ["name", "phone", "email"].forEach(k => {
+                if (c[k] && !(this.form.customer[k] || "").trim()) {
+                    this.form.customer[k] = c[k];
+                }
+            });
+
+            this.origenCliente = {
+                cartera: "Cliente de tu cartera.",
+                dni: "Datos traídos de RENIEC.",
+                ruc: "Datos traídos de SUNAT.",
+            }[d.source] || "";
         },
 
         // ── Buscador ──────────────────────────────────────────────────

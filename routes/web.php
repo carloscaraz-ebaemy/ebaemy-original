@@ -325,6 +325,7 @@ if ($hostname) {
             Route::get('orders/channels', 'Tenant\OrderController@channels');
             Route::get('orders/channel-report', 'Tenant\OrderController@channelReport');
             Route::get('orders/search-items', 'Tenant\OrderController@searchItems');
+            Route::get('orders/search-customer', 'Tenant\OrderController@searchCustomer');
             Route::post('orders/manual', 'Tenant\OrderController@storeManual');
             // Edicion de un pedido: solo cliente y lineas, y solo antes de
             // despachar. Los pagos y los datos de envio tienen su propio camino.
