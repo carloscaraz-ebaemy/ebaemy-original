@@ -907,6 +907,77 @@ class OrderController extends Controller
     /**
      * Crear pedido manual desde cualquier canal (Saga, ML, Instagram, WhatsApp, teléfono)
      */
+    /**
+     * Buscador de productos del alta manual.
+     *
+     * No reutiliza ninguno de los que ya hay porque ninguno sirve: el de Envios
+     * devuelve datos pensados para escribir TEXTO en el bulto (sin variantes ni
+     * precio), y el del ERP (`items/search-items`) filtra insumos de produccion.
+     *
+     * Lo que si se reutiliza es lo que importa: el disponible sale de
+     * `StockReservation::disponible()`, la MISMA funcion que valida el guardado.
+     * Si el buscador calculara lo suyo, el operador veria 5 disponibles y el
+     * alta le diria que no hay.
+     *
+     * Un producto con variantes se devuelve con ellas: el stock vive en la
+     * variante, y elegir el padre seria vender algo que no existe como tal.
+     */
+    public function searchItems(Request $request)
+    {
+        $termino = trim((string) $request->input('q', ''));
+
+        if (mb_strlen($termino) < 2) {
+            return response()->json([]);
+        }
+
+        $canal       = $request->channel_id ? SalesChannel::find($request->channel_id) : null;
+        $warehouseId = $request->warehouse_id ?: ($canal->warehouse_id ?? null);
+        $stock       = app(\App\Services\Tenant\StockReservation::class);
+
+        // Todas las palabras deben aparecer: "polo rojo" trae el polo rojo, no
+        // todo lo que sea polo mas todo lo que sea rojo.
+        $palabras = array_slice(preg_split('/\s+/u', $termino, -1, PREG_SPLIT_NO_EMPTY), 0, 4);
+
+        $q = Item::query()->where('active', true);
+
+        foreach ($palabras as $palabra) {
+            $like = '%' . $palabra . '%';
+            $q->where(fn ($w) => $w->where('description', 'like', $like)
+                                   ->orWhere('internal_id', 'like', $like));
+        }
+
+        // `variants()` ya filtra por activas y ordena. No se le encadena nada.
+        $items = $q->with('variants')
+                   ->orderBy('description')
+                   ->limit(15)
+                   ->get();
+
+        return response()->json($items->map(function (Item $item) use ($stock, $warehouseId) {
+            $variantes = $item->variants->map(fn ($v) => [
+                'id'         => $v->id,
+                'name'       => $v->display_name ?: $item->description,
+                'price'      => (float) ($v->sale_unit_price ?: $item->sale_unit_price),
+                'available'  => $stock->disponible($item->id, $v->id, $warehouseId),
+            ])->values();
+
+            return [
+                'id'          => $item->id,
+                'name'        => trim((string) $item->description) ?: 'Producto',
+                'code'        => $item->internal_id,
+                'price'       => (float) ($item->is_set
+                                    ? ($item->sale_unit_price_set ?: $item->sale_unit_price)
+                                    : $item->sale_unit_price),
+                'is_set'      => (bool) $item->is_set,
+                // null = el producto no lleva control de stock. La pantalla
+                // debe mostrar «sin control», no un cero que asusta.
+                'available'   => $variantes->isEmpty()
+                                    ? $stock->disponible($item->id, null, $warehouseId)
+                                    : null,
+                'variants'    => $variantes,
+            ];
+        }));
+    }
+
     public function storeManual(Request $request)
     {
         $request->validate([

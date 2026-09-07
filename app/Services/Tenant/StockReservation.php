@@ -195,6 +195,54 @@ class StockReservation
 
     // ── Acceso al almacen ─────────────────────────────────────────────────
 
+    /**
+     * Cuanto se puede vender de una linea, o null si no lleva control de stock.
+     *
+     * Publico a proposito: el buscador de productos del alta manual tiene que
+     * mostrar el MISMO numero que despues valida el alta. Si cada uno calcula
+     * lo suyo, el operador ve 5 disponibles y el guardado le dice que no hay.
+     */
+    public function disponible(int $itemId, ?int $variantId, ?int $warehouseId): ?float
+    {
+        if ($variantId) {
+            $variante = ItemVariant::find($variantId);
+            if (!$variante) {
+                return 0.0;
+            }
+
+            $comprometido = (float) ItemVariantWarehouse::where('item_variant_id', $variantId)->sum('stock_committed');
+
+            return max(0, (float) $variante->stock - $comprometido);
+        }
+
+        $item = Item::find($itemId);
+
+        // Un pack se puede vender tantas veces como aguante su componente mas
+        // escaso: mirar su propio stock daria un numero que no existe.
+        if ($item && $item->is_set) {
+            $tope = null;
+
+            foreach (ItemSet::where('item_id', $item->id)->get() as $componente) {
+                $porPack = (float) $componente->quantity;
+                if ($porPack <= 0) {
+                    continue;
+                }
+
+                $delComponente = $this->disponibleDeItem((int) $componente->individual_item_id, $warehouseId);
+                if ($delComponente === null) {
+                    continue;
+                }
+
+                $cabe = floor($delComponente / $porPack);
+                $tope = $tope === null ? $cabe : min($tope, $cabe);
+            }
+
+            return $tope === null ? null : (float) max(0, $tope);
+        }
+
+        return $this->disponibleDeItem($itemId, $warehouseId);
+    }
+
     /** Disponible de un producto simple, o null si no lleva control de stock. */
     private function disponibleDeItem(int $itemId, ?int $warehouseId): ?float
     {

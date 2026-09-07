@@ -324,6 +324,7 @@ if ($hostname) {
             Route::get('orders/status-counts', 'Tenant\OrderController@statusCounts');
             Route::get('orders/channels', 'Tenant\OrderController@channels');
             Route::get('orders/channel-report', 'Tenant\OrderController@channelReport');
+            Route::get('orders/search-items', 'Tenant\OrderController@searchItems');
             Route::post('orders/manual', 'Tenant\OrderController@storeManual');
 
             // ── Cupones de plataforma (scope=tenant) — propios de este seller ────
