@@ -555,131 +555,46 @@
                         </td>
                         <!-- Documentos del pedido.
                              Antes esta celda solo sabia hablar de Saga: para un
-                             pedido de ecommerce o manual no decia casi nada. Ahora
-                             son cuatro chips (NV, B, F, GR) que se leen de un
-                             vistazo, y el clic abre el detalle.
+                             pedido de ecommerce o manual no decia casi nada.
+                             Ahora son cuatro siglas (NV, B, F, GR) que se leen de
+                             un vistazo, y el clic abre el panel completo.
                              Los chips y sus estados los resuelve `OrderDocuments`
                              en PHP: aqui no se decide nada, solo se pinta. Un tipo
                              que NO corresponde a este pedido no viene en el
                              payload y por eso no se dibuja — pintarlo en gris
                              invitaria a intentar algo que el sistema rechaza. -->
                         <td class="text-center" data-label="Documento">
-                            <el-popover
-                                placement="left"
-                                width="320"
-                                trigger="click"
-                                popper-class="ord-doc-pop"
+                            <div
+                                class="ord-doc-chips"
+                                role="button"
+                                tabindex="0"
+                                title="Ver los documentos del pedido"
+                                @click="abrirDocumentos(row)"
+                                @keyup.enter="abrirDocumentos(row)"
                             >
-                                <div class="ord-doc-panel">
-                                    <div
-                                        v-for="s in documentSlots(row)"
-                                        :key="s.tipo"
-                                        class="ord-doc-item"
-                                    >
-                                        <div class="ord-doc-item-head">
-                                            <span class="ord-doc-name">{{ s.nombre }}</span>
-                                            <span
-                                                class="ord-doc-state"
-                                                :class="'is-' + docTone(s)"
-                                                >{{ s.estado_label }}</span
-                                            >
-                                        </div>
-                                        <div v-if="s.existe" class="ord-doc-line">
-                                            <span class="ord-doc-num">{{ s.numero }}</span>
-                                            <span v-if="s.fecha" class="ord-doc-date">{{
-                                                s.fecha
-                                            }}</span>
-                                            <a
-                                                v-if="s.pdf_url"
-                                                :href="s.pdf_url"
-                                                target="_blank"
-                                                rel="noopener"
-                                                class="ord-doc-pdf"
-                                                >Ver PDF</a
-                                            >
-                                        </div>
-                                        <!-- El motivo del bloqueo es lo unico util
-                                             de un «no se puede»: dice que corregir. -->
-                                        <p v-else-if="s.bloqueo" class="ord-doc-why">
-                                            {{ s.bloqueo }}
-                                        </p>
-                                        <p v-else class="ord-doc-ready">
-                                            Se puede emitir.
-                                        </p>
-                                        <p v-if="s.motivo_error" class="ord-doc-err">
-                                            SUNAT: {{ s.motivo_error }}
-                                        </p>
-                                    </div>
-
-                                    <p
-                                        v-if="!documentSlots(row).length"
-                                        class="ord-doc-none"
-                                    >
-                                        Este pedido no documenta una venta: es el
-                                        encargo de un envío, sin productos ni importe.
-                                    </p>
-
-                                    <!-- Con qué corresponde facturar. Hasta ahora
-                                         lo decidia el comprador en el checkout y
-                                         nadie mas podia tocarlo. -->
-                                    <div v-if="row.billing" class="ord-doc-billing">
-                                        <span class="ord-doc-billing-lbl">
-                                            Corresponde: <b>{{ row.billing.nombre }}</b>
-                                        </span>
-                                        <small>{{ row.billing.motivo }}</small>
-                                        <el-button
-                                            size="mini"
-                                            class="ord-doc-fix"
-                                            @click="corregirComprobante(row)"
-                                            >Corregir</el-button
-                                        >
-                                    </div>
-
-                                    <!-- Datos de Saga que no salen de `documents`:
-                                         donde se emitio y si el pedido se devolvio.
-                                         Es informacion real y se conserva. -->
-                                    <p
-                                        v-if="row.mp_invoice_state === 'external'"
-                                        class="ord-doc-saga"
-                                    >
-                                        El comprobante lo emitió el vendedor en el
-                                        portal de Saga, fuera de EBAEMY.
-                                    </p>
-                                    <p
-                                        v-if="row.mp_invoice_state === 'alert'"
-                                        class="ord-doc-err"
-                                    >
-                                        Saga devolvió o canceló este pedido con la
-                                        boleta ya emitida: hay que emitir una Nota de
-                                        Crédito.
-                                    </p>
-                                </div>
-
-                                <div slot="reference" class="ord-doc-chips">
-                                    <span
-                                        v-for="s in documentSlots(row)"
-                                        :key="s.tipo"
-                                        class="ord-doc-chip"
-                                        :class="[
-                                            'is-' + docTone(s),
-                                            { 'is-sugerido': s.sugerido },
-                                        ]"
-                                        :title="docTitle(s)"
-                                        >{{ s.chip }}</span
-                                    >
-                                    <span
-                                        v-if="!documentSlots(row).length"
-                                        class="text-muted"
-                                        title="Un encargo de envío no genera documentos comerciales."
-                                        >—</span
-                                    >
-                                    <i
-                                        v-if="row.mp_invoice_state === 'alert'"
-                                        class="fas fa-exclamation-triangle ord-doc-flag"
-                                        title="Saga devolvió el pedido con la boleta emitida."
-                                    ></i>
-                                </div>
-                            </el-popover>
+                                <span
+                                    v-for="s in documentSlots(row)"
+                                    :key="s.tipo"
+                                    class="ord-doc-chip"
+                                    :class="[
+                                        'is-' + docTone(s),
+                                        { 'is-sugerido': s.sugerido },
+                                    ]"
+                                    :title="docTitle(s)"
+                                    >{{ s.chip }}</span
+                                >
+                                <span
+                                    v-if="!documentSlots(row).length"
+                                    class="text-muted"
+                                    title="Un encargo de envío no genera documentos comerciales."
+                                    >—</span
+                                >
+                                <i
+                                    v-if="row.mp_invoice_state === 'alert'"
+                                    class="fas fa-exclamation-triangle ord-doc-flag"
+                                    title="Saga devolvió el pedido con la boleta emitida."
+                                ></i>
+                            </div>
                         </td>
                         <td class="text-end" data-label="Opciones">
                             <!-- Todas las acciones en un menu: sueltas no
@@ -922,6 +837,18 @@
             @hasGeneratedDocument="refrescarTrasEnvio"
         ></sale-note-generate>
 
+        <!-- Panel de documentos del pedido (Fase F). Los chips de la columna son
+             el vistazo; esto es el detalle, con las acciones y los motivos. -->
+        <documents-panel
+            :showDialog.sync="showDocsDialog"
+            :row="docsRow"
+            @emit-sale-note="emitirNotaVenta"
+            @emit-document="emitirComprobante"
+            @dispatch-guide="generarGuiaRemision"
+            @print-label="printLabel"
+            @fix-billing="corregirComprobante"
+        ></documents-panel>
+
         <!-- Historial: estados del pedido + bitácora del envío + impresiones. -->
         <order-timeline
             :visible.sync="showTimelineDialog"
@@ -1097,18 +1024,6 @@
     width: 100%;
     margin-top: 2px;
 }
-.ord-doc-badge {
-    display: inline-block;
-    padding: 2px 9px;
-    border-radius: 999px;
-    font-size: 11.5px;
-    font-weight: 600;
-    white-space: nowrap;
-}
-.ord-doc-ok {
-    background: #dcfce7;
-    color: #166534;
-}
 /* Saldo del encargo logistico. Su dinero vive en el envio, asi que la celda
    de Total muestra el importe a cobrar y, debajo, lo que falta. En rojo solo
    cuando queda deuda: es la unica parte que pide accion. */
@@ -1170,24 +1085,10 @@
     margin-top: 2px;
 }
 .ord-cust-contact i { width: 13px; }
-.ord-doc-alert {
-    background: #fef2f2;
-    color: #b91c1c;
-    border: 1px solid #fecaca;
-    font-weight: 700;
-}
-.ord-doc-ext {
-    background: #e0e7ff;
-    color: #3730a3;
-}
-.ord-doc-pend {
-    background: #fef3c7;
-    color: #92400e;
-}
-/* ── Columna "Documentos": chips + panel ─────────────────────────────
+/* ── Columna "Documentos": los chips ─────────────────────────────────
    Cuatro siglas en una celda estrecha. El color dice el estado y el clic
-   abre el detalle; asi la columna cabe sin convertirse en una fila de
-   botones. Los tonos son los mismos que usa el resto de la tabla. */
+   abre el panel (documents_panel.vue), donde ya caben el numero, la fecha,
+   el motivo del bloqueo y la accion. Los tonos son los del resto de la tabla. */
 .ord-doc-chips {
     display: inline-flex;
     gap: 4px;
@@ -1244,107 +1145,10 @@
     font-size: 11px;
     margin-left: 2px;
 }
-.ord-doc-panel {
-    font-size: 12.5px;
-    line-height: 1.45;
-    text-align: left;
-}
-.ord-doc-item + .ord-doc-item {
-    margin-top: 10px;
-    padding-top: 10px;
-    border-top: 1px solid #e2e8f0;
-}
-.ord-doc-item-head {
-    display: flex;
-    align-items: baseline;
-    justify-content: space-between;
-    gap: 8px;
-}
-.ord-doc-name {
-    font-weight: 600;
-    color: #0f172a;
-}
-.ord-doc-state {
-    font-size: 10.5px;
-    font-weight: 700;
-    padding: 1px 6px;
-    border-radius: 3px;
-    white-space: nowrap;
-}
-.ord-doc-state.is-ok { background: #dcfce7; color: #166534; }
-.ord-doc-state.is-pend { background: #dbeafe; color: #1e40af; }
-.ord-doc-state.is-warn { background: #fef3c7; color: #92400e; }
-.ord-doc-state.is-err { background: #fee2e2; color: #b91c1c; }
-.ord-doc-state.is-ready,
-.ord-doc-state.is-off { background: #f1f5f9; color: #64748b; }
-.ord-doc-line {
-    display: flex;
-    align-items: baseline;
-    gap: 8px;
-    flex-wrap: wrap;
-    margin-top: 3px;
-}
-.ord-doc-num {
-    font-weight: 600;
-    color: #1e293b;
-    font-variant-numeric: tabular-nums;
-}
-.ord-doc-date {
-    color: #64748b;
-    font-size: 11.5px;
-}
-.ord-doc-pdf {
-    margin-left: auto;
-    font-size: 11.5px;
-    font-weight: 600;
-}
-.ord-doc-why,
-.ord-doc-ready,
-.ord-doc-none,
-.ord-doc-saga {
-    margin: 3px 0 0;
-    color: #64748b;
-    font-size: 11.5px;
-}
-.ord-doc-ready {
-    color: #15803d;
-}
-.ord-doc-err {
-    margin: 4px 0 0;
-    color: #b91c1c;
-    font-size: 11.5px;
-    font-weight: 500;
-}
-.ord-doc-none {
-    margin: 0;
-}
 /* El que corresponde emitir: contorno solido para distinguirlo del resto sin
    gritar. No es un estado alcanzado, es una recomendacion. */
 .ord-doc-chip.is-sugerido {
     box-shadow: inset 0 0 0 1.5px #0f766e;
-}
-.ord-doc-billing {
-    margin-top: 10px;
-    padding-top: 10px;
-    border-top: 1px solid #e2e8f0;
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    flex-wrap: wrap;
-}
-.ord-doc-billing-lbl {
-    font-size: 12px;
-    color: #334155;
-}
-.ord-doc-billing small {
-    flex: 1 1 100%;
-    order: 3;
-    color: #64748b;
-    font-size: 11.5px;
-    line-height: 1.35;
-}
-.ord-doc-fix {
-    margin-left: auto;
 }
 /* ── Columna "Entrega" ───────────────────────────────────────────────── */
 .ord-ship-cell {
@@ -1705,6 +1509,7 @@ import ManualOrder from "./partials/manual_order.vue";
 import ShipmentGuide from "./partials/shipment_guide.vue";
 import BillingType from "./partials/billing_type.vue";
 import SaleNoteGenerate from "../sale_notes/partials/option_documents.vue";
+import DocumentsPanel from "./partials/documents_panel.vue";
 
 export default {
     props: ["user"],
@@ -1713,6 +1518,7 @@ export default {
         ShipmentGuide,
         BillingType,
         SaleNoteGenerate,
+        DocumentsPanel,
         ManualOrder,
         DataTable,
         OptionsForm,
@@ -1835,6 +1641,8 @@ export default {
             showGuideDialog: false,
             guideOrderId: null,
             guideCode: "",
+            showDocsDialog: false,
+            docsRow: null,
             showCpeDialog: false,
             cpeSaleNoteId: null,
             showBillingDialog: false,
@@ -2229,6 +2037,17 @@ export default {
         //                     Venta, reutilizado sin tocarle una linea
         //   guia           -> el formulario de Guia de Remision, precargado
         // La condicion para ofrecerlas la decide `OrderDocuments` en PHP.
+
+        /**
+         * Abre el panel de documentos.
+         *
+         * Se guarda la fila entera, no una copia: el panel necesita `documents`,
+         * `billing` y `shipment`, y las acciones se emiten de vuelta con ella.
+         */
+        abrirDocumentos(row) {
+            this.docsRow = row;
+            this.showDocsDialog = true;
+        },
 
         /** ¿El servidor dice que este tipo se puede emitir ya? */
         puedeEmitir(row, tipo) {
