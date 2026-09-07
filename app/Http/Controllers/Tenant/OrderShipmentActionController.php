@@ -51,6 +51,21 @@ class OrderShipmentActionController extends Controller
     }
 
     /**
+     * Sube la guía de la agencia.
+     *
+     * El archivo viaja en el mismo `$request` que se reenvía, asi que
+     * `uploadGuide` lo recibe igual que desde su propio formulario. No se
+     * reimplementa nada: la validacion del tipo y tamaño, el guardado en el
+     * disco del tenant, el cambio de estado a «enviado» y el sello de
+     * `sent_at` siguen siendo suyos.
+     */
+    public function guia(Request $request, Order $order)
+    {
+        return $this->reenviar($order, fn ($envio) =>
+            app(ShipmentController::class)->uploadGuide($request, $envio));
+    }
+
+    /**
      * Resuelve el envío del pedido, ejecuta la acción y traduce la respuesta.
      *
      * @param bool $incluirAnulados Para restaurar, que actúa justo sobre esos.

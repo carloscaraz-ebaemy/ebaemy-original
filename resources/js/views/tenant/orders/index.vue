@@ -618,6 +618,13 @@
                                          cascada. Un segundo sitio para lo mismo
                                          solo daria dos comportamientos. -->
                                     <el-dropdown-item
+                                        v-if="row.shipment && !row.shipment.is_pickup && !row.shipment.has_guide"
+                                        command="guide"
+                                    >
+                                        <i class="el-icon-upload"></i>
+                                        Subir guía de la agencia
+                                    </el-dropdown-item>
+                                    <el-dropdown-item
                                         v-if="row.shipment"
                                         command="cancelShipment"
                                     >
@@ -746,6 +753,14 @@
             :orderId="manualOrderId"
             @created="onManualCreated"
         ></manual-order>
+
+        <!-- Guía de la agencia: el comprobante de que el paquete salió. -->
+        <shipment-guide
+            :showDialog.sync="showGuideDialog"
+            :orderId="guideOrderId"
+            :code="guideCode"
+            @saved="refrescarTrasEnvio"
+        ></shipment-guide>
 
         <!-- Historial: estados del pedido + bitácora del envío + impresiones. -->
         <order-timeline
@@ -1350,11 +1365,13 @@ import ShipmentForm from "./partials/shipment_form.vue";
 import OrderTimeline from "./partials/order_timeline.vue";
 import RecordPayments from "../partials/record_payments.vue";
 import ManualOrder from "./partials/manual_order.vue";
+import ShipmentGuide from "./partials/shipment_guide.vue";
 
 export default {
     props: ["user"],
 
     components: {
+        ShipmentGuide,
         ManualOrder,
         DataTable,
         OptionsForm,
@@ -1474,6 +1491,9 @@ export default {
             showPaymentsDialog: false,
             paymentsOrderId: null,
             showManualDialog: false,
+            showGuideDialog: false,
+            guideOrderId: null,
+            guideCode: "",
             // null = alta; con id, el mismo dialogo edita ese pedido.
             manualOrderId: null,
             // A donde apunta el panel de pagos. Un encargo logistico cobra
@@ -1546,6 +1566,7 @@ export default {
                 timeline: () => this.openTimeline(row),
                 edit: () => this.editarPedido(row.id),
                 cancelShipment: () => this.anularEnvio(row),
+                guide: () => this.subirGuia(row),
                 payments: () => this.clickPayments(row.id),
                 // OJO: `label` (rotulo del envio) y `sagaLabel` (hoja de
                 // despacho de Saga) son acciones DISTINTAS. Estaban las dos
@@ -1886,6 +1907,24 @@ export default {
          * contadores de los chips y los indicadores. Es la misma recarga que
          * usa cualquier otro cambio, no una especial.
          */
+        /**
+         * Refresco tras una accion del envio hecha en su propio dialogo.
+         * No anuncia nada: el dialogo ya dijo lo que paso, y dos avisos
+         * seguidos para la misma accion se leen como si hubieran pasado dos
+         * cosas.
+         */
+        refrescarTrasEnvio() {
+            const dt = this.$refs.ordersTable;
+            if (dt) dt.getRecords();
+            this.loadChipCounts();
+        },
+
+        subirGuia(row) {
+            this.guideOrderId = row.id;
+            this.guideCode = row.shipment ? row.shipment.code : "";
+            this.showGuideDialog = true;
+        },
+
         /** Anula el envio. El pedido NO se anula: son cosas distintas. */
         anularEnvio(row) {
             this.$prompt(
