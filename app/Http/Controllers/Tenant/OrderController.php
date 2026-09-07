@@ -1342,6 +1342,83 @@ class OrderController extends Controller
      * conocer esa arqueologia.
      */
     /**
+     * Emite la nota de venta del pedido a mano.
+     *
+     * La NV ya se generaba sola en tres sitios (checkout en efectivo, captura de
+     * Culqi y el cambio de estado a «pago verificado»), pero no había ninguna
+     * puerta para el resto: un pedido cuyo estado se movió antes de tener los
+     * datos, o uno cargado a mano, se quedaba sin nota de venta y sin forma de
+     * conseguirla. Y sin nota de venta no hay comprobante ni guía, porque todo
+     * el grafo de documentos cuelga de ella.
+     *
+     * NO se reimplementa nada: llama a `OrderToSaleNoteService`, que es el
+     * único sitio que sabe armar la NV (ítems con IGV, descuentos, pagos, serie
+     * y correlativo) y ya es idempotente con `lockForUpdate`.
+     */
+    public function generarNotaVenta(Order $order)
+    {
+        $docs = OrderDocuments::for($order->loadMissing([
+            'sale_note', 'sale_note.documents', 'shipment',
+        ]));
+
+        if (!$docs->aplica(OrderDocuments::NOTA_VENTA)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Este pedido no documenta una venta: no tiene productos ni importe.',
+            ], 422);
+        }
+
+        if ($motivo = $docs->motivoBloqueo(OrderDocuments::NOTA_VENTA)) {
+            return response()->json(['success' => false, 'message' => $motivo], 422);
+        }
+
+        // `OrderToSaleNoteService` marca la nota como PAGADA sin preguntar
+        // (`paid = true`, `total_canceled = true`). Automáticamente eso es
+        // correcto, porque solo se dispara con el cobro hecho. A mano no: emitir
+        // desde un pedido en «pago pendiente» crearía una nota que afirma un
+        // cobro que no ocurrió, y eso descuadra la caja.
+        if ((int) $order->status_order_id < 2) {
+            return response()->json([
+                'success' => false,
+                'message' => 'El pedido figura con el pago pendiente. Verifica el pago antes '
+                           . 'de emitir la nota de venta: se emite como cancelada.',
+            ], 422);
+        }
+
+        // La serie es el fallo silencioso más probable: sin ella el servicio
+        // devuelve null y solo deja rastro en el log.
+        $establecimiento = Establishment::first();
+        $serie = $establecimiento
+            ? Series::where('establishment_id', $establecimiento->id)
+                    ->where('document_type_id', '80')->first()
+            : null;
+
+        if (!$serie) {
+            return response()->json([
+                'success' => false,
+                'message' => 'No hay una serie de NOTA DE VENTA (80) configurada en el '
+                           . 'establecimiento. Créala antes de emitir.',
+            ], 422);
+        }
+
+        $nota = app(\App\Services\Tenant\OrderToSaleNoteService::class)->generate($order);
+
+        if (!$nota) {
+            return response()->json([
+                'success' => false,
+                'message' => 'No se pudo generar la nota de venta. El motivo quedó en el '
+                           . 'registro de errores del sistema.',
+            ], 500);
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Nota de venta ' . $nota->number_full . ' emitida.',
+            'sale_note_id' => $nota->id,
+        ]);
+    }
+
+    /**
      * Corrige con qué documento se factura el pedido y sus datos tributarios.
      *
      * Hasta ahora esto lo decidía el COMPRADOR en el checkout y nadie podía

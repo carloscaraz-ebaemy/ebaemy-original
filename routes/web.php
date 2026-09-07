@@ -335,6 +335,10 @@ if ($hostname) {
             // comprador en el checkout y no había forma de arreglarlo.
             Route::post('orders/{order}/tipo-documento', 'Tenant\OrderController@tipoDocumento')
                  ->whereNumber('order')->name('orders.billing_type');
+            // Emitir la nota de venta a mano. Hasta ahora solo se generaba sola
+            // en tres flujos y no habia puerta para el resto de pedidos.
+            Route::post('orders/{order}/nota-venta', 'Tenant\OrderController@generarNotaVenta')
+                 ->whereNumber('order')->name('orders.sale_note');
 
             // ── Cupones de plataforma (scope=tenant) — propios de este seller ────
             Route::prefix('marketplace/coupons')->name('tenant.marketplace_coupons.')->group(function () {

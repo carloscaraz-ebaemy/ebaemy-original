@@ -730,7 +730,7 @@
                                          solo daria dos comportamientos. -->
                                     <el-dropdown-item
                                         v-if="row.shipment && !row.shipment.is_pickup && !row.shipment.has_guide"
-                                        command="guide"
+                                        command="uploadGuide"
                                     >
                                         <i class="el-icon-upload"></i>
                                         Subir guía de la agencia
@@ -746,6 +746,35 @@
                                     <el-dropdown-item command="payments">
                                         <i class="el-icon-wallet"></i>
                                         Pagos del pedido
+                                    </el-dropdown-item>
+
+                                    <!-- Documentos. Se ofrecen SOLO cuando
+                                         `OrderDocuments` dice que se pueden
+                                         emitir: la fila no repite las reglas de
+                                         SUNAT, las consulta. -->
+                                    <el-dropdown-item
+                                        v-if="puedeEmitir(row, 'nota_venta')"
+                                        command="emitSaleNote"
+                                        divided
+                                    >
+                                        <i class="el-icon-tickets"></i>
+                                        Emitir nota de venta
+                                    </el-dropdown-item>
+
+                                    <el-dropdown-item
+                                        v-if="puedeEmitirComprobante(row)"
+                                        command="emitDocument"
+                                    >
+                                        <i class="el-icon-document-checked"></i>
+                                        Emitir {{ nombreComprobante(row) }}
+                                    </el-dropdown-item>
+
+                                    <el-dropdown-item
+                                        v-if="puedeEmitir(row, 'guia')"
+                                        command="dispatchGuide"
+                                    >
+                                        <i class="el-icon-truck"></i>
+                                        Generar guía de remisión
                                     </el-dropdown-item>
 
                                     <!-- Rotulado. Se ofrece solo si el pedido
@@ -816,7 +845,7 @@
                                          el panel de Envios. -->
                                     <el-dropdown-item
                                         v-if="row.shipment && row.shipment.guide_url"
-                                        command="guide"
+                                        command="viewGuide"
                                     >
                                         <i class="el-icon-document"></i>
                                         Ver guía de la agencia
@@ -881,6 +910,17 @@
             :billing="billingData"
             @saved="refrescarTrasEnvio"
         ></billing-type>
+
+        <!-- Emitir boleta o factura. Es EL MISMO componente de Notas de Venta,
+             reutilizado tal cual: lee todo de `/sale-notes/...` y postea a
+             `/documents`. Por eso el pedido necesita su nota de venta primero. -->
+        <sale-note-generate
+            :show.sync="showCpeDialog"
+            :recordId="cpeSaleNoteId"
+            :showGenerate="true"
+            :showClose="false"
+            @hasGeneratedDocument="refrescarTrasEnvio"
+        ></sale-note-generate>
 
         <!-- Historial: estados del pedido + bitácora del envío + impresiones. -->
         <order-timeline
@@ -1664,6 +1704,7 @@ import RecordPayments from "../partials/record_payments.vue";
 import ManualOrder from "./partials/manual_order.vue";
 import ShipmentGuide from "./partials/shipment_guide.vue";
 import BillingType from "./partials/billing_type.vue";
+import SaleNoteGenerate from "../sale_notes/partials/option_documents.vue";
 
 export default {
     props: ["user"],
@@ -1671,6 +1712,7 @@ export default {
     components: {
         ShipmentGuide,
         BillingType,
+        SaleNoteGenerate,
         ManualOrder,
         DataTable,
         OptionsForm,
@@ -1793,6 +1835,8 @@ export default {
             showGuideDialog: false,
             guideOrderId: null,
             guideCode: "",
+            showCpeDialog: false,
+            cpeSaleNoteId: null,
             showBillingDialog: false,
             billingOrderId: null,
             billingData: null,
@@ -1868,15 +1912,25 @@ export default {
                 timeline: () => this.openTimeline(row),
                 edit: () => this.editarPedido(row.id),
                 cancelShipment: () => this.anularEnvio(row),
-                guide: () => this.subirGuia(row),
                 payments: () => this.clickPayments(row.id),
+                // Documentos del pedido (Fase D). Ninguna de las tres emite
+                // aqui: reenvian a los servicios y pantallas que ya existen.
+                emitSaleNote: () => this.emitirNotaVenta(row),
+                emitDocument: () => this.emitirComprobante(row),
+                dispatchGuide: () => this.generarGuiaRemision(row),
                 // OJO: `label` (rotulo del envio) y `sagaLabel` (hoja de
                 // despacho de Saga) son acciones DISTINTAS. Estaban las dos
                 // bajo la clave `label`, y en un objeto literal la segunda
                 // pisa a la primera sin error: "Rotulo de Saga" acababa
                 // imprimiendo el rotulo del envio.
                 label: () => this.printLabel(row),
-                guide: () => this.openGuide(row)
+                // Mismo caso que `label`/`sagaLabel`, y volvio a pasar: SUBIR la
+                // guia de la agencia y VERLA son acciones distintas, y las dos
+                // se llamaban `guide`. En un objeto literal la segunda pisa a la
+                // primera sin error, asi que «Subir guia» llamaba a `openGuide`,
+                // que sin URL no hace nada. El boton estaba muerto.
+                uploadGuide: () => this.subirGuia(row),
+                viewGuide: () => this.openGuide(row)
             };
             if (acciones[cmd]) acciones[cmd]();
         },
@@ -2164,6 +2218,101 @@ export default {
             this.billingOrderId = row.id;
             this.billingData = row.billing;
             this.showBillingDialog = true;
+        },
+
+        // ── Emision de documentos (Fase D) ────────────────────────────
+        //
+        // Ninguna de estas acciones emite nada por su cuenta. Reenvian al
+        // servicio o a la pantalla que ya lo hacia:
+        //   nota de venta  -> OrderToSaleNoteService
+        //   comprobante    -> option_documents.vue, el MISMO modal de Notas de
+        //                     Venta, reutilizado sin tocarle una linea
+        //   guia           -> el formulario de Guia de Remision, precargado
+        // La condicion para ofrecerlas la decide `OrderDocuments` en PHP.
+
+        /** ¿El servidor dice que este tipo se puede emitir ya? */
+        puedeEmitir(row, tipo) {
+            const s = (row.documents || {})[tipo];
+
+            return !!s && !s.existe && !s.bloqueo;
+        },
+
+        /** Boleta o factura, la que corresponda y no este bloqueada. */
+        comprobanteEmitible(row) {
+            const d = row.documents || {};
+
+            return ["boleta", "factura"].find(
+                t => d[t] && !d[t].existe && !d[t].bloqueo
+            );
+        },
+
+        puedeEmitirComprobante(row) {
+            // Sin nota de venta no hay comprobante: todo el grafo de documentos
+            // cuelga de ella, y el modal que se reutiliza lee de `/sale-notes`.
+            return !!row.sale_note_id && !!this.comprobanteEmitible(row);
+        },
+
+        nombreComprobante(row) {
+            const t = this.comprobanteEmitible(row);
+
+            return t ? (row.documents[t].nombre || "").toLowerCase() : "comprobante";
+        },
+
+        emitirNotaVenta(row) {
+            this.$confirm(
+                "Se emitira la nota de venta del pedido " +
+                    row.order_id +
+                    " por S/ " +
+                    row.total +
+                    ". Queda como cancelada.",
+                "Emitir nota de venta",
+                { confirmButtonText: "Emitir", cancelButtonText: "Cancelar" }
+            )
+                .then(() =>
+                    this.$http.post(`/orders/${row.id}/nota-venta`).then(r => {
+                        this.$message.success(r.data.message);
+                        this.refrescarTrasEnvio();
+                    })
+                )
+                .catch(e => {
+                    // El `catch` recoge tambien el «Cancelar» del confirm, que
+                    // llega como la cadena 'cancel' y no es un error.
+                    if (e === "cancel") return;
+                    const d = (e.response && e.response.data) || {};
+                    this.$message.error(d.message || "No se pudo emitir.");
+                });
+        },
+
+        /**
+         * Abre el modal de comprobante de Notas de Venta.
+         *
+         * Se le pasa el `sale_note_id` y el componente se encarga del resto: es
+         * literalmente el mismo que usa esa pantalla, sin parametrizar ni
+         * clonar. Por eso el pedido necesita la NV primero.
+         */
+        emitirComprobante(row) {
+            this.cpeSaleNoteId = row.sale_note_id;
+            this.showCpeDialog = true;
+        },
+
+        /**
+         * Abre el formulario de Guia de Remision precargado.
+         *
+         * Dos puntos de partida, y la diferencia importa: si el pedido tiene
+         * envio se entra por el, porque `ShipmentDispatchPrefill` resuelve
+         * destinatario, direccion de llegada y transportista desde los datos del
+         * encargo. Sin envio se entra por la nota de venta, que trae los items.
+         *
+         * No es una pantalla nuestra y no emite: el operador valida y corrige
+         * antes de mandar a SUNAT, que es donde debe estar esa decision.
+         */
+        generarGuiaRemision(row) {
+            const url =
+                row.shipment && row.shipment.id
+                    ? `/registro-envio/${row.shipment.id}/guia-remision`
+                    : `/dispatches/create_new/sale_note/${row.sale_note_id}`;
+
+            window.open(url, "_blank");
         },
         isMarketplace(row) {
             const ref = (row.reference_payment || "").toUpperCase();

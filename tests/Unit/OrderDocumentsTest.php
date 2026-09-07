@@ -131,6 +131,28 @@ class OrderDocumentsTest extends TestCase
         $this->assertNull($docs[OrderDocuments::BOLETA]);
     }
 
+    /** @test */
+    public function sin_documento_del_cliente_no_hay_nota_de_venta()
+    {
+        // `sale_notes.customer_id` es NOT NULL y no se crea ficha sin documento.
+        // Antes esto acababa en un 1048 que el servicio se tragaba: el pedido se
+        // quedaba sin nota y nadie sabía por qué.
+        $docs = $this->docs($this->pedidoDeVenta(['customer' => []]));
+
+        $this->assertStringContainsString(
+            'documento del cliente',
+            $docs[OrderDocuments::NOTA_VENTA]['bloqueo']
+        );
+    }
+
+    /** @test */
+    public function con_documento_la_nota_de_venta_no_se_bloquea()
+    {
+        $docs = $this->docs($this->pedidoDeVenta());
+
+        $this->assertNull($docs[OrderDocuments::NOTA_VENTA]['bloqueo']);
+    }
+
     // ── Guarda: boleta y factura son excluyentes ──────────────────────────
 
     /** @test */

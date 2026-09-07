@@ -58,6 +58,17 @@ class OrderToSaleNoteService
                 // Find or create the person (customer)
                 $person = $this->resolveCustomer($order);
 
+                // `sale_notes.customer_id` es NOT NULL. Sin esta guarda el
+                // insert moria con un 1048 que el catch de abajo convertia en un
+                // null mudo, y el pedido se quedaba sin nota de venta sin que
+                // nadie supiera por que. Falla igual, pero diciendolo.
+                if (!$person) {
+                    Log::warning('Skip SaleNote: el pedido no tiene documento del cliente', [
+                        'order_id' => $order->id,
+                    ]);
+                    return null;
+                }
+
                 // Get next sale note number
                 $series = Series::where('establishment_id', $establishment->id)
                     ->where('document_type_id', '80') // 80 = Nota de Venta
@@ -77,6 +88,21 @@ class OrderToSaleNoteService
 
                 // Create SaleNote
                 $saleNote = new SaleNote();
+                // `sale_notes.external_id` es NOT NULL y sin default, y NO lo
+                // pone el modelo: lo pone `SaleNoteController` en sus dos altas.
+                // Este servicio nunca lo puso, así que cada insert moría con un
+                // 1364 que el catch de abajo convertía en un null mudo. Junto con
+                // el `customer_id` nulo, es la razón real de que 1.040 pedidos
+                // hayan producido UNA nota de venta.
+                //
+                // Es además la clave con la que se imprime y se descarga
+                // (`/sale-notes/print/{external_id}/a4`), así que sin ella la
+                // nota tampoco tendría PDF.
+                $saleNote->external_id = \Illuminate\Support\Str::uuid()->toString();
+                // `prefix` tambien es NOT NULL sin default, y era el siguiente
+                // insert que moria. 'NV' es el unico valor que existe en las
+                // 16.131 notas de produccion, en los tres tenants que emiten.
+                $saleNote->prefix = 'NV';
                 $saleNote->user_id = $order->seller_id ?? auth()->id() ?? 1;
                 $saleNote->establishment_id = $establishment->id;
                 $saleNote->establishment = $establishment->toArray();
@@ -119,6 +145,22 @@ class OrderToSaleNoteService
                 if (is_array($items)) {
                     foreach ($items as $orderItem) {
                         $itemId = $orderItem['item_id'] ?? $orderItem['id'] ?? null;
+
+                        // `sale_note_items.item_id` es NOT NULL. Una linea sin
+                        // producto del catalogo —pasa con pedidos de canales que
+                        // mandan solo la descripcion— tumbaba la transaccion
+                        // entera con otro 1048 mudo. Se corta antes y se dice
+                        // cual, que es lo unico accionable.
+                        if (!$itemId) {
+                            Log::warning('Skip SaleNote: linea sin item_id', [
+                                'order_id' => $order->id,
+                                'linea'    => $orderItem['description'] ?? $orderItem['name'] ?? '(sin nombre)',
+                            ]);
+                            throw new \RuntimeException(
+                                'El pedido tiene una linea sin producto del catalogo.'
+                            );
+                        }
+
                         $qty = (float) ($orderItem['quantity'] ?? 1);
                         $unitPrice = (float) ($orderItem['sale_unit_price'] ?? $orderItem['unit_price'] ?? 0);
                         $total = round($qty * $unitPrice, 2);
@@ -257,21 +299,57 @@ class OrderToSaleNoteService
         ]);
     }
 
+    /**
+     * El cliente de la nota de venta.
+     *
+     * ── Por qué esto cambió, y por qué importa ────────────────────────────
+     *
+     * Esta función SOLO buscaba: si el pedido no traía `person_id` y el cliente
+     * no estaba ya en la cartera, devolvía null. Y `sale_notes.customer_id` es
+     * NOT NULL, así que la nota reventaba con un 1048 que el `catch` de
+     * `generate()` convertía en un `Log::error` y un `return null` mudo.
+     *
+     * O sea: la generación automática de notas de venta llevaba fallando en
+     * silencio para todo pedido cuyo comprador no estuviera fichado. En
+     * carolayimport son los 703, ninguno con `person_id`. Ese es el motivo real
+     * de que 1.040 pedidos hayan producido UNA nota de venta.
+     *
+     * Ahora se delega en `Person::resolveCustomer()`, que es la única
+     * implementación de «resolver el cliente» del sistema —la misma que usan la
+     * Guía de Remisión, el espejo del encargo y el alta manual— y que SÍ crea la
+     * ficha cuando hay documento, sin pisar la de una persona que ya existe.
+     *
+     * Sigue devolviendo null sin documento: es una decisión tomada y SUNAT lo
+     * exige. Quien llame debe decirlo, no tragárselo.
+     */
     protected function resolveCustomer(Order $order): ?Person
     {
         if ($order->person_id) {
-            return Person::find($order->person_id);
+            $ficha = Person::find($order->person_id);
+
+            if ($ficha) {
+                return $ficha;
+            }
         }
 
-        $customer = $this->getCustomerArray($order);
-        if (!$customer) return null;
+        $customer = $this->getCustomerArray($order) ?: [];
 
-        $number = $customer['number'] ?? $customer['numero_documento'] ?? null;
-        if ($number) {
-            return Person::where('number', $number)->first();
-        }
+        // El checkout, Saga y el alta manual no usan la misma clave.
+        $numero = $customer['numero']
+            ?? $customer['number']
+            ?? $customer['numero_documento']
+            ?? null;
 
-        return null;
+        $nombre = $customer['apellidos_y_nombres_o_razon_social']
+            ?? $customer['nombre']
+            ?? $customer['name']
+            ?? null;
+
+        return Person::resolveCustomer($numero, $nombre, [
+            'telephone' => $customer['telefono'] ?? $customer['phone'] ?? null,
+            'address'   => $customer['direccion'] ?? $customer['address'] ?? null,
+            'email'     => $customer['correo_electronico'] ?? $customer['email'] ?? null,
+        ]);
     }
 
     protected function resolvePaymentMethod(Order $order): string

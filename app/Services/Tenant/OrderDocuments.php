@@ -151,7 +151,7 @@ class OrderDocuments
         }
 
         return match ($tipo) {
-            self::NOTA_VENTA => null,
+            self::NOTA_VENTA => $this->bloqueoSinCliente(),
             self::BOLETA     => $this->bloqueoEmitidoFuera()
                                 ?? $this->bloqueoComprobante(self::FACTURA)
                                 ?? $this->bloqueoPorDatos(BillingDocumentResolver::BOLETA),
@@ -244,6 +244,28 @@ class OrderDocuments
              . ' ' . $this->numeroDe($elOtro, $otro)
              . '. Una venta se documenta con un solo comprobante: para cambiarlo hay que '
              . 'anular el emitido con nota de crédito.';
+    }
+
+    /**
+     * Sin documento del cliente no hay nota de venta.
+     *
+     * `sale_notes.customer_id` es NOT NULL y `Person::resolveCustomer()` no crea
+     * ficha sin documento —decisión tomada: SUNAT lo exige y una cartera de
+     * «CLIENTE» sin número es peor—. Antes esto acababa en un 1048 que se
+     * tragaba el `catch` de `OrderToSaleNoteService`, y el pedido se quedaba sin
+     * nota sin que nadie supiera por qué. Se dice aquí, antes de intentarlo.
+     */
+    private function bloqueoSinCliente(): ?string
+    {
+        if ($this->order->person_id) {
+            return null;
+        }
+
+        if ($this->resolver()->documento($this->order) !== '') {
+            return null;
+        }
+
+        return 'Falta el documento del cliente: la nota de venta necesita a quién emitirla.';
     }
 
     /**
