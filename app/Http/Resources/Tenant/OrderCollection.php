@@ -160,6 +160,21 @@ class OrderCollection extends ResourceCollection
                 'dispatched_at'        => optional($row->dispatched_at)->format('Y-m-d H:i:s'),
                 'delivered_at'         => optional($row->delivered_at)->format('Y-m-d H:i:s'),
                 'payment_status'       => $row->payment_status,
+                // ── Cobro del PEDIDO (`order_payments`) ───────────────────
+                // Distinto del cobro del ENCARGO, que vive en el envio (ver
+                // `shipment.paid_total`). Antes la tabla solo mostraba el
+                // total: se podia cobrar 150 de 160 y la pantalla seguia
+                // diciendo 160 a secas, sin rastro del saldo.
+                //
+                // `paid_total` lo agrega la consulta (withSum), no un accesor.
+                // Llega null cuando el pedido no tiene ningun pago Y tambien
+                // cuando el tenant no tiene la tabla; en ambos casos vale 0.
+                'paid_total'           => round((float) ($row->paid_total ?? 0), 2),
+                // El saldo NO se expone cuando no hay ningun cobro registrado.
+                // Un pedido sin pagos no significa "debe todo": los 630 de Saga
+                // se cobran fuera de EBAEMY y marcarlos como deudores seria
+                // mentir en la pantalla mas mirada del panel.
+                'pending_total'        => $this->orderPending($row),
                 // ── Detalle logístico (Registro de Envíos) ────────────────
                 // `shipment` es null cuando el pedido todavía no tiene envío
                 // configurado: la tabla lo pinta como "Sin envío" y ofrece el
@@ -188,6 +203,22 @@ class OrderCollection extends ResourceCollection
      * despachado SI se puede reimprimir indicando el motivo — eso no es un
      * bloqueo sino un paso mas, y lo cubre `needs_reason`.
      */
+    /**
+     * Saldo del pedido, o null si no hay nada que afirmar.
+     *
+     * Solo devuelve numero cuando existe al menos un cobro registrado: es la
+     * unica situacion en la que el sistema sabe de verdad cuanto falta.
+     */
+    private function orderPending($row): ?float
+    {
+        $paid = (float) ($row->paid_total ?? 0);
+        if ($paid <= 0) {
+            return null;
+        }
+
+        return round(max(0, (float) $row->total - $paid), 2);
+    }
+
     private function printBlockReason($s, bool $requirePayment): ?string
     {
         if ($s->status === \App\Models\Tenant\ShippingRequest::STATUS_ANULADO) {
@@ -234,6 +265,12 @@ class OrderCollection extends ResourceCollection
             'destination'      => $s->shipping_agency ?: ($s->destination_city ?: $s->shipping_destination),
             'tracking_number'  => $s->tracking_number,
             'has_guide'        => (bool) $s->shipping_guide_path,
+            // URL de la guia que dio la agencia. La servia solo el panel de
+            // Envios, asi que desde Pedidos habia que salir de la pantalla
+            // para ver un PDF que ya estaba cargado.
+            'guide_url'        => $s->shipping_guide_path
+                ? url('registro-envio/' . $s->id . '/guia')
+                : null,
             'batch_id'         => $s->print_batch_id,
             'batch_label'      => $s->batch_label,
             'printed_at'       => optional($s->printed_at)->format('Y-m-d H:i:s'),

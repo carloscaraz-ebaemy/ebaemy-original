@@ -92,6 +92,13 @@
                         </el-select>
                     </div>
 
+                    <div class="ord-filter ord-filter-new">
+                        <label>&nbsp;</label>
+                        <button class="ord-new-btn" @click="showManualDialog = true">
+                            <i class="fas fa-plus"></i> Nuevo pedido
+                        </button>
+                    </div>
+
                     <div class="ord-filter">
                         <label>Fecha a considerar</label>
                         <el-select v-model="dateType" @change="applyDateFilters">
@@ -355,7 +362,28 @@
                                     sin monto
                                 </span>
                             </template>
-                            <template v-else>S/ {{ row.total }}</template>
+                            <template v-else>
+                                S/ {{ row.total }}
+                                <!-- Cobro del pedido (`order_payments`). El
+                                     saldo solo aparece si hay algun pago
+                                     registrado: sin cobros no se afirma nada,
+                                     porque un pedido de Saga se cobra fuera de
+                                     EBAEMY y marcarlo como deudor seria falso. -->
+                                <div
+                                    v-if="row.pending_total > 0"
+                                    class="ord-pay-pend"
+                                    :title="'Cobrado S/ ' + formatMoney(row.paid_total)"
+                                >
+                                    debe S/ {{ formatMoney(row.pending_total) }}
+                                </div>
+                                <div
+                                    v-else-if="row.pending_total !== null && row.pending_total !== undefined"
+                                    class="ord-pay-ok"
+                                    :title="'Cobrado S/ ' + formatMoney(row.paid_total)"
+                                >
+                                    pagado
+                                </div>
+                            </template>
                         </td>
                         <td data-label="Fecha del pedido">{{ formatDate(row.created_at) }}</td>
                         <td data-label="Medio pago">
@@ -622,7 +650,7 @@
 
                                     <el-dropdown-item
                                         v-if="canDownloadLabel(row)"
-                                        command="label"
+                                        command="sagaLabel"
                                     >
                                         <i class="el-icon-printer"></i>
                                         Rótulo de Saga
@@ -635,6 +663,17 @@
                                     <el-dropdown-item command="shippingLink" divided>
                                         <i class="el-icon-link"></i>
                                         Copiar enlace de datos de envío
+                                    </el-dropdown-item>
+
+                                    <!-- La guia que dio la agencia. Ya estaba
+                                         cargada, pero solo se podia abrir desde
+                                         el panel de Envios. -->
+                                    <el-dropdown-item
+                                        v-if="row.shipment && row.shipment.guide_url"
+                                        command="guide"
+                                    >
+                                        <i class="el-icon-document"></i>
+                                        Ver guía de la agencia
                                     </el-dropdown-item>
 
                                     <el-dropdown-item command="timeline">
@@ -670,6 +709,13 @@
             :title="paymentsTitle"
             @updated="onPaymentsUpdated"
         ></record-payments>
+
+        <!-- Alta manual: el pedido que llega por WhatsApp, telefono o mostrador
+             y no lo crea ninguna integracion. -->
+        <manual-order
+            :showDialog.sync="showManualDialog"
+            @created="onManualCreated"
+        ></manual-order>
 
         <!-- Historial: estados del pedido + bitácora del envío + impresiones. -->
         <order-timeline
@@ -1146,6 +1192,25 @@
     color: #3730a3;
     margin-right: 6px;
 }
+.ord-filter-new {
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+}
+.ord-new-btn {
+    border: 0;
+    border-radius: 6px;
+    background: #0f766e;
+    color: #fff;
+    font-weight: 600;
+    font-size: 13px;
+    padding: 8px 16px;
+    cursor: pointer;
+    white-space: nowrap;
+}
+.ord-new-btn:hover {
+    background: #115e59;
+}
 .ord-bulk-btn {
     border: 1px solid #c7d2fe;
     background: #fff;
@@ -1254,11 +1319,13 @@ import SaleNoteForm from "./partials/sale_note_form.vue";
 import ShipmentForm from "./partials/shipment_form.vue";
 import OrderTimeline from "./partials/order_timeline.vue";
 import RecordPayments from "../partials/record_payments.vue";
+import ManualOrder from "./partials/manual_order.vue";
 
 export default {
     props: ["user"],
 
     components: {
+        ManualOrder,
         DataTable,
         OptionsForm,
         DocumentForm,
@@ -1376,6 +1443,7 @@ export default {
             showDialogSaleNote: false,
             showPaymentsDialog: false,
             paymentsOrderId: null,
+            showManualDialog: false,
             // A donde apunta el panel de pagos. Un encargo logistico cobra
             // contra su ENVIO (shipping_payments); el resto, contra el pedido.
             paymentsResource: "order_payments",
@@ -1441,11 +1509,17 @@ export default {
                 markExternal: () => this.markOneExternal(row),
                 saleNote: () => this.clickOptions(row.sale_note_id),
                 document: () => this.clickDownload(row.document_external_id),
-                label: () => this.downloadLabel(row),
+                sagaLabel: () => this.downloadLabel(row),
                 shippingLink: () => this.copyShippingLink(row),
                 timeline: () => this.openTimeline(row),
                 payments: () => this.clickPayments(row.id),
-                label: () => this.printLabel(row)
+                // OJO: `label` (rotulo del envio) y `sagaLabel` (hoja de
+                // despacho de Saga) son acciones DISTINTAS. Estaban las dos
+                // bajo la clave `label`, y en un objeto literal la segunda
+                // pisa a la primera sin error: "Rotulo de Saga" acababa
+                // imprimiendo el rotulo del envio.
+                label: () => this.printLabel(row),
+                guide: () => this.openGuide(row)
             };
             if (acciones[cmd]) acciones[cmd]();
         },
@@ -1702,6 +1776,11 @@ export default {
          * que va a pedir motivo. Llamarlas todas «Imprimir rotulo» hacia que el
          * operador descubriera la diferencia despues de abrir la pestaña.
          */
+        openGuide(row) {
+            const url = row.shipment && row.shipment.guide_url;
+            if (!url) return;
+            window.open(url, "_blank");
+        },
         labelActionText(row) {
             const s = row.shipment || {};
             if (s.print_block) return "Rótulo no disponible";
@@ -1766,6 +1845,18 @@ export default {
             // refrescar, el siguiente clic seguiria creyendo que es la primera.
             const dt = this.$refs.ordersTable;
             if (dt) dt.getRecords();
+        },
+
+        /**
+         * Tras crear un pedido a mano hay que refrescar todo: la fila nueva, los
+         * contadores de los chips y los indicadores. Es la misma recarga que
+         * usa cualquier otro cambio, no una especial.
+         */
+        onManualCreated() {
+            const dt = this.$refs.ordersTable;
+            if (dt) dt.getRecords();
+            this.loadChipCounts();
+            this.loadStats();
         },
 
         clickPayments(orderId) {

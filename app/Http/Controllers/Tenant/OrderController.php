@@ -149,11 +149,36 @@ class OrderController extends Controller
      * La comparten records(), statusCounts() y stats() para que el número del
      * chip y las filas de la tabla no puedan discrepar.
      */
+    /**
+     * Memoizado por conexion: `Schema::hasTable` consulta el information_schema
+     * y esto se llama una vez por request del listado, los chips y las stats.
+     */
+    private function orderPaymentsTableExists(): bool
+    {
+        static $cache = [];
+        $key = \Illuminate\Support\Facades\DB::connection()->getDatabaseName();
+
+        return $cache[$key] ??= \Illuminate\Support\Facades\Schema::hasTable('order_payments');
+    }
+
     private function buildOrdersQuery(Request $request, bool $withRelations = true, bool $withChip = true)
     {
         $query = Order::query()->latest();
 
         if ($withRelations) {
+            // Cobrado del pedido, agregado en la MISMA consulta. Sin esto la
+            // tabla solo sabia el total y nunca cuanto se habia cobrado: los
+            // pagos se registraban en `order_payments` y no volvian a la
+            // pantalla. Un accesor por fila serian 20 consultas por pagina.
+            //
+            // La guarda de tabla sigue el mismo criterio que
+            // `ShippingRequest::moduleInstalled()`: hay tenants cuyo
+            // `tenancy:migrate` puede ir atrasado, y un listado que revienta
+            // con "table doesn't exist" es peor que un listado sin el dato.
+            if ($this->orderPaymentsTableExists()) {
+                $query->withSum('payments as paid_total', 'payment');
+            }
+
             $query->with([
                 'channel',
                 // Estas tres las consumía OrderCollection SIN precargar: eran
