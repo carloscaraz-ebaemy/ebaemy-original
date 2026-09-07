@@ -1454,53 +1454,29 @@ class EcommerceController extends Controller
                     'seller_id'         => null, // ventas digitales no tienen vendedor asignado
                 ]);
 
-                // Reservar stock de variantes para el pedido (con lock para evitar race condition)
-                foreach ($verifiedItems as $item) {
-                    $variantId = $item['variant_id'] ?? null;
-                    if (!$variantId) continue;
-                    $qty = (float)($item['quantity'] ?? 1);
-                    \Illuminate\Support\Facades\DB::transaction(function () use ($variantId, $qty) {
-                        $vw = ItemVariantWarehouse::where('item_variant_id', $variantId)
-                            ->orderByDesc('stock_physical')
-                            ->lockForUpdate()
-                            ->first();
-                        if ($vw) {
-                            $vw->stock_committed = $vw->stock_committed + $qty;
-                            $vw->save();
-                        }
-                    });
-                }
-
-                // Reservar stock de COMPONENTES de bundles (is_set). Antes solo se
-                // validaba pero no se reservaba → sobreventa de packs en pagos
-                // efectivo concurrentes. Reservamos committed en el item_warehouse
-                // de cada componente, con lock.
-                foreach ($verifiedItems as $item) {
-                    if (!empty($item['variant_id'])) continue;
-                    $itemId = $item['id'] ?? null;
-                    if (!$itemId) continue;
-                    $isSet = $item['is_set'] ?? null;
-                    if ($isSet === null) {
-                        $isSet = (bool) Item::where('id', $itemId)->value('is_set');
-                    }
-                    if (!$isSet) continue;
-
-                    $bundleQty = (float) ($item['quantity'] ?? 1);
-                    $components = \App\Models\Tenant\ItemSet::where('item_id', $itemId)->get();
-                    foreach ($components as $comp) {
-                        $compQty = $bundleQty * (float) $comp->quantity;
-                        if ($compQty <= 0) continue;
-                        \Illuminate\Support\Facades\DB::transaction(function () use ($comp, $compQty, $channelWarehouseId) {
-                            $ciw = $channelWarehouseId
-                                ? \App\Models\Tenant\ItemWarehouse::where('item_id', $comp->individual_item_id)->where('warehouse_id', $channelWarehouseId)->lockForUpdate()->first()
-                                : \App\Models\Tenant\ItemWarehouse::where('item_id', $comp->individual_item_id)->orderByDesc('stock_physical')->lockForUpdate()->first();
-                            if ($ciw) {
-                                $ciw->stock_committed = (float) $ciw->stock_committed + $compQty;
-                                $ciw->save();
-                            }
-                        });
-                    }
-                }
+                // ── Reservar el stock del pedido ──────────────────────────
+                //
+                // Aqui habia DOS bucles: uno para variantes y otro para los
+                // componentes de los packs. El producto SIMPLE —sin variantes y
+                // sin pack, que es la mayoria del catalogo— no se reservaba en
+                // ninguno: se validaba su stock y se seguia adelante. Dos
+                // compradores simultaneos del mismo producto validaban los dos
+                // contra el mismo disponible y los dos completaban su pedido.
+                // Sobreventa, y sin rastro: como la reserva nunca se hizo,
+                // tampoco habia nada que liberar despues.
+                //
+                // `StockReservation` cubre las tres formas con el mismo bloqueo
+                // por fila que habia aqui, asi que para variantes y packs el
+                // comportamiento es identico; lo que cambia es que el producto
+                // simple por fin queda reservado.
+                app(\App\Services\Tenant\StockReservation::class)->reservar(
+                    collect($verifiedItems)->map(fn ($i) => [
+                        'item_id'    => (int) ($i['id'] ?? $i['item_id'] ?? 0),
+                        'variant_id' => $i['variant_id'] ?? null,
+                        'quantity'   => (float) ($i['quantity'] ?? 1),
+                    ])->all(),
+                    $channelWarehouseId
+                );
 
                 // Incrementar uso del cupón
                 if ($appliedCoupon) {

@@ -115,7 +115,15 @@ class StockReservation
             $itemId    = $linea['item_id'] ?? null;
             $variantId = $linea['variant_id'] ?? null;
 
-            if ($cantidad <= 0 || !$itemId) {
+            if ($cantidad <= 0) {
+                continue;
+            }
+
+            // Una variante se reserva por SU id: el del producto padre no hace
+            // falta. Exigirlo aqui hacia que una linea de variante sin
+            // `item_id` no reservara nada, en silencio — y el codigo que esto
+            // sustituyo en el checkout nunca lo necesito.
+            if (!$itemId && !$variantId) {
                 continue;
             }
 
