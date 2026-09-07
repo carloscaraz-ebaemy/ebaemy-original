@@ -1575,12 +1575,45 @@ class ShipmentController extends Controller
     {
         $first = $shipment->payments()->orderBy('id')->first();
 
-        $shipment->forceFill([
+        $cambios = [
             'payment_confirmed'       => (bool) $first,
             'payment_confirmed_at'    => $first ? ($first->paid_at ?: $first->created_at) : null,
             'payment_code'            => $first ? $first->payment_code : null,
             'payment_code_normalized' => $first ? $first->payment_code_normalized : null,
-        ])->save();
+        ];
+
+        // Cobrar hace AVANZAR el envío. Antes solo marcaba `payment_confirmed`
+        // y el estado se quedaba en «pendiente de revisión»: el operador tenía
+        // que moverlo a mano, y si no lo hacía el envío no aparecía como
+        // trabajo pendiente en ningún sitio.
+        //
+        // Basta el PRIMER pago, no el total. Se decidió así porque hoy 241 de
+        // 247 envíos no tienen monto cargado: exigir el pago completo no
+        // funcionaría para casi nadie, y un envío cobrado a medias igualmente
+        // hay que prepararlo. El saldo se ve aparte, en la ficha de pagos.
+        //
+        // Solo avanza desde «recibido», nunca retrocede y no toca un anulado:
+        // un envío ya preparado, despachado o entregado no vuelve atrás porque
+        // alguien registre un segundo cobro.
+        if ($first
+            && $shipment->status === ShippingRequest::STATUS_RECIBIDO
+            && !$shipment->cancelled_at) {
+            $cambios['status'] = ShippingRequest::STATUS_CONFIRMADO;
+        }
+
+        $shipment->forceFill($cambios)->save();
+
+        if (($cambios['status'] ?? null) === ShippingRequest::STATUS_CONFIRMADO) {
+            ShippingAuditLog::log(
+                ShippingAuditLog::ACTION_STATUS,
+                $shipment->id,
+                'status',
+                ShippingRequest::STATUS_RECIBIDO,
+                ShippingRequest::STATUS_CONFIRMADO,
+                'Avance automático al registrarse el primer pago.',
+                $shipment->print_batch_id
+            );
+        }
     }
 
     /** Pagos del envío en JSON (el modal los repinta sin recargar el panel). */

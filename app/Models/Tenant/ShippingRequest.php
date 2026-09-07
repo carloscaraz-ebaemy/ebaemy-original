@@ -495,7 +495,13 @@ class ShippingRequest extends Model
 
     public const STATUSES = [
         self::STATUS_RECIBIDO     => 'Pendiente de revisión',
-        self::STATUS_CONFIRMADO   => 'Pedido confirmado',
+        // «Pendiente de remisión»: pagado y esperando que se prepare y se
+        // rotule. Es el estado al que salta un envío en cuanto entra su primer
+        // pago (ver ShipmentController::syncPaymentState). Se renombró en vez
+        // de añadir un estado nuevo: este ya ocupaba exactamente ese hueco del
+        // flujo, entre «pendiente de revisión» y «preparando», y no había ni un
+        // solo envío en él, así que el cambio no reescribió el pasado de nadie.
+        self::STATUS_CONFIRMADO   => 'Pendiente de remisión',
         self::STATUS_PREPARANDO   => 'Preparando pedido',
         self::STATUS_IMPRESO      => 'Rótulo impreso',
         self::STATUS_EMBALANDO    => 'Empacado',
