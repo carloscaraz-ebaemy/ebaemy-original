@@ -93,13 +93,14 @@
                         <th class="num">Disponible</th>
                         <th class="num">Cantidad</th>
                         <th class="num">Precio</th>
+                        <th v-if="puedeEditarPrecio" class="num">Descuento</th>
                         <th class="num">Subtotal</th>
                         <th></th>
                     </tr>
                 </thead>
                 <tbody>
                     <tr v-if="!form.items.length">
-                        <td colspan="6" class="mo-empty">Todavía no hay productos. Búscalos arriba.</td>
+                        <td :colspan="puedeEditarPrecio ? 7 : 6" class="mo-empty">Todavía no hay productos. Búscalos arriba.</td>
                     </tr>
                     <tr v-for="(l, i) in form.items" :key="l.key">
                         <td>
@@ -126,7 +127,17 @@
                                 {{ money(l.unit_price) }}
                             </span>
                         </td>
-                        <td class="num mo-sub">S/ {{ money(l.quantity * l.unit_price) }}</td>
+                        <td v-if="puedeEditarPrecio" class="num">
+                            <el-input-number
+                                v-model="l.discount"
+                                :min="0"
+                                :max="l.quantity * l.unit_price"
+                                :precision="2"
+                                size="mini"
+                                controls-position="right"
+                            ></el-input-number>
+                        </td>
+                        <td class="num mo-sub">S/ {{ money(neto(l)) }}</td>
                         <td class="num">
                             <el-button type="text" class="mo-del" @click="quitar(i)">
                                 <i class="fas fa-trash"></i>
@@ -138,6 +149,9 @@
         </div>
 
         <div class="mo-total">
+            <span v-if="descuentoTotal > 0" class="mo-desc">
+                Descuento aplicado: −S/ {{ money(descuentoTotal) }}
+            </span>
             <span>Total</span>
             <strong>S/ {{ money(total) }}</strong>
         </div>
@@ -208,8 +222,11 @@ export default {
             return this.editando ? `Editar pedido #${this.orderId}` : "Nuevo pedido manual";
         },
         total() {
+            return this.form.items.reduce((a, l) => a + this.neto(l), 0);
+        },
+        descuentoTotal() {
             return this.form.items.reduce(
-                (a, l) => a + Number(l.quantity || 0) * Number(l.unit_price || 0),
+                (a, l) => a + Math.min(Number(l.discount || 0), this.bruto(l)),
                 0
             );
         },
@@ -279,6 +296,7 @@ export default {
                         available: null,
                         quantity: Number(l.quantity || 1),
                         unit_price: Number(l.unit_price || 0),
+                        discount: Number(l.discount || 0),
                     }));
                 })
                 .catch(() => {
@@ -382,6 +400,7 @@ export default {
                 available: op.available,
                 quantity: 1,
                 unit_price: Number(op.price || 0),
+                discount: 0,
             });
         },
         quitar(i) {
@@ -406,6 +425,7 @@ export default {
                         variant_id: l.variant_id,
                         quantity: l.quantity,
                         unit_price: l.unit_price,
+                        discount: l.discount || 0,
                     })),
                 })
                 .then(r => {
@@ -435,6 +455,17 @@ export default {
                 .then(() => {
                     this.guardando = false;
                 });
+        },
+        bruto(l) {
+            return Number(l.quantity || 0) * Number(l.unit_price || 0);
+        },
+        /**
+         * Lo que se cobra por la linea. El descuento se limita al importe: uno
+         * mayor seria un pedido que devuelve dinero, y eso es una nota de
+         * credito, no un descuento. El servidor aplica el mismo tope.
+         */
+        neto(l) {
+            return Math.max(0, this.bruto(l) - Math.min(Number(l.discount || 0), this.bruto(l)));
         },
         money(v) {
             return Number(v || 0).toLocaleString("es-PE", {
@@ -555,6 +586,11 @@ export default {
 }
 .mo-total strong {
     font-size: 20px;
+}
+.mo-desc {
+    color: #b45309;
+    font-size: 13px;
+    margin-right: auto;
 }
 .mo-alert {
     background: #fef2f2;

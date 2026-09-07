@@ -935,6 +935,79 @@ class OrderController extends Controller
     }
 
     /**
+     * Convierte las filas del formulario en lineas del pedido y sus totales.
+     *
+     * Existe para que el alta y la edicion hagan EXACTAMENTE la misma
+     * aritmetica. Cuando cada una calculaba lo suyo bastaba tocar una para que
+     * un pedido editado dejara de cuadrar con el mismo pedido recien creado.
+     *
+     * El descuento es un importe, no un porcentaje: es lo que el operador
+     * negocia («te dejo 10 soles»), y guardar el porcentaje obliga a redondear
+     * dos veces. Se limita al importe de la linea — un descuento mayor que lo
+     * que se cobra seria un pedido que devuelve dinero, y eso no es un
+     * descuento sino una nota de credito.
+     *
+     * El desglose se guarda con la forma que ya usa PromotionEngine
+     * (`label` / `amount` negativo / `type`), no con una tercera.
+     *
+     * @return array{items: array, subtotal: float, descuento: float, total: float, desglose: array}
+     */
+    private function construirLineas(array $filas): array
+    {
+        $puedeDescontar = (bool) optional(auth()->user())->permission_edit_item_prices;
+
+        $items = [];
+        $subtotal = 0.0;
+        $descuentoTotal = 0.0;
+        $desglose = [];
+
+        foreach ($filas as $fila) {
+            $item     = Item::findOrFail($fila['item_id']);
+            $cantidad = (float) $fila['quantity'];
+            $precio   = $this->precioDeLinea($item, $fila);
+            $bruto    = round($precio * $cantidad, 2);
+
+            // Descontar es la misma potestad que bajar el precio: quien no puede
+            // lo uno tampoco lo otro, o el permiso no sirve de nada.
+            $descuento = $puedeDescontar ? (float) ($fila['discount'] ?? 0) : 0.0;
+            $descuento = max(0, min($descuento, $bruto));
+
+            $neto = round($bruto - $descuento, 2);
+
+            $subtotal       += $bruto;
+            $descuentoTotal += $descuento;
+
+            if ($descuento > 0) {
+                $desglose[] = [
+                    'label'  => 'Descuento en ' . $item->description,
+                    'amount' => -$descuento,
+                    'type'   => 'manual',
+                ];
+            }
+
+            $items[] = [
+                'item_id'         => $item->id,
+                'description'     => $item->description,
+                'internal_id'     => $item->internal_id,
+                'quantity'        => $cantidad,
+                'unit_price'      => $precio,
+                'sale_unit_price' => $precio,
+                'discount'        => $descuento,
+                'subtotal'        => $neto,
+                'variant_id'      => $fila['variant_id'] ?? null,
+            ];
+        }
+
+        return [
+            'items'     => $items,
+            'subtotal'  => round($subtotal, 2),
+            'descuento' => round($descuentoTotal, 2),
+            'total'     => round($subtotal - $descuentoTotal, 2),
+            'desglose'  => $desglose,
+        ];
+    }
+
+    /**
      * Precio que de verdad se va a cobrar por una linea.
      *
      * Sin permiso, el precio que llegue del formulario se IGNORA y manda el del
@@ -1074,44 +1147,7 @@ class OrderController extends Controller
             ], 422);
         }
 
-        // Calcular total
-        $total = 0;
-        $orderItems = [];
-        foreach ($request->items as $itemData) {
-            $item = Item::findOrFail($itemData['item_id']);
-            $price = $this->precioDeLinea($item, $itemData);
-            $qty = $itemData['quantity'];
-            $subtotal = round($price * $qty, 2);
-            $total += $subtotal;
-
-            $orderItems[] = [
-                'item_id' => $item->id,
-                'description' => $item->description,
-                'internal_id' => $item->internal_id,
-                'quantity' => $qty,
-                'unit_price' => $price,
-                'sale_unit_price' => $price,
-                'subtotal' => $subtotal,
-                'variant_id' => $itemData['variant_id'] ?? null,
-            ];
-        }
-
-        // El cliente se ENLAZA a la cartera del ERP, no se queda solo como
-        // texto dentro del JSON. Misma resolucion que usan la Guia de Remision
-        // y el espejo del encargo logistico: una sola implementacion.
-        //
-        // Sin documento devuelve null y el pedido se crea igual: obligar al
-        // documento aqui impediria registrar el pedido de un cliente que llama
-        // por telefono y todavia no lo dio.
-        $persona = \App\Models\Tenant\Person::resolveCustomer(
-            $request->customer['document_number'] ?? null,
-            $request->customer['name'] ?? null,
-            [
-                'telephone' => $request->customer['phone'] ?? null,
-                'email'     => $request->customer['email'] ?? null,
-                'address'   => $request->customer['address'] ?? null,
-            ]
-        );
+        $calculo = $this->construirLineas($request->items);
 
         $order = Order::create([
             'external_id' => \Illuminate\Support\Str::uuid(),
@@ -1123,8 +1159,11 @@ class OrderController extends Controller
                 'direccion' => $request->customer['address'] ?? null,
                 'numero_documento' => $request->customer['document_number'] ?? null,
             ],
-            'items' => $orderItems,
-            'total' => $total,
+            'items' => $calculo['items'],
+            'total' => $calculo['total'],
+            'subtotal' => $calculo['subtotal'],
+            'total_discount' => $calculo['descuento'],
+            'discounts' => $calculo['desglose'],
             'reference_payment' => $request->reference_payment ?? $channel->name,
             'status_order_id' => 1, // Pendiente
             'channel_id' => $channel->id,
@@ -1272,27 +1311,7 @@ class OrderController extends Controller
                     throw new \RuntimeException('stock');
                 }
 
-                $total = 0;
-                $items = [];
-
-                foreach ($request->items as $fila) {
-                    $item = Item::findOrFail($fila['item_id']);
-                    $cantidad = (float) $fila['quantity'];
-                    $precio   = $this->precioDeLinea($item, $fila);
-                    $subtotal = round($precio * $cantidad, 2);
-                    $total   += $subtotal;
-
-                    $items[] = [
-                        'item_id'         => $item->id,
-                        'description'     => $item->description,
-                        'internal_id'     => $item->internal_id,
-                        'quantity'        => $cantidad,
-                        'unit_price'      => $precio,
-                        'sale_unit_price' => $precio,
-                        'subtotal'        => $subtotal,
-                        'variant_id'      => $fila['variant_id'] ?? null,
-                    ];
-                }
+                $calculo = $this->construirLineas($request->items);
 
                 $persona = \App\Models\Tenant\Person::resolveCustomer(
                     $request->customer['document_number'] ?? null,
@@ -1311,9 +1330,11 @@ class OrderController extends Controller
                         'telefono'           => $request->customer['phone'] ?? null,
                         'numero_documento'   => $request->customer['document_number'] ?? null,
                     ],
-                    'items'    => $items,
-                    'total'    => $total,
-                    'subtotal' => $total,
+                    'items'          => $calculo['items'],
+                    'total'          => $calculo['total'],
+                    'subtotal'       => $calculo['subtotal'],
+                    'total_discount' => $calculo['descuento'],
+                    'discounts'      => $calculo['desglose'],
                 ])->save();
 
                 $stock->reservar($lineas, $warehouseId);
