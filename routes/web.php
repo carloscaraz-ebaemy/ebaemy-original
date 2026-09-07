@@ -420,6 +420,16 @@ if ($hostname) {
                  ->whereNumber('order')->name('orders.shipment.store');
             // Lote de impresión desde una selección de PEDIDOS. Las tablas de
             // lotes/impresiones no cambian: cambia desde dónde se inicia.
+            // Acciones sobre el ENVIO del pedido, desde Pedidos. Adaptadores:
+            // las reglas siguen en ShipmentController. Ver
+            // OrderShipmentActionController.
+            Route::post('orders/{order}/envio/modalidad', [\App\Http\Controllers\Tenant\OrderShipmentActionController::class, 'modalidad'])
+                 ->whereNumber('order')->name('orders.shipment.modality');
+            Route::post('orders/{order}/envio/anular', [\App\Http\Controllers\Tenant\OrderShipmentActionController::class, 'anular'])
+                 ->whereNumber('order')->name('orders.shipment.cancel');
+            Route::post('orders/{order}/envio/restaurar', [\App\Http\Controllers\Tenant\OrderShipmentActionController::class, 'restaurar'])
+                 ->whereNumber('order')->name('orders.shipment.restore');
+
             Route::post('orders/print-batch', [\App\Http\Controllers\Tenant\ShipmentController::class, 'orderPrintBatch'])
                  ->name('orders.print_batch');
             // Subpantalla de lotes: deja de ser un módulo suelto del menú.

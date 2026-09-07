@@ -139,6 +139,37 @@ class ShipmentController extends Controller
         unset($data['order_id']);
 
         $existing = $linker->current($order);
+
+        // Cambiar de modalidad NO es escribir un campo. `ensure()` haria un
+        // `fill()` en crudo y se saltaria dos cosas que si aplica el panel de
+        // Envios: el bloqueo cuando el envio ya esta en un lote impreso, y la
+        // cascada que limpia los datos de la modalidad vieja —agencia, guia,
+        // coordenadas— y recalcula la prioridad.
+        //
+        // Sin esto, desde Pedidos se podia pasar un envio a «recojo en tienda»
+        // dejandole la agencia y el numero de guia puestos, y saltarse el lote.
+        if ($existing
+            && !empty($data['delivery_type'])
+            && $data['delivery_type'] !== $existing->delivery_type) {
+
+            $cambio = $this->changeModality(
+                new Request([
+                    'delivery_type' => $data['delivery_type'],
+                    'reason'        => 'Cambio de modalidad desde el pedido #' . $linker->orderCode($order),
+                    'force'         => $request->boolean('force'),
+                ]),
+                $existing
+            );
+
+            $error = optional($cambio->getSession())->get('error');
+
+            if ($error) {
+                return response()->json(['success' => false, 'message' => $error], 422);
+            }
+
+            $existing->refresh();
+        }
+
         $shipment = $linker->ensure($order, $data);
 
         if ($existing) {

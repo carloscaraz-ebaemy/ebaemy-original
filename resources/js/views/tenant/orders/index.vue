@@ -607,6 +607,24 @@
                                         Editar pedido
                                     </el-dropdown-item>
 
+                                    <!-- Acciones del ENVIO del pedido. Solo se
+                                         ofrecen si el pedido tiene envio: el
+                                         rotulo, la modalidad y la anulacion son
+                                         del envio, no del pedido. -->
+                                    <!-- La modalidad NO se cambia desde aqui:
+                                         ya se elige en «Configurar envio», que
+                                         ahora enruta el cambio por el camino
+                                         que aplica el bloqueo por lote y la
+                                         cascada. Un segundo sitio para lo mismo
+                                         solo daria dos comportamientos. -->
+                                    <el-dropdown-item
+                                        v-if="row.shipment"
+                                        command="cancelShipment"
+                                    >
+                                        <i class="el-icon-close"></i>
+                                        Anular envío
+                                    </el-dropdown-item>
+
                                     <el-dropdown-item command="payments">
                                         <i class="el-icon-wallet"></i>
                                         Pagos del pedido
@@ -1527,6 +1545,7 @@ export default {
                 shippingLink: () => this.copyShippingLink(row),
                 timeline: () => this.openTimeline(row),
                 edit: () => this.editarPedido(row.id),
+                cancelShipment: () => this.anularEnvio(row),
                 payments: () => this.clickPayments(row.id),
                 // OJO: `label` (rotulo del envio) y `sagaLabel` (hoja de
                 // despacho de Saga) son acciones DISTINTAS. Estaban las dos
@@ -1867,6 +1886,50 @@ export default {
          * contadores de los chips y los indicadores. Es la misma recarga que
          * usa cualquier otro cambio, no una especial.
          */
+        /** Anula el envio. El pedido NO se anula: son cosas distintas. */
+        anularEnvio(row) {
+            this.$prompt(
+                "Motivo de la anulación (queda en la bitácora). El pedido no se anula: " +
+                    "solo su envío, y puede restaurarse después.",
+                "Anular envío " + (row.shipment ? row.shipment.code : ""),
+                { confirmButtonText: "Anular envío", cancelButtonText: "Cancelar" }
+            )
+                .then(({ value }) =>
+                    this.$http.post(`/orders/${row.id}/envio/anular`, { reason: value || null })
+                )
+                .then(r => this.trasAccionDeEnvio(r))
+                .catch(e => this.trasAccionDeEnvio(e, true));
+        },
+
+        /**
+         * Respuesta comun de las acciones del envio.
+         *
+         * El servidor responde 200 incluso cuando rechaza —lleva `success:
+         * false` y el motivo— porque son reglas de negocio, no errores. Un
+         * `cancel` del dialogo llega aqui como rechazo sin respuesta: eso no se
+         * anuncia, el operador ya sabe que cancelo.
+         */
+        trasAccionDeEnvio(r, esError = false) {
+            if (esError) {
+                if (!r || !r.response) return;   // cancelo el dialogo
+                const d = r.response.data || {};
+                this.$message.error(d.message || "No se pudo completar la acción.");
+                return;
+            }
+
+            const d = (r && r.data) || {};
+
+            if (d.success === false) {
+                this.$message({ type: "warning", message: d.message, duration: 7000 });
+                return;
+            }
+
+            this.$message.success(d.message || "Hecho.");
+            const dt = this.$refs.ordersTable;
+            if (dt) dt.getRecords();
+            this.loadChipCounts();
+        },
+
         editarPedido(orderId) {
             this.manualOrderId = orderId;
             this.showManualDialog = true;
