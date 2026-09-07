@@ -94,7 +94,7 @@
 
                     <div class="ord-filter ord-filter-new">
                         <label>&nbsp;</label>
-                        <button class="ord-new-btn" @click="showManualDialog = true">
+                        <button class="ord-new-btn" @click="manualOrderId = null; showManualDialog = true">
                             <i class="fas fa-plus"></i> Nuevo pedido
                         </button>
                     </div>
@@ -597,6 +597,16 @@
                                     <!-- Emitida aqui pero todavia no esta en
                                          Saga: es el paso que falta y antes no
                                          se veia por ningun lado. -->
+                                    <!-- Editar: solo antes de despachar. El
+                                         servidor lo vuelve a comprobar. -->
+                                    <el-dropdown-item
+                                        v-if="[1, 2, 3].indexOf(Number(row.status_order_id)) !== -1"
+                                        command="edit"
+                                    >
+                                        <i class="el-icon-edit"></i>
+                                        Editar pedido
+                                    </el-dropdown-item>
+
                                     <el-dropdown-item command="payments">
                                         <i class="el-icon-wallet"></i>
                                         Pagos del pedido
@@ -713,7 +723,9 @@
         <!-- Alta manual: el pedido que llega por WhatsApp, telefono o mostrador
              y no lo crea ninguna integracion. -->
         <manual-order
+            :key="manualOrderId || 'nuevo'"
             :showDialog.sync="showManualDialog"
+            :orderId="manualOrderId"
             @created="onManualCreated"
         ></manual-order>
 
@@ -1444,6 +1456,8 @@ export default {
             showPaymentsDialog: false,
             paymentsOrderId: null,
             showManualDialog: false,
+            // null = alta; con id, el mismo dialogo edita ese pedido.
+            manualOrderId: null,
             // A donde apunta el panel de pagos. Un encargo logistico cobra
             // contra su ENVIO (shipping_payments); el resto, contra el pedido.
             paymentsResource: "order_payments",
@@ -1512,6 +1526,7 @@ export default {
                 sagaLabel: () => this.downloadLabel(row),
                 shippingLink: () => this.copyShippingLink(row),
                 timeline: () => this.openTimeline(row),
+                edit: () => this.editarPedido(row.id),
                 payments: () => this.clickPayments(row.id),
                 // OJO: `label` (rotulo del envio) y `sagaLabel` (hoja de
                 // despacho de Saga) son acciones DISTINTAS. Estaban las dos
@@ -1852,7 +1867,12 @@ export default {
          * contadores de los chips y los indicadores. Es la misma recarga que
          * usa cualquier otro cambio, no una especial.
          */
+        editarPedido(orderId) {
+            this.manualOrderId = orderId;
+            this.showManualDialog = true;
+        },
         onManualCreated() {
+            this.manualOrderId = null;
             const dt = this.$refs.ordersTable;
             if (dt) dt.getRecords();
             this.loadChipCounts();

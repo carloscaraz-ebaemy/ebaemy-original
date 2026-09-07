@@ -2,14 +2,14 @@
     <el-dialog
         :close-on-click-modal="false"
         :visible="showDialog"
-        title="Nuevo pedido manual"
+        :title="titulo"
         top="5vh"
         width="70%"
         @close="cerrar"
         @open="abrir"
     >
         <div v-if="problemas.length" class="mo-alert">
-            <strong>No se pudo crear el pedido:</strong>
+            <strong>{{ editando ? "No se pudo guardar:" : "No se pudo crear el pedido:" }}</strong>
             <ul>
                 <li v-for="(p, i) in problemas" :key="i">{{ p }}</li>
             </ul>
@@ -134,8 +134,13 @@
 
         <span slot="footer">
             <el-button @click="cerrar">Cancelar</el-button>
-            <el-button type="primary" :loading="guardando" :disabled="!sePuedeGuardar" @click="guardar">
-                Crear pedido
+            <el-button
+                type="primary"
+                :loading="guardando"
+                :disabled="!sePuedeGuardar || cargando"
+                @click="guardar"
+            >
+                {{ editando ? "Guardar cambios" : "Crear pedido" }}
             </el-button>
         </span>
     </el-dialog>
@@ -167,6 +172,9 @@
 export default {
     props: {
         showDialog: { type: Boolean, default: false },
+        // null = alta. Con id, el mismo formulario edita ese pedido: es la
+        // misma informacion y separarlos daria dos pantallas que divergen.
+        orderId: { type: Number, default: null },
     },
     data() {
         return {
@@ -175,11 +183,18 @@ export default {
             buscado: null,
             buscando: false,
             guardando: false,
+            cargando: false,
             problemas: [],
             form: this.formVacio(),
         };
     },
     computed: {
+        editando() {
+            return !!this.orderId;
+        },
+        titulo() {
+            return this.editando ? `Editar pedido #${this.orderId}` : "Nuevo pedido manual";
+        },
         total() {
             return this.form.items.reduce(
                 (a, l) => a + Number(l.quantity || 0) * Number(l.unit_price || 0),
@@ -211,8 +226,53 @@ export default {
             this.$http.get("/orders/channels").then(r => {
                 this.canales = r.data || [];
                 // Un solo canal activo: no tiene sentido preguntar.
-                if (this.canales.length === 1) this.form.channel_id = this.canales[0].id;
+                if (!this.editando && this.canales.length === 1) {
+                    this.form.channel_id = this.canales[0].id;
+                }
             });
+
+            if (this.editando) this.cargar();
+        },
+        /**
+         * Trae el pedido para editarlo.
+         *
+         * El disponible de cada linea llega vacio a proposito: el que muestra el
+         * buscador incluye lo que ESTE pedido ya tiene reservado, asi que
+         * pintarlo aqui diria «disponible 0» en un producto que el pedido ya
+         * tiene cogido. Al servidor no le hace falta y al operador le confunde.
+         */
+        cargar() {
+            this.cargando = true;
+            this.$http
+                .get(`/orders/record/${this.orderId}`)
+                .then(r => {
+                    const d = r.data || {};
+
+                    if (!d.editable) {
+                        this.problemas = [
+                            "Este pedido ya no se puede editar: su estado es final.",
+                        ];
+                    }
+
+                    this.form.channel_id = d.channel_id;
+                    this.form.customer = Object.assign(this.formVacio().customer, d.customer || {});
+                    this.form.items = (d.items || []).map(l => ({
+                        key: `${l.item_id}:${l.variant_id || ""}`,
+                        item_id: l.item_id,
+                        variant_id: l.variant_id,
+                        name: l.name,
+                        code: l.code,
+                        available: null,
+                        quantity: Number(l.quantity || 1),
+                        unit_price: Number(l.unit_price || 0),
+                    }));
+                })
+                .catch(() => {
+                    this.problemas = ["No se pudo cargar el pedido."];
+                })
+                .then(() => {
+                    this.cargando = false;
+                });
         },
         cerrar() {
             this.$emit("update:showDialog", false);
@@ -319,8 +379,12 @@ export default {
             this.guardando = true;
             this.problemas = [];
 
+            const url = this.editando
+                ? `/orders/${this.orderId}/actualizar`
+                : "/orders/manual";
+
             this.$http
-                .post("/orders/manual", {
+                .post(url, {
                     channel_id: this.form.channel_id,
                     customer: this.form.customer,
                     items: this.form.items.map(l => ({
@@ -332,11 +396,11 @@ export default {
                 })
                 .then(r => {
                     const d = r.data || {};
-                    this.$message.success(d.message || "Pedido creado.");
+                    this.$message.success(d.message || "Pedido guardado.");
 
                     // Decirlo importa: un pedido sin cliente en la cartera no
                     // sale en su historial ni se le puede facturar directo.
-                    if (!d.person) {
+                    if (!this.editando && !d.person) {
                         this.$message({
                             type: "warning",
                             duration: 7000,
@@ -352,7 +416,7 @@ export default {
                 .catch(e => {
                     const d = (e.response && e.response.data) || {};
                     // El servidor manda TODOS los problemas de stock juntos.
-                    this.problemas = d.problemas || [d.message || "No se pudo crear el pedido."];
+                    this.problemas = d.problemas || [d.message || "No se pudo guardar el pedido."];
                 })
                 .then(() => {
                     this.guardando = false;

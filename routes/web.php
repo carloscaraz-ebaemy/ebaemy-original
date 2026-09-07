@@ -326,6 +326,10 @@ if ($hostname) {
             Route::get('orders/channel-report', 'Tenant\OrderController@channelReport');
             Route::get('orders/search-items', 'Tenant\OrderController@searchItems');
             Route::post('orders/manual', 'Tenant\OrderController@storeManual');
+            // Edicion de un pedido: solo cliente y lineas, y solo antes de
+            // despachar. Los pagos y los datos de envio tienen su propio camino.
+            Route::post('orders/{order}/actualizar', 'Tenant\OrderController@updateManual')
+                 ->whereNumber('order')->name('orders.update_manual');
 
             // ── Cupones de plataforma (scope=tenant) — propios de este seller ────
             Route::prefix('marketplace/coupons')->name('tenant.marketplace_coupons.')->group(function () {

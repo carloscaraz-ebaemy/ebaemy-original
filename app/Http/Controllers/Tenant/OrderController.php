@@ -1116,6 +1116,201 @@ class OrderController extends Controller
         ]);
     }
 
+    /**
+     * Estados en los que un pedido todavia se puede editar.
+     *
+     * 1 pago pendiente · 2 pago verificado · 3 en preparacion. A partir de
+     * «enviado» el paquete ya salio: cambiar sus lineas no cambiaria lo que el
+     * cliente va a recibir, solo mentiria sobre ello. Cancelado y entregado son
+     * finales.
+     */
+    private const ESTADOS_EDITABLES = [1, 2, 3];
+
+    /**
+     * Un pedido, con lo justo para volver a abrirlo en el formulario.
+     *
+     * La ruta `orders/record/{order}` existia desde hace tiempo apuntando a un
+     * metodo que NO existia: cualquier llamada reventaba. Se implementa ahora
+     * porque la edicion la necesita.
+     *
+     * No devuelve el pedido en crudo: `items` es un JSON historico y sus claves
+     * han cambiado con los años (`item_id` o `id`, `unit_price` o
+     * `sale_unit_price`). Aqui se normaliza para que el formulario no tenga que
+     * conocer esa arqueologia.
+     */
+    public function record(Order $order)
+    {
+        $cliente = (array) ($order->customer ?? []);
+
+        $lineas = collect(is_array($order->items) ? $order->items : [])
+            ->map(function ($fila) {
+                $fila = (array) $fila;
+                $itemId = $fila['item_id'] ?? $fila['id'] ?? null;
+
+                return $itemId ? [
+                    'item_id'    => (int) $itemId,
+                    'variant_id' => $fila['variant_id'] ?? null,
+                    'name'       => $fila['description'] ?? 'Producto',
+                    'code'       => $fila['internal_id'] ?? null,
+                    'quantity'   => (float) ($fila['quantity'] ?? 1),
+                    'unit_price' => (float) ($fila['unit_price'] ?? $fila['sale_unit_price'] ?? 0),
+                ] : null;
+            })
+            ->filter()
+            ->values();
+
+        return response()->json([
+            'id'         => $order->id,
+            'channel_id' => $order->channel_id,
+            'status_order_id' => (int) $order->status_order_id,
+            // Que la pantalla sepa si puede editar sin repetir la regla.
+            'editable'   => in_array((int) $order->status_order_id, self::ESTADOS_EDITABLES, true),
+            'customer'   => [
+                'name'            => $cliente['apellidos_y_nombres_o_razon_social'] ?? ($cliente['name'] ?? ''),
+                'document_number' => $cliente['numero_documento'] ?? ($cliente['numero'] ?? ''),
+                'phone'           => $cliente['telefono'] ?? ($cliente['phone'] ?? ''),
+                'email'           => $cliente['correo_electronico'] ?? ($cliente['email'] ?? ''),
+            ],
+            'items'      => $lineas,
+            'total'      => (float) $order->total,
+        ]);
+    }
+
+
+    /**
+     * Edicion de un pedido: cliente y lineas.
+     *
+     * ── Las tres reglas que gobiernan esto ────────────────────────────────
+     *
+     * 1. LOS PAGOS NO SE TOCAN. Nunca. Cambiar el total recalcula el saldo, que
+     *    es una resta; el historico de cobros es un hecho y no se reescribe.
+     *    Si el total baja por debajo de lo cobrado, el saldo queda en cero y la
+     *    diferencia se ve comparando ambos — no se inventa una devolucion.
+     *
+     * 2. El stock se SUELTA y se vuelve a reservar. No se calcula un delta por
+     *    linea: con variantes, packs y cambios de almacen, el delta tiene mas
+     *    formas de salir mal que de salir bien. Todo va en una transaccion, asi
+     *    que si la validacion falla se restaura la reserva anterior sola.
+     *
+     * 3. No se editan los datos de envio. Tienen su propia pantalla y su propia
+     *    bitacora; duplicarlos aqui seria una segunda forma de cambiarlos.
+     */
+    public function updateManual(Request $request, Order $order)
+    {
+        if (!in_array((int) $order->status_order_id, self::ESTADOS_EDITABLES, true)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Este pedido ya no se puede editar: figura como «'
+                    . (optional($order->status_order)->description ?: 'cerrado') . '».',
+            ], 422);
+        }
+
+        $request->validate([
+            'customer'         => 'required|array',
+            'customer.name'    => 'required|string',
+            'items'            => 'required|array|min:1',
+            'items.*.item_id'  => 'required|integer',
+            'items.*.quantity' => 'required|numeric|min:0.01',
+        ]);
+
+        $warehouseId = $order->warehouse_id;
+        $stock       = app(\App\Services\Tenant\StockReservation::class);
+        $ordenes     = app(\App\Services\Tenant\OrderService::class);
+
+        $lineas = collect($request->items)->map(fn ($i) => [
+            'item_id'    => (int) ($i['item_id'] ?? 0),
+            'variant_id' => $i['variant_id'] ?? null,
+            'quantity'   => (float) ($i['quantity'] ?? 0),
+        ])->all();
+
+        $problemas = [];
+
+        try {
+            DB::connection('tenant')->transaction(function () use (
+                $order, $request, $lineas, $stock, $ordenes, $warehouseId, &$problemas
+            ) {
+                // Soltar lo que este pedido tenia cogido ANTES de validar: si no,
+                // su propia reserva cuenta contra el disponible y subir de 2 a 3
+                // unidades parece imposible teniendo stock de sobra.
+                $ordenes->releaseCommittedStock($order);
+
+                if ($problemas = $stock->problemas($lineas, $warehouseId)) {
+                    // La excepcion revierte la liberacion: el pedido se queda
+                    // exactamente como estaba, con su reserva intacta.
+                    throw new \RuntimeException('stock');
+                }
+
+                $total = 0;
+                $items = [];
+
+                foreach ($request->items as $fila) {
+                    $item = Item::findOrFail($fila['item_id']);
+                    $cantidad = (float) $fila['quantity'];
+                    $precio   = (float) ($fila['unit_price'] ?? $item->sale_unit_price);
+                    $subtotal = round($precio * $cantidad, 2);
+                    $total   += $subtotal;
+
+                    $items[] = [
+                        'item_id'         => $item->id,
+                        'description'     => $item->description,
+                        'internal_id'     => $item->internal_id,
+                        'quantity'        => $cantidad,
+                        'unit_price'      => $precio,
+                        'sale_unit_price' => $precio,
+                        'subtotal'        => $subtotal,
+                        'variant_id'      => $fila['variant_id'] ?? null,
+                    ];
+                }
+
+                $persona = \App\Models\Tenant\Person::resolveCustomer(
+                    $request->customer['document_number'] ?? null,
+                    $request->customer['name'] ?? null,
+                    [
+                        'telephone' => $request->customer['phone'] ?? null,
+                        'email'     => $request->customer['email'] ?? null,
+                    ]
+                );
+
+                $order->fill([
+                    'person_id' => $persona?->id ?: $order->person_id,
+                    'customer'  => [
+                        'apellidos_y_nombres_o_razon_social' => $request->customer['name'],
+                        'correo_electronico' => $request->customer['email'] ?? null,
+                        'telefono'           => $request->customer['phone'] ?? null,
+                        'numero_documento'   => $request->customer['document_number'] ?? null,
+                    ],
+                    'items'    => $items,
+                    'total'    => $total,
+                    'subtotal' => $total,
+                ])->save();
+
+                $stock->reservar($lineas, $warehouseId);
+            });
+        } catch (\RuntimeException $e) {
+            if ($problemas) {
+                return response()->json([
+                    'success'   => false,
+                    'message'   => count($problemas) === 1
+                        ? $problemas[0]
+                        : 'No se puede guardar el pedido con el stock actual.',
+                    'problemas' => $problemas,
+                ], 422);
+            }
+
+            throw $e;
+        }
+
+        $order->refresh();
+
+        return response()->json([
+            'success' => true,
+            'message' => "Pedido #{$order->id} actualizado.",
+            'order'   => $order,
+            // El saldo se deriva del total nuevo; los cobros no se tocaron.
+            'summary' => $order->getPaymentSummary(),
+        ]);
+    }
+
     public function updateStatusOrders(Request $request)
     {
       // NOTA: `exists:orders,id` removido — en multi-tenant la regla usa la

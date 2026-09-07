@@ -603,6 +603,22 @@ class OrderService
     }
 
     /**
+     * Devuelve al disponible TODO lo que este pedido tenga reservado.
+     *
+     * Publico para que la edicion de un pedido pueda soltar lo viejo antes de
+     * reservar lo nuevo. Se expone este y no una copia: liberar es delicado
+     * —packs, variantes, no dejar negativos— y ya estaba resuelto aqui.
+     *
+     * No comprueba el estado del pedido: eso lo decide quien llama. Cancelar
+     * libera solo si no se despacho; editar libera porque va a reservar otra
+     * vez a continuacion.
+     */
+    public function releaseCommittedStock(Order $order): void
+    {
+        $this->releaseEcommerceCommittedStock($order);
+    }
+
+    /**
      * Libera stock_committed de los items del pedido que estén actualmente
      * reservados. Aplica ECOMMERCE_CANCEL a cada ItemWarehouse / ItemVariantWarehouse
      * hasta agotar la cantidad del pedido (o el committed disponible).
