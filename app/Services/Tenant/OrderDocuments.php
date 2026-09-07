@@ -89,6 +89,9 @@ class OrderDocuments
     /** Estados en los que el documento ya no vale: se puede volver a emitir. */
     private const ESTADO_MUERTO = ['09', '11'];
 
+    private ?BillingDocumentResolver $resolver = null;
+    private ?array $propuesta = null;
+
     public function __construct(private Order $order)
     {
     }
@@ -150,10 +153,11 @@ class OrderDocuments
         return match ($tipo) {
             self::NOTA_VENTA => null,
             self::BOLETA     => $this->bloqueoEmitidoFuera()
-                                ?? $this->bloqueoComprobante(self::FACTURA),
+                                ?? $this->bloqueoComprobante(self::FACTURA)
+                                ?? $this->bloqueoPorDatos(BillingDocumentResolver::BOLETA),
             self::FACTURA    => $this->bloqueoEmitidoFuera()
                                 ?? $this->bloqueoComprobante(self::BOLETA)
-                                ?? $this->bloqueoSinRuc(),
+                                ?? $this->bloqueoPorDatos(BillingDocumentResolver::FACTURA),
             self::GUIA       => $this->bloqueoGuia(),
             default          => null,
         };
@@ -269,19 +273,22 @@ class OrderDocuments
     }
 
     /**
-     * La factura exige RUC. No es una preferencia del sistema: es SUNAT.
+     * Faltan datos tributarios para este tipo.
+     *
+     * La lista la arma `BillingDocumentResolver`, que es donde viven las reglas
+     * de SUNAT (RUC para factura, tope de la boleta sin identificar). Aquí solo
+     * se traduce a una frase; tener las reglas en dos sitios garantizaría que un
+     * día la propuesta y el bloqueo se contradigan.
      */
-    private function bloqueoSinRuc(): ?string
+    private function bloqueoPorDatos(string $tipoSunat): ?string
     {
-        $doc = $this->documentoCliente();
+        $faltan = $this->resolver()->faltanDatos($this->order, $tipoSunat);
 
-        if (preg_match('/^\d{11}$/', $doc)) {
+        if (empty($faltan)) {
             return null;
         }
 
-        return $doc === ''
-            ? 'La factura necesita el RUC del cliente y el pedido no trae documento.'
-            : 'La factura necesita un RUC de 11 dígitos; el cliente tiene «' . $doc . '».';
+        return 'Falta ' . implode(' y ', $faltan) . '.';
     }
 
     /**
@@ -438,6 +445,10 @@ class OrderDocuments
             'pdf_url'     => $reg ? $this->pdfUrl($tipo, $reg) : null,
             // Null = se puede emitir. Con texto = no, y el texto dice por qué.
             'bloqueo'     => $reg ? null : $bloqueo,
+            // El que corresponde a este pedido según el documento del cliente,
+            // lo que pidió al comprar y lo que el operador haya corregido. La
+            // pantalla lo destaca para que el operador no tenga que deducirlo.
+            'sugerido'    => !$reg && $this->esSugerido($tipo),
         ];
     }
 
@@ -578,24 +589,41 @@ class OrderDocuments
         return is_array($items) ? $items : [];
     }
 
-    /** Documento de identidad del cliente, solo dígitos. */
-    private function documentoCliente(): string
+    /**
+     * El resolutor del tipo de comprobante, instanciado una sola vez.
+     *
+     * Sabe qué corresponde emitir y con qué datos, incluida la corrección del
+     * operador. Se comparte con la fila y con el endpoint de corrección para
+     * que los tres digan lo mismo.
+     */
+    private function resolver(): BillingDocumentResolver
     {
-        $c = $this->order->customer;
+        return $this->resolver ??= new BillingDocumentResolver();
+    }
 
-        if (is_string($c)) {
-            $c = json_decode($c, true);
-        }
-        if (is_object($c)) {
-            $c = (array) $c;
-        }
-        if (!is_array($c)) {
-            $c = [];
+    /** Qué corresponde emitir para este pedido, y qué falta. */
+    public function propuesta(): ?array
+    {
+        if (!$this->tieneContenidoFacturable()) {
+            return null;
         }
 
-        // El JSON del checkout y el de Saga no usan la misma clave.
-        $doc = $c['numero'] ?? $c['number'] ?? $c['numero_documento'] ?? '';
+        return $this->propuesta ??= $this->resolver()->resolve($this->order);
+    }
 
-        return preg_replace('/\D+/', '', (string) $doc);
+    /** Correspondencia entre los tipos de este servicio y los códigos SUNAT. */
+    private const CODIGO_SUNAT = [
+        self::NOTA_VENTA => BillingDocumentResolver::NOTA_VENTA,
+        self::BOLETA     => BillingDocumentResolver::BOLETA,
+        self::FACTURA    => BillingDocumentResolver::FACTURA,
+    ];
+
+    private function esSugerido(string $tipo): bool
+    {
+        $propuesta = $this->propuesta();
+
+        return $propuesta !== null
+            && isset(self::CODIGO_SUNAT[$tipo])
+            && self::CODIGO_SUNAT[$tipo] === $propuesta['tipo'];
     }
 }

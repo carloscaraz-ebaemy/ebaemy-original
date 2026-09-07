@@ -67,6 +67,14 @@ class OrderCollection extends ResourceCollection
             }
 
             $items    = is_array($row->items) ? $row->items : (array)($row->items ?? []);
+
+            // `$row` es un OrderResource, no el modelo: se desenvuelve porque el
+            // servicio se tipa contra `Order` a propósito — aceptar «lo que sea
+            // que responda a ->total» es como se cuelan los errores que solo
+            // aparecen en producción. Se construye UNA vez: los chips y la
+            // propuesta de facturación comparten la misma resolución.
+            $docs = \App\Services\Tenant\OrderDocuments::for($row->resource);
+
             return [
                 'id'                   => $row->id,
                 'external_id'          => $row->external_id,
@@ -193,11 +201,12 @@ class OrderCollection extends ResourceCollection
                 // que el bloque logístico: las reglas de SUNAT no pueden vivir
                 // en dos idiomas. Un tipo que no aplica a este pedido viene
                 // como `null` (el espejo de un encargo no factura nada).
-                // `$row` es un OrderResource, no el modelo: se desenvuelve
-                // porque el servicio se tipa contra `Order` a propósito —
-                // aceptar «lo que sea que responda a ->total» es como se cuelan
-                // los errores que solo aparecen en producción.
-                'documents'            => \App\Services\Tenant\OrderDocuments::for($row->resource)->toArray(),
+                'documents'            => $docs->toArray(),
+                // Con qué corresponde facturar y qué falta para poder hacerlo.
+                // Null cuando no hay venta que documentar (el espejo de un
+                // encargo). El operador puede corregirlo: hasta ahora lo decidía
+                // el comprador en el checkout y nadie más podía tocarlo.
+                'billing'              => $docs->propuesta(),
             ];
         });
 

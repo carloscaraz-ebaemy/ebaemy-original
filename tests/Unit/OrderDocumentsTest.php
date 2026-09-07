@@ -219,9 +219,40 @@ class OrderDocumentsTest extends TestCase
         $this->assertStringContainsString('RUC', $conDni[OrderDocuments::FACTURA]['bloqueo']);
 
         $conRuc = $this->docs($this->pedidoDeVenta([
-            'customer' => ['numero' => '20512345678'],
+            'customer' => [
+                'numero' => '20512345678',
+                'apellidos_y_nombres_o_razon_social' => 'Importaciones SAC',
+            ],
         ]));
         $this->assertNull($conRuc[OrderDocuments::FACTURA]['bloqueo']);
+    }
+
+    /** @test */
+    public function la_factura_tambien_exige_razon_social()
+    {
+        // Un RUC sin nombre no basta: el comprobante sale a nombre de nadie.
+        $docs = $this->docs($this->pedidoDeVenta([
+            'customer' => ['numero' => '20512345678'],
+        ]));
+
+        $this->assertStringContainsString('razón social', $docs[OrderDocuments::FACTURA]['bloqueo']);
+    }
+
+    /** @test */
+    public function una_boleta_anonima_sobre_el_tope_exige_identificar_al_cliente()
+    {
+        // SUNAT permite la boleta a «Cliente Final 00000000» solo por debajo de
+        // S/ 700. La regla ya estaba enterrada en MarketplaceInvoiceService.
+        $barata = $this->docs($this->pedidoDeVenta([
+            'total' => 500, 'customer' => [],
+        ]));
+        $this->assertNull($barata[OrderDocuments::BOLETA]['bloqueo']);
+
+        $cara = $this->docs($this->pedidoDeVenta([
+            'total' => 900, 'customer' => [],
+        ]));
+        $this->assertStringContainsString('DNI', $cara[OrderDocuments::BOLETA]['bloqueo']);
+        $this->assertStringContainsString('700', $cara[OrderDocuments::BOLETA]['bloqueo']);
     }
 
     /** @test */

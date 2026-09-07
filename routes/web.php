@@ -331,6 +331,10 @@ if ($hostname) {
             // despachar. Los pagos y los datos de envio tienen su propio camino.
             Route::post('orders/{order}/actualizar', 'Tenant\OrderController@updateManual')
                  ->whereNumber('order')->name('orders.update_manual');
+            // Corregir con qué se factura el pedido. Antes lo decidía solo el
+            // comprador en el checkout y no había forma de arreglarlo.
+            Route::post('orders/{order}/tipo-documento', 'Tenant\OrderController@tipoDocumento')
+                 ->whereNumber('order')->name('orders.billing_type');
 
             // ── Cupones de plataforma (scope=tenant) — propios de este seller ────
             Route::prefix('marketplace/coupons')->name('tenant.marketplace_coupons.')->group(function () {

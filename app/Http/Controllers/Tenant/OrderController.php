@@ -20,6 +20,8 @@ use App\Models\Tenant\Item;
 use App\Models\Tenant\SalesChannel;
 use App\Models\Tenant\Catalogs\DocumentType;
 use App\Services\Tenant\OrderService;
+use App\Services\Tenant\OrderDocuments;
+use App\Services\Tenant\BillingDocumentResolver;
 use App\Models\Tenant\OrderStatusLog;
 use App\Models\Tenant\OrderPayment;
 use App\Models\Tenant\PaymentMethodType;
@@ -1339,6 +1341,91 @@ class OrderController extends Controller
      * `sale_unit_price`). Aqui se normaliza para que el formulario no tenga que
      * conocer esa arqueologia.
      */
+    /**
+     * Corrige con qué documento se factura el pedido y sus datos tributarios.
+     *
+     * Hasta ahora esto lo decidía el COMPRADOR en el checkout y nadie podía
+     * cambiarlo. El caso que lo obliga es cotidiano: el cliente marcó «boleta»
+     * y después dejó un RUC, o el pedido vino de un canal que no manda el dato.
+     * Sin esta corrección, la única salida era emitir mal y anular con nota de
+     * crédito.
+     *
+     * NO emite nada. Guarda la elección y la deja auditada con autor y fecha.
+     * `orders.purchase` no se toca: es lo que el comprador pidió, y sobrescribirlo
+     * borraría la única prueba de ello.
+     */
+    public function tipoDocumento(Request $request, Order $order)
+    {
+        // Tenant con `tenancy:migrate` atrasado: mejor decirlo que fallar con un
+        // 1054 que el operador no puede interpretar.
+        if (!\Illuminate\Support\Facades\Schema::connection('tenant')
+                ->hasColumn('orders', 'billing_document_type_id')) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Este tenant todavía no tiene la corrección de comprobante instalada.',
+            ], 422);
+        }
+
+        if ((int) $order->status_order_id === 5) {
+            return response()->json([
+                'success' => false,
+                'message' => 'El pedido está anulado.',
+            ], 422);
+        }
+
+        $datos = $request->validate([
+            'document_type_id' => ['required', 'in:' . implode(',', BillingDocumentResolver::ELEGIBLES)],
+            // El documento se valida por FORMA, no por tipo: 8 dígitos es DNI,
+            // 11 es RUC y 9-12 cubre el carné de extranjería. Qué combinación
+            // es válida para el comprobante lo decide el resolutor, que es
+            // donde viven las reglas de SUNAT.
+            'numero'           => ['nullable', 'string', 'regex:/^\d{8,12}$/'],
+            'nombre'           => ['nullable', 'string', 'max:255'],
+        ], [
+            'numero.regex' => 'El documento debe tener entre 8 y 12 dígitos, sin letras ni guiones.',
+        ]);
+
+        // Un comprobante ya emitido no se corrige cambiando un campo: se anula
+        // con nota de crédito. Dejar tocar esto sería prometer algo que no pasa.
+        $docs = OrderDocuments::for($order->loadMissing([
+            'sale_note', 'sale_note.documents', 'document', 'marketplaceOrder', 'marketplaceOrder.document',
+        ]));
+
+        foreach ([OrderDocuments::BOLETA, OrderDocuments::FACTURA] as $tipo) {
+            if ($docs->tiene($tipo)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Este pedido ya tiene comprobante emitido. '
+                               . 'Para cambiarlo hay que anularlo con nota de crédito.',
+                ], 422);
+            }
+        }
+
+        $order->billing_document_type_id = $datos['document_type_id'];
+
+        // Solo se guardan los campos que el operador escribió. Un `billing_customer`
+        // con las claves vacías pisaría los datos buenos del checkout.
+        $corregido = array_filter([
+            'numero' => isset($datos['numero']) ? preg_replace('/\D+/', '', $datos['numero']) : null,
+            'nombre' => isset($datos['nombre']) ? trim($datos['nombre']) : null,
+        ], fn ($v) => $v !== null && $v !== '');
+
+        $order->billing_customer = $corregido ?: null;
+        $order->billing_set_by   = auth()->id();
+        $order->billing_set_at   = now();
+        $order->save();
+
+        $propuesta = (new BillingDocumentResolver())->resolve($order->refresh());
+
+        return response()->json([
+            'success'   => true,
+            'message'   => $propuesta['puede_emitir']
+                ? 'Se emitirá ' . mb_strtolower($propuesta['nombre']) . '.'
+                : 'Guardado, pero todavía falta ' . implode(' y ', $propuesta['faltan']) . '.',
+            'propuesta' => $propuesta,
+        ]);
+    }
+
     public function record(Order $order)
     {
         $cliente = (array) ($order->customer ?? []);

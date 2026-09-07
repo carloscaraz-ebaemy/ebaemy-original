@@ -619,6 +619,22 @@
                                         encargo de un envío, sin productos ni importe.
                                     </p>
 
+                                    <!-- Con qué corresponde facturar. Hasta ahora
+                                         lo decidia el comprador en el checkout y
+                                         nadie mas podia tocarlo. -->
+                                    <div v-if="row.billing" class="ord-doc-billing">
+                                        <span class="ord-doc-billing-lbl">
+                                            Corresponde: <b>{{ row.billing.nombre }}</b>
+                                        </span>
+                                        <small>{{ row.billing.motivo }}</small>
+                                        <el-button
+                                            size="mini"
+                                            class="ord-doc-fix"
+                                            @click="corregirComprobante(row)"
+                                            >Corregir</el-button
+                                        >
+                                    </div>
+
                                     <!-- Datos de Saga que no salen de `documents`:
                                          donde se emitio y si el pedido se devolvio.
                                          Es informacion real y se conserva. -->
@@ -644,7 +660,10 @@
                                         v-for="s in documentSlots(row)"
                                         :key="s.tipo"
                                         class="ord-doc-chip"
-                                        :class="'is-' + docTone(s)"
+                                        :class="[
+                                            'is-' + docTone(s),
+                                            { 'is-sugerido': s.sugerido },
+                                        ]"
                                         :title="docTitle(s)"
                                         >{{ s.chip }}</span
                                     >
@@ -853,6 +872,15 @@
             :code="guideCode"
             @saved="refrescarTrasEnvio"
         ></shipment-guide>
+
+        <!-- Con que se factura el pedido. Fase C: antes lo decidia solo el
+             comprador en el checkout. -->
+        <billing-type
+            :showDialog.sync="showBillingDialog"
+            :orderId="billingOrderId"
+            :billing="billingData"
+            @saved="refrescarTrasEnvio"
+        ></billing-type>
 
         <!-- Historial: estados del pedido + bitácora del envío + impresiones. -->
         <order-timeline
@@ -1250,6 +1278,34 @@
 .ord-doc-none {
     margin: 0;
 }
+/* El que corresponde emitir: contorno solido para distinguirlo del resto sin
+   gritar. No es un estado alcanzado, es una recomendacion. */
+.ord-doc-chip.is-sugerido {
+    box-shadow: inset 0 0 0 1.5px #0f766e;
+}
+.ord-doc-billing {
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px solid #e2e8f0;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+.ord-doc-billing-lbl {
+    font-size: 12px;
+    color: #334155;
+}
+.ord-doc-billing small {
+    flex: 1 1 100%;
+    order: 3;
+    color: #64748b;
+    font-size: 11.5px;
+    line-height: 1.35;
+}
+.ord-doc-fix {
+    margin-left: auto;
+}
 /* ── Columna "Entrega" ───────────────────────────────────────────────── */
 .ord-ship-cell {
     display: flex;
@@ -1607,12 +1663,14 @@ import OrderTimeline from "./partials/order_timeline.vue";
 import RecordPayments from "../partials/record_payments.vue";
 import ManualOrder from "./partials/manual_order.vue";
 import ShipmentGuide from "./partials/shipment_guide.vue";
+import BillingType from "./partials/billing_type.vue";
 
 export default {
     props: ["user"],
 
     components: {
         ShipmentGuide,
+        BillingType,
         ManualOrder,
         DataTable,
         OptionsForm,
@@ -1735,6 +1793,9 @@ export default {
             showGuideDialog: false,
             guideOrderId: null,
             guideCode: "",
+            showBillingDialog: false,
+            billingOrderId: null,
+            billingData: null,
             // null = alta; con id, el mismo dialogo edita ese pedido.
             manualOrderId: null,
             // A donde apunta el panel de pagos. Un encargo logistico cobra
@@ -2091,6 +2152,18 @@ export default {
             }
 
             return s.bloqueo || s.nombre + ": se puede emitir.";
+        },
+
+        /**
+         * Abre la correccion del comprobante.
+         *
+         * Se le pasa el bloque `billing` de la fila tal cual: el dialogo no
+         * recalcula nada, solo muestra lo que el servidor ya resolvio.
+         */
+        corregirComprobante(row) {
+            this.billingOrderId = row.id;
+            this.billingData = row.billing;
+            this.showBillingDialog = true;
         },
         isMarketplace(row) {
             const ref = (row.reference_payment || "").toUpperCase();

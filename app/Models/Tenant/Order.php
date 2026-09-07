@@ -32,6 +32,13 @@
             'number_document',
             'status_order_id',
             'purchase',
+            // Con qué se documenta el pedido cuando el operador lo corrige.
+            // `purchase` NO se toca: es lo que el COMPRADOR pidió, y es la
+            // única prueba de ello. Ver la migración add_billing_choice_to_orders.
+            'billing_document_type_id',
+            'billing_customer',
+            'billing_set_by',
+            'billing_set_at',
             'apply_restaurant',
             // Canal de venta
             'channel_id',
@@ -60,6 +67,8 @@
             'customer' => 'array',
             'items' => 'array',
             'purchase' => 'array',
+            'billing_customer' => 'array',
+            'billing_set_at' => 'datetime',
             'discounts' => 'array',
             'prepared_at' => 'datetime',
             'dispatched_at' => 'datetime',
