@@ -532,7 +532,20 @@
                                 >
                             </template>
                             <template v-else>
+                                <!-- Con un envío anulado detrás, «Configurar
+                                     envío» a secas ocultaba que hubo uno. -->
+                                <div v-if="row.shipment_cancelled" class="ord-ship-void">
+                                    <span
+                                        class="ord-ship-void-tag"
+                                        :title="'El envío ' + row.shipment_cancelled.code + ' fue anulado. Puedes restaurarlo o configurar uno nuevo.'"
+                                        >Envío anulado</span
+                                    >
+                                    <button class="ord-ship-cta" @click="restaurarEnvio(row)">
+                                        <i class="fas fa-undo"></i> Restaurar
+                                    </button>
+                                </div>
                                 <button
+                                    v-else
                                     class="ord-ship-cta"
                                     @click="openShipment(row)"
                                 >
@@ -952,6 +965,21 @@
 /* Saldo del encargo logistico. Su dinero vive en el envio, asi que la celda
    de Total muestra el importe a cobrar y, debajo, lo que falta. En rojo solo
    cuando queda deuda: es la unica parte que pide accion. */
+.ord-ship-void {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+.ord-ship-void-tag {
+    font-size: 11px;
+    font-weight: 600;
+    color: #7c2d12;
+    background: #ffedd5;
+    padding: 2px 8px;
+    border-radius: 999px;
+    white-space: nowrap;
+}
 .ord-ship-missing {
     display: inline-block;
     font-size: 11px;
@@ -1917,6 +1945,24 @@ export default {
             const dt = this.$refs.ordersTable;
             if (dt) dt.getRecords();
             this.loadChipCounts();
+        },
+
+        /** Devuelve a la vida un envio anulado, con su motivo en la bitacora. */
+        restaurarEnvio(row) {
+            const c = row.shipment_cancelled;
+            if (!c) return;
+
+            this.$prompt(
+                "Motivo de la restauración (queda en la bitácora). El envío vuelve " +
+                    "al estado en que estaba antes de anularse.",
+                "Restaurar envío " + (c.code || ""),
+                { confirmButtonText: "Restaurar", cancelButtonText: "Cancelar" }
+            )
+                .then(({ value }) =>
+                    this.$http.post(`/orders/${row.id}/envio/restaurar`, { reason: value || null })
+                )
+                .then(r => this.trasAccionDeEnvio(r))
+                .catch(e => this.trasAccionDeEnvio(e, true));
         },
 
         subirGuia(row) {

@@ -180,6 +180,24 @@ class OrderCollection extends ResourceCollection
                 // configurado: la tabla lo pinta como "Sin envío" y ofrece el
                 // botón de configurarlo. NO es un error de datos.
                 'shipment'             => $this->shipmentPayload($row, $maxDays, $skipHolidays, $requirePayment),
+                // Un envio ANULADO se sigue dejando fuera de `shipment`, a
+                // proposito: no es la entrega vigente y no debe entrar en los
+                // chips ni en la columna de logistica. Pero la fila decia
+                // «Configurar envio», como si nunca hubiera existido — y eso no
+                // es neutral, es falso. Se expone aparte para poder decir la
+                // verdad y ofrecer restaurarlo.
+                'shipment_cancelled'   => $this->cancelledShipmentPayload($row),
+                // Nota de venta, boleta, factura y guía de remisión: qué hay,
+                // qué corresponde y por qué no se puede emitir lo que falta.
+                // Todo resuelto en `OrderDocuments` y no en Vue, por lo mismo
+                // que el bloque logístico: las reglas de SUNAT no pueden vivir
+                // en dos idiomas. Un tipo que no aplica a este pedido viene
+                // como `null` (el espejo de un encargo no factura nada).
+                // `$row` es un OrderResource, no el modelo: se desenvuelve
+                // porque el servicio se tipa contra `Order` a propósito —
+                // aceptar «lo que sea que responda a ->total» es como se cuelan
+                // los errores que solo aparecen en producción.
+                'documents'            => \App\Services\Tenant\OrderDocuments::for($row->resource)->toArray(),
             ];
         });
 
@@ -203,6 +221,30 @@ class OrderCollection extends ResourceCollection
      * despachado SI se puede reimprimir indicando el motivo — eso no es un
      * bloqueo sino un paso mas, y lo cubre `needs_reason`.
      */
+    /**
+     * El envio anulado del pedido, si lo hay y no ha sido reemplazado.
+     *
+     * Solo se informa cuando NO existe un envio vigente: si el operador ya
+     * configuro uno nuevo, el anulado es historia y no tiene que asomar en la
+     * fila.
+     *
+     * @return array{id: int, code: ?string}|null
+     */
+    private function cancelledShipmentPayload($row): ?array
+    {
+        if (!$row->relationLoaded('shipment')) {
+            return null;
+        }
+
+        $s = $row->shipment;
+
+        if (!$s || !$s->cancelled_at) {
+            return null;
+        }
+
+        return ['id' => $s->id, 'code' => $s->shipment_code];
+    }
+
     /**
      * Saldo del pedido, o null si no hay nada que afirmar.
      *

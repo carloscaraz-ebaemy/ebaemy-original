@@ -198,6 +198,74 @@
             return $this->hasOne(SaleNote::class);
         }
 
+        /**
+         * Comprobantes electrónicos del pedido (boleta, factura, notas).
+         *
+         * El enlace NO es directo: el pedido genera una nota de venta y ES ESA
+         * la que se convierte en comprobante (`documents.sale_note_id`). Ese
+         * grafo ya existía y es el que usa la pantalla de Notas de Venta; aquí
+         * solo se le da nombre desde el pedido para no reconstruirlo a mano en
+         * cada consulta.
+         *
+         * Ojo: un pedido de Saga puede tener comprobante SIN pasar por aquí —
+         * `MarketplaceInvoiceService` lo enlaza por `orders.document_external_id`
+         * porque necesita subir el PDF al portal en el mismo acto. Quien
+         * pregunte «¿tiene comprobante?» debe mirar los dos caminos; eso lo
+         * resuelve `OrderDocuments`.
+         */
+        public function documents()
+        {
+            return $this->hasManyThrough(
+                Document::class,
+                SaleNote::class,
+                'order_id',      // sale_notes.order_id
+                'sale_note_id',  // documents.sale_note_id
+                'id',
+                'id'
+            );
+        }
+
+        /**
+         * El comprobante enlazado directamente en el pedido.
+         *
+         * `orders.document_external_id` es el tercer camino por el que un
+         * pedido puede acabar con boleta o factura, además de la nota de venta
+         * y del enlace de marketplace. Lo escriben el flujo antiguo del panel
+         * («Generar comprobante» al pasar a estado 2) y también
+         * `MarketplaceInvoiceService`.
+         *
+         * Se enlaza por `external_id`, no por `id`: es la columna que el pedido
+         * guarda, y es la misma que usan las rutas de impresión.
+         */
+        public function document()
+        {
+            return $this->belongsTo(Document::class, 'document_external_id', 'external_id');
+        }
+
+        /**
+         * Guía de remisión del pedido, a través de su envío.
+         *
+         * La guía cuelga del registro logístico (`shipping_requests.dispatch_id`),
+         * no del pedido: quien la emite es el panel de Envíos. Esta relación es
+         * el atajo para responder «¿este despacho ya tiene guía?» desde Pedidos
+         * sin encadenar dos consultas.
+         *
+         * Igual que el resto de relaciones logísticas, no usarla en tenants sin
+         * el módulo instalado: comprobar `ShippingRequest::moduleInstalled()`
+         * antes de precargarla o el eager loading revienta con un 1146.
+         */
+        public function dispatch()
+        {
+            return $this->hasOneThrough(
+                Dispatch::class,
+                ShippingRequest::class,
+                'order_id',    // shipping_requests.order_id
+                'id',          // dispatches.id
+                'id',
+                'dispatch_id'  // shipping_requests.dispatch_id
+            );
+        }
+
         public function payments()
         {
             return $this->hasMany(OrderPayment::class);

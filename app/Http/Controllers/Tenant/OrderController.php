@@ -187,6 +187,14 @@ class OrderController extends Controller
                 // Sin recorte de columnas: `number_full` es un accesor que se
                 // arma con varias de ellas y un select parcial lo dejaría vacío.
                 'sale_note',
+                // Los comprobantes cuelgan de la NV, no del pedido. Sin esta
+                // precarga, `OrderDocuments` responde «no hay boleta» para un
+                // pedido que sí la tiene: el servicio no dispara consultas a
+                // propósito, para no meter 20 por página.
+                'sale_note.documents:id,sale_note_id,document_type_id,state_type_id,series,number,external_id,date_of_issue,response_regularize_shipping',
+                // Tercer camino al comprobante: el pedido lo enlaza en crudo
+                // por `document_external_id`. Ver `Order::document()`.
+                'document:id,document_type_id,state_type_id,series,number,external_id,date_of_issue,response_regularize_shipping',
                 'warehouse:id,description',
             ]);
 
@@ -199,6 +207,11 @@ class OrderController extends Controller
                 $query->with([
                     'marketplaceOrder:id,order_id,channel_id,external_order_id,status,customer_data,shipping_data,invoice_uploaded_at,document_id',
                     'marketplaceOrder.channel:id,platform,name',
+                    // La boleta de Saga NO cuelga de la nota de venta: se
+                    // enlaza aquí. Sin precargarla, un pedido ya facturado
+                    // aparecería como «sin comprobante» y se podría emitir dos
+                    // veces. Ver `OrderDocuments::comprobante()`.
+                    'marketplaceOrder.document:id,document_type_id,state_type_id,series,number,external_id,date_of_issue,response_regularize_shipping',
                 ]);
             }
 
@@ -207,7 +220,14 @@ class OrderController extends Controller
             // Condicionado a que el tenant tenga el módulo: sin la tabla, el
             // eager loading tumbaría la pantalla de pedidos entera.
             if (ShippingRequest::moduleInstalled()) {
-                $query->with(['shipment', 'shipment.printBatch:id,code,status']);
+                $query->with([
+                    'shipment',
+                    'shipment.printBatch:id,code,status',
+                    // La guía de remisión, por el mismo motivo que los
+                    // comprobantes: `OrderDocuments` la lee de aquí o la da
+                    // por inexistente.
+                    'shipment.dispatch:id,state_type_id,series,number,external_id,date_of_issue',
+                ]);
             }
         }
 
