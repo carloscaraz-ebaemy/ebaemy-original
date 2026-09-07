@@ -192,6 +192,24 @@ class OrderDocumentsTest extends TestCase
         $this->assertSame('Aceptado', $docs[OrderDocuments::BOLETA]['estado_label']);
     }
 
+    /** @test */
+    public function un_comprobante_emitido_en_el_portal_del_canal_bloquea_la_emision()
+    {
+        // Saga permite emitir desde su portal: el pedido queda con
+        // `invoice_uploaded_at` y SIN Document local. Sin esta guarda los tres
+        // caminos dan «no existe» y la pantalla ofrecería emitir el segundo
+        // comprobante de una venta ya documentada.
+        $order = $this->pedidoDeVenta();
+        $mo = new \App\Models\Tenant\MarketplaceOrder(['invoice_uploaded_at' => now()]);
+        $order->setRelation('marketplaceOrder', $mo);
+
+        $docs = $this->docs($order);
+
+        $this->assertFalse($docs[OrderDocuments::BOLETA]['existe']);
+        $this->assertStringContainsString('fuera de EBAEMY', $docs[OrderDocuments::BOLETA]['bloqueo']);
+        $this->assertStringContainsString('fuera de EBAEMY', $docs[OrderDocuments::FACTURA]['bloqueo']);
+    }
+
     // ── Factura: la exige SUNAT, no el sistema ────────────────────────────
 
     /** @test */

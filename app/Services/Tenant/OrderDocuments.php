@@ -149,8 +149,10 @@ class OrderDocuments
 
         return match ($tipo) {
             self::NOTA_VENTA => null,
-            self::BOLETA     => $this->bloqueoComprobante(self::FACTURA),
-            self::FACTURA    => $this->bloqueoComprobante(self::BOLETA)
+            self::BOLETA     => $this->bloqueoEmitidoFuera()
+                                ?? $this->bloqueoComprobante(self::FACTURA),
+            self::FACTURA    => $this->bloqueoEmitidoFuera()
+                                ?? $this->bloqueoComprobante(self::BOLETA)
                                 ?? $this->bloqueoSinRuc(),
             self::GUIA       => $this->bloqueoGuia(),
             default          => null,
@@ -238,6 +240,32 @@ class OrderDocuments
              . ' ' . $this->numeroDe($elOtro, $otro)
              . '. Una venta se documenta con un solo comprobante: para cambiarlo hay que '
              . 'anular el emitido con nota de crédito.';
+    }
+
+    /**
+     * El comprobante ya se emitió FUERA de EBAEMY.
+     *
+     * En Saga, el vendedor puede emitir la boleta desde el portal del canal;
+     * el pedido queda con `invoice_uploaded_at` y sin ningún `Document` local.
+     * Como aquí no hay fila que encontrar, los tres caminos del comprobante
+     * dan «no existe» y la pantalla diría «se puede emitir» sobre una venta ya
+     * documentada. Esa es la vía más fácil de duplicar un comprobante ante
+     * SUNAT, y no la cubría nada.
+     */
+    private function bloqueoEmitidoFuera(): ?string
+    {
+        if (!$this->order->relationLoaded('marketplaceOrder')) {
+            return null;
+        }
+
+        $mo = $this->order->marketplaceOrder;
+
+        if (!$mo || !$mo->invoice_uploaded_at) {
+            return null;
+        }
+
+        return 'El comprobante de este pedido ya se emitió en el portal del canal, '
+             . 'fuera de EBAEMY. Emitir otro aquí duplicaría la venta ante SUNAT.';
     }
 
     /**

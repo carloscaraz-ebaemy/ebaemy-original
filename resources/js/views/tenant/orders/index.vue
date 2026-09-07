@@ -553,35 +553,114 @@
                                 </button>
                             </template>
                         </td>
+                        <!-- Documentos del pedido.
+                             Antes esta celda solo sabia hablar de Saga: para un
+                             pedido de ecommerce o manual no decia casi nada. Ahora
+                             son cuatro chips (NV, B, F, GR) que se leen de un
+                             vistazo, y el clic abre el detalle.
+                             Los chips y sus estados los resuelve `OrderDocuments`
+                             en PHP: aqui no se decide nada, solo se pinta. Un tipo
+                             que NO corresponde a este pedido no viene en el
+                             payload y por eso no se dibuja — pintarlo en gris
+                             invitaria a intentar algo que el sistema rechaza. -->
                         <td class="text-center" data-label="Documento">
-                            <span
-                                v-if="row.mp_invoice_state === 'alert'"
-                                class="ord-doc-badge ord-doc-alert"
-                                title="La boleta está emitida pero Saga devolvió o canceló el pedido: hay que emitir una Nota de Crédito."
-                                >⚠ {{ row.number_document || "Facturado" }} · devuelto</span
+                            <el-popover
+                                placement="left"
+                                width="320"
+                                trigger="click"
+                                popper-class="ord-doc-pop"
                             >
-                            <span
-                                v-else-if="row.number_document"
-                                class="ord-doc-badge ord-doc-ok"
-                                >{{ row.number_document }}</span
-                            >
-                            <span
-                                v-else-if="row.document_type_id == '80' && row.sale_note_number_full"
-                                >{{ row.sale_note_number_full }}</span
-                            >
-                            <span
-                                v-else-if="row.mp_invoice_state === 'external'"
-                                class="ord-doc-badge ord-doc-ext"
-                                title="El comprobante lo emitió el vendedor en el portal de Saga, fuera de EBAEMY. No hay nada pendiente."
-                                >Emitida en Saga</span
-                            >
-                            <span
-                                v-else-if="row.mp_invoice_state === 'pending'"
-                                class="ord-doc-badge ord-doc-pend"
-                                title="Este pedido todavía no tiene comprobante. Emítelo desde el menú de acciones y se sube a Saga."
-                                >Falta emitir</span
-                            >
-                            <span v-else class="text-muted">—</span>
+                                <div class="ord-doc-panel">
+                                    <div
+                                        v-for="s in documentSlots(row)"
+                                        :key="s.tipo"
+                                        class="ord-doc-item"
+                                    >
+                                        <div class="ord-doc-item-head">
+                                            <span class="ord-doc-name">{{ s.nombre }}</span>
+                                            <span
+                                                class="ord-doc-state"
+                                                :class="'is-' + docTone(s)"
+                                                >{{ s.estado_label }}</span
+                                            >
+                                        </div>
+                                        <div v-if="s.existe" class="ord-doc-line">
+                                            <span class="ord-doc-num">{{ s.numero }}</span>
+                                            <span v-if="s.fecha" class="ord-doc-date">{{
+                                                s.fecha
+                                            }}</span>
+                                            <a
+                                                v-if="s.pdf_url"
+                                                :href="s.pdf_url"
+                                                target="_blank"
+                                                rel="noopener"
+                                                class="ord-doc-pdf"
+                                                >Ver PDF</a
+                                            >
+                                        </div>
+                                        <!-- El motivo del bloqueo es lo unico util
+                                             de un «no se puede»: dice que corregir. -->
+                                        <p v-else-if="s.bloqueo" class="ord-doc-why">
+                                            {{ s.bloqueo }}
+                                        </p>
+                                        <p v-else class="ord-doc-ready">
+                                            Se puede emitir.
+                                        </p>
+                                        <p v-if="s.motivo_error" class="ord-doc-err">
+                                            SUNAT: {{ s.motivo_error }}
+                                        </p>
+                                    </div>
+
+                                    <p
+                                        v-if="!documentSlots(row).length"
+                                        class="ord-doc-none"
+                                    >
+                                        Este pedido no documenta una venta: es el
+                                        encargo de un envío, sin productos ni importe.
+                                    </p>
+
+                                    <!-- Datos de Saga que no salen de `documents`:
+                                         donde se emitio y si el pedido se devolvio.
+                                         Es informacion real y se conserva. -->
+                                    <p
+                                        v-if="row.mp_invoice_state === 'external'"
+                                        class="ord-doc-saga"
+                                    >
+                                        El comprobante lo emitió el vendedor en el
+                                        portal de Saga, fuera de EBAEMY.
+                                    </p>
+                                    <p
+                                        v-if="row.mp_invoice_state === 'alert'"
+                                        class="ord-doc-err"
+                                    >
+                                        Saga devolvió o canceló este pedido con la
+                                        boleta ya emitida: hay que emitir una Nota de
+                                        Crédito.
+                                    </p>
+                                </div>
+
+                                <div slot="reference" class="ord-doc-chips">
+                                    <span
+                                        v-for="s in documentSlots(row)"
+                                        :key="s.tipo"
+                                        class="ord-doc-chip"
+                                        :class="'is-' + docTone(s)"
+                                        :title="docTitle(s)"
+                                        >{{ s.chip }}</span
+                                    >
+                                    <span
+                                        v-if="!documentSlots(row).length"
+                                        class="text-muted"
+                                        title="Un encargo de envío no genera documentos comerciales."
+                                        >—</span
+                                    >
+                                    <i
+                                        v-if="row.mp_invoice_state === 'alert'"
+                                        class="fas fa-exclamation-triangle ord-doc-flag"
+                                        title="Saga devolvió el pedido con la boleta emitida."
+                                    ></i>
+                                </div>
+                            </el-popover>
                         </td>
                         <td class="text-end" data-label="Opciones">
                             <!-- Todas las acciones en un menu: sueltas no
@@ -1036,6 +1115,140 @@
 .ord-doc-pend {
     background: #fef3c7;
     color: #92400e;
+}
+/* ── Columna "Documentos": chips + panel ─────────────────────────────
+   Cuatro siglas en una celda estrecha. El color dice el estado y el clic
+   abre el detalle; asi la columna cabe sin convertirse en una fila de
+   botones. Los tonos son los mismos que usa el resto de la tabla. */
+.ord-doc-chips {
+    display: inline-flex;
+    gap: 4px;
+    align-items: center;
+    cursor: pointer;
+    flex-wrap: wrap;
+    justify-content: center;
+}
+.ord-doc-chip {
+    display: inline-block;
+    min-width: 26px;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    line-height: 1.5;
+    border: 1px solid transparent;
+}
+/* Emitido y vigente. */
+.ord-doc-chip.is-ok {
+    background: #dcfce7;
+    color: #166534;
+}
+/* En curso ante SUNAT: registrado o enviado, todavia sin respuesta. */
+.ord-doc-chip.is-pend {
+    background: #dbeafe;
+    color: #1e40af;
+}
+/* Observado o por anular: hay algo que atender. */
+.ord-doc-chip.is-warn {
+    background: #fef3c7;
+    color: #92400e;
+}
+/* Rechazado o anulado. */
+.ord-doc-chip.is-err {
+    background: #fee2e2;
+    color: #b91c1c;
+}
+/* Se puede emitir ya: contorno, no relleno — no es un estado alcanzado. */
+.ord-doc-chip.is-ready {
+    background: #fff;
+    color: #475569;
+    border-color: #94a3b8;
+    border-style: dashed;
+}
+/* Falta algo antes de poder emitirlo. Apagado a proposito. */
+.ord-doc-chip.is-off {
+    background: #f1f5f9;
+    color: #94a3b8;
+}
+.ord-doc-flag {
+    color: #b91c1c;
+    font-size: 11px;
+    margin-left: 2px;
+}
+.ord-doc-panel {
+    font-size: 12.5px;
+    line-height: 1.45;
+    text-align: left;
+}
+.ord-doc-item + .ord-doc-item {
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px solid #e2e8f0;
+}
+.ord-doc-item-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 8px;
+}
+.ord-doc-name {
+    font-weight: 600;
+    color: #0f172a;
+}
+.ord-doc-state {
+    font-size: 10.5px;
+    font-weight: 700;
+    padding: 1px 6px;
+    border-radius: 3px;
+    white-space: nowrap;
+}
+.ord-doc-state.is-ok { background: #dcfce7; color: #166534; }
+.ord-doc-state.is-pend { background: #dbeafe; color: #1e40af; }
+.ord-doc-state.is-warn { background: #fef3c7; color: #92400e; }
+.ord-doc-state.is-err { background: #fee2e2; color: #b91c1c; }
+.ord-doc-state.is-ready,
+.ord-doc-state.is-off { background: #f1f5f9; color: #64748b; }
+.ord-doc-line {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-top: 3px;
+}
+.ord-doc-num {
+    font-weight: 600;
+    color: #1e293b;
+    font-variant-numeric: tabular-nums;
+}
+.ord-doc-date {
+    color: #64748b;
+    font-size: 11.5px;
+}
+.ord-doc-pdf {
+    margin-left: auto;
+    font-size: 11.5px;
+    font-weight: 600;
+}
+.ord-doc-why,
+.ord-doc-ready,
+.ord-doc-none,
+.ord-doc-saga {
+    margin: 3px 0 0;
+    color: #64748b;
+    font-size: 11.5px;
+}
+.ord-doc-ready {
+    color: #15803d;
+}
+.ord-doc-err {
+    margin: 4px 0 0;
+    color: #b91c1c;
+    font-size: 11.5px;
+    font-weight: 500;
+}
+.ord-doc-none {
+    margin: 0;
 }
 /* ── Columna "Entrega" ───────────────────────────────────────────────── */
 .ord-ship-cell {
@@ -1817,6 +2030,67 @@ export default {
         isSagaOrder(row) {
             return !!row.mp_order_id
                 && String(row.mp_platform || "").toLowerCase() === "falabella";
+        },
+
+        // ── Columna «Documentos» ──────────────────────────────────────
+        //
+        // Estos tres metodos SOLO traducen a pixeles lo que ya viene resuelto
+        // desde PHP. No deciden si un documento corresponde, ni si se puede
+        // emitir, ni por que no: eso son reglas de SUNAT y viven en
+        // `OrderDocuments`. Duplicarlas aqui garantizaria que un dia la
+        // pantalla y el servidor digan cosas distintas.
+
+        /**
+         * Los documentos que corresponden a este pedido, en orden de lectura.
+         *
+         * El backend manda `null` para los que no aplican —el espejo de un
+         * encargo no factura nada— y aqui se descartan: un chip gris que no
+         * lleva a ninguna parte es peor que ningun chip.
+         */
+        documentSlots(row) {
+            const d = row.documents || {};
+
+            return ["nota_venta", "boleta", "factura", "guia"]
+                .map(k => d[k])
+                .filter(Boolean);
+        },
+
+        /**
+         * Color del chip. Cuatro tonos, no siete: el operador necesita saber
+         * si algo esta hecho, en curso, mal o pendiente — el detalle exacto lo
+         * lee al abrir el panel.
+         */
+        docTone(s) {
+            if (!s.existe) {
+                // Sin bloqueo = listo para emitir; con bloqueo = falta algo.
+                return s.bloqueo ? "off" : "ready";
+            }
+
+            switch (s.estado) {
+                case "aceptado":
+                case "emitido":
+                    return "ok";
+                case "registrado":
+                case "enviado":
+                    return "pend";
+                case "observado":
+                case "por_anular":
+                    return "warn";
+                case "rechazado":
+                case "anulado":
+                    return "err";
+                default:
+                    return "ok";
+            }
+        },
+
+        /** El tooltip del chip: lo mismo que el panel, en una linea. */
+        docTitle(s) {
+            if (s.existe) {
+                return s.nombre + " " + s.numero + " · " + s.estado_label;
+            }
+
+            return s.bloqueo || s.nombre + ": se puede emitir.";
         },
         isMarketplace(row) {
             const ref = (row.reference_payment || "").toUpperCase();
