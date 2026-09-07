@@ -1289,6 +1289,25 @@ class OrderController extends Controller
     private const ESTADOS_EDITABLES = [1, 2, 3];
 
     /**
+     * Estados en los que ademas se pueden cambiar las LINEAS.
+     *
+     * Mas corto que ESTADOS_EDITABLES a proposito. En «en preparacion» (3) el
+     * pedido ya tiene stock comprometido y, casi siempre, el rotulo impreso:
+     * cambiar los productos ahi deja una etiqueta que dice una cosa y una caja
+     * que lleva otra, y el rotulo no se marca solo como desactualizado.
+     *
+     * Corregir el telefono o el nombre del cliente en preparacion SI se
+     * permite: no cambia lo que va dentro de la caja.
+     */
+    private const ESTADOS_LINEAS_EDITABLES = [1, 2];
+
+    /** ¿Se pueden cambiar los productos de este pedido? */
+    private function lineasEditables(Order $order): bool
+    {
+        return in_array((int) $order->status_order_id, self::ESTADOS_LINEAS_EDITABLES, true);
+    }
+
+    /**
      * Un pedido, con lo justo para volver a abrirlo en el formulario.
      *
      * La ruta `orders/record/{order}` existia desde hace tiempo apuntando a un
@@ -1327,6 +1346,9 @@ class OrderController extends Controller
             'status_order_id' => (int) $order->status_order_id,
             // Que la pantalla sepa si puede editar sin repetir la regla.
             'editable'   => in_array((int) $order->status_order_id, self::ESTADOS_EDITABLES, true),
+            // Distinto de `editable`: en preparacion se corrige el cliente
+            // pero no los productos. El formulario bloquea las lineas con esto.
+            'lines_editable' => $this->lineasEditables($order),
             'customer'   => [
                 'name'            => $cliente['apellidos_y_nombres_o_razon_social'] ?? ($cliente['name'] ?? ''),
                 'document_number' => $cliente['numero_documento'] ?? ($cliente['numero'] ?? ''),
@@ -1374,6 +1396,29 @@ class OrderController extends Controller
             'items.*.item_id'  => 'required|integer',
             'items.*.quantity' => 'required|numeric|min:0.01',
         ]);
+
+        // En preparacion solo se corrigen los datos del cliente. Se comprueba
+        // en el SERVIDOR y no solo bloqueando el formulario: deshabilitar un
+        // campo en pantalla no es un control, una peticion a mano se lo salta.
+        if (!$this->lineasEditables($order)) {
+            if ($this->lineasCambian($order, $request->items)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Este pedido ya esta en preparacion: puedes corregir los '
+                        . 'datos del cliente, pero no los productos. Si hay que cambiar el '
+                        . 'contenido, anulalo y crea uno nuevo.',
+                ], 422);
+            }
+
+            $this->guardarCliente($order, $request);
+
+            return response()->json([
+                'success' => true,
+                'message' => "Datos del cliente del pedido #{$order->id} actualizados.",
+                'order'   => $order->fresh(),
+                'summary' => $order->getPaymentSummary(),
+            ]);
+        }
 
         $warehouseId = $order->warehouse_id;
         $stock       = app(\App\Services\Tenant\StockReservation::class);
@@ -1453,6 +1498,59 @@ class OrderController extends Controller
             // El saldo se deriva del total nuevo; los cobros no se tocaron.
             'summary' => $order->getPaymentSummary(),
         ]);
+    }
+
+    /**
+     * ¿Las lineas que llegan son otras que las guardadas?
+     *
+     * Compara el resultado de `construirLineas` contra lo que hay en el
+     * pedido, no el crudo del formulario: asi un precio que el usuario no
+     * puede cambiar —y que el servidor sustituye por el del catalogo— no
+     * cuenta como cambio y no bloquea una correccion legitima del cliente.
+     */
+    private function lineasCambian(Order $order, $filas): bool
+    {
+        $huella = function (array $lineas) {
+            return collect($lineas)->map(function ($l) {
+                $l = (array) $l;
+
+                return [
+                    (int) ($l['item_id'] ?? $l['id'] ?? 0),
+                    $l['variant_id'] ?? null,
+                    (float) ($l['quantity'] ?? 0),
+                    round((float) ($l['unit_price'] ?? $l['sale_unit_price'] ?? 0), 2),
+                    round((float) ($l['discount'] ?? 0), 2),
+                ];
+            })->sortBy(fn ($x) => $x[0] . '|' . $x[1])->values()->all();
+        };
+
+        $nuevas  = $this->construirLineas(is_array($filas) ? $filas : []);
+        $actuales = is_array($order->items) ? $order->items : [];
+
+        return $huella($nuevas['items']) !== $huella($actuales);
+    }
+
+    /** Cliente del pedido, sin tocar lineas, totales ni stock. */
+    private function guardarCliente(Order $order, Request $request): void
+    {
+        $persona = \App\Models\Tenant\Person::resolveCustomer(
+            $request->customer['document_number'] ?? null,
+            $request->customer['name'] ?? null,
+            [
+                'telephone' => $request->customer['phone'] ?? null,
+                'email'     => $request->customer['email'] ?? null,
+            ]
+        );
+
+        $order->fill([
+            'person_id' => $persona?->id ?: $order->person_id,
+            'customer'  => [
+                'apellidos_y_nombres_o_razon_social' => $request->customer['name'],
+                'correo_electronico' => $request->customer['email'] ?? null,
+                'telefono'           => $request->customer['phone'] ?? null,
+                'numero_documento'   => $request->customer['document_number'] ?? null,
+            ],
+        ])->save();
     }
 
     public function updateStatusOrders(Request $request)

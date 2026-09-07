@@ -72,6 +72,15 @@
 
         <!-- ── Productos ─────────────────────────────────────────────── -->
         <h4 class="mo-sec">Productos</h4>
+        <!-- En preparacion el pedido ya tiene stock comprometido y casi
+             siempre el rotulo impreso: cambiar los productos dejaria una
+             etiqueta que dice una cosa y una caja que lleva otra. Los datos
+             del cliente si se corrigen. -->
+        <div v-if="!lineasEditables" class="mo-frozen">
+            Este pedido ya está en preparación: los productos quedaron fijados.
+            Puedes corregir los datos del cliente. Si hay que cambiar el
+            contenido, anúlalo y crea uno nuevo.
+        </div>
         <div class="mo-row">
             <div class="mo-field">
                 <el-select
@@ -80,6 +89,7 @@
                     remote
                     reserve-keyword
                     clearable
+                    :disabled="!lineasEditables"
                     placeholder="Busca por nombre o código y elige para agregarlo"
                     :remote-method="buscarProductos"
                     :loading="buscando"
@@ -126,7 +136,7 @@
                             <span v-else :class="{ 'mo-over': l.quantity > l.available }">{{ l.available }}</span>
                         </td>
                         <td class="num">
-                            <el-input-number v-model="l.quantity" :min="1" :step="1" size="mini" controls-position="right"></el-input-number>
+                            <el-input-number v-model="l.quantity" :min="1" :step="1" size="mini" controls-position="right" :disabled="!lineasEditables"></el-input-number>
                         </td>
                         <td class="num">
                             <el-input-number
@@ -136,6 +146,7 @@
                                 :precision="2"
                                 size="mini"
                                 controls-position="right"
+                                :disabled="!lineasEditables"
                             ></el-input-number>
                             <span v-else :title="'No tienes permiso para cambiar precios: se cobra el del catálogo.'">
                                 {{ money(l.unit_price) }}
@@ -149,11 +160,12 @@
                                 :precision="2"
                                 size="mini"
                                 controls-position="right"
+                                :disabled="!lineasEditables"
                             ></el-input-number>
                         </td>
                         <td class="num mo-sub">S/ {{ money(neto(l)) }}</td>
                         <td class="num">
-                            <el-button type="text" class="mo-del" @click="quitar(i)">
+                            <el-button type="text" class="mo-del" :disabled="!lineasEditables" @click="quitar(i)">
                                 <i class="fas fa-trash"></i>
                             </el-button>
                         </td>
@@ -219,6 +231,9 @@ export default {
             canales: [],
             // El servidor decide; esto solo evita ofrecer algo que va a ignorar.
             puedeEditarPrecio: false,
+            // Distinto de `editable`: en preparacion se corrige el cliente
+            // pero no los productos. Lo manda el servidor en record().
+            lineasEditables: true,
             opciones: [],
             buscado: null,
             buscando: false,
@@ -296,6 +311,8 @@ export default {
                 .get(`/orders/record/${this.orderId}`)
                 .then(r => {
                     const d = r.data || {};
+
+                    this.lineasEditables = d.lines_editable !== false;
 
                     if (!d.editable) {
                         this.problemas = [
@@ -649,6 +666,16 @@ export default {
 .mo-code {
     font-size: 11px;
     color: #94a3b8;
+}
+.mo-frozen {
+    margin-bottom: 10px;
+    padding: 9px 12px;
+    border-radius: 6px;
+    border: 1px solid #fcd34d;
+    background: #fffbeb;
+    color: #92400e;
+    font-size: 12.5px;
+    line-height: 1.5;
 }
 .mo-empty {
     text-align: center;
