@@ -203,6 +203,25 @@ class CulqiController extends Controller
                                 $itemName = Item::find($itemId)->description ?? 'Producto';
                                 throw new \Exception('Stock insuficiente para "' . $itemName . '". Disponible: ' . $available);
                             }
+
+                            // Y RESERVARLO. Antes esto solo validaba: el
+                            // comentario de arriba prometia evitar la
+                            // sobreventa, pero comprobar sin comprometer no la
+                            // evita. Dos compradores del mismo producto simple
+                            // pasaban los dos por aqui contra el mismo
+                            // disponible y los dos completaban la compra.
+                            //
+                            // La fila ya viene con `lockForUpdate`, asi que el
+                            // segundo espera al primero y lee el valor nuevo.
+                            $iw->stock_committed = (float) ($iw->stock_committed ?? 0) + $qty;
+                            $iw->save();
+
+                            // Se anota para que CapturePaymentJob lo suelte si
+                            // la captura falla. Sin esto, cada cobro rechazado
+                            // dejaria stock atrapado: se cambiaria una
+                            // sobreventa por una fuga, que es peor porque no se
+                            // ve.
+                            $reservedVariants[] = ['iw_id' => $iw->id, 'qty' => $qty];
                         }
                     }
                 }

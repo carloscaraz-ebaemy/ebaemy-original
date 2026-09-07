@@ -5,6 +5,7 @@ namespace App\Jobs;
 use App\Models\Tenant\ConfigurationEcommerce;
 use App\Models\Tenant\Coupon;
 use App\Models\Tenant\ItemVariantWarehouse;
+use App\Models\Tenant\ItemWarehouse;
 use App\Models\Tenant\Order;
 use Culqi\Culqi;
 use Illuminate\Support\Facades\DB;
@@ -207,8 +208,31 @@ class CapturePaymentJob extends TenantAwareJob
             $order->status_order_id = 5; // Cancelado
             $order->save();
 
-            // Liberar stock comprometido
+            // Liberar el stock comprometido en la pre-autorizacion.
+            //
+            // La lista lleva dos formas: `vw_id` para una variante y `iw_id`
+            // para un producto simple. La segunda se anadio cuando se descubrio
+            // que el checkout con tarjeta validaba el stock del producto simple
+            // pero no lo reservaba.
+            //
+            // Se comprueba `iw_id` PRIMERO y se cae a `vw_id`: los trabajos que
+            // ya estuvieran en la cola con la forma antigua —solo `vw_id`—
+            // siguen liberandose igual. Cambiar el contrato sin mas habria
+            // reventado los que estuvieran en vuelo durante el despliegue.
             foreach ($this->reservedVariants as $r) {
+                if (!empty($r['iw_id'])) {
+                    $iw = ItemWarehouse::lockForUpdate()->find($r['iw_id']);
+                    if ($iw) {
+                        $iw->stock_committed = max(0, (float) $iw->stock_committed - (float) $r['qty']);
+                        $iw->save();
+                    }
+                    continue;
+                }
+
+                if (empty($r['vw_id'])) {
+                    continue;
+                }
+
                 $vw = ItemVariantWarehouse::lockForUpdate()->find($r['vw_id']);
                 if ($vw) {
                     $vw->stock_committed = max(0, $vw->stock_committed - $r['qty']);
