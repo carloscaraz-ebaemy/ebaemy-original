@@ -205,16 +205,19 @@
                                 @change="toggleAll($event)"
                             />
                         </th>
-                        <th>Codigo de Pedido</th>
-                        <th>Cliente</th>
-                        <th class="text-center">Detalle Productos</th>
-                        <th class="text-end">Total</th>
-                        <th>Fecha del pedido</th>
-                        <th>Medio Pago</th>
-                        <th>Estatus del Pedido</th>
-                        <th>Entrega</th>
-                        <th class="text-center">Documento</th>
-                        <th class="text-end">Opciones</th>
+                        <!-- Seis columnas, una por pregunta que se hace el
+                             operador. Antes eran diez y la fila no entraba en
+                             una laptop: «Codigo», «Cliente» y «Fecha»
+                             respondian todas a «que pedido es y de quien», y
+                             «Total» y «Medio Pago» hablaban las dos del cobro.
+                             Nada se pierde: lo que sale de la fila esta en el
+                             detalle del producto, en el tooltip o en el menu. -->
+                        <th class="ord-c-order">Pedido</th>
+                        <th class="ord-c-items">Productos</th>
+                        <th class="text-end ord-c-pay">Cobro</th>
+                        <th class="ord-c-state">Estado</th>
+                        <th class="text-center ord-c-docs">Docs</th>
+                        <th class="text-end ord-c-act">Acciones</th>
                     </tr>
                     <tr></tr>
                     <tr slot-scope="{ index, row }">
@@ -225,31 +228,57 @@
                                 v-model="selectedIds"
                             />
                         </td>
-                        <td data-label="Código">{{ row.order_id }}</td>
-                        <td data-label="Cliente">
-                            {{ row.customer }}
-                            <small v-if="row.customer_telefono" class="ord-cust-contact">
-                                <i class="fas fa-phone"></i> {{ row.customer_telefono }}
-                            </small>
-                            <small v-if="row.customer_direccion" class="ord-cust-contact">
-                                <i class="fas fa-map-marker-alt"></i> {{ row.customer_direccion }}
-                            </small>
-                            <!-- El documento decide a nombre de quien sale la
-                                 boleta. Sin verlo, un pedido que saldria como
-                                 "00000000" pasa desapercibido. -->
-                            <small
-                                v-if="row.customer_doc"
-                                class="ord-cust-doc"
-                                >{{ row.customer_doc }}</small
-                            >
-                            <small
-                                v-else-if="row.mp_order_id"
-                                class="ord-cust-doc ord-cust-doc-none"
-                                title="La boleta saldria como Cliente Final 00000000"
-                                >sin documento</small
-                            >
+                        <!-- Pedido: quien, que numero y cuando, en tres
+                             renglones. La fecha estaba en una columna propia
+                             para un dato de una linea, y el telefono y la
+                             direccion del cliente se pintaban SIEMPRE aunque
+                             solo importan al despachar: ahora viajan en el
+                             tooltip y en el detalle, que es donde se consultan. -->
+                        <td data-label="Pedido">
+                            <div class="ord-o-top">
+                                <span class="ord-o-id">#{{ row.order_id }}</span>
+                                <span
+                                    class="ord-o-canal"
+                                    :style="{ background: canalColor(row) }"
+                                    :title="canalTitulo(row)"
+                                ></span>
+                                <!-- El numero del pedido en el canal, que es
+                                     el que el operador reconoce al hablar con
+                                     Saga. `mp_external_order_id` y no
+                                     `external_order_ref`: el segundo existe en
+                                     la tabla pero NO viaja en el payload de la
+                                     fila, y pintarlo daria siempre vacio. -->
+                                <span
+                                    v-if="row.mp_external_order_id"
+                                    class="ord-o-ext"
+                                    :title="'Nº en el canal: ' + row.mp_external_order_id"
+                                    >{{ row.mp_external_order_id }}</span
+                                >
+                            </div>
+                            <div class="ord-o-cli" :title="clienteTitulo(row)">
+                                {{ row.customer }}
+                                <span v-if="row.customer_doc" class="ord-o-doc"
+                                    >· {{ row.customer_doc }}</span
+                                >
+                                <!-- Sin documento la boleta saldria como
+                                     «Cliente Final 00000000»: hay que verlo. -->
+                                <span
+                                    v-else-if="row.mp_order_id"
+                                    class="ord-o-doc ord-o-nodoc"
+                                    title="La boleta saldria como Cliente Final 00000000"
+                                    >· sin documento</span
+                                >
+                            </div>
+                            <div class="ord-o-fecha" :title="row.created_at">
+                                {{ fechaCorta(row.created_at) }}
+                            </div>
                         </td>
-                        <td class="text-center" data-label="Detalle">
+                        <!-- Productos: el contador y el primero. El popover
+                             de detalle se conserva tal cual —ya trae la tabla
+                             completa, el telefono y la direccion—; lo que
+                             cambia es el disparador, que era una lupa sin
+                             contexto y ahora dice cuantos hay. -->
+                        <td data-label="Productos">
                             <template>
                                 <el-popover
                                     placement="right"
@@ -334,38 +363,52 @@
                                             </tr>
                                         </tbody>
                                     </table>
-                                    <el-button
-                                        slot="reference"
-                                        icon="el-icon-zoom-in"
-                                    ></el-button>
+                                    <div slot="reference" class="ord-i-ref">
+                                        <span class="ord-i-n"
+                                            >{{ row.item_count }}
+                                            {{ row.item_count === 1 ? "producto" : "productos" }}</span
+                                        >
+                                        <span
+                                            v-if="primerProducto(row)"
+                                            class="ord-i-first"
+                                            >{{ primerProducto(row) }}</span
+                                        >
+                                    </div>
                                 </el-popover>
                             </template>
                         </td>
-                        <td class="text-end" data-label="Total">
+                        <!-- Cobro: importe, saldo y medio, juntos.
+                             Estaban repartidos en «Total» y «Medio Pago», dos
+                             columnas hablando del mismo hecho con vocabularios
+                             distintos; el operador tenia que reconciliarlas en
+                             cada fila. La regla de donde vive el dinero NO
+                             cambia: en un encargo logistico sigue leyendose del
+                             envio, derivado y no copiado. -->
+                        <td class="text-end" data-label="Cobro">
                             <template v-if="pagoEnElEnvio(row)">
-                                <!-- El importe del encargo vive en el envío y se
-                                     lee DERIVADO: el operador puede cargarlo
-                                     después del alta, y una copia en el pedido
-                                     se quedaría vieja sin avisar. -->
                                 <template v-if="row.shipment.has_amount">
-                                    S/ {{ formatMoney(row.shipment.amount_to_collect) }}
+                                    <div class="ord-p-total">
+                                        S/ {{ formatMoney(row.shipment.amount_to_collect) }}
+                                    </div>
                                     <div
                                         v-if="row.shipment.pending_total > 0"
                                         class="ord-pay-pend"
                                         :title="'Cobrado S/ ' + formatMoney(row.shipment.paid_total)"
                                     >
-                                        debe S/ {{ formatMoney(row.shipment.pending_total) }}
+                                        saldo S/ {{ formatMoney(row.shipment.pending_total) }}
                                     </div>
                                     <div v-else class="ord-pay-ok">pagado</div>
                                 </template>
-                                <span v-else class="text-muted" title="Nadie cargó el monto del encargo">
-                                    sin monto
-                                </span>
+                                <span
+                                    v-else
+                                    class="text-muted"
+                                    title="Nadie cargó el monto del encargo"
+                                    >sin monto</span
+                                >
                             </template>
                             <template v-else>
-                                S/ {{ row.total }}
-                                <!-- Cobro del pedido (`order_payments`). El
-                                     saldo solo aparece si hay algun pago
+                                <div class="ord-p-total">S/ {{ row.total }}</div>
+                                <!-- El saldo solo aparece si hay algun pago
                                      registrado: sin cobros no se afirma nada,
                                      porque un pedido de Saga se cobra fuera de
                                      EBAEMY y marcarlo como deudor seria falso. -->
@@ -374,7 +417,7 @@
                                     class="ord-pay-pend"
                                     :title="'Cobrado S/ ' + formatMoney(row.paid_total)"
                                 >
-                                    debe S/ {{ formatMoney(row.pending_total) }}
+                                    saldo S/ {{ formatMoney(row.pending_total) }}
                                 </div>
                                 <div
                                     v-else-if="row.pending_total !== null && row.pending_total !== undefined"
@@ -384,62 +427,80 @@
                                     pagado
                                 </div>
                             </template>
+                            <div class="ord-p-medio">{{ medioPago(row) }}</div>
                         </td>
-                        <td data-label="Fecha del pedido">{{ formatDate(row.created_at) }}</td>
-                        <td data-label="Medio pago">
-                            <span
-                                v-if="isMarketplace(row)"
-                                class="mp-pay-badge"
-                                >{{ marketplaceLabel(row) }}</span
-                            >
-                            <template v-else-if="row.reference_payment">{{
-                                row.reference_payment
-                            }}</template>
-                            <span v-else class="text-muted">—</span>
-                        </td>
+                        <!-- Estado: dos planos distintos del mismo pedido,
+                             uno debajo del otro. El comercial era un stepper de
+                             cinco pasos —el elemento mas ancho de la fila— y
+                             ahora es un chip; el logistico ocupaba una columna
+                             entera con siete datos apilados y ahora es otro
+                             chip con su tooltip. Siguen SEPARADOS a proposito:
+                             son dimensiones distintas y mezclarlas fue lo que
+                             hizo ilegible la tabla anterior. -->
                         <td data-label="Estado">
-                            <div class="ord-status-cell">
-                                <template v-if="row.status_order_id == 5">
-                                    <span class="ord-badge-cancel"
-                                        ><i class="fas fa-times-circle"></i>
-                                        Cancelado</span
+                            <div class="ord-st">
+                                <span
+                                    v-if="row.status_order_id == 5"
+                                    class="ord-st-chip is-cancel"
+                                    >Cancelado</span
+                                >
+                                <span
+                                    v-else
+                                    class="ord-st-chip"
+                                    :class="'is-' + estadoTono(row.status_order_id)"
+                                    >{{ statusLabel(row.status_order_id) }}</span
+                                >
+
+                                <!-- Envio. El punto es el semaforo de
+                                     antiguedad, con el mismo tooltip de antes. -->
+                                <div v-if="row.shipment" class="ord-st-ship">
+                                    <span
+                                        class="ord-st-chip is-ship"
+                                        :style="{
+                                            color: row.shipment.delivery_meta.color,
+                                            background: row.shipment.delivery_meta.bg,
+                                            borderColor: row.shipment.delivery_meta.line
+                                        }"
+                                        :title="envioTitulo(row)"
+                                        >{{ row.shipment.delivery_short }} ·
+                                        {{ row.shipment.status_label }}</span
                                     >
-                                </template>
-                                <template v-else>
-                                    <div class="ord-steps">
-                                        <template
-                                            v-for="(st, i) in statusSteps"
-                                        >
-                                            <span
-                                                class="ord-step"
-                                                :class="stepClass(row.status_order_id, i)"
-                                                :title="st.label"
-                                                :key="'s' + i"
-                                            >
-                                                <i
-                                                    v-if="stepDone(row.status_order_id, i)"
-                                                    class="fas fa-check"
-                                                ></i>
-                                                <template v-else>{{
-                                                    i + 1
-                                                }}</template>
-                                            </span>
-                                            <span
-                                                v-if="i < statusSteps.length - 1"
-                                                class="ord-sep"
-                                                :class="{ done: stepDone(row.status_order_id, i + 1) }"
-                                                :key="'l' + i"
-                                            ></span>
-                                        </template>
-                                    </div>
-                                    <div class="ord-step-label">
-                                        {{ statusLabel(row.status_order_id) }}
-                                    </div>
-                                </template>
+                                    <span
+                                        v-if="row.shipment.aging_meta"
+                                        class="ord-st-dot"
+                                        :style="{ background: row.shipment.aging_meta.color }"
+                                        :title="
+                                            row.shipment.aging_meta.label +
+                                            ' · ' +
+                                            row.shipment.aging_days +
+                                            ' día(s) hábil(es)'
+                                        "
+                                    ></span>
+                                    <!-- Sin este aviso, el operador descubre que
+                                         faltan datos recien al intentar rotular. -->
+                                    <i
+                                        v-if="row.shipment.missing_data && row.shipment.missing_data.length"
+                                        class="fas fa-exclamation-triangle ord-st-warn"
+                                        :title="'Faltan datos para rotular: ' + row.shipment.missing_data.join(', ')"
+                                    ></i>
+                                </div>
+
+                                <!-- Un envio anulado NO es lo mismo que no tener
+                                     envio, y decir «sin envio» seria falso. -->
+                                <span
+                                    v-else-if="row.shipment_cancelled"
+                                    class="ord-st-chip is-void"
+                                    :title="'El envío ' + row.shipment_cancelled.code + ' fue anulado. Puedes restaurarlo desde el menú.'"
+                                    >Envío anulado</span
+                                >
+                                <span v-else class="ord-st-chip is-none">Sin envío</span>
+
+                                <!-- Cambiar el estado sigue exactamente igual:
+                                     candado, desplegable y `updateStatus`, que
+                                     es quien decide si hay que emitir nota de
+                                     venta o pedir el almacen. -->
                                 <div v-if="!isMarketplace(row)" class="ord-status-editbar">
-                                    <template
-                                        v-if="editingStatusId === row.id"
-                                    >
+                                    <template v-if="editingStatusId === row.id">
                                         <el-select
                                             v-model="row.status_order_id"
                                             size="mini"
@@ -471,87 +532,10 @@
                                         <i class="fas fa-lock"></i> Cambiar
                                     </button>
                                 </div>
-                                <small v-else class="ord-saga-status">
-                                    Sincronizado desde Saga
-                                </small>
+                                <small v-else class="ord-saga-status"
+                                    >Sincronizado desde Saga</small
+                                >
                             </div>
-                        </td>
-                        <!-- Entrega: modalidad, estado logístico y semáforo de
-                             antigüedad. Es la columna que hace innecesario
-                             abrir el módulo de Registro de Envíos. -->
-                        <td data-label="Entrega">
-                            <template v-if="row.shipment">
-                                <div class="ord-ship-cell">
-                                    <span
-                                        class="ord-ship-tag"
-                                        :style="{
-                                            color: row.shipment.delivery_meta.color,
-                                            background: row.shipment.delivery_meta.bg,
-                                            borderColor: row.shipment.delivery_meta.line
-                                        }"
-                                        >{{ row.shipment.delivery_short }}</span
-                                    >
-                                    <!-- Datos incompletos: el servidor imprime
-                                         igual, asi que si no se avisa aqui el
-                                         rotulo malo se descubre en la agencia. -->
-                                    <span
-                                        v-if="row.shipment.missing_data && row.shipment.missing_data.length"
-                                        class="ord-ship-missing"
-                                        :title="'Faltan datos para rotular: ' + row.shipment.missing_data.join(', ')"
-                                        >⚠ faltan datos</span
-                                    >
-                                    <span
-                                        v-if="row.shipment.aging_meta"
-                                        class="ord-ship-dot"
-                                        :style="{ background: row.shipment.aging_meta.color }"
-                                        :title="
-                                            row.shipment.aging_meta.label +
-                                            ' · ' +
-                                            row.shipment.aging_days +
-                                            ' día(s) hábil(es)'
-                                        "
-                                    ></span>
-                                </div>
-                                <div class="ord-ship-sub">
-                                    {{ row.shipment.status_label }}
-                                </div>
-                                <div class="ord-ship-dest" :title="shipmentDestination(row)">
-                                    {{ shipmentDestination(row) }}
-                                </div>
-                                <div
-                                    v-if="row.shipment.tracking_number"
-                                    class="ord-ship-track"
-                                >
-                                    {{ row.shipment.tracking_number }}
-                                </div>
-                                <a
-                                    class="ord-ship-link"
-                                    href="#"
-                                    @click.prevent="openShipment(row)"
-                                    >Ver envío</a
-                                >
-                            </template>
-                            <template v-else>
-                                <!-- Con un envío anulado detrás, «Configurar
-                                     envío» a secas ocultaba que hubo uno. -->
-                                <div v-if="row.shipment_cancelled" class="ord-ship-void">
-                                    <span
-                                        class="ord-ship-void-tag"
-                                        :title="'El envío ' + row.shipment_cancelled.code + ' fue anulado. Puedes restaurarlo o configurar uno nuevo.'"
-                                        >Envío anulado</span
-                                    >
-                                    <button class="ord-ship-cta" @click="restaurarEnvio(row)">
-                                        <i class="fas fa-undo"></i> Restaurar
-                                    </button>
-                                </div>
-                                <button
-                                    v-else
-                                    class="ord-ship-cta"
-                                    @click="openShipment(row)"
-                                >
-                                    <i class="fas fa-truck"></i> Configurar envío
-                                </button>
-                            </template>
                         </td>
                         <!-- Documentos del pedido.
                              Antes esta celda solo sabia hablar de Saga: para un
@@ -649,6 +633,29 @@
                                     >
                                         <i class="el-icon-upload"></i>
                                         Subir guía de la agencia
+                                    </el-dropdown-item>
+                                    <!-- El envio ya no tiene columna propia:
+                                         estas tres eran botones sueltos en la
+                                         celda «Entrega» y ahora viven aqui. La
+                                         informacion (destino, agencia, tracking)
+                                         esta en el tooltip del chip de estado. -->
+                                    <el-dropdown-item
+                                        v-if="row.shipment"
+                                        command="shipment"
+                                    >
+                                        <i class="el-icon-truck"></i>
+                                        Ver / editar envío
+                                    </el-dropdown-item>
+                                    <el-dropdown-item
+                                        v-else-if="row.shipment_cancelled"
+                                        command="restoreShipment"
+                                    >
+                                        <i class="el-icon-refresh-left"></i>
+                                        Restaurar envío anulado
+                                    </el-dropdown-item>
+                                    <el-dropdown-item v-else command="shipment">
+                                        <i class="el-icon-truck"></i>
+                                        Configurar envío
                                     </el-dropdown-item>
                                     <el-dropdown-item
                                         v-if="row.shipment"
@@ -949,77 +956,7 @@
     </div>
 </template>
 <style>
-.mp-pay-badge {
-    display: inline-block;
-    padding: 2px 10px;
-    border-radius: 999px;
-    font-size: 12px;
-    font-weight: 600;
-    background: #eef2ff;
-    color: #3730a3;
-    white-space: nowrap;
-}
 /* Stepper de estado del pedido */
-.ord-status-cell {
-    min-width: 170px;
-}
-.ord-steps {
-    display: flex;
-    align-items: center;
-}
-.ord-step {
-    flex: 0 0 auto;
-    width: 20px;
-    height: 20px;
-    border-radius: 50%;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 10px;
-    font-weight: 700;
-    border: 1.5px solid #cbd5e1;
-    background: #fff;
-    color: #94a3b8;
-}
-.ord-step.done {
-    background: #16a34a;
-    border-color: #16a34a;
-    color: #fff;
-}
-.ord-step.current {
-    border-color: #4f46e5;
-    color: #4f46e5;
-    background: #eef2ff;
-    box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.12);
-}
-.ord-sep {
-    flex: 1 1 auto;
-    height: 2px;
-    min-width: 8px;
-    background: #e2e8f0;
-    margin: 0 2px;
-}
-.ord-sep.done {
-    background: #16a34a;
-}
-.ord-step-label {
-    font-size: 12px;
-    font-weight: 600;
-    color: #334155;
-    margin: 4px 0 2px;
-}
-.ord-badge-cancel {
-    display: inline-block;
-    padding: 2px 10px;
-    border-radius: 999px;
-    font-size: 12px;
-    font-weight: 600;
-    background: #fee2e2;
-    color: #b91c1c;
-}
-.ord-badge-cancel i {
-    margin-right: 3px;
-}
 .ord-status-edit {
     width: 100%;
     margin-top: 2px;
@@ -1027,31 +964,6 @@
 /* Saldo del encargo logistico. Su dinero vive en el envio, asi que la celda
    de Total muestra el importe a cobrar y, debajo, lo que falta. En rojo solo
    cuando queda deuda: es la unica parte que pide accion. */
-.ord-ship-void {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    flex-wrap: wrap;
-}
-.ord-ship-void-tag {
-    font-size: 11px;
-    font-weight: 600;
-    color: #7c2d12;
-    background: #ffedd5;
-    padding: 2px 8px;
-    border-radius: 999px;
-    white-space: nowrap;
-}
-.ord-ship-missing {
-    display: inline-block;
-    font-size: 11px;
-    font-weight: 600;
-    color: #b45309;
-    background: #fef3c7;
-    padding: 1px 7px;
-    border-radius: 999px;
-    white-space: nowrap;
-}
 .ord-pay-pend {
     font-size: 11.5px;
     font-weight: 600;
@@ -1067,24 +979,6 @@
 .ord-actions-btn {
     padding: 5px 9px;
 }
-.ord-cust-doc {
-    display: block;
-    font-size: 11px;
-    color: #64748b;
-    font-variant-numeric: tabular-nums;
-}
-.ord-cust-doc-none {
-    color: #b45309;
-    font-weight: 600;
-}
-.ord-cust-contact {
-    display: block;
-    color: #64748b;
-    font-size: 11px;
-    line-height: 1.35;
-    margin-top: 2px;
-}
-.ord-cust-contact i { width: 13px; }
 /* ── Columna "Documentos": los chips ─────────────────────────────────
    Cuatro siglas en una celda estrecha. El color dice el estado y el clic
    abre el panel (documents_panel.vue), donde ya caben el numero, la fecha,
@@ -1150,61 +1044,170 @@
 .ord-doc-chip.is-sugerido {
     box-shadow: inset 0 0 0 1.5px #0f766e;
 }
-/* ── Columna "Entrega" ───────────────────────────────────────────────── */
-.ord-ship-cell {
+/* ══════════════════════════════════════════════════════════════════
+   La fila: seis columnas
+   ══════════════════════════════════════════════════════════════════
+   Anchos en porcentaje y no fijos: la tabla debe repartirse el espacio
+   que haya, no exigir un minimo. `Pedido` y `Estado` se llevan la mayor
+   parte porque son las que llevan tres renglones. */
+.orders th.ord-c-order { width: 24%; }
+.orders th.ord-c-items { width: 15%; }
+.orders th.ord-c-pay   { width: 13%; }
+.orders th.ord-c-state { width: 22%; }
+.orders th.ord-c-docs  { width: 10%; }
+.orders th.ord-c-act   { width: 8%;  }
+
+/* Densidad. La fila tenia 12px de padding vertical y celdas de cuatro
+   renglones: en 1080px de alto entraban seis pedidos. */
+.orders table tbody td {
+    padding-top: 9px;
+    padding-bottom: 9px;
+    font-size: 12.5px;
+    line-height: 1.4;
+}
+
+/* ── Pedido ─────────────────────────────────────────────────────── */
+.ord-o-top {
     display: flex;
     align-items: center;
     gap: 6px;
+    flex-wrap: wrap;
 }
-.ord-ship-tag {
-    border: 1px solid transparent;
-    border-radius: 999px;
-    padding: 1px 8px;
-    font-size: 11px;
+.ord-o-id {
     font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    color: #0f172a;
 }
-/* Punto del semáforo de antigüedad: el color lo decide PHP, no el Vue. */
-.ord-ship-dot {
-    width: 8px;
-    height: 8px;
+/* Punto de canal: un dato de origen no merece una columna ni una
+   etiqueta, pero si un color con su tooltip. */
+.ord-o-canal {
+    width: 7px;
+    height: 7px;
     border-radius: 50%;
     display: inline-block;
     flex: 0 0 auto;
 }
-.ord-ship-sub {
-    font-size: 12px;
-    color: #334155;
-    margin-top: 2px;
+.ord-o-ext {
+    font-size: 10.5px;
+    color: #94a3b8;
+    font-variant-numeric: tabular-nums;
 }
-.ord-ship-dest,
-.ord-ship-track {
-    font-size: 11px;
-    color: #64748b;
-    max-width: 180px;
+.ord-o-cli {
+    color: #334155;
+    margin-top: 1px;
+    /* El nombre puede ser largo; se corta con puntos suspensivos en vez
+       de ensanchar la columna. El completo esta en el tooltip. */
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
 }
-.ord-ship-track {
-    font-family: monospace;
-}
-.ord-ship-link {
+.ord-o-doc {
+    color: #94a3b8;
     font-size: 11px;
-    color: #4f46e5;
 }
-.ord-ship-cta {
-    border: 1px dashed #c7d2fe;
-    background: #eef2ff;
-    color: #4338ca;
-    border-radius: 8px;
-    padding: 5px 10px;
-    font-size: 12px;
-    font-weight: 600;
+.ord-o-nodoc {
+    color: #b45309;
+}
+.ord-o-fecha {
+    color: #94a3b8;
+    font-size: 11px;
+    font-variant-numeric: tabular-nums;
+    margin-top: 1px;
+}
+
+/* ── Productos ──────────────────────────────────────────────────── */
+.ord-i-ref {
     cursor: pointer;
+    display: inline-block;
+    max-width: 100%;
+}
+.ord-i-n {
+    font-weight: 600;
+    color: #334155;
+    border-bottom: 1px dotted #cbd5e1;
+}
+.ord-i-first {
+    display: block;
+    color: #94a3b8;
+    font-size: 11px;
+    overflow: hidden;
+    text-overflow: ellipsis;
     white-space: nowrap;
 }
-.ord-ship-cta:hover {
-    background: #e0e7ff;
+
+/* ── Cobro ──────────────────────────────────────────────────────── */
+.ord-p-total {
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    color: #0f172a;
+    white-space: nowrap;
+}
+.ord-p-medio {
+    color: #94a3b8;
+    font-size: 11px;
+    text-transform: capitalize;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* ── Estado ─────────────────────────────────────────────────────── */
+.ord-st {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 3px;
+}
+.ord-st-chip {
+    display: inline-block;
+    font-size: 10.5px;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 4px;
+    border: 1px solid transparent;
+    white-space: nowrap;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+/* Los cinco estados comerciales. El color avanza con el flujo: gris al
+   entrar, verde al cobrar, ambar mientras se trabaja, azul en camino. */
+.ord-st-chip.is-pend    { background: #f1f5f9; color: #475569; }
+.ord-st-chip.is-ok      { background: #dcfce7; color: #166534; }
+.ord-st-chip.is-work    { background: #fef3c7; color: #92400e; }
+.ord-st-chip.is-ship    { background: #dbeafe; color: #1e40af; }
+.ord-st-chip.is-done    { background: #e0e7ff; color: #3730a3; }
+.ord-st-chip.is-neutral { background: #f1f5f9; color: #64748b; }
+.ord-st-chip.is-cancel  { background: #fee2e2; color: #b91c1c; }
+/* Envio anulado y sin envio son cosas distintas: decir «sin envio» sobre
+   un pedido cuyo envio se anulo seria falso. */
+.ord-st-chip.is-void {
+    background: #fff7ed;
+    color: #9a3412;
+    border-color: #fed7aa;
+}
+.ord-st-chip.is-none {
+    background: transparent;
+    color: #94a3b8;
+    border: 1px dashed #cbd5e1;
+    font-weight: 600;
+}
+.ord-st-ship {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    max-width: 100%;
+}
+.ord-st-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    flex: 0 0 auto;
+}
+.ord-st-warn {
+    color: #b45309;
+    font-size: 11px;
+    flex: 0 0 auto;
 }
 
 .ord-counts-error {
@@ -1721,6 +1724,8 @@ export default {
                 edit: () => this.editarPedido(row.id),
                 cancelShipment: () => this.anularEnvio(row),
                 payments: () => this.clickPayments(row.id),
+                shipment: () => this.openShipment(row),
+                restoreShipment: () => this.restaurarEnvio(row),
                 // Documentos del pedido (Fase D). Ninguna de las tres emite
                 // aqui: reenvian a los servicios y pantallas que ya existen.
                 emitSaleNote: () => this.emitirNotaVenta(row),
@@ -2047,6 +2052,125 @@ export default {
         abrirDocumentos(row) {
             this.docsRow = row;
             this.showDocsDialog = true;
+        },
+
+        // ── Maqueta de la fila ────────────────────────────────────────
+        //
+        // Estos ayudantes solo formatean lo que la fila YA trae. No consultan
+        // nada ni derivan reglas de negocio: cuando algo hay que decidir —que
+        // documento corresponde, si un envio puede rotularse— viene resuelto
+        // del servidor.
+
+        /**
+         * Fecha corta para la celda de Pedido: «07 sep · 14:35».
+         *
+         * La completa sigue disponible en el tooltip. Tenia una columna entera
+         * para si con formato «DD-MM-YYYY h:mmA», que es mas largo y se lee
+         * peor de un vistazo.
+         */
+        fechaCorta(v) {
+            if (!v) return "";
+            const d = moment(v);
+            if (!d.isValid()) return "";
+
+            // El mes se traduce a mano en vez de con `moment.locale('es')`:
+            // `moment` es global (`window.moment`) y cambiarle el idioma aqui
+            // se lo cambiaria a todas las pantallas del panel.
+            const meses = ["ene","feb","mar","abr","may","jun",
+                           "jul","ago","set","oct","nov","dic"];
+
+            return d.format("DD") + " " + meses[d.month()] + " · " + d.format("HH:mm");
+        },
+
+        /** El primer producto, para dar contexto al contador. */
+        primerProducto(row) {
+            const items = row.items || [];
+            if (!items.length) return "";
+
+            const nombre = items[0].description || items[0].name || "";
+
+            return nombre.length > 34 ? nombre.slice(0, 33) + "…" : nombre;
+        },
+
+        /**
+         * Telefono y direccion del cliente.
+         *
+         * Se pintaban SIEMPRE, en dos renglones fijos, y son el texto mas largo
+         * de la fila. Solo importan al despachar, asi que pasan al tooltip; el
+         * detalle completo sigue en el popover de productos, que ya los traia.
+         */
+        clienteTitulo(row) {
+            const partes = [row.customer];
+            if (row.customer_telefono) partes.push("Tel. " + row.customer_telefono);
+            if (row.customer_direccion) partes.push(row.customer_direccion);
+
+            // El separador es un salto de linea escrito con su codigo y no
+            // con la secuencia de escape: al generar este archivo desde una
+            // herramienta la barra invertida se pierde y el literal queda
+            // abierto, y el build muere con un error de parseo a 600 lineas
+            // de distancia. Ya paso dos veces.
+            return partes.filter(Boolean).join(String.fromCharCode(10));
+        },
+
+        /** Color del punto de canal. Gris cuando el pedido no declara canal. */
+        canalColor(row) {
+            const porTipo = {
+                ecommerce: "#4f46e5",
+                marketplace: "#b45309",
+                pos: "#0f766e",
+                other: "#64748b",
+            };
+
+            return porTipo[row.channel_type] || "#94a3b8";
+        },
+
+        canalTitulo(row) {
+            return row.channel_name || "Sin canal declarado";
+        },
+
+        /**
+         * Medio de pago. Absorbe la columna «Medio Pago», que pintaba
+         * `reference_payment` en crudo y en mayusculas.
+         */
+        medioPago(row) {
+            if (this.isMarketplace(row)) return this.marketplaceLabel(row);
+
+            return row.reference_payment || "—";
+        },
+
+        /** Tono del chip de estado comercial. */
+        estadoTono(id) {
+            switch (Number(id)) {
+                case 1:
+                    return "pend";
+                case 2:
+                    return "ok";
+                case 3:
+                    return "work";
+                case 4:
+                    return "ship";
+                case 6:
+                    return "done";
+                default:
+                    return "neutral";
+            }
+        },
+
+        /**
+         * Destino, agencia y tracking, que perdieron su sitio en la fila.
+         *
+         * Van al tooltip del chip de envio. El dato completo sigue estando en
+         * la ficha del envio, a un clic desde el menu.
+         */
+        envioTitulo(row) {
+            const s = row.shipment || {};
+            const partes = [s.delivery_label || s.delivery_short, s.status_label];
+
+            const destino = this.shipmentDestination(row);
+            if (destino) partes.push(destino);
+            if (s.tracking_number) partes.push("Guía " + s.tracking_number);
+
+            return partes.filter(Boolean).join(" · ");
         },
 
         /** ¿El servidor dice que este tipo se puede emitir ya? */
