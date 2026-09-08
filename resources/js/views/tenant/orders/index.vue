@@ -133,6 +133,27 @@
                         <el-option label="Otros pedidos" value="other"></el-option>
                     </el-select>
 
+                    <!-- Las fechas concretas van AQUI, pegadas al periodo que
+                         las activa. Estaban dentro de «Mas filtros», que se
+                         abre aparte: elegir «Personalizado» en la barra no
+                         mostraba ningun campo y el filtro por fechas quedaba
+                         sin manera de usarse. Regresion del paso 3 del
+                         rediseno; se ven solo con «Personalizado» porque si no
+                         compiten con el rango rapido y no se sabe cual manda. -->
+                    <el-date-picker
+                        v-if="dateRange === 'custom'"
+                        v-model="invoiceDateRange"
+                        class="ord-bar-fechas"
+                        type="daterange"
+                        size="small"
+                        range-separator="a"
+                        start-placeholder="Desde"
+                        end-placeholder="Hasta"
+                        value-format="yyyy-MM-dd"
+                        :clearable="true"
+                        @change="applyDateFilters"
+                    ></el-date-picker>
+
                     <!-- Orden. Hasta ahora la consulta era `latest()` fijo: no
                          habia forma de ordenar por importe ni por cliente. -->
                     <div class="ord-sort">
@@ -187,24 +208,6 @@
                                 :value="opt.value"
                             ></el-option>
                         </el-select>
-                    </div>
-
-                    <!-- El selector de fechas concretas solo aparece cuando el
-                         periodo es "personalizado": si no, compite con el
-                         rango rápido y no se sabe cuál manda. -->
-                    <div v-if="dateRange === 'custom'" class="ord-filter ord-filter-wide">
-                        <label>Desde / hasta</label>
-                        <el-date-picker
-                            v-model="invoiceDateRange"
-                            type="daterange"
-                            size="small"
-                            range-separator="hasta"
-                            start-placeholder="Desde"
-                            end-placeholder="Hasta"
-                            value-format="yyyy-MM-dd"
-                            :clearable="true"
-                            @change="applyDateFilters"
-                        ></el-date-picker>
                     </div>
 
                     <div class="ord-filter">
@@ -1545,6 +1548,10 @@
     flex: 0 1 165px;
     min-width: 140px;
 }
+.ord-bar-fechas {
+    flex: 0 1 250px;
+    min-width: 210px;
+}
 .ord-sort {
     display: flex;
     align-items: stretch;
@@ -1822,7 +1829,8 @@
         flex: 1 1 calc(50% - 4px);
         min-width: 0;
     }
-    .ord-sort {
+    .ord-sort,
+    .ord-bar-fechas {
         flex: 1 1 100%;
         min-width: 0;
     }
