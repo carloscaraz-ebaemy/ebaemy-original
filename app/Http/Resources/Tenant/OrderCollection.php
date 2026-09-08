@@ -132,8 +132,30 @@ class OrderCollection extends ResourceCollection
                         }
                         return null;   // el panel lo pinta como "sin documento"
                     }
-                    $d = data_get($customer, 'numero_documento') ?? data_get($customer, 'document') ?? '';
-                    return $d !== '' ? (string) $d : null;
+                    // OJO con las claves: el JSON de `customer` NO usa la misma
+                    // en todos los origenes. El checkout y el espejo del encargo
+                    // logistico escriben `numero` (ver OrderShipmentLinker), y
+                    // esta funcion solo miraba `numero_documento` y `document`.
+                    // Resultado: el documento estaba guardado y la fila lo
+                    // pintaba vacio — en alasitas, en los 298 pedidos.
+                    // Es el mismo juego de claves que resuelve
+                    // `BillingDocumentResolver::documento()`.
+                    $d = data_get($customer, 'numero')
+                      ?? data_get($customer, 'number')
+                      ?? data_get($customer, 'numero_documento')
+                      ?? data_get($customer, 'document')
+                      ?? '';
+                    $d = preg_replace('/\D+/', '', (string) $d);
+
+                    if ($d === '') {
+                        return null;
+                    }
+
+                    // Con el tipo delante se lee de un vistazo, igual que en la
+                    // rama de marketplace.
+                    $t = strlen($d) === 11 ? 'RUC' : (strlen($d) === 8 ? 'DNI' : 'C.E.');
+
+                    return $t . ' ' . $d;
                 })(),
                 'customer_email'       => $customerEmail,
                 'customer_telefono'    => $customerPhone,
@@ -314,6 +336,10 @@ class OrderCollection extends ResourceCollection
             // Destino resumido: la agencia manda en provincia, la dirección en
             // Lima. Es lo que el operador necesita leer de un vistazo.
             'destination'      => $s->shipping_agency ?: ($s->destination_city ?: $s->shipping_destination),
+            // La ciudad, aparte de `destination`. Con agencia, «Shalom» a secas
+            // no dice a donde va el paquete; la fila necesita las dos.
+            'destination_city' => $s->destination_city,
+            'agency'           => $s->shipping_agency,
             'tracking_number'  => $s->tracking_number,
             'has_guide'        => (bool) $s->shipping_guide_path,
             // URL de la guia que dio la agencia. La servia solo el panel de

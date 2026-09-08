@@ -333,16 +333,27 @@
                             </div>
                             <div class="ord-o-cli" :title="clienteTitulo(row)">
                                 {{ row.customer }}
-                                <span v-if="row.customer_doc" class="ord-o-doc"
-                                    >· {{ row.customer_doc }}</span
-                                >
+                            </div>
+                            <!-- Documento y telefono, debajo del nombre. En el
+                                 rediseno se habian ido al tooltip por ancho,
+                                 pero son los dos datos con los que el operador
+                                 identifica al cliente que llama y decide a
+                                 nombre de quien sale la boleta. -->
+                            <div class="ord-o-meta">
+                                <span v-if="row.customer_doc">{{ row.customer_doc }}</span>
                                 <!-- Sin documento la boleta saldria como
                                      «Cliente Final 00000000»: hay que verlo. -->
                                 <span
                                     v-else-if="row.mp_order_id"
-                                    class="ord-o-doc ord-o-nodoc"
+                                    class="ord-o-nodoc"
                                     title="La boleta saldria como Cliente Final 00000000"
-                                    >· sin documento</span
+                                    >sin documento</span
+                                >
+                                <span
+                                    v-if="row.customer_telefono"
+                                    class="ord-o-tel"
+                                    :title="'Teléfono del cliente'"
+                                    >{{ row.customer_telefono }}</span
                                 >
                             </div>
                             <div class="ord-o-fecha" :title="row.created_at">
@@ -572,6 +583,16 @@
                                         class="fas fa-exclamation-triangle ord-st-warn"
                                         :title="'Faltan datos para rotular: ' + row.shipment.missing_data.join(', ')"
                                     ></i>
+                                </div>
+                                <!-- A donde va: agencia y ciudad. En agencia,
+                                     «Shalom» a secas no dice el destino, y la
+                                     ciudad sola no dice por donde viaja. -->
+                                <div
+                                    v-if="destinoEnvio(row)"
+                                    class="ord-st-dest"
+                                    :title="destinoEnvio(row)"
+                                >
+                                    {{ destinoEnvio(row) }}
                                 </div>
 
                                 <!-- Un envio anulado NO es lo mismo que no tener
@@ -1241,9 +1262,24 @@
     text-overflow: ellipsis;
     white-space: nowrap;
 }
-.ord-o-doc {
+/* Documento y telefono: una linea, dos datos, separados por un punto.
+   Ocupan un renglon mas por fila y es deliberado — el operador los pedia. */
+.ord-o-meta {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
     color: #94a3b8;
     font-size: 11px;
+    line-height: 1.35;
+}
+.ord-o-meta > span + span::before {
+    content: "·";
+    margin-right: 6px;
+    color: #cbd5e1;
+}
+.ord-o-tel {
+    font-variant-numeric: tabular-nums;
 }
 .ord-o-nodoc {
     color: #b45309;
@@ -1353,6 +1389,16 @@
     height: 7px;
     border-radius: 50%;
     flex: 0 0 auto;
+}
+/* Destino del envio. Se recorta: el ancho lo manda la columna, no el
+   nombre de la agencia. El completo va en el tooltip. */
+.ord-st-dest {
+    color: #94a3b8;
+    font-size: 11px;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 .ord-st-warn {
     color: #b45309;
@@ -2615,6 +2661,23 @@ export default {
                 default:
                     return "neutral";
             }
+        },
+
+        /**
+         * A donde va el paquete: agencia y ciudad.
+         *
+         * `destination` ya devuelve una u otra —la agencia gana— pero en un
+         * envio por agencia las dos hacen falta: «Shalom» no dice el destino y
+         * «Trujillo» no dice por donde viaja. Cuando solo hay una, se pinta esa
+         * y no se inventa la otra.
+         */
+        destinoEnvio(row) {
+            const s = row.shipment || {};
+            const partes = [s.agency, s.destination_city].filter(Boolean);
+
+            if (partes.length) return partes.join(" · ");
+
+            return s.destination && s.destination !== "—" ? s.destination : "";
         },
 
         /**
