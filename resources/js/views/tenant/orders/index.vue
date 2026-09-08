@@ -29,7 +29,36 @@
                     <span>Pedidos</span>
                 </li>
             </ol>
-            <div class="right-wrapper pull-right"></div>
+            <!-- El hueco de la cabecera estaba vacio y la barra de filtros
+                 cargaba con siete controles. Lo que no se usa en cada consulta
+                 —ajustes de la tienda y la descarga— sube aqui. -->
+            <div class="right-wrapper pull-right ord-head-actions">
+                <el-dropdown v-if="shipping" trigger="click" @command="irA">
+                    <button class="ord-head-btn">
+                        <i class="fas fa-cog"></i> Configuración
+                    </button>
+                    <el-dropdown-menu slot="dropdown">
+                        <el-dropdown-item command="tienda">
+                            <i class="el-icon-office-building"></i>
+                            Configuración de tienda
+                        </el-dropdown-item>
+                        <!-- OJO: esto NO es una configuracion de motorizados
+                             —no existe tal catalogo— sino el tablero de
+                             reparto a domicilio. -->
+                        <el-dropdown-item command="motorizado">
+                            <i class="el-icon-bicycle"></i>
+                            Tablero de reparto a domicilio
+                        </el-dropdown-item>
+                    </el-dropdown-menu>
+                </el-dropdown>
+
+                <!-- Exporta lo FILTRADO, no todo: un boton que ignora los
+                     filtros recien puestos descarga 710 filas cuando se
+                     pidieron 12. -->
+                <button class="ord-head-btn" title="Descargar el listado filtrado en Excel" @click="exportar">
+                    <i class="fas fa-file-download"></i> Exportar
+                </button>
+            </div>
         </div>
         <div class="card tab-content-default row-new mb-0">
             <div class="card-body">
@@ -52,6 +81,12 @@
                             S/ {{ formatMoney(stats.revenueMonth) }}
                         </div>
                     </div>
+                    <!-- Dar de alta cierra la fila de indicadores: es la unica
+                         accion que CREA algo, y perdida entre los filtros
+                         parecia uno mas de ellos. -->
+                    <button class="ord-new-btn" @click="manualOrderId = null; showManualDialog = true">
+                        <i class="fas fa-plus"></i> Nuevo pedido
+                    </button>
                 </div>
                 <div v-if="countsError" class="ord-counts-error">
                     <i class="fas fa-exclamation-triangle"></i>
@@ -148,58 +183,6 @@
                             <i :class="ordenDir === 'desc' ? 'el-icon-bottom' : 'el-icon-top'"></i>
                         </button>
                     </div>
-
-                    <!-- Configuracion. Las dos pantallas YA existen en el
-                         modulo de Envios y `shipping_settings` es una unica
-                         fila por tenant que Pedidos ya lee en cada listado. Aqui
-                         se enlazan, no se duplican. -->
-                    <el-dropdown v-if="shipping" trigger="click" @command="irA">
-                        <button class="ord-bar-more">
-                            <i class="fas fa-cog"></i> Configuración
-                        </button>
-                        <el-dropdown-menu slot="dropdown">
-                            <el-dropdown-item command="tienda">
-                                <i class="el-icon-office-building"></i>
-                                Configuración de tienda
-                            </el-dropdown-item>
-                            <!-- OJO: esto NO es una configuracion de
-                                 motorizados —no existe tal catalogo— sino el
-                                 tablero de reparto a domicilio. -->
-                            <el-dropdown-item command="motorizado">
-                                <i class="el-icon-bicycle"></i>
-                                Tablero de reparto a domicilio
-                            </el-dropdown-item>
-                        </el-dropdown-menu>
-                    </el-dropdown>
-
-                    <!-- Exporta lo FILTRADO, no todo: un boton que ignora los
-                         filtros recien puestos descarga 710 filas cuando se
-                         pidieron 12. -->
-                    <button class="ord-bar-more" title="Descargar el listado filtrado en Excel" @click="exportar">
-                        <i class="fas fa-file-download"></i> Exportar
-                    </button>
-
-                    <el-dropdown trigger="click" :hide-on-click="false">
-                        <button class="ord-bar-more" title="Elegir qué columnas ver">
-                            <i class="fas fa-table-columns"></i> Columnas
-                        </button>
-                        <el-dropdown-menu slot="dropdown">
-                            <el-dropdown-item
-                                v-for="c in columnasOpcionales"
-                                :key="c.key"
-                            >
-                                <el-checkbox
-                                    :value="columnas[c.key]"
-                                    @change="alternarColumna(c.key)"
-                                    >{{ c.label }}</el-checkbox
-                                >
-                            </el-dropdown-item>
-                        </el-dropdown-menu>
-                    </el-dropdown>
-
-                    <button class="ord-new-btn" @click="manualOrderId = null; showManualDialog = true">
-                        <i class="fas fa-plus"></i> Nuevo pedido
-                    </button>
                 </div>
 
                 <!-- Lo que esta filtrando ahora mismo. Un filtro puesto y
@@ -241,7 +224,15 @@
                      la tienda, no de dias de calendario: el filtro ya existia en
                      el servidor y lo que faltaba era poder llegar a el sin
                      abrir «Mas filtros». -->
-                <div v-if="shipping" class="ord-prio">
+                <!-- Esta franja es lo ultimo antes de la tabla, asi que su
+                     extremo derecho cae justo sobre la columna «Acciones»: ahi
+                     va el selector de columnas, que decide como se ve la tabla
+                     y no que pedidos entran en ella.
+                     El recuadro se pinta SIEMPRE aunque el tenant no tenga el
+                     modulo de Envios; lo que desaparece sin envios son los
+                     botones de prioridad, no las columnas. -->
+                <div class="ord-prio">
+                    <template v-if="shipping">
                     <span class="ord-prio-lbl">Prioridad</span>
                     <button
                         class="ord-prio-btn"
@@ -276,6 +267,25 @@
                     >
                         Quitar
                     </button>
+                    </template>
+
+                    <el-dropdown class="ord-prio-cols" trigger="click" :hide-on-click="false">
+                        <button class="ord-cols-btn" title="Elegir qué columnas ver">
+                            <i class="fas fa-table-columns"></i> Columnas
+                        </button>
+                        <el-dropdown-menu slot="dropdown">
+                            <el-dropdown-item
+                                v-for="c in columnasOpcionales"
+                                :key="c.key"
+                            >
+                                <el-checkbox
+                                    :value="columnas[c.key]"
+                                    @change="alternarColumna(c.key)"
+                                    >{{ c.label }}</el-checkbox
+                                >
+                            </el-dropdown-item>
+                        </el-dropdown-menu>
+                    </el-dropdown>
                 </div>
 
                 <!-- Todos los filtros, en un cajon.
@@ -2214,9 +2224,18 @@
 /* KPIs */
 .ord-kpis {
     display: grid;
-    grid-template-columns: repeat(4, 1fr);
+    /* La quinta columna es `auto`: el boton ocupa lo que mide y los cuatro
+       indicadores siguen repartiendose el resto. Con repeat(4,1fr) a secas
+       caeria a una segunda fila el solo. */
+    grid-template-columns: repeat(4, 1fr) auto;
     gap: 10px;
     margin-bottom: 14px;
+    align-items: stretch;
+}
+.ord-kpis .ord-new-btn {
+    align-self: stretch;
+    padding-left: 18px;
+    padding-right: 18px;
 }
 .ord-kpi {
     border: 1px solid #eef2f7;
@@ -2262,6 +2281,53 @@
     color: #3730a3;
     margin-right: 6px;
 }
+/* Cabecera: lo que no se toca en cada consulta. */
+.ord-head-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.ord-head-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    border: 1px solid #e2e8f0;
+    background: #fff;
+    color: #475569;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    padding: 7px 13px;
+    cursor: pointer;
+    white-space: nowrap;
+}
+.ord-head-btn:hover {
+    border-color: #94a3b8;
+    color: #1e293b;
+}
+
+/* Columnas, pegado al borde derecho de la franja de prioridad. */
+.ord-prio-cols {
+    margin-left: auto;
+}
+.ord-cols-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    border: 1px solid #e2e8f0;
+    background: #fff;
+    color: #475569;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 600;
+    padding: 4px 12px;
+    cursor: pointer;
+    white-space: nowrap;
+}
+.ord-cols-btn:hover {
+    border-color: #94a3b8;
+}
+
 .ord-new-btn {
     border: 0;
     border-radius: 6px;
@@ -2346,6 +2412,26 @@
     .orders .ord-kpis {
         grid-template-columns: repeat(2, 1fr);
     }
+    /* Dos indicadores por fila y el boton cruzando las dos columnas: en una
+       celda `auto` de un grid de 2 quedaria un boton de medio ancho. */
+    .orders .ord-kpis .ord-new-btn {
+        grid-column: 1 / -1;
+        padding-top: 10px;
+        padding-bottom: 10px;
+    }
+    /* La cabecera es estrecha: los dos botones se reparten la linea. */
+    .ord-head-actions {
+        width: 100%;
+        margin-top: 8px;
+    }
+    .ord-head-actions .el-dropdown,
+    .ord-head-actions .ord-head-btn {
+        flex: 1 1 0;
+    }
+    .ord-head-actions .ord-head-btn {
+        width: 100%;
+        justify-content: center;
+    }
     /* 16px es el umbral por debajo del cual Safari amplia la pagina al
        enfocar un campo. Con 13px el operador acaba con la tabla
        descuadrada y teniendo que alejar a mano en cada busqueda. */
@@ -2358,8 +2444,7 @@
     }
     /* Los dos desplegables se reparten la linea siguiente. */
     .ord-sort,
-    .ord-bar-more,
-    .ord-bar .ord-new-btn {
+    .ord-bar-more {
         flex: 1 1 calc(50% - 4px);
         justify-content: center;
         text-align: center;
