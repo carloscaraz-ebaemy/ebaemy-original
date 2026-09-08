@@ -356,6 +356,9 @@ class OrderController extends Controller
                 // por `document_external_id`. Ver `Order::document()`.
                 'document:id,document_type_id,state_type_id,series,number,external_id,date_of_issue,response_regularize_shipping',
                 'warehouse:id,description',
+                // La columna «Vendedor» es opcional, pero precargar aqui cuesta
+                // una consulta y no precargar cuesta una POR FILA.
+                'seller:id,name',
             ]);
 
             // Los datos de Saga son la fuente de verdad para cliente y entrega.

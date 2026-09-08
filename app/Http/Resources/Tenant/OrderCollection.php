@@ -196,6 +196,10 @@ class OrderCollection extends ResourceCollection
                 // Almacén asignado
                 'warehouse_id'         => $row->warehouse_id,
                 'warehouse_description'=> optional($row->warehouse)->description ?? null,
+                // Quien dio de alta el pedido. Existia en `orders.seller_id`
+                // desde siempre pero no salia de la BD, asi que no habia forma
+                // de ofrecerlo como columna sin que apareciera vacio.
+                'seller_name'          => optional($row->seller)->name ?? null,
                 // Fechas de negocio (nullable en pedidos históricos).
                 'paid_at'              => optional($row->paid_at)->format('Y-m-d H:i:s'),
                 'prepared_at'          => optional($row->prepared_at)->format('Y-m-d H:i:s'),
@@ -473,6 +477,8 @@ class OrderCollection extends ResourceCollection
             'content_lines'    => $s->contentLines(),
             'destination_city' => $s->destination_city,
             'agency'           => $s->shipping_agency,
+            // Motorizado asignado (solo reparto a domicilio).
+            'courier_name'     => $s->courier_name,
             // La direccion de entrega. En domicilio es EL destino —no hay
             // agencia— y la fila se quedaba mostrando la ciudad suelta.
             'address'          => $s->shipping_destination,

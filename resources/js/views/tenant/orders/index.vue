@@ -524,6 +524,7 @@
                         <th v-if="columnas.cliente" class="ord-c-cli">Cliente</th>
                         <th v-if="columnas.canal" class="ord-c-x">Canal</th>
                         <th v-if="columnas.tienda" class="ord-c-x">Tienda</th>
+                        <th v-if="columnas.vendedor" class="ord-c-x">Vendedor</th>
                         <th v-if="columnas.cobro" class="text-end ord-c-pay">Cobro</th>
                         <th v-if="columnas.pagado" class="text-end ord-c-x">Pagado</th>
                         <th v-if="columnas.saldo" class="text-end ord-c-x">Saldo</th>
@@ -534,6 +535,7 @@
                         <th v-if="columnas.entrega" class="ord-c-x">Entrega</th>
                         <th v-if="columnas.destino" class="ord-c-x">Destino</th>
                         <th v-if="columnas.agencia" class="ord-c-x">Agencia</th>
+                        <th v-if="columnas.motorizado" class="ord-c-x">Motorizado</th>
                         <th v-if="columnas.tracking" class="ord-c-x">Tracking</th>
                         <th v-if="columnas.prioridad" class="ord-c-x">Prioridad</th>
                         <th v-if="columnas.antiguedad" class="text-center ord-c-x">Antigüedad</th>
@@ -678,6 +680,10 @@
                         </td>
                         <td v-if="columnas.tienda" data-label="Tienda">
                             <span v-if="row.warehouse_description">{{ row.warehouse_description }}</span>
+                            <span v-else class="ord-x-nada">—</span>
+                        </td>
+                        <td v-if="columnas.vendedor" data-label="Vendedor">
+                            <span v-if="row.seller_name">{{ row.seller_name }}</span>
                             <span v-else class="ord-x-nada">—</span>
                         </td>
                         <td v-if="columnas.cobro" class="text-end" data-label="Cobro">
@@ -885,6 +891,12 @@
                         </td>
                         <td v-if="columnas.agencia" data-label="Agencia">
                             <span v-if="row.shipment && row.shipment.agency">{{ row.shipment.agency }}</span>
+                            <span v-else class="ord-x-nada">—</span>
+                        </td>
+                        <td v-if="columnas.motorizado" data-label="Motorizado">
+                            <!-- Solo el reparto a domicilio lleva motorizado:
+                                 en agencia y recojo sale raya, no vacio. -->
+                            <span v-if="row.shipment && row.shipment.courier_name">{{ row.shipment.courier_name }}</span>
                             <span v-else class="ord-x-nada">—</span>
                         </td>
                         <td v-if="columnas.tracking" data-label="Tracking">
@@ -2818,6 +2830,8 @@
        sacaria el menu de la tarjeta. */
     .orders table tbody td[data-label="Canal"],
     .orders table tbody td[data-label="Tienda"],
+    .orders table tbody td[data-label="Vendedor"],
+    .orders table tbody td[data-label="Motorizado"],
     .orders table tbody td[data-label="Pagado"],
     .orders table tbody td[data-label="Saldo"],
     .orders table tbody td[data-label="Método"],
@@ -3164,6 +3178,7 @@ export default {
 
                 { key: "canal",    label: "Canal de venta", grupo: "Comercial" },
                 { key: "tienda",   label: "Tienda / almacén", grupo: "Comercial" },
+                { key: "vendedor", label: "Vendedor", grupo: "Comercial" },
 
                 { key: "pagado",   label: "Monto pagado",  grupo: "Cobro" },
                 { key: "saldo",    label: "Saldo pendiente", grupo: "Cobro" },
@@ -3173,6 +3188,7 @@ export default {
                 { key: "entrega",  label: "Tipo de entrega", grupo: "Logística", log: true },
                 { key: "destino",  label: "Destino",   grupo: "Logística", log: true },
                 { key: "agencia",  label: "Agencia",   grupo: "Logística", log: true },
+                { key: "motorizado", label: "Motorizado", grupo: "Logística", log: true },
                 { key: "tracking", label: "Tracking",  grupo: "Logística", log: true },
                 { key: "prioridad", label: "Prioridad", grupo: "Logística", log: true },
                 { key: "antiguedad", label: "Antigüedad", grupo: "Logística", log: true },
@@ -3193,6 +3209,7 @@ export default {
                 docs: true,
                 canal: false,
                 tienda: false,
+                vendedor: false,
                 pagado: false,
                 saldo: false,
                 medio: false,
@@ -3200,6 +3217,7 @@ export default {
                 entrega: false,
                 destino: false,
                 agencia: false,
+                motorizado: false,
                 tracking: false,
                 prioridad: false,
                 antiguedad: false,
