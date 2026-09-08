@@ -169,6 +169,11 @@ class OrderCollection extends ResourceCollection
                 'customer_direccion'   => $customerAddress,
                 'items'                => $row->items,
                 'item_count'           => count($items),
+                // El contenido normalizado. La fila, el asomo y el cajon
+                // leen de aqui y no del JSON crudo: son DOS formas
+                // distintas y adivinarlas en el navegador es como la
+                // columna «Cant.» acabo saliendo en blanco.
+                'paquete'              => static::paquete($items),
                 'total'                => $row->total,
                 'reference_payment'    => strtoupper($row->reference_payment ?? ''),
                 'document_external_id' => $row->document_external_id,
@@ -513,5 +518,104 @@ class OrderCollection extends ResourceCollection
                 : null,
         ];
     }
-}
 
+    /**
+     * El contenido del pedido, con UNA forma.
+     *
+     * ── Por que hace falta ────────────────────────────────────────────────
+     *
+     * `orders.items` es un JSON sin esquema y hay dos dialectos conviviendo:
+     *
+     *   ecommerce/POS  id, description, quantity | cantidad, image_small, …
+     *   Saga           item_id (NULL), nombre, descripcion, cantidad, unit_price
+     *
+     * El navegador venia adivinando, y adivinaba mal: la columna «Cant.» del
+     * popover leia `cantidad` a secas, y 38 de las 85 lineas de alasitas no
+     * tienen esa clave —solo `quantity`—, asi que salia VACIA casi la mitad de
+     * las veces. Al reves tambien: 31 lineas no tienen `quantity`. Ninguna de
+     * las dos sirve sola, y por eso la eleccion se resuelve aqui, una vez.
+     *
+     * ── Que devuelve ──────────────────────────────────────────────────────
+     *
+     * Una lista de lineas con `nombre`, `cant`, `precio`, `img` y `catalogo`.
+     * No sustituye a `items`: ese sigue viajando crudo porque hay consumidores
+     * que esperan las claves originales. Esto es la lectura, no el dato.
+     */
+    protected static function paquete(array $items): array
+    {
+        $lineas = [];
+
+        foreach ($items as $i) {
+            $a = (array) $i;
+
+            // El nombre: `description` es lo normal, `descripcion`/`nombre` es
+            // como lo manda Saga. `name` va al final porque en el catalogo es
+            // el texto corto de los comprobantes, no el nombre del producto.
+            $nombre = static::primeroNoVacio($a, ['description', 'descripcion', 'nombre', 'name']);
+
+            $cant = $a['cantidad'] ?? $a['quantity'] ?? null;
+
+            // Un id de catalogo de verdad. En Saga `item_id` existe como clave
+            // pero viene NULL en las 761 lineas: son productos ocasionales, y
+            // hay que poder distinguirlos para no ofrecer lo que no se puede.
+            $itemId = $a['item_id'] ?? $a['id'] ?? null;
+
+            $lineas[] = [
+                'nombre'   => $nombre !== '' ? $nombre : 'Sin nombre',
+                // Sin cantidad declarada se asume 1: es una linea del pedido,
+                // existe, y decir «—» donde va un numero obliga a abrir el
+                // pedido para averiguar lo que casi siempre es uno.
+                'cant'     => (float) ($cant ?? 1),
+                'cant_sup' => $cant === null,
+                'precio'   => static::numeroONulo($a['sale_unit_price'] ?? $a['unit_price'] ?? null),
+                'moneda'   => ($a['currency_type_id'] ?? 'PEN') === 'USD' ? '$' : 'S/',
+                'img'      => static::imagenItem($a),
+                'catalogo' => !empty($itemId),
+            ];
+        }
+
+        return $lineas;
+    }
+
+    /** La primera clave con algo escrito. */
+    protected static function primeroNoVacio(array $a, array $claves): string
+    {
+        foreach ($claves as $k) {
+            if (isset($a[$k]) && trim((string) $a[$k]) !== '') {
+                return trim((string) $a[$k]);
+            }
+        }
+
+        return '';
+    }
+
+    protected static function numeroONulo($v): ?float
+    {
+        return is_numeric($v) ? (float) $v : null;
+    }
+
+    /**
+     * La miniatura, si la hay.
+     *
+     * El nombre del archivo viaja DENTRO del JSON del pedido, asi que no hace
+     * falta tocar `items` ni una consulta mas: 47 de 85 lineas en alasitas ya
+     * la traen. `imagen-no-disponible.jpg` es el centinela del catalogo y no es
+     * una imagen: devolver esa URL pintaria un hueco gris en cada fila.
+     */
+    protected static function imagenItem(array $a): ?string
+    {
+        $n = $a['image_small'] ?? $a['image'] ?? null;
+        $n = trim((string) $n);
+
+        if ($n === '' || str_contains($n, 'imagen-no-disponible')) {
+            return null;
+        }
+
+        // Ya absoluta (S3 o un item que la guardo entera).
+        if (str_starts_with($n, 'http://') || str_starts_with($n, 'https://')) {
+            return $n;
+        }
+
+        return asset('storage/uploads/items/' . $n);
+    }
+}

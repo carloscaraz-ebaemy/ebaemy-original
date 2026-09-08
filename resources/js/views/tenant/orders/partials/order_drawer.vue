@@ -56,34 +56,55 @@
                 <section class="od-sec">
                     <h4>
                         Productos
-                        <span class="od-count">{{ items.length || lineasEnvio.length }}</span>
+                        <span class="od-count">{{ paquete.length }}</span>
+                        <!-- Unidades solo cuando difieren de las lineas: con
+                             una por linea el numero repite lo ya dicho. -->
+                        <span v-if="unidades && unidades !== paquete.length" class="od-units"
+                            >{{ unidades }} unidades</span
+                        >
                     </h4>
-                    <table v-if="items.length" class="od-items">
+
+                    <!-- Se pinta desde `paquete`, que normalizo el servidor.
+                         Leer el JSON crudo era el error: hay dos dialectos de
+                         `items` y este cuadro leia `cantidad` a secas, que
+                         falta en 38 de las 85 lineas de alasitas. -->
+                    <table v-if="paquete.length" class="od-items">
                         <tbody>
-                            <tr v-for="(it, i) in items" :key="i">
-                                <td class="od-it-name">{{ it.description }}</td>
-                                <td class="od-it-qty">×{{ it.cantidad }}</td>
-                                <td class="od-it-price">{{ precio(it) }}</td>
+                            <tr v-for="(l, i) in paquete" :key="i">
+                                <td class="od-it-img">
+                                    <img v-if="l.img" :src="l.img" alt="" @error="sinImagen" />
+                                </td>
+                                <td class="od-it-name">
+                                    {{ l.nombre }}
+                                    <!-- Sin id de catalogo no hay stock que
+                                         mover ni ficha que abrir: en Saga son
+                                         las 761 lineas. -->
+                                    <span v-if="esVenta && !l.catalogo" class="od-it-oc"
+                                        >ocasional</span
+                                    >
+                                </td>
+                                <td class="od-it-qty">
+                                    <template v-if="l.cant">&times;{{ entero(l.cant) }}</template>
+                                </td>
+                                <td class="od-it-price">{{ precio(l) }}</td>
                             </tr>
                         </tbody>
                     </table>
 
-                    <!-- El detalle del ENVIO: el espejo de un encargo no tiene
-                         lineas de venta, su contenido es texto libre que el
-                         almacen escribe en el envio. Se muestra derivado, y por
-                         eso editarlo alli se ve aqui sin sincronizar nada. -->
-                    <template v-else-if="lineasEnvio.length">
-                        <ul class="od-envio">
-                            <li v-for="(l, i) in lineasEnvio" :key="i">{{ l }}</li>
-                        </ul>
-                        <p class="od-nota">
-                            Es el detalle del envío, no líneas de venta: se edita
-                            desde el envío y no lleva precio.
-                        </p>
-                    </template>
-
                     <p v-else class="od-empty">
-                        Este pedido no tiene líneas: es el encargo de un envío.
+                        {{
+                            row && row.shipment
+                                ? "El envío todavía no tiene el contenido cargado: se escribe al editar el envío."
+                                : "Este pedido no tiene productos cargados."
+                        }}
+                    </p>
+
+                    <!-- El detalle de un encargo es texto que escribio el
+                         almacen: se muestra derivado, y por eso editarlo alli
+                         se ve aqui sin sincronizar nada. -->
+                    <p v-if="esEnvio" class="od-nota">
+                        Es el detalle del envío, no líneas de venta: se edita
+                        desde el envío y no lleva precio.
                     </p>
                 </section>
 
@@ -259,6 +280,30 @@ export default {
 
             return Array.isArray(it) ? it : [];
         },
+
+        /**
+         * El contenido, con una sola forma y de una sola fuente.
+         *
+         * `paquete` lo arma el servidor a partir de `items`; si no hay lineas
+         * propias cae al texto del envio, que no lleva cantidad ni precio
+         * porque nadie los escribio.
+         */
+        paquete() {
+            const lineas = (this.row && this.row.paquete) || [];
+            if (lineas.length) return lineas;
+
+            return this.lineasEnvio.map(t => ({ nombre: t, cant: null, img: null }));
+        },
+        esVenta() {
+            return !!((this.row && this.row.paquete) || []).length;
+        },
+        esEnvio() {
+            return !this.esVenta && this.lineasEnvio.length > 0;
+        },
+        unidades() {
+            return this.paquete.reduce((t, l) => t + (Number(l.cant) || 0), 0);
+        },
+
         /** El contenido del paquete, cuando el pedido no tiene lineas propias. */
         lineasEnvio() {
             if (this.items.length) return [];
@@ -334,10 +379,20 @@ export default {
 
             return n.toFixed(2);
         },
-        precio(it) {
-            const v = it.sale_unit_price || it.unit_price || it.precio_unitario;
+        precio(l) {
+            return l.precio ? (l.moneda || "S/") + " " + this.money(l.precio) : "";
+        },
 
-            return v ? "S/ " + this.money(v) : "";
+        /** Sin decimales cuando son enteros: «x2», no «x2.00». */
+        entero(v) {
+            const n = Number(v) || 0;
+
+            return Number.isInteger(n) ? String(n) : n.toFixed(2);
+        },
+
+        /** El nombre del archivo puede apuntar a una imagen ya borrada. */
+        sinImagen(ev) {
+            ev.target.style.display = "none";
         },
     },
 };
@@ -459,6 +514,37 @@ export default {
     width: 100%;
     border-collapse: collapse;
 }
+.od-units {
+    margin-left: 6px;
+    font-size: 10.5px;
+    font-weight: 700;
+    color: #94a3b8;
+    font-variant-numeric: tabular-nums;
+}
+.od-it-img {
+    width: 30px;
+    padding-right: 8px !important;
+}
+.od-it-img img {
+    width: 28px;
+    height: 28px;
+    border-radius: 5px;
+    object-fit: cover;
+    display: block;
+    background: #f1f5f9;
+}
+.od-it-oc {
+    margin-left: 6px;
+    font-size: 9.5px;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: #92400e;
+    background: #fef3c7;
+    border-radius: 3px;
+    padding: 1px 5px;
+    white-space: nowrap;
+}
 .od-items td {
     padding: 4px 0;
     border-bottom: 1px dashed #eef2f7;
@@ -482,14 +568,6 @@ export default {
     padding-left: 10px !important;
     font-variant-numeric: tabular-nums;
     color: #0f172a;
-}
-.od-envio {
-    margin: 0;
-    padding-left: 18px;
-    color: #334155;
-}
-.od-envio li {
-    margin-bottom: 3px;
 }
 .od-empty,
 .od-nota {

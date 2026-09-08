@@ -512,122 +512,76 @@
                                 {{ fechaCorta(row.created_at) }}
                             </div>
                         </td>
-                        <!-- Productos: el contador y el primero. El popover
-                             de detalle se conserva tal cual —ya trae la tabla
-                             completa, el telefono y la direccion—; lo que
-                             cambia es el disparador, que era una lupa sin
-                             contexto y ahora dice cuantos hay. -->
+                        <!-- Productos: el pedido como un PAQUETE.
+                             Antes esta celda abria al pulsar un popover que
+                             traia la tabla de productos y, debajo, una tabla
+                             «Contacto» con el telefono y la direccion. Eran
+                             datos de otra columna metidos en esta: el telefono
+                             y el DNI ya estan bajo el nombre del cliente, y la
+                             agencia y la ciudad en la columna de envio.
+                             Ahora: asomarse con el mouse, abrir con un clic. -->
                         <td v-if="columnas.productos" data-label="Productos">
-                            <template>
-                                <el-popover
-                                    placement="right"
-                                    width="540"
-                                    trigger="click"
-                                    popper-class="ord-items-pop"
+                            <el-popover
+                                placement="right"
+                                trigger="hover"
+                                :open-delay="140"
+                                width="320"
+                                popper-class="ord-pk-pop"
+                                :disabled="!paquete(row).length"
+                            >
+                                <div class="ord-pk-h">
+                                    <span class="ord-pk-h-t">Contenido del pedido</span>
+                                    <span class="ord-pk-h-m">{{ metaPaquete(row) }}</span>
+                                </div>
+                                <ol class="ord-pk-l">
+                                    <li v-for="(l, k) in paquete(row)" :key="k">
+                                        <img
+                                            v-if="l.img"
+                                            class="ord-pk-th"
+                                            :src="l.img"
+                                            alt=""
+                                            @error="sinImagen"
+                                        />
+                                        <span class="ord-pk-n">{{ l.nombre }}</span>
+                                        <span v-if="l.cant" class="ord-pk-c"
+                                            >&times;{{ entero(l.cant) }}</span
+                                        >
+                                    </li>
+                                </ol>
+                                <!-- El detalle de un encargo es texto que
+                                     escribio el almacen: no lleva precio, no
+                                     reserva stock y no se puede facturar.
+                                     Decirlo aqui evita que se lea como una
+                                     linea de venta que le falta el importe. -->
+                                <p v-if="paqueteOrigen(row) === 'envio'" class="ord-pk-f">
+                                    Es el detalle del envío, no líneas de venta.
+                                </p>
+                                <button
+                                    slot="reference"
+                                    type="button"
+                                    class="ord-pk"
+                                    :class="{ 'is-vacio': !paquete(row).length }"
+                                    :title="tituloPaquete(row)"
+                                    @click="verPedido(row)"
                                 >
-                                    <!-- El detalle del ENVIO cuando el pedido no
-                                         tiene lineas de venta: el espejo de un
-                                         encargo guarda su contenido como texto
-                                         en el envio, y la columna decia «0
-                                         productos» teniendo el detalle cargado. -->
-                                    <div v-if="detalleDelEnvio(row).length" class="ord-i-envio">
-                                        <p class="ord-i-envio-t">
-                                            Detalle del envío
-                                            <small>se edita en el envío</small>
-                                        </p>
-                                        <ul>
-                                            <li v-for="(l, k) in detalleDelEnvio(row)" :key="k">{{ l }}</li>
-                                        </ul>
-                                    </div>
-                                    <el-table
-                                        v-else
-                                        style="width: 100%"
-                                        :data="row.items"
-                                    >
-                                        <el-table-column
-                                            width="150"
-                                            property="description"
-                                            label="Nombre"
-                                        ></el-table-column>
-                                        <el-table-column
-                                            width="90"
-                                            property="cantidad"
-                                            label="Cant."
-                                        ></el-table-column>
-                                        <el-table-column
-                                            width="90"
-                                            label="Precio"
+                                    <span v-if="miniaturas(row).length" class="ord-pk-ths">
+                                        <img
+                                            v-for="(m, k) in miniaturas(row)"
+                                            :key="k"
+                                            :src="m"
+                                            alt=""
+                                            @error="sinImagen"
+                                        />
+                                        <span v-if="restantes(row)" class="ord-pk-mas"
+                                            >+{{ restantes(row) }}</span
                                         >
-                                            <template slot-scope="scope">
-                                                <span
-                                                    >{{
-                                                        scope.row
-                                                            .currency_type_id ===
-                                                        "USD"
-                                                            ? "$"
-                                                            : "S/"
-                                                    }}
-                                                    {{
-                                                        Number(
-                                                            scope.row
-                                                                .sale_unit_price
-                                                        ).toFixed(2)
-                                                    }}</span
-                                                >
-                                            </template>
-                                        </el-table-column>
-                                        <el-table-column
-                                            width="90"
-                                            property="exchange_rate_sale"
-                                            label="T/C"
-                                        ></el-table-column>
-                                        <el-table-column
-                                            width="90"
-                                            label="Subtotal"
-                                        >
-                                            <template slot-scope="scope">
-                                                <span
-                                                    >S/
-                                                    {{
-                                                        subtotal(scope.row)
-                                                    }}</span
-                                                >
-                                            </template>
-                                        </el-table-column>
-                                    </el-table>
-                                    <table
-                                        class="el-table--small el-table--fit el-table"
-                                    >
-                                        <thead class="has-gutter">
-                                            <th colspan="2" class="text-center">
-                                                Contacto
-                                            </th>
-                                        </thead>
-                                        <tbody>
-                                            <tr class="el-table tr">
-                                                <td class="el-table--small td">
-                                                    TELÉFONO:
-                                                    {{ row.customer_telefono }}
-                                                </td>
-                                            </tr>
-                                            <tr class="el-table tr">
-                                                <td class="el-table--small td">
-                                                    DIRECCIÓN:
-                                                    {{ row.customer_direccion }}
-                                                </td>
-                                            </tr>
-                                        </tbody>
-                                    </table>
-                                    <div slot="reference" class="ord-i-ref">
-                                        <span class="ord-i-n">{{ resumenProductos(row) }}</span>
-                                        <span
-                                            v-if="primerProducto(row)"
-                                            class="ord-i-first"
-                                            >{{ primerProducto(row) }}</span
-                                        >
-                                    </div>
-                                </el-popover>
-                            </template>
+                                    </span>
+                                    <span class="ord-pk-t">
+                                        <span v-if="!miniaturas(row).length" class="ord-pk-e">&#128230;</span>
+                                        {{ resumenProductos(row) }}
+                                    </span>
+                                </button>
+                            </el-popover>
                         </td>
                         <!-- Cobro: importe, saldo y medio, juntos.
                              Estaban repartidos en «Total» y «Medio Pago», dos
@@ -1435,50 +1389,177 @@
     margin-top: 1px;
 }
 
-/* ── Productos ──────────────────────────────────────────────────── */
-.ord-i-ref {
-    cursor: pointer;
-    display: inline-block;
+/* ── Productos: el pedido como un paquete ───────────────── */
+/* Mismo lenguaje que el chip de Envios: caja, cuenta y borde tenue. Alla
+   esta en Blade y aca en Vue, asi que se comparte el aspecto y no el
+   codigo; lo que NO se comparte es el posicionamiento, que alla son 170
+   lineas a mano y aqui lo resuelve Popper. */
+.ord-pk {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
     max-width: 100%;
-}
-.ord-i-n {
-    font-weight: 600;
+    padding: 3px 8px 3px 4px;
+    border: 1px solid #e2e8f0;
+    border-radius: 999px;
+    background: #f8fafc;
     color: #334155;
-    border-bottom: 1px dotted #cbd5e1;
+    font: inherit;
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 1.2;
+    cursor: pointer;
+    transition: background 0.14s ease-out, border-color 0.14s ease-out;
 }
-.ord-i-envio {
-    padding: 4px 2px;
+.ord-pk:hover {
+    background: #eef2f7;
+    border-color: #cbd5e1;
 }
-.ord-i-envio-t {
+.ord-pk:active {
+    transform: scale(0.98);
+}
+.ord-pk.is-vacio {
+    color: #94a3b8;
+    font-weight: 500;
+}
+.ord-pk-t {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    white-space: nowrap;
+    padding-left: 4px;
+}
+.ord-pk-e {
+    font-size: 12px;
+    line-height: 1;
+}
+.ord-pk-ths {
+    display: inline-flex;
+    align-items: center;
+    flex: 0 0 auto;
+}
+/* Superpuestas: tres miniaturas en fila harian crecer la columna, y la
+   pila se lee igual de bien a este tamano. */
+.ord-pk-ths img {
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    object-fit: cover;
+    background: #fff;
+    border: 1.5px solid #fff;
+    box-shadow: 0 0 0 1px #e2e8f0;
+}
+.ord-pk-ths img + img {
+    margin-left: -7px;
+}
+.ord-pk-mas {
+    margin-left: -5px;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: #e2e8f0;
+    color: #475569;
+    border: 1.5px solid #fff;
+    font-size: 9.5px;
+    font-weight: 800;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-variant-numeric: tabular-nums;
+}
+
+/* El asomo. Cabecera con tinte, lista numerada: al embalar se cuentan
+   items, y un numero se sigue mejor que un punto. Es el mismo patron de
+   `.sh-peek` en Envios. */
+.ord-pk-h {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 10px;
+    margin: -12px -12px 8px;
+    padding: 8px 12px;
+    background: #f1f5f9;
+    border-bottom: 1px solid #e2e8f0;
+}
+.ord-pk-h-t {
+    font-size: 10.5px;
+    font-weight: 800;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+    color: #475569;
+}
+.ord-pk-h-m {
     font-size: 11px;
     font-weight: 700;
-    letter-spacing: 0.05em;
-    text-transform: uppercase;
     color: #94a3b8;
-    margin: 0 0 6px;
-}
-.ord-i-envio-t small {
-    text-transform: none;
-    letter-spacing: 0;
-    font-weight: 500;
-    margin-left: 6px;
-}
-.ord-i-envio ul {
-    margin: 0;
-    padding-left: 18px;
-    font-size: 13px;
-    color: #334155;
-}
-.ord-i-envio li {
-    margin-bottom: 3px;
-}
-.ord-i-first {
-    display: block;
-    color: #94a3b8;
-    font-size: 11px;
-    overflow: hidden;
-    text-overflow: ellipsis;
     white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+}
+.ord-pk-l {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    counter-reset: pk;
+    max-height: 260px;
+    overflow-y: auto;
+}
+.ord-pk-l li {
+    counter-increment: pk;
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    padding-left: 22px;
+    margin-bottom: 5px;
+    font-size: 12.5px;
+    line-height: 1.35;
+    color: #1e293b;
+}
+.ord-pk-l li:last-child {
+    margin-bottom: 0;
+}
+.ord-pk-l li::before {
+    content: counter(pk);
+    position: absolute;
+    left: 0;
+    top: 2px;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: #e2e8f0;
+    color: #475569;
+    font-size: 9.5px;
+    font-weight: 800;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.ord-pk-th {
+    width: 26px;
+    height: 26px;
+    border-radius: 5px;
+    object-fit: cover;
+    flex: 0 0 auto;
+    background: #f1f5f9;
+}
+.ord-pk-n {
+    flex: 1;
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+.ord-pk-c {
+    flex: 0 0 auto;
+    font-weight: 800;
+    color: #475569;
+    font-variant-numeric: tabular-nums;
+}
+.ord-pk-f {
+    margin: 8px 0 0;
+    padding-top: 7px;
+    border-top: 1px solid #eef2f7;
+    font-size: 11px;
+    color: #94a3b8;
+    line-height: 1.4;
 }
 
 /* ── Cobro ──────────────────────────────────────────────────────── */
@@ -2238,11 +2319,9 @@
     /* El nombre y el producto se recortan; el ancho lo manda la tarjeta,
        no el texto. Sin esto una direccion larga desborda la pantalla. */
     .orders .ord-o-cli,
-    .orders .ord-i-first,
     .orders .ord-p-medio {
         max-width: 100%;
     }
-    .orders .ord-i-first { display: none; }
 
     /* El detalle a pantalla completa: 480px en un telefono deja una franja
        de fondo inutil a un lado. El `!important` es necesario porque
@@ -2254,12 +2333,10 @@
         width: 100% !important;
     }
 
-    /* El popover de productos pide 540 px, que en un telefono se sale de
-       la pantalla. El ancho lo fija Element UI en linea, asi que solo un
-       max-width puede encogerlo. */
-    .ord-items-pop {
+    /* El ancho lo fija Element UI en linea, asi que solo un max-width
+       puede encogerlo por debajo de los 320 px que pide. */
+    .ord-pk-pop {
         max-width: calc(100vw - 24px) !important;
-        overflow-x: auto;
     }
 }
 .ord-status-editbar {
@@ -2996,44 +3073,121 @@ export default {
         },
 
         /**
-         * El detalle que vive en el ENVIO.
+         * El contenido del pedido, como una lista con UNA forma.
          *
-         * Solo cuando el pedido no tiene lineas propias. El espejo de un
-         * encargo nace con `items` vacio porque el envio guarda su contenido
-         * como texto libre, y hasta ahora la columna leia solo `items`: 151
-         * pedidos decian «0 productos» teniendo el detalle cargado.
+         * De donde sale, por orden:
          *
-         * Un pedido con lineas de venta manda sobre esto: si tiene productos
-         * del catalogo, esos son los productos.
+         *   1. `paquete` — lo que normalizo el servidor a partir de `items`.
+         *      Son lineas de venta: llevan cantidad, precio y a veces foto.
+         *   2. El detalle del ENVIO, y solo si no hay lineas propias. El
+         *      espejo de un encargo nace con `items` vacio porque el envio
+         *      guarda su contenido como TEXTO libre, escrito por el almacen.
+         *
+         * Un pedido con lineas de venta manda sobre el envio: si tiene
+         * productos del catalogo, esos son los productos.
          */
-        detalleDelEnvio(row) {
-            if ((row.items || []).length) return [];
+        paquete(row) {
+            const lineas = row.paquete || [];
+            if (lineas.length) return lineas;
 
-            return (row.shipment && row.shipment.content_lines) || [];
+            // Texto libre: sin cantidad y sin precio, porque no los tiene.
+            // Inventar un «x1» aqui seria afirmar algo que nadie escribio.
+            return ((row.shipment && row.shipment.content_lines) || []).map(t => ({
+                nombre: t,
+                cant: null,
+                img: null,
+            }));
         },
 
-        /** «3 productos» o «2 ítems», segun de donde salga el detalle. */
+        /** `venta`, `envio` o `vacio`. Decide el vocabulario de la celda. */
+        paqueteOrigen(row) {
+            if ((row.paquete || []).length) return "venta";
+            if (((row.shipment && row.shipment.content_lines) || []).length) return "envio";
+
+            return "vacio";
+        },
+
+        /** Unidades, no lineas: 3 productos pueden ser 7 cosas en la caja. */
+        unidadesPaquete(row) {
+            return (row.paquete || []).reduce((t, l) => t + (Number(l.cant) || 0), 0);
+        },
+
+        /**
+         * Lo que dice el chip.
+         *
+         * «items» y no «productos» cuando el detalle sale del envio: es texto
+         * libre y no una linea del catalogo. Llamarlo igual haria creer que se
+         * puede facturar, y no se puede.
+         */
         resumenProductos(row) {
-            const n = (row.items || []).length;
-            if (n) return n + (n === 1 ? " producto" : " productos");
+            const n = this.paquete(row).length;
 
-            const envio = this.detalleDelEnvio(row).length;
-            // «items» y no «productos»: lo del envio es texto libre escrito por
-            // el almacen, no lineas del catalogo. Llamarlas igual haria creer
-            // que se pueden facturar.
-            if (envio) return envio + (envio === 1 ? " ítem" : " ítems");
+            if (!n) return "Sin detalle";
 
-            return "0 productos";
+            if (this.paqueteOrigen(row) === "envio") {
+                return n + (n === 1 ? " ítem" : " ítems");
+            }
+
+            return n + (n === 1 ? " producto" : " productos");
         },
 
-        /** La primera linea, para dar contexto al contador. */
-        primerProducto(row) {
-            const items = row.items || [];
-            const nombre = items.length
-                ? items[0].description || items[0].name || ""
-                : this.detalleDelEnvio(row)[0] || "";
+        /** La cabecera del asomo: lineas y, si difieren, unidades. */
+        metaPaquete(row) {
+            const n = this.paquete(row).length;
+            const u = this.unidadesPaquete(row);
 
-            return nombre.length > 34 ? nombre.slice(0, 33) + "…" : nombre;
+            // Con una unidad por linea el total no aporta nada y solo compite
+            // con el numero que ya se leyo en la fila.
+            if (this.paqueteOrigen(row) !== "venta" || u === n) return this.resumenProductos(row);
+
+            return this.resumenProductos(row) + " · " + this.entero(u) + " unidades";
+        },
+
+        /** Hasta tres miniaturas. Mas no caben sin hacer crecer la fila. */
+        miniaturas(row) {
+            return this.paquete(row)
+                .filter(l => l.img)
+                .slice(0, 3)
+                .map(l => l.img);
+        },
+
+        /** Cuantas quedan fuera de las miniaturas. */
+        restantes(row) {
+            return Math.max(0, this.paquete(row).length - this.miniaturas(row).length);
+        },
+
+        /** El titulo nativo: por que esta vacio, o que hay dentro. */
+        tituloPaquete(row) {
+            const o = this.paqueteOrigen(row);
+
+            if (o === "vacio") {
+                // Los 120 pedidos «vacios» de alasitas son espejos de encargos
+                // a los que nadie les escribio el contenido. No es un fallo del
+                // pedido, y el operador tiene que saber donde se arregla.
+                return row.shipment
+                    ? "El envío no tiene el contenido cargado. Se escribe al editar el envío."
+                    : "Este pedido no tiene productos cargados.";
+            }
+
+            return this.metaPaquete(row) + " — clic para ver el detalle";
+        },
+
+        /** Sin decimales cuando son enteros: «x2», no «x2.00». */
+        entero(v) {
+            const n = Number(v) || 0;
+
+            return Number.isInteger(n) ? String(n) : n.toFixed(2);
+        },
+
+        /**
+         * Una miniatura que no carga se esconde.
+         *
+         * El nombre del archivo viaja dentro del JSON del pedido y puede
+         * apuntar a una imagen que ya se borro del catalogo. El hueco roto del
+         * navegador es peor que no poner nada.
+         */
+        sinImagen(ev) {
+            ev.target.style.display = "none";
         },
 
         /**
