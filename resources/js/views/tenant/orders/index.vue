@@ -86,6 +86,14 @@
                      Ahora quedan arriba la busqueda y los dos filtros que se
                      usan a diario; el resto entra en «Mas filtros», que se abre
                      solo si hace falta y avisa cuantos hay puestos. -->
+                <!-- Barra de filtros.
+                     Empezo con SEIS desplegables siempre visibles; luego bajaron
+                     a cinco. Sigue siendo una fila de controles que el operador
+                     lee de izquierda a derecha cada vez para saber que hay
+                     puesto. Ahora arriba solo esta lo que se toca a diario, el
+                     resto vive en un cajon, y lo que este activo se ve como
+                     chips que se quitan de un clic — que es la pregunta real:
+                     no «que filtros hay» sino «que estoy filtrando». -->
                 <div class="ord-bar">
                     <!-- Una sola busqueda inteligente. NO es nueva: el backend
                          ya buscaba por codigo, cliente, DNI, telefono, direccion,
@@ -97,7 +105,7 @@
                         <input
                             v-model="q"
                             type="search"
-                            placeholder="Buscar por código, cliente, DNI, RUC, teléfono, comprobante o tracking…"
+                            placeholder="Buscar por código, cliente, DNI, RUC, teléfono o guía…"
                             @keyup.enter="applySearch"
                             @search="applySearch"
                         />
@@ -107,72 +115,17 @@
                         <button class="ord-search-go" @click="applySearch">Buscar</button>
                     </div>
 
-                    <el-select
-                        v-model="dateRange"
-                        class="ord-bar-sel"
-                        size="small"
-                        placeholder="Periodo"
-                        @change="applyDateFilters"
+                    <button
+                        class="ord-bar-more"
+                        :class="{ 'is-on': filtrosActivos.length }"
+                        @click="showFiltersDrawer = true"
                     >
-                        <el-option
-                            v-for="opt in rangeOptions"
-                            :key="opt.value"
-                            :label="opt.label"
-                            :value="opt.value"
-                        ></el-option>
-                    </el-select>
+                        <i class="fas fa-sliders-h"></i> Filtros
+                        <span v-if="filtrosActivos.length" class="ord-bar-badge">{{
+                            filtrosActivos.length
+                        }}</span>
+                    </button>
 
-                    <!-- Estado economico. Es el filtro que no existia: hasta
-                         ahora lo unico que se podia filtrar del dinero era la
-                         etiqueta «Pago verificado», que se pone a mano y no lo
-                         mira. -->
-                    <el-select
-                        v-model="estadoPago"
-                        class="ord-bar-sel"
-                        size="small"
-                        @change="pushFilters"
-                    >
-                        <el-option label="Todo el cobro" value=""></el-option>
-                        <el-option label="Pago pendiente" value="pendiente"></el-option>
-                        <el-option label="Pago parcial" value="parcial"></el-option>
-                        <el-option label="Pagado" value="pagado"></el-option>
-                        <el-option label="Cobrado por el canal" value="canal"></el-option>
-                    </el-select>
-
-                    <el-select
-                        v-model="orderSource"
-                        class="ord-bar-sel"
-                        size="small"
-                        @change="applyOrderSource"
-                    >
-                        <el-option label="Todos los pedidos" value="all"></el-option>
-                        <el-option label="Solo Saga Falabella" value="saga"></el-option>
-                        <el-option label="Otros pedidos" value="other"></el-option>
-                    </el-select>
-
-                    <!-- Las fechas concretas van AQUI, pegadas al periodo que
-                         las activa. Estaban dentro de «Mas filtros», que se
-                         abre aparte: elegir «Personalizado» en la barra no
-                         mostraba ningun campo y el filtro por fechas quedaba
-                         sin manera de usarse. Regresion del paso 3 del
-                         rediseno; se ven solo con «Personalizado» porque si no
-                         compiten con el rango rapido y no se sabe cual manda. -->
-                    <el-date-picker
-                        v-if="dateRange === 'custom'"
-                        v-model="invoiceDateRange"
-                        class="ord-bar-fechas"
-                        type="daterange"
-                        size="small"
-                        range-separator="a"
-                        start-placeholder="Desde"
-                        end-placeholder="Hasta"
-                        value-format="yyyy-MM-dd"
-                        :clearable="true"
-                        @change="applyDateFilters"
-                    ></el-date-picker>
-
-                    <!-- Orden. Hasta ahora la consulta era `latest()` fijo: no
-                         habia forma de ordenar por importe ni por cliente. -->
                     <div class="ord-sort">
                         <el-select
                             v-model="orden"
@@ -196,22 +149,10 @@
                         </button>
                     </div>
 
-                    <button
-                        class="ord-bar-more"
-                        :class="{ 'is-on': showMoreFilters || extraFilterCount }"
-                        @click="showMoreFilters = !showMoreFilters"
-                    >
-                        <i class="fas fa-sliders-h"></i> Más filtros
-                        <span v-if="extraFilterCount" class="ord-bar-badge">{{
-                            extraFilterCount
-                        }}</span>
-                    </button>
-
                     <!-- Configuracion. Las dos pantallas YA existen en el
                          modulo de Envios y `shipping_settings` es una unica
                          fila por tenant que Pedidos ya lee en cada listado. Aqui
-                         se enlazan, no se duplican: copiarlas daria dos sitios
-                         donde cambiar la misma tarifa. -->
+                         se enlazan, no se duplican. -->
                     <el-dropdown v-if="shipping" trigger="click" @command="irA">
                         <button class="ord-bar-more">
                             <i class="fas fa-cog"></i> Configuración
@@ -223,8 +164,7 @@
                             </el-dropdown-item>
                             <!-- OJO: esto NO es una configuracion de
                                  motorizados —no existe tal catalogo— sino el
-                                 tablero de reparto a domicilio. Se le llama por
-                                 lo que es. -->
+                                 tablero de reparto a domicilio. -->
                             <el-dropdown-item command="motorizado">
                                 <i class="el-icon-bicycle"></i>
                                 Tablero de reparto a domicilio
@@ -234,6 +174,23 @@
 
                     <button class="ord-new-btn" @click="manualOrderId = null; showManualDialog = true">
                         <i class="fas fa-plus"></i> Nuevo pedido
+                    </button>
+                </div>
+
+                <!-- Lo que esta filtrando ahora mismo. Un filtro puesto y
+                     escondido es la forma mas facil de que alguien crea que
+                     faltan pedidos; aqui se ve y se quita de un clic. -->
+                <div v-if="filtrosActivos.length" class="ord-fchips">
+                    <span
+                        v-for="f in filtrosActivos"
+                        :key="f.key"
+                        class="ord-fchip"
+                    >
+                        {{ f.label }}
+                        <button :title="'Quitar ' + f.label" @click="quitarFiltro(f.key)">×</button>
+                    </span>
+                    <button class="ord-fchips-clear" @click="clearFilters">
+                        Limpiar todo
                     </button>
                 </div>
 
@@ -296,55 +253,121 @@
                     </button>
                 </div>
 
-                <!-- Los que no se tocan a diario. Se abren, se usan y se
-                     cierran; mientras esten puestos, el boton lo dice. -->
-                <div v-if="showMoreFilters" class="ord-filters">
-                    <div class="ord-filter">
-                        <label>Fecha a considerar</label>
-                        <el-select v-model="dateType" size="small" @change="applyDateFilters">
-                            <el-option
-                                v-for="opt in dateTypeOptions"
-                                :key="opt.value"
-                                :label="opt.label"
-                                :value="opt.value"
-                            ></el-option>
-                        </el-select>
-                    </div>
+                <!-- Todos los filtros, en un cajon.
+                     Se aplican al cambiarlos, no al pulsar «Aplicar»: con un
+                     boton habria DOS estados —lo elegido y lo aplicado— y basta
+                     con que alguien cierre el cajon sin pulsarlo para que la
+                     tabla y los controles digan cosas distintas. Los chips de
+                     arriba dan la confirmacion inmediata que ese boton
+                     pretendia dar. -->
+                <el-drawer
+                    :visible.sync="showFiltersDrawer"
+                    :with-header="false"
+                    direction="rtl"
+                    size="380px"
+                    custom-class="ord-fdrawer"
+                >
+                    <div class="ord-fd">
+                        <header class="ord-fd-head">
+                            <span>Filtros</span>
+                            <button class="ord-fd-x" @click="showFiltersDrawer = false">
+                                <i class="el-icon-close"></i>
+                            </button>
+                        </header>
 
-                    <div class="ord-filter">
-                        <label>Modalidad de entrega</label>
-                        <el-select v-model="deliveryTypeFilter" size="small" @change="applyLogisticFilters">
-                            <el-option
-                                v-for="opt in deliveryTypeOptions"
-                                :key="opt.value"
-                                :label="opt.label"
-                                :value="opt.value"
-                            ></el-option>
-                        </el-select>
-                    </div>
+                        <div class="ord-fd-body">
+                            <section class="ord-fd-sec">
+                                <h5>Cobro</h5>
+                                <el-select v-model="estadoPago" size="small" @change="pushFilters">
+                                    <el-option label="Todo el cobro" value=""></el-option>
+                                    <el-option label="Pago pendiente" value="pendiente"></el-option>
+                                    <el-option label="Pago parcial" value="parcial"></el-option>
+                                    <el-option label="Pagado" value="pagado"></el-option>
+                                    <el-option label="Cobrado por el canal" value="canal"></el-option>
+                                </el-select>
+                            </section>
 
-                    <div class="ord-filter">
-                        <label>Antigüedad</label>
-                        <el-select v-model="agingFilter" size="small" @change="applyLogisticFilters">
-                            <el-option
-                                v-for="opt in agingOptions"
-                                :key="opt.value"
-                                :label="opt.label"
-                                :value="opt.value"
-                            ></el-option>
-                        </el-select>
-                    </div>
+                            <section class="ord-fd-sec">
+                                <h5>Origen</h5>
+                                <el-select v-model="orderSource" size="small" @change="applyOrderSource">
+                                    <el-option label="Todos los pedidos" value="all"></el-option>
+                                    <el-option label="Solo Saga Falabella" value="saga"></el-option>
+                                    <el-option label="Otros pedidos" value="other"></el-option>
+                                </el-select>
+                            </section>
 
-                    <div class="ord-filter ord-filter-reset">
-                        <button
-                            v-if="hasActiveFilters"
-                            class="ord-filter-clear"
-                            @click="clearFilters"
-                        >
-                            Limpiar filtros
-                        </button>
+                            <section class="ord-fd-sec">
+                                <h5>Fecha</h5>
+                                <el-select v-model="dateRange" size="small" @change="applyDateFilters">
+                                    <el-option
+                                        v-for="opt in rangeOptions"
+                                        :key="opt.value"
+                                        :label="opt.label"
+                                        :value="opt.value"
+                                    ></el-option>
+                                </el-select>
+                                <!-- Solo con «Personalizado»: si no, compite con
+                                     el rango rapido y no se sabe cual manda. -->
+                                <el-date-picker
+                                    v-if="dateRange === 'custom'"
+                                    v-model="invoiceDateRange"
+                                    class="ord-fd-fechas"
+                                    type="daterange"
+                                    size="small"
+                                    range-separator="a"
+                                    start-placeholder="Desde"
+                                    end-placeholder="Hasta"
+                                    value-format="yyyy-MM-dd"
+                                    :clearable="true"
+                                    @change="applyDateFilters"
+                                ></el-date-picker>
+                                <label class="ord-fd-lbl">Qué fecha se mira</label>
+                                <el-select v-model="dateType" size="small" @change="applyDateFilters">
+                                    <el-option
+                                        v-for="opt in dateTypeOptions"
+                                        :key="opt.value"
+                                        :label="opt.label"
+                                        :value="opt.value"
+                                    ></el-option>
+                                </el-select>
+                            </section>
+
+                            <section v-if="shipping" class="ord-fd-sec">
+                                <h5>Entrega</h5>
+                                <el-select v-model="deliveryTypeFilter" size="small" @change="applyLogisticFilters">
+                                    <el-option
+                                        v-for="opt in deliveryTypeOptions"
+                                        :key="opt.value"
+                                        :label="opt.label"
+                                        :value="opt.value"
+                                    ></el-option>
+                                </el-select>
+                                <label class="ord-fd-lbl">Antigüedad</label>
+                                <el-select v-model="agingFilter" size="small" @change="applyLogisticFilters">
+                                    <el-option
+                                        v-for="opt in agingOptions"
+                                        :key="opt.value"
+                                        :label="opt.label"
+                                        :value="opt.value"
+                                    ></el-option>
+                                </el-select>
+                            </section>
+                        </div>
+
+                        <footer class="ord-fd-foot">
+                            <button
+                                class="ord-fd-clear"
+                                :disabled="!filtrosActivos.length"
+                                @click="clearFilters"
+                            >
+                                Limpiar filtros
+                            </button>
+                            <el-button size="small" type="primary" @click="showFiltersDrawer = false">
+                                Ver resultados
+                            </el-button>
+                        </footer>
                     </div>
-                </div>
+                </el-drawer>
 
                 <div v-if="selectedIds.length" class="ord-bulkbar">
                     <span class="ord-bulk-count"
@@ -1744,14 +1767,6 @@
 .ord-search-go:hover {
     background: #e0e7ff;
 }
-.ord-bar-sel {
-    flex: 0 1 165px;
-    min-width: 140px;
-}
-.ord-bar-fechas {
-    flex: 0 1 250px;
-    min-width: 210px;
-}
 .ord-sort {
     display: flex;
     align-items: stretch;
@@ -1802,6 +1817,134 @@
 }
 /* Un filtro escondido que sigue activo es la forma mas facil de que alguien
    crea que faltan pedidos. El numero lo dice sin abrir el panel. */
+/* ── Chips de lo que se esta filtrando ───────────────────────────── */
+.ord-fchips {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+    margin: -4px 0 12px;
+}
+.ord-fchip {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    background: #eef2ff;
+    color: #3730a3;
+    border-radius: 999px;
+    font-size: 11.5px;
+    font-weight: 600;
+    padding: 3px 6px 3px 11px;
+    max-width: 260px;
+}
+.ord-fchip button {
+    border: 0;
+    background: rgba(55, 48, 163, 0.12);
+    color: #3730a3;
+    border-radius: 50%;
+    width: 16px;
+    height: 16px;
+    line-height: 15px;
+    font-size: 13px;
+    cursor: pointer;
+    padding: 0;
+    flex: 0 0 auto;
+}
+.ord-fchip button:hover {
+    background: #3730a3;
+    color: #fff;
+}
+.ord-fchips-clear {
+    border: 0;
+    background: transparent;
+    color: #64748b;
+    font-size: 11.5px;
+    cursor: pointer;
+    text-decoration: underline;
+}
+
+/* ── Cajon de filtros ────────────────────────────────────────────── */
+.ord-fd {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+}
+.ord-fd-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 15px 18px;
+    border-bottom: 1px solid #e2e8f0;
+    font-weight: 700;
+    color: #0f172a;
+    flex: 0 0 auto;
+}
+.ord-fd-x {
+    border: 0;
+    background: transparent;
+    color: #64748b;
+    font-size: 18px;
+    cursor: pointer;
+    line-height: 1;
+}
+.ord-fd-body {
+    flex: 1 1 auto;
+    overflow-y: auto;
+    padding: 4px 18px 18px;
+}
+.ord-fd-sec {
+    padding: 14px 0;
+    border-bottom: 1px solid #eef2f7;
+}
+.ord-fd-sec:last-child {
+    border-bottom: 0;
+}
+.ord-fd-sec h5 {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: #94a3b8;
+    margin: 0 0 8px;
+}
+.ord-fd-sec .el-select,
+.ord-fd-fechas {
+    width: 100% !important;
+}
+.ord-fd-lbl {
+    display: block;
+    font-size: 11px;
+    color: #94a3b8;
+    margin: 10px 0 4px;
+}
+.ord-fd-fechas {
+    margin-top: 8px;
+}
+.ord-fd-foot {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 13px 18px;
+    border-top: 1px solid #e2e8f0;
+    background: #f8fafc;
+}
+.ord-fd-clear {
+    border: 0;
+    background: transparent;
+    color: #475569;
+    font-size: 12.5px;
+    font-weight: 600;
+    cursor: pointer;
+    text-decoration: underline;
+}
+.ord-fd-clear:disabled {
+    color: #cbd5e1;
+    cursor: default;
+    text-decoration: none;
+}
+
 .ord-bar-badge {
     background: #4338ca;
     color: #fff;
@@ -1824,58 +1967,10 @@
     display: none;
 }
 
-.ord-filters {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
-    gap: 10px 12px;
-    padding: 12px;
-    margin-bottom: 14px;
-    border: 1px solid #e2e8f0;
-    border-radius: 10px;
-    background: #fbfcfe;
-}
-.ord-filter {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    min-width: 0;
-}
 /* Cada control lleva su etiqueta: sin ella, cuatro desplegables seguidos no
    dicen qué filtran y la barra se lee como piezas sueltas. */
-.ord-filter label {
-    font-size: 11px;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    color: #64748b;
-    margin: 0;
-}
-.ord-filter .el-select,
-.ord-filter .el-date-editor {
-    width: 100%;
-}
-.ord-filter-reset {
-    justify-content: flex-end;
-}
-.ord-filter-clear {
-    border: 1px solid #e2e8f0;
-    background: #fff;
-    color: #475569;
-    border-radius: 8px;
-    padding: 6px 12px;
-    font-size: 12px;
-    font-weight: 600;
-    cursor: pointer;
-}
-.ord-filter-clear:hover {
-    border-color: #c7d2fe;
-    color: #4f46e5;
-}
 
 @media (max-width: 640px) {
-    .ord-filters {
-        grid-template-columns: 1fr;
-    }
 }
 /* KPIs */
 .ord-kpis {
@@ -2019,15 +2114,7 @@
         height: 38px;
     }
     /* Los dos desplegables se reparten la linea siguiente. */
-    .ord-bar-sel {
-        flex: 1 1 calc(50% - 4px);
-        min-width: 0;
-    }
     .ord-sort,
-    .ord-bar-fechas {
-        flex: 1 1 100%;
-        min-width: 0;
-    }
     .ord-bar-more,
     .ord-bar .ord-new-btn {
         flex: 1 1 calc(50% - 4px);
@@ -2099,7 +2186,8 @@
        el-drawer fija el ancho en linea, y una regla de hoja de estilos con
        !important si gana a un style inline sin el. Va en el bloque NO
        scoped del padre: el cajon se pinta fuera del ambito del componente. */
-    .od-drawer {
+    .od-drawer,
+    .ord-fdrawer {
         width: 100% !important;
     }
 
@@ -2324,7 +2412,7 @@ export default {
             // que en el backend es «buscar en todo».
             q: "",
             estadoPago: "",
-            showMoreFilters: false,
+            showFiltersDrawer: false,
             // Orden del listado. `fecha` reproduce el `latest()` de siempre,
             // asi que arrancar con el no cambia lo que el operador ya conoce.
             orden: "fecha",
@@ -2370,21 +2458,43 @@ export default {
     },
     computed: {
         /**
-         * Cuantos filtros secundarios hay puestos.
+         * Lo que se esta filtrando ahora mismo, para pintarlo como chips.
          *
-         * El boton «Mas filtros» los esconde, y un filtro escondido que sigue
-         * activo es la forma mas facil de que alguien crea que faltan pedidos.
-         * El numero se pinta en el propio boton.
+         * Cada uno lleva la etiqueta que el operador reconoce —no el valor
+         * interno— y la clave con la que se quita. La busqueda entra tambien:
+         * es el filtro que mas se olvida puesto.
          */
-        extraFilterCount() {
-            let n = 0;
-            if (this.dateType !== "order") n++;
-            if (this.deliveryTypeFilter) n++;
-            if (this.agingFilter) n++;
-            if ((this.invoiceDateRange || []).length) n++;
+        filtrosActivos() {
+            const et = (lista, v) => (lista.find(o => o.value === v) || {}).label || v;
+            const chips = [];
 
-            return n;
+            if (this.q) chips.push({ key: "q", label: '«' + this.q + '»' });
+
+            if (this.estadoPago) {
+                const pagos = {
+                    pendiente: "Pago pendiente",
+                    parcial: "Pago parcial",
+                    pagado: "Pagado",
+                    canal: "Cobrado por el canal",
+                };
+                chips.push({ key: "estadoPago", label: pagos[this.estadoPago] });
+            }
+
+            if (this.orderSource !== "all") {
+                chips.push({
+                    key: "orderSource",
+                    label: this.orderSource === "saga" ? "Solo Saga" : "Sin Saga",
+                });
+            }
+
+            if (this.dateRange) chips.push({ key: "dateRange", label: et(this.rangeOptions, this.dateRange) });
+            if (this.dateType !== "order") chips.push({ key: "dateType", label: et(this.dateTypeOptions, this.dateType) });
+            if (this.deliveryTypeFilter) chips.push({ key: "deliveryTypeFilter", label: et(this.deliveryTypeOptions, this.deliveryTypeFilter) });
+            if (this.agingFilter) chips.push({ key: "agingFilter", label: et(this.agingOptions, this.agingFilter) });
+
+            return chips;
         },
+
         hasActiveFilters() {
             return (
                 !!this.dateRange ||
@@ -3647,6 +3757,35 @@ export default {
         verAntiguedad(cual) {
             this.agingFilter = this.agingFilter === cual ? "" : cual;
             this.applyLogisticFilters();
+        },
+
+        /**
+         * Quita un filtro desde su chip.
+         *
+         * Cada uno vuelve a su valor NEUTRO, que no siempre es la cadena vacia
+         * —`orderSource` es «all» y `dateType` es «order»—; ponerlos a "" los
+         * dejaria en un estado que el backend no reconoce.
+         */
+        quitarFiltro(clave) {
+            const neutro = {
+                q: "",
+                estadoPago: "",
+                orderSource: "all",
+                dateRange: "",
+                dateType: "order",
+                deliveryTypeFilter: "",
+                agingFilter: "",
+            };
+
+            if (!(clave in neutro)) return;
+
+            this[clave] = neutro[clave];
+
+            // Quitar «personalizado» tiene que llevarse las fechas con el, o
+            // seguirian filtrando sin que nada lo diga.
+            if (clave === "dateRange") this.invoiceDateRange = [];
+
+            this.pushFilters();
         },
 
         /** Buscar. Vuelve siempre a la pagina 1: buscar en la 4 no tiene sentido. */
