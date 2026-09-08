@@ -424,6 +424,25 @@ class ShippingRequest extends Model
         self::DELIVERY_TIENDA    => 'Recojo',
     ];
 
+    /**
+     * Cómo se entrega, dicho como modalidad y no como geografía.
+     *
+     * `DELIVERY_SHORT` es un atajo GEOGRÁFICO —«Provincia», «Lima»— y funciona
+     * en el panel de Envíos, donde el chip va sobre una columna de destino que
+     * ya se lee como tal. En Pedidos no: ahí el chip queda pegado a la
+     * dirección de entrega, y «Lima» junto a «Av. Malecón Grau 207, Chorrillos»
+     * no se lee como una modalidad sino como un destino que se contradice.
+     *
+     * Son dos preguntas distintas —a dónde va y cómo se entrega— así que son
+     * dos listas. Lo que NO puede haber es cada pantalla inventándose sus
+     * palabras: por eso viven aquí, con las otras.
+     */
+    public const DELIVERY_MODE = [
+        self::DELIVERY_AGENCIA   => 'Agencia',
+        self::DELIVERY_DOMICILIO => 'Domicilio',
+        self::DELIVERY_TIENDA    => 'Recojo en tienda',
+    ];
+
     /** Color e ícono por modalidad (azul provincia, naranja Lima, verde recojo). */
     public const DELIVERY_META = [
         self::DELIVERY_AGENCIA   => ['color' => '#2563eb', 'bg' => '#eff6ff', 'line' => '#bfdbfe', 'icon' => '🔵', 'emoji' => '🚚'],
@@ -461,6 +480,11 @@ class ShippingRequest extends Model
     public function getDeliveryShortAttribute(): string
     {
         return self::DELIVERY_SHORT[$this->delivery_type] ?? 'Envío';
+    }
+
+    public function getDeliveryModeAttribute(): string
+    {
+        return self::DELIVERY_MODE[$this->delivery_type] ?? 'Envío';
     }
 
     public function getDeliveryMetaAttribute(): array

@@ -442,6 +442,10 @@ class OrderCollection extends ResourceCollection
             'code'             => $s->shipment_code,
             'delivery_type'    => $s->delivery_type,
             'delivery_short'   => $s->delivery_short,
+            // Como se entrega, no a donde va: «Domicilio» y no «Lima».
+            // El atajo geografico funciona en Envios, pero aqui el chip
+            // queda pegado a la direccion y se leen como dos destinos.
+            'delivery_mode'    => $s->delivery_mode,
             'delivery_label'   => $s->delivery_label,
             'delivery_meta'    => $s->delivery_meta,
             'status'           => $s->status,
@@ -464,6 +468,9 @@ class OrderCollection extends ResourceCollection
             'content_lines'    => $s->contentLines(),
             'destination_city' => $s->destination_city,
             'agency'           => $s->shipping_agency,
+            // La direccion de entrega. En domicilio es EL destino —no hay
+            // agencia— y la fila se quedaba mostrando la ciudad suelta.
+            'address'          => $s->shipping_destination,
             'tracking_number'  => $s->tracking_number,
             'has_guide'        => (bool) $s->shipping_guide_path,
             // URL de la guia que dio la agencia. La servia solo el panel de

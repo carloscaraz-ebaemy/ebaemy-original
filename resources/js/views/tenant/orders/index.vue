@@ -442,7 +442,17 @@
                         <th class="text-end ord-c-act">Acciones</th>
                     </tr>
                     <tr></tr>
-                    <tr slot-scope="{ index, row }">
+                    <!-- El asomo va en la FILA, no en el chip: es como
+                         funciona Envios, donde basta recorrer la tabla con el
+                         mouse para ir viendo que lleva cada paquete. Obligar a
+                         apuntar a un chip de 90 px convierte en punteria lo
+                         que deberia ser un barrido. -->
+                    <tr
+                        slot-scope="{ index, row }"
+                        :class="{ 'ord-peek-on': peek.id === row.id }"
+                        @mouseenter="asomarPaquete(row, $event)"
+                        @mouseleave="ocultarPaquete"
+                    >
                         <td class="text-center">
                             <input
                                 type="checkbox"
@@ -513,75 +523,36 @@
                             </div>
                         </td>
                         <!-- Productos: el pedido como un PAQUETE.
-                             Antes esta celda abria al pulsar un popover que
-                             traia la tabla de productos y, debajo, una tabla
-                             «Contacto» con el telefono y la direccion. Eran
-                             datos de otra columna metidos en esta: el telefono
-                             y el DNI ya estan bajo el nombre del cliente, y la
-                             agencia y la ciudad en la columna de envio.
-                             Ahora: asomarse con el mouse, abrir con un clic. -->
+                             El chip ya no lleva su propio popover — el
+                             contenido se asoma al pasar por la fila, igual que
+                             en Envios, y tener las dos cosas seria el mismo
+                             dato apareciendo por dos caminos distintos. Aqui
+                             queda el resumen y el clic, que abre el cajon. -->
                         <td v-if="columnas.productos" data-label="Productos">
-                            <el-popover
-                                placement="right"
-                                trigger="hover"
-                                :open-delay="140"
-                                width="320"
-                                popper-class="ord-pk-pop"
-                                :disabled="!paquete(row).length"
+                            <button
+                                type="button"
+                                class="ord-pk"
+                                :class="{ 'is-vacio': !paquete(row).length }"
+                                :title="tituloPaquete(row)"
+                                @click="verPedido(row)"
                             >
-                                <div class="ord-pk-h">
-                                    <span class="ord-pk-h-t">Contenido del pedido</span>
-                                    <span class="ord-pk-h-m">{{ metaPaquete(row) }}</span>
-                                </div>
-                                <ol class="ord-pk-l">
-                                    <li v-for="(l, k) in paquete(row)" :key="k">
-                                        <img
-                                            v-if="l.img"
-                                            class="ord-pk-th"
-                                            :src="l.img"
-                                            alt=""
-                                            @error="sinImagen"
-                                        />
-                                        <span class="ord-pk-n">{{ l.nombre }}</span>
-                                        <span v-if="l.cant" class="ord-pk-c"
-                                            >&times;{{ entero(l.cant) }}</span
-                                        >
-                                    </li>
-                                </ol>
-                                <!-- El detalle de un encargo es texto que
-                                     escribio el almacen: no lleva precio, no
-                                     reserva stock y no se puede facturar.
-                                     Decirlo aqui evita que se lea como una
-                                     linea de venta que le falta el importe. -->
-                                <p v-if="paqueteOrigen(row) === 'envio'" class="ord-pk-f">
-                                    Es el detalle del envío, no líneas de venta.
-                                </p>
-                                <button
-                                    slot="reference"
-                                    type="button"
-                                    class="ord-pk"
-                                    :class="{ 'is-vacio': !paquete(row).length }"
-                                    :title="tituloPaquete(row)"
-                                    @click="verPedido(row)"
-                                >
-                                    <span v-if="miniaturas(row).length" class="ord-pk-ths">
-                                        <img
-                                            v-for="(m, k) in miniaturas(row)"
-                                            :key="k"
-                                            :src="m"
-                                            alt=""
-                                            @error="sinImagen"
-                                        />
-                                        <span v-if="restantes(row)" class="ord-pk-mas"
-                                            >+{{ restantes(row) }}</span
-                                        >
-                                    </span>
-                                    <span class="ord-pk-t">
-                                        <span v-if="!miniaturas(row).length" class="ord-pk-e">&#128230;</span>
-                                        {{ resumenProductos(row) }}
-                                    </span>
-                                </button>
-                            </el-popover>
+                                <span v-if="miniaturas(row).length" class="ord-pk-ths">
+                                    <img
+                                        v-for="(m, k) in miniaturas(row)"
+                                        :key="k"
+                                        :src="m"
+                                        alt=""
+                                        @error="sinImagen"
+                                    />
+                                    <span v-if="restantes(row)" class="ord-pk-mas"
+                                        >+{{ restantes(row) }}</span
+                                    >
+                                </span>
+                                <span class="ord-pk-t">
+                                    <span v-if="!miniaturas(row).length" class="ord-pk-e">&#128230;</span>
+                                    {{ resumenProductos(row) }}
+                                </span>
+                            </button>
                         </td>
                         <!-- Cobro: importe, saldo y medio, juntos.
                              Estaban repartidos en «Total» y «Medio Pago», dos
@@ -677,12 +648,30 @@
                                 <!-- A donde va: agencia y ciudad. En agencia,
                                      «Shalom» a secas no dice el destino, y la
                                      ciudad sola no dice por donde viaja. -->
-                                <div
-                                    v-if="destinoEnvio(row)"
-                                    class="ord-st-dest"
-                                    :title="destinoEnvio(row)"
-                                >
-                                    {{ destinoEnvio(row) }}
+                                <!-- Modalidad y destino. Un recojo en tienda
+                                     no tiene a donde ir, y un domicilio no
+                                     tiene agencia: la celda decia lo mismo
+                                     para los tres casos, que era la ciudad.
+                                     El chip lleva las palabras y los colores
+                                     del modelo, los mismos que Envios. -->
+                                <div class="ord-st-dest-w">
+                                    <span
+                                        v-if="modalidadEnvio(row)"
+                                        class="ord-st-mod"
+                                        :style="{
+                                            color: modalidadEnvio(row).color,
+                                            background: modalidadEnvio(row).fondo,
+                                            borderColor: modalidadEnvio(row).linea,
+                                        }"
+                                        :title="modalidadEnvio(row).titulo"
+                                        >{{ modalidadEnvio(row).texto }}</span
+                                    >
+                                    <span
+                                        v-if="destinoEnvio(row)"
+                                        class="ord-st-dest"
+                                        :title="destinoEnvio(row)"
+                                        >{{ destinoEnvio(row) }}</span
+                                    >
                                 </div>
 
                                 <!-- Un envio anulado NO es lo mismo que no tener
@@ -1197,6 +1186,40 @@
             :dataSaleNote="dataSaleNote"
         >
         </sale-note-form>
+
+        <!-- ── El asomo del paquete ──────────────────────────────────────
+             Una sola tarjeta para toda la tabla, no una por fila: pintar 20
+             popovers ocultos es DOM que nadie mira.
+
+             Se cuelga del <body> en `mounted`. Dentro de `.table-responsive`
+             quedaria recortada por el overflow — es el mismo motivo por el
+             que Envios la cuelga alli, y por el que el-dialog trae
+             `append-to-body`. Vue la sigue gobernando: solo cambia el padre.
+        -->
+        <div
+            ref="peekCard"
+            class="ord-peek"
+            :class="{ 'is-on': peek.on }"
+            :style="{ left: peek.x + 'px', top: peek.y + 'px' }"
+            role="tooltip"
+        >
+            <div class="ord-pk-h">
+                <span class="ord-pk-h-t">Contenido del pedido</span>
+                <span class="ord-pk-h-m">{{ peek.meta }}</span>
+            </div>
+            <ol class="ord-pk-l">
+                <li v-for="(l, k) in peek.lineas" :key="k">
+                    <img v-if="l.img" class="ord-pk-th" :src="l.img" alt="" @error="sinImagen" />
+                    <span class="ord-pk-n">{{ l.nombre }}</span>
+                    <span v-if="l.cant" class="ord-pk-c">&times;{{ entero(l.cant) }}</span>
+                </li>
+            </ol>
+            <!-- El detalle de un encargo es texto que escribio el almacen: no
+                 lleva precio, no reserva stock y no se puede facturar. -->
+            <p v-if="peek.origen === 'envio'" class="ord-pk-f">
+                Es el detalle del envío, no líneas de venta.
+            </p>
+        </div>
     </div>
 </template>
 <style>
@@ -1562,6 +1585,39 @@
     line-height: 1.4;
 }
 
+/* ── La tarjeta del asomo ───────────────────────────────────────
+   Vive colgada del <body>. Esta hoja NO es `scoped` —justo por lo que se
+   pinta fuera del componente: el cajon, los dialogos y ahora esto— y por eso
+   reutiliza tal cual el `.ord-pk-*` de arriba. Si algun dia se le pone
+   `scoped`, esta tarjeta se queda sin estilos y nadie sabra por que. */
+.ord-peek {
+    position: fixed;
+    z-index: 2010;
+    width: 320px;
+    padding: 12px;
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    box-shadow: 0 20px 48px -16px rgba(15, 23, 42, 0.4);
+    color: #1e293b;
+    /* No captura el mouse: si lo hiciera, al pasar por encima la fila
+       recibiria `mouseleave` y la tarjeta se cerraria sola. */
+    pointer-events: none;
+    opacity: 0;
+    visibility: hidden;
+    transform: translateX(-6px);
+    transition: opacity 0.12s ease-out, transform 0.12s ease-out;
+}
+.ord-peek.is-on {
+    opacity: 1;
+    visibility: visible;
+    transform: none;
+}
+/* La fila que se esta asomando se resalta: liga la tarjeta con su origen. */
+.orders tr.ord-peek-on > td {
+    background: #f8fafc;
+}
+
 /* ── Cobro ──────────────────────────────────────────────────────── */
 .ord-p-total {
     font-weight: 700;
@@ -1682,10 +1738,29 @@
 }
 /* Destino del envio. Se recorta: el ancho lo manda la columna, no el
    nombre de la agencia. El completo va en el tooltip. */
+.ord-st-dest-w {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    min-width: 0;
+    margin-top: 2px;
+}
+/* Los colores los pone el modelo por estilo en linea: son los mismos tres
+   de Envios y tenerlos aqui repetidos es como acaban divergiendo. */
+.ord-st-mod {
+    flex: 0 0 auto;
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 0.02em;
+    padding: 1px 6px;
+    border: 1px solid;
+    border-radius: 999px;
+    white-space: nowrap;
+}
 .ord-st-dest {
     color: #94a3b8;
     font-size: 11px;
-    max-width: 100%;
+    min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -2595,8 +2670,36 @@ export default {
             paymentsForeignKey: "order_id",
             paymentsFileType: "orders",
             paymentsRecordId: null,
-            paymentsTitle: "Pagos del pedido"
+            paymentsTitle: "Pagos del pedido",
+
+            /** El asomo: una sola tarjeta para toda la tabla. */
+            peek: { on: false, id: null, x: 0, y: 0, lineas: [], meta: "", origen: "" },
         };
+    },
+    mounted() {
+        // Al <body>: dentro de `.table-responsive` el overflow la recortaria.
+        // Es el mismo motivo por el que Envios la cuelga alli y por el que
+        // el-dialog trae `append-to-body`.
+        if (this.$refs.peekCard) document.body.appendChild(this.$refs.peekCard);
+
+        // Al desplazar quedaria flotando donde estaba, apuntando a una fila
+        // que ya no esta ahi. En captura: el scroll puede ser del contenedor
+        // de la tabla y no de la ventana, y ese no burbujea.
+        this.cerrarAsomo = () => {
+            clearTimeout(this.peekTimer);
+            this.peek.on = false;
+            this.peek.id = null;
+        };
+        window.addEventListener("scroll", this.cerrarAsomo, true);
+        window.addEventListener("resize", this.cerrarAsomo);
+    },
+    beforeDestroy() {
+        // Vue ya no la limpia: la saco yo del arbol al que la mude.
+        const c = this.$refs.peekCard;
+        if (c && c.parentNode) c.parentNode.removeChild(c);
+        clearTimeout(this.peekTimer);
+        window.removeEventListener("scroll", this.cerrarAsomo, true);
+        window.removeEventListener("resize", this.cerrarAsomo);
     },
     async created() {
         this.cargarColumnas();
@@ -3073,6 +3176,95 @@ export default {
         },
 
         /**
+         * Asomar el contenido al recorrer la tabla con el mouse.
+         *
+         * Mismo comportamiento que Envios y, sobre todo, mismo motivo: el
+         * operador barre la lista buscando un pedido y necesita ir viendo que
+         * lleva cada uno. Si hay que apuntar a un chip, deja de ser un barrido.
+         *
+         * El posicionamiento tambien copia el orden de preferencia de alla
+         * —derecha, izquierda, debajo— con un limite: NUNCA invadir el menu
+         * lateral. Lo que no se copia son las 170 lineas del partial: aquello
+         * es JS suelto sobre Blade y esto vive dentro del componente.
+         */
+        asomarPaquete(row, ev) {
+            clearTimeout(this.peekTimer);
+
+            const lineas = this.paquete(row);
+
+            // Sin contenido no hay nada que asomar, y una tarjeta vacia
+            // siguiendo al mouse solo estorba.
+            if (!lineas.length) return this.ocultarPaquete();
+
+            this.peek.lineas = lineas;
+            this.peek.meta   = this.metaPaquete(row);
+            this.peek.origen = this.paqueteOrigen(row);
+            this.peek.id     = row.id;
+            this.peek.on     = true;
+
+            const tr = ev.currentTarget;
+
+            // Tras pintar: el alto real solo se conoce con el contenido puesto.
+            this.$nextTick(() => this.colocarPaquete(tr));
+        },
+
+        /** Coloca la tarjeta junto a la fila, sin pisar el menu ni salirse. */
+        colocarPaquete(tr) {
+            const el = this.$refs.peekCard;
+            if (!el || !tr || !tr.isConnected) return;
+
+            const GAP = 12;
+            const EDGE = 10;
+            const r = tr.getBoundingClientRect();
+            const cw = el.offsetWidth;
+            const ch = el.offsetHeight;
+            const vw = window.innerWidth;
+            const vh = window.innerHeight;
+
+            // Borde izquierdo permitido: el area de contenido, no el viewport.
+            // Sin este limite la tarjeta acaba montada sobre la navegacion.
+            const panel = document.querySelector(".orders") || document.querySelector(".table-responsive");
+            const minL = panel ? Math.max(EDGE, panel.getBoundingClientRect().left) : EDGE;
+
+            let left;
+            let top;
+            let lado = null;
+
+            if (r.right + GAP + cw <= vw - EDGE) {
+                left = r.right + GAP;
+                lado = "r";
+            } else if (r.left - GAP - cw >= minL) {
+                left = r.left - GAP - cw;
+                lado = "l";
+            } else {
+                left = Math.min(Math.max(minL, r.left), vw - cw - EDGE);
+            }
+
+            if (lado) {
+                top = r.top + r.height / 2 - ch / 2;
+            } else {
+                top = r.bottom + GAP + ch <= vh - EDGE ? r.bottom + GAP : r.top - GAP - ch;
+            }
+
+            this.peek.x = Math.round(left);
+            this.peek.y = Math.round(Math.min(Math.max(EDGE, top), Math.max(EDGE, vh - ch - EDGE)));
+        },
+
+        /**
+         * Esconder, con un respiro.
+         *
+         * `mouseleave` salta tambien al cruzar de una fila a la siguiente: sin
+         * el retardo, la tarjeta parpadearia en cada salto.
+         */
+        ocultarPaquete() {
+            clearTimeout(this.peekTimer);
+            this.peekTimer = setTimeout(() => {
+                this.peek.on = false;
+                this.peek.id = null;
+            }, 90);
+        },
+
+        /**
          * El contenido del pedido, como una lista con UNA forma.
          *
          * De donde sale, por orden:
@@ -3322,20 +3514,63 @@ export default {
         },
 
         /**
-         * A donde va el paquete: agencia y ciudad.
+         * A donde va el paquete, segun la modalidad.
          *
-         * `destination` ya devuelve una u otra —la agencia gana— pero en un
-         * envio por agencia las dos hacen falta: «Shalom» no dice el destino y
-         * «Trujillo» no dice por donde viaja. Cuando solo hay una, se pinta esa
-         * y no se inventa la otra.
+         * Antes esta celda pintaba «agencia · ciudad» y nada mas, asi que un
+         * envio a domicilio y un recojo en tienda —que no tienen agencia— se
+         * quedaban con la ciudad suelta o con la direccion cruda, sin que
+         * nada dijera de que modalidad se trataba.
+         *
+         * Es la MISMA regla que usa Envios en su columna de destino:
+         *
+         *   agencia    → el nombre de la agencia, y la ciudad detras
+         *   domicilio  → la direccion de entrega
+         *   tienda     → nada: el cliente pasa a recogerlo
+         *
+         * La modalidad no se deduce del texto: viaja aparte, en el chip.
          */
         destinoEnvio(row) {
             const s = row.shipment || {};
+
+            if (s.delivery_type === "tienda") return "";
+
+            if (s.delivery_type === "domicilio") {
+                return s.address || s.destination_city || "";
+            }
+
             const partes = [s.agency, s.destination_city].filter(Boolean);
 
             if (partes.length) return partes.join(" · ");
 
             return s.destination && s.destination !== "—" ? s.destination : "";
+        },
+
+        /**
+         * La modalidad, con las palabras y los colores de Envios.
+         *
+         * `delivery_mode` («Agencia», «Domicilio», «Recojo en tienda») y
+         * `delivery_meta` salen del MODELO. No se inventan aqui: dos pantallas
+         * llamando distinto al mismo hecho es como el operador termina
+         * creyendo que son cosas distintas.
+         *
+         * Y es `delivery_mode`, no `delivery_short`: el corto es geografico
+         * —«Lima»— y aqui el chip queda pegado a la direccion de entrega, con
+         * lo que se leen como dos destinos que no coinciden.
+         */
+        modalidadEnvio(row) {
+            const s = row.shipment || {};
+
+            if (!s.delivery_type) return null;
+
+            const meta = s.delivery_meta || {};
+
+            return {
+                texto: s.delivery_mode || s.delivery_short || "",
+                titulo: s.delivery_label || "",
+                color: meta.color || "#475569",
+                fondo: meta.bg || "#f1f5f9",
+                linea: meta.line || "#e2e8f0",
+            };
         },
 
         /**
