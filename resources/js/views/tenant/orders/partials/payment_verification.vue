@@ -177,7 +177,9 @@ export default {
                     this.cargar();
                     // El saldo del pedido cambia si se rechaza: la fila tiene
                     // que enterarse.
-                    this.$emit("changed");
+                    // Se pasa la respuesta: trae `order_id` y `advanced`, y
+                    // con eso el padre refresca UNA fila en vez de la tabla.
+                    this.$emit("changed", d);
                 })
                 .catch(e => {
                     const d = (e.response && e.response.data) || {};

@@ -159,10 +159,22 @@ trait ManagesRecordPayments
             $this->saveFiles($record, $request, $this->paymentFileFolder());
         });
 
+        $duenio = $this->paymentOwner((int) $request->input($fk));
+
+        // Cobrar un pedido lo hace avanzar. Hasta ahora registrar un cobro no
+        // tocaba su estado y habia que marcarlo a mano, sin que nada
+        // comprobara que hubiera entrado dinero.
+        $avanzo = $duenio instanceof \App\Models\Tenant\Order
+            ? \App\Services\Tenant\OrderPaymentSync::sync($duenio)
+            : false;
+
         return [
-            'success' => true,
-            'message' => $id ? 'Pago editado con éxito' : 'Pago registrado con éxito',
-            'summary' => $this->paymentOwner((int) $request->input($fk))->getPaymentSummary(),
+            'success'  => true,
+            'message'  => $id ? 'Pago editado con éxito' : 'Pago registrado con éxito',
+            'summary'  => $duenio->fresh()->getPaymentSummary(),
+            // La pantalla lo usa para refrescar SOLO esta fila.
+            'order_id' => $duenio instanceof \App\Models\Tenant\Order ? $duenio->id : null,
+            'advanced' => $avanzo,
         ];
     }
 

@@ -295,7 +295,10 @@ export default {
           if (r.data.success) {
             this.applySummary(r.data.summary);
             this.$message.success(r.data.message);
-            this.$emit('updated', r.data.summary);
+            // Se emite la respuesta ENTERA y no solo el resumen: trae
+            // `order_id` y `advanced`, que es lo que el padre necesita para
+            // refrescar UNA fila en vez de recargar la tabla.
+            this.$emit('updated', r.data);
           } else {
             this.$message.error(r.data.message);
           }

@@ -83,7 +83,20 @@ class PaymentVerificationController extends Controller
             : null;
         $pago->save();
 
+        // Verificar el ultimo cobro pendiente puede dejar el pedido saldado: si
+        // el tenant exige verificacion, es AQUI donde avanza y no al registrar.
+        $avanzo = false;
+        $order  = $tipo === 'order'
+            ? \App\Models\Tenant\Order::find($pago->order_id)
+            : optional($pago->shipment)->order;
+
+        if ($order && $destino === PaymentVerification::VERIFICADO) {
+            $avanzo = \App\Services\Tenant\OrderPaymentSync::sync($order);
+        }
+
         return response()->json([
+            'order_id' => $order?->id,
+            'advanced' => $avanzo,
             'success' => true,
             'message' => $destino === PaymentVerification::VERIFICADO
                 ? 'Cobro verificado.'

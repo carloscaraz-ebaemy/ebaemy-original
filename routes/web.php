@@ -428,6 +428,10 @@ if ($hostname) {
 
             Route::get('orders/records', 'Tenant\OrderController@records');
             Route::get('orders/record/{order}', 'Tenant\OrderController@record');
+            // UNA fila con la forma del listado, para refrescar sin recargar
+            // toda la tabla. Distinta de `record`, que devuelve el formulario.
+            Route::get('orders/row/{order}', 'Tenant\OrderController@row')
+                 ->whereNumber('order')->name('orders.row');
 
             // ── Envío del pedido (Gestión de Pedidos unificada) ──────────────
             // El detalle logístico se consulta y se configura DESDE el pedido.

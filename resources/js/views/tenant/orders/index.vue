@@ -1024,7 +1024,7 @@
             :showDialog.sync="showVerifyDialog"
             :tipo="verifyTipo"
             :recordId="verifyRecordId"
-            @changed="refrescarTrasEnvio"
+            @changed="onVerificationChanged"
         ></payment-verification>
 
         <!-- Historial: estados del pedido + bitácora del envío + impresiones. -->
@@ -3173,8 +3173,72 @@ export default {
         // El saldo cambio: se refresca la fila y tambien los contadores, que
         // dependen del estado de pago (un pedido que se salda deja de estar
         // "por confirmar").
-        onPaymentsUpdated() {
-            this.refreshAfterPayment();
+        /**
+         * Un cobro cambio. Se refresca ESA fila, no la tabla.
+         *
+         * Antes esto llamaba a `refreshAfterPayment()`, que dispara tres
+         * peticiones —filas, chips y KPI— y devuelve la tabla a la primera
+         * pagina perdiendo el scroll. Registrar el cobro de un pedido no tiene
+         * por que mover los otros diecinueve de la pantalla.
+         *
+         * Los contadores SI se recargan cuando el pedido AVANZO de estado: ahi
+         * los chips cambian de verdad. Si solo cambio el dinero, no.
+         */
+        onPaymentsUpdated(respuesta) {
+            const id = respuesta && respuesta.order_id;
+
+            if (!id) {
+                // Cobro de un envio sin pedido identificable: se cae al
+                // comportamiento de antes en vez de no refrescar nada.
+                this.refreshAfterPayment();
+                return;
+            }
+
+            this.refrescarFila(id);
+
+            if (respuesta.advanced) {
+                this.loadChipCounts();
+                this.loadStats();
+            }
+        },
+
+        /** Tras verificar o rechazar: la misma fila, no la tabla entera. */
+        onVerificationChanged(respuesta) {
+            this.onPaymentsUpdated(respuesta);
+        },
+
+        /**
+         * Sustituye una fila del listado por su version fresca.
+         *
+         * La fila se pide al servidor y no se parchea a mano: los documentos,
+         * el estado economico y el bloque logistico los resuelve PHP, y
+         * recalcularlos aqui seria tener dos verdades. Si la peticion falla no
+         * se toca nada — mejor una fila vieja que una fila en blanco.
+         */
+        refrescarFila(id) {
+            const dt = this.$refs.ordersTable;
+            if (!dt) return;
+
+            this.$http
+                .get(`/orders/row/${id}`)
+                .then(r => {
+                    const fila = r.data && r.data.data;
+                    if (!fila) return;
+
+                    const reemplazar = lista => {
+                        const i = (lista || []).findIndex(x => x.id === fila.id);
+                        // `splice` y no asignacion por indice: Vue 2 no detecta
+                        // `arr[i] = x` y la fila no se repintaria.
+                        if (i !== -1) lista.splice(i, 1, fila);
+                    };
+
+                    reemplazar(dt.records);
+                    reemplazar(this.currentRecords);
+                })
+                .catch(() => {
+                    // Silencio a proposito: el cobro SI se guardo, y un fallo
+                    // aqui solo significa que la fila no se refresco.
+                });
         },
         clickOptions(recordId) {
             this.documentNewId = recordId;

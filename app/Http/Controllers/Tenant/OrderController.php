@@ -145,6 +145,42 @@ class OrderController extends Controller
     }
 
     /**
+     * UNA fila, con la misma forma que el listado.
+     *
+     * Existe para no recargar la tabla entera cuando cambia un solo pedido.
+     * Hoy registrar un cobro dispara tres peticiones —filas, chips y KPI— y el
+     * operador pierde el scroll; con esto se sustituye la fila y ya.
+     *
+     * NO confundir con `record()`, que devuelve el pedido normalizado para el
+     * FORMULARIO de edicion: otra forma, otro consumidor. Aqui se reutiliza
+     * `OrderCollection` a proposito, porque la fila tiene que salir exactamente
+     * igual que salio la primera vez — con sus documentos, su estado economico
+     * y su bloque logistico resueltos por el mismo codigo.
+     *
+     * Se pasa por `buildOrdersQuery` en vez de por `Order::find` para heredar
+     * las precargas: sin ellas `OrderDocuments` responde «no hay documentos» y
+     * la fila volveria con los chips vacios.
+     */
+    public function row(Request $request, Order $order)
+    {
+        $query = $this->buildOrdersQuery($request, true, false)
+                      ->reorder()
+                      ->where('orders.id', $order->id);
+
+        $fila = $query->first();
+
+        if (!$fila) {
+            return response()->json(['success' => false, 'message' => 'El pedido no existe.'], 404);
+        }
+
+        // El recurso es una COLECCION: se le pasa una de un elemento y se saca
+        // la fila ya transformada.
+        $datos = (new OrderCollection(collect([$fila])))->toArray($request);
+
+        return response()->json(['success' => true, 'data' => $datos[0] ?? null]);
+    }
+
+    /**
      * Consulta ÚNICA de Gestión de Pedidos: comercial + logística.
      *
      * Unifica lo que antes vivía en dos pantallas — los filtros de
