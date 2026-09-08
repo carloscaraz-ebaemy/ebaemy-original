@@ -446,6 +446,17 @@ class OrderCollection extends ResourceCollection
             'destination'      => $s->shipping_agency ?: ($s->destination_city ?: $s->shipping_destination),
             // La ciudad, aparte de `destination`. Con agencia, «Shalom» a secas
             // no dice a donde va el paquete; la fila necesita las dos.
+            // El detalle del paquete, ya partido en lineas.
+            //
+            // El espejo de un encargo nace con `items` vacio —el envio guarda su
+            // contenido como TEXTO en `package_content`— y la columna Productos
+            // leia solo `items`: 151 pedidos decian «0 productos» teniendo el
+            // detalle cargado en su envio.
+            //
+            // Se DERIVA, no se copia: `contentLines()` es la misma funcion que
+            // parte el texto para el rotulo y para la guia, asi que editar el
+            // detalle en Envios se ve en Pedidos sin nada que sincronizar.
+            'content_lines'    => $s->contentLines(),
             'destination_city' => $s->destination_city,
             'agency'           => $s->shipping_agency,
             'tracking_number'  => $s->tracking_number,

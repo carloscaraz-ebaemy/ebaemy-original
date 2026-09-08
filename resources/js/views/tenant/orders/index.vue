@@ -525,7 +525,22 @@
                                     trigger="click"
                                     popper-class="ord-items-pop"
                                 >
+                                    <!-- El detalle del ENVIO cuando el pedido no
+                                         tiene lineas de venta: el espejo de un
+                                         encargo guarda su contenido como texto
+                                         en el envio, y la columna decia «0
+                                         productos» teniendo el detalle cargado. -->
+                                    <div v-if="detalleDelEnvio(row).length" class="ord-i-envio">
+                                        <p class="ord-i-envio-t">
+                                            Detalle del envío
+                                            <small>se edita en el envío</small>
+                                        </p>
+                                        <ul>
+                                            <li v-for="(l, k) in detalleDelEnvio(row)" :key="k">{{ l }}</li>
+                                        </ul>
+                                    </div>
                                     <el-table
+                                        v-else
                                         style="width: 100%"
                                         :data="row.items"
                                     >
@@ -604,10 +619,7 @@
                                         </tbody>
                                     </table>
                                     <div slot="reference" class="ord-i-ref">
-                                        <span class="ord-i-n"
-                                            >{{ row.item_count }}
-                                            {{ row.item_count === 1 ? "producto" : "productos" }}</span
-                                        >
+                                        <span class="ord-i-n">{{ resumenProductos(row) }}</span>
                                         <span
                                             v-if="primerProducto(row)"
                                             class="ord-i-first"
@@ -1433,6 +1445,32 @@
     font-weight: 600;
     color: #334155;
     border-bottom: 1px dotted #cbd5e1;
+}
+.ord-i-envio {
+    padding: 4px 2px;
+}
+.ord-i-envio-t {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: #94a3b8;
+    margin: 0 0 6px;
+}
+.ord-i-envio-t small {
+    text-transform: none;
+    letter-spacing: 0;
+    font-weight: 500;
+    margin-left: 6px;
+}
+.ord-i-envio ul {
+    margin: 0;
+    padding-left: 18px;
+    font-size: 13px;
+    color: #334155;
+}
+.ord-i-envio li {
+    margin-bottom: 3px;
 }
 .ord-i-first {
     display: block;
@@ -2957,12 +2995,43 @@ export default {
             return d.format("DD") + " " + meses[d.month()] + " · " + d.format("HH:mm");
         },
 
-        /** El primer producto, para dar contexto al contador. */
+        /**
+         * El detalle que vive en el ENVIO.
+         *
+         * Solo cuando el pedido no tiene lineas propias. El espejo de un
+         * encargo nace con `items` vacio porque el envio guarda su contenido
+         * como texto libre, y hasta ahora la columna leia solo `items`: 151
+         * pedidos decian «0 productos» teniendo el detalle cargado.
+         *
+         * Un pedido con lineas de venta manda sobre esto: si tiene productos
+         * del catalogo, esos son los productos.
+         */
+        detalleDelEnvio(row) {
+            if ((row.items || []).length) return [];
+
+            return (row.shipment && row.shipment.content_lines) || [];
+        },
+
+        /** «3 productos» o «2 ítems», segun de donde salga el detalle. */
+        resumenProductos(row) {
+            const n = (row.items || []).length;
+            if (n) return n + (n === 1 ? " producto" : " productos");
+
+            const envio = this.detalleDelEnvio(row).length;
+            // «items» y no «productos»: lo del envio es texto libre escrito por
+            // el almacen, no lineas del catalogo. Llamarlas igual haria creer
+            // que se pueden facturar.
+            if (envio) return envio + (envio === 1 ? " ítem" : " ítems");
+
+            return "0 productos";
+        },
+
+        /** La primera linea, para dar contexto al contador. */
         primerProducto(row) {
             const items = row.items || [];
-            if (!items.length) return "";
-
-            const nombre = items[0].description || items[0].name || "";
+            const nombre = items.length
+                ? items[0].description || items[0].name || ""
+                : this.detalleDelEnvio(row)[0] || "";
 
             return nombre.length > 34 ? nombre.slice(0, 33) + "…" : nombre;
         },

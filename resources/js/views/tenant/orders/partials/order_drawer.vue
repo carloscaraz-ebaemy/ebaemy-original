@@ -56,7 +56,7 @@
                 <section class="od-sec">
                     <h4>
                         Productos
-                        <span class="od-count">{{ row.item_count }}</span>
+                        <span class="od-count">{{ items.length || lineasEnvio.length }}</span>
                     </h4>
                     <table v-if="items.length" class="od-items">
                         <tbody>
@@ -67,6 +67,21 @@
                             </tr>
                         </tbody>
                     </table>
+
+                    <!-- El detalle del ENVIO: el espejo de un encargo no tiene
+                         lineas de venta, su contenido es texto libre que el
+                         almacen escribe en el envio. Se muestra derivado, y por
+                         eso editarlo alli se ve aqui sin sincronizar nada. -->
+                    <template v-else-if="lineasEnvio.length">
+                        <ul class="od-envio">
+                            <li v-for="(l, i) in lineasEnvio" :key="i">{{ l }}</li>
+                        </ul>
+                        <p class="od-nota">
+                            Es el detalle del envío, no líneas de venta: se edita
+                            desde el envío y no lleva precio.
+                        </p>
+                    </template>
+
                     <p v-else class="od-empty">
                         Este pedido no tiene líneas: es el encargo de un envío.
                     </p>
@@ -244,6 +259,15 @@ export default {
 
             return Array.isArray(it) ? it : [];
         },
+        /** El contenido del paquete, cuando el pedido no tiene lineas propias. */
+        lineasEnvio() {
+            if (this.items.length) return [];
+
+            const s = (this.row && this.row.shipment) || {};
+
+            return s.content_lines || [];
+        },
+
         /** ¿El dinero de este pedido vive en el envío? (encargo logístico) */
         pagoEnElEnvio() {
             const r = this.row || {};
@@ -458,6 +482,14 @@ export default {
     padding-left: 10px !important;
     font-variant-numeric: tabular-nums;
     color: #0f172a;
+}
+.od-envio {
+    margin: 0;
+    padding-left: 18px;
+    color: #334155;
+}
+.od-envio li {
+    margin-bottom: 3px;
 }
 .od-empty,
 .od-nota {
