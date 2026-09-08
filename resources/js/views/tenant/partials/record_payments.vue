@@ -242,6 +242,27 @@ export default {
       newRow: null
     };
   },
+  /**
+   * El panel se monta YA ABIERTO, y por eso `@open` no basta.
+   *
+   * El padre lo pinta con `v-if="showPaymentsDialog"` a la vez que pone
+   * `showDialog` en true: cuando el `el-dialog` nace, `visible` ya vale true.
+   * Y `el-dialog` emite `open` SOLO desde el watcher de `visible`, que en Vue 2
+   * no se dispara con el valor inicial. Resultado: `load()` no corria nunca,
+   * `loading` se quedaba en su `true` de partida y el panel mostraba
+   * «Cargando…» para siempre.
+   *
+   * Los tres endpoints respondian en milisegundos; el cuelgue era este.
+   *
+   * Se deja tambien el `@open` del template: cubre el uso sin `v-if`, donde el
+   * componente vive montado y solo se le cambia `visible`. Con `v-if` corre
+   * este `mounted` y el watcher no; sin `v-if` corre el watcher y este no. Los
+   * dos caminos cargan una vez, ninguno dos.
+   */
+  mounted() {
+    if (this.showDialog) this.load();
+  },
+
   methods: {
     money(v) {
       return 'S/ ' + Number(v || 0).toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });

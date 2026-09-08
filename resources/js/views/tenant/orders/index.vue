@@ -565,7 +565,7 @@
                                     v-else
                                     class="ord-st-chip"
                                     :class="'is-' + estadoTono(row.status_order_id)"
-                                    >{{ statusLabel(row.status_order_id) }}</span
+                                    >{{ etiquetaOperativa(row.status_order_id) }}</span
                                 >
 
                                 <!-- Envio. El punto es el semaforo de
@@ -638,7 +638,7 @@
                                             <el-option
                                                 v-for="item in options"
                                                 :key="item.id"
-                                                :label="item.description"
+                                                :label="etiquetaOperativa(item.id)"
                                                 :value="item.id"
                                             ></el-option>
                                         </el-select>
@@ -798,6 +798,17 @@
                                     <el-dropdown-item command="payments">
                                         <i class="el-icon-wallet"></i>
                                         Pagos del pedido
+                                    </el-dropdown-item>
+
+                                    <!-- Verificar es OTRA cosa que registrar, y
+                                         por eso es otra accion. Solo si el
+                                         tenant lo exige. -->
+                                    <el-dropdown-item
+                                        v-if="verification"
+                                        command="verifyPayments"
+                                    >
+                                        <i class="el-icon-circle-check"></i>
+                                        Verificar cobros
                                     </el-dropdown-item>
 
                                     <!-- Documentos. Se ofrecen SOLO cuando
@@ -1006,6 +1017,15 @@
             @edit="editarPedido($event.id)"
             @shipping-link="copyShippingLink"
         ></order-drawer>
+
+        <!-- Verificar los cobros. Solo aparece si el tenant lo exige: con la
+             regla apagada no hay nada que verificar y el boton seria ruido. -->
+        <payment-verification
+            :showDialog.sync="showVerifyDialog"
+            :tipo="verifyTipo"
+            :recordId="verifyRecordId"
+            @changed="refrescarTrasEnvio"
+        ></payment-verification>
 
         <!-- Historial: estados del pedido + bitácora del envío + impresiones. -->
         <order-timeline
@@ -2015,12 +2035,15 @@ import BillingType from "./partials/billing_type.vue";
 import SaleNoteGenerate from "../sale_notes/partials/option_documents.vue";
 import DocumentsPanel from "./partials/documents_panel.vue";
 import OrderDrawer from "./partials/order_drawer.vue";
+import PaymentVerification from "./partials/payment_verification.vue";
 
 export default {
     props: {
         user: { type: Object, default: null },
         /** ¿El tenant tiene el módulo de Envíos? Decide si hay configuración. */
         shipping: { type: Boolean, default: false },
+        /** ¿El tenant exige verificar los cobros? Decide si se ofrece la acción. */
+        verification: { type: Boolean, default: false },
     },
 
     components: {
@@ -2029,6 +2052,7 @@ export default {
         SaleNoteGenerate,
         DocumentsPanel,
         OrderDrawer,
+        PaymentVerification,
         ManualOrder,
         DataTable,
         OptionsForm,
@@ -2174,6 +2198,9 @@ export default {
                 { value: "estado", label: "Estado" },
                 { value: "actualizado", label: "Última actualización" },
             ],
+            showVerifyDialog: false,
+            verifyTipo: "order",
+            verifyRecordId: null,
             showDrawer: false,
             drawerRow: null,
             showDocsDialog: false,
@@ -2274,6 +2301,7 @@ export default {
                 edit: () => this.editarPedido(row.id),
                 cancelShipment: () => this.anularEnvio(row),
                 payments: () => this.clickPayments(row.id),
+                verifyPayments: () => this.verificarCobros(row),
                 shipment: () => this.openShipment(row),
                 restoreShipment: () => this.restaurarEnvio(row),
                 // Documentos del pedido (Fase D). Ninguna de las tres emite
@@ -2734,6 +2762,37 @@ export default {
             const pagado = this.pagoEnElEnvio(row) ? s.paid_total : row.paid_total;
 
             return "Cobrado S/ " + this.formatMoney(pagado || 0);
+        },
+
+        /**
+         * Etiqueta OPERATIVA del pedido.
+         *
+         * El catalogo `status_orders` bautizo los dos primeros estados con
+         * lenguaje de dinero —«Pago pendiente» y «Pago verificado»— y eso hacia
+         * que la columna Estado pareciera hablar del cobro. En alasitas son 212
+         * de 298 pedidos diciendo «Pago verificado», y la mayoria son espejos de
+         * encargos donde no hay NADA que cobrar en el pedido: la etiqueta mentia
+         * dos veces.
+         *
+         * Ahora el dinero tiene su propia columna con su propio estado, asi que
+         * aqui se dice en que ETAPA esta la operacion. Es un cambio de
+         * presentacion: los ids del catalogo no se tocan —1.045 pedidos se
+         * apoyan en ellos y otros modulos los leen—, solo la palabra que ve el
+         * operador en esta pantalla.
+         */
+        etiquetaOperativa(id) {
+            const propias = {
+                1: "Por confirmar",
+                2: "Listo para preparar",
+                3: "En preparación",
+                4: "Enviado",
+                5: "Cancelado",
+                6: "Entregado",
+            };
+
+            // Si un tenant añade un estado al catalogo, se muestra el suyo en
+            // vez de quedarse en blanco.
+            return propias[Number(id)] || this.statusLabel(id);
         },
 
         /** Tono del chip de estado comercial. */
@@ -3341,6 +3400,20 @@ export default {
             this.orden = "fecha";
             this.ordenDir = "desc";
             this.pushFilters();
+        },
+
+        /**
+         * Abre la verificacion de cobros.
+         *
+         * Apunta a la tabla donde vive el dinero de ESTE pedido: en un encargo
+         * logistico son los cobros del envio, no los del pedido. Misma regla
+         * que usa el panel de pagos.
+         */
+        verificarCobros(row) {
+            const enElEnvio = this.pagoEnElEnvio(row);
+            this.verifyTipo = enElEnvio ? "shipment" : "order";
+            this.verifyRecordId = enElEnvio ? row.shipment.id : row.id;
+            this.showVerifyDialog = true;
         },
 
         /** Abre una pantalla del modulo de Envios en otra pestaña. */

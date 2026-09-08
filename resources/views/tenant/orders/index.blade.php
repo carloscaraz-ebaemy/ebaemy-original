@@ -8,5 +8,6 @@
     <tenant-orders-index
         :user="{{ json_encode(auth()->user()) }}"
         :shipping="{{ \App\Models\Tenant\ShippingRequest::moduleInstalled() ? 'true' : 'false' }}"
+        :verification="{{ \App\Services\Tenant\PaymentVerification::requerida() ? 'true' : 'false' }}"
     ></tenant-orders-index>
 @endsection

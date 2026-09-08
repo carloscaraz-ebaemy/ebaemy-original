@@ -79,6 +79,16 @@ trait ManagesRecordPayments
                     'reference'                     => $row->reference,
                     'filename'                      => optional($row->payment_file)->filename,
                     'payment'                       => (float) $row->payment,
+                    // Verificacion del cobro. Se manda SIEMPRE aunque el tenant
+                    // no la exija: la pantalla decide si la pinta, y asi un
+                    // cobro rechazado se sigue viendo como tal si alguien apaga
+                    // la regla despues.
+                    'verification_status'           => $row->verification_status,
+                    'verification_label'            => $row->verification_status
+                        ? (\App\Services\Tenant\PaymentVerification::ETIQUETAS[$row->verification_status] ?? $row->verification_status)
+                        : null,
+                    'verified_at'                   => optional($row->verified_at)->format('Y-m-d H:i'),
+                    'rejection_reason'              => $row->rejection_reason,
                 ];
             });
 
