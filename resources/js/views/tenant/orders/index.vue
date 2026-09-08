@@ -207,6 +207,31 @@
                         }}</span>
                     </button>
 
+                    <!-- Configuracion. Las dos pantallas YA existen en el
+                         modulo de Envios y `shipping_settings` es una unica
+                         fila por tenant que Pedidos ya lee en cada listado. Aqui
+                         se enlazan, no se duplican: copiarlas daria dos sitios
+                         donde cambiar la misma tarifa. -->
+                    <el-dropdown v-if="shipping" trigger="click" @command="irA">
+                        <button class="ord-bar-more">
+                            <i class="fas fa-cog"></i> Configuración
+                        </button>
+                        <el-dropdown-menu slot="dropdown">
+                            <el-dropdown-item command="tienda">
+                                <i class="el-icon-office-building"></i>
+                                Configuración de tienda
+                            </el-dropdown-item>
+                            <!-- OJO: esto NO es una configuracion de
+                                 motorizados —no existe tal catalogo— sino el
+                                 tablero de reparto a domicilio. Se le llama por
+                                 lo que es. -->
+                            <el-dropdown-item command="motorizado">
+                                <i class="el-icon-bicycle"></i>
+                                Tablero de reparto a domicilio
+                            </el-dropdown-item>
+                        </el-dropdown-menu>
+                    </el-dropdown>
+
                     <button class="ord-new-btn" @click="manualOrderId = null; showManualDialog = true">
                         <i class="fas fa-plus"></i> Nuevo pedido
                     </button>
@@ -1992,7 +2017,11 @@ import DocumentsPanel from "./partials/documents_panel.vue";
 import OrderDrawer from "./partials/order_drawer.vue";
 
 export default {
-    props: ["user"],
+    props: {
+        user: { type: Object, default: null },
+        /** ¿El tenant tiene el módulo de Envíos? Decide si hay configuración. */
+        shipping: { type: Boolean, default: false },
+    },
 
     components: {
         ShipmentGuide,
@@ -3312,6 +3341,16 @@ export default {
             this.orden = "fecha";
             this.ordenDir = "desc";
             this.pushFilters();
+        },
+
+        /** Abre una pantalla del modulo de Envios en otra pestaña. */
+        irA(destino) {
+            const rutas = {
+                tienda: "/registro-envio/config-tienda",
+                motorizado: "/registro-envio/motorizado",
+            };
+
+            if (rutas[destino]) window.open(rutas[destino], "_blank");
         },
 
         /** Buscar. Vuelve siempre a la pagina 1: buscar en la 4 no tiene sentido. */
