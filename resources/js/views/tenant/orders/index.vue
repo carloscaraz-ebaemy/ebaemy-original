@@ -2041,6 +2041,12 @@ export default {
             // → entregar. Los tres últimos son de control, no de cola.
             orderChips: [
                 { key: "all", label: "Todos" },
+                // «Nuevos» es el buzon de entrada: el cliente acaba de
+                // registrar su envio y nadie lo ha revisado. Es la misma
+                // pestaña que abre por defecto el panel de Envios, y no tenia
+                // equivalente aqui: «Por confirmar» suena parecido pero filtra
+                // por el PAGO sin verificar, que es otra cosa.
+                { key: "nuevos", label: "Nuevos" },
                 { key: "por_confirmar", label: "Por confirmar" },
                 { key: "por_preparar", label: "Por preparar" },
                 { key: "por_imprimir", label: "Por imprimir" },

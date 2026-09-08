@@ -771,6 +771,27 @@ class OrderController extends Controller
                 $query->where('status_order_id', 5);
                 break;
 
+            case 'nuevos':
+                // El buzon de entrada: el cliente acaba de registrar su envio y
+                // nadie lo ha revisado todavia.
+                //
+                // NO es lo mismo que «Por confirmar», aunque se parezcan de
+                // nombre: aquel filtra por `status_order_id = 1`, o sea por el
+                // PAGO sin verificar. Un encargo llegado del formulario publico
+                // nace con el pago en estado 2 —no hay nada que cobrar en el
+                // pedido— asi que jamas aparecia en ningun chip que dijera
+                // «nuevo», y era justo el trabajo mas urgente.
+                //
+                // La lista de estados es la MISMA que usa la pestaña «Nuevos»
+                // del panel de Envios (`ShipmentController`, grupo `confirmar`).
+                // Si alli cambia, cambia aqui.
+                $this->whereShipment($query, fn($s) => $s
+                    ->whereIn('status', [
+                        ShippingRequest::STATUS_RECIBIDO,
+                        'pendiente',
+                    ]));
+                break;
+
             case 'sin_envio':
                 $this->whereWithoutShipment($query);
                 break;
@@ -819,6 +840,14 @@ class OrderController extends Controller
             'shipped'       => $enEstados([4]),
             'canceled'      => $enEstados([5]),
             'por_confirmar' => $enEstados([1]),
+            // Se cuenta aparte y no en `shipmentStageCounts` porque no depende
+            // del estado comercial: un envio recien registrado puede estar en
+            // cualquiera de ellos.
+            'nuevos'        => ShippingRequest::moduleInstalled()
+                ? (clone $base)->whereHas('shipments', fn($s) => $s
+                    ->whereNull('cancelled_at')
+                    ->whereIn('status', [ShippingRequest::STATUS_RECIBIDO, 'pendiente']))->count()
+                : 0,
             'entregados'    => $enEstados([6]),
             'anulados'      => $enEstados([5]),
         ];
