@@ -504,7 +504,19 @@
                                     pagado
                                 </div>
                             </template>
-                            <div class="ord-p-medio">{{ medioPago(row) }}</div>
+                            <!-- El cobro de un marketplace no entro por caja:
+                                 lo cobro el canal y aqui solo se refleja. Al
+                                 fundir «Medio Pago» en esta columna perdio su
+                                 distintivo y se leia igual que un Yape, que es
+                                 justo lo contrario de lo que pasa. -->
+                            <div
+                                v-if="isMarketplace(row)"
+                                class="ord-p-medio is-mp"
+                                :title="'Cobrado por el canal, fuera de EBAEMY'"
+                            >
+                                {{ medioPago(row) }}
+                            </div>
+                            <div v-else class="ord-p-medio">{{ medioPago(row) }}</div>
                         </td>
                         <!-- Estado: dos planos distintos del mismo pedido,
                              uno debajo del otro. El comercial era un stepper de
@@ -1277,6 +1289,16 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+}
+/* Marketplace: el dinero no paso por caja. Distinguirlo importa al cuadrar. */
+.ord-p-medio.is-mp {
+    display: inline-block;
+    background: #fef3c7;
+    color: #92400e;
+    font-weight: 600;
+    border-radius: 3px;
+    padding: 0 6px;
+    max-width: 100%;
 }
 
 /* ── Estado ─────────────────────────────────────────────────────── */
