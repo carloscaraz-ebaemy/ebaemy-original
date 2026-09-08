@@ -75,6 +75,13 @@ class OrderCollection extends ResourceCollection
             // propuesta de facturación comparten la misma resolución.
             $docs = \App\Services\Tenant\OrderDocuments::for($row->resource);
 
+            // Una sola vez por fila. Antes se memorizaba en una `static` del
+            // metodo, y una static NO se limpia al cambiar de tenant: en un
+            // comando que recorre varios, el pedido 27 del segundo heredaba el
+            // estado del pedido 27 del primero. Lo cazo el barrido comparando
+            // los recuentos del SQL con los del payload.
+            $estadoPago = $this->paymentState($row->resource);
+
             return [
                 'id'                   => $row->id,
                 'external_id'          => $row->external_id,
@@ -205,6 +212,18 @@ class OrderCollection extends ResourceCollection
                 // se cobran fuera de EBAEMY y marcarlos como deudores seria
                 // mentir en la pantalla mas mirada del panel.
                 'pending_total'        => $this->orderPending($row),
+                // ── Estado economico del cobro ────────────────────────────
+                // Cuanto dinero entro respecto al total. Se DERIVA, no se
+                // declara: hasta ahora el unico estado del pago era la
+                // etiqueta «Pago verificado» del catalogo comercial, que se
+                // pone a mano y no mira el dinero. Con 1.045 pedidos y UN
+                // pago registrado, esa etiqueta no informaba de nada.
+                //
+                // Se resuelve en PHP y no en Vue por la misma razon que el
+                // resto: la regla —y sobre todo la de donde sale el dinero de
+                // un encargo— no puede vivir en dos idiomas.
+                'payment_state'        => $estadoPago['state'],
+                'payment_state_label'  => $estadoPago['label'],
                 // ── Detalle logístico (Registro de Envíos) ────────────────
                 // `shipment` es null cuando el pedido todavía no tiene envío
                 // configurado: la tabla lo pinta como "Sin envío" y ofrece el
@@ -290,6 +309,74 @@ class OrderCollection extends ResourceCollection
         }
 
         return round(max(0, (float) $row->total - $paid), 2);
+    }
+
+    /**
+     * Estado economico del cobro: cuanto entro frente a cuanto hay que cobrar.
+     *
+     * Cuatro respuestas y no tres, porque hay un caso que no es ninguna de las
+     * del encargo: un envio al que nadie le cargo el importe. Decir
+     * «pendiente» de algo cuyo precio no se conoce seria inventarse una deuda.
+     *
+     * ── De donde sale el dinero ───────────────────────────────────────────
+     *
+     * De los dos sitios, sumados. Un pedido normal cobra en `order_payments`;
+     * el espejo de un encargo logistico no tiene importe propio —nace con
+     * total 0— y su dinero vive en `shipping_payments`. Sumar los dos cubre
+     * los dos casos sin preguntar de que tipo es el pedido, y tambien el
+     * hibrido si algun dia existe.
+     *
+     * La MISMA regla, en SQL, es la que filtra el listado
+     * (`OrderController::applyPaymentStateFilter`). Si divergen, el operador
+     * filtra por «parcial» y le salen pedidos que la fila pinta «pagado».
+     */
+    /**
+     * Estado economico del cobro: cuanto entro frente a cuanto hay que cobrar.
+     *
+     * Cuatro respuestas y no tres, porque hay un caso que no es ninguna de las
+     * otras: un encargo al que nadie le cargo el importe. Decir «pendiente» de
+     * algo cuyo precio no se conoce seria inventarse una deuda.
+     *
+     * ── De donde sale el dinero ───────────────────────────────────────────
+     *
+     * De los DOS sitios, sumados, siempre. Un pedido normal cobra en
+     * `order_payments`; el espejo de un encargo logistico no tiene importe
+     * propio —nace con total 0— y su dinero vive en `shipping_payments`. Pero
+     * existe tambien el caso mixto, y es real: en importacionesdeywa los 30
+     * pedidos tienen total propio Y su envio tiene cobros registrados. Mirar
+     * solo uno de los dos origenes daba 30 pedidos «pendientes» que en verdad
+     * estaban cobrados.
+     *
+     * La MISMA regla, en SQL, es la que filtra el listado
+     * (`OrderController::applyPaymentStateFilter`). Si divergen, el operador
+     * filtra por «parcial» y le salen pedidos que la fila pinta «pagado», sin
+     * forma de saber cual de las dos miente.
+     */
+    private function paymentState($row): array
+    {
+        // El envio VIGENTE, y no `shipment`, que es el ultimo aunque este
+        // anulado. Un envio anulado no cuenta —su importe ya no hay que
+        // cobrarlo— pero si el pedido tuvo otro antes que sigue en pie, ESE es
+        // el que manda. Es exactamente lo que hace el SQL del filtro; con
+        // `shipment` a secas las dos reglas divergian en un pedido de alasitas.
+        $envio = $row->relationLoaded('activeShipment') ? $row->activeShipment : null;
+
+        // A cobrar: el total del pedido; si vale 0, el importe del encargo.
+        $aCobrar = (float) $row->total > 0
+            ? (float) $row->total
+            : ($envio && $envio->has_amount ? (float) $envio->amount_to_collect : 0.0);
+
+        $cobrado = (float) ($row->paid_total ?? 0)
+                 + ($envio ? (float) $envio->paid_total : 0.0);
+
+        return match (true) {
+            $aCobrar <= 0               => ['state' => 'sin_monto', 'label' => 'Sin monto'],
+            $cobrado <= 0               => ['state' => 'pendiente', 'label' => 'Pago pendiente'],
+            // Un centimo de margen: sin el, un redondeo deja como «parcial» un
+            // pedido cobrado al completo.
+            $cobrado + 0.009 < $aCobrar => ['state' => 'parcial',   'label' => 'Pago parcial'],
+            default                     => ['state' => 'pagado',    'label' => 'Pagado'],
+        };
     }
 
     private function printBlockReason($s, bool $requirePayment): ?string

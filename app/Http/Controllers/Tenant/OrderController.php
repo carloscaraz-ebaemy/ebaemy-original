@@ -158,9 +158,29 @@ class OrderController extends Controller
     private function orderPaymentsTableExists(): bool
     {
         static $cache = [];
-        $key = \Illuminate\Support\Facades\DB::connection()->getDatabaseName();
 
-        return $cache[$key] ??= \Illuminate\Support\Facades\Schema::hasTable('order_payments');
+        // `Schema::hasTable()` A SECAS pregunta por la conexion POR DEFECTO,
+        // que es `mysql` -> la base del SISTEMA (`ebaemy`). Ahi no existe
+        // `order_payments`: es una tabla de tenant. Asi que esto devolvia
+        // SIEMPRE false, en todos los tenants, y el `withSum` de mas abajo no
+        // se aplicaba nunca.
+        //
+        // Consecuencia: `paid_total` valia 0 en cada fila del listado. La
+        // columna Cobro no ha mostrado jamas ni «pagado» ni el saldo de un
+        // pedido propio, y el unico pago registrado del sistema —el del pedido
+        // 27 de alasitas, S/ 313.50 sobre un total de S/ 313.50— salia como si
+        // no existiera. Se descubrio al comparar el estado economico calculado
+        // en PHP contra el mismo estado calculado en SQL: cuadraban en tres
+        // tenants y discrepaban en ese unico pedido.
+        //
+        // La clave del memo tenia el mismo fallo: la base por defecto es la
+        // misma para todos los tenants, asi que un solo `false` se reutilizaba
+        // para el sistema entero.
+        $conexion = \Illuminate\Support\Facades\DB::connection('tenant');
+        $key      = $conexion->getDatabaseName();
+
+        return $cache[$key] ??= \Illuminate\Support\Facades\Schema::connection('tenant')
+            ->hasTable('order_payments');
     }
 
     private function buildOrdersQuery(Request $request, bool $withRelations = true, bool $withChip = true)
@@ -229,6 +249,10 @@ class OrderController extends Controller
                     // comprobantes: `OrderDocuments` la lee de aquí o la da
                     // por inexistente.
                     'shipment.dispatch:id,state_type_id,series,number,external_id,date_of_issue',
+                    // El envio VIGENTE. `shipment` es el ultimo aunque este
+                    // anulado, y el estado economico tiene que mirar el que
+                    // sigue en pie — que es el mismo que mira el filtro en SQL.
+                    'activeShipment',
                 ]);
             }
         }
@@ -236,6 +260,7 @@ class OrderController extends Controller
         $this->applyOrderDateRange($query, $request);
         $this->applyOrderSource($query, $request);
         $this->applyCommercialFilters($query, $request);
+        $this->applyPaymentStateFilter($query, $request);
         $this->applyLogisticFilters($query, $request);
 
         if ($withChip) {
@@ -324,6 +349,93 @@ class OrderController extends Controller
     }
 
     /** Filtros del lado comercial del pedido. */
+    /**
+     * Cuanto se ha cobrado de este pedido, en SQL.
+     *
+     * Suma los DOS origenes porque un pedido normal cobra en `order_payments`
+     * y el espejo de un encargo logistico —que nace con total 0— cobra en
+     * `shipping_payments`, a traves de su envio. Sumarlos cubre los dos sin
+     * preguntar de que tipo es el pedido.
+     *
+     * Los envios ANULADOS quedan fuera: su dinero se devolvio o nunca entro, y
+     * contarlo daria por cobrado un pedido que no lo esta.
+     */
+    private function sqlCobrado(bool $conEnvios): string
+    {
+        $propios = "COALESCE((SELECT SUM(op.payment) FROM order_payments op"
+                 . " WHERE op.order_id = orders.id), 0)";
+
+        if (!$conEnvios) {
+            return "({$propios})";
+        }
+
+        // Del envio VIGENTE, no de todos los que tuvo el pedido. Es la regla
+        // del modulo —1 pedido = 1 registro logistico vigente— y es la que usa
+        // la fila, que lee `activeShipment`. Sumar todos los historicos daba un
+        // pedido cobrado que la fila pintaba pendiente.
+        $delEnvio = "COALESCE((SELECT SUM(sp.amount) FROM shipping_payments sp"
+                  . " WHERE sp.shipment_id = (SELECT sr.id FROM shipping_requests sr"
+                  . " WHERE sr.order_id = orders.id AND sr.cancelled_at IS NULL"
+                  . " ORDER BY sr.id DESC LIMIT 1)), 0)";
+
+        return "({$propios} + {$delEnvio})";
+    }
+
+    /**
+     * Cuanto hay que cobrar. El total del pedido, salvo que valga 0 y haya un
+     * encargo detras: entonces es el importe cargado en el envio.
+     */
+    private function sqlACobrar(bool $conEnvios): string
+    {
+        if (!$conEnvios) {
+            return "(orders.total)";
+        }
+
+        // `amount_due` es lo mismo que el accesor `amount_to_collect` del
+        // modelo, que es lo que usa la fila. Un envio anulado no cuenta: su
+        // importe ya no hay que cobrarlo.
+        return "(CASE WHEN orders.total > 0 THEN orders.total ELSE COALESCE("
+             . "(SELECT sr.amount_due FROM shipping_requests sr"
+             . " WHERE sr.order_id = orders.id AND sr.cancelled_at IS NULL"
+             . " ORDER BY sr.id DESC LIMIT 1), 0) END)";
+    }
+
+    /**
+     * Filtra por estado economico del cobro.
+     *
+     * Es la MISMA regla que pinta la fila (`OrderCollection::paymentState`),
+     * escrita en SQL porque filtrar en PHP obligaria a traerse la tabla entera.
+     * Si las dos divergen, el operador filtra por «parcial» y le salen pedidos
+     * que la fila pinta «pagado» — y no hay forma de que se de cuenta de cual
+     * de las dos miente.
+     *
+     * `sin_monto` no se ofrece como filtro: es el hueco del encargo al que
+     * nadie le cargo el importe, y para eso ya esta el aviso de la fila.
+     */
+    private function applyPaymentStateFilter($query, Request $request): void
+    {
+        $estado = (string) $request->input('estado_pago', '');
+
+        if (!in_array($estado, ['pendiente', 'parcial', 'pagado'], true)) {
+            return;
+        }
+
+        // Sin el modulo de Envios no existen `shipping_payments` ni
+        // `shipping_requests`: nombrarlas en el SQL seria un 1146 en el
+        // listado entero.
+        $conEnvios = ShippingRequest::moduleInstalled();
+        $cobrado   = $this->sqlCobrado($conEnvios);
+        $aCobrar   = $this->sqlACobrar($conEnvios);
+
+        // El margen de un centimo evita que un redondeo deje como «parcial» un
+        // pedido cobrado al completo.
+        match ($estado) {
+            'pendiente' => $query->whereRaw("{$aCobrar} > 0 AND {$cobrado} <= 0"),
+            'parcial'   => $query->whereRaw("{$aCobrar} > 0 AND {$cobrado} > 0 AND {$cobrado} + 0.009 < {$aCobrar}"),
+            'pagado'    => $query->whereRaw("{$aCobrar} > 0 AND {$cobrado} + 0.009 >= {$aCobrar}"),
+        };
+    }
+
     private function applyCommercialFilters($query, Request $request)
     {
         $allowedColumns = ['date_of_issue', 'id', 'shipping_address', 'reference_payment', 'total'];

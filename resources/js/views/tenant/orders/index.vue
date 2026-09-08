@@ -122,6 +122,22 @@
                         ></el-option>
                     </el-select>
 
+                    <!-- Estado economico. Es el filtro que no existia: hasta
+                         ahora lo unico que se podia filtrar del dinero era la
+                         etiqueta «Pago verificado», que se pone a mano y no lo
+                         mira. -->
+                    <el-select
+                        v-model="estadoPago"
+                        class="ord-bar-sel"
+                        size="small"
+                        @change="pushFilters"
+                    >
+                        <el-option label="Todo el cobro" value=""></el-option>
+                        <el-option label="Pago pendiente" value="pendiente"></el-option>
+                        <el-option label="Pago parcial" value="parcial"></el-option>
+                        <el-option label="Pagado" value="pagado"></el-option>
+                    </el-select>
+
                     <el-select
                         v-model="orderSource"
                         class="ord-bar-sel"
@@ -475,58 +491,30 @@
                              cada fila. La regla de donde vive el dinero NO
                              cambia: en un encargo logistico sigue leyendose del
                              envio, derivado y no copiado. -->
+                        <!-- Cobro: importe, saldo, estado economico y medio.
+                             El ESTADO lo decide el servidor y no esta celda: es
+                             la misma regla que filtra el listado en SQL, y con
+                             dos copias el operador filtraria por «parcial» y le
+                             saldrian pedidos que la fila pinta «pagado».
+                             La regla de donde vive el dinero tampoco cambia: en
+                             un encargo se lee del envio, derivado y no copiado. -->
                         <td class="text-end" data-label="Cobro">
-                            <template v-if="pagoEnElEnvio(row)">
-                                <template v-if="row.shipment.has_amount">
-                                    <div class="ord-p-total">
-                                        S/ {{ formatMoney(row.shipment.amount_to_collect) }}
-                                    </div>
-                                    <div
-                                        v-if="row.shipment.pending_total > 0"
-                                        class="ord-pay-pend"
-                                        :title="'Cobrado S/ ' + formatMoney(row.shipment.paid_total)"
-                                    >
-                                        saldo S/ {{ formatMoney(row.shipment.pending_total) }}
-                                    </div>
-                                    <div v-else class="ord-pay-ok">pagado</div>
-                                </template>
-                                <span
-                                    v-else
-                                    class="text-muted"
-                                    title="Nadie cargó el monto del encargo"
-                                    >sin monto</span
-                                >
-                            </template>
-                            <template v-else>
-                                <div class="ord-p-total">S/ {{ row.total }}</div>
-                                <!-- El saldo solo aparece si hay algun pago
-                                     registrado: sin cobros no se afirma nada,
-                                     porque un pedido de Saga se cobra fuera de
-                                     EBAEMY y marcarlo como deudor seria falso. -->
-                                <div
-                                    v-if="row.pending_total > 0"
-                                    class="ord-pay-pend"
-                                    :title="'Cobrado S/ ' + formatMoney(row.paid_total)"
-                                >
-                                    saldo S/ {{ formatMoney(row.pending_total) }}
-                                </div>
-                                <div
-                                    v-else-if="row.pending_total !== null && row.pending_total !== undefined"
-                                    class="ord-pay-ok"
-                                    :title="'Cobrado S/ ' + formatMoney(row.paid_total)"
-                                >
-                                    pagado
-                                </div>
-                            </template>
-                            <!-- El cobro de un marketplace no entro por caja:
-                                 lo cobro el canal y aqui solo se refleja. Al
-                                 fundir «Medio Pago» en esta columna perdio su
-                                 distintivo y se leia igual que un Yape, que es
-                                 justo lo contrario de lo que pasa. -->
+                            <div class="ord-p-total">{{ importeCobro(row) }}</div>
+                            <div
+                                v-if="row.payment_state"
+                                class="ord-p-chip"
+                                :class="'is-' + row.payment_state"
+                                :title="tituloCobro(row)"
+                            >
+                                {{ row.payment_state_label }}
+                            </div>
+                            <div v-if="saldoCobro(row)" class="ord-p-saldo">
+                                {{ saldoCobro(row) }}
+                            </div>
                             <div
                                 v-if="isMarketplace(row)"
                                 class="ord-p-medio is-mp"
-                                :title="'Cobrado por el canal, fuera de EBAEMY'"
+                                title="Cobrado por el canal, fuera de EBAEMY"
                             >
                                 {{ medioPago(row) }}
                             </div>
@@ -1101,18 +1089,6 @@
 /* Saldo del encargo logistico. Su dinero vive en el envio, asi que la celda
    de Total muestra el importe a cobrar y, debajo, lo que falta. En rojo solo
    cuando queda deuda: es la unica parte que pide accion. */
-.ord-pay-pend {
-    font-size: 11.5px;
-    font-weight: 600;
-    color: #b91c1c;
-    white-space: nowrap;
-}
-.ord-pay-ok {
-    font-size: 11.5px;
-    font-weight: 600;
-    color: #166534;
-    white-space: nowrap;
-}
 .ord-actions-btn {
     padding: 5px 9px;
 }
@@ -1320,6 +1296,34 @@
     font-variant-numeric: tabular-nums;
     color: #0f172a;
     white-space: nowrap;
+}
+/* Estado economico del cobro. Los cuatro tonos siguen al dinero, no al
+   estado comercial: un pedido puede estar «En preparacion» y sin cobrar. */
+.ord-p-chip {
+    display: inline-block;
+    font-size: 10px;
+    font-weight: 700;
+    padding: 1px 7px;
+    border-radius: 3px;
+    margin-top: 2px;
+    white-space: nowrap;
+}
+.ord-p-chip.is-pagado    { background: #dcfce7; color: #166534; }
+.ord-p-chip.is-parcial   { background: #fef3c7; color: #92400e; }
+.ord-p-chip.is-pendiente { background: #f1f5f9; color: #64748b; }
+/* Un encargo al que nadie le cargo el importe. No es «pendiente»: no se sabe
+   cuanto se debe, y decirlo seria inventarse una deuda. */
+.ord-p-chip.is-sin_monto {
+    background: transparent;
+    color: #94a3b8;
+    border: 1px dashed #cbd5e1;
+    font-weight: 600;
+}
+.ord-p-saldo {
+    color: #b91c1c;
+    font-size: 11px;
+    font-variant-numeric: tabular-nums;
+    font-weight: 600;
 }
 .ord-p-medio {
     color: #94a3b8;
@@ -1654,9 +1658,6 @@
 .ord-filter .el-date-editor {
     width: 100%;
 }
-.ord-filter-wide {
-    grid-column: span 2;
-}
 .ord-filter-reset {
     justify-content: flex-end;
 }
@@ -1678,9 +1679,6 @@
 @media (max-width: 640px) {
     .ord-filters {
         grid-template-columns: 1fr;
-    }
-    .ord-filter-wide {
-        grid-column: span 1;
     }
 }
 /* KPIs */
@@ -2115,6 +2113,7 @@ export default {
             // Busqueda unica. Se manda al DataTable como la columna `search`,
             // que en el backend es «buscar en todo».
             q: "",
+            estadoPago: "",
             showMoreFilters: false,
             // Orden del listado. `fecha` reproduce el `latest()` de siempre,
             // asi que arrancar con el no cambia lo que el operador ya conoce.
@@ -2180,6 +2179,7 @@ export default {
                 !!this.deliveryTypeFilter ||
                 !!this.agingFilter ||
                 this.orderSource !== "all" ||
+                !!this.estadoPago ||
                 !!this.q
             );
         },
@@ -2651,6 +2651,36 @@ export default {
             if (this.isMarketplace(row)) return this.marketplaceLabel(row);
 
             return row.reference_payment || "—";
+        },
+
+        /**
+         * Importe a cobrar. En un encargo logistico vive en el ENVIO: el pedido
+         * espejo nace con total 0 y una copia en el pedido se quedaria vieja
+         * sin avisar.
+         */
+        importeCobro(row) {
+            if (this.pagoEnElEnvio(row)) {
+                return row.shipment && row.shipment.has_amount
+                    ? "S/ " + this.formatMoney(row.shipment.amount_to_collect)
+                    : "—";
+            }
+
+            return "S/ " + row.total;
+        },
+
+        /** Cuanto falta. Solo cuando falta algo: si no, el chip ya lo dice. */
+        saldoCobro(row) {
+            const s = row.shipment || {};
+            const pend = this.pagoEnElEnvio(row) ? s.pending_total : row.pending_total;
+
+            return pend > 0 ? "saldo S/ " + this.formatMoney(pend) : "";
+        },
+
+        tituloCobro(row) {
+            const s = row.shipment || {};
+            const pagado = this.pagoEnElEnvio(row) ? s.paid_total : row.paid_total;
+
+            return "Cobrado S/ " + this.formatMoney(pagado || 0);
         },
 
         /** Tono del chip de estado comercial. */
@@ -3228,6 +3258,7 @@ export default {
             // Parametros propios y no `sort_field`: ese lo manda el DataTable
             // siempre con `id`, y honrarlo cambiaria el orden por defecto sin
             // que nadie lo hubiera pedido. Ver `OrderController::applyOrderSort`.
+            dt.search.estado_pago = this.estadoPago || null;
             dt.search.orden = this.orden;
             dt.search.orden_dir = this.ordenDir;
 
@@ -3253,6 +3284,7 @@ export default {
             this.agingFilter = "";
             this.orderSource = "all";
             this.q = "";
+            this.estadoPago = "";
             this.orden = "fecha";
             this.ordenDir = "desc";
             this.pushFilters();
