@@ -284,6 +284,7 @@
                                     placement="right"
                                     width="540"
                                     trigger="click"
+                                    popper-class="ord-items-pop"
                                 >
                                     <el-table
                                         style="width: 100%"
@@ -547,7 +548,7 @@
                              que NO corresponde a este pedido no viene en el
                              payload y por eso no se dibuja — pintarlo en gris
                              invitaria a intentar algo que el sistema rechaza. -->
-                        <td class="text-center" data-label="Documento">
+                        <td class="text-center" data-label="Docs">
                             <div
                                 class="ord-doc-chips"
                                 role="button"
@@ -580,7 +581,7 @@
                                 ></i>
                             </div>
                         </td>
-                        <td class="text-end" data-label="Opciones">
+                        <td class="text-end" data-label="Acciones">
                             <!-- Todas las acciones en un menu: sueltas no
                                  caben, y con el tiempo se fueron sumando
                                  (boleta, rotulo, subir a Saga, PDF...). -->
@@ -1419,7 +1420,50 @@
     color: #64748b;
 }
 /* Vista móvil: tabla → tarjetas */
-@media (max-width: 768px) {
+/* ══════════════════════════════════════════════════════════════════
+   TABLETA — 768 a 1199 px
+   ══════════════════════════════════════════════════════════════════
+   Se ocultan las dos columnas que el operador consulta menos a menudo
+   y que ya tienen su detalle a un clic. No se comprime nada: una tabla
+   de seis columnas apretadas en 900 px se lee peor que una de cuatro.
+
+   Productos sigue accesible desde el menu (el popover) y Docs desde el
+   panel de documentos, asi que no se pierde el acceso, solo la columna. */
+@media (min-width: 768px) and (max-width: 1199px) {
+    .orders th.ord-c-items,
+    .orders td[data-label="Productos"],
+    .orders th.ord-c-docs,
+    .orders td[data-label="Docs"] {
+        display: none;
+    }
+    .orders th.ord-c-order { width: 34%; }
+    .orders th.ord-c-pay   { width: 18%; }
+    .orders th.ord-c-state { width: 34%; }
+    .orders th.ord-c-act   { width: 14%; }
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   MOVIL — menos de 768 px
+   ══════════════════════════════════════════════════════════════════
+   Aqui la tabla deja de ser una tabla. Antes se apilaba con la etiqueta
+   de cada celda delante («Cliente: …», «Cobro: …»), que es el patron
+   correcto para una tabla de tres columnas pero con diez producia diez
+   renglones por pedido y en la pantalla entraba uno y medio.
+
+   Ahora cada fila es una tarjeta maquetada con grid. Se reutiliza el
+   MISMO markup —no hay una segunda plantilla que mantener en paralelo—
+   y solo cambia la colocacion:
+
+        [☐]  #001245                      S/ 170.00
+             Juan Perez · 07 set 14:35    saldo S/ 20
+             3 productos
+        [Pago verificado] [Agencia · Pendiente]
+        NV B GR                                  [⋮]
+
+   Las etiquetas `data-label` se ocultan: en esta disposicion el
+   contenido ya se explica solo y repetir «Cobro:» delante del importe
+   solo gasta linea. */
+@media (max-width: 767px) {
     .orders .ord-kpis {
         grid-template-columns: repeat(2, 1fr);
     }
@@ -1427,28 +1471,68 @@
         display: none;
     }
     .orders table tbody tr {
-        display: block;
-        border: 1px solid #eef2f7;
+        display: grid;
+        grid-template-columns: auto 1fr auto;
+        grid-template-areas:
+            "chk pedido cobro"
+            "chk prods  cobro"
+            "est est    est"
+            "doc doc    act";
+        column-gap: 8px;
+        row-gap: 2px;
+        align-items: start;
+        border: 1px solid #e7ebf1;
         border-radius: 12px;
-        margin-bottom: 10px;
-        padding: 6px 10px;
-        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+        margin-bottom: 9px;
+        padding: 10px 12px;
+        box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05);
+        background: #fff;
     }
     .orders table tbody td {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        gap: 10px;
         border: none !important;
-        padding: 6px 0;
-        text-align: right;
-    }
-    .orders table tbody td::before {
-        content: attr(data-label);
-        font-weight: 600;
-        color: #64748b;
+        padding: 0;
         text-align: left;
-        flex: 0 0 auto;
+    }
+    /* El contenido se explica solo en esta disposicion. */
+    .orders table tbody td::before {
+        content: none;
+    }
+
+    .orders table tbody td:first-child { grid-area: chk; padding-top: 2px; }
+    .orders td[data-label="Pedido"]    { grid-area: pedido; min-width: 0; }
+    .orders td[data-label="Productos"] { grid-area: prods; min-width: 0; }
+    .orders td[data-label="Cobro"]     { grid-area: cobro; text-align: right; }
+    .orders td[data-label="Estado"]    { grid-area: est; margin-top: 7px; }
+    .orders td[data-label="Docs"]      { grid-area: doc; margin-top: 8px; }
+    .orders td[data-label="Acciones"] { grid-area: act; margin-top: 8px; text-align: right; }
+
+    /* En la tarjeta, los dos chips de estado caben en la misma linea. */
+    .orders td[data-label="Estado"] .ord-st {
+        flex-direction: row;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 5px;
+    }
+    /* «Cambiar» pasa a la derecha del todo para no partir la linea. */
+    .orders .ord-status-editbar {
+        margin-top: 0;
+        margin-left: auto;
+    }
+    /* El nombre y el producto se recortan; el ancho lo manda la tarjeta,
+       no el texto. Sin esto una direccion larga desborda la pantalla. */
+    .orders .ord-o-cli,
+    .orders .ord-i-first,
+    .orders .ord-p-medio {
+        max-width: 100%;
+    }
+    .orders .ord-i-first { display: none; }
+
+    /* El popover de productos pide 540 px, que en un telefono se sale de
+       la pantalla. El ancho lo fija Element UI en linea, asi que solo un
+       max-width puede encogerlo. */
+    .ord-items-pop {
+        max-width: calc(100vw - 24px) !important;
+        overflow-x: auto;
     }
 }
 .ord-status-editbar {
