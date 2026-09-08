@@ -79,29 +79,82 @@
                      logísticos metidos dentro: se leían como si filtraran la
                      facturación. Ahora cada control lleva su etiqueta y van en
                      una rejilla que se apila sola en móvil. -->
-                <div class="ord-filters">
-                    <div class="ord-filter">
-                        <label>Periodo</label>
-                        <el-select v-model="dateRange" @change="applyDateFilters">
-                            <el-option
-                                v-for="opt in rangeOptions"
-                                :key="opt.value"
-                                :label="opt.label"
-                                :value="opt.value"
-                            ></el-option>
-                        </el-select>
-                    </div>
-
-                    <div class="ord-filter ord-filter-new">
-                        <label>&nbsp;</label>
-                        <button class="ord-new-btn" @click="manualOrderId = null; showManualDialog = true">
-                            <i class="fas fa-plus"></i> Nuevo pedido
+                <!-- Barra de filtros.
+                     Antes eran seis controles SIEMPRE visibles —periodo, fecha
+                     a considerar, desde/hasta, modalidad, antiguedad y origen—
+                     mas los chips y los KPI, todo antes de la primera fila.
+                     Ahora quedan arriba la busqueda y los dos filtros que se
+                     usan a diario; el resto entra en «Mas filtros», que se abre
+                     solo si hace falta y avisa cuantos hay puestos. -->
+                <div class="ord-bar">
+                    <!-- Una sola busqueda inteligente. NO es nueva: el backend
+                         ya buscaba por codigo, cliente, DNI, telefono, direccion,
+                         comprobante, envio y tracking en un solo campo. Estaba
+                         detras de «Mostrar filtros» y de un desplegable donde
+                         habia que elegir «Buscar en todo» primero. -->
+                    <div class="ord-search">
+                        <i class="el-icon-search"></i>
+                        <input
+                            v-model="q"
+                            type="search"
+                            placeholder="Buscar por código, cliente, DNI, RUC, teléfono, comprobante o tracking…"
+                            @keyup.enter="applySearch"
+                            @search="applySearch"
+                        />
+                        <button v-if="q" class="ord-search-x" title="Limpiar" @click="q = ''; applySearch()">
+                            <i class="el-icon-close"></i>
                         </button>
+                        <button class="ord-search-go" @click="applySearch">Buscar</button>
                     </div>
 
+                    <el-select
+                        v-model="dateRange"
+                        class="ord-bar-sel"
+                        size="small"
+                        placeholder="Periodo"
+                        @change="applyDateFilters"
+                    >
+                        <el-option
+                            v-for="opt in rangeOptions"
+                            :key="opt.value"
+                            :label="opt.label"
+                            :value="opt.value"
+                        ></el-option>
+                    </el-select>
+
+                    <el-select
+                        v-model="orderSource"
+                        class="ord-bar-sel"
+                        size="small"
+                        @change="applyOrderSource"
+                    >
+                        <el-option label="Todos los pedidos" value="all"></el-option>
+                        <el-option label="Solo Saga Falabella" value="saga"></el-option>
+                        <el-option label="Otros pedidos" value="other"></el-option>
+                    </el-select>
+
+                    <button
+                        class="ord-bar-more"
+                        :class="{ 'is-on': showMoreFilters || extraFilterCount }"
+                        @click="showMoreFilters = !showMoreFilters"
+                    >
+                        <i class="fas fa-sliders-h"></i> Más filtros
+                        <span v-if="extraFilterCount" class="ord-bar-badge">{{
+                            extraFilterCount
+                        }}</span>
+                    </button>
+
+                    <button class="ord-new-btn" @click="manualOrderId = null; showManualDialog = true">
+                        <i class="fas fa-plus"></i> Nuevo pedido
+                    </button>
+                </div>
+
+                <!-- Los que no se tocan a diario. Se abren, se usan y se
+                     cierran; mientras esten puestos, el boton lo dice. -->
+                <div v-if="showMoreFilters" class="ord-filters">
                     <div class="ord-filter">
                         <label>Fecha a considerar</label>
-                        <el-select v-model="dateType" @change="applyDateFilters">
+                        <el-select v-model="dateType" size="small" @change="applyDateFilters">
                             <el-option
                                 v-for="opt in dateTypeOptions"
                                 :key="opt.value"
@@ -119,6 +172,7 @@
                         <el-date-picker
                             v-model="invoiceDateRange"
                             type="daterange"
+                            size="small"
                             range-separator="hasta"
                             start-placeholder="Desde"
                             end-placeholder="Hasta"
@@ -130,7 +184,7 @@
 
                     <div class="ord-filter">
                         <label>Modalidad de entrega</label>
-                        <el-select v-model="deliveryTypeFilter" @change="applyLogisticFilters">
+                        <el-select v-model="deliveryTypeFilter" size="small" @change="applyLogisticFilters">
                             <el-option
                                 v-for="opt in deliveryTypeOptions"
                                 :key="opt.value"
@@ -142,22 +196,13 @@
 
                     <div class="ord-filter">
                         <label>Antigüedad</label>
-                        <el-select v-model="agingFilter" @change="applyLogisticFilters">
+                        <el-select v-model="agingFilter" size="small" @change="applyLogisticFilters">
                             <el-option
                                 v-for="opt in agingOptions"
                                 :key="opt.value"
                                 :label="opt.label"
                                 :value="opt.value"
                             ></el-option>
-                        </el-select>
-                    </div>
-
-                    <div class="ord-filter">
-                        <label>Origen del pedido</label>
-                        <el-select v-model="orderSource" @change="applyOrderSource">
-                            <el-option label="Todos los pedidos" value="all"></el-option>
-                            <el-option label="Solo Saga Falabella" value="saga"></el-option>
-                            <el-option label="Otros pedidos" value="other"></el-option>
                         </el-select>
                     </div>
 
@@ -1272,6 +1317,131 @@
 .ord-chip.active .ord-chip-n {
     background: rgba(255, 255, 255, 0.25);
 }
+/* ══════════════════════════════════════════════════════════════════
+   Barra de filtros
+   ══════════════════════════════════════════════════════════════════ */
+.ord-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-bottom: 12px;
+}
+/* La busqueda se lleva el espacio sobrante: es el control que mas se usa
+   y el unico donde el ancho cambia lo que se puede escribir. */
+.ord-search {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex: 1 1 320px;
+    min-width: 240px;
+    border: 1px solid #dbe2ea;
+    border-radius: 8px;
+    background: #fff;
+    padding: 0 6px 0 10px;
+    height: 34px;
+}
+.ord-search:focus-within {
+    border-color: #4f46e5;
+    box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+}
+.ord-search > i {
+    color: #94a3b8;
+    font-size: 14px;
+    flex: 0 0 auto;
+}
+.ord-search input {
+    flex: 1 1 auto;
+    min-width: 0;
+    border: 0;
+    outline: 0;
+    background: transparent;
+    font-size: 13px;
+    color: #1e293b;
+    /* 16px es el minimo que evita que iOS haga zoom al enfocar. Por debajo
+       de eso el navegador amplia la pagina y el operador se queda con la
+       tabla descuadrada; por eso el tamaño solo baja en escritorio. */
+    height: 100%;
+}
+.ord-search input::placeholder {
+    color: #a8b2c1;
+}
+.ord-search-x {
+    border: 0;
+    background: transparent;
+    color: #94a3b8;
+    cursor: pointer;
+    padding: 2px 4px;
+    line-height: 1;
+}
+.ord-search-x:hover {
+    color: #475569;
+}
+.ord-search-go {
+    border: 0;
+    border-radius: 6px;
+    background: #eef2ff;
+    color: #4338ca;
+    font-weight: 600;
+    font-size: 12px;
+    padding: 5px 12px;
+    cursor: pointer;
+    white-space: nowrap;
+}
+.ord-search-go:hover {
+    background: #e0e7ff;
+}
+.ord-bar-sel {
+    flex: 0 1 165px;
+    min-width: 140px;
+}
+.ord-bar-more {
+    border: 1px solid #dbe2ea;
+    background: #fff;
+    color: #475569;
+    border-radius: 8px;
+    font-size: 12.5px;
+    font-weight: 600;
+    padding: 7px 12px;
+    cursor: pointer;
+    white-space: nowrap;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+.ord-bar-more:hover {
+    border-color: #4f46e5;
+    color: #4f46e5;
+}
+.ord-bar-more.is-on {
+    border-color: #4f46e5;
+    color: #4338ca;
+    background: #eef2ff;
+}
+/* Un filtro escondido que sigue activo es la forma mas facil de que alguien
+   crea que faltan pedidos. El numero lo dice sin abrir el panel. */
+.ord-bar-badge {
+    background: #4338ca;
+    color: #fff;
+    border-radius: 999px;
+    font-size: 10.5px;
+    font-weight: 700;
+    min-width: 16px;
+    text-align: center;
+    padding: 0 5px;
+    line-height: 16px;
+}
+
+/* El DataTable trae su propio buscador: un boton «Mostrar filtros» y un
+   desplegable donde hay que elegir la columna antes de escribir. Con la
+   barra de arriba serian dos buscadores para lo mismo, y el de abajo es
+   el peor de los dos. Se oculta SOLO en esta pantalla: el componente lo
+   comparten muchos modulos y no se toca. */
+.orders .filter-container .btn-filter-content,
+.orders .filter-container .filter-content {
+    display: none;
+}
+
 .ord-filters {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
@@ -1382,11 +1552,6 @@
     color: #3730a3;
     margin-right: 6px;
 }
-.ord-filter-new {
-    display: flex;
-    flex-direction: column;
-    justify-content: flex-end;
-}
 .ord-new-btn {
     border: 0;
     border-radius: 6px;
@@ -1466,6 +1631,27 @@
 @media (max-width: 767px) {
     .orders .ord-kpis {
         grid-template-columns: repeat(2, 1fr);
+    }
+    /* 16px es el umbral por debajo del cual Safari amplia la pagina al
+       enfocar un campo. Con 13px el operador acaba con la tabla
+       descuadrada y teniendo que alejar a mano en cada busqueda. */
+    .ord-search input {
+        font-size: 16px;
+    }
+    .ord-search {
+        flex: 1 1 100%;
+        height: 38px;
+    }
+    /* Los dos desplegables se reparten la linea siguiente. */
+    .ord-bar-sel {
+        flex: 1 1 calc(50% - 4px);
+        min-width: 0;
+    }
+    .ord-bar-more,
+    .ord-bar .ord-new-btn {
+        flex: 1 1 calc(50% - 4px);
+        justify-content: center;
+        text-align: center;
     }
     .orders table thead {
         display: none;
@@ -1728,6 +1914,10 @@ export default {
             showGuideDialog: false,
             guideOrderId: null,
             guideCode: "",
+            // Busqueda unica. Se manda al DataTable como la columna `search`,
+            // que en el backend es «buscar en todo».
+            q: "",
+            showMoreFilters: false,
             showDocsDialog: false,
             docsRow: null,
             showCpeDialog: false,
@@ -1755,13 +1945,30 @@ export default {
         this.events();
     },
     computed: {
+        /**
+         * Cuantos filtros secundarios hay puestos.
+         *
+         * El boton «Mas filtros» los esconde, y un filtro escondido que sigue
+         * activo es la forma mas facil de que alguien crea que faltan pedidos.
+         * El numero se pinta en el propio boton.
+         */
+        extraFilterCount() {
+            let n = 0;
+            if (this.dateType !== "order") n++;
+            if (this.deliveryTypeFilter) n++;
+            if (this.agingFilter) n++;
+            if ((this.invoiceDateRange || []).length) n++;
+
+            return n;
+        },
         hasActiveFilters() {
             return (
                 !!this.dateRange ||
                 this.dateType !== "order" ||
                 !!this.deliveryTypeFilter ||
                 !!this.agingFilter ||
-                this.orderSource !== "all"
+                this.orderSource !== "all" ||
+                !!this.q
             );
         },
         allSelected() {
@@ -2770,6 +2977,13 @@ export default {
             if (!dt) return;
 
             Object.assign(dt.search, this.invoiceDateParams());
+
+            // La busqueda viaja por el mismo canal que usaba el buscador del
+            // DataTable: la columna `search` es «buscar en todo» en
+            // `OrderController::columns()`. No se inventa un parametro nuevo.
+            dt.search.column = "search";
+            dt.search.value = this.q ? this.q.trim() : null;
+
             dt.pagination.current_page = 1;
             dt.getRecords();
             this.loadChipCounts();
@@ -2791,6 +3005,12 @@ export default {
             this.deliveryTypeFilter = "";
             this.agingFilter = "";
             this.orderSource = "all";
+            this.q = "";
+            this.pushFilters();
+        },
+
+        /** Buscar. Vuelve siempre a la pagina 1: buscar en la 4 no tiene sentido. */
+        applySearch() {
             this.pushFilters();
         },
         applyOrderSource() {
