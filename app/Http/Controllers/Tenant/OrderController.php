@@ -243,7 +243,10 @@ class OrderController extends Controller
             // eager loading tumbaría la pantalla de pedidos entera.
             if (ShippingRequest::moduleInstalled()) {
                 $query->with([
-                    'shipment',
+                    // La suma de cobros del envio, en la MISMA consulta. El
+                    // accesor `paid_total` la calcula por fila si no viene, y
+                    // la fila la pide para el saldo y para el estado economico.
+                    'shipment' => fn ($q) => $q->withSum('payments', 'amount'),
                     'shipment.printBatch:id,code,status',
                     // La guía de remisión, por el mismo motivo que los
                     // comprobantes: `OrderDocuments` la lee de aquí o la da
@@ -252,7 +255,7 @@ class OrderController extends Controller
                     // El envio VIGENTE. `shipment` es el ultimo aunque este
                     // anulado, y el estado economico tiene que mirar el que
                     // sigue en pie — que es el mismo que mira el filtro en SQL.
-                    'activeShipment',
+                    'activeShipment' => fn ($q) => $q->withSum('payments', 'amount'),
                 ]);
             }
         }

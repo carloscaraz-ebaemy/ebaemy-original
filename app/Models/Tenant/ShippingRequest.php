@@ -204,6 +204,15 @@ class ShippingRequest extends Model
     /** Suma de lo cobrado hasta ahora (multipago). */
     public function getPaidTotalAttribute(): float
     {
+        // Si la consulta ya trajo la suma con `withSum('payments','amount')`,
+        // se usa esa. Sin esta rama el accesor consulta UNA VEZ POR FILA, y el
+        // listado de Pedidos lo pide para cada envio: 20 sumas por pagina solo
+        // para pintar el saldo. Medido en alasitas: 65 consultas por pagina
+        // frente a 41.
+        if (array_key_exists('payments_sum_amount', $this->attributes)) {
+            return (float) $this->attributes['payments_sum_amount'];
+        }
+
         return (float) $this->payments()->sum('amount');
     }
 
