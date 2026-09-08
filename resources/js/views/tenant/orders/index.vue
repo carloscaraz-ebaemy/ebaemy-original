@@ -435,9 +435,10 @@
                              Nada se pierde: lo que sale de la fila esta en el
                              detalle del producto, en el tooltip o en el menu. -->
                         <th class="ord-c-order">Pedido</th>
-                        <th v-if="columnas.productos" class="ord-c-items">Productos</th>
+                        <th v-if="columnas.cliente" class="ord-c-cli">Cliente</th>
                         <th v-if="columnas.cobro" class="text-end ord-c-pay">Cobro</th>
                         <th v-if="columnas.estado" class="ord-c-state">Estado</th>
+                        <th v-if="columnas.envio" class="ord-c-ship">Envío</th>
                         <th v-if="columnas.docs" class="text-center ord-c-docs">Docs</th>
                         <th class="text-end ord-c-act">Acciones</th>
                     </tr>
@@ -460,21 +461,25 @@
                                 v-model="selectedIds"
                             />
                         </td>
-                        <!-- Pedido: quien, que numero y cuando, en tres
-                             renglones. La fecha estaba en una columna propia
-                             para un dato de una linea, y el telefono y la
-                             direccion del cliente se pintaban SIEMPRE aunque
-                             solo importan al despachar: ahora viajan en el
-                             tooltip y en el detalle, que es donde se consultan. -->
+                        <!-- Pedido: QUE pedido es. Numero, cuando entro y que
+                             lleva dentro, en ese orden.
+
+                             La caja va debajo del codigo, como parte de la
+                             identificacion: este codigo es este pedido y esta
+                             caja es su contenido. Deja de ser columna propia
+                             —el contador cabe bajo el numero y ahorra una
+                             columna en una tabla que ya iba justa— y el
+                             contenido sigue asomandose al pasar por la fila.
+
+                             El cliente sale de aqui: es otra pregunta y ahora
+                             tiene su columna. -->
                         <td data-label="Pedido">
                             <div class="ord-o-top">
-                                <button
-                                    class="ord-o-id"
-                                    title="Ver el detalle del pedido"
-                                    @click="verPedido(row)"
-                                >
-                                    #{{ row.order_id }}
-                                </button>
+                                <!-- Texto, no boton. Abrir el pedido se hace
+                                     desde «Ver», y solo desde ahi: habia
+                                     CUATRO sitios haciendo lo mismo y ninguno
+                                     lo hacia mejor que los otros. -->
+                                <span class="ord-o-id">#{{ row.order_id }}</span>
                                 <span
                                     class="ord-o-canal"
                                     :style="{ background: canalColor(row) }"
@@ -493,48 +498,18 @@
                                     >{{ row.mp_external_order_id }}</span
                                 >
                             </div>
-                            <div class="ord-o-cli" :title="clienteTitulo(row)">
-                                {{ row.customer }}
-                            </div>
-                            <!-- Documento y telefono, debajo del nombre. En el
-                                 rediseno se habian ido al tooltip por ancho,
-                                 pero son los dos datos con los que el operador
-                                 identifica al cliente que llama y decide a
-                                 nombre de quien sale la boleta. -->
-                            <div class="ord-o-meta">
-                                <span v-if="row.customer_doc">{{ row.customer_doc }}</span>
-                                <!-- Sin documento la boleta saldria como
-                                     «Cliente Final 00000000»: hay que verlo. -->
-                                <span
-                                    v-else-if="row.mp_order_id"
-                                    class="ord-o-nodoc"
-                                    title="La boleta saldria como Cliente Final 00000000"
-                                    >sin documento</span
-                                >
-                                <span
-                                    v-if="row.customer_telefono"
-                                    class="ord-o-tel"
-                                    :title="'Teléfono del cliente'"
-                                    >{{ row.customer_telefono }}</span
-                                >
-                            </div>
                             <div class="ord-o-fecha" :title="row.created_at">
                                 {{ fechaCorta(row.created_at) }}
                             </div>
-                        </td>
-                        <!-- Productos: el pedido como un PAQUETE.
-                             El chip ya no lleva su propio popover — el
-                             contenido se asoma al pasar por la fila, igual que
-                             en Envios, y tener las dos cosas seria el mismo
-                             dato apareciendo por dos caminos distintos. Aqui
-                             queda el resumen y el clic, que abre el cajon. -->
-                        <td v-if="columnas.productos" data-label="Productos">
-                            <button
-                                type="button"
+                            <!-- La caja. No es un boton: su trabajo es MOSTRAR
+                                 el contenido, y eso ya pasa al posarse en la
+                                 fila. Un clic aqui abriria el mismo cajon que
+                                 «Ver», que es la duplicacion que veniamos a
+                                 quitar. -->
+                            <span
                                 class="ord-pk"
                                 :class="{ 'is-vacio': !paquete(row).length }"
                                 :title="tituloPaquete(row)"
-                                @click="verPedido(row)"
                             >
                                 <span v-if="miniaturas(row).length" class="ord-pk-ths">
                                     <img
@@ -552,7 +527,32 @@
                                     <span v-if="!miniaturas(row).length" class="ord-pk-e">&#128230;</span>
                                     {{ resumenProductos(row) }}
                                 </span>
-                            </button>
+                            </span>
+                        </td>
+
+                        <!-- Cliente: QUIEN lo hizo. Nombre, documento y
+                             telefono — los tres datos con los que el operador
+                             identifica a quien llama y decide a nombre de quien
+                             sale la boleta. Estaban apretados bajo el codigo
+                             del pedido, que responde otra pregunta. -->
+                        <td v-if="columnas.cliente" data-label="Cliente">
+                            <div class="ord-o-cli" :title="clienteTitulo(row)">
+                                {{ row.customer }}
+                            </div>
+                            <div class="ord-o-meta">
+                                <span v-if="row.customer_doc">{{ row.customer_doc }}</span>
+                                <!-- Sin documento la boleta saldria como
+                                     «Cliente Final 00000000»: hay que verlo. -->
+                                <span
+                                    v-else-if="row.mp_order_id"
+                                    class="ord-o-nodoc"
+                                    title="La boleta saldria como Cliente Final 00000000"
+                                    >sin documento</span
+                                >
+                            </div>
+                            <div v-if="row.customer_telefono" class="ord-o-tel">
+                                {{ row.customer_telefono }}
+                            </div>
                         </td>
                         <!-- Cobro: importe, saldo y medio, juntos.
                              Estaban repartidos en «Total» y «Medio Pago», dos
@@ -590,14 +590,17 @@
                             </div>
                             <div v-else class="ord-p-medio">{{ medioPago(row) }}</div>
                         </td>
-                        <!-- Estado: dos planos distintos del mismo pedido,
-                             uno debajo del otro. El comercial era un stepper de
-                             cinco pasos —el elemento mas ancho de la fila— y
-                             ahora es un chip; el logistico ocupaba una columna
-                             entera con siete datos apilados y ahora es otro
-                             chip con su tooltip. Siguen SEPARADOS a proposito:
-                             son dimensiones distintas y mezclarlas fue lo que
-                             hizo ilegible la tabla anterior. -->
+                        <!-- Estado: EN QUE ETAPA esta el pedido. Nada mas.
+
+                             Aqui vivian ademas la modalidad de entrega, el
+                             destino, el estado del envio, el semaforo de
+                             antiguedad y el aviso de datos que faltan. Seis
+                             hechos de dos dimensiones distintas en una celda:
+                             era la columna que hacia ilegible la fila.
+
+                             Todo eso pasa a «Envio», que responde otra
+                             pregunta —como y donde se entrega—. No se pierde
+                             ni un dato: cambia de columna. -->
                         <td v-if="columnas.estado" data-label="Estado">
                             <div class="ord-st">
                                 <span
@@ -611,78 +614,6 @@
                                     :class="'is-' + estadoTono(row.status_order_id)"
                                     >{{ etiquetaOperativa(row.status_order_id) }}</span
                                 >
-
-                                <!-- Envio. El punto es el semaforo de
-                                     antiguedad, con el mismo tooltip de antes. -->
-                                <div v-if="row.shipment" class="ord-st-ship">
-                                    <span
-                                        class="ord-st-chip is-ship"
-                                        :style="{
-                                            color: row.shipment.delivery_meta.color,
-                                            background: row.shipment.delivery_meta.bg,
-                                            borderColor: row.shipment.delivery_meta.line
-                                        }"
-                                        :title="envioTitulo(row)"
-                                        >{{ row.shipment.delivery_short }} ·
-                                        {{ row.shipment.status_label }}</span
-                                    >
-                                    <span
-                                        v-if="row.shipment.aging_meta"
-                                        class="ord-st-dot"
-                                        :style="{ background: row.shipment.aging_meta.color }"
-                                        :title="
-                                            row.shipment.aging_meta.label +
-                                            ' · ' +
-                                            row.shipment.aging_days +
-                                            ' día(s) hábil(es)'
-                                        "
-                                    ></span>
-                                    <!-- Sin este aviso, el operador descubre que
-                                         faltan datos recien al intentar rotular. -->
-                                    <i
-                                        v-if="row.shipment.missing_data && row.shipment.missing_data.length"
-                                        class="fas fa-exclamation-triangle ord-st-warn"
-                                        :title="'Faltan datos para rotular: ' + row.shipment.missing_data.join(', ')"
-                                    ></i>
-                                </div>
-                                <!-- A donde va: agencia y ciudad. En agencia,
-                                     «Shalom» a secas no dice el destino, y la
-                                     ciudad sola no dice por donde viaja. -->
-                                <!-- Modalidad y destino. Un recojo en tienda
-                                     no tiene a donde ir, y un domicilio no
-                                     tiene agencia: la celda decia lo mismo
-                                     para los tres casos, que era la ciudad.
-                                     El chip lleva las palabras y los colores
-                                     del modelo, los mismos que Envios. -->
-                                <div class="ord-st-dest-w">
-                                    <span
-                                        v-if="modalidadEnvio(row)"
-                                        class="ord-st-mod"
-                                        :style="{
-                                            color: modalidadEnvio(row).color,
-                                            background: modalidadEnvio(row).fondo,
-                                            borderColor: modalidadEnvio(row).linea,
-                                        }"
-                                        :title="modalidadEnvio(row).titulo"
-                                        >{{ modalidadEnvio(row).texto }}</span
-                                    >
-                                    <span
-                                        v-if="destinoEnvio(row)"
-                                        class="ord-st-dest"
-                                        :title="destinoEnvio(row)"
-                                        >{{ destinoEnvio(row) }}</span
-                                    >
-                                </div>
-
-                                <!-- Un envio anulado NO es lo mismo que no tener
-                                     envio, y decir «sin envio» seria falso. -->
-                                <span
-                                    v-else-if="row.shipment_cancelled"
-                                    class="ord-st-chip is-void"
-                                    :title="'El envío ' + row.shipment_cancelled.code + ' fue anulado. Puedes restaurarlo desde el menú.'"
-                                    >Envío anulado</span
-                                >
-                                <span v-else class="ord-st-chip is-none">Sin envío</span>
 
                                 <!-- Cambiar el estado sigue exactamente igual:
                                      candado, desplegable y `updateStatus`, que
@@ -726,7 +657,70 @@
                                 >
                             </div>
                         </td>
-                        <!-- Documentos del pedido.
+
+                        <!-- Envio: COMO y DONDE se entrega.
+
+                             Tres renglones y ninguno repite lo de al lado: la
+                             modalidad con su color, a donde va, y en que punto
+                             del traslado esta. El semaforo de antiguedad y el
+                             aviso de datos que faltan vienen con el envio
+                             porque son suyos, no del pedido. -->
+                        <td v-if="columnas.envio" data-label="Envío">
+                            <template v-if="row.shipment">
+                                <div class="ord-sh-l1">
+                                    <span
+                                        v-if="modalidadEnvio(row)"
+                                        class="ord-st-mod"
+                                        :style="{
+                                            color: modalidadEnvio(row).color,
+                                            background: modalidadEnvio(row).fondo,
+                                            borderColor: modalidadEnvio(row).linea,
+                                        }"
+                                        :title="modalidadEnvio(row).titulo"
+                                        >{{ modalidadEnvio(row).texto }}</span
+                                    >
+                                    <span
+                                        v-if="row.shipment.aging_meta"
+                                        class="ord-st-dot"
+                                        :style="{ background: row.shipment.aging_meta.color }"
+                                        :title="
+                                            row.shipment.aging_meta.label +
+                                            ' · ' +
+                                            row.shipment.aging_days +
+                                            ' día(s) hábil(es)'
+                                        "
+                                    ></span>
+                                    <!-- Sin este aviso, el operador descubre que
+                                         faltan datos recien al intentar rotular. -->
+                                    <i
+                                        v-if="row.shipment.missing_data && row.shipment.missing_data.length"
+                                        class="fas fa-exclamation-triangle ord-st-warn"
+                                        :title="'Faltan datos para rotular: ' + row.shipment.missing_data.join(', ')"
+                                    ></i>
+                                </div>
+                                <div
+                                    v-if="destinoEnvio(row)"
+                                    class="ord-st-dest"
+                                    :title="destinoEnvio(row)"
+                                >
+                                    {{ destinoEnvio(row) }}
+                                </div>
+                                <div class="ord-sh-est" :title="envioTitulo(row)">
+                                    {{ row.shipment.status_label }}
+                                </div>
+                            </template>
+
+                            <!-- Un envio anulado NO es lo mismo que no tener
+                                 envio, y decir «sin envio» seria falso. -->
+                            <span
+                                v-else-if="row.shipment_cancelled"
+                                class="ord-st-chip is-void"
+                                :title="'El envío ' + row.shipment_cancelled.code + ' fue anulado. Puedes restaurarlo desde el menú.'"
+                                >Envío anulado</span
+                            >
+                            <span v-else class="ord-st-chip is-none">Sin envío</span>
+                        </td>
+<!-- Documentos del pedido.
                              Antes esta celda solo sabia hablar de Saga: para un
                              pedido de ecommerce o manual no decia casi nada.
                              Ahora son cuatro siglas (NV, B, F, GR) que se leen de
@@ -1300,16 +1294,24 @@
     box-shadow: inset 0 0 0 1.5px #0f766e;
 }
 /* ══════════════════════════════════════════════════════════════════
-   La fila: seis columnas
+   La fila: siete columnas, una pregunta cada una
    ══════════════════════════════════════════════════════════════════
-   Anchos en porcentaje y no fijos: la tabla debe repartirse el espacio
-   que haya, no exigir un minimo. `Pedido` y `Estado` se llevan la mayor
-   parte porque son las que llevan tres renglones. */
-.orders th.ord-c-order { width: 24%; }
-.orders th.ord-c-items { width: 15%; }
+   Que pedido es · quien lo hizo · si pago · en que etapa esta · como se
+   entrega · que se imprimio · que puedo hacer.
+
+   Eran seis y `Estado` cargaba con dos preguntas: la etapa del pedido Y
+   todo el envio. Sale una columna nueva y entra otra —«Productos» deja
+   de serlo, porque el contador cabe bajo el codigo— asi que el reparto
+   crece en uno, no en dos.
+
+   Porcentajes y no fijos: la tabla se reparte el espacio que haya en vez
+   de exigir un minimo que en una laptop de 1366 no cabia. */
+.orders th.ord-c-order { width: 19%; }
+.orders th.ord-c-cli   { width: 18%; }
 .orders th.ord-c-pay   { width: 13%; }
-.orders th.ord-c-state { width: 22%; }
-.orders th.ord-c-docs  { width: 10%; }
+.orders th.ord-c-state { width: 16%; }
+.orders th.ord-c-ship  { width: 17%; }
+.orders th.ord-c-docs  { width: 9%;  }
 .orders th.ord-c-act   { width: 8%;  }
 
 /* Densidad. La fila tenia 12px de padding vertical y celdas de cuatro
@@ -1328,8 +1330,9 @@
     gap: 6px;
     flex-wrap: wrap;
 }
-/* Es un boton, pero se lee como el codigo del pedido: el aspecto de boton
-   en cada fila era justo lo que el rediseño venia a quitar. */
+/* Ya no es un boton: abrir el pedido se hace desde «Ver», y solo desde ahi.
+   Habia cuatro caminos al mismo cajon —el codigo, la caja, el popover de
+   productos y «Ver»— y ninguno hacia nada que los otros no hicieran. */
 .ord-o-id {
     font-weight: 700;
     font-variant-numeric: tabular-nums;
@@ -1417,7 +1420,12 @@
    esta en Blade y aca en Vue, asi que se comparte el aspecto y no el
    codigo; lo que NO se comparte es el posicionamiento, que alla son 170
    lineas a mano y aqui lo resuelve Popper. */
+/* Es un `<span>`, no un `<button>`: su trabajo es MOSTRAR el contenido, y
+   eso ya pasa al posarse en la fila. `default` y no `pointer` — un cursor
+   de mano prometeria un clic que no lleva a ninguna parte. */
 .ord-pk {
+    margin-top: 3px;
+    cursor: default;
     display: inline-flex;
     align-items: center;
     gap: 6px;
@@ -1433,13 +1441,6 @@
     line-height: 1.2;
     cursor: pointer;
     transition: background 0.14s ease-out, border-color 0.14s ease-out;
-}
-.ord-pk:hover {
-    background: #eef2f7;
-    border-color: #cbd5e1;
-}
-.ord-pk:active {
-    transform: scale(0.98);
 }
 .ord-pk.is-vacio {
     color: #94a3b8;
@@ -1616,6 +1617,25 @@
 /* La fila que se esta asomando se resalta: liga la tarjeta con su origen. */
 .orders tr.ord-peek-on > td {
     background: #f8fafc;
+}
+
+/* ── Envio: como y donde se entrega ─────────────────────────────── */
+.ord-sh-l1 {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    flex-wrap: wrap;
+}
+/* El estado del traslado. Va en gris y en tercer renglon a proposito: la
+   etapa del PEDIDO ya la dice su propia columna, y esta es la del paquete.
+   Dos estados a la misma altura se leerian como uno contradiciendo al otro. */
+.ord-sh-est {
+    color: #64748b;
+    font-size: 11px;
+    margin-top: 2px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 /* ── Cobro ──────────────────────────────────────────────────────── */
@@ -2285,16 +2305,20 @@
    Productos sigue accesible desde el menu (el popover) y Docs desde el
    panel de documentos, asi que no se pierde el acceso, solo la columna. */
 @media (min-width: 768px) and (max-width: 1199px) {
-    .orders th.ord-c-items,
-    .orders td[data-label="Productos"],
     .orders th.ord-c-docs,
-    .orders td[data-label="Docs"] {
+    .orders td[data-label="Docs"],
+    .orders th.ord-c-cli,
+    .orders td[data-label="Cliente"] {
         display: none;
     }
-    .orders th.ord-c-order { width: 34%; }
-    .orders th.ord-c-pay   { width: 18%; }
-    .orders th.ord-c-state { width: 34%; }
-    .orders th.ord-c-act   { width: 14%; }
+    /* El cliente se va porque su nombre ya esta en el tooltip del pedido y
+       en el cajon. Docs, porque el panel completo esta a un clic. Envio se
+       queda: en una tableta de almacen es la pregunta del dia. */
+    .orders th.ord-c-order { width: 30%; }
+    .orders th.ord-c-pay   { width: 17%; }
+    .orders th.ord-c-state { width: 21%; }
+    .orders th.ord-c-ship  { width: 20%; }
+    .orders th.ord-c-act   { width: 12%; }
 }
 
 /* ══════════════════════════════════════════════════════════════════
@@ -2348,8 +2372,9 @@
         grid-template-columns: auto 1fr auto;
         grid-template-areas:
             "chk pedido cobro"
-            "chk prods  cobro"
+            "chk cli    cobro"
             "est est    est"
+            "shp shp    shp"
             "doc doc    act";
         column-gap: 8px;
         row-gap: 2px;
@@ -2373,13 +2398,26 @@
 
     .orders table tbody td:first-child { grid-area: chk; padding-top: 2px; }
     .orders td[data-label="Pedido"]    { grid-area: pedido; min-width: 0; }
-    .orders td[data-label="Productos"] { grid-area: prods; min-width: 0; }
+    .orders td[data-label="Cliente"]   { grid-area: cli; min-width: 0; }
     .orders td[data-label="Cobro"]     { grid-area: cobro; text-align: right; }
     .orders td[data-label="Estado"]    { grid-area: est; margin-top: 7px; }
+    .orders td[data-label="Envío"]     { grid-area: shp; margin-top: 5px; }
     .orders td[data-label="Docs"]      { grid-area: doc; margin-top: 8px; }
     .orders td[data-label="Acciones"] { grid-area: act; margin-top: 8px; text-align: right; }
 
-    /* En la tarjeta, los dos chips de estado caben en la misma linea. */
+    /* En la tarjeta el envio se lee en una sola linea: modalidad, destino y
+       estado seguidos. En columna gastaria tres renglones para tres datos
+       cortos. */
+    .orders td[data-label="Envío"] {
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 6px;
+    }
+    .orders td[data-label="Envío"] .ord-sh-l1 { display: contents; }
+    .orders td[data-label="Envío"] .ord-st-dest { max-width: 55%; }
+
+    /* En la tarjeta, el estado y su «Cambiar» caben en la misma linea. */
     .orders td[data-label="Estado"] .ord-st {
         flex-direction: row;
         align-items: center;
@@ -2632,12 +2670,22 @@ export default {
             // apagar: sin la primera no se sabe que fila es y sin la segunda no
             // se puede hacer nada con ella.
             columnasOpcionales: [
-                { key: "productos", label: "Productos" },
+                { key: "cliente", label: "Cliente" },
                 { key: "cobro", label: "Cobro" },
                 { key: "estado", label: "Estado" },
+                { key: "envio", label: "Envío" },
                 { key: "docs", label: "Documentos" },
             ],
-            columnas: { productos: true, cobro: true, estado: true, docs: true },
+            // «Productos» ya no es columna: la caja vive bajo el codigo del
+            // pedido. Un tenant que la tuviera apagada de antes no pierde
+            // nada — `cargarColumnas` solo lee las claves que existen hoy.
+            columnas: {
+                cliente: true,
+                cobro: true,
+                estado: true,
+                envio: true,
+                docs: true,
+            },
             // Orden del listado. `fecha` reproduce el `latest()` de siempre,
             // asi que arrancar con el no cambia lo que el operador ya conoce.
             orden: "fecha",
