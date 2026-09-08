@@ -281,7 +281,13 @@
                              tooltip y en el detalle, que es donde se consultan. -->
                         <td data-label="Pedido">
                             <div class="ord-o-top">
-                                <span class="ord-o-id">#{{ row.order_id }}</span>
+                                <button
+                                    class="ord-o-id"
+                                    title="Ver el detalle del pedido"
+                                    @click="verPedido(row)"
+                                >
+                                    #{{ row.order_id }}
+                                </button>
                                 <span
                                     class="ord-o-canal"
                                     :style="{ background: canalColor(row) }"
@@ -630,6 +636,9 @@
                             <!-- Todas las acciones en un menu: sueltas no
                                  caben, y con el tiempo se fueron sumando
                                  (boleta, rotulo, subir a Saga, PDF...). -->
+                            <button class="ord-ver-btn" @click="verPedido(row)">
+                                Ver
+                            </button>
                             <el-dropdown
                                 trigger="click"
                                 @command="runAction($event, row)"
@@ -902,6 +911,27 @@
             @fix-billing="corregirComprobante"
         ></documents-panel>
 
+        <!-- Detalle del pedido (paso 4). Aloja lo que la fila dejo de mostrar
+             al pasar de diez columnas a seis, y delega cada accion en la
+             pantalla que ya la hacia. -->
+        <order-drawer
+            :visible.sync="showDrawer"
+            :row="drawerRow"
+            @payments="clickPayments($event.id)"
+            @emit-sale-note="emitirNotaVenta"
+            @emit-document="emitirComprobante"
+            @dispatch-guide="generarGuiaRemision"
+            @print-label="printLabel"
+            @fix-billing="corregirComprobante"
+            @shipment="openShipment"
+            @upload-guide="subirGuia"
+            @view-guide="openGuide"
+            @restore-shipment="restaurarEnvio"
+            @timeline="openTimeline"
+            @edit="editarPedido($event.id)"
+            @shipping-link="copyShippingLink"
+        ></order-drawer>
+
         <!-- Historial: estados del pedido + bitácora del envío + impresiones. -->
         <order-timeline
             :visible.sync="showTimelineDialog"
@@ -1119,10 +1149,37 @@
     gap: 6px;
     flex-wrap: wrap;
 }
+/* Es un boton, pero se lee como el codigo del pedido: el aspecto de boton
+   en cada fila era justo lo que el rediseño venia a quitar. */
 .ord-o-id {
     font-weight: 700;
     font-variant-numeric: tabular-nums;
     color: #0f172a;
+    border: 0;
+    background: transparent;
+    padding: 0;
+    font-size: inherit;
+    font-family: inherit;
+    cursor: pointer;
+}
+.ord-o-id:hover {
+    color: #4338ca;
+    text-decoration: underline;
+}
+.ord-ver-btn {
+    border: 1px solid #e2e8f0;
+    background: #fff;
+    color: #475569;
+    border-radius: 6px;
+    font-size: 11.5px;
+    font-weight: 600;
+    padding: 3px 10px;
+    cursor: pointer;
+    margin-right: 4px;
+}
+.ord-ver-btn:hover {
+    border-color: #4f46e5;
+    color: #4f46e5;
 }
 /* Punto de canal: un dato de origen no merece una columna ni una
    etiqueta, pero si un color con su tooltip. */
@@ -1713,6 +1770,15 @@
     }
     .orders .ord-i-first { display: none; }
 
+    /* El detalle a pantalla completa: 480px en un telefono deja una franja
+       de fondo inutil a un lado. El `!important` es necesario porque
+       el-drawer fija el ancho en linea, y una regla de hoja de estilos con
+       !important si gana a un style inline sin el. Va en el bloque NO
+       scoped del padre: el cajon se pinta fuera del ambito del componente. */
+    .od-drawer {
+        width: 100% !important;
+    }
+
     /* El popover de productos pide 540 px, que en un telefono se sale de
        la pantalla. El ancho lo fija Element UI en linea, asi que solo un
        max-width puede encogerlo. */
@@ -1783,6 +1849,7 @@ import ShipmentGuide from "./partials/shipment_guide.vue";
 import BillingType from "./partials/billing_type.vue";
 import SaleNoteGenerate from "../sale_notes/partials/option_documents.vue";
 import DocumentsPanel from "./partials/documents_panel.vue";
+import OrderDrawer from "./partials/order_drawer.vue";
 
 export default {
     props: ["user"],
@@ -1792,6 +1859,7 @@ export default {
         BillingType,
         SaleNoteGenerate,
         DocumentsPanel,
+        OrderDrawer,
         ManualOrder,
         DataTable,
         OptionsForm,
@@ -1918,6 +1986,8 @@ export default {
             // que en el backend es «buscar en todo».
             q: "",
             showMoreFilters: false,
+            showDrawer: false,
+            drawerRow: null,
             showDocsDialog: false,
             docsRow: null,
             showCpeDialog: false,
@@ -2333,6 +2403,18 @@ export default {
         //                     Venta, reutilizado sin tocarle una linea
         //   guia           -> el formulario de Guia de Remision, precargado
         // La condicion para ofrecerlas la decide `OrderDocuments` en PHP.
+
+        /**
+         * Abre el detalle del pedido.
+         *
+         * Se guarda la fila entera: el cajon lee de ella y no consulta nada.
+         * Toda la informacion que muestra ya viajaba en el payload — antes se
+         * pintaba de golpe en la tabla y por eso no cabia.
+         */
+        verPedido(row) {
+            this.drawerRow = row;
+            this.showDrawer = true;
+        },
 
         /**
          * Abre el panel de documentos.
