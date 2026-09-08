@@ -172,6 +172,31 @@
                         </el-dropdown-menu>
                     </el-dropdown>
 
+                    <!-- Exporta lo FILTRADO, no todo: un boton que ignora los
+                         filtros recien puestos descarga 710 filas cuando se
+                         pidieron 12. -->
+                    <button class="ord-bar-more" title="Descargar el listado filtrado en Excel" @click="exportar">
+                        <i class="fas fa-file-download"></i> Exportar
+                    </button>
+
+                    <el-dropdown trigger="click" :hide-on-click="false">
+                        <button class="ord-bar-more" title="Elegir qué columnas ver">
+                            <i class="fas fa-table-columns"></i> Columnas
+                        </button>
+                        <el-dropdown-menu slot="dropdown">
+                            <el-dropdown-item
+                                v-for="c in columnasOpcionales"
+                                :key="c.key"
+                            >
+                                <el-checkbox
+                                    :value="columnas[c.key]"
+                                    @change="alternarColumna(c.key)"
+                                    >{{ c.label }}</el-checkbox
+                                >
+                            </el-dropdown-item>
+                        </el-dropdown-menu>
+                    </el-dropdown>
+
                     <button class="ord-new-btn" @click="manualOrderId = null; showManualDialog = true">
                         <i class="fas fa-plus"></i> Nuevo pedido
                     </button>
@@ -410,10 +435,10 @@
                              Nada se pierde: lo que sale de la fila esta en el
                              detalle del producto, en el tooltip o en el menu. -->
                         <th class="ord-c-order">Pedido</th>
-                        <th class="ord-c-items">Productos</th>
-                        <th class="text-end ord-c-pay">Cobro</th>
-                        <th class="ord-c-state">Estado</th>
-                        <th class="text-center ord-c-docs">Docs</th>
+                        <th v-if="columnas.productos" class="ord-c-items">Productos</th>
+                        <th v-if="columnas.cobro" class="text-end ord-c-pay">Cobro</th>
+                        <th v-if="columnas.estado" class="ord-c-state">Estado</th>
+                        <th v-if="columnas.docs" class="text-center ord-c-docs">Docs</th>
                         <th class="text-end ord-c-act">Acciones</th>
                     </tr>
                     <tr></tr>
@@ -492,7 +517,7 @@
                              completa, el telefono y la direccion—; lo que
                              cambia es el disparador, que era una lupa sin
                              contexto y ahora dice cuantos hay. -->
-                        <td data-label="Productos">
+                        <td v-if="columnas.productos" data-label="Productos">
                             <template>
                                 <el-popover
                                     placement="right"
@@ -606,7 +631,7 @@
                              saldrian pedidos que la fila pinta «pagado».
                              La regla de donde vive el dinero tampoco cambia: en
                              un encargo se lee del envio, derivado y no copiado. -->
-                        <td class="text-end" data-label="Cobro">
+                        <td v-if="columnas.cobro" class="text-end" data-label="Cobro">
                             <div class="ord-p-total">{{ importeCobro(row) }}</div>
                             <div
                                 v-if="row.payment_state"
@@ -636,7 +661,7 @@
                              chip con su tooltip. Siguen SEPARADOS a proposito:
                              son dimensiones distintas y mezclarlas fue lo que
                              hizo ilegible la tabla anterior. -->
-                        <td data-label="Estado">
+                        <td v-if="columnas.estado" data-label="Estado">
                             <div class="ord-st">
                                 <span
                                     v-if="row.status_order_id == 5"
@@ -756,7 +781,7 @@
                              que NO corresponde a este pedido no viene en el
                              payload y por eso no se dibuja — pintarlo en gris
                              invitaria a intentar algo que el sistema rechaza. -->
-                        <td class="text-center" data-label="Docs">
+                        <td v-if="columnas.docs" class="text-center" data-label="Docs">
                             <div
                                 class="ord-doc-chips"
                                 role="button"
@@ -2413,6 +2438,16 @@ export default {
             q: "",
             estadoPago: "",
             showFiltersDrawer: false,
+            // Que columnas ve el operador. «Pedido» y «Acciones» no se pueden
+            // apagar: sin la primera no se sabe que fila es y sin la segunda no
+            // se puede hacer nada con ella.
+            columnasOpcionales: [
+                { key: "productos", label: "Productos" },
+                { key: "cobro", label: "Cobro" },
+                { key: "estado", label: "Estado" },
+                { key: "docs", label: "Documentos" },
+            ],
+            columnas: { productos: true, cobro: true, estado: true, docs: true },
             // Orden del listado. `fecha` reproduce el `latest()` de siempre,
             // asi que arrancar con el no cambia lo que el operador ya conoce.
             orden: "fecha",
@@ -2449,6 +2484,7 @@ export default {
         };
     },
     async created() {
+        this.cargarColumnas();
         this.$http.get(`/statusOrder/records`).then(response => {
             this.options = response.data;
         });
@@ -3727,6 +3763,72 @@ export default {
             this.verifyTipo = enElEnvio ? "shipment" : "order";
             this.verifyRecordId = enElEnvio ? row.shipment.id : row.id;
             this.showVerifyDialog = true;
+        },
+
+        /**
+         * Enciende o apaga una columna, y lo recuerda.
+         *
+         * Va a `localStorage` y no al servidor: es una preferencia de quien
+         * mira, no un dato del negocio, y guardarla en la base obligaria a una
+         * tabla, una migracion y un endpoint para algo que solo importa en este
+         * navegador. Se lee dentro de un try: en una ventana privada o con las
+         * cookies bloqueadas, `localStorage` LANZA en vez de devolver null, y
+         * eso tumbaria el arranque del componente entero.
+         */
+        alternarColumna(clave) {
+            this.$set(this.columnas, clave, !this.columnas[clave]);
+
+            try {
+                window.localStorage.setItem(
+                    "ord.columnas",
+                    JSON.stringify(this.columnas)
+                );
+            } catch (e) {
+                // Sin persistencia, pero la sesion actual sigue funcionando.
+            }
+        },
+
+        /** Recupera las columnas guardadas, si las hay y si se pueden leer. */
+        cargarColumnas() {
+            try {
+                const guardado = window.localStorage.getItem("ord.columnas");
+                if (!guardado) return;
+
+                const datos = JSON.parse(guardado);
+
+                // Solo se aceptan las claves que EXISTEN hoy: un `localStorage`
+                // viejo con una columna que ya se quito no debe resucitarla.
+                this.columnasOpcionales.forEach(c => {
+                    if (typeof datos[c.key] === "boolean") {
+                        this.$set(this.columnas, c.key, datos[c.key]);
+                    }
+                });
+            } catch (e) {
+                // Se queda con todas visibles, que es el valor por defecto.
+            }
+        },
+
+        /**
+         * Descarga el listado filtrado.
+         *
+         * Se navega en vez de pedirlo por axios: la respuesta es un fichero y
+         * el navegador ya sabe guardarlo. Con axios habria que montar un blob y
+         * un enlace temporal para acabar en lo mismo.
+         */
+        exportar() {
+            const dt = this.$refs.ordersTable;
+            const params = new URLSearchParams();
+
+            if (dt && dt.search) {
+                Object.keys(dt.search).forEach(k => {
+                    const v = dt.search[k];
+                    if (v !== null && v !== undefined && v !== "") params.append(k, v);
+                });
+            }
+
+            params.append("warehouse_id", (dt && dt.warehouse_id) || "all");
+
+            window.open("/orders/export?" + params.toString(), "_blank");
         },
 
         /** Abre una pantalla del modulo de Envios en otra pestaña. */

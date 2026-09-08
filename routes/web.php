@@ -430,6 +430,8 @@ if ($hostname) {
             });
 
             Route::get('orders/records', 'Tenant\OrderController@records');
+            // CSV del listado FILTRADO. Mismo patron que shipments.export.
+            Route::get('orders/export', 'Tenant\OrderController@export')->name('orders.export');
             Route::get('orders/record/{order}', 'Tenant\OrderController@record');
             // UNA fila con la forma del listado, para refrescar sin recargar
             // toda la tabla. Distinta de `record`, que devuelve el formulario.

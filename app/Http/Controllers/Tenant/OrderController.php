@@ -145,6 +145,102 @@ class OrderController extends Controller
     }
 
     /**
+     * Exporta el listado FILTRADO a CSV.
+     *
+     * Mismo patron que `ShipmentController::export`, que ya existia: streaming
+     * con `chunk()` en vez de cargar todo en memoria —carolayimport tiene 710
+     * pedidos y manana el doble— y BOM al principio para que Excel respete los
+     * acentos.
+     *
+     * Se exporta lo FILTRADO, no todo. Un boton que ignora los filtros que el
+     * operador acaba de poner es una trampa: descarga 710 filas cuando pidio 12.
+     */
+    public function export(Request $request): \Symfony\Component\HttpFoundation\StreamedResponse
+    {
+        // Sin relaciones: el CSV sale de columnas y de dos accesores, y
+        // precargar documentos y envios para 710 filas seria tirar trabajo.
+        $query = $this->buildOrdersQuery($request, true, true);
+
+        $nombre = 'pedidos_' . now()->format('Ymd_His') . '.csv';
+
+        return response()->streamDownload(function () use ($query) {
+            $out = fopen('php://output', 'w');
+            // El BOM se escribe por CODIGO de byte y no con "ï...": los
+            // escapes no sobreviven a las herramientas con las que se genera
+            // este archivo y acaban como los CARACTERES U+00EF U+00BB U+00BF,
+            // que en UTF-8 son seis bytes y Excel muestra como «i»¿» en la
+            // primera celda. Ya paso una vez en esta misma sesion con un salto
+            // de linea.
+            fwrite($out, chr(0xEF) . chr(0xBB) . chr(0xBF));
+
+            fputcsv($out, [
+                'Pedido', 'Fecha', 'Cliente', 'Documento', 'Teléfono',
+                'Productos', 'Total', 'Cobrado', 'Saldo', 'Estado del cobro',
+                'Medio de pago', 'Estado del pedido', 'Canal',
+                'Entrega', 'Destino', 'Estado del envío', 'Tracking',
+                'Comprobante',
+            ]);
+
+            $query->chunk(300, function ($filas) use ($out) {
+                foreach ($filas as $o) {
+                    $cliente = is_array($o->customer) ? $o->customer : [];
+                    $envio   = $o->activeShipment;
+
+                    $aCobrar = (float) $o->total > 0
+                        ? (float) $o->total
+                        : ($envio && $envio->has_amount ? (float) $envio->amount_to_collect : 0.0);
+                    $cobrado = (float) ($o->paid_total ?? 0) + ($envio ? (float) $envio->paid_total : 0.0);
+
+                    fputcsv($out, [
+                        str_pad($o->id, 6, '0', STR_PAD_LEFT),
+                        optional($o->created_at)->format('Y-m-d H:i'),
+                        $cliente['apellidos_y_nombres_o_razon_social'] ?? ($cliente['name'] ?? ''),
+                        preg_replace('/\D+/', '', (string) ($cliente['numero'] ?? $cliente['number'] ?? '')),
+                        $cliente['telefono'] ?? ($cliente['phone'] ?? ''),
+                        is_array($o->items) ? count($o->items) : 0,
+                        number_format($aCobrar, 2, '.', ''),
+                        number_format($cobrado, 2, '.', ''),
+                        number_format(max(0, $aCobrar - $cobrado), 2, '.', ''),
+                        static::etiquetaCobro($aCobrar, $cobrado),
+                        $o->reference_payment,
+                        optional($o->status_order)->description,
+                        optional($o->channel)->name,
+                        $envio ? $envio->delivery_short : '',
+                        $envio ? ($envio->shipping_agency ?: $envio->destination_city) : '',
+                        $envio ? (\App\Models\Tenant\ShippingRequest::STATUSES[$envio->status] ?? $envio->status) : '',
+                        $envio ? $envio->tracking_number : '',
+                        $o->number_document,
+                    ]);
+                }
+            });
+
+            fclose($out);
+        }, $nombre, [
+            'Content-Type'        => 'text/csv; charset=UTF-8',
+            'Content-Disposition' => 'attachment; filename="' . $nombre . '"',
+        ]);
+    }
+
+    /**
+     * La etiqueta del cobro para el CSV.
+     *
+     * Repite la clasificacion de `OrderCollection::paymentState` en vez de
+     * llamarla porque aquella trabaja sobre la FILA ya montada y aqui hay un
+     * modelo suelto. Es la tercera copia de la regla —fila, filtro SQL y
+     * export— y conviene tenerlo presente: si cambia el umbral, cambia en tres
+     * sitios. Se dejo asi porque unificarlas obligaria a montar la fila entera
+     * para cada linea del CSV.
+     */
+    private static function etiquetaCobro(float $aCobrar, float $cobrado): string
+    {
+        if ($aCobrar <= 0)               return 'Sin monto';
+        if ($cobrado <= 0)               return 'Pago pendiente';
+        if ($cobrado + 0.009 < $aCobrar) return 'Pago parcial';
+
+        return 'Pagado';
+    }
+
+    /**
      * UNA fila, con la misma forma que el listado.
      *
      * Existe para no recargar la tabla entera cuando cambia un solo pedido.
