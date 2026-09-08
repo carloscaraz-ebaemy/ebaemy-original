@@ -1501,6 +1501,12 @@ class ShipmentController extends Controller
 
         $user = auth()->user();
         $payment = $shipment->payments()->create([
+            // Mismo estado inicial que un cobro de pedido: la regla la decide
+            // `PaymentVerification` y no cada punto de escritura. Hay dos —este
+            // y el trait de Pedidos— y no comparten codigo; si cada uno
+            // decidiera por su cuenta, encender la verificacion en un modulo y
+            // olvidarla en el otro seria cuestion de tiempo.
+            'verification_status' => \App\Services\Tenant\PaymentVerification::estadoInicial(),
             'amount'          => $data['amount'],
             'payment_code'    => $code,
             'method'          => $data['method'] ?? null,

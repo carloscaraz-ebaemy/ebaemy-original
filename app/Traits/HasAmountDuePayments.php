@@ -43,7 +43,14 @@ trait HasAmountDuePayments
     /** Suma de los pagos registrados. */
     public function getTotalPaidAttribute(): float
     {
-        return round((float) $this->payments()->sum('payment'), 2);
+        // Un cobro RECHAZADO no cuenta. Este accesor alimenta el resumen del
+        // panel de pagos, y el listado usa la MISMA regla: sin esto, la tabla
+        // diria «debe S/ 20» y el panel «pagado», sobre el mismo pedido.
+        $tabla = $this->payments()->getRelated()->getTable();
+
+        return round((float) \App\Services\Tenant\PaymentVerification::soloValidos(
+            $this->payments(), $tabla
+        )->sum('payment'), 2);
     }
 
     /**

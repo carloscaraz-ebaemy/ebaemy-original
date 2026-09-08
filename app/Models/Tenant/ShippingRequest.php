@@ -213,7 +213,9 @@ class ShippingRequest extends Model
             return (float) $this->attributes['payments_sum_amount'];
         }
 
-        return (float) $this->payments()->sum('amount');
+        return (float) \App\Services\Tenant\PaymentVerification::soloValidos(
+            $this->payments(), 'shipping_payments'
+        )->sum('amount');
     }
 
     /**

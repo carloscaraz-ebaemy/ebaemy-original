@@ -339,6 +339,16 @@ if ($hostname) {
             // en tres flujos y no habia puerta para el resto de pedidos.
             Route::post('orders/{order}/nota-venta', 'Tenant\OrderController@generarNotaVenta')
                  ->whereNumber('order')->name('orders.sale_note');
+            // Verificar o rechazar un cobro. Sirve a las dos tablas de pagos
+            // —pedidos y envios— porque la pregunta es la misma.
+            Route::post('cobros/{tipo}/{payment}/verificar',
+                [\App\Http\Controllers\Tenant\PaymentVerificationController::class, 'verificar'])
+                 ->whereIn('tipo', ['order','shipment'])->whereNumber('payment')
+                 ->name('payments.verify');
+            Route::post('cobros/{tipo}/{payment}/rechazar',
+                [\App\Http\Controllers\Tenant\PaymentVerificationController::class, 'rechazar'])
+                 ->whereIn('tipo', ['order','shipment'])->whereNumber('payment')
+                 ->name('payments.reject');
 
             // ── Cupones de plataforma (scope=tenant) — propios de este seller ────
             Route::prefix('marketplace/coupons')->name('tenant.marketplace_coupons.')->group(function () {

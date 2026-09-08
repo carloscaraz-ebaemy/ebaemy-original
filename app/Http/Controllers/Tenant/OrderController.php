@@ -22,6 +22,7 @@ use App\Models\Tenant\Catalogs\DocumentType;
 use App\Services\Tenant\OrderService;
 use App\Services\Tenant\OrderDocuments;
 use App\Services\Tenant\BillingDocumentResolver;
+use App\Services\Tenant\PaymentVerification;
 use App\Models\Tenant\OrderStatusLog;
 use App\Models\Tenant\OrderPayment;
 use App\Models\Tenant\PaymentMethodType;
@@ -198,7 +199,12 @@ class OrderController extends Controller
             // `tenancy:migrate` puede ir atrasado, y un listado que revienta
             // con "table doesn't exist" es peor que un listado sin el dato.
             if ($this->orderPaymentsTableExists()) {
-                $query->withSum('payments as paid_total', 'payment');
+                // Un cobro RECHAZADO no suma: se registro y resulto no ser
+                // valido, asi que el pedido sigue debiendo. Si siguiera
+                // contando, rechazarlo no cambiaria el saldo.
+                $query->withSum([
+                    'payments as paid_total' => fn ($q) => PaymentVerification::soloValidos($q, 'order_payments'),
+                ], 'payment');
             }
 
             $query->with([
@@ -246,7 +252,9 @@ class OrderController extends Controller
                     // La suma de cobros del envio, en la MISMA consulta. El
                     // accesor `paid_total` la calcula por fila si no viene, y
                     // la fila la pide para el saldo y para el estado economico.
-                    'shipment' => fn ($q) => $q->withSum('payments', 'amount'),
+                    'shipment' => fn ($q) => $q->withSum([
+                        'payments' => fn ($p) => PaymentVerification::soloValidos($p, 'shipping_payments'),
+                    ], 'amount'),
                     'shipment.printBatch:id,code,status',
                     // La guía de remisión, por el mismo motivo que los
                     // comprobantes: `OrderDocuments` la lee de aquí o la da
@@ -255,7 +263,9 @@ class OrderController extends Controller
                     // El envio VIGENTE. `shipment` es el ultimo aunque este
                     // anulado, y el estado economico tiene que mirar el que
                     // sigue en pie — que es el mismo que mira el filtro en SQL.
-                    'activeShipment' => fn ($q) => $q->withSum('payments', 'amount'),
+                    'activeShipment' => fn ($q) => $q->withSum([
+                        'payments' => fn ($p) => PaymentVerification::soloValidos($p, 'shipping_payments'),
+                    ], 'amount'),
                 ]);
             }
         }
@@ -365,8 +375,9 @@ class OrderController extends Controller
      */
     private function sqlCobrado(bool $conEnvios): string
     {
+        $validosOp = PaymentVerification::sqlSoloValidos('op', 'order_payments');
         $propios = "COALESCE((SELECT SUM(op.payment) FROM order_payments op"
-                 . " WHERE op.order_id = orders.id), 0)";
+                 . " WHERE op.order_id = orders.id AND {$validosOp}), 0)";
 
         if (!$conEnvios) {
             return "({$propios})";
@@ -376,8 +387,9 @@ class OrderController extends Controller
         // del modulo —1 pedido = 1 registro logistico vigente— y es la que usa
         // la fila, que lee `activeShipment`. Sumar todos los historicos daba un
         // pedido cobrado que la fila pintaba pendiente.
+        $validosSp = PaymentVerification::sqlSoloValidos('sp', 'shipping_payments');
         $delEnvio = "COALESCE((SELECT SUM(sp.amount) FROM shipping_payments sp"
-                  . " WHERE sp.shipment_id = (SELECT sr.id FROM shipping_requests sr"
+                  . " WHERE {$validosSp} AND sp.shipment_id = (SELECT sr.id FROM shipping_requests sr"
                   . " WHERE sr.order_id = orders.id AND sr.cancelled_at IS NULL"
                   . " ORDER BY sr.id DESC LIMIT 1)), 0)";
 
@@ -428,23 +440,31 @@ class OrderController extends Controller
         // esta separacion, filtrar «pago pendiente» en carolayimport devuelve
         // los 710 pedidos, que es exactamente el ruido que se quiere quitar.
         $conMarketplace = MarketplaceOrder::moduleInstalled();
-        $esDelCanal = "EXISTS (SELECT 1 FROM marketplace_orders mo"
-                    . " WHERE mo.order_id = orders.id"
-                    . " AND mo.status NOT IN ('canceled','returned'))";
+
+        // «Cobrado por el canal»: existe y el canal no lo cancelo ni lo devolvio.
+        $cobradoPorCanal = "EXISTS (SELECT 1 FROM marketplace_orders mo"
+                         . " WHERE mo.order_id = orders.id"
+                         . " AND mo.status NOT IN ('canceled','returned'))";
+
+        // Cualquier pedido de marketplace, cancelado o no.
+        $esDeMarketplace = "EXISTS (SELECT 1 FROM marketplace_orders mo"
+                         . " WHERE mo.order_id = orders.id)";
 
         if ($estado === 'canal') {
-            if (!$conMarketplace) {
-                // Sin el modulo no hay pedidos de canal: ninguno cumple.
-                $query->whereRaw('1 = 0');
-            } else {
-                $query->whereRaw($esDelCanal);
-            }
+            // Sin el modulo no hay pedidos de canal: ninguno cumple.
+            $query->whereRaw($conMarketplace ? $cobradoPorCanal : '1 = 0');
 
             return;
         }
 
+        // Los tres estados del dinero excluyen a TODO pedido de marketplace, no
+        // solo a los cobrados. Un pedido cancelado por el canal sale en la fila
+        // como «Sin cobro del canal», que no es «pago pendiente»: aqui nadie va
+        // a cobrar nada. Con la exclusion a medias, filtrar «pendiente» en
+        // carolayimport devolvia 49 pedidos cuyo chip decia otra cosa — la
+        // divergencia entre fila y filtro que este trabajo viene a evitar.
         if ($conMarketplace) {
-            $query->whereRaw("NOT {$esDelCanal}");
+            $query->whereRaw("NOT {$esDeMarketplace}");
         }
 
         // Sin el modulo de Envios no existen `shipping_payments` ni

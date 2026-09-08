@@ -29,10 +29,21 @@ class OrderPayment extends ModelTenant
         'change',
         'payment',
         'payment_destination_id',
+        // Quien registro el cobro. `shipping_payments` ya lo guardaba y este no,
+        // asi que un cobro mal cargado no tenia autor.
+        'created_by',
+        // Verificacion del cobro. Ver `PaymentVerification`: registrar un
+        // cobro y comprobar que es valido son dos hechos distintos.
+        'verification_status',
+        'verified_by',
+        'verified_at',
+        'rejection_reason',
     ];
 
     protected $casts = [
         'date_of_payment' => 'date',
+        'verified_at'     => 'datetime',
+
         'has_card'        => 'boolean',
         'change'          => 'decimal:2',
         'payment'         => 'decimal:2',

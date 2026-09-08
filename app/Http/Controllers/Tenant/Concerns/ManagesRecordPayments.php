@@ -125,6 +125,19 @@ trait ManagesRecordPayments
         DB::connection('tenant')->transaction(function () use ($id, $request, $class, &$record) {
             $record = $class::firstOrNew(['id' => $id]);
             $record->fill($request->all());
+
+            // Un cobro NUEVO nace con el estado de verificacion que decida el
+            // tenant; al EDITAR no se toca, porque corregir un importe no
+            // deshace una comprobacion ya hecha. La regla vive en un solo sitio
+            // para que los dos puntos de escritura de cobros no diverjan.
+            if (!$id) {
+                $record->verification_status = \App\Services\Tenant\PaymentVerification::estadoInicial();
+                if (\Illuminate\Support\Facades\Schema::connection('tenant')
+                        ->hasColumn($record->getTable(), 'created_by')) {
+                    $record->created_by = auth()->id();
+                }
+            }
+
             $record->save();
 
             // Al editar, el asiento y el archivo viejos ya no aplican.

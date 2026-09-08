@@ -32,9 +32,17 @@ class ShippingPayment extends Model
         'paid_at',
         'created_by',
         'created_by_name',
+        // Verificacion del cobro. Ver `PaymentVerification`: registrar un
+        // cobro y comprobar que es valido son dos hechos distintos.
+        'verification_status',
+        'verified_by',
+        'verified_at',
+        'rejection_reason',
     ];
 
     protected $casts = [
+        'verified_at'     => 'datetime',
+
         'shipment_id' => 'integer',
         'amount'      => 'decimal:2',
         'paid_at'     => 'datetime',
