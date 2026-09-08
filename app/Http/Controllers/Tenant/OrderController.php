@@ -419,8 +419,32 @@ class OrderController extends Controller
     {
         $estado = (string) $request->input('estado_pago', '');
 
-        if (!in_array($estado, ['pendiente', 'parcial', 'pagado'], true)) {
+        if (!in_array($estado, ['pendiente', 'parcial', 'pagado', 'canal'], true)) {
             return;
+        }
+
+        // Los pedidos de marketplace no entran en la cuenta del dinero: su
+        // cobro lo hizo el canal y aqui no hay ni habra un `order_payment`. Sin
+        // esta separacion, filtrar «pago pendiente» en carolayimport devuelve
+        // los 710 pedidos, que es exactamente el ruido que se quiere quitar.
+        $conMarketplace = MarketplaceOrder::moduleInstalled();
+        $esDelCanal = "EXISTS (SELECT 1 FROM marketplace_orders mo"
+                    . " WHERE mo.order_id = orders.id"
+                    . " AND mo.status NOT IN ('canceled','returned'))";
+
+        if ($estado === 'canal') {
+            if (!$conMarketplace) {
+                // Sin el modulo no hay pedidos de canal: ninguno cumple.
+                $query->whereRaw('1 = 0');
+            } else {
+                $query->whereRaw($esDelCanal);
+            }
+
+            return;
+        }
+
+        if ($conMarketplace) {
+            $query->whereRaw("NOT {$esDelCanal}");
         }
 
         // Sin el modulo de Envios no existen `shipping_payments` ni

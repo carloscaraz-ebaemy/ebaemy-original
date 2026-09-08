@@ -354,6 +354,27 @@ class OrderCollection extends ResourceCollection
      */
     private function paymentState($row): array
     {
+        // ── Marketplace: el dinero no pasa por la tienda ──────────────────
+        //
+        // En Saga el cliente le paga AL CANAL. Nunca va a existir un
+        // `order_payment`, asi que la regla normal daria «pago pendiente» para
+        // siempre: los 710 pedidos de carolayimport, todos, pidiendo un cobro
+        // que nadie va a registrar.
+        //
+        // OJO con la premisa: `marketplace_orders` NO trae estado de pago —
+        // tiene 19 columnas y ninguna lo es—. Lo que hay es el estado del
+        // pedido en el canal. Asi que esto es una DECISION DE CONFIANZA
+        // declarada aqui, no un dato que llegue: se asume que el canal no
+        // despacha lo que no cobro. Si algun dia Saga expone el estado de pago,
+        // este es el sitio donde debe leerse en vez de suponerse.
+        $mp = $row->relationLoaded('marketplaceOrder') ? $row->marketplaceOrder : null;
+
+        if ($mp) {
+            return in_array($mp->status, ['canceled', 'returned'], true)
+                ? ['state' => 'canal_anulado', 'label' => 'Sin cobro del canal']
+                : ['state' => 'canal',         'label' => 'Cobrado por el canal'];
+        }
+
         // El envio VIGENTE, y no `shipment`, que es el ultimo aunque este
         // anulado. Un envio anulado no cuenta —su importe ya no hay que
         // cobrarlo— pero si el pedido tuvo otro antes que sigue en pie, ESE es

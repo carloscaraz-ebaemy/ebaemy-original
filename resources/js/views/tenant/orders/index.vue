@@ -136,6 +136,7 @@
                         <el-option label="Pago pendiente" value="pendiente"></el-option>
                         <el-option label="Pago parcial" value="parcial"></el-option>
                         <el-option label="Pagado" value="pagado"></el-option>
+                        <el-option label="Cobrado por el canal" value="canal"></el-option>
                     </el-select>
 
                     <el-select
@@ -1313,6 +1314,17 @@
 .ord-p-chip.is-pendiente { background: #f1f5f9; color: #64748b; }
 /* Un encargo al que nadie le cargo el importe. No es «pendiente»: no se sabe
    cuanto se debe, y decirlo seria inventarse una deuda. */
+/* Marketplace: el dinero lo cobro el canal y no pasa por la tienda. Se
+   distingue del «pagado» propio a proposito — no es lo mismo cobrar que
+   confiar en que el canal cobro. */
+.ord-p-chip.is-canal {
+    background: #ede9fe;
+    color: #5b21b6;
+}
+.ord-p-chip.is-canal_anulado {
+    background: #fee2e2;
+    color: #b91c1c;
+}
 .ord-p-chip.is-sin_monto {
     background: transparent;
     color: #94a3b8;
@@ -2671,6 +2683,12 @@ export default {
         /** Cuanto falta. Solo cuando falta algo: si no, el chip ya lo dice. */
         saldoCobro(row) {
             const s = row.shipment || {};
+            // En marketplace no hay saldo: el cobro lo hizo el canal y aqui no
+            // hay contra que compararlo.
+            if (row.payment_state === "canal" || row.payment_state === "canal_anulado") {
+                return "";
+            }
+
             const pend = this.pagoEnElEnvio(row) ? s.pending_total : row.pending_total;
 
             return pend > 0 ? "saldo S/ " + this.formatMoney(pend) : "";
