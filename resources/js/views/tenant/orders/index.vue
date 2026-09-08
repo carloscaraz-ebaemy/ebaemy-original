@@ -237,6 +237,65 @@
                     </button>
                 </div>
 
+                <!-- Aviso de vencidos. Solo si los hay: una franja permanente
+                     diciendo «0 vencidos» ocupa sitio y deja de leerse, que es
+                     lo contrario de lo que tiene que hacer una alerta. -->
+                <div
+                    v-if="shipping && chipCounts.vencidos > 0 && agingFilter !== 'vencidos'"
+                    class="ord-overdue"
+                >
+                    <span>
+                        <i class="fas fa-exclamation-triangle"></i>
+                        <strong>{{ chipCounts.vencidos }}</strong>
+                        {{ chipCounts.vencidos === 1 ? "pedido superó" : "pedidos superaron" }}
+                        el plazo de despacho
+                    </span>
+                    <button class="ord-overdue-cta" @click="verAntiguedad('vencidos')">
+                        Ver vencidos →
+                    </button>
+                </div>
+
+                <!-- Prioridad. El plazo sale de los dias habiles configurados en
+                     la tienda, no de dias de calendario: el filtro ya existia en
+                     el servidor y lo que faltaba era poder llegar a el sin
+                     abrir «Mas filtros». -->
+                <div v-if="shipping" class="ord-prio">
+                    <span class="ord-prio-lbl">Prioridad</span>
+                    <button
+                        class="ord-prio-btn"
+                        :class="{ 'is-on': orden === 'fecha' && ordenDir === 'asc' }"
+                        title="El pedido que lleva más tiempo esperando, arriba"
+                        @click="masAntiguosPrimero"
+                    >
+                        Más antiguos primero
+                    </button>
+                    <button
+                        v-if="chipCounts.urgentes"
+                        class="ord-prio-btn is-warn"
+                        :class="{ 'is-on': agingFilter === 'urgentes' }"
+                        title="A un día hábil de pasarse del plazo"
+                        @click="verAntiguedad('urgentes')"
+                    >
+                        Urgentes <b>{{ chipCounts.urgentes }}</b>
+                    </button>
+                    <button
+                        v-if="chipCounts.vencidos"
+                        class="ord-prio-btn is-bad"
+                        :class="{ 'is-on': agingFilter === 'vencidos' }"
+                        title="Pasados del plazo de despacho"
+                        @click="verAntiguedad('vencidos')"
+                    >
+                        Vencidos <b>{{ chipCounts.vencidos }}</b>
+                    </button>
+                    <button
+                        v-if="agingFilter"
+                        class="ord-prio-clear"
+                        @click="agingFilter = ''; applyLogisticFilters()"
+                    >
+                        Quitar
+                    </button>
+                </div>
+
                 <!-- Los que no se tocan a diario. Se abren, se usan y se
                      cierran; mientras esten puestos, el boton lo dice. -->
                 <div v-if="showMoreFilters" class="ord-filters">
@@ -1468,6 +1527,86 @@
     color: #b45309;
     font-size: 11px;
     flex: 0 0 auto;
+}
+
+/* ── Prioridad y vencidos ────────────────────────────────────────── */
+.ord-overdue {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+    background: #fef2f2;
+    border: 1px solid #fecaca;
+    border-radius: 8px;
+    padding: 9px 14px;
+    margin-bottom: 10px;
+    color: #991b1b;
+    font-size: 13px;
+}
+.ord-overdue i {
+    margin-right: 6px;
+}
+.ord-overdue-cta {
+    border: 1px solid #fca5a5;
+    background: #fff;
+    color: #b91c1c;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    padding: 4px 11px;
+    cursor: pointer;
+    white-space: nowrap;
+}
+.ord-overdue-cta:hover {
+    background: #fee2e2;
+}
+.ord-prio {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    flex-wrap: wrap;
+    margin-bottom: 12px;
+}
+.ord-prio-lbl {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: #94a3b8;
+}
+.ord-prio-btn {
+    border: 1px solid #e2e8f0;
+    background: #fff;
+    color: #475569;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 600;
+    padding: 4px 12px;
+    cursor: pointer;
+    white-space: nowrap;
+}
+.ord-prio-btn b {
+    margin-left: 4px;
+    font-variant-numeric: tabular-nums;
+}
+.ord-prio-btn:hover {
+    border-color: #94a3b8;
+}
+.ord-prio-btn.is-warn { color: #92400e; border-color: #fde68a; background: #fffbeb; }
+.ord-prio-btn.is-bad  { color: #b91c1c; border-color: #fecaca; background: #fef2f2; }
+.ord-prio-btn.is-on {
+    border-color: #4f46e5;
+    background: #eef2ff;
+    color: #4338ca;
+}
+.ord-prio-clear {
+    border: 0;
+    background: transparent;
+    color: #64748b;
+    font-size: 12px;
+    cursor: pointer;
+    text-decoration: underline;
 }
 
 .ord-counts-error {
@@ -3488,6 +3627,26 @@ export default {
             };
 
             if (rutas[destino]) window.open(rutas[destino], "_blank");
+        },
+
+        /**
+         * Ordena por el que lleva mas tiempo esperando.
+         *
+         * Es el orden que pide la operacion: lo urgente no es lo ultimo que
+         * entro, es lo que lleva mas dias sin salir. Un segundo clic lo
+         * devuelve a «mas recientes».
+         */
+        masAntiguosPrimero() {
+            const yaEsta = this.orden === "fecha" && this.ordenDir === "asc";
+            this.orden = "fecha";
+            this.ordenDir = yaEsta ? "desc" : "asc";
+            this.pushFilters();
+        },
+
+        /** Filtra por antiguedad. Un segundo clic en el mismo lo quita. */
+        verAntiguedad(cual) {
+            this.agingFilter = this.agingFilter === cual ? "" : cual;
+            this.applyLogisticFilters();
         },
 
         /** Buscar. Vuelve siempre a la pagina 1: buscar en la 4 no tiene sentido. */

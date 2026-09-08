@@ -665,22 +665,7 @@ class OrderController extends Controller
         if (in_array($aging, ['urgentes', 'vencidos'], true)) {
             $setting = ShippingSetting::currentOrNull();
 
-            if (!$setting) {
-                // Sin el módulo de Envíos no hay antigüedad que medir, y la
-                // respuesta honesta es "ningún pedido", igual que el resto de
-                // filtros logísticos. Antes se ignoraba el filtro en silencio y
-                // "vencidos" devolvía TODOS los pedidos, que es justo lo
-                // contrario de lo que se preguntó.
-                $this->whereShipment($query, fn($s) => $s);
-            } else {
-                $maxDays = $setting->max_days;
-                $k = $aging === 'vencidos' ? $maxDays : max(1, $maxDays - 1);
-                $cutoff = ShippingRequest::agingCutoff($k, (bool) ($setting->aging_skip_holidays ?? true))->toDateString();
-
-                $this->whereShipment($query, fn($s) => $s
-                    ->whereDate('created_at', '<=', $cutoff)
-                    ->whereNotIn('status', ShippingRequest::CLOSED_STATUSES));
-            }
+            $this->applyAging($query, $aging, $setting);
         }
 
         return $query;
@@ -694,6 +679,51 @@ class OrderController extends Controller
      * subconsulta de agregación al WHERE y deja de ser un EXISTS aprovechable
      * por el índice de `order_id`.
      */
+    /**
+     * Antiguedad: urgentes (a un dia habil del plazo) y vencidos (pasados).
+     *
+     * Vive aparte porque la usan DOS consumidores: el filtro del listado y los
+     * contadores de la barra de prioridad. Con la regla escrita dos veces, el
+     * contador diria «2 vencidos» y el filtro devolveria otra cosa — y el
+     * operador no tendria forma de saber cual miente.
+     */
+    /** Cuantos pedidos hay en ese tramo de antiguedad. */
+    private function contarPorAntiguedad($base, string $aging): int
+    {
+        $setting = ShippingSetting::currentOrNull();
+
+        if (!$setting || !ShippingRequest::moduleInstalled()) {
+            return 0;
+        }
+
+        $q = (clone $base)->reorder();
+        $this->applyAging($q, $aging, $setting);
+
+        return $q->count();
+    }
+
+    private function applyAging($query, string $aging, $setting): void
+    {
+        if (!$setting) {
+            // Sin el módulo de Envíos no hay antigüedad que medir, y la
+            // respuesta honesta es "ningún pedido", igual que el resto de
+            // filtros logísticos. Antes se ignoraba el filtro en silencio y
+            // "vencidos" devolvía TODOS los pedidos, que es justo lo
+            // contrario de lo que se preguntó.
+            $this->whereShipment($query, fn($s) => $s);
+
+            return;
+        }
+
+        $maxDays = $setting->max_days;
+        $k = $aging === 'vencidos' ? $maxDays : max(1, $maxDays - 1);
+        $cutoff = ShippingRequest::agingCutoff($k, (bool) ($setting->aging_skip_holidays ?? true))->toDateString();
+
+        $this->whereShipment($query, fn($s) => $s
+            ->whereDate('created_at', '<=', $cutoff)
+            ->whereNotIn('status', ShippingRequest::CLOSED_STATUSES));
+    }
+
     private function whereShipment($query, callable $constraint)
     {
         // Sin el módulo instalado no hay envíos: cualquier filtro logístico
@@ -899,6 +929,10 @@ class OrderController extends Controller
             // Se cuenta aparte y no en `shipmentStageCounts` porque no depende
             // del estado comercial: un envio recien registrado puede estar en
             // cualquiera de ellos.
+            // Prioridad. Se cuentan con la MISMA regla que filtra —
+            // `applyAging`— y no con una copia.
+            'urgentes'      => $this->contarPorAntiguedad($base, 'urgentes'),
+            'vencidos'      => $this->contarPorAntiguedad($base, 'vencidos'),
             'nuevos'        => ShippingRequest::moduleInstalled()
                 ? (clone $base)->whereHas('shipments', fn($s) => $s
                     ->whereNull('cancelled_at')
