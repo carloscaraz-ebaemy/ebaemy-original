@@ -133,6 +133,31 @@
                         <el-option label="Otros pedidos" value="other"></el-option>
                     </el-select>
 
+                    <!-- Orden. Hasta ahora la consulta era `latest()` fijo: no
+                         habia forma de ordenar por importe ni por cliente. -->
+                    <div class="ord-sort">
+                        <el-select
+                            v-model="orden"
+                            class="ord-sort-sel"
+                            size="small"
+                            @change="pushFilters"
+                        >
+                            <el-option
+                                v-for="opt in ordenOptions"
+                                :key="opt.value"
+                                :label="opt.label"
+                                :value="opt.value"
+                            ></el-option>
+                        </el-select>
+                        <button
+                            class="ord-sort-dir"
+                            :title="ordenDir === 'desc' ? 'De mayor a menor' : 'De menor a mayor'"
+                            @click="ordenDir = ordenDir === 'desc' ? 'asc' : 'desc'; pushFilters()"
+                        >
+                            <i :class="ordenDir === 'desc' ? 'el-icon-bottom' : 'el-icon-top'"></i>
+                        </button>
+                    </div>
+
                     <button
                         class="ord-bar-more"
                         :class="{ 'is-on': showMoreFilters || extraFilterCount }"
@@ -1452,6 +1477,31 @@
     flex: 0 1 165px;
     min-width: 140px;
 }
+.ord-sort {
+    display: flex;
+    align-items: stretch;
+    gap: 0;
+    flex: 0 1 190px;
+    min-width: 160px;
+}
+.ord-sort-sel {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+.ord-sort-dir {
+    border: 1px solid #dbe2ea;
+    border-left: 0;
+    border-radius: 0 8px 8px 0;
+    background: #fff;
+    color: #475569;
+    cursor: pointer;
+    padding: 0 9px;
+    flex: 0 0 auto;
+}
+.ord-sort-dir:hover {
+    color: #4f46e5;
+    border-color: #4f46e5;
+}
 .ord-bar-more {
     border: 1px solid #dbe2ea;
     background: #fff;
@@ -1702,6 +1752,10 @@
     /* Los dos desplegables se reparten la linea siguiente. */
     .ord-bar-sel {
         flex: 1 1 calc(50% - 4px);
+        min-width: 0;
+    }
+    .ord-sort {
+        flex: 1 1 100%;
         min-width: 0;
     }
     .ord-bar-more,
@@ -1986,6 +2040,18 @@ export default {
             // que en el backend es «buscar en todo».
             q: "",
             showMoreFilters: false,
+            // Orden del listado. `fecha` reproduce el `latest()` de siempre,
+            // asi que arrancar con el no cambia lo que el operador ya conoce.
+            orden: "fecha",
+            ordenDir: "desc",
+            ordenOptions: [
+                { value: "fecha", label: "Más recientes" },
+                { value: "pedido", label: "N° de pedido" },
+                { value: "cliente", label: "Cliente" },
+                { value: "total", label: "Importe" },
+                { value: "estado", label: "Estado" },
+                { value: "actualizado", label: "Última actualización" },
+            ],
             showDrawer: false,
             drawerRow: null,
             showDocsDialog: false,
@@ -3066,6 +3132,12 @@ export default {
             dt.search.column = "search";
             dt.search.value = this.q ? this.q.trim() : null;
 
+            // Parametros propios y no `sort_field`: ese lo manda el DataTable
+            // siempre con `id`, y honrarlo cambiaria el orden por defecto sin
+            // que nadie lo hubiera pedido. Ver `OrderController::applyOrderSort`.
+            dt.search.orden = this.orden;
+            dt.search.orden_dir = this.ordenDir;
+
             dt.pagination.current_page = 1;
             dt.getRecords();
             this.loadChipCounts();
@@ -3088,6 +3160,8 @@ export default {
             this.agingFilter = "";
             this.orderSource = "all";
             this.q = "";
+            this.orden = "fecha";
+            this.ordenDir = "desc";
             this.pushFilters();
         },
 

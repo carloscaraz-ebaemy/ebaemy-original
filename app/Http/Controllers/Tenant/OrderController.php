@@ -242,7 +242,85 @@ class OrderController extends Controller
             $this->applyOperationalChip($query, $request);
         }
 
+        // El orden es cosa del LISTADO. Los otros dos consumidores de esta
+        // consulta (`statusCounts` y `stats`) piden agregados y ya llaman a
+        // `reorder()` donde hace falta; anadirles un ORDER BY solo seria
+        // trabajo tirado, y con una expresion JSON ademas seria un riesgo bajo
+        // ONLY_FULL_GROUP_BY.
+        if ($withRelations) {
+            $this->applyOrderSort($query, $request);
+        }
+
         return $query;
+    }
+
+    /**
+     * Columnas por las que se puede ordenar el listado.
+     *
+     * Lista blanca a proposito: el parametro llega del navegador y termina en
+     * un ORDER BY. Cualquier valor que no este aqui se ignora y manda el orden
+     * por defecto.
+     */
+    private const ORDENES = [
+        'fecha'       => 'created_at',
+        'pedido'      => 'id',
+        'total'       => 'total',
+        'estado'      => 'status_order_id',
+        'actualizado' => 'updated_at',
+        // `cliente` no es una columna: el nombre vive dentro del JSON de
+        // `orders.customer`, y ademas bajo dos claves distintas segun quien
+        // creara el pedido. Se resuelve en applyOrderSort().
+        'cliente'     => null,
+    ];
+
+    /**
+     * Ordena el listado.
+     *
+     * Hasta ahora la consulta era `Order::query()->latest()`, fijo: no habia
+     * forma de ordenar por importe, por cliente ni por ultima actualizacion.
+     *
+     * El parametro es propio (`orden`) y NO el `sort_field` que el DataTable
+     * manda siempre. No es capricho: ese componente envia `sort_field=id` por
+     * defecto, y honrarlo cambiaria el orden por defecto de «fecha del pedido»
+     * a «id», que NO es lo mismo. El espejo de un encargo logistico se crea con
+     * la fecha del envio, que puede ser anterior a la de otro pedido con id
+     * mas bajo; el listado dejaria de estar en orden cronologico sin que nadie
+     * hubiera pedido ese cambio.
+     */
+    private function applyOrderSort($query, Request $request): void
+    {
+        $clave = (string) $request->input('orden', '');
+        $dir   = strtolower((string) $request->input('orden_dir', 'desc')) === 'asc' ? 'asc' : 'desc';
+
+        if (!array_key_exists($clave, self::ORDENES)) {
+            // El de siempre: lo mas reciente arriba.
+            $query->latest();
+
+            return;
+        }
+
+        $query->reorder();
+
+        if ($clave === 'cliente') {
+            // El nombre esta dentro del JSON y bajo dos claves segun el origen
+            // del pedido. Sin indice, pero la tabla mas grande en produccion
+            // tiene 703 filas: el coste es irrelevante y la alternativa seria
+            // una columna derivada que habria que mantener en seis sitios.
+            $query->orderByRaw(
+                "COALESCE("
+                . "JSON_UNQUOTE(JSON_EXTRACT(customer, '$.apellidos_y_nombres_o_razon_social')),"
+                . "JSON_UNQUOTE(JSON_EXTRACT(customer, '$.name')),"
+                . "''"
+                . ") {$dir}"
+            );
+        } else {
+            $query->orderBy(self::ORDENES[$clave], $dir);
+        }
+
+        // Desempate estable. Sin el, dos pedidos del mismo dia o con el mismo
+        // importe pueden cambiar de sitio entre una pagina y la siguiente, y el
+        // operador ve el mismo pedido dos veces o ninguna.
+        $query->orderBy('id', 'desc');
     }
 
     /** Filtros del lado comercial del pedido. */
