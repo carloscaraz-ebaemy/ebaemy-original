@@ -113,6 +113,11 @@ class DownloadController extends Controller
 
         $this->reloadPDF($document, $type, $format);
 
+        // Boleta, factura y guia de remision electronica pasan todas por aqui.
+        // La nota de venta y la cotizacion NO: se delegaron mas arriba a su
+        // propio controlador, y cada uno anota lo suyo.
+        \App\Services\Tenant\DocumentPrints::marcar($document);
+
         $temp = tempnam(sys_get_temp_dir(), 'pdf');
 
         file_put_contents($temp, $this->getStorage($document->filename, 'pdf'));

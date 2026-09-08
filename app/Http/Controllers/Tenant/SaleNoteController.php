@@ -1201,6 +1201,12 @@ class SaleNoteController extends Controller
         if (!$sale_note) throw new Exception("El código {$external_id} es inválido, no se encontro la nota de venta relacionada");
 
         $this->reloadPDF($sale_note, $format, $sale_note->filename);
+
+        // «Generado» e «impreso» son dos hechos distintos y hasta ahora solo se
+        // sabia el primero. Se anota DESPUES de que el PDF exista y nunca puede
+        // tumbar la impresion: si falla, se imprime igual y queda en el log.
+        \App\Services\Tenant\DocumentPrints::marcar($sale_note);
+
         $temp = tempnam(sys_get_temp_dir(), 'sale_note');
 
         file_put_contents($temp, $this->getStorage($sale_note->filename, 'sale_note'));

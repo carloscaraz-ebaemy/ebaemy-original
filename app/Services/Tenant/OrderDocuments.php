@@ -496,6 +496,12 @@ class OrderDocuments
                              : null,
             'estado'      => $this->estado($tipo, $reg),
             'estado_label'=> $this->estadoLabel($tipo, $reg),
+            // Emitido e impreso son dos hechos distintos: un comprobante que
+            // existe pero nunca fue a la impresora no esta en la caja del
+            // paquete, y para despachar esa es la pregunta util.
+            'impreso'     => (bool) ($reg->printed_at ?? null),
+            'impreso_at'  => optional($reg?->printed_at)->format('Y-m-d H:i'),
+            'veces'       => (int) ($reg->print_count ?? 0),
             'motivo_error'=> $this->motivoError($tipo, $reg),
             'pdf_url'     => $reg ? $this->pdfUrl($tipo, $reg) : null,
             // Null = se puede emitir. Con texto = no, y el texto dice por qué.

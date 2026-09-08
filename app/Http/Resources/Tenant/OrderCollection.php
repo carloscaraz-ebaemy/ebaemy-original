@@ -248,6 +248,11 @@ class OrderCollection extends ResourceCollection
                 // en dos idiomas. Un tipo que no aplica a este pedido viene
                 // como `null` (el espejo de un encargo no factura nada).
                 'documents'            => $docs->toArray(),
+                // El rotulo y la guia de la agencia son documentos del pedido
+                // tanto como la boleta, y son los que MAS se imprimen: 24 de
+                // 25 filas en importacionesdeywa tienen rotulo impreso y cero
+                // tienen comprobante. Vivian escondidos dentro del envio.
+                'prints'               => static::impresiones($row),
                 // Con qué corresponde facturar y qué falta para poder hacerlo.
                 // Null cuando no hay venta que documentar (el espejo de un
                 // encargo). El operador puede corregirlo: hasta ahora lo decidía
@@ -582,6 +587,62 @@ class OrderCollection extends ResourceCollection
         }
 
         return $lineas;
+    }
+
+    /**
+     * Lo que se imprimio del envio: rotulo y guia.
+     *
+     * No sale de `OrderDocuments` porque no son documentos del pedido sino del
+     * ENVIO, con su propio registro (`shipping_print_events`, `print_count`) y
+     * su propia vida. Se leen de la relacion ya cargada: si el envio no vino
+     * precargado no se toca, que es lo que evita una consulta por fila en un
+     * tenant sin el modulo.
+     */
+    protected static function impresiones($row): array
+    {
+        if (!$row->relationLoaded('shipment')) {
+            return [];
+        }
+
+        $s = $row->shipment;
+
+        if (!$s || $s->cancelled_at) {
+            return [];
+        }
+
+        $salida = [];
+
+        // El rotulo: `print_count` cuenta cada envio a la impresora, y de la
+        // segunda en adelante hace falta motivo. Una reimpresion no es un
+        // detalle: significa que la primera etiqueta se perdio o iba mal.
+        if ((int) $s->print_count > 0) {
+            $salida[] = [
+                'tipo'    => 'rotulo',
+                'chip'    => 'RT',
+                'nombre'  => $s->is_pickup ? 'Comprobante de entrega' : 'Rotulo',
+                'impreso' => true,
+                'veces'   => (int) $s->print_count,
+                'fecha'   => optional($s->printed_at)->format('Y-m-d H:i'),
+                'url'     => null,
+            ];
+        }
+
+        // La guia de la agencia no se imprime aqui: la sube el operador cuando
+        // la agencia se la da. Existir YA es el hecho relevante, porque
+        // significa que el paquete se entrego al transportista.
+        if ($s->shipping_guide_path) {
+            $salida[] = [
+                'tipo'    => 'guia_agencia',
+                'chip'    => 'GA',
+                'nombre'  => 'Guia de la agencia',
+                'impreso' => true,
+                'veces'   => 0,
+                'fecha'   => null,
+                'url'     => url('registro-envio/' . $s->id . '/guia'),
+            ];
+        }
+
+        return $salida;
     }
 
     /** La primera clave con algo escrito. */

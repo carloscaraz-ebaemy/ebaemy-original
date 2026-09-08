@@ -730,16 +730,28 @@
                             >
                             <span v-else class="ord-st-chip is-none">Sin envío</span>
                         </td>
-<!-- Documentos del pedido.
-                             Antes esta celda solo sabia hablar de Saga: para un
-                             pedido de ecommerce o manual no decia casi nada.
-                             Ahora son cuatro siglas (NV, B, F, GR) que se leen de
-                             un vistazo, y el clic abre el panel completo.
-                             Los chips y sus estados los resuelve `OrderDocuments`
-                             en PHP: aqui no se decide nada, solo se pinta. Un tipo
-                             que NO corresponde a este pedido no viene en el
-                             payload y por eso no se dibuja — pintarlo en gris
-                             invitaria a intentar algo que el sistema rechaza. -->
+                        <!-- Documentos: QUE SE IMPRIMIO.
+
+                             Antes esta celda pintaba un chip por cada tipo que
+                             el pedido PODIA emitir. Medido sobre 75 pedidos
+                             reales de tres tenants: 98 chips pintados y CERO
+                             documentos emitidos. La columna hablaba de
+                             posibilidades, no de hechos.
+
+                             Ahora solo sale lo que existe de verdad, y con la
+                             distincion que faltaba: un contorno es «emitido» y
+                             el punto es «ya se imprimio». Emitir y imprimir son
+                             dos cosas: un comprobante que nunca fue a la
+                             impresora no esta en la caja del paquete.
+
+                             Entran ademas el rotulo y la guia de la agencia,
+                             que son los que MAS se imprimen —24 de 25 filas en
+                             importacionesdeywa— y vivian escondidos dentro del
+                             envio, en una columna que no era esta.
+
+                             Cuando no hay nada: una raya. Lo que corresponde
+                             emitir se dice en su titulo y en el panel, que
+                             sigue a un clic. -->
                         <td v-if="columnas.docs" class="text-center" data-label="Docs">
                             <div
                                 class="ord-doc-chips"
@@ -750,22 +762,22 @@
                                 @keyup.enter="abrirDocumentos(row)"
                             >
                                 <span
-                                    v-for="s in documentSlots(row)"
+                                    v-for="s in docsReales(row)"
                                     :key="s.tipo"
                                     class="ord-doc-chip"
-                                    :class="[
-                                        'is-' + docTone(s),
-                                        { 'is-sugerido': s.sugerido },
-                                    ]"
+                                    :class="['is-' + docTone(s), { 'is-impreso': s.impreso }]"
                                     :title="docTitle(s)"
-                                    >{{ s.chip }}</span
-                                >
+                                    >{{ s.chip
+                                    }}<i v-if="s.impreso" class="ord-doc-dot"></i
+                                ></span>
+
                                 <span
-                                    v-if="!documentSlots(row).length"
-                                    class="text-muted"
-                                    title="Un encargo de envío no genera documentos comerciales."
+                                    v-if="!docsReales(row).length"
+                                    class="ord-doc-nada"
+                                    :title="tituloSinDocs(row)"
                                     >—</span
                                 >
+
                                 <i
                                     v-if="row.mp_invoice_state === 'alert'"
                                     class="fas fa-exclamation-triangle ord-doc-flag"
@@ -1298,10 +1310,28 @@
     font-size: 11px;
     margin-left: 2px;
 }
-/* El que corresponde emitir: contorno solido para distinguirlo del resto sin
-   gritar. No es un estado alcanzado, es una recomendacion. */
-.ord-doc-chip.is-sugerido {
-    box-shadow: inset 0 0 0 1.5px #0f766e;
+/* Impreso. El punto es deliberadamente pequeno: la columna tiene que poder
+   leerse de un vistazo en veinte filas, y un segundo chip por cada documento
+   la doblaria de ancho. Contorno = emitido; contorno con punto = ya salio a
+   la impresora. */
+.ord-doc-chip {
+    position: relative;
+}
+.ord-doc-chip.is-impreso {
+    padding-right: 11px;
+}
+.ord-doc-dot {
+    position: absolute;
+    top: 3px;
+    right: 3px;
+    width: 4px;
+    height: 4px;
+    border-radius: 50%;
+    background: currentColor;
+}
+.ord-doc-nada {
+    color: #cbd5e1;
+    font-weight: 700;
 }
 /* ══════════════════════════════════════════════════════════════════
    La fila: siete columnas, una pregunta cada una
@@ -3183,26 +3213,57 @@ export default {
         // pantalla y el servidor digan cosas distintas.
 
         /**
-         * Los documentos que corresponden a este pedido, en orden de lectura.
-         *
-         * El backend manda `null` para los que no aplican —el espejo de un
-         * encargo no factura nada— y aqui se descartan: un chip gris que no
-         * lleva a ninguna parte es peor que ningun chip.
-         */
-        documentSlots(row) {
-            const d = row.documents || {};
-
-            return ["nota_venta", "boleta", "factura", "guia"]
-                .map(k => d[k])
-                .filter(Boolean);
-        },
-
-        /**
          * Color del chip. Cuatro tonos, no siete: el operador necesita saber
          * si algo esta hecho, en curso, mal o pendiente — el detalle exacto lo
          * lee al abrir el panel.
          */
+        /**
+         * Los documentos que EXISTEN, no los que se podrian emitir.
+         *
+         * Medido sobre 75 pedidos reales: 98 chips pintados y cero documentos
+         * emitidos. La columna hablaba de posibilidades y por eso no servia
+         * para saber que falta despachar.
+         *
+         * Se suman el rotulo y la guia de la agencia, que vienen del ENVIO y
+         * no de `OrderDocuments` porque son suyos, con su propio registro de
+         * impresion. En la columna van juntos: para el operador que prepara un
+         * paquete, todo lo que se imprime es un documento del pedido.
+         */
+        docsReales(row) {
+            const d = row.documents || {};
+
+            const emitidos = ["nota_venta", "boleta", "factura", "guia"]
+                .map(k => d[k])
+                .filter(x => x && x.existe);
+
+            return emitidos.concat(row.prints || []);
+        },
+
+        /**
+         * Que decir cuando no hay nada impreso.
+         *
+         * La raya sola no explica si es que falta emitir algo o si este pedido
+         * no genera documentos. Lo pendiente se cuenta AQUI y no como un chip
+         * apagado en la fila: la columna es de hechos, no de recordatorios.
+         */
+        tituloSinDocs(row) {
+            const d = row.documents || {};
+            const sugerido = ["boleta", "factura", "nota_venta"]
+                .map(k => d[k])
+                .find(x => x && !x.existe && x.sugerido);
+
+            if (sugerido) {
+                return "Todavía no se ha impreso nada. Corresponde emitir: " + sugerido.nombre + ".";
+            }
+
+            return "Todavía no se ha impreso nada de este pedido.";
+        },
+
         docTone(s) {
+            // El rotulo y la guia no pasan por SUNAT: no tienen `estado` ni
+            // `existe`, y su unico hecho relevante es que se imprimieron.
+            if (s.tipo === "rotulo" || s.tipo === "guia_agencia") return "ok";
+
             if (!s.existe) {
                 // Sin bloqueo = listo para emitir; con bloqueo = falta algo.
                 return s.bloqueo ? "off" : "ready";
@@ -3228,8 +3289,25 @@ export default {
 
         /** El tooltip del chip: lo mismo que el panel, en una linea. */
         docTitle(s) {
+            if (s.tipo === "rotulo") {
+                // Una reimpresion no es un detalle: significa que la primera
+                // etiqueta se perdio o iba mal, y exige motivo.
+                const veces = s.veces > 1 ? " · impreso " + s.veces + " veces" : " · impreso";
+
+                return s.nombre + veces + (s.fecha ? " el " + s.fecha : "");
+            }
+
+            if (s.tipo === "guia_agencia") {
+                return s.nombre + " · cargada. El paquete se entregó al transportista.";
+            }
+
             if (s.existe) {
-                return s.nombre + " " + s.numero + " · " + s.estado_label;
+                const impresion = s.impreso
+                    ? " · impreso" + (s.veces > 1 ? " " + s.veces + " veces" : "") +
+                      (s.impreso_at ? " el " + s.impreso_at : "")
+                    : " · sin imprimir";
+
+                return s.nombre + " " + s.numero + " · " + s.estado_label + impresion;
             }
 
             return s.bloqueo || s.nombre + ": se puede emitir.";
