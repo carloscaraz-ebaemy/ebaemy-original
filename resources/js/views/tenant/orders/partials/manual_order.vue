@@ -105,6 +105,23 @@
                         <span>{{ op.label }}</span>
                         <span class="mo-op-stock" :class="{ 'is-off': op.agotado }">{{ op.stockText }}</span>
                     </el-option>
+
+                    <!-- Lo que no esta en el catalogo se CREA, no se escribe
+                         suelto: una linea sin producto no se puede facturar
+                         —`sale_note_items.item_id` es NOT NULL— y dejaria el
+                         pedido cobrado y sin manera de documentarlo. -->
+                    <div v-if="puedeCrear" slot="empty" class="mo-crear">
+                        <p>«{{ termino }}» no está en el catálogo.</p>
+                        <el-button
+                            size="mini"
+                            type="primary"
+                            plain
+                            :loading="creando"
+                            @click="crearProducto"
+                            >Crearlo y agregarlo</el-button
+                        >
+                        <small>Se crea como servicio: no controla stock.</small>
+                    </div>
                 </el-select>
             </div>
         </div>
@@ -237,6 +254,10 @@ export default {
             opciones: [],
             buscado: null,
             buscando: false,
+            // Lo ultimo tecleado en el buscador: hace falta para ofrecer el
+            // alta rapida con ese nombre.
+            termino: "",
+            creando: false,
             guardando: false,
             cargando: false,
             problemas: [],
@@ -247,6 +268,15 @@ export default {
         };
     },
     computed: {
+        /** ¿Tiene sentido ofrecer crear el producto con lo tecleado? */
+        puedeCrear() {
+            return (
+                this.lineasEditables &&
+                !this.buscando &&
+                !this.opciones.length &&
+                (this.termino || "").trim().length >= 3
+            );
+        },
         editando() {
             return !!this.orderId;
         },
@@ -422,6 +452,8 @@ export default {
         // ── Buscador ──────────────────────────────────────────────────
         buscarProductos(q) {
             const termino = typeof q === "string" ? q : "";
+            this.termino = termino;
+
             if (termino.length < 2) {
                 this.opciones = [];
                 return;
@@ -512,6 +544,69 @@ export default {
                 discount: 0,
             });
         },
+        /**
+         * Crea el producto que falta y lo agrega a la linea.
+         *
+         * Pide el precio antes de crearlo: un producto en el catalogo con
+         * precio 0 es una trampa para la siguiente venta, que lo encontraria y
+         * lo cobraria a nada.
+         *
+         * El servidor devuelve el item con la MISMA forma que el buscador, asi
+         * que a partir de ahi la linea es una mas: se reserva igual, se factura
+         * igual y no arrastra ningun caso especial.
+         */
+        crearProducto() {
+            const nombre = (this.termino || "").trim();
+            if (nombre.length < 3) return;
+
+            this.$prompt(
+                'Precio de venta de «' + nombre + '» (S/)',
+                "Crear producto",
+                {
+                    confirmButtonText: "Crear",
+                    cancelButtonText: "Cancelar",
+                    inputPlaceholder: "0.00",
+                    inputValidator: v =>
+                        (v !== null && v !== "" && !isNaN(Number(v)) && Number(v) >= 0) ||
+                        "Escribe un precio válido.",
+                }
+            )
+                .then(({ value }) => {
+                    this.creando = true;
+
+                    return this.$http
+                        .post("/orders/producto-rapido", {
+                            nombre: nombre,
+                            precio: Number(value),
+                        })
+                        .then(r => {
+                            const d = r.data || {};
+                            if (!d.success || !d.item) {
+                                this.$message.error(d.message || "No se pudo crear.");
+                                return;
+                            }
+
+                            this.$message.success(d.message);
+                            this.opciones = this.aOpciones([d.item]);
+
+                            // Se agrega solo: crearlo y tener que buscarlo otra
+                            // vez seria pedir el mismo trabajo dos veces.
+                            if (this.opciones.length) this.agregar(this.opciones[0].key);
+                        })
+                        .catch(e => {
+                            const d = (e.response && e.response.data) || {};
+                            const porCampo = d.errors
+                                ? Object.values(d.errors).map(x => x[0]).join(" ")
+                                : null;
+                            this.$message.error(porCampo || d.message || "No se pudo crear.");
+                        })
+                        .then(() => {
+                            this.creando = false;
+                        });
+                })
+                .catch(() => {});
+        },
+
         quitar(i) {
             this.form.items.splice(i, 1);
         },
@@ -623,6 +718,22 @@ export default {
     font-size: 11px;
     color: #64748b;
     line-height: 1.4;
+}
+/* Alta rapida cuando el buscador no encuentra nada. */
+.mo-crear {
+    padding: 14px 16px;
+    text-align: center;
+}
+.mo-crear p {
+    margin: 0 0 8px;
+    color: #475569;
+    font-size: 13px;
+}
+.mo-crear small {
+    display: block;
+    margin-top: 8px;
+    color: #94a3b8;
+    font-size: 11.5px;
 }
 .mo-op-stock {
     float: right;

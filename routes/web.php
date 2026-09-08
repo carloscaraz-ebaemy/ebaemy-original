@@ -325,6 +325,9 @@ if ($hostname) {
             Route::get('orders/channels', 'Tenant\OrderController@channels');
             Route::get('orders/channel-report', 'Tenant\OrderController@channelReport');
             Route::get('orders/search-items', 'Tenant\OrderController@searchItems');
+            // Alta rapida de un producto que no esta en el catalogo, desde el
+            // pedido manual. Ver `productoRapido`: se crea como SERVICIO.
+            Route::post('orders/producto-rapido', 'Tenant\OrderController@productoRapido');
             Route::get('orders/search-customer', 'Tenant\OrderController@searchCustomer');
             Route::post('orders/manual', 'Tenant\OrderController@storeManual');
             // Edicion de un pedido: solo cliente y lineas, y solo antes de

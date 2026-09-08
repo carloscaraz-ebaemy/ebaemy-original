@@ -1467,6 +1467,126 @@ class OrderController extends Controller
     }
 
     /**
+     * Crea un producto al vuelo desde el alta manual del pedido.
+     *
+     * ── Por que hace falta ────────────────────────────────────────────────
+     *
+     * Registro de Envios deja escribir el contenido del paquete a mano, porque
+     * ahi es TEXTO para el rotulo. En Pedidos una linea es una venta: lleva
+     * `item_id`, precio y reserva de stock, y alimenta la nota de venta — donde
+     * `sale_note_items.item_id` es NOT NULL. Una linea de texto libre no se
+     * puede facturar, asi que copiar el campo de Envios habria dejado pedidos
+     * cobrados e imposibles de documentar.
+     *
+     * En vez de eso, lo que no esta en el catalogo se CREA. La linea queda
+     * normal —se reserva, se factura, sale en el comprobante— y no hay ningun
+     * caso especial que arrastrar despues.
+     *
+     * ── Se crea como SERVICIO ─────────────────────────────────────────────
+     *
+     * `unit_type_id = 'ZZ'`, que es el tipo que el sistema ya trata como «no
+     * controla stock» y que los listados de inventario excluyen. Es lo honesto
+     * para algo que se vende una vez y no hay en almacen: un producto normal
+     * con stock cero ensuciaria el inventario y, peor, aparentaria una rotura
+     * de stock que no existe.
+     *
+     * Ademas no se le crea fila en `item_warehouse`, y por eso
+     * `StockReservation` lo deja pasar: su regla es que «sin fila de almacen»
+     * significa «sin control», no «cero».
+     *
+     * Quien necesite un producto de verdad —con stock, variantes, imagen— lo
+     * crea en Productos. Esto es para la venta puntual que no puede esperar.
+     */
+    public function productoRapido(Request $request)
+    {
+        $datos = $request->validate([
+            'nombre' => ['required', 'string', 'min:3', 'max:255'],
+            'precio' => ['required', 'numeric', 'min:0'],
+        ], [
+            'nombre.required' => 'Escribe el nombre del producto.',
+            'nombre.min'      => 'El nombre es demasiado corto.',
+            'precio.required' => 'Indica el precio de venta.',
+        ]);
+
+        $nombre = trim($datos['nombre']);
+
+        // Si ya existe uno con ese nombre exacto, se devuelve ese en vez de
+        // duplicarlo: el operador escribio lo mismo dos veces, no quiere dos
+        // productos iguales en el catalogo.
+        $existente = Item::where('description', $nombre)->first();
+
+        if ($existente) {
+            return response()->json([
+                'success' => true,
+                'nuevo'   => false,
+                'message' => 'Ese producto ya estaba en el catálogo.',
+                'item'    => $this->itemParaBuscador($existente),
+            ]);
+        }
+
+        $item = new Item();
+        $item->item_type_id                    = '01';
+        $item->unit_type_id                    = Item::SERVICE_UNIT_TYPE;
+        $item->currency_type_id                = 'PEN';
+        // `description` es el NOMBRE del producto en este ERP; `name` es el
+        // texto corto de los comprobantes y va nulo como en el resto.
+        $item->description                     = $nombre;
+        $item->internal_id                     = $this->siguienteCodigoInterno();
+        $item->sale_unit_price                 = round((float) $datos['precio'], 2);
+        $item->purchase_unit_price             = 0;
+        $item->sale_affectation_igv_type_id    = '10';
+        $item->purchase_affectation_igv_type_id = '10';
+        $item->stock                           = 0;
+        $item->save();
+
+        return response()->json([
+            'success' => true,
+            'nuevo'   => true,
+            'message' => 'Producto creado como servicio (no controla stock).',
+            'item'    => $this->itemParaBuscador($item),
+        ]);
+    }
+
+    /**
+     * El siguiente `internal_id` libre.
+     *
+     * Se respeta el ANCHO del ultimo codigo en vez de imponer uno fijo. Con
+     * relleno a cinco digitos, un catalogo cuyo maximo es «1415» recibiria
+     * «01416», que ordenado como texto va ANTES que todos los demas — y el
+     * codigo interno es justo por donde el operador busca y ordena.
+     */
+    private function siguienteCodigoInterno(): string
+    {
+        $ultimo   = (string) Item::max('internal_id');
+        $siguiente = (string) (((int) $ultimo) + 1);
+
+        // Solo se rellena si el catalogo ya usaba relleno y el numero sigue
+        // cabiendo: al pasar de 999 a 1000 el codigo crece, y esta bien.
+        return strlen($siguiente) < strlen($ultimo)
+            ? str_pad($siguiente, strlen($ultimo), '0', STR_PAD_LEFT)
+            : $siguiente;
+    }
+
+    /**
+     * El item con la MISMA forma que devuelve el buscador, para que la
+     * pantalla lo agregue sin distinguir de donde vino.
+     */
+    private function itemParaBuscador(Item $item): array
+    {
+        return [
+            'id'        => $item->id,
+            'name'      => trim((string) $item->description) ?: 'Producto',
+            'code'      => $item->internal_id,
+            'price'     => (float) $item->sale_unit_price,
+            'is_set'    => false,
+            // null = sin control de stock. No es cero: cero significaria que se
+            // agoto, y esto simplemente no se inventaria.
+            'available' => null,
+            'variants'  => [],
+        ];
+    }
+
+    /**
      * Resuelve los datos del cliente a partir del documento, para el alta manual.
      *
      * Primero la cartera y SOLO despues el servicio externo, por dos razones:
