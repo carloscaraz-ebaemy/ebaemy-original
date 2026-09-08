@@ -43,8 +43,8 @@
     .sh-head { display:flex; align-items:center; gap:12px; }
     .sh-head__ic { display:flex; align-items:center; justify-content:center; width:42px; height:42px;
         border-radius:13px; font-size:1.05rem; color:var(--sh-brand, #4f46e5);
-        background:linear-gradient(145deg,#eef1fe,#dfe4fb); box-shadow:inset 0 0 0 1px #dfe4fb; }
-    .sh-head__t { margin:0; font-size:1.08rem; font-weight:700; color:var(--sh-ink, #1f2430); letter-spacing:-.015em; }
+        background:linear-gradient(145deg,#eef2ff,#e0e7ff); box-shadow:inset 0 0 0 1px #e0e7ff; }
+    .sh-head__t { margin:0; font-size:1.08rem; font-weight:700; color:var(--sh-ink, #0f172a); letter-spacing:-.015em; }
 
     /* ── Avatar de cliente ── */
     .sh-cli { display:flex; align-items:center; gap:9px; }
@@ -54,11 +54,20 @@
     /* ── Tokens del panel (neutros tintados hacia el índigo de marca) ──
        En :root y no en #shipmentsApp porque los modales de esta pantalla
        viven FUERA de ese contenedor y necesitan los mismos colores. */
+    /* Paleta compartida con Pedidos.
+       Los dos modulos son el mismo flujo y tenian dos escalas de gris
+       ligeramente distintas —una custom aqui, la de Tailwind alli—, lo justo
+       para que al saltar de una pantalla a otra se notara el cambio sin poder
+       decir por que. El indigo de marca ya era el mismo; lo que se unifica son
+       los neutros y los tonos debiles del acento.
+
+       Solo cambian los VALORES: ni un nombre de token, ni una clase, ni una
+       linea de estructura. */
     :root {
-        --sh-brand:#4f46e5; --sh-brand-ink:#3730a3; --sh-brand-weak:#eef1fe; --sh-brand-line:#cdd4f8;
-        --sh-ink:#1f2430; --sh-muted:#697084; --sh-faint:#9aa1b4;
-        --sh-line:#e5e7f0; --sh-line-soft:#eef0f7; --sh-surface:#fff;
-        --sh-track:#f1f2f8; --sh-hover:#f5f6fc; --sh-count:#ebedf6;
+        --sh-brand:#4f46e5; --sh-brand-ink:#3730a3; --sh-brand-weak:#eef2ff; --sh-brand-line:#c7d2fe;
+        --sh-ink:#0f172a; --sh-muted:#475569; --sh-faint:#94a3b8;
+        --sh-line:#e2e8f0; --sh-line-soft:#eef2f7; --sh-surface:#fff;
+        --sh-track:#f1f5f9; --sh-hover:#f8fafc; --sh-count:#e2e8f0;
     }
 
     /* ── Pestañas de flujo (control segmentado) ── */
