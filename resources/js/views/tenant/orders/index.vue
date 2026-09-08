@@ -4314,7 +4314,7 @@ export default {
         generarGuiaRemision(row) {
             const url =
                 row.shipment && row.shipment.id
-                    ? `/registro-envio/${row.shipment.id}/guia-remision`
+                    ? `/orders/envio/${row.shipment.id}/guia-remision`
                     : `/dispatches/create_new/sale_note/${row.sale_note_id}`;
 
             window.open(url, "_blank");
@@ -4404,7 +4404,7 @@ export default {
                 if (!window.confirm(lineas.join(String.fromCharCode(10)))) return;
             }
 
-            let url = `/registro-envio/${s.id}/imprimir`;
+            let url = `/orders/envio/${s.id}/rotulo`;
 
             // La reimpresion exige motivo y queda en el historial. Se pide
             // ANTES de abrir la pestaña: el servidor lo rechazaria igual, pero

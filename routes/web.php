@@ -464,6 +464,31 @@ if ($hostname) {
             // Subpantalla de lotes: deja de ser un módulo suelto del menú.
             Route::get('orders/print-batches', [\App\Http\Controllers\Tenant\ShipmentController::class, 'batches'])
                  ->name('orders.print_batches');
+            // ── Lo que Pedidos hace SOBRE un envio concreto ──────────────
+            //
+            // Segundo tramo de la mudanza. Mismo controlador —el rotulo cuenta
+            // impresiones, exige motivo al reimprimir y deja bitacora; la guia
+            // de remision precarga y no emite— pero con URL propia.
+            //
+            // Con esto Pedidos deja de nombrar `registro-envio` en ningun
+            // sitio. El dia que el prefijo caiga, no hay que tocar Pedidos.
+            //
+            // El ubigeo se duplica bajo `orders/` a proposito: el original es
+            // PUBLICO (lo usa el formulario del cliente) y este va detras de
+            // `auth` como el resto del panel. Misma consulta, dos puertas con
+            // permisos distintos, que es justo lo que hay que separar antes de
+            // poder tocar la puerta publica.
+            Route::get('orders/envio/{shipment}/rotulo', [\App\Http\Controllers\Tenant\ShipmentController::class, 'printLabel'])
+                 ->whereNumber('shipment')->name('orders.shipping.label');
+            Route::get('orders/envio/{shipment}/guia-remision', [\App\Http\Controllers\Tenant\ShipmentController::class, 'generateDispatch'])
+                 ->whereNumber('shipment')->name('orders.shipping.dispatch');
+            Route::get('orders/envio/{shipment}/guia', [\App\Http\Controllers\Tenant\ShipmentController::class, 'downloadGuide'])
+                 ->whereNumber('shipment')->name('orders.shipping.guide_file');
+            Route::get('orders/ubigeo/provincias/{department}', [\App\Http\Controllers\Tenant\ShipmentController::class, 'provinces'])
+                 ->name('orders.shipping.provinces');
+            Route::get('orders/ubigeo/distritos/{province}', [\App\Http\Controllers\Tenant\ShipmentController::class, 'districts'])
+                 ->name('orders.shipping.districts');
+
             // ── Las cuatro pantallas que se mudan de «Registro de Envios» ──
             //
             // Mismo controlador y mismas vistas: lo que cambia es la URL y por

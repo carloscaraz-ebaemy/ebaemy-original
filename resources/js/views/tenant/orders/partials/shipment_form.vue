@@ -345,13 +345,13 @@ export default {
 
         async loadProvinces(departmentId) {
             if (!departmentId) return;
-            const { data } = await this.$http.get(`/envio/ubigeo/provincias/${departmentId}`);
+            const { data } = await this.$http.get(`/orders/ubigeo/provincias/${departmentId}`);
             this.provinces = data;
         },
 
         async loadDistricts(provinceId) {
             if (!provinceId) return;
-            const { data } = await this.$http.get(`/envio/ubigeo/distritos/${provinceId}`);
+            const { data } = await this.$http.get(`/orders/ubigeo/distritos/${provinceId}`);
             this.districts = data;
         },
 

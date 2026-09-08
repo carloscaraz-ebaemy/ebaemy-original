@@ -482,7 +482,7 @@ class OrderCollection extends ResourceCollection
             // Envios, asi que desde Pedidos habia que salir de la pantalla
             // para ver un PDF que ya estaba cargado.
             'guide_url'        => $s->shipping_guide_path
-                ? url('registro-envio/' . $s->id . '/guia')
+                ? url('orders/envio/' . $s->id . '/guia')
                 : null,
             'batch_id'         => $s->print_batch_id,
             'batch_label'      => $s->batch_label,
@@ -638,7 +638,7 @@ class OrderCollection extends ResourceCollection
                 'impreso' => true,
                 'veces'   => 0,
                 'fecha'   => null,
-                'url'     => url('registro-envio/' . $s->id . '/guia'),
+                'url'     => url('orders/envio/' . $s->id . '/guia'),
             ];
         }
 
