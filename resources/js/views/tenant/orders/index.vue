@@ -33,9 +33,18 @@
                  cargaba con siete controles. Lo que no se usa en cada consulta
                  —ajustes de la tienda y la descarga— sube aqui. -->
             <div class="right-wrapper pull-right ord-head-actions">
+                <!-- Las cuatro pantallas de apoyo del envio. Estaban
+                     repartidas entre tres entradas del menu lateral y este
+                     boton; ahora entran todas por aqui, que es desde donde se
+                     trabaja. El panel de «Registro de Envios» sale del menu:
+                     dio de alta DOS envios en toda su vida.
+
+                     El punto del boton avisa de lo que no puede esperar sin
+                     obligar a abrir el menu para enterarse. -->
                 <el-dropdown v-if="shipping" trigger="click" @command="irA">
-                    <button class="ord-head-btn">
-                        <i class="fas fa-cog"></i> Configuración
+                    <button class="ord-head-btn" :title="avisoEnvios || 'Pantallas de envío'">
+                        <i class="fas fa-cog"></i> Envíos
+                        <span v-if="avisoEnvios" class="ord-head-dot"></span>
                     </button>
                     <el-dropdown-menu slot="dropdown">
                         <el-dropdown-item command="tienda">
@@ -48,6 +57,20 @@
                         <el-dropdown-item command="motorizado">
                             <i class="el-icon-bicycle"></i>
                             Tablero de reparto a domicilio
+                        </el-dropdown-item>
+                        <el-dropdown-item command="tablero" divided>
+                            <i class="el-icon-data-line"></i>
+                            Tablero logístico
+                            <span v-if="shipAlerts.sin_guia" class="ord-head-badge is-bad"
+                                >{{ shipAlerts.sin_guia }} sin guía</span
+                            >
+                        </el-dropdown-item>
+                        <el-dropdown-item command="lotes">
+                            <i class="el-icon-tickets"></i>
+                            Lotes de impresión
+                            <span v-if="shipAlerts.lotes" class="ord-head-badge"
+                                >{{ shipAlerts.lotes }} abierto{{ shipAlerts.lotes === 1 ? "" : "s" }}</span
+                            >
                         </el-dropdown-item>
                     </el-dropdown-menu>
                 </el-dropdown>
@@ -1659,6 +1682,32 @@
     background: #f8fafc;
 }
 
+/* Aviso del boton de Envios. Un punto y no un numero: el detalle esta en el
+   titulo y dentro del menu, y en la cabecera lo que hace falta es saber si hay
+   algo que mirar, no cuanto. */
+.ord-head-dot {
+    display: inline-block;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: #dc2626;
+    margin-left: 5px;
+    vertical-align: 3px;
+}
+.ord-head-badge {
+    margin-left: 8px;
+    font-size: 10.5px;
+    font-weight: 700;
+    padding: 1px 6px;
+    border-radius: 999px;
+    background: #f1f5f9;
+    color: #475569;
+}
+.ord-head-badge.is-bad {
+    background: #fee2e2;
+    color: #b91c1c;
+}
+
 /* ── Envio: como y donde se entrega ─────────────────────────────── */
 .ord-sh-l1 {
     display: flex;
@@ -2639,6 +2688,15 @@ export default {
         shipping: { type: Boolean, default: false },
         /** ¿El tenant exige verificar los cobros? Decide si se ofrece la acción. */
         verification: { type: Boolean, default: false },
+        /**
+         * Los dos avisos que vivían en el menú lateral: paquetes sin guía y
+         * lotes de impresión abiertos.
+         *
+         * Al retirarse «Registro de Envíos» del menú se habrían perdido, y son
+         * señal real: un paquete sin guía es uno que la agencia ya tiene y del
+         * que no se puede dar razón al cliente.
+         */
+        shipAlerts: { type: Object, default: () => ({ sin_guia: 0, lotes: 0 }) },
     },
 
     components: {
@@ -2881,6 +2939,22 @@ export default {
          * interno— y la clave con la que se quita. La busqueda entra tambien:
          * es el filtro que mas se olvida puesto.
          */
+        /**
+         * Que hay pendiente detras del boton de Envios.
+         *
+         * Devuelve el texto o cadena vacia: se usa a la vez como condicion del
+         * punto y como titulo, para que no haya un punto sin explicacion.
+         */
+        avisoEnvios() {
+            const a = this.shipAlerts || {};
+            const partes = [];
+
+            if (a.sin_guia) partes.push(a.sin_guia + " paquete(s) sin guía");
+            if (a.lotes) partes.push(a.lotes + " lote(s) de impresión abierto(s)");
+
+            return partes.join(" · ");
+        },
+
         filtrosActivos() {
             const et = (lista, v) => (lista.find(o => o.value === v) || {}).label || v;
             const chips = [];
@@ -4500,11 +4574,19 @@ export default {
             window.open("/orders/export?" + params.toString(), "_blank");
         },
 
-        /** Abre una pantalla del modulo de Envios en otra pestaña. */
+        /**
+         * Abre una de las cuatro pantallas de apoyo del envio.
+         *
+         * Las URL cuelgan de `orders/` y ya no de `registro-envio/`: mismo
+         * controlador y mismas vistas, lo que cambia es la puerta. Cuando el
+         * prefijo viejo desaparezca, estas cuatro no se enteran.
+         */
         irA(destino) {
             const rutas = {
-                tienda: "/registro-envio/config-tienda",
-                motorizado: "/registro-envio/motorizado",
+                tienda: "/orders/config-envios",
+                motorizado: "/orders/reparto-domicilio",
+                tablero: "/orders/tablero-logistico",
+                lotes: "/orders/print-batches",
             };
 
             if (rutas[destino]) window.open(rutas[destino], "_blank");

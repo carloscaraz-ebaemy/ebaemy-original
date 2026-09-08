@@ -464,6 +464,29 @@ if ($hostname) {
             // Subpantalla de lotes: deja de ser un módulo suelto del menú.
             Route::get('orders/print-batches', [\App\Http\Controllers\Tenant\ShipmentController::class, 'batches'])
                  ->name('orders.print_batches');
+            // ── Las cuatro pantallas que se mudan de «Registro de Envios» ──
+            //
+            // Mismo controlador y mismas vistas: lo que cambia es la URL y por
+            // donde se entra. El panel de Envios se retira del menu —dio de
+            // alta DOS envios en toda su vida, frente a los 268 que entraron
+            // por el formulario publico— pero sus cuatro pantallas de apoyo
+            // siguen haciendo falta, y ahora cuelgan de Pedidos.
+            //
+            // Reescribirlas no aportaria nada: son las mismas reglas, la misma
+            // bitacora y la misma configuracion. Lo que se mueve es la puerta.
+            //
+            // Las rutas viejas `registro-envio/*` SIGUEN vivas: las usa el
+            // formulario publico, que no se toca, y las propias vistas para
+            // sus enlaces internos.
+            Route::get('orders/config-envios', [\App\Http\Controllers\Tenant\ShipmentController::class, 'settings'])
+                 ->name('orders.shipping.settings');
+            Route::post('orders/config-envios', [\App\Http\Controllers\Tenant\ShipmentController::class, 'saveSettings'])
+                 ->name('orders.shipping.settings.save');
+            Route::get('orders/reparto-domicilio', [\App\Http\Controllers\Tenant\ShipmentController::class, 'couriers'])
+                 ->name('orders.shipping.couriers');
+            Route::get('orders/tablero-logistico', [\App\Http\Controllers\Tenant\ShipmentController::class, 'dashboard'])
+                 ->name('orders.shipping.dashboard');
+
             Route::get('orders/{order}/status-logs', 'Tenant\OrderController@statusLogs')->where('order', '[0-9]+');
             Route::get('orders/payment-catalogs', 'Tenant\OrderController@paymentCatalogs');
 

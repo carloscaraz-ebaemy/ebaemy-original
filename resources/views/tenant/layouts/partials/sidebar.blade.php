@@ -1080,38 +1080,21 @@ $inventory_configuration = InventoryConfiguration::getSidebarPermissions();
                                     </li>
                                 @endif
 
-                                {{-- Registro y Control de Envíos --}}
-                                @if(in_array('ecommerce_orders', $vc_module_levels))
-                                @php
-                                    $shipNoGuide = 0;
-                                    try { $shipNoGuide = \App\Models\Tenant\ShippingRequest::withoutGuide()->count(); } catch (\Throwable $e) {}
-                                @endphp
-                                <li class="{{ request()->is('registro-envio*') ? 'nav-active' : '' }}">
-                                    <a class="nav-link" href="{{ route('shipments.index') }}">
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M5 17h-2v-4m-1 -8h11v12m-4 0h6m4 0h2v-6h-8m0 -5h5l3 5" /><path d="M6 19m-2 0a2 2 0 1 0 4 0a2 2 0 1 0 -4 0" /><path d="M17 19m-2 0a2 2 0 1 0 4 0a2 2 0 1 0 -4 0" /></svg>
-                                        <span>Registro de Envíos</span>
-                                        @if($shipNoGuide > 0)<span class="badge bg-danger ms-1" title="Paquetes sin guía">{{ $shipNoGuide }}</span>@endif
-                                    </a>
-                                </li>
-                                {{-- Lotes de impresión (rediseño logístico) --}}
-                                @php
-                                    $lotesAbiertos = 0;
-                                    try { $lotesAbiertos = \App\Models\Tenant\ShippingPrintBatch::open()->count(); } catch (\Throwable $e) {}
-                                @endphp
-                                <li class="{{ request()->is('registro-envio/lotes*') ? 'nav-active' : '' }}">
-                                    <a class="nav-link" href="{{ route('shipments.batches') }}">
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M12 3l8 4.5v9l-8 4.5l-8 -4.5v-9z" /><path d="M12 12l8 -4.5" /><path d="M12 12v9" /><path d="M12 12l-8 -4.5" /></svg>
-                                        <span>Lotes de impresión</span>
-                                        @if($lotesAbiertos > 0)<span class="badge bg-warning text-dark ms-1" title="Lotes abiertos sin imprimir">{{ $lotesAbiertos }}</span>@endif
-                                    </a>
-                                </li>
-                                <li class="{{ request()->is('registro-envio/tablero') ? 'nav-active' : '' }}">
-                                    <a class="nav-link" href="{{ route('shipments.dashboard') }}">
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M4 19v-10" /><path d="M10 19v-4" /><path d="M16 19v-7" /><path d="M22 19v-13" /></svg>
-                                        <span>Tablero logístico</span>
-                                    </a>
-                                </li>
-                                @endif
+                {{-- El panel de «Registro de Envíos» se retira del menu.
+                     Dio de alta DOS envíos en toda su vida, frente a los 268
+                     que entraron por el formulario público —que no se toca—, y
+                     todo lo que hacía ya se hace desde Pedidos.
+
+                     Sus cuatro pantallas de apoyo —configuración de la tienda,
+                     reparto a domicilio, tablero logístico y lotes de
+                     impresión— viven ahora bajo `orders/*` y se abren desde el
+                     botón de configuración de Pedidos.
+
+                     Los dos contadores que había aqui (paquetes sin guía y
+                     lotes abiertos) se mudan con ellas. De paso dejan de
+                     correr: eran DOS consultas en cada carga de CUALQUIER
+                     pantalla del panel, y ahora solo se piden en Pedidos. --}}
+
                                 @if(in_array('ecommerce_items', $vc_module_levels))
                                     <li class="{{ ($firstLevel === 'items_ecommerce') ? 'nav-active' : '' }}">
                                         <a class="nav-link" href="{{route('tenant.items_ecommerce.index')}}">

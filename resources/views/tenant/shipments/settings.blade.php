@@ -34,7 +34,7 @@
                 <div class="cfg-off"><i class="fas fa-exclamation-triangle me-1"></i> El mapa no está disponible (falta la API key de Google Maps). Puedes ingresar las coordenadas manualmente abajo.</div>
             @endif
 
-            <form method="POST" action="{{ route('shipments.settings.save') }}" id="storeForm">
+            <form method="POST" action="{{ route('orders.shipping.settings.save') }}" id="storeForm">
                 @csrf
                 <label class="form-label fw-semibold mt-2">Buscar mi tienda</label>
                 <input type="text" id="storeSearch" class="form-control" placeholder="Escribe la dirección de tu tienda…" autocomplete="off">
