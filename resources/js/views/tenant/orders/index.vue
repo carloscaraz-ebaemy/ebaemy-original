@@ -173,6 +173,55 @@
                         <button class="ord-search-go" @click="applySearch">Buscar</button>
                     </div>
 
+                    <!-- Fecha, a la vista. El filtro EXISTIA entero desde el
+                         primer commit —siete rangos, personalizado y once
+                         campos de fecha en DATE_FIELDS— pero vivia dentro del
+                         cajon, asi que la pantalla parecia no tener filtro de
+                         fechas. No se implementa nada nuevo: se saca. -->
+                    <div class="ord-date">
+                        <el-select
+                            v-model="dateRange"
+                            class="ord-date-sel"
+                            size="small"
+                            placeholder="Fecha"
+                            @change="applyDateFilters"
+                        >
+                            <el-option
+                                v-for="opt in rangeOptions"
+                                :key="opt.value"
+                                :label="opt.label"
+                                :value="opt.value"
+                            ></el-option>
+                        </el-select>
+                        <!-- Solo con «Personalizado»: si no, compite con el
+                             rango rapido y no se sabe cual manda. -->
+                        <el-date-picker
+                            v-if="dateRange === 'custom'"
+                            v-model="invoiceDateRange"
+                            class="ord-date-range"
+                            type="daterange"
+                            size="small"
+                            range-separator="a"
+                            start-placeholder="Desde"
+                            end-placeholder="Hasta"
+                            format="dd/MM/yyyy"
+                            value-format="yyyy-MM-dd"
+                            :clearable="true"
+                            @change="applyDateFilters"
+                        ></el-date-picker>
+                        <!-- Cual de las once fechas se esta mirando. Solo
+                             cuando no es la del pedido: decirlo siempre seria
+                             ruido, callarlo cuando NO es la habitual hace que
+                             un listado filtrado por fecha de entrega parezca
+                             filtrado por fecha de alta. -->
+                        <span
+                            v-if="dateType !== 'order'"
+                            class="ord-date-kind"
+                            title="Cambialo en Filtros › Qué fecha se mira"
+                            >{{ etiquetaDateType }}</span
+                        >
+                    </div>
+
                     <button
                         class="ord-bar-more"
                         :class="{ 'is-on': filtrosActivos.length }"
@@ -296,17 +345,33 @@
                         <button class="ord-cols-btn" title="Elegir qué columnas ver">
                             <i class="fas fa-table-columns"></i> Columnas
                         </button>
-                        <el-dropdown-menu slot="dropdown">
-                            <el-dropdown-item
-                                v-for="c in columnasOpcionales"
-                                :key="c.key"
-                            >
-                                <el-checkbox
-                                    :value="columnas[c.key]"
-                                    @change="alternarColumna(c.key)"
-                                    >{{ c.label }}</el-checkbox
+                        <el-dropdown-menu slot="dropdown" class="ord-cols-menu">
+                            <div class="ord-cols-panel">
+                                <div
+                                    v-for="g in gruposColumnas"
+                                    :key="g.nombre"
+                                    class="ord-cols-grp"
                                 >
-                            </el-dropdown-item>
+                                    <h6>{{ g.nombre }}</h6>
+                                    <label
+                                        v-for="col in g.cols"
+                                        :key="col.key"
+                                        class="ord-cols-item"
+                                    >
+                                        <input
+                                            type="checkbox"
+                                            :checked="columnas[col.key]"
+                                            @change="alternarColumna(col.key)"
+                                        />
+                                        <span>{{ col.label }}</span>
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="ord-cols-foot">
+                                <button @click="columnasTodas">Mostrar todas</button>
+                                <button @click="columnasSoloBase">Ocultar opcionales</button>
+                                <button @click="columnasReset">Restablecer</button>
+                            </div>
                         </el-dropdown-menu>
                     </el-dropdown>
                 </div>
@@ -354,32 +419,12 @@
                                 </el-select>
                             </section>
 
+                            <!-- El RANGO se subio a la barra: es de los tres
+                                 filtros que se tocan a diario. Aqui se queda
+                                 solo QUE fecha se mira, que se cambia una vez
+                                 y se olvida. -->
                             <section class="ord-fd-sec">
-                                <h5>Fecha</h5>
-                                <el-select v-model="dateRange" size="small" @change="applyDateFilters">
-                                    <el-option
-                                        v-for="opt in rangeOptions"
-                                        :key="opt.value"
-                                        :label="opt.label"
-                                        :value="opt.value"
-                                    ></el-option>
-                                </el-select>
-                                <!-- Solo con «Personalizado»: si no, compite con
-                                     el rango rapido y no se sabe cual manda. -->
-                                <el-date-picker
-                                    v-if="dateRange === 'custom'"
-                                    v-model="invoiceDateRange"
-                                    class="ord-fd-fechas"
-                                    type="daterange"
-                                    size="small"
-                                    range-separator="a"
-                                    start-placeholder="Desde"
-                                    end-placeholder="Hasta"
-                                    value-format="yyyy-MM-dd"
-                                    :clearable="true"
-                                    @change="applyDateFilters"
-                                ></el-date-picker>
-                                <label class="ord-fd-lbl">Qué fecha se mira</label>
+                                <h5>Qué fecha se mira</h5>
                                 <el-select v-model="dateType" size="small" @change="applyDateFilters">
                                     <el-option
                                         v-for="opt in dateTypeOptions"
@@ -469,10 +514,24 @@
                              detalle del producto, en el tooltip o en el menu. -->
                         <th class="ord-c-order">Pedido</th>
                         <th v-if="columnas.cliente" class="ord-c-cli">Cliente</th>
+                        <th v-if="columnas.canal" class="ord-c-x">Canal</th>
+                        <th v-if="columnas.tienda" class="ord-c-x">Tienda</th>
                         <th v-if="columnas.cobro" class="text-end ord-c-pay">Cobro</th>
+                        <th v-if="columnas.pagado" class="text-end ord-c-x">Pagado</th>
+                        <th v-if="columnas.saldo" class="text-end ord-c-x">Saldo</th>
+                        <th v-if="columnas.medio" class="ord-c-x">Método</th>
+                        <th v-if="columnas.fpago" class="ord-c-x">F. pago</th>
                         <th v-if="columnas.estado" class="ord-c-state">Estado</th>
                         <th v-if="columnas.envio" class="ord-c-ship">Envío</th>
+                        <th v-if="columnas.entrega" class="ord-c-x">Entrega</th>
+                        <th v-if="columnas.destino" class="ord-c-x">Destino</th>
+                        <th v-if="columnas.agencia" class="ord-c-x">Agencia</th>
+                        <th v-if="columnas.tracking" class="ord-c-x">Tracking</th>
+                        <th v-if="columnas.prioridad" class="ord-c-x">Prioridad</th>
+                        <th v-if="columnas.antiguedad" class="text-center ord-c-x">Antigüedad</th>
                         <th v-if="columnas.docs" class="text-center ord-c-docs">Docs</th>
+                        <th v-if="columnas.fdespacho" class="ord-c-x">F. despacho</th>
+                        <th v-if="columnas.fentrega" class="ord-c-x">F. entrega</th>
                         <th class="text-end ord-c-act">Acciones</th>
                     </tr>
                     <tr></tr>
@@ -601,6 +660,18 @@
                              saldrian pedidos que la fila pinta «pagado».
                              La regla de donde vive el dinero tampoco cambia: en
                              un encargo se lee del envio, derivado y no copiado. -->
+                        <!-- Columnas opcionales. Todas leen un dato que la fila
+                             ya trae; ninguna dispara consulta extra. Cuando el
+                             pedido no tiene ese dato se pinta una raya, que se
+                             lee distinto de un cero. -->
+                        <td v-if="columnas.canal" data-label="Canal">
+                            <span v-if="row.channel_name" class="ord-x-tag">{{ row.channel_name }}</span>
+                            <span v-else class="ord-x-nada">—</span>
+                        </td>
+                        <td v-if="columnas.tienda" data-label="Tienda">
+                            <span v-if="row.warehouse_description">{{ row.warehouse_description }}</span>
+                            <span v-else class="ord-x-nada">—</span>
+                        </td>
                         <td v-if="columnas.cobro" class="text-end" data-label="Cobro">
                             <div class="ord-p-total">{{ importeCobro(row) }}</div>
                             <div
@@ -634,6 +705,27 @@
                              Todo eso pasa a «Envio», que responde otra
                              pregunta —como y donde se entrega—. No se pierde
                              ni un dato: cambia de columna. -->
+                        <td v-if="columnas.pagado" class="text-end ord-x-num" data-label="Pagado">
+                            <span v-if="row.paid_total > 0">S/ {{ formatMoney(row.paid_total) }}</span>
+                            <span v-else class="ord-x-nada">—</span>
+                        </td>
+                        <td v-if="columnas.saldo" class="text-end ord-x-num" data-label="Saldo">
+                            <!-- `pending_total` es null cuando no hay ningun
+                                 cobro: ahi no se afirma que deba todo. -->
+                            <span v-if="row.pending_total > 0" class="ord-x-debe">
+                                S/ {{ formatMoney(row.pending_total) }}
+                            </span>
+                            <span v-else-if="row.pending_total === 0" class="ord-x-ok">S/ 0.00</span>
+                            <span v-else class="ord-x-nada">—</span>
+                        </td>
+                        <td v-if="columnas.medio" data-label="Método">
+                            <span v-if="row.reference_payment">{{ row.reference_payment }}</span>
+                            <span v-else class="ord-x-nada">—</span>
+                        </td>
+                        <td v-if="columnas.fpago" class="ord-x-fecha" data-label="F. pago">
+                            <span v-if="row.paid_at">{{ formatDate(row.paid_at) }}</span>
+                            <span v-else class="ord-x-nada">—</span>
+                        </td>
                         <td v-if="columnas.estado" data-label="Estado">
                             <div class="ord-st">
                                 <span
@@ -775,6 +867,42 @@
                              Cuando no hay nada: una raya. Lo que corresponde
                              emitir se dice en su titulo y en el panel, que
                              sigue a un clic. -->
+                        <td v-if="columnas.entrega" data-label="Entrega">
+                            <span v-if="row.shipment" class="ord-x-tag">{{ row.shipment.delivery_short }}</span>
+                            <span v-else class="ord-x-nada">—</span>
+                        </td>
+                        <td v-if="columnas.destino" data-label="Destino">
+                            <span v-if="row.shipment && row.shipment.destination">{{ row.shipment.destination }}</span>
+                            <span v-else class="ord-x-nada">—</span>
+                        </td>
+                        <td v-if="columnas.agencia" data-label="Agencia">
+                            <span v-if="row.shipment && row.shipment.agency">{{ row.shipment.agency }}</span>
+                            <span v-else class="ord-x-nada">—</span>
+                        </td>
+                        <td v-if="columnas.tracking" data-label="Tracking">
+                            <span v-if="row.shipment && row.shipment.tracking_number" class="ord-x-mono">
+                                {{ row.shipment.tracking_number }}
+                            </span>
+                            <span v-else class="ord-x-nada">—</span>
+                        </td>
+                        <td v-if="columnas.prioridad" data-label="Prioridad">
+                            <span v-if="row.shipment && row.shipment.priority_label">{{ row.shipment.priority_label }}</span>
+                            <span v-else class="ord-x-nada">—</span>
+                        </td>
+                        <td v-if="columnas.antiguedad" class="text-center" data-label="Antigüedad">
+                            <!-- El color lo pone el propio semaforo del envio;
+                                 `aging_meta` es null cuando el reloj ya paro. -->
+                            <span
+                                v-if="row.shipment && row.shipment.aging_days !== null && row.shipment.aging_days !== undefined"
+                                class="ord-x-aging"
+                                :style="row.shipment.aging_meta
+                                    ? { color: row.shipment.aging_meta.color, background: row.shipment.aging_meta.bg }
+                                    : null"
+                                :title="row.shipment.aging_meta ? row.shipment.aging_meta.label : 'Sin plazo en curso'"
+                                >{{ row.shipment.aging_days }} d</span
+                            >
+                            <span v-else class="ord-x-nada">—</span>
+                        </td>
                         <td v-if="columnas.docs" class="text-center" data-label="Docs">
                             <div
                                 class="ord-doc-chips"
@@ -808,13 +936,22 @@
                                 ></i>
                             </div>
                         </td>
-                        <td class="text-end" data-label="Acciones">
-                            <!-- Todas las acciones en un menu: sueltas no
-                                 caben, y con el tiempo se fueron sumando
-                                 (boleta, rotulo, subir a Saga, PDF...). -->
-                            <button class="ord-ver-btn" @click="verPedido(row)">
-                                Ver
-                            </button>
+                        <td v-if="columnas.fdespacho" class="ord-x-fecha" data-label="F. despacho">
+                            <span v-if="row.dispatched_at">{{ formatDate(row.dispatched_at) }}</span>
+                            <span v-else class="ord-x-nada">—</span>
+                        </td>
+                        <td v-if="columnas.fentrega" class="ord-x-fecha" data-label="F. entrega">
+                            <span v-if="row.delivered_at">{{ formatDate(row.delivered_at) }}</span>
+                            <span v-else class="ord-x-nada">—</span>
+                        </td>
+                        <td class="text-end ord-td-act" data-label="Acciones">
+                            <!-- Todas las acciones en un menu, incluida «Ver».
+                                 Sueltas no caben —se fueron sumando boleta,
+                                 rotulo, subir a Saga, PDF...— y con la columna
+                                 fija el ancho es el que es: un boton de texto
+                                 al lado del menu empujaba el resto a otra
+                                 linea. El detalle no se pierde de vista: el
+                                 numero de pedido tambien abre la ficha. -->
                             <el-dropdown
                                 trigger="click"
                                 @command="runAction($event, row)"
@@ -823,9 +960,14 @@
                                     <i class="fas fa-ellipsis-v"></i>
                                 </el-button>
                                 <el-dropdown-menu slot="dropdown">
+                                    <el-dropdown-item command="ver">
+                                        <i class="el-icon-view"></i>
+                                        Ver pedido
+                                    </el-dropdown-item>
                                     <el-dropdown-item
                                         v-if="canGenerateInvoice(row)"
                                         command="invoice"
+                                        divided
                                     >
                                         <i class="el-icon-document"></i>
                                         {{
@@ -1376,6 +1518,75 @@
 .orders th.ord-c-ship  { width: 17%; }
 .orders th.ord-c-docs  { width: 9%;  }
 .orders th.ord-c-act   { width: 8%;  }
+/* Las opcionales no llevan ancho fijo: son muchas y de contenido dispar, asi
+   que se reparten lo que sobra. El `%` de las principales deja de sumar 100
+   cuando hay extras encendidas, que es justo cuando queremos scroll. */
+.orders th.ord-c-x { width: auto; white-space: nowrap; }
+
+/* ── Acciones, fija a la derecha ────────────────────────────────────────
+   Con columnas opcionales encendidas la tabla se desplaza en horizontal y el
+   menu de cada fila se iba fuera de la pantalla: habia que volver a arrastrar
+   hasta el extremo para operar sobre el pedido que se acababa de leer.
+
+   El fondo tiene que ser OPACO y repetir el de la fila en cada estado, o el
+   contenido que pasa por debajo se transparenta sobre la celda. Por eso hay
+   una regla por estado y no un solo `background: #fff`.
+
+   El menu no se recorta contra el `overflow` del contenedor: Element UI monta
+   el desplegable en `document.body` (`appendToBody` por defecto). Es lo que
+   diferencia este caso del de Envios, que usa Bootstrap y necesito
+   `strategy: 'fixed'` para lo mismo. */
+.orders table th.ord-c-act,
+.orders table td.ord-td-act {
+    position: sticky;
+    right: 0;
+    background: #fff;
+    /* La sombra hace de borde: dice que hay contenido por debajo sin pintar
+       una linea dura cuando la tabla no esta desplazada. */
+    box-shadow: -10px 0 12px -10px rgba(15, 23, 42, 0.28);
+}
+.orders table td.ord-td-act { z-index: 2; }
+/* La cabecera va por encima de las celdas y del resto de cabeceras. */
+.orders table th.ord-c-act {
+    z-index: 4;
+    background: #f8fafc;
+}
+.orders table tbody tr:hover > td.ord-td-act,
+.orders tr.ord-peek-on > td.ord-td-act {
+    background: #f8fafc;
+}
+
+/* Celdas opcionales: el dato manda, el relleno no. */
+.ord-x-nada { color: #cbd5e1; }
+.ord-x-tag {
+    display: inline-block;
+    padding: 1px 7px;
+    border-radius: 999px;
+    background: #f1f5f9;
+    color: #475569;
+    font-size: 11.5px;
+    font-weight: 600;
+    white-space: nowrap;
+}
+.ord-x-num { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.ord-x-debe { color: #b91c1c; font-weight: 700; }
+.ord-x-ok { color: #15803d; }
+.ord-x-fecha { white-space: nowrap; color: #475569; }
+.ord-x-mono {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 11.5px;
+}
+.ord-x-aging {
+    display: inline-block;
+    min-width: 34px;
+    padding: 1px 6px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    background: #f1f5f9;
+    color: #64748b;
+}
 
 /* Densidad. La fila tenia 12px de padding vertical y celdas de cuatro
    renglones: en 1080px de alto entraban seis pedidos. */
@@ -1410,21 +1621,6 @@
 .ord-o-id:hover {
     color: #4338ca;
     text-decoration: underline;
-}
-.ord-ver-btn {
-    border: 1px solid #e2e8f0;
-    background: #fff;
-    color: #475569;
-    border-radius: 6px;
-    font-size: 11.5px;
-    font-weight: 600;
-    padding: 3px 10px;
-    cursor: pointer;
-    margin-right: 4px;
-}
-.ord-ver-btn:hover {
-    border-color: #4f46e5;
-    color: #4f46e5;
 }
 /* Punto de canal: un dato de origen no merece una columna ni una
    etiqueta, pero si un color con su tooltip. */
@@ -2235,8 +2431,7 @@
     color: #94a3b8;
     margin: 0 0 8px;
 }
-.ord-fd-sec .el-select,
-.ord-fd-fechas {
+.ord-fd-sec .el-select {
     width: 100% !important;
 }
 .ord-fd-lbl {
@@ -2244,9 +2439,6 @@
     font-size: 11px;
     color: #94a3b8;
     margin: 10px 0 4px;
-}
-.ord-fd-fechas {
-    margin-top: 8px;
 }
 .ord-fd-foot {
     flex: 0 0 auto;
@@ -2384,6 +2576,79 @@
     border-color: #94a3b8;
     color: #1e293b;
 }
+
+/* Fecha, en la barra. */
+.ord-date {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+.ord-date-sel { width: 165px; }
+.ord-date-range { max-width: 250px; }
+/* Aviso de que NO se esta mirando la fecha del pedido. */
+.ord-date-kind {
+    padding: 2px 8px;
+    border-radius: 999px;
+    background: #eef2ff;
+    color: #4338ca;
+    font-size: 11px;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+/* Panel de columnas: agrupado, porque diecinueve casillas seguidas no se
+   leen. Los grupos responden a para que se enciende cada columna. */
+.ord-cols-menu { padding: 0; }
+.ord-cols-panel {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(150px, 1fr));
+    gap: 4px 18px;
+    padding: 12px 14px 8px;
+    max-height: 60vh;
+    overflow-y: auto;
+}
+.ord-cols-grp h6 {
+    margin: 6px 0 4px;
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: #94a3b8;
+}
+.ord-cols-item {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    padding: 3px 0;
+    font-size: 12.5px;
+    font-weight: 500;
+    color: #334155;
+    cursor: pointer;
+    margin: 0;
+}
+.ord-cols-item input { cursor: pointer; margin: 0; }
+.ord-cols-item:hover { color: #4f46e5; }
+.ord-cols-foot {
+    display: flex;
+    gap: 6px;
+    border-top: 1px solid #eef2f7;
+    padding: 8px 14px;
+    background: #f8fafc;
+}
+.ord-cols-foot button {
+    flex: 1;
+    border: 1px solid #e2e8f0;
+    background: #fff;
+    color: #475569;
+    border-radius: 6px;
+    font-size: 11.5px;
+    font-weight: 600;
+    padding: 4px 8px;
+    cursor: pointer;
+    white-space: nowrap;
+}
+.ord-cols-foot button:hover { border-color: #4f46e5; color: #4f46e5; }
 
 /* Columnas, pegado al borde derecho de la franja de prioridad. */
 .ord-prio-cols {
@@ -2530,6 +2795,32 @@
     }
     .orders table thead {
         display: none;
+    }
+    /* En la tarjeta cada celda tiene su sitio asignado por `grid-area`. Las
+       opcionales no lo tienen, asi que se ocultan en lugar de amontonarse al
+       final: en un movil la tarjeta ya dice lo que hace falta, y las extras
+       son para analizar en pantalla grande.
+       El sticky tampoco aplica —no hay scroll horizontal— y dejarlo puesto
+       sacaria el menu de la tarjeta. */
+    .orders table tbody td[data-label="Canal"],
+    .orders table tbody td[data-label="Tienda"],
+    .orders table tbody td[data-label="Pagado"],
+    .orders table tbody td[data-label="Saldo"],
+    .orders table tbody td[data-label="Método"],
+    .orders table tbody td[data-label="F. pago"],
+    .orders table tbody td[data-label="Entrega"],
+    .orders table tbody td[data-label="Destino"],
+    .orders table tbody td[data-label="Agencia"],
+    .orders table tbody td[data-label="Tracking"],
+    .orders table tbody td[data-label="Prioridad"],
+    .orders table tbody td[data-label="Antigüedad"],
+    .orders table tbody td[data-label="F. despacho"],
+    .orders table tbody td[data-label="F. entrega"] {
+        display: none;
+    }
+    .orders table td.ord-td-act {
+        position: static;
+        box-shadow: none;
     }
     .orders table tbody tr {
         display: grid;
@@ -2842,22 +3133,64 @@ export default {
             // Que columnas ve el operador. «Pedido» y «Acciones» no se pueden
             // apagar: sin la primera no se sabe que fila es y sin la segunda no
             // se puede hacer nada con ella.
+            // Catalogo de columnas. `base: true` = de las que vienen puestas;
+            // el resto son extras que el operador enciende si las necesita.
+            //
+            // Solo se ofrece lo que la fila TRAE de verdad. Quedaron fuera a
+            // proposito: «Vendedor» (seller_id esta en la tabla pero
+            // OrderCollection no lo expone), «Motorizado» (vive en el envio y
+            // tampoco se expone) y «Zona de envio», que no existe como dato.
+            // Una columna vacia es peor que no tenerla: parece un fallo.
             columnasOpcionales: [
-                { key: "cliente", label: "Cliente" },
-                { key: "cobro", label: "Cobro" },
-                { key: "estado", label: "Estado" },
-                { key: "envio", label: "Envío" },
-                { key: "docs", label: "Documentos" },
+                { key: "cliente",  label: "Cliente",    grupo: "Principales", base: true },
+                { key: "cobro",    label: "Cobro",      grupo: "Principales", base: true },
+                { key: "estado",   label: "Estado",     grupo: "Principales", base: true },
+                { key: "envio",    label: "Envío",      grupo: "Principales", base: true, log: true },
+                { key: "docs",     label: "Documentos", grupo: "Principales", base: true },
+
+                { key: "canal",    label: "Canal de venta", grupo: "Comercial" },
+                { key: "tienda",   label: "Tienda / almacén", grupo: "Comercial" },
+
+                { key: "pagado",   label: "Monto pagado",  grupo: "Cobro" },
+                { key: "saldo",    label: "Saldo pendiente", grupo: "Cobro" },
+                { key: "medio",    label: "Método de pago", grupo: "Cobro" },
+                { key: "fpago",    label: "Fecha de pago",  grupo: "Cobro" },
+
+                { key: "entrega",  label: "Tipo de entrega", grupo: "Logística", log: true },
+                { key: "destino",  label: "Destino",   grupo: "Logística", log: true },
+                { key: "agencia",  label: "Agencia",   grupo: "Logística", log: true },
+                { key: "tracking", label: "Tracking",  grupo: "Logística", log: true },
+                { key: "prioridad", label: "Prioridad", grupo: "Logística", log: true },
+                { key: "antiguedad", label: "Antigüedad", grupo: "Logística", log: true },
+
+                { key: "fdespacho", label: "Fecha de despacho", grupo: "Operación" },
+                { key: "fentrega",  label: "Fecha de entrega",  grupo: "Operación" },
             ],
             // «Productos» ya no es columna: la caja vive bajo el codigo del
             // pedido. Un tenant que la tuviera apagada de antes no pierde
             // nada — `cargarColumnas` solo lee las claves que existen hoy.
+            // Las cinco de siempre puestas; las catorce extras, apagadas. La
+            // tabla arranca igual que hasta ahora.
             columnas: {
                 cliente: true,
                 cobro: true,
                 estado: true,
                 envio: true,
                 docs: true,
+                canal: false,
+                tienda: false,
+                pagado: false,
+                saldo: false,
+                medio: false,
+                fpago: false,
+                entrega: false,
+                destino: false,
+                agencia: false,
+                tracking: false,
+                prioridad: false,
+                antiguedad: false,
+                fdespacho: false,
+                fentrega: false,
             },
             // Orden del listado. `fecha` reproduce el `latest()` de siempre,
             // asi que arrancar con el no cambia lo que el operador ya conoce.
@@ -2932,6 +3265,32 @@ export default {
         this.events();
     },
     computed: {
+        /**
+         * Columnas por grupo para el panel.
+         *
+         * Sin el modulo de Envios se caen las logisticas: ofrecer «Agencia» a
+         * quien no tiene envios es prometer una columna que saldria vacia.
+         */
+        gruposColumnas() {
+            const grupos = [];
+            this.columnasOpcionales.forEach(col => {
+                if (col.log && !this.shipping) return;
+                let g = grupos.find(x => x.nombre === col.grupo);
+                if (!g) {
+                    g = { nombre: col.grupo, cols: [] };
+                    grupos.push(g);
+                }
+                g.cols.push(col);
+            });
+            return grupos;
+        },
+
+        /** Nombre de la fecha que se esta mirando, para el aviso de la barra. */
+        etiquetaDateType() {
+            const opt = this.dateTypeOptions.find(o => o.value === this.dateType);
+            return opt ? opt.label : "";
+        },
+
         /**
          * Lo que se esta filtrando ahora mismo, para pintarlo como chips.
          *
@@ -3030,6 +3389,7 @@ export default {
         },
         runAction(cmd, row) {
             const acciones = {
+                ver: () => this.verPedido(row),
                 invoice: () => this.generateInvoice(row),
                 upload: () => this.uploadInvoice(row),
                 markExternal: () => this.markOneExternal(row),
@@ -4520,7 +4880,11 @@ export default {
          */
         alternarColumna(clave) {
             this.$set(this.columnas, clave, !this.columnas[clave]);
+            this.guardarColumnas();
+        },
 
+        /** Un unico sitio que escribe la preferencia. */
+        guardarColumnas() {
             try {
                 window.localStorage.setItem(
                     "ord.columnas",
@@ -4528,6 +4892,38 @@ export default {
                 );
             } catch (e) {
                 // Sin persistencia, pero la sesion actual sigue funcionando.
+            }
+        },
+
+        /**
+         * Los tres atajos del panel.
+         *
+         * «Mostrar todas» respeta el modulo: encender las logisticas en un
+         * tenant sin envios llenaria la tabla de columnas vacias.
+         */
+        columnasTodas() {
+            this.columnasOpcionales.forEach(col => {
+                if (col.log && !this.shipping) return;
+                this.$set(this.columnas, col.key, true);
+            });
+            this.guardarColumnas();
+        },
+
+        /** Deja solo las que vienen puestas de fabrica. */
+        columnasSoloBase() {
+            this.columnasOpcionales.forEach(col => {
+                this.$set(this.columnas, col.key, !!col.base);
+            });
+            this.guardarColumnas();
+        },
+
+        /** Como Ocultar opcionales, pero ademas OLVIDA lo guardado. */
+        columnasReset() {
+            this.columnasSoloBase();
+            try {
+                window.localStorage.removeItem("ord.columnas");
+            } catch (e) {
+                // Nada que limpiar si el navegador no deja leer.
             }
         },
 
