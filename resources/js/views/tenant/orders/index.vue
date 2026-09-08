@@ -173,18 +173,28 @@
                         <button class="ord-search-go" @click="applySearch">Buscar</button>
                     </div>
 
-                    <!-- Fecha, a la vista. El filtro EXISTIA entero desde el
-                         primer commit —siete rangos, personalizado y once
-                         campos de fecha en DATE_FIELDS— pero vivia dentro del
-                         cajon, asi que la pantalla parecia no tener filtro de
-                         fechas. No se implementa nada nuevo: se saca. -->
+                    <!-- Fecha. Dos controles que se turnan, siempre los dos a
+                         la vista.
+
+                         Antes el selector de dias solo aparecia despues de
+                         elegir «Personalizado…» en un desplegable que, sin
+                         nada puesto, dice «Todo el historico». Es decir: para
+                         encontrar el filtro de fechas habia que adivinar que
+                         estaba ahi dentro. La pantalla parecia no tenerlo.
+
+                         Ahora el calendario esta siempre. Y no compiten —que
+                         era el motivo de esconderlo—: elegir dias pasa el
+                         desplegable a «Personalizado…», y elegir un rango
+                         rapido vacia los dias. Manda siempre el ultimo que
+                         tocaste, y se ve cual es. -->
                     <div class="ord-date">
+                        <i class="el-icon-date ord-date-ico" title="Filtrar por fecha"></i>
                         <el-select
                             v-model="dateRange"
                             class="ord-date-sel"
                             size="small"
                             placeholder="Fecha"
-                            @change="applyDateFilters"
+                            @change="cambiarRangoRapido"
                         >
                             <el-option
                                 v-for="opt in rangeOptions"
@@ -193,10 +203,7 @@
                                 :value="opt.value"
                             ></el-option>
                         </el-select>
-                        <!-- Solo con «Personalizado»: si no, compite con el
-                             rango rapido y no se sabe cual manda. -->
                         <el-date-picker
-                            v-if="dateRange === 'custom'"
                             v-model="invoiceDateRange"
                             class="ord-date-range"
                             type="daterange"
@@ -207,7 +214,8 @@
                             format="dd/MM/yyyy"
                             value-format="yyyy-MM-dd"
                             :clearable="true"
-                            @change="applyDateFilters"
+                            :picker-options="opcionesCalendario"
+                            @change="cambiarDias"
                         ></el-date-picker>
                         <!-- Cual de las once fechas se esta mirando. Solo
                              cuando no es la del pedido: decirlo siempre seria
@@ -2584,8 +2592,14 @@
     gap: 6px;
     flex-wrap: wrap;
 }
-.ord-date-sel { width: 165px; }
-.ord-date-range { max-width: 250px; }
+/* El icono hace que la pareja se lea como un filtro de fecha de un vistazo.
+   Sin el, el desplegable dice «Todo el historico» y no parece de fechas. */
+.ord-date-ico {
+    color: #94a3b8;
+    font-size: 14px;
+}
+.ord-date-sel { width: 152px; }
+.ord-date-range { max-width: 235px; }
 /* Aviso de que NO se esta mirando la fecha del pedido. */
 .ord-date-kind {
     padding: 2px 8px;
@@ -3298,6 +3312,33 @@ export default {
          * interno— y la clave con la que se quita. La busqueda entra tambien:
          * es el filtro que mas se olvida puesto.
          */
+        /**
+         * Atajos dentro del calendario.
+         *
+         * Son los MISMOS de siempre y siguen resolviéndose en el servidor
+         * (`resolveQuickRange`): aquí solo se ofrecen desde el otro control,
+         * para quien abre el calendario buscando «hoy» y no piensa en mirar el
+         * desplegable de al lado. Calcular las fechas en el navegador sería
+         * pedir un desfase de un día a las once de la noche.
+         */
+        opcionesCalendario() {
+            const atajo = (label, value) => ({
+                text: label,
+                onClick: () => {
+                    this.invoiceDateRange = [];
+                    this.dateRange = value;
+                    this.applyDateFilters();
+                },
+            });
+
+            return {
+                firstDayOfWeek: 1,
+                shortcuts: this.rangeOptions
+                    .filter(o => o.value && o.value !== "custom")
+                    .map(o => atajo(o.label, o.value)),
+            };
+        },
+
         /**
          * Que hay pendiente detras del boton de Envios.
          *
@@ -4838,6 +4879,33 @@ export default {
             // anterior mostrando el histórico completo sin haberlo pedido.
             if (this.dateRange === "custom" && !(this.invoiceDateRange || []).length) return;
             this.pushFilters();
+        },
+
+        /**
+         * Eligió un rango rápido: manda ese y se vacían los días.
+         *
+         * Los dos controles están siempre a la vista, así que hay que dejar
+         * claro cuál manda. Vaciar el calendario lo dice sin escribirlo:
+         * mientras muestre «Desde / Hasta», no está filtrando por días.
+         */
+        cambiarRangoRapido() {
+            if (this.dateRange !== "custom") this.invoiceDateRange = [];
+
+            this.applyDateFilters();
+        },
+
+        /**
+         * Eligió días concretos: manda eso, aunque sean el mismo dos veces.
+         *
+         * El desplegable pasa a «Personalizado…» solo, para que no se quede
+         * diciendo «Este mes» mientras la tabla muestra un martes. Y al
+         * limpiar el calendario vuelve al histórico, que es lo que el aspa
+         * promete.
+         */
+        cambiarDias(valor) {
+            this.dateRange = (valor || []).length ? "custom" : "";
+
+            this.applyDateFilters();
         },
 
         clearFilters() {
