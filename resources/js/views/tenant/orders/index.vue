@@ -372,6 +372,17 @@
                                             @change="alternarColumna(col.key)"
                                         />
                                         <span>{{ col.label }}</span>
+                                        <!-- Encender una columna y encontrarla
+                                             entera de rayas parece un fallo del
+                                             sistema. Se avisa ANTES: el dato
+                                             existe, pero nadie lo ha escrito
+                                             todavia en estos pedidos. -->
+                                        <em
+                                            v-if="columnaSinDatos(col.key)"
+                                            class="ord-cols-empty"
+                                            title="Ninguno de los pedidos que se ven ahora tiene este dato"
+                                            >sin datos</em
+                                        >
                                     </label>
                                 </div>
                             </div>
@@ -2655,6 +2666,17 @@
 }
 .ord-cols-item input { cursor: pointer; margin: 0; }
 .ord-cols-item:hover { color: #4f46e5; }
+.ord-cols-empty {
+    margin-left: auto;
+    padding: 0 6px;
+    border-radius: 999px;
+    background: #f1f5f9;
+    color: #94a3b8;
+    font-size: 10px;
+    font-style: normal;
+    font-weight: 600;
+    white-space: nowrap;
+}
 .ord-cols-foot {
     display: flex;
     gap: 6px;
@@ -4967,6 +4989,60 @@ export default {
         alternarColumna(clave) {
             this.$set(this.columnas, clave, !this.columnas[clave]);
             this.guardarColumnas();
+        },
+
+        /**
+         * De donde sale el valor de cada columna opcional.
+         *
+         * Lo usa el aviso «sin datos». La celda no lo comparte porque cada
+         * una formatea lo suyo —etiqueta, importe, semaforo—, asi que al
+         * anadir una columna hay que tocar los dos sitios: la celda y este
+         * mapa. Si se olvida el mapa, el aviso no aparece; si se olvida al
+         * reves, el aviso miente. La segunda es la que hace dano.
+         */
+        valorColumna(row, clave) {
+            const s = row.shipment || {};
+
+            switch (clave) {
+                case "canal":      return row.channel_name;
+                case "tienda":     return row.warehouse_description;
+                case "vendedor":   return row.seller_name;
+                case "pagado":     return row.paid_total > 0 ? row.paid_total : null;
+                case "saldo":      return row.pending_total;
+                case "medio":      return row.reference_payment;
+                case "fpago":      return row.paid_at;
+                case "entrega":    return s.delivery_short;
+                case "destino":    return s.destination;
+                case "agencia":    return s.agency;
+                case "motorizado": return s.courier_name;
+                case "tracking":   return s.tracking_number;
+                case "prioridad":  return s.priority_label;
+                case "antiguedad": return s.aging_days;
+                case "fdespacho":  return row.dispatched_at;
+                case "fentrega":   return row.delivered_at;
+                default:           return undefined;
+            }
+        },
+
+        /**
+         * ¿Esta columna saldria vacia con lo que hay en pantalla?
+         *
+         * Se mira la PAGINA cargada, no la base entera: preguntarselo al
+         * servidor por cada una de las diecinueve columnas seria mucho pedir
+         * para un aviso. Con la lista vacia no se afirma nada — no hay filas
+         * de las que deducirlo.
+         */
+        columnaSinDatos(clave) {
+            const filas = this.currentRecords || [];
+            if (!filas.length) return false;
+
+            const v = this.valorColumna(filas[0], clave);
+            if (v === undefined) return false;   // columna sin dato mapeado
+
+            return !filas.some(row => {
+                const val = this.valorColumna(row, clave);
+                return val !== null && val !== undefined && val !== "";
+            });
         },
 
         /** Un unico sitio que escribe la preferencia. */
