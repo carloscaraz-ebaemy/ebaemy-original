@@ -1072,6 +1072,23 @@
                                         <i class="el-icon-truck"></i>
                                         Configurar envío
                                     </el-dropdown-item>
+                                    <!-- Recojo en tienda: del mostrador a
+                                         «entregado» en un clic.
+                                         El rotulo NUNCA fue obligatorio aqui
+                                         —`needsShippingLabel()` ya devuelve
+                                         false para el recojo y su flujo ni
+                                         siquiera incluye «impreso»— pero para
+                                         cerrar la entrega habia que abrir el
+                                         envio y buscar el estado en un
+                                         desplegable. -->
+                                    <el-dropdown-item
+                                        v-if="puedeEntregarEnTienda(row)"
+                                        command="deliverPickup"
+                                    >
+                                        <i class="el-icon-circle-check"></i>
+                                        Marcar como entregado
+                                    </el-dropdown-item>
+
                                     <el-dropdown-item
                                         v-if="row.shipment"
                                         command="cancelShipment"
@@ -3585,6 +3602,7 @@ export default {
 
             const acciones = {
                 ver: () => this.verPedido(row),
+                deliverPickup: () => this.entregarEnTienda(row),
                 invoice: () => this.generateInvoice(row),
                 upload: () => this.uploadInvoice(row),
                 markExternal: () => this.markOneExternal(row),
@@ -5416,6 +5434,71 @@ export default {
             return this.options.filter(
                 o => Number(o.id) === actual || permitidos.includes(Number(o.id))
             );
+        },
+
+        /**
+         * ¿Se puede cerrar la entrega de este pedido desde aqui?
+         *
+         * Solo el recojo en tienda: el cliente se lleva el paquete del
+         * mostrador y no hay despacho, agencia ni motorizado que esperar. Para
+         * agencia y domicilio la entrega la confirma el transporte, asi que
+         * ahi se sigue moviendo por su flujo.
+         */
+        puedeEntregarEnTienda(row) {
+            const s = row.shipment;
+            return !!s
+                && !!s.is_pickup
+                && s.status !== "entregado"
+                && s.status !== "anulado"
+                && !this.esAnulado(row);
+        },
+
+        /** Cierra la entrega del recojo en tienda. */
+        entregarEnTienda(row) {
+            const s = row.shipment;
+            if (!s) return;
+
+            this.$confirm(
+                "El cliente ya se llevó el pedido. Se marcará como entregado y "
+                    + "se le avisará por WhatsApp si está configurado.",
+                "¿Marcar como entregado?",
+                {
+                    confirmButtonText: "Sí, entregado",
+                    cancelButtonText: "Cancelar",
+                    type: "success",
+                }
+            )
+                .then(() => {
+                    const fd = new FormData();
+                    fd.append("status", "entregado");
+
+                    // Se reutiliza el endpoint de estado del envio: es quien
+                    // sella `picked_up_at`, avisa al cliente, escribe la
+                    // bitacora y sincroniza el pedido a «Entregado». Un atajo
+                    // que escribiera el estado por su cuenta se saltaria las
+                    // cuatro cosas.
+                    // `Accept` explicito: de el depende que `expectsJson()`
+                    // sea cierto en el servidor y la respuesta sea JSON en vez
+                    // de un redirect que el navegador seguiria por detras.
+                    return this.$http.post(`/registro-envio/${s.id}/estado`, fd, {
+                        headers: { Accept: "application/json" },
+                    });
+                })
+                .then(response => {
+                    if (!response) return;
+                    this.$message.success(
+                        (response.data && response.data.message) || "Pedido entregado."
+                    );
+                    this.refreshAfterPayment();
+                })
+                .catch(error => {
+                    // `$confirm` rechaza con 'cancel' cuando el operador dice
+                    // que no: eso no es un fallo y no debe pintar un error.
+                    if (error === "cancel" || error === "close") return;
+                    this.$message.error(
+                        this.describeError(error) || "No se pudo marcar como entregado."
+                    );
+                });
         },
 
         esAnulado(row) {

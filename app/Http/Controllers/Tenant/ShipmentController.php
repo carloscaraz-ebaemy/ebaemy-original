@@ -824,7 +824,7 @@ class ShipmentController extends Controller
      * Subir la guía de envío. Guarda el N° de guía + el archivo, cambia el
      * estado a "enviado" y registra sent_at = now().
      */
-    public function uploadGuide(Request $request, ShippingRequest $shipment): RedirectResponse
+    public function uploadGuide(Request $request, ShippingRequest $shipment): RedirectResponse|\Illuminate\Http\JsonResponse
     {
         if ($bloqueo = $this->blockIfCancelled($shipment, $request)) {
             return $bloqueo;
@@ -898,7 +898,7 @@ class ShipmentController extends Controller
         return back()->with('error', $msg);
     }
 
-    public function updateStatus(Request $request, ShippingRequest $shipment): RedirectResponse
+    public function updateStatus(Request $request, ShippingRequest $shipment): RedirectResponse|\Illuminate\Http\JsonResponse
     {
         if ($bloqueo = $this->blockIfCancelled($shipment, $request)) {
             return $bloqueo;
@@ -970,7 +970,23 @@ class ShipmentController extends Controller
             $this->syncOrder($shipment);
         }
 
-        return back()->with('success', "Estado actualizado a «{$shipment->status_label}».");
+        $mensaje = "Estado actualizado a «{$shipment->status_label}».";
+
+        // Desde el panel de Pedidos esto se llama por AJAX. Sin esta rama, la
+        // respuesta era un redirect que el navegador seguia por detras: el
+        // cambio se aplicaba pero la pantalla no se enteraba de si habia ido
+        // bien. La logica es la misma —sincronizacion al pedido, aviso al
+        // cliente y bitacora—, solo cambia como se responde.
+        if ($request->expectsJson()) {
+            return response()->json([
+                'success'      => true,
+                'message'      => $mensaje,
+                'status'       => $shipment->status,
+                'status_label' => $shipment->status_label,
+            ]);
+        }
+
+        return back()->with('success', $mensaje);
     }
 
     /**
@@ -1010,7 +1026,7 @@ class ShipmentController extends Controller
      * Bloqueado si el envío ya está en un lote IMPRESO. Un usuario admin
      * puede forzarlo marcando la excepción, que queda registrada como tal.
      */
-    public function changeModality(Request $request, ShippingRequest $shipment): RedirectResponse
+    public function changeModality(Request $request, ShippingRequest $shipment): RedirectResponse|\Illuminate\Http\JsonResponse
     {
         if ($bloqueo = $this->blockIfCancelled($shipment, $request)) {
             return $bloqueo;
@@ -1248,7 +1264,7 @@ class ShipmentController extends Controller
         return $this->update($request, $shipment);
     }
 
-    public function update(Request $request, ShippingRequest $shipment): RedirectResponse
+    public function update(Request $request, ShippingRequest $shipment): RedirectResponse|\Illuminate\Http\JsonResponse
     {
         if ($bloqueo = $this->blockIfCancelled($shipment, $request)) {
             return $bloqueo;
@@ -1312,7 +1328,7 @@ class ShipmentController extends Controller
     }
 
     /** Editar manualmente el precio del envío (el encargado ajusta la estimación). */
-    public function updatePrice(Request $request, ShippingRequest $shipment): RedirectResponse
+    public function updatePrice(Request $request, ShippingRequest $shipment): RedirectResponse|\Illuminate\Http\JsonResponse
     {
         if ($bloqueo = $this->blockIfCancelled($shipment, $request)) {
             return $bloqueo;
@@ -2203,7 +2219,7 @@ class ShipmentController extends Controller
     }
 
     /** Retira un envío de un lote todavía abierto. */
-    public function removeFromBatch(ShippingRequest $shipment): RedirectResponse
+    public function removeFromBatch(ShippingRequest $shipment): RedirectResponse|\Illuminate\Http\JsonResponse
     {
         if ($bloqueo = $this->blockIfCancelled($shipment)) {
             return $bloqueo;
