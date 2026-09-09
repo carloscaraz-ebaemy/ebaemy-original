@@ -733,14 +733,24 @@
                             >
                                 {{ importeCobro(row) }}
                             </button>
-                            <div
+                            <!-- El chip tambien abre los cobros. «Sin monto»
+                                 es el caso que mas lo pedia: el encargo al que
+                                 nadie le cargo el importe: es justo donde hay
+                                 que entrar a ponerlo y a registrar el pago, y
+                                 era la unica parte de la celda que no llevaba
+                                 a ningun sitio. -->
+                            <button
                                 v-if="row.payment_state"
-                                class="ord-p-chip"
+                                type="button"
+                                class="ord-p-chip ord-p-chip-btn"
                                 :class="'is-' + row.payment_state"
-                                :title="tituloCobro(row)"
+                                :title="row.payment_state === 'sin_monto'
+                                    ? 'Cargar el monto a cobrar y registrar el pago'
+                                    : tituloCobro(row)"
+                                @click.stop="clickPayments(row.id)"
                             >
                                 {{ row.payment_state_label }}
-                            </div>
+                            </button>
                             <div v-if="saldoCobro(row)" class="ord-p-saldo">
                                 {{ saldoCobro(row) }}
                             </div>
@@ -2052,6 +2062,18 @@
 }
 .ord-p-btn:hover { color: #4f46e5; text-decoration: underline; }
 .ord-p-btn:focus-visible { outline: 2px solid #4f46e5; outline-offset: 2px; }
+
+/* El chip conserva su color de estado: solo gana el cursor y un realce al
+   posarse, para no convertir la columna en una fila de botones de colores. */
+.ord-p-chip-btn {
+    cursor: pointer;
+    font: inherit;
+    font-size: 10px;
+    font-weight: 700;
+    border: 0;
+}
+.ord-p-chip-btn:hover { filter: brightness(0.94); }
+.ord-p-chip-btn:focus-visible { outline: 2px solid #4f46e5; outline-offset: 2px; }
 
 /* La caja, cuando ademas se puede tocar. */
 .ord-pk.is-editable { cursor: pointer; }
