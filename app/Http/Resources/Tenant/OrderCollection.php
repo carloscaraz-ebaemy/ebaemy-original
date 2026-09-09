@@ -184,9 +184,15 @@ class OrderCollection extends ResourceCollection
                 // ofrecia el catalogo entero y elegir un salto invalido
                 // —«listo para preparar» directo a «enviado»— devolvia un 422
                 // que el operador no tenia forma de prever.
-                'allowed_status'       => array_values(
-                    \App\Policies\OrderPolicy::ALLOWED_TRANSITIONS[(int) $row->status_order_id] ?? []
-                ),
+                // `5` (anular) se cae cuando el ciclo de vida es de fuera: un
+                // pedido de Saga se cancela en el portal del seller y llega
+                // aqui por sincronizacion. Anularlo desde EBAEMY dejaria los
+                // dos lados diciendo cosas distintas del mismo pedido.
+                'allowed_status'       => array_values(array_filter(
+                    \App\Policies\OrderPolicy::ALLOWED_TRANSITIONS[(int) $row->status_order_id] ?? [],
+                    fn ($destino) => $destino !== 5 || $row->canBeCancelled()
+                )),
+                'can_cancel'           => $row->canBeCancelled(),
                 'status_description'   => optional($row->status_order)->description ?? '',
                 'purchase'             => $row->purchase,
                 'document_type_id'     => optional($row->purchase)->codigo_tipo_documento,

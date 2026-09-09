@@ -295,6 +295,39 @@
             return $this->belongsTo(\Modules\Inventory\Models\Warehouse::class, 'warehouse_id');
         }
 
+        /**
+         * ¿El estado de este pedido lo manda un portal de fuera?
+         *
+         * Saga, MercadoLibre, TikTok y Meta llevan su propio ciclo de vida: la
+         * venta se cancela ALLI y llega aqui por sincronizacion. Anularla desde
+         * EBAEMY dejaria los dos lados diciendo cosas distintas sobre el mismo
+         * pedido, y el portal seguiria esperando el despacho.
+         *
+         * El marketplace propio (`MKP01`, ebaemy.com) NO cuenta: ese pedido es
+         * nuestro de punta a punta. La distincion esta en el guion bajo del
+         * codigo — `MKP01` es propio, `MKP_*` son los de fuera.
+         */
+        public function isExternalChannel(): bool
+        {
+            // `marketplaceOrder` es una relacion, no una columna: se mira solo
+            // si ya viene cargada. Sin esta guarda seria una consulta por fila
+            // en un listado de veinte, y el codigo de canal ya resuelve el caso
+            // —los 720 pedidos de Saga en produccion tienen MKP_FALABELLA—.
+            if ($this->relationLoaded('marketplaceOrder') && $this->marketplaceOrder) {
+                return true;
+            }
+
+            $code = (string) optional($this->channel)->code;
+
+            return $code !== '' && \Illuminate\Support\Str::startsWith($code, 'MKP_');
+        }
+
+        /** Un pedido solo se anula desde aqui si su ciclo de vida es nuestro. */
+        public function canBeCancelled(): bool
+        {
+            return !$this->isExternalChannel();
+        }
+
         public function seller()
         {
             return $this->belongsTo(\App\Models\Tenant\User::class, 'seller_id');

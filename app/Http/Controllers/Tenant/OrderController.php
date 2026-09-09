@@ -2318,6 +2318,19 @@ class OrderController extends Controller
         ];
       }
 
+      // Anular un pedido cuyo ciclo de vida es de fuera dejaria a EBAEMY y al
+      // portal diciendo cosas distintas del mismo pedido: alli seguiria vivo,
+      // esperando despacho. Se comprueba en el SERVIDOR y no solo ocultando la
+      // opcion: una peticion a mano se salta la pantalla.
+      if ($statusId === 5 && !$order->canBeCancelled()) {
+          $donde = optional($order->channel)->name ?: 'el canal de origen';
+
+          return response()->json([
+              'message' => "Este pedido llega de {$donde} y se anula alli, no desde EBAEMY. "
+                  . 'Cuando el vendedor lo cancele en su portal, el cambio baja solo.',
+          ], 422);
+      }
+
       // Delegamos TODAS las reglas de transición (mapa + guard de payment_status +
       // reglas por rol) al OrderPolicy::transitionTo. Si la transición es inválida
       // lanza InvalidOrderTransitionException con mensaje específico.

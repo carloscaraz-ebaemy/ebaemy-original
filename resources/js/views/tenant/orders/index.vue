@@ -564,7 +564,10 @@
                          que deberia ser un barrido. -->
                     <tr
                         slot-scope="{ index, row }"
-                        :class="{ 'ord-peek-on': peek.id === row.id }"
+                        :class="{
+                            'ord-peek-on': peek.id === row.id,
+                            'ord-row-void': Number(row.status_order_id) === 5
+                        }"
                         @mouseenter="asomarPaquete(row, $event)"
                         @mouseleave="ocultarPaquete"
                     >
@@ -770,7 +773,14 @@
                                      candado, desplegable y `updateStatus`, que
                                      es quien decide si hay que emitir nota de
                                      venta o pedir el almacen. -->
-                                <div v-if="!isMarketplace(row)" class="ord-status-editbar">
+                                <!-- Sin transiciones posibles no hay nada que
+                                     cambiar: en un pedido anulado o entregado
+                                     el candado abria un desplegable con una
+                                     sola opcion, la que ya tenia. -->
+                                <div
+                                    v-if="!isMarketplace(row) && puedeCambiarEstado(row)"
+                                    class="ord-status-editbar"
+                                >
                                     <template v-if="editingStatusId === row.id">
                                         <el-select
                                             v-model="row.status_order_id"
@@ -997,7 +1007,7 @@
                                         Ver pedido
                                     </el-dropdown-item>
                                     <el-dropdown-item
-                                        v-if="canGenerateInvoice(row)"
+                                        v-if="canGenerateInvoice(row) && !esAnulado(row)"
                                         command="invoice"
                                         divided
                                     >
@@ -1119,7 +1129,7 @@
                                          tiene envio: el rotulo es del envio, no
                                          del pedido. -->
                                     <el-dropdown-item
-                                        v-if="row.shipment"
+                                        v-if="row.shipment && !esAnulado(row)"
                                         command="label"
                                         :disabled="!!row.shipment.print_block"
                                     >
@@ -1173,7 +1183,11 @@
                                          datos de entrega. Reemplaza al
                                          formulario público suelto: llega al
                                          pedido, no crea uno nuevo. -->
-                                    <el-dropdown-item command="shippingLink" divided>
+                                    <el-dropdown-item
+                                        v-if="!esAnulado(row)"
+                                        command="shippingLink"
+                                        divided
+                                    >
                                         <i class="el-icon-link"></i>
                                         Copiar enlace de datos de envío
                                     </el-dropdown-item>
@@ -1908,6 +1922,22 @@
 /* La fila que se esta asomando se resalta: liga la tarjeta con su origen. */
 .orders tr.ord-peek-on > td {
     background: #f8fafc;
+}
+
+/* Pedido anulado. Antes solo cambiaba el chip de estado y la fila seguia
+   igual de viva que las demas: en un listado de veinte, el rojo de un chip
+   pequeno se pierde y se sigue operando sobre un pedido que ya no existe.
+   Se apaga la fila entera pero NO se oculta —hace falta consultarla— y el
+   chip se queda a plena opacidad, que es lo que explica por que esta gris. */
+.orders tr.ord-row-void > td {
+    opacity: 0.55;
+    background: #fafafa;
+}
+.orders tr.ord-row-void > td .ord-st-chip.is-cancel {
+    opacity: 1;
+}
+.orders tr.ord-row-void:hover > td {
+    opacity: 0.8;
 }
 
 /* Aviso del boton de Envios. Un punto y no un numero: el detalle esta en el
@@ -3537,6 +3567,22 @@ export default {
             );
         },
         runAction(cmd, row) {
+            // Un pedido anulado se consulta, no se opera. Ocultar las
+            // entradas del menu no basta: quedan abiertas las que llegan por
+            // otro camino —seleccion multiple, un menu ya desplegado cuando
+            // otro operador anulo— y ninguna de estas tiene sentido sobre un
+            // pedido que ya no existe.
+            const soloLectura = [
+                "invoice", "upload", "markExternal", "label", "sagaLabel",
+                "shippingLink", "edit", "emitSaleNote", "emitDocument",
+                "dispatchGuide", "uploadGuide", "cancelShipment",
+            ];
+            if (this.esAnulado(row) && soloLectura.indexOf(cmd) !== -1) {
+                return this.$message.warning(
+                    "El pedido está anulado: solo se puede consultar."
+                );
+            }
+
             const acciones = {
                 ver: () => this.verPedido(row),
                 invoice: () => this.generateInvoice(row),
@@ -5370,6 +5416,19 @@ export default {
             return this.options.filter(
                 o => Number(o.id) === actual || permitidos.includes(Number(o.id))
             );
+        },
+
+        esAnulado(row) {
+            return Number(row.status_order_id) === 5;
+        },
+
+        /** ¿Le queda algun estado al que ir? */
+        puedeCambiarEstado(row) {
+            const permitidos = row.allowed_status;
+            // Sin el campo (pedido viejo) se deja como estaba: decidir que no
+            // se puede mover por un dato que falta seria peor.
+            if (!Array.isArray(permitidos)) return true;
+            return permitidos.length > 0;
         },
 
         /** Abre el candado recordando donde estaba, para poder deshacer. */
