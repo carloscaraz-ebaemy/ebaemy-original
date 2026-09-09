@@ -629,15 +629,24 @@
                             <div class="ord-o-fecha" :title="row.created_at">
                                 {{ fechaCorta(row.created_at) }}
                             </div>
-                            <!-- La caja. No es un boton: su trabajo es MOSTRAR
-                                 el contenido, y eso ya pasa al posarse en la
-                                 fila. Un clic aqui abriria el mismo cajon que
-                                 «Ver», que es la duplicacion que veniamos a
-                                 quitar. -->
+                            <!-- La caja MUESTRA el contenido al posarse en la
+                                 fila, y ademas abre la edicion para tocarlo:
+                                 agregar un producto era ir al menu, buscar
+                                 «Editar» y volver, teniendo el paquete
+                                 delante. No duplica a «Ver»: aquel abre el
+                                 cajon de consulta y este el formulario.
+                                 Cuando el pedido ya no admite cambios se
+                                 queda como estaba, sin clic. -->
                             <span
                                 class="ord-pk"
-                                :class="{ 'is-vacio': !paquete(row).length }"
-                                :title="tituloPaquete(row)"
+                                :class="{
+                                    'is-vacio': !paquete(row).length,
+                                    'is-editable': puedeEditarLineas(row)
+                                }"
+                                :title="puedeEditarLineas(row)
+                                    ? 'Agregar o quitar productos'
+                                    : tituloPaquete(row)"
+                                @click.stop="editarProductos(row)"
                             >
                                 <span v-if="miniaturas(row).length" class="ord-pk-ths">
                                     <img
@@ -713,7 +722,17 @@
                             <span v-else class="ord-x-nada">—</span>
                         </td>
                         <td v-if="columnas.cobro" class="text-end" data-label="Cobro">
-                            <div class="ord-p-total">{{ importeCobro(row) }}</div>
+                            <!-- El importe abre los pagos. Era el dato que mas
+                                 se mira antes de cobrar y habia que ir al menu
+                                 a buscar la accion; el numero ya estaba ahi. -->
+                            <button
+                                type="button"
+                                class="ord-p-total ord-p-btn"
+                                :title="'Registrar o ver los pagos del pedido #' + row.order_id"
+                                @click.stop="clickPayments(row.id)"
+                            >
+                                {{ importeCobro(row) }}
+                            </button>
                             <div
                                 v-if="row.payment_state"
                                 class="ord-p-chip"
@@ -2019,6 +2038,25 @@
     color: #0f172a;
     white-space: nowrap;
 }
+/* El importe como boton: sin marco ni relleno para que la columna se siga
+   leyendo como una cifra y no como una barra de botones. El subrayado al
+   posarse es lo que dice que se puede pulsar. */
+.ord-p-btn {
+    border: 0;
+    background: none;
+    padding: 0;
+    font: inherit;
+    color: inherit;
+    cursor: pointer;
+    text-align: right;
+}
+.ord-p-btn:hover { color: #4f46e5; text-decoration: underline; }
+.ord-p-btn:focus-visible { outline: 2px solid #4f46e5; outline-offset: 2px; }
+
+/* La caja, cuando ademas se puede tocar. */
+.ord-pk.is-editable { cursor: pointer; }
+.ord-pk.is-editable:hover { color: #4f46e5; }
+.ord-pk.is-editable:hover .ord-pk-t { text-decoration: underline; }
 /* Estado economico del cobro. Los cuatro tonos siguen al dinero, no al
    estado comercial: un pedido puede estar «En preparacion» y sin cobrar. */
 .ord-p-chip {
@@ -5572,6 +5610,24 @@ export default {
                 return "transit";
             }
             return "work";
+        },
+
+        /**
+         * ¿Se le pueden tocar los productos a este pedido?
+         *
+         * Los mismos estados que acepta el servidor —1 y 2—, para que la caja
+         * no invite a algo que `updateManual` va a rechazar. Los pedidos de un
+         * canal externo tampoco: sus lineas las manda el portal.
+         */
+        puedeEditarLineas(row) {
+            return [1, 2].indexOf(Number(row.status_order_id)) !== -1
+                && !this.isSagaOrder(row);
+        },
+
+        /** Clic en la caja: abre el formulario donde se agregan productos. */
+        editarProductos(row) {
+            if (!this.puedeEditarLineas(row)) return;
+            this.editarPedido(row.id);
         },
 
         esAnulado(row) {
