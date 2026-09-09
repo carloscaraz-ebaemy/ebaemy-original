@@ -1155,39 +1155,9 @@
                                         {{ labelActionText(row) }}
                                     </el-dropdown-item>
 
-                                    <el-dropdown-item
-                                        v-if="canUploadInvoice(row)"
-                                        command="upload"
-                                    >
-                                        <i class="el-icon-upload2"></i>
-                                        Subir boleta a Saga
-                                    </el-dropdown-item>
 
-                                    <el-dropdown-item
-                                        v-if="isSagaOrder(row) && row.mp_invoice_state === 'pending'"
-                                        command="markExternal"
-                                    >
-                                        <i class="el-icon-check"></i>
-                                        Ya la emití en Saga
-                                    </el-dropdown-item>
 
-                                    <el-dropdown-item
-                                        v-if="row.document_type_id == '80' && row.sale_note_id"
-                                        command="saleNote"
-                                        divided
-                                    >
-                                        <i class="el-icon-tickets"></i>
-                                        Nota de venta / convertir
-                                    </el-dropdown-item>
 
-                                    <el-dropdown-item
-                                        v-if="row.document_external_id"
-                                        command="document"
-                                        divided
-                                    >
-                                        <i class="el-icon-tickets"></i>
-                                        Ver comprobante
-                                    </el-dropdown-item>
 
                                     <el-dropdown-item
                                         v-if="canDownloadLabel(row)"
@@ -1302,6 +1272,9 @@
             @dispatch-guide="generarGuiaRemision"
             @print-label="printLabel"
             @fix-billing="corregirComprobante"
+            @doc-options="abrirOpcionesDocumento"
+            @upload-saga="uploadInvoice"
+            @mark-external="markOneExternal"
         ></documents-panel>
 
         <!-- Detalle del pedido (paso 4). Aloja lo que la fila dejo de mostrar
@@ -1316,6 +1289,9 @@
             @dispatch-guide="generarGuiaRemision"
             @print-label="printLabel"
             @fix-billing="corregirComprobante"
+            @doc-options="abrirOpcionesDocumento"
+            @upload-saga="uploadInvoice"
+            @mark-external="markOneExternal"
             @shipment="openShipment"
             @upload-guide="subirGuia"
             @view-guide="openGuide"
@@ -3637,10 +3613,9 @@ export default {
                 documents: () => this.abrirDocumentos(row),
                 deliverPickup: () => this.entregarEnTienda(row),
                 invoice: () => this.generateInvoice(row),
-                upload: () => this.uploadInvoice(row),
-                markExternal: () => this.markOneExternal(row),
-                saleNote: () => this.clickOptions(row.sale_note_id),
-                document: () => this.clickDownload(row.document_external_id),
+                // Subir a Saga, «ya la emiti», las opciones de la nota de
+                // venta y las del comprobante se despachan desde el panel de
+                // documentos, que llama a estos mismos metodos por evento.
                 sagaLabel: () => this.downloadLabel(row),
                 shippingLink: () => this.copyShippingLink(row),
                 timeline: () => this.openTimeline(row),
@@ -3670,15 +3645,6 @@ export default {
                 viewGuide: () => this.openGuide(row)
             };
             if (acciones[cmd]) acciones[cmd]();
-        },
-        // Emitida en EBAEMY pero aun no cargada en Saga: sin esto la boleta
-        // existe solo de nuestro lado y Saga la sigue esperando.
-        canUploadInvoice(row) {
-            return (
-                this.isSagaOrder(row) &&
-                row.mp_invoice_state === "ebaemy" &&
-                !row.mp_invoice_uploaded
-            );
         },
         async uploadInvoice(row) {
             try {
@@ -3863,7 +3829,7 @@ export default {
          * ¿Este pedido viene de Saga/Falabella?
          *
          * Se llamaba desde cinco sitios —el menu de acciones de la fila,
-         * `canGenerateInvoice`, `canUploadInvoice`, `canDownloadLabel` y el
+         * `canGenerateInvoice`, `canDownloadLabel` y el
          * marcado masivo— y NUNCA estuvo definida: entro asi en `0aee854e`.
          * No se notaba porque la tabla no llegaba a pintar ni una fila (el
          * filtro fantasma de almacen la dejaba siempre vacia), de modo que la
@@ -4033,6 +3999,28 @@ export default {
          * Se guarda la fila entera, no una copia: el panel necesita `documents`,
          * `billing` y `shipment`, y las acciones se emiten de vuelta con ella.
          */
+        /**
+         * Opciones del documento ya emitido, desde el panel.
+         *
+         * Reparte a las dos pantallas que ya existian detras de las entradas
+         * «Nota de venta / convertir» y «Ver comprobante» del menu: la nota de
+         * venta abre las suyas —incluida la conversion a comprobante— y el
+         * resto abre las del documento electronico. No emite nada nuevo.
+         */
+        abrirOpcionesDocumento({ row, doc }) {
+            if (!doc) return;
+
+            if (doc.tipo === "nota_venta" && row.sale_note_id) {
+                return this.clickOptions(row.sale_note_id);
+            }
+
+            if (row.document_external_id) {
+                return this.clickDownload(row.document_external_id);
+            }
+
+            this.$message.info("Este documento todavía no tiene opciones disponibles.");
+        },
+
         abrirDocumentos(row) {
             this.docsRow = row;
             this.showDocsDialog = true;

@@ -17,6 +17,9 @@
             @dispatch-guide="conCierre('dispatch-guide', $event)"
             @print-label="conCierre('print-label', $event)"
             @fix-billing="conCierre('fix-billing', $event)"
+            @doc-options="conCierre('doc-options', $event)"
+            @upload-saga="conCierre('upload-saga', $event)"
+            @mark-external="conCierre('mark-external', $event)"
         ></documents-block>
 
         <span slot="footer">

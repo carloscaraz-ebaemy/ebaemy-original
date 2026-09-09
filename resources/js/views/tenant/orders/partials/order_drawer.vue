@@ -147,6 +147,9 @@
                         @dispatch-guide="$emit('dispatch-guide', row)"
                         @print-label="$emit('print-label', row)"
                         @fix-billing="$emit('fix-billing', row)"
+                        @doc-options="$emit('doc-options', $event)"
+                        @upload-saga="$emit('upload-saga', row)"
+                        @mark-external="$emit('mark-external', row)"
                     ></documents-block>
                 </section>
 

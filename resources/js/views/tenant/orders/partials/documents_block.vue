@@ -44,6 +44,17 @@
                         class="dp-act"
                         >Ver PDF</a
                     >
+                    <!-- «Ver PDF» abre el archivo; esto abre lo que se puede
+                         HACER con el documento: enviarlo, descargarlo en otro
+                         formato o convertir la nota de venta en comprobante.
+                         Eran dos entradas sueltas del menu del pedido. -->
+                    <el-button
+                        size="mini"
+                        plain
+                        class="dp-btn"
+                        @click="$emit('doc-options', { row: row, doc: s })"
+                        >Opciones</el-button
+                    >
                 </div>
 
                 <template v-else>
@@ -142,6 +153,38 @@
             </p>
         </section>
 
+        <!-- Portal de Saga. La boleta puede estar emitida en EBAEMY y todavia
+             no subida alli, o haberla emitido el vendedor por su cuenta: son
+             los dos pasos que el portal espera y que antes vivian sueltos en
+             el menu del pedido. -->
+        <section v-if="mostrarSaga" class="dp-group">
+            <h4>Portal de Saga</h4>
+            <div class="dp-item">
+                <div class="dp-line">
+                    <el-button
+                        v-if="puedeSubirBoleta"
+                        size="mini"
+                        type="primary"
+                        plain
+                        class="dp-btn"
+                        @click="$emit('upload-saga', row)"
+                        >Subir boleta a Saga</el-button
+                    >
+                    <el-button
+                        v-if="faltaEmitirEnSaga"
+                        size="mini"
+                        plain
+                        class="dp-btn"
+                        @click="$emit('mark-external', row)"
+                        >Ya la emití en Saga</el-button
+                    >
+                </div>
+                <p v-if="puedeSubirBoleta" class="dp-why">
+                    Emitida en EBAEMY pero el portal todavía no la tiene.
+                </p>
+            </div>
+        </section>
+
         <!-- Datos de Saga que no salen de `documents`. Es informacion real
              y no hay que perderla al reorganizar el panel. -->
         <p v-if="row.mp_invoice_state === 'external'" class="dp-note">
@@ -183,6 +226,33 @@ export default {
         row: { type: Object, default: null },
     },
     computed: {
+        /**
+         * Las dos condiciones del portal de Saga.
+         *
+         * Se calculan aqui y no se reciben como prop porque este bloque es el
+         * UNICO sitio que ofrece ya estas acciones: al sacarlas del menu del
+         * pedido, duplicarlas en el padre seria dejar dos reglas que pueden
+         * separarse. Son los mismos campos que miraba el menu.
+         */
+        esDeSaga() {
+            return !!this.row
+                && !!this.row.mp_order_id
+                && String(this.row.mp_platform || "").toLowerCase() === "falabella";
+        },
+        /** Emitida en EBAEMY pero el portal todavia no la tiene. */
+        puedeSubirBoleta() {
+            return this.esDeSaga
+                && this.row.mp_invoice_state === "ebaemy"
+                && !this.row.mp_invoice_uploaded;
+        },
+        /** Sin comprobante por ningun lado: pudo emitirla el vendedor. */
+        faltaEmitirEnSaga() {
+            return this.esDeSaga && this.row.mp_invoice_state === "pending";
+        },
+        mostrarSaga() {
+            return this.puedeSubirBoleta || this.faltaEmitirEnSaga;
+        },
+
         docs() {
             return (this.row && this.row.documents) || {};
         },
