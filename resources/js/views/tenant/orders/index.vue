@@ -206,6 +206,7 @@
                         <el-date-picker
                             v-model="invoiceDateRange"
                             class="ord-date-range"
+                            :class="{ 'is-libre': dateRange !== 'custom' }"
                             type="daterange"
                             size="small"
                             range-separator="a"
@@ -2801,6 +2802,70 @@
    contenido ya se explica solo y repetir «Cobro:» delante del importe
    solo gasta linea. */
 @media (max-width: 767px) {
+    /* ── Movil: caben trece chips, dos barras de filtros, el semaforo y los
+       indicadores ANTES del primer pedido. En una pantalla de 640px eso son
+       varias pasadas de dedo para llegar a lo unico que se venia a ver.
+       Nada se quita: lo que se apilaba en siete filas ahora se recorre de
+       lado, que es como se navegan las pestanas en un movil. ── */
+
+    /* Los chips en UNA fila que se arrastra. Trece elementos envueltos
+       ocupaban siete renglones; asi ocupan uno. */
+    .orders .ord-chips {
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: none;
+        margin-left: -2px;
+        padding: 2px;
+    }
+    .orders .ord-chips::-webkit-scrollbar { display: none; }
+    .orders .ord-chip {
+        flex: 0 0 auto;
+        /* Mas estrechos: en una fila que se arrastra, cuantos se vean de
+           entrada decide si el operador sabe que hay mas a la derecha. */
+        padding: 5px 11px;
+        font-size: 12.5px;
+    }
+
+    /* El calendario solo cuando se ha pedido «Personalizado». Con un rango
+       rapido puesto no decide nada y se come una fila entera. */
+    .orders .ord-date-range.is-libre { display: none !important; }
+    .orders .ord-date { width: 100%; }
+    .orders .ord-date-sel { flex: 1 1 auto; width: auto; }
+    .orders .ord-date-range { width: 100% !important; max-width: none; }
+
+    /* La franja de prioridad, tambien de lado. */
+    .orders .ord-prio {
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        scrollbar-width: none;
+    }
+    .orders .ord-prio::-webkit-scrollbar { display: none; }
+    .orders .ord-prio-btn,
+    .orders .ord-prio-lbl,
+    .orders .ord-prio-cols { flex: 0 0 auto; }
+    /* `margin-left:auto` empujaria «Columnas» fuera del alcance del dedo en
+       una fila que ya se desplaza. */
+    .orders .ord-prio-cols { margin-left: 0; }
+
+    /* El panel de columnas cabe en una sola lista. */
+    .ord-cols-panel { grid-template-columns: 1fr; max-height: 50vh; }
+    .ord-cols-foot { flex-wrap: wrap; }
+
+    /* Menos aire entre bloques: son seis seguidos. */
+    .orders .ord-chips,
+    .orders .ord-bar,
+    .orders .ord-prio { margin-bottom: 8px; }
+
+    /* El aviso de vencidos en una linea, no en tres. */
+    .orders .ord-overdue {
+        flex-wrap: nowrap;
+        gap: 8px;
+        padding: 7px 10px;
+        font-size: 12px;
+    }
+    .orders .ord-overdue-cta { flex: 0 0 auto; white-space: nowrap; }
+
     .orders .ord-kpis {
         grid-template-columns: repeat(2, 1fr);
     }
