@@ -496,12 +496,22 @@
                     <span class="ord-bulk-count"
                         >{{ selectedIds.length }} seleccionado(s)</span
                     >
-                    <button class="ord-bulk-btn" @click="bulkMarkInvoiced">
-                        <i class="fas fa-check"></i> Marcar boleta (externa)
-                    </button>
-                    <button class="ord-bulk-btn" @click="bulkDownloadLabels">
-                        <i class="fas fa-printer"></i> Descargar rótulos
-                    </button>
+                    <!-- Las dos son EXCLUSIVAS de Saga: la boleta externa la
+                         emite el vendedor en el portal y el rotulo lo genera
+                         Saga. En un negocio que no vende por ahi salian
+                         siempre y no podian funcionar nunca: «Descargar
+                         rotulos» respondia «ningun pedido seleccionado tiene
+                         rotulo disponible» cada vez, porque ninguno era de
+                         Saga. El rotulo de los envios propios se saca con
+                         «Crear lote de impresion», que es el de al lado. -->
+                    <template v-if="haySagaSeleccionado">
+                        <button class="ord-bulk-btn" @click="bulkMarkInvoiced">
+                            <i class="fas fa-check"></i> Marcar boleta (externa)
+                        </button>
+                        <button class="ord-bulk-btn" @click="bulkDownloadLabels">
+                            <i class="fas fa-printer"></i> Rótulos de Saga
+                        </button>
+                    </template>
                     <!-- Lote de impresión desde los pedidos seleccionados: es
                          la operación que antes obligaba a saltar al módulo de
                          Registro de Envíos. -->
@@ -814,8 +824,12 @@
                                         <i class="fas fa-lock"></i> Cambiar
                                     </button>
                                 </div>
+                                <!-- `isMarketplace` cubre TODOS los
+                                     marketplaces, no solo Saga: con el texto
+                                     fijo, un pedido del marketplace propio de
+                                     ebaemy.com decia venir de Saga. -->
                                 <small v-else class="ord-saga-status"
-                                    >Sincronizado desde Saga</small
+                                    >Sincronizado desde {{ marketplaceLabel(row) }}</small
                                 >
                             </div>
                         </td>
@@ -3449,6 +3463,11 @@ export default {
             return grupos;
         },
 
+        /** ¿Alguno de los seleccionados es de Saga? */
+        haySagaSeleccionado() {
+            return this.selectedRows().some(r => this.isSagaOrder(r));
+        },
+
         /** Nombre de la fecha que se esta mirando, para el aviso de la barra. */
         etiquetaDateType() {
             const opt = this.dateTypeOptions.find(o => o.value === this.dateType);
@@ -3777,7 +3796,8 @@ export default {
             var rows = this.selectedRows().filter(r => this.canDownloadLabel(r));
             if (!rows.length) {
                 return this.$message.warning(
-                    "Ningún pedido seleccionado tiene rótulo disponible."
+                    "Ninguno de los pedidos de Saga seleccionados está todavía "
+                        + "listo para despacho, que es cuando Saga genera el rótulo."
                 );
             }
             rows.forEach(r => this.downloadLabel(r));
