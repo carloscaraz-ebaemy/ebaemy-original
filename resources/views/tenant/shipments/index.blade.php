@@ -996,12 +996,21 @@
                                 <span class="badge" style="background:#f3e8ff;color:#7c3aed;">🏍️ Domicilio</span>
                                 @if($s->distance_km)<div><small class="fw-bold" style="color:#3730a3;">🛵 {{ $s->distance_text ?: ($s->distance_km.' km') }}@if($s->duration_text) · ~{{ $s->duration_text }}@endif</small></div>@endif
                                 <div>
+                                    {{-- Anulado: la tarifa se sigue leyendo —hace falta
+                                         para consultar el historico— pero deja de ser un
+                                         boton. --}}
+                                    @if($s->is_cancelled)
+                                        <span class="fw-bold text-muted" style="font-size:.8rem;">
+                                            {{ $s->is_free_shipping ? '🎁' : '💵' }} {{ $s->priceLabel() ?: 'Sin precio' }}
+                                        </span>
+                                    @else
                                     <button type="button" class="btn btn-link btn-sm p-0 fw-bold text-success js-edit-price" style="text-decoration:none;font-size:.8rem;"
                                             data-bs-toggle="modal" data-bs-target="#modalPrecio"
                                             data-id="{{ $s->id }}" data-code="{{ $s->shipment_code }}" data-price="{{ $s->delivery_price }}">
                                         {{ $s->is_free_shipping ? '🎁' : '💵' }} {{ $s->priceLabel() ?: 'Poner precio' }}
                                         <i class="fas fa-pen ms-1" style="font-size:.65rem;opacity:.6;"></i>
                                     </button>
+                                    @endif
                                 </div>
                                 @if($s->maps_link)
                                     <div class="mt-1"><a href="{{ $s->maps_link }}" target="_blank" class="small text-decoration-none"><i class="fas fa-map-marker-alt me-1"></i>Ver ubicación</a></div>
@@ -1235,6 +1244,9 @@
                                             </a>
                                         @endif
                                     </li>
+                                    {{-- Un envio anulado se consulta, no se
+                                         edita. «Ver» sigue disponible. --}}
+                                    @if(!$s->is_cancelled)
                                     <li>
                                         <button type="button" class="dropdown-item js-edit-shipment"
                                                 data-bs-toggle="modal" data-bs-target="#modalEditar"
@@ -1272,6 +1284,7 @@
                                             <i class="fas fa-pen fa-fw me-2"></i> Editar
                                         </button>
                                     </li>
+                                    @endif
                                     {{-- ── Modalidad de entrega: flujo propio con cascada y auditoría ── --}}
                                     @if(!$s->is_cancelled)
                                     <li><hr class="dropdown-divider"></li>

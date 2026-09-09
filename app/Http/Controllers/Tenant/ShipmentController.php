@@ -826,6 +826,10 @@ class ShipmentController extends Controller
      */
     public function uploadGuide(Request $request, ShippingRequest $shipment): RedirectResponse
     {
+        if ($bloqueo = $this->blockIfCancelled($shipment, $request)) {
+            return $bloqueo;
+        }
+
         if ($this->paymentBlocks($shipment)) {
             return back()->with('error', "Confirma primero el pago de {$shipment->shipment_code} para subir la guía.");
         }
@@ -865,8 +869,41 @@ class ShipmentController extends Controller
     }
 
     /** Cambiar el estado del paquete (preparando / listo / entregado / …). */
+    /**
+     * Un envio anulado es historia: se consulta, no se opera.
+     *
+     * Siete endpoints de modificacion no lo comprobaban —editar, estado,
+     * modalidad, precio, monto, guia y quitar de lote—: la pantalla dejaba de
+     * ofrecer los botones, pero una peticion directa entraba igual y dejaba el
+     * envio anulado con datos nuevos. Restaurar (`restore`) es la unica salida,
+     * y tiene su propia comprobacion.
+     *
+     * Devuelve `null` cuando se puede seguir; si no, la respuesta a devolver.
+     * En AJAX se responde 422 con el motivo y en el panel se vuelve con el
+     * aviso, que es como se comporta el resto del modulo.
+     */
+    private function blockIfCancelled(ShippingRequest $shipment, Request $request = null)
+    {
+        if (!$shipment->is_cancelled) {
+            return null;
+        }
+
+        $msg = "El envio {$shipment->shipment_code} esta anulado. "
+             . 'Restauralo para poder modificarlo.';
+
+        if ($request && $request->expectsJson()) {
+            return response()->json(['success' => false, 'message' => $msg], 422);
+        }
+
+        return back()->with('error', $msg);
+    }
+
     public function updateStatus(Request $request, ShippingRequest $shipment): RedirectResponse
     {
+        if ($bloqueo = $this->blockIfCancelled($shipment, $request)) {
+            return $bloqueo;
+        }
+
         if ($this->paymentBlocks($shipment)) {
             return back()->with('error', "Confirma primero el pago de {$shipment->shipment_code} para cambiar su estado.");
         }
@@ -975,6 +1012,10 @@ class ShipmentController extends Controller
      */
     public function changeModality(Request $request, ShippingRequest $shipment): RedirectResponse
     {
+        if ($bloqueo = $this->blockIfCancelled($shipment, $request)) {
+            return $bloqueo;
+        }
+
         $request->validate([
             'delivery_type' => ['required', Rule::in(array_keys(ShippingRequest::DELIVERY_TYPES))],
             'reason'        => ['nullable', 'string', 'max:255'],
@@ -1209,6 +1250,10 @@ class ShipmentController extends Controller
 
     public function update(Request $request, ShippingRequest $shipment): RedirectResponse
     {
+        if ($bloqueo = $this->blockIfCancelled($shipment, $request)) {
+            return $bloqueo;
+        }
+
         $data = $this->validateShipment($request);
 
         // La modalidad NO se cambia por aquí: tiene su propio flujo con
@@ -1269,6 +1314,10 @@ class ShipmentController extends Controller
     /** Editar manualmente el precio del envío (el encargado ajusta la estimación). */
     public function updatePrice(Request $request, ShippingRequest $shipment): RedirectResponse
     {
+        if ($bloqueo = $this->blockIfCancelled($shipment, $request)) {
+            return $bloqueo;
+        }
+
         $this->normalizeMoneyInput($request, ['delivery_price']);
 
         $data = $request->validate([
@@ -1394,6 +1443,10 @@ class ShipmentController extends Controller
      */
     public function updateAmountDue(Request $request, ShippingRequest $shipment)
     {
+        if ($bloqueo = $this->blockIfCancelled($shipment, $request)) {
+            return $bloqueo;
+        }
+
         $data = $request->validate([
             'amount_due' => ['present', 'nullable', 'numeric', 'min:0', 'max:9999999'],
         ], [], ['amount_due' => 'monto a cobrar']);
@@ -2152,6 +2205,10 @@ class ShipmentController extends Controller
     /** Retira un envío de un lote todavía abierto. */
     public function removeFromBatch(ShippingRequest $shipment): RedirectResponse
     {
+        if ($bloqueo = $this->blockIfCancelled($shipment)) {
+            return $bloqueo;
+        }
+
         [$ok, $msg] = (new ShippingBatchService())->removeFromBatch($shipment);
 
         return back()->with($ok ? 'success' : 'error', $msg);
