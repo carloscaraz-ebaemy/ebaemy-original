@@ -454,7 +454,11 @@ class OrderCollection extends ResourceCollection
 
         // Un envío anulado no representa la entrega vigente del pedido: para el
         // listado el pedido vuelve a estar "sin envío configurado".
-        if (!$s || $s->cancelled_at) {
+        // `is_cancelled` cubre los dos criterios: los envios anulados antes de
+        // que existiera `cancelled_at` tienen la fecha NULL y solo el `status`
+        // lo delata. Mirando solo la fecha, doce envios anulados salian en el
+        // listado como la entrega vigente del pedido.
+        if (!$s || $s->is_cancelled) {
             return null;
         }
 

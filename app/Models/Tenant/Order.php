@@ -193,7 +193,7 @@
         public function activeShipment()
         {
             return $this->hasOne(ShippingRequest::class, 'order_id')
-                        ->ofMany(['id' => 'max'], fn($q) => $q->whereNull('cancelled_at'));
+                        ->ofMany(['id' => 'max'], fn($q) => $q->vigente());
         }
 
         /** Todos los registros logísticos, incluidos los anulados (historial). */

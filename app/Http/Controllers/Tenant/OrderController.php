@@ -832,7 +832,7 @@ class OrderController extends Controller
         }
 
         return $query->whereHas('shipments', function ($s) use ($constraint) {
-            $s->whereNull('cancelled_at');
+            $s->vigente();
             $constraint($s);
         });
     }
@@ -848,7 +848,7 @@ class OrderController extends Controller
             return $query;
         }
 
-        return $query->whereDoesntHave('shipments', fn($s) => $s->whereNull('cancelled_at'));
+        return $query->whereDoesntHave('shipments', fn($s) => $s->vigente());
     }
 
     /**
@@ -903,8 +903,8 @@ class OrderController extends Controller
                 // pedido pagado: no hay estado logistico que lo descarte.
                 if (ShippingRequest::moduleInstalled()) {
                     $query->where(function ($w) {
-                        $w->whereDoesntHave('shipments', fn($s) => $s->whereNull('cancelled_at'))
-                          ->orWhereHas('shipments', fn($s) => $s->whereNull('cancelled_at')
+                        $w->whereDoesntHave('shipments', fn($s) => $s->vigente())
+                          ->orWhereHas('shipments', fn($s) => $s->vigente()
                               ->whereIn('status', [
                                   ShippingRequest::STATUS_RECIBIDO,
                                   ShippingRequest::STATUS_CONFIRMADO,
@@ -1034,7 +1034,7 @@ class OrderController extends Controller
             'vencidos'      => $this->contarPorAntiguedad($base, 'vencidos'),
             'nuevos'        => ShippingRequest::moduleInstalled()
                 ? (clone $base)->whereHas('shipments', fn($s) => $s
-                    ->whereNull('cancelled_at')
+                    ->vigente()
                     ->whereIn('status', [ShippingRequest::STATUS_RECIBIDO, 'pendiente']))->count()
                 : 0,
             'entregados'    => $enEstados([6]),
@@ -1086,7 +1086,7 @@ class OrderController extends Controller
         $idsFiltrados = (clone $base)->reorder()->select('orders.id');
 
         $conEnvio = ShippingRequest::query()
-            ->whereNull('cancelled_at')
+            ->vigente()
             ->whereIn('order_id', $idsFiltrados)
             ->selectRaw('status as estado, delivery_type as modalidad,
                          COUNT(DISTINCT order_id) as total,

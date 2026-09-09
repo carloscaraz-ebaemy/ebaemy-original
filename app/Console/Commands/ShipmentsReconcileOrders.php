@@ -128,7 +128,7 @@ class ShipmentsReconcileOrders extends Command
         // significaría perder su bitácora y sus rótulos.
         $duplicates = ShippingRequest::query()
             ->whereNotNull('order_id')
-            ->whereNull('cancelled_at')
+            ->vigente()
             ->selectRaw('order_id, COUNT(*) as total')
             ->groupBy('order_id')
             ->havingRaw('COUNT(*) > 1')
@@ -138,7 +138,7 @@ class ShipmentsReconcileOrders extends Command
 
         foreach ($duplicates as $dup) {
             $codes = ShippingRequest::where('order_id', $dup->order_id)
-                ->whereNull('cancelled_at')
+                ->vigente()
                 ->pluck('shipment_code', 'id')
                 ->map(fn($c, $id) => ($c ?: "#$id"))
                 ->implode(', ');
@@ -223,7 +223,7 @@ class ShipmentsReconcileOrders extends Command
             ->whereBetween('created_at', [$from, $to])
             ->where('status_order_id', '!=', 5)   // los cancelados no reciben envíos
             // El envío ya vinculado a otro pedido no vuelve a estar disponible.
-            ->whereDoesntHave('shipments', fn($s) => $s->whereNull('cancelled_at'))
+            ->whereDoesntHave('shipments', fn($s) => $s->vigente())
             ->where(function ($w) use ($doc, $phone) {
                 if ($doc !== '')   $w->orWhere('customer', 'like', "%{$doc}%");
                 if ($phone !== '') $w->orWhere('customer', 'like', "%{$phone}%");

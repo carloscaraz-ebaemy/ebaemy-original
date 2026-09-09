@@ -31,7 +31,7 @@ class OrderShipmentLinker
     public function current(Order $order): ?ShippingRequest
     {
         return ShippingRequest::where('order_id', $order->id)
-            ->whereNull('cancelled_at')
+            ->vigente()
             ->latest('id')
             ->first();
     }

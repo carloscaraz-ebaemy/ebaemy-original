@@ -258,7 +258,7 @@ class ShipmentController extends Controller
         $orderIds = collect($orderIds)->map(fn($x) => (int) trim($x))->filter()->unique()->take(200);
 
         $shipments = ShippingRequest::whereIn('order_id', $orderIds)
-            ->whereNull('cancelled_at')
+            ->vigente()
             ->pluck('id', 'order_id');
 
         // Los pedidos sin envío no pueden entrar a un lote: no hay a qué
@@ -777,7 +777,7 @@ class ShipmentController extends Controller
         // anular, esto es un realta accidental y se actualiza el que existe.
         if ($orderId = $request->input('order_id')) {
             $delPedido = ShippingRequest::where('order_id', $orderId)
-                                        ->whereNull('cancelled_at')->first();
+                                        ->vigente()->first();
             if ($delPedido) {
                 return $this->update($request, $delPedido);
             }

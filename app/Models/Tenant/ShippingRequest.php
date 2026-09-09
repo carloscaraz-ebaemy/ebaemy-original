@@ -781,7 +781,27 @@ class ShippingRequest extends Model
     /** ¿Está anulado? */
     public function getIsCancelledAttribute(): bool
     {
-        return $this->status === self::STATUS_ANULADO;
+        return $this->status === self::STATUS_ANULADO || $this->cancelled_at !== null;
+    }
+
+    /**
+     * Envios que siguen contando como la entrega vigente.
+     *
+     * Habia DOS criterios de anulado conviviendo: el accesor miraba `status` y
+     * las consultas del pedido —`OrderShipmentLinker::current()` y el payload
+     * del listado— miraban `cancelled_at`. Los envios anulados ANTES de que
+     * existiera esa columna tienen `status = anulado` con `cancelled_at` NULL,
+     * asi que para el panel de Pedidos seguian siendo el envio vigente: salian
+     * con todas sus acciones disponibles pese a estar anulados. Doce casos
+     * reales en produccion, los doce con pedido.
+     *
+     * Cualquier consulta que pregunte «cual es el envio de este pedido» debe
+     * pasar por aqui.
+     */
+    public function scopeVigente($query)
+    {
+        return $query->whereNull('cancelled_at')
+                     ->where('status', '!=', self::STATUS_ANULADO);
     }
 
     /** Tipos de documento aceptados en el registro. */
