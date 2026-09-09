@@ -6,7 +6,6 @@
         top="5vh"
         width="70%"
         @close="cerrar"
-        @open="abrir"
     >
         <div v-if="problemas.length" class="mo-alert">
             <strong>{{ editando ? "No se pudo guardar:" : "No se pudo crear el pedido:" }}</strong>
@@ -242,6 +241,29 @@ export default {
         // null = alta. Con id, el mismo formulario edita ese pedido: es la
         // misma informacion y separarlos daria dos pantallas que divergen.
         orderId: { type: Number, default: null },
+    },
+    watch: {
+        /**
+         * Sustituye al evento `@open` del dialogo, que aqui NO se disparaba.
+         *
+         * «Editar pedido» cambia `manualOrderId` y `showManualDialog` en el
+         * mismo tick. Como el componente lleva `:key="manualOrderId"`, Vue lo
+         * REMONTA, y el dialogo nace con `visible` ya en true. Element UI emite
+         * `open` unicamente desde el watcher de `visible` —su `mounted()` llama
+         * al metodo interno `open()`, que abre el overlay pero no emite nada—,
+         * y un watcher sin `immediate` no corre cuando el valor nace true.
+         *
+         * Resultado: `abrir()` no se ejecutaba, y con el ni la carga de canales
+         * ni `cargar()`. El formulario salia en blanco. Con «Nuevo pedido» no
+         * pasaba porque ahi el componente ya estaba montado y `visible` SI
+         * cambiaba de false a true.
+         */
+        showDialog: {
+            immediate: true,
+            handler(val) {
+                if (val) this.abrir();
+            },
+        },
     },
     data() {
         return {
