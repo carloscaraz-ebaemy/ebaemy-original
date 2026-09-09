@@ -780,7 +780,7 @@
                                             @change="updateStatus(row)"
                                         >
                                             <el-option
-                                                v-for="item in options"
+                                                v-for="item in estadosPosibles(row)"
                                                 :key="item.id"
                                                 :label="etiquetaOperativa(item.id)"
                                                 :value="item.id"
@@ -798,7 +798,7 @@
                                         v-else
                                         class="ord-lock-btn"
                                         title="Desbloquear para cambiar el estado"
-                                        @click="editingStatusId = row.id"
+                                        @click="abrirEstado(row)"
                                     >
                                         <i class="fas fa-lock"></i> Cambiar
                                     </button>
@@ -3131,6 +3131,9 @@ export default {
             options: [],
             // Id del pedido cuyo estado está desbloqueado para editar (candado).
             editingStatusId: null,
+            // Estado del pedido antes de tocar el desplegable, para devolverlo
+            // si el servidor rechaza el cambio.
+            estadoPrevio: null,
             // Chips de filtro rápido (estilo Saga).
             mpFilter: "all",
             // Evita mezclar la cola de facturacion de Saga con pedidos propios.
@@ -5347,6 +5350,34 @@ export default {
             this.dataSaleNote = sale_note;
             this.showDialogSaleNote = true;
         },
+        /**
+         * Estados a los que ESTE pedido puede pasar, mas el suyo actual.
+         *
+         * `allowed_status` lo manda el servidor desde OrderPolicy, que es
+         * quien decide. Antes se ofrecia el catalogo entero: el operador
+         * elegia «Enviado» estando en «Listo para preparar» y recibia un 422
+         * seco, porque el flujo obliga a pasar por «En preparacion».
+         *
+         * Si un pedido viejo llega sin el campo se ofrece todo, como antes:
+         * es mejor un 422 ocasional que un desplegable vacio que no deja
+         * mover nada.
+         */
+        estadosPosibles(row) {
+            const permitidos = row.allowed_status;
+            if (!Array.isArray(permitidos)) return this.options;
+
+            const actual = Number(row.status_order_id);
+            return this.options.filter(
+                o => Number(o.id) === actual || permitidos.includes(Number(o.id))
+            );
+        },
+
+        /** Abre el candado recordando donde estaba, para poder deshacer. */
+        abrirEstado(row) {
+            this.estadoPrevio = Number(row.status_order_id);
+            this.editingStatusId = row.id;
+        },
+
         async updateStatus(record) {
             this.record = record;
             // Re-bloquea (candado) tras intentar el cambio.
@@ -5397,7 +5428,16 @@ export default {
                     // Sin este catch, un fallo se veia igual que un exito: no
                     // pasaba nada en pantalla y el pago quedaba sin registrar.
                     this.$message.error(this.describeError(error) || 'No se pudo actualizar el pedido');
-                });
+
+                    // El desplegable escribe en la fila ANTES de preguntar al
+                    // servidor. Si este dice que no, la pantalla se quedaba
+                    // mostrando el estado nuevo sobre un pedido que seguia en
+                    // el viejo, y solo recargar lo delataba.
+                    if (this.record && this.estadoPrevio !== null) {
+                        this.record.status_order_id = this.estadoPrevio;
+                    }
+                })
+                .then(() => { this.estadoPrevio = null; });
         },
 
         /**

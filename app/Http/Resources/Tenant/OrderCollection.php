@@ -179,6 +179,14 @@ class OrderCollection extends ResourceCollection
                 'document_external_id' => $row->document_external_id,
                 'created_at'           => $row->created_at->format('Y-m-d H:i:s'),
                 'status_order_id'      => $row->status_order_id,
+                // A que estados puede ir ESTE pedido. Sale del mapa del
+                // OrderPolicy, que es quien decide de verdad: el desplegable
+                // ofrecia el catalogo entero y elegir un salto invalido
+                // —«listo para preparar» directo a «enviado»— devolvia un 422
+                // que el operador no tenia forma de prever.
+                'allowed_status'       => array_values(
+                    \App\Policies\OrderPolicy::ALLOWED_TRANSITIONS[(int) $row->status_order_id] ?? []
+                ),
                 'status_description'   => optional($row->status_order)->description ?? '',
                 'purchase'             => $row->purchase,
                 'document_type_id'     => optional($row->purchase)->codigo_tipo_documento,
