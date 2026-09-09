@@ -1235,6 +1235,7 @@
             :resource="paymentsResource"
             :foreignKey="paymentsForeignKey"
             :fileType="paymentsFileType"
+            :referenceRequired="paymentsResource === 'shipment_payments'"
             :title="paymentsTitle"
             @updated="onPaymentsUpdated"
         ></record-payments>

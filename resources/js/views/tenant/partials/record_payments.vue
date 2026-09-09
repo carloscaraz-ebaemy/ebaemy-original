@@ -41,7 +41,7 @@
           <thead>
             <tr>
               <th>#</th><th>Fecha de pago</th><th>Método de pago</th><th>Destino</th>
-              <th>Referencia</th><th>Archivo</th>
+              <th>Referencia<span v-if="referenceRequired" class="rp-req"> *</span></th><th>Archivo</th>
               <th class="text-right">Monto</th><th></th>
             </tr>
           </thead>
@@ -86,7 +86,17 @@
                 </el-select>
               </td>
               <td data-label="Referencia">
-                <el-input v-model="newRow.reference" size="small" placeholder="Operación"></el-input>
+                <!-- En un envio la referencia es la clave anti-duplicados:
+                     sin ella no se puede detectar el mismo voucher cargado dos
+                     veces, y por eso el servidor la exige. En nota de venta es
+                     opcional. Antes el campo se veia igual en los dos casos y
+                     el operador solo se enteraba al guardar. -->
+                <el-input
+                  v-model="newRow.reference"
+                  size="small"
+                  :class="{ 'rp-falta': referenceRequired && faltaReferencia }"
+                  :placeholder="referenceRequired ? 'N° de operación (obligatorio)' : 'Operación'"
+                ></el-input>
               </td>
               <td data-label="Archivo">
                 <el-upload
@@ -198,6 +208,13 @@
     .rp-table tfoot td { display: block; width: auto; padding: 0; }
     .rp-table tfoot td:last-child { display: none; }
 }
+
+/* Referencia obligatoria (cobro de envio). */
+.rp-req { color: #dc2626; font-weight: 700; }
+.rp-falta .el-input__inner {
+  border-color: #dc2626;
+  background: #fef2f2;
+}
 </style>
 
 <script>
@@ -223,6 +240,9 @@ export default {
     // Carpeta donde el backend guarda el adjunto; la necesita el link de
     // descarga (/finances/payment-file/download-file/{archivo}/{tipo}).
     fileType: { type: String, required: true },
+    // El cobro de un envio exige el codigo de operacion; el de una nota de
+    // venta no. Lo decide quien abre el panel, no el panel.
+    referenceRequired: { type: Boolean, default: false },
     title: { type: String, default: 'Pagos del pedido' }
   },
   data() {
@@ -233,6 +253,8 @@ export default {
       headers: (typeof headers_token !== 'undefined') ? headers_token : {},
       loading: true,
       saving: false,
+      // Marca el campo en rojo tras un intento sin referencia.
+      faltaReferencia: false,
       savingAmount: false,
       summary: { total: 0, amount_to_collect: 0, total_paid: 0, total_difference: 0, has_manual_amount: false },
       records: [],
@@ -331,6 +353,17 @@ export default {
       }
     },
     submit() {
+      // Se comprueba aqui ademas de en el servidor: el viaje solo para que
+      // rebote deja al operador mirando un error sobre un campo que en esta
+      // misma pantalla parecia opcional.
+      if (this.referenceRequired && !String(this.newRow.reference || '').trim()) {
+        this.faltaReferencia = true;
+        return this.$message.warning(
+          'Indica el número de operación: es lo que permite detectar el mismo voucher cargado dos veces.'
+        );
+      }
+      this.faltaReferencia = false;
+
       this.saving = true;
       const payload = Object.assign({}, this.newRow);
       payload[this.foreignKey] = this.recordId;
