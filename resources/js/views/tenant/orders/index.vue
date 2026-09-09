@@ -629,6 +629,22 @@
                             <div class="ord-o-fecha" :title="row.created_at">
                                 {{ fechaCorta(row.created_at) }}
                             </div>
+                            <!-- Cuanto lleva esperando. En Envios se lee
+                                 «3 d hab · Urgente» debajo de la fecha; aqui
+                                 existia solo como un punto de color sin
+                                 numero, y habia que posar el raton en el para
+                                 saber de cuantos dias hablaba. El plazo es en
+                                 dias HABILES, como el del modulo: un pedido
+                                 del viernes no esta vencido el lunes. -->
+                            <div
+                                v-if="antiguedad(row)"
+                                class="ord-o-edad"
+                                :style="antiguedad(row).estilo"
+                                :title="antiguedad(row).titulo"
+                            >
+                                <span class="ord-o-edad-dot" :style="{ background: antiguedad(row).color }"></span>
+                                {{ antiguedad(row).texto }}
+                            </div>
                             <!-- La caja MUESTRA el contenido al posarse en la
                                  fila, y ademas abre la edicion para tocarlo:
                                  agregar un producto era ir al menu, buscar
@@ -884,17 +900,6 @@
                                         :title="modalidadEnvio(row).titulo"
                                         >{{ modalidadEnvio(row).texto }}</span
                                     >
-                                    <span
-                                        v-if="row.shipment.aging_meta"
-                                        class="ord-st-dot"
-                                        :style="{ background: row.shipment.aging_meta.color }"
-                                        :title="
-                                            row.shipment.aging_meta.label +
-                                            ' · ' +
-                                            row.shipment.aging_days +
-                                            ' día(s) hábil(es)'
-                                        "
-                                    ></span>
                                     <!-- Sin este aviso, el operador descubre que
                                          faltan datos recien al intentar rotular. -->
                                     <i
@@ -1751,6 +1756,23 @@
 .ord-o-nodoc {
     color: #b45309;
 }
+.ord-o-edad {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    margin-top: 3px;
+    padding: 1px 7px;
+    border-radius: 999px;
+    font-size: 10.5px;
+    font-weight: 700;
+    white-space: nowrap;
+}
+.ord-o-edad-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    flex: none;
+}
 .ord-o-fecha {
     color: #94a3b8;
     font-size: 11px;
@@ -2183,12 +2205,6 @@
     align-items: center;
     gap: 5px;
     max-width: 100%;
-}
-.ord-st-dot {
-    width: 7px;
-    height: 7px;
-    border-radius: 50%;
-    flex: 0 0 auto;
 }
 /* Destino del envio. Se recorta: el ancho lo manda la columna, no el
    nombre de la agencia. El completo va en el tooltip. */
@@ -5650,6 +5666,32 @@ export default {
         editarProductos(row) {
             if (!this.puedeEditarLineas(row)) return;
             this.editarPedido(row.id);
+        },
+
+        /**
+         * Cuanto lleva esperando el pedido, listo para pintar.
+         *
+         * Sale del envio, que es quien tiene el plazo y el semaforo ya
+         * resueltos en PHP con los dias habiles de la tienda. `aging_meta` es
+         * null cuando el reloj ya paro —entregado, anulado— y entonces no se
+         * muestra nada: un contador que sigue corriendo en un pedido cerrado
+         * es ruido.
+         */
+        antiguedad(row) {
+            const s = row.shipment;
+            if (!s || !s.aging_meta || s.aging_days === null || s.aging_days === undefined) {
+                return null;
+            }
+
+            const m = s.aging_meta;
+
+            return {
+                texto: s.aging_days + " d háb · " + m.label,
+                color: m.color,
+                titulo: m.label + " · " + s.aging_days
+                    + " día(s) hábil(es) desde que entró el pedido",
+                estilo: { color: m.color, background: m.bg },
+            };
         },
 
         esAnulado(row) {
