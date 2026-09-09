@@ -566,7 +566,8 @@
                         slot-scope="{ index, row }"
                         :class="{
                             'ord-peek-on': peek.id === row.id,
-                            'ord-row-void': Number(row.status_order_id) === 5
+                            'ord-row-void': Number(row.status_order_id) === 5,
+                            'ord-row-done': esEntregado(row)
                         }"
                         @mouseenter="asomarPaquete(row, $event)"
                         @mouseleave="ocultarPaquete"
@@ -866,7 +867,15 @@
                                 >
                                     {{ destinoEnvio(row) }}
                                 </div>
-                                <div class="ord-sh-est" :title="envioTitulo(row)">
+                                <!-- Cada etapa con su color. En gris para
+                                     todas, «Empacado» y «Entregado» se leian
+                                     igual y habia que pararse a leer la fila
+                                     para saber si quedaba trabajo. -->
+                                <div
+                                    class="ord-sh-est"
+                                    :class="'is-' + faseEnvio(row.shipment.status)"
+                                    :title="envioTitulo(row)"
+                                >
                                     {{ row.shipment.status_label }}
                                 </div>
                             </template>
@@ -1090,7 +1099,7 @@
                                     </el-dropdown-item>
 
                                     <el-dropdown-item
-                                        v-if="row.shipment"
+                                        v-if="row.shipment && !esEntregado(row)"
                                         command="cancelShipment"
                                     >
                                         <i class="el-icon-close"></i>
@@ -1146,7 +1155,7 @@
                                          tiene envio: el rotulo es del envio, no
                                          del pedido. -->
                                     <el-dropdown-item
-                                        v-if="row.shipment && !esAnulado(row)"
+                                        v-if="row.shipment && !esAnulado(row) && !esEntregado(row)"
                                         command="label"
                                         :disabled="!!row.shipment.print_block"
                                     >
@@ -1201,7 +1210,7 @@
                                          formulario público suelto: llega al
                                          pedido, no crea uno nuevo. -->
                                     <el-dropdown-item
-                                        v-if="!esAnulado(row)"
+                                        v-if="!esAnulado(row) && !esEntregado(row)"
                                         command="shippingLink"
                                         divided
                                     >
@@ -1946,6 +1955,24 @@
    pequeno se pierde y se sigue operando sobre un pedido que ya no existe.
    Se apaga la fila entera pero NO se oculta —hace falta consultarla— y el
    chip se queda a plena opacidad, que es lo que explica por que esta gris. */
+/* Entregado: proceso terminado. A diferencia del anulado NO se apaga —una
+   entrega es un exito, no un descarte— pero se marca el final con una linea
+   verde a la izquierda y un fondo apenas teñido, para que en un listado se
+   distinga de un vistazo lo que todavia espera trabajo. */
+.orders tr.ord-row-done > td {
+    background: #f6fdf9;
+}
+.orders tr.ord-row-done > td:first-child {
+    box-shadow: inset 3px 0 0 #86c79a;
+}
+
+/* Etapa del envio. */
+.ord-sh-est.is-work    { color: #b45309; }
+.ord-sh-est.is-transit { color: #1e40af; }
+.ord-sh-est.is-wait    { color: #7c3aed; }
+.ord-sh-est.is-done    { color: #15803d; font-weight: 600; }
+.ord-sh-est.is-void    { color: #94a3b8; text-decoration: line-through; }
+
 .orders tr.ord-row-void > td {
     opacity: 0.55;
     background: #fafafa;
@@ -3597,6 +3624,20 @@ export default {
             if (this.esAnulado(row) && soloLectura.indexOf(cmd) !== -1) {
                 return this.$message.warning(
                     "El pedido está anulado: solo se puede consultar."
+                );
+            }
+
+            // Entregado no es lo mismo que anulado: el pedido existio y se
+            // cumplio, asi que se consultan sus documentos y sus cobros. Lo
+            // que no tiene sentido es la operativa de un paquete que ya esta
+            // en manos del cliente.
+            const trasEntrega = [
+                "label", "sagaLabel", "shippingLink", "edit",
+                "uploadGuide", "cancelShipment", "deliverPickup",
+            ];
+            if (this.esEntregado(row) && trasEntrega.indexOf(cmd) !== -1) {
+                return this.$message.warning(
+                    "El pedido ya se entregó: esa acción ya no aplica."
                 );
             }
 
@@ -5499,6 +5540,37 @@ export default {
                         this.describeError(error) || "No se pudo marcar como entregado."
                     );
                 });
+        },
+
+        /**
+         * Entregado = el pedido llego a su destino.
+         *
+         * Se mira el PEDIDO y no el envio: es el que manda —el encargo
+         * logistico sin productos tambien se entrega— y ademas
+         * `OrderShipmentLinker` ya sincroniza el estado 6 en cuanto el envio
+         * pasa a entregado, asi que preguntarle al envio seria dar un rodeo
+         * para llegar al mismo sitio.
+         */
+        esEntregado(row) {
+            return Number(row.status_order_id) === 6;
+        },
+
+        /**
+         * Etapa del envio, para pintarla. Agrupa los trece estados en las
+         * cinco fases que le importan al operador: lo que espera trabajo, lo
+         * que ya salio, lo que espera al cliente, lo cerrado y lo anulado.
+         */
+        faseEnvio(status) {
+            if (status === "anulado") return "void";
+            if (status === "entregado") return "done";
+            if (status === "listo_recojo") return "wait";
+            if (
+                ["despachado", "en_agencia", "en_ruta", "en_camino", "asignado_motorizado"]
+                    .indexOf(status) !== -1
+            ) {
+                return "transit";
+            }
+            return "work";
         },
 
         esAnulado(row) {
