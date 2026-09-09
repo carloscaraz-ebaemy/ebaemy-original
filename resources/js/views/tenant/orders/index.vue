@@ -1106,6 +1106,20 @@
                                         Anular envío
                                     </el-dropdown-item>
 
+                                    <!-- Documentos, en una sola entrada. Antes
+                                         habia TRES de emision aqui (nota de
+                                         venta, comprobante y guia de remision)
+                                         que ya vivian dentro de este panel, con
+                                         mas contexto del que cabe en una linea
+                                         de menu: que corresponde emitir, que
+                                         esta bloqueado y por que. El panel solo
+                                         se abria desde los chips de la columna
+                                         «Docs», que no todo el mundo descubre. -->
+                                    <el-dropdown-item command="documents">
+                                        <i class="el-icon-folder-opened"></i>
+                                        Documentos
+                                    </el-dropdown-item>
+
                                     <el-dropdown-item command="payments">
                                         <i class="el-icon-wallet"></i>
                                         Pagos del pedido
@@ -1126,30 +1140,8 @@
                                          `OrderDocuments` dice que se pueden
                                          emitir: la fila no repite las reglas de
                                          SUNAT, las consulta. -->
-                                    <el-dropdown-item
-                                        v-if="puedeEmitir(row, 'nota_venta')"
-                                        command="emitSaleNote"
-                                        divided
-                                    >
-                                        <i class="el-icon-tickets"></i>
-                                        Emitir nota de venta
-                                    </el-dropdown-item>
 
-                                    <el-dropdown-item
-                                        v-if="puedeEmitirComprobante(row)"
-                                        command="emitDocument"
-                                    >
-                                        <i class="el-icon-document-checked"></i>
-                                        Emitir {{ nombreComprobante(row) }}
-                                    </el-dropdown-item>
 
-                                    <el-dropdown-item
-                                        v-if="puedeEmitir(row, 'guia')"
-                                        command="dispatchGuide"
-                                    >
-                                        <i class="el-icon-truck"></i>
-                                        Generar guía de remisión
-                                    </el-dropdown-item>
 
                                     <!-- Rotulado. Se ofrece solo si el pedido
                                          tiene envio: el rotulo es del envio, no
@@ -3618,8 +3610,7 @@ export default {
             // pedido que ya no existe.
             const soloLectura = [
                 "invoice", "upload", "markExternal", "label", "sagaLabel",
-                "shippingLink", "edit", "emitSaleNote", "emitDocument",
-                "dispatchGuide", "uploadGuide", "cancelShipment",
+                "shippingLink", "edit", "uploadGuide", "cancelShipment",
             ];
             if (this.esAnulado(row) && soloLectura.indexOf(cmd) !== -1) {
                 return this.$message.warning(
@@ -3643,6 +3634,7 @@ export default {
 
             const acciones = {
                 ver: () => this.verPedido(row),
+                documents: () => this.abrirDocumentos(row),
                 deliverPickup: () => this.entregarEnTienda(row),
                 invoice: () => this.generateInvoice(row),
                 upload: () => this.uploadInvoice(row),
@@ -3658,11 +3650,11 @@ export default {
                 verifyPayments: () => this.verificarCobros(row),
                 shipment: () => this.openShipment(row),
                 restoreShipment: () => this.restaurarEnvio(row),
-                // Documentos del pedido (Fase D). Ninguna de las tres emite
-                // aqui: reenvian a los servicios y pantallas que ya existen.
-                emitSaleNote: () => this.emitirNotaVenta(row),
-                emitDocument: () => this.emitirComprobante(row),
-                dispatchGuide: () => this.generarGuiaRemision(row),
+                // Emitir nota de venta, comprobante y guia de remision ya no
+                // se despachan desde aqui: el panel de documentos llama a
+                // `emitirNotaVenta`, `emitirComprobante` y
+                // `generarGuiaRemision` por evento, que son los mismos metodos.
+                // Los metodos siguen vivos; lo que se fue es la entrada de menu.
                 // OJO: `label` (rotulo del envio) y `sagaLabel` (hoja de
                 // despacho de Saga) son acciones DISTINTAS. Estaban las dos
                 // bajo la clave `label`, y en un objeto literal la segunda
