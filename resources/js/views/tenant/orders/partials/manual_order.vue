@@ -70,7 +70,11 @@
         </div>
 
         <!-- ── Productos ─────────────────────────────────────────────── -->
-        <h4 class="mo-sec">Productos</h4>
+        <h4 class="mo-sec">Del catálogo</h4>
+        <p class="mo-hint">
+            Lo que existe en el sistema se busca aquí. Lo que no, se escribe a
+            mano más abajo.
+        </p>
         <!-- En preparacion el pedido ya tiene stock comprometido y casi
              siempre el rotulo impreso: cambiar los productos dejaria una
              etiqueta que dice una cosa y una caja que lleva otra. Los datos
@@ -190,6 +194,26 @@
             </table>
         </div>
 
+        <!-- Segunda forma de agregar, en la MISMA ficha. NO es una linea de
+             venta: es el texto que se imprime en el rotulo para que la agencia
+             sepa que lleva la caja. No tiene precio, no mueve stock y no se
+             factura, y por eso vive en el envio y no en `orders.items`. Antes
+             habia que salir a la pantalla de Envios para escribirlo. -->
+        <div v-if="packageContent !== null" class="mo-libre">
+            <h4 class="mo-sec">Escrito a mano</h4>
+            <p class="mo-hint">
+                Un renglón por cosa. Se imprime en el rótulo del envío: no suma
+                al total ni descuenta stock.
+            </p>
+            <el-input
+                v-model="packageContent"
+                type="textarea"
+                :rows="4"
+                :disabled="!lineasEditables"
+                placeholder="2 polos talla M&#10;1 gorra azul"
+            ></el-input>
+        </div>
+
         <div class="mo-total">
             <span v-if="descuentoTotal > 0" class="mo-desc">
                 Descuento aplicado: −S/ {{ money(descuentoTotal) }}
@@ -273,6 +297,10 @@ export default {
             // Distinto de `editable`: en preparacion se corrige el cliente
             // pero no los productos. Lo manda el servidor en record().
             lineasEditables: true,
+            // Texto del bulto. `null` = este pedido no tiene envio donde
+            // escribirlo, y entonces la seccion no se pinta.
+            packageContent: null,
+            packageContentOriginal: null,
             opciones: [],
             buscado: null,
             buscando: false,
@@ -347,6 +375,11 @@ export default {
                 }
             });
 
+            // En un alta todavia no hay envio: el texto del bulto se escribe
+            // despues, al configurar el envio o reabriendo el pedido.
+            this.packageContent = null;
+            this.packageContentOriginal = null;
+
             if (this.editando) this.cargar();
         },
         /**
@@ -385,6 +418,13 @@ export default {
                         unit_price: Number(l.unit_price || 0),
                         discount: Number(l.discount || 0),
                     }));
+
+                    // `null` cuando el pedido no tiene envio: entonces no hay
+                    // donde escribir el texto y la seccion no se pinta.
+                    this.packageContent = d.package_content === null || d.package_content === undefined
+                        ? null
+                        : String(d.package_content);
+                    this.packageContentOriginal = this.packageContent;
                 })
                 .catch(() => {
                     this.problemas = ["No se pudo cargar el pedido."];
@@ -656,6 +696,39 @@ export default {
                 })
                 .then(r => {
                     const d = r.data || {};
+                    // El texto del bulto vive en el envio y se guarda aparte.
+                    // Solo si cambio: un POST por cada guardado escribiria una
+                    // linea en la bitacora del envio sin que nadie lo tocara.
+                    if (
+                        this.editando
+                        && this.packageContent !== null
+                        && this.packageContent !== this.packageContentOriginal
+                    ) {
+                        return this.$http
+                            .post(`/orders/${this.orderId}/envio/contenido`, {
+                                package_content: this.packageContent,
+                            })
+                            .then(() => {
+                                this.packageContentOriginal = this.packageContent;
+                                return r;
+                            })
+                            .catch(e => {
+                                // El pedido SI se guardo: el aviso tiene que
+                                // decir exactamente que quedo fuera, o el
+                                // operador creera que se perdio todo.
+                                this.$message.warning(
+                                    "El pedido se guardó, pero el contenido del paquete no: "
+                                        + (((e.response && e.response.data) || {}).message
+                                            || "revisa el envío.")
+                                );
+                                return r;
+                            });
+                    }
+
+                    return r;
+                })
+                .then(r => {
+                    const d = (r && r.data) || {};
                     this.$message.success(d.message || "Pedido guardado.");
 
                     // Decirlo importa: un pedido sin cliente en la cartera no
@@ -824,6 +897,17 @@ export default {
 }
 .mo-sub {
     font-weight: 600;
+}
+/* Aclaracion bajo un titulo de seccion. Distinta de `.mo-sub`, que es el
+   subtotal de una linea y va en negrita. */
+.mo-hint {
+    margin: -2px 0 8px;
+    font-size: 12px;
+    color: #64748b;
+    line-height: 1.45;
+}
+.mo-libre {
+    margin-top: 14px;
 }
 .mo-del {
     color: #b91c1c;

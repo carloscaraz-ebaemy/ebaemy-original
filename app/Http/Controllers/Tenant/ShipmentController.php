@@ -194,6 +194,71 @@ class ShipmentController extends Controller
     }
 
     /**
+     * Guarda SOLO el contenido del paquete del envío de un pedido.
+     *
+     * POST /orders/{order}/envio/contenido
+     *
+     * Existe porque `orderShipmentStore` valida el envío entero —destino,
+     * agencia, documento, ubigeo— y aquí solo se toca el texto del bulto. Con
+     * aquel, guardar dos renglones exigiría reenviar el formulario completo, y
+     * cualquier campo que el editor de productos no conozca se perdería.
+     *
+     * `package_content` NO es una linea de venta: es lo que se imprime en el
+     * rotulo para que la agencia sepa que lleva la caja. No tiene item_id, no
+     * mueve stock y no se factura. Por eso vive en el envio y no en
+     * `orders.items`.
+     */
+    public function orderShipmentContent(Request $request, \App\Models\Tenant\Order $order)
+    {
+        if (!ShippingRequest::moduleInstalled()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Este negocio no tiene activado el módulo de Envíos.',
+            ], 422);
+        }
+
+        $shipment = app(\App\Services\Tenant\OrderShipmentLinker::class)->current($order);
+
+        if (!$shipment) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Este pedido todavía no tiene envío configurado, '
+                    . 'que es donde vive el contenido del paquete.',
+            ], 422);
+        }
+
+        if ($bloqueo = $this->blockIfCancelled($shipment, $request)) {
+            return $bloqueo;
+        }
+
+        $data = $request->validate([
+            'package_content' => ['present', 'nullable', 'string', 'max:2000'],
+        ], [], ['package_content' => 'contenido del paquete']);
+
+        $antes = (string) $shipment->package_content;
+        $nuevo = (string) ($data['package_content'] ?? '');
+
+        if ($antes !== $nuevo) {
+            $shipment->forceFill(['package_content' => $nuevo !== '' ? $nuevo : null])->save();
+
+            ShippingAuditLog::log(
+                ShippingAuditLog::ACTION_EDIT,
+                $shipment->id,
+                'package_content',
+                $antes,
+                $nuevo,
+                'Contenido del paquete editado desde los productos del pedido'
+            );
+        }
+
+        return response()->json([
+            'success'       => true,
+            'message'       => 'Contenido del paquete guardado.',
+            'content_lines' => $shipment->fresh()->contentLines(),
+        ]);
+    }
+
+    /**
      * Serialización del envío para la pestaña del pedido.
      * Incluye lo derivado (etiquetas, antigüedad, bloqueos) para que el Vue no
      * tenga que reimplementar reglas que ya viven en PHP.

@@ -445,6 +445,10 @@ if ($hostname) {
                  ->whereNumber('order')->name('orders.shipment.show');
             Route::post('orders/{order}/envio', [\App\Http\Controllers\Tenant\ShipmentController::class, 'orderShipmentStore'])
                  ->whereNumber('order')->name('orders.shipment.store');
+            // Solo el contenido del bulto, desde el editor de productos. El de
+            // arriba valida el envio entero y aqui se tocan dos renglones.
+            Route::post('orders/{order}/envio/contenido', [\App\Http\Controllers\Tenant\ShipmentController::class, 'orderShipmentContent'])
+                 ->whereNumber('order')->name('orders.shipment.content');
             // Lote de impresión desde una selección de PEDIDOS. Las tablas de
             // lotes/impresiones no cambian: cambia desde dónde se inicia.
             // Acciones sobre el ENVIO del pedido, desde Pedidos. Adaptadores:

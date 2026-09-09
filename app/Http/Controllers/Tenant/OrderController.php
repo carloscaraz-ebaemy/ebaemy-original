@@ -2058,6 +2058,18 @@ class OrderController extends Controller
         ]);
     }
 
+    /** Texto del bulto del envio vigente, o null si el pedido no tiene envio. */
+    private function contenidoDelPaquete(Order $order): ?string
+    {
+        if (!\App\Models\Tenant\ShippingRequest::moduleInstalled()) {
+            return null;
+        }
+
+        $envio = app(\App\Services\Tenant\OrderShipmentLinker::class)->current($order);
+
+        return $envio ? (string) $envio->package_content : null;
+    }
+
     public function record(Order $order)
     {
         $cliente = (array) ($order->customer ?? []);
@@ -2096,6 +2108,11 @@ class OrderController extends Controller
             ],
             'items'      => $lineas,
             'total'      => (float) $order->total,
+            // Contenido del bulto: texto libre que vive en el ENVIO, no una
+            // linea de venta. El editor de productos lo muestra al lado del
+            // catalogo para que agregar a mano y agregar del sistema sean la
+            // misma ficha. Null = el pedido no tiene envio donde escribirlo.
+            'package_content' => $this->contenidoDelPaquete($order),
         ]);
     }
 
