@@ -477,6 +477,16 @@ class OrderCollection extends ResourceCollection
             'delivery_meta'    => $s->delivery_meta,
             'status'           => $s->status,
             'status_label'     => \App\Models\Tenant\ShippingRequest::STATUSES[$s->status] ?? $s->status,
+            // Los estados a los que puede ir ESTE envio, ya con su etiqueta.
+            // Salen de `selectableStatuses()`, que respeta el flujo de su
+            // modalidad: una entrega a domicilio no pasa por «entregado a
+            // agencia» y un recojo en tienda no se despacha. Sin esto, mover
+            // el estado logistico obligaba a salir a la pantalla de Envios.
+            'status_flow'      => collect($s->selectableStatuses())
+                ->map(fn ($v) => [
+                    'value' => $v,
+                    'label' => \App\Models\Tenant\ShippingRequest::STATUSES[$v] ?? $v,
+                ])->values()->all(),
             // Destino resumido: la agencia manda en provincia, la dirección en
             // Lima. Es lo que el operador necesita leer de un vistazo.
             'destination'      => $s->shipping_agency ?: ($s->destination_city ?: $s->shipping_destination),

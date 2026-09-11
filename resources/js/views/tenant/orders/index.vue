@@ -919,7 +919,41 @@
                                      todas, «Empacado» y «Entregado» se leian
                                      igual y habia que pararse a leer la fila
                                      para saber si quedaba trabajo. -->
+                                <!-- Y ademas se cambia desde aqui. Mover el
+                                     estado logistico —«ya salio», «ya se
+                                     entrego»— obligaba a salir a la pantalla
+                                     de Envios: el boton «Cambiar» de la
+                                     columna ESTADO mueve el del PEDIDO, que es
+                                     otra cosa. Los estados ofrecidos son los
+                                     del flujo de SU modalidad, resueltos en
+                                     PHP: un domicilio no pasa por «entregado a
+                                     agencia». -->
+                                <el-dropdown
+                                    v-if="puedeMoverEnvio(row)"
+                                    trigger="click"
+                                    @command="moverEstadoEnvio(row, $event)"
+                                >
+                                    <div
+                                        class="ord-sh-est is-click"
+                                        :class="'is-' + faseEnvio(row.shipment.status)"
+                                        :title="'Cambiar el estado del envío · ' + envioTitulo(row)"
+                                    >
+                                        {{ row.shipment.status_label }}
+                                        <i class="el-icon-arrow-down"></i>
+                                    </div>
+                                    <el-dropdown-menu slot="dropdown">
+                                        <el-dropdown-item
+                                            v-for="e in row.shipment.status_flow"
+                                            :key="e.value"
+                                            :command="e.value"
+                                            :disabled="e.value === row.shipment.status"
+                                        >
+                                            {{ e.label }}
+                                        </el-dropdown-item>
+                                    </el-dropdown-menu>
+                                </el-dropdown>
                                 <div
+                                    v-else
                                     class="ord-sh-est"
                                     :class="'is-' + faseEnvio(row.shipment.status)"
                                     :title="envioTitulo(row)"
@@ -2006,6 +2040,11 @@
 .ord-sh-est.is-wait    { color: #7c3aed; }
 .ord-sh-est.is-done    { color: #15803d; font-weight: 600; }
 .ord-sh-est.is-void    { color: #94a3b8; text-decoration: line-through; }
+/* Cuando ademas se puede cambiar. La flecha es lo que lo dice: sin ella
+   parece texto y nadie lo pulsa. */
+.ord-sh-est.is-click { cursor: pointer; }
+.ord-sh-est.is-click i { margin-left: 3px; font-size: 10px; opacity: .6; }
+.ord-sh-est.is-click:hover { text-decoration: underline; }
 
 .orders tr.ord-row-void > td {
     opacity: 0.55;
@@ -5692,6 +5731,52 @@ export default {
                     + " día(s) hábil(es) desde que entró el pedido",
                 estilo: { color: m.color, background: m.bg },
             };
+        },
+
+        /** ¿Se puede mover el estado logistico de este envio? */
+        puedeMoverEnvio(row) {
+            const s = row.shipment;
+            return !!s
+                && Array.isArray(s.status_flow)
+                && s.status_flow.length > 0
+                && s.status !== "anulado"
+                && !this.esAnulado(row);
+        },
+
+        /**
+         * Cambia el estado del ENVIO desde la fila del pedido.
+         *
+         * Reutiliza el endpoint del modulo, que es quien sella las fechas
+         * (`sent_at`, `picked_up_at`), avisa al cliente, escribe la bitacora y
+         * sincroniza el pedido. Si la tienda exige pago confirmado y falta, el
+         * servidor lo rechaza con su motivo: aqui no se repite esa regla.
+         */
+        moverEstadoEnvio(row, estado) {
+            const s = row.shipment;
+            if (!s || estado === s.status) return;
+
+            const etiqueta = (s.status_flow.find(e => e.value === estado) || {}).label || estado;
+            const fd = new FormData();
+            fd.append("status", estado);
+
+            this.$http
+                .post(`/registro-envio/${s.id}/estado`, fd, {
+                    headers: { Accept: "application/json" },
+                })
+                .then(r => {
+                    this.$message.success(
+                        (r.data && r.data.message) || `Envío en «${etiqueta}».`
+                    );
+                    this.refreshAfterPayment();
+                })
+                .catch(error => {
+                    this.$message({
+                        type: "error",
+                        duration: 8000,
+                        message: this.describeError(error)
+                            || "No se pudo cambiar el estado del envío.",
+                    });
+                });
         },
 
         esAnulado(row) {
