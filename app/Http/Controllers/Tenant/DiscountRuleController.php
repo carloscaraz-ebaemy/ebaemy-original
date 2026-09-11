@@ -7,6 +7,7 @@ use App\Models\Tenant\DiscountRule;
 use App\Models\Tenant\Item;
 use App\Models\Tenant\SalesChannel;
 use Illuminate\Http\Request;
+use App\Services\Tenant\Pricing\PriceCalculator;
 use Modules\Item\Models\Category;
 
 /**
@@ -102,6 +103,100 @@ class DiscountRuleController extends Controller
         ]);
     }
 
+
+    /**
+     * ¿Este descuento dejaría productos vendiéndose bajo costo?
+     *
+     * El guardarraíl de precios (`MinMarginRule`) actúa al guardar el PRODUCTO:
+     * una regla de descuento puede llevar el precio final por debajo del costo
+     * sin pasar por él. Las ofertas flash ya comprueban el margen antes de
+     * publicarse; las reglas no lo hacían.
+     *
+     * Se mira aquí —al crear o editar la regla— y no en el carrito a propósito:
+     * recortar el descuento en mitad de una compra le mostraría al comprador un
+     * ahorro distinto del prometido, y rechazar la venta es peor. El momento de
+     * avisar es cuando se define la regla.
+     *
+     * Respeta la decisión que el tenant ya tomó en la configuración de precios:
+     * si `block_sales_below_cost` está activo, se rechaza; si no, se deja pasar.
+     * No se inventa una política nueva.
+     *
+     * @return array{0: bool, 1: string} [se_puede, motivo]
+     */
+    private function revisarMargen(Request $request): array
+    {
+        $tipo  = (string) $request->input('discount_type');
+        $valor = (float) $request->input('discount_value', 0);
+
+        if ($valor <= 0 || !in_array($tipo, ['percentage', 'fixed'], true)) {
+            return [true, ''];
+        }
+
+        $settings = \App\Models\Tenant\PricingSettings::find(1);
+        if (!$settings || !$settings->block_sales_below_cost) {
+            return [true, ''];
+        }
+
+        // Ámbito de la regla. `all` mira todo el catálogo con costo cargado; el
+        // resto se acota, que es lo que hace el motor al aplicarla.
+        $query = \App\Models\Tenant\Item::query()
+            ->where('purchase_unit_price', '>', 0)
+            ->where('sale_unit_price', '>', 0);
+
+        switch ((string) $request->input('applies_to', 'all')) {
+            case 'item':
+            case 'bundle':
+                $query->where('id', (int) $request->input('apply_item_id'));
+                break;
+            case 'category':
+                $query->where('category_id', (int) $request->input('apply_category_id'));
+                break;
+        }
+
+        $bajoCosto = 0;
+        $ejemplo   = null;
+
+        $query->select(['id', 'description', 'purchase_unit_price', 'sale_unit_price',
+                        'landed_cost_extra_pct', 'liquidation_mode'])
+            ->chunkById(300, function ($items) use ($tipo, $valor, &$bajoCosto, &$ejemplo) {
+                foreach ($items as $item) {
+                    // El producto marcado para liquidar puede ir bajo costo a
+                    // propósito: es su razón de ser.
+                    if ($item->liquidation_mode) {
+                        continue;
+                    }
+
+                    $costo = PriceCalculator::effectiveCost(
+                        (float) $item->purchase_unit_price,
+                        (float) ($item->landed_cost_extra_pct ?? 0)
+                    );
+
+                    $precio = (float) $item->sale_unit_price;
+                    $final  = $tipo === 'percentage'
+                        ? PriceCalculator::finalPrice($precio, min($valor, 100))
+                        : max(0, $precio - $valor);
+
+                    if ($final < $costo) {
+                        $bajoCosto++;
+                        $ejemplo = $ejemplo ?: $item->description;
+                    }
+                }
+            });
+
+        if ($bajoCosto === 0) {
+            return [true, ''];
+        }
+
+        return [false, sprintf(
+            'Este descuento dejaría %d producto%s vendiéndose bajo costo (por ejemplo «%s»). '
+            . 'Baja el descuento, acota la regla a otra categoría, o activa el modo liquidación '
+            . 'en los productos que sí quieras vender con pérdida.',
+            $bajoCosto,
+            $bajoCosto === 1 ? '' : 's',
+            (string) $ejemplo
+        )];
+    }
+
     public function store(Request $request)
     {
         // FIX BUG #2: limitar discount_value según tipo
@@ -123,6 +218,11 @@ class DiscountRuleController extends Controller
             'starts_at'      => 'nullable|date',
             'ends_at'        => 'nullable|date|after_or_equal:starts_at',
         ]);
+
+        [$ok, $motivo] = $this->revisarMargen($request);
+        if (!$ok) {
+            return response()->json(['success' => false, 'message' => $motivo], 422);
+        }
 
         $data = $request->only([
             'name', 'type', 'trigger_json', 'discount_type', 'discount_value',
