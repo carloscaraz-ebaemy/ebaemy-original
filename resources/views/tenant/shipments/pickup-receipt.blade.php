@@ -65,7 +65,7 @@
         <tr>
             <td class="k">Contenido</td>
             <td class="v">
-                @php $pkg = $shipment->contentLines(); @endphp
+                @php $pkg = $shipment->labelContentLines(); @endphp
                 @if(count($pkg) > 1)
                     <ul style="list-style:none;margin:0;padding:0">
                         @foreach($pkg as $line)

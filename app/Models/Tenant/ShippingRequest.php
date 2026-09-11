@@ -660,6 +660,44 @@ class ShippingRequest extends Model
      *
      * @return array<int, string>
      */
+    /**
+     * Lo que va en el rotulo: TODO lo que lleva la caja.
+     *
+     * Desde que los productos se agregan de dos formas en la misma ficha —del
+     * catalogo y escritos a mano— el rotulo tenia que enterarse de las dos. Se
+     * imprimia solo `package_content`, asi que un pedido con un producto del
+     * catalogo y una linea a mano llegaba a la agencia diciendo que llevaba
+     * solo la segunda: quien embala verifica contra este papel.
+     *
+     * Las del pedido van primero y con su cantidad, que es lo que se cuenta al
+     * meterlas en la caja. Las escritas a mano van despues, tal cual.
+     */
+    public function labelContentLines(): array
+    {
+        $lineas = [];
+
+        // `order` es una relacion: solo se toca si hay pedido. El rotulo es de
+        // UNA fila, asi que la consulta no se multiplica.
+        $order = $this->order_id ? $this->order : null;
+
+        foreach ((array) ($order->items ?? []) as $item) {
+            $item   = (array) $item;
+            $nombre = trim((string) ($item['description'] ?? $item['name'] ?? ''));
+
+            if ($nombre === '') {
+                continue;
+            }
+
+            $cant = (float) ($item['quantity'] ?? 1);
+            // Sin decimales cuando son unidades enteras: «2 ×» y no «2.00 ×».
+            $cant = floor($cant) == $cant ? (int) $cant : $cant;
+
+            $lineas[] = $cant > 1 ? "{$cant} × {$nombre}" : $nombre;
+        }
+
+        return array_merge($lineas, $this->contentLines());
+    }
+
     public function contentLines(): array
     {
         $raw = trim((string) $this->package_content);

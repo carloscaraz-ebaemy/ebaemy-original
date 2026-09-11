@@ -11,7 +11,9 @@
      Espera: $shipment y, opcional, $title.
      ══════════════════════════════════════════════════════════════════════ --}}
 @php
-    $pkgLines = $shipment->contentLines();
+    // Del pedido Y escritas a mano: el rotulo lista TODO lo que va en la
+    // caja, que es contra lo que verifica quien embala.
+    $pkgLines = $shipment->labelContentLines();
 @endphp
 
 @if(count($pkgLines))
