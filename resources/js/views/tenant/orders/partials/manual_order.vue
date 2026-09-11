@@ -342,12 +342,21 @@ export default {
                 0
             );
         },
+        /**
+         * Al ALTA hace falta al menos un producto: un pedido nuevo sin nada no
+         * describe una venta.
+         *
+         * Editando no. Un encargo logistico nace sin lineas —es un envio, no
+         * una venta— y desde que el contenido escrito a mano se edita en esta
+         * misma ficha, exigir un producto del catalogo dejaba el boton
+         * bloqueado justo cuando lo unico que se estaba escribiendo era el
+         * contenido del paquete. Tambien impedia corregir solo el cliente.
+         */
         sePuedeGuardar() {
-            return (
-                !!this.form.channel_id &&
-                !!(this.form.customer.name || "").trim() &&
-                this.form.items.length > 0
-            );
+            if (!this.form.channel_id) return false;
+            if (!(this.form.customer.name || "").trim()) return false;
+
+            return this.editando ? true : this.form.items.length > 0;
         },
     },
     methods: {

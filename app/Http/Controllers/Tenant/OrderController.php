@@ -2145,13 +2145,30 @@ class OrderController extends Controller
             ], 422);
         }
 
+        $tenia = count((array) ($order->items ?? []));
+
         $request->validate([
             'customer'         => 'required|array',
             'customer.name'    => 'required|string',
-            'items'            => 'required|array|min:1',
+            // `present` y no `required|min:1`: un encargo logistico es un
+            // pedido SIN lineas —lo que lleva la caja se escribe a mano en el
+            // envio— y con `min:1` no se podia guardar ninguna correccion
+            // suya, ni siquiera la del cliente.
+            'items'            => 'present|array',
             'items.*.item_id'  => 'required|integer',
             'items.*.quantity' => 'required|numeric|min:0.01',
         ]);
+
+        // Lo que SI se protege: que un pedido que tenia productos no se quede
+        // sin ellos de un guardado. Vaciarlo no es editarlo; para eso esta
+        // anular, que conserva el historico y avisa a quien corresponde.
+        if ($tenia > 0 && count($request->input('items', [])) === 0) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Este pedido se quedaría sin productos. Quita las líneas '
+                    . 'que sobren dejando al menos una, o anúlalo si ya no va.',
+            ], 422);
+        }
 
         // En preparacion solo se corrigen los datos del cliente. Se comprueba
         // en el SERVIDOR y no solo bloqueando el formulario: deshabilitar un
