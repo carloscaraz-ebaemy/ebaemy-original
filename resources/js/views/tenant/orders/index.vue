@@ -3946,13 +3946,39 @@ export default {
                 });
         },
         /** Mensaje corto y accionable a partir de un error de axios. */
+        /**
+         * Que decirle al operador cuando algo falla.
+         *
+         * PRIMERO el motivo que manda el servidor. Nacio para los contadores y
+         * solo traducia codigos HTTP, asi que un 422 —que es como el modulo
+         * rechaza por una regla: «Confirma primero el pago de ENV-000004 para
+         * cambiar su estado»— se veia como «El servidor respondio 422». El
+         * motivo venia escrito y se tiraba a la basura.
+         *
+         * Los seis sitios que la llaman muestran su texto tal cual, asi que
+         * los genericos tampoco pueden seguir hablando de contadores.
+         */
         describeError(error) {
             const res = error && error.response;
             if (!res) return "Sin respuesta del servidor (¿se cortó la conexión?).";
+
+            const d = res.data || {};
+
+            // Validacion de campos: el primer motivo concreto.
+            if (d.errors) {
+                const primero = Object.values(d.errors)[0];
+                if (primero && primero.length) return primero[0];
+            }
+
+            if (typeof d.message === "string" && d.message.trim() !== "") {
+                return d.message;
+            }
+
             if (res.status === 419) return "La sesión expiró. Recarga la página.";
-            if (res.status === 403) return "No tienes permiso para ver estos contadores.";
-            if (res.status === 500) return "Error del servidor al calcular los contadores.";
-            if (res.status === 504) return "El cálculo de los contadores tardó demasiado.";
+            if (res.status === 403) return "No tienes permiso para hacer eso.";
+            if (res.status === 500) return "Error del servidor. Vuelve a intentarlo.";
+            if (res.status === 504) return "El servidor tardó demasiado en responder.";
+
             return "El servidor respondió " + res.status + ".";
         },
         formatMoney(v) {
@@ -5786,12 +5812,21 @@ export default {
                     this.refreshAfterPayment();
                 })
                 .catch(error => {
+                    const d = (error.response && error.response.data) || {};
+
                     this.$message({
                         type: "error",
                         duration: 8000,
                         message: this.describeError(error)
                             || "No se pudo cambiar el estado del envío.",
                     });
+
+                    // Falta el cobro: se abre donde se arregla. Decirle que
+                    // confirme el pago y dejarlo buscando el sitio es media
+                    // respuesta.
+                    if (d.reason === "payment_required") {
+                        this.clickPayments(row.id);
+                    }
                 });
         },
 

@@ -956,10 +956,18 @@ class ShipmentController extends Controller
      * El operador veia «Envio en Entregado» y el envio seguia en «Pendiente de
      * revision», sin ningun error a la vista.
      */
-    private function rechazo(?Request $request, string $mensaje)
+    private function rechazo(?Request $request, string $mensaje, ?string $motivo = null)
     {
         if ($request && $request->expectsJson()) {
-            return response()->json(['success' => false, 'message' => $mensaje], 422);
+            return response()->json([
+                'success' => false,
+                'message' => $mensaje,
+                // Codigo estable para que la pantalla pueda OFRECER la salida
+                // —abrir el cobro— en vez de dejar al operador releyendo el
+                // mensaje. Leerlo del texto seria frustrar el primer cambio de
+                // redaccion.
+                'reason'  => $motivo,
+            ], 422);
         }
 
         return back()->with('error', $mensaje);
@@ -984,7 +992,8 @@ class ShipmentController extends Controller
         if ($this->paymentBlocks($shipment)) {
             return $this->rechazo(
                 $request,
-                "Confirma primero el pago de {$shipment->shipment_code} para cambiar su estado."
+                "Confirma primero el pago de {$shipment->shipment_code} para cambiar su estado.",
+                'payment_required'
             );
         }
 
