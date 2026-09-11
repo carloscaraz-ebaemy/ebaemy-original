@@ -1228,6 +1228,38 @@
                                 </small>
                             </div>
                         </div>
+                        <!-- Utilidad y margen del precio que hay ESCRITO, no del
+                             que sugiere el markup. Lo calcula el mismo endpoint
+                             que la ficha de Tienda Virtual —`calculate-price`,
+                             sobre `PriceCalculator`— para que las dos pantallas
+                             no puedan decir margenes distintos del mismo
+                             producto. Aqui no se replica ninguna formula. -->
+                        <div class="col-md-12 pt-2">
+                            <div v-if="priceSnapshot" class="it-margen" :class="'is-' + priceSnapshot.status">
+                                <span class="it-margen__t">
+                                    <template v-if="priceSnapshot.status === 'block_below_cost'">
+                                        Pérdida de S/ {{ Math.abs(priceSnapshot.profit_per_unit).toFixed(2) }} por unidad
+                                    </template>
+                                    <template v-else>
+                                        Margen {{ priceSnapshot.margin_actual_pct }}%
+                                        <template v-if="priceSnapshot.status === 'warn_below_target'"> · bajo el objetivo</template>
+                                        <template v-else-if="priceSnapshot.status === 'warn_below_min'"> · bajo el mínimo</template>
+                                    </template>
+                                </span>
+                                <span class="it-margen__u">
+                                    Utilidad S/ {{ priceSnapshot.profit_per_unit.toFixed(2) }}
+                                    · markup {{ priceSnapshot.markup_actual_pct }}%
+                                </span>
+                                <a v-if="priceSnapshot.list_price
+                                        && Number(priceSnapshot.list_price) !== Number(form.sale_unit_price)"
+                                   href="#"
+                                   class="it-margen__a"
+                                   @click.prevent="form.sale_unit_price = priceSnapshot.list_price">
+                                    Sugerido S/ {{ Number(priceSnapshot.list_price).toFixed(2) }} · aplicar
+                                </a>
+                            </div>
+                            </div>
+                        </div>
 
                         <!-- isc compras -->
                         <div class="col-md-4">
@@ -1691,6 +1723,10 @@ export default {
             editors: {
                 classic: ClassicEditor
             },
+            // Utilidad y margen del precio escrito. Lo resuelve el servidor con
+            // `PriceCalculator`; aqui solo se pinta.
+            priceSnapshot: null,
+            priceCalcTimer: null,
             activeName: 'first',
             fromPharmacy: false,
             inventory_configuration: null,
@@ -2271,6 +2307,9 @@ this.activeName =  'first'
                     this.hydrateMpCategoryPath()
                     this.changeAffectationIgvType()
                     this.changePurchaseAffectationIgvType()
+                    // Al abrir un producto ya guardado: el operador quiere ver
+                    // el margen sin tener que tocar un campo primero.
+                    this.calcularMargen()
                     this.seedDescriptionFromLegacy()
                 })
             }
@@ -2386,6 +2425,8 @@ this.activeName =  'first'
             } else {
                 if (this.enabled_percentage_of_profit) this.form.percentage_of_profit = difference / parseFloat(this.form.purchase_unit_price) * 100;
             }
+
+            this.pedirMargen();
         },
         calculatePercentageOfProfitByPurchase() {
             if (this.form.percentage_of_profit === '') {
@@ -2393,13 +2434,59 @@ this.activeName =  'first'
             }
 
             if (this.enabled_percentage_of_profit) this.form.sale_unit_price = (this.form.purchase_unit_price * (100 + parseFloat(this.form.percentage_of_profit))) / 100
+
+            this.pedirMargen();
         },
+        /**
+         * Pide al servidor utilidad y margen del precio que hay escrito.
+         *
+         * Con espera porque se dispara al teclear: sin ella, escribir «1250»
+         * son cuatro consultas y las tres primeras se pagan para nada.
+         */
+        pedirMargen() {
+            if (this.priceCalcTimer) clearTimeout(this.priceCalcTimer);
+            this.priceCalcTimer = setTimeout(() => this.calcularMargen(), 300);
+        },
+
+        calcularMargen() {
+            const costo  = parseFloat(this.form.purchase_unit_price) || 0;
+            const precio = parseFloat(this.form.sale_unit_price) || 0;
+
+            // Sin costo el margen no describe nada, y sin precio no hay nada
+            // que medir. En los dos casos el chip desaparece en vez de mostrar
+            // un cero que se leeria como «no ganas nada».
+            if (costo <= 0 || precio <= 0) {
+                this.priceSnapshot = null;
+                return;
+            }
+
+            this.$http
+                .post(`/${this.resource}/calculate-price`, {
+                    cost: costo,
+                    landed_cost_extra_pct: parseFloat(this.form.landed_cost_extra_pct) || 0,
+                    target_margin_pct: this.form.target_margin_pct,
+                    min_margin_pct: this.form.min_margin_pct,
+                    sale_price: precio,
+                    discount_pct: 0,
+                })
+                .then(res => {
+                    this.priceSnapshot = res.data && res.data.success ? res.data.data : null;
+                })
+                .catch(() => {
+                    // Informativo: si el endpoint falla, el chip no se muestra
+                    // y guardar el producto sigue funcionando igual.
+                    this.priceSnapshot = null;
+                });
+        },
+
         calculatePercentageOfProfitByPercentage() {
             if (this.form.percentage_of_profit === '') {
                 this.form.percentage_of_profit = 0;
             }
 
             if (this.enabled_percentage_of_profit) this.form.sale_unit_price = (this.form.purchase_unit_price * (100 + parseFloat(this.form.percentage_of_profit))) / 100
+
+            this.pedirMargen();
         },
         validateItemUnitTypes() {
 
@@ -2770,3 +2857,30 @@ this.activeName =  'first'
     }
 }
 </script>
+
+<style>
+/* Utilidad y margen del precio escrito. Los tonos siguen al estado que manda
+   el servidor, no a un umbral repetido aqui. */
+.it-margen {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+    padding: 8px 12px;
+    border-radius: 8px;
+    border: 1px solid #e2e8f0;
+    background: #f8fafc;
+    font-size: 12.5px;
+}
+.it-margen__t { font-weight: 700; }
+.it-margen__u { color: #64748b; font-variant-numeric: tabular-nums; }
+.it-margen__a { margin-left: auto; font-weight: 600; text-decoration: underline; }
+.it-margen.is-ok                { border-color: #bbf7d0; background: #f0fdf4; }
+.it-margen.is-ok .it-margen__t  { color: #15803d; }
+.it-margen.is-warn_below_target { border-color: #fde68a; background: #fffbeb; }
+.it-margen.is-warn_below_target .it-margen__t { color: #92400e; }
+.it-margen.is-warn_below_min    { border-color: #fdba74; background: #fff7ed; }
+.it-margen.is-warn_below_min .it-margen__t    { color: #9a3412; }
+.it-margen.is-block_below_cost  { border-color: #fecaca; background: #fef2f2; }
+.it-margen.is-block_below_cost .it-margen__t  { color: #b91c1c; }
+</style>
