@@ -1204,13 +1204,28 @@
                         <div class="col-md-4 pt-2">
                             <div :class="{'has-danger': errors.percentage_of_profit}"
                                  class="form-group">
-                                <label class="control-label">Porcentaje de ganancia (%)</label>
+                                <!-- Este campo es MARKUP sobre costo: el precio
+                                     sale de `costo × (1 + %/100)`, asi que con
+                                     un costo de 150 y un 50% aqui el precio es
+                                     225, no 300. Se llamaba «Porcentaje de
+                                     ganancia», que no dice sobre QUE, y se leia
+                                     como margen sobre venta —donde 50% si
+                                     serian 300—. La nota de abajo traduce el
+                                     numero al margen equivalente para que las
+                                     dos lecturas esten a la vista. -->
+                                <label class="control-label">Markup sobre costo (%)</label>
                                 <el-input v-model="form.percentage_of_profit"
                                           :disabled="!enabled_percentage_of_profit"
                                           @input="calculatePercentageOfProfitByPercentage"></el-input>
                                 <small v-if="errors.percentage_of_profit"
                                        class="form-control-feedback"
                                        v-text="errors.percentage_of_profit[0]"></small>
+                                <small v-else-if="margenEquivalente !== null"
+                                       class="form-text text-muted"
+                                       style="font-size:11px">
+                                    Equivale a un margen de
+                                    <strong>{{ margenEquivalente }}%</strong> sobre el precio de venta.
+                                </small>
                             </div>
                         </div>
 
@@ -1526,6 +1541,28 @@ export default {
         'vue-ckeditor': VueCkeditor.component,
     },
     computed: {
+        /**
+         * El mismo porcentaje, leido como margen sobre venta.
+         *
+         *     margen = markup / (1 + markup / 100)
+         *
+         * Las dos formas de medir la ganancia dan numeros distintos para el
+         * mismo precio, y la confusion entre ellas es exactamente lo que hacia
+         * que un 50% escrito aqui no diera el precio que el operador esperaba.
+         * Se muestran las dos en vez de elegir una a escondidas.
+         *
+         * Solo cuando hay costo: sin el, el markup no describe nada.
+         */
+        margenEquivalente() {
+            const markup = parseFloat(this.form.percentage_of_profit);
+            const costo  = parseFloat(this.form.purchase_unit_price);
+
+            if (!isFinite(markup) || markup <= 0) return null;
+            if (!isFinite(costo) || costo <= 0) return null;
+
+            return Math.round((markup / (1 + markup / 100)) * 100) / 100;
+        },
+
         forOnlyShowAllDetails()
         {
             if(this.onlyShowAllDetails != undefined && this.onlyShowAllDetails != null) return this.onlyShowAllDetails
