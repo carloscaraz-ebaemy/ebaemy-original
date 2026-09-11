@@ -3548,9 +3548,24 @@ export default {
         clearTimeout(this.peekTimer);
         window.removeEventListener("scroll", this.cerrarAsomo, true);
         window.removeEventListener("resize", this.cerrarAsomo);
+
+        // El aviso de «rotulo impreso» que manda la pestaña del rotulo.
+        if (this.alImprimirRotulo) {
+            window.removeEventListener("message", this.alImprimirRotulo);
+        }
     },
     async created() {
         this.cargarColumnas();
+
+        // La pestaña del rotulo avisa cuando el papel salio por la impresora.
+        // Sin esto, la columna «Docs» seguia diciendo que no se habia impreso
+        // hasta que alguien recargaba la pagina a mano.
+        this.alImprimirRotulo = ev => {
+            const d = ev && ev.data;
+            if (!d || d.tipo !== "rotulo-impreso") return;
+            this.refreshAfterPayment();
+        };
+        window.addEventListener("message", this.alImprimirRotulo);
         this.$http.get(`/statusOrder/records`).then(response => {
             this.options = response.data;
         });

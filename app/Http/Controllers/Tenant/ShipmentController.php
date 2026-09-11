@@ -2164,7 +2164,50 @@ class ShipmentController extends Controller
             $format = 'a4';
         }
 
-        // Historial de impresiones del rótulo suelto (nunca se sobrescribe).
+        // OJO: abrir esta vista ya NO cuenta como impreso. Se registraba aqui,
+        // asi que mirar el rotulo para comprobar una direccion lo daba por
+        // impreso, pedia motivo la siguiente vez y encendia el chip de
+        // documentos de un papel que nunca salio de la impresora. Lo registra
+        // `markLabelPrinted()`, que la propia vista llama cuando el navegador
+        // termina de imprimir de verdad.
+        return view('tenant.shipments.label', [
+            'shipment' => $shipment,
+            'company'  => $company,
+            'ubigeo'   => $this->resolveUbigeo($shipment),
+            'format'   => $format,
+            'qr'       => $this->makeQr($shipment),
+            'barcode'  => $this->makeBarcode($shipment),
+        ]);
+    }
+
+    /**
+     * Registra que el rotulo SALIO por la impresora.
+     *
+     * POST /registro-envio/{shipment}/impreso
+     *
+     * Lo llama la propia vista del rotulo en el evento `afterprint` del
+     * navegador, que es la unica senal real de que el papel se mando a
+     * imprimir. Antes esto ocurria al ABRIR la vista: comprobar una direccion
+     * contaba como impresion, y el envio quedaba con `printed_at` de algo que
+     * nunca salio.
+     *
+     * Idempotente dentro de lo razonable: cada llamada cuenta una impresion,
+     * porque imprimir dos veces ES imprimir dos veces y el historial lo tiene
+     * que reflejar.
+     */
+    public function markLabelPrinted(Request $request, ShippingRequest $shipment)
+    {
+        if ($bloqueo = $this->blockIfCancelled($shipment, $request)) {
+            return $bloqueo;
+        }
+
+        $format = strtolower((string) $request->input('format', 'a4'));
+        if (!in_array($format, ['sticker', 'a5', 'a4'], true)) {
+            $format = 'a4';
+        }
+
+        $reason = trim((string) $request->input('motivo'));
+
         $event = ShippingPrintEvent::record(null, $shipment->id, 1, $format, $reason ?: null);
 
         $shipment->forceFill([
@@ -2182,13 +2225,10 @@ class ShipmentController extends Controller
             $shipment->print_batch_id
         );
 
-        return view('tenant.shipments.label', [
-            'shipment' => $shipment,
-            'company'  => $company,
-            'ubigeo'   => $this->resolveUbigeo($shipment),
-            'format'   => $format,
-            'qr'       => $this->makeQr($shipment),
-            'barcode'  => $this->makeBarcode($shipment),
+        return response()->json([
+            'success'     => true,
+            'print_count' => (int) $shipment->print_count,
+            'printed_at'  => optional($shipment->printed_at)->format('Y-m-d H:i:s'),
         ]);
     }
 

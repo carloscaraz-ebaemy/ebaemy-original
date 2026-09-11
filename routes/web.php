@@ -246,6 +246,10 @@ if ($hostname) {
                      ->name('shipments.payment');
                 Route::post('pago-lote', [\App\Http\Controllers\Tenant\ShipmentController::class, 'confirmPaymentBulk'])
                      ->name('shipments.payment_bulk');
+                // Lo llama la vista del rotulo cuando el navegador TERMINA de
+                // imprimir: abrirla ya no cuenta como impresion.
+                Route::post('{shipment}/impreso', [\App\Http\Controllers\Tenant\ShipmentController::class, 'markLabelPrinted'])
+                     ->name('shipments.mark_printed');
                 Route::get('{shipment}/imprimir', [\App\Http\Controllers\Tenant\ShipmentController::class, 'printLabel'])
                      ->name('shipments.print');
                 Route::get('{shipment}/estado-rapido', [\App\Http\Controllers\Tenant\ShipmentController::class, 'quickStatus'])

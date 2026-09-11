@@ -37,6 +37,61 @@
 
 <script>
 /*
+ * Registrar la impresion DE VERDAD.
+ *
+ * Abrir esta pagina ya no cuenta: el contador y el chip de documentos se
+ * encienden cuando el navegador termina de imprimir, que es lo que dice
+ * `afterprint`. Antes se registraba al abrirla, asi que mirar el rotulo para
+ * comprobar una direccion lo daba por impreso.
+ *
+ * Se manda UNA sola vez por pagina: `afterprint` se dispara tambien al
+ * cancelar el dialogo del sistema, y no hay forma de distinguirlo desde el
+ * navegador. Entre contar de mas cada vez que alguien abre el dialogo y
+ * contar una impresion que quiza se cancelo, esto ultimo es lo que se parece
+ * a lo que hace el operador: abrir el dialogo es ir a imprimir.
+ */
+(function () {
+    var yaAvisado = false;
+
+    function registrarImpresion() {
+        if (yaAvisado) return;
+        yaAvisado = true;
+
+        var fmt = (document.body.className || '').replace('fmt-', '') || '{{ $format }}';
+
+        fetch('{{ url("registro-envio/" . $shipment->id . "/impreso") }}', {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+                'X-CSRF-TOKEN': '{{ csrf_token() }}',
+            },
+            body: JSON.stringify({ format: fmt, motivo: @json(request()->query('motivo')) }),
+        })
+            .then(function () {
+                // El listado que abrio esta pestaña sigue mostrando el estado
+                // de antes. Se le avisa para que refresque sin que el operador
+                // tenga que recargar a mano.
+                try {
+                    if (window.opener && !window.opener.closed) {
+                        window.opener.postMessage({ tipo: 'rotulo-impreso', envio: {{ $shipment->id }} }, '*');
+                    }
+                } catch (e) {
+                    // Otra pestaña, otro origen o ya cerrada: no pasa nada,
+                    // el dato ya quedo guardado en el servidor.
+                }
+            })
+            .catch(function () {
+                // Sin registro no se pierde el rotulo: el papel ya salio. Se
+                // vera al recargar, que es como estaba antes.
+            });
+    }
+
+    window.addEventListener('afterprint', registrarImpresion);
+})();
+
+/*
  * Cambio de formato SIN recargar.
  * Antes cada botón era un enlace que volvía a `…/imprimir?format=…`, así que
  * tras la primera impresión el contador ya estaba en 1 y la regla de
