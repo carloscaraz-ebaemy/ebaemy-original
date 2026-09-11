@@ -706,6 +706,25 @@
                             <div v-if="row.customer_telefono" class="ord-o-tel">
                                 {{ row.customer_telefono }}
                             </div>
+                            <!-- Cliente EMPRESA: la agencia no le entrega un
+                                 paquete a un RUC, se lo entrega a la persona
+                                 designada. El rotulo ya la imprime en su propia
+                                 seccion «Recoge»; aqui no se veia, asi que no
+                                 habia forma de comprobar contra el papel sin
+                                 abrir el envio. -->
+                            <div
+                                v-if="row.shipment && row.shipment.pickup_person"
+                                class="ord-o-recoge"
+                                :title="'Recoge: ' + row.shipment.pickup_person.name
+                                    + (row.shipment.pickup_person.dni ? ' · DNI ' + row.shipment.pickup_person.dni : '')
+                                    + (row.shipment.pickup_person.phone ? ' · ' + row.shipment.pickup_person.phone : '')"
+                            >
+                                <span class="ord-o-recoge-lbl">Recoge</span>
+                                {{ row.shipment.pickup_person.name }}
+                                <template v-if="row.shipment.pickup_person.dni">
+                                    · {{ row.shipment.pickup_person.dni }}
+                                </template>
+                            </div>
                         </td>
                         <!-- Cobro: importe, saldo y medio, juntos.
                              Estaban repartidos en «Total» y «Medio Pago», dos
@@ -1790,6 +1809,28 @@
 .ord-o-nodoc {
     color: #b45309;
 }
+/* Quien recoge en nombre de una empresa. */
+.ord-o-recoge {
+    margin-top: 3px;
+    font-size: 11px;
+    color: #6d28d9;
+    line-height: 1.35;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.ord-o-recoge-lbl {
+    display: inline-block;
+    margin-right: 4px;
+    padding: 0 5px;
+    border-radius: 3px;
+    background: #ede9fe;
+    font-size: 9.5px;
+    font-weight: 700;
+    letter-spacing: .03em;
+    text-transform: uppercase;
+}
+
 .ord-o-edad {
     display: inline-flex;
     align-items: center;

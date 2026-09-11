@@ -544,6 +544,18 @@ class OrderCollection extends ResourceCollection
             'priority'         => (int) $s->priority,
             'priority_label'   => $s->priority_label,
             'is_pickup'        => $s->is_pickup,
+            // Quien recoge, cuando el cliente es una EMPRESA. La agencia no le
+            // entrega un paquete a un RUC: entrega a la persona designada, y
+            // el rotulo ya la imprime en su propia seccion. En el panel no se
+            // veia por ningun lado, asi que el operador no podia comprobar
+            // contra el papel sin abrir el envio.
+            'pickup_person'    => $s->is_company && trim((string) $s->pickup_person_name) !== ''
+                ? [
+                    'name'  => $s->pickup_person_name,
+                    'dni'   => $s->pickup_person_dni,
+                    'phone' => $s->pickup_person_phone,
+                ]
+                : null,
             'payment_confirmed'=> (bool) $s->payment_confirmed,
             // El dinero del encargo vive en el ENVIO (`amount_due` +
             // `shipping_payments`), no en el pedido: el pedido espejo se creo
