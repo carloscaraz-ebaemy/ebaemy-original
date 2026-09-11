@@ -1568,6 +1568,25 @@ class ShipmentController extends Controller
     {
         $this->normalizeMoneyInput($request, ['amount']);
 
+        // El destino del pago llega con DOS tipos segun lo que se elija:
+        // `getPaymentDestinations()` da `'cash'` (string) para la caja y el id
+        // numerico de la cuenta para cada banco. La regla pedia `string`, asi
+        // que pagar a caja funcionaba y pagar a un banco fallaba con «El campo
+        // destino debe ser una cadena de caracteres», sin que el operador
+        // pudiera hacer nada.
+        //
+        // Se normaliza a texto en vez de relajar la regla: con `max:50` sobre
+        // un numero Laravel validaria el VALOR y no la longitud, y una cuenta
+        // con id 51 se rechazaria. Aguas abajo da igual — lo unico que se
+        // compara es `!== 'cash'`.
+        if ($request->has('payment_destination_id')) {
+            $destino = $request->input('payment_destination_id');
+
+            if (is_int($destino) || is_float($destino)) {
+                $request->merge(['payment_destination_id' => (string) $destino]);
+            }
+        }
+
         $data = $request->validate([
             'amount'       => 'required|numeric|min:0.01|max:999999',
             'payment_code' => 'required|string|max:60',

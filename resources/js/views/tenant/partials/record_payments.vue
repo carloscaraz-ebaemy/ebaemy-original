@@ -370,7 +370,22 @@ export default {
         if (primero && primero.length) return primero[0];
       }
 
-      return d.message || porDefecto;
+      // Algunos caminos devuelven los errores EMPAQUETADOS dentro de
+      // `message`, como `{"campo":["motivo"]}`. Sin esto, el operador ve el
+      // JSON crudo con llaves y comillas en vez de la frase.
+      const m = d.message;
+      if (typeof m === 'string' && m.trim().startsWith('{')) {
+        try {
+          const dentro = JSON.parse(m);
+          const primero = Object.values(dentro)[0];
+          if (Array.isArray(primero) && primero.length) return primero[0];
+          if (typeof primero === 'string') return primero;
+        } catch (e) {
+          // No era JSON: se muestra tal cual, que es mejor que nada.
+        }
+      }
+
+      return m || porDefecto;
     },
     submit() {
       // Se comprueba aqui ademas de en el servidor: el viaje solo para que
