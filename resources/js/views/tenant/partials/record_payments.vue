@@ -325,7 +325,7 @@ export default {
             this.$message.error(r.data.message);
           }
         })
-        .catch(() => { this.$message.error('No se pudo guardar el monto'); })
+        .catch(e => { this.$message.error(this.motivo(e, 'No se pudo guardar el monto.')); })
         .then(() => { this.savingAmount = false; });
     },
     clearAmountDue() {
@@ -351,6 +351,26 @@ export default {
       } else {
         this.$message.error((response && response.message) || 'No se pudo subir el archivo');
       }
+    },
+    /**
+     * El motivo que manda el servidor, y solo si no hay ninguno, un generico.
+     *
+     * Laravel responde de dos formas: `errors` cuando falla la validacion de
+     * campos, y `message` a secas cuando aborta por una regla de negocio —el
+     * envio esta anulado, el pago supera el saldo, el codigo ya se uso—. El
+     * catch solo miraba `errors`, asi que TODOS los motivos de negocio se
+     * veian como «Error al registrar el pago» y no habia forma de saber que
+     * habia pasado ni de corregirlo.
+     */
+    motivo(error, porDefecto) {
+      const d = (error && error.response && error.response.data) || {};
+
+      if (d.errors) {
+        const primero = Object.values(d.errors)[0];
+        if (primero && primero.length) return primero[0];
+      }
+
+      return d.message || porDefecto;
     },
     submit() {
       // Se comprueba aqui ademas de en el servidor: el viaje solo para que
@@ -378,11 +398,18 @@ export default {
             return this.$http.get(`/${this.resource}/records/${this.recordId}`)
               .then(res => { this.records = res.data.data || []; });
           }
-          this.$message.error(r.data.message || 'No se pudo registrar el pago');
+          this.$message({
+            type: 'error',
+            duration: 8000,
+            message: r.data.message || 'No se pudo registrar el pago.',
+          });
         })
         .catch(error => {
-          const errs = error.response && error.response.data && error.response.data.errors;
-          this.$message.error(errs ? Object.values(errs)[0][0] : 'Error al registrar el pago');
+          this.$message({
+            type: 'error',
+            duration: 8000,
+            message: this.motivo(error, 'No se pudo registrar el pago.'),
+          });
         })
         .then(() => { this.saving = false; });
     },
@@ -401,7 +428,7 @@ export default {
               this.$message.error(r.data.message);
             }
           })
-          .catch(() => { this.$message.error('No se pudo eliminar el pago'); });
+          .catch(e => { this.$message.error(this.motivo(e, 'No se pudo eliminar el pago.')); });
       }).catch(() => { /* cancelado */ });
     },
     close() {
