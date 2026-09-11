@@ -947,20 +947,32 @@ class ShipmentController extends Controller
      * En AJAX se responde 422 con el motivo y en el panel se vuelve con el
      * aviso, que es como se comporta el resto del modulo.
      */
+    /**
+     * Rechaza una operacion en el formato que espera quien la pidio.
+     *
+     * Las guardas devolvian `back()->with('error')` siempre. Desde el panel de
+     * Pedidos, que llama por AJAX, eso es un 302 que el navegador sigue: la
+     * respuesta acaba siendo un 200 con HTML y la pantalla lo lee como exito.
+     * El operador veia «Envio en Entregado» y el envio seguia en «Pendiente de
+     * revision», sin ningun error a la vista.
+     */
+    private function rechazo(?Request $request, string $mensaje)
+    {
+        if ($request && $request->expectsJson()) {
+            return response()->json(['success' => false, 'message' => $mensaje], 422);
+        }
+
+        return back()->with('error', $mensaje);
+    }
+
     private function blockIfCancelled(ShippingRequest $shipment, Request $request = null)
     {
         if (!$shipment->is_cancelled) {
             return null;
         }
 
-        $msg = "El envio {$shipment->shipment_code} esta anulado. "
-             . 'Restauralo para poder modificarlo.';
-
-        if ($request && $request->expectsJson()) {
-            return response()->json(['success' => false, 'message' => $msg], 422);
-        }
-
-        return back()->with('error', $msg);
+        return $this->rechazo($request, "El envio {$shipment->shipment_code} esta anulado. "
+            . 'Restauralo para poder modificarlo.');
     }
 
     public function updateStatus(Request $request, ShippingRequest $shipment): RedirectResponse|\Illuminate\Http\JsonResponse
@@ -970,7 +982,10 @@ class ShipmentController extends Controller
         }
 
         if ($this->paymentBlocks($shipment)) {
-            return back()->with('error', "Confirma primero el pago de {$shipment->shipment_code} para cambiar su estado.");
+            return $this->rechazo(
+                $request,
+                "Confirma primero el pago de {$shipment->shipment_code} para cambiar su estado."
+            );
         }
 
         $request->validate([
@@ -985,8 +1000,10 @@ class ShipmentController extends Controller
         $flow = ShippingRequest::statusOrderFor($shipment->delivery_type);
         if (!in_array($request->status, $flow, true) && $request->status !== $shipment->status) {
             $modalidad = ShippingRequest::DELIVERY_SHORT[$shipment->delivery_type] ?? 'este envío';
-            return back()->with('error',
-                'Ese estado no pertenece al flujo de ' . $modalidad . '. Elige uno de su modalidad.');
+            return $this->rechazo(
+                $request,
+                'Ese estado no pertenece al flujo de ' . $modalidad . '. Elige uno de su modalidad.'
+            );
         }
 
         $old = $shipment->status;

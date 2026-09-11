@@ -5764,9 +5764,25 @@ export default {
                     headers: { Accept: "application/json" },
                 })
                 .then(r => {
-                    this.$message.success(
-                        (r.data && r.data.message) || `Envío en «${etiqueta}».`
-                    );
+                    const d = (r && r.data) || {};
+
+                    // Una respuesta que no trae `success: true` NO es un
+                    // exito. Las guardas del modulo respondian con un redirect
+                    // que el navegador sigue por detras, asi que llegaba un
+                    // 200 con HTML y esto cantaba «Envío en Entregado» sobre
+                    // un envio que no se habia movido. El servidor ya responde
+                    // 422, pero la pantalla no vuelve a dar por bueno lo que
+                    // no puede leer.
+                    if (d.success !== true) {
+                        return this.$message({
+                            type: "error",
+                            duration: 8000,
+                            message: d.message
+                                || "El envío no cambió de estado. Vuelve a intentarlo.",
+                        });
+                    }
+
+                    this.$message.success(d.message || `Envío en «${etiqueta}».`);
                     this.refreshAfterPayment();
                 })
                 .catch(error => {
