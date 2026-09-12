@@ -29,6 +29,9 @@
         @endcardOption
     @endif
     <span class="{{ $priceClass }}{{ $pricing->hasDiscount ? ' ec-card-price--sale' : '' }}">
-        {{ $pricing->symbol }} {{ $pricing->formatted() }}
+        {{-- «desde» cuando las variantes no cuestan todas lo mismo: el precio de
+             la tarjeta es el de la variante más barata, y sin esta palabra el
+             comprador ve un precio en el listado y otro al entrar a la ficha. --}}
+        @if($pricing->isRange())<span class="ec-card-price-from">desde</span> @endif{{ $pricing->symbol }} {{ $pricing->formatted() }}
     </span>
 </div>

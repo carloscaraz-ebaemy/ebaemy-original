@@ -597,7 +597,15 @@ class PurchaseOrderController extends Controller
                     if (!$item) continue;
 
                     // Ingreso de stock variant-safe + visible en kardex + ledger Smart Stock.
-                    $this->applyReceptionStock($item, (int) $warehouseId, $delta, $po);
+                    // La variante de la línea manda; sin ella se cae al fallback
+                    // histórico (la primaria), que es lo que hacen las OC viejas.
+                    $this->applyReceptionStock(
+                        $item,
+                        (int) $warehouseId,
+                        $delta,
+                        $po,
+                        $poItem->variant_id ? (int) $poItem->variant_id : null
+                    );
 
                     // Actualizar tracking en el item
                     $poItem->quantity_received = $expected;
@@ -651,8 +659,13 @@ class PurchaseOrderController extends Controller
      * documento de Compra real, no de la OC. La recepción es un movimiento físico;
      * el costeo se consolida al registrar la factura/boleta de compra asociada.
      */
-    private function applyReceptionStock(Item $item, int $warehouseId, float $delta, PurchaseOrder $po): void
-    {
+    private function applyReceptionStock(
+        Item $item,
+        int $warehouseId,
+        float $delta,
+        PurchaseOrder $po,
+        ?int $variantId = null
+    ): void {
         $reference = trim(($po->prefix ? $po->prefix . '-' : 'OC-') . $po->id);
 
         // (1) Movimiento de inventario + kardex físico vía observer Inventory::created
@@ -666,12 +679,38 @@ class PurchaseOrderController extends Controller
         ]);
 
         if ($item->has_variants) {
-            // (2) Variant-safe: enrutar a la variante primaria y propagar.
-            $variant = ItemVariant::where('item_id', $item->id)
-                ->where('is_active', true)
-                ->orderByDesc('is_primary')
-                ->orderBy('id')
-                ->first();
+            // (2) Variant-safe: enrutar a la variante de la línea y propagar.
+            //
+            // Si la línea dice qué variante se compró, va ahí. Solo cuando no lo
+            // dice —OC anteriores a la columna variant_id— se cae a la primaria.
+            // Antes ese fallback era el ÚNICO camino: recibir 10 pares de talla
+            // 40 sumaba 10 a la talla 38.
+            $variant = null;
+
+            if ($variantId) {
+                $variant = ItemVariant::where('item_id', $item->id)
+                    ->where('id', $variantId)
+                    ->first();
+
+                // La variante pudo desactivarse entre emitir la OC y recibirla.
+                // La mercadería llegó igual, así que el stock entra donde dice la
+                // línea; que vuelva a ofrecerse es una decisión aparte, del panel
+                // de variantes.
+                if (!$variant) {
+                    \Illuminate\Support\Facades\Log::warning(
+                        '[PurchaseOrder] variante de la línea no encontrada; se usa la primaria',
+                        ['po_id' => $po->id, 'item_id' => $item->id, 'variant_id' => $variantId]
+                    );
+                }
+            }
+
+            if (!$variant) {
+                $variant = ItemVariant::where('item_id', $item->id)
+                    ->where('is_active', true)
+                    ->orderByDesc('is_primary')
+                    ->orderBy('id')
+                    ->first();
+            }
 
             if ($variant) {
                 $ivw = ItemVariantWarehouse::firstOrNew([

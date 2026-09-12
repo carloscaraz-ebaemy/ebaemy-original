@@ -207,6 +207,60 @@
             <!-- <div class="card-header bg-info">
                 <h3 class="my-0">{{ title }}</h3>
             </div> -->
+            <!-- ── Filtros de negocio ────────────────────────────────────
+                 Facetas acumulables, separadas de la búsqueda por texto. Antes
+                 solo se podía buscar por nombre o código, así que las preguntas
+                 de todos los días —qué se agotó, qué vende con poco margen— no
+                 se podían hacer desde aquí. -->
+            <div class="it-facets">
+                <button type="button" class="it-facet"
+                        :class="{ 'is-on': facets.out_of_stock }"
+                        @click="toggleFacet('out_of_stock')">
+                    Agotados
+                </button>
+                <button type="button" class="it-facet"
+                        :class="{ 'is-on': facets.any_variant_out_of_stock }"
+                        @click="toggleFacet('any_variant_out_of_stock')"
+                        title="Productos con variantes en los que alguna talla o color se quedó en cero, aunque el producto siga teniendo stock">
+                    Con alguna variante agotada
+                </button>
+                <button type="button" class="it-facet"
+                        :class="{ 'is-on': facets.low_stock }"
+                        @click="toggleFacet('low_stock')"
+                        title="Stock por debajo del mínimo configurado en el producto">
+                    Stock bajo
+                </button>
+                <button type="button" class="it-facet"
+                        :class="{ 'is-on': facets.has_variants === true }"
+                        @click="setVariantFacet(true)">
+                    Con variantes
+                </button>
+                <button type="button" class="it-facet"
+                        :class="{ 'is-on': facets.has_variants === false }"
+                        @click="setVariantFacet(false)">
+                    Sin variantes
+                </button>
+
+                <span class="it-facet-group">
+                    <span class="it-facet-label">Precio</span>
+                    <input type="number" class="it-facet-input" placeholder="desde"
+                           v-model.number="facets.price_min" @change="applyFacets">
+                    <input type="number" class="it-facet-input" placeholder="hasta"
+                           v-model.number="facets.price_max" @change="applyFacets">
+                </span>
+
+                <span class="it-facet-group">
+                    <span class="it-facet-label" title="Margen sobre el precio de venta, contra el costo efectivo. Solo productos con costo cargado.">Margen menor a</span>
+                    <input type="number" class="it-facet-input" placeholder="%"
+                           v-model.number="facets.margin_below" @change="applyFacets">
+                </span>
+
+                <button v-if="hasActiveFacets" type="button"
+                        class="it-facet is-clear" @click="clearFacets">
+                    Limpiar filtros
+                </button>
+            </div>
+
             <div class="data-table-visible-columns">                
                 <el-dropdown v-if="selected.length > 0">
                   <el-button aria-expanded="false"
@@ -273,7 +327,7 @@
                 </el-dropdown>
             </div>
             <div class="card-body">
-                <data-table ref="DataTable" :productType="type" :resource="resource" :sort-field="sortField" :sort-direction="sortDirection" :showProductFilter="type !== 'ZZ'" :showChannelFilter="false" @sort-change="handleSortChange" @records-changed="handleRecordsChanged" @channel-filter-change="onChannelFilterChange">
+                <data-table ref="DataTable" :productType="type" :resource="resource" :sort-field="sortField" :sort-direction="sortDirection" :showProductFilter="type !== 'ZZ'" :showChannelFilter="false" :extra-filters="facets" @sort-change="handleSortChange" @records-changed="handleRecordsChanged" @channel-filter-change="onChannelFilterChange">
                     <tr slot="heading" width="100%" slot-scope="{ sort }">
                         <th class="text-center" style="width: 34px;">
                             <el-checkbox
@@ -359,8 +413,11 @@
                     </tr>
 
                     <tr></tr>
+                    <!-- El slot-scope vive en un <template> y no en el <tr> para
+                         poder emitir DOS filas por producto: la del producto y,
+                         cuando se despliega, la de sus variantes. -->
+                    <template slot-scope="{ index, row }">
                     <tr valign="middle"
-                        slot-scope="{ index, row }"
                         :class="{ disable_color: !row.active }"
                     >
                         <td>
@@ -383,10 +440,17 @@
                         </td>
                         <td>
                             {{ row.description }}
-                            <el-tag v-if="row.has_variants" size="mini" type="primary"
-                                    style="margin-left:5px;vertical-align:middle;font-size:10px;">
-                                Variantes
-                            </el-tag>
+                            <!-- La etiqueta pasa a ser el disparador: antes decía
+                                 "Variantes" y no llevaba a ningún sitio, porque el
+                                 listado no recibía ninguna. Ahora resume y despliega. -->
+                            <a v-if="row.has_variants" href="#"
+                               class="it-variants-toggle"
+                               :class="{ 'is-open': expandedItemId === row.id }"
+                               @click.prevent="toggleVariants(row)"
+                               :title="variantsSummaryTitle(row)">
+                                <i :class="expandedItemId === row.id ? 'fa fa-caret-down' : 'fa fa-caret-right'"></i>
+                                {{ variantsSummaryLabel(row) }}
+                            </a>
                             <div style="margin-top:3px;display:flex;flex-wrap:wrap;gap:3px">
                                 <el-tooltip v-if="row.apply_store" content="Publicado en tu tienda online" placement="top">
                                     <span style="display:inline-flex;align-items:center;gap:3px;font-size:10px;padding:2px 6px;background:#ecfdf5;color:#065f46;border-radius:4px;font-weight:500">🛍️ Tienda</span>
@@ -676,6 +740,52 @@
                             </el-dropdown>
                         </td>
                     </tr>
+
+                    <!-- ── Variantes del producto ───────────────────────────
+                         El resumen (cuántas, rango de precio, stock) viaja con
+                         la fila; el detalle se pide al desplegar contra el
+                         endpoint que ya existía, para no cargar miles de
+                         variantes que nadie va a mirar. -->
+                    <tr v-if="row.has_variants && expandedItemId === row.id" :key="`v-${row.id}`">
+                        <td :colspan="100" class="it-variants-cell">
+                            <div v-if="loadingVariants" class="it-variants-loading">
+                                Cargando variantes…
+                            </div>
+                            <table v-else-if="(expandedVariants || []).length" class="it-variants-table">
+                                <thead>
+                                    <tr>
+                                        <th>Variante</th>
+                                        <th>SKU</th>
+                                        <th>Cód. barras</th>
+                                        <th class="text-end">Costo</th>
+                                        <th class="text-end">Precio</th>
+                                        <th class="text-end">Stock</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr v-for="v in expandedVariants" :key="v.id"
+                                        :class="{ 'it-variant-match': matchesSearch(v) }">
+                                        <td>{{ v.display_name }}</td>
+                                        <td>{{ v.sku || '—' }}</td>
+                                        <td>{{ v.barcode || '—' }}</td>
+                                        <td class="text-end">
+                                            {{ v.purchase_unit_price !== null ? formatNumber(v.purchase_unit_price) : 'hereda' }}
+                                        </td>
+                                        <td class="text-end">
+                                            {{ v.sale_unit_price !== null ? formatNumber(v.sale_unit_price) : 'hereda' }}
+                                        </td>
+                                        <td class="text-end" :class="{ 'it-variant-zero': v.stock <= 0 }">
+                                            {{ v.stock }}
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                            <div v-else class="it-variants-loading">
+                                Este producto está marcado con variantes pero no tiene ninguna activa.
+                            </div>
+                        </td>
+                    </tr>
+                    </template>
                 </data-table>
             </div>
 
@@ -742,6 +852,73 @@
     </div>
 </template>
 <style>
+/* ── Filtros de negocio ──────────────────────────────────────────────── */
+.it-facets {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 6px;
+    padding: 10px 12px; border-bottom: 1px solid #e9edf0;
+}
+.it-facet {
+    font-size: 11.5px; font-weight: 500; line-height: 1.4;
+    padding: 4px 10px; border-radius: 999px;
+    border: 1px solid #d9e0e4; background: #fff; color: #47555e;
+    cursor: pointer; transition: background .12s, color .12s, border-color .12s;
+}
+.it-facet:hover { background: #f1f5f7; }
+.it-facet.is-on { background: #0a5260; border-color: #0a5260; color: #fff; }
+.it-facet.is-clear { border-style: dashed; color: #8a5a09; }
+.it-facet-group {
+    display: inline-flex; align-items: center; gap: 4px;
+    padding: 2px 8px 2px 10px; border: 1px solid #d9e0e4; border-radius: 999px;
+}
+.it-facet-label { font-size: 11px; color: #7a8892; white-space: nowrap; }
+.it-facet-input {
+    width: 66px; font-size: 11.5px; padding: 2px 6px;
+    border: none; border-bottom: 1px solid #e3e9ec; background: transparent;
+    text-align: right;
+}
+.it-facet-input:focus { outline: none; border-bottom-color: #0a5260; }
+
+@media (max-width: 767px) {
+    /* Las facetas hacen scroll horizontal propio en vez de apilarse en cuatro
+       líneas y empujar la tabla fuera de la primera pantalla. */
+    .it-facets { flex-wrap: nowrap; overflow-x: auto; padding: 8px 10px; }
+    .it-facet, .it-facet-group { flex: none; }
+}
+
+/* ── Variantes en el listado ─────────────────────────────────────────── */
+.it-variants-toggle {
+    display: inline-flex; align-items: center; gap: 4px;
+    margin-left: 6px; vertical-align: middle;
+    font-size: 10px; font-weight: 600; line-height: 1.4;
+    padding: 2px 7px; border-radius: 4px;
+    background: #eef2ff; color: #3730a3; text-decoration: none;
+    white-space: nowrap;
+}
+.it-variants-toggle:hover { background: #e0e7ff; color: #312e81; text-decoration: none; }
+.it-variants-toggle.is-open { background: #3730a3; color: #fff; }
+.it-variants-toggle i { font-size: 11px; }
+
+.it-variants-cell { background: #f8fafc; padding: 10px 14px !important; }
+.it-variants-loading { font-size: 12px; color: #64748b; padding: 6px 2px; }
+
+.it-variants-table { width: 100%; margin: 0; font-size: 12px; background: transparent; }
+.it-variants-table th {
+    font-size: 10px; text-transform: uppercase; letter-spacing: .04em;
+    color: #64748b; font-weight: 600; padding: 4px 8px;
+    border-bottom: 1px solid #e2e8f0; white-space: nowrap;
+}
+.it-variants-table td { padding: 5px 8px; border-bottom: 1px solid #eef2f6; color: #334155; }
+.it-variants-table tr:last-child td { border-bottom: none; }
+.it-variant-zero { color: #dc2626; font-weight: 600; }
+/* La variante que casó con lo buscado: al escanear el código de una talla el
+   resultado es el producto padre, y sin esto habría que buscarla a ojo. */
+.it-variant-match td { background: #fef9c3; }
+
+@media (max-width: 767px) {
+    /* La tabla interna se desborda en móvil: scroll propio, nunca del body. */
+    .it-variants-cell { overflow-x: auto; }
+    .it-variants-table { min-width: 520px; }
+}
 .dropdown-menu.show {
     max-height: 130px;
 }
@@ -826,6 +1003,26 @@ export default {
             selected: [],
             selectedMeta: {},
             visibleRows: [],
+
+            // Facetas de negocio. Se mandan al backend por la prop extraFilters
+            // del DataTable; las claves vacías se descartan allí.
+            facets: {
+                out_of_stock:             false,
+                any_variant_out_of_stock: false,
+                low_stock:                false,
+                has_variants:             null,
+                price_min:                null,
+                price_max:                null,
+                margin_below:             null,
+            },
+
+            // Fila de variantes desplegada. Solo una a la vez: abrir otra cierra
+            // la anterior, para que la tabla no crezca sin control con productos
+            // de 24 combinaciones.
+            expandedItemId:   null,
+            expandedVariants: [],
+            loadingVariants:  false,
+
             channelStats: { total: 0, in_store: 0, in_marketplace: 0, pending_mp: 0, paused_mp: 0, rejected_mp: 0, unpublished: 0, in_saga: 0, saga_pending: 0, saga_error: 0 },
             activeChannel: 'all',
             can_add_new_product: false,
@@ -953,6 +1150,14 @@ export default {
             "CatItemProductFamily",
             "CatItemUnitsPerPackage"
         ]),
+        hasActiveFacets() {
+            const f = this.facets;
+            return !!(f.out_of_stock || f.any_variant_out_of_stock || f.low_stock
+                || f.has_variants !== null
+                || (f.price_min !== null && f.price_min !== '')
+                || (f.price_max !== null && f.price_max !== '')
+                || (f.margin_below !== null && f.margin_below !== ''));
+        },
         columnsComputed: function() {
             return this.columns;
         },
@@ -998,6 +1203,97 @@ export default {
         },
     },
     methods: {
+        // ── Facetas de negocio ───────────────────────────────────────────
+
+        applyFacets() {
+            // Volver a la página 1: si estabas en la 7 y el filtro deja 12
+            // resultados, la tabla saldría vacía y parecería que no hay nada.
+            const dt = this.$refs.DataTable
+            if (!dt) return
+            dt.pagination.current_page = 1
+            dt.getRecords()
+        },
+
+        toggleFacet(key) {
+            this.facets[key] = !this.facets[key]
+            this.applyFacets()
+        },
+
+        // Tres estados: con variantes, sin variantes, y sin filtrar. Volver a
+        // pulsar el que ya está activo lo quita.
+        setVariantFacet(value) {
+            this.facets.has_variants = this.facets.has_variants === value ? null : value
+            this.applyFacets()
+        },
+
+        clearFacets() {
+            this.facets = {
+                out_of_stock: false, any_variant_out_of_stock: false, low_stock: false,
+                has_variants: null, price_min: null, price_max: null, margin_below: null,
+            }
+            this.applyFacets()
+        },
+
+        // ── Variantes en el listado ──────────────────────────────────────
+
+        variantsSummaryLabel(row) {
+            const sum = row.variants_summary
+            if (!sum || !sum.count) return 'Variantes'
+
+            const precio = sum.price_min === sum.price_max
+                ? `S/ ${this.formatNumber(sum.price_min)}`
+                : `S/ ${this.formatNumber(sum.price_min)}–${this.formatNumber(sum.price_max)}`
+
+            return `${sum.count} variantes · ${precio}`
+        },
+
+        variantsSummaryTitle(row) {
+            const sum = row.variants_summary
+            if (!sum || !sum.count) return 'Ver variantes'
+            return `${sum.count} variantes activas · ${sum.stock} unidades en total. Clic para ver el detalle.`
+        },
+
+        toggleVariants(row) {
+            if (this.expandedItemId === row.id) {
+                this.expandedItemId = null
+                this.expandedVariants = []
+                return
+            }
+
+            this.expandedItemId   = row.id
+            this.expandedVariants = []
+            this.loadingVariants  = true
+
+            // Endpoint que ya existía para la pestaña de edición. No hacía falta
+            // uno nuevo: lo que faltaba era que el listado supiera pedirlo.
+            this.$http.get(`/items/${row.id}/variants`)
+                .then(({ data }) => { this.expandedVariants = data.variants || [] })
+                .catch(() => {
+                    this.$message.error('No se pudieron cargar las variantes')
+                    this.expandedItemId = null
+                })
+                .finally(() => { this.loadingVariants = false })
+        },
+
+        // Resalta la variante que coincide con lo buscado. Al escanear el código
+        // de barras de una talla, el resultado es el producto padre: sin esto
+        // habría que buscar a ojo cuál de las 24 filas era.
+        matchesSearch(v) {
+            // El término vive en el DataTable, no aquí: lo leemos por el ref en
+            // vez de duplicar el estado, que se desincronizaría al paginar.
+            const dt = this.$refs.DataTable
+            const term = ((dt && dt.search && dt.search.value) || '').trim().toLowerCase()
+            if (!term) return false
+            return (v.sku || '').toLowerCase().includes(term)
+                || (v.barcode || '').toLowerCase().includes(term)
+        },
+
+        formatNumber(n) {
+            return Number(n || 0).toLocaleString('es-PE', {
+                minimumFractionDigits: 2, maximumFractionDigits: 2,
+            })
+        },
+
         handleRecordsChanged(records) {
             this.visibleRows = Array.isArray(records) ? records : [];
         },

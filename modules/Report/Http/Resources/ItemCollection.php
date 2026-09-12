@@ -31,8 +31,22 @@ class ItemCollection extends ResourceCollection
                 $customer_name = $document->customer->name;
                 $customer_number = $document->customer->number;
             }
+            // Qué variante se vendió. El dato ya estaba: el snapshot JSON de la
+            // línea guarda variant_id y variant_display_name desde que el POS
+            // aprendió a elegir variante. Nadie lo leía, así que el reporte
+            // mostraba doce líneas idénticas de "Zapatilla" sin decir la talla.
+            $variantName = null;
+            try {
+                $snapshot = $row->item;
+                $variantName = $snapshot->variant_display_name
+                    ?? ($snapshot->variant_id ? ('variante #' . $snapshot->variant_id) : null);
+            } catch (\Throwable $e) {
+                // Snapshot antiguo o malformado: la línea se muestra sin variante.
+            }
+
             return [
                 'id'                        => $row->id,
+                'variant_name'              => $variantName,
                 'date_of_issue'             => $document->date_of_issue->format('Y-m-d'),
                 'customer_name'             => $customer_name,
                 'customer_number'           => $customer_number,

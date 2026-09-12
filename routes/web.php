@@ -885,17 +885,31 @@ if ($hostname) {
             Route::post('items/{item}/use-parent-image',
                 [\App\Http\Controllers\Tenant\ItemVariantController::class, 'setUseParentImage']);
 
+            // CSV con una fila por variante — la salida que sirve para etiquetas
+            // de código de barras por talla y para inventariar, porque la unidad
+            // de conteo físico real es la variante y no el producto.
+            Route::get('items/export/variants',
+                [\App\Http\Controllers\Tenant\ItemController::class, 'exportVariantsCsv'])
+                ->name('tenant.items.export.variants');
+
             // Item Variants
             Route::prefix('items/{item}/variants')->group(function () {
                 Route::get('/',                   [\App\Http\Controllers\Tenant\ItemVariantController::class, 'index']);
                 Route::post('/options',            [\App\Http\Controllers\Tenant\ItemVariantController::class, 'saveOptions']);
                 Route::post('/generate',           [\App\Http\Controllers\Tenant\ItemVariantController::class, 'generate']);
+                // Edición masiva: subir un 10 % a 24 variantes era 24 peticiones.
+                // Va ANTES de /{variant} o 'bulk' se leería como un id.
+                Route::patch('/bulk',              [\App\Http\Controllers\Tenant\ItemVariantController::class, 'bulkUpdate']);
                 Route::patch('/{variant}',         [\App\Http\Controllers\Tenant\ItemVariantController::class, 'update']);
                 Route::delete('/{variant}',        [\App\Http\Controllers\Tenant\ItemVariantController::class, 'destroy']);
                 Route::post('/{variant}/stock',    [\App\Http\Controllers\Tenant\ItemVariantController::class, 'updateStock']);
                 Route::post('/{variant}/image',    [\App\Http\Controllers\Tenant\ItemVariantController::class, 'uploadImage']);
                 Route::delete('/{variant}/image',  [\App\Http\Controllers\Tenant\ItemVariantController::class, 'deleteImage']);
                 Route::post('/{variant}/primary',  [\App\Http\Controllers\Tenant\ItemVariantController::class, 'setPrimary']);
+                // Rescate de variantes desactivadas: una variante con stock nunca
+                // se borra, y sin estas dos rutas su stock quedaba inaccesible.
+                Route::post('/{variant}/reactivate',  [\App\Http\Controllers\Tenant\ItemVariantController::class, 'reactivate']);
+                Route::post('/{variant}/move-stock',  [\App\Http\Controllers\Tenant\ItemVariantController::class, 'moveStock']);
             });
 
             //Persons

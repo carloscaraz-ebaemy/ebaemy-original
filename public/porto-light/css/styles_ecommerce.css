@@ -9218,6 +9218,15 @@ li.open > .ec-mmenu__sub { display: block; }
     margin-right: 5px;
 }
 .ec-card-price--sale { color: var(--theme-offer, #e53e3e); }
+/* "desde": la tarjeta muestra el precio de la variante mas barata cuando no
+   todas valen igual. Mas pequeno y en secundario para que el numero siga
+   mandando; sin esto el comprador ve un precio en el listado y otro en la ficha. */
+.ec-card-price-from {
+    font-size: .62em;
+    font-weight: 400;
+    color: var(--theme-text-secondary, #9ca3af);
+    letter-spacing: .01em;
+}
 
 .pbadge--discount {
     background: var(--theme-offer, #dc2626);

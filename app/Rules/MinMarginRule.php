@@ -25,17 +25,54 @@ class MinMarginRule implements Rule
     protected ?float $minMarginPct;
     protected bool $liquidationMode;
     protected string $errorMessage = '';
+    protected ?PricingSettings $settings;
 
     public function __construct(
         float $cost,
         float $landedCostExtraPct = 0,
         ?float $minMarginPct = null,
-        bool $liquidationMode = false
+        bool $liquidationMode = false,
+        // La política del tenant se lee de la base salvo que se pase aquí. Es el
+        // único punto de la regla que toca la BD, y poder inyectarla permite
+        // probar las combinaciones de herencia sin montar un tenant entero.
+        ?PricingSettings $settings = null
     ) {
         $this->cost                = $cost;
         $this->landedCostExtraPct  = $landedCostExtraPct;
         $this->minMarginPct        = $minMarginPct;
         $this->liquidationMode     = $liquidationMode;
+        $this->settings            = $settings;
+    }
+
+    /**
+     * La misma regla, resuelta para una VARIANTE.
+     *
+     * Una variante hereda del producto padre todo lo que tiene a null: el costo,
+     * y siempre la política (margen mínimo y modo liquidación son decisiones del
+     * producto, no de cada talla). Sin este constructor el PATCH de variante
+     * validaba solo `numeric|min:0`, así que se podía dejar la talla 45 bajo
+     * costo por una puerta que el guardarraíl del producto no vigilaba.
+     *
+     * @param float|null $overrideCost Costo que se está guardando en esta misma
+     *                                 petición; null = usar el que ya tiene la variante.
+     */
+    public static function forVariant(
+        \App\Models\Tenant\ItemVariant $variant,
+        \App\Models\Tenant\Item $item,
+        ?float $overrideCost = null,
+        ?PricingSettings $settings = null
+    ): self {
+        $cost = $overrideCost
+            ?? $variant->purchase_unit_price
+            ?? (float) $item->purchase_unit_price;
+
+        return new self(
+            (float) $cost,
+            (float) ($item->landed_cost_extra_pct ?? 0),
+            $item->min_margin_pct === null ? null : (float) $item->min_margin_pct,
+            (bool) $item->liquidation_mode,
+            $settings
+        );
     }
 
     public function passes($attribute, $value): bool
@@ -102,6 +139,10 @@ class MinMarginRule implements Rule
      */
     protected function getSettings(): PricingSettings
     {
+        if ($this->settings !== null) {
+            return $this->settings;
+        }
+
         static $cached = null;
         if ($cached === null) {
             $cached = PricingSettings::firstOrCreate(

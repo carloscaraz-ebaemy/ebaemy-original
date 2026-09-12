@@ -80,6 +80,16 @@ class MarketplaceListingSyncService
                 $tenancy->tenant($client->hostname->website);
                 $this->syncVariants($listing, $row);
                 $tenancy->tenant(null);
+
+                // Subir al listing el estado de oferta agregado de sus variantes.
+                //
+                // Al armar el payload se salta PromotionEngine cuando el item
+                // tiene variantes, porque la promo se calcula por variante. Pero
+                // ese resultado no volvía nunca al listing padre, y la card del
+                // listado lee `$listing->is_on_offer`: una polera con una talla
+                // en oferta no mostraba badge de descuento en ninguna parte del
+                // listado, y el descuento solo se descubría entrando a la ficha.
+                $this->aggregateVariantOfferToListing($listing);
             } elseif ($listing) {
                 // Si dejó de tener variantes (las desactivó todas en el tenant),
                 // marcamos las espejadas como inactivas.
@@ -331,14 +341,18 @@ class MarketplaceListingSyncService
 
         $parentPrice = (float) ($item->sale_unit_price ?? 0);
 
-        $row = DB::connection('tenant')->table('item_variants')
-            ->where('item_id', $item->id)
-            ->where('is_active', true)
+        // El stock agregado del listing sale de item_variant_warehouse (físico −
+        // comprometido), no de la columna agregada item_variants.stock, que es
+        // un derivado y podía ir desfasada respecto de la tabla por almacén.
+        $row = DB::connection('tenant')->table('item_variants as iv')
+            ->leftJoin('item_variant_warehouse as ivw', 'ivw.item_variant_id', '=', 'iv.id')
+            ->where('iv.item_id', $item->id)
+            ->where('iv.is_active', true)
             ->selectRaw('
-                MIN(COALESCE(sale_unit_price, ?)) AS min_p,
-                MAX(COALESCE(sale_unit_price, ?)) AS max_p,
-                SUM(stock) AS sum_stock,
-                COUNT(*)   AS n
+                MIN(COALESCE(iv.sale_unit_price, ?)) AS min_p,
+                MAX(COALESCE(iv.sale_unit_price, ?)) AS max_p,
+                GREATEST(0, COALESCE(SUM(ivw.stock_physical), 0) - COALESCE(SUM(ivw.stock_committed), 0)) AS sum_stock,
+                COUNT(DISTINCT iv.id) AS n
             ', [$parentPrice, $parentPrice])
             ->first();
 
@@ -565,6 +579,68 @@ class MarketplaceListingSyncService
     }
 
     /**
+     * Resume en el listing la oferta de sus variantes, para que la card del
+     * listado pueda mostrar el badge de descuento.
+     *
+     * Criterio:
+     *   - is_on_offer    → alguna variante activa está en oferta
+     *   - discount_pct   → el descuento MÁS ALTO entre ellas, que es el gancho
+     *                      («hasta -30 %»), no un promedio que no existe
+     *   - original_price → el precio tachado de la variante que marca el
+     *                      min_price, para que el par «desde S/ X · antes S/ Y»
+     *                      sea coherente y no mezcle dos variantes distintas
+     *   - offer_ends_at  → el vencimiento más próximo: es el que de verdad
+     *                      limita la promesa que ve el comprador
+     */
+    private function aggregateVariantOfferToListing(MarketplaceListing $listing): void
+    {
+        try {
+            $variants = MarketplaceListingVariant::where('listing_id', $listing->id)
+                ->where('is_active', true)
+                ->get(['price', 'original_price', 'is_on_offer', 'discount_pct', 'offer_ends_at']);
+
+            if ($variants->isEmpty()) {
+                return;
+            }
+
+            $enOferta = $variants->where('is_on_offer', true);
+
+            if ($enOferta->isEmpty()) {
+                // Se acabaron las ofertas: hay que limpiar el badge, no dejarlo
+                // colgado de un sync anterior.
+                $listing->update($this->emptyOfferInfo());
+                return;
+            }
+
+            // La variante más barata de las que están en oferta define el precio
+            // tachado que acompaña al "desde".
+            $masBarata = $enOferta->sortBy('price')->first();
+
+            // ¿El descuento vale para todo el producto o solo para algunas tallas?
+            // Si son todas y con el mismo porcentaje, «-30 %» es literal. Si no,
+            // decirlo a secas exagera: solo una talla lo tiene. La card usa este
+            // origen para escribir «hasta -30 %» en ese caso.
+            $porcentajes = $enOferta->pluck('discount_pct')->unique();
+            $parcial = $enOferta->count() !== $variants->count() || $porcentajes->count() > 1;
+
+            $listing->update([
+                'is_on_offer'    => true,
+                'discount_pct'   => (int) $enOferta->max('discount_pct'),
+                'original_price' => $masBarata->original_price,
+                'offer_ends_at'  => $enOferta->whereNotNull('offer_ends_at')->min('offer_ends_at'),
+                'discount_source'=> $parcial ? 'variant_partial' : 'variant',
+            ]);
+        } catch (\Throwable $e) {
+            // El listing ya está guardado y vendible; el badge es un adorno.
+            // Perderlo no justifica tumbar el sync del producto entero.
+            Log::warning('MarketplaceListingSyncService::aggregateVariantOfferToListing failed', [
+                'listing_id' => $listing->id,
+                'error'      => $e->getMessage(),
+            ]);
+        }
+    }
+
+    /**
      * ¿La oferta de compare_at_price está vigente? (rango opcional)
      */
     private function compareAtActive($item): bool
@@ -691,13 +767,21 @@ class MarketplaceListingSyncService
             ->where('is_active', true)
             ->get();
 
-        // Stock por variante desde item_variant_warehouse (si aplica el modelo)
+        // Stock DISPONIBLE por variante = físico − comprometido.
+        //
+        // Antes se publicaba SUM(stock) —la columna legacy, ni siquiera
+        // stock_physical— sin restar lo reservado por pedidos pendientes. El
+        // marketplace ofrecía como disponible la última unidad que ya estaba
+        // apartada para otro comprador, y la venta se caía al confirmar.
+        // Ver ItemVariantService::PUBLISH_AVAILABLE.
         $variantIds = $variants->pluck('id')->all();
         $stockByVariant = [];
         if (!empty($variantIds)) {
             $rows = DB::connection('tenant')->table('item_variant_warehouse')
                 ->whereIn('item_variant_id', $variantIds)
-                ->select('item_variant_id', DB::raw('SUM(stock) AS total_stock'))
+                ->select('item_variant_id', DB::raw(
+                    'GREATEST(0, COALESCE(SUM(stock_physical), 0) - COALESCE(SUM(stock_committed), 0)) AS total_stock'
+                ))
                 ->groupBy('item_variant_id')
                 ->get();
             foreach ($rows as $r) {
@@ -924,12 +1008,70 @@ class MarketplaceListingSyncService
     }
 
     /**
+     * Oferta definida en la propia variante: compare_at_price dentro de su
+     * ventana de vigencia. Devuelve null si no hay ninguna vigente, para que el
+     * llamador siga con las reglas de canal.
+     *
+     * Se lee de columnas crudas (el $variant viene de un query builder, no del
+     * modelo, así que no hay casts de fecha): de ahí el Carbon::parse manual.
+     */
+    private function variantOwnOffer(object $variant, float $price): ?array
+    {
+        $compareAt = isset($variant->compare_at_price) ? (float) $variant->compare_at_price : 0.0;
+
+        // Solo cuenta si de verdad hay algo que tachar: un compare_at por debajo
+        // del precio no es una oferta, es un dato mal puesto.
+        if ($compareAt <= 0 || $compareAt <= $price) {
+            return null;
+        }
+
+        try {
+            $desde = $variant->compare_at_from ?? null;
+            $hasta = $variant->compare_at_until ?? null;
+
+            if ($desde && now()->lt(\Illuminate\Support\Carbon::parse($desde)->startOfDay())) return null;
+            if ($hasta && now()->gt(\Illuminate\Support\Carbon::parse($hasta)->endOfDay()))   return null;
+        } catch (\Throwable $e) {
+            // Fecha ilegible: se ignora la ventana y la oferta se considera
+            // vigente. Es lo mismo que hace compareAtActive() para el padre.
+        }
+
+        return [
+            'price'          => $price,
+            'is_on_offer'    => true,
+            'original_price' => $compareAt,
+            'offer_ends_at'  => $variant->compare_at_until ?? null,
+            'discount_pct'   => (int) round((1 - $price / $compareAt) * 100),
+        ];
+    }
+
+    /**
      * Mismo patrón que resolveOfferInfo() pero por variante. PromotionEngine
      * recibe un cart simulado de 1 unidad de la variante con su sale_unit_price.
      */
     private function resolveVariantOffer(object $item, object $variant, float $price, ?object $channel): array
     {
-        if ($price <= 0 || !$channel) {
+        if ($price <= 0) {
+            return [
+                'price'          => $price,
+                'is_on_offer'    => false,
+                'original_price' => null,
+                'offer_ends_at'  => null,
+                'discount_pct'   => null,
+            ];
+        }
+
+        // Oferta PROPIA de la variante (compare_at_price + ventana). Es la que
+        // permite liquidar solo la talla 45 sin tocar el resto del producto, y
+        // gana sobre las reglas de canal porque es una decisión explícita del
+        // seller sobre esta combinación concreta. Sin esto el campo nacía muerto:
+        // se podía guardar y nunca llegaba al comprador.
+        $propia = $this->variantOwnOffer($variant, $price);
+        if ($propia) {
+            return $propia;
+        }
+
+        if (!$channel) {
             return [
                 'price'          => $price,
                 'is_on_offer'    => false,
