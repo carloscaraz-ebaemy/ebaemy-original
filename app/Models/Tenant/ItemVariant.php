@@ -43,6 +43,17 @@ class ItemVariant extends ModelTenant
         'is_active',
         'is_primary',
         'stock',
+        // Campos con herencia del padre (migración 2026_09_11_000002).
+        // NULL = usar el del producto, igual que precio, costo, sku e imagen.
+        'compare_at_price',
+        'compare_at_from',
+        'compare_at_until',
+        'stock_min',
+        'min_margin_pct',
+        'weight',
+        'length',
+        'width',
+        'height',
     ];
 
     protected $casts = [
@@ -51,6 +62,15 @@ class ItemVariant extends ModelTenant
         'stock'               => 'float',
         'is_active'           => 'boolean',
         'is_primary'          => 'boolean',
+        'compare_at_price'    => 'float',
+        'compare_at_from'     => 'date',
+        'compare_at_until'    => 'date',
+        'stock_min'           => 'float',
+        'min_margin_pct'      => 'float',
+        'weight'              => 'float',
+        'length'              => 'float',
+        'width'               => 'float',
+        'height'              => 'float',
     ];
 
     // ── Relaciones ─────────────────────────────────────────────────────────
@@ -94,6 +114,51 @@ class ItemVariant extends ModelTenant
         $wh = $this->warehouseStocks->firstWhere('warehouse_id', $warehouseId);
         if (!$wh) return 0.0;
         return max(0, $wh->stock_physical - $wh->stock_committed);
+    }
+
+    /**
+     * Valor efectivo de un campo con herencia: el propio si existe, el del
+     * producto padre si es null.
+     *
+     * Centraliza la regla en un sitio. Repartida por el código, cada llamador
+     * la escribía con `??` y alguno se equivocaba: con `0` como valor propio,
+     * `$v->campo ?? $item->campo` funciona, pero `$v->campo ?: $item->campo`
+     * cae al padre silenciosamente — y 0 es un valor legítimo para un peso o un
+     * margen mínimo.
+     */
+    public function inherited(string $field)
+    {
+        if ($this->{$field} !== null) {
+            return $this->{$field};
+        }
+
+        return $this->item ? $this->item->{$field} : null;
+    }
+
+    /**
+     * ¿Esta variante tiene una oferta vigente propia? Si no la tiene, quien
+     * pregunte debe caer a la del producto padre.
+     */
+    public function hasOwnActiveOffer(): bool
+    {
+        if ($this->compare_at_price === null || $this->compare_at_price <= 0) {
+            return false;
+        }
+
+        $precio = $this->getEffectiveSalePrice();
+        if ($this->compare_at_price <= $precio) {
+            return false;
+        }
+
+        if ($this->compare_at_from && $this->compare_at_from->startOfDay()->gt(now())) {
+            return false;
+        }
+
+        if ($this->compare_at_until && $this->compare_at_until->endOfDay()->lt(now())) {
+            return false;
+        }
+
+        return true;
     }
 
     /**

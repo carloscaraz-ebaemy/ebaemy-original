@@ -250,6 +250,17 @@ class ItemVariantController extends Controller
             'purchase_unit_price'=> 'nullable|numeric|min:0',
             'display_name'       => 'nullable|string|max:255',
             'is_active'          => 'boolean',
+            // Campos con herencia (migración 2026_09_11_000002). null = hereda
+            // del producto, así que 'nullable' no es laxitud: es el mecanismo.
+            'compare_at_price'   => 'nullable|numeric|min:0',
+            'compare_at_from'    => 'nullable|date',
+            'compare_at_until'   => 'nullable|date|after_or_equal:compare_at_from',
+            'stock_min'          => 'nullable|numeric|min:0',
+            'min_margin_pct'     => 'nullable|numeric|between:0,99.99',
+            'weight'             => 'nullable|numeric|min:0',
+            'length'             => 'nullable|numeric|min:0',
+            'width'              => 'nullable|numeric|min:0',
+            'height'             => 'nullable|numeric|min:0',
         ]);
 
         // Solo persistimos los campos efectivamente enviados — distinguimos
@@ -258,7 +269,12 @@ class ItemVariantController extends Controller
         // la variante herede el del producto padre; el array_filter anterior
         // descartaba el null y dejaba el precio viejo, anulando esa lógica.
         $update = [];
-        foreach (['sku', 'barcode', 'sale_unit_price', 'purchase_unit_price', 'display_name', 'is_active'] as $field) {
+        $campos = [
+            'sku', 'barcode', 'sale_unit_price', 'purchase_unit_price', 'display_name', 'is_active',
+            'compare_at_price', 'compare_at_from', 'compare_at_until',
+            'stock_min', 'min_margin_pct', 'weight', 'length', 'width', 'height',
+        ];
+        foreach ($campos as $field) {
             if ($request->has($field)) {
                 $update[$field] = $data[$field] ?? null;
             }
@@ -293,7 +309,15 @@ class ItemVariantController extends Controller
                    || array_key_exists('purchase_unit_price', $update);
 
         if ($tocaPrecio && $precioEfectivo > 0) {
-            $rule = MinMarginRule::forVariant($variant, $item, $nuevoCosto);
+            // Se valida contra el estado que la variante TENDRÁ: si esta misma
+            // petición trae un min_margin_pct propio, es ese el que rige, no el
+            // heredado del padre.
+            $variantParaRegla = clone $variant;
+            if (array_key_exists('min_margin_pct', $update)) {
+                $variantParaRegla->min_margin_pct = $update['min_margin_pct'];
+            }
+
+            $rule = MinMarginRule::forVariant($variantParaRegla, $item, $nuevoCosto);
 
             if (!$rule->passes('sale_unit_price', $precioEfectivo)) {
                 return response()->json([
@@ -318,6 +342,145 @@ class ItemVariantController extends Controller
         return response()->json([
             'success' => true,
             'variant' => $this->formatVariant($variant->fresh(['optionValues', 'warehouseStocks'])),
+        ]);
+    }
+
+    // ────────────────────────────────────────────────────────────────────────
+    // PATCH /items/{item}/variants/bulk
+    // Una operación declarativa sobre varias variantes, en una transacción.
+    // ────────────────────────────────────────────────────────────────────────
+
+    public function bulkUpdate(Request $request, Item $item): JsonResponse
+    {
+        $data = $request->validate([
+            'op'          => 'required|in:set_price,adjust_pct,set_cost,activate,deactivate,clear_price',
+            'value'       => 'nullable|numeric',
+            // Vacío = todas las variantes activas del producto.
+            'variant_ids' => 'nullable|array',
+            'variant_ids.*' => 'integer',
+        ]);
+
+        $query = ItemVariant::where('item_id', $item->id);
+        if (!empty($data['variant_ids'])) {
+            $query->whereIn('id', $data['variant_ids']);
+        } else {
+            $query->where('is_active', true);
+        }
+
+        $variants = $query->get();
+
+        if ($variants->isEmpty()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'No hay variantes sobre las que aplicar el cambio.',
+            ], 422);
+        }
+
+        $valor = $data['value'] !== null ? (float) $data['value'] : null;
+
+        if (in_array($data['op'], ['set_price', 'adjust_pct', 'set_cost'], true) && $valor === null) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Falta el valor a aplicar.',
+            ], 422);
+        }
+
+        // Se calcula TODO antes de escribir nada, y si una sola variante rompe el
+        // guardarraíl se rechaza la operación completa. Aplicar la mitad de un
+        // "subir 10 % a las 24 tallas" dejaría el producto con dos listas de
+        // precios distintas y sin forma de saber dónde se cortó.
+        $cambios  = [];
+        $rechazos = [];
+
+        foreach ($variants as $variant) {
+            $update = [];
+
+            switch ($data['op']) {
+                case 'set_price':
+                    $update['sale_unit_price'] = $valor;
+                    break;
+
+                case 'clear_price':
+                    // Vuelve a heredar el precio del producto padre.
+                    $update['sale_unit_price'] = null;
+                    break;
+
+                case 'adjust_pct':
+                    // Sobre el precio EFECTIVO: una variante que hereda del padre
+                    // también sube, y al hacerlo deja de heredar. Es lo que se
+                    // espera de "subir un 10 %" y evita que unas suban y otras no.
+                    $base = $variant->sale_unit_price !== null
+                        ? (float) $variant->sale_unit_price
+                        : (float) $item->sale_unit_price;
+                    $update['sale_unit_price'] = round($base * (1 + $valor / 100), 4);
+                    break;
+
+                case 'set_cost':
+                    $update['purchase_unit_price'] = $valor;
+                    break;
+
+                case 'activate':
+                    $update['is_active'] = true;
+                    break;
+
+                case 'deactivate':
+                    $update['is_active'] = false;
+                    break;
+            }
+
+            // Mismo guardarraíl que el PATCH individual. Desactivar no se valida:
+            // bloquearlo impediría retirar justo la variante mal valorada.
+            if (array_key_exists('sale_unit_price', $update) || array_key_exists('purchase_unit_price', $update)) {
+                $costo = array_key_exists('purchase_unit_price', $update)
+                    ? $update['purchase_unit_price']
+                    : ($variant->purchase_unit_price === null ? null : (float) $variant->purchase_unit_price);
+
+                $precio = array_key_exists('sale_unit_price', $update)
+                    ? $update['sale_unit_price']
+                    : $variant->sale_unit_price;
+
+                $precioEfectivo = $precio !== null ? (float) $precio : (float) $item->sale_unit_price;
+
+                if ($precioEfectivo > 0) {
+                    $rule = MinMarginRule::forVariant($variant, $item, $costo === null ? null : (float) $costo);
+                    if (!$rule->passes('sale_unit_price', $precioEfectivo)) {
+                        $rechazos[] = ($variant->display_name ?: ('#' . $variant->id)) . ': ' . $rule->message();
+                        continue;
+                    }
+                }
+            }
+
+            $cambios[] = [$variant, $update];
+        }
+
+        if (!empty($rechazos)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'No se aplicó ningún cambio: ' . count($rechazos)
+                           . ' variante(s) quedarían fuera de la política de precios.',
+                'detalle' => $rechazos,
+            ], 422);
+        }
+
+        DB::connection('tenant')->transaction(function () use ($cambios, $item) {
+            foreach ($cambios as [$variant, $update]) {
+                if (!empty($update)) {
+                    $variant->update($update);
+                }
+            }
+
+            // activate/deactivate cambian qué variantes cuentan en el total.
+            $this->service->propagateStock($item->fresh());
+        });
+
+        $this->triggerMarketplaceSync($item);
+
+        $item->load(['allVariants.optionValues', 'allVariants.warehouseStocks']);
+
+        return response()->json([
+            'success'  => true,
+            'affected' => count($cambios),
+            'variants' => $item->allVariants->map(fn($v) => $this->formatVariant($v)),
         ]);
     }
 
@@ -638,9 +801,22 @@ class ItemVariantController extends Controller
         $data = $request->validate([
             'warehouse_id' => 'required|integer',
             'stock'        => 'required|numeric|min:0',
+            'reason'       => 'nullable|string|max:255',
         ]);
 
+        // Delta ANTES de escribir: el ajuste llega como valor absoluto y el
+        // kardex necesita el movimiento. Sin esto el ajuste no dejaba rastro —
+        // no había quién ni por qué— a diferencia de la recepción de compras,
+        // que sí registra movimiento.
+        $anterior = (float) (ItemVariantWarehouse::where('item_variant_id', $variant->id)
+            ->where('warehouse_id', (int) $data['warehouse_id'])
+            ->value('stock_physical') ?? 0);
+
+        $delta = (float) $data['stock'] - $anterior;
+
         $this->service->updateVariantStock($variant, $data['warehouse_id'], $data['stock']);
+
+        $this->logStockAdjustment($item, $variant, (int) $data['warehouse_id'], $delta, $data['reason'] ?? null);
 
         // Un ajuste de stock puede dejar la variante en cero —y entonces el
         // marketplace debe dejar de ofrecerla— o sacarla de cero, y entonces
@@ -653,6 +829,60 @@ class ItemVariantController extends Controller
             'success' => true,
             'variant' => $this->formatVariant($variant),
         ]);
+    }
+
+    /**
+     * Deja el ajuste manual de stock en el kardex de inventario.
+     *
+     * El observer de Inventory suma o resta item_warehouse.stock por su cuenta,
+     * lo que para un producto con variantes sería doble conteo — pero
+     * updateVariantStock() ya llamó a propagateStock(), que recalcula el padre
+     * desde las variantes y sobrescribe ese bump. Es el mismo razonamiento que
+     * documenta la recepción de órdenes de compra.
+     *
+     * Best-effort: si el kardex falla, el ajuste de stock ya está hecho y es
+     * correcto. Perder la anotación es peor que perder el ajuste, pero no
+     * justifica deshacerlo.
+     */
+    private function logStockAdjustment(
+        Item $item,
+        ItemVariant $variant,
+        int $warehouseId,
+        float $delta,
+        ?string $reason
+    ): void {
+        if (abs($delta) < 0.0001) {
+            return; // No hubo cambio: no se ensucia el kardex.
+        }
+
+        try {
+            $quien   = optional(auth()->user())->name ?? 'sistema';
+            $qué     = $variant->display_name ?: ('variante #' . $variant->id);
+            $motivo  = $reason ? (' — ' . $reason) : '';
+            $signo   = $delta > 0 ? '+' : '';
+
+            \Modules\Inventory\Models\Inventory::create([
+                'type'         => $delta > 0 ? 1 : 3,   // 1 entrada, 3 salida
+                'description'  => 'Ajuste de variante ' . $qué . $motivo,
+                'item_id'      => $item->id,
+                'warehouse_id' => $warehouseId,
+                'quantity'     => abs($delta),
+                'comments'     => sprintf(
+                    'Ajuste manual de stock (%s%s) en "%s" por %s',
+                    $signo,
+                    rtrim(rtrim(number_format($delta, 4, '.', ''), '0'), '.'),
+                    $qué,
+                    $quien
+                ),
+            ]);
+        } catch (\Throwable $e) {
+            Log::warning('[ItemVariantController] no se pudo registrar el ajuste en kardex', [
+                'item_id'    => $item->id,
+                'variant_id' => $variant->id,
+                'delta'      => $delta,
+                'error'      => $e->getMessage(),
+            ]);
+        }
     }
 
     // ────────────────────────────────────────────────────────────────────────
@@ -670,6 +900,15 @@ class ItemVariantController extends Controller
             'purchase_unit_price' => $variant->purchase_unit_price,
             'is_active'           => $variant->is_active,
             'is_primary'          => (bool) $variant->is_primary,
+            'compare_at_price'    => $variant->compare_at_price,
+            'compare_at_from'     => optional($variant->compare_at_from)->format('Y-m-d'),
+            'compare_at_until'    => optional($variant->compare_at_until)->format('Y-m-d'),
+            'stock_min'           => $variant->stock_min,
+            'min_margin_pct'      => $variant->min_margin_pct,
+            'weight'              => $variant->weight,
+            'length'              => $variant->length,
+            'width'               => $variant->width,
+            'height'              => $variant->height,
             'stock'               => $variant->stock,
             'variant_hash'        => $variant->variant_hash,
             'image'               => $variant->image,

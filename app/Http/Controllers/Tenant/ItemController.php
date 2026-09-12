@@ -2927,6 +2927,147 @@ class ItemController extends Controller
             'CatItemUnitsPerPackage');
     }
 
+    /**
+     * CSV con UNA FILA POR VARIANTE.
+     *
+     * Las exportaciones existentes son por producto, así que imprimir etiquetas
+     * de código de barras por talla era imposible: solo conocían el código del
+     * padre. Esta salida es la que sirve para eso, y también para inventariar
+     * (la unidad de conteo físico es la variante, no el modelo).
+     *
+     * Las columnas de atributo se resuelven en tiempo de ejecución: un tenant de
+     * calzado tendrá Talla y Color, otro de bebidas Sabor y Tamaño, y no hay una
+     * lista fija que sirva a los dos.
+     *
+     * No reutiliza exportTxtBartender: ese trabaja con los catálogos legacy
+     * CatItemSize/CatColorsItem, anteriores al sistema de variantes y sin
+     * relación con item_variants.
+     */
+    public function exportVariantsCsv(Request $request)
+    {
+        $warehouseId = $request->filled('warehouse_id') && $request->warehouse_id !== 'all'
+            ? (int) $request->warehouse_id
+            : null;
+
+        $items = Item::where('has_variants', true)
+            ->where('active', true)
+            ->orderBy('description')
+            ->get(['id', 'internal_id', 'description', 'currency_type_id']);
+
+        $variantRows = app(\App\Services\Tenant\StockQueryService::class)
+            ->variantRowsFor($items->pluck('id')->all(), $warehouseId);
+
+        // Nombres de opción por producto, para rellenar las columnas de atributo.
+        $optionNames = \App\Models\Tenant\ItemOption::whereIn('item_id', $items->pluck('id'))
+            ->orderBy('position')
+            ->get(['item_id', 'name']);
+
+        // La cabecera necesita tantas columnas de atributo como opciones tenga el
+        // producto con más opciones. El resto quedan vacías en su fila.
+        $maxOpciones = $optionNames->groupBy('item_id')->map->count()->max() ?: 0;
+
+        $valoresPorVariante = $this->variantOptionValuesMap($variantRows);
+
+        // Nombre de almacén. Las filas son por variante Y almacén: sin esta
+        // columna, una talla con stock en dos almacenes aparecía dos veces con
+        // cifras distintas y parecía un duplicado del informe.
+        $almacenes = \Modules\Inventory\Models\Warehouse::pluck('description', 'id')->all();
+
+        $filename = 'variantes_' . now()->format('Ymd_His') . '.csv';
+
+        $headers = ['Producto', 'Código producto', 'Variante', 'SKU', 'Código de barras', 'Almacén'];
+        for ($i = 1; $i <= $maxOpciones; $i++) {
+            $headers[] = 'Atributo ' . $i;
+            $headers[] = 'Valor ' . $i;
+        }
+        array_push($headers,
+            'Stock físico', 'Comprometido', 'Disponible',
+            'Costo unitario', 'Precio venta',
+            'Valorización costo', 'Valorización venta', 'Moneda'
+        );
+
+        $response = new StreamedResponse(function () use (
+            $items, $variantRows, $optionNames, $maxOpciones, $valoresPorVariante, $headers, $almacenes
+        ) {
+            $out = fopen('php://output', 'w');
+
+            // BOM para que Excel en Windows abra los acentos bien; sin él,
+            // "Talla" sale como "Talla" pero "Tamaño" sale roto.
+            fwrite($out, "ï»¿");
+            fputcsv($out, $headers, ';');
+
+            foreach ($items as $item) {
+                $opciones = $optionNames->where('item_id', $item->id)->pluck('name')->values();
+
+                foreach ($variantRows[$item->id] ?? [] as $v) {
+                    $fila = [
+                        $item->description,
+                        $item->internal_id,
+                        $v['display_name'],
+                        $v['sku'],
+                        $v['barcode'],
+                        $v['warehouse_id'] !== null
+                            ? ($almacenes[$v['warehouse_id']] ?? ('Almacén ' . $v['warehouse_id']))
+                            : 'Sin almacén',
+                    ];
+
+                    $valores = $valoresPorVariante[$v['variant_id']] ?? [];
+                    for ($i = 0; $i < $maxOpciones; $i++) {
+                        $fila[] = $opciones[$i] ?? '';
+                        $fila[] = $valores[$i] ?? '';
+                    }
+
+                    array_push($fila,
+                        $v['stock'], $v['committed'], $v['available'],
+                        $v['cost'], $v['price'],
+                        $v['valuation_cost'], $v['valuation_price'],
+                        $item->currency_type_id
+                    );
+
+                    fputcsv($out, $fila, ';');
+                }
+            }
+
+            fclose($out);
+        });
+
+        $response->headers->set('Content-Type', 'text/csv; charset=UTF-8');
+        $response->headers->set('Content-Disposition', 'attachment; filename="' . $filename . '"');
+
+        return $response;
+    }
+
+    /**
+     * [variant_id => [valor1, valor2, ...]] en el orden de posición de la opción,
+     * para que la columna "Valor 1" corresponda siempre a "Atributo 1".
+     */
+    private function variantOptionValuesMap(array $variantRows): array
+    {
+        $variantIds = [];
+        foreach ($variantRows as $rows) {
+            foreach ($rows as $r) {
+                $variantIds[] = $r['variant_id'];
+            }
+        }
+
+        if (empty($variantIds)) return [];
+
+        $rows = \Illuminate\Support\Facades\DB::connection('tenant')
+            ->table('item_variant_value_map as m')
+            ->join('item_option_values as ov', 'ov.id', '=', 'm.item_option_value_id')
+            ->join('item_options as o', 'o.id', '=', 'ov.item_option_id')
+            ->whereIn('m.item_variant_id', $variantIds)
+            ->orderBy('o.position')
+            ->get(['m.item_variant_id', 'ov.value']);
+
+        $map = [];
+        foreach ($rows as $row) {
+            $map[(int) $row->item_variant_id][] = $row->value;
+        }
+
+        return $map;
+    }
+
     public function exportTxtBartender(Request $request)
     {
         ini_set("pcre.backtrack_limit", "50000000");

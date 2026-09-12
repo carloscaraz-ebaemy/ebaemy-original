@@ -1008,12 +1008,70 @@ class MarketplaceListingSyncService
     }
 
     /**
+     * Oferta definida en la propia variante: compare_at_price dentro de su
+     * ventana de vigencia. Devuelve null si no hay ninguna vigente, para que el
+     * llamador siga con las reglas de canal.
+     *
+     * Se lee de columnas crudas (el $variant viene de un query builder, no del
+     * modelo, así que no hay casts de fecha): de ahí el Carbon::parse manual.
+     */
+    private function variantOwnOffer(object $variant, float $price): ?array
+    {
+        $compareAt = isset($variant->compare_at_price) ? (float) $variant->compare_at_price : 0.0;
+
+        // Solo cuenta si de verdad hay algo que tachar: un compare_at por debajo
+        // del precio no es una oferta, es un dato mal puesto.
+        if ($compareAt <= 0 || $compareAt <= $price) {
+            return null;
+        }
+
+        try {
+            $desde = $variant->compare_at_from ?? null;
+            $hasta = $variant->compare_at_until ?? null;
+
+            if ($desde && now()->lt(\Illuminate\Support\Carbon::parse($desde)->startOfDay())) return null;
+            if ($hasta && now()->gt(\Illuminate\Support\Carbon::parse($hasta)->endOfDay()))   return null;
+        } catch (\Throwable $e) {
+            // Fecha ilegible: se ignora la ventana y la oferta se considera
+            // vigente. Es lo mismo que hace compareAtActive() para el padre.
+        }
+
+        return [
+            'price'          => $price,
+            'is_on_offer'    => true,
+            'original_price' => $compareAt,
+            'offer_ends_at'  => $variant->compare_at_until ?? null,
+            'discount_pct'   => (int) round((1 - $price / $compareAt) * 100),
+        ];
+    }
+
+    /**
      * Mismo patrón que resolveOfferInfo() pero por variante. PromotionEngine
      * recibe un cart simulado de 1 unidad de la variante con su sale_unit_price.
      */
     private function resolveVariantOffer(object $item, object $variant, float $price, ?object $channel): array
     {
-        if ($price <= 0 || !$channel) {
+        if ($price <= 0) {
+            return [
+                'price'          => $price,
+                'is_on_offer'    => false,
+                'original_price' => null,
+                'offer_ends_at'  => null,
+                'discount_pct'   => null,
+            ];
+        }
+
+        // Oferta PROPIA de la variante (compare_at_price + ventana). Es la que
+        // permite liquidar solo la talla 45 sin tocar el resto del producto, y
+        // gana sobre las reglas de canal porque es una decisión explícita del
+        // seller sobre esta combinación concreta. Sin esto el campo nacía muerto:
+        // se podía guardar y nunca llegaba al comprador.
+        $propia = $this->variantOwnOffer($variant, $price);
+        if ($propia) {
+            return $propia;
+        }
+
+        if (!$channel) {
             return [
                 'price'          => $price,
                 'is_on_offer'    => false,

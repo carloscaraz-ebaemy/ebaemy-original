@@ -68,7 +68,7 @@ class ReportInventoryController extends Controller
     private function getRecords($warehouse_id = 0, $filter, $request)
     {
         $query = ItemWarehouse::with(['warehouse', 'item'=> function ($query){
-                                $query->select('id', 'barcode', 'internal_id', 'description', 'name', 'category_id', 'brand_id','stock_min', 'sale_unit_price', 'purchase_unit_price', 'model', 'date_of_due', 'currency_type_id' );
+                                $query->select('id', 'barcode', 'internal_id', 'description', 'name', 'category_id', 'brand_id','stock_min', 'sale_unit_price', 'purchase_unit_price', 'model', 'date_of_due', 'currency_type_id', 'has_variants' );
                                 $query->with(['category', 'brand', 'currency_type']);
                                 $query->without(['item_type', 'unit_type', 'warehouses', 'item_unit_types', 'tags']);
                                }])
@@ -106,7 +106,7 @@ class ReportInventoryController extends Controller
             //$query->where('stock', 0);
 
             $query = ItemWarehouse::with(['warehouse', 'item'=> function ($query){
-                $query->select('id', 'barcode', 'internal_id', 'description', 'category_id', 'brand_id','stock_min', 'sale_unit_price', 'purchase_unit_price', 'model', 'date_of_due', 'currency_type_id' );
+                $query->select('id', 'barcode', 'internal_id', 'description', 'category_id', 'brand_id','stock_min', 'sale_unit_price', 'purchase_unit_price', 'model', 'date_of_due', 'currency_type_id', 'has_variants' );
                 $query->with(['category', 'brand', 'currency_type']);
                 $query->without(['item_type', 'unit_type', 'warehouses', 'item_unit_types', 'tags']);
                }])
@@ -127,7 +127,7 @@ class ReportInventoryController extends Controller
             //$add = ($stock > $item->stock_min);
 
             $query = ItemWarehouse::with(['warehouse', 'item'=> function ($query){
-                $query->select('id', 'barcode', 'internal_id', 'description', 'category_id', 'brand_id','stock_min', 'sale_unit_price', 'purchase_unit_price', 'model', 'date_of_due', 'currency_type_id' );
+                $query->select('id', 'barcode', 'internal_id', 'description', 'category_id', 'brand_id','stock_min', 'sale_unit_price', 'purchase_unit_price', 'model', 'date_of_due', 'currency_type_id', 'has_variants' );
                 $query->with(['category', 'brand', 'currency_type']);
                 $query->without(['item_type', 'unit_type', 'warehouses', 'item_unit_types', 'tags']);
                }])
