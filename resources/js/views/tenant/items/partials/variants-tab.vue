@@ -41,6 +41,14 @@
                                title="Genera SKUs automáticos basados en el código del producto y los valores de cada variante">
                         Generar SKUs
                     </el-button>
+                    <el-button v-if="inactiveCount > 0 || showInactive"
+                               size="small" plain
+                               :type="showInactive ? 'warning' : ''"
+                               icon="el-icon-view"
+                               @click="toggleInactive"
+                               title="Las variantes con stock no se borran al quitar una opción: se desactivan. Aquí puedes verlas y recuperarlas.">
+                        {{ showInactive ? 'Ocultar desactivadas' : `Ver desactivadas (${inactiveCount})` }}
+                    </el-button>
                     <el-button size="small" type="primary" plain
                                icon="el-icon-plus"
                                @click="showOptionsEditor = true">
@@ -48,6 +56,45 @@
                     </el-button>
                 </div>
             </div>
+
+            <!-- ── Aviso de variantes desactivadas ──────────────────────── -->
+            <el-alert v-if="showInactive && inactiveVariants.length"
+                      type="warning" :closable="false" show-icon
+                      class="mb-3">
+                <template slot="title">
+                    {{ inactiveVariants.length }} variante(s) desactivada(s)
+                </template>
+                Su stock no se cuenta en el total del producto ni se publica en la
+                tienda. Reactívalas si la combinación vuelve a existir, o mueve su
+                stock a otra variante para no perder inventario.
+            </el-alert>
+
+            <!-- ── Mover stock de una variante desactivada ──────────────── -->
+            <el-dialog title="Mover stock a otra variante"
+                       :visible.sync="showMoveDialog"
+                       append-to-body width="460px">
+                <p v-if="movingVariant" class="mb-3">
+                    Se moverán las unidades libres de
+                    <strong>{{ movingVariant.display_name }}</strong>
+                    a la variante que elijas, almacén por almacén. El total del
+                    producto no cambia.
+                </p>
+                <el-select v-model="moveTargetId" placeholder="Variante de destino"
+                           class="w-100" filterable>
+                    <el-option v-for="t in moveTargets" :key="t.id"
+                               :label="t.display_name" :value="t.id" />
+                </el-select>
+                <p class="text-muted small mt-2 mb-0">
+                    Las unidades comprometidas por pedidos pendientes no se mueven:
+                    siguen respaldando esas reservas.
+                </p>
+                <span slot="footer">
+                    <el-button size="small" @click="showMoveDialog = false">Cancelar</el-button>
+                    <el-button size="small" type="primary"
+                               :loading="movingStock"
+                               @click="confirmMoveStock">Mover stock</el-button>
+                </span>
+            </el-dialog>
 
             <!-- ── Editor de opciones (modal inline) ──────────────────── -->
             <el-dialog title="Opciones y valores"
@@ -170,6 +217,7 @@
                                                @click="openBulkPriceDialog" />
                                 </el-tooltip>
                             </th>
+                            <th style="width:110px" title="Utilidad por unidad y margen sobre el precio de venta, contra el costo efectivo de esta variante (o el heredado del producto).">Utilidad</th>
                             <th style="width:90px">SKU</th>
                             <th style="width:80px">Stock</th>
                             <th style="width:70px">Activo</th>
@@ -181,7 +229,7 @@
                             <!-- Header del grupo: solo cuando hay 2+ opciones (ej. Color × Talla).
                                  Reduce el ruido visual al no repetir el color en cada fila. -->
                             <tr v-if="hasMultipleOptions" :key="`hdr-${group.key}`" class="vt-group-header">
-                                <td colspan="8">
+                                <td colspan="9">
                                     <span v-if="group.color_hex"
                                           class="vt-group-swatch"
                                           :style="`background:${group.color_hex}`"></span>
@@ -260,6 +308,19 @@
                                     hereda S/ {{ formatMoney(parentPrice) }}
                                 </div>
                             </td>
+                            <td class="text-end">
+                                <!-- Utilidad y margen reales de esta variante. Sin
+                                     esto, la pérdida existía pero no se veía: el
+                                     cálculo devolvía negativo y ninguna pantalla
+                                     lo mostraba. -->
+                                <template v-if="margin(v)">
+                                    <div :class="margin(v).loss ? 'vt-margin-loss' : 'vt-margin-ok'">
+                                        {{ margin(v).profit }}
+                                    </div>
+                                    <div class="vt-margin-pct">{{ margin(v).pct }}%</div>
+                                </template>
+                                <span v-else class="vt-inherit-hint">sin costo</span>
+                            </td>
                             <td>
                                 <el-input v-model="v.sku" size="mini" style="width:80px"
                                           placeholder="Auto"
@@ -287,7 +348,19 @@
                                            @change="patchVariant(v)" />
                             </td>
                             <td class="text-center">
-                                <el-popconfirm title="¿Eliminar esta variante?"
+                                <!-- Variante desactivada: en vez de borrar, las dos
+                                     salidas para su stock. Borrarla perdería unidades
+                                     reales del inventario. -->
+                                <div v-if="!v.is_active" class="d-flex gap-1 justify-content-center">
+                                    <el-button size="mini" plain icon="el-icon-refresh-left"
+                                               title="Reactivar esta variante"
+                                               @click="reactivateVariant(v)" />
+                                    <el-button size="mini" plain icon="el-icon-sort"
+                                               :disabled="!(v.stock > 0)"
+                                               :title="v.stock > 0 ? 'Mover su stock a otra variante' : 'No tiene stock que mover'"
+                                               @click="openMoveStock(v)" />
+                                </div>
+                                <el-popconfirm v-else title="¿Eliminar esta variante?"
                                                @confirm="deleteVariant(v)">
                                     <el-button slot="reference" size="mini" type="danger"
                                                plain icon="el-icon-delete" />
@@ -438,6 +511,11 @@ export default {
     props: {
         itemId:                   { type: Number,  default: null },
         parentPrice:              { type: Number,  default: 0 },
+        // Costo del producto padre y su % de costo adicional (flete, importación,
+        // mermas). Una variante sin costo propio hereda ambos — es lo que usa la
+        // columna Utilidad para no mostrar un margen inventado.
+        parentCost:               { type: Number,  default: 0 },
+        landedCostExtraPct:       { type: Number,  default: 0 },
         // Código del producto padre (internal_id o item_code) — base para el
         // generador de SKUs automáticos. Si no llega, el botón avisa al seller.
         itemCode:                 { type: String,  default: '' },
@@ -451,6 +529,16 @@ export default {
     },
 
     computed: {
+        // Variantes desactivadas que se están mostrando ahora mismo. Sirve para
+        // el aviso de la cabecera y para saber si hay algo que rescatar.
+        inactiveVariants() {
+            return (this.variants || []).filter(v => !v.is_active)
+        },
+        // Destinos posibles al mover el stock de una variante desactivada:
+        // solo las activas, nunca ella misma.
+        moveTargets() {
+            return (this.variants || []).filter(v => v.is_active && v.id !== (this.movingVariant || {}).id)
+        },
         // Texto del placeholder del input de precio. Si el padre no tiene
         // precio (común en producto recién creado) dejamos el placeholder
         // genérico, así no pone "0" engañoso.
@@ -542,6 +630,16 @@ export default {
             variants:    [],
             editOptions: [],
 
+            // Rescate de variantes desactivadas. Una variante con stock nunca se
+            // borra: se desactiva. Sin este interruptor quedaban invisibles y su
+            // stock era irrecuperable desde la interfaz.
+            showInactive:   false,
+            inactiveCount:  0,
+            movingVariant:  null,
+            moveTargetId:   null,
+            showMoveDialog: false,
+            movingStock:    false,
+
             // UI
             showOptionsEditor: false,
             showStockDialog:   false,
@@ -614,8 +712,10 @@ export default {
         // ── Cargar datos ──────────────────────────────────────────────────
 
         loadVariants() {
-            this.$http.get(`/items/${this.itemId}/variants`)
+            const params = this.showInactive ? '?include_inactive=1' : ''
+            this.$http.get(`/items/${this.itemId}/variants${params}`)
                 .then(({ data }) => {
+                    this.inactiveCount = data.inactive_count || 0
                     // Normalizar precio: backend envía 0 cuando la variante no
                     // tiene override; convertimos a null para que el input
                     // muestre el placeholder con el precio heredado del padre
@@ -627,8 +727,94 @@ export default {
                             : null,
                     }))
                     this.editOptions = this.cloneOptions(data.options || [])
+
+                    // El stock que muestra el formulario del producto se deriva de
+                    // las variantes ACTIVAS: las desactivadas no cuentan en el total
+                    // (ver ItemVariantService::COUNT_INACTIVE), así que al mirarlas
+                    // con el interruptor no deben inflar la cifra del padre.
+                    this.$emit('variants-updated', this.variants.filter(v => v.is_active))
                 })
                 .catch(() => this.$message.error('Error al cargar variantes'))
+        },
+
+        // Utilidad y margen de una variante, con la MISMA fórmula que el backend
+        // (PriceCalculator): margen sobre el precio de venta, no markup sobre el
+        // costo. Devuelve null cuando no hay costo con el que comparar, para no
+        // pintar un 100 % de margen que solo significa "falta el costo".
+        margin(v) {
+            const precio = Number(v.sale_unit_price) > 0
+                ? Number(v.sale_unit_price)
+                : Number(this.parentPrice)
+
+            const costoBase = Number(v.purchase_unit_price) > 0
+                ? Number(v.purchase_unit_price)
+                : Number(this.parentCost)
+
+            if (!(precio > 0) || !(costoBase > 0)) return null
+
+            const costo    = costoBase * (1 + Number(this.landedCostExtraPct || 0) / 100)
+            const utilidad = precio - costo
+
+            return {
+                profit: (utilidad < 0 ? '-S/ ' : 'S/ ') + this.formatMoney(Math.abs(utilidad)),
+                pct:    (utilidad / precio * 100).toFixed(1),
+                loss:   utilidad < 0,
+            }
+        },
+
+        // ── Rescate de variantes desactivadas ────────────────────────────
+        //
+        // Al quitar un valor de una opción, las combinaciones que lo usaban
+        // dejan de ser válidas. Si tenían stock NO se borran —se perdería
+        // inventario real— sino que se desactivan. Antes desaparecían de la
+        // pantalla y no había forma de reactivarlas ni de recuperar su stock.
+
+        toggleInactive() {
+            this.showInactive = !this.showInactive
+            this.loadVariants()
+        },
+
+        reactivateVariant(variant) {
+            this.$http.post(`/items/${this.itemId}/variants/${variant.id}/reactivate`)
+                .then(({ data }) => {
+                    this.$message.success('Variante reactivada')
+                    this.loadVariants()
+                })
+                .catch((err) => {
+                    // 422 = la combinación ya no existe en las opciones actuales.
+                    // El backend explica qué hacer; mostramos su mensaje tal cual
+                    // en vez de un error genérico.
+                    const msg = ((err.response || {}).data || {}).message
+                    this.$message.warning(msg || 'No se pudo reactivar la variante')
+                })
+        },
+
+        openMoveStock(variant) {
+            this.movingVariant  = variant
+            this.moveTargetId   = null
+            this.showMoveDialog = true
+        },
+
+        confirmMoveStock() {
+            if (!this.moveTargetId) {
+                return this.$message.warning('Elige la variante que recibirá el stock.')
+            }
+
+            this.movingStock = true
+            this.$http.post(`/items/${this.itemId}/variants/${this.movingVariant.id}/move-stock`, {
+                target_variant_id: this.moveTargetId,
+            })
+                .then(({ data }) => {
+                    this.$message.success(data.message)
+                    this.showMoveDialog = false
+                    this.movingVariant  = null
+                    this.loadVariants()
+                })
+                .catch((err) => {
+                    const msg = ((err.response || {}).data || {}).message
+                    this.$message.error(msg || 'No se pudo mover el stock')
+                })
+                .finally(() => { this.movingStock = false })
         },
 
         // ── Gestión de opciones (editor) ─────────────────────────────────
@@ -1082,6 +1268,9 @@ export default {
 </script>
 
 <style scoped>
+.vt-margin-ok   { font-weight: 600; color: #16a34a; font-variant-numeric: tabular-nums; }
+.vt-margin-loss { font-weight: 700; color: #dc2626; font-variant-numeric: tabular-nums; }
+.vt-margin-pct  { font-size: 11px; color: #8c939d; font-variant-numeric: tabular-nums; }
 .variants-tab .gap-1 { gap: 4px; }
 .variants-tab .gap-2 { gap: 8px; }
 .variants-tab table th,

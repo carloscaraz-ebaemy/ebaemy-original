@@ -17,6 +17,10 @@ class PurchaseOrderItem extends ModelTenant
     protected $fillable = [
         'purchase_id',
         'item_id',
+        // Qué variante concreta se compra. null = producto sin variantes, o una
+        // OC anterior a esta columna: en ese caso la recepción cae al fallback
+        // histórico (variante primaria). Ver la migración de 2026-09-11.
+        'variant_id',
         'item',
         'quantity',
         'unit_value',
@@ -47,6 +51,11 @@ class PurchaseOrderItem extends ModelTenant
         // 'warehouse_id',
         'discounts'
     ];
+
+    public function variant()
+    {
+        return $this->belongsTo(\App\Models\Tenant\ItemVariant::class, 'variant_id');
+    }
 
     public function getItemAttribute($value)
     {

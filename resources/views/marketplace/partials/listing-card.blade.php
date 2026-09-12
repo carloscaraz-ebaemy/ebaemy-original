@@ -84,6 +84,11 @@
             @if($cardHasOfferBadge)
                 @if(($listing->discount_source ?? null) === 'flash_sale')
                     <span class="mp-badge mp-badge--flash" title="Oferta por tiempo limitado">⚡ Flash -{{ $listing->discount_pct }}%</span>
+                @elseif(($listing->discount_source ?? null) === 'variant_partial')
+                    {{-- El descuento no alcanza a todas las variantes, o no todas
+                         con el mismo porcentaje: "hasta" evita prometer a todo el
+                         producto el descuento que solo tiene una talla. --}}
+                    <span class="mp-badge mp-badge--offer" title="Algunas opciones de este producto están en oferta">hasta -{{ $listing->discount_pct }}%</span>
                 @else
                     <span class="mp-badge mp-badge--offer" title="En oferta">-{{ $listing->discount_pct }}%</span>
                 @endif

@@ -896,6 +896,10 @@ if ($hostname) {
                 Route::post('/{variant}/image',    [\App\Http\Controllers\Tenant\ItemVariantController::class, 'uploadImage']);
                 Route::delete('/{variant}/image',  [\App\Http\Controllers\Tenant\ItemVariantController::class, 'deleteImage']);
                 Route::post('/{variant}/primary',  [\App\Http\Controllers\Tenant\ItemVariantController::class, 'setPrimary']);
+                // Rescate de variantes desactivadas: una variante con stock nunca
+                // se borra, y sin estas dos rutas su stock quedaba inaccesible.
+                Route::post('/{variant}/reactivate',  [\App\Http\Controllers\Tenant\ItemVariantController::class, 'reactivate']);
+                Route::post('/{variant}/move-stock',  [\App\Http\Controllers\Tenant\ItemVariantController::class, 'moveStock']);
             });
 
             //Persons

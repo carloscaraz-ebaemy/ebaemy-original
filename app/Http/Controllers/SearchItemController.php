@@ -897,6 +897,32 @@
                     }),
                     'series_enabled' => (bool)$row->series_enabled,
                     'lots_enabled' => (bool)$row->lots_enabled,
+                    // Variantes: mismo contrato que usa el POS (option_value_ids
+                    // por variante) para que el selector de la orden de compra
+                    // reutilice la lógica de resolución ya probada allí. Sin esto
+                    // la OC no puede decir QUÉ talla se compra, y la recepción
+                    // acredita todo a la variante primaria.
+                    'has_variants' => (bool) $row->has_variants,
+                    'variants' => $row->has_variants
+                        ? $row->loadMissing('variants.optionValues')->variants->map(fn ($v) => [
+                            'id'               => $v->id,
+                            'display_name'     => $v->display_name,
+                            'sku'              => $v->sku,
+                            'stock'            => $v->stock,
+                            'option_value_ids' => $v->optionValues->pluck('id')->toArray(),
+                        ])->values()->toArray()
+                        : [],
+                    'item_options' => $row->has_variants
+                        ? $row->loadMissing('itemOptions.values')->itemOptions->map(fn ($opt) => [
+                            'id'     => $opt->id,
+                            'name'   => $opt->name,
+                            'values' => $opt->values->map(fn ($v) => [
+                                'id'        => $v->id,
+                                'value'     => $v->value,
+                                'color_hex' => $v->color_hex,
+                            ])->toArray(),
+                        ])->values()->toArray()
+                        : [],
                 ];
             });
         }

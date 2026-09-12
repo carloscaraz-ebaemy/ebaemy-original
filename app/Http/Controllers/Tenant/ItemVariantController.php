@@ -8,6 +8,7 @@ use App\Models\Tenant\ItemOption;
 use App\Models\Tenant\ItemOptionValue;
 use App\Models\Tenant\ItemVariant;
 use App\Models\Tenant\ItemVariantWarehouse;
+use App\Rules\MinMarginRule;
 use App\Services\Tenant\ItemVariantService;
 use App\Services\Tenant\ImageProcessingService;
 use Illuminate\Http\JsonResponse;
@@ -38,13 +39,24 @@ class ItemVariantController extends Controller
     // GET /items/{item}/variants
     // ────────────────────────────────────────────────────────────────────────
 
-    public function index(Item $item): JsonResponse
+    public function index(Request $request, Item $item): JsonResponse
     {
+        // ?include_inactive=1 → también las variantes desactivadas. Una variante
+        // con stock nunca se borra, se desactiva; sin esto quedaban invisibles
+        // en toda la UI y su stock era irrecuperable. Ver Item::allVariants().
+        $includeInactive = filter_var(
+            $request->query('include_inactive', false),
+            FILTER_VALIDATE_BOOLEAN
+        );
+        $relation = $includeInactive ? 'allVariants' : 'variants';
+
         $item->load([
             'itemOptions.values',
-            'variants.optionValues',
-            'variants.warehouseStocks.warehouse',
+            $relation . '.optionValues',
+            $relation . '.warehouseStocks.warehouse',
         ]);
+
+        $variants = $item->{$relation};
 
         return response()->json([
             'has_variants' => (bool) $item->has_variants,
@@ -59,7 +71,11 @@ class ItemVariantController extends Controller
                     'position'  => $v->position,
                 ]),
             ]),
-            'variants' => $item->variants->map(fn($v) => $this->formatVariant($v)),
+            'variants' => $variants->map(fn($v) => $this->formatVariant($v)),
+            // Cuántas hay desactivadas, se pidan o no: así la pestaña puede
+            // ofrecer el interruptor "ver desactivadas" solo cuando hay algo
+            // que ver, en vez de mostrarlo siempre vacío.
+            'inactive_count' => $item->allVariants()->where('is_active', false)->count(),
         ]);
     }
 
@@ -213,8 +229,23 @@ class ItemVariantController extends Controller
         abort_if($variant->item_id !== $item->id, 404);
 
         $data = $request->validate([
-            'sku'                => 'nullable|string|max:100',
-            'barcode'            => 'nullable|string|max:100',
+            // Unicidad dentro del producto. La columna solo tenía índice, no
+            // restricción, así que dos tallas podían compartir SKU y al
+            // escanearlo el sistema no sabía cuál era. Se valida por producto y
+            // no globalmente: el índice único en BD llegaría con la limpieza de
+            // los duplicados que ya existan en los tenants.
+            'sku' => [
+                'nullable', 'string', 'max:100',
+                Rule::unique('tenant.item_variants', 'sku')
+                    ->where('item_id', $item->id)
+                    ->ignore($variant->id),
+            ],
+            'barcode' => [
+                'nullable', 'string', 'max:100',
+                Rule::unique('tenant.item_variants', 'barcode')
+                    ->where('item_id', $item->id)
+                    ->ignore($variant->id),
+            ],
             'sale_unit_price'    => 'nullable|numeric|min:0',
             'purchase_unit_price'=> 'nullable|numeric|min:0',
             'display_name'       => 'nullable|string|max:255',
@@ -232,8 +263,56 @@ class ItemVariantController extends Controller
                 $update[$field] = $data[$field] ?? null;
             }
         }
+
+        // Guardarraíl de margen. El precio del producto padre se valida en
+        // ItemRequest con MinMarginRule; el de la variante no se validaba en
+        // absoluto ('numeric|min:0' y nada más), así que con la política de
+        // bloqueo activa se podía dejar una talla bajo costo por esta puerta.
+        //
+        // Se evalúa el precio EFECTIVO: si la variante no tiene precio propio
+        // hereda el del padre, que ya pasó por la regla al guardarse el producto.
+        // Y contra el costo efectivo que quedará tras esta misma petición, no
+        // contra el viejo, porque precio y costo pueden venir juntos.
+        $nuevoCosto  = array_key_exists('purchase_unit_price', $update)
+            ? ($update['purchase_unit_price'] === null ? null : (float) $update['purchase_unit_price'])
+            : ($variant->purchase_unit_price === null ? null : (float) $variant->purchase_unit_price);
+
+        $nuevoPrecio = array_key_exists('sale_unit_price', $update)
+            ? $update['sale_unit_price']
+            : $variant->sale_unit_price;
+
+        $precioEfectivo = $nuevoPrecio !== null
+            ? (float) $nuevoPrecio
+            : (float) $item->sale_unit_price;
+
+        // Solo cuando la petición toca de verdad el precio o el costo. Si el PATCH
+        // viene únicamente a desactivar la variante o a corregirle el SKU, no hay
+        // nada que validar — y bloquearlo impediría desactivar precisamente la
+        // variante mal valorada, que es lo que uno quiere hacer al descubrirla.
+        $tocaPrecio = array_key_exists('sale_unit_price', $update)
+                   || array_key_exists('purchase_unit_price', $update);
+
+        if ($tocaPrecio && $precioEfectivo > 0) {
+            $rule = MinMarginRule::forVariant($variant, $item, $nuevoCosto);
+
+            if (!$rule->passes('sale_unit_price', $precioEfectivo)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => sprintf('%s — %s', $variant->display_name ?: 'Variante', $rule->message()),
+                    'errors'  => ['sale_unit_price' => [$rule->message()]],
+                ], 422);
+            }
+        }
+
         if (!empty($update)) {
             $variant->update($update);
+
+            // Propagar al marketplace en el momento. Las imágenes ya tenían este
+            // disparador desde el principio; el PRECIO y el estado no, así que un
+            // cambio de precio tardaba hasta 30 minutos en llegar a ebaemy.com y
+            // durante ese rato se vendía al precio viejo. Importa más el precio
+            // que la foto.
+            $this->triggerMarketplaceSync($item);
         }
 
         return response()->json([
@@ -256,6 +335,10 @@ class ItemVariantController extends Controller
         $this->deleteVariantImageFile($variant->image);
 
         $result = $this->service->deleteVariant($variant);
+
+        // Borrar o desactivar una variante cambia el rango de precio y el stock
+        // publicados: el listado central debe enterarse ya, no en media hora.
+        $this->triggerMarketplaceSync($item);
 
         return response()->json(['success' => true, 'result' => $result]);
     }
@@ -453,6 +536,97 @@ class ItemVariantController extends Controller
     }
 
     // ────────────────────────────────────────────────────────────────────────
+    // POST /items/{item}/variants/{variant}/reactivate
+    // Vuelve a poner en circulación una variante desactivada. Su stock, que
+    // seguía guardado en item_variant_warehouse, vuelve a contar en el total
+    // del producto (ver ItemVariantService::COUNT_INACTIVE).
+    // ────────────────────────────────────────────────────────────────────────
+
+    public function reactivate(Item $item, ItemVariant $variant): JsonResponse
+    {
+        abort_if($variant->item_id !== $item->id, 404);
+
+        if ($variant->is_active) {
+            return response()->json([
+                'success' => true,
+                'message' => 'La variante ya estaba activa.',
+                'variant' => $this->formatVariant($variant->fresh(['optionValues', 'warehouseStocks'])),
+            ]);
+        }
+
+        // Una variante solo se puede reactivar si su combinación sigue siendo
+        // válida con las opciones actuales del producto. Si el usuario borró el
+        // color "Rojo", la variante "Rojo / M" no puede volver: no hay dónde
+        // elegirla, y syncVariants() la desactivaría otra vez en el próximo
+        // guardado. En ese caso lo que toca es mover su stock, no reactivarla.
+        $validHashes = $this->service->validHashesFor($item);
+        if (!in_array($variant->variant_hash, $validHashes, true)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Esta combinación ya no existe en las opciones del producto. '
+                           . 'Vuelve a crear el valor que falta, o mueve su stock a otra variante.',
+            ], 422);
+        }
+
+        DB::connection('tenant')->transaction(function () use ($item, $variant) {
+            $variant->update(['is_active' => true]);
+            $this->service->propagateStock($item->fresh());
+        });
+
+        $this->triggerMarketplaceSync($item);
+
+        return response()->json([
+            'success' => true,
+            'variant' => $this->formatVariant($variant->fresh(['optionValues', 'warehouseStocks'])),
+        ]);
+    }
+
+    // ────────────────────────────────────────────────────────────────────────
+    // POST /items/{item}/variants/{variant}/move-stock
+    // Traslada el stock de una variante a otra, almacén por almacén. Es la
+    // salida para el stock atrapado en una combinación que ya no existe.
+    // ────────────────────────────────────────────────────────────────────────
+
+    public function moveStock(Request $request, Item $item, ItemVariant $variant): JsonResponse
+    {
+        abort_if($variant->item_id !== $item->id, 404);
+
+        $data = $request->validate([
+            'target_variant_id' => 'required|integer|different:' . $variant->id,
+        ]);
+
+        $target = ItemVariant::where('item_id', $item->id)
+            ->where('id', (int) $data['target_variant_id'])
+            ->first();
+
+        if (!$target) {
+            return response()->json([
+                'success' => false,
+                'message' => 'La variante de destino no pertenece a este producto.',
+            ], 422);
+        }
+
+        if (!$target->is_active) {
+            return response()->json([
+                'success' => false,
+                'message' => 'No se puede mover stock a una variante desactivada.',
+            ], 422);
+        }
+
+        $moved = $this->service->moveStockBetweenVariants($variant, $target);
+
+        $this->triggerMarketplaceSync($item);
+
+        return response()->json([
+            'success' => true,
+            'moved'   => $moved,
+            'message' => $moved > 0
+                ? sprintf('Se movieron %s unidades a "%s".', rtrim(rtrim(number_format($moved, 4, '.', ''), '0'), '.'), $target->display_name)
+                : 'La variante no tenía stock que mover.',
+        ]);
+    }
+
+    // ────────────────────────────────────────────────────────────────────────
     // POST /items/{item}/variants/{variant}/stock
     // Ajuste manual de stock físico por almacén.
     // ────────────────────────────────────────────────────────────────────────
@@ -467,6 +641,11 @@ class ItemVariantController extends Controller
         ]);
 
         $this->service->updateVariantStock($variant, $data['warehouse_id'], $data['stock']);
+
+        // Un ajuste de stock puede dejar la variante en cero —y entonces el
+        // marketplace debe dejar de ofrecerla— o sacarla de cero, y entonces
+        // debe volver a aparecer. Esperar al cron es vender lo que no hay.
+        $this->triggerMarketplaceSync($item);
 
         $variant->load('warehouseStocks');
 

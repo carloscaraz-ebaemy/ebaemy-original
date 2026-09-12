@@ -76,7 +76,17 @@
     $symbol       = $item->currency_type['symbol'] ?? 'S/';
     // Precio efectivo: flash sale, pack u oferta vigente. Una sola
     // definicion, compartida con las tarjetas de los themes de nicho.
-    $pricing       = \App\Services\EcommerceItemPricing::for($item, \App\Services\EcommerceItemPricing::flashPrices());
+    // Ambos mapas (flash sales y rangos de variantes) se resuelven una sola vez
+    // por request y se memoizan dentro del servicio, así que llamarlos en cada
+    // iteración del listado no repite consultas.
+    //
+    // OJO: comentario PHP y no Blade. Dentro de @php el contenido es PHP crudo y
+    // un {{-- --}} se compila tal cual → parse error. Ver la guía del proyecto.
+    $pricing       = \App\Services\EcommerceItemPricing::for(
+        $item,
+        \App\Services\EcommerceItemPricing::flashPrices(),
+        \App\Services\EcommerceItemPricing::variantRanges()
+    );
     $displayPrice  = $pricing->display;
     $originalPrice = $pricing->original;
     $hasDiscount   = $pricing->hasDiscount;

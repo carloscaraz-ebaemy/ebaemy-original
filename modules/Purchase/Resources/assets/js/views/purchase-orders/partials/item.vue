@@ -85,6 +85,37 @@
                                    v-text="errors.item_id[0]"></small>
                         </div>
                     </div>
+                    <!-- ── Variante que se compra ─────────────────────────
+                         Sin esto la OC no sabe qué talla o color entra, y al
+                         recibirla todas las unidades se acreditan a la variante
+                         primaria: recibir 10 pares de talla 40 sumaba 10 a la 38. -->
+                    <div class="col-12" v-if="form.item_id && form.item.has_variants && (form.item.item_options || []).length">
+                        <div class="form-group" :class="{'has-danger': variantNotFound}">
+                            <label class="control-label">Variante que ingresa</label>
+                            <div class="d-flex flex-wrap gap-2">
+                                <el-select v-for="opt in form.item.item_options"
+                                           :key="opt.id"
+                                           v-model="selectedOptionValues[opt.id]"
+                                           :placeholder="opt.name"
+                                           style="width:160px"
+                                           @change="resolveVariant">
+                                    <el-option v-for="val in opt.values"
+                                               :key="val.id"
+                                               :label="val.value"
+                                               :value="val.id"></el-option>
+                                </el-select>
+                                <span v-if="resolvedVariant" class="po-variant-ok">
+                                    {{ resolvedVariant.display_name }}
+                                    <template v-if="resolvedVariant.sku">· {{ resolvedVariant.sku }}</template>
+                                    · stock actual {{ resolvedVariant.stock }}
+                                </span>
+                            </div>
+                            <small v-if="variantNotFound" class="form-control-feedback">
+                                Esa combinación no existe en el producto. Créala en la ficha antes de comprarla.
+                            </small>
+                        </div>
+                    </div>
+
                     <div class="col-md-5">
                         <div :class="{'has-danger': errors.affectation_igv_type_id}"
                              class="form-group">
@@ -386,6 +417,12 @@
     </el-dialog>
 </template>
 <style>
+/* Confirmación de la variante resuelta en la línea de la orden de compra. */
+.po-variant-ok {
+    display: inline-flex; align-items: center;
+    font-size: 12px; font-weight: 500; color: #166534;
+    background: #dcfce7; border-radius: 4px; padding: 4px 10px;
+}
 .el-select-dropdown {
     margin-right: 5% !important;
     max-width: 80% !important;
@@ -416,6 +453,14 @@ export default {
 
     data() {
         return {
+            // Selección de variante de la línea. selectedOptionValues es
+            // {item_option_id: item_option_value_id}; al completarse se resuelve
+            // contra form.item.variants comparando los option_value_ids, igual
+            // que hace el POS.
+            selectedOptionValues: {},
+            resolvedVariant: null,
+            variantNotFound: false,
+
             can_add_new_product: false,
             loading_search: false,
             titleAction: '',
@@ -586,8 +631,13 @@ export default {
         initForm() {
             this.errors = {};
 
+            this.selectedOptionValues = {}
+            this.resolvedVariant = null
+            this.variantNotFound = false
+
             this.form = {
                 item_id: null,
+                variant_id: null,
                 warehouse_id: 1,
                 warehouse_description: null,
                 item: {},
@@ -687,7 +737,66 @@ export default {
             // this.form.unit_price = valor
             this.form.item.unit_type_id = row.unit_type_id
         },
+        // Resuelve qué variante corresponde a la combinación elegida. Compara
+        // conjuntos de option_value_ids: una variante casa cuando tiene
+        // exactamente los mismos valores seleccionados, ni más ni menos.
+        resolveVariant() {
+            const opciones = (this.form.item && this.form.item.item_options) || []
+            const elegidos = opciones
+                .map(o => this.selectedOptionValues[o.id])
+                .filter(v => v !== undefined && v !== null)
+
+            // Todavía falta elegir alguna opción: ni encontrada ni error.
+            if (elegidos.length !== opciones.length) {
+                this.resolvedVariant = null
+                this.variantNotFound = false
+                return
+            }
+
+            const encontrada = (this.form.item.variants || []).find(v => {
+                const ids = v.option_value_ids || []
+                return ids.length === elegidos.length
+                    && elegidos.every(id => ids.includes(id))
+            })
+
+            this.resolvedVariant = encontrada || null
+            this.variantNotFound = !encontrada
+            this.form.variant_id = encontrada ? encontrada.id : null
+        },
+
+        // Reconstruye los selectores a partir de una variante ya guardada.
+        hydrateVariantSelection(variantId) {
+            if (!variantId || !this.form.item || !this.form.item.has_variants) return
+
+            const variante = (this.form.item.variants || []).find(v => v.id === variantId)
+            if (!variante) {
+                // La variante se borró o desactivó después de crear la OC. Se
+                // avisa en vez de dejar el selector vacío como si nunca hubiera
+                // habido una: quien edita debe saber que tiene que reelegirla.
+                this.variantNotFound = true
+                return
+            }
+
+            const mapa = {}
+            ;(this.form.item.item_options || []).forEach(opt => {
+                const valor = (opt.values || []).find(v => (variante.option_value_ids || []).includes(v.id))
+                if (valor) mapa[opt.id] = valor.id
+            })
+
+            this.selectedOptionValues = mapa
+            this.resolveVariant()
+        },
+
+        resetVariantSelection() {
+            this.selectedOptionValues = {}
+            this.resolvedVariant = null
+            this.variantNotFound = false
+            this.form.variant_id = null
+        },
+
         changeItem() {
+            // El producto cambió: la combinación anterior ya no significa nada.
+            this.resetVariantSelection()
             this.form.item = _.find(this.items, {'id': this.form.item_id})
             // console.error(this.form.item)
             // console.log(this.form.item.purchase_unit_price +' <<< ')
@@ -701,6 +810,14 @@ export default {
         },
         clickAddItem() {
 
+            // Mismo criterio que el POS: si el producto tiene variantes, no se
+            // puede agregar la línea sin decir cuál. Una OC sin variante obliga
+            // a la recepción a adivinar, y adivina siempre la primaria.
+            if (this.form.item.has_variants
+                && (this.form.item.item_options || []).length
+                && !this.form.variant_id) {
+                return this.$message.warning('Elige la variante que ingresa antes de agregar la línea.')
+            }
 
             let affectation_igv_types_exonerated_unaffected = ['20', '21', '30', '31', '32', '33', '34', '35', '36', '37']
 
@@ -716,6 +833,18 @@ export default {
             this.form.affectation_igv_type = _.find(this.affectation_igv_types, {'id': this.form.affectation_igv_type_id})
             this.row = calculateRowItem(this.form, this.currencyTypeIdActive, this.exchangeRateSale, this.percentageIgv)
             this.row = this.changeWarehouse(this.row)
+
+            // calculateRowItem es compartido y no conoce las variantes: hay que
+            // llevar variant_id a la fila a mano, y también al snapshot `item`
+            // para que la línea guardada diga qué talla era aunque el producto
+            // cambie después.
+            if (this.form.variant_id && this.resolvedVariant) {
+                this.row.variant_id = this.form.variant_id
+                this.row.item.variant_id = this.form.variant_id
+                this.row.item.variant_display_name = this.resolvedVariant.display_name
+            } else {
+                this.row.variant_id = null
+            }
             if (this.recordItem) {
                 this.row.indexi = this.recordItem.indexi
             }
@@ -777,6 +906,12 @@ export default {
                         this.form.affectation_igv_type_id = this.recordItem.affectation_igv_type_id
                         this.form.wharehouse_description = this.recordItem.wharehouse_description
                         this.form.wharehouse_id = this.recordItem.wharehouse_id
+
+                        // Rehidratar la variante al editar una línea existente.
+                        // Sin esto el formulario abre con los selectores vacíos y
+                        // al guardar la línea perdería su variante en silencio:
+                        // la recepción volvería a acreditar a la primaria.
+                        this.hydrateVariantSelection(this.recordItem.variant_id)
                     }
 
                 })

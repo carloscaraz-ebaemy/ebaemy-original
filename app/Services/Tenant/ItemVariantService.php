@@ -134,11 +134,9 @@ class ItemVariantService
                 $options->map(fn($opt) => $opt->values)->toArray()
             );
 
-            // Hashes válidos según las opciones actuales
-            $validHashes = collect($combinations)->map(function ($valueSet) {
-                $ids = collect($valueSet)->pluck('id')->sort()->values()->toArray();
-                return ItemVariant::buildHash($ids);
-            })->toArray();
+            // Hashes válidos según las opciones actuales — mismo cálculo que usa
+            // reactivate() para decidir si una variante desactivada puede volver.
+            $validHashes = $this->validHashesFor($item);
 
             // Variantes obsoletas (su hash ya no existe en las opciones actuales)
             $obsolete = ItemVariant::where('item_id', $item->id)
@@ -257,6 +255,229 @@ class ItemVariantService
     // ────────────────────────────────────────────────────────────────────────
 
     /**
+     * Los variant_hash que son válidos con las opciones que el producto tiene
+     * AHORA. Sirve para saber si una variante desactivada puede volver: si su
+     * hash ya no está en esta lista, su combinación dejó de existir (alguien
+     * borró el color o la talla) y reactivarla solo conseguiría que el próximo
+     * syncVariants() la desactivara otra vez.
+     *
+     * @return string[]
+     */
+    public function validHashesFor(Item $item): array
+    {
+        $item->loadMissing('itemOptions.values');
+
+        if ($item->itemOptions->isEmpty()) {
+            return [];
+        }
+
+        $combinations = $this->cartesianProduct(
+            $item->itemOptions->map(fn($opt) => $opt->values)->toArray()
+        );
+
+        return collect($combinations)->map(function ($valueSet) {
+            $ids = collect($valueSet)->pluck('id')->sort()->values()->toArray();
+            return ItemVariant::buildHash($ids);
+        })->all();
+    }
+
+    /**
+     * Mueve todo el stock físico de una variante a otra, almacén por almacén.
+     *
+     * Es la salida para el stock atrapado en una combinación que ya no existe:
+     * la variante desactivada queda a cero y sus unidades se suman a la variante
+     * de destino en el MISMO almacén, de modo que el total del producto no
+     * cambia y el inventario físico sigue cuadrando.
+     *
+     * Lo comprometido no se mueve: pertenece a pedidos concretos que apuntan a
+     * la variante original. Si los hubiera, se avisa por log y se mueve solo la
+     * diferencia libre.
+     *
+     * @return float Unidades efectivamente movidas
+     */
+    public function moveStockBetweenVariants(ItemVariant $from, ItemVariant $to): float
+    {
+        return DB::connection('tenant')->transaction(function () use ($from, $to) {
+            $moved = 0.0;
+
+            $rows = ItemVariantWarehouse::where('item_variant_id', $from->id)
+                ->lockForUpdate()
+                ->get();
+
+            foreach ($rows as $row) {
+                // Solo lo libre. Lo comprometido sigue apuntando a esta variante
+                // desde pedidos pendientes y moverlo dejaría esas reservas sin
+                // respaldo físico.
+                $free = max(0.0, (float) $row->stock_physical - (float) $row->stock_committed);
+                if ($free <= 0) continue;
+
+                $target = ItemVariantWarehouse::lockForUpdate()->firstOrCreate(
+                    ['item_variant_id' => $to->id, 'warehouse_id' => $row->warehouse_id],
+                    ['stock' => 0, 'stock_physical' => 0, 'stock_committed' => 0]
+                );
+
+                $target->stock_physical = (float) $target->stock_physical + $free;
+                $target->stock          = $target->stock_physical;
+                $target->save();
+
+                $row->stock_physical = (float) $row->stock_physical - $free;
+                $row->stock          = $row->stock_physical;
+                $row->save();
+
+                $moved += $free;
+            }
+
+            if ($moved <= 0) {
+                return 0.0;
+            }
+
+            foreach ([$from, $to] as $variant) {
+                $variant->stock = ItemVariantWarehouse::where('item_variant_id', $variant->id)
+                    ->sum('stock_physical');
+                $variant->save();
+            }
+
+            Log::info('[ItemVariantService] stock movido entre variantes', [
+                'item_id' => $from->item_id,
+                'from'    => $from->id,
+                'to'      => $to->id,
+                'moved'   => $moved,
+            ]);
+
+            // El producto padre siempre existe (FK con cascade), pero si la fila
+            // faltara preferimos devolver el movimiento hecho antes que reventar
+            // con un null: el stock ya se movió y está consistente entre variantes.
+            if ($item = $from->item()->first()) {
+                $this->propagateStock($item);
+            }
+
+            return $moved;
+        });
+    }
+
+    // ────────────────────────────────────────────────────────────────────────
+    // Cálculo de stock — FUENTE ÚNICA DE VERDAD
+    // ────────────────────────────────────────────────────────────────────────
+
+    /**
+     * ¿El stock de una variante DESACTIVADA cuenta en el total del producto?
+     *
+     * No. Una variante desactivada es una combinación que el negocio retiró:
+     * no se puede vender ni desde el panel ni desde la tienda, así que contarla
+     * en el total del producto publica una disponibilidad que no existe.
+     *
+     * El stock de esas variantes no se pierde ni se borra — sigue en
+     * item_variant_warehouse y la pestaña de variantes las muestra con el
+     * interruptor "ver desactivadas", desde donde se reactivan o se mueve su
+     * stock a otra variante.
+     */
+    public const COUNT_INACTIVE = false;
+
+    /**
+     * Lo que se publica al ecommerce y al marketplace, ¿es físico o disponible?
+     *
+     * Disponible = físico − comprometido. Publicar el físico sobrevende: el
+     * comprador se lleva la última unidad que ya estaba apartada para un pedido
+     * pendiente de otro cliente.
+     */
+    public const PUBLISH_AVAILABLE = true;
+
+    /**
+     * Cuánto stock tiene un producto con variantes. ÚNICO lugar donde se decide.
+     *
+     * Antes de esta función había cuatro respuestas distintas para la misma
+     * pregunta, y se sobrescribían entre sí: propagateStock() sumaba todas las
+     * variantes, stock:sync-variants solo las activas, stock:reconcile restaba
+     * lo comprometido, y el sync del marketplace leía la columna agregada en un
+     * sitio y la tabla legacy en otro. El comando de reconciliación "corregía"
+     * y el siguiente guardado lo volvía a romper.
+     *
+     * Lee SIEMPRE item_variant_warehouse.stock_physical — nunca la columna
+     * `stock` legacy ni el agregado item_variants.stock, que son derivados.
+     *
+     * @param  bool $includeInactive   Contar variantes desactivadas (ver COUNT_INACTIVE)
+     * @param  bool $subtractCommitted Descontar lo reservado por pedidos pendientes
+     * @param  int|null $warehouseId   Acotar a un almacén; null = todos
+     *
+     * @return array{
+     *   total: float,
+     *   physical: float,
+     *   committed: float,
+     *   by_warehouse: array<int, array{physical: float, committed: float, available: float}>
+     * }
+     */
+    public function computeStock(
+        Item $item,
+        ?int $warehouseId = null,
+        bool $includeInactive = self::COUNT_INACTIVE,
+        bool $subtractCommitted = false
+    ): array {
+        $query = DB::connection('tenant')->table('item_variant_warehouse as ivw')
+            ->join('item_variants as iv', 'iv.id', '=', 'ivw.item_variant_id')
+            ->where('iv.item_id', $item->id);
+
+        if (!$includeInactive) {
+            $query->where('iv.is_active', 1);
+        }
+
+        if ($warehouseId !== null) {
+            $query->where('ivw.warehouse_id', $warehouseId);
+        }
+
+        $rows = $query->groupBy('ivw.warehouse_id')
+            ->selectRaw('ivw.warehouse_id,
+                         COALESCE(SUM(ivw.stock_physical), 0)  AS physical,
+                         COALESCE(SUM(ivw.stock_committed), 0) AS committed')
+            ->get();
+
+        $byWarehouse   = [];
+        $totalPhysical = 0.0;
+        $totalCommitted = 0.0;
+
+        foreach ($rows as $row) {
+            $physical  = (float) $row->physical;
+            $committed = (float) $row->committed;
+
+            $byWarehouse[(int) $row->warehouse_id] = [
+                'physical'  => $physical,
+                'committed' => $committed,
+                // Nunca negativo: si lo comprometido supera al físico (puede pasar
+                // tras un ajuste manual a la baja) el disponible es cero, no deuda.
+                'available' => max(0.0, $physical - $committed),
+            ];
+
+            $totalPhysical  += $physical;
+            $totalCommitted += $committed;
+        }
+
+        $total = $subtractCommitted
+            ? max(0.0, $totalPhysical - $totalCommitted)
+            : $totalPhysical;
+
+        return [
+            'total'        => $total,
+            'physical'     => $totalPhysical,
+            'committed'    => $totalCommitted,
+            'by_warehouse' => $byWarehouse,
+        ];
+    }
+
+    /**
+     * Stock publicable de un producto con variantes: lo que se le puede ofrecer
+     * al comprador en el ecommerce, el marketplace y los feeds externos.
+     * Atajo sobre computeStock() con la política de publicación ya aplicada.
+     */
+    public function publishableStock(Item $item, ?int $warehouseId = null): float
+    {
+        return $this->computeStock(
+            $item,
+            $warehouseId,
+            self::COUNT_INACTIVE,
+            self::PUBLISH_AVAILABLE
+        )['total'];
+    }
+
+    /**
      * Propaga el stock de item_variant_warehouse → item_warehouse → items.
      * Mantiene retrocompatibilidad con todo el código que lee item_warehouse.stock.
      *
@@ -268,28 +489,33 @@ class ItemVariantService
     public function propagateStock(Item $item): void
     {
         try {
-            // Por almacén: SUM(ivw.stock_physical) agrupado por warehouse_id
-            $stockByWarehouse = ItemVariantWarehouse::selectRaw(
-                'warehouse_id, SUM(stock_physical) as total_physical, SUM(stock_committed) as total_committed'
-            )
-                ->whereHas('variant', fn($q) => $q->where('item_id', $item->id))
-                ->groupBy('warehouse_id')
-                ->get();
+            // Una sola fuente de verdad — ver computeStock(). Aquí se guarda el
+            // FÍSICO (no el disponible): item_warehouse.stock_committed lleva
+            // aparte lo reservado, y quien publica al comprador resta por su
+            // cuenta con publishableStock(). Guardar ya restado contaría dos veces.
+            $stock = $this->computeStock($item);
 
-            foreach ($stockByWarehouse as $row) {
+            foreach ($stock['by_warehouse'] as $warehouseId => $row) {
                 ItemWarehouse::updateOrCreate(
-                    ['item_id' => $item->id, 'warehouse_id' => $row->warehouse_id],
+                    ['item_id' => $item->id, 'warehouse_id' => $warehouseId],
                     [
-                        'stock'           => $row->total_physical,
-                        'stock_physical'  => $row->total_physical,
-                        'stock_committed' => $row->total_committed,
+                        'stock'           => $row['physical'],
+                        'stock_physical'  => $row['physical'],
+                        'stock_committed' => $row['committed'],
                     ]
                 );
             }
 
-            // Total global en items.stock
-            $totalStock = $stockByWarehouse->sum('total_physical');
-            $item->update(['stock' => $totalStock]);
+            // Almacenes que ya no reciben stock de ninguna variante activa: hay
+            // que ponerlos a cero explícitamente. Sin esto, desactivar la última
+            // variante de un almacén dejaba su fila con el stock viejo para
+            // siempre, porque el bucle de arriba ya no la visita.
+            $touched = array_keys($stock['by_warehouse']);
+            ItemWarehouse::where('item_id', $item->id)
+                ->when($touched, fn($q) => $q->whereNotIn('warehouse_id', $touched))
+                ->update(['stock' => 0, 'stock_physical' => 0, 'stock_committed' => 0]);
+
+            $item->update(['stock' => $stock['physical']]);
         } catch (\Throwable $e) {
             Log::error('ItemVariantService::propagateStock error', [
                 'item_id' => $item->id,

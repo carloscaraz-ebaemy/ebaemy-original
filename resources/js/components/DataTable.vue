@@ -347,6 +347,16 @@ export default {
             default: false,
             required: false
         },
+        // Filtros propios de la pantalla que usa la tabla (facetas de negocio,
+        // rangos…). Se serializan junto al resto de parámetros, así que el padre
+        // los declara y no tiene que manipular el estado interno de este
+        // componente para que lleguen al backend. Las claves con valor null o
+        // cadena vacía se descartan, para no mandar `price_min=` vacío.
+        extraFilters: {
+            type: Object,
+            default: () => ({}),
+            required: false
+        },
     },
     data() {
         return {
@@ -381,6 +391,17 @@ export default {
         };
     },
     computed: {
+        // Descarta los filtros vacíos: mandar `price_min=` haría que el backend
+        // viera el parámetro presente y filtrara por cadena vacía.
+        cleanExtraFilters() {
+            const out = {};
+            Object.keys(this.extraFilters || {}).forEach(k => {
+                const v = this.extraFilters[k];
+                if (v !== null && v !== undefined && v !== '' && v !== false) out[k] = v;
+            });
+            return out;
+        },
+
         showRestaurantStock() {
             return this.search.list_value === 'with_supplies';
         },
@@ -599,7 +620,8 @@ export default {
                 sort_direction: this.currentSort.direction,
                 show_disabled: this.showDisabledValue,
                 warehouse_id: this.warehouse_id,
-                ...this.search
+                ...this.search,
+                ...this.cleanExtraFilters
             });
         },
         changeClearInput() {

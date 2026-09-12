@@ -157,7 +157,7 @@ class DiscountRuleController extends Controller
         $ejemplo   = null;
 
         $query->select(['id', 'description', 'purchase_unit_price', 'sale_unit_price',
-                        'landed_cost_extra_pct', 'liquidation_mode'])
+                        'landed_cost_extra_pct', 'liquidation_mode', 'has_variants'])
             ->chunkById(300, function ($items) use ($tipo, $valor, &$bajoCosto, &$ejemplo) {
                 foreach ($items as $item) {
                     // El producto marcado para liquidar puede ir bajo costo a
@@ -166,19 +166,26 @@ class DiscountRuleController extends Controller
                         continue;
                     }
 
-                    $costo = PriceCalculator::effectiveCost(
-                        (float) $item->purchase_unit_price,
-                        (float) ($item->landed_cost_extra_pct ?? 0)
-                    );
+                    $extraPct = (float) ($item->landed_cost_extra_pct ?? 0);
 
-                    $precio = (float) $item->sale_unit_price;
-                    $final  = $tipo === 'percentage'
-                        ? PriceCalculator::finalPrice($precio, min($valor, 100))
-                        : max(0, $precio - $valor);
+                    // Cada combinación precio/costo que este producto pone en la
+                    // calle. Antes solo se miraba la del padre: un producto con
+                    // padre a S/ 300 y talla 45 con precio propio S/ 180 sobre un
+                    // costo de S/ 155 pasaba el filtro sin que nadie lo mirara,
+                    // porque la consulta nunca tocaba item_variants.
+                    foreach ($this->combinacionesDePrecio($item) as [$etiqueta, $precio, $costoBase]) {
+                        if ($precio <= 0) continue;
 
-                    if ($final < $costo) {
-                        $bajoCosto++;
-                        $ejemplo = $ejemplo ?: $item->description;
+                        $costo = PriceCalculator::effectiveCost((float) $costoBase, $extraPct);
+
+                        $final = $tipo === 'percentage'
+                            ? PriceCalculator::finalPrice($precio, min($valor, 100))
+                            : max(0, $precio - $valor);
+
+                        if ($final < $costo) {
+                            $bajoCosto++;
+                            $ejemplo = $ejemplo ?: $etiqueta;
+                        }
                     }
                 }
             });
@@ -187,14 +194,53 @@ class DiscountRuleController extends Controller
             return [true, ''];
         }
 
+        // "Artículo" y no "producto": con variantes, lo que cae bajo costo es una
+        // talla concreta, y decir "1 producto" cuando son 3 de 12 tallas del mismo
+        // modelo haría buscar en el sitio equivocado. El ejemplo nombra la variante.
         return [false, sprintf(
-            'Este descuento dejaría %d producto%s vendiéndose bajo costo (por ejemplo «%s»). '
+            'Este descuento dejaría %d artículo%s vendiéndose bajo costo (por ejemplo «%s»). '
             . 'Baja el descuento, acota la regla a otra categoría, o activa el modo liquidación '
             . 'en los productos que sí quieras vender con pérdida.',
             $bajoCosto,
             $bajoCosto === 1 ? '' : 's',
             (string) $ejemplo
         )];
+    }
+
+    /**
+     * Las combinaciones precio/costo que un producto expone a la venta.
+     *
+     * Un producto simple expone una: la suya. Uno con variantes expone una por
+     * variante activa, porque cada talla puede tener precio y costo propios —y
+     * cuando los tiene a null hereda los del padre, igual que en el resto del
+     * sistema (ver ItemVariant::getEffectiveSalePrice).
+     *
+     * @return array<int, array{0: string, 1: float, 2: float}> [etiqueta, precio, costo]
+     */
+    private function combinacionesDePrecio($item): array
+    {
+        $precioPadre = (float) $item->sale_unit_price;
+        $costoPadre  = (float) $item->purchase_unit_price;
+
+        if (empty($item->has_variants)) {
+            return [[(string) $item->description, $precioPadre, $costoPadre]];
+        }
+
+        $variantes = \App\Models\Tenant\ItemVariant::where('item_id', $item->id)
+            ->where('is_active', true)
+            ->get(['id', 'display_name', 'sale_unit_price', 'purchase_unit_price']);
+
+        // has_variants=true sin variantes activas: se comporta como simple, que
+        // es lo mismo que hace el sync del marketplace ante este caso.
+        if ($variantes->isEmpty()) {
+            return [[(string) $item->description, $precioPadre, $costoPadre]];
+        }
+
+        return $variantes->map(fn ($v) => [
+            trim($item->description . ' · ' . ($v->display_name ?: ('variante #' . $v->id))),
+            $v->sale_unit_price !== null ? (float) $v->sale_unit_price : $precioPadre,
+            $v->purchase_unit_price !== null ? (float) $v->purchase_unit_price : $costoPadre,
+        ])->all();
     }
 
     public function store(Request $request)

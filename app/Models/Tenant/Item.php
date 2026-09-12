@@ -654,9 +654,28 @@ class Item extends ModelTenant
         return $this->hasMany(ItemOption::class)->orderBy('position');
     }
 
+    /**
+     * Variantes ACTIVAS. Es la relación por defecto a propósito: las ~55 lecturas
+     * del proyecto (feeds, marketplace, ecommerce, POS) quieren lo que se puede
+     * vender hoy. Para el panel de administración, que necesita ver y rescatar
+     * las desactivadas, existe allVariants().
+     */
     public function variants(): HasMany
     {
         return $this->hasMany(ItemVariant::class)->where('is_active', true)->orderBy('id');
+    }
+
+    /**
+     * TODAS las variantes, activas y desactivadas.
+     *
+     * Una variante con stock nunca se borra: se desactiva, para no perder
+     * historia. Sin esta relación esas filas quedaban invisibles en toda la UI
+     * —imposibles de reactivar o de vaciar— mientras su stock seguía contando
+     * en algunos cálculos. Úsala solo en pantallas de administración.
+     */
+    public function allVariants(): HasMany
+    {
+        return $this->hasMany(ItemVariant::class)->orderBy('id');
     }
 
 
@@ -1444,6 +1463,74 @@ class Item extends ModelTenant
         return self::$sagaStatusMap;
     }
 
+    /**
+     * Resumen de variantes por producto para el LISTADO: cuántas hay, en qué
+     * rango de precio y cuánto stock suman.
+     *
+     * La lista devolvía `has_variants` como booleano y nada más, así que la
+     * tabla solo podía pintar una etiqueta: no había datos que desplegar. El
+     * serializador del POS (getDataToItemModal) sí las mandaba, y por eso el
+     * punto de venta sí resolvía combinaciones — dos serializadores del mismo
+     * modelo con distinta idea de qué es un producto.
+     *
+     * Se resuelve en UNA consulta agregada para toda la página, memoizada por
+     * request, igual que resolveSagaStatusMap. Un resumen por fila habría sido
+     * un N+1 en el listado más usado del panel.
+     *
+     * El detalle completo (SKU, atributos, stock por almacén de cada variante)
+     * NO viaja aquí: lo pide la fila al desplegarse contra el endpoint que ya
+     * existe, GET /items/{item}/variants.
+     *
+     * @return array<int, array{count:int, price_min:float, price_max:float, stock:float}>
+     */
+    public static ?array $variantSummaryMap = null;
+
+    public static function resolveVariantSummaryMap(): array
+    {
+        if (self::$variantSummaryMap !== null) {
+            return self::$variantSummaryMap;
+        }
+
+        self::$variantSummaryMap = [];
+
+        try {
+            // Precio: null en la variante significa "hereda del padre", así que
+            // el COALESCE contra items.sale_unit_price es obligatorio o el rango
+            // saldría a 0 en cuanto una talla no tenga precio propio.
+            //
+            // Stock: físico de item_variant_warehouse, la misma fuente que
+            // ItemVariantService::computeStock. No se usa item_variants.stock,
+            // que es un derivado y puede ir desfasado.
+            $rows = \Illuminate\Support\Facades\DB::connection('tenant')
+                ->table('item_variants as iv')
+                ->join('items as i', 'i.id', '=', 'iv.item_id')
+                ->leftJoin('item_variant_warehouse as ivw', 'ivw.item_variant_id', '=', 'iv.id')
+                ->where('iv.is_active', 1)
+                ->groupBy('iv.item_id')
+                ->selectRaw('iv.item_id,
+                             COUNT(DISTINCT iv.id) AS n,
+                             MIN(COALESCE(iv.sale_unit_price, i.sale_unit_price)) AS price_min,
+                             MAX(COALESCE(iv.sale_unit_price, i.sale_unit_price)) AS price_max,
+                             COALESCE(SUM(ivw.stock_physical), 0) AS stock')
+                ->get();
+
+            foreach ($rows as $row) {
+                self::$variantSummaryMap[(int) $row->item_id] = [
+                    'count'     => (int) $row->n,
+                    'price_min' => (float) $row->price_min,
+                    'price_max' => (float) $row->price_max,
+                    'stock'     => (float) $row->stock,
+                ];
+            }
+        } catch (\Throwable $e) {
+            // Un tenant sin las tablas de variantes (o a medio migrar) no debe
+            // tumbar el listado de productos: se comporta como si no hubiera.
+            self::$variantSummaryMap = [];
+        }
+
+        return self::$variantSummaryMap;
+    }
+
     public function getCollectionData(Configuration $configuration = null, $isRestaurant = false){
         if(empty($configuration)){
             $configuration =  Configuration::first();
@@ -1610,6 +1697,14 @@ class Item extends ModelTenant
             'is_for_production'=>$this->isIsForProduction(),
             'supplies' => $itemSupply,
             'has_variants' => (bool) $this->has_variants,
+            // Resumen para desplegar la fila del producto en el listado. El
+            // detalle por variante lo pide la fila al abrirse. Ver
+            // resolveVariantSummaryMap().
+            'variants_summary' => $this->has_variants
+                ? (self::resolveVariantSummaryMap()[$this->id] ?? [
+                    'count' => 0, 'price_min' => null, 'price_max' => null, 'stock' => 0,
+                ])
+                : null,
             // Marketplace central (ebaemy.com) — toggle + precio alterno
             'marketplace_publishable' => (bool) ($this->marketplace_publishable ?? false),
             'mp_price'   => $this->mp_price,

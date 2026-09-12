@@ -105,6 +105,12 @@ class ItemController extends Controller
             'description' => 'Nombre',
             'internal_id' => 'Código interno',
             'barcode' => 'Código de barras',
+            // El SKU y el código de barras de una variante viven en
+            // item_variants, no en items. Sin estas dos entradas, escanear el
+            // código de una talla en Productos devolvía cero resultados —sin
+            // error, simplemente vacío— aunque el dato estuviera guardado.
+            'variant_sku' => 'SKU de variante',
+            'variant_barcode' => 'Cód. barras de variante',
             'model' => 'Modelo',
             'brand' => 'Marca',
             'date_of_due' => 'Fecha vencimiento',
@@ -178,6 +184,16 @@ class ItemController extends Controller
                                   })
                                   ->orWhereHas('category', function ($c) use ($tok) {
                                       $c->where('name', 'like', "%{$tok}%");
+                                  })
+                                  // Variantes: el SKU y el código de barras de
+                                  // una talla concreta también identifican al
+                                  // producto. Solo las activas: una combinación
+                                  // retirada no debe devolver resultados.
+                                  ->orWhereHas('variants', function ($v) use ($tok) {
+                                      $v->where(function ($q2) use ($tok) {
+                                          $q2->where('sku', 'like', "%{$tok}%")
+                                             ->orWhere('barcode', 'like', "%{$tok}%");
+                                      });
                                   });
                             });
                         }
@@ -194,6 +210,18 @@ class ItemController extends Controller
                 $records->whereHas('category',function($q) use($request){
                                     $q->where('name', 'like', "%{$request->value}%");
                                 });
+                break;
+
+            case 'variant_sku':
+                $records->whereHas('variants', function ($v) use ($request) {
+                    $v->where('sku', 'like', "%{$request->value}%");
+                });
+                break;
+
+            case 'variant_barcode':
+                $records->whereHas('variants', function ($v) use ($request) {
+                    $v->where('barcode', 'like', "%{$request->value}%");
+                });
                 break;
 
             case 'active':
@@ -223,6 +251,14 @@ class ItemController extends Controller
                 }
                 break;
         }
+
+        // ── Filtros de negocio ──────────────────────────────────────────────
+        //
+        // Acumulables entre sí y con la búsqueda: son facetas, no una elección
+        // única. Antes solo había búsqueda por texto, así que las preguntas que
+        // de verdad se hacen a diario —qué se agotó, qué vendo con poco margen—
+        // no se podían responder desde el panel.
+        $this->applyBusinessFilters($records, $request);
 
         if ($request->has('show_disabled')) {
             switch ($request->show_disabled) {
@@ -383,6 +419,90 @@ class ItemController extends Controller
     public function create()
     {
         return view('tenant.items.form');
+    }
+
+    /**
+     * Facetas de negocio del listado de productos.
+     *
+     * Cada una se salta si no viene en la petición, así que son acumulables y
+     * el orden no importa. Las que dependen de variantes se resuelven con
+     * whereHas sobre la relación de variantes ACTIVAS: un producto cuyo padre
+     * marca 20 unidades puede tener la talla 38 en cero, y esa es justo la
+     * pregunta que el encargado de reposición necesita hacer.
+     */
+    private function applyBusinessFilters($records, Request $request): void
+    {
+        // Con o sin variantes.
+        if ($request->filled('has_variants')) {
+            $records->where('has_variants', filter_var($request->has_variants, FILTER_VALIDATE_BOOLEAN) ? 1 : 0);
+        }
+
+        // Rango de precio. Para un producto con variantes, "su precio" es el
+        // rango de las variantes, así que basta con que ALGUNA caiga dentro:
+        // filtrar por el precio del padre escondería el modelo entero porque
+        // una talla cara quedó fuera del tope.
+        $priceMin = $request->filled('price_min') ? (float) $request->price_min : null;
+        $priceMax = $request->filled('price_max') ? (float) $request->price_max : null;
+
+        if ($priceMin !== null || $priceMax !== null) {
+            $records->where(function ($q) use ($priceMin, $priceMax) {
+                $q->where(function ($simple) use ($priceMin, $priceMax) {
+                    $simple->where('has_variants', 0);
+                    if ($priceMin !== null) $simple->where('sale_unit_price', '>=', $priceMin);
+                    if ($priceMax !== null) $simple->where('sale_unit_price', '<=', $priceMax);
+                })->orWhere(function ($conVar) use ($priceMin, $priceMax) {
+                    $conVar->where('has_variants', 1)
+                        ->whereHas('variants', function ($v) use ($priceMin, $priceMax) {
+                            // COALESCE: la variante sin precio propio hereda el
+                            // del padre, y debe filtrarse por el valor heredado.
+                            $precio = 'COALESCE(item_variants.sale_unit_price, (SELECT sale_unit_price FROM items WHERE items.id = item_variants.item_id))';
+                            if ($priceMin !== null) $v->whereRaw("{$precio} >= ?", [$priceMin]);
+                            if ($priceMax !== null) $v->whereRaw("{$precio} <= ?", [$priceMax]);
+                        });
+                });
+            });
+        }
+
+        // Margen por debajo de un umbral. Se calcula sobre el PRECIO de venta
+        // (margen sobre venta, la fórmula canónica de PriceCalculator), no
+        // sobre el costo. Solo tiene sentido con costo cargado: sin costo el
+        // margen sería 100 % y ensuciaría el resultado con datos que faltan.
+        if ($request->filled('margin_below')) {
+            $umbral = (float) $request->margin_below;
+            $records->where('purchase_unit_price', '>', 0)
+                    ->where('sale_unit_price', '>', 0)
+                    ->whereRaw(
+                        '((sale_unit_price - (purchase_unit_price * (1 + COALESCE(landed_cost_extra_pct,0)/100))) / sale_unit_price) * 100 < ?',
+                        [$umbral]
+                    );
+        }
+
+        // Agotados. Con variantes, agotado = TODAS sus variantes activas en
+        // cero; si queda una talla con stock el producto sigue vendible.
+        if ($request->boolean('out_of_stock')) {
+            $records->where(function ($q) {
+                $q->where(function ($simple) {
+                    $simple->where('has_variants', 0)->where('stock', '<=', 0);
+                })->orWhere(function ($conVar) {
+                    $conVar->where('has_variants', 1)
+                           ->whereDoesntHave('variants', fn($v) => $v->where('stock', '>', 0));
+                });
+            });
+        }
+
+        // Alguna variante agotada, aunque el producto no lo esté. Es la pregunta
+        // de reposición: "¿a qué modelo le falta una talla?".
+        if ($request->boolean('any_variant_out_of_stock')) {
+            $records->where('has_variants', 1)
+                    ->whereHas('variants', fn($v) => $v->where('stock', '<=', 0));
+        }
+
+        // Stock bajo: por debajo del mínimo configurado en el producto.
+        if ($request->boolean('low_stock')) {
+            $records->where('stock_min', '>', 0)
+                    ->whereColumn('stock', '<=', 'stock_min')
+                    ->where('stock', '>', 0);
+        }
     }
 
     public function tables()

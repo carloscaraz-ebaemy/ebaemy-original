@@ -1479,6 +1479,8 @@
                     <variants-tab
                         :item-id="form.id || null"
                         :parent-price="parseFloat(form.sale_unit_price) || 0"
+                        :parent-cost="parseFloat(form.purchase_unit_price) || 0"
+                        :landed-cost-extra-pct="parseFloat(form.landed_cost_extra_pct) || 0"
                         :item-code="form.internal_id || form.item_code || ''"
                         :is-marketplace-publishable="!!form.marketplace_publishable"
                         :use-parent-image-initial="!!form.use_parent_image_for_variants"
