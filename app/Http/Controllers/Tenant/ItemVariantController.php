@@ -376,7 +376,10 @@ class ItemVariantController extends Controller
             ], 422);
         }
 
-        $valor = $data['value'] !== null ? (float) $data['value'] : null;
+        // `value` es opcional: clear_price, activate y deactivate no lo necesitan
+        // y el cliente no lo manda. Leerlo con $data['value'] reventaba con
+        // "Undefined array key" —un 500— en esas tres operaciones.
+        $valor = isset($data['value']) ? (float) $data['value'] : null;
 
         if (in_array($data['op'], ['set_price', 'adjust_pct', 'set_cost'], true) && $valor === null) {
             return response()->json([
