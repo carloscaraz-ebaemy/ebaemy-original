@@ -24,6 +24,21 @@
                 </button>
             </header>
 
+            <!-- ── Aviso de pedido anulado ──────────────────────────────
+                 El cajon no decia en ninguna parte que el pedido estuviera
+                 anulado: solo mostraba el estado del ENVIO. Se abria el detalle
+                 de un pedido muerto sin una sola señal, y el operador
+                 descubria el bloqueo al intentar teclear un cobro. Va arriba
+                 del todo y antes del cuerpo, que es donde estan los importes. -->
+            <div v-if="anulado" class="od-anulado">
+                <i class="el-icon-warning-outline"></i>
+                <div>
+                    <b>Este pedido está anulado y no puede modificarse.</b>
+                    <span>No se pueden registrar pagos, montos, productos ni datos de
+                    envío. La única acción disponible es restaurarlo.</span>
+                </div>
+            </div>
+
             <div class="od-body">
                 <!-- ── Resumen ─────────────────────────────────────── -->
                 <section class="od-sec">
@@ -238,7 +253,17 @@
                             @click="$emit('edit', row)"
                             >Editar pedido</el-button
                         >
-                        <el-button size="mini" @click="$emit('shipping-link', row)"
+                        <el-button
+                            v-if="anulado"
+                            size="mini"
+                            type="warning"
+                            plain
+                            @click="$emit('restore-order', row)"
+                            >Restaurar pedido</el-button
+                        >
+                        <!-- El enlace publico de un pedido anulado devuelve 404,
+                             asi que ofrecerlo solo lleva a una puerta cerrada. -->
+                        <el-button v-if="!anulado" size="mini" @click="$emit('shipping-link', row)"
                             >Copiar enlace de datos</el-button
                         >
                     </div>
@@ -368,6 +393,10 @@ export default {
 
             return porTipo[(this.row || {}).channel_type] || "#94a3b8";
         },
+        /** El estado 5 es «Cancelado»; aqui se le llama anulado, como en la fila. */
+        anulado() {
+            return Number((this.row || {}).status_order_id) === 5;
+        },
         /** Editar solo antes de despachar. El servidor lo vuelve a comprobar. */
         editable() {
             return [1, 2, 3].indexOf(Number((this.row || {}).status_order_id)) !== -1;
@@ -402,6 +431,26 @@ export default {
 </script>
 
 <style scoped>
+/* Aviso de pedido anulado. Rojo claro, el mismo idioma que la fila del
+   listado, y con texto: quien no distinga el color tiene que enterarse igual.
+   Contraste del texto sobre el fondo: 7.9:1, muy por encima del minimo. */
+.od-anulado {
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+    margin: 0 16px 12px;
+    padding: 11px 14px;
+    background: #fef4f3;
+    border: 1px solid #f0c8c3;
+    border-left: 4px solid #c0483d;
+    border-radius: 8px;
+    color: #6b3b36;
+    font-size: 13px;
+    line-height: 1.45;
+}
+.od-anulado i { font-size: 17px; color: #c0483d; flex: none; margin-top: 1px; }
+.od-anulado b { display: block; margin-bottom: 2px; color: #8c2f26; }
+.od-anulado span { display: block; }
 .od {
     display: flex;
     flex-direction: column;

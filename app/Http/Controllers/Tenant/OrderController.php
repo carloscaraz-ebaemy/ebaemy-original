@@ -2001,7 +2001,7 @@ class OrderController extends Controller
         if ((int) $order->status_order_id === 5) {
             return response()->json([
                 'success' => false,
-                'message' => 'El pedido está anulado.',
+                'message' => 'Este pedido está anulado y no puede modificarse.',
             ], 422);
         }
 
@@ -2324,6 +2324,49 @@ class OrderController extends Controller
                 'numero_documento'   => $request->customer['document_number'] ?? null,
             ],
         ])->save();
+    }
+
+    /**
+     * POST /orders/{order}/restaurar — devuelve a la vida un pedido anulado.
+     *
+     * Es la UNICA modificacion que admite un pedido anulado, y por eso tiene
+     * endpoint propio en vez de pasar por `updateStatusOrders`: el mapa de
+     * transiciones sigue diciendo que desde el estado 5 no se sale
+     * (ALLOWED_TRANSITIONS[5] = []), asi que cambiar el estado a mano sigue
+     * rechazado. Lo que se abre es esta puerta concreta, con sus propias
+     * guardas, no el cambio de estado en general.
+     *
+     * Vuelve siempre a «Por confirmar» y NO recompromete stock. El porque de
+     * las dos decisiones esta en Order::motivoNoRestaurable().
+     */
+    public function restaurar(Request $request, Order $order)
+    {
+        if ($motivo = $order->motivoNoRestaurable()) {
+            return response()->json(['success' => false, 'message' => $motivo], 422);
+        }
+
+        $anterior = (int) $order->status_order_id;
+
+        $order->status_order_id = Order::ESTADO_AL_RESTAURAR;
+
+        // `cancelled_at` deja de describir la realidad en cuanto el pedido
+        // vuelve: si se quedara puesto, cualquier consulta que mire esa fecha
+        // —y hay varias— seguiria tratandolo como anulado.
+        $order->cancelled_at = null;
+
+        $order->save();
+
+        $this->logStatusTransition($order->fresh(), $anterior, Order::ESTADO_AL_RESTAURAR, [
+            'motivo' => 'Pedido restaurado desde anulado.',
+            'nota'   => (string) $request->input('nota', ''),
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Pedido restaurado. Vuelve a «Por confirmar» para que lo revises; '
+                       . 'el stock se compromete al pasarlo a «Listo para preparar».',
+            'status_order_id' => Order::ESTADO_AL_RESTAURAR,
+        ]);
     }
 
     public function updateStatusOrders(Request $request)

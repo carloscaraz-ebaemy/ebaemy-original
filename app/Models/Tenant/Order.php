@@ -349,7 +349,73 @@
         public function motivoBloqueoModificacion(): ?string
         {
             if ($this->estaAnulado()) {
-                return 'El pedido está anulado: solo se puede consultar, no modificar.';
+                return 'Este pedido está anulado y no puede modificarse.';
+            }
+
+            return null;
+        }
+
+        /**
+         * Estado al que vuelve un pedido restaurado.
+         *
+         * Siempre «Por confirmar» (1), nunca el que tenia antes de anularse.
+         * Volver al anterior arrastraria un pedido «Enviado» que quiza ya no lo
+         * esta, o uno «Listo para preparar» con un stock que entretanto se
+         * vendio. Volver al principio obliga a revisarlo, que es exactamente lo
+         * que hay que hacer con un pedido que se anulo y se recupera.
+         */
+        public const ESTADO_AL_RESTAURAR = 1;
+
+        /**
+         * Por que este pedido NO se puede restaurar, o null si se puede.
+         *
+         * Reglas, y el porque de cada una:
+         *
+         *  · Tiene que estar anulado. Restaurar otra cosa no significa nada.
+         *
+         *  · No puede tener un comprobante vivo. Si se emitio boleta o factura,
+         *    el pedido ya existe ante SUNAT: revivirlo por detras dejaria el
+         *    documento y el pedido contando historias distintas. Ahi el camino
+         *    es la nota de credito, no este boton.
+         *
+         *  · El ciclo de vida tiene que ser nuestro. Un pedido de marketplace
+         *    se restaura en su canal; si se reviviera aqui, EBAEMY diria una
+         *    cosa y el portal del vendedor otra. Es la misma razon por la que
+         *    tampoco se puede anular desde aqui (canBeCancelled).
+         *
+         * NO se vuelve a comprometer stock: el pedido vuelve a «Por confirmar»,
+         * que es un estado que todavia no reserva nada. El compromiso ocurre al
+         * avanzar a «Listo para preparar», igual que en cualquier pedido nuevo,
+         * y ahi es donde se descubre —con su mensaje— si el producto ya no
+         * alcanza. Reservarlo en la restauracion seria prometer un stock que
+         * quiza se vendio mientras el pedido estaba muerto.
+         */
+        public function motivoNoRestaurable(): ?string
+        {
+            if (!$this->estaAnulado()) {
+                return 'Este pedido no está anulado.';
+            }
+
+            if (!$this->canBeCancelled()) {
+                $donde = optional($this->channel)->name ?: 'su canal de origen';
+
+                return "Este pedido llega de {$donde} y se restaura allí, no desde EBAEMY.";
+            }
+
+            try {
+                $docs = new \App\Services\Tenant\OrderDocuments($this);
+
+                foreach ([\App\Services\Tenant\OrderDocuments::BOLETA,
+                          \App\Services\Tenant\OrderDocuments::FACTURA] as $tipo) {
+                    if ($docs->tiene($tipo)) {
+                        return 'Este pedido ya tiene un comprobante emitido ante SUNAT. '
+                             . 'Para revertirlo hay que emitir una nota de crédito, no restaurarlo.';
+                    }
+                }
+            } catch (\Throwable $e) {
+                // Si no se puede consultar los documentos, no se afirma que no
+                // los haya: se bloquea, que es el lado seguro.
+                return 'No se pudo comprobar si el pedido tiene comprobantes emitidos.';
             }
 
             return null;

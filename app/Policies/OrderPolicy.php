@@ -54,11 +54,24 @@ class OrderPolicy
     ];
 
     /**
-     * Admin y superadmin tienen acceso total a todas las acciones
-     * (las reglas de negocio se aplican en los métodos específicos, no aquí).
+     * Superadmin tiene acceso total... salvo al mapa de transiciones.
+     *
+     * `transitionTo` NO es un permiso, es una regla de negocio: describe qué
+     * transiciones existen. Saltársela no da más poder, da estados imposibles
+     * —un pedido anulado que vuelve a «Enviado» sin pasar por ninguna de las
+     * comprobaciones— y deja al superadmin siendo el único usuario capaz de
+     * romper la máquina de estados sin querer.
+     *
+     * Restaurar un pedido anulado tiene su propia puerta, con sus propias
+     * guardas: `OrderController::restaurar()`. Esa es la vía, y vale para
+     * cualquier usuario.
      */
     public function before(?User $user, string $ability): ?bool
     {
+        if ($ability === 'transitionTo') {
+            return null;
+        }
+
         if ($user && in_array($user->type ?? '', ['superadmin'], true)) {
             return true;
         }

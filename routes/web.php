@@ -340,6 +340,12 @@ if ($hostname) {
                  ->whereNumber('order')->name('orders.update_manual');
             // Corregir con qué se factura el pedido. Antes lo decidía solo el
             // comprador en el checkout y no había forma de arreglarlo.
+            // La UNICA modificacion que admite un pedido anulado. Endpoint
+            // propio y no el cambio de estado generico: desde el estado 5 el
+            // mapa de transiciones sigue sin tener salida.
+            Route::post('orders/{order}/restaurar', 'Tenant\OrderController@restaurar')
+                 ->whereNumber('order')->name('orders.restore');
+
             Route::post('orders/{order}/tipo-documento', 'Tenant\OrderController@tipoDocumento')
                  ->whereNumber('order')->name('orders.billing_type');
             // Emitir la nota de venta a mano. Hasta ahora solo se generaba sola

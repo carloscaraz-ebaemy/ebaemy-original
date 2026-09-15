@@ -1223,6 +1223,19 @@
                                         Documentos
                                     </el-dropdown-item>
 
+                                    <!-- La UNICA modificacion que admite un
+                                         pedido anulado. Se ofrece solo ahi, y
+                                         separada del resto para que no se
+                                         confunda con las acciones normales. -->
+                                    <el-dropdown-item
+                                        v-if="esAnulado(row)"
+                                        command="restoreOrder"
+                                        divided
+                                    >
+                                        <i class="el-icon-refresh-left"></i>
+                                        Restaurar pedido
+                                    </el-dropdown-item>
+
                                     <el-dropdown-item command="payments">
                                         <i class="el-icon-wallet"></i>
                                         Pagos del pedido
@@ -1403,6 +1416,7 @@
             @timeline="openTimeline"
             @edit="editarPedido($event.id)"
             @shipping-link="copyShippingLink"
+            @restore-order="restaurarPedido"
         ></order-drawer>
 
         <!-- Verificar los cobros. Solo aparece si el tenant lo exige: con la
@@ -1699,6 +1713,17 @@
 .orders tr.ord-peek-on > td.ord-td-act {
     background: #f8fafc;
 }
+/* ...salvo cuando la fila tiene color de estado. Esta regla gana por
+   especificidad (0,4,4) a la de arriba (0,3,4): sin ella, apuntar a las
+   acciones rompia la franja de color justo en la columna que se va a pulsar. */
+.orders table tbody tr.ord-row-void:hover > td.ord-td-act,
+.orders table tbody tr.ord-row-void > td.ord-td-act     { background: #fef4f3; }
+.orders table tbody tr.ord-row-sent:hover > td.ord-td-act,
+.orders table tbody tr.ord-row-sent > td.ord-td-act     { background: #f5f9ff; }
+.orders table tbody tr.ord-row-review:hover > td.ord-td-act,
+.orders table tbody tr.ord-row-review > td.ord-td-act   { background: #fffaf2; }
+.orders table tbody tr.ord-row-done:hover > td.ord-td-act,
+.orders table tbody tr.ord-row-done > td.ord-td-act     { background: #f6fdf9; }
 
 /* Celdas opcionales: el dato manda, el relleno no. */
 .ord-x-nada { color: #cbd5e1; }
@@ -2112,15 +2137,16 @@
     box-shadow: inset 3px 0 0 #e0a75f;
 }
 
+/* Anulado. Antes se apagaba la fila con `opacity: .55`, y eso dejaba el texto
+   en 3.46:1 de contraste —por debajo del minimo AA— justo en la fila que hay
+   que leer con mas cuidado antes de teclear nada. Ahora se marca con rojo
+   claro en vez de atenuarse: se distingue igual y se lee. */
 .orders tr.ord-row-void > td {
-    opacity: 0.55;
-    background: #fafafa;
+    background: #fef4f3;
+    color: #7d5450;
 }
-.orders tr.ord-row-void > td .ord-st-chip.is-cancel {
-    opacity: 1;
-}
-.orders tr.ord-row-void:hover > td {
-    opacity: 0.8;
+.orders tr.ord-row-void > td:first-child {
+    box-shadow: inset 3px 0 0 #d98b83;
 }
 
 /* Aviso del boton de Envios. Un punto y no un numero: el detalle esta en el
@@ -3210,7 +3236,7 @@
     .orders table tbody tr.ord-row-review { background: #fffaf2; border-left: 4px solid #e0a75f; }
     .orders table tbody tr.ord-row-sent   { background: #f5f9ff; border-left: 4px solid #7aa7e0; }
     .orders table tbody tr.ord-row-done   { background: #f6fdf9; border-left: 4px solid #86c79a; }
-    .orders table tbody tr.ord-row-void   { background: #fafafa; border-left: 4px solid #cbd5e1; }
+    .orders table tbody tr.ord-row-void   { background: #fef4f3; border-left: 4px solid #d98b83; }
 
     .orders table tbody td {
         border: none !important;
@@ -3812,6 +3838,35 @@ export default {
                 this.selectedIds.includes(r.id)
             );
         },
+        /**
+         * Devuelve a la vida un pedido anulado.
+         *
+         * Se confirma antes porque el pedido cambia de estado y vuelve a
+         * aparecer como trabajo pendiente: no es una consulta, es una decision.
+         */
+        restaurarPedido(row) {
+            this.$confirm(
+                'El pedido volverá a «Por confirmar» para que lo revises. ' +
+                'El stock NO se reserva ahora: se compromete al pasarlo a ' +
+                '«Listo para preparar», y ahí se verá si el producto todavía alcanza.',
+                'Restaurar pedido',
+                { confirmButtonText: 'Restaurar', cancelButtonText: 'Cancelar', type: 'warning' }
+            ).then(() => {
+                this.$http.post(`/orders/${row.id}/restaurar`)
+                    .then(({ data }) => {
+                        if (data.success === false) {
+                            return this.$message.warning(data.message);
+                        }
+                        this.$message.success(data.message);
+                        this.$refs.DataTable && this.$refs.DataTable.getRecords();
+                    })
+                    .catch((err) => {
+                        const m = ((err.response || {}).data || {}).message;
+                        this.$message.error(m || 'No se pudo restaurar el pedido.');
+                    });
+            }).catch(() => {});
+        },
+
         runAction(cmd, row) {
             // Un pedido anulado se consulta, no se opera. Ocultar las
             // entradas del menu no basta: quedan abiertas las que llegan por
@@ -3835,7 +3890,7 @@ export default {
             ];
             if (this.esAnulado(row) && soloLectura.indexOf(cmd) !== -1) {
                 return this.$message.warning(
-                    "El pedido está anulado: solo se puede consultar."
+                    "Este pedido está anulado y no puede modificarse."
                 );
             }
 
@@ -3870,6 +3925,7 @@ export default {
                 verifyPayments: () => this.verificarCobros(row),
                 shipment: () => this.openShipment(row),
                 restoreShipment: () => this.restaurarEnvio(row),
+                restoreOrder: () => this.restaurarPedido(row),
                 // Emitir nota de venta, comprobante y guia de remision ya no
                 // se despachan desde aqui: el panel de documentos llama a
                 // `emitirNotaVenta`, `emitirComprobante` y
