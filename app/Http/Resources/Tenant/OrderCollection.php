@@ -459,10 +459,18 @@ class OrderCollection extends ResourceCollection
             return null;
         }
 
-        if ($order && \App\Services\Tenant\OrderPaymentSync::estaSaldado($order)) {
+        // OJO: dentro del transform, $row es un OrderResource, no el modelo.
+        // Proxea las propiedades (por eso `$row->shipment` funciona) pero NO
+        // satisface el tipo de estaSaldado(Order). Hay que desenvolverlo.
+        $pedido = $order instanceof \Illuminate\Http\Resources\Json\JsonResource
+            ? $order->resource
+            : $order;
+
+        if ($pedido instanceof \App\Models\Tenant\Order
+            && \App\Services\Tenant\OrderPaymentSync::estaSaldado($pedido)) {
             // Cobrado del todo. Solo falta la salvedad de la verificacion.
             if (\App\Services\Tenant\PaymentVerification::requerida()
-                && \App\Services\Tenant\OrderPaymentSync::tienePendientesDeVerificar($order)) {
+                && \App\Services\Tenant\OrderPaymentSync::tienePendientesDeVerificar($pedido)) {
                 return 'Hay un cobro pendiente de verificar.';
             }
 
