@@ -3887,6 +3887,10 @@ export default {
                 "shippingLink", "edit", "uploadGuide",
                 "payments", "verifyPayments", "shipment", "motorizado",
                 "lotes", "deliverPickup",
+                // Documentos: ver, generar, imprimir y descargar. Generar ya lo
+                // rechazaba el servidor (OrderDocuments::motivoBloqueo); lo que
+                // faltaba era que tampoco se pudieran ABRIR.
+                "documents", "viewGuide",
             ];
             if (this.esAnulado(row) && soloLectura.indexOf(cmd) !== -1) {
                 return this.$message.warning(
@@ -4350,6 +4354,16 @@ export default {
         },
 
         abrirDocumentos(row) {
+            // El guard va AQUI y no solo en la lista de `runAction`: el panel se
+            // abre tambien desde los chips de la columna Docs, que llaman al
+            // metodo directo. Con el guard solo en la lista, ese camino quedaba
+            // abierto.
+            if (this.esAnulado(row)) {
+                return this.$message.warning(
+                    "Este pedido está anulado y no puede modificarse. " +
+                    "Sus documentos tampoco se consultan desde aquí."
+                );
+            }
             this.docsRow = row;
             this.showDocsDialog = true;
         },
@@ -4923,6 +4937,11 @@ export default {
          * operador descubriera la diferencia despues de abrir la pestaña.
          */
         openGuide(row) {
+            if (this.esAnulado(row)) {
+                return this.$message.warning(
+                    "Este pedido está anulado y no puede modificarse."
+                );
+            }
             const url = row.shipment && row.shipment.guide_url;
             if (!url) return;
             window.open(url, "_blank");

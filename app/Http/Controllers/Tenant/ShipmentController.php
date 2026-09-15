@@ -2192,6 +2192,12 @@ class ShipmentController extends Controller
     /** Rótulo imprimible del envío (standalone, listo para imprimir/PDF). */
     public function printLabel(Request $request, ShippingRequest $shipment)
     {
+        // El PEDIDO anulado bloquea el rotulo aunque su envio siga vigente: son
+        // dos estados distintos y antes solo se miraba el del envio.
+        if ($shipment->order && ($motivo = $shipment->order->motivoBloqueoModificacion())) {
+            return back()->with('error', $motivo);
+        }
+
         if ($this->paymentBlocks($shipment)) {
             return back()->with('error', "Confirma primero el pago de {$shipment->shipment_code} para imprimir su rótulo.");
         }
@@ -2595,6 +2601,10 @@ class ShipmentController extends Controller
             return back()->with('error',
                 'El recojo en tienda no requiere Guía de Remisión: el paquete no viaja, '
                 . 'lo retira el propio cliente.');
+        }
+
+        if ($shipment->order && ($motivo = $shipment->order->motivoBloqueoModificacion())) {
+            return back()->with('error', $motivo);
         }
 
         if ($shipment->cancelled_at) {
@@ -3060,6 +3070,13 @@ class ShipmentController extends Controller
     /** Descarga/streaming de la guía de envío (archivo privado del tenant). */
     public function downloadGuide(ShippingRequest $shipment)
     {
+        // Un pedido anulado no expone sus documentos. Se comprueba en el
+        // servidor porque la guia es un ARCHIVO con URL propia: ocultar el
+        // boton no impide pegar el enlace.
+        if ($shipment->order && $shipment->order->estaAnulado()) {
+            abort(403, 'Este pedido está anulado y no puede modificarse.');
+        }
+
         abort_unless($shipment->shipping_guide_path && Storage::exists($shipment->shipping_guide_path), 404);
 
         $ext  = strtolower(pathinfo($shipment->shipping_guide_path, PATHINFO_EXTENSION));

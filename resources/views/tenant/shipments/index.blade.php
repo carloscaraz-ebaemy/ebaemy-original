@@ -398,6 +398,33 @@
     #shipmentsApp .table > tbody > tr.sh-row--age3:hover > td { background:#fbe9e9; }
     #shipmentsApp .table > tbody > tr.sh-row--age2 > td { background:#fff8f1; }
     #shipmentsApp .table > tbody > tr.sh-row--age2:hover > td { background:#fdefe0; }
+
+    /* ── Color por ESTADO, en toda la fila ──────────────────────────────────
+       Hasta ahora el unico color del estado vivia dentro del desplegable
+       (`.sh-status-select.text-*`): 120px de color que no se ven al recorrer la
+       tabla de un barrido, que es justo cuando hace falta distinguir lo que ya
+       salio de lo que hay que trabajar.
+
+       Van DESPUES del tinte de antiguedad a proposito: en un envio anulado, ya
+       despachado o entregado, cuanto lleve esperando da igual. En «pendiente de
+       revision» es al reves —la antiguedad ES la senal accionable— asi que ahi
+       el semaforo sigue mandando y el ambar solo entra si no hay age. */
+    #shipmentsApp .table > tbody > tr.sh-row--void > td        { background:#fef4f3; color:#7d5450; }
+    #shipmentsApp .table > tbody > tr.sh-row--void:hover > td  { background:#fdeceb; }
+    #shipmentsApp .table > tbody > tr.sh-row--void > td:first-child { box-shadow: inset 3px 0 0 #d98b83; }
+
+    #shipmentsApp .table > tbody > tr.sh-row--sent > td        { background:#f5f9ff; }
+    #shipmentsApp .table > tbody > tr.sh-row--sent:hover > td  { background:#ecf3ff; }
+    #shipmentsApp .table > tbody > tr.sh-row--sent > td:first-child { box-shadow: inset 3px 0 0 #7aa7e0; }
+
+    #shipmentsApp .table > tbody > tr.sh-row--done > td        { background:#f6fdf9; }
+    #shipmentsApp .table > tbody > tr.sh-row--done:hover > td  { background:#ecfaf1; }
+    #shipmentsApp .table > tbody > tr.sh-row--done > td:first-child { box-shadow: inset 3px 0 0 #86c79a; }
+
+    #shipmentsApp .table > tbody > tr.sh-row--review:not(.sh-row--age2):not(.sh-row--age3) > td { background:#fffaf2; }
+    #shipmentsApp .table > tbody > tr.sh-row--review:not(.sh-row--age2):not(.sh-row--age3):hover > td { background:#fff4e6; }
+    #shipmentsApp .table > tbody > tr.sh-row--review > td:first-child { box-shadow: inset 3px 0 0 #e0a75f; }
+
     /* Jerarquía dentro de la fila */
     .sh-code { display:block; font-weight:650; color:var(--sh-ink); font-size:.775rem;
         letter-spacing:-.015em; font-variant-numeric:tabular-nums; }
@@ -944,9 +971,36 @@
                                 ]),
                             ]),
                         ];
+                        // Color de TODA la fila segun el estado real del envio, no
+                        // solo del desplegable de estado. Hasta ahora la fila solo
+                        // se atenuaba al anularse y el unico color vivia en
+                        // `.sh-status-select.text-*`: en una tabla de veinte, un
+                        // color dentro de un control de 120px no se ve de un
+                        // barrido, que es justo cuando hace falta.
+                        //
+                        // Se agrupa por lo que el operador necesita decidir, no
+                        // por el catalogo entero de estados:
+                        //   anulado  -> no tocar
+                        //   ya salio -> no cambiar lo que lleva
+                        //   entregado-> terminado
+                        //   revision -> aqui hay trabajo
+                        $filaEstado = $s->is_cancelled
+                            ? 'void'
+                            : (in_array($s->status, [
+                                    \App\Models\Tenant\ShippingRequest::STATUS_DESPACHADO,
+                                    \App\Models\Tenant\ShippingRequest::STATUS_EN_AGENCIA,
+                                    \App\Models\Tenant\ShippingRequest::STATUS_EN_RUTA,
+                                    \App\Models\Tenant\ShippingRequest::STATUS_EN_CAMINO,
+                                    'enviado',
+                                ], true)
+                                ? 'sent'
+                                : ($s->status === \App\Models\Tenant\ShippingRequest::STATUS_ENTREGADO
+                                    ? 'done'
+                                    : ($s->status === \App\Models\Tenant\ShippingRequest::STATUS_RECIBIDO
+                                        ? 'review'
+                                        : null)));
                     @endphp
-                    <tr class="{{ $s->is_cancelled ? 'text-muted' : '' }} {{ $ageMeta ? 'sh-row--age'.$age['level'] : '' }}"
-                        style="{{ $s->is_cancelled ? 'opacity:.7;' : '' }}"
+                    <tr class="{{ $s->is_cancelled ? 'text-muted' : '' }} {{ $ageMeta ? 'sh-row--age'.$age['level'] : '' }} {{ $filaEstado ? 'sh-row--'.$filaEstado : '' }}"
                         @if($peekContent)
                             data-peek="{{ json_encode($peekContent, JSON_UNESCAPED_UNICODE) }}"
                             data-peek-code="{{ $s->shipment_code }}"
