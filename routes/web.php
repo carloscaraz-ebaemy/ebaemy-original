@@ -447,6 +447,11 @@ if ($hostname) {
             // toda la tabla. Distinta de `record`, que devuelve el formulario.
             Route::get('orders/row/{order}', 'Tenant\OrderController@row')
                  ->whereNumber('order')->name('orders.row');
+            // En que pagina cae un pedido con los filtros y el orden activos.
+            // La pantalla la usa para volver a poner el ojo sobre el pedido que
+            // se acaba de guardar cuando el cambio lo movio de pagina.
+            Route::get('orders/locate/{order}', 'Tenant\OrderController@locate')
+                 ->whereNumber('order')->name('orders.locate');
 
             // ── Envío del pedido (Gestión de Pedidos unificada) ──────────────
             // El detalle logístico se consulta y se configura DESDE el pedido.

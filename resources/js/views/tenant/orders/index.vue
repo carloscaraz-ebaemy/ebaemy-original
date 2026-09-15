@@ -572,10 +572,18 @@
                          mouse para ir viendo que lleva cada paquete. Obligar a
                          apuntar a un chip de 90 px convierte en punteria lo
                          que deberia ser un barrido. -->
+                    <!-- `data-order-id` es el ANCLA de la fila. Es lo unico
+                         estable que tiene el DOM: el indice cambia cuando el
+                         pedido se mueve de sitio al guardarlo, y el slot del
+                         DataTable no lleva `:key`, asi que Vue reutiliza los
+                         nodos en el sitio. Sin este atributo no hay forma de
+                         encontrar «la fila del pedido 412» despues de recargar. -->
                     <tr
                         slot-scope="{ index, row }"
+                        :data-order-id="row.id"
                         :class="[
                             peek.id === row.id ? 'ord-peek-on' : '',
+                            resaltadoId !== null && resaltadoId === Number(row.id) ? 'ord-row-focus' : '',
                             tonoFila(row) ? 'ord-row-' + tonoFila(row) : ''
                         ]"
                         @mouseenter="asomarPaquete(row, $event)"
@@ -2148,6 +2156,37 @@
     box-shadow: inset 4px 0 0 #c0483d;
 }
 
+/* ── Pedido recien guardado ──────────────────────────────────────────────
+   Marca la fila que el operador acaba de tocar durante unos segundos, para que
+   no tenga que buscarla entre las otras diecinueve despues de que la tabla se
+   recargue.
+
+   Va con MAS especificidad que los tonos por estado (`table tbody tr` frente a
+   `tr` a secas) porque tiene que ganarles: un pedido anulado que se acaba de
+   restaurar es exactamente el caso en que hace falta ver cual es. El ambar no
+   colisiona con ninguno de los cinco tonos de estado (rojo, ambar palido, azul,
+   verde, gris), y el pulso lo hace visible aunque la fila ya tuviera color.
+
+   Dos pulsos y para: una animacion que no termina deja de ser un aviso y pasa a
+   ser ruido en pantalla. */
+.orders table tbody tr.ord-row-focus > td {
+    background: #fff5d6;
+    color: #4a3a12;
+    animation: ordFocusPulse 1.1s ease-out 2;
+}
+.orders table tbody tr.ord-row-focus > td:first-child {
+    box-shadow: inset 4px 0 0 #d99b1c;
+}
+@keyframes ordFocusPulse {
+    0%   { background: #ffe59a; }
+    100% { background: #fff5d6; }
+}
+/* El hover de la columna de acciones tiene su propia regla por estado; sin
+   esta, pasar el mouse por encima borraba el resaltado justo en la celda que
+   se va a pulsar. */
+.orders table tbody tr.ord-row-focus:hover > td.ord-td-act,
+.orders table tbody tr.ord-row-focus > td.ord-td-act { background: #fff5d6; }
+
 /* Aviso del boton de Envios. Un punto y no un numero: el detalle esta en el
    titulo y dentro del menu, y en la cabecera lo que hace falta es saber si hay
    algo que mirar, no cuanto. */
@@ -3236,6 +3275,9 @@
     .orders table tbody tr.ord-row-sent   { background: #f5f9ff; border-left: 4px solid #7aa7e0; }
     .orders table tbody tr.ord-row-done   { background: #f6fdf9; border-left: 4px solid #86c79a; }
     .orders table tbody tr.ord-row-void   { background: #fde3e0; border-left: 5px solid #c0483d; }
+    /* En movil la tarjeta es el TR y los TD van sin fondo: el resaltado tiene
+       que ir aqui o no se veria nada. */
+    .orders table tbody tr.ord-row-focus  { background: #fff5d6; border-left: 5px solid #d99b1c; }
 
     .orders table tbody td {
         border: none !important;
@@ -3426,6 +3468,20 @@ export default {
             stats: {},
             selectedIds: [],
             currentRecords: [],
+
+            // ── Volver a poner el ojo sobre el pedido que se acaba de tocar ──
+            //
+            // `enfoque.id` es el pedido que hay que encontrar en cuanto la
+            // tabla vuelva del servidor; `resaltadoId` es el que se esta
+            // pintando ahora mismo. Son dos cosas distintas: entre guardar y
+            // encontrar puede haber un salto de pagina de por medio.
+            //
+            // `intentos` corta el bucle: si tras saltar a la pagina que dijo el
+            // servidor el pedido sigue sin aparecer, se avisa y se deja de
+            // buscar en vez de recargar sin fin.
+            enfoque: { id: null, intentos: 0 },
+            resaltadoId: null,
+            resaltadoTimer: null,
             // Envío del pedido (pestaña logística unificada).
             showShipmentDialog: false,
             shipmentOrderId: null,
@@ -3655,6 +3711,9 @@ export default {
         const c = this.$refs.peekCard;
         if (c && c.parentNode) c.parentNode.removeChild(c);
         clearTimeout(this.peekTimer);
+        // El resaltado se apaga con un temporizador: si la pantalla se
+        // desmonta antes, el callback escribiria sobre un componente muerto.
+        clearTimeout(this.resaltadoTimer);
         window.removeEventListener("scroll", this.cerrarAsomo, true);
         window.removeEventListener("resize", this.cerrarAsomo);
 
@@ -3819,6 +3878,19 @@ export default {
         onRecordsChanged(records) {
             this.currentRecords = records || [];
             this.selectedIds = []; // limpia selección al cambiar de página/filtro
+
+            // Cualquier recarga que NO venga de guardar algo apaga el
+            // resaltado: si el operador cambio de filtro, de pagina o de
+            // busqueda, seguir marcando una fila de antes es mentirle sobre que
+            // acaba de pasar.
+            if (!this.enfoque.id) {
+                this.apagarResaltado();
+            } else {
+                // `$nextTick` no es opcional: la fila que hay que buscar todavia
+                // no esta en el DOM cuando esto corre.
+                this.$nextTick(() => this.localizarEnfoque());
+            }
+
             // Chips y KPI se recalculan CADA vez que la tabla se recarga, no
             // solo desde pushFilters(): la busqueda del DataTable recarga por
             // su cuenta y antes dejaba los tres numeros desincronizados.
@@ -3857,7 +3929,12 @@ export default {
                             return this.$message.warning(data.message);
                         }
                         this.$message.success(data.message);
-                        this.$refs.DataTable && this.$refs.DataTable.getRecords();
+                        // El ref de la tabla es `ordersTable`. Decia
+                        // `this.$refs.DataTable`, que no existe, asi que
+                        // restaurar un pedido no refrescaba NADA: el operador
+                        // veia el aviso de exito sobre una fila que seguia
+                        // diciendo «anulado» hasta recargar la pagina a mano.
+                        this.recargar(row.id);
                     })
                     .catch((err) => {
                         const m = ((err.response || {}).data || {}).message;
@@ -3964,7 +4041,7 @@ export default {
                     `/ecommerce/marketplace/channels/${row.mp_channel_id}/orders/${row.mp_order_id}/upload-invoice`
                 );
                 this.$message.success(data.message || "Boleta subida a Saga.");
-                this.$refs.ordersTable.getRecords();
+                this.recargar(row.id);
             } catch (e) {
                 const msg =
                     (e.response && e.response.data && (e.response.data.error || e.response.data.message)) ||
@@ -3979,7 +4056,7 @@ export default {
                     `/ecommerce/marketplace/channels/${row.mp_channel_id}/orders/${row.mp_order_id}/mark-invoiced`
                 );
                 this.$message.success("Marcado.");
-                this.$refs.ordersTable.getRecords();
+                this.recargar(row.id);
                 this.loadChipCounts();
             } catch (e) {
                 this.$message.error("No se pudo marcar.");
@@ -4030,7 +4107,7 @@ export default {
                     `/ecommerce/marketplace/channels/${row.mp_channel_id}/orders/${row.mp_order_id}/invoice${extra}`
                 );
                 this.$message.success(data.message || "Boleta generada.");
-                this.$refs.ordersTable.getRecords();
+                this.recargar(row.id);
                 this.loadChipCounts();
             } catch (e) {
                 // El motivo importa: casi siempre es un dato que falta (serie,
@@ -4882,7 +4959,7 @@ export default {
                 .then(() =>
                     this.$http.post(`/orders/${row.id}/nota-venta`).then(r => {
                         this.$message.success(r.data.message);
-                        this.refrescarTrasEnvio();
+                        this.refrescarTrasEnvio(row.id);
                     })
                 )
                 .catch(e => {
@@ -5036,8 +5113,7 @@ export default {
 
             // El conteo de impresiones cambia del lado del servidor: sin
             // refrescar, el siguiente clic seguiria creyendo que es la primera.
-            const dt = this.$refs.ordersTable;
-            if (dt) dt.getRecords();
+            this.recargar(row.id);
         },
 
         /**
@@ -5051,9 +5127,8 @@ export default {
          * seguidos para la misma accion se leen como si hubieran pasado dos
          * cosas.
          */
-        refrescarTrasEnvio() {
-            const dt = this.$refs.ordersTable;
-            if (dt) dt.getRecords();
+        refrescarTrasEnvio(id = null) {
+            this.recargar(id);
             this.loadChipCounts();
         },
 
@@ -5071,7 +5146,7 @@ export default {
                 .then(({ value }) =>
                     this.$http.post(`/orders/${row.id}/envio/restaurar`, { reason: value || null })
                 )
-                .then(r => this.trasAccionDeEnvio(r))
+                .then(r => this.trasAccionDeEnvio(r, false, row.id))
                 .catch(e => this.trasAccionDeEnvio(e, true));
         },
 
@@ -5092,7 +5167,7 @@ export default {
                 .then(({ value }) =>
                     this.$http.post(`/orders/${row.id}/envio/anular`, { reason: value || null })
                 )
-                .then(r => this.trasAccionDeEnvio(r))
+                .then(r => this.trasAccionDeEnvio(r, false, row.id))
                 .catch(e => this.trasAccionDeEnvio(e, true));
         },
 
@@ -5104,7 +5179,7 @@ export default {
          * `cancel` del dialogo llega aqui como rechazo sin respuesta: eso no se
          * anuncia, el operador ya sabe que cancelo.
          */
-        trasAccionDeEnvio(r, esError = false) {
+        trasAccionDeEnvio(r, esError = false, id = null) {
             if (esError) {
                 if (!r || !r.response) return;   // cancelo el dialogo
                 const d = r.response.data || {};
@@ -5120,8 +5195,7 @@ export default {
             }
 
             this.$message.success(d.message || "Hecho.");
-            const dt = this.$refs.ordersTable;
-            if (dt) dt.getRecords();
+            this.recargar(id);
             this.loadChipCounts();
         },
 
@@ -5129,10 +5203,15 @@ export default {
             this.manualOrderId = orderId;
             this.showManualDialog = true;
         },
-        onManualCreated() {
+        /**
+         * Alta y edicion manual comparten dialogo, y los dos caminos devuelven
+         * el pedido: `id` llega siempre. Es lo que permite que un pedido RECIEN
+         * CREADO tampoco haya que buscarlo a mano — aunque el orden lo mande a
+         * la pagina 3.
+         */
+        onManualCreated(id = null) {
             this.manualOrderId = null;
-            const dt = this.$refs.ordersTable;
-            if (dt) dt.getRecords();
+            this.recargar(id);
             this.loadChipCounts();
             this.loadStats();
         },
@@ -5217,6 +5296,138 @@ export default {
         },
 
         /**
+         * Recarga la tabla y deja el ojo puesto en un pedido concreto.
+         *
+         * Es el reemplazo de `this.$refs.ordersTable.getRecords()` a secas en
+         * todos los sitios donde se acaba de tocar UN pedido. La recarga ya
+         * conservaba filtros, orden y pagina —los guarda el DataTable—, pero
+         * repinta las 20 filas y el pedido editado puede haberse movido de
+         * sitio: si cambio el estado y el listado esta ordenado por estado, sale
+         * en otra posicion y el operador no tiene forma de saber cual era.
+         *
+         * Sin `id` se comporta exactamente como antes (recargas de bloque, como
+         * las acciones masivas, donde no hay una fila que destacar).
+         */
+        recargar(id = null) {
+            if (id) this.enfocar(id);
+
+            const dt = this.$refs.ordersTable;
+            if (dt) dt.getRecords();
+        },
+
+        /** Marca que pedido hay que buscar en cuanto vuelvan las filas. */
+        enfocar(id) {
+            this.enfoque = { id: Number(id), intentos: 0 };
+        },
+
+        /**
+         * Busca el pedido enfocado y decide que hacer con el.
+         *
+         * Tres desenlaces, y los tres tienen que ser distinguibles para el
+         * operador:
+         *
+         *   · esta en esta pagina  → se va a el y se resalta
+         *   · esta en otra pagina  → se salta a esa pagina y se vuelve a entrar
+         *   · ya no cumple filtros → se dice con esas palabras
+         *
+         * El tercero es el que importa: sin el, un pedido que sale del filtro al
+         * guardarlo simplemente desaparece de la pantalla y parece que el cambio
+         * no se guardo.
+         */
+        localizarEnfoque() {
+            const id = this.enfoque.id;
+            if (!id) return;
+
+            // Se busca por ID y nunca por posicion: el orden es justo lo que
+            // puede haber cambiado al guardar.
+            if ((this.currentRecords || []).some(r => Number(r.id) === id)) {
+                this.enfoque = { id: null, intentos: 0 };
+                this.irAFila(id);
+                return;
+            }
+
+            const dt = this.$refs.ordersTable;
+
+            // Ya se salto de pagina una vez y sigue sin aparecer. Puede pasar si
+            // otro usuario movio pedidos entre las dos consultas. Se corta aqui
+            // para no recargar en bucle.
+            if (!dt || this.enfoque.intentos >= 1) {
+                this.enfoque = { id: null, intentos: 0 };
+                this.$message({
+                    type: "warning",
+                    duration: 7000,
+                    message: "El pedido se guardó, pero no se pudo ubicar en los resultados actuales.",
+                });
+                return;
+            }
+
+            // La posicion solo la sabe el servidor: el navegador tiene una
+            // pagina de 20 filas y no puede distinguir «esta en la pagina 4» de
+            // «ya no cumple el filtro». Se le mandan los MISMOS parametros con
+            // los que el DataTable acaba de pedir las filas.
+            this.$http
+                .get(`/orders/locate/${id}?${dt.getQueryParameters()}`)
+                .then(r => {
+                    const d = (r && r.data) || {};
+
+                    if (!d.found) {
+                        this.enfoque = { id: null, intentos: 0 };
+                        this.$message({
+                            type: "warning",
+                            duration: 9000,
+                            message:
+                                "El pedido se actualizó correctamente, pero ya no cumple " +
+                                "con los filtros seleccionados.",
+                        });
+                        return;
+                    }
+
+                    this.enfoque.intentos += 1;
+                    dt.pagination.current_page = d.page;
+                    // Al volver, `onRecordsChanged` entra aqui otra vez y esta
+                    // vez el pedido SI esta entre las filas.
+                    dt.getRecords();
+                })
+                .catch(() => {
+                    // El pedido se guardo igual; lo unico que se pierde es el
+                    // salto. No se molesta al operador con un error por eso.
+                    this.enfoque = { id: null, intentos: 0 };
+                });
+        },
+
+        /**
+         * Lleva la pantalla hasta la fila y la resalta unos segundos.
+         *
+         * `inline: "nearest"` no es decoracion: la tabla vive dentro de un
+         * contenedor con scroll horizontal y sin eso el navegador tambien la
+         * desplaza de lado, que es otro salto que nadie pidio.
+         */
+        irAFila(id) {
+            const fila = document.querySelector(`tr[data-order-id="${id}"]`);
+            if (!fila) return;
+
+            if (fila.scrollIntoView) {
+                fila.scrollIntoView({ behavior: "smooth", block: "center", inline: "nearest" });
+            }
+
+            this.resaltar(id);
+        },
+
+        /** Resaltado temporal. Se apaga solo, o con la siguiente recarga. */
+        resaltar(id) {
+            clearTimeout(this.resaltadoTimer);
+            this.resaltadoId = Number(id);
+            this.resaltadoTimer = setTimeout(() => {
+                this.resaltadoId = null;
+            }, 6000);
+        },
+
+        apagarResaltado() {
+            clearTimeout(this.resaltadoTimer);
+            this.resaltadoId = null;
+        },
+
+        /**
          * Sustituye una fila del listado por su version fresca.
          *
          * La fila se pide al servidor y no se parchea a mano: los documentos,
@@ -5243,6 +5454,11 @@ export default {
 
                     reemplazar(dt.records);
                     reemplazar(this.currentRecords);
+
+                    // La fila no se movio —aqui no se recarga la tabla— pero el
+                    // operador igual necesita ver CUAL cambio, sobre todo si el
+                    // panel de cobros le tapaba media pantalla.
+                    this.$nextTick(() => this.irAFila(fila.id));
                 })
                 .catch(() => {
                     // Silencio a proposito: el cobro SI se guardo, y un fallo
@@ -5370,8 +5586,7 @@ export default {
 
         /** Tras configurar el envío, la fila debe reflejarlo sin recargar. */
         onShipmentSaved() {
-            const dt = this.$refs.ordersTable;
-            if (dt) dt.getRecords();
+            this.recargar(this.shipmentOrderId || null);
             this.loadChipCounts();
         },
 
@@ -5897,7 +6112,7 @@ export default {
                     this.$message.success(
                         (response.data && response.data.message) || "Pedido entregado."
                     );
-                    this.refreshAfterPayment();
+                    this.refreshAfterPayment(row.id);
                 })
                 .catch(error => {
                     // `$confirm` rechaza con 'cancel' cuando el operador dice
@@ -6034,7 +6249,7 @@ export default {
                     }
 
                     this.$message.success(d.message || `Envío en «${etiqueta}».`);
-                    this.refreshAfterPayment();
+                    this.refreshAfterPayment(row.id);
                 })
                 .catch(error => {
                     const d = (error.response && error.response.data) || {};
@@ -6135,7 +6350,7 @@ export default {
                     // venta, pero antes no se refrescaba nada: la fila seguia
                     // mostrando el estado viejo y habia que recargar la pagina
                     // a mano para verlo.
-                    this.refreshAfterPayment();
+                    this.refreshAfterPayment(this.record && this.record.id);
                 })
                 .catch(error => {
                     // Sin este catch, un fallo se veia igual que un exito: no
@@ -6160,9 +6375,8 @@ export default {
          * getRecords() conserva la pagina, el orden, la busqueda y los filtros
          * activos, asi que el operador no pierde el contexto.
          */
-        refreshAfterPayment() {
-            const dt = this.$refs.ordersTable;
-            if (dt) dt.getRecords();
+        refreshAfterPayment(id = null) {
+            this.recargar(id);
             this.loadChipCounts();
             this.loadStats();
         },
@@ -6184,9 +6398,10 @@ export default {
                     discount: save
                 })
                 .then(response => {
+                    const editado = this.record && this.record.id;
                     this.$message.success(response.data.message);
                     this.close();
-                    this.refreshAfterPayment();
+                    this.refreshAfterPayment(editado);
                 })
                 .catch(error => {
                     this.$message.error(this.describeError(error) || 'No se pudo guardar el pedido');

@@ -752,7 +752,12 @@ export default {
                         });
                     }
 
-                    this.$emit("created");
+                    // Se emite el ID del pedido, no un aviso pelado: es lo
+                    // que permite al listado volver a ponerle el ojo encima
+                    // —tambien cuando es nuevo y el orden lo manda a la pagina
+                    // 3—. `d.order` lo devuelven los dos endpoints, alta y
+                    // edicion; `this.orderId` cubre la edicion por si acaso.
+                    this.$emit("created", (d.order && d.order.id) || this.orderId || null);
                     this.cerrar();
                 })
                 .catch(e => {

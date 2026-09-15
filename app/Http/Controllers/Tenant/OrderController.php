@@ -277,6 +277,59 @@ class OrderController extends Controller
     }
 
     /**
+     * En que pagina cae un pedido CON LOS FILTROS Y EL ORDEN ACTUALES.
+     *
+     * Existe para que la pantalla pueda volver a poner el ojo sobre el pedido
+     * que se acaba de tocar. Editar un pedido puede moverlo de sitio —cambia
+     * el estado y el listado esta ordenado por estado, o cambia el importe y
+     * lo esta por importe— y hasta ahora el operador se quedaba mirando una
+     * tabla recargada sin saber cual de las filas era la suya.
+     *
+     * La posicion NO se puede calcular en el navegador: solo tiene la pagina
+     * que esta viendo. Y no vale «buscar el id sin filtros», porque entonces
+     * no se distingue «esta en la pagina 4» de «ya no cumple el filtro», que
+     * es justo lo que hay que decirle al operador.
+     *
+     * Se reutiliza `buildOrdersQuery` a proposito: la posicion tiene que salir
+     * de EXACTAMENTE la misma consulta que pinto la tabla. Calcularla con otro
+     * WHERE seria mandar al operador a una pagina donde su pedido no esta.
+     *
+     * Devuelve solo los ids, sin hidratar modelos ni relaciones: la tabla mas
+     * grande en produccion tiene 703 filas y esto es una columna de enteros.
+     */
+    public function locate(Request $request, $id)
+    {
+        $id = (int) $id;
+
+        // `pluck` sobre el builder respeta el ORDER BY y no dispara el eager
+        // loading: lo que vuelve es la lista de ids en el mismo orden en que
+        // la tabla los habria paginado.
+        $ids = $this->buildOrdersQuery($request)->pluck('orders.id');
+
+        $posicion = $ids->search($id);
+
+        if ($posicion === false) {
+            // No es un error: el pedido existe, pero el cambio que se acaba de
+            // guardar lo saco de los resultados. Quien pregunta necesita poder
+            // decirlo con esas palabras.
+            return response()->json([
+                'found' => false,
+                'total' => $ids->count(),
+            ]);
+        }
+
+        $porPagina = (int) config('tenant.items_per_page');
+        $porPagina = $porPagina > 0 ? $porPagina : 20;
+
+        return response()->json([
+            'found'    => true,
+            'page'     => intdiv($posicion, $porPagina) + 1,
+            'position' => $posicion + 1,
+            'total'    => $ids->count(),
+        ]);
+    }
+
+    /**
      * Consulta ÚNICA de Gestión de Pedidos: comercial + logística.
      *
      * Unifica lo que antes vivía en dos pantallas — los filtros de
