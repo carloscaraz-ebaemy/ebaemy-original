@@ -428,17 +428,48 @@ class OrderCollection extends ResourceCollection
         };
     }
 
-    private function printBlockReason($s, bool $requirePayment): ?string
+    /**
+     * Por que la fila NO ofrece el rotulo, o null si lo ofrece.
+     *
+     * Tiene que decir lo MISMO que decide el servidor en
+     * ShipmentController::paymentBlocks(). Tenia su propia copia de la regla
+     * —`requirePayment && !payment_confirmed`— y cuando el servidor aprendio a
+     * mirar los dos libros de cobro, esta se quedo atras: el rotulo se podia
+     * imprimir pero el menu seguia diciendo «Rotulo no disponible» y el boton
+     * deshabilitado. El operador no podia llegar a la accion que ya funcionaba.
+     *
+     * Por eso delega en la misma definicion canonica
+     * (OrderPaymentSync::estaSaldado), que mira `order_payments` y
+     * `shipping_payments`. El pedido llega como parametro porque es la fila que
+     * se esta pintando: el listado ya precarga `activeShipment` y la suma de
+     * pagos, asi que no aparecen consultas nuevas.
+     */
+    private function printBlockReason($s, bool $requirePayment, $order = null): ?string
     {
         if ($s->status === \App\Models\Tenant\ShippingRequest::STATUS_ANULADO) {
             return 'El envio esta anulado.';
         }
 
-        if ($requirePayment && !$s->payment_confirmed) {
-            return 'Falta confirmar el pago del envio.';
+        if (!$requirePayment) {
+            return null;
         }
 
-        return null;
+        // Confirmado a mano: vale igual que en el servidor.
+        if ($s->payment_confirmed) {
+            return null;
+        }
+
+        if ($order && \App\Services\Tenant\OrderPaymentSync::estaSaldado($order)) {
+            // Cobrado del todo. Solo falta la salvedad de la verificacion.
+            if (\App\Services\Tenant\PaymentVerification::requerida()
+                && \App\Services\Tenant\OrderPaymentSync::tienePendientesDeVerificar($order)) {
+                return 'Hay un cobro pendiente de verificar.';
+            }
+
+            return null;
+        }
+
+        return 'Falta confirmar el pago del envio.';
     }
 
     private function shipmentPayload($row, int $maxDays, bool $skipHolidays, bool $requirePayment = false): ?array
@@ -533,7 +564,7 @@ class OrderCollection extends ResourceCollection
             // Recojo en tienda no lleva rotulo: printLabel redirige al
             // comprobante de entrega, asi que la accion cambia de nombre.
             'label_kind'       => $s->is_pickup ? 'receipt' : 'label',
-            'print_block'      => $this->printBlockReason($s, $requirePayment),
+            'print_block'      => $this->printBlockReason($s, $requirePayment, $row),
             // Que le falta al envio para poder rotularlo. El servidor imprime
             // igual —no es un error, es un rotulo malo— asi que avisar aqui es
             // la unica forma de que el operador se entere ANTES y no cuando el

@@ -43,6 +43,15 @@ trait HasAmountDuePayments
     /** Suma de los pagos registrados. */
     public function getTotalPaidAttribute(): float
     {
+        // Si la consulta ya trajo la suma —el listado de Pedidos hace
+        // withSum(['payments as paid_total']) con este mismo filtro— se usa esa
+        // en vez de repetirla. Sin esta rama el accesor consulta UNA VEZ POR
+        // FILA, y ahora lo pide tambien el guardarrail del rotulo de cada fila.
+        // Es el mismo atajo que ShippingRequest::getPaidTotalAttribute().
+        if (array_key_exists('paid_total', $this->attributes)) {
+            return round((float) $this->attributes['paid_total'], 2);
+        }
+
         // Un cobro RECHAZADO no cuenta. Este accesor alimenta el resumen del
         // panel de pagos, y el listado usa la MISMA regla: sin esto, la tabla
         // diria «debe S/ 20» y el panel «pagado», sobre el mismo pedido.
