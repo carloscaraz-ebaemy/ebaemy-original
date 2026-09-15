@@ -54,8 +54,16 @@ class PaymentReferenceRule
         'deposito', 'depositos',
         'abono en cuenta', 'abono cuenta',
         'interbancaria', 'interbancario',
-        'cci',
     ];
+
+    /**
+     * Siglas que solo valen como palabra suelta.
+     *
+     * «cci» suelto es una cuenta interbancaria, pero como trozo aparece dentro
+     * de palabras corrientes («transacción», «fraccionado») y convertiria en
+     * obligatorio un método que no lo es.
+     */
+    private const SIGLAS_OBLIGATORIO = ['cci'];
 
     /**
      * Palabras que mandan sobre las de arriba.
@@ -155,8 +163,14 @@ class PaymentReferenceRule
         return $descripcion === null ? null : (string) $descripcion;
     }
 
-    /** Decide sobre el texto del método, sin acentos ni mayúsculas. */
-    private static function descripcionRequiere(string $descripcion): bool
+    /**
+     * Decide sobre el texto del método, sin acentos ni mayúsculas.
+     *
+     * Es pública a propósito: es la única parte de la regla que no toca la base
+     * de datos, y así se puede probar el catálogo entero —el de fábrica y el
+     * que invente cada tienda— sin levantar una conexión de tenant.
+     */
+    public static function descripcionRequiere(string $descripcion): bool
     {
         $texto = static::plano($descripcion);
 
@@ -172,6 +186,12 @@ class PaymentReferenceRule
 
         foreach (static::PALABRAS_OBLIGATORIO as $palabra) {
             if (str_contains($texto, static::plano($palabra))) {
+                return true;
+            }
+        }
+
+        foreach (static::SIGLAS_OBLIGATORIO as $sigla) {
+            if (preg_match('/\b' . preg_quote($sigla, '/') . '\b/', $texto) === 1) {
                 return true;
             }
         }

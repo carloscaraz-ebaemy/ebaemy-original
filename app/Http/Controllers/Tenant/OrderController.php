@@ -2413,6 +2413,20 @@ class OrderController extends Controller
           ], 422);
       }
 
+      // El envio anulado tambien congela el estado del pedido: avanzarlo a
+      // «en preparacion» o «enviado» seria mover un pedido cuya entrega ya se
+      // cayo. El mapa de transiciones no lo detecta —solo mira
+      // `status_order_id`— y por eso el operador seguia pudiendo cambiar el
+      // estado de una fila roja. Reportado el 2026-09-15.
+      //
+      // Se exceptua ANULAR (destino 5): igual que anular el envio, retira
+      // actividad en vez de anadirla, y es la salida natural cuando la entrega
+      // se cayo del todo. Bloquearlo dejaria el pedido en un limbo sin forma
+      // de cerrarlo.
+      if ($statusId !== 5 && ($motivo = $order->motivoBloqueoModificacion())) {
+          return response()->json(['message' => $motivo], 422);
+      }
+
       // Delegamos TODAS las reglas de transición (mapa + guard de payment_status +
       // reglas por rol) al OrderPolicy::transitionTo. Si la transición es inválida
       // lanza InvalidOrderTransitionException con mensaje específico.

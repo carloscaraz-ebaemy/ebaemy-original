@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers\Tenant\Concerns;
 
-use App\Models\Tenant\PaymentMethodType;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Modules\Finance\Traits\FilePaymentTrait;

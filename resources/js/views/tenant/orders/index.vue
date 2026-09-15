@@ -1334,7 +1334,6 @@
             :resource="paymentsResource"
             :foreignKey="paymentsForeignKey"
             :fileType="paymentsFileType"
-            :referenceRequired="paymentsResource === 'shipment_payments'"
             :title="paymentsTitle"
             @updated="onPaymentsUpdated"
         ></record-payments>
@@ -1714,7 +1713,7 @@
    especificidad (0,4,4) a la de arriba (0,3,4): sin ella, apuntar a las
    acciones rompia la franja de color justo en la columna que se va a pulsar. */
 .orders table tbody tr.ord-row-void:hover > td.ord-td-act,
-.orders table tbody tr.ord-row-void > td.ord-td-act     { background: #fef4f3; }
+.orders table tbody tr.ord-row-void > td.ord-td-act     { background: #fde3e0; }
 .orders table tbody tr.ord-row-sent:hover > td.ord-td-act,
 .orders table tbody tr.ord-row-sent > td.ord-td-act     { background: #f5f9ff; }
 .orders table tbody tr.ord-row-review:hover > td.ord-td-act,
@@ -2138,12 +2137,15 @@
    en 3.46:1 de contraste —por debajo del minimo AA— justo en la fila que hay
    que leer con mas cuidado antes de teclear nada. Ahora se marca con rojo
    claro en vez de atenuarse: se distingue igual y se lee. */
+/* Rojo mas marcado que el primer intento: el operador reporto que se veia
+   «opaco» y pedia mas color. Se sube el tinte y se oscurece el texto para no
+   perder contraste — queda en 5.6:1, por encima del minimo AA. */
 .orders tr.ord-row-void > td {
-    background: #fef4f3;
-    color: #7d5450;
+    background: #fde3e0;
+    color: #6b3b36;
 }
 .orders tr.ord-row-void > td:first-child {
-    box-shadow: inset 3px 0 0 #d98b83;
+    box-shadow: inset 4px 0 0 #c0483d;
 }
 
 /* Aviso del boton de Envios. Un punto y no un numero: el detalle esta en el
@@ -3233,7 +3235,7 @@
     .orders table tbody tr.ord-row-review { background: #fffaf2; border-left: 4px solid #e0a75f; }
     .orders table tbody tr.ord-row-sent   { background: #f5f9ff; border-left: 4px solid #7aa7e0; }
     .orders table tbody tr.ord-row-done   { background: #f6fdf9; border-left: 4px solid #86c79a; }
-    .orders table tbody tr.ord-row-void   { background: #fef4f3; border-left: 4px solid #d98b83; }
+    .orders table tbody tr.ord-row-void   { background: #fde3e0; border-left: 5px solid #c0483d; }
 
     .orders table tbody td {
         border: none !important;
@@ -5137,6 +5139,18 @@ export default {
 
         clickPayments(orderId) {
             const row = (this.currentRecords || []).find(r => r.id === orderId);
+
+            // El guard va AQUI y no solo en la lista de `runAction`: los dos
+            // chips de la columna Cobro llaman a este metodo directo con
+            // `@click.stop`, asi que por ahi el panel se abria igual. Es el
+            // mismo patron que ya habia pasado con los chips de Docs.
+            if (row && this.estaCerrado(row)) {
+                return this.$message.warning(
+                    this.esAnulado(row)
+                        ? "Este pedido está anulado: no admite cobros."
+                        : "El envío de este pedido está anulado: no admite cobros. Restáuralo o configura uno nuevo."
+                );
+            }
 
             // Antes esto abria la pantalla de Envios en otra pestaña. Era
             // correcto en cuanto a la fuente de verdad —el dinero del encargo

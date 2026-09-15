@@ -440,6 +440,10 @@ export default {
       this.saving = true;
       const payload = Object.assign({}, this.newRow);
       payload[this.foreignKey] = this.recordId;
+      // Un campo con solo espacios es un campo vacio: se manda null para que no
+      // quede guardado como si fuera un codigo de operacion.
+      const ref = String(payload.reference || '').trim();
+      payload.reference = ref === '' ? null : ref;
 
       this.$http.post(`/${this.resource}`, payload)
         .then(r => {

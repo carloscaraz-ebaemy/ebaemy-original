@@ -409,9 +409,11 @@
        despachado o entregado, cuanto lleve esperando da igual. En «pendiente de
        revision» es al reves —la antiguedad ES la senal accionable— asi que ahi
        el semaforo sigue mandando y el ambar solo entra si no hay age. */
-    #shipmentsApp .table > tbody > tr.sh-row--void > td        { background:#fef4f3; color:#7d5450; }
-    #shipmentsApp .table > tbody > tr.sh-row--void:hover > td  { background:#fdeceb; }
-    #shipmentsApp .table > tbody > tr.sh-row--void > td:first-child { box-shadow: inset 3px 0 0 #d98b83; }
+    /* Rojo mas marcado que el primer intento: se reporto que se veia «opaco».
+       El texto se oscurece a la vez para no perder contraste (7.48:1). */
+    #shipmentsApp .table > tbody > tr.sh-row--void > td        { background:#fde3e0; color:#6b3b36; }
+    #shipmentsApp .table > tbody > tr.sh-row--void:hover > td  { background:#fbd5d1; }
+    #shipmentsApp .table > tbody > tr.sh-row--void > td:first-child { box-shadow: inset 4px 0 0 #c0483d; }
 
     #shipmentsApp .table > tbody > tr.sh-row--sent > td        { background:#f5f9ff; }
     #shipmentsApp .table > tbody > tr.sh-row--sent:hover > td  { background:#ecf3ff; }
@@ -2099,6 +2101,8 @@
   #pcNewRow > td, #pcNewNoteRow > td { background: #fbfdff; }
   #pcNewRow .form-control, #pcNewRow .form-select,
   #pcNewNoteRow .form-control { font-size: .84rem; }
+  /* El asterisco de «Referencia» solo aparece con un metodo que lo exija. */
+  .pc-req { color: #dc2626; font-weight: 700; }
   #pcNewRow .pc-err { display: none; font-size: .72rem; color: #dc2626; margin-top: 3px; }
   #pcNewRow .pc-err.is-on { display: block; }
   .is-invalid-field { border-color: #fca5a5 !important; }
@@ -2156,7 +2160,7 @@
                   <th>Fecha de pago</th>
                   <th>Método de pago</th>
                   <th>Destino</th>
-                  <th>Referencia</th>
+                  <th>Referencia<span class="pc-req" id="pcReqStar" style="display:none"> *</span></th>
                   <th class="text-center">Archivo</th>
                   <th class="text-end">Monto</th>
                   <th style="width:70px;"></th>
@@ -2175,7 +2179,11 @@
                     <select id="pcMethodType" name="payment_method_type_id" class="form-select form-select-sm">
                       <option value="">Seleccionar</option>
                       @foreach(($paymentMethodTypes ?? []) as $pm)
-                        <option value="{{ $pm->id }}">{{ $pm->description }}</option>
+                        {{-- `requires_reference` lo resuelve PaymentReferenceRule en el
+                             servidor: la pantalla no vuelve a decidir cuando hace falta
+                             el codigo de operacion, solo lee esta bandera. --}}
+                        <option value="{{ $pm->id }}"
+                                data-requires-reference="{{ ($pm->requires_reference ?? false) ? '1' : '0' }}">{{ $pm->description }}</option>
                       @endforeach
                     </select>
                   </td>
@@ -2188,10 +2196,13 @@
                     </select>
                   </td>
                   <td>
-                    {{-- Codigo de operacion: obligatorio y unico en toda la
-                         tienda, el JS lo verifica mientras se escribe. --}}
+                    {{-- Codigo de operacion: obligatorio SOLO cuando el metodo de
+                         pago es una operacion bancaria (transferencia / deposito).
+                         Un cobro en efectivo a CAJA GENERAL no tiene ese numero, y
+                         mientras se exigio siempre no habia forma de registrarlo.
+                         Si se escribe, el JS lo verifica contra toda la tienda. --}}
                     <input id="pcInput" name="payment_code" class="form-control form-control-sm"
-                           maxlength="60" autocomplete="off" placeholder="Código de operación">
+                           maxlength="60" autocomplete="off" placeholder="Código de operación (opcional)">
                     <small class="pc-err" id="pcErrCode"></small>
                   </td>
                   <td class="text-center">
@@ -3223,6 +3234,45 @@
         pcError('pcInput',  'pcErrCode',   '');
     }
 
+    /**
+     * ¿El metodo de pago elegido exige codigo de operacion?
+     *
+     * La respuesta la trae el propio catalogo: cada <option> lleva
+     * `data-requires-reference`, que calcula PaymentReferenceRule en el
+     * servidor. Aca no se repite la regla —si se repitiera, el dia que una
+     * tienda agregue un metodo nuevo la pantalla y el servidor dirian cosas
+     * distintas y el operador veria un campo opcional que al guardar rebota—.
+     *
+     * Se relee el <select> en cada llamada (nunca se guarda el nodo): Vue monta
+     * sobre #main-wrapper y repinta el DOM del panel.
+     */
+    function pcRequiereCodigo() {
+        var sel = document.getElementById('pcMethodType');
+        if (!sel) return false;
+        var op = sel.options[sel.selectedIndex];
+        return !!(op && op.getAttribute('data-requires-reference') === '1');
+    }
+
+    /**
+     * Refleja la regla en la pantalla: asterisco en la cabecera y placeholder.
+     * Al pasar de transferencia a efectivo el error anterior ya no aplica y se
+     * borra en el acto, sin esperar a un nuevo intento de guardado.
+     */
+    function pcPintarRegla() {
+        var obligatorio = pcRequiereCodigo();
+        var star  = document.getElementById('pcReqStar');
+        var input = document.getElementById('pcInput');
+        if (star)  star.style.display = obligatorio ? '' : 'none';
+        if (input) input.placeholder = obligatorio
+            ? 'Código de operación (obligatorio)'
+            : 'Código de operación (opcional)';
+        if (!obligatorio) pcError('pcInput', 'pcErrCode', '');
+    }
+
+    document.addEventListener('change', function (ev) {
+        if (ev.target && ev.target.id === 'pcMethodType') pcPintarRegla();
+    });
+
     var pcNewRowEl = null;
     /**
      * Quedo sin trabajo: el panel de alta salio de la tabla, asi que repintar
@@ -3247,6 +3297,10 @@
             if (d && !d.value) d.value = new Date().toISOString().slice(0, 10);
             var a = document.getElementById('pcAmount');
             if (a) a.focus();
+            // El asterisco y el placeholder arrancan acordes al metodo que
+            // quedo elegido: abrir el alta no debe mostrar «obligatorio» sobre
+            // un efectivo ni al reves.
+            pcPintarRegla();
         }
     }
 
@@ -3531,8 +3585,11 @@
             pcError('pcAmount', 'pcErrAmount', 'Indica el monto del pago (por ejemplo 20 o 20.50).');
             return;
         }
-        if (!val) {
-            pcError('pcInput', 'pcErrCode', 'Escribe el código de la operación.');
+        // Solo lo exige el metodo bancario. En efectivo / caja general el campo
+        // queda vacio y el pago se guarda igual.
+        if (!val && pcRequiereCodigo()) {
+            pcError('pcInput', 'pcErrCode',
+                    'El código de operación es obligatorio para pagos mediante transferencia.');
             return;
         }
         if (pcDup && e.force && e.force.value !== '1') {

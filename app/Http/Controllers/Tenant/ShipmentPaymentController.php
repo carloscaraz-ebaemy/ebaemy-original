@@ -20,7 +20,8 @@ use Illuminate\Http\Request;
  * ── Por qué es un ADAPTADOR y no una segunda implementación ──────────────
  *
  * Registrar un pago de envío no es un `create()`. Hay reglas caras que ya viven
- * en `ShipmentController`: código de operación obligatorio, detección de
+ * en `ShipmentController`: exigencia del código de operación segun el método
+ * de pago, detección de
  * duplicados dentro del mismo envío y contra otros envíos (con forzado
  * auditado), tope contra el saldo real, asiento en Finanzas y
  * `syncPaymentState`, que es lo que habilita el rotulado.
@@ -110,9 +111,31 @@ class ShipmentPaymentController extends Controller
      * Registra el pago reenviando a `ShipmentController::storePayment`, que es
      * quien tiene las reglas. Aquí solo se traduce la entrada y la salida.
      */
+    /**
+     * Por que este envio no admite movimientos de dinero, o null.
+     *
+     * Este controlador es la OTRA puerta a los cobros: desde Pedidos, el panel
+     * de «Cobros» de un encargo escribe en `shipping_payments` a traves de
+     * aqui, no en `order_payments`. El guard del pedido anulado se puso solo en
+     * la primera puerta, asi que por esta se seguian registrando pagos sobre un
+     * envio anulado. Reportado por el operador el 2026-09-15.
+     */
+    private function motivoBloqueo(ShippingRequest $shipment): ?string
+    {
+        if ($shipment->is_cancelled) {
+            return 'Este envío está anulado: no admite cobros. Restáuralo primero.';
+        }
+
+        return $shipment->order ? $shipment->order->motivoBloqueoModificacion() : null;
+    }
+
     public function store(Request $request)
     {
         $shipment = ShippingRequest::findOrFail((int) $request->input('shipment_id'));
+
+        if ($motivo = $this->motivoBloqueo($shipment)) {
+            return ['success' => false, 'message' => $motivo];
+        }
 
         // El código hace falta segun el METODO de pago, no siempre. Antes este
         // adaptador lo exigia en todos los casos y cobrar en efectivo a caja
@@ -156,6 +179,10 @@ class ShipmentPaymentController extends Controller
     {
         $shipment = ShippingRequest::findOrFail((int) $id);
 
+        if ($motivo = $this->motivoBloqueo($shipment)) {
+            return ['success' => false, 'message' => $motivo];
+        }
+
         // `updateAmountDue` exige la clave presente aunque venga vacía: vaciar
         // el monto y no haberlo cargado nunca son cosas distintas.
         $request->merge(['amount_due' => $request->input('amount_due')]);
@@ -173,6 +200,14 @@ class ShipmentPaymentController extends Controller
     /** Elimina un pago con su asiento, reenviando al módulo de envíos. */
     public function destroy($id)
     {
+        $pago = ShippingPayment::find($id);
+        if ($pago) {
+            $envio = ShippingRequest::find($pago->shipment_id);
+            if ($envio && ($motivo = $this->motivoBloqueo($envio))) {
+                return ['success' => false, 'message' => $motivo];
+            }
+        }
+
         $payment  = ShippingPayment::findOrFail((int) $id);
         $shipment = $payment->shipment;
 
