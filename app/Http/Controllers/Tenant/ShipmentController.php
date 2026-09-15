@@ -133,6 +133,12 @@ class ShipmentController extends Controller
             ], 422);
         }
 
+        // Configurar un envio a un pedido anulado es crear trabajo logistico
+        // para algo que ya no se va a entregar.
+        if ($motivo = $order->motivoBloqueoModificacion()) {
+            return response()->json(['success' => false, 'message' => $motivo], 422);
+        }
+
         $linker = app(\App\Services\Tenant\OrderShipmentLinker::class);
         $data   = $this->validateShipment($request);
 
@@ -217,6 +223,14 @@ class ShipmentController extends Controller
                 'success' => false,
                 'message' => 'Este negocio no tiene activado el módulo de Envíos.',
             ], 422);
+        }
+
+        // El PEDIDO anulado bloquea igual que el envio anulado. Son dos cosas
+        // distintas y antes solo se miraba la segunda: sobre un pedido anulado
+        // con envio vigente se podia seguir editando el contenido del paquete,
+        // y se guardaba.
+        if ($motivo = $order->motivoBloqueoModificacion()) {
+            return response()->json(['success' => false, 'message' => $motivo], 422);
         }
 
         $shipment = app(\App\Services\Tenant\OrderShipmentLinker::class)->current($order);

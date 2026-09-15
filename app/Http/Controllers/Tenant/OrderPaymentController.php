@@ -28,6 +28,18 @@ class OrderPaymentController extends Controller
         return Order::findOrFail($id);
     }
 
+    /**
+     * Un pedido anulado no admite movimientos de dinero.
+     *
+     * Delega en el modelo para no tener aqui una segunda definicion de
+     * «bloqueado»: es la misma que consultan el listado y el resto de los
+     * endpoints de escritura.
+     */
+    protected function paymentLockReason($owner): ?string
+    {
+        return $owner instanceof Order ? $owner->motivoBloqueoModificacion() : null;
+    }
+
     protected function paymentModelClass(): string
     {
         return OrderPayment::class;

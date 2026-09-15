@@ -38,8 +38,14 @@ class OrderShipmentActionController extends Controller
 
     public function anular(Request $request, Order $order)
     {
+        // UNICA excepcion al bloqueo del pedido anulado, y es deliberada:
+        // anular el envio de un pedido ya anulado es limpieza, no una
+        // modificacion comercial. Si se bloqueara, un pedido muerto se
+        // quedaria con un envio VIGENTE para siempre, figurando como una
+        // entrega en curso que nadie puede cerrar — un estado peor que el que
+        // se intenta evitar. Nunca añade actividad: solo la retira.
         return $this->reenviar($order, fn ($envio) =>
-            app(ShipmentController::class)->cancel($request, $envio));
+            app(ShipmentController::class)->cancel($request, $envio), false, true);
     }
 
     public function restaurar(Request $request, Order $order)
@@ -70,8 +76,20 @@ class OrderShipmentActionController extends Controller
      *
      * @param bool $incluirAnulados Para restaurar, que actúa justo sobre esos.
      */
-    private function reenviar(Order $order, callable $accion, bool $incluirAnulados = false)
-    {
+    private function reenviar(
+        Order $order,
+        callable $accion,
+        bool $incluirAnulados = false,
+        bool $permitidoEnPedidoAnulado = false
+    ) {
+        // Un pedido anulado no se opera. Se comprueba aqui y no en cada accion
+        // porque las cuatro pasan por este metodo, y porque el destino
+        // —ShipmentController— solo sabe del estado del ENVIO: sobre un pedido
+        // anulado con envio vigente dejaba cambiar la modalidad y subir la guia.
+        if (!$permitidoEnPedidoAnulado && ($motivo = $order->motivoBloqueoModificacion())) {
+            return response()->json(['success' => false, 'message' => $motivo], 422);
+        }
+
         $envio = $incluirAnulados
             ? ShippingRequest::where('order_id', $order->id)->latest('id')->first()
             : app(OrderShipmentLinker::class)->current($order);

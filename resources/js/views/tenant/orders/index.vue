@@ -577,6 +577,8 @@
                         :class="{
                             'ord-peek-on': peek.id === row.id,
                             'ord-row-void': Number(row.status_order_id) === 5,
+                            'ord-row-review': Number(row.status_order_id) === 1,
+                            'ord-row-sent': Number(row.status_order_id) === 4,
                             'ord-row-done': esEntregado(row)
                         }"
                         @mouseenter="asomarPaquete(row, $event)"
@@ -2087,6 +2089,29 @@
 .ord-sh-est.is-click i { margin-left: 3px; font-size: 10px; opacity: .6; }
 .ord-sh-est.is-click:hover { text-decoration: underline; }
 
+/* Enviado: ya salio de la tienda. Azul, el mismo tono que el chip `is-ship`
+   y que la etapa `is-transit` del envio: en esta pantalla el azul ya significa
+   "en transito" y repetirlo en la fila no anade un idioma nuevo.
+   No se apaga —el pedido sigue vivo— pero se distingue de lo que espera trabajo. */
+.orders tr.ord-row-sent > td {
+    background: #f5f9ff;
+}
+.orders tr.ord-row-sent > td:first-child {
+    box-shadow: inset 3px 0 0 #7aa7e0;
+}
+
+/* Por confirmar: es donde HAY que trabajar —cargar el monto, el pago, el
+   detalle— y por eso es el unico de los cuatro que llama la atencion.
+   Ambar y no el gris del chip `is-pend`: ese gris es casi el del anulado, y
+   confundir "hay que revisarlo" con "esta muerto" es justo lo que se quiere
+   evitar al teclear un cobro. */
+.orders tr.ord-row-review > td {
+    background: #fffaf2;
+}
+.orders tr.ord-row-review > td:first-child {
+    box-shadow: inset 3px 0 0 #e0a75f;
+}
+
 .orders tr.ord-row-void > td {
     opacity: 0.55;
     background: #fafafa;
@@ -3169,6 +3194,24 @@
         box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05);
         background: #fff;
     }
+    /* ── El color de estado, en tarjeta ──────────────────────────────
+       En escritorio el fondo va en las `td` porque ahi cada celda tiene el
+       suyo. En tarjeta no: la `tr` es la que lleva fondo blanco y borde, y
+       tintar las celdas una a una deja el color a parches sobre ese blanco.
+       Asi que aqui se tinta la tarjeta y la franja pasa a ser su borde
+       izquierdo. La opacidad del anulado NO se toca: sigue apagandose. */
+    .orders table tbody tr.ord-row-void > td,
+    .orders table tbody tr.ord-row-done > td,
+    .orders table tbody tr.ord-row-sent > td,
+    .orders table tbody tr.ord-row-review > td {
+        background: transparent;
+        box-shadow: none;
+    }
+    .orders table tbody tr.ord-row-review { background: #fffaf2; border-left: 4px solid #e0a75f; }
+    .orders table tbody tr.ord-row-sent   { background: #f5f9ff; border-left: 4px solid #7aa7e0; }
+    .orders table tbody tr.ord-row-done   { background: #f6fdf9; border-left: 4px solid #86c79a; }
+    .orders table tbody tr.ord-row-void   { background: #fafafa; border-left: 4px solid #cbd5e1; }
+
     .orders table tbody td {
         border: none !important;
         padding: 0;
@@ -3775,9 +3818,20 @@ export default {
             // otro camino —seleccion multiple, un menu ya desplegado cuando
             // otro operador anulo— y ninguna de estas tiene sentido sobre un
             // pedido que ya no existe.
+            // Auditado el 2026-09-15: faltaban seis. `payments` es el mas
+            // grave —abre el panel de cobros, donde se registra el pago y el
+            // monto a cobrar— y era justo lo que el operador podia teclear
+            // sobre un pedido muerto sin que nada se lo impidiera. El servidor
+            // ya los rechaza; esto evita que se llegue a intentarlo.
+            //
+            // `cancelShipment` se QUITA a proposito: anular el envio de un
+            // pedido anulado es limpieza. Bloquearlo dejaba al pedido muerto
+            // con un envio vigente para siempre, sin forma de cerrarlo.
             const soloLectura = [
                 "invoice", "upload", "markExternal", "label", "sagaLabel",
-                "shippingLink", "edit", "uploadGuide", "cancelShipment",
+                "shippingLink", "edit", "uploadGuide",
+                "payments", "verifyPayments", "shipment", "motorizado",
+                "lotes", "deliverPickup",
             ];
             if (this.esAnulado(row) && soloLectura.indexOf(cmd) !== -1) {
                 return this.$message.warning(

@@ -322,6 +322,39 @@
             return $code !== '' && \Illuminate\Support\Str::startsWith($code, 'MKP_');
         }
 
+        /** Estado ANULADO. Constante y no un 5 suelto repartido por el codigo. */
+        public const ESTADO_ANULADO = 5;
+
+        /** ¿Esta anulado? */
+        public function estaAnulado(): bool
+        {
+            return (int) $this->status_order_id === self::ESTADO_ANULADO;
+        }
+
+        /**
+         * Por que este pedido no admite modificaciones, o null si las admite.
+         *
+         * Un pedido anulado se consulta, no se opera. La regla ya la aplicaban
+         * —cada uno a su manera— `updateManual` (via ESTADOS_EDITABLES),
+         * `tipoDocumento` (comparando con 5) y el mapa de transiciones de
+         * OrderPolicy. Pero los movimientos de DINERO y la edicion del envio no
+         * la aplicaban en absoluto: auditado el 2026-09-15, sobre un pedido
+         * anulado se podia registrar un pago, cambiar el monto a cobrar,
+         * borrar un pago, editar el detalle del paquete y cambiar la modalidad
+         * de entrega. Las cinco operaciones respondian «con exito».
+         *
+         * Devuelve TEXTO y no un booleano porque el destinatario es el
+         * operador: lo unico util de un «no se puede» es saber por que.
+         */
+        public function motivoBloqueoModificacion(): ?string
+        {
+            if ($this->estaAnulado()) {
+                return 'El pedido está anulado: solo se puede consultar, no modificar.';
+            }
+
+            return null;
+        }
+
         /** Un pedido solo se anula desde aqui si su ciclo de vida es nuestro. */
         public function canBeCancelled(): bool
         {

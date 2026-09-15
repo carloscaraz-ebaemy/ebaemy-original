@@ -36,6 +36,23 @@ trait ManagesRecordPayments
     abstract protected function paymentFileFolder(): string;
 
     /**
+     * Por que este registro NO admite movimientos de dinero, o null si los
+     * admite.
+     *
+     * Punto de extension y no una regla fija: este trait lo comparten los
+     * pagos de Pedidos y los de Notas de Pedido, y "cuando esta bloqueado"
+     * no significa lo mismo en los dos. Por defecto nada bloquea, asi que
+     * quien no lo implemente se comporta exactamente como antes.
+     *
+     * Se comprueba en el SERVIDOR porque ocultar el boton no basta: el panel
+     * de pagos se abre por URL y una peticion a mano se salta la pantalla.
+     */
+    protected function paymentLockReason($owner): ?string
+    {
+        return null;
+    }
+
+    /**
      * Catálogos del formulario. Los destinos salen de FinanceTrait, así que
      * caja y cuentas bancarias son exactamente las mismas que en nota de venta.
      */
@@ -114,6 +131,11 @@ trait ManagesRecordPayments
         ]);
 
         $owner = $this->paymentOwner((int) $request->input($fk));
+
+        if ($motivo = $this->paymentLockReason($owner)) {
+            return ['success' => false, 'message' => $motivo];
+        }
+
         $id    = $request->input('id');
         $class = $this->paymentModelClass();
 
@@ -185,6 +207,10 @@ trait ManagesRecordPayments
         $record = $class::findOrFail($id);
         $owner  = $this->paymentOwner((int) $record->{$this->paymentForeignKey()});
 
+        if ($motivo = $this->paymentLockReason($owner)) {
+            return ['success' => false, 'message' => $motivo];
+        }
+
         DB::connection('tenant')->transaction(function () use ($record) {
             $record->global_payment()->delete();
             $record->delete();
@@ -210,6 +236,11 @@ trait ManagesRecordPayments
         ]);
 
         $owner = $this->paymentOwner((int) $id);
+
+        if ($motivo = $this->paymentLockReason($owner)) {
+            return ['success' => false, 'message' => $motivo];
+        }
+
         $raw   = $request->input('amount_due');
 
         $nuevo = ($raw === null || $raw === '') ? null : round((float) $raw, 2);
