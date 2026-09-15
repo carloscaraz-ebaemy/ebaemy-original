@@ -84,7 +84,15 @@ class OrderPaymentSync
      * filtra el listado; si divergiera, un pedido avanzaría solo mientras la
      * tabla lo sigue mostrando a deber.
      */
-    private static function estaSaldado(Order $order): bool
+    /**
+     * Publica a proposito: es la definicion CANONICA de "este pedido esta
+     * cobrado", y mira los dos libros —`order_payments` del pedido y
+     * `shipping_payments` de su envio vigente—. Cualquiera que necesite
+     * responder esa pregunta debe llamar aqui en vez de escribir su propia
+     * version: el guardarrail del rotulo tenia la suya (un flag alimentado por
+     * un solo libro) y por eso bloqueaba pedidos ya cobrados.
+     */
+    public static function estaSaldado(Order $order): bool
     {
         $envio = $order->activeShipment;
 
@@ -105,8 +113,13 @@ class OrderPaymentSync
         return $cobrado + 0.009 >= $aCobrar;
     }
 
-    /** ¿Queda algún cobro esperando revisión? */
-    private static function tienePendientesDeVerificar(Order $order): bool
+    /**
+     * ¿Queda algún cobro esperando revisión?
+     *
+     * Publica por el mismo motivo que estaSaldado(): quien decida si el dinero
+     * habilita una accion tiene que aplicar esta misma salvedad.
+     */
+    public static function tienePendientesDeVerificar(Order $order): bool
     {
         if ($order->payments()->where('verification_status', PaymentVerification::PENDIENTE)->exists()) {
             return true;

@@ -16,6 +16,8 @@ use App\Models\Tenant\ShippingPrintEvent;
 use App\Models\Tenant\ShippingPayment;
 use App\Models\Tenant\ShippingRequest;
 use App\Models\Tenant\ShippingSetting;
+use App\Services\Tenant\OrderPaymentSync;
+use App\Services\Tenant\PaymentVerification;
 use App\Services\Tenant\ShippingBatchService;
 use Hyn\Tenancy\Environment;
 use Illuminate\Http\RedirectResponse;
@@ -773,7 +775,11 @@ class ShipmentController extends Controller
         abort_if($ids->isEmpty(), 404);
 
         $status = $request->input('status');
-        $shipments = ShippingRequest::whereIn('id', $ids)->get();
+        // `order.activeShipment` lo necesita paymentBlocks(): sin precargarlo,
+        // 200 envios son 400 consultas extra solo para decidir si estan cobrados.
+        $shipments = ShippingRequest::whereIn('id', $ids)
+            ->with(['order.activeShipment'])
+            ->get();
 
         $done = 0; $skipped = 0; $wrongFlow = 0;
         foreach ($shipments as $s) {
@@ -1437,9 +1443,60 @@ class ShipmentController extends Controller
     }
 
     /** ¿La tienda exige confirmar el pago y este envío aún no está pagado? */
+    /**
+     * ¿Hay que bloquear el rotulo porque el envio no esta cobrado?
+     *
+     * `payment_confirmed` es un FLAG, y solo lo enciende `syncPaymentState()`
+     * cuando aparece una fila en `shipping_payments`. Pero un pedido con envio
+     * tambien se puede cobrar desde Pedidos, y eso escribe en `order_payments`:
+     * el dinero entraba, la columna Cobro lo mostraba —`sqlCobrado()` suma los
+     * dos libros— y el rotulo seguia pidiendo "confirma primero el pago".
+     *
+     * Dos verdades distintas sobre el mismo dinero. Aqui se pasa a preguntar lo
+     * mismo que muestra la fila, delegando en la definicion canonica
+     * (OrderPaymentSync::estaSaldado) en vez de escribir una tercera version.
+     *
+     * El flag se conserva como via valida: un operador que confirma el pago a
+     * mano —cobro en efectivo, contra entrega— sigue desbloqueando igual, sin
+     * necesidad de registrar el detalle.
+     *
+     * Detectado 2026-09-15 en ENV-20260907-000280 (alasitas): 165 de producto
+     * mas 20 de envio, los 185 cobrados en `order_payments`, rotulo bloqueado.
+     * Habia un segundo caso identico en importacionesdeywa.
+     */
     private function paymentBlocks(ShippingRequest $shipment): bool
     {
-        return ShippingSetting::current()->require_payment && !$shipment->payment_confirmed;
+        if (!ShippingSetting::current()->require_payment) {
+            return false;
+        }
+
+        // Confirmado a mano: es una decision explicita del operador y basta.
+        if ($shipment->payment_confirmed) {
+            return false;
+        }
+
+        // Consulta el pedido y su envio vigente. En los bucles de lote eso seria
+        // un N+1, asi que los dos puntos que iteran precargan
+        // `order.activeShipment` antes de llamar aqui.
+        $order = $shipment->order;
+
+        // Un envio sin pedido detras no tiene mas libro que consultar: se
+        // mantiene el comportamiento de siempre.
+        if (!$order) {
+            return true;
+        }
+
+        if (!OrderPaymentSync::estaSaldado($order)) {
+            return true;
+        }
+
+        // Si el tenant verifica los cobros, un pago pendiente de revision no
+        // habilita nada: es la misma salvedad que aplica el avance del pedido.
+        if (PaymentVerification::requerida() && OrderPaymentSync::tienePendientesDeVerificar($order)) {
+            return true;
+        }
+
+        return false;
     }
 
     /** Confirmar (o revertir) el pago del envío. Habilita el resto del flujo. */
@@ -2246,7 +2303,10 @@ class ShipmentController extends Controller
             $format = 'a4';
         }
 
-        $all = ShippingRequest::whereIn('id', $ids)->orderBy('id')->get();
+        $all = ShippingRequest::whereIn('id', $ids)
+            ->with(['order.activeShipment'])   // lo consume paymentBlocks()
+            ->orderBy('id')
+            ->get();
         abort_if($all->isEmpty(), 404);
 
         // Qué se descarta de una impresión MASIVA y por qué:
