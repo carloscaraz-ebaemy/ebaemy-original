@@ -44,6 +44,18 @@
         <div class="hdr-code">
             <div class="section-title">N° Envío</div>
             <div class="env-code">{{ $shipment->shipment_code }}</div>
+            {{-- El numero de PEDIDO, que es por el que pregunta el cliente y el
+                 que se ve en el panel de Pedidos. Son dos numeraciones
+                 independientes —`orders.id` cuenta todos los pedidos y
+                 `shipping_requests.id` solo los envios— asi que nunca coinciden:
+                 el pedido 000297 llevaba el envio ENV-...-000280 y en el rotulo
+                 no habia NADA que los uniera. Buscar el numero del rotulo en
+                 Pedidos devolvia el registro de otro cliente.
+                 Mismo formato que la fila del listado (str_pad a 6) para que se
+                 puedan comparar de un vistazo. --}}
+            @if($shipment->order_id)
+                <div class="ord-code">N° Pedido <b>{{ str_pad((string) $shipment->order_id, 6, '0', STR_PAD_LEFT) }}</b></div>
+            @endif
             @if(!empty($barcode))<img class="barcode-img" src="data:image/png;base64,{{ $barcode }}" alt="{{ $shipment->shipment_code }}">@endif
         </div>
         <div class="hdr-brand">
@@ -230,6 +242,13 @@
     @endif
 
     <div class="footer">
+        {{-- En sticker (10cm) la cabecera va justa y el numero de pedido se
+             muestra aqui; en A4/A5 ya esta arriba y este se oculta por CSS. --}}
+        @if($shipment->order_id)
+            {{-- El separador va DENTRO del span: al ocultarlo en A4/A5 no debe
+                 quedar un « · » huerfano al principio del pie. --}}
+            <span class="footer-order">Pedido {{ str_pad((string) $shipment->order_id, 6, '0', STR_PAD_LEFT) }} · </span>
+        @endif
         Registro y Control de Envíos · {{ $company->title_web ?? $company->trade_name ?? $company->name ?? 'ebaemy' }}
     </div>
 

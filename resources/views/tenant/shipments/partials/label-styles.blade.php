@@ -50,6 +50,24 @@
     .env-code  { white-space: nowrap; }
     .hdr-date  { font-size: 10px; color: #555; margin-top: 2px; }
 
+    /* ── N° de pedido ────────────────────────────────────────────────────
+       Va DEBAJO del codigo de envio y mas pequeno: el que rastrea el paquete
+       es el codigo de envio, y ese sigue mandando a un metro de distancia. El
+       de pedido es para cruzar el papel con la pantalla, y para eso basta
+       leerlo de cerca.
+
+       En sticker se oculta aqui y se repite en el pie: la cabecera de 10cm no
+       admite una linea mas sin empujar la direccion a la segunda pagina. */
+    .ord-code { font-size: 11px; color: #333; margin-top: 2px; white-space: nowrap; }
+    .ord-code b { letter-spacing: .5px; }
+    body.fmt-a5 .ord-code { font-size: 13px; }
+    body.fmt-a4 .ord-code { font-size: 17px; }
+
+    body.fmt-sticker .ord-code { display: none; }
+    .footer-order { font-weight: bold; color: #000; }
+    /* En A4 y A5 ya esta en la cabecera: repetirlo en el pie es ruido. */
+    body.fmt-a5 .footer-order, body.fmt-a4 .footer-order { display: none; }
+
     /* Logo de la empresa. `print-color-adjust` obliga al navegador a
        imprimirlo aunque el usuario tenga desactivados los fondos. */
     .brand-logo { display: block; margin: 0 0 3px auto; max-height: 1.1cm; max-width: 100%;
