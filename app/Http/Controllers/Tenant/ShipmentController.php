@@ -134,8 +134,10 @@ class ShipmentController extends Controller
         }
 
         // Configurar un envio a un pedido anulado es crear trabajo logistico
-        // para algo que ya no se va a entregar.
-        if ($motivo = $order->motivoBloqueoModificacion()) {
+        // para algo que ya no se va a entregar. Pero si lo anulado es el ENVIO
+        // y el pedido sigue vivo, crear uno nuevo es EXACTAMENTE como se
+        // corrige un envio mal hecho: por eso aqui va el guard logistico.
+        if ($motivo = $order->motivoBloqueoLogistico()) {
             return response()->json(['success' => false, 'message' => $motivo], 422);
         }
 
@@ -710,7 +712,11 @@ class ShipmentController extends Controller
             // Catálogo de métodos y destinos, los mismos que usa Nota de Venta:
             // el cobro del envío tiene que poder cuadrarse contra caja igual
             // que cualquier otro.
-            'paymentMethodTypes' => \App\Models\Tenant\PaymentMethodType::all(['id', 'description']),
+            // Cada metodo viaja con su bandera `requires_reference`: la
+            // pantalla no vuelve a decidir cuando hace falta el codigo, solo
+            // lee lo que ya resolvio `PaymentReferenceRule`. Asi el formulario
+            // y el servidor no pueden discrepar.
+            'paymentMethodTypes' => \App\Services\Tenant\PaymentReferenceRule::catalogo(),
             'paymentDestinations' => $this->getPaymentDestinations(),
         ] + $this->shipmentFormData());
     }
@@ -1686,7 +1692,13 @@ class ShipmentController extends Controller
 
         $data = $request->validate([
             'amount'       => 'required|numeric|min:0.01|max:999999',
-            'payment_code' => 'required|string|max:60',
+            // El codigo dejo de ser obligatorio SIEMPRE. Lo decide el metodo
+            // de pago (`PaymentReferenceRule`): una transferencia lo tiene, un
+            // cobro en efectivo a CAJA GENERAL no existe tal numero. Mientras
+            // fue `required` no habia forma de registrar una venta al contado
+            // y el operador terminaba inventando un codigo, que ensucia
+            // justamente la deteccion de duplicados que el campo protege.
+            'payment_code' => 'nullable|string|max:60',
             'method'       => 'nullable|string|max:30',
             'note'         => 'nullable|string|max:255',
             // Nuevos, opcionales: los pagos ya cargados no los tienen y el
@@ -1702,7 +1714,6 @@ class ShipmentController extends Controller
             'amount.required'       => 'Indica el monto del pago.',
             'amount.numeric'        => 'El monto debe ser un número: escribe 20 o 20.50, sin letras ni símbolos.',
             'amount.min'            => 'El monto debe ser mayor que cero.',
-            'payment_code.required' => 'Indica el código de la operación.',
         ], [
             'amount'       => 'monto',
             'payment_code' => 'código de pago',
@@ -1710,6 +1721,17 @@ class ShipmentController extends Controller
         ]);
 
         abort_if($shipment->is_cancelled, 422, 'El envío está anulado.');
+
+        // Espacios en blanco no son un codigo: se normalizan a null ANTES de
+        // decidir, para que «   » no pase por transferencia valida ni se
+        // guarde como si fuera un numero de operacion.
+        $code = \App\Services\Tenant\PaymentReferenceRule::normalizar($data['payment_code'] ?? null);
+
+        if (\App\Services\Tenant\PaymentReferenceRule::requiere($data['payment_method_type_id'] ?? null)
+            && $code === null) {
+            return $this->paymentResponse($request, $shipment, false,
+                \App\Services\Tenant\PaymentReferenceRule::MENSAJE);
+        }
 
         // El pago no puede superar lo que falta cobrar. Igual que en Pedidos,
         // se compara contra el saldo REAL del envio y no contra lo que mande
@@ -1727,26 +1749,32 @@ class ShipmentController extends Controller
             }
         }
 
-        $code  = trim($data['payment_code']);
         $force = $request->boolean('payment_code_force');
 
-        // Duplicado dentro del MISMO envío: siempre es un error de carga, no se
-        // puede forzar (sería contar dos veces el mismo voucher en un pedido).
-        $mismo = $shipment->payments()
-            ->where('payment_code_normalized', ShippingRequest::normalizePaymentCode($code))
-            ->first();
-        if ($mismo) {
-            return $this->paymentResponse($request, $shipment, false,
-                'Ese código ya está cargado en este mismo envío (pago de S/ '
-                . number_format((float) $mismo->amount, 2) . ').');
-        }
+        // Sin codigo no hay nada que comparar: dos cobros en efectivo del
+        // mismo dia no son el mismo voucher, y tratarlos como duplicados
+        // impediria cobrar dos veces al contado.
+        $dupEnvio = null;
 
-        $dupPago  = ShippingRequest::findPaymentByCode($code);
-        $dupEnvio = $dupPago ? $dupPago->shipment : ShippingRequest::findByPaymentCode($code, $shipment->id);
+        if ($code !== null) {
+            // Duplicado dentro del MISMO envío: siempre es un error de carga, no se
+            // puede forzar (sería contar dos veces el mismo voucher en un pedido).
+            $mismo = $shipment->payments()
+                ->where('payment_code_normalized', ShippingRequest::normalizePaymentCode($code))
+                ->first();
+            if ($mismo) {
+                return $this->paymentResponse($request, $shipment, false,
+                    'Ese código ya está cargado en este mismo envío (pago de S/ '
+                    . number_format((float) $mismo->amount, 2) . ').');
+            }
 
-        if ($dupEnvio && !$force) {
-            return $this->paymentResponse($request, $shipment, false,
-                $this->duplicatePaymentMessage($dupEnvio, $code, $dupPago));
+            $dupPago  = ShippingRequest::findPaymentByCode($code);
+            $dupEnvio = $dupPago ? $dupPago->shipment : ShippingRequest::findByPaymentCode($code, $shipment->id);
+
+            if ($dupEnvio && !$force) {
+                return $this->paymentResponse($request, $shipment, false,
+                    $this->duplicatePaymentMessage($dupEnvio, $code, $dupPago));
+            }
         }
 
         $user = auth()->user();
@@ -1785,17 +1813,21 @@ class ShipmentController extends Controller
 
         $this->syncPaymentState($shipment);
 
+        // Sin codigo el detalle se queda en el monto: un « · » colgando al
+        // final de la bitacora parece un dato perdido.
+        $detalle = 'S/ ' . number_format((float) $payment->amount, 2)
+            . ($code !== null ? ' · ' . $code : '');
+
         ShippingAuditLog::log(
             ShippingAuditLog::ACTION_PAYMENT, $shipment->id, 'pago_agregado',
-            null, 'S/ ' . number_format((float) $payment->amount, 2) . ' · ' . $code,
+            null, $detalle,
             $data['note'] ?? null, $shipment->print_batch_id
         );
 
         $total = number_format($shipment->fresh()->paid_total, 2);
 
         return $this->paymentResponse($request, $shipment, true,
-            'Pago registrado (S/ ' . number_format((float) $payment->amount, 2) . " · {$code}). "
-            . "Total cobrado: S/ {$total}.");
+            "Pago registrado ({$detalle}). Total cobrado: S/ {$total}.");
     }
 
     /**
@@ -1839,7 +1871,8 @@ class ShipmentController extends Controller
     {
         abort_if($payment->shipment_id !== $shipment->id, 404);
 
-        $detalle = 'S/ ' . number_format((float) $payment->amount, 2) . ' · ' . $payment->payment_code;
+        $detalle = 'S/ ' . number_format((float) $payment->amount, 2)
+            . ($payment->payment_code ? ' · ' . $payment->payment_code : '');
         $payment->delete();
 
         $this->syncPaymentState($shipment);

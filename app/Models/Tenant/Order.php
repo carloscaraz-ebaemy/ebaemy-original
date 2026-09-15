@@ -348,11 +348,63 @@
          */
         public function motivoBloqueoModificacion(): ?string
         {
+            if ($motivo = $this->motivoBloqueoLogistico()) {
+                return $motivo;
+            }
+
+            // El envio anulado tambien cierra la parte COMERCIAL del pedido.
+            //
+            // Esto no era evidente y costo un diagnostico: en produccion las
+            // dos anulaciones no se solapan NUNCA. En alasitas hay 43 pedidos
+            // en estado 5 —los 43 sin envio— y 57 envios anulados, de los
+            // cuales ninguno tiene el pedido anulado (38 no tienen pedido y 19
+            // lo tienen ACTIVO). Es decir: cuando la operacion se cae, aqui se
+            // anula el ENVIO y el pedido se queda vivo.
+            //
+            // Mirando solo `status_order_id = 5`, el bloqueo no se activaba en
+            // ninguno de los registros que el operador mira de verdad: sobre
+            // esas 19 filas se podia cobrar, editar productos, imprimir rotulo
+            // y abrir documentos de un envio que ya no existe.
+            if ($this->envioAnulado()) {
+                return 'El envío de este pedido está anulado: no se pueden registrar '
+                     . 'cobros ni modificar su contenido. Restaura el envío o configura uno nuevo.';
+            }
+
+            return null;
+        }
+
+        /**
+         * Bloqueo que impide TAMBIEN rehacer la logistica.
+         *
+         * Se separa del anterior a proposito: con el envio anulado el pedido
+         * sigue vivo y hay que poder restaurarlo o crear uno nuevo —es
+         * justamente como se corrige un envio mal hecho—. Con el PEDIDO
+         * anulado no: ahi no hay nada que reenviar.
+         */
+        public function motivoBloqueoLogistico(): ?string
+        {
             if ($this->estaAnulado()) {
                 return 'Este pedido está anulado y no puede modificarse.';
             }
 
             return null;
+        }
+
+        /**
+         * ¿El registro logistico vigente de este pedido esta anulado?
+         *
+         * Se mira el ULTIMO, anulado o no, y no `activeShipment` —que por
+         * definicion excluye los anulados y devolveria null justo en el caso
+         * que se quiere detectar—. Si el pedido nunca tuvo envio, no hay nada
+         * anulado: un pedido sin logistica no esta roto.
+         */
+        public function envioAnulado(): bool
+        {
+            $ultimo = $this->relationLoaded('shipment')
+                ? $this->shipment
+                : $this->shipments()->latest('id')->first();
+
+            return $ultimo ? (bool) $ultimo->is_cancelled : false;
         }
 
         /**

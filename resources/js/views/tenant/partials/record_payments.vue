@@ -41,7 +41,7 @@
           <thead>
             <tr>
               <th>#</th><th>Fecha de pago</th><th>Método de pago</th><th>Destino</th>
-              <th>Referencia<span v-if="referenceRequired" class="rp-req"> *</span></th><th>Archivo</th>
+              <th>Referencia<span v-if="newRow && referenceRequired" class="rp-req"> *</span></th><th>Archivo</th>
               <th class="text-right">Monto</th><th></th>
             </tr>
           </thead>
@@ -74,7 +74,8 @@
                                 format="dd/MM/yyyy" value-format="yyyy-MM-dd" size="small"></el-date-picker>
               </td>
               <td data-label="Método de pago">
-                <el-select v-model="newRow.payment_method_type_id" size="small">
+                <el-select v-model="newRow.payment_method_type_id" size="small"
+                           @change="onMethodChange">
                   <el-option v-for="o in paymentMethodTypes" v-show="o.id != '09'"
                              :key="o.id" :value="o.id" :label="o.description"></el-option>
                 </el-select>
@@ -86,17 +87,22 @@
                 </el-select>
               </td>
               <td data-label="Referencia">
-                <!-- En un envio la referencia es la clave anti-duplicados:
-                     sin ella no se puede detectar el mismo voucher cargado dos
-                     veces, y por eso el servidor la exige. En nota de venta es
-                     opcional. Antes el campo se veia igual en los dos casos y
-                     el operador solo se enteraba al guardar. -->
+                <!-- La referencia es el codigo de operacion, y hace falta o
+                     no segun el METODO de pago: una transferencia lo tiene, un
+                     cobro en efectivo a caja general no. Quien decide es el
+                     servidor (`PaymentReferenceRule`), que manda
+                     `requires_reference` con cada metodo del catalogo; aca solo
+                     se lee esa bandera, asi el formulario nunca puede exigir
+                     algo distinto de lo que el servidor va a aceptar. -->
                 <el-input
                   v-model="newRow.reference"
                   size="small"
                   :class="{ 'rp-falta': referenceRequired && faltaReferencia }"
-                  :placeholder="referenceRequired ? 'N° de operación (obligatorio)' : 'Operación'"
+                  :placeholder="referenceRequired ? 'N° de operación (obligatorio)' : 'Operación (opcional)'"
                 ></el-input>
+                <small v-if="referenceRequired && faltaReferencia" class="rp-falta-msg">
+                  El código de operación es obligatorio para pagos mediante transferencia.
+                </small>
               </td>
               <td data-label="Archivo">
                 <el-upload
@@ -211,6 +217,7 @@
 
 /* Referencia obligatoria (cobro de envio). */
 .rp-req { color: #dc2626; font-weight: 700; }
+.rp-falta-msg { display: block; color: #dc2626; font-size: 11.5px; line-height: 1.3; margin-top: 3px; }
 .rp-falta .el-input__inner {
   border-color: #dc2626;
   background: #fef2f2;
@@ -240,9 +247,6 @@ export default {
     // Carpeta donde el backend guarda el adjunto; la necesita el link de
     // descarga (/finances/payment-file/download-file/{archivo}/{tipo}).
     fileType: { type: String, required: true },
-    // El cobro de un envio exige el codigo de operacion; el de una nota de
-    // venta no. Lo decide quien abre el panel, no el panel.
-    referenceRequired: { type: Boolean, default: false },
     title: { type: String, default: 'Pagos del pedido' }
   },
   data() {
@@ -264,6 +268,31 @@ export default {
       newRow: null
     };
   },
+  computed: {
+    /**
+     * Metodo de pago elegido en la fila de alta, tal como lo describe el
+     * catalogo que mando el servidor.
+     */
+    metodoElegido() {
+      if (!this.newRow) return null;
+      const id = String(this.newRow.payment_method_type_id || '');
+      return this.paymentMethodTypes.find(m => String(m.id) === id) || null;
+    },
+
+    /**
+     * ¿Hay que exigir el codigo de operacion?
+     *
+     * Antes era una propiedad fija del panel («los envios lo exigen, las notas
+     * de venta no»), asi que un cobro en efectivo a CAJA GENERAL pedia un
+     * numero de operacion que no existe y no habia manera de registrarlo.
+     * Ahora depende del metodo, y cambia en el acto al cambiar el select: no
+     * hace falta reabrir el panel ni volver a enviar para enterarse.
+     */
+    referenceRequired() {
+      return !!(this.metodoElegido && this.metodoElegido.requires_reference);
+    }
+  },
+
   /**
    * El panel se monta YA ABIERTO, y por eso `@open` no basta.
    *
@@ -332,6 +361,15 @@ export default {
       this.amountDue = null;
       this.saveAmountDue();
     },
+    /**
+     * Al cambiar de metodo, el error de la validacion anterior ya no aplica.
+     *
+     * Sin esto, pasar de Transferencia a Efectivo dejaba el campo pintado en
+     * rojo y el mensaje colgado sobre un campo que en ese momento es opcional.
+     */
+    onMethodChange() {
+      if (!this.referenceRequired) this.faltaReferencia = false;
+    },
     addRow() {
       this.newRow = {
         date_of_payment: new Date().toISOString().slice(0, 10),
@@ -394,7 +432,7 @@ export default {
       if (this.referenceRequired && !String(this.newRow.reference || '').trim()) {
         this.faltaReferencia = true;
         return this.$message.warning(
-          'Indica el número de operación: es lo que permite detectar el mismo voucher cargado dos veces.'
+          'El código de operación es obligatorio para pagos mediante transferencia.'
         );
       }
       this.faltaReferencia = false;

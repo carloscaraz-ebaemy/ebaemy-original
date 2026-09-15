@@ -36,8 +36,9 @@ use Illuminate\Http\Request;
  *
  *   payment          → amount
  *   date_of_payment  → paid_at
- *   reference        → payment_code   (aquí NO es opcional: es la clave
- *                                      anti-duplicados del módulo de envíos)
+ *   reference        → payment_code   (obligatorio solo cuando el método de
+ *                                      pago es una operación bancaria; ver
+ *                                      `PaymentReferenceRule`)
  */
 class ShipmentPaymentController extends Controller
 {
@@ -47,7 +48,9 @@ class ShipmentPaymentController extends Controller
     public function tables()
     {
         return [
-            'payment_method_types' => \App\Models\Tenant\PaymentMethodType::all(),
+            // Con `requires_reference` por método: el panel marca el campo
+            // como obligatorio solo cuando lo es de verdad.
+            'payment_method_types' => \App\Services\Tenant\PaymentReferenceRule::catalogo(),
             'payment_destinations' => $this->getPaymentDestinations(),
         ];
     }
@@ -111,14 +114,18 @@ class ShipmentPaymentController extends Controller
     {
         $shipment = ShippingRequest::findOrFail((int) $request->input('shipment_id'));
 
-        // El código es obligatorio en envíos y opcional en el panel. Se avisa
-        // antes de reenviar para que el mensaje hable del campo que el operador
-        // tiene delante, y no del nombre interno.
-        $codigo = trim((string) $request->input('reference'));
-        if ($codigo === '') {
+        // El código hace falta segun el METODO de pago, no siempre. Antes este
+        // adaptador lo exigia en todos los casos y cobrar en efectivo a caja
+        // general era imposible desde Pedidos. La regla vive en
+        // `PaymentReferenceRule` para que el panel, este adaptador y el modulo
+        // de envios no puedan discrepar.
+        $codigo = \App\Services\Tenant\PaymentReferenceRule::normalizar($request->input('reference'));
+
+        if (\App\Services\Tenant\PaymentReferenceRule::requiere($request->input('payment_method_type_id'))
+            && $codigo === null) {
             return [
                 'success' => false,
-                'message' => 'Indica el código de la operación en «Referencia»: es lo que permite detectar el mismo voucher cargado dos veces.',
+                'message' => \App\Services\Tenant\PaymentReferenceRule::MENSAJE,
             ];
         }
 

@@ -59,7 +59,10 @@ trait ManagesRecordPayments
     public function tables()
     {
         return [
-            'payment_method_types' => PaymentMethodType::all(),
+            // Cada método llega con `requires_reference`. El panel lo usa para
+            // marcar la referencia como obligatoria SOLO cuando el método es
+            // una operación bancaria; la regla no se reescribe en el front.
+            'payment_method_types' => \App\Services\Tenant\PaymentReferenceRule::catalogo(),
             'payment_destinations' => $this->getPaymentDestinations(),
         ];
     }
@@ -129,6 +132,22 @@ trait ManagesRecordPayments
         ], [
             'payment.min' => 'El monto del pago debe ser mayor a cero.',
         ]);
+
+        // La referencia es el codigo de operacion. Con transferencia se exige;
+        // con efectivo a caja general no existe tal numero y pedirlo dejaba al
+        // operador sin poder registrar el cobro. Los espacios en blanco se
+        // normalizan ANTES de decidir: «   » no es un codigo.
+        $referencia = \App\Services\Tenant\PaymentReferenceRule::normalizar($request->input('reference'));
+
+        if (\App\Services\Tenant\PaymentReferenceRule::requiere($request->input('payment_method_type_id'))
+            && $referencia === null) {
+            return ['success' => false, 'message' => \App\Services\Tenant\PaymentReferenceRule::MENSAJE];
+        }
+
+        // Se reescribe en el request porque mas abajo el modelo se llena con
+        // `fill($request->all())`: sin esto se guardarian los espacios tal cual
+        // y el pago figuraria «con codigo» sin tenerlo.
+        $request->merge(['reference' => $referencia]);
 
         $owner = $this->paymentOwner((int) $request->input($fk));
 

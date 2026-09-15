@@ -316,7 +316,10 @@ class OrderCollection extends ResourceCollection
 
         $s = $row->shipment;
 
-        if (!$s || !$s->cancelled_at) {
+        // `is_cancelled` y no `cancelled_at`: hay envios anulados anteriores a
+        // esa columna, cuyo unico rastro es el `status`. Mirando solo la fecha
+        // se escapaban y su fila salia como si el envio siguiera en pie.
+        if (!$s || !$s->is_cancelled) {
             return null;
         }
 

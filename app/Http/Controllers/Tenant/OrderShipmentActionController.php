@@ -52,8 +52,12 @@ class OrderShipmentActionController extends Controller
     {
         // Restaurar es el único que trabaja sobre un envío ANULADO, así que no
         // puede pedir el vigente: `current()` los ignora por definición.
+        //
+        // Y por lo mismo se exceptúa del bloqueo comercial: si el envío está
+        // anulado, restaurarlo es la salida, no una modificación más. Lo único
+        // que lo impide es que el PEDIDO esté anulado.
         return $this->reenviar($order, fn ($envio) =>
-            app(ShipmentController::class)->restore($request, $envio), true);
+            app(ShipmentController::class)->restore($request, $envio), true, true);
     }
 
     /**
@@ -86,7 +90,15 @@ class OrderShipmentActionController extends Controller
         // porque las cuatro pasan por este metodo, y porque el destino
         // —ShipmentController— solo sabe del estado del ENVIO: sobre un pedido
         // anulado con envio vigente dejaba cambiar la modalidad y subir la guia.
-        if (!$permitidoEnPedidoAnulado && ($motivo = $order->motivoBloqueoModificacion())) {
+        // `$permitidoEnPedidoAnulado` marca las acciones que rehacen la
+        // logistica (anular y restaurar el envio): esas solo las detiene el
+        // PEDIDO anulado, no un envio anulado — con el envio caido, poder
+        // restaurarlo es justo lo que hace falta.
+        $motivo = $permitidoEnPedidoAnulado
+            ? $order->motivoBloqueoLogistico()
+            : $order->motivoBloqueoModificacion();
+
+        if ($motivo) {
             return response()->json(['success' => false, 'message' => $motivo], 422);
         }
 

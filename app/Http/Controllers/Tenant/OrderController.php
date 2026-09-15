@@ -1998,11 +1998,9 @@ class OrderController extends Controller
             ], 422);
         }
 
-        if ((int) $order->status_order_id === 5) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Este pedido está anulado y no puede modificarse.',
-            ], 422);
+        // El motivo se toma tal cual: puede ser el pedido anulado o su envio.
+        if ($motivo = $order->motivoBloqueoModificacion()) {
+            return response()->json(['success' => false, 'message' => $motivo], 422);
         }
 
         $datos = $request->validate([
@@ -2143,6 +2141,13 @@ class OrderController extends Controller
                 'message' => 'Este pedido ya no se puede editar: figura como «'
                     . (optional($order->status_order)->description ?: 'cerrado') . '».',
             ], 422);
+        }
+
+        // Con el envio anulado el pedido sigue en un estado «editable» por su
+        // status, pero su contenido ya no significa nada: la entrega se cayo.
+        // Rehacer el envio va aparte y sigue disponible.
+        if ($motivo = $order->motivoBloqueoModificacion()) {
+            return response()->json(['success' => false, 'message' => $motivo], 422);
         }
 
         $tenia = count((array) ($order->items ?? []));

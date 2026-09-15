@@ -574,13 +574,10 @@
                          que deberia ser un barrido. -->
                     <tr
                         slot-scope="{ index, row }"
-                        :class="{
-                            'ord-peek-on': peek.id === row.id,
-                            'ord-row-void': Number(row.status_order_id) === 5,
-                            'ord-row-review': Number(row.status_order_id) === 1,
-                            'ord-row-sent': Number(row.status_order_id) === 4,
-                            'ord-row-done': esEntregado(row)
-                        }"
+                        :class="[
+                            peek.id === row.id ? 'ord-peek-on' : '',
+                            tonoFila(row) ? 'ord-row-' + tonoFila(row) : ''
+                        ]"
                         @mouseenter="asomarPaquete(row, $event)"
                         @mouseleave="ocultarPaquete"
                     >
@@ -3892,9 +3889,17 @@ export default {
                 // faltaba era que tampoco se pudieran ABRIR.
                 "documents", "viewGuide",
             ];
-            if (this.esAnulado(row) && soloLectura.indexOf(cmd) !== -1) {
+            // Con el envio anulado se cierra lo comercial pero NO rehacer la
+            // logistica: configurar un envio nuevo o restaurar el anulado es
+            // justo como se corrige un envio mal hecho.
+            const logistica = ["shipment", "restoreShipment", "cancelShipment"];
+
+            if (this.estaCerrado(row) && soloLectura.indexOf(cmd) !== -1
+                && !(this.soloLogisticaAbierta(row) && logistica.indexOf(cmd) !== -1)) {
                 return this.$message.warning(
-                    "Este pedido está anulado y no puede modificarse."
+                    this.esAnulado(row)
+                        ? "Este pedido está anulado y no puede modificarse."
+                        : "El envío de este pedido está anulado. Restáuralo o configura uno nuevo."
                 );
             }
 
@@ -4358,10 +4363,11 @@ export default {
             // abre tambien desde los chips de la columna Docs, que llaman al
             // metodo directo. Con el guard solo en la lista, ese camino quedaba
             // abierto.
-            if (this.esAnulado(row)) {
+            if (this.estaCerrado(row)) {
                 return this.$message.warning(
-                    "Este pedido está anulado y no puede modificarse. " +
-                    "Sus documentos tampoco se consultan desde aquí."
+                    this.esAnulado(row)
+                        ? "Este pedido está anulado: sus documentos no se consultan desde aquí."
+                        : "El envío de este pedido está anulado: sus documentos no se consultan desde aquí."
                 );
             }
             this.docsRow = row;
@@ -4716,6 +4722,28 @@ export default {
             return propias[Number(id)] || this.statusLabel(id);
         },
 
+        /**
+         * Color de la FILA. Un solo tono por fila, resuelto aqui y no con
+         * cuatro condiciones en el template: asi no depende del orden en que
+         * esten escritas las reglas CSS para decidir quien gana.
+         *
+         * El envio anulado pinta rojo aunque el pedido siga activo, y es el
+         * caso que de verdad ocurre: en produccion las dos anulaciones no se
+         * solapan nunca —los pedidos en estado 5 no tienen envio, y los envios
+         * anulados tienen el pedido vivo—, asi que mirando solo
+         * `status_order_id` la fila no se pintaba en ninguno de los registros
+         * que el operador mira.
+         */
+        tonoFila(row) {
+            if (Number(row.status_order_id) === 5) return 'void';
+            if (row.shipment_cancelled) return 'void';
+            if (Number(row.status_order_id) === 4) return 'sent';
+            if (Number(row.status_order_id) === 6) return 'done';
+            if (Number(row.status_order_id) === 1) return 'review';
+
+            return null;
+        },
+
         /** Tono del chip de estado comercial. */
         estadoTono(id) {
             switch (Number(id)) {
@@ -4937,10 +4965,8 @@ export default {
          * operador descubriera la diferencia despues de abrir la pestaña.
          */
         openGuide(row) {
-            if (this.esAnulado(row)) {
-                return this.$message.warning(
-                    "Este pedido está anulado y no puede modificarse."
-                );
+            if (this.estaCerrado(row)) {
+                return this.$message.warning("Este registro está anulado y no puede modificarse.");
             }
             const url = row.shipment && row.shipment.guide_url;
             if (!url) return;
@@ -6017,6 +6043,23 @@ export default {
 
         esAnulado(row) {
             return Number(row.status_order_id) === 5;
+        },
+
+        /**
+         * ¿Esta fila esta cerrada para operar?
+         *
+         * Cubre los DOS casos, porque en la practica el que ocurre es el
+         * segundo: el pedido anulado, y el pedido vivo cuyo envio se anulo. Lo
+         * usa la lista de solo lectura, asi que un envio anulado deshabilita
+         * las mismas acciones que un pedido anulado.
+         */
+        estaCerrado(row) {
+            return this.esAnulado(row) || !!row.shipment_cancelled;
+        },
+
+        /** Lo que SI se puede hacer con el envio anulado: rehacerlo. */
+        soloLogisticaAbierta(row) {
+            return !this.esAnulado(row) && !!row.shipment_cancelled;
         },
 
         /** ¿Le queda algun estado al que ir? */
