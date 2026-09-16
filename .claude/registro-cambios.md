@@ -21,4 +21,4 @@ Formato de cada entrada:
 **Por qué:** cierre de la Fase 10 del diseño, aprobado por el usuario.
 **Revisó:** —
 **Probó:** verificación de frontmatter de los 20 ficheros.
-**Commit:** pendiente.
+**Commit:** `ba97e795` — en `origin` y `production`.
