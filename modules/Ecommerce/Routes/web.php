@@ -256,6 +256,7 @@ Route::middleware(['check.permission', 'locked.tenant', 'check.email.verified', 
         Route::post('marketplace/channels/{channelId}/sync-stock', '\App\Http\Controllers\Tenant\MarketplaceController@syncStock');
         Route::post('marketplace/channels/{channelId}/feed-status', '\App\Http\Controllers\Tenant\MarketplaceController@syncFeedStatuses');
         Route::post('marketplace/channels/{channelId}/toggle-auto-publish', '\App\Http\Controllers\Tenant\MarketplaceController@toggleAutoPublish');
+        Route::post('marketplace/channels/{channelId}/toggle-resync', '\App\Http\Controllers\Tenant\MarketplaceController@toggleResync');
         Route::post('marketplace/channels/{channelId}/products/{productId}/retry', '\App\Http\Controllers\Tenant\MarketplaceController@retryProduct');
         Route::post('marketplace/channels/{channelId}/auto-map', '\App\Http\Controllers\Tenant\MarketplaceController@autoMapProducts');
         Route::post('marketplace/map-product', '\App\Http\Controllers\Tenant\MarketplaceController@mapProduct');

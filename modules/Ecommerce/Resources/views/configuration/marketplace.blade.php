@@ -304,6 +304,11 @@ document.addEventListener('DOMContentLoaded', function(){
             var apBtn = ch.platform === 'falabella'
                 ? '<button id="mp-ap-'+ch.id+'" class="btn btn-xs '+(ap?'btn-success':'btn-outline-secondary')+' mr-1 mb-1" onclick="toggleAutoPublish('+ch.id+')" title="Publica automáticamente los productos nuevos en Saga"><i class="fas fa-magic"></i> Auto-publicar: '+(ap?'ON':'OFF')+'</button>'
                 : '';
+            // Toggle "Saga manda": al re-importar, pisa nombre/marca/categoria
+            var rs = !!(ch.settings && ch.settings.resync_from_saga);
+            var rsBtn = ch.platform === 'falabella'
+                ? '<button id="mp-rs-'+ch.id+'" class="btn btn-xs '+(rs?'btn-warning':'btn-outline-secondary')+' mr-1 mb-1" onclick="toggleResync('+ch.id+')" title="Al re-importar, Saga actualiza tambien nombre, marca y categoria de los productos que ya tienes"><i class="fas fa-exchange-alt"></i> Saga manda: '+(rs?'ON':'OFF')+'</button>'
+                : '';
             html += '<tr>'
                 + '<td><strong>'+ch.name+'</strong><br><small class="text-muted">'+ch.platform+'</small></td>'
                 + '<td>'+statusBadge+'</td>'
@@ -314,6 +319,7 @@ document.addEventListener('DOMContentLoaded', function(){
                 + catBtn
                 + brandBtn
                 + apBtn
+                + rsBtn
                 + '<button class="btn btn-xs btn-outline-primary mr-1 mb-1" onclick="syncProducts('+ch.id+')"><i class="fas fa-sync"></i> Sync productos</button>'
                 + feedBtn
                 + '<button class="btn btn-xs btn-outline-success mr-1 mb-1" onclick="syncStock('+ch.id+')"><i class="fas fa-boxes"></i> Sync stock</button>'
@@ -398,6 +404,23 @@ document.addEventListener('DOMContentLoaded', function(){
                 var on = !!data.auto_publish;
                 btn.className = 'btn btn-xs '+(on?'btn-success':'btn-outline-secondary')+' mr-1 mb-1';
                 btn.innerHTML = '<i class="fas fa-magic"></i> Auto-publicar: '+(on?'ON':'OFF');
+            }
+            alert(data.message || 'Actualizado');
+        })
+        .catch(function(e){ alert('Error: '+e.message); });
+    };
+
+    // Activa/desactiva que Saga mande sobre nombre/marca/categoria al re-importar.
+    window.toggleResync = function(channelId){
+        fetch('/ecommerce/marketplace/channels/'+channelId+'/toggle-resync', {method:'POST', headers:headers})
+        .then(function(r){return r.json()})
+        .then(function(data){
+            if (data.error){ alert('Error: '+data.error); return; }
+            var btn = document.getElementById('mp-rs-'+channelId);
+            if (btn){
+                var on = !!data.resync_from_saga;
+                btn.className = 'btn btn-xs '+(on?'btn-warning':'btn-outline-secondary')+' mr-1 mb-1';
+                btn.innerHTML = '<i class="fas fa-exchange-alt"></i> Saga manda: '+(on?'ON':'OFF');
             }
             alert(data.message || 'Actualizado');
         })

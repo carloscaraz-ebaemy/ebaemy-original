@@ -534,6 +534,30 @@ class MarketplaceController extends Controller
         ]);
     }
 
+    /**
+     * ¿Saga manda sobre el contenido del producto al re-importar?
+     *
+     * OFF (por defecto): una re-importación sólo refresca precios e imágenes, y
+     * respeta el nombre / marca / categoría que el tenant haya editado.
+     * ON: Saga es la fuente de verdad también de esos campos.
+     * Nunca afecta al stock ni a si el producto está publicado en la tienda.
+     */
+    public function toggleResync(int $channelId)
+    {
+        $channel = MarketplaceChannel::findOrFail($channelId);
+        $settings = $channel->settings ?? [];
+        $settings['resync_from_saga'] = !($settings['resync_from_saga'] ?? false);
+        $channel->update(['settings' => $settings]);
+
+        return response()->json([
+            'success' => true,
+            'resync_from_saga' => $settings['resync_from_saga'],
+            'message' => $settings['resync_from_saga']
+                ? 'Al re-importar, Saga actualizará también nombre, marca y categoría de los productos ya existentes.'
+                : 'Al re-importar sólo se actualizan precios e imágenes; el nombre, la marca y la categoría que edites aquí se respetan.',
+        ]);
+    }
+
     // ── Product Mapping ────────────────────────────────────────
 
     public function products(int $channelId)

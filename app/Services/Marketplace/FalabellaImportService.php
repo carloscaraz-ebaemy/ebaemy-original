@@ -37,6 +37,8 @@ class FalabellaImportService
     protected array $warnings = [];
     /** Índice de homologación de categorías Saga → ERP (null = sin cargar). */
     protected ?array $categoryMap = null;
+    /** ¿Saga manda sobre nombre/marca/categoría al re-importar? (ajuste del canal) */
+    protected bool $resyncContent;
 
     /**
      * @param  bool  $withImages   Traer también las imágenes del producto.
@@ -51,6 +53,9 @@ class FalabellaImportService
         $this->api = new FalabellaService($channel);
         $this->withImages = $withImages;
         $this->deferImages = $deferImages;
+        // Por defecto NO: el tenant edita sus productos y una re-importación no
+        // debe pisarle el nombre o la categoría sin que lo haya pedido.
+        $this->resyncContent = (bool) data_get($channel->settings, 'resync_from_saga', false);
 
         // Preferir el almacén principal del establecimiento del usuario autenticado
         // (la importación corre autenticada como admin del tenant); si no, el primero.
@@ -181,6 +186,8 @@ class FalabellaImportService
                         $this->warn($sku, $name, 'Saga no envió precio para este SKU: se conservó el precio que ya tenía el producto.');
                     }
 
+                    $this->resyncFromSaga($existing, $p, $name);
+
                     // Backfill de imágenes: los productos ya importados entraron
                     // con solo 1 imagen; aquí se completa la galería (idempotente).
                     $this->handleImages($existing, $p, $name, false);
@@ -227,6 +234,10 @@ class FalabellaImportService
             $item->saveQuietly();
         } else {
             $this->warn($sku, $name, 'Saga no envió precio para este SKU: se conservó el precio que ya tenía el producto.');
+        }
+
+        if (!$isNew) {
+            $this->resyncFromSaga($item, $p, $name);
         }
 
         // 3) Stock por almacén. Solo sembramos el stock de Saga en items NUEVOS;
@@ -319,6 +330,48 @@ class FalabellaImportService
         }
 
         return true;
+    }
+
+    /**
+     * Re-sincroniza desde Saga el contenido de un producto que YA existe:
+     * nombre, descripción, marca y categoría. Apagado por defecto — se activa
+     * por canal con el ajuste `resync_from_saga` (botón «Saga manda» del panel).
+     *
+     * Deliberadamente NO toca:
+     *  - el stock, que es el inventario real del tenant (Saga solo refleja lo
+     *    que el propio tenant le empujó);
+     *  - `active` / `apply_store`, que son decisión del tenant en su tienda;
+     *  - `item_code`, que es la llave del enlace.
+     *
+     * Usa save() y no saveQuietly() a propósito: el ItemObserver mantiene
+     * `text_filter`, el índice de búsqueda del ERP, que quedaría desfasado si
+     * cambiamos el nombre por detrás. El auto-publish a Saga está silenciado
+     * durante toda la importación, así que no hay bucle.
+     */
+    protected function resyncFromSaga(Item $item, array $p, string $name): void
+    {
+        if (!$this->resyncContent) {
+            return;
+        }
+
+        $variation = trim((string) data_get($p, 'Variation', ''));
+        $descripcion = (string) data_get($p, 'Description', '');
+
+        $item->description = mb_substr($name, 0, 600);
+        $item->name = mb_substr(trim($name . ($variation ? " {$variation}" : '')), 0, 600);
+
+        if ($descripcion !== '') {
+            $item->mp_notes = mb_substr($descripcion, 0, 5000);
+        }
+
+        if ($brand = $this->resolveBrand((string) data_get($p, 'Brand', ''))) {
+            $item->brand_id = $brand->id;
+        }
+        if ($category = $this->resolveCategory((string) data_get($p, 'PrimaryCategory', ''))) {
+            $item->category_id = $category->id;
+        }
+
+        $item->save();
     }
 
     /** Registra un aviso: el producto entró, pero con una salvedad visible. */
