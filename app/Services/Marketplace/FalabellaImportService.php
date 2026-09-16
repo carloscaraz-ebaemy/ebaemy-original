@@ -7,6 +7,7 @@ use App\Models\Tenant\Item;
 use App\Models\Tenant\ItemWarehouse;
 use App\Models\Tenant\MarketplaceChannel;
 use App\Models\Tenant\MarketplaceProduct;
+use App\Models\Tenant\SagaCategoryMap;
 use Illuminate\Support\Facades\Log;
 use Modules\Inventory\Models\Warehouse;
 use Modules\Item\Models\Brand;
@@ -34,6 +35,8 @@ class FalabellaImportService
     protected int $imagesQueued = 0;
     /** Avisos por producto: entró, pero con una salvedad que el usuario debe ver. */
     protected array $warnings = [];
+    /** Índice de homologación de categorías Saga → ERP (null = sin cargar). */
+    protected ?array $categoryMap = null;
 
     /**
      * @param  bool  $withImages   Traer también las imágenes del producto.
@@ -438,11 +441,67 @@ class FalabellaImportService
         $iw->save();
     }
 
+    /**
+     * Resuelve la categoría del ERP para lo que Saga manda en PrimaryCategory.
+     *
+     * El tenant ya homologa sus categorías con las de Saga en «Categorías Saga»
+     * (tabla saga_category_map). La importación la ignoraba y creaba una
+     * categoría nueva con el texto de Saga, llenando el ERP de categorías
+     * paralelas a las que el usuario ya había mapeado a mano.
+     *
+     * Saga puede mandar ahí un id, un nombre o una ruta, así que se busca contra
+     * las tres columnas homologadas (y contra la última hoja de la ruta).
+     */
     protected function resolveCategory(string $name): ?Category
     {
         $name = trim($name) ?: 'General';
+
+        $mappedId = $this->categoryMap()[$this->normalizeKey($name)] ?? null;
+        if ($mappedId && ($mapped = Category::find($mappedId))) {
+            return $mapped;
+        }
+
         $cat = Category::whereRaw('LOWER(name) = ?', [mb_strtolower($name)])->first();
         return $cat ?: Category::create(['name' => $name]);
+    }
+
+    /**
+     * Índice [clave homologada → category_id] del canal, cargado una sola vez.
+     * Cada fila aporta varias claves porque no sabemos cuál de las tres manda
+     * Saga en PrimaryCategory.
+     */
+    protected function categoryMap(): array
+    {
+        if ($this->categoryMap !== null) {
+            return $this->categoryMap;
+        }
+
+        $this->categoryMap = [];
+
+        try {
+            $maps = SagaCategoryMap::where('channel_id', $this->channel->id)->get();
+        } catch (\Throwable $e) {
+            return $this->categoryMap; // tenant sin la tabla de homologación
+        }
+
+        foreach ($maps as $m) {
+            $path = (string) $m->saga_category_path;
+            $leaf = $path !== '' ? trim((string) last(preg_split('/\s*[>\/]\s*/', $path))) : '';
+
+            foreach ([$m->saga_category_id, $m->saga_category_name, $path, $leaf] as $clave) {
+                $clave = $this->normalizeKey((string) $clave);
+                if ($clave !== '') {
+                    $this->categoryMap[$clave] = $m->category_id;
+                }
+            }
+        }
+
+        return $this->categoryMap;
+    }
+
+    protected function normalizeKey(string $v): string
+    {
+        return mb_strtolower(trim($v));
     }
 
     protected function resolveBrand(string $name): ?Brand
