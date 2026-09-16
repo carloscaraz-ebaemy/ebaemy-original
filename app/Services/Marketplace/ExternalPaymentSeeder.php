@@ -44,10 +44,14 @@ class ExternalPaymentSeeder
     /**
      * Siembra el cobro del canal si corresponde.
      *
+     * @param  bool  $dryRun  Con true no escribe: devuelve el cobro que CREARÍA,
+     *                        pasando por exactamente las mismas comprobaciones.
+     *                        Lo usa el comando de siembra retroactiva, donde
+     *                        mirar antes de escribir dinero no es opcional.
      * @return OrderPayment|null  El cobro (nuevo o el que ya estaba), o null si
      *                            no se sembró. `$motivo` explica por qué no.
      */
-    public function seed(Order $order, MarketplaceOrder $mpOrder, ?string &$motivo = null): ?OrderPayment
+    public function seed(Order $order, MarketplaceOrder $mpOrder, ?string &$motivo = null, bool $dryRun = false): ?OrderPayment
     {
         $motivo = null;
 
@@ -111,6 +115,10 @@ class ExternalPaymentSeeder
 
         $pago->source = OrderPayment::SOURCE_SAGA;
         $pago->external_reference = $referencia;
+
+        if ($dryRun) {
+            return $pago; // sin guardar: el llamante solo quiere saber qué haría
+        }
 
         $pago->save();
 
