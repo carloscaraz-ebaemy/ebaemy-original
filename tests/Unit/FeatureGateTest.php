@@ -5,6 +5,7 @@ namespace Tests\Unit;
 use Tests\TestCase;
 use App\Services\FeatureGate;
 use Hyn\Tenancy\Environment;
+use Hyn\Tenancy\Models\Hostname;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
 use Mockery;
@@ -24,8 +25,13 @@ class FeatureGateTest extends TestCase
     {
         $tenancy = Mockery::mock(Environment::class);
 
-        // hostname mock para que cacheKey() retorne algo valido
-        $hostname     = new \stdClass();
+        // Tiene que ser un Hostname de verdad: Environment::hostname() declara
+        // `: ?Hostname`, asi que devolver un \stdClass hace que el mock lance un
+        // TypeError. cacheKey() se lo traga con su `catch (\Throwable)` y retorna
+        // null, resolveFeatures() sale antes de llegar a Cache::remember, y los
+        // 8 tests de esta clase morian en Mockery::close() con InvalidCountException
+        // -- sin que FeatureGate tuviera nada malo. Corregido 2026-09-16.
+        $hostname     = new Hostname();
         $hostname->id = 999;
         $tenancy->shouldReceive('hostname')->andReturn($hostname);
 

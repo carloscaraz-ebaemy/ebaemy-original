@@ -16,6 +16,22 @@ use App\Models\Tenant\DiscountRule;
  */
 class PromotionEngineTest extends TestCase
 {
+    /**
+     * Carrito minimo valido.
+     *
+     * `matches()` empieza con `if (empty($cart) || $subtotal <= 0) return false;`
+     * -- un guard que llego con las correcciones de integridad de 2026-06-03 y que
+     * estos tests no conocian: pasaban `[]` y por eso daban false antes de llegar
+     * a la rama que querian probar. Las reglas `auto`, `channel` y `flash_sale` no
+     * miran el contenido del carrito, solo necesitan que exista.
+     */
+    private function cart(): array
+    {
+        return [
+            ['id' => 1, 'quantity' => 1, 'sale_unit_price' => 100],
+        ];
+    }
+
     // ─────────────────────────────────────────────────────────────────────────
     // DiscountRule::calculateDiscount
     // ─────────────────────────────────────────────────────────────────────────
@@ -182,9 +198,9 @@ class PromotionEngineTest extends TestCase
         $rule->trigger_json = ['min_amount' => 100];
 
         // Act & Assert
-        $this->assertTrue($rule->matches([], 100.0), 'Debe activarse con monto exacto');
-        $this->assertTrue($rule->matches([], 150.0), 'Debe activarse por encima del minimo');
-        $this->assertFalse($rule->matches([], 99.99), 'No debe activarse por debajo del minimo');
+        $this->assertTrue($rule->matches($this->cart(), 100.0), 'Debe activarse con monto exacto');
+        $this->assertTrue($rule->matches($this->cart(), 150.0), 'Debe activarse por encima del minimo');
+        $this->assertFalse($rule->matches($this->cart(), 99.99), 'No debe activarse por debajo del minimo');
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -201,11 +217,11 @@ class PromotionEngineTest extends TestCase
 
         // Act & Assert
         $this->assertTrue(
-            $rule->matches([], 100.0, null, 'ecommerce'),
+            $rule->matches($this->cart(), 100.0, null, 'ecommerce'),
             'Debe activarse para canal ecommerce'
         );
         $this->assertFalse(
-            $rule->matches([], 100.0, null, 'pos'),
+            $rule->matches($this->cart(), 100.0, null, 'pos'),
             'No debe activarse para canal pos'
         );
     }
@@ -219,8 +235,8 @@ class PromotionEngineTest extends TestCase
         $rule->trigger_json = ['channel_id' => 5];
 
         // Act & Assert
-        $this->assertTrue($rule->matches([], 100.0, 5, null), 'Debe activarse para channel_id=5');
-        $this->assertFalse($rule->matches([], 100.0, 3, null), 'No debe activarse para channel_id=3');
+        $this->assertTrue($rule->matches($this->cart(), 100.0, 5, null), 'Debe activarse para channel_id=5');
+        $this->assertFalse($rule->matches($this->cart(), 100.0, 3, null), 'No debe activarse para channel_id=3');
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -235,7 +251,7 @@ class PromotionEngineTest extends TestCase
         $rule->type = 'flash_sale';
 
         // Act & Assert
-        $this->assertTrue($rule->matches([], 10.0), 'Flash sale siempre aplica si esta activa');
+        $this->assertTrue($rule->matches($this->cart(), 10.0), 'Flash sale siempre aplica si esta activa');
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -289,6 +305,27 @@ class PromotionEngineTest extends TestCase
         $rule->trigger_json = [];
 
         // Act & Assert
-        $this->assertFalse($rule->matches([], 100.0), 'Tipo desconocido no debe activarse');
+        $this->assertFalse($rule->matches($this->cart(), 100.0), 'Tipo desconocido no debe activarse');
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // DiscountRule::matches — guard de carrito vacio
+    // ─────────────────────────────────────────────────────────────────────────
+
+    /**
+     * El guard que hacia fallar a los tests de arriba no tenia cobertura propia.
+     * Ahora la tiene: una promocion no puede activarse sobre un carrito que no
+     * existe, por muy permisiva que sea la regla.
+     *
+     * @test
+     */
+    public function no_rule_matches_an_empty_cart_or_a_zero_subtotal()
+    {
+        $rule = new DiscountRule();
+        $rule->type = 'flash_sale'; // la regla mas permisiva: siempre true
+
+        $this->assertFalse($rule->matches([], 100.0), 'Carrito vacio no activa ninguna promocion');
+        $this->assertFalse($rule->matches($this->cart(), 0.0), 'Subtotal cero no activa ninguna promocion');
+        $this->assertFalse($rule->matches($this->cart(), -5.0), 'Subtotal negativo no activa ninguna promocion');
     }
 }
