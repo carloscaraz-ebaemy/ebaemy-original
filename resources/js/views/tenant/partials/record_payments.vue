@@ -49,7 +49,14 @@
             <tr v-for="row in records" :key="row.id">
               <td data-label="#">{{ row.code }}</td>
               <td data-label="Fecha de pago">{{ row.date_of_payment }}</td>
-              <td data-label="Método de pago">{{ row.payment_method_type_description }}</td>
+              <td data-label="Método de pago">
+                {{ row.payment_method_type_description }}
+                <!-- De donde vino el cobro. Solo se pinta cuando NO lo registro
+                     una persona: en un cobro manual seria ruido en cada fila. -->
+                <span v-if="row.origen_label" class="rp-origen" :title="row.bloqueo">
+                  Cobrado por {{ row.origen_label }}
+                </span>
+              </td>
               <td data-label="Destino">{{ row.destination_description || '—' }}</td>
               <td data-label="Referencia">{{ row.reference || '—' }}</td>
               <td data-label="Archivo">
@@ -61,8 +68,12 @@
               </td>
               <td data-label="Monto" class="text-right">{{ money(row.payment) }}</td>
               <td class="text-right">
-                <button type="button" class="btn btn-xs btn-danger"
+                <!-- El cobro que trajo una integracion no se borra. El servidor
+                     lo rechaza igual; esto solo evita ofrecer una accion que ya
+                     sabemos que va a fallar. -->
+                <button v-if="!row.bloqueo" type="button" class="btn btn-xs btn-danger"
                         @click.prevent="remove(row)"><i class="fas fa-trash"></i></button>
+                <i v-else class="fas fa-lock rp-lock" :title="row.bloqueo"></i>
               </td>
             </tr>
 
@@ -221,6 +232,21 @@
 .rp-falta .el-input__inner {
   border-color: #dc2626;
   background: #fef2f2;
+}
+
+.rp-origen {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 6px;
+  border-radius: 3px;
+  background: #e8f1fb;
+  color: #1c5b96;
+  font-size: 11px;
+  white-space: nowrap;
+}
+.rp-lock {
+  color: #9aa5b1;
+  cursor: help;
 }
 </style>
 
@@ -471,6 +497,10 @@ export default {
         .then(() => { this.saving = false; });
     },
     remove(row) {
+      if (row.bloqueo) {
+        this.$message({ type: 'warning', duration: 8000, message: row.bloqueo });
+        return;
+      }
       this.$confirm(`¿Eliminar el ${row.code} por ${this.money(row.payment)}?`, 'Eliminar pago', {
         confirmButtonText: 'Sí, eliminar', cancelButtonText: 'Cancelar', type: 'warning'
       }).then(() => {

@@ -126,6 +126,21 @@ class MarketplaceOrder extends Model
         $this->order_id = $order->id;
         $this->save();
 
+        // El canal YA le cobro al comprador: dejarlo sin cobro registrado hacia
+        // que el pedido figurara a deber su importe completo, y que un cobro
+        // manual por encima cupiera y se aceptara. No rompe la importacion: un
+        // pedido sin cobro sembrado es el comportamiento anterior.
+        try {
+            $motivo = null;
+            if (!app(\App\Services\Marketplace\ExternalPaymentSeeder::class)->seed($order, $this, $motivo) && $motivo) {
+                \Illuminate\Support\Facades\Log::channel('payments')
+                    ->warning("No se sembro el cobro del canal en el pedido {$order->id}: {$motivo}");
+            }
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::channel('payments')
+                ->error("Error al sembrar el cobro del canal en el pedido {$order->id}: {$e->getMessage()}");
+        }
+
         return $order;
     }
 

@@ -40,6 +40,26 @@ class OrderPaymentController extends Controller
         return $owner instanceof Order ? $owner->motivoBloqueoModificacion() : null;
     }
 
+    /**
+     * El cobro que trajo el canal no se edita ni se borra desde aqui.
+     *
+     * No describe una decision nuestra sino un hecho ocurrido fuera: Falabella
+     * le cobro al comprador y liquida por su cuenta. Corregirlo o borrarlo desde
+     * EBAEMY dejaria el pedido diciendo que se debe algo que ya esta cobrado —y,
+     * borrado el cobro, el hueco vuelve a admitir un cobro manual encima, que es
+     * exactamente el problema que esto cierra.
+     */
+    protected function paymentRecordLockReason($record): ?string
+    {
+        if (!$record instanceof OrderPayment || !$record->esExterno()) {
+            return null;
+        }
+
+        return 'Este cobro lo hizo ' . ($record->origenLabel() ?: 'el canal de venta')
+             . ' y aqui solo se consulta: no se puede editar ni eliminar. '
+             . 'Si el importe no coincide, corrigelo en el portal del canal.';
+    }
+
     protected function paymentModelClass(): string
     {
         return OrderPayment::class;

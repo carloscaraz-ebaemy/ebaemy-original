@@ -52,6 +52,22 @@ trait ManagesRecordPayments
     }
 
     /**
+     * Por que ESTE cobro concreto no se puede tocar, o null si se puede.
+     *
+     * Distinto de `paymentLockReason()`, que mira el pedido entero: aqui la
+     * pregunta es sobre una fila. La necesita el cobro que trajo una
+     * integracion, que describe un hecho ocurrido fuera de EBAEMY y no se
+     * corrige ni se borra desde aqui.
+     *
+     * Se comprueba en el SERVIDOR, igual que el bloqueo del dueno: el panel de
+     * pagos se abre por URL y un DELETE a mano se salta cualquier boton oculto.
+     */
+    protected function paymentRecordLockReason($record): ?string
+    {
+        return null;
+    }
+
+    /**
      * Catálogos del formulario. Los destinos salen de FinanceTrait, así que
      * caja y cuentas bancarias son exactamente las mismas que en nota de venta.
      */
@@ -108,6 +124,13 @@ trait ManagesRecordPayments
                         : null,
                     'verified_at'                   => optional($row->verified_at)->format('Y-m-d H:i'),
                     'rejection_reason'              => $row->rejection_reason,
+                    // De donde vino el cobro. La pantalla lo pinta y, sobre
+                    // todo, deja de ofrecer editar/eliminar donde el servidor ya
+                    // va a decir que no. El motivo viaja con la fila para que el
+                    // front no reimplemente la regla.
+                    'origen'                        => $row->source ?? null,
+                    'origen_label'                  => method_exists($row, 'origenLabel') ? $row->origenLabel() : null,
+                    'bloqueo'                       => $this->paymentRecordLockReason($row),
                 ];
             });
 
@@ -157,6 +180,13 @@ trait ManagesRecordPayments
         $id    = $request->input('id');
         $class = $this->paymentModelClass();
 
+        // Editar un cobro que trajo una integracion: no se toca.
+        if ($id && ($existente = $class::find($id))) {
+            if ($motivo = $this->paymentRecordLockReason($existente)) {
+                return ['success' => false, 'message' => $motivo];
+            }
+        }
+
         // Saldo disponible: si es una edición, el propio pago no cuenta.
         $saldo = $owner->total_difference;
         if ($id) {
@@ -185,6 +215,15 @@ trait ManagesRecordPayments
                 if (\Illuminate\Support\Facades\Schema::connection('tenant')
                         ->hasColumn($record->getTable(), 'created_by')) {
                     $record->created_by = auth()->id();
+                }
+
+                // Todo cobro nacido en este formulario es MANUAL, se pida lo que
+                // se pida. `source` no es asignable en masa, pero se escribe
+                // igual de forma explicita: un cobro que pasara por externo
+                // quedaria despues fuera del alcance de quien lo creo.
+                if (\Illuminate\Support\Facades\Schema::connection('tenant')
+                        ->hasColumn($record->getTable(), 'source')) {
+                    $record->source = \App\Models\Tenant\OrderPayment::SOURCE_MANUAL;
                 }
             }
 
@@ -226,6 +265,10 @@ trait ManagesRecordPayments
         $owner  = $this->paymentOwner((int) $record->{$this->paymentForeignKey()});
 
         if ($motivo = $this->paymentLockReason($owner)) {
+            return ['success' => false, 'message' => $motivo];
+        }
+
+        if ($motivo = $this->paymentRecordLockReason($record)) {
             return ['success' => false, 'message' => $motivo];
         }
 
