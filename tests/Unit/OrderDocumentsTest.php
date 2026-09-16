@@ -240,12 +240,13 @@ class OrderDocumentsTest extends TestCase
         $conDni = $this->docs($this->pedidoDeVenta());
         $this->assertStringContainsString('RUC', $conDni[OrderDocuments::FACTURA]['bloqueo']);
 
-        $conRuc = $this->docs($this->pedidoDeVenta([
+        // Con el RUC completo y la nota de venta emitida, la factura sale.
+        $conRuc = $this->docs($this->conNotaDeVenta($this->pedidoDeVenta([
             'customer' => [
                 'numero' => '20512345678',
                 'apellidos_y_nombres_o_razon_social' => 'Importaciones SAC',
             ],
-        ]));
+        ])));
         $this->assertNull($conRuc[OrderDocuments::FACTURA]['bloqueo']);
     }
 
@@ -265,9 +266,11 @@ class OrderDocumentsTest extends TestCase
     {
         // SUNAT permite la boleta a «Cliente Final 00000000» solo por debajo de
         // S/ 700. La regla ya estaba enterrada en MarketplaceInvoiceService.
-        $barata = $this->docs($this->pedidoDeVenta([
+        // Con la nota de venta ya emitida: es el estado en el que la regla
+        // tributaria es lo unico que puede faltar.
+        $barata = $this->docs($this->conNotaDeVenta($this->pedidoDeVenta([
             'total' => 500, 'customer' => [],
-        ]));
+        ])));
         $this->assertNull($barata[OrderDocuments::BOLETA]['bloqueo']);
 
         $cara = $this->docs($this->pedidoDeVenta([
@@ -280,9 +283,47 @@ class OrderDocumentsTest extends TestCase
     /** @test */
     public function la_boleta_no_exige_ruc()
     {
-        $docs = $this->docs($this->pedidoDeVenta());
+        $docs = $this->docs($this->conNotaDeVenta($this->pedidoDeVenta()));
 
         $this->assertNull($docs[OrderDocuments::BOLETA]['bloqueo']);
+    }
+
+    /**
+     * Sin nota de venta no hay comprobante, y la pantalla tiene que decirlo.
+     *
+     * Desde Pedidos, boleta y factura se emiten con el componente de Notas de
+     * Venta: sin nota, el modal se abria con un registro inexistente mientras el
+     * chip decia «se puede emitir». Esa era la causa de «no encuentro como
+     * emitir la boleta» de un pedido cargado a mano.
+     *
+     * @test
+     */
+    public function sin_nota_de_venta_el_comprobante_dice_que_falta_y_ofrece_el_paso()
+    {
+        $docs = $this->docs($this->pedidoDeVenta());
+
+        $this->assertStringContainsString('nota de venta', $docs[OrderDocuments::BOLETA]['bloqueo']);
+        $this->assertSame(OrderDocuments::NOTA_VENTA, $docs[OrderDocuments::BOLETA]['requiere']);
+
+        // Y con la nota emitida deja de estorbar.
+        $conNv = $this->docs($this->conNotaDeVenta($this->pedidoDeVenta()));
+        $this->assertNull($conNv[OrderDocuments::BOLETA]['bloqueo']);
+        $this->assertNull($conNv[OrderDocuments::BOLETA]['requiere']);
+    }
+
+    /**
+     * Un dato tributario que falta pesa MAS que la nota de venta: emitirla no
+     * arreglaria el RUC, asi que decir «emite la nota» mandaria al operador a
+     * dar un paso que no le sirve.
+     *
+     * @test
+     */
+    public function un_dato_tributario_que_falta_manda_sobre_la_nota_de_venta()
+    {
+        $docs = $this->docs($this->pedidoDeVenta());
+
+        $this->assertStringContainsString('RUC', $docs[OrderDocuments::FACTURA]['bloqueo']);
+        $this->assertNull($docs[OrderDocuments::FACTURA]['requiere']);
     }
 
     // ── Pedido anulado ────────────────────────────────────────────────────

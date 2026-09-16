@@ -58,7 +58,21 @@
                 </div>
 
                 <template v-else>
-                    <p v-if="s.bloqueo" class="dp-why">{{ s.bloqueo }}</p>
+                    <!-- Bloqueado, pero con salida: lo unico que falta es la
+                         nota de venta, asi que se ofrece emitirla aqui mismo en
+                         vez de dejar un «no se puede» sin camino. -->
+                    <div v-if="s.bloqueo && s.requiere === 'nota_venta'" class="dp-line">
+                        <span class="dp-why dp-why-inline">{{ s.bloqueo }}</span>
+                        <el-button
+                            size="mini"
+                            type="primary"
+                            plain
+                            class="dp-btn"
+                            @click="$emit('emit-sale-note', row)"
+                            >Emitir nota de venta</el-button
+                        >
+                    </div>
+                    <p v-else-if="s.bloqueo" class="dp-why">{{ s.bloqueo }}</p>
                     <div v-else class="dp-line">
                         <span class="dp-ready">Se puede emitir.</span>
                         <el-button
@@ -312,6 +326,19 @@ export default {
             // por el modal de comprobante, que necesita la NV ya emitida.
             // Solo emite. Quien lo aloje decide si hay que cerrarse: el
             // dialogo si, el drawer no.
+            if (s.tipo !== "nota_venta" && !(this.row && this.row.sale_note_id)) {
+                // Red de seguridad por si la fila viene de una carga anterior a
+                // que se emitiera: abrir el modal sin nota de venta lo dejaba
+                // vacio, sin decir por que.
+                this.$message({
+                    type: "warning",
+                    duration: 8000,
+                    message:
+                        "El comprobante se emite desde la nota de venta y este pedido aún no la tiene. Emítela primero.",
+                });
+                return;
+            }
+
             this.$emit(
                 s.tipo === "nota_venta" ? "emit-sale-note" : "emit-document",
                 this.row
@@ -440,5 +467,10 @@ export default {
     color: #b91c1c;
     font-size: 12px;
     font-weight: 500;
+}
+
+.dp-why-inline {
+    flex: 1;
+    min-width: 0;
 }
 </style>

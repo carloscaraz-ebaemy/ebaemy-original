@@ -183,10 +183,12 @@ class OrderDocuments
             self::NOTA_VENTA => $this->bloqueoSinCliente(),
             self::BOLETA     => $this->bloqueoEmitidoFuera()
                                 ?? $this->bloqueoComprobante(self::FACTURA)
-                                ?? $this->bloqueoPorDatos(BillingDocumentResolver::BOLETA),
+                                ?? $this->bloqueoPorDatos(BillingDocumentResolver::BOLETA)
+                                ?? $this->bloqueoSinNotaVenta(),
             self::FACTURA    => $this->bloqueoEmitidoFuera()
                                 ?? $this->bloqueoComprobante(self::BOLETA)
-                                ?? $this->bloqueoPorDatos(BillingDocumentResolver::FACTURA),
+                                ?? $this->bloqueoPorDatos(BillingDocumentResolver::FACTURA)
+                                ?? $this->bloqueoSinNotaVenta(),
             self::GUIA       => $this->bloqueoGuia(),
             default          => null,
         };
@@ -321,6 +323,45 @@ class OrderDocuments
 
         return 'El comprobante de este pedido ya se emitió en el portal del canal, '
              . 'fuera de EBAEMY. Emitir otro aquí duplicaría la venta ante SUNAT.';
+    }
+
+    /**
+     * El comprobante sale de la NOTA DE VENTA, y este pedido no la tiene.
+     *
+     * Desde Pedidos, boleta y factura no se emiten solas: la pantalla reutiliza
+     * tal cual el componente de Notas de Venta —lee de `/sale-notes/...` y postea
+     * a `/documents`—, asi que sin nota de venta el modal se abre con un registro
+     * inexistente.
+     *
+     * Esto FALTABA y era la causa de «no encuentro como emitir la boleta»: el
+     * chip decia «se puede emitir» y el boton llevaba a un formulario vacio. Va
+     * el ULTIMO de la cadena a proposito: si ademas falta el RUC, es mas util
+     * decir eso, porque emitir la nota de venta no lo arreglaria.
+     */
+    private function bloqueoSinNotaVenta(): ?string
+    {
+        if ($this->registro(self::NOTA_VENTA)) {
+            return null;
+        }
+
+        return 'El comprobante se emite desde la nota de venta y este pedido aún no la tiene. '
+             . 'Emítela primero.';
+    }
+
+    /**
+     * ¿Lo único que le falta a este tipo es la nota de venta?
+     *
+     * La pantalla lo usa para ofrecer el paso que falta en vez de dejar al
+     * operador delante de un «no se puede» sin salida.
+     */
+    private function soloFaltaNotaVenta(string $tipo): bool
+    {
+        if (!in_array($tipo, [self::BOLETA, self::FACTURA], true)) {
+            return false;
+        }
+
+        return $this->motivoBloqueo($tipo) === $this->bloqueoSinNotaVenta()
+            && $this->bloqueoSinNotaVenta() !== null;
     }
 
     /**
@@ -535,6 +576,9 @@ class OrderDocuments
             'pdf_url'     => $reg ? $this->pdfUrl($tipo, $reg) : null,
             // Null = se puede emitir. Con texto = no, y el texto dice por qué.
             'bloqueo'     => $reg ? null : $bloqueo,
+            // Cuando lo UNICO que falta es la nota de venta, la pantalla ofrece
+            // emitirla en vez de dejar el mensaje sin salida.
+            'requiere'    => !$reg && $this->soloFaltaNotaVenta($tipo) ? self::NOTA_VENTA : null,
             // El que corresponde a este pedido según el documento del cliente,
             // lo que pidió al comprar y lo que el operador haya corregido. La
             // pantalla lo destaca para que el operador no tenga que deducirlo.
