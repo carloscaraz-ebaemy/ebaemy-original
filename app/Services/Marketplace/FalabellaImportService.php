@@ -2,13 +2,11 @@
 
 namespace App\Services\Marketplace;
 
+use App\Jobs\Marketplace\ImportSagaProductImagesJob;
 use App\Models\Tenant\Item;
-use App\Models\Tenant\ItemImage;
 use App\Models\Tenant\ItemWarehouse;
 use App\Models\Tenant\MarketplaceChannel;
 use App\Models\Tenant\MarketplaceProduct;
-use App\Services\Tenant\ImageProcessingService;
-use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Modules\Inventory\Models\Warehouse;
 use Modules\Item\Models\Brand;
@@ -32,12 +30,22 @@ class FalabellaImportService
     protected FalabellaService $api;
     protected ?Warehouse $warehouse;
     protected bool $withImages;
+    protected bool $deferImages;
+    protected int $imagesQueued = 0;
 
-    public function __construct(MarketplaceChannel $channel, bool $withImages = false)
+    /**
+     * @param  bool  $withImages   Traer también las imágenes del producto.
+     * @param  bool  $deferImages  Encolar la descarga en vez de hacerla aquí.
+     *   Obligatorio cuando el importador corre dentro de una petición HTTP: la
+     *   descarga + reencode de hasta 9 imágenes por producto no cabe en el
+     *   timeout del servidor y tumbaba el lote entero.
+     */
+    public function __construct(MarketplaceChannel $channel, bool $withImages = false, bool $deferImages = false)
     {
         $this->channel = $channel;
         $this->api = new FalabellaService($channel);
         $this->withImages = $withImages;
+        $this->deferImages = $deferImages;
 
         // Preferir el almacén principal del establecimiento del usuario autenticado
         // (la importación corre autenticada como admin del tenant); si no, el primero.
@@ -72,20 +80,31 @@ class FalabellaImportService
         }
         $products = $this->api->getProducts($params);
 
+        $this->imagesQueued = 0;
+
         $summary = [
-            'fetched' => count($products),
-            'created' => 0,
-            'linked'  => 0,
-            'updated' => 0,
-            'skipped' => 0,
-            'failed'  => 0,
-            'rows'    => [],
+            'fetched'       => count($products),
+            'created'       => 0,
+            'linked'        => 0,
+            'updated'       => 0,
+            'skipped'       => 0,
+            'failed'        => 0,
+            'images_queued' => 0,
+            'rows'          => [],
+            // Detalle de lo que NO entró, para que el panel pueda mostrarlo.
+            // Antes sólo existía el contador y el motivo moría en el log.
+            'failures'      => [],
         ];
 
         foreach ($products as $p) {
             $sku = trim((string) data_get($p, 'SellerSku', ''));
             if ($sku === '') {
                 $summary['skipped']++;
+                $summary['failures'][] = [
+                    'sku'   => '(sin SellerSku)',
+                    'name'  => (string) data_get($p, 'Name', ''),
+                    'error' => 'Saga devolvió el producto sin SellerSku; no hay forma de identificarlo.',
+                ];
                 continue;
             }
 
@@ -96,9 +115,16 @@ class FalabellaImportService
             } catch (\Throwable $e) {
                 $summary['failed']++;
                 $summary['rows'][] = ['sku' => $sku, 'action' => 'failed', 'name' => data_get($p, 'Name'), 'error' => $e->getMessage()];
+                $summary['failures'][] = [
+                    'sku'   => $sku,
+                    'name'  => (string) data_get($p, 'Name', ''),
+                    'error' => $e->getMessage(),
+                ];
                 Log::channel('payments')->error("Falabella import error [{$sku}]: {$e->getMessage()}");
             }
         }
+
+            $summary['images_queued'] = $this->imagesQueued;
 
             return $summary;
         } finally {
@@ -139,9 +165,7 @@ class FalabellaImportService
 
                     // Backfill de imágenes: los productos ya importados entraron
                     // con solo 1 imagen; aquí se completa la galería (idempotente).
-                    if ($this->withImages) {
-                        $this->importImages($existing, $p, $name, false);
-                    }
+                    $this->handleImages($existing, $p, $name, false);
                 }
             }
             return ['sku' => $sku, 'action' => 'updated', 'name' => $name, 'price' => $price, 'compare_at' => $compareAt, 'stock' => $stock];
@@ -192,9 +216,7 @@ class FalabellaImportService
         // 5) Imágenes (opcional, lento). Trae principal + galería. Idempotente:
         // permite backfill de la galería en productos ya importados (re-correr
         // con --with-images sin duplicar imágenes).
-        if ($this->withImages) {
-            $this->importImages($item, $p, $name, $action === 'created');
-        }
+        $this->handleImages($item, $p, $name, $action === 'created');
 
         return ['sku' => $sku, 'action' => $action, 'name' => $name, 'item_id' => $item->id, 'price' => $price, 'stock' => $stock];
     }
@@ -321,69 +343,26 @@ class FalabellaImportService
     }
 
     /**
-     * Importa TODAS las imágenes del producto de Saga: la principal (en
-     * items.image/medium/small) y el resto en la galería (item_images).
-     * Idempotente: solo siembra la galería si el item aún no tiene imágenes
-     * adicionales (permite backfill sin duplicar). No rompe la importación.
+     * Resuelve las imágenes del producto: las encola (modo HTTP) o las descarga
+     * en el acto (modo CLI). El trabajo real vive en SagaImageImporter.
      */
-    protected function importImages(Item $item, array $p, string $name, bool $isNew): void
+    protected function handleImages(Item $item, array $p, string $name, bool $isNew): void
     {
-        // Normaliza la lista de URLs de Saga (puede venir como array o string).
-        $raw = data_get($p, 'Images.Image', []);
-        if (is_string($raw)) $raw = [$raw];
-        $urls = array_values(array_filter(array_map(fn($u) => (string) $u, (array) $raw)));
-
-        $mainUrl = (string) data_get($p, 'MainImage') ?: ($urls[0] ?? '');
-        if ($mainUrl === '' && empty($urls)) return;
-
-        // 1) Imagen principal: si es nuevo o aún no tiene imagen real.
-        $needsMain = $isNew || empty($item->image) || $item->image === 'imagen-no-disponible.jpg';
-        if ($mainUrl !== '' && $needsMain) {
-            $result = $this->downloadAndProcess($mainUrl, $name, $item);
-            if ($result) {
-                $item->image = $result['main'] ?? $item->image;
-                $item->image_medium = $result['medium'] ?? $item->image_medium;
-                $item->image_small = $result['small'] ?? $item->image_small;
-                $item->saveQuietly();
-            }
+        if (!$this->withImages) {
+            return;
         }
 
-        // 2) Galería: solo si el item aún no tiene imágenes adicionales (evita
-        // duplicar al re-correr). Excluye la principal y limita a 8 por seguridad.
-        if ($item->images()->count() === 0) {
-            $gallery = array_values(array_filter($urls, fn($u) => $u !== $mainUrl));
-            foreach ($gallery as $i => $gurl) {
-                if ($i >= 8) break;
-                $result = $this->downloadAndProcess($gurl, $name . '-' . ($i + 2), $item);
-                if ($result && !empty($result['main'])) {
-                    ItemImage::create(['item_id' => $item->id, 'image' => $result['main']]);
-                }
-            }
+        $urls = SagaImageImporter::extractUrls($p);
+        if ($urls['main'] === '' && empty($urls['gallery'])) {
+            return;
         }
-    }
 
-    /**
-     * Descarga una URL de imagen y genera las variantes locales. Devuelve
-     * ['main','medium','small'] o null si falla.
-     */
-    protected function downloadAndProcess(string $url, string $name, Item $item): ?array
-    {
-        if ($url === '') return null;
-        $tmp = null;
-        try {
-            $resp = Http::timeout(25)->get($url);
-            if (!$resp->successful()) return null;
-
-            $tmp = tempnam(sys_get_temp_dir(), 'saga_img_');
-            file_put_contents($tmp, $resp->body());
-
-            $base = ImageProcessingService::sanitizeFilename($name, $item->internal_id ?: 'product');
-            return ImageProcessingService::processAndStore($tmp, $base);
-        } catch (\Throwable $e) {
-            Log::channel('payments')->warning("Falabella import image fail [{$item->item_code}]: {$e->getMessage()}");
-            return null;
-        } finally {
-            if ($tmp && file_exists($tmp)) @unlink($tmp);
+        if ($this->deferImages) {
+            ImportSagaProductImagesJob::dispatch($item->id, $urls['main'], $urls['gallery'], $name, $isNew);
+            $this->imagesQueued++;
+            return;
         }
+
+        SagaImageImporter::apply($item, $urls['main'], $urls['gallery'], $name, $isNew);
     }
 }

@@ -108,8 +108,18 @@
                     <span class="badge badge-info" id="mp-import-linked">Enlazados: 0</span>
                     <span class="badge badge-secondary" id="mp-import-skipped">Saltados: 0</span>
                     <span class="badge badge-danger" id="mp-import-failed">Fallidos: 0</span>
+                    <span class="badge badge-primary" id="mp-import-images">Imágenes en cola: 0</span>
                 </div>
-                <small class="text-muted d-block mt-2">No cierres esta página mientras importa. Puede tardar varios minutos.</small>
+                <div id="mp-import-failures" class="mt-3" style="display:none">
+                    <div class="small font-weight-bold text-danger mb-1">Productos que no se importaron:</div>
+                    <div style="max-height:220px;overflow:auto">
+                        <table class="table table-sm table-bordered mb-0 small">
+                            <thead><tr><th style="width:28%">SellerSku</th><th style="width:30%">Nombre</th><th>Motivo</th></tr></thead>
+                            <tbody id="mp-import-failures-body"></tbody>
+                        </table>
+                    </div>
+                </div>
+                <small class="text-muted d-block mt-2">No cierres esta página mientras importa. Las imágenes se descargan en segundo plano y aparecen en los productos a los pocos minutos.</small>
             </div>
         </div>
     </div>
@@ -429,7 +439,7 @@ document.addEventListener('DOMContentLoaded', function(){
     var mpImporting = false;
     window.importCatalog = function(channelId){
         if (mpImporting) { alert('Ya hay una importación en curso.'); return; }
-        if (!confirm('Esto traerá tus productos de Saga Falabella: crea los nuevos (con imágenes) y ACTUALIZA los precios (oferta/regular) de los que ya tienes. Puede tardar varios minutos. ¿Continuar?')) return;
+        if (!confirm('Esto traerá tus productos de Saga Falabella: crea los nuevos y ACTUALIZA los precios (oferta/regular) de los que ya tienes. Las imágenes se descargan después, en segundo plano. ¿Continuar?')) return;
 
         mpImporting = true;
         var panel = document.getElementById('mp-import-panel');
@@ -438,10 +448,29 @@ document.addEventListener('DOMContentLoaded', function(){
         panel.style.display = 'block';
         panel.scrollIntoView({behavior:'smooth', block:'center'});
 
-        var totals = {created:0, updated:0, linked:0, skipped:0, failed:0, processed:0};
+        var totals = {created:0, updated:0, linked:0, skipped:0, failed:0, processed:0, images:0};
         var offset = 0;
-        var limit = 10;
+        var limit = 25;
         var totalFetchedSoFar = 0;
+        var batchTries = 0;          // reintentos del lote actual
+        var MAX_BATCH_TRIES = 3;
+
+        // Limpiar la tabla de fallos de una corrida anterior.
+        document.getElementById('mp-import-failures').style.display = 'none';
+        document.getElementById('mp-import-failures-body').innerHTML = '';
+
+        function esc(t){ var d = document.createElement('div'); d.textContent = t == null ? '' : String(t); return d.innerHTML; }
+
+        function addFailures(list){
+            if (!list || !list.length) return;
+            var body = document.getElementById('mp-import-failures-body');
+            var html = '';
+            for (var i = 0; i < list.length; i++) {
+                html += '<tr><td><code>' + esc(list[i].sku) + '</code></td><td>' + esc(list[i].name) + '</td><td class="text-danger">' + esc(list[i].error) + '</td></tr>';
+            }
+            body.insertAdjacentHTML('beforeend', html);
+            document.getElementById('mp-import-failures').style.display = 'block';
+        }
 
         function setBadges(){
             document.getElementById('mp-import-created').textContent = 'Creados: ' + totals.created;
@@ -449,6 +478,7 @@ document.addEventListener('DOMContentLoaded', function(){
             document.getElementById('mp-import-linked').textContent = 'Enlazados: ' + totals.linked;
             document.getElementById('mp-import-skipped').textContent = 'Saltados: ' + totals.skipped;
             document.getElementById('mp-import-failed').textContent = 'Fallidos: ' + totals.failed;
+            document.getElementById('mp-import-images').textContent = 'Imágenes en cola: ' + totals.images;
         }
 
         function finish(msg, ok){
@@ -468,22 +498,51 @@ document.addEventListener('DOMContentLoaded', function(){
             });
         }
 
+        // Un lote puede fallar por corte de red o por un error puntual del
+        // servidor. Antes eso abortaba TODA la importación; ahora se reintenta
+        // el mismo offset y sólo se rinde tras MAX_BATCH_TRIES.
+        function retryOrFail(msg){
+            batchTries++;
+            if (batchTries < MAX_BATCH_TRIES) {
+                status.textContent = msg + ' — reintentando (' + batchTries + '/' + (MAX_BATCH_TRIES-1) + ')…';
+                setTimeout(nextBatch, 3000);
+                return;
+            }
+            finish(msg + ' — importación detenida en el producto ' + totals.processed + '. Vuelve a ejecutarla para continuar desde donde quedó.', false);
+        }
+
         function nextBatch(){
             fetch('/ecommerce/marketplace/channels/'+channelId+'/import-catalog', {
                 method:'POST', headers:headers,
-                body: JSON.stringify({offset:offset, limit:limit, with_images:true})
+                body: JSON.stringify({offset:offset, limit:limit, with_images:true, defer_images:true})
             })
-            .then(function(r){return r.json()})
-            .then(function(data){
-                if (data.error) { finish('Error: '+data.error, false); return; }
+            // Ante un timeout del servidor la respuesta es HTML, no JSON: leemos
+            // texto y parseamos a mano para poder dar un mensaje entendible.
+            .then(function(r){
+                return r.text().then(function(txt){
+                    try { return {ok:r.ok, status:r.status, data:JSON.parse(txt)}; }
+                    catch(e){ return {ok:false, status:r.status, data:null, raw:txt}; }
+                });
+            })
+            .then(function(res){
+                if (!res.data) {
+                    retryOrFail('El servidor cortó la respuesta (HTTP '+res.status+')');
+                    return;
+                }
+                var data = res.data;
+                if (data.error) { retryOrFail('Error: '+data.error); return; }
+
+                batchTries = 0; // lote OK: se reinicia el contador de reintentos
 
                 totals.created += data.created||0;
                 totals.updated += data.updated||0;
                 totals.linked  += data.linked||0;
                 totals.skipped += data.skipped||0;
                 totals.failed  += data.failed||0;
+                totals.images  += data.images_queued||0;
                 totals.processed += data.fetched||0;
                 totalFetchedSoFar += data.fetched||0;
+                addFailures(data.failures);
                 setBadges();
 
                 // No conocemos el total exacto de antemano: barra animada (indeterminada)
@@ -495,13 +554,13 @@ document.addEventListener('DOMContentLoaded', function(){
                 }
 
                 if (data.done) {
-                    finish('Importación completada: ' + totals.created + ' creados, ' + totals.updated + ' con precio actualizado, ' + totals.linked + ' enlazados, ' + totals.failed + ' fallidos.', true);
+                    finish('Importación completada: ' + totals.created + ' creados, ' + totals.updated + ' con precio actualizado, ' + totals.linked + ' enlazados, ' + totals.failed + ' fallidos. ' + totals.images + ' productos con imágenes descargándose en segundo plano.', true);
                 } else {
                     offset = data.next_offset;
                     nextBatch();
                 }
             })
-            .catch(function(e){ finish('Error de red: '+e.message, false); });
+            .catch(function(e){ retryOrFail('Error de red: '+e.message); });
         }
 
         nextBatch();

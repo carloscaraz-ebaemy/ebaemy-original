@@ -23,7 +23,9 @@ class FalabellaImportCatalog extends Command
                             {--tenant= : UUID del website (obligatorio)}
                             {--dry-run : No escribe nada, solo muestra qué haría}
                             {--with-images : Descarga y procesa las imágenes (lento)}
-                            {--limit=1000 : Máximo de productos a traer}';
+                            {--queue-images : Encola las imágenes en vez de descargarlas aquí (requiere queue:work)}
+                            {--limit=1000 : Máximo de productos a traer}
+                            {--offset=0 : Desde qué posición traer (para continuar una tanda)}';
 
     protected $description = 'Importa el catálogo de Saga Falabella hacia EBAEMY (crea items + enlaces)';
 
@@ -62,17 +64,19 @@ class FalabellaImportCatalog extends Command
 
         $dryRun = (bool) $this->option('dry-run');
         $withImages = (bool) $this->option('with-images');
+        $deferImages = (bool) $this->option('queue-images');
         $limit = (int) $this->option('limit');
+        $offset = max(0, (int) $this->option('offset'));
 
         $this->info(($dryRun ? '[DRY-RUN] ' : '') . "Importando catálogo Saga → tenant {$uuid}" . ($withImages ? ' (con imágenes)' : ''));
 
-        $service = new FalabellaImportService($channel, $withImages);
-        $summary = $service->import($dryRun, $limit);
+        $service = new FalabellaImportService($channel, $withImages, $deferImages);
+        $summary = $service->import($dryRun, $limit, $offset);
 
         $this->newLine();
         $this->table(
-            ['Traídos', 'Creados', 'Precios actualizados', 'Enlazados', 'Saltados', 'Fallidos'],
-            [[$summary['fetched'], $summary['created'], $summary['updated'] ?? 0, $summary['linked'], $summary['skipped'], $summary['failed']]]
+            ['Traídos', 'Creados', 'Precios actualizados', 'Enlazados', 'Saltados', 'Fallidos', 'Imágenes en cola'],
+            [[$summary['fetched'], $summary['created'], $summary['updated'] ?? 0, $summary['linked'], $summary['skipped'], $summary['failed'], $summary['images_queued'] ?? 0]]
         );
 
         // Mostrar primeras filas como muestra
@@ -90,8 +94,18 @@ class FalabellaImportCatalog extends Command
             $this->table(['SellerSku', 'Acción', 'Nombre / Error', 'Precio', 'Stock'], $rows);
         }
 
-        if ($summary['failed'] > 0) {
-            $this->warn("{$summary['failed']} productos fallaron. Revisa storage/logs (canal payments).");
+        if (!empty($summary['failures'])) {
+            $this->newLine();
+            $this->line('Productos que NO se importaron:');
+            $this->table(
+                ['SellerSku', 'Nombre', 'Motivo'],
+                array_map(fn($f) => [
+                    substr($f['sku'] ?? '', 0, 28),
+                    substr($f['name'] ?? '', 0, 30),
+                    substr($f['error'] ?? '', 0, 70),
+                ], array_slice($summary['failures'], 0, 30))
+            );
+            $this->warn("{$summary['failed']} productos fallaron. Detalle completo en storage/logs (canal payments).");
         }
 
         $this->info('Listo.');

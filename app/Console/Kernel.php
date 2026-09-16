@@ -120,6 +120,16 @@ class Kernel extends ConsoleKernel
                  ->withoutOverlapping()
                  ->appendOutputTo(storage_path('logs/warehouse_etl.log'));
         // Marketplace (Falabella/Meta): sync stock cada 15 min — recorre todos los tenants
+        // Descarga de imágenes de la importación de Saga. Cola dedicada, drenada
+        // cada minuto: el lote HTTP del panel sólo escribe datos y encola aquí,
+        // porque descargar + reencodar 9 imágenes por producto no cabe en el
+        // timeout de una petición web (tumbaba la importación a la mitad).
+        $schedule->command('queue:work --queue=saga-images --stop-when-empty --tries=2 --max-time=280')
+            ->everyMinute()
+            ->withoutOverlapping()
+            ->runInBackground()
+            ->appendOutputTo(storage_path('logs/saga_images_queue.log'));
+
         $schedule->command('marketplace:sync stock')
                  ->everyFifteenMinutes()
                  ->withoutOverlapping()

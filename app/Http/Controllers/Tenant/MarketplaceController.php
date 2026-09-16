@@ -699,24 +699,35 @@ class MarketplaceController extends Controller
         }
 
         $offset     = max(0, (int) $request->input('offset', 0));
-        $limit      = min(25, max(1, (int) $request->input('limit', 10)));
+        $limit      = min(50, max(1, (int) $request->input('limit', 25)));
         $withImages = $request->boolean('with_images', true);
         $dryRun     = $request->boolean('dry_run', false);
+        // Las imágenes se encolan: descargarlas aquí reventaba el timeout del
+        // servidor a mitad de lote y abortaba la importación entera.
+        $deferImages = $request->boolean('defer_images', true);
 
         try {
-            $service = new \App\Services\Marketplace\FalabellaImportService($channel, $withImages);
+            $service = new \App\Services\Marketplace\FalabellaImportService($channel, $withImages, $deferImages);
             $summary = $service->import($dryRun, $limit, $offset);
 
             // 'done' cuando Saga devolvió menos productos que el lote pedido.
             $summary['done'] = $summary['fetched'] < $limit;
+            $summary['offset'] = $offset;
             $summary['next_offset'] = $offset + $limit;
 
-            // No devolvemos el detalle completo de filas (puede ser grande).
+            // No devolvemos el detalle completo de filas (puede ser grande), pero
+            // SÍ los fallos: sin ellos el panel sólo mostraba un contador y el
+            // motivo real quedaba enterrado en el log del servidor.
             unset($summary['rows']);
+            $summary['failures'] = array_slice($summary['failures'] ?? [], 0, 50);
 
             return response()->json($summary);
         } catch (\Throwable $e) {
-            return response()->json(['error' => $e->getMessage(), 'done' => true], 500);
+            return response()->json([
+                'error'  => $e->getMessage(),
+                'offset' => $offset,
+                'done'   => true,
+            ], 500);
         }
     }
 
