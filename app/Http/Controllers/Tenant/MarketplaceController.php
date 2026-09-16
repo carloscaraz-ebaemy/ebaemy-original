@@ -720,6 +720,7 @@ class MarketplaceController extends Controller
             // motivo real quedaba enterrado en el log del servidor.
             unset($summary['rows']);
             $summary['failures'] = array_slice($summary['failures'] ?? [], 0, 50);
+            $summary['warnings'] = array_slice($summary['warnings'] ?? [], 0, 50);
 
             return response()->json($summary);
         } catch (\Throwable $e) {

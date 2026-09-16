@@ -94,6 +94,19 @@ class FalabellaImportCatalog extends Command
             $this->table(['SellerSku', 'Acción', 'Nombre / Error', 'Precio', 'Stock'], $rows);
         }
 
+        if (!empty($summary['warnings'])) {
+            $this->newLine();
+            $this->line('Productos importados CON SALVEDADES:');
+            $this->table(
+                ['SellerSku', 'Nombre', 'Aviso'],
+                array_map(fn($w) => [
+                    substr($w['sku'] ?? '', 0, 28),
+                    substr($w['name'] ?? '', 0, 30),
+                    substr($w['error'] ?? '', 0, 70),
+                ], array_slice($summary['warnings'], 0, 30))
+            );
+        }
+
         if (!empty($summary['failures'])) {
             $this->newLine();
             $this->line('Productos que NO se importaron:');

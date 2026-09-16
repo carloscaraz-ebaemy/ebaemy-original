@@ -32,6 +32,8 @@ class FalabellaImportService
     protected bool $withImages;
     protected bool $deferImages;
     protected int $imagesQueued = 0;
+    /** Avisos por producto: entró, pero con una salvedad que el usuario debe ver. */
+    protected array $warnings = [];
 
     /**
      * @param  bool  $withImages   Traer también las imágenes del producto.
@@ -81,6 +83,7 @@ class FalabellaImportService
         $products = $this->api->getProducts($params);
 
         $this->imagesQueued = 0;
+        $this->warnings = [];
 
         $summary = [
             'fetched'       => count($products),
@@ -91,6 +94,9 @@ class FalabellaImportService
             'failed'        => 0,
             'images_queued' => 0,
             'rows'          => [],
+            // Productos que SÍ entraron pero con una salvedad (sin precio en
+            // Saga, enlace roto, no publicable). Antes no se sabía nunca.
+            'warnings'      => [],
             // Detalle de lo que NO entró, para que el panel pueda mostrarlo.
             // Antes sólo existía el contador y el motivo moría en el log.
             'failures'      => [],
@@ -125,6 +131,7 @@ class FalabellaImportService
         }
 
             $summary['images_queued'] = $this->imagesQueued;
+            $summary['warnings'] = $this->warnings;
 
             return $summary;
         } finally {
@@ -139,14 +146,15 @@ class FalabellaImportService
     {
         $name = trim((string) data_get($p, 'Name', $sku));
 
-        // Datos de negocio (precio/stock) vienen en BusinessUnits. Se calculan
-        // primero para poder actualizar precios de productos ya importados.
-        $bu = data_get($p, 'BusinessUnits.BusinessUnit');
-        if (isset($bu[0])) $bu = $bu[0]; // si hay varias unidades de negocio, tomar la primera
+        // Datos de negocio (precio/stock) vienen en la unidad de negocio de
+        // Falabella — no en "la primera que venga" (un seller puede tener
+        // también Sodimac/Tottus, con otro precio y otro stock).
+        $bu = $this->resolveBusinessUnit($p);
 
         // Precio efectivo (oferta si está activa) + precio tachado + duración (from/until).
         [$price, $compareAt, $until, $from] = $this->resolvePrices($bu);
         $stock = (int) (data_get($bu, 'Stock') ?: 0);
+        $status = $this->resolveStatus($p, $bu);
 
         // 1) ¿Ya está enlazado este SellerSku? → ACTUALIZAR precios desde Saga
         //    (Saga es la fuente de verdad de precios/ofertas; no tocamos el stock).
@@ -154,26 +162,47 @@ class FalabellaImportService
             ->where('external_sku', $sku)
             ->first();
         if ($existingMapping) {
-            if (!$dryRun) {
-                $existing = Item::find($existingMapping->item_id);
-                if ($existing) {
-                    $existing->sale_unit_price = $price;
-                    $existing->compare_at_price = $compareAt;
-                    $existing->compare_at_from = $from;
-                    $existing->compare_at_until = $until;
-                    $existing->saveQuietly();
+            $existing = Item::find($existingMapping->item_id);
+
+            if ($existing) {
+                if (!$dryRun) {
+                    // Precio 0 = Saga no mandó precio. Pisarlo borraba el precio
+                    // real del producto en la tienda del tenant.
+                    if ($price > 0) {
+                        $existing->sale_unit_price = $price;
+                        $existing->compare_at_price = $compareAt;
+                        $existing->compare_at_from = $from;
+                        $existing->compare_at_until = $until;
+                        $existing->saveQuietly();
+                    } else {
+                        $this->warn($sku, $name, 'Saga no envió precio para este SKU: se conservó el precio que ya tenía el producto.');
+                    }
 
                     // Backfill de imágenes: los productos ya importados entraron
                     // con solo 1 imagen; aquí se completa la galería (idempotente).
                     $this->handleImages($existing, $p, $name, false);
                 }
+
+                return ['sku' => $sku, 'action' => 'updated', 'name' => $name, 'price' => $price, 'compare_at' => $compareAt, 'stock' => $stock];
             }
-            return ['sku' => $sku, 'action' => 'updated', 'name' => $name, 'price' => $price, 'compare_at' => $compareAt, 'stock' => $stock];
+
+            // Enlace huérfano: el producto se borró en EBAEMY pero el enlace quedó.
+            // Antes esto se contaba como "actualizado" sin hacer nada y el SKU no
+            // se volvía a importar NUNCA. Ahora se limpia y sigue el flujo normal.
+            if (!$dryRun) {
+                $existingMapping->delete();
+            }
+            $this->warn($sku, $name, 'El enlace apuntaba a un producto borrado; se vuelve a crear el producto.');
         }
 
         // 2) ¿Ya existe un item con ese SellerSku (item_code)? → enlazar sin crear.
         $item = Item::where('item_code', $sku)->first();
         $action = $item ? 'linked' : 'created';
+
+        // Sin precio no se crea: antes entraba a la tienda a S/ 0.00.
+        if (!$item && $price <= 0) {
+            throw new \RuntimeException('Saga no envió precio (Price/SpecialPrice) para este SKU; no se crea un producto sin precio.');
+        }
 
         if ($dryRun) {
             return [
@@ -185,14 +214,16 @@ class FalabellaImportService
 
         $isNew = !$item;
         if (!$item) {
-            $item = $this->createItem($p, $sku, $name, $price, $compareAt, $from, $until, $stock);
-        } else {
+            $item = $this->createItem($p, $sku, $name, $price, $compareAt, $from, $until, $stock, $status);
+        } elseif ($price > 0) {
             // El item existía sin enlace → actualizar también sus precios.
             $item->sale_unit_price = $price;
             $item->compare_at_price = $compareAt;
             $item->compare_at_from = $from;
             $item->compare_at_until = $until;
             $item->saveQuietly();
+        } else {
+            $this->warn($sku, $name, 'Saga no envió precio para este SKU: se conservó el precio que ya tenía el producto.');
         }
 
         // 3) Stock por almacén. Solo sembramos el stock de Saga en items NUEVOS;
@@ -219,6 +250,78 @@ class FalabellaImportService
         $this->handleImages($item, $p, $name, $action === 'created');
 
         return ['sku' => $sku, 'action' => $action, 'name' => $name, 'item_id' => $item->id, 'price' => $price, 'stock' => $stock];
+    }
+
+    /**
+     * Elige la unidad de negocio correcta del producto.
+     *
+     * Un seller puede vender en varias unidades del grupo (Falabella, Sodimac,
+     * Tottus) y cada una trae SU precio y SU stock. Tomar siempre la primera del
+     * array traía los datos de la tienda equivocada.
+     */
+    protected function resolveBusinessUnit(array $p)
+    {
+        $bu = data_get($p, 'BusinessUnits.BusinessUnit');
+
+        if (!isset($bu[0])) {
+            return $bu; // una sola unidad: viene como objeto suelto
+        }
+
+        foreach ($bu as $unit) {
+            $code = mb_strtolower((string) (
+                data_get($unit, 'OperatorCode')
+                ?: data_get($unit, 'BusinessUnit')
+                ?: data_get($unit, 'Name')
+                ?: ''
+            ));
+            // 'fa…' es el prefijo de los operadores Falabella (fape en Perú).
+            if (str_contains($code, 'falabella') || str_starts_with($code, 'fa')) {
+                return $unit;
+            }
+        }
+
+        return $bu[0];
+    }
+
+    /**
+     * Estado del producto en Saga. Puede venir en el producto o en su unidad
+     * de negocio, según la acción de la API.
+     */
+    protected function resolveStatus(array $p, $bu): string
+    {
+        return mb_strtolower(trim((string) (
+            data_get($p, 'Status')
+            ?: data_get($bu, 'Status')
+            ?: ''
+        )));
+    }
+
+    /**
+     * ¿Se puede publicar en la tienda del tenant? Sólo se bloquea lo que Saga
+     * marca explícitamente como no vendible; un estado desconocido o vacío se
+     * trata como publicable (no castigar datos que no entendemos).
+     *
+     * Ojo: 'sold-out' NO bloquea — es un producto vivo sin stock.
+     */
+    protected function isPublishable(string $status): bool
+    {
+        if ($status === '') {
+            return true;
+        }
+
+        foreach (['inactive', 'deleted', 'reject', 'disapprov'] as $blocked) {
+            if (str_contains($status, $blocked)) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /** Registra un aviso: el producto entró, pero con una salvedad visible. */
+    protected function warn(string $sku, string $name, string $message): void
+    {
+        $this->warnings[] = ['sku' => $sku, 'name' => $name, 'error' => $message];
     }
 
     /**
@@ -267,8 +370,15 @@ class FalabellaImportService
         return true;
     }
 
-    protected function createItem(array $p, string $sku, string $name, float $price, ?float $compareAt, ?string $from, ?string $until, int $stock): Item
+    protected function createItem(array $p, string $sku, string $name, float $price, ?float $compareAt, ?string $from, ?string $until, int $stock, string $status = ''): Item
     {
+        // Un producto que en Saga está inactivo / dado de baja / rechazado no
+        // debe entrar publicado en la tienda del tenant.
+        $publish = $this->isPublishable($status);
+        if (!$publish) {
+            $this->warn($sku, $name, "En Saga está en estado «{$status}»: se importó desactivado y fuera de la tienda.");
+        }
+
         $category = $this->resolveCategory((string) data_get($p, 'PrimaryCategory', ''));
         $brand    = $this->resolveBrand((string) data_get($p, 'Brand', ''));
         $variation = trim((string) data_get($p, 'Variation', ''));
@@ -296,11 +406,11 @@ class FalabellaImportService
         $item->item_code_gs1 = $ean ?: null;         // EAN / código de barras
         $item->stock = $stock;
         $item->stock_min = 0;
-        $item->active = true;
+        $item->active = $publish;
         $item->image = 'imagen-no-disponible.jpg';
         $item->image_medium = 'imagen-no-disponible.jpg';
         $item->image_small = 'imagen-no-disponible.jpg';
-        $item->apply_store = true;                   // visible en la tienda del tenant
+        $item->apply_store = $publish;               // visible en la tienda del tenant
         $item->mp_notes = mb_substr($rawDesc, 0, 5000) ?: null;
         $item->save();
 

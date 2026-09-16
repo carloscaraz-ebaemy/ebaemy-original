@@ -110,6 +110,15 @@
                     <span class="badge badge-danger" id="mp-import-failed">Fallidos: 0</span>
                     <span class="badge badge-primary" id="mp-import-images">Imágenes en cola: 0</span>
                 </div>
+                <div id="mp-import-warnings" class="mt-3" style="display:none">
+                    <div class="small font-weight-bold text-warning mb-1">Productos que entraron con una salvedad:</div>
+                    <div style="max-height:180px;overflow:auto">
+                        <table class="table table-sm table-bordered mb-0 small">
+                            <thead><tr><th style="width:28%">SellerSku</th><th style="width:30%">Nombre</th><th>Aviso</th></tr></thead>
+                            <tbody id="mp-import-warnings-body"></tbody>
+                        </table>
+                    </div>
+                </div>
                 <div id="mp-import-failures" class="mt-3" style="display:none">
                     <div class="small font-weight-bold text-danger mb-1">Productos que no se importaron:</div>
                     <div style="max-height:220px;overflow:auto">
@@ -455,21 +464,22 @@ document.addEventListener('DOMContentLoaded', function(){
         var batchTries = 0;          // reintentos del lote actual
         var MAX_BATCH_TRIES = 3;
 
-        // Limpiar la tabla de fallos de una corrida anterior.
+        // Limpiar las tablas de fallos/avisos de una corrida anterior.
         document.getElementById('mp-import-failures').style.display = 'none';
         document.getElementById('mp-import-failures-body').innerHTML = '';
+        document.getElementById('mp-import-warnings').style.display = 'none';
+        document.getElementById('mp-import-warnings-body').innerHTML = '';
 
         function esc(t){ var d = document.createElement('div'); d.textContent = t == null ? '' : String(t); return d.innerHTML; }
 
-        function addFailures(list){
+        function addRows(list, bodyId, wrapId, cls){
             if (!list || !list.length) return;
-            var body = document.getElementById('mp-import-failures-body');
             var html = '';
             for (var i = 0; i < list.length; i++) {
-                html += '<tr><td><code>' + esc(list[i].sku) + '</code></td><td>' + esc(list[i].name) + '</td><td class="text-danger">' + esc(list[i].error) + '</td></tr>';
+                html += '<tr><td><code>' + esc(list[i].sku) + '</code></td><td>' + esc(list[i].name) + '</td><td class="' + cls + '">' + esc(list[i].error) + '</td></tr>';
             }
-            body.insertAdjacentHTML('beforeend', html);
-            document.getElementById('mp-import-failures').style.display = 'block';
+            document.getElementById(bodyId).insertAdjacentHTML('beforeend', html);
+            document.getElementById(wrapId).style.display = 'block';
         }
 
         function setBadges(){
@@ -542,7 +552,8 @@ document.addEventListener('DOMContentLoaded', function(){
                 totals.images  += data.images_queued||0;
                 totals.processed += data.fetched||0;
                 totalFetchedSoFar += data.fetched||0;
-                addFailures(data.failures);
+                addRows(data.failures, 'mp-import-failures-body', 'mp-import-failures', 'text-danger');
+                addRows(data.warnings, 'mp-import-warnings-body', 'mp-import-warnings', 'text-warning');
                 setBadges();
 
                 // No conocemos el total exacto de antemano: barra animada (indeterminada)
