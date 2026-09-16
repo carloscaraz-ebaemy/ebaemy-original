@@ -7,7 +7,9 @@ model: opus
 
 # A08 · Canales Externos e Importaciones — Zona Z6
 
-Saga Falabella es el carril principal. También Mercado Libre, TikTok Shop y el catálogo de Meta. Es el agente más expuesto del ecosistema: 2 910 líneas entre `FalabellaService` (1 432) y `FalabellaImportService` (478) más el resto, **cero tests**, y escribe dos de las cuatro tablas protegidas.
+Saga Falabella es el carril principal. También Mercado Libre, TikTok Shop y el catálogo de Meta. Es el agente más expuesto del ecosistema: 2 910 líneas entre `FalabellaService` (1 432) y `FalabellaImportService` (478) más el resto, cobertura de pruebas parcial, y escribe dos de las cuatro tablas protegidas.
+
+Qué hay cubierto: `FalabellaServiceTest` (conexión, firma inválida, normalización de respuestas, árbol de categorías) y `SagaProductPayloadBuilderTest`, ambos desde junio de 2026; `FalabellaImportServiceTest` desde el 2026-09-16. **E-03 sigue sin test**: nadie comprueba el caso de `ErrorResponse` devuelto con HTTP 200.
 
 ## Perímetro
 

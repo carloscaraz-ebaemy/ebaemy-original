@@ -46,7 +46,7 @@ Nota de entorno: la base `tenancy_importaloya` **no pertenece a este código** �
 
 ## Deuda de cobertura, en orden
 
-1. **A08 Canales externos** — `FalabellaService` (1 432 líneas) y `FalabellaImportService` (478) con **cero tests**, y es lo que más ha cambiado. Casos mínimos: `ErrorResponse` con HTTP 200 (E-03), producto sin precio, enlace huérfano, duplicado por `item_code`, producto de baja, paginación con `Offset`.
+1. **A08 Canales externos** — cobertura parcial y es lo que más ha cambiado. Existen `FalabellaServiceTest` y `SagaProductPayloadBuilderTest` (junio 2026) y `FalabellaImportServiceTest` (2026-09-16). **Sigue sin cubrir el caso de E-03: `ErrorResponse` devuelto con HTTP 200**, que es el fallo más caro de la integración porque no deja rastro. Otros huecos: paginación con `Offset` que no avanza, y el almacén de destino según el usuario logueado.
 2. **A05 Ventas y comprobantes** — el stack de emisión tampoco tiene ninguno, y su riesgo es legal.
 3. **A02 Inventario** — 177 puntos de escritura con dos verdades posibles de stock.
 

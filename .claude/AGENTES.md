@@ -146,7 +146,7 @@ Cualquier agente puede leer este fichero cuando necesite el mapa completo.
 | E-12 | Logística | `logistics.manage_couriers` no existe en el catálogo de permisos | MEDIA | A17 |
 | E-13 | Marketplace | `marketplace_products` sin índice único (channel_id, external_sku) | MEDIA | A16 |
 | E-14 | Envíos | Consulta pública de RUC/DNI contra servicio de pago | MEDIA | A17 |
-| E-15 | Saga | Cero tests sobre 2 910 líneas de integración | MEDIA | A18 |
+| E-15 | Saga | Cobertura parcial: `FalabellaService` y `SagaProductPayloadBuilder` sí tienen test desde 2026-06-19; `FalabellaImportService` no tuvo ninguno hasta el 2026-09-16. E-03 sigue sin cubrir | MEDIA | A18 |
 | E-16 | BD | 3 migraciones registradas sin fichero | MEDIA | A16 |
 | E-17 | Infra | Caché y sesión en `file` con Redis disponible | MEDIA | A19 |
 | E-18 | Código | `sale_notes copy/` y 8 ficheros `.bak`/`_old` | BAJA | dueño de cada zona |
