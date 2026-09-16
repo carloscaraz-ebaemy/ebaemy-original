@@ -309,6 +309,72 @@ class OrderDocumentsTest extends TestCase
     }
 
     /** @test */
+    public function el_pedido_anulado_no_emite_nada()
+    {
+        $order = $this->pedidoDeVenta(['status_order_id' => 5]);
+
+        $this->assertStringContainsString(
+            'anulado',
+            $this->docs($order)[OrderDocuments::NOTA_VENTA]['bloqueo']
+        );
+        $this->assertStringContainsString(
+            'anulado',
+            $this->docs($order)[OrderDocuments::BOLETA]['bloqueo']
+        );
+    }
+
+    /** @test */
+    public function el_envio_anulado_cierra_lo_comercial()
+    {
+        // El caso que de verdad ocurre en produccion: el pedido sigue VIVO y lo
+        // que se anula es el envio. Mirando solo `status_order_id = 5` el
+        // bloqueo no se activaba, y la pantalla lo escondia pero el endpoint
+        // `/orders/{id}/nota-venta` seguia emitiendo. Ver `Order::envioAnulado`.
+        $envio = new ShippingRequest([
+            'delivery_type' => ShippingRequest::DELIVERY_DOMICILIO,
+            'full_name'     => 'Cliente',
+            'cancelled_at'  => now(),
+        ]);
+        $order = $this->pedidoDeVenta();
+        $order->setRelation('shipment', $envio);
+
+        foreach ([OrderDocuments::NOTA_VENTA, OrderDocuments::BOLETA] as $tipo) {
+            $this->assertStringContainsString(
+                'envío de este pedido está anulado',
+                $this->docs($order)[$tipo]['bloqueo'],
+                $tipo
+            );
+        }
+    }
+
+    /** @test */
+    public function el_envio_anulado_no_arrastra_a_la_guia_la_frase_comercial()
+    {
+        // La guia queda FUERA del corte comercial a proposito. Con el envio
+        // anulado y sin guia emitida el tipo ni siquiera aplica —`guiaAplica()`
+        // consulta `canGenerateDispatch()`— asi que el chip no se dibuja, que es
+        // la regla de la casa: un tipo que no corresponde no se pinta.
+        //
+        // Lo que se protege aqui es que el corte comercial NO se cuele en su
+        // sitio: decir «no hay entrega que documentar» sobre el documento que
+        // describe precisamente el traslado seria el mensaje equivocado.
+        $envio = new ShippingRequest([
+            'delivery_type'        => ShippingRequest::DELIVERY_DOMICILIO,
+            'full_name'            => 'Cliente',
+            'phone'                => '999999999',
+            'dni'                  => '44556677',
+            'district_id'          => '150101',
+            'shipping_destination' => 'Av. Siempre Viva 742',
+            'package_content'      => 'Dos cajas de polos',
+            'cancelled_at'         => now(),
+        ]);
+        $order = $this->pedidoDeVenta();
+        $order->setRelation('shipment', $envio);
+
+        $this->assertNull($this->docs($order)[OrderDocuments::GUIA]);
+    }
+
+    /** @test */
     public function el_recojo_en_tienda_no_lleva_guia()
     {
         // El paquete no viaja a un destinatario externo: lo retira el propio

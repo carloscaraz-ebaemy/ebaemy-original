@@ -142,8 +142,37 @@ class OrderDocuments
             return 'Este pedido no admite ' . mb_strtolower(self::NOMBRE[$tipo] ?? $tipo) . '.';
         }
 
-        if ($this->order->status_order_id == 5) {
-            return 'El pedido está anulado.';
+        // El pedido anulado cierra TODO. Se pregunta al modelo y no se compara
+        // con el 5 a mano: la regla de «este pedido esta cerrado» vive en
+        // `Order` y la comparten los cobros, la edicion y el rotulo. Con la
+        // comparacion suelta aqui, el dia que la regla cambie este servicio se
+        // queda con la version vieja sin que nada lo delate.
+        if ($motivo = $this->order->motivoBloqueoLogistico()) {
+            return $motivo;
+        }
+
+        // El envio anulado cierra lo COMERCIAL del pedido —la entrega se cayo,
+        // asi que no hay venta que documentar— pero no la logistica: rehacer el
+        // envio sigue disponible y es justo como se corrige uno mal hecho.
+        //
+        // La guia se queda fuera a proposito: tiene su propio motivo en
+        // `bloqueoGuia()`, que dice exactamente que hacer («Restauralo antes de
+        // generar la guia») en vez de la frase generica.
+        //
+        // Esto FALTABA, y no era teorico: la pantalla ya lo bloqueaba
+        // (`estaCerrado` en el listado), pero el servidor no. Un POST a
+        // `/orders/{id}/nota-venta` emitia la nota de un pedido cuyo envio
+        // estaba anulado, saltandose la pantalla entera. Y en produccion ese es
+        // el caso que ocurre: las dos anulaciones casi nunca se solapan — se
+        // anula el ENVIO y el pedido se queda vivo.
+        //
+        // Se mira la relacion YA CARGADA (`envio()`) y NO `Order::envioAnulado()`,
+        // que consulta la base cuando no viene precargada: este servicio corre
+        // una vez POR FILA del listado, y ahi eso serian 20 consultas por
+        // pagina. Es la misma regla que sigue el resto de la clase.
+        if ($tipo !== self::GUIA && optional($this->envio())->is_cancelled) {
+            return 'El envío de este pedido está anulado: no hay entrega que documentar. '
+                 . 'Restaura el envío o configura uno nuevo.';
         }
 
         if ($existente = $this->registro($tipo)) {
