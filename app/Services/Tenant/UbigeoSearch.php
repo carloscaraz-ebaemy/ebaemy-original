@@ -221,6 +221,11 @@ class UbigeoSearch
             'province_id'   => $d['province_id'],
             'department_id' => $d['department_id'],
             'name'          => $d['name'],
+            // Nombres sueltos ademas del `context` ya armado: la UI necesita
+            // rotular la vista de distritos al abrir una provincia, y sacarlos
+            // partiendo la cadena por el punto medio seria pedir un bug.
+            'province_name'   => $d['province_name'],
+            'department_name' => $d['department_name'],
             'context'       => 'Distrito · ' . $d['province_name'] . ' · ' . $d['department_name'],
             // `label` es el contrato que ya consume el widget actual.
             'label'         => $d['name'] . ' — ' . $d['province_name'] . ', ' . $d['department_name'],
@@ -250,7 +255,9 @@ class UbigeoSearch
             'district_id'    => $capital,
             'province_id'    => $p['id'],
             'department_id'  => $p['department_id'],
-            'name'           => $p['name'],
+            'name'            => $p['name'],
+            'province_name'   => $p['name'],
+            'department_name' => $depName,
             'context'        => 'Provincia · ' . $depName,
             'label'          => $p['name'] . ' (provincia) — ' . $depName,
             'group'          => $p['id'],
@@ -273,7 +280,9 @@ class UbigeoSearch
             'district_id'    => null,
             'province_id'    => null,
             'department_id'  => $dep['id'],
-            'name'           => $dep['name'],
+            'name'            => $dep['name'],
+            'province_name'   => null,
+            'department_name' => $dep['name'],
             'context'        => 'Departamento',
             'label'          => $dep['name'] . ' (departamento)',
             'group'          => $dep['id'],

@@ -507,6 +507,8 @@ if ($hostname) {
                  ->name('orders.shipping.provinces');
             Route::get('orders/ubigeo/distritos/{province}', [\App\Http\Controllers\Tenant\ShipmentController::class, 'districts'])
                  ->name('orders.shipping.districts');
+            Route::get('orders/ubigeo/buscar', [\App\Http\Controllers\Tenant\ShipmentController::class, 'searchUbigeo'])
+                 ->name('orders.shipping.ubigeo_search');
 
             // ── Las cuatro pantallas que se mudan de «Registro de Envios» ──
             //

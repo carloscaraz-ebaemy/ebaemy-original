@@ -1566,7 +1566,7 @@
           <div class="row g-3 nv-agencia">
             <div class="col-12"><label class="form-label">Ubigeo (Departamento / Provincia / Distrito) <span class="text-danger">*</span></label>
               <div class="ubigeo-field" data-ubigeo-group="nv">
-                <div class="ubigeo-display" tabindex="0">Seleccionar departamento / provincia / distrito…</div>
+                <div class="ubigeo-display" tabindex="0">Busca ciudad, provincia o distrito…</div>
                 <input type="hidden" name="department_id" data-ub="department">
                 <input type="hidden" name="province_id"   data-ub="province">
                 <input type="hidden" name="district_id"   data-ub="district">
@@ -1712,7 +1712,7 @@
           <div class="row g-3 ed-agencia">
             <div class="col-12"><label class="form-label">Ubigeo (Departamento / Provincia / Distrito) <span class="text-danger">*</span></label>
               <div class="ubigeo-field" data-ubigeo-group="ed">
-                <div class="ubigeo-display" tabindex="0">Seleccionar departamento / provincia / distrito…</div>
+                <div class="ubigeo-display" tabindex="0">Busca ciudad, provincia o distrito…</div>
                 <input type="hidden" name="department_id" data-ub="department">
                 <input type="hidden" name="province_id"   data-ub="province">
                 <input type="hidden" name="district_id"   data-ub="district">

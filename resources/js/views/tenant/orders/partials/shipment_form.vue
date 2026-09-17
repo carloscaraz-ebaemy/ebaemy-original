@@ -93,6 +93,41 @@
                     <el-select v-model="form.shipping_agency" filterable allow-create placeholder="Agencia">
                         <el-option v-for="a in catalogs.agencies" :key="a" :label="a" :value="a" />
                     </el-select>
+                </div>
+
+                <!-- Destino. Antes eran tres selectores encadenados y el
+                     operador tenía que saber Piura → Talara → Pariñas antes de
+                     poder elegir. Ahora escribe el nombre que conoce; la
+                     cascada sigue ahí, plegada, para quien la prefiera. -->
+                <el-select
+                    v-model="form.district_id"
+                    class="mt-2 ord-ship-ubigeo"
+                    filterable
+                    remote
+                    clearable
+                    :remote-method="searchUbigeo"
+                    :loading="ubigeoLoading"
+                    placeholder="¿A dónde enviamos? Busca ciudad, provincia o distrito…"
+                    :no-data-text="ubigeoQuery.length < 2 ? 'Escribe al menos 2 letras' : 'No encontramos “' + ubigeoQuery + '”. Revisa la escritura o elige manualmente.'"
+                    no-match-text="Sin coincidencias"
+                    @change="onUbigeoPick"
+                >
+                    <el-option
+                        v-for="r in ubigeoResults"
+                        :key="r.district_id"
+                        :label="r.name + ' — ' + r.province_name + ', ' + r.department_name"
+                        :value="r.district_id"
+                    >
+                        <span class="ord-ub-name">{{ r.name }}</span>
+                        <span class="ord-ub-ctx">{{ r.context }}</span>
+                    </el-option>
+                </el-select>
+
+                <div class="ord-ub-manual-link" @click="showManualUbigeo = !showManualUbigeo">
+                    {{ showManualUbigeo ? '▴ Ocultar' : '▾ O elegir por' }}
+                    departamento → provincia → distrito
+                </div>
+                <div v-show="showManualUbigeo" class="ord-ship-grid">
                     <el-select v-model="form.department_id" placeholder="Departamento" @change="onDepartment">
                         <el-option
                             v-for="d in catalogs.departments"
@@ -197,6 +232,13 @@ export default {
             errors: [],
             provinces: [],
             districts: [],
+            // Buscador de destino: resultados que vienen del servidor y el
+            // texto tecleado, que hace falta para poder decirle al operador
+            // QUÉ fue lo que no se encontró.
+            ubigeoResults: [],
+            ubigeoQuery: "",
+            ubigeoLoading: false,
+            showManualUbigeo: false,
             catalogs: {
                 delivery_types: {},
                 statuses: {},
@@ -309,6 +351,13 @@ export default {
                 // vacíos aunque el valor esté puesto.
                 if (this.form.department_id) await this.loadProvinces(this.form.department_id);
                 if (this.form.province_id) await this.loadDistricts(this.form.province_id);
+
+                // El buscador es un `remote`: sin una opción cargada, el
+                // destino guardado se vería como un campo vacío aunque el
+                // `district_id` esté puesto.
+                this.ubigeoQuery = "";
+                this.showManualUbigeo = false;
+                this.seedUbigeo();
             } catch (e) {
                 this.$message.error("No se pudo cargar el envío del pedido.");
             } finally {
@@ -326,6 +375,86 @@ export default {
             return out;
         },
 
+        /**
+         * Busca en departamento, provincia y distrito a la vez. El endpoint
+         * sin `v=2` devuelve SÓLO distritos —una provincia arrastra a los
+         * suyos—, así que toda opción de la lista se puede elegir: aquí no
+         * hay forma de navegar hacia dentro como en el widget del panel.
+         */
+        async searchUbigeo(query) {
+            this.ubigeoQuery = (query || "").trim();
+
+            if (this.ubigeoQuery.length < 2) {
+                this.ubigeoResults = [];
+                return;
+            }
+
+            this.ubigeoLoading = true;
+            try {
+                const { data } = await this.$http.get("/orders/ubigeo/buscar", {
+                    params: { q: this.ubigeoQuery },
+                });
+                this.ubigeoResults = data || [];
+            } catch (e) {
+                this.ubigeoResults = [];
+            } finally {
+                this.ubigeoLoading = false;
+            }
+        },
+
+        /**
+         * El backend vuelve a derivar provincia y departamento del distrito,
+         * pero el formulario tiene que quedar coherente YA: si no, la cascada
+         * manual muestra un departamento que no corresponde al distrito
+         * elegido y el resumen miente hasta guardar.
+         */
+        async onUbigeoPick(districtId) {
+            if (!districtId) {
+                this.form.province_id = "";
+                this.form.department_id = "";
+                this.form.destination_city = "";
+                return;
+            }
+
+            const r = this.ubigeoResults.find(x => x.district_id === districtId);
+            if (!r) return;
+
+            this.form.department_id = r.department_id;
+            this.form.province_id = r.province_id;
+            this.form.destination_city = r.name;
+
+            // Rellenar las listas de la cascada para que, si el operador la
+            // despliega, vea su propia selección y no unos selectores vacíos.
+            await this.loadProvinces(r.department_id);
+            await this.loadDistricts(r.province_id);
+        },
+
+        /** Deja el buscador mostrando el destino ya guardado, no un hueco. */
+        seedUbigeo() {
+            if (!this.form.district_id) {
+                this.ubigeoResults = [];
+                return;
+            }
+
+            const d = this.districts.find(x => x.id === this.form.district_id);
+            const p = this.provinces.find(x => x.id === this.form.province_id);
+            const dep = (this.catalogs.departments || []).find(
+                x => x.id === this.form.department_id
+            );
+
+            if (!d) return;
+
+            this.ubigeoResults = [{
+                district_id: d.id,
+                province_id: this.form.province_id,
+                department_id: this.form.department_id,
+                name: d.description,
+                province_name: p ? p.description : "",
+                department_name: dep ? dep.description : "",
+                context: "Distrito · " + (p ? p.description : "") + " · " + (dep ? dep.description : ""),
+            }];
+        },
+
         async onDepartment(id) {
             this.form.province_id = "";
             this.form.district_id = "";
@@ -341,6 +470,10 @@ export default {
         onDistrict(id) {
             const found = this.districts.find(d => d.id === id);
             if (found) this.form.destination_city = found.description;
+            // Los dos selectores comparten `form.district_id`: si se elige por
+            // la cascada, el buscador tiene que tener esa opción cargada o
+            // muestra el código crudo en vez del nombre.
+            this.seedUbigeo();
         },
 
         async loadProvinces(departmentId) {
@@ -500,6 +633,33 @@ export default {
 }
 .mt-2 {
     margin-top: 8px;
+}
+
+/* Buscador de destino. Hay 99 nombres de distrito repetidos en el catálogo
+   ("Santa Rosa" está 10 veces): la segunda línea con provincia y departamento
+   no es decoración, es lo que permite elegir el correcto. */
+.ord-ship-ubigeo {
+    width: 100%;
+}
+.ord-ub-name {
+    float: left;
+    font-weight: 600;
+}
+.ord-ub-ctx {
+    float: right;
+    margin-left: 18px;
+    color: #94a3b8;
+    font-size: 12px;
+}
+.ord-ub-manual-link {
+    margin-top: 6px;
+    font-size: 12px;
+    color: #64748b;
+    cursor: pointer;
+    user-select: none;
+}
+.ord-ub-manual-link:hover {
+    color: #4f46e5;
 }
 
 /* Móvil: el modal ocupa la pantalla y los campos van a una columna. */

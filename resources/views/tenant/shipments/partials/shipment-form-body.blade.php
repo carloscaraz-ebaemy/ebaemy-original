@@ -152,9 +152,9 @@
 
                     {{-- ─────── Rama AGENCIA (ubigeo) ─────── --}}
                     <div class="branch-agencia" hidden>
-                        <label class="req">Destino (Departamento / Provincia / Distrito)</label>
+                        <label class="req">¿A dónde enviamos el paquete?</label>
                         <div class="ubigeo-field" data-ubigeo-group="{{ $ubGroup }}">
-                            <div class="ubigeo-display" tabindex="0">Seleccionar departamento / provincia / distrito…</div>
+                            <div class="ubigeo-display" tabindex="0">Busca ciudad, provincia o distrito…</div>
                             <input type="hidden" name="department_id" data-ub="department">
                             <input type="hidden" name="province_id"   data-ub="province">
                             <input type="hidden" name="district_id"   data-ub="district">
