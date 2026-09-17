@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Tenant\Catalogs\Department;
 use App\Models\Tenant\Catalogs\District;
 use App\Models\Tenant\Catalogs\Province;
+use App\Services\Tenant\UbigeoSearch;
 use App\Models\System\MarketplaceListing;
 use App\Models\Tenant\Raffle;
 use App\Models\Tenant\RaffleParticipant;
@@ -1327,34 +1328,32 @@ class ShipmentController extends Controller
     }
 
     /**
-     * Ubigeo: búsqueda por texto (distrito). Devuelve el ubigeo completo con
-     * su ruta legible, para el input de búsqueda del cascader. Público.
+     * Ubigeo: búsqueda por texto sobre los TRES niveles.
+     *
+     * Antes miraba sólo `districts`, y por eso "Talara" —que es una
+     * PROVINCIA de Piura, no un distrito— devolvía "Sin resultados" y
+     * obligaba al cliente a saber Piura → Talara → Pariñas antes de poder
+     * elegir. Ahora la búsqueda entra por cualquier nivel y siempre termina
+     * ofreciendo distritos, que es lo que el envío necesita guardar.
+     *
+     * `?v=2` añade las filas de provincia y departamento para agruparlas en
+     * la interfaz. Sin ese flag responde sólo distritos, que es el único
+     * tipo de fila que el widget actual sabe seleccionar: así el cambio de
+     * backend no puede romper la pantalla que ya está en producción.
+     *
+     * Público.
      */
     public function searchUbigeo(Request $request)
     {
-        $q = trim((string) $request->input('q', ''));
-        if (mb_strlen($q) < 2) {
-            return response()->json([]);
-        }
+        $agrupado = $request->input('v') === '2';
 
-        $rows = District::with('province.department')
-            ->where('description', 'like', "%{$q}%")
-            ->orderBy('description')
-            ->limit(25)
-            ->get();
-
-        return response()->json($rows->map(function ($d) {
-            $prov = $d->province;
-            $dep  = $prov ? $prov->department : null;
-            return [
-                'district_id'   => $d->id,
-                'province_id'   => $d->province_id,
-                'department_id' => $dep ? $dep->id : null,
-                'label'         => $d->description
-                    . ' — ' . ($prov ? $prov->description : '')
-                    . ', ' . ($dep ? $dep->description : ''),
-            ];
-        })->values());
+        return response()->json(
+            UbigeoSearch::search(
+                (string) $request->input('q', ''),
+                $agrupado ? 20 : UbigeoSearch::DEFAULT_LIMIT,
+                $agrupado
+            )
+        );
     }
 
     /** Editar los datos de un envío (mismo set de reglas que el alta). */
@@ -3697,7 +3696,16 @@ class ShipmentController extends Controller
                 'destination_city'     => 'nullable|string|max:120',
                 'department_id'        => 'nullable|string|max:2',
                 'province_id'          => 'nullable|string|max:4',
-                'district_id'          => 'required|string|max:6',
+                // El distrito tiene que EXISTIR, no sólo parecerlo. Con
+                // `string|max:6` un POST manipulado guardaba `district_id`
+                // inventado y, como abajo `District::find()` no encontraba
+                // nada, provincia y departamento quedaban en NULL sin que
+                // nadie se enterara: el rótulo salía sin destino.
+                'district_id'          => ['required', 'string', 'max:6', function ($attr, $value, $fail) {
+                    if (!District::find($value)) {
+                        $fail('El distrito de destino no existe en el catálogo de ubigeo.');
+                    }
+                }],
                 'shipping_agency'      => 'required|string|max:120',
             ];
         }
