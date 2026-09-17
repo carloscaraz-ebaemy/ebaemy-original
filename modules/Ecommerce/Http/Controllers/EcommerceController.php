@@ -2295,7 +2295,13 @@ class EcommerceController extends Controller
      */
     public function ubigeoSearch()
     {
-        $data = \Illuminate\Support\Facades\Cache::remember('ubigeo_flat_list', 86400, function () {
+        // El catalogo de ubigeo vive en la base de CADA tenant y ya diverge
+        // entre ellas. Con la clave sin tenant, el primero que entraba dejaba
+        // su catalogo cacheado y los demas recibian ESE durante 24 horas.
+        // Mismo prefijo por tenant que el resto de cachés de este controlador.
+        $tenantUuid = app(\Hyn\Tenancy\Environment::class)->tenant()?->uuid ?? 'default';
+
+        $data = \Illuminate\Support\Facades\Cache::remember('ec_' . $tenantUuid . '_ubigeo_flat_list', 86400, function () {
             return \DB::connection('tenant')
                 ->table('districts')
                 ->join('provinces', 'districts.province_id', '=', 'provinces.id')
