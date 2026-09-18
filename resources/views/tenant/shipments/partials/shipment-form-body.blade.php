@@ -47,6 +47,16 @@
                     <span class="tag ag" id="tag-ag" hidden>📦 Envío por agencia · PROVINCIA</span>
                     <span class="tag tienda" id="tag-tienda" hidden>🏬 Recojo en tienda</span>
 
+                    <div class="step-head">
+                        <h2 class="step-h">Tus datos</h2>
+                        <p class="step-sub">Para saber a nombre de quién va el pedido y cómo avisarte.</p>
+                    </div>
+
+                    <div class="err-sum" id="{{ $p }}errsum_datos" hidden>
+                        <div class="err-sum__t">Revisa tu información</div>
+                        <ul class="err-sum__l"></ul>
+                    </div>
+
                     <label>Documento</label>
                     <div class="doc-types">
                         @foreach(\App\Models\Tenant\ShippingRequest::DOC_TYPES as $dv => $dl)
@@ -109,6 +119,30 @@
                         <small class="hint" id="{{ $p }}pickup_err" hidden style="color:#dc2626;"></small>
                     </div>
 
+                    <div class="row-btns">
+                        <button type="button" class="btn btn-ghost" id="backStep0">&larr; Volver</button>
+                        <button type="button" class="btn" id="toStepDest">Continuar &rarr;</button>
+                    </div>
+                </div>
+
+                {{-- ══════════ PASO 2: A donde llega ══════════
+                     Antes vivia dentro del paso de datos, asi que el cliente
+                     recibia de golpe documento, nombre, celular, direccion,
+                     mapa, agencia y costos en una sola pantalla. Partido en
+                     dos, cada paso cabe en un movil sin scroll infinito. --}}
+                <div class="step" data-step="2" hidden>
+                    <div class="step-head">
+                        <h2 class="step-h">¿A dónde llega tu pedido?</h2>
+                        <p class="step-sub" id="{{ $p }}dest_sub">Completa los datos de la entrega.</p>
+                    </div>
+
+                    {{-- Resumen de lo que falta. Se llena desde el JS al pulsar
+                         Continuar: cada linea lleva al campo que la origina. --}}
+                    <div class="err-sum" id="{{ $p }}errsum_dest" hidden>
+                        <div class="err-sum__t">Revisa tu información</div>
+                        <ul class="err-sum__l"></ul>
+                    </div>
+
                     {{-- ─────── Rama DOMICILIO (Google Maps) ─────── --}}
                     <div class="branch-domicilio" hidden>
                         {{-- Un solo campo de dirección: es el buscador de Google Y el
@@ -148,6 +182,7 @@
 
                         <label>Referencia e indicaciones</label>
                         <input type="text" name="reference" id="{{ $p }}reference_dom" value="{{ old('reference') }}" maxlength="255" placeholder="Dpto 302, portón negro, frente al parque…">
+                        <small class="hint">Ayuda al motorizado a encontrarte: frente al parque principal, al costado de la farmacia, portón verde…</small>
                     </div>
 
                     {{-- ─────── Rama AGENCIA (ubigeo) ─────── --}}
@@ -273,27 +308,45 @@
                     </div>
 
                     <div class="row-btns">
-                        <button type="button" class="btn btn-ghost" id="backStep0">← Volver</button>
-                        <button type="button" class="btn" id="toStep2">Continuar →</button>
+                        <button type="button" class="btn btn-ghost" id="backStepDatos">&larr; Volver</button>
+                        <button type="button" class="btn" id="toStep2">Continuar &rarr;</button>
                     </div>
                 </div>
 
-                {{-- ══════════ PASO 2: Confirmación ══════════ --}}
-                <div class="step" data-step="2" hidden>
+                {{-- ══════════ PASO 3: Confirmación ══════════ --}}
+                <div class="step" data-step="3" hidden>
                     <div class="conf">
                         <div class="h" id="c_type_h">Resumen</div>
-                        <div class="rows">
-                            <div class="r"><span class="k">Tipo de entrega</span><span class="v" id="c_type">—</span></div>
-                            <div class="r"><span class="k">Nombre</span><span class="v" id="c_name">—</span></div>
-                            <div class="r"><span class="k">Documento</span><span class="v" id="c_doc">—</span></div>
-                            <div class="r"><span class="k">Celular</span><span class="v" id="c_phone">—</span></div>
-                            <div class="r" id="r_pickup"><span class="k">Recoge</span><span class="v" id="c_pickup">—</span></div>
-                            <div class="r" id="r_ubigeo"><span class="k">Ubigeo</span><span class="v" id="c_ubigeo">—</span></div>
-                            <div class="r"><span class="k">Dirección</span><span class="v" id="c_dir">—</span></div>
-                            <div class="r"><span class="k" id="k_ref">Referencia</span><span class="v" id="c_ref">—</span></div>
-                            <div class="r" id="r_ag"><span class="k">Agencia</span><span class="v" id="c_ag">—</span></div>
-                            <div class="r" id="r_coords"><span class="k">Ubicación GPS</span><span class="v" id="c_coords">—</span></div>
-                            <div class="r" id="r_price"><span class="k">Costo aprox. de envío</span><span class="v" id="c_price" style="color:#059669;">—</span></div>
+
+                        {{-- Dos secciones y no una lista corrida: cada una vuelve
+                             al paso que la llena, para corregir sin rehacer. --}}
+                        <div class="conf-sec">
+                            <div class="conf-sec__h">
+                                <span>Tus datos</span>
+                                <button type="button" class="conf-edit" data-edit-step="1">✏️ Editar</button>
+                            </div>
+                            <div class="rows">
+                                <div class="r"><span class="k">Tipo de entrega</span><span class="v" id="c_type">—</span></div>
+                                <div class="r"><span class="k">Nombre</span><span class="v" id="c_name">—</span></div>
+                                <div class="r"><span class="k">Documento</span><span class="v" id="c_doc">—</span></div>
+                                <div class="r"><span class="k">Celular</span><span class="v" id="c_phone">—</span></div>
+                                <div class="r" id="r_pickup"><span class="k">Recoge</span><span class="v" id="c_pickup">—</span></div>
+                            </div>
+                        </div>
+
+                        <div class="conf-sec">
+                            <div class="conf-sec__h">
+                                <span id="conf_sec_entrega">Entrega</span>
+                                <button type="button" class="conf-edit" data-edit-step="2">✏️ Editar</button>
+                            </div>
+                            <div class="rows">
+                                <div class="r" id="r_ubigeo"><span class="k">Ubigeo</span><span class="v" id="c_ubigeo">—</span></div>
+                                <div class="r"><span class="k">Dirección</span><span class="v" id="c_dir">—</span></div>
+                                <div class="r"><span class="k" id="k_ref">Referencia</span><span class="v" id="c_ref">—</span></div>
+                                <div class="r" id="r_ag"><span class="k">Agencia</span><span class="v" id="c_ag">—</span></div>
+                                <div class="r" id="r_coords"><span class="k">Ubicación GPS</span><span class="v" id="c_coords">—</span></div>
+                                <div class="r" id="r_price"><span class="k">Costo aprox. de envío</span><span class="v" id="c_price" style="color:#059669;">—</span></div>
+                            </div>
                         </div>
                         {{-- Se repite aca a proposito: el paso 1 se llena rapido
                              y este es el momento en que el cliente confirma. --}}

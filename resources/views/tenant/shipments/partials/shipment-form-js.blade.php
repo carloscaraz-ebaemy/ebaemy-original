@@ -12,9 +12,10 @@
     if (!form) return;
     var dtInput = document.getElementById('delivery_type');
     var stepper = document.getElementById('stepper');
-    var step0 = document.querySelector('.step[data-step="0"]');
-    var step1 = document.querySelector('.step[data-step="1"]');
-    var step2 = document.querySelector('.step[data-step="2"]');
+    var step0 = document.querySelector('.step[data-step="0"]');   // tipo de entrega
+    var step1 = document.querySelector('.step[data-step="1"]');   // tus datos
+    var stepD = document.querySelector('.step[data-step="2"]');   // a donde llega
+    var step2 = document.querySelector('.step[data-step="3"]');   // revisa y confirma
     var branchDom = document.querySelector('.branch-domicilio');
     var branchAg = document.querySelector('.branch-agencia');
     var branchTienda = document.querySelector('.branch-tienda');
@@ -55,6 +56,9 @@
             syncRequired();
             hide(step0); show(step1); step1.classList.add('fade-in');
             setStep(2);
+            ajustarPasoDestino();
+            progreso();
+            guardarBorrador();
             if (isDom && window.__initShipMapIfReady) window.__initShipMapIfReady();
         });
     });
@@ -248,81 +252,193 @@
     if (cfNew) cfNew.addEventListener('click', function () { if (found) found.hidden = true; });
 
     // ── Validación Paso 1 ──
-    function validStep1() {
-        var ok = true;
-        var name = document.getElementById('{{ $p }}full_name');
+    // El paso «a donde llega» dice cosas distintas segun la modalidad: en
+    // recojo en tienda no hay destino que pedir, y llamarlo «destino» ahi
+    // confundiria al cliente que solo va a pasar por la tienda.
+    function ajustarPasoDestino() {
+        var h   = document.querySelector('.step[data-step="2"] .step-h');
+        var sub = document.getElementById('{{ $p }}dest_sub');
+        var sec = document.getElementById('conf_sec_entrega');
+        if (!h || !sub) return;
+
+        if (selectedType === DTYPE.TIENDA) {
+            h.textContent = 'Recojo en tienda';
+            sub.textContent = 'Te avisamos por WhatsApp cuando tu pedido este listo.';
+            if (sec) sec.textContent = 'Recojo';
+        } else if (selectedType === DTYPE.DOM) {
+            h.textContent = 'Donde te lo entregamos';
+            sub.textContent = 'Escribe tu direccion y ajusta el marcador en el mapa.';
+            if (sec) sec.textContent = 'Entrega a domicilio';
+        } else {
+            h.textContent = 'A donde enviamos tu pedido';
+            sub.textContent = 'Elige tu ciudad y la agencia por la que lo recogeras.';
+            if (sec) sec.textContent = 'Envio por agencia';
+        }
+    }
+
+    // -- Errores con nombre y apellido --------------------------------
+    //
+    // Antes un campo incompleto solo se ponia rojo. En un movil, a pleno sol y
+    // sin saber que se espera, un borde de color no dice nada: el cliente
+    // pulsaba Continuar otra vez y no pasaba nada. Ahora cada problema tiene un
+    // texto en castellano, aparece junto al campo Y en un resumen arriba, y el
+    // primero se lleva el foco.
+    function marcar(el, msg) {
+        if (!el) return;
+        el.classList.add('is-bad');
+        var sig = el.nextElementSibling;
+        if (!sig || !sig.classList || !sig.classList.contains('fld-err')) {
+            sig = document.createElement('small');
+            sig.className = 'fld-err';
+            el.parentNode.insertBefore(sig, el.nextSibling);
+        }
+        sig.textContent = msg;
+        sig.hidden = false;
+    }
+
+    function limpiar(el) {
+        if (!el) return;
+        el.classList.remove('is-bad');
+        var sig = el.nextElementSibling;
+        if (sig && sig.classList && sig.classList.contains('fld-err')) sig.hidden = true;
+    }
+
+    // El foco lleva al campo, pero en el cascader de ubigeo y en el select de
+    // agencia el elemento que el cliente toca no es el input: se enfoca lo que
+    // se ve.
+    function enfocar(el) {
+        if (!el) return;
+        try { el.focus({ preventScroll: true }); } catch (e) { el.focus(); }
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+
+    function resumen(boxId, problemas) {
+        var box = document.getElementById(boxId);
+        if (!box) return;
+        var ul = box.querySelector('.err-sum__l');
+        ul.innerHTML = '';
+
+        if (!problemas.length) { box.hidden = true; return; }
+
+        problemas.forEach(function (pr) {
+            var li = document.createElement('li');
+            var b = document.createElement('button');
+            b.type = 'button';
+            b.textContent = pr.msg;
+            b.addEventListener('click', function () { enfocar(pr.el); });
+            li.appendChild(b);
+            ul.appendChild(li);
+        });
+
+        box.hidden = false;
+        box.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        enfocar(problemas[0].el);
+    }
+
+    // -- Paso «Tus datos» ---------------------------------------------
+    function validDatos(silencioso) {
+        var problemas = [];
+        var name  = document.getElementById('{{ $p }}full_name');
         var phone = document.getElementById('{{ $p }}phone');
-        var pdig = (phone.value || '').replace(/\D+/g, '');
-        if (!name.value.trim()) { name.style.borderColor = '#dc2626'; ok = false; } else name.style.borderColor = '';
-        if (!(pdig.length === 9 && pdig[0] === '9')) { phone.style.borderColor = '#dc2626'; var e = document.querySelector('.js-phone-err'); if (e) e.textContent = 'Ingresa un celular válido (9 dígitos).'; ok = false; } else phone.style.borderColor = '';
+        var pdig  = (phone.value || '').replace(/\D+/g, '');
+
+        if (!name.value.trim()) {
+            if (!silencioso) marcar(name, 'Escribe tu nombre y tus apellidos.');
+            problemas.push({ msg: 'Falta tu nombre completo', el: name });
+        } else limpiar(name);
+
+        if (!(pdig.length === 9 && pdig[0] === '9')) {
+            if (!silencioso) {
+                marcar(phone, 'Revisa tu celular: son 9 digitos y empieza en 9.');
+                var e = document.querySelector('.js-phone-err');
+                if (e) e.textContent = '';
+            }
+            problemas.push({ msg: 'Revisa tu numero de celular', el: phone });
+        } else limpiar(phone);
 
         // Empresa: sin la persona que recoge, la agencia no entrega el paquete.
         if (esRuc()) {
             var pn = document.getElementById('{{ $p }}pickup_name');
             var pd = document.getElementById('{{ $p }}pickup_dni');
-            var pe = document.getElementById('{{ $p }}pickup_err');
             var pdig2 = pd ? (pd.value || '').replace(/\D+/g, '') : '';
-            var falta = [];
-            if (!pn || !pn.value.trim()) { if (pn) pn.style.borderColor = '#dc2626'; falta.push('el nombre'); }
-            else if (pn) pn.style.borderColor = '';
-            if (pdig2.length < 8) { if (pd) pd.style.borderColor = '#dc2626'; falta.push('el DNI'); }
-            else if (pd) pd.style.borderColor = '';
-            if (falta.length) {
-                if (pe) {
-                    pe.textContent = 'Falta ' + falta.join(' y ') + ' de la persona que recoge el paquete.';
-                    pe.hidden = false;
-                }
-                ok = false;
-            } else if (pe) {
-                pe.hidden = true;
-            }
+
+            if (!pn || !pn.value.trim()) {
+                if (!silencioso) marcar(pn, 'Nombre de la persona que recogera el paquete.');
+                problemas.push({ msg: 'Falta quien recoge el paquete', el: pn });
+            } else limpiar(pn);
+
+            if (pdig2.length < 8) {
+                if (!silencioso) marcar(pd, 'El DNI de quien recoge tiene 8 digitos.');
+                problemas.push({ msg: 'Falta el DNI de quien recoge', el: pd });
+            } else limpiar(pd);
         }
 
-        // El recojo en tienda no pide dirección ni ubigeo: con nombre y celular
+        if (!silencioso) resumen('{{ $p }}errsum_datos', problemas);
+
+        return problemas.length === 0;
+    }
+
+    // -- Paso «A donde llega» -----------------------------------------
+    function validDestino(silencioso) {
+        var problemas = [];
+
+        // El recojo en tienda no pide direccion ni ubigeo: con nombre y celular
         // basta para tener el pedido listo y avisarle.
         if (selectedType === DTYPE.TIENDA) {
-            return ok;
+            if (!silencioso) resumen('{{ $p }}errsum_dest', []);
+            return true;
         }
 
         if (selectedType === DTYPE.DOM) {
             var addr = document.getElementById('{{ $p }}addr_domicilio');
-            if (!addr.value.trim()) { addr.style.borderColor = '#dc2626'; ok = false; } else addr.style.borderColor = '';
+            if (!addr.value.trim()) {
+                if (!silencioso) marcar(addr, 'Escribe tu calle, avenida o jiron y el numero.');
+                problemas.push({ msg: 'Falta tu direccion de entrega', el: addr });
+            } else limpiar(addr);
         } else {
             var dist = document.querySelector('[data-ubigeo-group="pub"] [data-ub="district"]');
-            if (!dist || !dist.value) { var disp = document.querySelector('[data-ubigeo-group="pub"] .ubigeo-display'); if (disp) disp.style.borderColor = '#dc2626'; ok = false; }
-            else { var d2 = document.querySelector('[data-ubigeo-group="pub"] .ubigeo-display'); if (d2) d2.style.borderColor = ''; }
+            var disp = document.querySelector('[data-ubigeo-group="pub"] .ubigeo-display');
+            if (!dist || !dist.value) {
+                if (!silencioso && disp) disp.classList.add('is-bad');
+                problemas.push({ msg: 'Elige a que ciudad o distrito enviamos', el: disp });
+            } else if (disp) disp.classList.remove('is-bad');
 
-            // La AGENCIA es obligatoria: sin ella el almacén no sabe dónde dejar
-            // el paquete y salía un rótulo de provincia sin destino.
+            // La AGENCIA es obligatoria: sin ella el almacen no sabe donde dejar
+            // el paquete y salia un rotulo de provincia sin destino.
             var agSel = document.querySelector('.branch-agencia .agency-select');
             var agVal = txt('{{ $p }}shipping_agency');
             var agErr = document.getElementById('{{ $p }}agency_err');
             if (!agVal) {
-                if (agSel) agSel.style.borderColor = '#dc2626';
-                if (agErr) agErr.hidden = false;
-                ok = false;
+                if (!silencioso) {
+                    if (agSel) agSel.classList.add('is-bad');
+                    if (agErr) agErr.hidden = false;
+                }
+                problemas.push({ msg: 'Elige la agencia de transporte', el: agSel });
             } else {
-                if (agSel) agSel.style.borderColor = '';
+                if (agSel) agSel.classList.remove('is-bad');
                 if (agErr) agErr.hidden = true;
             }
 
-            // En provincia lo único obligatorio es la AGENCIA y el ubigeo. Ni la
-            // oficina de recojo ni la dirección bloquean el registro: son datos
-            // que el cliente muchas veces no tiene todavía y que el encargado
-            // completa después. Se avisa, pero se deja continuar.
+            // En provincia lo unico obligatorio es la AGENCIA y el ubigeo. Ni la
+            // oficina de recojo ni la direccion bloquean el registro: son datos
+            // que el cliente muchas veces no tiene todavia y que el encargado
+            // completa despues. Se avisa, pero se deja continuar.
             var casa = document.getElementById('{{ $p }}addr_agencia');
             var de   = document.getElementById('{{ $p }}dest_err');
-            if (casa) casa.style.borderColor = '';
-            if (de) {
+            if (casa) casa.classList.remove('is-bad');
+            if (de && !silencioso) {
                 var faltaDir = agHome && agHome.checked && !(casa && casa.value.trim());
                 de.style.color = '#a16207';
                 de.textContent = faltaDir
-                    ? 'Pediste que la agencia lleve el paquete a tu domicilio pero no escribiste la dirección; podrás indicarla después.'
+                    ? 'Pediste que la agencia lleve el paquete a tu domicilio pero no escribiste la direccion; podras indicarla despues.'
                     : '';
                 de.hidden = !faltaDir;
             }
         }
-        return ok;
+
+        if (!silencioso) resumen('{{ $p }}errsum_dest', problemas);
+
+        return problemas.length === 0;
     }
 
     function buildConfirm() {
@@ -411,17 +527,165 @@
         }
     }
 
+    // Datos -> A donde llega
+    var toDest = document.getElementById('toStepDest');
+    if (toDest) toDest.addEventListener('click', function () {
+        if (!validDatos(false)) return;
+        hide(step1); show(stepD); stepD.classList.add('fade-in');
+        setStep(3);
+        guardarBorrador();
+        // El mapa se mide mal si se inicializa mientras su contenedor esta
+        // oculto: hasta ahora el paso estaba siempre visible y no hacia falta.
+        if (selectedType === DTYPE.DOM && window.__initShipMapIfReady) window.__initShipMapIfReady();
+    });
+
+    var backDatos = document.getElementById('backStepDatos');
+    if (backDatos) backDatos.addEventListener('click', function () {
+        hide(stepD); show(step1); setStep(2);
+    });
+
+    // A donde llega -> Revisa
     var toStep2 = document.getElementById('toStep2');
     if (toStep2) toStep2.addEventListener('click', function () {
-        if (!validStep1()) return;
+        if (!validDestino(false)) return;
         buildConfirm();
-        hide(step1); show(step2); step2.classList.add('fade-in');
-        setStep(3);
+        hide(stepD); show(step2); step2.classList.add('fade-in');
+        setStep(4);
+        guardarBorrador();
     });
+
     var back1 = document.getElementById('backStep1');
-    if (back1) back1.addEventListener('click', function () { hide(step2); show(step1); setStep(2); });
+    if (back1) back1.addEventListener('click', function () { hide(step2); show(stepD); setStep(3); });
+
+    // «Editar» de cada seccion del resumen: vuelve al paso que la llena.
+    document.querySelectorAll('.conf-edit').forEach(function (b) {
+        b.addEventListener('click', function () {
+            var destino = b.getAttribute('data-edit-step');
+            hide(step2);
+            if (destino === '1') { show(step1); setStep(2); }
+            else { show(stepD); setStep(3); }
+        });
+    });
+
+    // ── Cuanto le falta ───────────────────────────────────────────────
+    //
+    // El porcentaje sale de los campos que de verdad exige el servidor para la
+    // modalidad elegida (ver ShipmentController::validateShipment), no de un
+    // total fijo: en recojo en tienda no hay direccion que pedir, y contarla
+    // dejaria el progreso clavado para siempre.
+    function requeridos() {
+        var lista = [
+            { ok: !!txt('{{ $p }}full_name') },
+            { ok: (txt('{{ $p }}phone').replace(/\D+/g, '').length === 9) }
+        ];
+
+        if (esRuc()) {
+            lista.push({ ok: !!txt('{{ $p }}pickup_name') });
+            lista.push({ ok: (txt('{{ $p }}pickup_dni').replace(/\D+/g, '').length >= 8) });
+        }
+
+        if (selectedType === DTYPE.DOM) {
+            lista.push({ ok: !!txt('{{ $p }}addr_domicilio') });
+        } else if (selectedType === DTYPE.AG) {
+            var d = document.querySelector('[data-ubigeo-group="pub"] [data-ub="district"]');
+            lista.push({ ok: !!(d && d.value) });
+            lista.push({ ok: !!txt('{{ $p }}shipping_agency') });
+        }
+
+        return lista;
+    }
+
+    function progreso() {
+        var caja = document.getElementById('prog');
+        if (!caja) return;
+
+        if (!selectedType) { caja.hidden = true; return; }
+
+        var lista = requeridos();
+        var hechos = lista.filter(function (x) { return x.ok; }).length;
+        var pct = Math.round((hechos / lista.length) * 100);
+
+        caja.hidden = false;
+        caja.classList.toggle('is-done', pct === 100);
+        document.getElementById('progFill').style.width = pct + '%';
+        document.getElementById('progText').textContent = pct === 100
+            ? 'Listo: ya tenemos todo lo necesario'
+            : ('Tu informacion esta ' + pct + '% completa');
+    }
+
+    // ── Borrador ──────────────────────────────────────────────────────
+    //
+    // El enlace se abre desde WhatsApp: basta que entre una llamada para que el
+    // navegador descarte la pestana y el cliente vuelva a un formulario vacio.
+    // Se guarda en el propio dispositivo, nunca en la base: un registro a medias
+    // en `shipping_requests` seria un envio fantasma para el encargado.
+    var BORRADOR = 'ship_draft_{{ $draftKey ?? "pub" }}';
+
+    function camposBorrador() {
+        return form.querySelectorAll('input[name], select[name], textarea[name]');
+    }
+
+    function guardarBorrador() {
+        try {
+            var datos = { __type: selectedType || '' };
+            camposBorrador().forEach(function (el) {
+                if (el.type === 'hidden' && el.name === '_token') return;
+                if (el.type === 'checkbox') datos[el.id || el.name] = el.checked ? 1 : 0;
+                else if (el.type === 'radio') { if (el.checked) datos['r:' + el.name] = el.value; }
+                else datos[el.id || el.name] = el.value;
+            });
+            localStorage.setItem(BORRADOR, JSON.stringify(datos));
+        } catch (e) { /* modo privado o sin espacio: el formulario sigue */ }
+    }
+
+    function limpiarBorrador() {
+        try { localStorage.removeItem(BORRADOR); } catch (e) {}
+    }
+
+    function restaurarBorrador() {
+        var datos;
+        try { datos = JSON.parse(localStorage.getItem(BORRADOR) || 'null'); } catch (e) { return; }
+        if (!datos) return;
+
+        camposBorrador().forEach(function (el) {
+            if (el.type === 'hidden' && el.name === '_token') return;
+            var clave = el.id || el.name;
+            if (el.type === 'checkbox') { if (clave in datos) el.checked = !!datos[clave]; }
+            else if (el.type === 'radio') { if (datos['r:' + el.name] === el.value) el.checked = true; }
+            else if (clave in datos && datos[clave] !== '') el.value = datos[clave];
+        });
+
+        // El tipo de entrega gobierna que campos existen: se re-elige tal cual
+        // lo dejo, para que las ramas y los `required` queden coherentes.
+        if (datos.__type) {
+            var card = document.querySelector('.dcard[data-type="' + datos.__type + '"]');
+            if (card) card.click();
+        }
+    }
+
+    // Cualquier cambio actualiza progreso y borrador. Delegado en el formulario:
+    // el cascader de ubigeo y el mapa escriben en inputs ocultos que no existen
+    // todavia cuando esto se registra.
+    //
+    // El progreso se repinta al vuelo, pero el borrador espera medio segundo:
+    // escribir en localStorage en CADA tecla se nota en un telefono de gama
+    // baja, que es justo el que abre este enlace desde WhatsApp.
+    var guardarPronto = (function () {
+        var t = null;
+        return function () {
+            if (t) clearTimeout(t);
+            t = setTimeout(guardarBorrador, 500);
+        };
+    })();
+
+    form.addEventListener('input', function () { progreso(); guardarPronto(); });
+    form.addEventListener('change', function () { progreso(); guardarPronto(); });
+
+    restaurarBorrador();
+    progreso();
 
     if (form) form.addEventListener('submit', function () {
+        limpiarBorrador();
         var b = document.getElementById('confirmBtn');
         if (b) { b.disabled = true; b.textContent = 'Registrando…'; }
     });

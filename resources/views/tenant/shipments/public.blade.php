@@ -188,6 +188,49 @@
 
         .foot { text-align:center; color:var(--muted); font-size:11.5px; margin-top:18px; }
         .step[hidden], [hidden] { display:none; }
+
+        /* ── Cabecera de paso ───────────────────────────────────────────── */
+        .step-head { margin:2px 0 14px; }
+        .step-h { font-size:19px; font-weight:800; margin:0 0 2px; color:var(--ink); letter-spacing:-.01em; }
+        .step-sub { font-size:13.5px; color:var(--muted); margin:0; line-height:1.45; }
+
+        /* ── Progreso real ──────────────────────────────────────────────── */
+        .prog { margin:-8px 2px 18px; }
+        .prog__bar { height:7px; border-radius:99px; background:#e8edf3; overflow:hidden; }
+        .prog__fill { height:100%; width:0; border-radius:99px; background:linear-gradient(90deg,#22c55e,#16a34a);
+                      transition:width .35s ease; }
+        .prog__t { font-size:12.5px; color:var(--muted); margin-top:5px; font-weight:600; }
+        .prog.is-done .prog__t { color:#15803d; }
+
+        /* ── Resumen de errores ─────────────────────────────────────────── */
+        .err-sum { border:1px solid #fecaca; background:#fef2f2; border-radius:12px;
+                   padding:12px 14px; margin:0 0 14px; }
+        .err-sum__t { font-weight:800; font-size:14px; color:#b91c1c; margin-bottom:6px; }
+        .err-sum__l { margin:0; padding-left:18px; }
+        .err-sum__l li { font-size:13.5px; color:#7f1d1d; margin:3px 0; }
+        .err-sum__l button { background:none; border:0; padding:0; font:inherit; color:#b91c1c;
+                             text-decoration:underline; cursor:pointer; text-align:left; }
+        /* Campo con error: el borde solo no se ve en un movil a pleno sol. */
+        .is-bad { border-color:#dc2626 !important; background:#fff5f5 !important; }
+        .fld-err { display:block; font-size:12.5px; color:#dc2626; margin-top:3px; font-weight:600; }
+
+        /* ── Secciones del resumen final ────────────────────────────────── */
+        .conf-sec { margin-bottom:12px; }
+        .conf-sec__h { display:flex; align-items:center; justify-content:space-between; gap:10px;
+                       font-size:13px; font-weight:800; color:var(--ink); text-transform:uppercase;
+                       letter-spacing:.04em; margin:0 0 4px; }
+        .conf-edit { background:none; border:0; padding:4px 2px; font-size:13px; font-weight:700;
+                     color:var(--brand); cursor:pointer; text-transform:none; letter-spacing:0; }
+        .conf-edit:hover { text-decoration:underline; }
+
+        /* El stepper pasó de 4 a 5 pasos: en pantallas estrechas las etiquetas
+           ya no caben, y el número del círculo basta para ubicarse. */
+        @media (max-width:420px) {
+            .stepper .st .t { font-size:10px; }
+        }
+        @media (max-width:360px) {
+            .stepper .st .t { display:none; }
+        }
         .fade-in { animation:fade .25s ease; }
         @keyframes fade { from{ opacity:0; transform:translateY(6px);} to{ opacity:1; transform:none;} }
         .alert-err { background:#fef2f2; color:#b91c1c; border:1px solid #fecaca; padding:11px 13px; border-radius:12px; font-size:13.5px; margin-bottom:14px; }
@@ -217,10 +260,23 @@
             <div class="st-line {{ $sent ? 'done' : '' }}"></div>
             <div class="st {{ $sent ? 'done' : '' }}" data-n="2"><div class="dot">2</div><div class="t">Datos</div></div>
             <div class="st-line {{ $sent ? 'done' : '' }}"></div>
-            <div class="st {{ $sent ? 'done' : '' }}" data-n="3"><div class="dot">3</div><div class="t">Confirmar</div></div>
+            <div class="st {{ $sent ? 'done' : '' }}" data-n="3"><div class="dot">3</div><div class="t">Entrega</div></div>
             <div class="st-line {{ $sent ? 'done' : '' }}"></div>
-            <div class="st {{ $sent ? 'active' : '' }}" data-n="4"><div class="dot">4</div><div class="t">Listo</div></div>
+            <div class="st {{ $sent ? 'done' : '' }}" data-n="4"><div class="dot">4</div><div class="t">Revisa</div></div>
+            <div class="st-line {{ $sent ? 'done' : '' }}"></div>
+            <div class="st {{ $sent ? 'active' : '' }}" data-n="5"><div class="dot">5</div><div class="t">Listo</div></div>
         </div>
+
+        {{-- Cuanto le falta al cliente. El porcentaje sale de los campos que de
+             verdad exige el servidor para SU modalidad, no de un total fijo:
+             en recojo en tienda no hay direccion que pedir y contarla dejaria
+             el progreso clavado en 70% para siempre. --}}
+        @if(!$sent)
+            <div class="prog" id="prog" hidden>
+                <div class="prog__bar"><div class="prog__fill" id="progFill"></div></div>
+                <div class="prog__t" id="progText">Tu información está 0% completa</div>
+            </div>
+        @endif
 
         @if($sent)
             {{-- ══════════ PASO 4: Éxito ══════════ --}}
@@ -341,7 +397,12 @@
 @include('tenant.shipments.partials.agency-select-js')
 @include('tenant.shipments.partials.phone-validate-js')
 
-@include('tenant.shipments.partials.shipment-form-js', ['p' => 'pub_'])
+@include('tenant.shipments.partials.shipment-form-js', [
+    'p' => 'pub_',
+    // El borrador se guarda por PEDIDO: dos enlaces distintos abiertos en el
+    // mismo telefono no pueden pisarse los datos.
+    'draftKey' => !empty($order) ? 'o' . $order->id : 'new',
+])
 
 @if(!empty($mapsKey))
 <script>
