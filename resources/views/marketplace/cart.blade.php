@@ -280,11 +280,47 @@
         }).then(r => r.json());
     }
 
-    // Formato monetario consistente
-    const fmtMoney = n => 'S/ ' + (Number(n) || 0).toFixed(2);
+    // Mismo formato que `number_format($x, 2)` de PHP: separador de miles y
+    // dos decimales. Con `toFixed()` a secas, tocar una cantidad convertia
+    // «S/ 1,234.50» en «S/ 1234.50» y todos los importes del carrito cambiaban
+    // de aspecto a mitad de la compra.
+    const nfMoney = new Intl.NumberFormat('en-US', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+    });
+    const fmtMoney = n => 'S/ ' + nfMoney.format(Number(n) || 0);
 
-    // Recalcular totales en el DOM sin recargar la página. Se llama después
-    // de cada PATCH/DELETE exitoso.
+    /**
+     * Pinta los totales que manda el SERVER. `update` y `destroy` ya devuelven
+     * `summary` y antes se descartaba entero para recalcularlo a mano en el
+     * navegador: dos fuentes de verdad para el mismo numero, y la de adorno
+     * ganaba. Cualquier cosa que el server sume y el cliente no —un descuento,
+     * un cupon— desaparecia de la pantalla al tocar una cantidad.
+     */
+    function applySummary(summary) {
+        if (!summary) return;
+        if (summary.count != null) {
+            document.querySelectorAll('[data-summary-count]').forEach(el => el.textContent = summary.count);
+        }
+        if (summary.subtotal != null) {
+            document.querySelectorAll('[data-summary-subtotal]').forEach(el => el.textContent = fmtMoney(summary.subtotal));
+        }
+        // `total` y no `subtotal`: hoy valen lo mismo, pero el dia que dejen de
+        // hacerlo el total tiene que seguir al server, no al subtotal.
+        const total = summary.total != null ? summary.total : summary.subtotal;
+        if (total != null) {
+            document.querySelectorAll('[data-summary-total]').forEach(el => el.textContent = fmtMoney(total));
+        }
+        // El badge del navbar y la barra de accion movil. Las tres vistas que
+        // AGREGAN al carrito ya lo llamaban; esta, que es la que mas lo cambia,
+        // no lo hacia: subias de 1 a 5 unidades y el navbar seguia diciendo 1
+        // hasta recargar.
+        if (window.mpCartBadgeUpdate) window.mpCartBadgeUpdate(summary);
+    }
+
+    // Recalcula los totales en el DOM sin recargar. Es solo la pintura
+    // OPTIMISTA —lo que se ve mientras el server responde—; en cuanto llega la
+    // respuesta, applySummary() pisa los totales con los suyos.
     function recalcTotals() {
         let grandSubtotal = 0;
         let grandCount = 0;
@@ -315,8 +351,8 @@
         document.querySelectorAll('[data-summary-subtotal]').forEach(el => el.textContent = fmtMoney(grandSubtotal));
         document.querySelectorAll('[data-summary-total]').forEach(el => el.textContent = fmtMoney(grandSubtotal));
 
-        // Si el cart quedó vacío, recargamos para que el server muestre el
-        // empty state ("Tu carrito está vacío") — sería raro mantener el
+        // Si el cart quedo vacio, recargamos para que el server muestre el
+        // empty state ("Tu carrito esta vacio") — seria raro mantener el
         // sidebar visible con 0 items.
         if (grandCount === 0) window.location.reload();
     }
@@ -328,29 +364,63 @@
         const inc = line.querySelector('.mp-cart-qty-inc');
         const rm  = line.querySelector('.mp-cart-line-remove');
 
+        // La ultima cantidad CONFIRMADA por el server. Vive FUERA del input a
+        // proposito: leer el valor anterior del propio input era el bug. El
+        // evento `change` se dispara DESPUES de que el navegador escribio el
+        // valor nuevo, asi que el valor anterior salia igual al nuevo, el guard
+        // `safe === previous` cortaba antes del PATCH y el server no se
+        // enteraba nunca. Con los botones +/- no se notaba —ahi el valor se lee
+        // antes de mutarse— pero quien TECLEABA la cantidad veia «50» en la
+        // pantalla y compraba 1.
+        let committed = parseInt(input?.value, 10) || 1;
+
+        // Un solo PATCH en vuelo por linea, y gana el ultimo valor pedido.
+        // Antes cada click lanzaba su propio fetch sin cancelar el anterior:
+        // tres clicks rapidos eran tres PATCH (4, 3, 2) y HTTP no garantiza el
+        // orden de llegada, asi que el server podia quedarse en 4 con la
+        // pantalla mostrando 2.
+        let pending  = null;
+        let inFlight = false;
+
+        // El rollback vuelve a lo ULTIMO CONFIRMADO, no a un valor intermedio:
+        // con varios clicks encadenados, cada fetch recordaba su propio valor
+        // anterior y un fallo a mitad restauraba una cantidad ya obsoleta.
+        function rollback() {
+            input.value = committed;
+            pending = null;
+            recalcTotals();
+        }
+
+        function flush() {
+            if (inFlight || pending === null) return;
+            const target = pending;
+            pending = null;
+            if (target === committed) return;
+
+            inFlight = true;
+            patchLine(listingId, target).then(function (resp) {
+                inFlight = false;
+                if (resp && resp.success) {
+                    committed = target;
+                    applySummary(resp.summary);
+                    flush();                 // por si el usuario siguio pulsando
+                } else {
+                    rollback();
+                    alert((resp && resp.message) || 'No se pudo actualizar la cantidad.');
+                }
+            }).catch(function () {
+                inFlight = false;
+                rollback();
+            });
+        }
+
         function commit(newQty) {
             const safe = Math.max(1, Math.min(99, newQty));
-            // Optimistic UI: actualizamos el input ya, luego sincronizamos
-            // con el server. Si el server falla, hacemos rollback al value
-            // anterior.
-            const previous = parseInt(input.value, 10) || 1;
+            // Pintura optimista: se ve ya, se confirma despues.
             input.value = safe;
             recalcTotals();
-
-            // Solo dispara el PATCH si el valor cambió
-            if (safe === previous) return;
-
-            patchLine(listingId, safe).then(function (resp) {
-                if (!resp || !resp.success) {
-                    // Rollback
-                    input.value = previous;
-                    recalcTotals();
-                    alert(resp?.message || 'No se pudo actualizar la cantidad.');
-                }
-            }).catch(() => {
-                input.value = previous;
-                recalcTotals();
-            });
+            pending = safe;
+            flush();
         }
 
         dec?.addEventListener('click', () => commit(parseInt(input.value, 10) - 1));
@@ -358,17 +428,18 @@
         input?.addEventListener('change', () => commit(parseInt(input.value, 10) || 1));
         rm?.addEventListener('click', function () {
             if (!confirm('¿Quitar este producto del carrito?')) return;
-            // Quitamos el line visual antes del PATCH para feedback inmediato
+            // Quitamos el line visual antes del DELETE para feedback inmediato
             const lineEl = line;
             lineEl.style.opacity = '0.4';
             deleteLine(listingId).then(function (resp) {
                 if (resp && resp.success) {
                     lineEl.remove();
-                    // Si la tienda se quedó sin lines, también la quitamos
+                    // Si la tienda se quedo sin lines, tambien la quitamos
                     document.querySelectorAll('.mp-cart-store').forEach(store => {
                         if (!store.querySelector('.mp-cart-line')) store.remove();
                     });
                     recalcTotals();
+                    applySummary(resp.summary);
                 } else {
                     lineEl.style.opacity = '1';
                     alert('No se pudo eliminar el producto.');
