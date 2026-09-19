@@ -87,6 +87,16 @@
                     <input type="tel" name="phone" id="{{ $p }}phone" value="{{ old('phone') }}" required maxlength="9" inputmode="numeric" placeholder="999 999 999" class="js-phone-pe">
                     <small class="js-phone-err" style="color:#dc2626;display:block;font-size:12px;margin-top:2px;"></small>
 
+                    {{-- Segundo contacto DE ESTA ENTREGA: el vecino, el familiar,
+                         el numero al que llamar cuando el primero no contesta.
+                         No es un dato del cliente —cambia con cada envio—, por eso
+                         vive en el envio y no en su ficha. --}}
+                    <label>Teléfono adicional <span style="font-weight:400;color:#64748b;">(opcional)</span></label>
+                    <input type="tel" name="alternate_phone" id="{{ $p }}alternate_phone"
+                           value="{{ old('alternate_phone') }}" maxlength="9" inputmode="numeric"
+                           placeholder="999 999 999">
+                    <small class="hint">A quién llamar si el primero no contesta.</small>
+
                     {{-- Cliente EMPRESA (RUC): la agencia no le entrega el paquete a
                          una razón social, pide el DNI y el nombre de una persona.
                          Este bloque aparece solo cuando el documento tiene 11

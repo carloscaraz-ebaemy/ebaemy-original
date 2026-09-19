@@ -1328,6 +1328,7 @@
         <shipment-form
             :visible.sync="showShipmentDialog"
             :order-id="shipmentOrderId"
+            :delivery-type="shipmentDeliveryType"
             @saved="onShipmentSaved"
         ></shipment-form>
 
@@ -3485,6 +3486,9 @@ export default {
             // Envío del pedido (pestaña logística unificada).
             showShipmentDialog: false,
             shipmentOrderId: null,
+            // Modalidad con la que se abre el formulario de envio cuando viene
+            // encadenado desde el alta manual. null = que decida el formulario.
+            shipmentDeliveryType: null,
             // Historial unificado (comercial + logístico).
             showTimelineDialog: false,
             timelineOrderId: null,
@@ -5209,11 +5213,26 @@ export default {
          * CREADO tampoco haya que buscarlo a mano — aunque el orden lo mande a
          * la pagina 3.
          */
-        onManualCreated(id = null) {
+        /**
+         * El pedido manual ya existe. Si el operador dijo que lleva envio, se
+         * encadena con el formulario de envio DEL MODULO —el mismo que abre
+         * «Configurar envio»— en vez de pedir el destino dentro del modal de
+         * alta: los datos de entrega tienen un unico sitio donde se registran.
+         *
+         * Sin este encadenado el pedido nacia sin envio y solo aparecia en
+         * Envios si alguien se acordaba de volver a abrirlo.
+         */
+        onManualCreated(id = null, envio = null) {
             this.manualOrderId = null;
             this.recargar(id);
             this.loadChipCounts();
             this.loadStats();
+
+            if (id && envio) {
+                this.shipmentOrderId = id;
+                this.shipmentDeliveryType = envio.delivery_type || null;
+                this.showShipmentDialog = true;
+            }
         },
 
         clickPayments(orderId) {
@@ -5581,6 +5600,9 @@ export default {
         /** Abre la pestaña de envío del pedido. */
         openShipment(row) {
             this.shipmentOrderId = row.id;
+            // Desde el listado no se impone modalidad: la trae el envio, o la
+            // elige el operador en el formulario.
+            this.shipmentDeliveryType = null;
             this.showShipmentDialog = true;
         },
 

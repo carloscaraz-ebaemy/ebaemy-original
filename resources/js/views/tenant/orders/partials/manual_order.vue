@@ -69,6 +69,54 @@
             </div>
         </div>
 
+        <!-- ── Envío ─────────────────────────────────────────────────────
+             La pregunta se hace AQUI, pero los datos de la entrega no se
+             piden aqui: en cuanto el pedido existe se abre el formulario de
+             envio que ya usa el modulo —mismo endpoint, mismo buscador de
+             ubigeo, mismo catalogo de agencias—. Duplicar esos campos dentro
+             de este modal habria creado una segunda forma de registrar un
+             envio, que es justo lo que no puede haber. -->
+        <div v-if="!editando && shippingModule" class="mo-envio">
+            <h4 class="mo-sec">Envío</h4>
+            <label class="mo-envio-q">¿Este pedido requiere envío?</label>
+            <div class="mo-envio-opts">
+                <button
+                    type="button"
+                    class="mo-envio-opt"
+                    :class="{ active: necesitaEnvio === true }"
+                    @click="necesitaEnvio = true"
+                >Sí, hay que entregarlo</button>
+                <button
+                    type="button"
+                    class="mo-envio-opt"
+                    :class="{ active: necesitaEnvio === false }"
+                    @click="necesitaEnvio = false"
+                >No, se lo lleva el cliente</button>
+            </div>
+
+            <div v-if="necesitaEnvio === true" class="mo-envio-modo">
+                <label class="mo-envio-q">¿Cómo se entrega?</label>
+                <div class="mo-envio-opts">
+                    <button
+                        v-for="(label, value) in modalidades"
+                        :key="value"
+                        type="button"
+                        class="mo-envio-opt"
+                        :class="{ active: modalidadEnvio === value }"
+                        @click="modalidadEnvio = value"
+                    >{{ label }}</button>
+                </div>
+                <small class="mo-hint">
+                    Al crear el pedido se abre el formulario de envío para el
+                    destino, la agencia y la dirección.
+                </small>
+            </div>
+            <small v-else-if="necesitaEnvio === false" class="mo-hint">
+                No se registrará envío. Si luego hace falta, se configura desde
+                el propio pedido.
+            </small>
+        </div>
+
         <!-- ── Productos ─────────────────────────────────────────────── -->
         <h4 class="mo-sec">Del catálogo</h4>
         <p class="mo-hint">
@@ -113,7 +161,13 @@
                          suelto: una linea sin producto no se puede facturar
                          —`sale_note_items.item_id` es NOT NULL— y dejaria el
                          pedido cobrado y sin manera de documentarlo. -->
-                    <div v-if="puedeCrear" slot="empty" class="mo-crear">
+                    <div v-if="errorBusqueda" slot="empty" class="mo-crear">
+                        <p class="mo-busqueda-error">{{ errorBusqueda }}</p>
+                        <el-button size="mini" plain @click="buscarProductos(termino)"
+                            >Reintentar</el-button
+                        >
+                    </div>
+                    <div v-else-if="puedeCrear" slot="empty" class="mo-crear">
                         <p>«{{ termino }}» no está en el catálogo.</p>
                         <el-button
                             size="mini"
@@ -307,6 +361,17 @@ export default {
             // Lo ultimo tecleado en el buscador: hace falta para ofrecer el
             // alta rapida con ese nombre.
             termino: "",
+            // null = todavia no lo decidio. No hay valor por defecto a
+            // proposito: el pedido manual nacia SIEMPRE sin envio porque nadie
+            // llegaba a preguntarlo, y un defecto silencioso reproduce eso.
+            necesitaEnvio: null,
+            modalidadEnvio: "agencia",
+            modalidades: {},
+            shippingModule: false,
+            peticionItems: 0,
+            // Un fallo de red no es «no hay resultados»: se dice cual de los
+            // dos fue.
+            errorBusqueda: "",
             creando: false,
             guardando: false,
             cargando: false,
@@ -329,6 +394,7 @@ export default {
             return (
                 this.lineasEditables &&
                 !this.buscando &&
+                !this.errorBusqueda &&
                 !this.opciones.length &&
                 (this.termino || "").trim().length >= 3
             );
@@ -361,6 +427,11 @@ export default {
         sePuedeGuardar() {
             if (!this.form.channel_id) return false;
             if (!(this.form.customer.name || "").trim()) return false;
+            // Decidir si lleva envio es un clic, y no decidirlo era como se
+            // creaban los pedidos que luego no aparecian en Envios.
+            if (!this.editando && this.shippingModule && this.necesitaEnvio === null) {
+                return false;
+            }
 
             return this.editando ? true : this.form.items.length > 0;
         },
@@ -381,11 +452,18 @@ export default {
             this.origenCliente = "";
             this.autollenado = {};
             this.docConsultado = "";
+            this.errorBusqueda = "";
+            this.necesitaEnvio = null;
+            this.modalidadEnvio = "agencia";
 
             this.$http.get("/orders/channels").then(r => {
                 const d = r.data || {};
                 this.canales = d.channels || [];
                 this.puedeEditarPrecio = !!d.can_edit_prices;
+                // Las modalidades las manda el modulo de Envios: si este
+                // negocio no lo tiene, la pregunta no se pinta.
+                this.shippingModule = !!d.shipping_module;
+                this.modalidades = d.delivery_types || {};
                 // Un solo canal activo: no tiene sentido preguntar.
                 if (!this.editando && this.canales.length === 1) {
                     this.form.channel_id = this.canales[0].id;
@@ -572,11 +650,16 @@ export default {
         buscarProductos(q) {
             const termino = typeof q === "string" ? q : "";
             this.termino = termino;
+            this.errorBusqueda = "";
 
             if (termino.length < 2) {
                 this.opciones = [];
                 return;
             }
+
+            // Teclear rapido lanza varias consultas. Sin este numero, la lenta
+            // llega ultima y deja en pantalla los resultados de media palabra.
+            const peticion = ++this.peticionItems;
 
             this.buscando = true;
             this.$http
@@ -584,13 +667,22 @@ export default {
                     params: { q: termino, channel_id: this.form.channel_id },
                 })
                 .then(r => {
+                    if (peticion !== this.peticionItems) return;
                     this.opciones = this.aOpciones(r.data || []);
                 })
                 .catch(() => {
+                    if (peticion !== this.peticionItems) return;
+                    // Vaciar la lista aqui era decirle al operador «ese
+                    // producto no existe» cuando lo que habia pasado era que
+                    // la consulta fallo. Dos problemas muy distintos que se
+                    // veian igual, y el segundo no se puede arreglar buscando
+                    // otra cosa.
                     this.opciones = [];
+                    this.errorBusqueda =
+                        "No se pudo buscar en el catálogo. Revisa la conexión e inténtalo otra vez.";
                 })
                 .then(() => {
-                    this.buscando = false;
+                    if (peticion === this.peticionItems) this.buscando = false;
                 });
         },
         /**
@@ -602,6 +694,11 @@ export default {
             const out = [];
 
             items.forEach(it => {
+                // `active === false` solo llega en los productos dados de
+                // baja: se muestran para explicar por que no estan, no para
+                // venderlos. El servidor lo rechaza igual si alguien insiste.
+                const baja = it.active === false;
+
                 if (it.variants && it.variants.length) {
                     it.variants.forEach(v => {
                         out.push({
@@ -612,8 +709,9 @@ export default {
                             code: it.code,
                             price: v.price,
                             available: v.available,
-                            stockText: this.stockText(v.available),
-                            agotado: v.available !== null && v.available <= 0,
+                            inactivo: baja,
+                            stockText: baja ? "dado de baja" : this.stockText(v.available),
+                            agotado: baja || (v.available !== null && v.available <= 0),
                         });
                     });
                     return;
@@ -627,8 +725,9 @@ export default {
                     code: it.code,
                     price: it.price,
                     available: it.available,
-                    stockText: this.stockText(it.available),
-                    agotado: it.available !== null && it.available <= 0,
+                    inactivo: baja,
+                    stockText: baja ? "dado de baja" : this.stockText(it.available),
+                    agotado: baja || (it.available !== null && it.available <= 0),
                 });
             });
 
@@ -805,7 +904,15 @@ export default {
                     // —tambien cuando es nuevo y el orden lo manda a la pagina
                     // 3—. `d.order` lo devuelven los dos endpoints, alta y
                     // edicion; `this.orderId` cubre la edicion por si acaso.
-                    this.$emit("created", (d.order && d.order.id) || this.orderId || null);
+                    this.$emit(
+                        "created",
+                        (d.order && d.order.id) || this.orderId || null,
+                        // Segundo argumento: que hacer despues. El listado abre
+                        // con el el formulario de envio del modulo.
+                        this.necesitaEnvio === true
+                            ? { delivery_type: this.modalidadEnvio }
+                            : null
+                    );
                     this.cerrar();
                 })
                 .catch(e => {
@@ -876,6 +983,58 @@ export default {
     color: #64748b;
     line-height: 1.4;
 }
+/* Envio: una pregunta y, si la respuesta es si, la modalidad. Mismos
+   botones-pastilla que el formulario de envio para que se lean como la
+   misma decision en las dos pantallas. */
+.mo-envio {
+    margin-top: 6px;
+    padding: 14px 16px;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+}
+.mo-envio .mo-sec {
+    margin-top: 0;
+}
+.mo-envio-q {
+    display: block;
+    font-size: 12px;
+    font-weight: 600;
+    color: #334155;
+    margin-bottom: 6px;
+}
+.mo-envio-opts {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+.mo-envio-opt {
+    flex: 1 1 160px;
+    padding: 9px 12px;
+    font-size: 12.5px;
+    font-weight: 600;
+    color: #475569;
+    background: #fff;
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+.mo-envio-opt:hover {
+    border-color: #94a3b8;
+}
+.mo-envio-opt.active {
+    color: #fff;
+    background: #4f46e5;
+    border-color: #4f46e5;
+}
+.mo-envio-modo {
+    margin-top: 14px;
+}
+.mo-busqueda-error {
+    color: #b91c1c;
+}
+
 /* Alta rapida cuando el buscador no encuentra nada. */
 .mo-crear {
     padding: 14px 16px;

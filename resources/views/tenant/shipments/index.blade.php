@@ -953,6 +953,7 @@
                                     'Nombre'  => $s->full_name,
                                     $s->document_label => $s->dni,
                                     'Celular' => $s->phone,
+                                    'Otro celular' => $s->alternate_phone,
                                 ]),
                                 ($isDom ? 'Entrega a domicilio' : 'Envío por agencia') => $secEntrega,
                                 'Paquete' => array_filter([
@@ -1311,6 +1312,7 @@
                                                 data-dni="{{ $s->dni }}"
                                                 data-document_type="{{ $s->document_option }}"
                                                 data-phone="{{ $s->phone }}"
+                                                data-alternate_phone="{{ $s->alternate_phone }}"
                                                 data-shipping_destination="{{ $s->shipping_destination }}"
                                                 data-reference="{{ $s->reference }}"
                                                 data-destination_city="{{ $s->destination_city }}"
@@ -1521,6 +1523,12 @@
             <div class="col-md-6"><label class="form-label small mb-1">Teléfono (celular) *</label>
               <input type="text" name="phone" class="form-control js-phone-pe" required maxlength="9" inputmode="numeric" placeholder="999 999 999">
               <small class="js-phone-err text-danger" style="font-size:12px;"></small></div>
+            {{-- Segundo contacto DE ESTA ENTREGA (el vecino, el familiar). No es
+                 el telefono del cliente repetido: cambia con cada envio y por eso
+                 vive aqui y no en su ficha. Sale en el rotulo. --}}
+            <div class="col-md-6"><label class="form-label small mb-1">Teléfono adicional</label>
+              <input type="text" name="alternate_phone" class="form-control" maxlength="9" inputmode="numeric" placeholder="Opcional">
+              <small class="text-muted" style="font-size:11px;">A quién llamar si el primero no contesta.</small></div>
             <div class="col-12"><label class="form-label small mb-1">Nombre completo *</label>
               <input type="text" name="full_name" id="nv_full_name" class="form-control" required></div>
           </div>
@@ -1681,6 +1689,8 @@
             <div class="col-md-4"><label class="form-label">Teléfono <span class="text-danger">*</span></label>
               <input type="text" name="phone" id="ed_phone" class="form-control js-phone-pe" required maxlength="9" inputmode="numeric" placeholder="999 999 999">
               <small class="js-phone-err text-danger" style="font-size:11px;"></small></div>
+            <div class="col-md-4"><label class="form-label">Teléfono adicional</label>
+              <input type="text" name="alternate_phone" id="ed_alternate_phone" class="form-control" maxlength="9" inputmode="numeric" placeholder="Opcional"></div>
             <div class="col-12"><label class="form-label">Nombre completo <span class="text-danger">*</span></label>
               <input type="text" name="full_name" id="ed_full_name" class="form-control" required></div>
           </div>
@@ -2348,7 +2358,7 @@
         var idEl = document.getElementById('ed_shipment_id');
         if (idEl) idEl.value = id;
         var get = function (k) { return btn.getAttribute('data-' + k) || ''; };
-        ['full_name','dni','document_type','phone','pickup_person_name','pickup_person_dni','pickup_person_phone',
+        ['full_name','dni','document_type','phone','alternate_phone','pickup_person_name','pickup_person_dni','pickup_person_phone',
          'shipping_destination','reference','shipping_agency','package_content','package_count','weight','notes',
          'delivery_price','latitude','longitude','formatted_address','google_place_id','google_maps_url','destination_city','distance_km','distance_text','duration_text'].forEach(function (f) {
             var el = document.getElementById('ed_' + f);

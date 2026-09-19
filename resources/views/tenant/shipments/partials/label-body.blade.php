@@ -90,6 +90,9 @@
         <div class="section-title">Destinatario</div>
         <div class="big-text">{{ $shipment->full_name }}</div>
         @if($shipment->phone)<div class="med-text">Cel: {{ $shipment->phone }}</div>@endif
+        {{-- El segundo numero va en el rotulo o no sirve de nada: el counter
+             que no logra entregar solo tiene delante este papel. --}}
+        @if($shipment->alternate_phone)<div class="med-text">Otro cel: {{ $shipment->alternate_phone }}</div>@endif
         @if($shipment->dni)<div class="med-text">{{ $shipment->document_label }}: {{ $shipment->dni }}</div>@endif
     </div>
 

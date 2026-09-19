@@ -41,6 +41,10 @@ class ShippingRequest extends Model
         'pickup_person_dni',
         'pickup_person_phone',
         'phone',
+        // Segundo numero de contacto DE ESTA ENTREGA (el vecino, el familiar).
+        // No es un dato del cliente: cambia con cada envio. Ver la migracion
+        // 2026_09_19_000001.
+        'alternate_phone',
         'shipping_destination',
         'reference',
         'destination_city',
@@ -163,6 +167,77 @@ class ShippingRequest extends Model
         } catch (\Throwable $e) {
             return false;
         }
+    }
+
+    /**
+     * ¿Esta base ya tiene la columna del teléfono adicional?
+     *
+     * Misma cautela —y misma memo por BASE DE DATOS— que `moduleInstalled()`:
+     * un worker de cola atiende varios tenants seguidos, y hasta que la
+     * migración pase por los 17 hay bases sin la columna. Escribirla allí
+     * tumbaría el guardado del envío entero por un dato accesorio.
+     */
+    public static function hasAlternatePhone(): bool
+    {
+        static $soportado = [];
+
+        try {
+            $schema   = \Illuminate\Support\Facades\Schema::connection('tenant');
+            $database = $schema->getConnection()->getDatabaseName();
+
+            if (!array_key_exists($database, $soportado)) {
+                $soportado[$database] = $schema->hasTable('shipping_requests')
+                    && $schema->hasColumn('shipping_requests', 'alternate_phone');
+            }
+
+            return $soportado[$database];
+        } catch (\Throwable $e) {
+            return false;
+        }
+    }
+
+    /**
+     * Nombre de agencia normalizado contra el catálogo.
+     *
+     * El selector permite escribir una agencia que no esté en la lista —hay
+     * transportistas locales que no salen en ninguna—, y por eso «Shalom»,
+     * «shalom » y «SHALOM» entraban como TRES agencias distintas: los filtros
+     * del panel y los lotes de impresión las contaban por separado.
+     *
+     * Lo que llega se compara sin tildes, sin mayúsculas y sin espacios
+     * sobrantes contra `AGENCIES`; si coincide, se guarda con la escritura del
+     * catálogo. Si no coincide se respeta lo escrito (solo recortado): inventar
+     * una tabla de agencias para esto sería resolver un problema de escritura
+     * con una migración.
+     */
+    public static function normalizeAgency(?string $agency): ?string
+    {
+        $limpio = trim(preg_replace('/\s+/u', ' ', (string) $agency));
+
+        if ($limpio === '') {
+            return null;
+        }
+
+        $clave = self::agencyKey($limpio);
+
+        foreach (self::AGENCIES as $oficial) {
+            if (self::agencyKey($oficial) === $clave) {
+                return $oficial;
+            }
+        }
+
+        return $limpio;
+    }
+
+    /** Forma comparable de un nombre de agencia: sin tildes, sin caso, sin puntuación. */
+    private static function agencyKey(string $agency): string
+    {
+        $sinTildes = strtr(
+            mb_strtolower($agency, 'UTF-8'),
+            ['á' => 'a', 'é' => 'e', 'í' => 'i', 'ó' => 'o', 'ú' => 'u', 'ü' => 'u', 'ñ' => 'n']
+        );
+
+        return preg_replace('/[^a-z0-9]/', '', $sinTildes);
     }
 
     // ── Relaciones logísticas ──────────────────────────────────────────────

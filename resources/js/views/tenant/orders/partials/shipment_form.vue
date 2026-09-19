@@ -73,6 +73,14 @@
                     <el-input v-model="form.dni" placeholder="DNI / RUC" />
                     <el-input v-model="form.phone" placeholder="Teléfono" />
                 </div>
+                <!-- Segundo contacto DE ESTA ENTREGA. No es el telefono del
+                     cliente repetido: es a quien llamar cuando el primero no
+                     contesta, y cambia con cada envio. -->
+                <el-input
+                    v-model="form.alternate_phone"
+                    class="mt-2"
+                    placeholder="Teléfono adicional (opcional) — a quién llamar si no contesta"
+                />
             </div>
 
             <!-- Quién recoge: la agencia no entrega un paquete a un RUC, pide
@@ -122,6 +130,20 @@
                         <span class="ord-ub-ctx">{{ r.context }}</span>
                     </el-option>
                 </el-select>
+
+                <!-- Lima/provincia NO es un campo aparte: es la modalidad, y
+                     el ubigeo elegido ya dice cual toca. En vez de pedir el
+                     dato dos veces se avisa cuando las dos respuestas se
+                     contradicen, y se deja corregir de un clic. -->
+                <div v-if="destinoEsLima" class="ord-ship-lima">
+                    <span>
+                        {{ form.destination_city }} está en
+                        {{ departamentoElegido }}: esto no viaja a provincia.
+                    </span>
+                    <button type="button" @click="form.delivery_type = 'domicilio'">
+                        Cambiar a Envío Local
+                    </button>
+                </div>
 
                 <div class="ord-ub-manual-link" @click="showManualUbigeo = !showManualUbigeo">
                     {{ showManualUbigeo ? '▴ Ocultar' : '▾ O elegir por' }}
@@ -219,6 +241,13 @@ export default {
     props: {
         visible: { type: Boolean, default: false },
         orderId: { type: Number, default: null },
+        /**
+         * Modalidad con la que abrir cuando el envio todavia no existe.
+         * La manda el alta manual, donde el operador ya la eligio: volver a
+         * preguntarla seria preguntar dos veces lo mismo. Si el pedido ya
+         * tiene envio, manda el envio.
+         */
+        deliveryType: { type: String, default: null },
     },
 
     data() {
@@ -279,6 +308,24 @@ export default {
         modalityLocked() {
             return !!(this.shipment && this.shipment.locked_by_batch);
         },
+        /**
+         * Departamentos que NO son «provincia» para la operación: Lima (15) y
+         * Callao (07). Son los códigos INEI del ubigeo que ya usa el sistema
+         * —no una lista nueva de zonas— y salen del destino elegido, así que
+         * nadie tiene que declarar aparte si el pedido es de Lima.
+         */
+        destinoEsLima() {
+            return (
+                this.isAgencia &&
+                ["15", "07"].includes(String(this.form.department_id || ""))
+            );
+        },
+        departamentoElegido() {
+            const dep = (this.catalogs.departments || []).find(
+                x => String(x.id) === String(this.form.department_id)
+            );
+            return dep ? dep.description : "Lima";
+        },
     },
 
     watch: {
@@ -307,6 +354,7 @@ export default {
                 document_type: "dni",
                 dni: "",
                 phone: "",
+                alternate_phone: "",
                 pickup_person_name: "",
                 pickup_person_dni: "",
                 pickup_person_phone: "",
@@ -345,6 +393,15 @@ export default {
                 // lo que el pedido ya sabe del cliente, para no volver a pedirlo.
                 const source = data.exists ? data.shipment : data.prefill;
                 this.form = Object.assign(this.emptyForm(), this.pick(source));
+
+                // Solo en el alta: un envio que ya existe tiene SU modalidad y
+                // cambiarla no es escribir un campo (arrastra agencia, guia y
+                // lote). Eso pasa por `changeModality`, no por aqui.
+                if (!data.exists && this.deliveryType
+                    && this.catalogs.delivery_types
+                    && this.catalogs.delivery_types[this.deliveryType]) {
+                    this.form.delivery_type = this.deliveryType;
+                }
 
                 // El ubigeo guardado no se hidrata solo: hay que traer las
                 // listas dependientes explícitamente o los selectores salen
@@ -670,5 +727,34 @@ export default {
     .ord-ship-mode {
         flex: 1 1 100%;
     }
+}
+/* Aviso de destino que no cuadra con la modalidad. Ambar, no rojo: no es un
+   error, es una contradiccion que el operador puede querer sostener (una
+   agencia que sale de Lima a un almacen de Lima existe). */
+.ord-ship-lima {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+    margin-top: 8px;
+    padding: 9px 12px;
+    font-size: 12.5px;
+    color: #92400e;
+    background: #fffbeb;
+    border: 1px solid #fde68a;
+    border-radius: 8px;
+}
+.ord-ship-lima button {
+    padding: 4px 10px;
+    font-size: 12px;
+    font-weight: 600;
+    color: #92400e;
+    background: #fff;
+    border: 1px solid #fcd34d;
+    border-radius: 6px;
+    cursor: pointer;
+}
+.ord-ship-lima button:hover {
+    background: #fef3c7;
 }
 </style>

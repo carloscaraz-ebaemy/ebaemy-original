@@ -3685,6 +3685,11 @@ class ShipmentController extends Controller
             'pickup_person_dni'    => ($esEmpresa ? 'required' : 'nullable') . '|string|min:8|max:20',
             'pickup_person_phone'  => 'nullable|string|max:20',
             'phone'                => 'required|string|max:20',
+            // Segundo contacto DE LA ENTREGA, no del cliente: el vecino que
+            // recibe, el familiar que acompaña, el número al que llamar cuando
+            // el primero no contesta. Antes acababa escrito dentro de `notes`,
+            // donde ni se busca ni sale en el rótulo.
+            'alternate_phone'      => 'nullable|string|max:20',
             'reference'            => 'nullable|string|max:255',
             'package_content'      => 'nullable|string|max:2000',
             'package_count'        => 'nullable|integer|min:1|max:9999',
@@ -3784,6 +3789,21 @@ class ShipmentController extends Controller
 
         $data['delivery_type']  = $deliveryType;
         $data['package_count']  = (int) ($request->input('package_count') ?: 1);
+
+        // Hasta que la migración pase por los 17 tenants hay bases sin la
+        // columna. Escribirla allí tumbaría el guardado entero por un dato
+        // accesorio, así que se descarta y el resto del envío se guarda igual.
+        if (array_key_exists('alternate_phone', $data) && !ShippingRequest::hasAlternatePhone()) {
+            unset($data['alternate_phone']);
+        }
+
+        // «Shalom», «shalom » y «SHALOM» eran tres agencias distintas para los
+        // filtros y los lotes. Se normaliza contra el catálogo aquí —en el
+        // único sitio por el que pasan las tres puertas de alta— y no en cada
+        // formulario.
+        if (array_key_exists('shipping_agency', $data)) {
+            $data['shipping_agency'] = ShippingRequest::normalizeAgency($data['shipping_agency']);
+        }
         // La prioridad logística se deriva de la modalidad (1 Lima, 2 recojo,
         // 3 provincia) — se sella aquí para que valga desde el alta.
         $data['priority']       = ShippingRequest::priorityFor($deliveryType);

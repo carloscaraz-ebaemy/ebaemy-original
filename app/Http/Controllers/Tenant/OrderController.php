@@ -1441,6 +1441,14 @@ class OrderController extends Controller
             // inventar uno nuevo. Esto es solo para que la pantalla lo refleje:
             // quien manda es la comprobacion del servidor al guardar.
             'can_edit_prices' => (bool) optional(auth()->user())->permission_edit_item_prices,
+            // El alta manual pregunta si el pedido lleva envio, pero solo si
+            // este negocio tiene el modulo: en un tenant sin `shipping:install`
+            // la pregunta no tendria a donde ir.
+            'shipping_module' => \App\Models\Tenant\ShippingRequest::moduleInstalled(),
+            // Las MISMAS modalidades del modulo de Envios, no una copia: el
+            // pedido manual solo elige cual, y el formulario de envio —que ya
+            // existe— es quien pide sus datos.
+            'delivery_types'  => \App\Models\Tenant\ShippingRequest::DELIVERY_TYPES,
         ]);
     }
 
@@ -1562,6 +1570,43 @@ class OrderController extends Controller
      * Un producto con variantes se devuelve con ellas: el stock vive en la
      * variante, y elegir el padre seria vender algo que no existe como tal.
      */
+    /**
+     * Cuantos productos devuelve el buscador del alta manual.
+     *
+     * Eran 15 ordenados ALFABETICAMENTE, y en alasitas «planta» coincide con
+     * 75 productos: el operador veia quince que empezaban por «mini palmera» y
+     * el suyo no estaba. Treinta, ordenados por relevancia, es lo que cabe en
+     * un desplegable sin que haya que buscar dentro de la busqueda.
+     */
+    private const BUSCADOR_LIMITE = 30;
+
+    /**
+     * Orden por relevancia del buscador de productos.
+     *
+     * El alfabeto no es relevancia: lo que el operador escribe casi siempre es
+     * el PRINCIPIO del nombre o el codigo entero, y esos dos casos tienen que
+     * salir arriba. Debajo, lo que contiene el termino; y al final del todo los
+     * productos desactivados, que estan para explicar su ausencia, no para
+     * competir con los que si se pueden vender.
+     */
+    private function ordenPorRelevancia(): string
+    {
+        return 'CASE WHEN active = 0 THEN 1 ELSE 0 END ASC, '
+             . 'CASE '
+             . '  WHEN internal_id = ? THEN 0 '
+             . '  WHEN description = ? THEN 1 '
+             . '  WHEN description LIKE ? THEN 2 '
+             . '  WHEN internal_id LIKE ? THEN 3 '
+             . '  ELSE 4 '
+             . 'END ASC';
+    }
+
+    /** @return array<int, string> Los cuatro bindings de `ordenPorRelevancia()`. */
+    private function bindingsRelevancia(string $termino): array
+    {
+        return [$termino, $termino, $termino . '%', $termino . '%'];
+    }
+
     public function searchItems(Request $request)
     {
         $termino = trim((string) $request->input('q', ''));
@@ -1578,18 +1623,38 @@ class OrderController extends Controller
         // todo lo que sea polo mas todo lo que sea rojo.
         $palabras = array_slice(preg_split('/\s+/u', $termino, -1, PREG_SPLIT_NO_EMPTY), 0, 4);
 
-        $q = Item::query()->where('active', true);
+        // Se busca en TODO lo que el operador puede tener delante cuando
+        // teclea, no solo en el nombre: el codigo interno, el codigo de barras,
+        // el modelo, y —esto faltaba— el SKU y el nombre de las VARIANTES.
+        // En alasitas las variantes se llaman `00154-BLA-120` / «Blanco /
+        // 120cm»: teclear cualquiera de los dos devolvia CERO con el producto
+        // delante, que es indistinguible de «no existe».
+        //
+        // Los desactivados NO se excluyen: se traen al final y marcados. Antes
+        // desaparecian en silencio y el operador no tenia forma de saber si el
+        // producto no existia o estaba dado de baja.
+        $q = Item::query();
 
         foreach ($palabras as $palabra) {
             $like = '%' . $palabra . '%';
-            $q->where(fn ($w) => $w->where('description', 'like', $like)
-                                   ->orWhere('internal_id', 'like', $like));
+            $q->where(function ($w) use ($like) {
+                $w->where('description', 'like', $like)
+                  ->orWhere('internal_id', 'like', $like)
+                  ->orWhere('barcode', 'like', $like)
+                  ->orWhere('model', 'like', $like)
+                  ->orWhereHas('variants', fn ($v) => $v->where(
+                      fn ($x) => $x->where('sku', 'like', $like)
+                                   ->orWhere('barcode', 'like', $like)
+                                   ->orWhere('display_name', 'like', $like)
+                  ));
+            });
         }
 
         // `variants()` ya filtra por activas y ordena. No se le encadena nada.
         $items = $q->with('variants')
+                   ->orderByRaw($this->ordenPorRelevancia(), $this->bindingsRelevancia($termino))
                    ->orderBy('description')
-                   ->limit(15)
+                   ->limit(self::BUSCADOR_LIMITE)
                    ->get();
 
         return response()->json($items->map(function (Item $item) use ($stock, $warehouseId) {
@@ -1604,6 +1669,9 @@ class OrderController extends Controller
                 'id'          => $item->id,
                 'name'        => trim((string) $item->description) ?: 'Producto',
                 'code'        => $item->internal_id,
+                // La pantalla lo pinta como «desactivado» y no deja elegirlo.
+                // Aparecer y no poder venderse es informacion; desaparecer no.
+                'active'      => (bool) $item->active,
                 'price'       => (float) ($item->is_set
                                     ? ($item->sale_unit_price_set ?: $item->sale_unit_price)
                                     : $item->sale_unit_price),
@@ -1731,6 +1799,7 @@ class OrderController extends Controller
             'code'      => $item->internal_id,
             'price'     => (float) $item->sale_unit_price,
             'is_set'    => false,
+            'active'    => true,
             // null = sin control de stock. No es cero: cero significaria que se
             // agoto, y esto simplemente no se inventaria.
             'available' => null,
@@ -1816,6 +1885,29 @@ class OrderController extends Controller
         ]);
     }
 
+    /**
+     * Mensajes de las lineas que apuntan a un producto dado de baja.
+     *
+     * @param  array<int, array{item_id: int}>  $lineas
+     * @return array<int, string>
+     */
+    private function lineasDeProductoInactivo(array $lineas): array
+    {
+        $ids = array_values(array_filter(array_column($lineas, 'item_id')));
+
+        if (!$ids) {
+            return [];
+        }
+
+        return Item::whereIn('id', $ids)
+            ->where('active', false)
+            ->pluck('description', 'internal_id')
+            ->map(fn ($nombre, $codigo) => trim($codigo . ' ' . $nombre)
+                . ' está dado de baja: reactívalo en Productos o quítalo del pedido.')
+            ->values()
+            ->all();
+    }
+
     public function storeManual(Request $request)
     {
         $request->validate([
@@ -1842,6 +1934,19 @@ class OrderController extends Controller
             'variant_id' => $i['variant_id'] ?? null,
             'quantity'   => (float) ($i['quantity'] ?? 0),
         ])->all();
+
+        // El buscador ahora ENSEÑA los productos desactivados (marcados, para
+        // explicar por que no aparecen). Que se vean no significa que se
+        // puedan vender: deshabilitar la opcion en pantalla no es un control.
+        if ($bajas = $this->lineasDeProductoInactivo($lineas)) {
+            return response()->json([
+                'success'   => false,
+                'message'   => count($bajas) === 1
+                    ? $bajas[0]
+                    : 'Hay productos dados de baja en el pedido.',
+                'problemas' => $bajas,
+            ], 422);
+        }
 
         $stock = app(\App\Services\Tenant\StockReservation::class);
 
