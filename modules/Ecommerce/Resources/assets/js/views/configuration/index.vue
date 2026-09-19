@@ -20,6 +20,20 @@
                 </div>
               </div>
               <div class="col-md-6">
+                <div class="form-group" :class="{'has-danger': errors.claims_email}">
+                  <label class="control-label">Email del Libro de Reclamaciones</label>
+                  <el-input v-model="form.claims_email" placeholder="reclamos@tuempresa.com"></el-input>
+                  <small class="form-text text-muted">
+                    Buzón que recibe los reclamos y quejas de la tienda. Si lo dejas vacío se usa el Email de contacto.
+                  </small>
+                  <small
+                    class="form-control-feedback"
+                    v-if="errors.claims_email"
+                    v-text="errors.claims_email[0]"
+                  ></small>
+                </div>
+              </div>
+              <div class="col-md-6">
                 <div class="form-group" :class="{'has-danger': errors.information_contact_name}">
                   <label class="control-label">
                     Nombre
@@ -113,6 +127,7 @@ export default {
       this.form = {
         id: null,
         information_contact_email: "",
+        claims_email: null,
         information_contact_name: null,
         information_contact_phone: null,
         phone_whatsapp: null,

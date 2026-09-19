@@ -29,7 +29,6 @@ use Laravel\Socialite\Facades\Socialite;
 use App\Models\Tenant\Document;
 use Modules\Item\Models\Category;
 use App\Models\Tenant\Company;
-use App\Mail\Tenant\ReclamoEmail;
 use Illuminate\Support\Facades\Cache;
 use App\Models\Tenant\Coupon;
 use App\Models\Tenant\FlashSale;
@@ -340,67 +339,10 @@ class EcommerceController extends Controller
   
      
     
-    public function libroReclamaciones()
-    {
-        $config = ConfigurationEcommerce::firstCached();
-        $company = Company::first();
-
-        return view('ecommerce::layouts.terminos_condiciones.libro_reclamaciones', [
-            'information_contact_email' => optional($config)->information_contact_email,
-            'information_contact_phone' => optional($config)->information_contact_phone,
-            'information_contact_address' => optional($config)->information_contact_address,
-            'name_company' => optional($company)->name,
-            'number_company' => optional($company)->number,
-        ]);
-    }
-
-
-    public function enviarReclamo(Request $request)
-    {
-        $request->validate([
-            'nombres'           => 'required|string|max:100',
-            'apellidos'         => 'required|string|max:100',
-            'tipo_documento'    => 'required|string|max:20',
-            'numero_documento'  => 'required|string|max:20',
-            'descripcion'       => 'required|string|max:2000',
-            'detalle_reclamo'   => 'required|string|max:2000',
-            'pedido_consumidor' => 'required|string|max:500',
-            'archivos'          => 'nullable|array|max:5',
-            'archivos.*'        => 'file|mimes:jpg,jpeg,png,pdf|max:5120',
-        ]);
-
-        $datosFormulario = $request->only([
-            'nombres', 'apellidos', 'tipo_documento', 'numero_documento',
-            'descripcion', 'detalle_reclamo', 'pedido_consumidor',
-        ]);
-
-        // Guardar archivos
-        if ($request->hasFile('archivos')) {
-            foreach ($request->file('archivos') as $archivo) {
-                $path = $archivo->store('reclamaciones', 'public');
-                $datosFormulario['archivos'][] = $path;
-            }
-        }
-
-        $company = Company::first();
-        $configuration = ConfigurationEcommerce::firstCached();
-
-        // 👇 usa el email referencial del cliente
-        $email = $configuration->information_contact_email;
-        try {
-            Mail::to($email)->send(new ReclamoEmail($company, $datosFormulario));
-        } catch (\Exception $e) {
-            // Esto grabará el error exacto en storage/logs/laravel.log
-            \Log::error("Error enviando Libro de Reclamaciones: " . $e->getMessage());
-            return back()->with('error', 'Error técnico al enviar el correo.');
-        }
-
-        return redirect()
-            ->route('tenant.libro_reclamaciones')
-            ->with('success', 'Reclamo enviado correctamente');
-    }
-
-
+    /*
+     * El Libro de Reclamaciones se mudó a Modules\Ecommerce\Http\Controllers\ClaimController:
+     * ahora registra la hoja en `claims` en vez de limitarse a mandar un correo.
+     */
 
 // fin terminos y condiciones
 

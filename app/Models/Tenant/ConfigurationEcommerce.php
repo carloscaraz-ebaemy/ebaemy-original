@@ -12,6 +12,7 @@ class ConfigurationEcommerce extends ModelTenant
         // CONTACTO
         'information_contact_name',
         'information_contact_email',
+        'claims_email',
         'information_contact_phone',
         'information_contact_address',
         'phone_whatsapp',

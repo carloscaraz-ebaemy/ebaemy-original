@@ -145,6 +145,7 @@ class ConfigurationController extends Controller
             $payload = $request->only([
                 'information_contact_name',
                 'information_contact_email',
+                'claims_email',
                 'information_contact_phone',
                 'information_contact_address',
                 'phone_whatsapp',

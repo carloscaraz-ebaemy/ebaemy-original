@@ -1130,6 +1130,14 @@ $inventory_configuration = InventoryConfiguration::getSidebarPermissions();
                                         <span>Avisos de Stock</span>
                                     </a>
                                 </li>
+                                @if(in_array('ecommerce_claims', $vc_module_levels))
+                                    <li class="{{ request()->routeIs('tenant.ecommerce.claims') ? 'nav-active' : '' }}">
+                                        <a class="nav-link" href="{{ route('tenant.ecommerce.claims') }}">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M3 19a9 9 0 0 1 9 0a9 9 0 0 1 9 0" /><path d="M3 6a9 9 0 0 1 9 0a9 9 0 0 1 9 0" /><path d="M3 6l0 13" /><path d="M12 6l0 13" /><path d="M21 6l0 13" /></svg>
+                                            <span>Libro de Reclamaciones</span>
+                                        </a>
+                                    </li>
+                                @endif
                                 <li class="{{ request()->routeIs('tenant.discount_rules.index') ? 'nav-active' : '' }}">
                                     <a class="nav-link" href="{{ route('tenant.discount_rules.index') }}">
                                         <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M17 8v.01" /><path d="M7 16v.01" /><path d="M6 6m-3 0a3 3 0 1 0 6 0a3 3 0 1 0 -6 0" /><path d="M18 18m-3 0a3 3 0 1 0 6 0a3 3 0 1 0 -6 0" /><path d="M6 9l12 6" /></svg>

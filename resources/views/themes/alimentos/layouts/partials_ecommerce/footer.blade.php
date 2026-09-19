@@ -34,7 +34,7 @@
         <div><h4 class="food-footer__title">Info</h4><ul class="food-footer__links">
             <li><a href="{{ route('tenant.terminos_condiciones') }}">Términos</a></li>
             <li><a href="{{ route('tenant.politica_privacidad') }}">Privacidad</a></li>
-            <li><a href="{{ route('tenant.politica_envio') }}">Zonas de envío</a></li>
+            <li><a href="{{ route('tenant.politica_envio') }}">Zonas de envío</a></li><li><a href="{{ route('tenant.libro_reclamaciones') }}" class="ec-claims-link">Libro de Reclamaciones</a></li>
         </ul></div>
         <div><h4 class="food-footer__title">Contacto</h4><ul class="food-footer__links">
             @if($econfig->information_contact_email)<li>{{ $econfig->information_contact_email }}</li>@endif

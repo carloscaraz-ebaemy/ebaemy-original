@@ -35,7 +35,7 @@
             <li><a href="{{ route('tenant.terminos_condiciones') }}">Términos</a></li>
             <li><a href="{{ route('tenant.politica_privacidad') }}">Privacidad</a></li>
             <li><a href="{{ route('tenant.cambios_devolucion') }}">Garantía</a></li>
-            <li><a href="{{ route('tenant.politica_envio') }}">Envíos</a></li>
+            <li><a href="{{ route('tenant.politica_envio') }}">Envíos</a></li><li><a href="{{ route('tenant.libro_reclamaciones') }}" class="ec-claims-link">Libro de Reclamaciones</a></li>
         </ul></div>
         <div><h4 class="tech-footer__title">Mi Cuenta</h4><ul class="tech-footer__links">
             @guest('ecommerce')

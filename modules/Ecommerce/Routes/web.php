@@ -19,6 +19,13 @@ use Modules\Ecommerce\Http\Controllers\ProductFeedController;
 Route::get('/ecommerce/manifest.json', 'EcommerceController@manifest')->name('ecommerce.manifest');
 Route::get('/ecommerce/offline',       'EcommerceController@offline')->name('ecommerce.offline');
 
+// El reglamento pide que el Libro esté accesible en el mismo medio virtual
+// donde se ofrecen los productos. La URL corta es la que la gente escribe y la
+// que se puede imprimir en un empaque.
+Route::get('/libro-reclamaciones', function () {
+    return redirect()->route('tenant.libro_reclamaciones');
+})->name('tenant.libro_reclamaciones.short');
+
 // ========== SEO - Rutas públicas (sin auth ni middleware) ==========
 Route::get('/sitemap.xml', '\Modules\Ecommerce\Http\Controllers\SitemapController@index');
 Route::get('/robots.txt', '\Modules\Ecommerce\Http\Controllers\RobotsController@index');
@@ -209,8 +216,17 @@ Route::middleware(['check.permission', 'locked.tenant', 'check.email.verified', 
     Route::post('change-password', 'EcommerceController@changePassword')->name('tenant.ecommerce.change_password');
     Route::get('referral', 'EcommerceController@referralInfo')->name('tenant.ecommerce.referral');
     /*terminos y condiciones  */
-    Route::get('libro-reclamaciones', 'EcommerceController@libroReclamaciones')->name('tenant.libro_reclamaciones');
-    Route::post('libro-reclamaciones', 'EcommerceController@enviarReclamo')->name('tenant.libro_reclamaciones_enviar')->middleware('throttle:5,1');
+    // Libro de Reclamaciones (D.S. 011-2011-PCM / D.S. 101-2022-PCM).
+    // Público: el consumidor no tiene por qué tener cuenta en la tienda.
+    Route::get('libro-reclamaciones', 'ClaimController@form')->name('tenant.libro_reclamaciones');
+    Route::post('libro-reclamaciones', 'ClaimController@store')
+         ->name('tenant.libro_reclamaciones_enviar')->middleware('throttle:5,1');
+    Route::get('libro-reclamaciones/consulta', 'ClaimController@track')->name('tenant.libro_reclamaciones.track');
+    Route::post('libro-reclamaciones/consulta', 'ClaimController@trackSearch')
+         ->name('tenant.libro_reclamaciones.track_search')->middleware('throttle:10,1');
+    // La llave del PDF es el token aleatorio de la hoja, no su código.
+    Route::get('libro-reclamaciones/{code}/copia', 'ClaimController@pdf')
+         ->name('tenant.libro_reclamaciones.pdf')->middleware('throttle:20,1');
 
     // Programa de puntos
     Route::get('points', 'EcommerceController@pointsBalance')->name('tenant.ecommerce.points');
@@ -247,6 +263,16 @@ Route::middleware(['check.permission', 'locked.tenant', 'check.email.verified', 
         Route::get('stock-notifications/records', 'StockNotificationController@adminRecords');
         Route::post('stock-notifications/send', 'StockNotificationController@adminSend');
         Route::delete('stock-notifications/{id}', 'StockNotificationController@adminDestroy');
+
+        // Libro de Reclamaciones (panel del tenant)
+        Route::get('claims', 'ClaimAdminController@index')->name('tenant.ecommerce.claims');
+        Route::get('claims/records', 'ClaimAdminController@records');
+        Route::get('claims/summary', 'ClaimAdminController@summary');
+        Route::get('claims/{id}', 'ClaimAdminController@show')->where('id', '[0-9]+');
+        Route::get('claims/{id}/pdf', 'ClaimAdminController@pdf')->where('id', '[0-9]+');
+        Route::post('claims/{id}/answer', 'ClaimAdminController@answer')->where('id', '[0-9]+');
+        Route::post('claims/{id}/status', 'ClaimAdminController@changeStatus')->where('id', '[0-9]+');
+        Route::post('claims/{id}/resend-mail', 'ClaimAdminController@resendMail')->where('id', '[0-9]+');
 
         // Marketplace — productos y canales
         Route::get('marketplace', '\App\Http\Controllers\Tenant\MarketplaceController@index')->name('tenant.ecommerce.marketplace');

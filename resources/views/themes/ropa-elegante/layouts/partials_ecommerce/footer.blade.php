@@ -26,7 +26,7 @@
             <a href="{{ route('ecommerce.tracking') }}" class="eleg-footer__link">Seguimiento</a>
             <a href="{{ route('tenant.terminos_condiciones') }}" class="eleg-footer__link">Términos</a>
             <a href="{{ route('tenant.politica_privacidad') }}" class="eleg-footer__link">Privacidad</a>
-            <a href="{{ route('tenant.politica_envio') }}" class="eleg-footer__link">Envíos</a>
+            <a href="{{ route('tenant.politica_envio') }}" class="eleg-footer__link">Envíos</a><a href="{{ route('tenant.libro_reclamaciones') }}" class="eleg-footer__link ec-claims-link">Libro de Reclamaciones</a>
         </div>
         <div class="eleg-footer__contact">
             @if($econfig->information_contact_email){{ $econfig->information_contact_email }}<br>@endif

@@ -115,7 +115,7 @@
                 <li><a href="{{ route('tenant.terminos_condiciones') }}">Términos</a></li>
                 <li><a href="{{ route('tenant.politica_privacidad') }}">Privacidad</a></li>
                 <li><a href="{{ route('tenant.cambios_devolucion') }}">Cambios</a></li>
-                <li><a href="{{ route('tenant.politica_envio') }}">Envíos</a></li>
+                <li><a href="{{ route('tenant.politica_envio') }}">Envíos</a></li><li><a href="{{ route('tenant.libro_reclamaciones') }}" class="ec-claims-link">Libro de Reclamaciones</a></li>
             </ul>
         </div>
 
