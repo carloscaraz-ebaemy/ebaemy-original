@@ -777,6 +777,25 @@
 </script>
 
 <script>
+/**
+ * Formato de importes del marketplace. Mismo resultado que `number_format($x, 2)`
+ * de PHP: separador de miles y dos decimales.
+ *
+ * Con `toFixed(2)` a secas —que es lo que habia repetido en ocho sitios— el
+ * server pintaba «S/ 1,234.50» y el navegador «S/ 1234.50», asi que cualquier
+ * repintado en vivo (mini-cart, badge, buscador) cambiaba el aspecto de los
+ * importes a mitad de la compra. Se define aqui, una vez, y lo usan todos.
+ */
+window.mpMoney = (function () {
+    const nf = new Intl.NumberFormat('en-US', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+    });
+    return n => 'S/ ' + nf.format(Number(n) || 0);
+})();
+</script>
+
+<script>
 (function(){
     const badge = document.getElementById('mpCartBadge');
     if (!badge) return;
@@ -801,7 +820,7 @@
                 const c = document.getElementById('mpMabCount');
                 if (c) c.textContent = '(' + count + ')';
                 const t = document.getElementById('mpMabTotal');
-                if (t && summary && summary.subtotal != null) t.textContent = 'S/ ' + Number(summary.subtotal).toFixed(2);
+                if (t && summary && summary.subtotal != null) t.textContent = window.mpMoney(summary.subtotal);
             } else {
                 bar.classList.remove('is-visible');
                 bar.setAttribute('aria-hidden', 'true');
@@ -972,7 +991,7 @@ window.mpCouponTenantIds = []; // hostname_ids donde el user tiene cupn
                         ${s.tenant_name ? '<span>· ' + esc(s.tenant_name) + '</span>' : ''}
                     </span>
                 </div>
-                <span class="mp-search-suggest__price">S/ ${(s.price || 0).toFixed(2)}</span>
+                <span class="mp-search-suggest__price">${window.mpMoney(s.price || 0)}</span>
             </a>`;
     }
 
@@ -1210,7 +1229,7 @@ window.mpCouponTenantIds = []; // hostname_ids donde el user tiene cupn
                 html += `<span class="mp-mini-cart__store-logo" style="display:inline-flex;align-items:center;justify-content:center;font-size:11px;font-weight:700">🏪</span>`;
             }
             html += `<span class="mp-mini-cart__store-name">${escapeHtml(store.tenant_name || store.tenant_fqdn || 'Tienda')}</span>
-                <span style="font-weight:700;color:#0c6b65">S/ ${Number(store.subtotal || 0).toFixed(2)}</span>
+                <span style="font-weight:700;color:#0c6b65">${window.mpMoney(store.subtotal || 0)}</span>
             </div>`;
 
             (store.items || []).forEach(line => {
@@ -1222,10 +1241,10 @@ window.mpCouponTenantIds = []; // hostname_ids donde el user tiene cupn
                 }
                 html += `<div class="mp-mini-cart__line-info">
                     <div class="mp-mini-cart__line-title">${escapeHtml(line.title)}</div>
-                    <div class="mp-mini-cart__line-meta">${line.quantity} × S/ ${Number(line.price).toFixed(2)}</div>
+                    <div class="mp-mini-cart__line-meta">${line.quantity} × ${window.mpMoney(line.price)}</div>
                 </div>
                 <div class="mp-mini-cart__line-actions">
-                    <div class="mp-mini-cart__line-total">S/ ${Number(line.line_total).toFixed(2)}</div>
+                    <div class="mp-mini-cart__line-total">${window.mpMoney(line.line_total)}</div>
                     ${line.listing_id ? `
                         <button type="button" class="mp-mini-cart__line-remove js-mini-cart-remove"
                                 data-listing-id="${line.listing_id}"
@@ -1240,7 +1259,7 @@ window.mpCouponTenantIds = []; // hostname_ids donde el user tiene cupn
         });
 
         body.innerHTML = html;
-        totalEl.textContent = 'S/ ' + Number(summary.subtotal || 0).toFixed(2);
+        totalEl.textContent = window.mpMoney(summary.subtotal || 0);
         foot.style.display = '';
     }
 
@@ -1328,7 +1347,7 @@ window.mpCouponTenantIds = []; // hostname_ids donde el user tiene cupn
                     renderEmpty();
                 } else {
                     // Actualiza total y count sin re-renderear todo.
-                    totalEl.textContent = 'S/ ' + Number(sum.subtotal || 0).toFixed(2);
+                    totalEl.textContent = window.mpMoney(sum.subtotal || 0);
                     countEl.textContent = sum.count;
                     // Recalcular subtotal del store (sumar lineas restantes).
                     if (storeEl && storeEl.isConnected) {
@@ -1338,7 +1357,7 @@ window.mpCouponTenantIds = []; // hostname_ids donde el user tiene cupn
                             storeSubtotal += v;
                         });
                         const head = storeEl.querySelector('.mp-mini-cart__store-head span:last-child');
-                        if (head) head.textContent = 'S/ ' + storeSubtotal.toFixed(2);
+                        if (head) head.textContent = window.mpMoney(storeSubtotal);
                     }
                 }
                 // Badge global del navbar.

@@ -17,7 +17,23 @@
         <link rel="stylesheet" href="{{ asset('porto-light/css/theme.css') }}" />
         <link rel="stylesheet" href="{{ asset('css/auth.css') }}" />
         <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/limonte-sweetalert2/7.26.29/sweetalert2.min.css" />
-        <link href="{{ mix('css/app.css') }}" id="app-style" rel="stylesheet" type="text/css" />
+        {{-- `asset()` y no `mix()`: `public/mix-manifest.json` lleva commiteado
+             con marcadores de conflicto de merge sin resolver, asi que el JSON
+             no parsea. Con APP_DEBUG=false `mix()` no tumba la pagina — reporta
+             al log y devuelve la ruta cruda — de ahi los «Unable to locate Mix
+             file» que ensuciaban `laravel.log` en CADA visita. La ruta servida
+             es la misma que ya salia, asi que aqui no cambia nada mas.
+
+             OJO, lo que esto NO arregla: `js/app.js` no existe (404), asi que
+             esta pagina lleva tiempo sin Vue y su formulario —el componente
+             <system-guest-register-register>— no se pinta. Arreglarlo es pasar
+             a la directiva de Vite con resources/js/system.js (monta en
+             #main-wrapper, que este layout ya tiene) y reconstruir el
+             bundle: el componente ya
+             quedo registrado en resources/js/system.js. --}}
+        <link href="{{ asset('css/app.css') }}" id="app-style" rel="stylesheet" type="text/css" />
+        <script src="{{ asset('js/manifest.js') }}"></script>
+        <script src="{{ asset('js/vendor.js') }}"></script>
 
     </head>
     <body>
@@ -25,8 +41,5 @@
             @yield('content')
         </div>
 
-        <script src="{{ mix('js/manifest.js') }}"></script>
-        <script src="{{ mix('js/vendor.js') }}"></script>
-        <script src="{{ mix('js/app.js') }}"></script>
     </body>
 </html>

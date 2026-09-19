@@ -47,6 +47,16 @@ Vue.component('x-input-service', InputService);
 // propio scope, dejando texto literal en el DOM.
 Vue.component('system-marketplace-orders', () => import('./views/system/marketplace_orders/index.vue'));
 
+// Registro publico de invitados (/guest-register, enlazado desde el pie del
+// marketplace). Los dos .vue existian desde siempre pero NUNCA se registraron
+// aqui, asi que <system-guest-register-register> llegaba al navegador como un
+// tag desconocido y el formulario no se pintaba: la pagina «Registrate gratis»
+// se veia vacia. Lo tapaba que el layout cargaba el bundle por mix(), que
+// apuntaba a /js/app.js — un archivo que ya no existe (404) — asi que no habia
+// Vue ninguno que delatara el componente sin registrar.
+Vue.component('system-guest-register-register', () => import('./views/system/guest-register/register.vue'));
+Vue.component('system-guest-register-disabled', () => import('./views/system/guest-register/disabled.vue'));
+
 // ─── LAZY-LOADED: Page-level system components ──────────────────────────────
 
 // System configurations

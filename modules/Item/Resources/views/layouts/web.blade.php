@@ -11,7 +11,11 @@
 
     <title>Facturación Electrónica</title>
 
-    <link href="{{ mix('css/app.css') }}" rel="stylesheet">
+    {{-- `asset()` y no `mix()`: el manifest de Mix esta commiteado con
+         marcadores de conflicto sin resolver y no parsea. Con APP_DEBUG=false
+         eso no tumba la pagina, solo reporta al log en cada visita y devuelve
+         la ruta cruda. La ruta servida es la misma de antes. --}}
+    <link href="{{ asset('css/app.css') }}" rel="stylesheet">
 
     <!-- Styles -->
     <link href="https://fonts.googleapis.com/css?family=Open+Sans:300,400,600,700,800|Shadows+Into+Light" rel="stylesheet" type="text/css">
@@ -67,6 +71,5 @@
 
     <script src="{{ asset('js/manifest.js') }}"></script>
     <script src="{{ asset('js/vendor.js') }}"></script>
-    <script src="{{ mix('js/app.js') }}"></script>
 </body>
 </html>
