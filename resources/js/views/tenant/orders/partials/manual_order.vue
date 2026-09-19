@@ -314,6 +314,12 @@ export default {
             buscandoCliente: false,
             origenCliente: "",
             timerDoc: null,
+            // Lo que escribio la consulta, para distinguirlo de lo que
+            // escribio el operador: solo lo suyo se respeta al cambiar de
+            // documento.
+            autollenado: {},
+            docConsultado: "",
+            peticionDoc: 0,
             form: this.formVacio(),
         };
     },
@@ -373,6 +379,8 @@ export default {
             this.problemas = [];
             this.buscado = null;
             this.origenCliente = "";
+            this.autollenado = {};
+            this.docConsultado = "";
 
             this.$http.get("/orders/channels").then(r => {
                 const d = r.data || {};
@@ -458,9 +466,31 @@ export default {
             clearTimeout(this.timerDoc);
 
             const doc = (this.form.customer.document_number || "").replace(/\D+/g, "");
+
+            // El documento cambio: lo que trajo la consulta anterior ya no es
+            // de esta persona. Se suelta ahora, no cuando llegue la respuesta,
+            // para que la pantalla no quede un segundo mostrando al anterior.
+            if (doc !== this.docConsultado) this.soltarDatosTraidos();
+
             if (doc.length !== 8 && doc.length !== 11) return;
 
             this.timerDoc = setTimeout(() => this.buscarCliente(false), 450);
+        },
+        /**
+         * Borra solo los campos que siguen teniendo, tal cual, el valor que
+         * puso una consulta anterior. Si el operador los corrigio a mano, su
+         * correccion se queda: vale mas que el servicio.
+         */
+        soltarDatosTraidos() {
+            Object.keys(this.autollenado).forEach(k => {
+                if (this.form.customer[k] === this.autollenado[k]) {
+                    this.form.customer[k] = "";
+                }
+            });
+
+            this.autollenado = {};
+            this.docConsultado = "";
+            this.origenCliente = "";
         },
         /**
          * `manual` = lo pidió el operador con el botón, y entonces sí se le
@@ -475,10 +505,21 @@ export default {
                 return;
             }
 
+            // Por el boton o por Enter se puede pedir el mismo documento que
+            // ya esta pintado; y si es otro, lo anterior sobra igual.
+            if (doc !== this.docConsultado) this.soltarDatosTraidos();
+
+            // Corregir un digito lanza otra consulta antes de que vuelva la
+            // primera. Sin este numero, la lenta llega ultima y pinta al
+            // cliente equivocado encima del bueno.
+            const peticion = ++this.peticionDoc;
+
             this.buscandoCliente = true;
             this.$http
                 .get("/orders/search-customer", { params: { document_number: doc } })
                 .then(r => {
+                    if (peticion !== this.peticionDoc) return;
+
                     const d = r.data || {};
 
                     if (!d.found) {
@@ -491,27 +532,34 @@ export default {
                         return;
                     }
 
-                    this.aplicarCliente(d);
+                    this.aplicarCliente(d, doc);
                 })
                 .catch(() => {
+                    if (peticion !== this.peticionDoc) return;
                     if (manual) this.$message.error("No se pudo consultar el documento.");
                 })
                 .then(() => {
-                    this.buscandoCliente = false;
+                    if (peticion === this.peticionDoc) this.buscandoCliente = false;
                 });
         },
         /**
          * Nunca pisa lo que el operador ya escribió: si corrigió el nombre que
          * devuelve el servicio, esa corrección vale más que el servicio.
          */
-        aplicarCliente(d) {
+        aplicarCliente(d, doc) {
             const c = d.customer || {};
 
             ["name", "phone", "email"].forEach(k => {
-                if (c[k] && !(this.form.customer[k] || "").trim()) {
-                    this.form.customer[k] = c[k];
-                }
+                if (!c[k]) return;
+                if ((this.form.customer[k] || "").trim()) return;
+
+                this.form.customer[k] = c[k];
+                // Queda marcado como traido: si el documento cambia, este
+                // valor se suelta en vez de bloquear al cliente nuevo.
+                this.$set(this.autollenado, k, c[k]);
             });
+
+            this.docConsultado = doc || "";
 
             this.origenCliente = {
                 cartera: "Cliente de tu cartera.",
