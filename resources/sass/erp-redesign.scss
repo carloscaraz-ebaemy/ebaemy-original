@@ -706,7 +706,17 @@ input, select, textarea, button {
   }
 
   tbody tr { transition: background var(--ease) !important; }
-  tbody tr:hover td { background: #f8fafc !important; }
+
+  // `.row-tone` = la fila ya tiene un color que SIGNIFICA algo (anulada,
+  // enviada, por revisar). Ese gris de hover lleva `!important` desde el
+  // rediseño, así que ganaba a cualquier tono de estado de cualquier tabla y
+  // dejaba la fila en blanco justo al apuntarla — que es cuando hay que leerla.
+  //
+  // Se excluye aquí en vez de subir `!important` en cada pantalla: una regla
+  // con `!important` solo se vence con otro `!important`, y encadenar eso por
+  // cada estado y cada tabla es como se llega a una hoja que nadie puede tocar.
+  // La fila que declara su tono se encarga también de su hover.
+  tbody tr:not(.row-tone):hover td { background: #f8fafc !important; }
 }
 
 // DataTables wrapper
@@ -978,8 +988,10 @@ html.dark {
   --t3:   #475569;
   --t4:   #334155;
 
-  .table tbody tr:hover td,
-  .el-table .el-table__row:hover > td { background: rgba(255,255,255,.03) !important; }
+  // Misma exclusión que en claro: la fila que declara su propio tono no la
+  // pisa el hover general. Sin esto el modo oscuro reintroducía el problema.
+  .table tbody tr:not(.row-tone):hover td,
+  .el-table .el-table__row:not(.row-tone):hover > td { background: rgba(255,255,255,.03) !important; }
 
   .dataTables_wrapper .dataTables_filter input,
   .dataTables_wrapper .dataTables_length select,

@@ -584,7 +584,12 @@
                         :class="[
                             peek.id === row.id ? 'ord-peek-on' : '',
                             resaltadoId !== null && resaltadoId === Number(row.id) ? 'ord-row-focus' : '',
-                            tonoFila(row) ? 'ord-row-' + tonoFila(row) : ''
+                            tonoFila(row) ? 'ord-row-' + tonoFila(row) : '',
+                            // Declara que esta fila tiene color propio, para
+                            // que el hover gris del rediseño (que lleva
+                            // `!important`) no la borre. Su hover lo define
+                            // cada estado, unos renglones más abajo.
+                            tonoFila(row) || resaltadoId === Number(row.id) ? 'row-tone' : ''
                         ]"
                         @mouseenter="asomarPaquete(row, $event)"
                         @mouseleave="ocultarPaquete"
@@ -1721,14 +1726,17 @@
 /* ...salvo cuando la fila tiene color de estado. Esta regla gana por
    especificidad (0,4,4) a la de arriba (0,3,4): sin ella, apuntar a las
    acciones rompia la franja de color justo en la columna que se va a pulsar. */
-.orders table tbody tr.ord-row-void:hover > td.ord-td-act,
 .orders table tbody tr.ord-row-void > td.ord-td-act     { background: #fde3e0; }
-.orders table tbody tr.ord-row-sent:hover > td.ord-td-act,
 .orders table tbody tr.ord-row-sent > td.ord-td-act     { background: #f5f9ff; }
-.orders table tbody tr.ord-row-review:hover > td.ord-td-act,
 .orders table tbody tr.ord-row-review > td.ord-td-act   { background: #fffaf2; }
-.orders table tbody tr.ord-row-done:hover > td.ord-td-act,
 .orders table tbody tr.ord-row-done > td.ord-td-act     { background: #f6fdf9; }
+/* En hover la columna pegada acompaña al resto de la fila: si se quedara con
+   el tono en reposo, la franja de color se partiria justo en la columna que
+   se va a pulsar. */
+.orders table tbody tr.ord-row-void:hover > td.ord-td-act   { background: #fbd2cd; }
+.orders table tbody tr.ord-row-sent:hover > td.ord-td-act   { background: #e9f1fe; }
+.orders table tbody tr.ord-row-review:hover > td.ord-td-act { background: #fdf1e0; }
+.orders table tbody tr.ord-row-done:hover > td.ord-td-act   { background: #e9f9f0; }
 
 /* Celdas opcionales: el dato manda, el relleno no. */
 .ord-x-nada { color: #cbd5e1; }
@@ -2182,11 +2190,30 @@
     0%   { background: #ffe59a; }
     100% { background: #fff5d6; }
 }
+
+/* ── Hover de las filas con color de estado ──────────────────────────────
+   Una fila con tono lleva `.row-tone`, y eso la saca del hover gris general
+   (ver `erp-redesign.scss`): si no, apuntar a un pedido ANULADO lo dejaba
+   blanco, que es exactamente lo contrario de lo que el rojo esta diciendo.
+
+   Pero quitarle el hover sin mas tampoco vale: sin respuesta al pasar por
+   encima la fila parece muerta y en una tabla de veinte se pierde cual se esta
+   mirando. Asi que cada estado oscurece SU PROPIO tono. El color sigue
+   significando lo mismo y el hover sigue confirmando donde esta el cursor:
+   son dos preguntas distintas y ahora cada una tiene su respuesta.
+
+   El anulado se oscurece igual que los demas —sigue siendo rojo, solo un poco
+   mas— porque «se mantiene el rojo» no significa «no reacciona». */
+.orders table tbody tr.ord-row-void:hover > td   { background: #fbd2cd; }
+.orders table tbody tr.ord-row-sent:hover > td   { background: #e9f1fe; }
+.orders table tbody tr.ord-row-review:hover > td { background: #fdf1e0; }
+.orders table tbody tr.ord-row-done:hover > td   { background: #e9f9f0; }
+.orders table tbody tr.ord-row-focus:hover > td  { background: #ffecb0; }
 /* El hover de la columna de acciones tiene su propia regla por estado; sin
    esta, pasar el mouse por encima borraba el resaltado justo en la celda que
    se va a pulsar. */
-.orders table tbody tr.ord-row-focus:hover > td.ord-td-act,
 .orders table tbody tr.ord-row-focus > td.ord-td-act { background: #fff5d6; }
+.orders table tbody tr.ord-row-focus:hover > td.ord-td-act { background: #ffecb0; }
 
 /* Aviso del boton de Envios. Un punto y no un numero: el detalle esta en el
    titulo y dentro del menu, y en la cabecera lo que hace falta es saber si hay
