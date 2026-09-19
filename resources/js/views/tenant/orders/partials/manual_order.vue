@@ -82,16 +82,22 @@
             <div class="mo-envio-opts">
                 <button
                     type="button"
-                    class="mo-envio-opt"
+                    class="mo-envio-opt is-si"
                     :class="{ active: necesitaEnvio === true }"
                     @click="necesitaEnvio = true"
-                >Sí, hay que entregarlo</button>
+                >
+                    <i class="el-icon-truck"></i>
+                    Sí, hay que entregarlo
+                </button>
                 <button
                     type="button"
-                    class="mo-envio-opt"
+                    class="mo-envio-opt is-no"
                     :class="{ active: necesitaEnvio === false }"
                     @click="necesitaEnvio = false"
-                >No, se lo lleva el cliente</button>
+                >
+                    <i class="el-icon-shopping-bag-1"></i>
+                    No, se lo lleva el cliente
+                </button>
             </div>
 
             <div v-if="necesitaEnvio === true" class="mo-envio-modo">
@@ -1008,25 +1014,50 @@ export default {
     flex-wrap: wrap;
     gap: 8px;
 }
+/* Dos botones blancos identicos no se leen como una pregunta con dos
+   respuestas: se leen como un adorno, y hasta pulsar uno no hay forma de saber
+   que se esta eligiendo. Cada respuesta lleva ahora su icono y su color, y el
+   elegido se rellena: la diferencia tiene que verse de reojo, no buscarse. */
 .mo-envio-opt {
     flex: 1 1 160px;
-    padding: 9px 12px;
-    font-size: 12.5px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    padding: 11px 12px;
+    font-size: 13px;
     font-weight: 600;
-    color: #475569;
+    color: #334155;
     background: #fff;
-    border: 1px solid #cbd5e1;
+    border: 2px solid #cbd5e1;
     border-radius: 8px;
     cursor: pointer;
     transition: all 0.15s ease;
 }
+.mo-envio-opt i {
+    font-size: 15px;
+    opacity: 0.75;
+}
 .mo-envio-opt:hover {
     border-color: #94a3b8;
+    background: #f8fafc;
 }
+/* Indigo para «lleva envio» —es el color con el que sigue el formulario de
+   envio— y pizarra para «no»: dos respuestas distintas, dos colores. */
+.mo-envio-opt.is-si:hover  { border-color: #a5b4fc; background: #f5f3ff; }
 .mo-envio-opt.active {
     color: #fff;
-    background: #4f46e5;
     border-color: #4f46e5;
+    background: #4f46e5;
+    box-shadow: 0 1px 4px rgba(79, 70, 229, 0.3);
+}
+.mo-envio-opt.is-no.active {
+    border-color: #475569;
+    background: #475569;
+    box-shadow: 0 1px 4px rgba(71, 85, 105, 0.28);
+}
+.mo-envio-opt.active i {
+    opacity: 1;
 }
 .mo-envio-modo {
     margin-top: 14px;

@@ -1726,17 +1726,17 @@
 /* ...salvo cuando la fila tiene color de estado. Esta regla gana por
    especificidad (0,4,4) a la de arriba (0,3,4): sin ella, apuntar a las
    acciones rompia la franja de color justo en la columna que se va a pulsar. */
-.orders table tbody tr.ord-row-void > td.ord-td-act     { background: #fde3e0; }
-.orders table tbody tr.ord-row-sent > td.ord-td-act     { background: #f5f9ff; }
-.orders table tbody tr.ord-row-review > td.ord-td-act   { background: #fffaf2; }
-.orders table tbody tr.ord-row-done > td.ord-td-act     { background: #f6fdf9; }
+.orders table tbody tr.ord-row-void > td.ord-td-act     { background: #fbcfca; }
+.orders table tbody tr.ord-row-sent > td.ord-td-act     { background: #dce9fb; }
+.orders table tbody tr.ord-row-review > td.ord-td-act   { background: #fdecd0; }
+.orders table tbody tr.ord-row-done > td.ord-td-act     { background: #d8f0e2; }
 /* En hover la columna pegada acompaña al resto de la fila: si se quedara con
    el tono en reposo, la franja de color se partiria justo en la columna que
    se va a pulsar. */
-.orders table tbody tr.ord-row-void:hover > td.ord-td-act   { background: #fbd2cd; }
-.orders table tbody tr.ord-row-sent:hover > td.ord-td-act   { background: #e9f1fe; }
-.orders table tbody tr.ord-row-review:hover > td.ord-td-act { background: #fdf1e0; }
-.orders table tbody tr.ord-row-done:hover > td.ord-td-act   { background: #e9f9f0; }
+.orders table tbody tr.ord-row-void:hover > td.ord-td-act   { background: #f7bab3; }
+.orders table tbody tr.ord-row-sent:hover > td.ord-td-act   { background: #c9dcf7; }
+.orders table tbody tr.ord-row-review:hover > td.ord-td-act { background: #fbe0b3; }
+.orders table tbody tr.ord-row-done:hover > td.ord-td-act   { background: #c3e8d4; }
 
 /* Celdas opcionales: el dato manda, el relleno no. */
 .ord-x-nada { color: #cbd5e1; }
@@ -2109,10 +2109,11 @@
    verde a la izquierda y un fondo apenas teñido, para que en un listado se
    distinga de un vistazo lo que todavia espera trabajo. */
 .orders tr.ord-row-done > td {
-    background: #f6fdf9;
+    background: #d8f0e2;
+    color: #14532d;
 }
 .orders tr.ord-row-done > td:first-child {
-    box-shadow: inset 3px 0 0 #86c79a;
+    box-shadow: inset 4px 0 0 #1f7a4a;
 }
 
 /* Etapa del envio. */
@@ -2132,10 +2133,11 @@
    "en transito" y repetirlo en la fila no anade un idioma nuevo.
    No se apaga —el pedido sigue vivo— pero se distingue de lo que espera trabajo. */
 .orders tr.ord-row-sent > td {
-    background: #f5f9ff;
+    background: #dce9fb;
+    color: #1c3d66;
 }
 .orders tr.ord-row-sent > td:first-child {
-    box-shadow: inset 3px 0 0 #7aa7e0;
+    box-shadow: inset 4px 0 0 #2563a8;
 }
 
 /* Por confirmar: es donde HAY que trabajar —cargar el monto, el pago, el
@@ -2144,25 +2146,31 @@
    confundir "hay que revisarlo" con "esta muerto" es justo lo que se quiere
    evitar al teclear un cobro. */
 .orders tr.ord-row-review > td {
-    background: #fffaf2;
+    background: #fdecd0;
+    color: #6b4410;
 }
 .orders tr.ord-row-review > td:first-child {
-    box-shadow: inset 3px 0 0 #e0a75f;
+    box-shadow: inset 4px 0 0 #b06f0c;
 }
 
 /* Anulado. Antes se apagaba la fila con `opacity: .55`, y eso dejaba el texto
    en 3.46:1 de contraste —por debajo del minimo AA— justo en la fila que hay
    que leer con mas cuidado antes de teclear nada. Ahora se marca con rojo
    claro en vez de atenuarse: se distingue igual y se lee. */
-/* Rojo mas marcado que el primer intento: el operador reporto que se veia
-   «opaco» y pedia mas color. Se sube el tinte y se oscurece el texto para no
-   perder contraste — queda en 5.6:1, por encima del minimo AA. */
+/* Tercer ajuste del tinte. Los cuatro tonos eran tan palidos —4% de
+   desviacion sobre el blanco— que en pantalla se leian todos como «fila
+   blanca» y no habia forma de distinguir un anulado de un entregado sin mirar
+   el chip. Ahora rondan el 12%, que es lo que hace falta para que el color
+   diga algo a un metro de la pantalla.
+   Medido, no estimado: el texto queda entre 6.8:1 y 9:1 sobre su fondo (AA
+   pide 4.5) incluso en hover, y cada franja lateral pasa de 3:1 sobre el suyo,
+   que es el minimo para un elemento grafico. */
 .orders tr.ord-row-void > td {
-    background: #fde3e0;
-    color: #6b3b36;
+    background: #fbcfca;
+    color: #7a2a22;
 }
 .orders tr.ord-row-void > td:first-child {
-    box-shadow: inset 4px 0 0 #c0483d;
+    box-shadow: inset 4px 0 0 #b02a1c;
 }
 
 /* ── Pedido recien guardado ──────────────────────────────────────────────
@@ -2179,16 +2187,16 @@
    Dos pulsos y para: una animacion que no termina deja de ser un aviso y pasa a
    ser ruido en pantalla. */
 .orders table tbody tr.ord-row-focus > td {
-    background: #fff5d6;
+    background: #ffe9a8;
     color: #4a3a12;
     animation: ordFocusPulse 1.1s ease-out 2;
 }
 .orders table tbody tr.ord-row-focus > td:first-child {
-    box-shadow: inset 4px 0 0 #d99b1c;
+    box-shadow: inset 4px 0 0 #9a6a05;
 }
 @keyframes ordFocusPulse {
-    0%   { background: #ffe59a; }
-    100% { background: #fff5d6; }
+    0%   { background: #ffd868; }
+    100% { background: #ffe9a8; }
 }
 
 /* ── Hover de las filas con color de estado ──────────────────────────────
@@ -2204,16 +2212,16 @@
 
    El anulado se oscurece igual que los demas —sigue siendo rojo, solo un poco
    mas— porque «se mantiene el rojo» no significa «no reacciona». */
-.orders table tbody tr.ord-row-void:hover > td   { background: #fbd2cd; }
-.orders table tbody tr.ord-row-sent:hover > td   { background: #e9f1fe; }
-.orders table tbody tr.ord-row-review:hover > td { background: #fdf1e0; }
-.orders table tbody tr.ord-row-done:hover > td   { background: #e9f9f0; }
-.orders table tbody tr.ord-row-focus:hover > td  { background: #ffecb0; }
+.orders table tbody tr.ord-row-void:hover > td   { background: #f7bab3; }
+.orders table tbody tr.ord-row-sent:hover > td   { background: #c9dcf7; }
+.orders table tbody tr.ord-row-review:hover > td { background: #fbe0b3; }
+.orders table tbody tr.ord-row-done:hover > td   { background: #c3e8d4; }
+.orders table tbody tr.ord-row-focus:hover > td  { background: #ffdd80; }
 /* El hover de la columna de acciones tiene su propia regla por estado; sin
    esta, pasar el mouse por encima borraba el resaltado justo en la celda que
    se va a pulsar. */
-.orders table tbody tr.ord-row-focus > td.ord-td-act { background: #fff5d6; }
-.orders table tbody tr.ord-row-focus:hover > td.ord-td-act { background: #ffecb0; }
+.orders table tbody tr.ord-row-focus > td.ord-td-act { background: #ffe9a8; }
+.orders table tbody tr.ord-row-focus:hover > td.ord-td-act { background: #ffdd80; }
 
 /* Aviso del boton de Envios. Un punto y no un numero: el detalle esta en el
    titulo y dentro del menu, y en la cabecera lo que hace falta es saber si hay
@@ -3299,13 +3307,13 @@
         background: transparent;
         box-shadow: none;
     }
-    .orders table tbody tr.ord-row-review { background: #fffaf2; border-left: 4px solid #e0a75f; }
-    .orders table tbody tr.ord-row-sent   { background: #f5f9ff; border-left: 4px solid #7aa7e0; }
-    .orders table tbody tr.ord-row-done   { background: #f6fdf9; border-left: 4px solid #86c79a; }
-    .orders table tbody tr.ord-row-void   { background: #fde3e0; border-left: 5px solid #c0483d; }
+    .orders table tbody tr.ord-row-review { background: #fdecd0; border-left: 5px solid #b06f0c; }
+    .orders table tbody tr.ord-row-sent   { background: #dce9fb; border-left: 5px solid #2563a8; }
+    .orders table tbody tr.ord-row-done   { background: #d8f0e2; border-left: 5px solid #1f7a4a; }
+    .orders table tbody tr.ord-row-void   { background: #fbcfca; border-left: 5px solid #b02a1c; }
     /* En movil la tarjeta es el TR y los TD van sin fondo: el resaltado tiene
        que ir aqui o no se veria nada. */
-    .orders table tbody tr.ord-row-focus  { background: #fff5d6; border-left: 5px solid #d99b1c; }
+    .orders table tbody tr.ord-row-focus  { background: #ffe9a8; border-left: 5px solid #9a6a05; }
 
     .orders table tbody td {
         border: none !important;

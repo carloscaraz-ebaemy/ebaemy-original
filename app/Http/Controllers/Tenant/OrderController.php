@@ -1432,10 +1432,28 @@ class OrderController extends Controller
     /**
      * Devuelve los canales activos (para filtros en el frontend).
      */
+    /**
+     * Canales que NO se pueden elegir en un alta manual.
+     *
+     * Un pedido de la tienda online lo crea el checkout, y uno de Saga o
+     * MercadoLibre lo trae su API con su propio numero de pedido. Escribir a
+     * mano uno «de la Tienda Online» es inventar una venta que el ecommerce no
+     * hizo: cuadra mal con sus metricas y, en los marketplaces externos, con la
+     * conciliacion contra el canal.
+     *
+     * Lo que queda —POS, WhatsApp, telefono y el Registro de Envios— es
+     * exactamente lo que SI se carga a mano, que es de lo que trata esta
+     * pantalla.
+     */
+    private const CANALES_AUTOMATICOS = ['ecommerce', 'marketplace'];
+
     public function channels()
     {
         return response()->json([
-            'channels' => SalesChannel::active()->get(['id', 'name', 'type', 'code']),
+            'channels' => SalesChannel::active()
+                ->whereNotIn('type', self::CANALES_AUTOMATICOS)
+                ->orderBy('name')
+                ->get(['id', 'name', 'type', 'code']),
             // El alta manual deja escribir el precio, y no todo el mundo deberia
             // poder. Se reutiliza el permiso que ya existe en el ERP en vez de
             // inventar uno nuevo. Esto es solo para que la pantalla lo refleje:
