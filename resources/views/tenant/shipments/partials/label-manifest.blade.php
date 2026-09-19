@@ -91,7 +91,7 @@
                 @endphp
                 <tr>
                     <td class="c-n">{{ $i + 1 }}</td>
-                    <td class="c-code">{{ $s->shipment_code ?: ('#' . $s->id) }}</td>
+                    <td class="c-code">{{ $s->publicRef() ?: ('#' . $s->id) }}</td>
                     <td class="c-cli">
                         {{ $s->full_name }}
                         @if($s->phone)<br><span class="muted">{{ $s->phone }}</span>@endif

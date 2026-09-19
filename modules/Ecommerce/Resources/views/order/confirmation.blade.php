@@ -1,6 +1,6 @@
 @extends('ecommerce::layouts.master')
 
-@section('page_title', '¡Pedido confirmado! #' . strtoupper(substr($order->external_id, 0, 8)) . ' — ' . ($company->trade_name ?? $company->name ?? 'Tienda Online'))
+@section('page_title', '¡Pedido confirmado! #' . str_pad((string) $order->id, 6, '0', STR_PAD_LEFT) . ' — ' . ($company->trade_name ?? $company->name ?? 'Tienda Online'))
 @section('meta_description', 'Tu pedido ha sido recibido y está siendo procesado con seguridad.')
 
 @php
@@ -12,7 +12,12 @@
     $email       = optional($customer)->correo_electronico ?? optional($customer)->email ?? '';
     $phone       = optional($customer)->telefono ?? '';
     $address     = optional($customer)->direccion ?? '';
-    $orderNumber = strtoupper(substr($order->external_id, 0, 8));
+    // El numero del pedido, el MISMO que ve el operador en el panel, que sale
+    // en grande en el rotulo y que resuelve el seguimiento publico. Antes aqui
+    // se pintaban los 8 primeros caracteres del UUID `external_id`: una tercera
+    // numeracion que no existia en ninguna otra pantalla, asi que el cliente
+    // llamaba con un codigo que la tienda no podia buscar.
+    $orderNumber = str_pad((string) $order->id, 6, '0', STR_PAD_LEFT);
     $homeUrl     = route('tenant.ecommerce.index');
     $ordersUrl   = route('tenant_order_list');
     $isLoggedIn  = auth('ecommerce')->check();

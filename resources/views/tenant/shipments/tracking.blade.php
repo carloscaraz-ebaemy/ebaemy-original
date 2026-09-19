@@ -21,6 +21,7 @@
         .err { background:#fef2f2; color:#b91c1c; border:1px solid #fecaca; padding:11px 13px; border-radius:10px; font-size:13.5px; margin-top:12px; text-align:center; }
         .res { margin-top:16px; }
         .code { font-size:22px; font-weight:800; text-align:center; letter-spacing:1px; }
+        .code-sub { font-size:12px; font-weight:600; text-align:center; letter-spacing:.5px; color:var(--muted); margin-top:3px; }
         .meta { text-align:center; color:var(--muted); font-size:13px; margin:4px 0 16px; }
         .steps { list-style:none; margin:0; padding:0; }
         .step { display:flex; gap:12px; align-items:flex-start; padding-bottom:14px; position:relative; }
@@ -57,12 +58,12 @@
         </div>
 
         <form method="GET" action="{{ route('shipments.public.tracking') }}">
-            <input type="text" name="code" value="{{ $code }}" placeholder="ENV-000005" autocomplete="off" autofocus>
+            <input type="text" name="code" value="{{ $code }}" placeholder="N° de pedido o ENV-..." autocomplete="off" autofocus>
             <button type="submit" class="btn">Buscar</button>
         </form>
 
         @if($notFound)
-            <div class="err">No encontramos ningún envío con ese código. Verifícalo e intenta de nuevo.</div>
+            <div class="err">No encontramos ningún envío con ese número. Revisa tu número de pedido e inténtalo de nuevo.</div>
         @endif
 
         @if($shipment)
@@ -78,7 +79,14 @@
                 $isDom = $shipment->delivery_type === \App\Models\Tenant\ShippingRequest::DELIVERY_DOMICILIO;
             @endphp
             <div class="res">
-                <div class="code">{{ $shipment->shipment_code }}</div>
+                {{-- Titular: el numero de PEDIDO, que es el que el cliente
+                     tiene en su confirmacion y el que el operador ve en el
+                     panel. El ENV- queda debajo, en chico: sigue siendo lo que
+                     resuelve esta pagina, pero ya no es lo unico visible. --}}
+                <div class="code">{{ $shipment->orderRef() ? 'Pedido #' . $shipment->orderRef() : $shipment->shipment_code }}</div>
+                @if($shipment->orderRef())
+                    <div class="code-sub">{{ $shipment->shipment_code }}</div>
+                @endif
                 <div style="text-align:center;margin:2px 0 4px;">
                     <span style="display:inline-block;font-size:11.5px;font-weight:700;padding:4px 11px;border-radius:999px;{{ $isDom ? 'background:#f3e8ff;color:#7c3aed;' : 'background:#dbeafe;color:#1d4ed8;' }}">
                         {{ $isDom ? '🏍️ Entrega a domicilio' : '📦 Envío por agencia' }}

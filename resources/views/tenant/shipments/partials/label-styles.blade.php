@@ -50,11 +50,12 @@
     .env-code  { white-space: nowrap; }
     .hdr-date  { font-size: 10px; color: #555; margin-top: 2px; }
 
-    /* ── N° de pedido ────────────────────────────────────────────────────
-       Va DEBAJO del codigo de envio y mas pequeno: el que rastrea el paquete
-       es el codigo de envio, y ese sigue mandando a un metro de distancia. El
-       de pedido es para cruzar el papel con la pantalla, y para eso basta
-       leerlo de cerca.
+    /* ── Código de envío (ENV-) ───────────────────────────────────────
+       Va DEBAJO del numero de pedido y mas pequeno. El numero por el que
+       pregunta el cliente, y el unico que aparece en las tres pantallas, es
+       el de PEDIDO: ese es el que manda a un metro de distancia. El ENV- es
+       la clave interna --url de seguimiento, codigo de barras, lotes-- y
+       para eso basta leerlo de cerca.
 
        En sticker se oculta aqui y se repite en el pie: la cabecera de 10cm no
        admite una linea mas sin empujar la direccion a la segunda pagina. */

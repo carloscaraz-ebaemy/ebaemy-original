@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Comprobante de entrega — {{ $shipment->shipment_code }}</title>
+    <title>Comprobante de entrega — {{ $shipment->publicRef() }}</title>
     <style>
         /*
          * Comprobante INTERNO de entrega para los recojos en tienda.
@@ -56,7 +56,12 @@
     <h1>Comprobante interno de entrega</h1>
     <div class="muted">Este documento acredita la entrega del pedido en tienda. No es guía de transporte.</div>
 
-    <div style="margin-top:10px" class="code">{{ $shipment->shipment_code }}</div>
+    {{-- Este papel se lo lleva el CLIENTE: la referencia es la de su pedido,
+         la misma del rotulo y la de su confirmacion. --}}
+    <div style="margin-top:10px" class="code">{{ $shipment->orderRef() ? 'Pedido #' . $shipment->orderRef() : $shipment->shipment_code }}</div>
+    @if($shipment->orderRef())
+        <div style="font-size:11px;color:#555;margin-top:3px;">{{ $shipment->shipment_code }}</div>
+    @endif
 
     <table>
         <tr><td class="k">Cliente</td><td class="v">{{ $shipment->full_name }}</td></tr>

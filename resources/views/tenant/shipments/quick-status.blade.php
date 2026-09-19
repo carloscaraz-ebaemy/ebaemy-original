@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Estado — {{ $shipment->shipment_code }}</title>
+    <title>Estado — {{ $shipment->publicRef() }}</title>
     <style>
         :root { --brand:#4f46e5; --ink:#0f172a; --line:#e5e7eb; --muted:#6b7280; }
         * { box-sizing: border-box; }
@@ -36,7 +36,13 @@
         @else
             <div class="brand">{{ $company->title_web ?? $company->trade_name ?? $company->name ?? 'ebaemy' }}</div>
         @endif
-        <div class="code">{{ $shipment->shipment_code }}</div>
+        {{-- El rotulo que trae aqui por QR muestra el numero de PEDIDO en grande:
+             esta pantalla tiene que abrir con el mismo numero o el operador
+             no sabe si esta mirando el paquete que tiene en la mano. --}}
+        <div class="code">{{ $shipment->orderRef() ? 'Pedido #' . $shipment->orderRef() : $shipment->shipment_code }}</div>
+        @if($shipment->orderRef())
+            <div style="font-size:11px;color:#6b7280;margin-top:2px;">{{ $shipment->shipment_code }}</div>
+        @endif
 
         @if(session('success'))
             <div class="ok">✅ {{ session('success') }}</div>

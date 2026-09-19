@@ -2928,7 +2928,16 @@ class ShipmentController extends Controller
                 $msg .= "📦 Tu pedido será enviado mediante *agencia de transporte*.\n";
                 $msg .= "Cuando sea despachado recibirás la guía de envío.\n\n";
             }
-            $msg .= "Código:\n*{$shipment->shipment_code}*\n\n";
+            // El numero que se le da al cliente es el de su PEDIDO: es el que
+            // el operador puede buscar en el panel y el que sale en el rotulo.
+            // El ENV- baja a linea secundaria porque es el que resuelve el
+            // enlace de seguimiento, pero ya no es lo que se le pide guardar.
+            if ($ref = $shipment->orderRef()) {
+                $msg .= "N° de pedido:\n*{$ref}*\n\n";
+                $msg .= "Código de envío: {$shipment->shipment_code}\n\n";
+            } else {
+                $msg .= "Código:\n*{$shipment->shipment_code}*\n\n";
+            }
             $msg .= "🔎 Consulta tu seguimiento aquí:\n{$trackUrl}\n\n";
             $msg .= "Gracias por comprar en {$tienda}.";
             dispatch(\App\Jobs\SendWhatsAppMessage::text($phone, $msg));
@@ -2962,7 +2971,14 @@ class ShipmentController extends Controller
         $tienda = ($c->title_web ?? null) ?: ($c->trade_name ?? null) ?: ($c->name ?? null) ?: 'la tienda';
         $L = [];
         $L[] = "📦 *NUEVO PEDIDO* — {$tienda}";
-        $L[] = "Código: *{$s->shipment_code}*";
+        // El encargado busca en el panel de Pedidos, que rotula por
+        // `orders.id`: darle solo el ENV- lo obligaba a traducir a mano.
+        if ($ref = $s->orderRef()) {
+            $L[] = "Pedido: *{$ref}*";
+            $L[] = "Envío: {$s->shipment_code}";
+        } else {
+            $L[] = "Código: *{$s->shipment_code}*";
+        }
         $L[] = "";
         $L[] = "👤 Cliente: {$s->full_name}";
         if ($s->dni)   $L[] = "🪪 {$s->document_label}: {$s->dni}";
@@ -3122,7 +3138,19 @@ class ShipmentController extends Controller
 
     // ── Formulario público (lo llena el cliente) ───────────────────────────
 
-    /** Seguimiento público: el cliente consulta su envío por el código ENV. */
+    /**
+     * Seguimiento público: el cliente consulta su envío.
+     *
+     * Acepta las DOS referencias, y el orden importa. Antes, un código
+     * numérico se resolvía contra `shipping_requests.id`, así que teclear el
+     * número de pedido -el único que el cliente ve en su confirmación- devolvía
+     * el envío con ESE id, que es el de otro cliente: no daba error, daba un
+     * paquete ajeno con su nombre y su ciudad.
+     *
+     * Ahora un número es SIEMPRE un número de pedido. El id crudo del envío
+     * deja de ser consultable: nunca se le enseñó a nadie, y mantenerlo vivo
+     * es justo lo que abría la fuga.
+     */
     public function publicTracking(Request $request)
     {
         $code     = trim((string) $request->query('code', ''));
@@ -3130,12 +3158,19 @@ class ShipmentController extends Controller
         $notFound = false;
 
         if ($code !== '') {
-            $q = strtoupper($code);
-            $shipment = ShippingRequest::where('shipment_code', $q)->first();
-            // Aceptar también que ingresen solo el número (el id del envío).
-            if (!$shipment && ctype_digit($code)) {
-                $shipment = ShippingRequest::find((int) $code);
+            // El cliente copia y pega lo que ve: «Pedido #000297», con ceros
+            // a la izquierda y con almohadilla. Se limpia antes de mirar.
+            $limpio = ltrim(trim($code), '#');
+            $limpio = trim(preg_replace('/^pedido\s*#?/i', '', $limpio));
+
+            $shipment = ShippingRequest::where('shipment_code', strtoupper($limpio))->first();
+
+            if (!$shipment && ctype_digit($limpio)) {
+                $shipment = ShippingRequest::where('order_id', (int) $limpio)
+                    ->latest('id')
+                    ->first();
             }
+
             $notFound = !$shipment;
         }
 
@@ -3506,7 +3541,7 @@ class ShipmentController extends Controller
             ->with('shipment_code', $shipment->shipment_code)
             ->with('shipment_type', $shipment->delivery_type)
             ->with('joined_raffle', $joined)
-            ->with('success', 'Tus datos se registraron. Guarda tu código de envío: ' . $shipment->shipment_code);
+            ->with('success', 'Tus datos se registraron. Guarda tu referencia: ' . $shipment->publicRef());
     }
 
     /**

@@ -182,6 +182,7 @@
         @keyframes pop { from{ transform:scale(.6); opacity:0;} to{ transform:scale(1); opacity:1;} }
         .ok-wrap h2 { font-size:20px; margin:4px 0; }
         .ok-code { font-size:24px; font-weight:800; letter-spacing:1px; color:var(--brand); background:#eff6ff; border:1px dashed var(--brand); border-radius:14px; padding:14px; margin:12px 0; }
+        .ok-code-sub { display:block; margin-top:6px; font-size:12px; font-weight:600; letter-spacing:.5px; color:var(--muted); }
         .ok-btns { display:flex; flex-direction:column; gap:10px; margin-top:8px; }
         .ok-btns a { text-decoration:none; display:block; }
         .btn-wa { background:#22c55e; } .btn-wa:hover { background:#16a34a; }
@@ -296,7 +297,17 @@
                         Hemos recibido tus datos. Tu pedido será enviado mediante <b>agencia de transporte</b>. Cuando sea despachado recibirás la guía de envío.
                     @endif
                 </p>
-                <div class="ok-code">{{ $sent }}</div>
+                {{-- La referencia que se le da al cliente es la de su PEDIDO,
+                     la misma que ve el operador en el panel y la que sale en
+                     grande en el rotulo. El codigo ENV- sigue debajo porque es
+                     el que resuelve el seguimiento, pero en letra chica: antes
+                     era lo UNICO que se le ensenaba y no coincidia con ningun
+                     numero de los que la tienda maneja. --}}
+                @php $okRef = $sentShipment?->orderRef(); @endphp
+                <div class="ok-code">
+                    {{ $okRef ? 'Pedido #' . $okRef : $sent }}
+                    @if($okRef)<span class="ok-code-sub">Seguimiento: {{ $sent }}</span>@endif
+                </div>
 
                 {{-- Confirmación de la solicitud de participación. La inscripción
                      se hace efectiva cuando la tienda valida el pago. --}}
@@ -321,7 +332,10 @@
                         $s = $sentShipment ?? null;
                         $L = [];
                         $L[] = "📦 *PEDIDO REGISTRADO* — {$tiendaNombre}";
-                        $L[] = "Código: *{$sent}*";
+                        // El cliente pega este mensaje en el chat de la tienda: el
+                        // numero que la tienda puede buscar es el de PEDIDO.
+                        $L[] = $okRef ? "Pedido: *{$okRef}*" : "Código: *{$sent}*";
+                        if ($okRef) $L[] = "Seguimiento: {$sent}";
                         if ($s) {
                             $L[] = "";
                             $L[] = "👤 Cliente: {$s->full_name}";

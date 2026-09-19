@@ -1261,4 +1261,38 @@ class ShippingRequest extends Model
         $date = $date ?: now()->format('Ymd');
         return 'ENV-' . $date . '-' . str_pad((string) $id, 6, '0', STR_PAD_LEFT);
     }
+
+    // ââ La referencia que se le dice al cliente âââââââââââââââââââââââââ
+
+    /** Ancho del numero de pedido: el MISMO que pinta el panel de Pedidos. */
+    public const ORDER_REF_PAD = 6;
+
+    /**
+     * Numero de PEDIDO formateado, o null si el envio no cuelga de ninguno.
+     *
+     * Existian tres numeraciones para la misma caja -`orders.id` en el panel,
+     * `shipping_requests.id` en el rotulo y los 8 primeros caracteres del UUID
+     * en la confirmacion de la tienda online- y ninguna coincidia con otra. El
+     * cliente llamaba con un numero que el operador no encontraba.
+     *
+     * A partir de aqui la referencia que se ENSENA es siempre esta; el codigo
+     * ENV- sigue existiendo como clave interna (url de seguimiento, codigo de
+     * barras, lotes de impresion), pero en letra chica.
+     */
+    public function orderRef(): ?string
+    {
+        return $this->order_id
+            ? str_pad((string) $this->order_id, self::ORDER_REF_PAD, '0', STR_PAD_LEFT)
+            : null;
+    }
+
+    /**
+     * La referencia publica del envio. Cae al codigo ENV- cuando el envio no
+     * tiene pedido detras (altas sueltas del formulario publico antiguo): no
+     * se le puede mostrar al cliente una cadena vacia.
+     */
+    public function publicRef(): string
+    {
+        return $this->orderRef() ?: (string) $this->shipment_code;
+    }
 }
