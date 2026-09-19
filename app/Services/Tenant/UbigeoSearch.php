@@ -58,6 +58,22 @@ class UbigeoSearch
      */
     public static function search(string $raw, int $limit = self::DEFAULT_LIMIT, bool $withGroups = false): array
     {
+        return self::searchIn(self::catalog(), $raw, $limit, $withGroups);
+    }
+
+    /**
+     * La busqueda sobre un catalogo ya cargado. Separada de `search()` para
+     * que el ranking se pueda probar con un catalogo de mentira, sin base de
+     * datos: es logica con seis criterios y se degrada sin que nadie lo note.
+     *
+     * Ojo con una consecuencia de buscar en PHP y no en SQL: la colacion
+     * accent-insensitive de MySQL ya no interviene. Que "parinas" encuentre
+     * PARIÑAS depende ahora de normalize(), no de la base.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    public static function searchIn(array $catalog, string $raw, int $limit = self::DEFAULT_LIMIT, bool $withGroups = false): array
+    {
         $query = self::normalize($raw);
 
         if (mb_strlen($query) < self::MIN_LENGTH) {
@@ -70,7 +86,6 @@ class UbigeoSearch
             return [];
         }
 
-        $catalog = self::catalog();
         $hits    = [];   // district_id => fila
         $groups  = [];   // filas de provincia / departamento
 
@@ -306,48 +321,64 @@ class UbigeoSearch
     public static function catalog(): array
     {
         return Cache::remember(self::cacheKey(), self::CACHE_TTL, function () {
-            $departments = [];
-            foreach (Department::orderBy('description')->get(['id', 'description']) as $d) {
-                $departments[$d->id] = [
-                    'id'   => $d->id,
-                    'name' => self::pretty($d->description),
-                    'norm' => self::normalize($d->description),
-                ];
-            }
-
-            $provinces = [];
-            foreach (Province::orderBy('description')->get(['id', 'description', 'department_id']) as $p) {
-                $provinces[$p->id] = [
-                    'id'            => $p->id,
-                    'name'          => self::pretty($p->description),
-                    'norm'          => self::normalize($p->description),
-                    'department_id' => $p->department_id,
-                ];
-            }
-
-            $districts  = [];
-            $byProvince = [];
-            foreach (District::orderBy('description')->get(['id', 'description', 'province_id']) as $d) {
-                $prov = $provinces[$d->province_id] ?? null;
-                $dep  = $prov ? ($departments[$prov['department_id']] ?? null) : null;
-
-                $row = [
-                    'id'              => $d->id,
-                    'name'            => self::pretty($d->description),
-                    'norm'            => self::normalize($d->description),
-                    'province_id'     => $d->province_id,
-                    'province_name'   => $prov ? $prov['name'] : '',
-                    'province_norm'   => $prov ? $prov['norm'] : '',
-                    'department_id'   => $dep ? $dep['id'] : null,
-                    'department_name' => $dep ? $dep['name'] : '',
-                ];
-
-                $districts[] = $row;
-                $byProvince[$d->province_id][] = $row;
-            }
-
-            return compact('departments', 'provinces', 'districts', 'byProvince');
+            return self::buildCatalog(
+                Department::orderBy('description')->get(['id', 'description']),
+                Province::orderBy('description')->get(['id', 'description', 'department_id']),
+                District::orderBy('description')->get(['id', 'description', 'province_id'])
+            );
         });
+    }
+
+    /**
+     * Indexa las tres listas. Acepta cualquier iterable de objetos con `id`,
+     * `description` y el padre: asi el test puede alimentarlo sin base de
+     * datos y seguir ejerciendo el normalizado y el `pretty()` de verdad.
+     *
+     * @return array{departments: array, provinces: array, districts: array, byProvince: array}
+     */
+    public static function buildCatalog(iterable $deps, iterable $provs, iterable $dists): array
+    {
+        $departments = [];
+        foreach ($deps as $d) {
+            $departments[$d->id] = [
+                'id'   => $d->id,
+                'name' => self::pretty($d->description),
+                'norm' => self::normalize($d->description),
+            ];
+        }
+
+        $provinces = [];
+        foreach ($provs as $p) {
+            $provinces[$p->id] = [
+                'id'            => $p->id,
+                'name'          => self::pretty($p->description),
+                'norm'          => self::normalize($p->description),
+                'department_id' => $p->department_id,
+            ];
+        }
+
+        $districts  = [];
+        $byProvince = [];
+        foreach ($dists as $d) {
+            $prov = $provinces[$d->province_id] ?? null;
+            $dep  = $prov ? ($departments[$prov['department_id']] ?? null) : null;
+
+            $row = [
+                'id'              => $d->id,
+                'name'            => self::pretty($d->description),
+                'norm'            => self::normalize($d->description),
+                'province_id'     => $d->province_id,
+                'province_name'   => $prov ? $prov['name'] : '',
+                'province_norm'   => $prov ? $prov['norm'] : '',
+                'department_id'   => $dep ? $dep['id'] : null,
+                'department_name' => $dep ? $dep['name'] : '',
+            ];
+
+            $districts[] = $row;
+            $byProvince[$d->province_id][] = $row;
+        }
+
+        return compact('departments', 'provinces', 'districts', 'byProvince');
     }
 
     /** Se invalida si algun dia cambia el catalogo de un tenant. */
@@ -393,6 +424,11 @@ class UbigeoSearch
      */
     private static function pretty(string $s): string
     {
+        // "Anco_Huallo" es como esta en la tabla. El guion bajo es un
+        // artefacto del volcado del catalogo, no parte del nombre que el
+        // cliente tiene que leer. El UBIGEO guardado no cambia.
+        $s = str_replace('_', ' ', trim($s));
+
         if ($s !== mb_strtoupper($s, 'UTF-8')) {
             return $s;   // ya viene mezclado: respetar lo que hay
         }
