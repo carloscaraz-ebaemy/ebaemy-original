@@ -37,13 +37,13 @@ class OrganizeCategories extends Command
         'Relojes y Accesorios' => [
             'reloj', 'cronometro', 'correa de reloj',
         ],
-        'Celulares y Accesorios' => [
-            'telefono movil', 'celular', 'powerbank', 'power bank', 'cargador',
-            'soporte de telefono', 'carcasa', 'funda', 'cable usb', 'transmisor fm',
-        ],
         'Computación' => [
             'computador', 'laptop', 'notebook', 'teclado', 'mouse', 'mousepad',
             'impresora', 'monitor', 'usb', 'disco duro', 'router',
+        ],
+        'Celulares y Accesorios' => [
+            'telefono movil', 'celular', 'powerbank', 'power bank', 'cargador',
+            'soporte de tel', 'funda', 'cable usb', 'transmisor fm', 'transmisores fm',
         ],
         'Fotografía y Video' => [
             'camara', 'fotograf', 'flash', 'tripode', 'lente', 'iluminacion de estudio',
@@ -55,6 +55,7 @@ class OrganizeCategories extends Command
         'Bebés y Niños' => [
             'bebe', 'niño', 'nino', 'infantil', 'pañal', 'panal', 'mamadera',
             'coche de bebe', 'chupete', 'biberon', 'aspirador nasal', 'urinal',
+            'cuna', 'moises', 'canasto portatil',
         ],
         'Juguetes y Juegos' => [
             'juguete', 'muñeca', 'muneca', 'marioneta', 'peluche', 'rompecabeza',
@@ -72,7 +73,8 @@ class OrganizeCategories extends Command
         ],
         'Salud y Bienestar' => [
             'masaje', 'rehabilitac', 'medic', 'ortoped', 'tensiometro', 'nebulizador',
-            'tonificacion', 'tonificar', 'balanza', 'vitamina', 'mineral',
+            'tonificacion', 'tonificar', 'balanza de baño', 'balanza corporal',
+            'vitamina', 'mineral',
             'aliviar el sueño', 'aliviar el sueno', 'alivio del dolor', 'estres',
             'energetico', 'baston', 'talonera', 'termometro',
         ],
@@ -83,7 +85,7 @@ class OrganizeCategories extends Command
         ],
         'Cocina y Limpieza' => [
             'cocina', 'utensilio', 'aspiradora', 'limpiador', 'limpieza', 'detergente',
-            'olla', 'sarten', 'licuadora', 'cafeter', 'horno', 'filtro de agua',
+            'olla', 'sarten', 'licuadora', 'cafeter', 'horno', 'filtro de agua', 'balanza',
             'dispensador', 'tendedero', 'plancha', 'alimento', 'exprimidor',
             'molinillo', 'molino', 'salero', 'pimentero', 'vasos', 'copas', 'parrilla',
             'asador', 'pelador', 'recipiente', 'sandwich', 'sándwich', 'waffle',
@@ -92,7 +94,7 @@ class OrganizeCategories extends Command
         'Hogar y Decoración' => [
             'hogar', 'decorac', 'adorno', 'lampara', 'luz', 'foco', 'espejo', 'almohada',
             'organizador', 'dormitorio', 'living', 'mueble', 'cortina', 'alfombra',
-            'marco para foto', 'ventilador', 'calefact', 'calentador', 'calefon',
+            'marco para foto', 'marcos para foto', 'ventilador', 'calefact', 'calentador', 'calefon',
             'estufa', 'navidad', 'difusor', 'joyero', 'caja de seguridad', 'cesta',
             'mesa', 'silla', 'taburete', 'cajon', 'comoda', 'escritorio', 'cojin',
             'paraguas', 'mosquitera', 'humidificador', 'vaporizador', 'jardin',
@@ -108,7 +110,7 @@ class OrganizeCategories extends Command
             'mascota', 'perro', 'gato',
         ],
         'Herramientas y Ferretería' => [
-            'herramienta', 'taladro', 'compresor', 'conector electric', 'cable de extension',
+            'herramienta', 'taladro', 'compresor', 'conector', 'cable de extension',
             'alargador', 'tornillo', 'ferreter', 'hidrolavadora', 'cable', 'velcro',
             'boton', 'gancho', 'perno', 'cierre', 'pincel', 'pintura', 'tubo flexible',
         ],
@@ -273,15 +275,55 @@ class OrganizeCategories extends Command
     {
         $haystack = $this->fold($name);
 
+        $words = preg_split('/[^a-z0-9ñ]+/u', $haystack, -1, PREG_SPLIT_NO_EMPTY);
+
         foreach (self::RULES as $parent => $keywords) {
             foreach ($keywords as $keyword) {
-                if (Str::contains($haystack, $this->fold($keyword))) {
+                if ($this->matches($words, $this->fold($keyword))) {
                     return $parent;
                 }
             }
         }
 
         return null;
+    }
+
+    /**
+     * ¿Aparece la clave en el nombre?
+     *
+     * No basta un `str_contains`: los nombres reales vienen en plural
+     * («Soportes de teléfono», «Conectores eléctricos», «Aclaradores de piel»)
+     * y la clave en singular deja de ser subcadena por una «s». Se compara
+     * palabra a palabra aceptando que la del nombre EMPIECE por la de la
+     * clave, que es lo que hace el plural, y exigiendo que vayan seguidas para
+     * que «cable» y «usb» sueltos no valgan por «cable usb».
+     */
+    private function matches(array $words, string $keyword): bool
+    {
+        $needle = preg_split('/[^a-z0-9ñ]+/u', $keyword, -1, PREG_SPLIT_NO_EMPTY);
+
+        if (!$needle) {
+            return false;
+        }
+
+        $limit = count($words) - count($needle);
+
+        for ($i = 0; $i <= $limit; $i++) {
+            $hit = true;
+
+            foreach ($needle as $k => $token) {
+                if (strncmp($words[$i + $k], $token, strlen($token)) !== 0) {
+                    $hit = false;
+                    break;
+                }
+            }
+
+            if ($hit) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /** Minúsculas y sin tildes, para que «Cámara» case con «camara». */
