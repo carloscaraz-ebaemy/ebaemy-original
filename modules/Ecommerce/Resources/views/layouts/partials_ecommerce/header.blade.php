@@ -537,11 +537,13 @@ mark.ec-search-hl { background: hsl(var(--primary-h),90%,88%); color: inherit; b
          </div><!-- End .container -->
      </div><!-- End .header-middle -->
 
+     {{-- Esta barra llevaba un <nav> vacío desde que se dejó de incluir la
+          tira de categorías. Ahora es donde vive el menú por grupos: sin él,
+          las tiendas con el header por defecto (carolayimport, por ejemplo)
+          no tenían navegación por categoría en ninguna parte. --}}
      <div class="header-bottom sticky-header">
         <div class="container d-flex">
-            <nav class="main-nav flex-grow-1">
-
-             </nav>
+            @include('ecommerce::layouts.partials_ecommerce.category_menu')
          </div><!-- End .header-bottom -->
      </div><!-- End .header-bottom -->
  </header><!-- End .header -->
