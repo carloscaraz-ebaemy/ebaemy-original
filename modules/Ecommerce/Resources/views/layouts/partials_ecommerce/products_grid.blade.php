@@ -5,16 +5,24 @@
     $to    = $dataPaginate->lastItem()  ?? 0;
 @endphp
 
+{{-- El total manda y el rango lo acompaña: «361 productos / Mostrando
+     1–24». El <strong> con el total se queda dentro de #ec-results-count
+     porque el boton «Ver N productos» del drawer movil lo lee de ahi
+     (ver filter-ajax.js, syncApplyLabel). --}}
 <div class="ec-results-bar">
-    <p class="ec-results-count" id="ec-results-count">
+    <div class="ec-results-info">
+        <p class="ec-results-count" id="ec-results-count">
+            @if($total > 0)
+                <strong>{{ number_format($total) }}</strong>
+                producto{{ $total !== 1 ? 's' : '' }}
+            @else
+                <strong>0</strong> productos encontrados
+            @endif
+        </p>
         @if($total > 0)
-            Mostrando <span class="ec-results-count__range">{{ $from }}–{{ $to }}</span>
-            de <strong>{{ number_format($total) }}</strong>
-            producto{{ $total !== 1 ? 's' : '' }}
-        @else
-            0 productos encontrados
+            <span class="ec-results-range">Mostrando {{ $from }}–{{ $to }}</span>
         @endif
-    </p>
+    </div>
     <div class="ec-view-toggle" id="ec-view-toggle" role="group" aria-label="Cambiar vista">
         <button type="button" class="ec-view-btn ec-view-btn--active"
                 data-view="grid" title="Vista cuadrícula" aria-pressed="true">

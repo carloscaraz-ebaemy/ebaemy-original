@@ -88,14 +88,13 @@
             </div>
         </div>
 
-        {{-- Rango de precio con slider --}}
+        {{-- Rango de precio con slider.
+             El importe vive en su propia linea (#ec-price-display lo sigue
+             escribiendo el JS del slider, igual que antes): la etiqueta manda
+             y el valor se lee sin competir con el control. --}}
         <div class="ec-filter-group ec-filter-group--price">
-            <label class="ec-filter-label">
-                Precio:
-                <span id="ec-price-display">
-                    S/ {{ $sliderMin }} – S/ {{ $sliderMax }}
-                </span>
-            </label>
+            <span class="ec-filter-label">Precio</span>
+            <span class="ec-filter-value" id="ec-price-display">S/ {{ $sliderMin }} – S/ {{ $sliderMax }}</span>
             <div class="ec-range-slider" id="ec-range-slider"
                  data-min="{{ $prMin }}" data-max="{{ $prMax }}"
                  data-val-min="{{ $sliderMin }}" data-val-max="{{ $sliderMax }}">
@@ -105,16 +104,19 @@
                 <input type="range" class="ec-range-input ec-range-input--min"
                        id="ec-range-min" name="min_price"
                        min="{{ $prMin }}" max="{{ $prMax }}"
-                       value="{{ $sliderMin }}" step="1">
+                       value="{{ $sliderMin }}" step="1"
+                       aria-label="Precio mínimo">
                 <input type="range" class="ec-range-input ec-range-input--max"
                        id="ec-range-max" name="max_price"
                        min="{{ $prMin }}" max="{{ $prMax }}"
-                       value="{{ $sliderMax }}" step="1">
+                       value="{{ $sliderMax }}" step="1"
+                       aria-label="Precio máximo">
             </div>
         </div>
 
-        {{-- Solo disponibles --}}
+        {{-- Disponibilidad --}}
         <div class="ec-filter-group ec-filter-group--toggle">
+            <span class="ec-filter-label">Disponibilidad</span>
             <label class="ec-filter-toggle" for="ec-only-avail">
                 <input type="checkbox"
                        id="ec-only-avail"
@@ -122,7 +124,7 @@
                        value="1"
                        {{ $currentAvail ? 'checked' : '' }}>
                 <span class="ec-filter-toggle__track"></span>
-                <span class="ec-filter-label">Solo disponibles</span>
+                <span class="ec-filter-toggle__text">Solo disponibles</span>
             </label>
         </div>
 

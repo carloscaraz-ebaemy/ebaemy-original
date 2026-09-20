@@ -24,6 +24,12 @@
                     {{-- Filtros y ordenación --}}
                     @include('ecommerce::layouts.partials_ecommerce.filters')
 
+                    {{-- Banda de refinado: las dos filas de píldoras (las
+                         categorías del tenant y los tipos oficiales) cuelgan
+                         de la misma banda y comparten etiqueta, para que no
+                         se lean como dos sistemas de filtros sin relación. --}}
+                    <div class="ec-refine">
+
                     {{-- Píldoras de categoría (internas del tenant).
 
                          Antes se pintaban TODAS: en una tienda con 63
@@ -38,7 +44,10 @@
                         $__pillLimit  = 6;
                     @endphp
                     @if(!$hasCategoryFilter && $__pills->count())
-                    <div class="ec-category-pills" id="ec-category-pills">
+                    <div class="ec-refine__row">
+                    <span class="ec-refine__label" id="ec-refine-cats">Categorías</span>
+                    <div class="ec-category-pills" id="ec-category-pills"
+                         role="group" aria-labelledby="ec-refine-cats">
                         <button class="ec-cat-pill ec-cat-pill--active" data-category-id="">Todos</button>
                         @foreach($__pills as $i => $cat)
                         <button class="ec-cat-pill {{ $i >= $__pillLimit ? 'ec-cat-pill--extra' : '' }}"
@@ -58,6 +67,7 @@
                         </button>
                         @endif
                     </div>
+                    </div>{{-- /ec-refine__row --}}
 
                     {{-- Estilos aquí y no en styles_ecommerce.css: ese archivo
                          tiene una versión .min al lado y tocar los dos a mano
@@ -111,8 +121,9 @@
                                 'category_id' => request('category_id'),
                             ], fn($v) => $v !== null && $v !== '');
                         @endphp
-                        <div class="ec-mp-category-pills">
-                            <div class="ec-mp-category-pills__label">🛒 Tipo de producto:</div>
+                        <div class="ec-refine__row">
+                        <span class="ec-refine__label" id="ec-refine-types">Tipo de producto</span>
+                        <div class="ec-mp-category-pills" role="group" aria-labelledby="ec-refine-types">
                             <a href="{{ url('/ecommerce?' . http_build_query($baseQs)) }}"
                                class="ec-cat-pill ec-mp-pill {{ !$currentMpId ? 'ec-cat-pill--active' : '' }}">
                                 Todos
@@ -125,7 +136,9 @@
                                 </a>
                             @endforeach
                         </div>
+                        </div>{{-- /ec-refine__row --}}
                     @endif
+                    </div>{{-- /ec-refine --}}
                 </div>{{-- /ec-filter-sticky-zone --}}
 
                 {{-- AJAX products wrapper --}}

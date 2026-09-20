@@ -103,10 +103,19 @@
             </div>
         @endif
     </div>
+    <div class="ec-catmenu__scrim" aria-hidden="true"></div>
 </nav>
 
 <style>
-.ec-catmenu { border-top: 1px solid rgba(255,255,255,.10); }
+/* ── Barra de categorías ──────────────────────────────────────────
+   Hereda el color del header (currentColor). El único sitio donde el
+   menú impone colores propios es el panel: cuelga sobre el contenido
+   de la página, no sobre la barra. */
+.ec-catmenu {
+    position: relative;
+    z-index: 900;                      /* por encima de .ec-filter-sticky-zone */
+    border-top: 1px solid rgba(255,255,255,.10);
+}
 .ec-catmenu__inner {
     max-width: 1400px; margin: 0 auto; padding: 0 16px;
     display: flex; align-items: stretch; gap: 2px;
@@ -115,65 +124,139 @@
 .ec-catmenu__group { position: relative; display: flex; }
 
 .ec-catmenu__item {
-    display: inline-flex; align-items: center; gap: 5px;
-    padding: 11px 13px; font-size: 13.5px; font-weight: 500;
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 12px 14px; font-size: 13.5px; font-weight: 500;
     color: inherit; text-decoration: none; white-space: nowrap;
     background: none; border: 0; cursor: pointer; font-family: inherit;
     border-bottom: 2px solid transparent;
+    border-radius: 6px 6px 0 0;
+    transition: background-color .14s ease, opacity .14s ease;
 }
+/* Sin opacidad en el texto: cambia el fondo, que se lee mejor y no
+   depende de si el header es claro u oscuro. */
 .ec-catmenu__item:hover,
-.ec-catmenu__group:hover > .ec-catmenu__item { color: inherit; opacity: .78; }
-.ec-catmenu__item.is-active { border-bottom-color: currentColor; opacity: 1; font-weight: 700; }
-.ec-catmenu__caret { flex: none; opacity: .65; transition: transform .16s ease; }
-.ec-catmenu__group:hover .ec-catmenu__caret { transform: rotate(180deg); }
+.ec-catmenu__group:hover > .ec-catmenu__item,
+.ec-catmenu__group:focus-within > .ec-catmenu__item {
+    color: inherit;
+    background-color: rgba(128,128,128,.14);  /* fallback si no hay color-mix */
+    background-color: color-mix(in srgb, currentColor 11%, transparent);
+}
+.ec-catmenu__item:focus-visible {
+    outline: 2px solid currentColor; outline-offset: -3px;
+}
+.ec-catmenu__item.is-active {
+    border-bottom-color: currentColor; font-weight: 700;
+    background-color: rgba(128,128,128,.10);
+    background-color: color-mix(in srgb, currentColor 8%, transparent);
+}
+.ec-catmenu__caret { flex: none; opacity: .6; transition: transform .16s ease; }
+.ec-catmenu__group:hover .ec-catmenu__caret,
+.ec-catmenu__group:focus-within .ec-catmenu__caret { transform: rotate(180deg); }
 
-/* El panel es el único sitio donde el menú impone sus propios colores:
-   cuelga sobre el contenido de la página, no sobre la barra del header. */
+/* ── Panel ─────────────────────────────────────────────────────────
+   Capa independiente: fondo 100% opaco SIEMPRE. Antes el panel se
+   revelaba con una transición de opacity, así que durante el fade
+   (y en cualquier captura o equipo lento) se leía el contenido de la
+   página a través de él. Ahora solo se anima el desplazamiento: el
+   fondo nunca es traslúcido en ningún fotograma. */
 .ec-catmenu__panel {
-    position: absolute; top: 100%; left: 0; z-index: 200;
-    min-width: 260px; max-width: 460px;
-    background: #fff; color: #1f2430;
-    border-radius: 0 0 10px 10px;
-    box-shadow: 0 14px 38px rgba(0,0,0,.17);
+    position: absolute; top: 100%; left: 0;
+    z-index: 1200;
+    min-width: 272px; max-width: 440px;
+    background-color: #fff;            /* opaco, sin alpha ni blur */
+    color: #1f2430;
+    border: 1px solid #e5e9f0;
+    border-top: 0;
+    border-radius: 0 0 12px 12px;
+    box-shadow: 0 16px 34px -8px rgba(15,23,42,.22), 0 2px 6px rgba(15,23,42,.06);
     padding: 8px 0 10px;
-    opacity: 0; visibility: hidden; transform: translateY(-6px);
-    transition: opacity .15s ease, transform .15s ease, visibility .15s;
+    visibility: hidden;
+    transform: translateY(-6px);
+    transition: transform .15s ease, visibility 0s linear .15s;
 }
 .ec-catmenu__panel--right { left: auto; right: 0; }
 .ec-catmenu__group:hover .ec-catmenu__panel,
 .ec-catmenu__group:focus-within .ec-catmenu__panel {
-    opacity: 1; visibility: visible; transform: translateY(0);
+    visibility: visible;
+    transform: translateY(0);
+    transition: transform .15s ease, visibility 0s;
 }
 
-.ec-catmenu__panel-head { padding: 4px 16px 9px; margin-bottom: 4px; border-bottom: 1px solid #eceef2; }
-.ec-catmenu__panel-head a { font-size: 13px; font-weight: 700; color: #1f5eff; text-decoration: none; }
+.ec-catmenu__panel-head {
+    padding: 4px 18px 10px; margin-bottom: 6px;
+    border-bottom: 1px solid #eef1f6;
+}
+.ec-catmenu__panel-head a {
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    font-size: 13px; font-weight: 700; text-decoration: none;
+    color: hsl(var(--primary-h, 210), var(--primary-s, 90%), 38%);
+}
+.ec-catmenu__panel-head a:hover { text-decoration: underline; }
 
-.ec-catmenu__list { list-style: none; margin: 0; padding: 0; max-height: 58vh; overflow-y: auto; }
+.ec-catmenu__list {
+    list-style: none; margin: 0; padding: 0;
+    max-height: 58vh; overflow-y: auto; overscroll-behavior: contain;
+}
 .ec-catmenu__list--cols { column-count: 2; column-gap: 0; }
 .ec-catmenu__list a {
     display: flex; align-items: center; justify-content: space-between; gap: 12px;
-    padding: 8px 16px; font-size: 13.5px; color: #39414f; text-decoration: none;
+    padding: 9px 18px; font-size: 13.5px; color: #39414f; text-decoration: none;
+    break-inside: avoid;
 }
-.ec-catmenu__list a:hover { background: #f4f6fb; color: #1f5eff; }
+.ec-catmenu__list a:hover,
+.ec-catmenu__list a:focus-visible {
+    background: #f4f6fb;
+    color: hsl(var(--primary-h, 210), var(--primary-s, 90%), 38%);
+    outline: none;
+}
 .ec-catmenu__count { font-size: 11.5px; color: #98a0ae; font-variant-numeric: tabular-nums; }
+
+/* Modo oscuro: el panel sigue siendo una superficie opaca. */
+[data-theme="dark"] .ec-catmenu__panel {
+    background-color: #1e293b; color: #e2e8f0; border-color: #334155;
+    box-shadow: 0 16px 34px -8px rgba(0,0,0,.6);
+}
+[data-theme="dark"] .ec-catmenu__panel-head { border-bottom-color: #334155; }
+[data-theme="dark"] .ec-catmenu__list a { color: #cbd5e1; }
+[data-theme="dark"] .ec-catmenu__list a:hover { background: #0f172a; }
 
 /* Móvil: la fila se vuelve deslizable y los paneles se abren por toque.
    Un mega-menú por hover no existe en un teléfono. */
 @media (max-width: 900px) {
     .ec-catmenu__inner { overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
     .ec-catmenu__inner::-webkit-scrollbar { display: none; }
-    .ec-catmenu__item { padding: 10px; font-size: 13px; }
+    .ec-catmenu__item { padding: 11px 12px; font-size: 13px; }
     .ec-catmenu__panel {
         position: fixed; left: 0; right: 0; top: auto; bottom: 0; max-width: none;
-        border-radius: 14px 14px 0 0; padding-bottom: 20px;
+        border: 0; border-radius: 16px 16px 0 0; padding-bottom: calc(20px + env(safe-area-inset-bottom));
         max-height: 70vh; overflow-y: auto;
-        transform: translateY(100%); transition: transform .2s ease, visibility .2s;
+        transform: translateY(100%); transition: transform .22s ease, visibility 0s linear .22s;
     }
-    .ec-catmenu__group.is-open .ec-catmenu__panel { opacity: 1; visibility: visible; transform: translateY(0); }
-    .ec-catmenu__group:hover .ec-catmenu__panel { opacity: 0; visibility: hidden; transform: translateY(100%); }
-    .ec-catmenu__group.is-open:hover .ec-catmenu__panel { opacity: 1; visibility: visible; transform: translateY(0); }
+    .ec-catmenu__group.is-open .ec-catmenu__panel {
+        visibility: visible; transform: translateY(0); transition: transform .22s ease, visibility 0s;
+    }
+    .ec-catmenu__group:hover .ec-catmenu__panel,
+    .ec-catmenu__group:focus-within .ec-catmenu__panel {
+        visibility: hidden; transform: translateY(100%);
+    }
+    .ec-catmenu__group.is-open:hover .ec-catmenu__panel,
+    .ec-catmenu__group.is-open:focus-within .ec-catmenu__panel {
+        visibility: visible; transform: translateY(0);
+    }
     .ec-catmenu__list--cols { column-count: 1; }
-    .ec-catmenu__list a { padding: 12px 18px; font-size: 14.5px; }
+    .ec-catmenu__list a { padding: 13px 18px; font-size: 14.5px; }
+}
+
+/* Fondo que oscurece la página detrás de la hoja en móvil: deja claro
+   que el menú es una capa y no parte del listado. */
+.ec-catmenu__scrim { display: none; }
+@media (max-width: 900px) {
+    .ec-catmenu__scrim {
+        display: block; position: fixed; inset: 0; z-index: 1199;
+        background: rgba(15,23,42,.45);
+        opacity: 0; pointer-events: none; transition: opacity .22s ease;
+    }
+    .ec-catmenu.has-open .ec-catmenu__scrim { opacity: 1; pointer-events: auto; }
 }
 </style>
 
@@ -184,6 +267,37 @@
     menu.dataset.ready = '1';
 
     var isTouch = window.matchMedia('(max-width: 900px)');
+
+    function setExpanded(group, state) {
+        var trigger = group.querySelector('.ec-catmenu__item');
+        if (trigger && trigger.hasAttribute('aria-haspopup')) {
+            trigger.setAttribute('aria-expanded', state ? 'true' : 'false');
+        }
+    }
+
+    function closeAll() {
+        menu.querySelectorAll('.ec-catmenu__group.is-open').forEach(function (g) {
+            g.classList.remove('is-open');
+            setExpanded(g, false);
+        });
+        menu.classList.remove('has-open');
+    }
+
+    /* Escritorio: el panel se abre por CSS (:hover / :focus-within); aquí
+       solo se mantiene aria-expanded al día para los lectores de pantalla. */
+    menu.querySelectorAll('.ec-catmenu__group').forEach(function (group) {
+        if (!group.querySelector('.ec-catmenu__panel')) { return; }
+        group.addEventListener('mouseenter', function () {
+            if (!isTouch.matches) { setExpanded(group, true); }
+        });
+        group.addEventListener('mouseleave', function () {
+            if (!isTouch.matches) { setExpanded(group, false); }
+        });
+        group.addEventListener('focusin',  function () { setExpanded(group, true); });
+        group.addEventListener('focusout', function () {
+            if (!group.contains(document.activeElement)) { setExpanded(group, false); }
+        });
+    });
 
     /* En móvil el primer toque sobre un grupo abre su panel en vez de
        navegar; el enlace «Ver todo en …» de dentro es el que navega. */
@@ -198,27 +312,21 @@
 
         if (!group.classList.contains('is-open')) {
             e.preventDefault();
-            menu.querySelectorAll('.ec-catmenu__group.is-open').forEach(function (g) {
-                g.classList.remove('is-open');
-            });
+            closeAll();
             group.classList.add('is-open');
+            setExpanded(group, true);
+            menu.classList.add('has-open');
         }
     });
 
     document.addEventListener('click', function (e) {
-        if (!e.target.closest('.ec-catmenu')) {
-            menu.querySelectorAll('.ec-catmenu__group.is-open').forEach(function (g) {
-                g.classList.remove('is-open');
-            });
+        if (!e.target.closest('.ec-catmenu') || e.target.closest('.ec-catmenu__scrim')) {
+            closeAll();
         }
     });
 
     document.addEventListener('keydown', function (e) {
-        if (e.key === 'Escape') {
-            menu.querySelectorAll('.ec-catmenu__group.is-open').forEach(function (g) {
-                g.classList.remove('is-open');
-            });
-        }
+        if (e.key === 'Escape') { closeAll(); }
     });
 })();
 </script>

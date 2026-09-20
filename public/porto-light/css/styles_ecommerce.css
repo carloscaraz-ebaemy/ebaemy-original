@@ -9813,3 +9813,254 @@ a:focus-visible {
     .ec-step-nav { flex-direction: column; gap: 8px; }
     .ec-step-btn { width: 100%; text-align: center; }
 }
+
+/* ══════════════════════════════════════════════════════════════════════
+   LISTADO DE TIENDA — composición v4 (2026-09)
+   ──────────────────────────────────────────────────────────────────────
+   Este bloque va al final a propósito: reordena la jerarquía vertical de
+   la portada/listado (título → filtros → refinado → resultados → grilla)
+   sin tocar las reglas de arriba, que siguen siendo la base.
+
+   Qué corrige, en orden de lo que se veía mal:
+     · la barra de filtros era una fila comprimida con etiqueta y control
+       pegados: ahora cada filtro es una columna etiqueta+valor con aire;
+     · las píldoras de categoría medían 9px (0.9rem con el root a 10px);
+     · «Tipo de producto» era una caja verde que parecía otro sistema de
+       filtros: ahora es otra fila de la misma banda de refinado;
+     · «Mostrando 1–24 de 361 productos» enterraba el dato importante.
+
+   Todo es presentación: ni un selector nuevo que el JS necesite.
+   ══════════════════════════════════════════════════════════════════════ */
+
+/* ── 1. Jerarquía vertical de la cabecera del catálogo ──────────────── */
+.ec-seo-h1 {
+    font-size: 2.6rem; font-weight: 700; line-height: 1.2;
+    color: var(--title-color, #1e293b);
+    margin: 2.4rem 0 .6rem;
+    letter-spacing: -.01em;
+}
+.ec-seo-intro {
+    font-size: 1.45rem; color: #64748b; line-height: 1.55;
+    margin: 0 0 2.4rem; max-width: 62ch;
+}
+.ec-home-section > .ec-section-header { margin-bottom: 1.4rem; }
+.ec-section-title { font-size: 1.9rem; letter-spacing: -.01em; }
+
+/* ── 2. Barra de filtros ────────────────────────────────────────────── */
+.ec-filters {
+    align-items: flex-end;
+    gap: 14px 22px;
+    padding: 16px 20px;
+    border-radius: 14px;
+    border-color: #e8ecf2;
+    box-shadow: 0 1px 2px rgba(15,23,42,.03);
+    margin-bottom: 14px;
+}
+.ec-filter-group {
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: flex-end;
+    gap: 7px;
+    min-height: 52px;
+}
+.ec-filter-label {
+    font-size: 1.1rem; font-weight: 700; line-height: 1;
+    text-transform: uppercase; letter-spacing: .06em;
+    color: #94a3b8;
+}
+.ec-filter-value {
+    font-size: 1.35rem; font-weight: 600; color: #334155;
+    font-variant-numeric: tabular-nums; line-height: 1;
+}
+.ec-filter-select {
+    height: 38px; min-width: 176px;
+    font-size: 1.35rem; color: #1e293b;
+    background-color: #fff;
+    border-color: #dfe4ec;
+    border-radius: 10px;
+    padding: 0 34px 0 12px;
+}
+.ec-filter-select:hover { border-color: #c7cfdc; }
+.ec-filter-group--price { min-width: 236px; }
+.ec-filter-group--price .ec-range-slider { width: 100%; height: 22px; padding: 0 9px; }
+.ec-filter-group--toggle { gap: 9px; }
+.ec-filter-toggle { gap: 10px; min-height: 38px; }
+.ec-filter-toggle__text {
+    font-size: 1.35rem; font-weight: 500; color: #475569; white-space: nowrap;
+}
+.ec-filter-toggle input:focus-visible ~ .ec-filter-toggle__track {
+    outline: 2px solid hsl(var(--primary-h),var(--primary-s),var(--primary-l));
+    outline-offset: 2px;
+}
+#ec-clear-wrap { margin-left: auto; }
+.ec-filter-clear {
+    height: 38px; padding: 0 12px;
+    border: 1px solid #f1d7d7; border-radius: 10px;
+    background: #fff; cursor: pointer;
+    font-size: 1.25rem; font-weight: 600;
+}
+.ec-filter-clear:hover { opacity: 1; background: #fef2f2; border-color: #f4b8b8; }
+
+/* Separadores: solo en escritorio, donde la barra es una fila real. */
+@media (min-width: 768px) {
+    .ec-filters > .ec-filter-group { position: relative; }
+    .ec-filters > .ec-filter-group + .ec-filter-group { padding-left: 22px; }
+    .ec-filters > .ec-filter-group + .ec-filter-group::before {
+        content: ''; position: absolute; left: 0; top: 6px; bottom: 6px;
+        width: 1px; background: #eef1f6;
+    }
+    .ec-filters > #ec-clear-wrap::before { display: none; }
+}
+
+[data-theme="dark"] .ec-filters { background: var(--dm-surface,#1e293b); border-color: var(--dm-border,#334155); }
+[data-theme="dark"] .ec-filter-select { background-color: #0f172a; border-color: #334155; color: #e2e8f0; }
+[data-theme="dark"] .ec-filter-value,
+[data-theme="dark"] .ec-filter-toggle__text { color: #cbd5e1; }
+
+/* ── 3. Banda de refinado (categorías + tipo de producto) ───────────── */
+.ec-refine { display: flex; flex-direction: column; gap: 10px; }
+.ec-refine__row {
+    display: flex; align-items: flex-start; gap: 14px;
+    min-width: 0;                     /* deja que la fila de píldoras encoja */
+}
+.ec-refine__label {
+    flex: 0 0 auto; width: 118px; padding-top: 8px;
+    font-size: 1.1rem; font-weight: 700; line-height: 1;
+    text-transform: uppercase; letter-spacing: .06em; color: #94a3b8;
+}
+.ec-refine__row > .ec-category-pills,
+.ec-refine__row > .ec-mp-category-pills { flex: 1 1 auto; min-width: 0; margin-bottom: 0; }
+
+/* El tipo de producto deja de ser una caja verde con identidad propia:
+   es otra fila de la misma banda. */
+.ec-mp-category-pills {
+    background: none;
+    border: 0;
+    padding: 0;
+    gap: 8px;
+}
+.ec-mp-category-pills__label { display: none; }
+[data-theme='dark'] .ec-mp-category-pills { background: none; border: 0; }
+
+/* Scoped a la banda: el tema «ropa» pinta sus propias píldoras fuera de
+   .ec-refine y ahí el tope de altura con scroll sigue haciendo falta. */
+.ec-refine__row > .ec-category-pills { gap: 8px; max-height: none; padding: 0; overflow: visible; }
+
+/* ── 4. Píldoras ────────────────────────────────────────────────────── */
+.ec-cat-pill {
+    display: inline-flex; align-items: center;
+    min-height: 34px;                  /* área táctil decente */
+    padding: 0 14px;
+    font-size: 1.25rem; font-weight: 600;
+    border: 1px solid #e3e8ef; border-radius: 999px;
+    color: #475569; background: #fff;
+    transition: border-color .15s, color .15s, background .15s;
+}
+.ec-cat-pill:hover {
+    border-color: hsl(var(--primary-h),var(--primary-s),70%);
+    background: hsl(var(--primary-h),var(--primary-s),98%);
+    color: hsl(var(--primary-h),var(--primary-s),35%);
+    text-decoration: none;
+}
+.ec-cat-pill:focus-visible {
+    outline: 2px solid hsl(var(--primary-h),var(--primary-s),var(--primary-l));
+    outline-offset: 2px;
+}
+.ec-cat-pill--active .ec-cat-pill__n { opacity: .8; }
+.ec-mp-pill:hover { transform: none; }   /* el salto competía con el hover de las tarjetas */
+
+/* ── 5. Barra de resultados ─────────────────────────────────────────── */
+.ec-results-bar { padding: 12px 0 10px; margin-bottom: 16px; border-bottom-color: #eef1f6; }
+.ec-results-info { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; min-width: 0; }
+.ec-results-count { font-size: 1.5rem; color: #475569; font-weight: 500; }
+.ec-results-count strong {
+    font-size: 1.9rem; font-weight: 700; color: #1e293b;
+    font-variant-numeric: tabular-nums;
+}
+.ec-results-range { font-size: 1.25rem; color: #94a3b8; }
+[data-theme="dark"] .ec-results-count strong { color: #f1f5f9; }
+
+/* Los dos botones de vista son un control segmentado, no dos islas. */
+.ec-view-toggle {
+    gap: 0; border: 1px solid #e3e8ef; border-radius: 10px;
+    overflow: hidden; background: #fff;
+}
+.ec-view-btn { width: 36px; height: 34px; border: 0; border-radius: 0; background: none; }
+.ec-view-btn + .ec-view-btn { border-left: 1px solid #e3e8ef; }
+.ec-view-btn:hover { background: #f4f6fb; color: hsl(var(--primary-h),var(--primary-s),40%); }
+.ec-view-btn--active { border-radius: 0; }
+[data-theme="dark"] .ec-view-toggle { background: var(--dm-surface,#1e293b); border-color: #334155; }
+[data-theme="dark"] .ec-view-btn + .ec-view-btn { border-left-color: #334155; }
+
+/* ── 6. Tarjeta: menos sombra, más orden ────────────────────────────── */
+.pcard {
+    box-shadow: 0 1px 2px rgba(15,23,42,.04);
+    border-color: #eceff4;
+}
+.pcard:hover {
+    box-shadow: 0 10px 26px -10px rgba(15,23,42,.18);
+    transform: translateY(-3px);
+}
+.pcard__media { background: #f7f9fc; }
+.pcard__body { gap: 4px; }
+.pcard__price { padding-top: 10px; }
+.pcard__cta { margin-top: 12px; min-height: 40px; }
+.pcard__cta::before { display: none; }   /* el degradado ensuciaba el color de marca */
+.pcard__img { padding: 8%; }
+
+/* ── 7. Grilla: todas las tarjetas de la fila con la misma altura ───── */
+#ec-products-grid { align-items: stretch; }
+.product-col-item { display: flex; }
+.product-col-item > .pcard { width: 100%; }
+
+/* ── 8. Responsive ──────────────────────────────────────────────────── */
+@media (max-width: 991px) {
+    .ec-refine__label { width: 96px; }
+}
+@media (max-width: 767px) {
+    .ec-seo-h1    { font-size: 2.1rem; margin-top: 1.6rem; }
+    .ec-seo-intro { font-size: 1.35rem; margin-bottom: 1.8rem; }
+
+    /* La etiqueta se pone encima: con 96px a la izquierda las píldoras
+       quedaban en una franja de dos dedos de ancho. */
+    .ec-refine__row { flex-direction: column; gap: 7px; }
+    .ec-refine__label { width: auto; padding-top: 0; }
+
+    /* Las píldoras se deslizan; el margen negativo hace que la última
+       llegue al borde y se note que la fila continúa. */
+    .ec-refine__row > .ec-category-pills,
+    .ec-refine__row > .ec-mp-category-pills {
+        flex-wrap: nowrap; overflow-x: auto; overscroll-behavior-x: contain;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: none;
+        /* 15px = padding del .container de Bootstrap: sangrar justo eso
+           deja la fila a ras del borde sin provocar scroll horizontal. */
+        padding: 2px 15px 2px 0; margin-right: -15px;
+    }
+    .ec-refine__row > .ec-category-pills::-webkit-scrollbar,
+    .ec-refine__row > .ec-mp-category-pills::-webkit-scrollbar { display: none; }
+    .ec-cat-pill { flex-shrink: 0; }
+
+    /* En el drawer la barra vuelve a ser una columna con aire. */
+    .ec-filters { gap: 18px; padding: 16px 18px; }
+    .ec-filter-group { width: 100%; align-items: stretch; }
+    .ec-filter-select { width: 100%; min-width: 0; height: 44px; }
+    .ec-filter-group--price { min-width: 0; }
+    .ec-filter-toggle { justify-content: space-between; }
+    #ec-clear-wrap { margin-left: 0; }
+    .ec-filter-clear { width: 100%; justify-content: center; height: 44px; }
+
+    .ec-results-bar { padding: 4px 0 10px; margin-bottom: 12px; }
+    .ec-results-count strong { font-size: 1.7rem; }
+}
+@media (max-width: 575px) {
+    .ec-results-info { gap: 8px; }
+    .pcard__cta { min-height: 38px; }
+}
+
+/* ── 9. Movimiento: quien lo pidió apagado no ve ni la entrada ──────── */
+@media (prefers-reduced-motion: reduce) {
+    .product-col-item { animation: none !important; }
+    .pcard, .pcard__img, .pcard__cta, .ec-catmenu__panel { transition: none !important; }
+    .pcard:hover { transform: none; }
+}

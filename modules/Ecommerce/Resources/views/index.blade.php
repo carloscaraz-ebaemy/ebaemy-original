@@ -174,13 +174,9 @@
     </div>
 </div>
 
-<style>
-/* ═══ SEO H1 ═══ */
-.ec-seo-h1 { font-size: 1.6rem; font-weight: 700; color: #1e293b; margin: 1.5rem 0 0.3rem; }
-.ec-seo-intro { font-size: 14px; color: #64748b; margin: 0 0 1rem; line-height: 1.5; }
-
-
-
-</style>
+{{-- El H1 y la bajada ya no llevan estilos aquí: vivían en un <style>
+     inline, que por ir después de las hojas ganaba siempre y dejaba la
+     jerarquía de la portada fuera del alcance del CSS del tema. Ahora
+     están en styles_ecommerce.css, bloque «LISTADO DE TIENDA v4». --}}
 
 @endsection
