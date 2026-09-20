@@ -24,16 +24,74 @@
                     {{-- Filtros y ordenación --}}
                     @include('ecommerce::layouts.partials_ecommerce.filters')
 
-                    {{-- Category pills (internas del tenant) --}}
-                    @if(!$hasCategoryFilter && isset($categories) && $categories->count())
+                    {{-- Píldoras de categoría (internas del tenant).
+
+                         Antes se pintaban TODAS: en una tienda con 63
+                         categorías el listado empezaba con seis filas de
+                         botones antes del primer producto. Ahora sólo salen
+                         los grupos de primer nivel, y a partir del séptimo se
+                         esconden tras «Ver más». --}}
+                    @php
+                        $__pills      = isset($categoryTree) && $categoryTree->count()
+                                        ? $categoryTree
+                                        : ($categories ?? collect());
+                        $__pillLimit  = 6;
+                    @endphp
+                    @if(!$hasCategoryFilter && $__pills->count())
                     <div class="ec-category-pills" id="ec-category-pills">
                         <button class="ec-cat-pill ec-cat-pill--active" data-category-id="">Todos</button>
-                        @foreach($categories as $cat)
-                        <button class="ec-cat-pill" data-category-id="{{ $cat->id }}" data-category-name="{{ $cat->name }}">
+                        @foreach($__pills as $i => $cat)
+                        <button class="ec-cat-pill {{ $i >= $__pillLimit ? 'ec-cat-pill--extra' : '' }}"
+                                data-category-id="{{ $cat->id }}"
+                                data-category-name="{{ $cat->name }}"
+                                @if($i >= $__pillLimit) hidden @endif>
                             {{ $cat->name }}
+                            @isset($cat->items_count)<span class="ec-cat-pill__n">{{ $cat->items_count }}</span>@endisset
                         </button>
                         @endforeach
+
+                        @if($__pills->count() > $__pillLimit)
+                        <button type="button" class="ec-cat-pill ec-cat-pill--toggle" id="ec-cat-pill-more"
+                                aria-expanded="false">
+                            Ver más categorías
+                            <span class="ec-cat-pill__n">+{{ $__pills->count() - $__pillLimit }}</span>
+                        </button>
+                        @endif
                     </div>
+
+                    {{-- Estilos aquí y no en styles_ecommerce.css: ese archivo
+                         tiene una versión .min al lado y tocar los dos a mano
+                         es la forma conocida de que se desincronicen. --}}
+                    <style>
+                        .ec-cat-pill__n {
+                            display: inline-block; margin-left: 6px;
+                            font-size: .74em; font-weight: 700; opacity: .55;
+                            font-variant-numeric: tabular-nums;
+                        }
+                        .ec-cat-pill--toggle {
+                            border-style: dashed; color: #6b7280;
+                        }
+                        .ec-cat-pill--toggle:hover { border-style: solid; }
+                    </style>
+
+                    @if($__pills->count() > $__pillLimit)
+                    <script>
+                    (function () {
+                        var btn = document.getElementById('ec-cat-pill-more');
+                        if (!btn || btn.dataset.ready) { return; }
+                        btn.dataset.ready = '1';
+
+                        btn.addEventListener('click', function () {
+                            var open = btn.getAttribute('aria-expanded') === 'true';
+                            document.querySelectorAll('.ec-cat-pill--extra').forEach(function (p) {
+                                p.hidden = open;
+                            });
+                            btn.setAttribute('aria-expanded', open ? 'false' : 'true');
+                            btn.firstChild.nodeValue = open ? 'Ver más categorías ' : 'Ver menos ';
+                        });
+                    })();
+                    </script>
+                    @endif
                     @endif
 
                     {{-- Pills de categorías oficiales del marketplace (Hogar, Moda,

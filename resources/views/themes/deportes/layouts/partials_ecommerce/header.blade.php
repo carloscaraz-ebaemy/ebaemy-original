@@ -3,7 +3,6 @@
     $company = \App\Models\Tenant\Company::first();
     $econfig = \App\Models\Tenant\ConfigurationEcommerce::firstCached();
     $logo = ($company && $company->logo) ? asset('storage/uploads/logos/'.$company->logo) : asset('porto-ecommerce/assets/images/logo-black.png');
-    $categories = \Modules\Item\Models\Category::whereHas('items', fn($q) => $q->where('apply_store', 1))->orderBy('name')->take(8)->get();
 @endphp
 
 <style>
@@ -36,9 +35,7 @@
 
         <nav class="sport-header__nav">
             <a href="{{ route('tenant.ecommerce.index') }}" class="sport-header__nav-link">Inicio</a>
-            @foreach($categories->take(5) as $cat)
-            <a href="{{ route('tenant.ecommerce.index', \Illuminate\Support\Str::slug($cat->name)) }}" class="sport-header__nav-link">{{ $cat->name }}</a>
-            @endforeach
+@include('ecommerce::layouts.partials_ecommerce.category_menu')
         </nav>
 
         <div class="sport-header__search">

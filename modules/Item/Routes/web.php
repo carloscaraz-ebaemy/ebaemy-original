@@ -12,7 +12,10 @@ if($hostname) {
             Route::get('categories/columns', 'CategoryController@columns');
             Route::get('categories/search-data', 'CategoryController@searchData');
             Route::get('categories/record/{category}', 'CategoryController@record');
+            Route::get('categories/parents', 'CategoryController@parents');
+            Route::get('categories/list', 'CategoryController@list');
             Route::post('categories', 'CategoryController@store');
+            Route::post('categories/merge', 'CategoryController@merge');
             Route::delete('categories/{category}', 'CategoryController@destroy');
             Route::post('categories/upload', 'CategoryController@upload');
 

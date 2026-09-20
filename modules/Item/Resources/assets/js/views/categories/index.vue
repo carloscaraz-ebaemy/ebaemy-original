@@ -23,7 +23,9 @@
                         <th>ID</th>
                         <th class="text-center">Imagen</th>
                         <th>Nombre</th>
-                        <th>Fecha creación</th>
+                        <th>Grupo</th>
+                        <th class="text-center">Productos</th>
+                        <th class="text-center">En tienda</th>
                         <th class="text-end">Acciones</th>
                     </tr>
                     <tr slot-scope="{ index, row }">
@@ -33,9 +35,18 @@
                             <img v-if="row.image" :src="row.image_url" alt width="32" height="32" style="object-fit: contain;" />
                         </td>
                         <td>{{ row.name }}</td>
-                        <td>{{ row.created_at }}</td>
+                        <td>
+                            <span v-if="row.parent_name" class="badge bg-light text-dark">{{ row.parent_name }}</span>
+                            <span v-else class="badge bg-primary">Grupo principal</span>
+                        </td>
+                        <td class="text-center">{{ row.items_count }}</td>
+                        <td class="text-center">
+                            <span v-if="row.visible_ecommerce" class="text-success">Sí</span>
+                            <span v-else class="text-muted">No</span>
+                        </td>
                         <td class="text-end">
                             <button type="button" class="btn waves-effect waves-light btn-xs btn-info me-1" @click.prevent="clickCreate(row.id)">Editar</button>
+                            <button type="button" class="btn waves-effect waves-light btn-xs btn-secondary me-1" @click.prevent="clickMerge(row)">Fusionar</button>
                             <button type="button" class="btn waves-effect waves-light btn-xs btn-danger me-1" @click.prevent="clickDelete(row.id)">Eliminar</button>
                         </td>
                     </tr>
@@ -46,6 +57,27 @@
                 :showDialog.sync="showDialog"
                 :recordId="recordId"
                     ></category-form> 
+
+            <!-- Fusion: los productos de la categoria se mudan a la elegida y
+                 la original desaparece. Util con los cientos de categorias de
+                 un solo producto que deja la importacion. -->
+            <el-dialog title="Fusionar categoría" :visible.sync="showMerge" width="460px">
+                <p v-if="mergeFrom" class="mb-3">
+                    Los <strong>{{ mergeFrom.items_count }}</strong> producto(s) de
+                    <strong>{{ mergeFrom.name }}</strong> pasarán a la categoría que elijas,
+                    y <strong>{{ mergeFrom.name }}</strong> se eliminará.
+                </p>
+                <el-select v-model="mergeTo" filterable clearable class="w-100"
+                           placeholder="Elige la categoría destino">
+                    <el-option v-for="c in mergeTargets" :key="c.id" :label="c.label" :value="c.id"></el-option>
+                </el-select>
+                <span slot="footer">
+                    <el-button @click="showMerge = false">Cancelar</el-button>
+                    <el-button type="primary" :loading="merging" :disabled="!mergeTo" @click="doMerge">
+                        Fusionar
+                    </el-button>
+                </span>
+            </el-dialog>
         </div>
     </div>
 </template>
@@ -76,12 +108,42 @@
                 showDialog: false, 
                 resource: 'categories',
                 recordId: null,
+                showMerge: false,
+                merging: false,
+                mergeFrom: null,
+                mergeTo: null,
+                mergeTargets: [],
             }
         },
         created() {
             this.title = 'Categorías'
         },
         methods: { 
+            clickMerge(row) {
+                this.mergeFrom = row
+                this.mergeTo = null
+                this.showMerge = true
+                this.$http.get(`/${this.resource}/list`).then(response => {
+                    this.mergeTargets = response.data
+                        .filter(c => c.id !== row.id)
+                        .map(c => ({ id: c.id, label: c.name }))
+                })
+            },
+            doMerge() {
+                this.merging = true
+                this.$http.post(`/${this.resource}/merge`, { from_id: this.mergeFrom.id, to_id: this.mergeTo })
+                    .then(response => {
+                        if (response.data.success) {
+                            this.$message.success(response.data.message)
+                            this.showMerge = false
+                            this.$eventHub.$emit('reloadData')
+                        } else {
+                            this.$message.error(response.data.message)
+                        }
+                    })
+                    .catch(() => this.$message.error('No se pudo fusionar.'))
+                    .then(() => { this.merging = false })
+            },
             clickCreate(recordId = null) {
                 this.recordId = recordId
                 this.showDialog = true

@@ -57,11 +57,19 @@ class EcommerceController extends Controller
     // }
     public function index($name = null)
     {
-        if ($name) {
-            $name = str_replace('-', ' ', $name);
-        }
+        // Las URLs de categoría llegan como slug («relojes-y-accesorios»). El
+        // código comparaba el slug con guiones por espacios contra `name` tal
+        // cual, así que cualquier categoría con tilde o con barra —«Audífonos»,
+        // «Parlantes / docks portátiles»— no la encontraba nunca y la tienda
+        // enseñaba el catálogo entero como si no hubiera filtro. Se compara
+        // slug contra slug.
+        $category = null;
 
-        $category = Category::where('name', $name)->first();
+        if ($name) {
+            $slug     = \Illuminate\Support\Str::slug($name);
+            $category = Category::all()
+                ->first(fn ($c) => \Illuminate\Support\Str::slug($c->name) === $slug);
+        }
         
         // Obtener preferencias de configuración
         $configEcommerce = ConfigurationEcommerce::firstCached();
@@ -183,6 +191,13 @@ class EcommerceController extends Controller
             })->get();
         });
 
+        // Árbol de dos niveles para el menú y las píldoras. Se calcula aparte
+        // de $categories porque aquel es plano y varias vistas antiguas lo
+        // siguen consumiendo tal cual.
+        $categoryTree = Cache::remember($cachePrefix . 'category_tree_v1', 1800, function () {
+            return Category::tree(true, true);
+        });
+
         // Categorías marketplace que tienen items publicados en este tenant.
         // Agrupamos por las RAÍCES (level 0) para no saturar la UI con 225
         // chips — el shopper puede filtrar por la macro-categoría (Hogar,
@@ -271,6 +286,7 @@ class EcommerceController extends Controller
             'priceRange'      => $priceRange,
             'currentCategory' => $category,
             'categories'      => $categories,
+            'categoryTree'    => $categoryTree,
             'flashSale'       => $flashSale,
             'marketplaceCategories' => $marketplaceCategories,
             'currentMpCategory'     => $currentMpCategory,
@@ -284,9 +300,30 @@ class EcommerceController extends Controller
         return view('ecommerce::index', $viewData);
     }
     
+    /**
+     * /ecommerce/category/{category} — acepta id o slug.
+     *
+     * Antes metía el segmento tal cual en `category_id` y más adelante hacía
+     * `Category::find((int) $valor)`: con un slug eso es `find(0)`, o sea
+     * null, o sea ningún filtro. La URL respondía 200 con el catálogo entero,
+     * que es la peor forma de fallar porque nadie la nota.
+     */
     public function category(Request $request, $category)
     {
+        if (!is_numeric($category)) {
+            $slug     = \Illuminate\Support\Str::slug($category);
+            $resolved = Category::all()
+                ->first(fn ($c) => \Illuminate\Support\Str::slug($c->name) === $slug);
+
+            if (!$resolved) {
+                abort(404);
+            }
+
+            $category = $resolved->id;
+        }
+
         request()->merge(['category_id' => $category]);
+
         return $this->index();
     }
 

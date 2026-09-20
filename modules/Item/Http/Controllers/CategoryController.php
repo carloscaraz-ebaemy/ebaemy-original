@@ -82,6 +82,28 @@ class CategoryController extends Controller
             $category = Category::firstOrNew(['id' => $id]);
             $category->fill($request->all());
 
+            // Sólo dos niveles. Si la categoría ya tiene hijas no puede
+            // colgarse de otra: quedaría un nieto, y ni el menú de la tienda
+            // ni el filtro saben bajar tan hondo.
+            if ($category->id && $request->filled('parent_id')
+                && Category::where('parent_id', $category->id)->exists()) {
+                return [
+                    'success' => false,
+                    'message' => 'Esta categoría ya es un grupo con subcategorías dentro. Sácalas primero si quieres moverla.',
+                ];
+            }
+
+            // Y el padre elegido tiene que ser de primer nivel.
+            if ($request->filled('parent_id')) {
+                $parent = Category::find((int) $request->input('parent_id'));
+                if (!$parent || $parent->parent_id !== null) {
+                    return [
+                        'success' => false,
+                        'message' => 'El grupo elegido no es una categoría principal.',
+                    ];
+                }
+            }
+
             $temp_path = $request->input('temp_path');
             if($temp_path) {
 
@@ -110,6 +132,72 @@ class CategoryController extends Controller
         }
         return $data;
 
+    }
+
+    /**
+     * Categorías de primer nivel, para el selector de grupo.
+     */
+    public function parents()
+    {
+        return Category::parents()
+            ->orderBy('name')
+            ->get(['id', 'name']);
+    }
+
+    /**
+     * Listado plano id → nombre, para los selectores.
+     *
+     * `searchData` no sirve aquí: sin término de búsqueda devuelve sólo diez
+     * filas, que es justo lo que necesita un autocompletado y justo lo que no
+     * necesita un desplegable de destino.
+     */
+    public function list()
+    {
+        return Category::orderBy('name')->get(['id', 'name', 'parent_id']);
+    }
+
+    /**
+     * Fusiona una categoría en otra: los productos se mudan y la vacía se
+     * borra.
+     *
+     * Con 164 categorías importadas de Saga, muchas con un solo producto,
+     * moverlas de una en una desde la ficha de cada artículo no es trabajo que
+     * se le pueda pedir a nadie.
+     */
+    public function merge(Request $request)
+    {
+        $request->validate([
+            'from_id' => 'required|integer|different:to_id',
+            'to_id'   => 'required|integer',
+        ], [
+            'from_id.different' => 'No se puede fusionar una categoría consigo misma.',
+        ]);
+
+        $from = Category::findOrFail($request->input('from_id'));
+        $to   = Category::findOrFail($request->input('to_id'));
+
+        if (Category::where('parent_id', $from->id)->exists()) {
+            return [
+                'success' => false,
+                'message' => 'Esa categoría tiene subcategorías dentro. Muévelas o fusiónalas primero.',
+            ];
+        }
+
+        $moved = 0;
+
+        \Illuminate\Support\Facades\DB::connection('tenant')->transaction(function () use ($from, $to, &$moved) {
+            $moved = \Illuminate\Support\Facades\DB::connection('tenant')
+                ->table('items')
+                ->where('category_id', $from->id)
+                ->update(['category_id' => $to->id]);
+
+            $from->delete();
+        });
+
+        return [
+            'success' => true,
+            'message' => "Fusionada en «{$to->name}». Se movieron {$moved} producto(s).",
+        ];
     }
 
     public function destroy($id)

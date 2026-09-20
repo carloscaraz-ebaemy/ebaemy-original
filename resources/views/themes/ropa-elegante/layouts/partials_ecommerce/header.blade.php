@@ -3,7 +3,6 @@
     $company = \App\Models\Tenant\Company::first();
     $econfig = \App\Models\Tenant\ConfigurationEcommerce::firstCached();
     $logo = ($company && $company->logo) ? asset('storage/uploads/logos/'.$company->logo) : asset('porto-ecommerce/assets/images/logo-black.png');
-    $categories = \Modules\Item\Models\Category::whereHas('items', fn($q) => $q->where('apply_store', 1))->orderBy('name')->take(6)->get();
 @endphp
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500&display=swap');
@@ -42,9 +41,5 @@
             @guest('ecommerce')<a href="{{ route('tenant_ecommerce_login') }}" class="eleg-header__action"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></a>@else<a href="{{ route('tenant.ecommerce.profile') }}" class="eleg-header__action"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></a>@endguest
         </div>
     </div>
-    @if($categories->count())
-    <nav class="eleg-header__nav"><div class="eleg-header__nav-inner">
-        @foreach($categories as $cat)<a href="{{ route('tenant.ecommerce.index', \Illuminate\Support\Str::slug($cat->name)) }}" class="eleg-header__nav-link">{{ $cat->name }}</a>@endforeach
-    </div></nav>
-    @endif
+@include('ecommerce::layouts.partials_ecommerce.category_menu')
 </header>

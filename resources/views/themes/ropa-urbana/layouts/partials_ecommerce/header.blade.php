@@ -3,7 +3,6 @@
     $company = \App\Models\Tenant\Company::first();
     $econfig = \App\Models\Tenant\ConfigurationEcommerce::firstCached();
     $logo = ($company && $company->logo) ? asset('storage/uploads/logos/'.$company->logo) : asset('porto-ecommerce/assets/images/logo-black.png');
-    $categories = \Modules\Item\Models\Category::whereHas('items', fn($q) => $q->where('apply_store', 1))->orderBy('name')->take(8)->get();
 @endphp
 <style>
 .urban-header{position:sticky;top:0;z-index:100}
@@ -38,10 +37,5 @@
             @guest('ecommerce')<a href="{{ route('tenant_ecommerce_login') }}" class="urban-header__action"><span>Ingresar</span></a>@else<a href="{{ route('tenant.ecommerce.profile') }}" class="urban-header__action"><span>{{ \Illuminate\Support\Str::limit(auth('ecommerce')->user()->name, 10) }}</span></a>@endguest
         </div>
     </div>
-    @if($categories->count())
-    <nav class="urban-header__cats"><div class="urban-header__cats-inner">
-        <a href="{{ route('tenant.ecommerce.index') }}" class="urban-header__cat urban-header__cat--active">Todos</a>
-        @foreach($categories as $cat)<a href="{{ route('tenant.ecommerce.index', \Illuminate\Support\Str::slug($cat->name)) }}" class="urban-header__cat">{{ $cat->name }}</a>@endforeach
-    </div></nav>
-    @endif
+@include('ecommerce::layouts.partials_ecommerce.category_menu')
 </header>

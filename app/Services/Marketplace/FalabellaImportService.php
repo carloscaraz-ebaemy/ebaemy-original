@@ -514,8 +514,49 @@ class FalabellaImportService
             return $mapped;
         }
 
-        $cat = Category::whereRaw('LOWER(name) = ?', [mb_strtolower($name)])->first();
-        return $cat ?: Category::create(['name' => $name]);
+        $clean = Category::normalizeName($name);
+
+        $cat = Category::whereRaw('LOWER(name) IN (?, ?)', [
+            mb_strtolower($name),
+            mb_strtolower($clean),
+        ])->first();
+
+        if ($cat) {
+            return $cat;
+        }
+
+        // Lo que Saga manda sin homologar NO puede seguir aterrizando en la
+        // raíz del catálogo: así es como carolayimport acabó con 164
+        // categorías de primer nivel y la tienda con una barra impasable.
+        // Nace colgando de «Sin clasificar» y oculta en el escaparate; el
+        // comerciante la coloca donde toque desde el panel de Categorías.
+        return Category::create([
+            'name'              => $clean,
+            'parent_id'         => $this->unclassifiedCategory()->id,
+            'visible_ecommerce' => false,
+        ]);
+    }
+
+    /**
+     * El cajón de las categorías nuevas sin clasificar. Se crea la primera vez
+     * que hace falta y se reutiliza siempre.
+     */
+    protected function unclassifiedCategory(): Category
+    {
+        static $cached = null;
+
+        if ($cached && Category::whereKey($cached->id)->exists()) {
+            return $cached;
+        }
+
+        $cached = Category::whereNull('parent_id')
+            ->whereRaw('LOWER(name) = ?', [mb_strtolower(Category::UNCLASSIFIED)])
+            ->first();
+
+        return $cached ?: ($cached = Category::create([
+            'name'              => Category::UNCLASSIFIED,
+            'visible_ecommerce' => false,
+        ]));
     }
 
     /**

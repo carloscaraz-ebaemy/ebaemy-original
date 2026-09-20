@@ -3,7 +3,6 @@
     $company = \App\Models\Tenant\Company::first();
     $econfig = \App\Models\Tenant\ConfigurationEcommerce::firstCached();
     $logo = ($company && $company->logo) ? asset('storage/uploads/logos/'.$company->logo) : asset('porto-ecommerce/assets/images/logo-black.png');
-    $categories = \Modules\Item\Models\Category::whereHas('items', fn($q) => $q->where('apply_store', 1))->orderBy('name')->take(8)->get();
 @endphp
 
 <style>
@@ -48,12 +47,5 @@
             @endguest
         </div>
     </div>
-    @if($categories->count())
-    <div class="food-header__cats"><div class="food-header__cats-inner">
-        <a href="{{ route('tenant.ecommerce.index') }}" class="food-header__cat-pill food-header__cat-pill--active">Todos</a>
-        @foreach($categories as $cat)
-        <a href="{{ route('tenant.ecommerce.index', \Illuminate\Support\Str::slug($cat->name)) }}" class="food-header__cat-pill">{{ $cat->name }}</a>
-        @endforeach
-    </div></div>
-    @endif
+@include('ecommerce::layouts.partials_ecommerce.category_menu')
 </header>

@@ -3,7 +3,6 @@
     $company = \App\Models\Tenant\Company::first();
     $econfig = \App\Models\Tenant\ConfigurationEcommerce::firstCached();
     $logo = ($company && $company->logo) ? asset('storage/uploads/logos/'.$company->logo) : asset('porto-ecommerce/assets/images/logo-black.png');
-    $categories = \Modules\Item\Models\Category::whereHas('items', fn($q) => $q->where('apply_store', 1))->orderBy('name')->take(10)->get();
 
     // El logo se invierte a blanco solo si el header es oscuro. Con la paleta
     // configurable un tenant puede poner header claro, y el invert fijo dejaba
@@ -55,12 +54,5 @@
             @endguest
         </div>
     </div>
-    @if($categories->count())
-    <nav class="tech-header__nav"><div class="tech-header__nav-inner">
-        <a href="{{ route('tenant.ecommerce.index') }}" class="tech-header__nav-link tech-header__nav-link--active">Todo</a>
-        @foreach($categories as $cat)
-        <a href="{{ route('tenant.ecommerce.index', \Illuminate\Support\Str::slug($cat->name)) }}" class="tech-header__nav-link">{{ $cat->name }}</a>
-        @endforeach
-    </div></nav>
-    @endif
+@include('ecommerce::layouts.partials_ecommerce.category_menu')
 </header>

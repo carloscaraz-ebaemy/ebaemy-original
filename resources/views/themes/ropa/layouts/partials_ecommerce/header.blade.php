@@ -198,20 +198,5 @@
     </div>
 
     {{-- Navegación por categorías --}}
-    @php
-        $headerCategories = \Modules\Item\Models\Category::whereHas('items', function($q){
-            $q->where('apply_store', 1);
-        })->orderBy('name')->take(8)->get();
-    @endphp
-    @if($headerCategories->count())
-    <nav class="ropa-header__nav">
-        <div class="ropa-header__nav-inner">
-            <a href="{{ route('tenant.ecommerce.index') }}" class="ropa-header__nav-link">Inicio</a>
-            @foreach($headerCategories as $cat)
-            <a href="{{ route('tenant.ecommerce.index', \Illuminate\Support\Str::slug($cat->name)) }}"
-               class="ropa-header__nav-link">{{ $cat->name }}</a>
-            @endforeach
-        </div>
-    </nav>
-    @endif
+    @include('ecommerce::layouts.partials_ecommerce.category_menu')
 </header>

@@ -2719,11 +2719,38 @@ class Item extends ModelTenant
      *
      * @return Builder
      */
+    /**
+     * Filtra por categoría INCLUYENDO las hijas.
+     *
+     * Desde que `categories` tiene jerarquía, los productos viven casi siempre
+     * en las hojas («Audífonos»), no en el grupo («Electrónica y Audio»).
+     * Filtrar por el grupo con un `where` a secas devolvía cero productos y la
+     * tienda parecía vacía justo al pinchar la categoría más visible.
+     */
     public function scopeCategory($query, $id = null)
     {
-        if($id){
-            return $query->where('category_id', $id);
+        if (!$id) {
+            return;
         }
+
+        $ids = [$id];
+
+        // La comprobación de esquema se memoiza: este scope se llama en cada
+        // carga del escaparate y `hasColumn` es una consulta.
+        static $hasHierarchy = null;
+        if ($hasHierarchy === null) {
+            $hasHierarchy = \Illuminate\Support\Facades\Schema::connection('tenant')
+                ->hasColumn('categories', 'parent_id');
+        }
+
+        if ($hasHierarchy) {
+            $children = \Modules\Item\Models\Category::where('parent_id', $id)->pluck('id')->all();
+            $ids = array_merge($ids, $children);
+        }
+
+        return count($ids) === 1
+            ? $query->where('category_id', $id)
+            : $query->whereIn('category_id', $ids);
     }
 
     public function scopeWhereStockMin($query)

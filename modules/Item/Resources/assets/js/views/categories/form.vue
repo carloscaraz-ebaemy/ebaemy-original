@@ -10,6 +10,39 @@
                             <small class="form-control-feedback" v-if="errors.name" v-text="errors.name[0]"></small>
                         </div>
                     </div> 
+                </div>
+                <div class="row">
+                    <div class="col-md-6">
+                        <!-- Sin padre = grupo de primer nivel. La tienda solo
+                             pinta grupos en el menu; las hijas cuelgan de el. -->
+                        <div class="form-group">
+                            <label class="control-label">Categoría padre</label>
+                            <el-select v-model="form.parent_id" clearable filterable
+                                       placeholder="Ninguna — es un grupo principal" class="w-100">
+                                <el-option v-for="p in parents" :key="p.id"
+                                           :label="p.name" :value="p.id"
+                                           :disabled="p.id === form.id"></el-option>
+                            </el-select>
+                            <small class="form-text text-muted">
+                                Déjalo vacío para que sea un grupo principal del menú.
+                            </small>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="form-group">
+                            <label class="control-label">Orden</label>
+                            <el-input-number v-model="form.sort_order" :min="0" :max="999"
+                                             controls-position="right" class="w-100"></el-input-number>
+                            <small class="form-text text-muted">0 = alfabético.</small>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="form-group">
+                            <label class="control-label">Visible en la tienda</label>
+                            <el-switch v-model="form.visible_ecommerce"
+                                       active-text="Sí" inactive-text="No"></el-switch>
+                        </div>
+                    </div>
                 </div> 
                 <div class="row">
                     <div class="col-md-6">
@@ -58,6 +91,7 @@
                 resource: 'categories', 
                 errors: {}, 
                 form: {}, 
+                parents: [],
                 headers: headers_token,
             }
         },
@@ -96,12 +130,20 @@
                     image: null,
                     image_url: null,
                     temp_path: null,
+                    parent_id: null,
+                    sort_order: 0,
+                    visible_ecommerce: true,
                 }
                 this.originalForm = JSON.stringify(this.form)
             },
             create() {
 
                 this.titleDialog = (this.recordId)? 'Editar categoría':'Nueva categoría'
+                this.$http.get(`/${this.resource}/parents`).then(response => {
+                    // Una hija no puede ser padre: solo se ofrecen los grupos
+                    // de primer nivel, y nunca la categoria que se esta editando.
+                    this.parents = response.data.filter(p => p.id !== this.recordId)
+                })
                 if (this.recordId) {
                     this.$http.get(`/${this.resource}/record/${this.recordId}`).then(response => {
                             this.form = response.data
